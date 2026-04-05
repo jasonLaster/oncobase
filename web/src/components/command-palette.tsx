@@ -19,10 +19,21 @@ interface PageEntry {
   path: string;
 }
 
+// Global trigger so other components can open the palette
+let globalOpen: (() => void) | null = null;
+export function openCommandPalette() {
+  globalOpen?.();
+}
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [pages, setPages] = useState<PageEntry[]>([]);
   const router = useRouter();
+
+  useEffect(() => {
+    globalOpen = () => setOpen(true);
+    return () => { globalOpen = null; };
+  }, []);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
