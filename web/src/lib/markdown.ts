@@ -76,7 +76,10 @@ export function getMarkdownFile(slug: string): MarkdownFile | null {
   const h1Match = content.match(/^#\s+(.+)$/m);
   const title = (data.title as string) || h1Match?.[1] || slug.split("/").pop() || slug;
 
-  return { slug, title, content, frontmatter: data };
+  // Strip the leading H1 to avoid double title rendering
+  const body = h1Match ? content.replace(/^#\s+.+$/m, "").replace(/^\n+/, "") : content;
+
+  return { slug, title, content: body, frontmatter: data };
 }
 
 /** Get all markdown file slugs for static generation */

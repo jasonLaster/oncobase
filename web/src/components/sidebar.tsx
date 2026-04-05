@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { FileNode } from "@/lib/markdown";
 
 function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
@@ -87,49 +87,91 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
-  // Close sidebar on navigation
+  const close = useCallback(() => setOpen(false), []);
+
+  // Close on navigation
   useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+    close();
+  }, [pathname, close]);
+
+  // Lock body scroll when open on mobile
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = "";
+      };
+    }
+  }, [open]);
 
   return (
     <>
-      {/* Mobile header bar */}
-      <div className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] px-4 py-3">
+      {/* Mobile top bar */}
+      <div className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]/95 backdrop-blur-sm px-4 py-3">
         <button
-          onClick={() => setOpen(!open)}
-          aria-label="Toggle menu"
-          className="p-1 -ml-1 rounded hover:bg-[var(--accent-light)] transition-colors"
+          onClick={() => setOpen(true)}
+          aria-label="Open menu"
+          className="p-1.5 -ml-1.5 rounded-md hover:bg-[var(--accent-light)] active:bg-[var(--accent-light)] transition-colors"
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            {open ? (
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            ) : (
-              <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 010 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 010 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 010 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-            )}
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <line x1="3" y1="4.5" x2="15" y2="4.5" />
+            <line x1="3" y1="9" x2="15" y2="9" />
+            <line x1="3" y1="13.5" x2="15" y2="13.5" />
           </svg>
         </button>
-        <Link href="/" className="text-lg font-bold tracking-tight">
+        <Link href="/" className="text-base font-semibold tracking-tight" onClick={close}>
           Diana&apos;s TNBC
         </Link>
       </div>
 
-      {/* Mobile overlay */}
-      {open && (
-        <div
-          className="md:hidden fixed inset-0 z-20 bg-black/40"
-          onClick={() => setOpen(false)}
-        />
-      )}
-
-      {/* Sidebar panel */}
-      <aside
-        className={`
-          fixed top-0 left-0 z-20 h-screen w-72 bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] overflow-y-auto transition-transform duration-200
-          md:sticky md:translate-x-0 md:shrink-0
-          ${open ? "translate-x-0" : "-translate-x-full"}
-        `}
+      {/* Overlay + drawer (mobile) */}
+      <div
+        className={`md:hidden fixed inset-0 z-40 transition-opacity duration-300 ${
+          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
       >
+        {/* Scrim */}
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={close} />
+
+        {/* Drawer panel */}
+        <aside
+          className={`absolute top-0 left-0 bottom-0 w-[280px] max-w-[85vw] bg-[var(--sidebar-bg)] shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
+            open ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          {/* Drawer header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--sidebar-border)]">
+            <Link href="/" className="text-base font-semibold tracking-tight" onClick={close}>
+              Diana&apos;s TNBC
+            </Link>
+            <button
+              onClick={close}
+              aria-label="Close menu"
+              className="p-1.5 -mr-1.5 rounded-md hover:bg-[var(--accent-light)] active:bg-[var(--accent-light)] transition-colors"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <line x1="4" y1="4" x2="12" y2="12" />
+                <line x1="12" y1="4" x2="4" y2="12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="pt-2">
+            <SearchBox />
+          </div>
+
+          {/* Nav tree */}
+          <nav className="flex-1 overflow-y-auto overscroll-contain p-2 space-y-0.5">
+            {tree.map((node) => (
+              <TreeNode key={node.slug} node={node} />
+            ))}
+          </nav>
+        </aside>
+      </div>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden md:block w-72 shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] overflow-y-auto h-screen sticky top-0">
         <div className="p-4 border-b border-[var(--sidebar-border)]">
           <Link href="/" className="text-lg font-bold tracking-tight">
             Diana&apos;s TNBC
