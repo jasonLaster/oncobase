@@ -34,7 +34,7 @@ export default async function DocPage({
               <Link
                 key={tag}
                 href={`/tags/${encodeURIComponent(tag)}`}
-                className="text-xs px-2 py-0.5 rounded-full bg-[var(--accent-light)] text-[var(--foreground)] hover:opacity-80 transition-opacity"
+                className="text-xs px-2.5 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] ring-1 ring-[var(--brand)]/20 hover:bg-[var(--brand)]/15 transition-colors"
               >
                 {tag}
               </Link>

@@ -84,32 +84,33 @@ function SearchBox() {
 }
 
 export function Sidebar({ tree }: { tree: FileNode[] }) {
-  const [open, setOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
 
-  const close = useCallback(() => setOpen(false), []);
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
 
-  // Close on navigation
+  // Close mobile drawer on navigation
   useEffect(() => {
-    close();
-  }, [pathname, close]);
+    closeMobile();
+  }, [pathname, closeMobile]);
 
-  // Lock body scroll when open on mobile
+  // Lock body scroll when mobile drawer is open
   useEffect(() => {
-    if (open) {
+    if (mobileOpen) {
       document.body.style.overflow = "hidden";
       return () => {
         document.body.style.overflow = "";
       };
     }
-  }, [open]);
+  }, [mobileOpen]);
 
   return (
     <>
       {/* Mobile top bar */}
       <div className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]/95 backdrop-blur-sm px-4 py-3">
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
           className="p-1.5 -ml-1.5 rounded-md hover:bg-[var(--accent-light)] active:bg-[var(--accent-light)] transition-colors"
         >
@@ -119,7 +120,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
             <line x1="3" y1="13.5" x2="15" y2="13.5" />
           </svg>
         </button>
-        <Link href="/" className="text-base font-semibold tracking-tight" onClick={close}>
+        <Link href="/" className="text-base font-semibold tracking-tight" onClick={closeMobile}>
           Diana&apos;s TNBC
         </Link>
       </div>
@@ -127,25 +128,25 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
       {/* Overlay + drawer (mobile) */}
       <div
         className={`md:hidden fixed inset-0 z-40 transition-opacity duration-300 ${
-          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
       >
         {/* Scrim */}
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={close} />
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={closeMobile} />
 
         {/* Drawer panel */}
         <aside
           className={`absolute top-0 left-0 bottom-0 w-[280px] max-w-[85vw] bg-[var(--sidebar-bg)] shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
-            open ? "translate-x-0" : "-translate-x-full"
+            mobileOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
           {/* Drawer header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--sidebar-border)]">
-            <Link href="/" className="text-base font-semibold tracking-tight" onClick={close}>
+            <Link href="/" className="text-base font-semibold tracking-tight" onClick={closeMobile}>
               Diana&apos;s TNBC
             </Link>
             <button
-              onClick={close}
+              onClick={closeMobile}
               aria-label="Close menu"
               className="p-1.5 -mr-1.5 rounded-md hover:bg-[var(--accent-light)] active:bg-[var(--accent-light)] transition-colors"
             >
@@ -171,20 +172,51 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:block w-72 shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] overflow-y-auto h-screen sticky top-0">
-        <div className="p-4 border-b border-[var(--sidebar-border)]">
-          <Link href="/" className="text-lg font-bold tracking-tight">
-            Diana&apos;s TNBC
-          </Link>
+      <aside
+        className={`hidden md:flex flex-col shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] h-screen sticky top-0 transition-[width] duration-200 ease-in-out ${
+          collapsed ? "w-12" : "w-72"
+        }`}
+      >
+        <div className={`flex items-center border-b border-[var(--sidebar-border)] ${collapsed ? "justify-center py-3" : "justify-between p-4"}`}>
+          {!collapsed && (
+            <Link href="/" className="text-lg font-bold tracking-tight">
+              Diana&apos;s TNBC
+            </Link>
+          )}
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="p-1.5 rounded-md hover:bg-[var(--accent-light)] transition-colors text-[var(--text-muted)]"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              {collapsed ? (
+                <>
+                  <line x1="3" y1="4" x2="13" y2="4" />
+                  <line x1="3" y1="8" x2="13" y2="8" />
+                  <line x1="3" y1="12" x2="13" y2="12" />
+                </>
+              ) : (
+                <>
+                  <line x1="3" y1="4" x2="13" y2="4" />
+                  <line x1="3" y1="8" x2="9" y2="8" />
+                  <line x1="3" y1="12" x2="13" y2="12" />
+                </>
+              )}
+            </svg>
+          </button>
         </div>
-        <div className="pt-2">
-          <SearchBox />
-        </div>
-        <nav className="p-2 space-y-0.5">
-          {tree.map((node) => (
-            <TreeNode key={node.slug} node={node} />
-          ))}
-        </nav>
+        {!collapsed && (
+          <>
+            <div className="pt-2">
+              <SearchBox />
+            </div>
+            <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+              {tree.map((node) => (
+                <TreeNode key={node.slug} node={node} />
+              ))}
+            </nav>
+          </>
+        )}
       </aside>
     </>
   );
