@@ -82,6 +82,36 @@ export function getMarkdownFile(slug: string): MarkdownFile | null {
   return { slug, title, content: body, frontmatter: data };
 }
 
+/** Get all unique tags across all markdown files */
+export function getAllTags(): string[] {
+  const tags = new Set<string>();
+  const slugs = getAllSlugs();
+  for (const slug of slugs) {
+    const file = getMarkdownFile(slug);
+    if (file && Array.isArray(file.frontmatter.tags)) {
+      for (const tag of file.frontmatter.tags as string[]) {
+        tags.add(tag);
+      }
+    }
+  }
+  return Array.from(tags).sort((a, b) => a.localeCompare(b));
+}
+
+/** Get all pages that have a given tag */
+export function getPagesByTag(tag: string): { slug: string; title: string }[] {
+  const slugs = getAllSlugs();
+  const pages: { slug: string; title: string }[] = [];
+  for (const slug of slugs) {
+    const file = getMarkdownFile(slug);
+    if (file && Array.isArray(file.frontmatter.tags)) {
+      if ((file.frontmatter.tags as string[]).includes(tag)) {
+        pages.push({ slug: file.slug, title: file.title });
+      }
+    }
+  }
+  return pages.sort((a, b) => a.title.localeCompare(b.title));
+}
+
 /** Get all markdown file slugs for static generation */
 export function getAllSlugs(): string[] {
   const slugs: string[] = [];

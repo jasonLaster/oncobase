@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMarkdownFile, getAllSlugs } from "@/lib/markdown";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
@@ -30,12 +31,13 @@ export default async function DocPage({
         {Array.isArray(file.frontmatter.tags) && (
           <div className="flex flex-wrap gap-1.5 mt-3">
             {(file.frontmatter.tags as string[]).map((tag: string) => (
-              <span
+              <Link
                 key={tag}
-                className="text-xs px-2 py-0.5 rounded-full bg-[var(--accent-light)] text-[var(--accent)]"
+                href={`/tags/${encodeURIComponent(tag)}`}
+                className="text-xs px-2 py-0.5 rounded-full bg-[var(--accent-light)] text-[var(--foreground)] hover:opacity-80 transition-opacity"
               >
                 {tag}
-              </span>
+              </Link>
             ))}
           </div>
         )}

@@ -37,8 +37,8 @@ function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
       href={`/${node.slug}`}
       className={`block px-2 py-1 text-sm rounded truncate transition-colors ${
         isActive
-          ? "bg-[var(--accent-light)] text-[var(--accent)] font-medium"
-          : "text-[var(--muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+          ? "bg-[var(--accent-light)] text-[var(--brand)] font-medium"
+          : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
       }`}
       style={{ paddingLeft: `${depth * 12 + 20}px` }}
       title={node.name}
@@ -76,7 +76,7 @@ function SearchBox() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search..."
-          className="w-full pl-8 pr-3 py-1.5 rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--foreground)] text-xs placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+          className="w-full pl-8 pr-3 py-1.5 rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--foreground)] text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--brand)] transition-colors"
         />
       </div>
     </form>

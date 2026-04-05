@@ -64,11 +64,11 @@ function FileResult({
           {fileName}
         </span>
         {dirPath && (
-          <span className="text-xs text-[var(--muted)] truncate">
+          <span className="text-xs text-[var(--text-muted)] truncate">
             {dirPath}
           </span>
         )}
-        <span className="ml-auto text-xs text-[var(--muted)] bg-[var(--sidebar-bg)] px-1.5 py-0.5 rounded-full">
+        <span className="ml-auto text-xs text-[var(--text-muted)] bg-[var(--sidebar-bg)] px-1.5 py-0.5 rounded-full">
           {result.matches.length}
         </span>
       </button>
@@ -81,7 +81,7 @@ function FileResult({
               href={`/${result.slug}`}
               className="flex items-start gap-3 px-3 py-0.5 hover:bg-[var(--sidebar-bg)] transition-colors text-sm font-mono group"
             >
-              <span className="text-[var(--muted)] text-xs w-8 text-right shrink-0 pt-px select-none">
+              <span className="text-[var(--text-muted)] text-xs w-8 text-right shrink-0 pt-px select-none">
                 {match.lineNumber}
               </span>
               <span className="text-[var(--foreground)] opacity-80 truncate leading-relaxed">
@@ -171,24 +171,24 @@ function SearchContent() {
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="Search files..."
             autoFocus
-            className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--foreground)] text-sm font-mono placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] transition-colors"
+            className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--foreground)] text-sm font-mono placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] transition-colors"
           />
         </div>
       </form>
 
       {loading && (
-        <div className="text-sm text-[var(--muted)] py-4">Searching...</div>
+        <div className="text-sm text-[var(--text-muted)] py-4">Searching...</div>
       )}
 
       {!loading && query && results.length === 0 && (
-        <div className="text-sm text-[var(--muted)] py-4">
+        <div className="text-sm text-[var(--text-muted)] py-4">
           No results for &quot;{query}&quot;
         </div>
       )}
 
       {!loading && results.length > 0 && (
         <>
-          <div className="text-xs text-[var(--muted)] mb-3 px-2">
+          <div className="text-xs text-[var(--text-muted)] mb-3 px-2">
             {totalMatches} result{totalMatches !== 1 ? "s" : ""} in{" "}
             {results.length} file{results.length !== 1 ? "s" : ""}
           </div>
@@ -207,7 +207,7 @@ function SearchContent() {
       )}
 
       {!query && !loading && (
-        <div className="text-sm text-[var(--muted)] py-8 text-center">
+        <div className="text-sm text-[var(--text-muted)] py-8 text-center">
           Type a query to search across all wiki pages
         </div>
       )}
