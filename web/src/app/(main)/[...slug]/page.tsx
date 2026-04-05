@@ -3,9 +3,11 @@ import { getMarkdownFile, getAllSlugs } from "@/lib/markdown";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 
 export async function generateStaticParams() {
-  return getAllSlugs().map((slug) => ({
-    slug: slug.split("/"),
-  }));
+  return getAllSlugs()
+    .filter((slug) => slug !== "index")
+    .map((slug) => ({
+      slug: slug.split("/"),
+    }));
 }
 
 export default async function DocPage({

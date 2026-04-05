@@ -11,7 +11,9 @@ export default function MainLayout({
   return (
     <div className="flex min-h-full">
       <Sidebar tree={tree} />
-      <main className="flex-1 min-w-0 p-8 max-w-4xl mx-auto">{children}</main>
+      <main className="flex-1 min-w-0 p-4 md:p-8 max-w-4xl mx-auto">
+        {children}
+      </main>
     </div>
   );
 }
