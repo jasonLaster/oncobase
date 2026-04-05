@@ -14,7 +14,7 @@ export default async function DocPage({
   params: Promise<{ slug: string[] }>;
 }) {
   const { slug } = await params;
-  const filePath = slug.join("/");
+  const filePath = slug.map(decodeURIComponent).join("/");
   const file = getMarkdownFile(filePath);
 
   if (!file) {

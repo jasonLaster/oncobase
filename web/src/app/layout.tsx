@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Diana Wiki",
+  title: "Diana's TNBC",
   description: "Breast cancer research and treatment knowledge base",
   robots: { index: false, follow: false },
 };

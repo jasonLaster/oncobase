@@ -88,7 +88,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
     <aside className="w-72 shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] overflow-y-auto h-screen sticky top-0">
       <div className="p-4 border-b border-[var(--sidebar-border)]">
         <Link href="/" className="text-lg font-bold tracking-tight">
-          Diana Wiki
+          Diana&apos;s TNBC
         </Link>
       </div>
       <div className="pt-2">
