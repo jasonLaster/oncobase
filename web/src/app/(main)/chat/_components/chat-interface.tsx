@@ -195,11 +195,12 @@ export function ChatInterface({
     api.conversations.get,
     activeConvId ? { id: activeConvId as Id<"conversations"> } : "skip"
   );
-  const clearStreaming = useMutation(api.conversations.clearStreaming);
+  const clearStreamingMutation = useMutation(api.conversations.clearStreaming);
+  const disableMessageMutation = useMutation(api.conversations.disableMessage);
   const serverStreamingText = conversation?.streamingText;
   const streamingUpdatedAt = conversation?.streamingUpdatedAt;
 
-  const [messages, setMessages] = useState<UIMessage[]>(() =>
+  const [messages, setMessages] = useState<ChatUIMessage[]>(() =>
     initialMessages ? storedToUIMessages(initialMessages) : []
   );
   const [input, setInput] = useState("");
@@ -207,20 +208,37 @@ export function ChatInterface({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Disable the last user message and mark it visually
+  const disableLastUserMessage = useCallback(() => {
+    setMessages((prev) => {
+      const last = prev[prev.length - 1] as ChatUIMessage;
+      if (last?.role === "user" && last.dbId) {
+        disableMessageMutation({ id: last.dbId as Id<"messages"> });
+        return prev.map((m, i) =>
+          i === prev.length - 1 ? { ...m, disabled: true } as ChatUIMessage : m
+        );
+      }
+      return prev;
+    });
+  }, [disableMessageMutation]);
+
   // Detect and clear stale streams (no update in 30s)
   useEffect(() => {
     if (serverStreamingText === undefined || !streamingUpdatedAt || !activeConvId) return;
     const age = Date.now() - streamingUpdatedAt;
+
+    function handleStale() {
+      clearStreamingMutation({ conversationId: activeConvId as Id<"conversations"> });
+      disableLastUserMessage();
+    }
+
     if (age > 30_000) {
-      clearStreaming({ conversationId: activeConvId as Id<"conversations"> });
+      handleStale();
       return;
     }
-    // Check again when the stream would become stale
-    const timer = setTimeout(() => {
-      clearStreaming({ conversationId: activeConvId as Id<"conversations"> });
-    }, 30_000 - age);
+    const timer = setTimeout(handleStale, 30_000 - age);
     return () => clearTimeout(timer);
-  }, [serverStreamingText, streamingUpdatedAt, activeConvId, clearStreaming]);
+  }, [serverStreamingText, streamingUpdatedAt, activeConvId, clearStreamingMutation, disableLastUserMessage]);
 
   const lastMsgIsUser =
     messages.length > 0 && messages[messages.length - 1]?.role === "user";
@@ -275,9 +293,11 @@ export function ChatInterface({
     if (wasStreaming && nowDone && conversation?.messages) {
       setMessages(storedToUIMessages(
         conversation.messages.map((m) => ({
+          _id: m._id,
           role: m.role,
           content: m.content,
           parts: m.parts,
+          disabled: m.disabled,
         }))
       ));
     }
@@ -305,24 +325,30 @@ export function ChatInterface({
     abortRef.current?.abort();
     abortRef.current = null;
     if (activeConvId) {
-      clearStreaming({ conversationId: activeConvId as Id<"conversations"> });
+      clearStreamingMutation({ conversationId: activeConvId as Id<"conversations"> });
+      disableLastUserMessage();
     }
-  }, [activeConvId, clearStreaming]);
+  }, [activeConvId, clearStreamingMutation, disableLastUserMessage]);
 
-  // Auto-resume: if last message is user with no active stream, re-trigger
+  // Auto-resume: if last message is user (not disabled) with no active stream, re-trigger
+  const lastMsg = messages[messages.length - 1] as ChatUIMessage | undefined;
+  const lastMsgIsActiveUser = lastMsgIsUser && !lastMsg?.disabled;
+
   const hasResumed = useRef(false);
   useEffect(() => {
     if (hasResumed.current) return;
     if (!activeConvId) return;
-    if (!lastMsgIsUser) return;
+    if (!lastMsgIsActiveUser) return;
     if (serverStreamingText !== undefined) return; // already streaming
 
     hasResumed.current = true;
+    // Only include non-disabled messages in the generation request
+    const activeMessages = messages.filter((m) => !(m as ChatUIMessage).disabled);
     triggerGeneration(
       activeConvId,
-      messages.map((m) => ({ id: m.id, role: m.role, parts: m.parts as unknown[] }))
+      activeMessages.map((m) => ({ id: m.id, role: m.role, parts: m.parts as unknown[] }))
     );
-  }, [activeConvId, lastMsgIsUser, serverStreamingText, messages]);
+  }, [activeConvId, lastMsgIsActiveUser, serverStreamingText, messages]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -359,8 +385,9 @@ export function ChatInterface({
 
       // Fire-and-forget: trigger generation via the Next.js API route
       // The route writes streamingText + final message to Convex
+      const activeMessages = messages.filter((m) => !(m as ChatUIMessage).disabled);
       triggerGeneration(convIdRef.current, [
-        ...messages.map((m) => ({
+        ...activeMessages.map((m) => ({
           id: m.id,
           role: m.role,
           parts: m.parts,
@@ -432,17 +459,17 @@ export function ChatInterface({
         )}
 
         {messages.map((message, idx) => {
+          const chatMsg = message as ChatUIMessage;
           if (message.role === "user") {
             const text = message.parts
               .filter((p): p is { type: "text"; text: string } => p.type === "text")
               .map((p) => p.text)
               .join("");
             return (
-              <div key={message.id} className="flex justify-end gap-1 group/msg items-start">
+              <div key={message.id} className={`flex justify-end gap-1 group/msg items-start ${chatMsg.disabled ? "opacity-50" : ""}`}>
                 <button
                   onClick={() => {
                     setInput(text);
-                    // Remove this message and all subsequent messages
                     setMessages((prev) => prev.slice(0, idx));
                   }}
                   title="Edit message"
@@ -452,7 +479,11 @@ export function ChatInterface({
                     <path d="M11.5 2.5l2 2L5 13H3v-2z" />
                   </svg>
                 </button>
-                <div className="max-w-[85%] rounded-2xl rounded-br-md px-4 py-2.5 bg-[var(--brand)] text-white text-sm whitespace-pre-wrap">
+                <div className={`max-w-[85%] rounded-2xl rounded-br-md px-4 py-2.5 text-sm whitespace-pre-wrap ${
+                  chatMsg.disabled
+                    ? "bg-[var(--sidebar-border)] text-[var(--text-muted)] line-through"
+                    : "bg-[var(--brand)] text-white"
+                }`}>
                   {text}
                 </div>
               </div>

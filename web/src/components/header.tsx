@@ -5,9 +5,7 @@ import { usePathname } from "next/navigation";
 import { openCommandPalette } from "@/components/command-palette";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-const chatEnabled =
-  process.env.NEXT_PUBLIC_ENABLE_CHAT === "true" ||
-  process.env.NODE_ENV === "development";
+const chatEnabled = true;
 
 export function Header() {
   const pathname = usePathname();

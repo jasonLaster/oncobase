@@ -19,7 +19,7 @@ export default function ConversationPage({
   // Cache initial messages per conversation ID to prevent
   // Convex reactive updates from resetting useChat state
   const cacheRef = useRef<
-    Record<string, Array<{ role: "user" | "assistant"; content: string; parts?: string }>>
+    Record<string, Array<{ _id?: string; role: "user" | "assistant"; content: string; parts?: string; disabled?: boolean }>>
   >({});
 
   if (conversation === undefined) {
@@ -42,9 +42,11 @@ export default function ConversationPage({
   // Only cache on first load per ID
   if (!cacheRef.current[id]) {
     cacheRef.current[id] = conversation.messages.map((m) => ({
+      _id: m._id,
       role: m.role,
       content: m.content,
       parts: m.parts,
+      disabled: m.disabled,
     }));
   }
 
