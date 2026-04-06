@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import type { FileNode } from "@/lib/markdown";
 import { openCommandPalette } from "@/components/command-palette";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
   const pathname = usePathname();
@@ -124,15 +125,18 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
         <Link href="/" className="text-base font-semibold tracking-tight" onClick={closeMobile}>
           Diana&apos;s TNBC
         </Link>
-        <button
-          onClick={openCommandPalette}
-          aria-label="Search pages"
-          className="ml-auto p-1.5 -mr-1.5 rounded-md hover:bg-[var(--accent-light)] active:bg-[var(--accent-light)] transition-colors text-[var(--text-muted)]"
-        >
+        <div className="ml-auto flex items-center gap-1">
+          <ThemeToggle />
+          <button
+            onClick={openCommandPalette}
+            aria-label="Search pages"
+            className="p-1.5 rounded-md hover:bg-[var(--accent-light)] active:bg-[var(--accent-light)] transition-colors text-[var(--text-muted)]"
+          >
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
             <path d="M15.25 14.19l-4.06-4.06a5.5 5.5 0 1 0-1.06 1.06l4.06 4.06a.75.75 0 1 0 1.06-1.06zM2 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0z" />
           </svg>
-        </button>
+          </button>
+        </div>
       </div>
 
       {/* Overlay + drawer (mobile) */}

@@ -80,8 +80,7 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+.dark {
     /* App-specific custom vars */
     --sidebar-bg: #161625;
     --sidebar-border: #2d2d44;
@@ -116,7 +115,6 @@
     --sidebar-accent-foreground: #e5e5e5;
     --sidebar-border: #2d2d44;
     --sidebar-ring: #818cf8;
-  }
 }
 
 body {
