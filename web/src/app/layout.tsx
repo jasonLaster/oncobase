@@ -14,10 +14,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const isDev = process.env.NODE_ENV === "development";
+
 export const metadata: Metadata = {
   title: "Diana's TNBC",
   description: "Breast cancer research and treatment knowledge base",
   robots: { index: false, follow: false },
+  ...(isDev && { icons: { icon: "/favicon-dev.ico" } }),
 };
 
 export default function RootLayout({
