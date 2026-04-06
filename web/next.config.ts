@@ -1,7 +1,18 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  outputFileTracingRoot: path.join(__dirname, ".."),
+  outputFileTracingExcludes: {
+    "*": [
+      "obsidian/**/*.pdf",
+      "obsidian/**/*.jpg",
+      "obsidian/**/*.jpeg",
+      "obsidian/**/*.png",
+      "obsidian/**/*.gif",
+      "obsidian/**/*.webp",
+    ],
+  },
 };
 
 export default nextConfig;
