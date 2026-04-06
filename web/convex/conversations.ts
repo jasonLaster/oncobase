@@ -1,4 +1,5 @@
 import { query, mutation } from "./_generated/server";
+import { api } from "./_generated/api";
 import { v } from "convex/values";
 
 export const list = query({
@@ -103,5 +104,39 @@ export const saveMessages = mutation({
     };
     if (updateTitle) updates.title = updateTitle;
     await ctx.db.patch(conversationId, updates);
+  },
+});
+
+export const sendMessage = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+    text: v.string(),
+  },
+  handler: async (ctx, { conversationId, text }) => {
+    // Save the user message
+    await ctx.db.insert("messages", {
+      conversationId,
+      role: "user",
+      content: text,
+      createdAt: Date.now(),
+    });
+    await ctx.db.patch(conversationId, { updatedAt: Date.now() });
+
+    // Gather full message history for the action
+    const allMessages = await ctx.db
+      .query("messages")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
+      .collect();
+
+    const history = allMessages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    // Schedule the generation action
+    await ctx.scheduler.runAfter(0, api.generate.generate, {
+      conversationId,
+      messages: history,
+    });
   },
 });

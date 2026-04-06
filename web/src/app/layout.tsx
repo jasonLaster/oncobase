@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   title: "Diana's TNBC",
   description: "Breast cancer research and treatment knowledge base",
   robots: { index: false, follow: false },
-  ...(isDev && { icons: { icon: "/favicon-dev.ico" } }),
+  icons: { icon: isDev ? "/favicon-dev.svg" : "/favicon.svg" },
 };
 
 export default function RootLayout({

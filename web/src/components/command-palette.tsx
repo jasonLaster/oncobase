@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   CommandDialog,
@@ -29,6 +29,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [pages, setPages] = useState<PageEntry[]>([]);
   const router = useRouter();
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     globalOpen = () => setOpen(true);
@@ -67,8 +68,15 @@ export function CommandPalette() {
   return (
     <CommandDialog open={open} onOpenChange={setOpen} title="Go to page" description="Search for a page to navigate to">
       <Command>
-        <CommandInput placeholder="Search pages..." />
-        <CommandList>
+        <CommandInput
+          placeholder="Search pages..."
+          onValueChange={() => {
+            requestAnimationFrame(() => {
+              listRef.current?.scrollTo(0, 0);
+            });
+          }}
+        />
+        <CommandList ref={listRef}>
           <CommandEmpty>No pages found.</CommandEmpty>
           <CommandGroup>
             {pages.map((page) => (

@@ -5,6 +5,10 @@ import { usePathname } from "next/navigation";
 import { openCommandPalette } from "@/components/command-palette";
 import { ThemeToggle } from "@/components/theme-toggle";
 
+const chatEnabled =
+  process.env.NEXT_PUBLIC_ENABLE_CHAT === "true" ||
+  process.env.NODE_ENV === "development";
+
 export function Header() {
   const pathname = usePathname();
   const isChat = pathname.startsWith("/chat");
@@ -50,19 +54,21 @@ export function Header() {
 
       {/* Right actions */}
       <div className="flex items-center gap-1 shrink-0">
-        <Link
-          href="/chat"
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-            isChat
-              ? "bg-[var(--brand)] text-white"
-              : "bg-[var(--brand)]/10 text-[var(--brand)] hover:bg-[var(--brand)]/20"
-          }`}
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H5l-3 3V3z" />
-          </svg>
-          Research
-        </Link>
+        {chatEnabled && (
+          <Link
+            href="/chat"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+              isChat
+                ? "bg-[var(--brand)] text-white"
+                : "bg-[var(--brand)]/10 text-[var(--brand)] hover:bg-[var(--brand)]/20"
+            }`}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H5l-3 3V3z" />
+            </svg>
+            Research
+          </Link>
+        )}
         <ThemeToggle />
       </div>
     </header>
