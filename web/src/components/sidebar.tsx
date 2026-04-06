@@ -186,7 +186,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
   const openMobile = useCallback(() => setMobileOpen(true), []);
 
   useEffect(() => {
-    setMobileOpen(false);
+    queueMicrotask(() => setMobileOpen(false));
   }, [pathname]);
 
   useEffect(() => {

@@ -1,10 +1,16 @@
 "use client";
 
-import { use, useMemo, useRef } from "react";
+import { use, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { ChatInterface } from "../_components/chat-interface";
+
+// Module-level cache: snapshot initial messages per conversation ID
+const messageCache = new Map<
+  string,
+  Array<{ _id?: string; role: "user" | "assistant"; content: string; parts?: string; disabled?: boolean }>
+>();
 
 export default function ConversationPage({
   params,
@@ -16,26 +22,20 @@ export default function ConversationPage({
     id: id as Id<"conversations">,
   });
 
-  // Track which IDs we've already cached so we only snapshot on first load
-  const cachedIds = useRef<Set<string>>(new Set());
-
+  // Cache initial messages on first load per ID
   const initialMessages = useMemo(() => {
-    if (!conversation || cachedIds.current.has(id)) return undefined;
-    cachedIds.current.add(id);
-    return conversation.messages.map((m) => ({
+    if (messageCache.has(id)) return messageCache.get(id)!;
+    if (!conversation) return undefined;
+    const snapshot = conversation.messages.map((m) => ({
       _id: m._id,
       role: m.role,
       content: m.content,
       parts: m.parts,
       disabled: m.disabled,
     }));
+    messageCache.set(id, snapshot);
+    return snapshot;
   }, [id, conversation]);
-
-  // Keep latest snapshot across re-renders
-  const snapshotRef = useRef(initialMessages);
-  if (initialMessages !== undefined) {
-    snapshotRef.current = initialMessages;
-  }
 
   if (conversation === undefined) {
     return (
@@ -58,7 +58,7 @@ export default function ConversationPage({
     <ChatInterface
       key={id}
       conversationId={id}
-      initialMessages={snapshotRef.current}
+      initialMessages={initialMessages}
     />
   );
 }

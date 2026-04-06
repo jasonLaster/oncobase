@@ -34,7 +34,7 @@ export function ThemeToggle() {
 
   useEffect(() => {
     const applied = themeEffect();
-    setCurrentTheme(applied);
+    queueMicrotask(() => setCurrentTheme(applied));
   }, [preference]);
 
   // Don't render until hydrated

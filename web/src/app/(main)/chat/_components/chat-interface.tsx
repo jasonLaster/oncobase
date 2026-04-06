@@ -285,21 +285,12 @@ export function ChatInterface({
   // Sync messages from Convex when generation completes
   // (streamingText goes from defined to undefined = new message saved)
   const prevStreamingRef = useRef(serverStreamingText);
-  const pendingSyncRef = useRef(false);
   useEffect(() => {
     const wasStreaming = prevStreamingRef.current !== undefined;
     const nowDone = serverStreamingText === undefined;
     prevStreamingRef.current = serverStreamingText;
 
-    if (wasStreaming && nowDone) {
-      pendingSyncRef.current = true;
-    }
-  }, [serverStreamingText]);
-
-  // Apply the sync in a separate effect to avoid setState-in-effect on the same cycle
-  useEffect(() => {
-    if (pendingSyncRef.current && conversation?.messages) {
-      pendingSyncRef.current = false;
+    if (wasStreaming && nowDone && conversation?.messages) {
       const next = storedToUIMessages(
         conversation.messages.map((m) => ({
           _id: m._id,
@@ -309,9 +300,9 @@ export function ChatInterface({
           disabled: m.disabled,
         }))
       );
-      setMessages(next);
+      queueMicrotask(() => setMessages(next));
     }
-  });
+  }, [serverStreamingText, conversation]);
 
   // Generation trigger with abort support
   const abortRef = useRef<AbortController | null>(null);
