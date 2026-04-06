@@ -39,19 +39,16 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-60px)] md:h-screen max-w-3xl mx-auto">
-      <div className="shrink-0 border-b border-[var(--sidebar-border)] px-4 py-3">
-        <h1 className="text-lg font-semibold">Research Assistant</h1>
-        <p className="text-xs text-[var(--text-muted)]">
-          Ask questions about Diana&apos;s diagnosis, treatment, and research
-        </p>
-      </div>
-
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+    <div className="flex flex-col h-full max-w-3xl mx-auto w-full">
+      {/* Messages — scrollable, takes remaining space */}
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center py-16 text-[var(--text-muted)]">
-            <p className="text-sm font-medium mb-4">
-              Ask anything about the wiki
+            <h1 className="text-lg font-semibold text-[var(--foreground)] mb-1">
+              Research Assistant
+            </h1>
+            <p className="text-xs mb-6">
+              Ask questions about Diana&apos;s diagnosis, treatment, and research
             </p>
             <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto">
               {[
@@ -113,6 +110,7 @@ export default function ChatPage() {
           )}
       </div>
 
+      {/* Input — pinned to bottom */}
       <div className="shrink-0 border-t border-[var(--sidebar-border)] px-4 py-3">
         <form onSubmit={handleSubmit} className="flex gap-2 items-end">
           <textarea

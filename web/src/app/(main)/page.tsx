@@ -9,8 +9,10 @@ export default function Home() {
   }
 
   return (
-    <article>
-      <MarkdownRenderer content={file.content} />
-    </article>
+    <div className="overflow-y-auto h-full">
+      <article className="px-4 py-4 md:px-8 md:py-8 max-w-4xl mx-auto">
+        <MarkdownRenderer content={file.content} />
+      </article>
+    </div>
   );
 }

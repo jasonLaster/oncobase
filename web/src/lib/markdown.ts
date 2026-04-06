@@ -11,6 +11,7 @@ const EXCLUDED_DIRS = new Set([
   "Google Drive",
   "Clippings",
   "Precision medicine",
+  "node_modules",
 ]);
 
 const EXCLUDED_FILES = new Set(["CLAUDE.md"]);

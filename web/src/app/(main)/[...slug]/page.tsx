@@ -25,7 +25,8 @@ export default async function DocPage({
   }
 
   return (
-    <article>
+    <div className="overflow-y-auto h-full">
+    <article className="px-4 py-4 md:px-8 md:py-8 max-w-4xl mx-auto">
       <header className="mb-6">
         <h1 className="text-3xl font-bold">{file.title}</h1>
         {Array.isArray(file.frontmatter.tags) && (
@@ -44,5 +45,6 @@ export default async function DocPage({
       </header>
       <MarkdownRenderer content={file.content} />
     </article>
+    </div>
   );
 }

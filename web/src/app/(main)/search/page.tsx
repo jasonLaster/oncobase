@@ -153,7 +153,8 @@ function SearchContent() {
   const totalMatches = results.reduce((s, r) => s + r.matches.length, 0);
 
   return (
-    <div className="max-w-3xl">
+    <div className="overflow-y-auto h-full">
+    <div className="max-w-3xl px-4 py-4 md:px-8 md:py-8">
       <form onSubmit={handleSubmit} className="mb-6">
         <div className="relative">
           <svg
@@ -211,6 +212,7 @@ function SearchContent() {
           Type a query to search across all wiki pages
         </div>
       )}
+    </div>
     </div>
   );
 }
