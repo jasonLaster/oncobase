@@ -53,7 +53,6 @@ export default function ConversationPage({
       key={id}
       conversationId={id}
       initialMessages={cacheRef.current[id]}
-      serverStreamingText={conversation.streamingText}
     />
   );
 }

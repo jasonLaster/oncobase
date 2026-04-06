@@ -8,6 +8,7 @@ export default defineSchema({
     updatedAt: v.number(),
     archived: v.optional(v.boolean()),
     streamingText: v.optional(v.string()),
+    streamingUpdatedAt: v.optional(v.number()),
   }).index("by_updated", ["updatedAt"]),
 
   messages: defineTable({
@@ -15,6 +16,7 @@ export default defineSchema({
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
     parts: v.optional(v.string()), // JSON-serialized UIMessage parts
+    disabled: v.optional(v.boolean()),
     createdAt: v.number(),
   }).index("by_conversation", ["conversationId", "createdAt"]),
 });

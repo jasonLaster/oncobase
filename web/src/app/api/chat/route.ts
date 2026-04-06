@@ -17,7 +17,11 @@ import {
 } from "@/lib/markdown";
 import { searchMarkdown } from "@/lib/search";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+function getConvex() {
+  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!url) throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
+  return new ConvexHttpClient(url);
+}
 
 const openrouter = createOpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -49,31 +53,37 @@ export async function POST(request: Request) {
 
   // Mark stream as active immediately so clients see the waiting state
   if (convId) {
-    convex.mutation(api.conversations.updateStreaming, {
+    getConvex().mutation(api.conversations.updateStreaming, {
       conversationId: convId,
       text: "",
     }).catch(() => {});
   }
 
-  // Debounced streaming text flush to Convex
+  // Streaming text flush to Convex
   let accumulatedText = "";
-  let flushTimer: ReturnType<typeof setTimeout> | null = null;
+  let flushQueued = false;
+  let lastFlush = 0;
+  const FLUSH_INTERVAL = 500; // ms
 
   function scheduleFlush() {
-    if (!convId || flushTimer) return;
-    flushTimer = setTimeout(async () => {
-      flushTimer = null;
+    if (!convId || flushQueued) return;
+    const now = Date.now();
+    const wait = Math.max(0, FLUSH_INTERVAL - (now - lastFlush));
+    flushQueued = true;
+    setTimeout(async () => {
+      flushQueued = false;
+      lastFlush = Date.now();
       if (accumulatedText) {
         try {
-          await convex.mutation(api.conversations.updateStreaming, {
+          await getConvex().mutation(api.conversations.updateStreaming, {
             conversationId: convId,
             text: accumulatedText,
           });
         } catch {
-          // Best-effort — don't break the stream
+          // Best-effort
         }
       }
-    }, 2000);
+    }, wait);
   }
 
   const result = streamText({
@@ -156,15 +166,11 @@ export async function POST(request: Request) {
     },
     onAbort: async () => {
       if (convId) {
-        if (flushTimer) {
-          clearTimeout(flushTimer);
-          flushTimer = null;
-        }
         try {
           // Save whatever partial text we accumulated as the assistant message
           await Promise.all([
             accumulatedText
-              ? convex.mutation(api.conversations.saveMessages, {
+              ? getConvex().mutation(api.conversations.saveMessages, {
                   conversationId: convId,
                   messages: [
                     {
@@ -175,7 +181,7 @@ export async function POST(request: Request) {
                   ],
                 })
               : Promise.resolve(),
-            convex.mutation(api.conversations.clearStreaming, {
+            getConvex().mutation(api.conversations.clearStreaming, {
               conversationId: convId,
             }),
           ]);
@@ -192,12 +198,6 @@ export async function POST(request: Request) {
     },
     onFinish: async ({ text, steps }) => {
       if (convId) {
-        // Cancel any pending flush
-        if (flushTimer) {
-          clearTimeout(flushTimer);
-          flushTimer = null;
-        }
-
         // Build UI-compatible parts from steps for full restoration
         const uiParts: Array<Record<string, unknown>> = [];
         for (const step of steps) {
@@ -229,7 +229,7 @@ export async function POST(request: Request) {
         try {
           await Promise.all([
             text
-              ? convex.mutation(api.conversations.saveMessages, {
+              ? getConvex().mutation(api.conversations.saveMessages, {
                   conversationId: convId,
                   messages: [
                     {
@@ -241,7 +241,7 @@ export async function POST(request: Request) {
                   ],
                 })
               : Promise.resolve(),
-            convex.mutation(api.conversations.clearStreaming, {
+            getConvex().mutation(api.conversations.clearStreaming, {
               conversationId: convId,
             }),
           ]);

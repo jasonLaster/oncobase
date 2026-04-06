@@ -1,5 +1,4 @@
 import { query, mutation } from "./_generated/server";
-import { api } from "./_generated/api";
 import { v } from "convex/values";
 
 export const list = query({
@@ -57,14 +56,20 @@ export const updateStreaming = mutation({
     text: v.string(),
   },
   handler: async (ctx, { conversationId, text }) => {
-    await ctx.db.patch(conversationId, { streamingText: text });
+    await ctx.db.patch(conversationId, {
+      streamingText: text,
+      streamingUpdatedAt: Date.now(),
+    });
   },
 });
 
 export const clearStreaming = mutation({
   args: { conversationId: v.id("conversations") },
   handler: async (ctx, { conversationId }) => {
-    await ctx.db.patch(conversationId, { streamingText: undefined });
+    await ctx.db.patch(conversationId, {
+      streamingText: undefined,
+      streamingUpdatedAt: undefined,
+    });
   },
 });
 
@@ -120,23 +125,17 @@ export const sendMessage = mutation({
       content: text,
       createdAt: Date.now(),
     });
-    await ctx.db.patch(conversationId, { updatedAt: Date.now() });
-
-    // Gather full message history for the action
-    const allMessages = await ctx.db
-      .query("messages")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
-      .collect();
-
-    const history = allMessages.map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
-
-    // Schedule the generation action
-    await ctx.scheduler.runAfter(0, api.generate.generate, {
-      conversationId,
-      messages: history,
+    await ctx.db.patch(conversationId, {
+      updatedAt: Date.now(),
+      streamingText: "",
+      streamingUpdatedAt: Date.now(),
     });
+  },
+});
+
+export const disableMessage = mutation({
+  args: { id: v.id("messages") },
+  handler: async (ctx, { id }) => {
+    await ctx.db.patch(id, { disabled: true });
   },
 });

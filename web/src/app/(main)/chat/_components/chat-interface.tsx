@@ -2,21 +2,36 @@
 
 import type { UIMessage } from "ai";
 import { useRef, useEffect, useState, useCallback } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { GrowingTextarea } from "@/components/growing-textarea";
 
-function storedToUIMessages(
-  msgs: Array<{ role: "user" | "assistant"; content: string; parts?: string }>
-): UIMessage[] {
+interface StoredMessage {
+  _id?: string;
+  role: "user" | "assistant";
+  content: string;
+  parts?: string;
+  disabled?: boolean;
+}
+
+// Extended UIMessage with our metadata
+interface ChatUIMessage extends UIMessage {
+  dbId?: string;
+  disabled?: boolean;
+}
+
+function storedToUIMessages(msgs: StoredMessage[]): ChatUIMessage[] {
   const cleaned = msgs.filter((m) => m.role === "user" || m.content || m.parts);
   return cleaned.map((m, i) => ({
-    id: `stored-${i}`,
+    id: m._id || `stored-${i}`,
     role: m.role,
     parts: m.parts
       ? (JSON.parse(m.parts) as UIMessage["parts"])
       : [{ type: "text" as const, text: m.content }],
+    dbId: m._id,
+    disabled: m.disabled,
   }));
 }
 
@@ -160,20 +175,29 @@ function AssistantMessage({ message }: { message: UIMessage }) {
 interface ChatInterfaceProps {
   conversationId: string | null;
   initialMessages?: Array<{ role: "user" | "assistant"; content: string; parts?: string }>;
-  serverStreamingText?: string;
 }
 
 export function ChatInterface({
-  conversationId,
+  conversationId: initialConversationId,
   initialMessages,
-  serverStreamingText,
 }: ChatInterfaceProps) {
   const createConversation = useMutation(api.conversations.create);
   const sendMessageMutation = useMutation(api.conversations.sendMessage);
 
   const convIdRef = useRef<Id<"conversations"> | null>(
-    conversationId as Id<"conversations"> | null
+    initialConversationId as Id<"conversations"> | null
   );
+  // Track conversation ID in state so useQuery re-subscribes when it changes
+  const [activeConvId, setActiveConvId] = useState<string | null>(initialConversationId);
+
+  // Subscribe to conversation for reactive streamingText
+  const conversation = useQuery(
+    api.conversations.get,
+    activeConvId ? { id: activeConvId as Id<"conversations"> } : "skip"
+  );
+  const clearStreaming = useMutation(api.conversations.clearStreaming);
+  const serverStreamingText = conversation?.streamingText;
+  const streamingUpdatedAt = conversation?.streamingUpdatedAt;
 
   const [messages, setMessages] = useState<UIMessage[]>(() =>
     initialMessages ? storedToUIMessages(initialMessages) : []
@@ -183,6 +207,21 @@ export function ChatInterface({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Detect and clear stale streams (no update in 30s)
+  useEffect(() => {
+    if (serverStreamingText === undefined || !streamingUpdatedAt || !activeConvId) return;
+    const age = Date.now() - streamingUpdatedAt;
+    if (age > 30_000) {
+      clearStreaming({ conversationId: activeConvId as Id<"conversations"> });
+      return;
+    }
+    // Check again when the stream would become stale
+    const timer = setTimeout(() => {
+      clearStreaming({ conversationId: activeConvId as Id<"conversations"> });
+    }, 30_000 - age);
+    return () => clearTimeout(timer);
+  }, [serverStreamingText, streamingUpdatedAt, activeConvId, clearStreaming]);
+
   const lastMsgIsUser =
     messages.length > 0 && messages[messages.length - 1]?.role === "user";
   const isGenerating = serverStreamingText !== undefined;
@@ -190,15 +229,100 @@ export function ChatInterface({
   const serverIsWaiting = isGenerating && serverStreamingText === "";
   const isBusy = sending || isGenerating;
 
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+
+  // Track whether user has scrolled up
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el) return;
+    function onScroll() {
+      if (!el) return;
+      const threshold = 100;
+      const near = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+      isNearBottomRef.current = near;
+      setShowScrollButton(!near);
+    }
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Auto-scroll only when near bottom
+  useEffect(() => {
+    if (isNearBottomRef.current && bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, serverStreamingText]);
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    setShowScrollButton(false);
+  }, []);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Sync messages from Convex when generation completes
+  // (streamingText goes from defined to undefined = new message saved)
+  const prevStreamingRef = useRef(serverStreamingText);
+  useEffect(() => {
+    const wasStreaming = prevStreamingRef.current !== undefined;
+    const nowDone = serverStreamingText === undefined;
+    prevStreamingRef.current = serverStreamingText;
+
+    if (wasStreaming && nowDone && conversation?.messages) {
+      setMessages(storedToUIMessages(
+        conversation.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          parts: m.parts,
+        }))
+      ));
+    }
+  }, [serverStreamingText, conversation]);
+
+  // Generation trigger with abort support
+  const abortRef = useRef<AbortController | null>(null);
+
+  function triggerGeneration(convId: string, msgs: Array<{ id: string; role: string; parts: unknown[] }>) {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: msgs,
+        conversationId: convId,
+      }),
+      signal: controller.signal,
+    }).catch(() => {});
+  }
+
+  const handleStop = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    if (activeConvId) {
+      clearStreaming({ conversationId: activeConvId as Id<"conversations"> });
+    }
+  }, [activeConvId, clearStreaming]);
+
+  // Auto-resume: if last message is user with no active stream, re-trigger
+  const hasResumed = useRef(false);
+  useEffect(() => {
+    if (hasResumed.current) return;
+    if (!activeConvId) return;
+    if (!lastMsgIsUser) return;
+    if (serverStreamingText !== undefined) return; // already streaming
+
+    hasResumed.current = true;
+    triggerGeneration(
+      activeConvId,
+      messages.map((m) => ({ id: m.id, role: m.role, parts: m.parts as unknown[] }))
+    );
+  }, [activeConvId, lastMsgIsUser, serverStreamingText, messages]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -213,6 +337,7 @@ export function ChatInterface({
         const title = text.slice(0, 60) + (text.length > 60 ? "..." : "");
         const id = await createConversation({ title });
         convIdRef.current = id;
+        setActiveConvId(id);
         window.history.replaceState(null, "", `/chat/${id}`);
       }
 
@@ -226,21 +351,36 @@ export function ChatInterface({
         },
       ]);
 
-      // Send via Convex mutation (saves user msg + schedules action)
+      // Save user message via Convex mutation (also sets streamingText="")
       await sendMessageMutation({
         conversationId: convIdRef.current,
         text,
       });
 
+      // Fire-and-forget: trigger generation via the Next.js API route
+      // The route writes streamingText + final message to Convex
+      triggerGeneration(convIdRef.current, [
+        ...messages.map((m) => ({
+          id: m.id,
+          role: m.role,
+          parts: m.parts,
+        })),
+        {
+          id: `local-${Date.now()}`,
+          role: "user" as const,
+          parts: [{ type: "text" as const, text }],
+        },
+      ]);
+
       setSending(false);
       setInput("");
-      if (inputRef.current) inputRef.current.style.height = "auto";
+      isNearBottomRef.current = true; // force scroll on new message
     },
-    [input, isBusy, createConversation, sendMessageMutation]
+    [input, isBusy, createConversation, sendMessageMutation, messages]
   );
 
   return (
-    <div className="flex flex-col h-full max-w-3xl mx-auto w-full">
+    <div className="flex flex-col h-full max-w-3xl mx-auto w-full relative">
       <div
         ref={scrollRef}
         className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4"
@@ -267,19 +407,20 @@ export function ChatInterface({
                       const title = q.slice(0, 60) + (q.length > 60 ? "..." : "");
                       const id = await createConversation({ title });
                       convIdRef.current = id;
+                      setActiveConvId(id);
                       window.history.replaceState(null, "", `/chat/${id}`);
                     }
-                    setMessages([
-                      {
-                        id: `local-${Date.now()}`,
-                        role: "user" as const,
-                        parts: [{ type: "text" as const, text: q }],
-                      },
-                    ]);
+                    const userMsg = {
+                      id: `local-${Date.now()}`,
+                      role: "user" as const,
+                      parts: [{ type: "text" as const, text: q }],
+                    };
+                    setMessages([userMsg]);
                     await sendMessageMutation({
                       conversationId: convIdRef.current!,
                       text: q,
                     });
+                    triggerGeneration(convIdRef.current!, [userMsg]);
                   }}
                   className="text-xs px-3 py-1.5 rounded-full border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] transition-colors text-left"
                 >
@@ -290,14 +431,27 @@ export function ChatInterface({
           </div>
         )}
 
-        {messages.map((message) => {
+        {messages.map((message, idx) => {
           if (message.role === "user") {
             const text = message.parts
               .filter((p): p is { type: "text"; text: string } => p.type === "text")
               .map((p) => p.text)
               .join("");
             return (
-              <div key={message.id} className="flex justify-end">
+              <div key={message.id} className="flex justify-end gap-1 group/msg items-start">
+                <button
+                  onClick={() => {
+                    setInput(text);
+                    // Remove this message and all subsequent messages
+                    setMessages((prev) => prev.slice(0, idx));
+                  }}
+                  title="Edit message"
+                  className="shrink-0 mt-2 p-1 rounded opacity-0 group-hover/msg:opacity-100 hover:bg-[var(--accent-light)] text-[var(--text-muted)] hover:text-[var(--foreground)] transition-all"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11.5 2.5l2 2L5 13H3v-2z" />
+                  </svg>
+                </button>
                 <div className="max-w-[85%] rounded-2xl rounded-br-md px-4 py-2.5 bg-[var(--brand)] text-white text-sm whitespace-pre-wrap">
                   {text}
                 </div>
@@ -331,12 +485,28 @@ export function ChatInterface({
             </div>
           </div>
         )}
+        <div ref={bottomRef} />
       </div>
+
+      {/* Scroll to bottom */}
+      {showScrollButton && (
+        <div className="absolute bottom-20 right-4 z-10">
+          <button
+            onClick={scrollToBottom}
+            aria-label="Scroll to bottom"
+            className="p-2 rounded-full bg-[var(--background)] border border-[var(--sidebar-border)] text-[var(--text-muted)] hover:text-[var(--foreground)] shadow-md hover:shadow-lg transition-all"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="4 6 8 10 12 6" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       <div className="shrink-0 border-t border-[var(--sidebar-border)] px-4 py-3">
         <form onSubmit={handleSubmit} className="flex gap-2 items-end">
-          <textarea
-            ref={inputRef}
+          <GrowingTextarea
+            autoFocus
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -346,22 +516,26 @@ export function ChatInterface({
               }
             }}
             placeholder="Ask a question..."
-            rows={1}
-            className="flex-1 resize-none rounded-xl border border-[var(--sidebar-border)] bg-[var(--background)] px-4 py-2.5 text-sm focus:outline-none focus:border-[var(--brand)] transition-colors placeholder:text-[var(--text-muted)]"
-            style={{ maxHeight: "120px" }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = "auto";
-              target.style.height = Math.min(target.scrollHeight, 120) + "px";
-            }}
+            maxHeight={160}
+            className="flex-1 resize-none rounded-xl border border-[var(--sidebar-border)] bg-[var(--background)] px-4 py-2.5 text-sm leading-relaxed focus:outline-none focus:border-[var(--brand)] transition-colors placeholder:text-[var(--text-muted)]"
           />
-          <button
-            type="submit"
-            disabled={!input.trim() || isBusy}
-            className="shrink-0 px-4 py-2.5 rounded-xl bg-[var(--brand)] text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition-opacity"
-          >
-            Send
-          </button>
+          {isBusy ? (
+            <button
+              type="button"
+              onClick={handleStop}
+              className="shrink-0 px-4 py-2.5 rounded-xl border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--foreground)] text-sm font-medium hover:bg-[var(--destructive)] hover:text-white hover:border-[var(--destructive)] transition-colors"
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!input.trim()}
+              className="shrink-0 px-4 py-2.5 rounded-xl bg-[var(--brand)] text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition-opacity"
+            >
+              Send
+            </button>
+          )}
         </form>
       </div>
     </div>
