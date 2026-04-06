@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -17,7 +18,8 @@ export default function LoginPage() {
     });
 
     if (res.ok) {
-      router.push("/");
+      const redirect = searchParams.get("redirect") || "/";
+      router.push(redirect);
       router.refresh();
     } else {
       setError("Incorrect password");

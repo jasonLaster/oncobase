@@ -6,13 +6,16 @@ export function middleware(request: NextRequest) {
 
   if (isLoginPage) {
     if (isAuthed) {
-      return NextResponse.redirect(new URL("/", request.url));
+      const redirect = request.nextUrl.searchParams.get("redirect") || "/";
+      return NextResponse.redirect(new URL(redirect, request.url));
     }
     return NextResponse.next();
   }
 
   if (!isAuthed) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
