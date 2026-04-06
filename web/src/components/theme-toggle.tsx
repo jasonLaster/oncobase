@@ -4,10 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import { themeEffect } from "@/lib/theme-effect";
 
 export function ThemeToggle() {
-  const [preference, setPreference] = useState<undefined | null | string>(
-    undefined
-  );
-  const [currentTheme, setCurrentTheme] = useState<null | string>(null);
+  const [preference, setPreference] = useState<undefined | null | string>(() => {
+    if (typeof window === "undefined") return undefined;
+    return localStorage.getItem("theme");
+  });
+  const [currentTheme, setCurrentTheme] = useState<null | string>(() => {
+    if (typeof window === "undefined") return null;
+    return themeEffect();
+  });
 
   const onMediaChange = useCallback(() => {
     const current = themeEffect();
@@ -15,23 +19,22 @@ export function ThemeToggle() {
   }, []);
 
   useEffect(() => {
-    setPreference(localStorage.getItem("theme"));
-    const current = themeEffect();
-    setCurrentTheme(current);
-
     const matchMedia = window.matchMedia("(prefers-color-scheme: dark)");
     matchMedia.addEventListener("change", onMediaChange);
     return () => matchMedia.removeEventListener("change", onMediaChange);
   }, [onMediaChange]);
 
   useEffect(() => {
-    window.addEventListener("storage", (e) => {
+    const handler = (e: StorageEvent) => {
       if (e.key === "theme") setPreference(e.newValue);
-    });
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
   }, []);
 
   useEffect(() => {
-    setCurrentTheme(themeEffect());
+    const applied = themeEffect();
+    setCurrentTheme(applied);
   }, [preference]);
 
   // Don't render until hydrated

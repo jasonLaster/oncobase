@@ -10,9 +10,9 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  if (!clientRef.current) {
+  if (clientRef.current === null) {
     clientRef.current = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL);
   }
 
-  return <ConvexProvider client={clientRef.current}>{children}</ConvexProvider>;
+  return <ConvexProvider client={clientRef.current!}>{children}</ConvexProvider>;
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { FileNode } from "@/lib/markdown";
@@ -52,12 +52,11 @@ function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
 }
 
 function usePersistedState(key: string, fallback: boolean) {
-  const [value, setValue] = useState(fallback);
-
-  useEffect(() => {
+  const [value, setValue] = useState(() => {
+    if (typeof window === "undefined") return fallback;
     const stored = localStorage.getItem(key);
-    if (stored !== null) setValue(stored === "true");
-  }, [key]);
+    return stored !== null ? stored === "true" : fallback;
+  });
 
   const set = useCallback(
     (next: boolean) => {
@@ -72,28 +71,23 @@ function usePersistedState(key: string, fallback: boolean) {
 
 function useActiveConversationId(): string | null {
   const pathname = usePathname();
-  const [activeId, setActiveId] = useState<string | null>(() => {
+
+  // Derive from pathname (covers route changes)
+  const pathnameId = useMemo(() => {
     const match = pathname.match(/^\/chat\/(.+)$/);
     return match ? match[1] : null;
-  });
-
-  // Sync from pathname on route changes
-  useEffect(() => {
-    const match = pathname.match(/^\/chat\/(.+)$/);
-    setActiveId(match ? match[1] : null);
   }, [pathname]);
 
-  // Listen for replaceState (when new conversations are created)
+  // Also track replaceState changes (new conversation creation)
+  const [replaceStateId, setReplaceStateId] = useState<string | null>(null);
+
   useEffect(() => {
     const handler = () => {
       const match = window.location.pathname.match(/^\/chat\/(.+)$/);
-      setActiveId(match ? match[1] : null);
+      setReplaceStateId(match ? match[1] : null);
     };
-    // popstate fires on back/forward, but replaceState doesn't fire any event
-    // so we also poll briefly when pathname is /chat (new chat page)
     window.addEventListener("popstate", handler);
 
-    // Observe replaceState by monkey-patching
     const origReplace = history.replaceState.bind(history);
     history.replaceState = (...args: Parameters<typeof history.replaceState>) => {
       origReplace(...args);
@@ -106,7 +100,7 @@ function useActiveConversationId(): string | null {
     };
   }, []);
 
-  return activeId;
+  return replaceStateId ?? pathnameId;
 }
 
 function ConversationList() {
@@ -192,8 +186,8 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
   const openMobile = useCallback(() => setMobileOpen(true), []);
 
   useEffect(() => {
-    closeMobile();
-  }, [pathname, closeMobile]);
+    setMobileOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (mobileOpen) {
