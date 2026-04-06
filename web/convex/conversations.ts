@@ -4,11 +4,24 @@ import { v } from "convex/values";
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db
+    const all = await ctx.db
       .query("conversations")
       .withIndex("by_updated")
       .order("desc")
-      .take(50);
+      .take(100);
+    return all.filter((c) => !c.archived);
+  },
+});
+
+export const listArchived = query({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db
+      .query("conversations")
+      .withIndex("by_updated")
+      .order("desc")
+      .take(100);
+    return all.filter((c) => c.archived);
   },
 });
 
@@ -37,6 +50,37 @@ export const create = mutation({
   },
 });
 
+export const updateStreaming = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+    text: v.string(),
+  },
+  handler: async (ctx, { conversationId, text }) => {
+    await ctx.db.patch(conversationId, { streamingText: text });
+  },
+});
+
+export const clearStreaming = mutation({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, { conversationId }) => {
+    await ctx.db.patch(conversationId, { streamingText: undefined });
+  },
+});
+
+export const archive = mutation({
+  args: { id: v.id("conversations") },
+  handler: async (ctx, { id }) => {
+    await ctx.db.patch(id, { archived: true, updatedAt: Date.now() });
+  },
+});
+
+export const restore = mutation({
+  args: { id: v.id("conversations") },
+  handler: async (ctx, { id }) => {
+    await ctx.db.patch(id, { archived: false, updatedAt: Date.now() });
+  },
+});
+
 export const saveMessages = mutation({
   args: {
     conversationId: v.id("conversations"),
@@ -44,6 +88,7 @@ export const saveMessages = mutation({
       v.object({
         role: v.union(v.literal("user"), v.literal("assistant")),
         content: v.string(),
+        parts: v.optional(v.string()),
         createdAt: v.number(),
       })
     ),

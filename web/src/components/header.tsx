@@ -52,16 +52,16 @@ export function Header() {
       <div className="flex items-center gap-1 shrink-0">
         <Link
           href="/chat"
-          aria-label="Chat"
-          className={`p-1.5 rounded-md transition-colors ${
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
             isChat
-              ? "bg-[var(--accent-light)] text-[var(--brand)]"
-              : "hover:bg-[var(--accent-light)] text-[var(--text-muted)]"
+              ? "bg-[var(--brand)] text-white"
+              : "bg-[var(--brand)]/10 text-[var(--brand)] hover:bg-[var(--brand)]/20"
           }`}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H5l-3 3V3z" />
           </svg>
+          Research
         </Link>
         <ThemeToggle />
       </div>

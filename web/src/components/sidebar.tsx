@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { FileNode } from "@/lib/markdown";
+import { ConversationDropdown } from "@/app/(main)/chat/_components/chat-actions";
 
 function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
   const pathname = usePathname();
@@ -69,15 +70,60 @@ function usePersistedState(key: string, fallback: boolean) {
   return [value, set] as const;
 }
 
+function useActiveConversationId(): string | null {
+  const pathname = usePathname();
+  const [activeId, setActiveId] = useState<string | null>(() => {
+    const match = pathname.match(/^\/chat\/(.+)$/);
+    return match ? match[1] : null;
+  });
+
+  // Sync from pathname on route changes
+  useEffect(() => {
+    const match = pathname.match(/^\/chat\/(.+)$/);
+    setActiveId(match ? match[1] : null);
+  }, [pathname]);
+
+  // Listen for replaceState (when new conversations are created)
+  useEffect(() => {
+    const handler = () => {
+      const match = window.location.pathname.match(/^\/chat\/(.+)$/);
+      setActiveId(match ? match[1] : null);
+    };
+    // popstate fires on back/forward, but replaceState doesn't fire any event
+    // so we also poll briefly when pathname is /chat (new chat page)
+    window.addEventListener("popstate", handler);
+
+    // Observe replaceState by monkey-patching
+    const origReplace = history.replaceState.bind(history);
+    history.replaceState = (...args: Parameters<typeof history.replaceState>) => {
+      origReplace(...args);
+      handler();
+    };
+
+    return () => {
+      window.removeEventListener("popstate", handler);
+      history.replaceState = origReplace;
+    };
+  }, []);
+
+  return activeId;
+}
+
 function ConversationList() {
   const conversations = useQuery(api.conversations.list);
   const pathname = usePathname();
+  const activeId = useActiveConversationId();
+  const isNewChat = pathname === "/chat" && activeId === null;
 
   return (
     <div className="space-y-0.5">
       <Link
         href="/chat"
-        className="flex items-center gap-1.5 px-2 py-1.5 text-sm rounded hover:bg-[var(--accent-light)] text-[var(--brand)] font-medium"
+        className={`flex items-center gap-1.5 px-2 py-1.5 text-sm rounded transition-colors ${
+          isNewChat
+            ? "bg-[var(--accent-light)] text-[var(--brand)] font-medium"
+            : "hover:bg-[var(--accent-light)] text-[var(--brand)] font-medium"
+        }`}
       >
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
           <line x1="8" y1="3" x2="8" y2="13" />
@@ -89,25 +135,49 @@ function ConversationList() {
         <div className="px-2 py-1 text-xs text-[var(--text-muted)]">Loading...</div>
       )}
       {conversations?.map((conv) => {
-        const isActive = pathname === `/chat/${conv._id}`;
+        const isActive = conv._id === activeId;
         return (
-          <Link
-            key={conv._id}
-            href={`/chat/${conv._id}`}
-            className={`block px-2 py-1 text-sm rounded truncate transition-colors ${
-              isActive
-                ? "bg-[var(--accent-light)] text-[var(--brand)] font-medium"
-                : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
-            }`}
-            title={conv.title}
-          >
-            {conv.title}
-          </Link>
+          <div key={conv._id} className="group/item flex items-center rounded hover:bg-[var(--accent-light)] transition-colors">
+            <Link
+              href={`/chat/${conv._id}`}
+              onClick={(e) => {
+                if (isActive) e.preventDefault();
+              }}
+              className={`flex-1 min-w-0 px-2 py-1 text-sm rounded truncate transition-colors ${
+                isActive
+                  ? "text-[var(--brand)] font-medium"
+                  : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
+              }`}
+              title={conv.title}
+            >
+              {conv.title}
+            </Link>
+            <div className="shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity pr-1">
+              <ConversationDropdown conversationId={conv._id} />
+            </div>
+          </div>
         );
       })}
       {conversations?.length === 0 && (
         <div className="px-2 py-1 text-xs text-[var(--text-muted)]">No conversations yet</div>
       )}
+      <div className="mt-4 pt-2 border-t border-[var(--sidebar-border)]">
+        <Link
+          href="/chat/archived"
+          className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors ${
+            pathname === "/chat/archived"
+              ? "text-[var(--brand)] bg-[var(--accent-light)]"
+              : "text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--accent-light)]"
+          }`}
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="2" width="12" height="4" rx="1" />
+            <path d="M2 6v7a1 1 0 001 1h10a1 1 0 001-1V6" />
+            <path d="M6.5 9.5h3" />
+          </svg>
+          View archived
+        </Link>
+      </div>
     </div>
   );
 }

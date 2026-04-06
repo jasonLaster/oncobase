@@ -6,6 +6,9 @@ import {
 } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import {
   getMarkdownFile,
   getAllSlugs,
@@ -13,6 +16,8 @@ import {
   getPagesByTag,
 } from "@/lib/markdown";
 import { searchMarkdown } from "@/lib/search";
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 const openrouter = createOpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -23,7 +28,7 @@ const SYSTEM_PROMPT = `You are a research assistant for Diana's TNBC (triple-neg
 
 You have access to tools that let you search and read wiki pages. Use them to find relevant information before answering. Always ground your answers in the wiki content when possible.
 
-When citing information, mention which page it came from so the user can navigate there.
+IMPORTANT: When citing information from a wiki or source page, use inline markdown links in the format [Page Title](/slug). For example: [Treatment Plan](/wiki/treatment-plan) or [Stanford Med Onc Notes](/sources/meeting-notes/319---stanford-med-onc). This lets the user click directly to the source. Use these inline citations throughout your response, not just at the end.
 
 Key context:
 - Patient: Diana Laster, age 36, diagnosed March 2026
@@ -34,11 +39,42 @@ Key context:
 Be direct, compassionate, and precise. Use medical terminology but explain it when needed.`;
 
 export async function POST(request: Request) {
-  const { messages } = (await request.json()) as {
+  const { messages, conversationId } = (await request.json()) as {
     messages: UIMessage[];
+    conversationId?: string;
   };
 
   const modelMessages = await convertToModelMessages(messages);
+  const convId = conversationId as Id<"conversations"> | undefined;
+
+  // Mark stream as active immediately so clients see the waiting state
+  if (convId) {
+    convex.mutation(api.conversations.updateStreaming, {
+      conversationId: convId,
+      text: "",
+    }).catch(() => {});
+  }
+
+  // Debounced streaming text flush to Convex
+  let accumulatedText = "";
+  let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function scheduleFlush() {
+    if (!convId || flushTimer) return;
+    flushTimer = setTimeout(async () => {
+      flushTimer = null;
+      if (accumulatedText) {
+        try {
+          await convex.mutation(api.conversations.updateStreaming, {
+            conversationId: convId,
+            text: accumulatedText,
+          });
+        } catch {
+          // Best-effort — don't break the stream
+        }
+      }
+    }, 2000);
+  }
 
   const result = streamText({
     model: openrouter.chat("anthropic/claude-sonnet-4"),
@@ -117,6 +153,102 @@ export async function POST(request: Request) {
           return getAllTags();
         },
       },
+    },
+    onAbort: async () => {
+      if (convId) {
+        if (flushTimer) {
+          clearTimeout(flushTimer);
+          flushTimer = null;
+        }
+        try {
+          // Save whatever partial text we accumulated as the assistant message
+          await Promise.all([
+            accumulatedText
+              ? convex.mutation(api.conversations.saveMessages, {
+                  conversationId: convId,
+                  messages: [
+                    {
+                      role: "assistant" as const,
+                      content: accumulatedText,
+                      createdAt: Date.now(),
+                    },
+                  ],
+                })
+              : Promise.resolve(),
+            convex.mutation(api.conversations.clearStreaming, {
+              conversationId: convId,
+            }),
+          ]);
+        } catch {
+          // Best-effort
+        }
+      }
+    },
+    onChunk: ({ chunk }) => {
+      if (convId && chunk.type === "text-delta") {
+        accumulatedText += (chunk as { text: string }).text;
+        scheduleFlush();
+      }
+    },
+    onFinish: async ({ text, steps }) => {
+      if (convId) {
+        // Cancel any pending flush
+        if (flushTimer) {
+          clearTimeout(flushTimer);
+          flushTimer = null;
+        }
+
+        // Build UI-compatible parts from steps for full restoration
+        const uiParts: Array<Record<string, unknown>> = [];
+        for (const step of steps) {
+          // Reasoning
+          for (const r of step.reasoning) {
+            if (r.text) {
+              uiParts.push({ type: "reasoning", text: r.text });
+            }
+          }
+          // Tool calls with results
+          for (const tc of step.toolCalls) {
+            const tr = (step as unknown as { toolResults?: Array<{ toolCallId: string; result: unknown }> })
+              .toolResults?.find((r) => r.toolCallId === tc.toolCallId);
+            uiParts.push({
+              type: `tool-${tc.toolName}`,
+              toolName: tc.toolName,
+              toolCallId: tc.toolCallId,
+              input: (tc as unknown as Record<string, unknown>).args ?? (tc as unknown as Record<string, unknown>).input,
+              output: tr?.result ?? null,
+              state: "output-available",
+            });
+          }
+          // Text
+          if (step.text) {
+            uiParts.push({ type: "text", text: step.text });
+          }
+        }
+
+        try {
+          await Promise.all([
+            text
+              ? convex.mutation(api.conversations.saveMessages, {
+                  conversationId: convId,
+                  messages: [
+                    {
+                      role: "assistant" as const,
+                      content: text,
+                      parts: JSON.stringify(uiParts),
+                      createdAt: Date.now(),
+                    },
+                  ],
+                })
+              : Promise.resolve(),
+            convex.mutation(api.conversations.clearStreaming, {
+              conversationId: convId,
+            }),
+          ]);
+        } catch (e) {
+          console.error("Failed to save assistant message:", e);
+        }
+      }
     },
   });
 
