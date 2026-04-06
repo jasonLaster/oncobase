@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Header() {
   const pathname = usePathname();
-  const isChat = pathname === "/chat";
+  const isChat = pathname.startsWith("/chat");
 
   function openSidebar() {
     const fn = (window as unknown as Record<string, unknown>).__openSidebar;

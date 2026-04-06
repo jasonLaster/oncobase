@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@convex/_generated/api";
 import type { FileNode } from "@/lib/markdown";
 
 function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
@@ -67,10 +69,54 @@ function usePersistedState(key: string, fallback: boolean) {
   return [value, set] as const;
 }
 
+function ConversationList() {
+  const conversations = useQuery(api.conversations.list);
+  const pathname = usePathname();
+
+  return (
+    <div className="space-y-0.5">
+      <Link
+        href="/chat"
+        className="flex items-center gap-1.5 px-2 py-1.5 text-sm rounded hover:bg-[var(--accent-light)] text-[var(--brand)] font-medium"
+      >
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <line x1="8" y1="3" x2="8" y2="13" />
+          <line x1="3" y1="8" x2="13" y2="8" />
+        </svg>
+        New chat
+      </Link>
+      {conversations === undefined && (
+        <div className="px-2 py-1 text-xs text-[var(--text-muted)]">Loading...</div>
+      )}
+      {conversations?.map((conv) => {
+        const isActive = pathname === `/chat/${conv._id}`;
+        return (
+          <Link
+            key={conv._id}
+            href={`/chat/${conv._id}`}
+            className={`block px-2 py-1 text-sm rounded truncate transition-colors ${
+              isActive
+                ? "bg-[var(--accent-light)] text-[var(--brand)] font-medium"
+                : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+            }`}
+            title={conv.title}
+          >
+            {conv.title}
+          </Link>
+        );
+      })}
+      {conversations?.length === 0 && (
+        <div className="px-2 py-1 text-xs text-[var(--text-muted)]">No conversations yet</div>
+      )}
+    </div>
+  );
+}
+
 export function Sidebar({ tree }: { tree: FileNode[] }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = usePersistedState("sidebar-collapsed", false);
   const pathname = usePathname();
+  const isChat = pathname.startsWith("/chat");
 
   const closeMobile = useCallback(() => setMobileOpen(false), []);
   const openMobile = useCallback(() => setMobileOpen(true), []);
@@ -125,7 +171,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
             </button>
           </div>
           <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-0.5">
-            {tree.map((node) => (
+            {isChat ? <ConversationList /> : tree.map((node) => (
               <TreeNode key={node.slug} node={node} />
             ))}
           </nav>
@@ -164,7 +210,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
               </svg>
             </button>
             <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
-              {tree.map((node) => (
+              {isChat ? <ConversationList /> : tree.map((node) => (
                 <TreeNode key={node.slug} node={node} />
               ))}
             </nav>

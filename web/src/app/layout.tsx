@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { CommandPalette } from "@/components/command-palette";
+import { ConvexClientProvider } from "@/components/convex-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -42,7 +43,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full">
-        {children}
+        <ConvexClientProvider>
+          {children}
+        </ConvexClientProvider>
         <CommandPalette />
         <Analytics />
       </body>
