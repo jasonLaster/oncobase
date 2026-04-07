@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   }
 
   // Streaming parts + text flush to Convex
-  let accumulatedText = "";
+  let currentText = "";
   const streamingParts: Array<Record<string, unknown>> = [];
   let flushQueued = false;
   let lastFlush = 0;
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       try {
         await getConvex().mutation(api.conversations.updateStreaming, {
           conversationId: convId,
-          text: accumulatedText,
+          text: currentText,
           parts: JSON.stringify(streamingParts),
         });
       } catch {
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     if (!convId) return;
     getConvex().mutation(api.conversations.updateStreaming, {
       conversationId: convId,
-      text: accumulatedText,
+      text: currentText,
       parts: JSON.stringify(streamingParts),
     }).catch(() => {});
     lastFlush = Date.now();
@@ -156,13 +156,13 @@ export async function POST(request: Request) {
         try {
           // Save whatever partial text we accumulated as the assistant message
           await Promise.all([
-            accumulatedText
+            currentText
               ? getConvex().mutation(api.conversations.saveMessages, {
                   conversationId: convId,
                   messages: [
                     {
                       role: "assistant" as const,
-                      content: accumulatedText,
+                      content: currentText,
                       createdAt: Date.now(),
                     },
                   ],
@@ -180,23 +180,23 @@ export async function POST(request: Request) {
     onChunk: ({ chunk }) => {
       if (!convId) return;
       if (chunk.type === "text-delta") {
-        accumulatedText += (chunk as { text: string }).text;
+        currentText += (chunk as { text: string }).text;
         // Update or create trailing text part
         const last = streamingParts[streamingParts.length - 1];
         if (last && last.type === "text") {
-          last.text = accumulatedText;
+          last.text = (last.text as string) + (chunk as { text: string }).text;
         } else {
-          streamingParts.push({ type: "text", text: accumulatedText });
+          streamingParts.push({ type: "text", text: (chunk as { text: string }).text });
         }
         scheduleFlush();
       } else if (chunk.type === "tool-call") {
-        const tc = chunk as unknown as { toolCallId: string; toolName: string; args: unknown };
+        const tc = chunk as unknown as Record<string, unknown>;
+        const toolArgs = tc.args || tc.input;
         streamingParts.push({
           type: `tool-${tc.toolName}`,
-          toolName: tc.toolName,
-          toolCallId: tc.toolCallId,
-          input: tc.args,
-          output: null,
+          toolName: tc.toolName as string,
+          toolCallId: tc.toolCallId as string,
+          input: toolArgs,
           state: "calling",
         });
         flushNow();
@@ -206,11 +206,21 @@ export async function POST(request: Request) {
           (p) => (p.toolCallId as string) === tr.toolCallId
         );
         if (part) {
-          part.output = tr.result;
+          // Strip large content from tool results to keep payload small
+          const result = tr.result as Record<string, unknown> | unknown;
+          if (typeof result === "object" && result !== null && "content" in (result as Record<string, unknown>)) {
+            const r = result as Record<string, unknown>;
+            part.output = Object.fromEntries(Object.entries(r).filter(([k]) => k !== "content"));
+          } else if (Array.isArray(result)) {
+            // For search results, keep just slug/title
+            part.output = (result as Array<Record<string, unknown>>).map(
+              (r) => ({ slug: r.slug, title: r.title })
+            );
+          } else {
+            part.output = result;
+          }
           part.state = "output-available";
         }
-        // Reset accumulated text for next text segment
-        accumulatedText = "";
         flushNow();
       }
     },

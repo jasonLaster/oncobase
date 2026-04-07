@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMarkdownFile, getAllSlugs } from "@/lib/markdown";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { CopyPageButton } from "@/components/copy-page-button";
 
 export async function generateStaticParams() {
   return getAllSlugs()
@@ -28,7 +29,10 @@ export default async function DocPage({
     <div className="overflow-y-auto h-full">
     <article className="px-4 py-4 md:px-8 md:py-8 max-w-4xl mx-auto">
       <header className="mb-6">
-        <h1 className="text-3xl font-bold">{file.title}</h1>
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="text-3xl font-bold">{file.title}</h1>
+          <CopyPageButton markdown={`# ${file.title}\n\n${file.content}`} />
+        </div>
         {Array.isArray(file.frontmatter.tags) && (
           <div className="flex flex-wrap gap-1.5 mt-3">
             {(file.frontmatter.tags as string[]).map((tag: string) => (

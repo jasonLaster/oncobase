@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ActionsMenu } from "@/components/actions-menu";
 import { openCommandPalette } from "@/components/command-palette";
 
 const chatEnabled =
@@ -113,7 +113,7 @@ function HeaderInner() {
             Research
           </Link>
         )}
-        <ThemeToggle />
+        <ActionsMenu />
       </div>
     </header>
   );

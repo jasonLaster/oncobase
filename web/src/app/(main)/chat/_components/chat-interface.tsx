@@ -80,7 +80,7 @@ function ReadPageBadge({ input, output, done }: { input: Record<string, unknown>
             <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
           </svg>
         )}
-        <span className="truncate max-w-[200px]">{done ? title : `Reading ${slug}...`}</span>
+        <span className="truncate max-w-[200px]">{done ? `Read ${title}` : `Reading ${slug}...`}</span>
       </a>
     </div>
   );
@@ -89,6 +89,9 @@ function ReadPageBadge({ input, output, done }: { input: Record<string, unknown>
 function SearchResultsBlock({ output, done, query }: { output: unknown; done: boolean; query: string }) {
   const [expanded, setExpanded] = useState(false);
   const results = (Array.isArray(output) ? output : []) as Array<{ slug?: string; title?: string }>;
+
+  // Hide empty-query searches (model sometimes probes with empty string)
+  if (!query && results.length === 0) return null;
 
   return (
     <div className="my-1.5">
@@ -108,7 +111,9 @@ function SearchResultsBlock({ output, done, query }: { output: unknown; done: bo
           </svg>
         )}
         <span className="truncate">
-          {done ? `Searched "${query}" — ${results.length} results` : `Searching "${query}"...`}
+          {!done
+            ? (query ? `Searching "${query}"...` : "Searching...")
+            : `Searched "${query}" — ${results.length} result${results.length !== 1 ? "s" : ""}`}
         </span>
         {done && results.length > 0 && (
           <span className="text-[10px] shrink-0 ml-1">{expanded ? "▼" : "▶"}</span>
@@ -372,13 +377,6 @@ export function ChatInterface({
   // Sync messages from Convex when generation completes
   // (streamingText goes from defined to undefined = new message saved)
   const prevStreamingRef = useRef(serverStreamingText);
-  const lastStreamingTextRef = useRef<string | undefined>(undefined);
-
-  // Remember last non-empty streaming text for smooth transition
-  if (serverStreamingText) {
-    lastStreamingTextRef.current = serverStreamingText;
-  }
-
   useEffect(() => {
     const wasStreaming = prevStreamingRef.current !== undefined;
     const nowDone = serverStreamingText === undefined;
@@ -394,10 +392,7 @@ export function ChatInterface({
           disabled: m.disabled,
         }))
       );
-      queueMicrotask(() => {
-        setMessages(next);
-        lastStreamingTextRef.current = undefined;
-      });
+      queueMicrotask(() => setMessages(next));
     }
   }, [serverStreamingText, conversation]);
 
@@ -590,34 +585,38 @@ export function ChatInterface({
           return <AssistantMessage key={message.id} message={message} />;
         })}
 
-        {/* Server stream with structured parts */}
-        {(serverHasText || lastStreamingTextRef.current || serverStreamingParts) && (
+        {/* Server stream with structured parts — hide if last message is already assistant (final synced) */}
+        {(serverHasText || serverStreamingParts) && !(messages.length > 0 && messages[messages.length - 1]?.role === "assistant") && (
           <div className="flex justify-start">
             <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-2.5 bg-[var(--accent-light)] text-[var(--foreground)] text-sm">
               {serverStreamingParts ? (
                 (() => {
-                  const parts = JSON.parse(serverStreamingParts) as Array<Record<string, unknown>>;
-                  return parts.map((part, i) => {
-                    if (part.type === "text" && part.text) {
-                      return (
-                        <div key={i} className="prose text-sm">
-                          <MarkdownRenderer disableAnchors content={part.text as string} />
-                        </div>
-                      );
-                    }
-                    if (isToolPart(part as { type: string })) {
-                      const info = getToolInfo(part);
-                      if (!info) return null;
-                      return <ToolCallBlock key={i} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
-                    }
+                  try {
+                    const parts = JSON.parse(serverStreamingParts) as Array<Record<string, unknown>>;
+                    return parts.map((part, i) => {
+                      if (part.type === "text" && part.text) {
+                        return (
+                          <div key={i} className="prose text-sm">
+                            <MarkdownRenderer disableAnchors content={part.text as string} />
+                          </div>
+                        );
+                      }
+                      if (isToolPart(part as { type: string })) {
+                        const info = getToolInfo(part);
+                        if (!info) return null;
+                        return <ToolCallBlock key={i} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
+                      }
+                      return null;
+                    });
+                  } catch {
                     return null;
-                  });
+                  }
                 })()
-              ) : (
+              ) : serverStreamingText ? (
                 <div className="prose text-sm">
-                  <MarkdownRenderer disableAnchors content={serverStreamingText || lastStreamingTextRef.current!} />
+                  <MarkdownRenderer disableAnchors content={serverStreamingText} />
                 </div>
-              )}
+              ) : null}
               {isGenerating && (
                 <span className="inline-block w-1.5 h-4 bg-[var(--brand)] animate-pulse ml-0.5 -mb-0.5 rounded-sm" />
               )}
