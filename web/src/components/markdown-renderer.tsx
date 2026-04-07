@@ -1,14 +1,64 @@
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { resolveWikilinks } from "@/lib/wikilinks";
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim();
+}
+
+function HeadingWithAnchor({
+  level,
+  children,
+}: {
+  level: number;
+  children: React.ReactNode;
+}) {
+  const text =
+    typeof children === "string"
+      ? children
+      : Array.isArray(children)
+        ? children.map((c) => (typeof c === "string" ? c : "")).join("")
+        : "";
+  const id = slugify(text);
+  const Tag = `h${level}` as keyof JSX.IntrinsicElements;
+
+  return (
+    <Tag id={id} className="group relative">
+      <a
+        href={`#${id}`}
+        className="absolute -left-5 top-0 opacity-0 group-hover:opacity-100 text-[var(--text-muted)] no-underline transition-opacity"
+        aria-label={`Link to "${text}"`}
+      >
+        #
+      </a>
+      {children}
+    </Tag>
+  );
+}
+
+const components: Components = {
+  h1: ({ children }) => <HeadingWithAnchor level={1}>{children}</HeadingWithAnchor>,
+  h2: ({ children }) => <HeadingWithAnchor level={2}>{children}</HeadingWithAnchor>,
+  h3: ({ children }) => <HeadingWithAnchor level={3}>{children}</HeadingWithAnchor>,
+  h4: ({ children }) => <HeadingWithAnchor level={4}>{children}</HeadingWithAnchor>,
+};
 
 export function MarkdownRenderer({ content }: { content: string }) {
   const resolved = resolveWikilinks(content);
 
   return (
     <div className="prose max-w-none">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw]}
+        components={components}
+      >
         {resolved}
       </ReactMarkdown>
     </div>
