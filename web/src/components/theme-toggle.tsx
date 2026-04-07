@@ -4,14 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import { themeEffect } from "@/lib/theme-effect";
 
 export function ThemeToggle() {
-  const [preference, setPreference] = useState<undefined | null | string>(() => {
-    if (typeof window === "undefined") return undefined;
-    return localStorage.getItem("theme");
-  });
-  const [currentTheme, setCurrentTheme] = useState<null | string>(() => {
-    if (typeof window === "undefined") return null;
-    return themeEffect();
-  });
+  const [preference, setPreference] = useState<undefined | null | string>(undefined);
+  const [currentTheme, setCurrentTheme] = useState<null | string>(null);
+
+  // Hydrate client-only state after mount
+  useEffect(() => {
+    setPreference(localStorage.getItem("theme"));
+    setCurrentTheme(themeEffect());
+  }, []);
 
   const onMediaChange = useCallback(() => {
     const current = themeEffect();
