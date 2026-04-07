@@ -29,10 +29,10 @@ function HeadingWithAnchor({
   const Tag = `h${level}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 
   return (
-    <Tag id={id} className="group relative">
+    <Tag id={id} className="group">
       <a
         href={`#${id}`}
-        className="absolute -left-5 top-0 opacity-0 group-hover:opacity-100 text-[var(--text-muted)] no-underline transition-opacity"
+        className="mr-1 opacity-0 group-hover:opacity-100 text-[var(--text-muted)] no-underline hover:text-[var(--brand)] transition-opacity"
         aria-label={`Link to "${text}"`}
       >
         #

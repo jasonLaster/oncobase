@@ -8,16 +8,25 @@ import { api } from "@convex/_generated/api";
 import type { FileNode } from "@/lib/markdown";
 import { ConversationDropdown } from "@/app/(main)/chat/_components/chat-actions";
 
+function hasActiveDescendant(node: FileNode, pathname: string): boolean {
+  if (node.type === "file") return pathname === `/${node.slug}`;
+  return node.children?.some((child) => hasActiveDescendant(child, pathname)) ?? false;
+}
+
 function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(depth === 0);
+  const hasActive = hasActiveDescendant(node, pathname);
+  const shouldOpen = depth === 0 || hasActive;
+  // Reset user toggle when pathname changes by keying on pathname
+  const [userToggle, setUserToggle] = useState<{ path: string; open: boolean } | null>(null);
+  const open = userToggle?.path === pathname ? userToggle.open : shouldOpen;
   const isActive = pathname === `/${node.slug}`;
 
   if (node.type === "directory") {
     return (
       <div>
         <button
-          onClick={() => setOpen(!open)}
+          onClick={() => setUserToggle({ path: pathname, open: !open })}
           className="flex items-center gap-1.5 w-full text-left px-2 py-1 text-sm rounded hover:bg-[var(--accent-light)] transition-colors"
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
         >
@@ -51,23 +60,6 @@ function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
   );
 }
 
-function usePersistedState(key: string, fallback: boolean) {
-  const [value, setValue] = useState(() => {
-    if (typeof window === "undefined") return fallback;
-    const stored = localStorage.getItem(key);
-    return stored !== null ? stored === "true" : fallback;
-  });
-
-  const set = useCallback(
-    (next: boolean) => {
-      setValue(next);
-      localStorage.setItem(key, String(next));
-    },
-    [key]
-  );
-
-  return [value, set] as const;
-}
 
 function useActiveConversationId(): string | null {
   const pathname = usePathname();
@@ -178,7 +170,6 @@ function ConversationList() {
 
 export function Sidebar({ tree }: { tree: FileNode[] }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed] = usePersistedState("sidebar-collapsed", false);
   const pathname = usePathname();
   const isChat = pathname.startsWith("/chat");
 
@@ -243,43 +234,12 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
       </div>
 
       {/* Desktop sidebar */}
-      <aside
-        className={`hidden md:flex flex-col shrink-0 min-h-0 overflow-hidden border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] transition-[width] duration-200 ease-in-out ${
-          collapsed ? "w-12" : "w-64 relative group"
-        }`}
-      >
-        {collapsed ? (
-          <div className="shrink-0 flex flex-col items-center pt-2">
-            <button
-              onClick={() => setCollapsed(false)}
-              aria-label="Expand sidebar"
-              className="p-1.5 rounded-md hover:bg-[var(--accent-light)] text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <line x1="3" y1="4.5" x2="15" y2="4.5" />
-                <line x1="3" y1="9" x2="15" y2="9" />
-                <line x1="3" y1="13.5" x2="15" y2="13.5" />
-              </svg>
-            </button>
-          </div>
-        ) : (
-          <>
-            <button
-              onClick={() => setCollapsed(true)}
-              aria-label="Collapse sidebar"
-              className="absolute top-2 right-2 z-10 p-1 rounded-md bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] shadow-sm text-[var(--text-muted)] hover:text-[var(--foreground)] opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="11 4 7 8 11 12" />
-              </svg>
-            </button>
-            <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
-              {isChat ? <ConversationList /> : tree.map((node) => (
-                <TreeNode key={node.slug} node={node} />
-              ))}
-            </nav>
-          </>
-        )}
+      <aside className="hidden md:flex flex-col h-full min-h-0 overflow-hidden bg-[var(--sidebar-bg)]">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
+          {isChat ? <ConversationList /> : tree.map((node) => (
+            <TreeNode key={node.slug} node={node} />
+          ))}
+        </nav>
       </aside>
     </>
   );
