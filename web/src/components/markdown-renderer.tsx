@@ -2,6 +2,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { resolveWikilinks } from "@/lib/wikilinks";
+import { MdTable, MdThead, MdTbody, MdTr, MdTh, MdTd } from "@/components/markdown-table";
 
 function slugify(text: string): string {
   return text
@@ -47,6 +48,12 @@ const components: Components = {
   h2: ({ children }) => <HeadingWithAnchor level={2}>{children}</HeadingWithAnchor>,
   h3: ({ children }) => <HeadingWithAnchor level={3}>{children}</HeadingWithAnchor>,
   h4: ({ children }) => <HeadingWithAnchor level={4}>{children}</HeadingWithAnchor>,
+  table: MdTable,
+  thead: MdThead,
+  tbody: MdTbody,
+  tr: MdTr,
+  th: MdTh,
+  td: MdTd,
 };
 
 export function MarkdownRenderer({ content, disableAnchors }: { content: string; disableAnchors?: boolean }) {
@@ -57,7 +64,7 @@ export function MarkdownRenderer({ content, disableAnchors }: { content: string;
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw]}
-        components={disableAnchors ? undefined : components}
+        components={disableAnchors ? { table: MdTable, thead: MdThead, tbody: MdTbody, tr: MdTr, th: MdTh, td: MdTd } : components}
       >
         {resolved}
       </ReactMarkdown>
