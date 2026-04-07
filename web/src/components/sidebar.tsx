@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { FileNode } from "@/lib/markdown";
-
-const ConversationList = lazy(() => import("./conversation-list"));
+import ConversationList from "./conversation-list";
 
 function hasActiveDescendant(node: FileNode, decodedPathname: string): boolean {
   if (node.type === "file") return decodedPathname === `/${node.slug}`;
@@ -123,7 +122,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
             </button>
           </div>
           <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-0.5">
-            {isChat ? <Suspense fallback={<div className="px-2 py-1 text-xs text-[var(--text-muted)]">Loading...</div>}><ConversationList /></Suspense> : tree.map((node) => (
+            {isChat ? <ConversationList /> : tree.map((node) => (
               <TreeNode key={node.slug} node={node} />
             ))}
           </nav>
@@ -133,7 +132,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col h-full min-h-0 overflow-hidden bg-[var(--sidebar-bg)]">
         <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
-          {isChat ? <Suspense fallback={<div className="px-2 py-1 text-xs text-[var(--text-muted)]">Loading...</div>}><ConversationList /></Suspense> : tree.map((node) => (
+          {isChat ? <ConversationList /> : tree.map((node) => (
             <TreeNode key={node.slug} node={node} />
           ))}
         </nav>

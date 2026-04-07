@@ -25,6 +25,7 @@ export default defineSchema({
     updatedAt: v.number(),
     archived: v.optional(v.boolean()),
     streamingText: v.optional(v.string()),
+    streamingParts: v.optional(v.string()), // JSON-serialized parts array
     streamingUpdatedAt: v.optional(v.number()),
   }).index("by_updated", ["updatedAt"]),
 

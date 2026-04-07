@@ -52,8 +52,9 @@ export async function POST(request: Request) {
     }).catch(() => {});
   }
 
-  // Streaming text flush to Convex
+  // Streaming parts + text flush to Convex
   let accumulatedText = "";
+  const streamingParts: Array<Record<string, unknown>> = [];
   let flushQueued = false;
   let lastFlush = 0;
   const FLUSH_INTERVAL = 500; // ms
@@ -66,17 +67,26 @@ export async function POST(request: Request) {
     setTimeout(async () => {
       flushQueued = false;
       lastFlush = Date.now();
-      if (accumulatedText) {
-        try {
-          await getConvex().mutation(api.conversations.updateStreaming, {
-            conversationId: convId,
-            text: accumulatedText,
-          });
-        } catch {
-          // Best-effort
-        }
+      try {
+        await getConvex().mutation(api.conversations.updateStreaming, {
+          conversationId: convId,
+          text: accumulatedText,
+          parts: JSON.stringify(streamingParts),
+        });
+      } catch {
+        // Best-effort
       }
     }, wait);
+  }
+
+  function flushNow() {
+    if (!convId) return;
+    getConvex().mutation(api.conversations.updateStreaming, {
+      conversationId: convId,
+      text: accumulatedText,
+      parts: JSON.stringify(streamingParts),
+    }).catch(() => {});
+    lastFlush = Date.now();
   }
 
   const result = streamText({
@@ -168,9 +178,40 @@ export async function POST(request: Request) {
       }
     },
     onChunk: ({ chunk }) => {
-      if (convId && chunk.type === "text-delta") {
+      if (!convId) return;
+      if (chunk.type === "text-delta") {
         accumulatedText += (chunk as { text: string }).text;
+        // Update or create trailing text part
+        const last = streamingParts[streamingParts.length - 1];
+        if (last && last.type === "text") {
+          last.text = accumulatedText;
+        } else {
+          streamingParts.push({ type: "text", text: accumulatedText });
+        }
         scheduleFlush();
+      } else if (chunk.type === "tool-call") {
+        const tc = chunk as unknown as { toolCallId: string; toolName: string; args: unknown };
+        streamingParts.push({
+          type: `tool-${tc.toolName}`,
+          toolName: tc.toolName,
+          toolCallId: tc.toolCallId,
+          input: tc.args,
+          output: null,
+          state: "calling",
+        });
+        flushNow();
+      } else if (chunk.type === "tool-result") {
+        const tr = chunk as unknown as { toolCallId: string; result: unknown };
+        const part = streamingParts.find(
+          (p) => (p.toolCallId as string) === tr.toolCallId
+        );
+        if (part) {
+          part.output = tr.result;
+          part.state = "output-available";
+        }
+        // Reset accumulated text for next text segment
+        accumulatedText = "";
+        flushNow();
       }
     },
     onFinish: async ({ text, steps }) => {

@@ -55,19 +55,104 @@ function ReasoningBlock({ text }: { text: string }) {
   );
 }
 
-function ToolCallBlock({ toolName, state }: { toolName: string; state: string }) {
+function ReadPageBadge({ input, output, done }: { input: Record<string, unknown>; output: unknown; done: boolean }) {
+  const slug = (input?.slug as string) || "";
+  const result = output as { title?: string; slug?: string; error?: string } | null;
+  const title = result?.title || slug.split("/").pop() || slug;
+  const hasError = result?.error;
+
+  return (
+    <div className="my-1.5">
+      <a
+        href={`/${slug}`}
+        className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border transition-colors ${
+          done && !hasError
+            ? "bg-[var(--background)] border-[var(--sidebar-border)] text-[var(--brand)] hover:border-[var(--brand)]"
+            : done && hasError
+              ? "bg-[var(--background)] border-red-300 text-red-500"
+              : "bg-[var(--background)] border-[var(--sidebar-border)] text-[var(--text-muted)]"
+        }`}
+      >
+        {!done ? (
+          <span className="inline-block w-3 h-3 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-60">
+            <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
+          </svg>
+        )}
+        <span className="truncate max-w-[200px]">{done ? title : `Reading ${slug}...`}</span>
+      </a>
+    </div>
+  );
+}
+
+function SearchResultsBlock({ output, done, query }: { output: unknown; done: boolean; query: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const results = (Array.isArray(output) ? output : []) as Array<{ slug?: string; title?: string }>;
+
+  return (
+    <div className="my-1.5">
+      <button
+        onClick={() => done && setExpanded(!expanded)}
+        className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border transition-colors text-left ${
+          done
+            ? "bg-[var(--background)] border-[var(--sidebar-border)] text-[var(--text-muted)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
+            : "bg-[var(--background)] border-[var(--sidebar-border)] text-[var(--text-muted)]"
+        }`}
+      >
+        {!done ? (
+          <span className="inline-block w-3 h-3 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin shrink-0" />
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-60">
+            <path d="M15.25 14.19l-4.06-4.06a5.5 5.5 0 1 0-1.06 1.06l4.06 4.06a.75.75 0 1 0 1.06-1.06zM2 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0z" />
+          </svg>
+        )}
+        <span className="truncate">
+          {done ? `Searched "${query}" — ${results.length} results` : `Searching "${query}"...`}
+        </span>
+        {done && results.length > 0 && (
+          <span className="text-[10px] shrink-0 ml-1">{expanded ? "▼" : "▶"}</span>
+        )}
+      </button>
+      {expanded && results.length > 0 && (
+        <div className="mt-1 ml-1 border-l-2 border-[var(--sidebar-border)] pl-2 space-y-0.5">
+          {results.map((r, i) => (
+            <a
+              key={i}
+              href={`/${r.slug}`}
+              className="flex items-center gap-1.5 text-xs py-0.5 text-[var(--text-muted)] hover:text-[var(--brand)] transition-colors"
+            >
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-40">
+                <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
+              </svg>
+              <span className="truncate">{r.title || r.slug}</span>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ToolCallBlock({ toolName, state, output, input }: { toolName: string; state: string; output?: unknown; input?: unknown }) {
   const done = state === "output-available" || state === "output-error";
-  const label = done
-    ? `Used ${toolName}`
-    : state === "input-available"
-      ? `Calling ${toolName}...`
-      : `Running ${toolName}...`;
+  const inputObj = (input || {}) as Record<string, unknown>;
+
+  if (toolName === "read_page") {
+    return <ReadPageBadge input={inputObj} output={output} done={done} />;
+  }
+  if (toolName === "search_wiki") {
+    return <SearchResultsBlock output={output} done={done} query={(inputObj.query as string) || ""} />;
+  }
+  // Generic fallback
+  const label = done ? `Used ${toolName}` : `Running ${toolName}...`;
   return (
     <div className="flex items-center gap-1.5 my-1 text-xs text-[var(--text-muted)]">
-      {!done && (
+      {!done ? (
         <span className="inline-block w-3 h-3 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
+      ) : (
+        <span className="text-[10px]">✓</span>
       )}
-      {done && <span className="text-[10px]">✓</span>}
       <span className="italic">{label}</span>
     </div>
   );
@@ -84,6 +169,7 @@ function getToolInfo(part: Record<string, unknown>) {
       toolName: (part.toolName as string) || type.replace("tool-", ""),
       state: (part.state as string) || "call",
       output: part.output,
+      input: part.input,
     };
   }
   return null;
@@ -162,7 +248,7 @@ function AssistantMessage({ message }: { message: UIMessage }) {
           if (isToolPart(part)) {
             const info = getToolInfo(part as Record<string, unknown>);
             if (!info) return null;
-            return <ToolCallBlock key={i} toolName={info.toolName} state={info.state} />;
+            return <ToolCallBlock key={i} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
           }
           return null;
         })}
@@ -198,6 +284,7 @@ export function ChatInterface({
   const clearStreamingMutation = useMutation(api.conversations.clearStreaming);
   const disableMessageMutation = useMutation(api.conversations.disableMessage);
   const serverStreamingText = conversation?.streamingText;
+  const serverStreamingParts = conversation?.streamingParts;
   const streamingUpdatedAt = conversation?.streamingUpdatedAt;
 
   const [messages, setMessages] = useState<ChatUIMessage[]>(() =>
@@ -503,14 +590,35 @@ export function ChatInterface({
           return <AssistantMessage key={message.id} message={message} />;
         })}
 
-        {/* Server stream with text — also show last known text during transition */}
-        {(serverHasText || lastStreamingTextRef.current) && (
+        {/* Server stream with structured parts */}
+        {(serverHasText || lastStreamingTextRef.current || serverStreamingParts) && (
           <div className="flex justify-start">
             <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-2.5 bg-[var(--accent-light)] text-[var(--foreground)] text-sm">
-              <div className="prose text-sm">
-                <MarkdownRenderer disableAnchors content={serverStreamingText || lastStreamingTextRef.current!} />
-              </div>
-              {serverHasText && (
+              {serverStreamingParts ? (
+                (() => {
+                  const parts = JSON.parse(serverStreamingParts) as Array<Record<string, unknown>>;
+                  return parts.map((part, i) => {
+                    if (part.type === "text" && part.text) {
+                      return (
+                        <div key={i} className="prose text-sm">
+                          <MarkdownRenderer disableAnchors content={part.text as string} />
+                        </div>
+                      );
+                    }
+                    if (isToolPart(part as { type: string })) {
+                      const info = getToolInfo(part);
+                      if (!info) return null;
+                      return <ToolCallBlock key={i} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
+                    }
+                    return null;
+                  });
+                })()
+              ) : (
+                <div className="prose text-sm">
+                  <MarkdownRenderer disableAnchors content={serverStreamingText || lastStreamingTextRef.current!} />
+                </div>
+              )}
+              {isGenerating && (
                 <span className="inline-block w-1.5 h-4 bg-[var(--brand)] animate-pulse ml-0.5 -mb-0.5 rounded-sm" />
               )}
             </div>

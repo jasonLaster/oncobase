@@ -54,12 +54,15 @@ export const updateStreaming = mutation({
   args: {
     conversationId: v.id("conversations"),
     text: v.string(),
+    parts: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, text }) => {
-    await ctx.db.patch(conversationId, {
+  handler: async (ctx, { conversationId, text, parts }) => {
+    const patch: Record<string, unknown> = {
       streamingText: text,
       streamingUpdatedAt: Date.now(),
-    });
+    };
+    if (parts !== undefined) patch.streamingParts = parts;
+    await ctx.db.patch(conversationId, patch);
   },
 });
 
@@ -68,6 +71,7 @@ export const clearStreaming = mutation({
   handler: async (ctx, { conversationId }) => {
     await ctx.db.patch(conversationId, {
       streamingText: undefined,
+      streamingParts: undefined,
       streamingUpdatedAt: undefined,
     });
   },
