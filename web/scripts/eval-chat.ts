@@ -1,12 +1,32 @@
 /**
  * Evaluate chat agent quality by sending test questions and analyzing tool usage.
  *
- * Usage: npx tsx scripts/eval-chat.ts
+ * Usage: npx tsx scripts/eval-chat.ts [model] [optional single question]
+ *
+ * Examples:
+ *   npx tsx scripts/eval-chat.ts "openai/gpt-5.4-mini"
+ *   npx tsx scripts/eval-chat.ts "anthropic/claude-sonnet-4" "What is pCR?"
+ *
+ * --- Leaderboard (2026-04-07) ---
+ *
+ * | Model                          | Overall | Search | Tools | Citations | Length | Speed  |
+ * |--------------------------------|---------|--------|-------|-----------|--------|--------|
+ * | openai/gpt-5.4-mini            |   9.7   |   10   |   9   |    10     |   9.4  |  8.4s  |
+ * | anthropic/claude-sonnet-4      |   9.7   |   10   |   9   |    9.8    |   9.6  | 27.9s  |
+ * | anthropic/claude-opus-4.6      |   9.4   |   10   |   9   |    10     |   7.8  | 42.8s  |
+ * | moonshotai/kimi-k2             |   9.2   |   9.9  |  7.1  |    9.8    |   10   | 29.6s  |
+ * | anthropic/claude-sonnet-4.6    |   9.1   |   10   |   9   |    10     |   6.8  | 38.9s  |
+ * | google/gemini-2.5-flash        |   9.0   |   10   |  5.9  |    10     |   10   |  6.1s  |
+ * | google/gemini-3.1-flash-lite   |   8.9   |   10   |  5.9  |    10     |   9.6  |  6.1s  |
+ * | openai/gpt-4.1-mini            |   8.9   |   9.9  |  8.4  |    7.3    |   10   | 22.6s  |
+ * | qwen/qwen3.5-flash-02-23      |   8.2   |   10   |  8.8  |     7     |   6.1  | 15.6s  |
+ *
+ * Winner: openai/gpt-5.4-mini — top quality at 3-5x the speed of Claude models.
  */
 import {
   streamText,
   stepCountIs,
-  type CoreMessage,
+  type ModelMessage,
 } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -267,7 +287,7 @@ async function runOne(question: string, model: string): Promise<EvalResult> {
   const tools = createTools(events);
   const start = Date.now();
 
-  const messages: CoreMessage[] = [{ role: "user", content: question }];
+  const messages: ModelMessage[] = [{ role: "user", content: question }];
 
   const result = await streamText({
     model: openrouter.chat(model),

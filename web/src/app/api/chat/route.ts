@@ -103,7 +103,7 @@ export async function POST(request: Request) {
   }
 
   const result = streamText({
-    model: openrouter.chat("openai/gpt-5.4-mini"),
+    model: openrouter.chat("openai/gpt-5.4-mini"), // see scripts/eval-chat.ts for model leaderboard
     system: SYSTEM_PROMPT,
     messages: modelMessages,
     stopWhen: stepCountIs(10),
