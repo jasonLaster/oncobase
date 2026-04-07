@@ -17,6 +17,12 @@ import dotenv from "dotenv";
 // Load .env.local if present (local dev); on Vercel, env vars are injected automatically
 dotenv.config({ path: path.join(__dirname, "..", ".env.local") });
 
+// Debug: log available NEXT_PUBLIC_* and CONVEX_* env vars
+const relevantVars = Object.keys(process.env).filter(
+  (k) => k.startsWith("NEXT_PUBLIC_") || k.startsWith("CONVEX_")
+);
+console.log(`Available env vars: ${relevantVars.length ? relevantVars.join(", ") : "(none)"}`);
+
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 if (!CONVEX_URL) {
   console.error("NEXT_PUBLIC_CONVEX_URL not set — skipping ingestion");
