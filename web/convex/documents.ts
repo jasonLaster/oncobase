@@ -4,11 +4,30 @@ import { v } from "convex/values";
 export const search = query({
   args: { query: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { query: q, limit }) => {
-    const results = await ctx.db
-      .query("documents")
-      .withSearchIndex("search_content", (s) => s.search("content", q))
-      .take(limit ?? 8);
-    return results.map((doc) => ({
+    const take = limit ?? 10;
+
+    // Search both content and title indexes, then merge
+    const [contentResults, titleResults] = await Promise.all([
+      ctx.db
+        .query("documents")
+        .withSearchIndex("search_content", (s) => s.search("content", q))
+        .take(take),
+      ctx.db
+        .query("documents")
+        .withSearchIndex("search_title", (s) => s.search("title", q))
+        .take(take),
+    ]);
+
+    // Deduplicate, preferring content matches
+    const seen = new Set<string>();
+    const merged = [];
+    for (const doc of [...titleResults, ...contentResults]) {
+      if (seen.has(doc._id)) continue;
+      seen.add(doc._id);
+      merged.push(doc);
+    }
+
+    return merged.slice(0, take).map((doc) => ({
       slug: doc.slug,
       title: doc.title,
       tags: doc.tags,

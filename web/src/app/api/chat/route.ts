@@ -97,9 +97,9 @@ export async function POST(request: Request) {
     tools: {
       search_wiki: {
         description:
-          "Search across all wiki pages and source documents for a keyword or phrase. Returns matching pages with relevant excerpts.",
+          "Search across all wiki pages and source documents. Use short, focused queries with 1-3 key terms (e.g. 'clinical trials', 'prognosis', 'mRNA vaccine'). Run multiple searches with different terms rather than one long query. Searches both titles and content.",
         inputSchema: z.object({
-          query: z.string().describe("The search term or phrase"),
+          query: z.string().describe("Short search query, 1-3 key terms"),
         }),
         execute: async ({ query }: { query: string }) => {
           return await getConvex().query(api.documents.search, { query, limit: 8 });
