@@ -152,7 +152,7 @@ function AssistantMessage({ message }: { message: UIMessage }) {
           if (part.type === "text" && part.text) {
             return (
               <div key={i} className="prose text-sm">
-                <MarkdownRenderer content={part.text} />
+                <MarkdownRenderer disableAnchors content={part.text} />
               </div>
             );
           }
@@ -498,7 +498,7 @@ export function ChatInterface({
           <div className="flex justify-start">
             <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-2.5 bg-[var(--accent-light)] text-[var(--foreground)] text-sm">
               <div className="prose text-sm">
-                <MarkdownRenderer content={serverStreamingText!} />
+                <MarkdownRenderer disableAnchors content={serverStreamingText!} />
               </div>
               <span className="inline-block w-1.5 h-4 bg-[var(--brand)] animate-pulse ml-0.5 -mb-0.5 rounded-sm" />
             </div>

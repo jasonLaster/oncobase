@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useQuery } from "convex/react";
-import { api } from "@convex/_generated/api";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import type { FileNode } from "@/lib/markdown";
-import { ConversationDropdown } from "@/app/(main)/chat/_components/chat-actions";
+
+const ConversationList = lazy(() => import("./conversation-list"));
 
 function hasActiveDescendant(node: FileNode, pathname: string): boolean {
   if (node.type === "file") return pathname === `/${node.slug}`;
@@ -61,112 +60,6 @@ function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
 }
 
 
-function useActiveConversationId(): string | null {
-  const pathname = usePathname();
-
-  // Derive from pathname (covers route changes)
-  const pathnameId = useMemo(() => {
-    const match = pathname.match(/^\/chat\/(.+)$/);
-    return match ? match[1] : null;
-  }, [pathname]);
-
-  // Also track replaceState changes (new conversation creation)
-  const [replaceStateId, setReplaceStateId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handler = () => {
-      const match = window.location.pathname.match(/^\/chat\/(.+)$/);
-      setReplaceStateId(match ? match[1] : null);
-    };
-    window.addEventListener("popstate", handler);
-
-    const origReplace = history.replaceState.bind(history);
-    history.replaceState = (...args: Parameters<typeof history.replaceState>) => {
-      origReplace(...args);
-      handler();
-    };
-
-    return () => {
-      window.removeEventListener("popstate", handler);
-      history.replaceState = origReplace;
-    };
-  }, []);
-
-  return replaceStateId ?? pathnameId;
-}
-
-function ConversationList() {
-  const conversations = useQuery(api.conversations.list);
-  const pathname = usePathname();
-  const activeId = useActiveConversationId();
-  const isNewChat = pathname === "/chat" && activeId === null;
-
-  return (
-    <div className="space-y-0.5">
-      <Link
-        href="/chat"
-        className={`flex items-center gap-1.5 px-2 py-1.5 text-sm rounded transition-colors ${
-          isNewChat
-            ? "bg-[var(--accent-light)] text-[var(--brand)] font-medium"
-            : "hover:bg-[var(--accent-light)] text-[var(--brand)] font-medium"
-        }`}
-      >
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-          <line x1="8" y1="3" x2="8" y2="13" />
-          <line x1="3" y1="8" x2="13" y2="8" />
-        </svg>
-        New chat
-      </Link>
-      {conversations === undefined && (
-        <div className="px-2 py-1 text-xs text-[var(--text-muted)]">Loading...</div>
-      )}
-      {conversations?.map((conv) => {
-        const isActive = conv._id === activeId;
-        return (
-          <div key={conv._id} className="group/item flex items-center rounded hover:bg-[var(--accent-light)] transition-colors">
-            <Link
-              href={`/chat/${conv._id}`}
-              onClick={(e) => {
-                if (isActive) e.preventDefault();
-              }}
-              className={`flex-1 min-w-0 px-2 py-1 text-sm rounded truncate transition-colors ${
-                isActive
-                  ? "text-[var(--brand)] font-medium"
-                  : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
-              }`}
-              title={conv.title}
-            >
-              {conv.title}
-            </Link>
-            <div className="shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity pr-1">
-              <ConversationDropdown conversationId={conv._id} />
-            </div>
-          </div>
-        );
-      })}
-      {conversations?.length === 0 && (
-        <div className="px-2 py-1 text-xs text-[var(--text-muted)]">No conversations yet</div>
-      )}
-      <div className="mt-4 pt-2 border-t border-[var(--sidebar-border)]">
-        <Link
-          href="/chat/archived"
-          className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors ${
-            pathname === "/chat/archived"
-              ? "text-[var(--brand)] bg-[var(--accent-light)]"
-              : "text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--accent-light)]"
-          }`}
-        >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="2" width="12" height="4" rx="1" />
-            <path d="M2 6v7a1 1 0 001 1h10a1 1 0 001-1V6" />
-            <path d="M6.5 9.5h3" />
-          </svg>
-          View archived
-        </Link>
-      </div>
-    </div>
-  );
-}
 
 export function Sidebar({ tree }: { tree: FileNode[] }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -226,7 +119,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
             </button>
           </div>
           <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-0.5">
-            {isChat ? <ConversationList /> : tree.map((node) => (
+            {isChat ? <Suspense fallback={<div className="px-2 py-1 text-xs text-[var(--text-muted)]">Loading...</div>}><ConversationList /></Suspense> : tree.map((node) => (
               <TreeNode key={node.slug} node={node} />
             ))}
           </nav>
@@ -236,7 +129,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col h-full min-h-0 overflow-hidden bg-[var(--sidebar-bg)]">
         <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
-          {isChat ? <ConversationList /> : tree.map((node) => (
+          {isChat ? <Suspense fallback={<div className="px-2 py-1 text-xs text-[var(--text-muted)]">Loading...</div>}><ConversationList /></Suspense> : tree.map((node) => (
             <TreeNode key={node.slug} node={node} />
           ))}
         </nav>

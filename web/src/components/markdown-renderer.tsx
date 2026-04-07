@@ -29,10 +29,10 @@ function HeadingWithAnchor({
   const Tag = `h${level}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 
   return (
-    <Tag id={id} className="group">
+    <Tag id={id} className="group relative">
       <a
         href={`#${id}`}
-        className="mr-1 opacity-0 group-hover:opacity-100 text-[var(--text-muted)] no-underline hover:text-[var(--brand)] transition-opacity"
+        className="absolute -left-6 top-0 opacity-0 group-hover:opacity-100 text-[var(--text-muted)] no-underline hover:no-underline hover:text-[var(--brand)] transition-opacity cursor-pointer"
         aria-label={`Link to "${text}"`}
       >
         #
@@ -49,7 +49,7 @@ const components: Components = {
   h4: ({ children }) => <HeadingWithAnchor level={4}>{children}</HeadingWithAnchor>,
 };
 
-export function MarkdownRenderer({ content }: { content: string }) {
+export function MarkdownRenderer({ content, disableAnchors }: { content: string; disableAnchors?: boolean }) {
   const resolved = resolveWikilinks(content);
 
   return (
@@ -57,7 +57,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw]}
-        components={components}
+        components={disableAnchors ? undefined : components}
       >
         {resolved}
       </ReactMarkdown>
