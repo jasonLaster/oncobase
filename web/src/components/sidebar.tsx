@@ -7,25 +7,29 @@ import type { FileNode } from "@/lib/markdown";
 
 const ConversationList = lazy(() => import("./conversation-list"));
 
-function hasActiveDescendant(node: FileNode, pathname: string): boolean {
-  if (node.type === "file") return pathname === `/${node.slug}`;
-  return node.children?.some((child) => hasActiveDescendant(child, pathname)) ?? false;
+function hasActiveDescendant(node: FileNode, decodedPathname: string): boolean {
+  if (node.type === "file") return decodedPathname === `/${node.slug}`;
+  return node.children?.some((child) => hasActiveDescendant(child, decodedPathname)) ?? false;
 }
 
 function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  const pathname = decodeURIComponent(rawPathname);
   const hasActive = hasActiveDescendant(node, pathname);
   const shouldOpen = depth === 0 || hasActive;
-  // Reset user toggle when pathname changes by keying on pathname
-  const [userToggle, setUserToggle] = useState<{ path: string; open: boolean } | null>(null);
-  const open = userToggle?.path === pathname ? userToggle.open : shouldOpen;
+  const [userToggle, setUserToggle] = useState<boolean | null>(null);
+  // Reset user override when pathname changes
+  useEffect(() => {
+    setUserToggle(null);
+  }, [pathname]);
+  const open = userToggle !== null ? userToggle : shouldOpen;
   const isActive = pathname === `/${node.slug}`;
 
   if (node.type === "directory") {
     return (
       <div>
         <button
-          onClick={() => setUserToggle({ path: pathname, open: !open })}
+          onClick={() => setUserToggle(!open)}
           className="flex items-center gap-1.5 w-full text-left px-2 py-1 text-sm rounded hover:bg-[var(--accent-light)] transition-colors"
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
         >

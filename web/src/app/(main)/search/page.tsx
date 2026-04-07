@@ -1,73 +1,86 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { searchMarkdown, type SearchResult } from "@/lib/search";
 
-function HighlightedLine({
-  line,
-  matchStart,
-  matchEnd,
-}: {
-  line: string;
-  matchStart: number;
-  matchEnd: number;
-}) {
-  const before = line.slice(0, matchStart);
-  const match = line.slice(matchStart, matchEnd);
-  const after = line.slice(matchEnd);
-
-  return (
-    <span>
-      {before}
-      <span className="bg-[#e2ac4a] text-[#1a1a2e] rounded-sm px-px">
-        {match}
-      </span>
-      {after}
-    </span>
-  );
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function FileResult({
-  result,
-  collapsed,
-  onToggle,
-}: {
+function highlightQuery(text: string, query: string): string {
+  if (!query.trim()) return text;
+  const pattern = escapeRegex(query.trim());
+  const regex = new RegExp(`(${pattern})`, "gi");
+  return text.replace(regex, "<mark>$1</mark>");
+}
+
+interface DirNode {
+  name: string;
+  path: string;
+  dirs: Map<string, DirNode>;
+  files: SearchResult[];
+  totalMatches: number;
+}
+
+function buildTree(results: SearchResult[]): DirNode {
+  const root: DirNode = { name: "", path: "", dirs: new Map(), files: [], totalMatches: 0 };
+
+  for (const result of results) {
+    const parts = result.slug.split("/");
+    const fileName = parts.pop()!;
+    let node = root;
+
+    for (const part of parts) {
+      if (!node.dirs.has(part)) {
+        const childPath = node.path ? `${node.path}/${part}` : part;
+        node.dirs.set(part, { name: part, path: childPath, dirs: new Map(), files: [], totalMatches: 0 });
+      }
+      node = node.dirs.get(part)!;
+    }
+
+    node.files.push({ ...result, slug: result.slug, title: fileName });
+  }
+
+  // Roll up match counts
+  function countMatches(node: DirNode): number {
+    let total = node.files.reduce((s, f) => s + f.matches.length, 0);
+    for (const child of node.dirs.values()) {
+      total += countMatches(child);
+    }
+    node.totalMatches = total;
+    return total;
+  }
+  countMatches(root);
+
+  return root;
+}
+
+function FileMatches({ result, collapsed, onToggle, query }: {
   result: SearchResult;
   collapsed: boolean;
   onToggle: () => void;
+  query: string;
 }) {
-  const pathParts = result.slug.split("/");
-  const fileName = pathParts.pop() || "";
-  const dirPath = pathParts.join("/");
+  const fileName = result.title || result.slug.split("/").pop() || "";
 
   return (
-    <div className="mb-1">
+    <div className="mb-0.5">
       <button
         onClick={onToggle}
-        className="flex items-center gap-2 w-full text-left px-2 py-1.5 hover:bg-[var(--sidebar-bg)] rounded transition-colors group"
+        className="flex items-center gap-2 w-full text-left px-2 py-1 hover:bg-[var(--sidebar-bg)] rounded transition-colors"
       >
         <span className="text-xs opacity-50 w-4 text-center">
           {collapsed ? "▶" : "▼"}
         </span>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          className="shrink-0 opacity-70"
-          fill="currentColor"
-        >
-          <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
+        <svg width="14" height="14" viewBox="0 0 16 16" className="shrink-0 opacity-50" fill="currentColor">
+          <path d="M13 4H8.4l-.6-.6-.3-.4H3l-.5.5v9l.5.5h10l.5-.5V4.5L13 4zm-.5 8h-9V4.5h3.6l.8.8.2.2H12.5v6.5z" />
         </svg>
-        <span className="font-semibold text-sm text-[var(--foreground)]">
-          {fileName}
-        </span>
-        {dirPath && (
-          <span className="text-xs text-[var(--text-muted)] truncate">
-            {dirPath}
-          </span>
-        )}
+        <span className="text-sm text-[var(--foreground)]">{fileName}</span>
         <span className="ml-auto text-xs text-[var(--text-muted)] bg-[var(--sidebar-bg)] px-1.5 py-0.5 rounded-full">
           {result.matches.length}
         </span>
@@ -79,19 +92,80 @@ function FileResult({
             <Link
               key={i}
               href={`/${result.slug}`}
-              className="flex items-start gap-3 px-3 py-0.5 hover:bg-[var(--sidebar-bg)] transition-colors text-sm font-mono group"
+              className="flex items-start gap-3 px-3 py-0.5 hover:bg-[var(--sidebar-bg)] transition-colors text-sm"
             >
-              <span className="text-[var(--text-muted)] text-xs w-8 text-right shrink-0 pt-px select-none">
+              <span className="text-[var(--text-muted)] text-xs w-8 text-right shrink-0 pt-1 select-none font-mono">
                 {match.lineNumber}
               </span>
-              <span className="text-[var(--foreground)] opacity-80 truncate leading-relaxed">
-                <HighlightedLine
-                  line={match.lineContent}
-                  matchStart={match.matchStart}
-                  matchEnd={match.matchEnd}
-                />
+              <span className="text-[var(--foreground)] opacity-80 leading-relaxed break-words max-w-none [&>*]:m-0 [&_a]:text-[var(--brand)] [&_a]:no-underline [&_h1]:text-base [&_h1]:font-bold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-medium [&_h4]:text-sm [&_h4]:font-medium [&_strong]:font-semibold [&_code]:bg-[var(--sidebar-bg)] [&_code]:px-1 [&_code]:rounded [&_code]:text-xs [&_table]:text-xs [&_table]:border-collapse [&_th]:text-left [&_th]:pr-3 [&_th]:font-semibold [&_th]:border-b [&_th]:border-[var(--sidebar-border)] [&_td]:pr-3 [&_td]:py-0.5 [&_td]:border-b [&_td]:border-[var(--sidebar-border)] [&_li]:list-disc [&_li]:ml-4 [&_mark]:bg-[var(--brand)]/15 [&_mark]:text-[var(--brand)] [&_mark]:rounded-sm [&_mark]:px-0.5">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                  {highlightQuery(match.lineContent, query)}
+                </ReactMarkdown>
               </span>
             </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DirTree({ node, depth, collapsed, onToggleDir, onToggleFile, collapsedFiles, query }: {
+  node: DirNode;
+  depth: number;
+  collapsed: Set<string>;
+  onToggleDir: (path: string) => void;
+  onToggleFile: (slug: string) => void;
+  collapsedFiles: Set<string>;
+  query: string;
+}) {
+  const isCollapsed = collapsed.has(node.path);
+  const sortedDirs = Array.from(node.dirs.values()).sort((a, b) => a.name.localeCompare(b.name));
+  const sortedFiles = [...node.files].sort((a, b) => b.matches.length - a.matches.length);
+
+  return (
+    <div style={{ paddingLeft: depth > 0 ? 8 : 0 }}>
+      {depth > 0 && (
+        <button
+          onClick={() => onToggleDir(node.path)}
+          className="flex items-center gap-2 w-full text-left px-2 py-1.5 hover:bg-[var(--sidebar-bg)] rounded transition-colors"
+        >
+          <span className="text-xs opacity-50 w-4 text-center">
+            {isCollapsed ? "▶" : "▼"}
+          </span>
+          <svg width="14" height="14" viewBox="0 0 16 16" className="shrink-0 opacity-70" fill="currentColor">
+            <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
+          </svg>
+          <span className="font-medium text-sm text-[var(--foreground)]">{node.name}</span>
+          <span className="ml-auto text-xs text-[var(--text-muted)] bg-[var(--sidebar-bg)] px-1.5 py-0.5 rounded-full">
+            {node.totalMatches}
+          </span>
+        </button>
+      )}
+
+      {!isCollapsed && (
+        <div>
+          {sortedDirs.map((dir) => (
+            <DirTree
+              key={dir.path}
+              node={dir}
+              depth={depth + 1}
+              collapsed={collapsed}
+              onToggleDir={onToggleDir}
+              onToggleFile={onToggleFile}
+              collapsedFiles={collapsedFiles}
+              query={query}
+            />
+          ))}
+          {sortedFiles.map((result) => (
+            <div key={result.slug} style={{ paddingLeft: 8 }}>
+              <FileMatches
+                result={result}
+                collapsed={collapsedFiles.has(result.slug)}
+                onToggle={() => onToggleFile(result.slug)}
+                query={query}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -109,12 +183,13 @@ export default function SearchPage() {
 
 function SearchContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const query = searchParams.get("q") || "";
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [inputValue, setInputValue] = useState(query);
+  const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
+
+  const tree = useMemo(() => buildTree(results), [results]);
 
   const doSearch = useCallback(async (q: string) => {
     if (q.trim().length < 2) {
@@ -125,6 +200,8 @@ function SearchContent() {
     try {
       const res = await searchMarkdown(q);
       setResults(res);
+      setCollapsedDirs(new Set());
+      setCollapsedFiles(new Set());
     } finally {
       setLoading(false);
     }
@@ -136,9 +213,13 @@ function SearchContent() {
     }
   }, [query, doSearch]);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    router.push(`/search?q=${encodeURIComponent(inputValue)}`);
+  function toggleDir(path: string) {
+    setCollapsedDirs((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
   }
 
   function toggleFile(slug: string) {
@@ -154,29 +235,7 @@ function SearchContent() {
 
   return (
     <div className="overflow-y-auto h-full">
-    <div className="max-w-3xl px-4 py-4 md:px-8 md:py-8">
-      <form onSubmit={handleSubmit} className="mb-6">
-        <div className="relative">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="currentColor"
-            className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40"
-          >
-            <path d="M15.25 14.19l-4.06-4.06a5.5 5.5 0 1 0-1.06 1.06l4.06 4.06a.75.75 0 1 0 1.06-1.06zM2 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0z" />
-          </svg>
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Search files..."
-            autoFocus
-            className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--foreground)] text-sm font-mono placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] transition-colors"
-          />
-        </div>
-      </form>
-
+    <div className="px-2 py-4 md:px-4 md:py-6">
       {loading && (
         <div className="text-sm text-[var(--text-muted)] py-4">Searching...</div>
       )}
@@ -194,16 +253,15 @@ function SearchContent() {
             {results.length} file{results.length !== 1 ? "s" : ""}
           </div>
 
-          <div>
-            {results.map((result) => (
-              <FileResult
-                key={result.slug}
-                result={result}
-                collapsed={collapsedFiles.has(result.slug)}
-                onToggle={() => toggleFile(result.slug)}
-              />
-            ))}
-          </div>
+          <DirTree
+            node={tree}
+            depth={0}
+            collapsed={collapsedDirs}
+            onToggleDir={toggleDir}
+            onToggleFile={toggleFile}
+            collapsedFiles={collapsedFiles}
+            query={query}
+          />
         </>
       )}
 

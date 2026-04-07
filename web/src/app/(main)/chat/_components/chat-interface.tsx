@@ -285,6 +285,13 @@ export function ChatInterface({
   // Sync messages from Convex when generation completes
   // (streamingText goes from defined to undefined = new message saved)
   const prevStreamingRef = useRef(serverStreamingText);
+  const lastStreamingTextRef = useRef<string | undefined>(undefined);
+
+  // Remember last non-empty streaming text for smooth transition
+  if (serverStreamingText) {
+    lastStreamingTextRef.current = serverStreamingText;
+  }
+
   useEffect(() => {
     const wasStreaming = prevStreamingRef.current !== undefined;
     const nowDone = serverStreamingText === undefined;
@@ -300,7 +307,10 @@ export function ChatInterface({
           disabled: m.disabled,
         }))
       );
-      queueMicrotask(() => setMessages(next));
+      queueMicrotask(() => {
+        setMessages(next);
+        lastStreamingTextRef.current = undefined;
+      });
     }
   }, [serverStreamingText, conversation]);
 
@@ -493,14 +503,16 @@ export function ChatInterface({
           return <AssistantMessage key={message.id} message={message} />;
         })}
 
-        {/* Server stream with text */}
-        {serverHasText && (
+        {/* Server stream with text — also show last known text during transition */}
+        {(serverHasText || lastStreamingTextRef.current) && (
           <div className="flex justify-start">
             <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-2.5 bg-[var(--accent-light)] text-[var(--foreground)] text-sm">
               <div className="prose text-sm">
-                <MarkdownRenderer disableAnchors content={serverStreamingText!} />
+                <MarkdownRenderer disableAnchors content={serverStreamingText || lastStreamingTextRef.current!} />
               </div>
-              <span className="inline-block w-1.5 h-4 bg-[var(--brand)] animate-pulse ml-0.5 -mb-0.5 rounded-sm" />
+              {serverHasText && (
+                <span className="inline-block w-1.5 h-4 bg-[var(--brand)] animate-pulse ml-0.5 -mb-0.5 rounded-sm" />
+              )}
             </div>
           </div>
         )}

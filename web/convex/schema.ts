@@ -2,6 +2,23 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  documents: defineTable({
+    slug: v.string(),
+    title: v.string(),
+    content: v.string(),
+    tags: v.array(v.string()),
+    contentHash: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .searchIndex("search_content", {
+      searchField: "content",
+      filterFields: ["slug", "tags"],
+    })
+    .searchIndex("search_title", {
+      searchField: "title",
+    }),
+
   conversations: defineTable({
     title: v.string(),
     createdAt: v.number(),

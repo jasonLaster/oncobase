@@ -9,13 +9,6 @@ import { z } from "zod";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import {
-  getMarkdownFile,
-  getAllSlugs,
-  getAllTags,
-  getPagesByTag,
-} from "@/lib/markdown";
-import { searchMarkdown } from "@/lib/search";
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -87,27 +80,19 @@ export async function POST(request: Request) {
   }
 
   const result = streamText({
-    model: openrouter.chat("anthropic/claude-sonnet-4"),
+    model: openrouter.chat("openai/gpt-5.4-mini"),
     system: SYSTEM_PROMPT,
     messages: modelMessages,
     stopWhen: stepCountIs(10),
     tools: {
       search_wiki: {
         description:
-          "Search across all wiki pages and source documents for a keyword or phrase. Returns matching pages with relevant line excerpts.",
+          "Search across all wiki pages and source documents for a keyword or phrase. Returns matching pages with relevant excerpts.",
         inputSchema: z.object({
           query: z.string().describe("The search term or phrase"),
         }),
         execute: async ({ query }: { query: string }) => {
-          const results = await searchMarkdown(query);
-          return results.slice(0, 8).map((r) => ({
-            slug: r.slug,
-            title: r.title,
-            matchCount: r.matches.length,
-            excerpts: r.matches
-              .slice(0, 3)
-              .map((m) => m.lineContent.trim()),
-          }));
+          return await getConvex().query(api.documents.search, { query, limit: 8 });
         },
       },
       read_page: {
@@ -117,17 +102,17 @@ export async function POST(request: Request) {
           slug: z
             .string()
             .describe(
-              'The page slug, e.g. "wiki/treatment-plan" or "sources/meeting-notes/319---stanford-med-onc"'
+              'The page slug, e.g. "wiki/treatment/treatment-plan" or "sources/meeting-notes/319---stanford-med-onc"'
             ),
         }),
         execute: async ({ slug }: { slug: string }) => {
-          const file = getMarkdownFile(slug);
-          if (!file) return { error: `Page not found: ${slug}` };
+          const doc = await getConvex().query(api.documents.getBySlug, { slug });
+          if (!doc) return { error: `Page not found: ${slug}` };
           return {
-            slug: file.slug,
-            title: file.title,
-            tags: file.frontmatter.tags || [],
-            content: file.content.slice(0, 8000),
+            slug: doc.slug,
+            title: doc.title,
+            tags: doc.tags,
+            content: doc.content.slice(0, 8000),
           };
         },
       },
@@ -136,15 +121,7 @@ export async function POST(request: Request) {
           "List all available wiki pages to discover what content exists.",
         inputSchema: z.object({}),
         execute: async () => {
-          const slugs = getAllSlugs();
-          return slugs.map((s) => {
-            const file = getMarkdownFile(s);
-            return {
-              slug: s,
-              title: file?.title || s,
-              tags: (file?.frontmatter.tags as string[]) || [],
-            };
-          });
+          return await getConvex().query(api.documents.list, {});
         },
       },
       get_pages_by_tag: {
@@ -153,14 +130,14 @@ export async function POST(request: Request) {
           tag: z.string().describe("The tag to search for"),
         }),
         execute: async ({ tag }: { tag: string }) => {
-          return getPagesByTag(tag);
+          return await getConvex().query(api.documents.getByTag, { tag });
         },
       },
       list_tags: {
         description: "List all tags used across the wiki.",
         inputSchema: z.object({}),
         execute: async () => {
-          return getAllTags();
+          return await getConvex().query(api.documents.listTags, {});
         },
       },
     },
@@ -227,24 +204,24 @@ export async function POST(request: Request) {
         }
 
         try {
-          await Promise.all([
-            text
-              ? getConvex().mutation(api.conversations.saveMessages, {
-                  conversationId: convId,
-                  messages: [
-                    {
-                      role: "assistant" as const,
-                      content: text,
-                      parts: JSON.stringify(uiParts),
-                      createdAt: Date.now(),
-                    },
-                  ],
-                })
-              : Promise.resolve(),
-            getConvex().mutation(api.conversations.clearStreaming, {
+          // Save message FIRST, then clear streaming — so the final message
+          // is available before streamingText goes undefined (prevents flash)
+          if (text) {
+            await getConvex().mutation(api.conversations.saveMessages, {
               conversationId: convId,
-            }),
-          ]);
+              messages: [
+                {
+                  role: "assistant" as const,
+                  content: text,
+                  parts: JSON.stringify(uiParts),
+                  createdAt: Date.now(),
+                },
+              ],
+            });
+          }
+          await getConvex().mutation(api.conversations.clearStreaming, {
+            conversationId: convId,
+          });
         } catch (e) {
           console.error("Failed to save assistant message:", e);
         }
