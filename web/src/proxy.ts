@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const isAuthed = request.cookies.get("authed")?.value === "true";
   const isLoginPage = request.nextUrl.pathname === "/login";
 
