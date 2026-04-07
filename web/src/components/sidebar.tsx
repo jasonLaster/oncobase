@@ -6,6 +6,10 @@ import { useState, useEffect, useCallback } from "react";
 import type { FileNode } from "@/lib/markdown";
 import ConversationList from "./conversation-list";
 
+function formatName(name: string): string {
+  return name.replace(/-/g, " ");
+}
+
 function hasActiveDescendant(node: FileNode, decodedPathname: string): boolean {
   if (node.type === "file") return decodedPathname === `/${node.slug}`;
   return node.children?.some((child) => hasActiveDescendant(child, decodedPathname)) ?? false;
@@ -33,7 +37,7 @@ function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
         >
           <span className="text-xs opacity-60">{open ? "▼" : "▶"}</span>
-          <span className="font-medium truncate">{node.name}</span>
+          <span className="font-medium truncate">{formatName(node.name)}</span>
         </button>
         {open && node.children && (
           <div>
@@ -55,9 +59,9 @@ function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
           : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
       }`}
       style={{ paddingLeft: `${depth * 12 + 20}px` }}
-      title={node.name}
+      title={formatName(node.name)}
     >
-      {node.name}
+      {formatName(node.name)}
     </Link>
   );
 }

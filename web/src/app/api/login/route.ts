@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const PASSWORD = "wallify";
+const PASSWORDS = ["wallify", "diana"];
 
 export async function POST(request: NextRequest) {
   const { password } = await request.json();
 
-  if (password === PASSWORD) {
+  if (PASSWORDS.includes(password)) {
     const response = NextResponse.json({ ok: true });
     response.cookies.set("authed", "true", {
       httpOnly: true,
