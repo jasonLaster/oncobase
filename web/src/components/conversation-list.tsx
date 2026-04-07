@@ -18,7 +18,9 @@ function useActiveConversationId(): string | null {
   const [replaceStateId, setReplaceStateId] = useState<string | null>(null);
 
   useEffect(() => {
+    let mounted = true;
     const handler = () => {
+      if (!mounted) return;
       const match = window.location.pathname.match(/^\/chat\/(.+)$/);
       setReplaceStateId(match ? match[1] : null);
     };
@@ -27,10 +29,12 @@ function useActiveConversationId(): string | null {
     const origReplace = history.replaceState.bind(history);
     history.replaceState = (...args: Parameters<typeof history.replaceState>) => {
       origReplace(...args);
-      handler();
+      // Defer to avoid calling setState during render/hydration
+      queueMicrotask(handler);
     };
 
     return () => {
+      mounted = false;
       window.removeEventListener("popstate", handler);
       history.replaceState = origReplace;
     };
