@@ -19,8 +19,8 @@ dotenv.config({ path: path.join(__dirname, "..", ".env.local") });
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 if (!CONVEX_URL) {
-  console.error("NEXT_PUBLIC_CONVEX_URL not set in .env.local");
-  process.exit(1);
+  console.error("NEXT_PUBLIC_CONVEX_URL not set — skipping ingestion");
+  process.exit(0);
 }
 
 const client = new ConvexHttpClient(CONVEX_URL);
