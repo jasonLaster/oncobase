@@ -21,7 +21,7 @@ const openrouter = createOpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-const SYSTEM_PROMPT = `You are a research assistant for Diana's TNBC (triple-negative breast cancer) knowledge base. You help answer questions about Diana's diagnosis, treatment plan, research, and related medical topics.
+const SYSTEM_PROMPT_BASE = `You are a research assistant for Diana's TNBC (triple-negative breast cancer) knowledge base. You help answer questions about Diana's diagnosis, treatment plan, research, and related medical topics.
 
 You have access to tools that let you search and read wiki pages. Use them to find relevant information before answering. Always ground your answers in the wiki content when possible.
 
@@ -33,20 +33,76 @@ IMPORTANT CITATION RULES:
 - Do NOT list sources at the end — weave them inline throughout your response.
 
 Search strategy:
-- Use short, focused queries with 1-3 key terms (e.g. "prognosis", "mRNA vaccine", "clinical trials")
-- Run 2-3 searches with different terms to get broad coverage
-- NEVER use more than 4 words in a search query
-- If a search returns 0 results, try simpler/different keywords
+- Use the PAGE INDEX below to find the right slug, then use read_page to get details
+- Use search_wiki for broad discovery when you're not sure which page has the answer
 - After searching, read the 2-3 most relevant pages before answering
-- Do NOT use list_pages — always use search_wiki instead
-
-Key context:
-- Patient: Diana Laster, age 36, diagnosed March 2026
-- Diagnosis: Stage III TNBC, invasive ductal carcinoma, Grade 3
-- Protocol: KEYNOTE-522 (Carboplatin + Paclitaxel + Pembrolizumab → AC)
-- Care center: UCSF
+- Do NOT use list_pages — use the PAGE INDEX instead
 
 Be direct, compassionate, and precise. Use medical terminology but explain it when needed.`;
+
+async function buildSystemPrompt(): Promise<string> {
+  const convex = getConvex();
+  const [indexDoc, diagnosisDoc] = await Promise.all([
+    convex.query(api.documents.getBySlug, { slug: "index" }),
+    convex.query(api.documents.getBySlug, { slug: "wiki/diagnostics/diagnosis" }),
+  ]);
+
+  let prompt = SYSTEM_PROMPT_BASE;
+
+  if (diagnosisDoc) {
+    prompt += `\n\n## DIANA'S DIAGNOSIS\n\n${diagnosisDoc.content}`;
+  }
+
+  if (indexDoc) {
+    prompt += `\n\n## PAGE INDEX\n\nUse these slugs with read_page to get full content:\n\n${indexDoc.content}`;
+  }
+
+  return prompt;
+}
+
+/**
+ * Generate multiple search patterns from a query for parallel fan-out.
+ * Takes a natural language query and produces 2-4 short search patterns
+ * that cover different angles: exact terms, synonyms, abbreviations.
+ */
+function generateSearchPatterns(query: string): string[] {
+  const patterns = new Set<string>();
+
+  // Original query (trimmed)
+  const clean = query.trim();
+  if (clean) patterns.add(clean);
+
+  // Split into individual key terms (2+ chars) and search each
+  const words = clean.split(/\s+/).filter((w) => w.length >= 2);
+  if (words.length >= 2) {
+    // Pairs of adjacent words
+    for (let i = 0; i < words.length - 1 && patterns.size < 5; i++) {
+      patterns.add(`${words[i]} ${words[i + 1]}`);
+    }
+  }
+
+  // Medical abbreviation expansions
+  const expansions: Record<string, string> = {
+    tnbc: "triple-negative breast cancer",
+    pcr: "pathologic complete response",
+    ctdna: "circulating tumor DNA",
+    mrd: "minimal residual disease",
+    rcb: "residual cancer burden",
+    "keynote-522": "pembrolizumab chemotherapy",
+    "k-522": "KEYNOTE-522",
+    ac: "doxorubicin cyclophosphamide",
+    pembro: "pembrolizumab",
+  };
+
+  for (const [abbrev, expansion] of Object.entries(expansions)) {
+    if (clean.toLowerCase().includes(abbrev)) {
+      patterns.add(expansion);
+    }
+  }
+
+  // Cap at 4 patterns to avoid excessive API calls
+  return Array.from(patterns).slice(0, 4);
+}
 
 export async function POST(request: Request) {
   const { messages, conversationId } = (await request.json()) as {
@@ -102,20 +158,41 @@ export async function POST(request: Request) {
     lastFlush = Date.now();
   }
 
+  const systemPrompt = await buildSystemPrompt();
+
   const result = streamText({
     model: openrouter.chat("openai/gpt-5.4-mini"), // see scripts/eval-chat.ts for model leaderboard
-    system: SYSTEM_PROMPT,
+    system: systemPrompt,
     messages: modelMessages,
     stopWhen: stepCountIs(10),
     tools: {
       search_wiki: {
         description:
-          "Search across all wiki pages and source documents. Use short, focused queries with 1-3 key terms (e.g. 'clinical trials', 'prognosis', 'mRNA vaccine'). Run multiple searches with different terms rather than one long query. Searches both titles and content.",
+          "Search across all wiki pages and source documents. Automatically fans out into multiple parallel searches using different query patterns for comprehensive results. Just describe what you're looking for naturally.",
         inputSchema: z.object({
-          query: z.string().describe("Short search query, 1-3 key terms"),
+          query: z.string().describe("What you're looking for — can be a phrase or topic"),
         }),
         execute: async ({ query }: { query: string }) => {
-          return await getConvex().query(api.documents.search, { query, limit: 8 });
+          // Generate multiple search patterns from the query
+          const patterns = generateSearchPatterns(query);
+
+          // Fan out: run all searches in parallel
+          const allResults = await Promise.all(
+            patterns.map((p) => getConvex().query(api.documents.search, { query: p, limit: 6 }))
+          );
+
+          // Merge and deduplicate by slug, preserving order
+          const seen = new Set<string>();
+          const merged: Array<{ slug: string; title: string; tags: string[]; excerpt: string }> = [];
+          for (const results of allResults) {
+            for (const r of results) {
+              if (!seen.has(r.slug)) {
+                seen.add(r.slug);
+                merged.push(r);
+              }
+            }
+          }
+          return merged.slice(0, 12);
         },
       },
       read_page: {
