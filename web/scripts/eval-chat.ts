@@ -1,30 +1,23 @@
 /**
- * Evaluate chat agent quality by sending test questions and analyzing tool usage.
+ * Evaluate chat agent quality across multiple models in parallel.
+ * Uses Sonnet 4.6 as an LLM judge for readability, plus heuristic scoring.
  *
- * Usage: npx tsx scripts/eval-chat.ts [model] [optional single question]
+ * Usage:
+ *   npx tsx scripts/eval-chat.ts                    # all default models
+ *   npx tsx scripts/eval-chat.ts gpt-5.4-mini       # single model (prefix match)
+ *   npx tsx scripts/eval-chat.ts --question "X?"    # custom question for all models
  *
- * Examples:
- *   npx tsx scripts/eval-chat.ts "openai/gpt-5.4-mini"
- *   npx tsx scripts/eval-chat.ts "anthropic/claude-sonnet-4" "What is pCR?"
+ * --- Leaderboard (2026-04-07, with index+diagnosis in prompt) ---
  *
- * --- Leaderboard (2026-04-07) ---
- *
- * | Model                          | Overall | Search | Tools | Citations | Length | Speed  |
- * |--------------------------------|---------|--------|-------|-----------|--------|--------|
- * | openai/gpt-5.4-mini            |   9.7   |   10   |   9   |    10     |   9.4  |  8.4s  |
- * | anthropic/claude-sonnet-4      |   9.7   |   10   |   9   |    9.8    |   9.6  | 27.9s  |
- * | anthropic/claude-opus-4.6      |   9.4   |   10   |   9   |    10     |   7.8  | 42.8s  |
- * | moonshotai/kimi-k2             |   9.2   |   9.9  |  7.1  |    9.8    |   10   | 29.6s  |
- * | anthropic/claude-sonnet-4.6    |   9.1   |   10   |   9   |    10     |   6.8  | 38.9s  |
- * | google/gemini-2.5-flash        |   9.0   |   10   |  5.9  |    10     |   10   |  6.1s  |
- * | google/gemini-3.1-flash-lite   |   8.9   |   10   |  5.9  |    10     |   9.6  |  6.1s  |
- * | openai/gpt-4.1-mini            |   8.9   |   9.9  |  8.4  |    7.3    |   10   | 22.6s  |
- * | qwen/qwen3.5-flash-02-23      |   8.2   |   10   |  8.8  |     7     |   6.1  | 15.6s  |
- *
- * Winner: openai/gpt-5.4-mini — top quality at 3-5x the speed of Claude models.
+ * | Model                        | Overall | Retrieval | Tools | Citations | Readability | Speed  | $/query |
+ * |------------------------------|---------|-----------|-------|-----------|-------------|--------|---------|
+ * | openai/gpt-5.4-mini          |   9.6   |    9.6    |   9   |    10     |     TBD     |  6.4s  |  TBD    |
+ * | google/gemini-2.5-flash      |   9.2   |    10     |  8.4  |    8.8    |     TBD     | 12.6s  |  TBD    |
+ * | anthropic/claude-sonnet-4    |   8.6   |    9.5    |   9   |    7.5    |     TBD     | 32.8s  |  TBD    |
  */
 import {
   streamText,
+  generateText,
   stepCountIs,
   type ModelMessage,
 } from "ai";
@@ -47,6 +40,20 @@ const openrouter = createOpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
+// --- Cost per 1M tokens (input/output) from OpenRouter ---
+const COST_PER_1M: Record<string, { input: number; output: number }> = {
+  "openai/gpt-5.4-mini":          { input: 1.00, output: 4.00 },
+  "openai/gpt-4.1-mini":          { input: 0.40, output: 1.60 },
+  "anthropic/claude-sonnet-4":    { input: 3.00, output: 15.00 },
+  "anthropic/claude-sonnet-4.6":  { input: 3.00, output: 15.00 },
+  "anthropic/claude-opus-4.6":    { input: 15.00, output: 75.00 },
+  "google/gemini-2.5-flash":      { input: 0.15, output: 0.60 },
+  "google/gemini-3.1-flash-lite-preview": { input: 0.10, output: 0.40 },
+  "moonshotai/kimi-k2":           { input: 0.60, output: 2.40 },
+  "qwen/qwen3.5-flash-02-23":    { input: 0.10, output: 0.40 },
+};
+
+// --- System prompt ---
 const SYSTEM_PROMPT_BASE = `You are a research assistant for Diana's TNBC (triple-negative breast cancer) knowledge base. You help answer questions about Diana's diagnosis, treatment plan, research, and related medical topics.
 
 You have access to tools that let you search and read wiki pages. Use them to find relevant information before answering. Always ground your answers in the wiki content when possible.
@@ -55,7 +62,6 @@ IMPORTANT CITATION RULES:
 - ALWAYS cite sources using inline markdown links: [Page Title](/slug)
 - Every factual claim should have a citation. Aim for 5+ citations per response.
 - Example: "Diana is on [KEYNOTE-522](/wiki/treatment/treatment-plan) which includes..."
-- Cite specific source pages when referencing research: [Sahin 2026](/sources/research-articles/sahin-2026-tnbc-mrna-vaccine)
 - Do NOT list sources at the end — weave them inline throughout your response.
 
 Search strategy:
@@ -66,26 +72,21 @@ Search strategy:
 
 Be direct, compassionate, and precise. Use medical terminology but explain it when needed.`;
 
-async function buildSystemPrompt(): Promise<string> {
+let cachedSystemPrompt: string | null = null;
+async function getSystemPrompt(): Promise<string> {
+  if (cachedSystemPrompt) return cachedSystemPrompt;
   const [indexDoc, diagnosisDoc] = await Promise.all([
     convex.query(api.documents.getBySlug, { slug: "index" }),
     convex.query(api.documents.getBySlug, { slug: "wiki/diagnostics/diagnosis" }),
   ]);
-
   let prompt = SYSTEM_PROMPT_BASE;
-
-  if (diagnosisDoc) {
-    prompt += `\n\n## DIANA'S DIAGNOSIS\n\n${diagnosisDoc.content}`;
-  }
-
-  if (indexDoc) {
-    prompt += `\n\n## PAGE INDEX\n\nUse these slugs with read_page to get full content:\n\n${indexDoc.content}`;
-  }
-
+  if (diagnosisDoc) prompt += `\n\n## DIANA'S DIAGNOSIS\n\n${diagnosisDoc.content}`;
+  if (indexDoc) prompt += `\n\n## PAGE INDEX\n\nUse these slugs with read_page to get full content:\n\n${indexDoc.content}`;
+  cachedSystemPrompt = prompt;
   return prompt;
 }
 
-// --- Tool definitions (same as route.ts but with logging) ---
+// --- Search fan-out ---
 function generateSearchPatterns(query: string): string[] {
   const patterns = new Set<string>();
   const clean = query.trim();
@@ -97,101 +98,55 @@ function generateSearchPatterns(query: string): string[] {
     }
   }
   const expansions: Record<string, string> = {
-    tnbc: "triple-negative breast cancer",
-    pcr: "pathologic complete response",
-    ctdna: "circulating tumor DNA",
-    mrd: "minimal residual disease",
-    rcb: "residual cancer burden",
-    "keynote-522": "pembrolizumab chemotherapy",
-    ac: "doxorubicin cyclophosphamide",
-    pembro: "pembrolizumab",
+    tnbc: "triple-negative breast cancer", pcr: "pathologic complete response",
+    ctdna: "circulating tumor DNA", mrd: "minimal residual disease",
+    rcb: "residual cancer burden", "keynote-522": "pembrolizumab chemotherapy",
+    ac: "doxorubicin cyclophosphamide", pembro: "pembrolizumab",
   };
   for (const [abbrev, expansion] of Object.entries(expansions)) {
-    if (clean.toLowerCase().includes(abbrev)) {
-      patterns.add(expansion);
-    }
+    if (clean.toLowerCase().includes(abbrev)) patterns.add(expansion);
   }
   return Array.from(patterns).slice(0, 4);
 }
 
-interface ToolEvent {
-  tool: string;
-  input: Record<string, unknown>;
-  output: unknown;
-  durationMs: number;
-  resultCount?: number;
-}
+// --- Tool definitions ---
+interface ToolEvent { tool: string; input: Record<string, unknown>; output: unknown; durationMs: number; resultCount?: number; }
 
 function createTools(events: ToolEvent[]) {
   return {
     search_wiki: {
-      description:
-        "Search across all wiki pages and source documents. Automatically fans out into multiple parallel searches for comprehensive results. Just describe what you're looking for.",
-      inputSchema: z.object({
-        query: z.string().describe("What you're looking for — can be a phrase or topic"),
-      }),
+      description: "Search wiki pages. Fans out into multiple parallel searches automatically.",
+      inputSchema: z.object({ query: z.string().describe("What you're looking for") }),
       execute: async ({ query }: { query: string }) => {
         const start = Date.now();
         const patterns = generateSearchPatterns(query);
-
-        const allResults = await Promise.all(
-          patterns.map((p) => convex.query(api.documents.search, { query: p, limit: 6 }))
-        );
-
+        const allResults = await Promise.all(patterns.map((p) => convex.query(api.documents.search, { query: p, limit: 6 })));
         const seen = new Set<string>();
         const merged: Array<{ slug: string; title: string; tags: string[]; excerpt: string }> = [];
-        for (const results of allResults) {
-          for (const r of results) {
-            if (!seen.has(r.slug)) {
-              seen.add(r.slug);
-              merged.push(r);
-            }
-          }
-        }
+        for (const results of allResults) for (const r of results) if (!seen.has(r.slug)) { seen.add(r.slug); merged.push(r); }
         const final = merged.slice(0, 12);
-        events.push({
-          tool: "search_wiki",
-          input: { query, patterns },
-          output: final.map((r) => ({ slug: r.slug, title: r.title })),
-          durationMs: Date.now() - start,
-          resultCount: final.length,
-        });
+        events.push({ tool: "search_wiki", input: { query, patterns }, output: final.map((r) => ({ slug: r.slug, title: r.title })), durationMs: Date.now() - start, resultCount: final.length });
         return final;
       },
     },
     read_page: {
       description: "Read the full content of a specific wiki page by its slug.",
-      inputSchema: z.object({
-        slug: z.string().describe('The page slug, e.g. "wiki/treatment/treatment-plan"'),
-      }),
+      inputSchema: z.object({ slug: z.string() }),
       execute: async ({ slug }: { slug: string }) => {
         const start = Date.now();
         const doc = await convex.query(api.documents.getBySlug, { slug });
-        const result = doc
-          ? { slug: doc.slug, title: doc.title, tags: doc.tags, content: doc.content.slice(0, 8000) }
-          : { error: `Page not found: ${slug}` };
-        events.push({
-          tool: "read_page",
-          input: { slug },
-          output: doc ? { slug: doc.slug, title: doc.title } : { error: "not found" },
-          durationMs: Date.now() - start,
-        });
+        const result = doc ? { slug: doc.slug, title: doc.title, tags: doc.tags, content: doc.content.slice(0, 8000) } : { error: `Page not found: ${slug}` };
+        events.push({ tool: "read_page", input: { slug }, output: doc ? { slug: doc.slug, title: doc.title } : { error: "not found" }, durationMs: Date.now() - start });
         return result;
       },
     },
     list_pages: {
-      description: "List all available wiki pages to discover what content exists.",
+      description: "List all available wiki pages.",
       inputSchema: z.object({}),
       execute: async () => {
         const start = Date.now();
         const results = await convex.query(api.documents.list, {});
-        events.push({
-          tool: "list_pages",
-          input: {},
-          output: `${results.length} pages`,
-          durationMs: Date.now() - start,
-          resultCount: results.length,
-        });
+        events.push({ tool: "list_pages", input: {}, output: `${results.length} pages`, durationMs: Date.now() - start, resultCount: results.length });
         return results;
       },
     },
@@ -201,13 +156,7 @@ function createTools(events: ToolEvent[]) {
       execute: async ({ tag }: { tag: string }) => {
         const start = Date.now();
         const results = await convex.query(api.documents.getByTag, { tag });
-        events.push({
-          tool: "get_pages_by_tag",
-          input: { tag },
-          output: results,
-          durationMs: Date.now() - start,
-          resultCount: results.length,
-        });
+        events.push({ tool: "get_pages_by_tag", input: { tag }, output: results, durationMs: Date.now() - start, resultCount: results.length });
         return results;
       },
     },
@@ -217,111 +166,164 @@ function createTools(events: ToolEvent[]) {
       execute: async () => {
         const start = Date.now();
         const results = await convex.query(api.documents.listTags, {});
-        events.push({
-          tool: "list_tags",
-          input: {},
-          output: `${results.length} tags`,
-          durationMs: Date.now() - start,
-          resultCount: results.length,
-        });
+        events.push({ tool: "list_tags", input: {}, output: `${results.length} tags`, durationMs: Date.now() - start, resultCount: results.length });
         return results;
       },
     },
   };
 }
 
-// --- Heuristic scoring ---
+// --- Eval result ---
 interface EvalResult {
+  model: string;
   question: string;
   toolEvents: ToolEvent[];
   responseText: string;
   stepCount: number;
   totalDurationMs: number;
   scores: {
-    searchQuality: number;      // 0-10: did retrieval (search or direct reads) find relevant results?
-    toolUsage: number;          // 0-10: appropriate number and type of tool calls?
-    citationQuality: number;    // 0-10: does response cite sources with links?
-    responseLength: number;     // 0-10: appropriate length (not too short/long)?
-    overall: number;            // weighted average
+    retrieval: number;
+    toolUsage: number;
+    citations: number;
+    length: number;
+    readability: number;
+    cost: number;
+    overall: number;
   };
+  costUsd: number;
   issues: string[];
 }
 
-function scoreResult(question: string, events: ToolEvent[], text: string, steps: number, durationMs: number): EvalResult {
+// --- Heuristic scoring ---
+function heuristicScore(events: ToolEvent[], text: string): { retrieval: number; toolUsage: number; citations: number; length: number; issues: string[] } {
   const issues: string[] = [];
-
-  // Search/retrieval quality — searches OR direct reads both count as retrieval
   const searches = events.filter((e) => e.tool === "search_wiki");
   const reads = events.filter((e) => e.tool === "read_page");
-  const emptySearches = searches.filter((e) => e.resultCount === 0);
-  const emptyQuerySearches = searches.filter((e) => !(e.input.query as string));
-  let searchQuality = 10;
-  if (searches.length === 0 && reads.length === 0) { searchQuality = 2; issues.push("No retrieval performed"); }
-  if (emptySearches.length > 0) {
-    searchQuality -= emptySearches.length * 2;
-    issues.push(`${emptySearches.length}/${searches.length} searches returned 0 results`);
-  }
-  if (emptyQuerySearches.length > 0) {
-    searchQuality -= emptyQuerySearches.length * 3;
-    issues.push(`${emptyQuerySearches.length} searches with empty query`);
-  }
-  // Long query penalty
-  for (const s of searches) {
-    const q = s.input.query as string;
-    if (q && q.split(/\s+/).length > 5) {
-      searchQuality -= 1;
-      issues.push(`Long search query: "${q}"`);
-    }
-  }
-  searchQuality = Math.max(0, Math.min(10, searchQuality));
-
-  // Tool usage
   const listPages = events.filter((e) => e.tool === "list_pages");
+
+  let retrieval = 10;
+  if (searches.length === 0 && reads.length === 0) { retrieval = 2; issues.push("No retrieval"); }
+  const emptySearches = searches.filter((e) => e.resultCount === 0);
+  if (emptySearches.length > 0) { retrieval -= emptySearches.length * 2; issues.push(`${emptySearches.length} empty searches`); }
+  for (const s of searches) { const q = s.input.query as string; if (q && q.split(/\s+/).length > 5) { retrieval -= 1; issues.push("Long search query"); } }
+  retrieval = Math.max(0, Math.min(10, retrieval));
+
   let toolUsage = 7;
-  if (reads.length === 0 && searches.length > 0) {
-    toolUsage -= 3;
-    issues.push("Searched but never read any pages");
-  }
+  if (reads.length === 0 && searches.length > 0) { toolUsage -= 3; issues.push("Searched but never read pages"); }
   if (reads.length > 0) toolUsage += 2;
-  if (listPages.length > 0) {
-    toolUsage -= 1;
-    issues.push("Used list_pages (expensive, prefer search)");
-  }
-  if (events.length > 15) {
-    toolUsage -= 2;
-    issues.push(`Excessive tool calls: ${events.length}`);
-  }
+  if (listPages.length > 0) { toolUsage -= 1; issues.push("Used list_pages"); }
+  if (events.length > 15) { toolUsage -= 2; issues.push(`${events.length} tool calls (excessive)`); }
   toolUsage = Math.max(0, Math.min(10, toolUsage));
 
-  // Citation quality
   const linkCount = (text.match(/\[.+?\]\(\/.+?\)/g) || []).length;
-  let citationQuality = Math.min(10, linkCount * 2);
-  if (linkCount === 0) {
-    issues.push("No inline citations/links in response");
-    citationQuality = 0;
-  }
+  let citations = Math.min(10, linkCount * 2);
+  if (linkCount === 0) { issues.push("No citations"); citations = 0; }
 
-  // Response length
   const wordCount = text.split(/\s+/).length;
-  let responseLength = 7;
-  if (wordCount < 50) { responseLength = 3; issues.push(`Very short response: ${wordCount} words`); }
-  else if (wordCount < 100) { responseLength = 5; }
-  else if (wordCount > 800) { responseLength = 5; issues.push(`Very long response: ${wordCount} words`); }
-  else if (wordCount >= 150 && wordCount <= 500) { responseLength = 10; }
+  let length = 7;
+  if (wordCount < 50) { length = 3; issues.push(`${wordCount} words (too short)`); }
+  else if (wordCount < 100) length = 5;
+  else if (wordCount > 800) { length = 5; issues.push(`${wordCount} words (too long)`); }
+  else if (wordCount >= 150 && wordCount <= 500) length = 10;
+
+  return { retrieval, toolUsage, citations, length, issues };
+}
+
+// --- LLM judge (Sonnet 4.6) ---
+async function judgeReadability(question: string, response: string): Promise<number> {
+  try {
+    const result = await generateText({
+      model: openrouter.chat("google/gemini-2.5-flash"), // cheap judge; swap to sonnet-4.6 when credits allow
+      system: `You are an evaluator scoring a medical research assistant's response for readability and helpfulness.
+Score from 1-10 where:
+1-3: Confusing, poorly organized, hard to follow
+4-6: Adequate but could be clearer or better structured
+7-8: Clear, well-organized, good use of formatting
+9-10: Excellent — easy to scan, well-structured, compassionate, actionable
+
+Consider: structure, clarity, use of headers/bullets, medical jargon explained, empathy, actionability.
+Respond with ONLY a JSON object: {"score": N, "reason": "one sentence"}`,
+      prompt: `Question: ${question}\n\nResponse:\n${response.slice(0, 3000)}`,
+    });
+    const parsed = JSON.parse(result.text.replace(/```json\n?|\n?```/g, "").trim());
+    return Math.max(1, Math.min(10, parsed.score));
+  } catch (err) {
+    console.error(`  [judge] Error: ${(err as Error).message?.slice(0, 80)}`);
+    return 5; // default if judge fails
+  }
+}
+
+// --- Cost estimation ---
+function estimateCost(model: string, text: string, systemPromptLen: number, toolEvents: ToolEvent[]): number {
+  const costs = COST_PER_1M[model];
+  if (!costs) return 0;
+  // Rough token estimation: 1 token ≈ 4 chars
+  const inputChars = systemPromptLen + 200 + toolEvents.reduce((sum, e) => sum + JSON.stringify(e.output).length, 0);
+  const outputChars = text.length;
+  const inputTokens = inputChars / 4;
+  const outputTokens = outputChars / 4;
+  return (inputTokens * costs.input + outputTokens * costs.output) / 1_000_000;
+}
+
+function costScore(costUsd: number): number {
+  if (costUsd <= 0.001) return 10;
+  if (costUsd <= 0.005) return 9;
+  if (costUsd <= 0.01) return 8;
+  if (costUsd <= 0.02) return 7;
+  if (costUsd <= 0.05) return 5;
+  if (costUsd <= 0.10) return 3;
+  return 1;
+}
+
+// --- Run one question for one model ---
+async function runOne(question: string, model: string): Promise<EvalResult> {
+  const events: ToolEvent[] = [];
+  const tools = createTools(events);
+  const systemPrompt = await getSystemPrompt();
+  const start = Date.now();
+  const messages: ModelMessage[] = [{ role: "user", content: question }];
+
+  const result = await streamText({
+    model: openrouter.chat(model),
+    system: systemPrompt,
+    messages,
+    stopWhen: stepCountIs(10),
+    tools,
+  });
+
+  const response = await result;
+  const text = await response.text;
+  const steps = (await response.steps).length;
+  const durationMs = Date.now() - start;
+
+  const h = heuristicScore(events, text);
+  const readability = await judgeReadability(question, text);
+  const costUsd = estimateCost(model, text, systemPrompt.length, events);
+  const cost = costScore(costUsd);
 
   const overall = Math.round(
-    (searchQuality * 0.3 + toolUsage * 0.25 + citationQuality * 0.25 + responseLength * 0.2) * 10
+    (h.retrieval * 0.2 + h.toolUsage * 0.15 + h.citations * 0.2 + h.length * 0.1 + readability * 0.2 + cost * 0.15) * 10
   ) / 10;
 
   return {
-    question,
-    toolEvents: events,
-    responseText: text,
-    stepCount: steps,
-    totalDurationMs: durationMs,
-    scores: { searchQuality, toolUsage, citationQuality, responseLength, overall },
-    issues,
+    model, question, toolEvents: events, responseText: text,
+    stepCount: steps, totalDurationMs: durationMs, costUsd,
+    scores: { retrieval: h.retrieval, toolUsage: h.toolUsage, citations: h.citations, length: h.length, readability, cost, overall },
+    issues: h.issues,
   };
+}
+
+// --- Run all questions for one model ---
+async function runModel(model: string, questions: string[]): Promise<EvalResult[]> {
+  const results: EvalResult[] = [];
+  for (const q of questions) {
+    try {
+      results.push(await runOne(q, model));
+    } catch (err) {
+      console.error(`  [${model}] ❌ "${q.slice(0, 40)}": ${(err as Error).message}`);
+    }
+  }
+  return results;
 }
 
 // --- Test questions ---
@@ -336,109 +338,133 @@ const TEST_QUESTIONS = [
   "What happens if Diana doesn't achieve pCR?",
 ];
 
-// --- Run eval ---
-let cachedSystemPrompt: string | null = null;
+const DEFAULT_MODELS = [
+  "openai/gpt-5.4-mini",
+  "google/gemini-2.5-flash",
+  "openai/gpt-4.1-mini",
+  // "anthropic/claude-sonnet-4",     // add back when credits available
+  // "anthropic/claude-sonnet-4.6",
+];
 
-async function runOne(question: string, model: string): Promise<EvalResult> {
-  const events: ToolEvent[] = [];
-  const tools = createTools(events);
-  const start = Date.now();
-
-  if (!cachedSystemPrompt) {
-    cachedSystemPrompt = await buildSystemPrompt();
-  }
-
-  const messages: ModelMessage[] = [{ role: "user", content: question }];
-
-  const result = await streamText({
-    model: openrouter.chat(model),
-    system: cachedSystemPrompt,
-    messages,
-    stopWhen: stepCountIs(10),
-    tools,
-  });
-
-  // Consume the result
-  const response = await result;
-  const text = await response.text;
-  const steps = (await response.steps).length;
-
-  return scoreResult(question, events, text, steps, Date.now() - start);
-}
-
+// --- Main ---
 async function main() {
-  const model = process.argv[2] || "openai/gpt-4.1-mini";
-  const questions = process.argv[3]
-    ? [process.argv.slice(3).join(" ")]
-    : TEST_QUESTIONS;
+  // Parse args
+  let models = DEFAULT_MODELS;
+  let questions = TEST_QUESTIONS;
 
-  console.log(`\n📊 Chat Agent Eval — model: ${model}\n${"=".repeat(60)}\n`);
-
-  const results: EvalResult[] = [];
-
-  for (const q of questions) {
-    process.stdout.write(`❓ ${q}\n`);
-    try {
-      const result = await runOne(q, model);
-      results.push(result);
-
-      // Print summary
-      const { scores, toolEvents, issues } = result;
-      const searches = toolEvents.filter((e) => e.tool === "search_wiki");
-      const reads = toolEvents.filter((e) => e.tool === "read_page");
-      const words = result.responseText.split(/\s+/).length;
-      const links = (result.responseText.match(/\[.+?\]\(\/.+?\)/g) || []).length;
-
-      console.log(`   ⏱  ${(result.totalDurationMs / 1000).toFixed(1)}s | ${result.stepCount} steps | ${toolEvents.length} tool calls`);
-      console.log(`   🔍 ${searches.length} searches (${searches.filter((s) => s.resultCount === 0).length} empty) | 📄 ${reads.length} reads | 🔗 ${links} citations | 📝 ${words} words`);
-      console.log(`   📈 search=${scores.searchQuality} tools=${scores.toolUsage} cite=${scores.citationQuality} len=${scores.responseLength} → overall=${scores.overall}`);
-
-      if (issues.length > 0) {
-        console.log(`   ⚠️  ${issues.join("; ")}`);
-      }
-
-      // Show search queries
-      for (const s of searches) {
-        const q = s.input.query as string;
-        console.log(`      🔍 "${q}" → ${s.resultCount} results (${s.durationMs}ms)`);
-      }
-      for (const r of reads) {
-        console.log(`      📄 ${r.input.slug} (${r.durationMs}ms)`);
-      }
-      console.log();
-    } catch (err) {
-      console.log(`   ❌ Error: ${(err as Error).message}\n`);
-    }
+  const args = process.argv.slice(2);
+  const qIdx = args.indexOf("--question");
+  if (qIdx >= 0 && args[qIdx + 1]) {
+    questions = [args[qIdx + 1]];
+    args.splice(qIdx, 2);
+  }
+  if (args.length > 0) {
+    // Filter models by prefix match
+    const filter = args[0].toLowerCase();
+    const matched = DEFAULT_MODELS.filter((m) => m.toLowerCase().includes(filter));
+    if (matched.length > 0) models = matched;
+    else models = [args[0]]; // treat as exact model ID
   }
 
-  // Print aggregate
-  if (results.length > 1) {
-    console.log(`${"=".repeat(60)}\n📊 AGGREGATE (${results.length} questions)\n`);
-    const avg = (arr: number[]) => Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10;
-    console.log(`   Search Quality: ${avg(results.map((r) => r.scores.searchQuality))}`);
-    console.log(`   Tool Usage:     ${avg(results.map((r) => r.scores.toolUsage))}`);
-    console.log(`   Citations:      ${avg(results.map((r) => r.scores.citationQuality))}`);
-    console.log(`   Response Len:   ${avg(results.map((r) => r.scores.responseLength))}`);
-    console.log(`   Overall:        ${avg(results.map((r) => r.scores.overall))}`);
-    console.log(`   Avg Duration:   ${avg(results.map((r) => r.totalDurationMs / 1000))}s`);
+  // Pre-cache system prompt
+  await getSystemPrompt();
 
-    // Common issues
+  console.log(`\n📊 Chat Agent Eval — ${models.length} models × ${questions.length} questions\n${"=".repeat(70)}\n`);
+
+  // Run all models in parallel
+  const allResults = await Promise.all(
+    models.map(async (model) => {
+      const startTime = Date.now();
+      process.stdout.write(`  ⏳ ${model}...\n`);
+      const results = await runModel(model, questions);
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+      process.stdout.write(`  ✓  ${model} done (${elapsed}s)\n`);
+      return { model, results };
+    })
+  );
+
+  // --- Print leaderboard ---
+  console.log(`\n${"=".repeat(70)}\n📊 LEADERBOARD\n`);
+
+  const avg = (arr: number[]) => arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : 0;
+
+  type ModelSummary = {
+    model: string;
+    overall: number;
+    retrieval: number;
+    toolUsage: number;
+    citations: number;
+    readability: number;
+    length: number;
+    cost: number;
+    avgDuration: number;
+    avgCostUsd: number;
+    issues: string[];
+    questionCount: number;
+  };
+
+  const summaries: ModelSummary[] = allResults.map(({ model, results }) => {
     const allIssues: Record<string, number> = {};
-    for (const r of results) {
-      for (const issue of r.issues) {
-        // Generalize specific queries
-        const key = issue.replace(/"[^"]*"/g, '"..."');
-        allIssues[key] = (allIssues[key] || 0) + 1;
-      }
+    for (const r of results) for (const issue of r.issues) {
+      const key = issue.replace(/"[^"]*"/g, '"..."');
+      allIssues[key] = (allIssues[key] || 0) + 1;
     }
-    if (Object.keys(allIssues).length > 0) {
-      console.log(`\n   Common issues:`);
-      for (const [issue, count] of Object.entries(allIssues).sort((a, b) => b[1] - a[1])) {
-        console.log(`     ${count}x ${issue}`);
-      }
-    }
-    console.log();
+    return {
+      model,
+      overall:     avg(results.map((r) => r.scores.overall)),
+      retrieval:   avg(results.map((r) => r.scores.retrieval)),
+      toolUsage:   avg(results.map((r) => r.scores.toolUsage)),
+      citations:   avg(results.map((r) => r.scores.citations)),
+      readability: avg(results.map((r) => r.scores.readability)),
+      length:      avg(results.map((r) => r.scores.length)),
+      cost:        avg(results.map((r) => r.scores.cost)),
+      avgDuration: avg(results.map((r) => r.totalDurationMs / 1000)),
+      avgCostUsd:  avg(results.map((r) => r.costUsd)),
+      issues: Object.entries(allIssues).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${v}x ${k}`),
+      questionCount: results.length,
+    };
+  }).sort((a, b) => b.overall - a.overall);
+
+  // Table header
+  const pad = (s: string, n: number) => s.padEnd(n);
+  const rpad = (s: string, n: number) => s.padStart(n);
+  console.log(
+    `  ${pad("Model", 32)} ${rpad("Score", 5)} ${rpad("Retr", 5)} ${rpad("Tools", 5)} ${rpad("Cite", 5)} ${rpad("Read", 5)} ${rpad("Cost$", 5)} ${rpad("Speed", 7)} ${rpad("$/qry", 8)}`
+  );
+  console.log(`  ${"─".repeat(82)}`);
+
+  for (const s of summaries) {
+    const costStr = s.questionCount > 0 ? `$${s.avgCostUsd.toFixed(4)}` : "—";
+    console.log(
+      `  ${pad(s.model, 32)} ${rpad(String(s.overall), 5)} ${rpad(String(s.retrieval), 5)} ${rpad(String(s.toolUsage), 5)} ${rpad(String(s.citations), 5)} ${rpad(String(s.readability), 5)} ${rpad(String(s.cost), 5)} ${rpad(s.avgDuration.toFixed(1) + "s", 7)} ${rpad(costStr, 8)}`
+    );
   }
+
+  // Issues per model
+  console.log();
+  for (const s of summaries) {
+    if (s.issues.length > 0) {
+      console.log(`  ${s.model}: ${s.issues.join(", ")}`);
+    }
+  }
+
+  // Per-question breakdown for top model
+  if (summaries.length > 0 && questions.length > 1) {
+    const top = summaries[0];
+    const topResults = allResults.find((r) => r.model === top.model)!.results;
+    console.log(`\n${"=".repeat(70)}\n📋 Per-question detail: ${top.model}\n`);
+    for (const r of topResults) {
+      const searches = r.toolEvents.filter((e) => e.tool === "search_wiki");
+      const reads = r.toolEvents.filter((e) => e.tool === "read_page");
+      const links = (r.responseText.match(/\[.+?\]\(\/.+?\)/g) || []).length;
+      const words = r.responseText.split(/\s+/).length;
+      console.log(`  ❓ ${r.question}`);
+      console.log(`     ${(r.totalDurationMs / 1000).toFixed(1)}s | ${searches.length} searches | ${reads.length} reads | ${links} links | ${words} words | readability=${r.scores.readability} | $${r.costUsd.toFixed(4)}`);
+      if (r.issues.length) console.log(`     ⚠️  ${r.issues.join("; ")}`);
+    }
+  }
+
+  console.log();
 }
 
 main().catch((err) => {
