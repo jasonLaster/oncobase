@@ -106,8 +106,13 @@ async function main() {
   }
 
   // Remove documents that no longer exist on disk
-  const removeResult = await client.mutation(api.documents.removeStale, { activeSlugs: slugs });
-  console.log(`Done! ${updated} updated, ${skipped} unchanged, ${removeResult.removed} removed.`);
+  try {
+    const removeResult = await client.action(api.documents.removeStale, { activeSlugs: slugs });
+    console.log(`Done! ${updated} updated, ${skipped} unchanged, ${removeResult.removed} removed.`);
+  } catch (err) {
+    console.warn("Warning: removeStale failed (non-fatal):", (err as Error).message);
+    console.log(`Done! ${updated} updated, ${skipped} unchanged.`);
+  }
 }
 
 main().catch((err) => {

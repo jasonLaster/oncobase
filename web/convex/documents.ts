@@ -113,19 +113,42 @@ export const upsert = mutation({
   },
 });
 
-export const removeStale = mutation({
+export const removeStale = action({
   args: { activeSlugs: v.array(v.string()) },
   handler: async (ctx, { activeSlugs }) => {
     const activeSet = new Set(activeSlugs);
-    const allDocs = await ctx.db.query("documents").collect();
+    const allDocs = await ctx.runQuery(api.documents.list);
+    const staleSlugs = allDocs
+      .map((d) => d.slug)
+      .filter((slug) => !activeSet.has(slug));
+
+    // Delete in batches via internal mutation
+    const BATCH = 50;
     let removed = 0;
-    for (const doc of allDocs) {
-      if (!activeSet.has(doc.slug)) {
-        await ctx.db.delete(doc._id);
-        removed++;
-      }
+    for (let i = 0; i < staleSlugs.length; i += BATCH) {
+      const batch = staleSlugs.slice(i, i + BATCH);
+      const result = await ctx.runMutation(api.documents.deleteBySlugs, { slugs: batch });
+      removed += result.deleted;
     }
     return { removed };
+  },
+});
+
+export const deleteBySlugs = mutation({
+  args: { slugs: v.array(v.string()) },
+  handler: async (ctx, { slugs }) => {
+    let deleted = 0;
+    for (const slug of slugs) {
+      const doc = await ctx.db
+        .query("documents")
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .first();
+      if (doc) {
+        await ctx.db.delete(doc._id);
+        deleted++;
+      }
+    }
+    return { deleted };
   },
 });
 
