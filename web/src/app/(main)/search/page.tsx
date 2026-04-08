@@ -281,16 +281,18 @@ function TextSearch({
   results: SearchResult[];
   loading: boolean;
 }) {
+  const [prevResults, setPrevResults] = useState(results);
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
 
-  const tree = useMemo(() => buildTree(results), [results]);
-
-  // Reset collapse state when results change
-  useEffect(() => {
+  // Reset collapse state when results change (state adjustment during render)
+  if (results !== prevResults) {
+    setPrevResults(results);
     setCollapsedDirs(new Set());
     setCollapsedFiles(new Set());
-  }, [results]);
+  }
+
+  const tree = useMemo(() => buildTree(results), [results]);
 
   function toggleDir(path: string) {
     setCollapsedDirs((prev) => {

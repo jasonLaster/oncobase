@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ActionsMenu } from "@/components/actions-menu";
@@ -22,16 +22,14 @@ function HeaderInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const isChat = pathname.startsWith("/chat");
-  const [query, setQuery] = useState("");
+  const derivedQuery = pathname === "/search" ? (searchParams.get("q") || "") : "";
+  const [query, setQuery] = useState(derivedQuery);
+  const [prevDerived, setPrevDerived] = useState(derivedQuery);
 
-  // Sync search bar with URL query param
-  useEffect(() => {
-    if (pathname === "/search") {
-      setQuery(searchParams.get("q") || "");
-    } else {
-      setQuery("");
-    }
-  }, [pathname, searchParams]);
+  if (derivedQuery !== prevDerived) {
+    setPrevDerived(derivedQuery);
+    setQuery(derivedQuery);
+  }
 
   function openSidebar() {
     const fn = (window as unknown as Record<string, unknown>).__openSidebar;

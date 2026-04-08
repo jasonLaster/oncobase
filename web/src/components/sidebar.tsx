@@ -22,10 +22,11 @@ function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
   const hasActive = hasActiveDescendant(node, pathname);
   const shouldOpen = depth === 0 || hasActive;
   const [userToggle, setUserToggle] = useState<boolean | null>(null);
-  // Reset user override when pathname changes
-  useEffect(() => {
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     setUserToggle(null);
-  }, [pathname]);
+  }
   const open = userToggle !== null ? userToggle : shouldOpen;
   const isActive = pathname === `/${node.slug}`;
 

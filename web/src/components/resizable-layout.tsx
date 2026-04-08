@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 const MIN_WIDTH = 160;
 const MAX_WIDTH = 480;
@@ -14,15 +14,15 @@ export function ResizableLayout({
   sidebar: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const [width, setWidth] = useState(DEFAULT_WIDTH);
-
-  useEffect(() => {
+  const [width, setWidth] = useState(() => {
+    if (typeof window === "undefined") return DEFAULT_WIDTH;
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const n = parseInt(stored, 10);
-      if (n >= 0 && n <= MAX_WIDTH) setWidth(n);
+      if (n >= 0 && n <= MAX_WIDTH) return n;
     }
-  }, []);
+    return DEFAULT_WIDTH;
+  });
   const collapsed = width === 0;
   const dragging = useRef(false);
   const startX = useRef(0);
