@@ -8,6 +8,14 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { searchMarkdown, type SearchResult } from "@/lib/search";
 
+interface AISearchResult {
+  slug: string;
+  title: string;
+  tags: string[];
+  relevance: number;
+  summary: string;
+}
+
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -184,34 +192,105 @@ export default function SearchPage() {
 function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q") || "";
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState<"text" | "ai">("ai");
+  const [textResults, setTextResults] = useState<SearchResult[]>([]);
+  const [textLoading, setTextLoading] = useState(false);
+
+  // Shared text search — runs once, feeds both tabs
+  const doSearch = useCallback(async (q: string) => {
+    if (q.trim().length < 2) {
+      setTextResults([]);
+      return;
+    }
+    setTextLoading(true);
+    try {
+      const res = await searchMarkdown(q);
+      setTextResults(res);
+    } finally {
+      setTextLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (query) doSearch(query);
+  }, [query, doSearch]);
+
+  // Deduplicated slugs from text results for AI mode
+  const slugs = useMemo(() => {
+    const seen = new Set<string>();
+    return textResults
+      .sort((a, b) => b.matches.length - a.matches.length)
+      .filter((r) => {
+        if (seen.has(r.slug)) return false;
+        seen.add(r.slug);
+        return true;
+      })
+      .slice(0, 12)
+      .map((r) => r.slug);
+  }, [textResults]);
+
+  return (
+    <div className="overflow-y-auto h-full">
+      <div className="px-2 py-4 md:px-4 md:py-6">
+        {query && (
+          <div className="flex items-center gap-1 mb-4 px-2">
+            <div className="inline-flex rounded-md border border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] p-0.5">
+              <button
+                onClick={() => setTab("ai")}
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 ${
+                  tab === "ai"
+                    ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
+                    : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 2l1.5 4.5H14l-3.5 2.5L12 14 8 11l-4 3 1.5-5L2 6.5h4.5z" />
+                </svg>
+                AI Mode
+              </button>
+              <button
+                onClick={() => setTab("text")}
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                  tab === "text"
+                    ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
+                    : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                Text Search
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tab === "text" ? (
+          <TextSearch query={query} results={textResults} loading={textLoading} />
+        ) : (
+          <AISearch query={query} slugs={slugs} loading={textLoading} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TextSearch({
+  query,
+  results,
+  loading,
+}: {
+  query: string;
+  results: SearchResult[];
+  loading: boolean;
+}) {
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
 
   const tree = useMemo(() => buildTree(results), [results]);
 
-  const doSearch = useCallback(async (q: string) => {
-    if (q.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await searchMarkdown(q);
-      setResults(res);
-      setCollapsedDirs(new Set());
-      setCollapsedFiles(new Set());
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Reset collapse state when results change
   useEffect(() => {
-    if (query) {
-      doSearch(query);
-    }
-  }, [query, doSearch]);
+    setCollapsedDirs(new Set());
+    setCollapsedFiles(new Set());
+  }, [results]);
 
   function toggleDir(path: string) {
     setCollapsedDirs((prev) => {
@@ -233,44 +312,187 @@ function SearchContent() {
 
   const totalMatches = results.reduce((s, r) => s + r.matches.length, 0);
 
+  if (loading) {
+    return <div className="text-sm text-[var(--text-muted)] py-4">Searching...</div>;
+  }
+
+  if (query && results.length === 0) {
+    return (
+      <div className="text-sm text-[var(--text-muted)] py-4">
+        No results for &quot;{query}&quot;
+      </div>
+    );
+  }
+
+  if (results.length > 0) {
+    return (
+      <>
+        <div className="text-xs text-[var(--text-muted)] mb-3 px-2">
+          {totalMatches} result{totalMatches !== 1 ? "s" : ""} in{" "}
+          {results.length} file{results.length !== 1 ? "s" : ""}
+        </div>
+        <DirTree
+          node={tree}
+          depth={0}
+          collapsed={collapsedDirs}
+          onToggleDir={toggleDir}
+          onToggleFile={toggleFile}
+          collapsedFiles={collapsedFiles}
+          query={query}
+        />
+      </>
+    );
+  }
+
   return (
-    <div className="overflow-y-auto h-full">
-    <div className="px-2 py-4 md:px-4 md:py-6">
-      {loading && (
-        <div className="text-sm text-[var(--text-muted)] py-4">Searching...</div>
-      )}
-
-      {!loading && query && results.length === 0 && (
-        <div className="text-sm text-[var(--text-muted)] py-4">
-          No results for &quot;{query}&quot;
-        </div>
-      )}
-
-      {!loading && results.length > 0 && (
-        <>
-          <div className="text-xs text-[var(--text-muted)] mb-3 px-2">
-            {totalMatches} result{totalMatches !== 1 ? "s" : ""} in{" "}
-            {results.length} file{results.length !== 1 ? "s" : ""}
-          </div>
-
-          <DirTree
-            node={tree}
-            depth={0}
-            collapsed={collapsedDirs}
-            onToggleDir={toggleDir}
-            onToggleFile={toggleFile}
-            collapsedFiles={collapsedFiles}
-            query={query}
-          />
-        </>
-      )}
-
-      {!query && !loading && (
-        <div className="text-sm text-[var(--text-muted)] py-8 text-center">
-          Type a query to search across all wiki pages
-        </div>
-      )}
+    <div className="text-sm text-[var(--text-muted)] py-8 text-center">
+      Type a query to search across all wiki pages
     </div>
+  );
+}
+
+function AISearch({
+  query,
+  slugs,
+  loading: textLoading,
+}: {
+  query: string;
+  slugs: string[];
+  loading: boolean;
+}) {
+  const [results, setResults] = useState<AISearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Stringify slugs for stable dependency comparison
+  const slugsKey = slugs.join(",");
+
+  useEffect(() => {
+    // Wait for text search to finish before firing AI search
+    if (textLoading) {
+      setLoading(true);
+      return;
+    }
+
+    if (!query || query.trim().length < 2) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+
+    if (slugs.length === 0) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    fetch("/api/ai-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, slugs }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!cancelled) {
+          if (data.error) {
+            setError(data.error);
+          } else {
+            setResults(data.results ?? []);
+          }
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, slugsKey, textLoading]);
+
+  if (!query) {
+    return (
+      <div className="text-sm text-[var(--text-muted)] py-8 text-center">
+        Type a query to search across all wiki pages
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-[var(--text-muted)] py-4 px-2">
+        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        Analyzing results with AI...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-sm text-red-500 py-4 px-2">
+        Search failed: {error}
+      </div>
+    );
+  }
+
+  if (results.length === 0) {
+    return (
+      <div className="text-sm text-[var(--text-muted)] py-4 px-2">
+        No relevant results for &quot;{query}&quot;
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 px-2">
+      <div className="text-xs text-[var(--text-muted)] mb-3">
+        {results.length} result{results.length !== 1 ? "s" : ""} ranked by relevance
+      </div>
+      {results.map((r) => (
+        <Link
+          key={r.slug}
+          href={`/${r.slug}`}
+          className="block rounded-lg border border-[var(--sidebar-border)] p-3 hover:border-[var(--brand)]/40 hover:bg-[var(--accent-light)] transition-colors"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="text-sm font-medium text-[var(--foreground)] truncate">
+                {r.title}
+              </h3>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate">
+                {r.slug}
+              </p>
+            </div>
+            <span className="shrink-0 text-xs font-medium px-1.5 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)]">
+              {r.relevance}/10
+            </span>
+          </div>
+          <p className="text-xs text-[var(--foreground)]/80 mt-2 leading-relaxed">
+            {r.summary}
+          </p>
+          {r.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {r.tags.slice(0, 5).map((tag) => (
+                <span
+                  key={tag}
+                  className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--sidebar-bg)] text-[var(--text-muted)]"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </Link>
+      ))}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { z } from "zod";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { embed } from "@/lib/embeddings";
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -36,6 +37,7 @@ Search strategy:
 - Use the PAGE INDEX below to find the right slug, then use read_page to get details
 - Use search_wiki for broad discovery when you're not sure which page has the answer
 - After searching, read the 2-3 most relevant pages before answering
+- When you read a page, check its linked_pages list — these are pages referenced in the text. Follow links that are directly relevant to the question (e.g. a treatment page linking to a specific trial or meeting notes). Skip generic links like "diagnosis" or "prognosis" unless they're what the user asked about.
 - Do NOT use list_pages — use the PAGE INDEX instead
 
 Be direct, compassionate, and precise. Use medical terminology but explain it when needed.`;
@@ -61,47 +63,93 @@ async function buildSystemPrompt(): Promise<string> {
 }
 
 /**
- * Generate multiple search patterns from a query for parallel fan-out.
- * Takes a natural language query and produces 2-4 short search patterns
- * that cover different angles: exact terms, synonyms, abbreviations.
+ * Generate search patterns from a query for parallel fan-out.
+ *
+ * Convex uses Tantivy (BM25) which already handles multi-term queries well —
+ * it tokenizes, ranks by term frequency and proximity. So we don't need
+ * bigram fan-out for phrase matching. The real value of fan-out is:
+ *
+ * 1. Cleaned query (domain stop words removed) — the primary search
+ * 2. Abbreviation expansions — "ctdna" and "circulating tumor DNA" are
+ *    different tokens so BM25 can't match across them
+ * 3. Individual specific terms — when the cleaned query is long, a single
+ *    precise term like "pembrolizumab" can surface docs the full query misses
+ *
+ * Example: "peptide vaccines for Diana's TNBC" →
+ *   ["peptide vaccines", "triple-negative breast cancer", "vaccines", "peptide"]
  */
 function generateSearchPatterns(query: string): string[] {
   const patterns = new Set<string>();
-
-  // Original query (trimmed)
   const clean = query.trim();
-  if (clean) patterns.add(clean);
+  if (!clean) return [];
 
-  // Split into individual key terms (2+ chars) and search each
-  const words = clean.split(/\s+/).filter((w) => w.length >= 2);
-  if (words.length >= 2) {
-    // Pairs of adjacent words
-    for (let i = 0; i < words.length - 1 && patterns.size < 5; i++) {
-      patterns.add(`${words[i]} ${words[i + 1]}`);
-    }
-  }
+  const stopWords = new Set([
+    // English stop words
+    "a", "an", "the", "is", "are", "was", "were", "in", "on", "at", "to",
+    "for", "of", "with", "and", "or", "but", "not", "from", "by", "about",
+    "what", "how", "does", "do", "can", "will", "should", "would", "could",
+    "her", "his", "my", "our", "their", "this", "that", "these", "those",
+    "it", "they", "we", "you", "i", "me", "she", "he",
+    "before", "after", "during", "between", "through", "into", "like",
+    // Domain-generic terms — too broad, would match nearly every document
+    "diana", "diana's", "tnbc", "breast", "cancer", "tumor", "treatment",
+    "diagnosis", "patient", "doctor", "medical", "clinical", "results",
+    "test", "tests", "ucsf", "stanford",
+  ]);
 
-  // Medical abbreviation expansions
-  const expansions: Record<string, string> = {
-    tnbc: "triple-negative breast cancer",
-    pcr: "pathologic complete response",
-    ctdna: "circulating tumor DNA",
-    mrd: "minimal residual disease",
-    rcb: "residual cancer burden",
-    "keynote-522": "pembrolizumab chemotherapy",
-    "k-522": "KEYNOTE-522",
-    ac: "doxorubicin cyclophosphamide",
-    pembro: "pembrolizumab",
+  // 1. Cleaned query — strip stop words, keep the meaningful terms together
+  //    BM25 proximity ranking works best with all terms in one query
+  const significantWords = clean
+    .split(/\s+/)
+    .filter((w) => w.length >= 2 && !stopWords.has(w.toLowerCase()));
+  const cleaned = significantWords.join(" ");
+  if (cleaned) patterns.add(cleaned);
+
+  // 2. Medical abbreviation expansions — these use completely different tokens
+  //    so BM25 can't bridge them; we need separate queries
+  const expansions: Record<string, string[]> = {
+    tnbc: ["triple-negative breast cancer"],
+    pcr: ["pathologic complete response"],
+    ctdna: ["circulating tumor DNA", "ctDNA"],
+    mrd: ["minimal residual disease"],
+    rcb: ["residual cancer burden"],
+    hrd: ["homologous recombination deficiency"],
+    stils: ["stromal tumor-infiltrating lymphocytes", "sTILs"],
+    tmb: ["tumor mutational burden"],
+    "keynote-522": ["pembrolizumab chemotherapy neoadjuvant"],
+    "k-522": ["KEYNOTE-522"],
+    ac: ["doxorubicin cyclophosphamide"],
+    pembro: ["pembrolizumab"],
+    idc: ["invasive ductal carcinoma"],
+    nact: ["neoadjuvant chemotherapy"],
+    hbo2t: ["hyperbaric oxygen therapy"],
+    pd: ["programmed death ligand"],
+    brca: ["BRCA1 BRCA2 germline mutation"],
+    her2: ["HER2 erbb2"],
   };
 
-  for (const [abbrev, expansion] of Object.entries(expansions)) {
-    if (clean.toLowerCase().includes(abbrev)) {
-      patterns.add(expansion);
+  const lower = clean.toLowerCase();
+  for (const [abbrev, alts] of Object.entries(expansions)) {
+    if (patterns.size >= 5) break;
+    if (lower.includes(abbrev)) {
+      for (const alt of alts) {
+        if (patterns.size >= 5) break;
+        patterns.add(alt);
+      }
     }
   }
 
-  // Cap at 4 patterns to avoid excessive API calls
-  return Array.from(patterns).slice(0, 4);
+  // 3. Individual specific terms — only when query has 3+ significant words,
+  //    search the top 2 most specific (longest) terms individually
+  if (significantWords.length >= 3) {
+    const byLength = [...significantWords].sort((a, b) => b.length - a.length);
+    for (const w of byLength.slice(0, 2)) {
+      if (patterns.size >= 5) break;
+      patterns.add(w);
+    }
+  }
+
+  return Array.from(patterns).slice(0, 5);
 }
 
 export async function POST(request: Request) {
@@ -162,6 +210,7 @@ export async function POST(request: Request) {
 
   const result = streamText({
     model: openrouter.chat("openai/gpt-5.4-mini"), // see scripts/eval-chat.ts for model leaderboard
+    maxOutputTokens: 50000,
     system: systemPrompt,
     messages: modelMessages,
     stopWhen: stepCountIs(10),
@@ -176,15 +225,37 @@ export async function POST(request: Request) {
           // Generate multiple search patterns from the query
           const patterns = generateSearchPatterns(query);
 
-          // Fan out: run all searches in parallel
-          const allResults = await Promise.all(
+          // Fan out: text search + vector search in parallel
+          const textSearchPromise = Promise.all(
             patterns.map((p) => getConvex().query(api.documents.search, { query: p, limit: 6 }))
           );
 
+          // Vector search — embed the query and find semantically similar docs
+          const vectorSearchPromise = (async () => {
+            try {
+              if (!process.env.OPENAI_API_KEY) return [];
+              const queryEmbedding = await embed(query);
+              return await getConvex().action(api.documents.vectorSearch, {
+                embedding: queryEmbedding,
+                limit: 6,
+              });
+            } catch {
+              // Vector search is best-effort — fall back to text-only
+              return [];
+            }
+          })();
+
+          const [allTextResults, vectorResults] = await Promise.all([
+            textSearchPromise,
+            vectorSearchPromise,
+          ]);
+
           // Merge and deduplicate by slug, preserving order
+          // Text results first (BM25 ranked), then vector results (semantic)
           const seen = new Set<string>();
-          const merged: Array<{ slug: string; title: string; tags: string[]; excerpt: string }> = [];
-          for (const results of allResults) {
+          const merged: Array<{ slug: string; title: string; tags: string[]; excerpt?: string }> = [];
+
+          for (const results of allTextResults) {
             for (const r of results) {
               if (!seen.has(r.slug)) {
                 seen.add(r.slug);
@@ -192,12 +263,21 @@ export async function POST(request: Request) {
               }
             }
           }
+
+          // Append vector search results (semantic matches text search may miss)
+          for (const r of vectorResults) {
+            if (!seen.has(r.slug)) {
+              seen.add(r.slug);
+              merged.push({ slug: r.slug, title: r.title, tags: r.tags });
+            }
+          }
+
           return merged.slice(0, 12);
         },
       },
       read_page: {
         description:
-          "Read the full content of a specific wiki page by its slug.",
+          "Read the full content of a specific wiki page by its slug. Returns the page content plus a list of linked_pages found in the text — evaluate these as candidates for further reading.",
         inputSchema: z.object({
           slug: z
             .string()
@@ -208,11 +288,35 @@ export async function POST(request: Request) {
         execute: async ({ slug }: { slug: string }) => {
           const doc = await getConvex().query(api.documents.getBySlug, { slug });
           if (!doc) return { error: `Page not found: ${slug}` };
+
+          // Extract wikilinks [[slug]] and [[slug|label]] from content
+          const linkRegex = /\[\[([^\]|]+?)(?:\|[^\]]+?)?\]\]/g;
+          const linkedSlugs = new Set<string>();
+          let match;
+          while ((match = linkRegex.exec(doc.content)) !== null) {
+            const linked = match[1].trim();
+            // Skip Terminology anchors and self-links
+            if (linked.startsWith("Terminology") || linked === slug) continue;
+            linkedSlugs.add(linked);
+          }
+
+          // Batch-resolve linked page titles (best-effort, cap at 10)
+          const slugsToResolve = Array.from(linkedSlugs).slice(0, 10);
+          const linkedPages = (
+            await Promise.all(
+              slugsToResolve.map(async (s) => {
+                const linked = await getConvex().query(api.documents.getBySlug, { slug: s });
+                return linked ? { slug: linked.slug, title: linked.title } : null;
+              })
+            )
+          ).filter((p): p is { slug: string; title: string } => p !== null);
+
           return {
             slug: doc.slug,
             title: doc.title,
             tags: doc.tags,
             content: doc.content.slice(0, 8000),
+            linked_pages: linkedPages,
           };
         },
       },
@@ -370,5 +474,20 @@ export async function POST(request: Request) {
     },
   });
 
-  return result.toUIMessageStreamResponse();
+  try {
+    return result.toUIMessageStreamResponse();
+  } catch (err: unknown) {
+    const msg =
+      err instanceof Error ? err.message : "An unexpected error occurred";
+    const isCredits = msg.includes("credits") || msg.includes("402");
+    console.error("Chat stream error:", msg);
+    return new Response(
+      JSON.stringify({
+        error: isCredits
+          ? "Out of API credits. Please add credits at openrouter.ai/settings/keys."
+          : `Chat error: ${msg}`,
+      }),
+      { status: isCredits ? 402 : 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
 }

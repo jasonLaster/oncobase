@@ -1,5 +1,6 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, action, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { api } from "./_generated/api";
 
 export const search = query({
   args: { query: v.string(), limit: v.optional(v.number()) },
@@ -125,6 +126,50 @@ export const removeStale = mutation({
       }
     }
     return { removed };
+  },
+});
+
+export const getById = query({
+  args: { id: v.id("documents") },
+  handler: async (ctx, { id }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc) return null;
+    return { slug: doc.slug, title: doc.title, tags: doc.tags };
+  },
+});
+
+export const vectorSearch = action({
+  args: { embedding: v.array(v.float64()), limit: v.optional(v.number()) },
+  handler: async (ctx, { embedding, limit }): Promise<Array<{ slug: string; title: string; tags: string[]; score: number }>> => {
+    const take = limit ?? 10;
+    const results = await ctx.vectorSearch("documents", "by_embedding", {
+      vector: embedding,
+      limit: take,
+    });
+
+    // Fetch full document metadata for each result
+    const docs: Array<{ slug: string; title: string; tags: string[]; score: number } | null> = await Promise.all(
+      results.map(async (r) => {
+        const doc = await ctx.runQuery(api.documents.getById, { id: r._id });
+        if (!doc) return null;
+        return { slug: doc.slug, title: doc.title, tags: doc.tags, score: r._score };
+      })
+    );
+
+    return docs.filter((d): d is NonNullable<typeof d> => d !== null);
+  },
+});
+
+export const upsertEmbedding = mutation({
+  args: { slug: v.string(), embedding: v.array(v.float64()) },
+  handler: async (ctx, { slug, embedding }) => {
+    const doc = await ctx.db
+      .query("documents")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .first();
+    if (!doc) return { found: false };
+    await ctx.db.patch(doc._id, { embedding });
+    return { found: true };
   },
 });
 

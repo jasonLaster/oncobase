@@ -8,6 +8,7 @@ export default defineSchema({
     content: v.string(),
     tags: v.array(v.string()),
     contentHash: v.optional(v.string()),
+    embedding: v.optional(v.array(v.float64())),
     updatedAt: v.number(),
   })
     .index("by_slug", ["slug"])
@@ -17,6 +18,10 @@ export default defineSchema({
     })
     .searchIndex("search_title", {
       searchField: "title",
+    })
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
+      dimensions: 1536,
     }),
 
   conversations: defineTable({

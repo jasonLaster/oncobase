@@ -3,3 +3,5 @@
 node_modules/
 obsidian/.obsidian/workspace.json
 web/public/diana-tnbc-wiki.zip
+web/e2e/.auth/
+web/test-results/
