@@ -54,36 +54,56 @@ export const getBySlug = query({
   },
 });
 
-export const list = query({
-  handler: async (ctx) => {
-    const docs = await ctx.db.query("documents").collect();
-    return docs.map((doc) => ({
-      slug: doc.slug,
-      title: doc.title,
-      tags: doc.tags,
-    }));
+/** Paginated internal query — fetches one page at a time */
+export const listPage = query({
+  args: { cursor: v.union(v.string(), v.null()), numItems: v.number() },
+  handler: async (ctx, { cursor, numItems }): Promise<{
+    page: Array<{ slug: string; title: string; tags: string[] }>;
+    isDone: boolean;
+    continueCursor: string;
+  }> => {
+    const result = await ctx.db.query("documents").paginate({ cursor, numItems });
+    return {
+      page: result.page.map(({ slug, title, tags }) => ({ slug, title, tags })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
   },
 });
 
-export const getByTag = query({
+/** Collects all documents via paginated action to avoid query size limits */
+export const list = action({
+  handler: async (ctx): Promise<Array<{ slug: string; title: string; tags: string[] }>> => {
+    const results: Array<{ slug: string; title: string; tags: string[] }> = [];
+    let cursor: string | null = null;
+    let isDone = false;
+    while (!isDone) {
+      const page: { page: Array<{ slug: string; title: string; tags: string[] }>; isDone: boolean; continueCursor: string } = await ctx.runQuery(api.documents.listPage, { cursor, numItems: 50 });
+      results.push(...page.page);
+      isDone = page.isDone;
+      cursor = page.continueCursor;
+    }
+    return results;
+  },
+});
+
+export const getByTag = action({
   args: { tag: v.string() },
-  handler: async (ctx, { tag }) => {
-    const allDocs = await ctx.db.query("documents").collect();
-    const matching = allDocs.filter((d) => d.tags.includes(tag));
-    return matching
-      .map((doc) => ({ slug: doc.slug, title: doc.title }))
+  handler: async (ctx, { tag }): Promise<Array<{ slug: string; title: string }>> => {
+    const allDocs = await ctx.runAction(api.documents.list, {});
+    return allDocs
+      .filter((d) => d.tags.includes(tag))
+      .map(({ slug, title }) => ({ slug, title }))
       .sort((a, b) => a.title.localeCompare(b.title));
   },
 });
 
-export const listTags = query({
-  handler: async (ctx) => {
-    const docs = await ctx.db.query("documents").collect();
+export const listTags = action({
+  handler: async (ctx): Promise<string[]> => {
+    const docs = await ctx.runAction(api.documents.list, {});
     const tags = new Set<string>();
     for (const doc of docs) {
-      for (const tag of doc.tags) {
-        tags.add(tag);
-      }
+      for (const tag of doc.tags) tags.add(tag);
     }
     return Array.from(tags).sort();
   },
@@ -113,42 +133,18 @@ export const upsert = mutation({
   },
 });
 
-export const removeStale = action({
-  args: { activeSlugs: v.array(v.string()) },
-  handler: async (ctx, { activeSlugs }) => {
-    const activeSet = new Set(activeSlugs);
-    const allDocs = await ctx.runQuery(api.documents.list);
-    const staleSlugs = allDocs
-      .map((d) => d.slug)
-      .filter((slug) => !activeSet.has(slug));
-
-    // Delete in batches via internal mutation
-    const BATCH = 50;
-    let removed = 0;
-    for (let i = 0; i < staleSlugs.length; i += BATCH) {
-      const batch = staleSlugs.slice(i, i + BATCH);
-      const result = await ctx.runMutation(api.documents.deleteBySlugs, { slugs: batch });
-      removed += result.deleted;
+export const deleteBySlug = mutation({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => {
+    const doc = await ctx.db
+      .query("documents")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .first();
+    if (doc) {
+      await ctx.db.delete(doc._id);
+      return { deleted: true };
     }
-    return { removed };
-  },
-});
-
-export const deleteBySlugs = mutation({
-  args: { slugs: v.array(v.string()) },
-  handler: async (ctx, { slugs }) => {
-    let deleted = 0;
-    for (const slug of slugs) {
-      const doc = await ctx.db
-        .query("documents")
-        .withIndex("by_slug", (q) => q.eq("slug", slug))
-        .first();
-      if (doc) {
-        await ctx.db.delete(doc._id);
-        deleted++;
-      }
-    }
-    return { deleted };
+    return { deleted: false };
   },
 });
 
@@ -170,7 +166,6 @@ export const vectorSearch = action({
       limit: take,
     });
 
-    // Fetch full document metadata for each result
     const docs: Array<{ slug: string; title: string; tags: string[]; score: number } | null> = await Promise.all(
       results.map(async (r) => {
         const doc = await ctx.runQuery(api.documents.getById, { id: r._id });

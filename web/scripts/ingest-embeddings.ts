@@ -69,7 +69,7 @@ async function embedBatch(texts: string[]): Promise<(number[] | null)[]> {
 }
 
 async function main() {
-  const allDocs = await client.query(api.documents.list, {});
+  const allDocs = await client.action(api.documents.list, {});
   console.log(`Found ${allDocs.length} documents`);
 
   // Get full docs to check which need embeddings

@@ -325,7 +325,7 @@ export async function POST(request: Request) {
           "List all available wiki pages to discover what content exists.",
         inputSchema: z.object({}),
         execute: async () => {
-          return await getConvex().query(api.documents.list, {});
+          return await getConvex().action(api.documents.list, {});
         },
       },
       get_pages_by_tag: {
@@ -334,14 +334,14 @@ export async function POST(request: Request) {
           tag: z.string().describe("The tag to search for"),
         }),
         execute: async ({ tag }: { tag: string }) => {
-          return await getConvex().query(api.documents.getByTag, { tag });
+          return await getConvex().action(api.documents.getByTag, { tag });
         },
       },
       list_tags: {
         description: "List all tags used across the wiki.",
         inputSchema: z.object({}),
         execute: async () => {
-          return await getConvex().query(api.documents.listTags, {});
+          return await getConvex().action(api.documents.listTags, {});
         },
       },
     },

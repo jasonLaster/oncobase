@@ -36,15 +36,15 @@ export async function POST(request: Request) {
       });
     }
     case "list_pages": {
-      return Response.json(await convex.query(api.documents.list, {}));
+      return Response.json(await convex.action(api.documents.list, {}));
     }
     case "get_pages_by_tag": {
       return Response.json(
-        await convex.query(api.documents.getByTag, { tag: args.tag as string })
+        await convex.action(api.documents.getByTag, { tag: args.tag as string })
       );
     }
     case "list_tags": {
-      return Response.json(await convex.query(api.documents.listTags, {}));
+      return Response.json(await convex.action(api.documents.listTags, {}));
     }
     default:
       return Response.json({ error: `Unknown tool: ${tool}` }, { status: 400 });
