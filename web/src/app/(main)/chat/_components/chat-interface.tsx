@@ -5,7 +5,7 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { MarkdownRendererClient as MarkdownRenderer } from "@/components/markdown-renderer-client";
 import { GrowingTextarea } from "@/components/growing-textarea";
 
 interface StoredMessage {

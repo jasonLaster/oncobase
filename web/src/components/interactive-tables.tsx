@@ -1,0 +1,170 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+
+/**
+ * Client island that progressively enhances server-rendered tables
+ * with resize handles and expand/collapse controls.
+ * Mounts once and attaches listeners to all <table> elements
+ * inside the parent .prose container.
+ */
+export function InteractiveTables({
+  disableAnchors,
+}: {
+  disableAnchors?: boolean;
+}) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const prose = sentinelRef.current?.parentElement;
+    if (!prose) return;
+
+    // --- Heading anchors ---
+    if (!disableAnchors) {
+      attachHeadingAnchors(prose);
+    }
+
+    // --- Table enhancements ---
+    const tables = prose.querySelectorAll<HTMLTableElement>("table");
+    const cleanups: (() => void)[] = [];
+
+    tables.forEach((table) => {
+      cleanups.push(wrapWithExpandCollapse(table));
+      table.querySelectorAll<HTMLTableCellElement>("thead th").forEach((th) => {
+        cleanups.push(attachResizeHandle(th));
+      });
+    });
+
+    return () => cleanups.forEach((fn) => fn());
+  }, [disableAnchors]);
+
+  // Hidden sentinel so we can find the parent .prose div
+  return <div ref={sentinelRef} style={{ display: "none" }} />;
+}
+
+// ─── Heading anchors ──────────────────────────────────────────
+
+function attachHeadingAnchors(container: HTMLElement) {
+  const headings = container.querySelectorAll<HTMLElement>(
+    "h1, h2, h3, h4, h5, h6"
+  );
+  headings.forEach((heading) => {
+    const id = heading.id;
+    if (!id) return;
+
+    heading.classList.add("group", "relative");
+
+    const anchor = document.createElement("a");
+    anchor.href = `#${id}`;
+    anchor.className =
+      "absolute -left-6 top-0 opacity-0 group-hover:opacity-100 text-[var(--text-muted)] no-underline hover:no-underline hover:text-[var(--brand)] transition-opacity cursor-pointer";
+    anchor.setAttribute("aria-label", `Link to "${heading.textContent}"`);
+    anchor.textContent = "#";
+
+    heading.insertBefore(anchor, heading.firstChild);
+  });
+}
+
+// ─── Table expand / collapse ──────────────────────────────────
+
+function wrapWithExpandCollapse(table: HTMLTableElement): () => void {
+  const wrapper = document.createElement("div");
+  wrapper.className = "not-prose my-4 relative group/table";
+
+  table.parentNode?.insertBefore(wrapper, table);
+  wrapper.appendChild(table);
+  table.classList.add("w-full");
+
+  // Expand/collapse button
+  const btn = document.createElement("button");
+  btn.className =
+    "absolute top-1 right-1 z-10 opacity-0 group-hover/table:opacity-100 transition-opacity p-1 rounded bg-[var(--background)] border border-[var(--sidebar-border)] text-[var(--text-muted)] hover:text-[var(--brand)] hover:border-[var(--brand)]";
+  btn.setAttribute("aria-label", "Expand table");
+  btn.title = "Expand table";
+  btn.innerHTML = expandIcon;
+
+  let expanded = false;
+
+  const toggle = () => {
+    expanded = !expanded;
+    btn.innerHTML = expanded ? collapseIcon : expandIcon;
+    btn.setAttribute("aria-label", expanded ? "Collapse table" : "Expand table");
+    btn.title = expanded ? "Collapse table" : "Expand table";
+
+    if (expanded) {
+      const scrollParent =
+        wrapper.closest("[class*='overflow-y-auto']") ||
+        wrapper
+          .closest("[class*='overflow-hidden']")
+          ?.querySelector("[class*='overflow-y-auto']");
+      const container = scrollParent || wrapper.parentElement;
+      if (container) {
+        const containerRect = container.getBoundingClientRect();
+        const wrapRect = wrapper.getBoundingClientRect();
+        wrapper.style.marginLeft = `${-(wrapRect.left - containerRect.left) + 20}px`;
+        wrapper.style.marginRight = `${-(containerRect.right - wrapRect.right) + 20}px`;
+      }
+    } else {
+      wrapper.style.marginLeft = "";
+      wrapper.style.marginRight = "";
+    }
+  };
+
+  btn.addEventListener("click", toggle);
+  wrapper.appendChild(btn);
+
+  return () => {
+    btn.removeEventListener("click", toggle);
+    // Unwrap: move table back out
+    if (wrapper.parentNode) {
+      wrapper.parentNode.insertBefore(table, wrapper);
+      wrapper.remove();
+    }
+  };
+}
+
+// ─── Column resize handle ─────────────────────────────────────
+
+function attachResizeHandle(th: HTMLTableCellElement): () => void {
+  th.classList.add("relative", "group/resize");
+
+  const handle = document.createElement("div");
+  handle.className =
+    "absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover/resize:opacity-100 hover:!opacity-100 bg-[var(--brand)] transition-opacity";
+  handle.setAttribute("role", "separator");
+  handle.setAttribute("aria-orientation", "vertical");
+  th.appendChild(handle);
+
+  const onMouseDown = (e: MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = th.getBoundingClientRect().width;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      th.style.width = `${Math.max(60, startWidth + ev.clientX - startX)}px`;
+    };
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
+
+  handle.addEventListener("mousedown", onMouseDown);
+
+  return () => {
+    handle.removeEventListener("mousedown", onMouseDown);
+    handle.remove();
+  };
+}
+
+// ─── SVG icons ────────────────────────────────────────────────
+
+const expandIcon = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2L2 2L2 4"/><path d="M12 2L14 2L14 4"/><path d="M4 14L2 14L2 12"/><path d="M12 14L14 14L14 12"/></svg>`;
+const collapseIcon = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2L4 2L4 4"/><path d="M14 2L12 2L12 4"/><path d="M2 14L4 14L4 12"/><path d="M14 14L12 14L12 12"/></svg>`;
