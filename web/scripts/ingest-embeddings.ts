@@ -1,8 +1,8 @@
 /**
- * Generate and store embeddings for all documents in Convex.
- * Skips documents that already have embeddings unless --force is passed.
+ * Generate and store embeddings for documents in Convex.
+ * Skips documents whose content hasn't changed since last embedding.
  *
- * Usage: npx tsx scripts/ingest-embeddings.ts [--force]
+ * Usage: bun scripts/ingest-embeddings.ts [--force]
  *
  * Requires OPENAI_API_KEY and NEXT_PUBLIC_CONVEX_URL env vars.
  */
@@ -24,7 +24,7 @@ if (!CONVEX_URL) {
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 if (!OPENAI_KEY) {
   console.error("OPENAI_API_KEY not set — skipping embedding generation");
-  process.exit(0); // Exit cleanly so builds don't fail
+  process.exit(0);
 }
 
 const client = new ConvexHttpClient(CONVEX_URL);
@@ -32,17 +32,7 @@ const openai = new OpenAI({ apiKey: OPENAI_KEY });
 const force = process.argv.includes("--force");
 
 const BATCH_SIZE = 50;
-
-// text-embedding-3-small has an 8192 token limit; ~4 chars/token average
 const MAX_CHARS = 20000;
-
-async function embedOne(text: string): Promise<number[]> {
-  const res = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: text.slice(0, MAX_CHARS),
-  });
-  return res.data[0].embedding;
-}
 
 async function embedBatch(texts: string[]): Promise<(number[] | null)[]> {
   const truncated = texts.map((t) => t.slice(0, MAX_CHARS));
@@ -53,12 +43,15 @@ async function embedBatch(texts: string[]): Promise<(number[] | null)[]> {
     });
     return res.data.map((d) => d.embedding);
   } catch {
-    // If batch fails (e.g. one item too long), fall back to individual
     console.log("    Batch failed, falling back to individual embeddings...");
     return Promise.all(
       truncated.map(async (t) => {
         try {
-          return await embedOne(t);
+          const res = await openai.embeddings.create({
+            model: "text-embedding-3-small",
+            input: t.slice(0, MAX_CHARS),
+          });
+          return res.data[0].embedding;
         } catch (e) {
           console.warn(`    Skipping text (${t.length} chars): ${(e as Error).message}`);
           return null;
@@ -69,48 +62,56 @@ async function embedBatch(texts: string[]): Promise<(number[] | null)[]> {
 }
 
 async function main() {
-  const allDocs = await client.action(api.documents.list, {});
-  console.log(`Found ${allDocs.length} documents`);
+  // Fetch embedding status to determine which docs need re-embedding
+  const status = await client.action(api.documents.embeddingStatus, {});
+  console.log(`Found ${status.length} documents`);
 
-  // Get full docs to check which need embeddings
-  const toEmbed: Array<{ slug: string; text: string }> = [];
-  for (const doc of allDocs) {
-    const full = await client.query(api.documents.getBySlug, { slug: doc.slug });
-    if (!full) continue;
+  const toEmbed: Array<{ slug: string; contentHash: string | undefined }> = [];
+  let skipped = 0;
 
-    // Check if embedding exists (we need a way to check — use the full doc)
-    if (!force) {
-      // We'll embed all docs without embeddings. Since we can't check the
-      // embedding field via the query API, we just embed everything on first run
-      // and rely on contentHash to avoid re-embedding unchanged docs.
+  for (const doc of status) {
+    if (!force && doc.embeddingHash && doc.contentHash === doc.embeddingHash) {
+      skipped++;
+      continue;
     }
-
-    toEmbed.push({
-      slug: doc.slug,
-      text: `${doc.title}\n\n${full.content}`.slice(0, 32000),
-    });
+    toEmbed.push({ slug: doc.slug, contentHash: doc.contentHash });
   }
 
-  console.log(`Generating embeddings for ${toEmbed.length} documents...`);
+  if (toEmbed.length === 0) {
+    console.log(`All ${skipped} documents already have up-to-date embeddings. Nothing to do.`);
+    return;
+  }
+
+  console.log(`Skipped ${skipped} unchanged, generating embeddings for ${toEmbed.length} documents...`);
 
   let processed = 0;
   for (let i = 0; i < toEmbed.length; i += BATCH_SIZE) {
     const batch = toEmbed.slice(i, i + BATCH_SIZE);
-    const texts = batch.map((d) => d.text);
-    const embeddings = await embedBatch(texts);
+
+    // Fetch full content for this batch
+    const docs = await Promise.all(
+      batch.map(async (b) => {
+        const full = await client.query(api.documents.getBySlug, { slug: b.slug });
+        return full ? { slug: b.slug, contentHash: b.contentHash, text: `${full.title}\n\n${full.content}`.slice(0, 32000) } : null;
+      })
+    );
+
+    const validDocs = docs.filter((d): d is NonNullable<typeof d> => d !== null);
+    const embeddings = await embedBatch(validDocs.map((d) => d.text));
 
     await Promise.all(
-      batch.map((doc, j) => {
+      validDocs.map((doc, j) => {
         const emb = embeddings[j];
         if (!emb) return Promise.resolve();
         return client.mutation(api.documents.upsertEmbedding, {
           slug: doc.slug,
           embedding: emb,
+          embeddingHash: doc.contentHash,
         });
       })
     );
 
-    processed += batch.length;
+    processed += validDocs.length;
     console.log(`  Embedded ${processed}/${toEmbed.length}`);
   }
 

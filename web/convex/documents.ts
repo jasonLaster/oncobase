@@ -178,15 +178,47 @@ export const vectorSearch = action({
   },
 });
 
+/** Return embedding status for all docs so the ingest script can skip unchanged ones */
+export const embeddingStatus = action({
+  handler: async (ctx): Promise<Array<{ slug: string; contentHash: string | undefined; embeddingHash: string | undefined }>> => {
+    const results: Array<{ slug: string; contentHash: string | undefined; embeddingHash: string | undefined }> = [];
+    let cursor: string | null = null;
+    let isDone = false;
+    while (!isDone) {
+      const page: { page: Array<{ slug: string; contentHash: string | undefined; embeddingHash: string | undefined }>; isDone: boolean; continueCursor: string } = await ctx.runQuery(api.documents.embeddingStatusPage, { cursor, numItems: 50 });
+      results.push(...page.page);
+      isDone = page.isDone;
+      cursor = page.continueCursor;
+    }
+    return results;
+  },
+});
+
+export const embeddingStatusPage = query({
+  args: { cursor: v.union(v.string(), v.null()), numItems: v.number() },
+  handler: async (ctx, { cursor, numItems }) => {
+    const result = await ctx.db.query("documents").paginate({ cursor, numItems });
+    return {
+      page: result.page.map((doc) => ({
+        slug: doc.slug,
+        contentHash: doc.contentHash,
+        embeddingHash: doc.embeddingHash,
+      })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  },
+});
+
 export const upsertEmbedding = mutation({
-  args: { slug: v.string(), embedding: v.array(v.float64()) },
-  handler: async (ctx, { slug, embedding }) => {
+  args: { slug: v.string(), embedding: v.array(v.float64()), embeddingHash: v.optional(v.string()) },
+  handler: async (ctx, { slug, embedding, embeddingHash }) => {
     const doc = await ctx.db
       .query("documents")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .first();
     if (!doc) return { found: false };
-    await ctx.db.patch(doc._id, { embedding });
+    await ctx.db.patch(doc._id, { embedding, embeddingHash });
     return { found: true };
   },
 });
