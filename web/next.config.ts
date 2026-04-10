@@ -47,6 +47,19 @@ const nextConfig: NextConfig = {
         destination:
           "/sources/meeting-notes/409---dirbas-biopsy-planning-overview",
       },
+      // Biopsy pages moved into diagnostics/biopsy/ subdirectory
+      {
+        source: "/wiki/diagnostics/day4-biopsy",
+        destination: "/wiki/diagnostics/biopsy/day4-biopsy",
+      },
+      {
+        source: "/wiki/diagnostics/biopsy-vs-infusion-april9",
+        destination: "/wiki/diagnostics/biopsy/biopsy-vs-infusion-april9",
+      },
+      {
+        source: "/wiki/diagnostics/biopsy-plan-april10",
+        destination: "/wiki/diagnostics/biopsy/biopsy-plan-april10",
+      },
     ];
 
     return [
