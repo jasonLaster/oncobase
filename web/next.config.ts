@@ -36,11 +36,30 @@ const nextConfig: NextConfig = {
       pregnancy: "archived/pregnancy",
     };
 
-    return Object.entries(wikiRedirects).map(([from, to]) => ({
-      source: `/wiki/${from}`,
-      destination: `/wiki/${to}`,
-      permanent: true,
-    }));
+    const sourceRedirects: { source: string; destination: string }[] = [
+      // 408 → 409: Dirbas biopsy planning call was on 4/9, not 4/8
+      {
+        source: "/sources/meeting-notes/408---dirbas-biopsy-planning",
+        destination: "/sources/meeting-notes/409---dirbas-biopsy-planning",
+      },
+      {
+        source: "/sources/meeting-notes/408---dirbas-biopsy-planning-overview",
+        destination:
+          "/sources/meeting-notes/409---dirbas-biopsy-planning-overview",
+      },
+    ];
+
+    return [
+      ...Object.entries(wikiRedirects).map(([from, to]) => ({
+        source: `/wiki/${from}`,
+        destination: `/wiki/${to}`,
+        permanent: true as const,
+      })),
+      ...sourceRedirects.map((r) => ({
+        ...r,
+        permanent: true as const,
+      })),
+    ];
   },
   serverExternalPackages: ["gray-matter"],
   outputFileTracingRoot: path.join(__dirname, ".."),
