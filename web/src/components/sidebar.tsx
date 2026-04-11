@@ -2,21 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, lazy, Suspense } from "react";
 import type { FileNode } from "@/lib/markdown";
 
 const ConversationList = lazy(() => import("./conversation-list"));
 
-function formatName(name: string): string {
+export function formatName(name: string): string {
   return name.replace(/-/g, " ");
 }
 
-function hasActiveDescendant(node: FileNode, decodedPathname: string): boolean {
+export function hasActiveDescendant(node: FileNode, decodedPathname: string): boolean {
   if (node.type === "file") return decodedPathname === `/${node.slug}`;
   return node.children?.some((child) => hasActiveDescendant(child, decodedPathname)) ?? false;
 }
 
-function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
+export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; depth?: number; onNavigate?: () => void }) {
   const rawPathname = usePathname();
   const pathname = decodeURIComponent(rawPathname);
   const hasActive = hasActiveDescendant(node, pathname);
@@ -44,7 +44,7 @@ function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
         {open && node.children && (
           <div>
             {node.children.map((child) => (
-              <TreeNode key={child.slug} node={child} depth={depth + 1} />
+              <TreeNode key={child.slug} node={child} depth={depth + 1} onNavigate={onNavigate} />
             ))}
           </div>
         )}
@@ -55,6 +55,7 @@ function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
   return (
     <Link
       href={`/${node.slug}`}
+      onClick={onNavigate}
       className={`block px-2 py-1 text-sm rounded truncate transition-colors ${
         isActive
           ? "bg-[var(--accent-light)] text-[var(--brand)] font-medium"
@@ -68,81 +69,17 @@ function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
   );
 }
 
-
-
 export function Sidebar({ tree }: { tree: FileNode[] }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   const isChat = pathname.startsWith("/chat");
 
-  const closeMobile = useCallback(() => setMobileOpen(false), []);
-  const openMobile = useCallback(() => setMobileOpen(true), []);
-
-  useEffect(() => {
-    queueMicrotask(() => setMobileOpen(false));
-  }, [pathname]);
-
-  useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = "";
-      };
-    }
-  }, [mobileOpen]);
-
-  useEffect(() => {
-    (window as unknown as Record<string, unknown>).__openSidebar = openMobile;
-    return () => {
-      delete (window as unknown as Record<string, unknown>).__openSidebar;
-    };
-  }, [openMobile]);
-
   return (
-    <>
-      {/* Mobile drawer overlay */}
-      <div
-        className={`md:hidden fixed inset-0 z-40 transition-opacity duration-300 ${
-          mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
-      >
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={closeMobile} />
-        <aside
-          className={`absolute top-0 left-0 bottom-0 w-[280px] max-w-[85vw] bg-[var(--sidebar-bg)] shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
-            mobileOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-        >
-          <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[var(--sidebar-border)]">
-            <Link href="/" className="text-base font-semibold tracking-tight" onClick={closeMobile}>
-              Diana&apos;s TNBC
-            </Link>
-            <button
-              onClick={closeMobile}
-              aria-label="Close menu"
-              className="p-1.5 -mr-1.5 rounded-md hover:bg-[var(--accent-light)] transition-colors"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <line x1="4" y1="4" x2="12" y2="12" />
-                <line x1="12" y1="4" x2="4" y2="12" />
-              </svg>
-            </button>
-          </div>
-          <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-0.5">
-            {isChat ? <Suspense><ConversationList /></Suspense> : tree.map((node) => (
-              <TreeNode key={node.slug} node={node} />
-            ))}
-          </nav>
-        </aside>
-      </div>
-
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col h-full min-h-0 overflow-hidden bg-[var(--sidebar-bg)]">
-        <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
-          {isChat ? <Suspense><ConversationList /></Suspense> : tree.map((node) => (
-            <TreeNode key={node.slug} node={node} />
-          ))}
-        </nav>
-      </aside>
-    </>
+    <aside className="hidden md:flex flex-col h-full min-h-0 overflow-hidden bg-[var(--sidebar-bg)]">
+      <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
+        {isChat ? <Suspense><ConversationList /></Suspense> : tree.map((node) => (
+          <TreeNode key={node.slug} node={node} />
+        ))}
+      </nav>
+    </aside>
   );
 }

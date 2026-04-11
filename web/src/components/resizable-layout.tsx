@@ -115,9 +115,8 @@ export function ResizableLayout({
         </div>
       </div>
 
-      {/* Mobile: stacked (sidebar is a drawer) */}
-      <div className="md:hidden h-full min-h-0 overflow-hidden">
-        {sidebar}
+      {/* Mobile: content only (navigation via BottomNav) */}
+      <div className="md:hidden h-full min-h-0 overflow-hidden pb-12">
         <div className="min-w-0 h-full min-h-0 overflow-hidden">{children}</div>
       </div>
     </>

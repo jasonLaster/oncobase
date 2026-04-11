@@ -19,8 +19,8 @@ export function InteractiveTables({
     const prose = sentinelRef.current?.parentElement;
     if (!prose) return;
 
-    // --- Heading anchors ---
-    if (!disableAnchors) {
+    // --- Heading anchors (desktop only — touch devices can't hover) ---
+    if (!disableAnchors && window.matchMedia("(hover: hover)").matches) {
       attachHeadingAnchors(prose);
     }
 
@@ -69,11 +69,30 @@ function attachHeadingAnchors(container: HTMLElement) {
 
 function wrapWithExpandCollapse(table: HTMLTableElement): () => void {
   const wrapper = document.createElement("div");
-  wrapper.className = "not-prose my-4 relative group/table";
+  wrapper.className = "not-prose my-4 relative group/table table-scroll-wrapper";
 
   table.parentNode?.insertBefore(wrapper, table);
   wrapper.appendChild(table);
-  table.classList.add("w-full");
+
+  // Detect horizontal overflow for scroll indicator
+  const updateScrollable = () => {
+    if (wrapper.scrollWidth > wrapper.clientWidth + 2) {
+      wrapper.setAttribute("data-scrollable", "");
+    } else {
+      wrapper.removeAttribute("data-scrollable");
+    }
+  };
+  const onScroll = () => {
+    if (wrapper.scrollLeft + wrapper.clientWidth >= wrapper.scrollWidth - 2) {
+      wrapper.setAttribute("data-scrolled-end", "");
+    } else {
+      wrapper.removeAttribute("data-scrolled-end");
+    }
+  };
+  updateScrollable();
+  wrapper.addEventListener("scroll", onScroll);
+  const resizeObserver = new ResizeObserver(updateScrollable);
+  resizeObserver.observe(wrapper);
 
   // Expand/collapse button
   const btn = document.createElement("button");
@@ -115,6 +134,8 @@ function wrapWithExpandCollapse(table: HTMLTableElement): () => void {
 
   return () => {
     btn.removeEventListener("click", toggle);
+    wrapper.removeEventListener("scroll", onScroll);
+    resizeObserver.disconnect();
     // Unwrap: move table back out
     if (wrapper.parentNode) {
       wrapper.parentNode.insertBefore(table, wrapper);
