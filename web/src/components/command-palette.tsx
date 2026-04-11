@@ -87,10 +87,10 @@ export function CommandPalette() {
               >
                 <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50" />
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="truncate">{page.name}</span>
+                  <span className="truncate">{page.name.replace(/-/g, " ")}</span>
                   {page.path !== page.name && (
                     <span className="text-xs text-muted-foreground truncate">
-                      {page.path}
+                      {page.path.replace(/-/g, " ")}
                     </span>
                   )}
                 </div>

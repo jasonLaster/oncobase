@@ -400,6 +400,7 @@ export function ChatInterface({
   const abortRef = useRef<AbortController | null>(null);
 
   function triggerGeneration(convId: string, msgs: Array<{ id: string; role: string; parts: unknown[] }>) {
+    hasResumed.current = true; // prevent auto-resume from double-firing
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
