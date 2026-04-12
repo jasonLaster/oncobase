@@ -84,10 +84,16 @@ async function main() {
     const body = h1Match ? content.replace(/^#\s+.+$/m, "").replace(/^\n+/, "") : content;
     const tags = Array.isArray(data.tags) ? (data.tags as string[]) : [];
 
+    // Convex mutations have a ~1MB argument limit; truncate very large docs
+    const MAX_CONTENT = 200_000; // ~200KB, well within limits
+    const truncatedBody = body.length > MAX_CONTENT
+      ? body.slice(0, MAX_CONTENT) + "\n\n[Content truncated — full document is " + Math.round(body.length / 1024) + "KB]"
+      : body;
+
     const result = await client.mutation(api.documents.upsert, {
       slug: file.slug,
       title,
-      content: body,
+      content: truncatedBody,
       tags,
       contentHash,
     });
