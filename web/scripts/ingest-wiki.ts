@@ -85,24 +85,30 @@ async function main() {
     const tags = Array.isArray(data.tags) ? (data.tags as string[]) : [];
 
     // Convex mutations have a ~1MB argument limit; truncate very large docs
-    const MAX_CONTENT = 200_000; // ~200KB, well within limits
+    const MAX_CONTENT = 900_000; // ~900KB, leaving room for other fields
     const truncatedBody = body.length > MAX_CONTENT
       ? body.slice(0, MAX_CONTENT) + "\n\n[Content truncated — full document is " + Math.round(body.length / 1024) + "KB]"
       : body;
 
-    const result = await client.mutation(api.documents.upsert, {
-      slug: file.slug,
-      title,
-      content: truncatedBody,
-      tags,
-      contentHash,
-    });
+    try {
+      const result = await client.mutation(api.documents.upsert, {
+        slug: file.slug,
+        title,
+        content: truncatedBody,
+        tags,
+        contentHash,
+      });
 
-    slugs.push(file.slug);
-    if (result.skipped) {
-      skipped++;
-    } else {
-      updated++;
+      slugs.push(file.slug);
+      if (result.skipped) {
+        skipped++;
+      } else {
+        updated++;
+      }
+    } catch (err) {
+      const msg = (err as Error).message || String(err);
+      console.error(`  ✗ Failed to upsert ${file.slug} (${Math.round(truncatedBody.length / 1024)}KB): ${msg.slice(0, 200)}`);
+      // Continue with other files instead of crashing
     }
 
     const total = updated + skipped;
