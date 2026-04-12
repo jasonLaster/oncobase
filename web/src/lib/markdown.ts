@@ -91,7 +91,7 @@ export function getAllTags(): string[] {
     const file = getMarkdownFile(slug);
     if (file && Array.isArray(file.frontmatter.tags)) {
       for (const tag of file.frontmatter.tags as string[]) {
-        tags.add(tag);
+        tags.add(tag.toLowerCase());
       }
     }
   }
@@ -102,10 +102,11 @@ export function getAllTags(): string[] {
 export function getPagesByTag(tag: string): { slug: string; title: string }[] {
   const slugs = getAllSlugs();
   const pages: { slug: string; title: string }[] = [];
+  const normalizedTag = tag.toLowerCase();
   for (const slug of slugs) {
     const file = getMarkdownFile(slug);
     if (file && Array.isArray(file.frontmatter.tags)) {
-      if ((file.frontmatter.tags as string[]).includes(tag)) {
+      if ((file.frontmatter.tags as string[]).some((t) => t.toLowerCase() === normalizedTag)) {
         pages.push({ slug: file.slug, title: file.title });
       }
     }

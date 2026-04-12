@@ -3,6 +3,9 @@
 node_modules/
 obsidian/.obsidian/workspace.json
 web/public/diana-tnbc-wiki.zip
+web/public/diana-tnbc-wiki-full.zip
+web/public/diana-tnbc-wiki-markdown.zip
+web/public/wiki-download-info.json
 web/e2e/.auth/
 web/test-results/
 diagnostics

@@ -223,6 +223,32 @@ export const upsertEmbedding = mutation({
   },
 });
 
+export const getMeta = query({
+  args: { key: v.string() },
+  handler: async (ctx, { key }) => {
+    const row = await ctx.db
+      .query("meta")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .first();
+    return row ? row.value : null;
+  },
+});
+
+export const setMeta = mutation({
+  args: { key: v.string(), value: v.string() },
+  handler: async (ctx, { key, value }) => {
+    const existing = await ctx.db
+      .query("meta")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, { value });
+    } else {
+      await ctx.db.insert("meta", { key, value });
+    }
+  },
+});
+
 function extractExcerpt(content: string, query: string): string {
   const lower = content.toLowerCase();
   const idx = lower.indexOf(query.toLowerCase());

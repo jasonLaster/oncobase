@@ -118,6 +118,21 @@ async function main() {
   }
 
   console.log(`Done! ${updated} updated, ${skipped} unchanged.`);
+
+  // Store download info sizes in Convex meta so the UI can display them
+  const downloadInfoPath = path.join(__dirname, "..", "public", "wiki-download-info.json");
+  if (fs.existsSync(downloadInfoPath)) {
+    try {
+      const info = JSON.parse(fs.readFileSync(downloadInfoPath, "utf-8"));
+      await client.mutation(api.documents.setMeta, {
+        key: "wiki-download-info",
+        value: JSON.stringify(info),
+      });
+      console.log("Stored wiki download info in Convex meta.");
+    } catch (err) {
+      console.error("Failed to store wiki download info:", (err as Error).message);
+    }
+  }
 }
 
 main().catch((err) => {

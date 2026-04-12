@@ -1,0 +1,16 @@
+# Build outputs (relative to web/ root directory)
+.next/
+out/
+build/
+coverage/
+test-results/
+
+# Dependencies
+node_modules/
+
+# Env files (values are in Vercel env vars)
+.env*
+
+# Full wiki zip is too large for Vercel's 1 GiB static file limit.
+# It is uploaded to Vercel Blob at build time instead.
+public/diana-tnbc-wiki-full.zip

@@ -25,6 +25,11 @@ export default defineSchema({
       dimensions: 1536,
     }),
 
+  meta: defineTable({
+    key: v.string(),
+    value: v.string(),
+  }).index("by_key", ["key"]),
+
   conversations: defineTable({
     title: v.string(),
     createdAt: v.number(),
