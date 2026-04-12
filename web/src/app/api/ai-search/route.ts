@@ -92,7 +92,7 @@ export async function POST(request: Request) {
         batch.map(async (doc) => {
           try {
             const { object } = await generateObject({
-              model: openrouter.chat("openai/gpt-4.1-mini"),
+              model: openrouter.chat("openai/gpt-5.4-mini"),
               maxOutputTokens: 200,
               schema: scoreSchema,
               prompt: `You are evaluating a search result for the query: "${query}"
