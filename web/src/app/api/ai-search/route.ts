@@ -3,6 +3,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
+import { embed } from "@/lib/embeddings";
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -26,19 +27,41 @@ export async function POST(request: Request) {
     slugs: string[];
   };
 
-  if (!query || slugs.length === 0) {
+  if (!query) {
     return Response.json({ results: [] });
   }
 
   const convex = getConvex();
 
-  // Fetch diagnosis context and doc content in parallel
-  const [diagnosisDoc, ...docs] = await Promise.all([
+  // Run vector search in parallel with text-based slug fetching
+  // This ensures natural language queries find relevant docs even with 0 text matches
+  const [queryEmbedding, diagnosisDoc] = await Promise.all([
+    embed(query),
     convex.query(api.documents.getBySlug, { slug: "wiki/diagnostics/diagnosis" }),
-    ...slugs.slice(0, 12).map((slug) =>
+  ]);
+
+  const vectorResults = await convex.action(api.documents.vectorSearch, {
+    embedding: queryEmbedding,
+    limit: 12,
+  });
+
+  // Merge text-search slugs with vector-search slugs, deduplicating
+  const mergedSlugs = new Set(slugs.slice(0, 12));
+  for (const vr of vectorResults) {
+    mergedSlugs.add(vr.slug);
+  }
+  const allSlugs = Array.from(mergedSlugs);
+
+  if (allSlugs.length === 0) {
+    return Response.json({ results: [] });
+  }
+
+  // Fetch doc content for all candidate slugs
+  const docs = await Promise.all(
+    allSlugs.map((slug) =>
       convex.query(api.documents.getBySlug, { slug })
     ),
-  ]);
+  );
 
   const diagnosisContext = diagnosisDoc
     ? `Patient: Diana Laster, Age 36, Diagnosed March 2026\n${diagnosisDoc.content.slice(0, 1500)}`
@@ -69,7 +92,7 @@ export async function POST(request: Request) {
         batch.map(async (doc) => {
           try {
             const { object } = await generateObject({
-              model: openrouter.chat("openai/gpt-5.4-mini"),
+              model: openrouter.chat("openai/gpt-4.1-mini"),
               maxOutputTokens: 200,
               schema: scoreSchema,
               prompt: `You are evaluating a search result for the query: "${query}"
@@ -82,7 +105,7 @@ Tags: ${doc.tags.join(", ") || "none"}
 Content preview:
 ${doc.content.slice(0, 800)}
 
-Score this document's relevance to the query (0-10) and write a 1-2 sentence summary of why it's relevant to Diana's case.`,
+Score this document's relevance to the query (0-10). A score of 5+ means it directly addresses the query topic. A score of 3-4 means it's tangentially related. Write a 1-2 sentence summary explaining the relevance.`,
             });
             return {
               slug: doc.slug,
@@ -115,7 +138,7 @@ Score this document's relevance to the query (0-10) and write a 1-2 sentence sum
   }
 
   const results = allScored
-    .filter((r): r is NonNullable<typeof r> => r !== null && r.relevance >= 3)
+    .filter((r): r is NonNullable<typeof r> => r !== null && r.relevance >= 2)
     .sort((a, b) => b.relevance - a.relevance);
 
   return Response.json({ results });

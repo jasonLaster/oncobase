@@ -195,6 +195,7 @@ function SearchContent() {
   const [tab, setTab] = useState<"text" | "ai">("ai");
   const [textResults, setTextResults] = useState<SearchResult[]>([]);
   const [textLoading, setTextLoading] = useState(false);
+  const [textSearchDone, setTextSearchDone] = useState(false);
 
   // Shared text search — runs once, feeds both tabs
   const doSearch = useCallback(async (q: string) => {
@@ -203,11 +204,13 @@ function SearchContent() {
       return;
     }
     setTextLoading(true);
+    setTextSearchDone(false);
     try {
       const res = await searchMarkdown(q);
       setTextResults(res);
     } finally {
       setTextLoading(false);
+      setTextSearchDone(true);
     }
   }, []);
 
@@ -265,7 +268,7 @@ function SearchContent() {
         {tab === "text" ? (
           <TextSearch query={query} results={textResults} loading={textLoading} />
         ) : (
-          <AISearch query={query} slugs={slugs} loading={textLoading} />
+          <AISearch query={query} slugs={slugs} loading={textLoading} textSearchDone={textSearchDone} />
         )}
       </div>
     </div>
@@ -357,22 +360,21 @@ function AISearch({
   query,
   slugs,
   loading: textLoading,
+  textSearchDone,
 }: {
   query: string;
   slugs: string[];
   loading: boolean;
+  textSearchDone: boolean;
 }) {
   const [results, setResults] = useState<AISearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Stringify slugs for stable dependency comparison
-  const slugsKey = slugs.join(",");
-
   useEffect(() => {
-    // Wait for text search to finish before firing AI search
-    if (textLoading) {
-      setLoading(true);
+    // Wait for text search to complete before firing AI search
+    if (!textSearchDone) {
+      setLoading(textLoading);
       return;
     }
 
@@ -382,12 +384,7 @@ function AISearch({
       return;
     }
 
-    if (slugs.length === 0) {
-      setResults([]);
-      setLoading(false);
-      return;
-    }
-
+    // Don't bail on empty slugs — vector search on the server will find candidates
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -416,7 +413,7 @@ function AISearch({
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, slugsKey, textLoading]);
+  }, [query, textSearchDone]);
 
   if (!query) {
     return (
