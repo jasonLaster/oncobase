@@ -71,7 +71,13 @@ export function getMarkdownFile(slug: string): MarkdownFile | null {
   if (!fs.existsSync(filePath)) return null;
 
   const raw = fs.readFileSync(filePath, "utf-8");
-  const { data, content } = matter(raw);
+  let data: Record<string, unknown> = {};
+  let content = raw;
+  try {
+    ({ data, content } = matter(raw));
+  } catch {
+    // Malformed YAML frontmatter (e.g. `**bold:**` misread as YAML alias)
+  }
 
   // Derive title from first H1, frontmatter, or filename
   const h1Match = content.match(/^#\s+(.+)$/m);
