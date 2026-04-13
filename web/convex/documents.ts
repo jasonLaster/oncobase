@@ -71,6 +71,28 @@ export const listPage = query({
   },
 });
 
+/** Paginated query with title + description + content — used by the description generator */
+export const listPageWithDescriptions = query({
+  args: { cursor: v.union(v.string(), v.null()), numItems: v.number() },
+  handler: async (ctx, { cursor, numItems }): Promise<{
+    page: Array<{ slug: string; title: string; description: string | null; content: string }>;
+    isDone: boolean;
+    continueCursor: string;
+  }> => {
+    const result = await ctx.db.query("documents").paginate({ cursor, numItems });
+    return {
+      page: result.page.map(({ slug, title, description, content }) => ({
+        slug,
+        title,
+        description: description ?? null,
+        content,
+      })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  },
+});
+
 /** Paginated query that includes content — used by the archive builder to avoid N+1 getBySlug calls */
 export const listPageWithContent = query({
   args: { cursor: v.union(v.string(), v.null()), numItems: v.number() },

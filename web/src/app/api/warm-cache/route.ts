@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { start } from "workflow/api";
 import { buildDownloadCacheWorkflow } from "@/workflows/build-download-cache";
+import { generateDescriptionsWorkflow } from "@/workflows/generate-descriptions";
 
 export const maxDuration = 60;
 
@@ -37,15 +38,16 @@ export async function POST(request: NextRequest) {
 
   console.log("[warm-cache] Triggering cache warm for full + markdown");
 
-  const [fullRun, markdownRun] = await Promise.all([
+  const [fullRun, markdownRun, descriptionsRun] = await Promise.all([
     start(buildDownloadCacheWorkflow, ["full"]),
     start(buildDownloadCacheWorkflow, ["markdown"]),
+    start(generateDescriptionsWorkflow, []),
   ]);
 
-  console.log(`[warm-cache] Workflows started: full=${fullRun.runId} markdown=${markdownRun.runId}`);
+  console.log(`[warm-cache] Workflows started: full=${fullRun.runId} markdown=${markdownRun.runId} descriptions=${descriptionsRun.runId}`);
 
   return NextResponse.json({
     started: true,
-    runs: { full: fullRun.runId, markdown: markdownRun.runId },
+    runs: { full: fullRun.runId, markdown: markdownRun.runId, descriptions: descriptionsRun.runId },
   });
 }
