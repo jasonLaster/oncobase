@@ -77,7 +77,14 @@ async function main() {
   for (const file of files) {
     const raw = fs.readFileSync(file.filePath, "utf-8");
     const contentHash = hashContent(raw);
-    const { data, content } = matter(raw);
+    let data: Record<string, unknown> = {};
+    let content = raw;
+    try {
+      ({ data, content } = matter(raw));
+    } catch {
+      // Malformed YAML frontmatter — treat as plain markdown with no frontmatter
+      console.warn(`  ⚠ YAML parse error in ${file.slug} — ingesting without frontmatter`);
+    }
 
     const h1Match = content.match(/^#\s+(.+)$/m);
     const title = (data.title as string) || h1Match?.[1] || file.slug.split("/").pop() || file.slug;
