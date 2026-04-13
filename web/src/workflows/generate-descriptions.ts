@@ -1,7 +1,7 @@
 /**
  * Durable workflow for generating AI descriptions for wiki pages.
  *
- * Triggered post-deploy via /api/warm-cache. For each page in Convex that
+ * Triggered as a child of postDeployWorkflow. For each page in Convex that
  * lacks a description, calls OpenRouter to generate one and saves it back.
  * Already-described pages are skipped (idempotent).
  */

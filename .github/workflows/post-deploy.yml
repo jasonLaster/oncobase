@@ -1,0 +1,18 @@
+name: Post-deploy workflows
+
+on:
+  deployment_status:
+
+jobs:
+  trigger:
+    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger post-deploy workflow
+        run: |
+          echo "Deployment succeeded: ${{ github.event.deployment_status.target_url }}"
+          curl -sf -X POST \
+            "https://diana-tnbc.com/api/post-deploy?secret=${{ secrets.POST_DEPLOY_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --retry 3 \
+            --retry-delay 5
