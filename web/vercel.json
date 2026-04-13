@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx convex deploy --cmd 'bun scripts/ingest-wiki.ts && bun scripts/ingest-pdfs.ts && bun scripts/ingest-embeddings.ts && next build'",
+  "buildCommand": "npx convex deploy --cmd '(bun scripts/ingest-wiki.ts & bun scripts/ingest-pdfs.ts & wait) && bun scripts/ingest-embeddings.ts && next build'",
   "outputDirectory": ".next",
   "installCommand": "bun install",
   "framework": "nextjs"

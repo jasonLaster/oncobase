@@ -172,6 +172,24 @@ export const upsert = mutation({
   },
 });
 
+/** Lean paginated query returning only slug + description — used at build time to
+ *  batch-load all descriptions in generateMetadata() instead of one query per page. */
+export const listPageDescriptions = query({
+  args: { cursor: v.union(v.string(), v.null()), numItems: v.number() },
+  handler: async (ctx, { cursor, numItems }): Promise<{
+    page: Array<{ slug: string; description: string | null }>;
+    isDone: boolean;
+    continueCursor: string;
+  }> => {
+    const result = await ctx.db.query("documents").paginate({ cursor, numItems });
+    return {
+      page: result.page.map(({ slug, description }) => ({ slug, description: description ?? null })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  },
+});
+
 export const getDescription = query({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {

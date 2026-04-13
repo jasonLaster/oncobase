@@ -122,6 +122,8 @@ export function getAllSlugs(): string[] {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.name.startsWith(".")) continue;
+      if (EXCLUDED_DIRS.has(entry.name)) continue;
+      if (EXCLUDED_FILES.has(entry.name)) continue;
       const fullPath = path.join(dir, entry.name);
       const slug = basePath ? `${basePath}/${entry.name}` : entry.name;
 

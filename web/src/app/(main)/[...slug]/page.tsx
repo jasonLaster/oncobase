@@ -17,14 +17,44 @@ export async function generateStaticParams() {
     }));
 }
 
-async function getCachedDescription(slug: string): Promise<string | null> {
+// ── Build-time description cache ─────────────────────────────────────────────
+// Fetched once per worker via paginated scan instead of one query per page.
+// Module-level Promise ensures concurrent generateMetadata() calls share a
+// single in-flight fetch rather than firing 2000+ individual Convex queries.
+
+let _descriptionsCache: Promise<Map<string, string>> | null = null;
+
+function getDescriptionMap(): Promise<Map<string, string>> {
+  if (!_descriptionsCache) _descriptionsCache = fetchAllDescriptions();
+  return _descriptionsCache;
+}
+
+async function fetchAllDescriptions(): Promise<Map<string, string>> {
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!convexUrl) return null;
+  if (!convexUrl) return new Map();
   try {
     const convex = new ConvexHttpClient(convexUrl);
-    return await convex.query(api.documents.getDescription, { slug });
-  } catch {
-    return null;
+    const map = new Map<string, string>();
+    let cursor: string | null = null;
+    let isDone = false;
+    const t0 = Date.now();
+    while (!isDone) {
+      const page = await convex.query(api.documents.listPageDescriptions, { cursor, numItems: 100 }) as {
+        page: Array<{ slug: string; description: string | null }>;
+        isDone: boolean;
+        continueCursor: string;
+      };
+      for (const { slug, description } of page.page) {
+        if (description) map.set(slug, description);
+      }
+      isDone = page.isDone;
+      cursor = page.continueCursor;
+    }
+    console.log(`[build] descriptions loaded: ${map.size} in ${Date.now() - t0}ms`);
+    return map;
+  } catch (err) {
+    console.warn("[build] failed to load descriptions:", err);
+    return new Map();
   }
 }
 
@@ -38,7 +68,7 @@ export async function generateMetadata({
   const file = getMarkdownFile(filePath);
   if (!file) return {};
 
-  const description = await getCachedDescription(file.slug);
+  const description = (await getDescriptionMap()).get(file.slug) ?? null;
 
   return {
     title: `${file.title} — Diana's TNBC`,

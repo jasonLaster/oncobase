@@ -66,65 +66,69 @@ function hashContent(content: string): string {
   return crypto.createHash("sha256").update(content).digest("hex").slice(0, 16);
 }
 
+function prepareUpsertArgs(file: FileEntry) {
+  const raw = fs.readFileSync(file.filePath, "utf-8");
+  const contentHash = hashContent(raw);
+  let data: Record<string, unknown> = {};
+  let content = raw;
+  try {
+    ({ data, content } = matter(raw));
+  } catch {
+    console.warn(`  ⚠ YAML parse error in ${file.slug} — ingesting without frontmatter`);
+  }
+  const h1Match = content.match(/^#\s+(.+)$/m);
+  const title = (data.title as string) || h1Match?.[1] || file.slug.split("/").pop() || file.slug;
+  const body = h1Match ? content.replace(/^#\s+.+$/m, "").replace(/^\n+/, "") : content;
+  const tags = Array.isArray(data.tags) ? (data.tags as string[]) : [];
+  const MAX_CONTENT = 900_000;
+  const truncatedBody = body.length > MAX_CONTENT
+    ? body.slice(0, MAX_CONTENT) + "\n\n[Content truncated — full document is " + Math.round(body.length / 1024) + "KB]"
+    : body;
+  return { slug: file.slug, title, content: truncatedBody, tags, contentHash };
+}
+
 async function main() {
+  const t0 = Date.now();
   const files = getAllMarkdownFiles();
   console.log(`Found ${files.length} markdown files`);
 
   let updated = 0;
   let skipped = 0;
+  let failed = 0;
   const slugs: string[] = [];
 
-  for (const file of files) {
-    const raw = fs.readFileSync(file.filePath, "utf-8");
-    const contentHash = hashContent(raw);
-    let data: Record<string, unknown> = {};
-    let content = raw;
-    try {
-      ({ data, content } = matter(raw));
-    } catch {
-      // Malformed YAML frontmatter — treat as plain markdown with no frontmatter
-      console.warn(`  ⚠ YAML parse error in ${file.slug} — ingesting without frontmatter`);
+  // Run mutations in parallel batches to avoid serial latency across 2000+ files
+  const CONCURRENCY = 10;
+  for (let i = 0; i < files.length; i += CONCURRENCY) {
+    const batch = files.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(async (file) => {
+        const args = prepareUpsertArgs(file);
+        try {
+          const result = await client.mutation(api.documents.upsert, args);
+          return { slug: file.slug, result };
+        } catch (err) {
+          const msg = (err as Error).message || String(err);
+          console.error(`  ✗ Failed to upsert ${file.slug} (${Math.round(args.content.length / 1024)}KB): ${msg.slice(0, 200)}`);
+          return { slug: file.slug, result: null };
+        }
+      })
+    );
+
+    for (const { slug, result } of results) {
+      if (!result) { failed++; continue; }
+      slugs.push(slug);
+      if (result.skipped) skipped++;
+      else updated++;
     }
 
-    const h1Match = content.match(/^#\s+(.+)$/m);
-    const title = (data.title as string) || h1Match?.[1] || file.slug.split("/").pop() || file.slug;
-    const body = h1Match ? content.replace(/^#\s+.+$/m, "").replace(/^\n+/, "") : content;
-    const tags = Array.isArray(data.tags) ? (data.tags as string[]) : [];
-
-    // Convex mutations have a ~1MB argument limit; truncate very large docs
-    const MAX_CONTENT = 900_000; // ~900KB, leaving room for other fields
-    const truncatedBody = body.length > MAX_CONTENT
-      ? body.slice(0, MAX_CONTENT) + "\n\n[Content truncated — full document is " + Math.round(body.length / 1024) + "KB]"
-      : body;
-
-    try {
-      const result = await client.mutation(api.documents.upsert, {
-        slug: file.slug,
-        title,
-        content: truncatedBody,
-        tags,
-        contentHash,
-      });
-
-      slugs.push(file.slug);
-      if (result.skipped) {
-        skipped++;
-      } else {
-        updated++;
-      }
-    } catch (err) {
-      const msg = (err as Error).message || String(err);
-      console.error(`  ✗ Failed to upsert ${file.slug} (${Math.round(truncatedBody.length / 1024)}KB): ${msg.slice(0, 200)}`);
-      // Continue with other files instead of crashing
-    }
-
-    const total = updated + skipped;
-    if (total % 50 === 0) {
-      console.log(`  Processed ${total}/${files.length} (${updated} updated, ${skipped} skipped)...`);
+    const done = Math.min(i + CONCURRENCY, files.length);
+    if (done % 100 === 0 || done === files.length) {
+      console.log(`  Processed ${done}/${files.length} — ${updated} updated, ${skipped} skipped, ${failed} failed (${Date.now() - t0}ms)`);
     }
   }
 
-  console.log(`Done! ${updated} updated, ${skipped} unchanged.`);
+  console.log(`Done in ${Date.now() - t0}ms — ${updated} updated, ${skipped} unchanged, ${failed} failed.`);
 
   // Store download info sizes in Convex meta so the UI can display them
   const downloadInfoPath = path.join(__dirname, "..", "public", "wiki-download-info.json");
