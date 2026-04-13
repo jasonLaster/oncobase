@@ -9,3 +9,4 @@ web/public/wiki-download-info.json
 web/e2e/.auth/
 web/test-results/
 diagnostics
+.vercel
