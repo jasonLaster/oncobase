@@ -185,22 +185,26 @@ async function buildArchiveFromBlob(token: string): Promise<archiver.Archiver> {
   const arc = archiver("zip", { zlib: { level: 1 } });
 
   const pdfAssets = await fetchQuery(api.documents.listPdfAssets, {});
-  // Fetch all PDF response streams in parallel (headers only — bodies are lazy),
-  // then append to archiver sequentially so it processes them one at a time.
-  const pdfStreams = await Promise.all(
-    pdfAssets.map(async (asset) => {
-      try {
-        const blobResult = await get(asset.blobUrl, { token, access: "private" });
-        return blobResult ? { name: asset.path, stream: blobResult.stream } : null;
-      } catch {
-        return null;
-      }
-    })
-  );
-  for (const item of pdfStreams) {
-    if (!item) continue;
-    const nodeStream = Readable.fromWeb(item.stream as Parameters<typeof Readable.fromWeb>[0]);
-    arc.append(nodeStream, { name: item.name });
+  // Fetch all PDFs as Buffers in parallel batches — streaming refs expire before
+  // archiver gets to them, so we materialize the content eagerly.
+  const BATCH = 20;
+  for (let i = 0; i < pdfAssets.length; i += BATCH) {
+    const batch = pdfAssets.slice(i, i + BATCH);
+    const buffers = await Promise.all(
+      batch.map(async (asset) => {
+        try {
+          const blobResult = await get(asset.blobUrl, { token, access: "private" });
+          if (!blobResult) return null;
+          const arrayBuf = await blobResult.blob();
+          return { name: asset.path, buf: Buffer.from(await arrayBuf.arrayBuffer()) };
+        } catch {
+          return null;
+        }
+      })
+    );
+    for (const item of buffers) {
+      if (item) arc.append(item.buf, { name: item.name });
+    }
   }
 
   type ListPageResult = {
