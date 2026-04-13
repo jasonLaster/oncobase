@@ -5,11 +5,6 @@
  * always hits the fast path (307 → CDN). Falls back to retry on failure —
  * unlike after(), a failed workflow retries automatically.
  *
- * Architecture: best of both worlds
- *   - /api/download slow path: archiver streaming (RAM-safe, streams to client)
- *   - This workflow: StatefulZipBuilder (per-file compression cache so unchanged
- *     PDFs are never recompressed — only markdown changes rebuild their entries)
- *
  * Usage:
  *   import { start } from "workflow/api";
  *   import { buildDownloadCacheWorkflow } from "@/workflows/build-download-cache";
@@ -33,146 +28,51 @@ async function checkPdfAssets(): Promise<number> {
 
 async function buildAndUpload(type: DownloadType): Promise<string> {
   "use step";
+  const fs = await import("fs");
+  const path = await import("path");
+  const archiver = (await import("archiver")).default;
+
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) throw new FatalError("BLOB_READ_WRITE_TOKEN not set");
 
-  const { StatefulZipBuilder, getConvexHelpers } = await import("@/lib/stateful-zip-builder");
-  const crypto = await import("crypto");
-  const builder = new StatefulZipBuilder();
-  const convex = await getConvexHelpers();
+  const OBSIDIAN_DIR = process.env.OBSIDIAN_DIR ?? path.join(process.cwd(), "..", "obsidian");
+  const diskAvailable = !process.env.VERCEL && fs.existsSync(OBSIDIAN_DIR);
 
+  console.log(`[warm-cache] Building ${type} archive (disk=${diskAvailable})`);
   const t0 = Date.now();
-  console.log(`[warm-cache] Building ${type} archive with StatefulZipBuilder`);
 
-  // ── PDFs (full archive only) ──────────────────────────────────────────────
-  if (type === "full") {
-    const { fetchQuery } = await import("convex/nextjs");
-    const { api } = await import("../../convex/_generated/api");
-    const { get } = await import("@vercel/blob");
-
-    const pdfAssets = await fetchQuery(api.documents.listPdfAssets, {});
-    console.log(`[warm-cache] Fetching ${pdfAssets.length} PDFs from Blob (cache-aware)`);
-
-    const BATCH = 20;
-    let pdfHits = 0;
-    let pdfMisses = 0;
-    let pdfFailed = 0;
-
-    for (let i = 0; i < pdfAssets.length; i += BATCH) {
-      const batch = pdfAssets.slice(i, i + BATCH);
-      const tBatch = Date.now();
-
-      const results = await Promise.all(
-        batch.map(async (asset) => {
-          try {
-            const blobResult = await get(asset.blobUrl, { token, access: "private" });
-            if (!blobResult?.stream) {
-              console.warn(`[warm-cache] No stream for PDF: ${asset.path}`);
-              return null;
-            }
-            const chunks: Buffer[] = [];
-            const reader = blobResult.stream.getReader();
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              chunks.push(Buffer.from(value));
-            }
-            const content = Buffer.concat(chunks);
-            // Use the blob URL path segment as the stable content hash for PDFs.
-            // A new upload produces a new URL, so this key changes exactly when
-            // the file changes — perfect for cache invalidation.
-            const urlHash = new URL(asset.blobUrl).pathname.split("/").pop() ?? asset.blobUrl;
-            return { name: asset.path, content, hash: urlHash };
-          } catch (err) {
-            console.warn(`[warm-cache] Failed to fetch PDF ${asset.path}:`, err);
-            return null;
-          }
-        })
-      );
-
-      for (const item of results) {
-        if (!item) { pdfFailed++; continue; }
-        const status = await builder.addFile(item.name, item.content, item.hash, convex, token);
-        if (status === "hit") pdfHits++;
-        else pdfMisses++;
-      }
-
-      console.log(
-        `[warm-cache] PDF batch ${Math.floor(i / BATCH) + 1}/${Math.ceil(pdfAssets.length / BATCH)}: ` +
-        `${results.filter(Boolean).length}/${batch.length} fetched in ${Date.now() - tBatch}ms`
-      );
-    }
-
-    console.log(
-      `[warm-cache] PDFs complete: ${pdfHits} cache hits, ${pdfMisses} misses, ${pdfFailed} failed`
-    );
-  }
-
-  // ── Markdown (both archive types) ─────────────────────────────────────────
-  {
-    const { fetchQuery } = await import("convex/nextjs");
-    const { api } = await import("../../convex/_generated/api");
-
-    type ListPageResult = {
-      page: Array<{ slug: string; content: string }>;
-      isDone: boolean;
-      continueCursor: string;
-    };
-
-    let cursor: string | null = null;
-    let isDone = false;
-    let pageNum = 0;
-    let totalDocs = 0;
-    let mdHits = 0;
-    let mdMisses = 0;
-
-    while (!isDone) {
-      const page = (await fetchQuery(api.documents.listPageWithContent, {
-        cursor,
-        numItems: 50,
-      })) as ListPageResult;
-
-      for (const doc of page.page) {
-        if (!doc.content) continue;
-        const content = Buffer.from(doc.content, "utf-8");
-        // Hash the markdown content so unchanged files reuse cached compressed bytes
-        const contentHash = crypto.createHash("sha256").update(content).digest("hex");
-        const status = await builder.addFile(`${doc.slug}.md`, content, contentHash, convex, token);
-        if (status === "hit") mdHits++;
-        else mdMisses++;
-        totalDocs++;
-      }
-
-      isDone = page.isDone;
-      cursor = page.continueCursor;
-      console.log(
-        `[warm-cache] Markdown page ${++pageNum}: ${page.page.length} docs ` +
-        `(total=${totalDocs}, done=${isDone})`
-      );
-    }
-
-    console.log(
-      `[warm-cache] Markdown complete: ${mdHits} cache hits, ${mdMisses} misses, ${totalDocs} total`
-    );
-  }
-
-  // ── Finalize & log stats ──────────────────────────────────────────────────
-  const { zip, stats } = builder.finalize();
-  console.log(
-    `[warm-cache] ZIP finalized: ` +
-    `files=${stats.totalFiles} hits=${stats.cacheHits} misses=${stats.cacheMisses} ` +
-    `uncompressed=${(stats.totalBytes / 1024 / 1024).toFixed(1)}MB ` +
-    `compressed=${(stats.compressedBytes / 1024 / 1024).toFixed(1)}MB ` +
-    `ratio=${stats.totalBytes > 0 ? ((1 - stats.compressedBytes / stats.totalBytes) * 100).toFixed(1) : 0}% ` +
-    `elapsed=${stats.elapsedMs}ms`
-  );
-
-  // ── Multipart upload ──────────────────────────────────────────────────────
   const BLOB_NAMES = {
     full: "diana-tnbc-wiki-full.zip",
     markdown: "diana-tnbc-wiki-markdown.zip",
   } as const;
 
+  const PART_SIZE = 10 * 1024 * 1024;
+
+  // ── build stream ────────────────────────────────────────────────────────────
+  const zipStream = await new Promise<ReadableStream<Uint8Array>>((resolve) => {
+    resolve(new ReadableStream<Uint8Array>({
+      start(controller) {
+        const arc = archiver("zip", { zlib: { level: 1 } });
+        arc.on("data", (chunk: Buffer) => controller.enqueue(chunk));
+        arc.on("end", () => controller.close());
+        arc.on("error", (err: Error) => controller.error(err));
+
+        (async () => {
+          if (diskAvailable) {
+            const { addDirToDiskArchive } = await import("@/lib/archive-helpers");
+            addDirToDiskArchive(arc, OBSIDIAN_DIR);
+          } else if (type === "full") {
+            await fillFullArchive(arc, token);
+          } else {
+            await fillMarkdownArchive(arc);
+          }
+          arc.finalize();
+        })().catch((err: Error) => controller.error(err));
+      },
+    }));
+  });
+
+  // ── multipart upload ────────────────────────────────────────────────────────
   const { createMultipartUploader } = await import("@vercel/blob");
   const uploader = await createMultipartUploader(BLOB_NAMES[type], {
     access: "public",
@@ -180,26 +80,41 @@ async function buildAndUpload(type: DownloadType): Promise<string> {
     allowOverwrite: true,
   });
 
-  const PART_SIZE = 10 * 1024 * 1024; // 10 MB
+  const reader = zipStream.getReader();
   const parts: Array<{ etag: string; partNumber: number }> = [];
   let partNumber = 1;
+  let chunks: Buffer[] = [];
+  let size = 0;
+  let totalBytes = 0;
 
-  for (let offset = 0; offset < zip.length; offset += PART_SIZE) {
-    const part = zip.subarray(offset, Math.min(offset + PART_SIZE, zip.length));
-    console.log(`[warm-cache] Uploading part ${partNumber} (${(part.length / 1024 / 1024).toFixed(1)} MB)`);
+  const flush = async () => {
+    if (size === 0) return;
+    const body = Buffer.concat(chunks);
+    console.log(`[warm-cache] Uploading part ${partNumber} (${(size / 1024 / 1024).toFixed(1)} MB)`);
     try {
-      parts.push(await uploader.uploadPart(partNumber++, part));
+      const part = await uploader.uploadPart(partNumber++, body);
+      parts.push(part);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       throw new RetryableError(`Part upload failed: ${msg}`);
     }
+    totalBytes += size;
+    chunks = [];
+    size = 0;
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (value) {
+      chunks.push(Buffer.from(value));
+      size += value.byteLength;
+    }
+    if (size >= PART_SIZE) await flush();
+    if (done) { await flush(); break; }
   }
 
   const result = await uploader.complete(parts);
-  console.log(
-    `[warm-cache] Upload complete: ` +
-    `${(zip.length / 1024 / 1024).toFixed(1)} MB in ${Date.now() - t0}ms → ${result.url}`
-  );
+  console.log(`[warm-cache] Upload complete: ${(totalBytes / 1024 / 1024).toFixed(1)} MB in ${Date.now() - t0}ms → ${result.url}`);
   return result.url;
 }
 
@@ -224,6 +139,73 @@ async function saveCache(type: DownloadType, url: string): Promise<void> {
     value: JSON.stringify(info),
   });
   console.log(`[warm-cache] Cache entry saved for type=${type} deployId=${info.deployId}`);
+}
+
+// ─── archive fill helpers (called inside step, full Node.js access) ───────────
+
+async function fillFullArchive(arc: import("archiver").Archiver, token: string) {
+  const { fetchQuery } = await import("convex/nextjs");
+  const { api } = await import("../../convex/_generated/api");
+  const { get } = await import("@vercel/blob");
+
+  const pdfAssets = await fetchQuery(api.documents.listPdfAssets, {});
+  console.log(`[warm-cache] Fetching ${pdfAssets.length} PDFs from Blob`);
+
+  const BATCH = 20;
+  for (let i = 0; i < pdfAssets.length; i += BATCH) {
+    const batch = pdfAssets.slice(i, i + BATCH);
+    const t0 = Date.now();
+    const buffers = await Promise.all(
+      batch.map(async (asset) => {
+        try {
+          const blobResult = await get(asset.blobUrl, { token, access: "private" });
+          if (!blobResult?.stream) return null;
+          const chunks: Buffer[] = [];
+          const reader = blobResult.stream.getReader();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(Buffer.from(value));
+          }
+          return { name: asset.path, buf: Buffer.concat(chunks) };
+        } catch (err: unknown) {
+          console.warn(`[warm-cache] Failed to fetch PDF ${asset.path}:`, err);
+          return null;
+        }
+      })
+    );
+    const fetched = buffers.filter(Boolean).length;
+    console.log(`[warm-cache] PDF batch ${i / BATCH + 1}: ${fetched}/${batch.length} fetched in ${Date.now() - t0}ms`);
+    for (const item of buffers) {
+      if (item) arc.append(item.buf, { name: item.name });
+    }
+  }
+
+  await fillMarkdownArchive(arc);
+}
+
+async function fillMarkdownArchive(arc: import("archiver").Archiver) {
+  const { fetchQuery } = await import("convex/nextjs");
+  const { api } = await import("../../convex/_generated/api");
+
+  type ListPageResult = { page: Array<{ slug: string; content: string }>; isDone: boolean; continueCursor: string };
+  let cursor: string | null = null;
+  let isDone = false;
+  let pageNum = 0;
+  let totalDocs = 0;
+
+  while (!isDone) {
+    const page = (await fetchQuery(api.documents.listPageWithContent, { cursor, numItems: 50 })) as ListPageResult;
+    for (const doc of page.page) {
+      if (doc.content) {
+        arc.append(Buffer.from(doc.content, "utf-8"), { name: `${doc.slug}.md` });
+        totalDocs++;
+      }
+    }
+    isDone = page.isDone;
+    cursor = page.continueCursor;
+    console.log(`[warm-cache] Markdown page ${++pageNum}: ${page.page.length} docs (total=${totalDocs}, done=${isDone})`);
+  }
 }
 
 // ─── workflow orchestrator ────────────────────────────────────────────────────
