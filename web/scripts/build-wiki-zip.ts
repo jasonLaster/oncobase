@@ -73,8 +73,9 @@ async function uploadToBlob(buffer: Buffer, filename: string): Promise<string | 
     const { put } = await import("@vercel/blob");
     console.log(`  Uploading ${filename} to Vercel Blob…`);
     const blob = await put(filename, buffer, {
-      access: "public",
+      access: "private",
       token,
+      allowOverwrite: true,
     });
     console.log(`  → Blob URL: ${blob.url}`);
     return blob.url;

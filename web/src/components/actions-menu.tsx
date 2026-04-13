@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, useSyncExternalStore, useCallback } from "react";
-import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { themeEffect } from "@/lib/theme-effect";
 
 let listeners: Array<() => void> = [];
@@ -14,25 +12,9 @@ function getPreference() { return localStorage.getItem("theme"); }
 function getServerPreference() { return null; }
 function notify() { listeners.forEach((l) => l()); }
 
-interface DownloadInfo {
-  full: { sizeBytes: number; filename: string };
-  markdown: { sizeBytes: number; filename: string };
-}
-
-function formatSize(bytes: number): string {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
-  return `${(bytes / 1024).toFixed(0)} KB`;
-}
-
 export function ActionsMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  const downloadInfoRaw = useQuery(api.documents.getMeta, { key: "wiki-download-info" });
-  const downloadInfo: DownloadInfo | null = downloadInfoRaw
-    ? (() => { try { return JSON.parse(downloadInfoRaw); } catch { return null; } })()
-    : null;
 
   const preference = useSyncExternalStore(subscribe, getPreference, getServerPreference);
   const currentTheme = useSyncExternalStore(
@@ -99,6 +81,16 @@ export function ActionsMenu() {
       {open && (
         <div className="absolute right-0 top-full mt-1 w-48 rounded-lg border border-[var(--sidebar-border)] bg-[var(--background)] shadow-lg z-50 py-1">
           <button
+            onClick={() => { setOpen(false); window.location.href = "/api/download?type=full"; }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors text-left"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="M8 2v9m0 0L5 8m3 3l3-3" />
+              <path d="M2 12v1.5a.5.5 0 00.5.5h11a.5.5 0 00.5-.5V12" />
+            </svg>
+            Download wiki
+          </button>
+          <button
             onClick={cycleTheme}
             className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors text-left"
           >
@@ -112,33 +104,6 @@ export function ActionsMenu() {
               </svg>
             )}
             Theme: {themeLabel}
-          </button>
-          <div className="border-t border-[var(--sidebar-border)] my-1" />
-          <button
-            onClick={() => { setOpen(false); window.location.href = "/api/download?type=full"; }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors text-left"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-              <path d="M8 2v9m0 0L5 8m3 3l3-3" />
-              <path d="M2 12v1.5a.5.5 0 00.5.5h11a.5.5 0 00.5-.5V12" />
-            </svg>
-            <span className="flex-1">Download full wiki</span>
-            {downloadInfo && (
-              <span className="text-[var(--text-muted)] tabular-nums">{formatSize(downloadInfo.full.sizeBytes)}</span>
-            )}
-          </button>
-          <button
-            onClick={() => { setOpen(false); window.location.href = "/api/download?type=markdown"; }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors text-left"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-              <path d="M8 2v9m0 0L5 8m3 3l3-3" />
-              <path d="M2 12v1.5a.5.5 0 00.5.5h11a.5.5 0 00.5-.5V12" />
-            </svg>
-            <span className="flex-1">Download markdown only</span>
-            {downloadInfo && (
-              <span className="text-[var(--text-muted)] tabular-nums">{formatSize(downloadInfo.markdown.sizeBytes)}</span>
-            )}
           </button>
         </div>
       )}
