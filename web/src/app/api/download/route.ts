@@ -195,7 +195,14 @@ async function buildArchiveFromBlob(token: string): Promise<archiver.Archiver> {
         try {
           const blobResult = await get(asset.blobUrl, { token, access: "private" });
           if (!blobResult) return null;
-          return { name: asset.path, buf: Buffer.from(await blobResult.blob.arrayBuffer()) };
+          const chunks: Buffer[] = [];
+          const reader = blobResult.stream.getReader();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(Buffer.from(value));
+          }
+          return { name: asset.path, buf: Buffer.concat(chunks) };
         } catch {
           return null;
         }
