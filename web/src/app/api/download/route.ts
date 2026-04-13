@@ -213,22 +213,21 @@ async function buildArchiveFromBlob(token: string): Promise<archiver.Archiver> {
     }
   }
 
-  type ListPageResult = {
-    page: Array<{ slug: string; title: string; tags: string[] }>;
+  type ListPageWithContentResult = {
+    page: Array<{ slug: string; content: string }>;
     isDone: boolean;
     continueCursor: string;
   };
   let cursor: string | null = null;
   let isDone = false;
   while (!isDone) {
-    const page = (await fetchQuery(api.documents.listPage, {
+    const page = (await fetchQuery(api.documents.listPageWithContent, {
       cursor,
       numItems: 50,
-    })) as ListPageResult;
+    })) as ListPageWithContentResult;
     for (const doc of page.page) {
-      const full = await fetchQuery(api.documents.getBySlug, { slug: doc.slug });
-      if (full?.content) {
-        arc.append(Buffer.from(full.content, "utf-8"), { name: `${doc.slug}.md` });
+      if (doc.content) {
+        arc.append(Buffer.from(doc.content, "utf-8"), { name: `${doc.slug}.md` });
       }
     }
     isDone = page.isDone;

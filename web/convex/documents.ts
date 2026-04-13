@@ -71,6 +71,23 @@ export const listPage = query({
   },
 });
 
+/** Paginated query that includes content — used by the archive builder to avoid N+1 getBySlug calls */
+export const listPageWithContent = query({
+  args: { cursor: v.union(v.string(), v.null()), numItems: v.number() },
+  handler: async (ctx, { cursor, numItems }): Promise<{
+    page: Array<{ slug: string; content: string }>;
+    isDone: boolean;
+    continueCursor: string;
+  }> => {
+    const result = await ctx.db.query("documents").paginate({ cursor, numItems });
+    return {
+      page: result.page.map(({ slug, content }) => ({ slug, content })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  },
+});
+
 /** Collects all documents via paginated action to avoid query size limits */
 export const list = action({
   handler: async (ctx): Promise<Array<{ slug: string; title: string; tags: string[] }>> => {
