@@ -150,6 +150,30 @@ export const upsert = mutation({
   },
 });
 
+export const getDescription = query({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => {
+    const doc = await ctx.db
+      .query("documents")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .first();
+    return doc?.description ?? null;
+  },
+});
+
+export const setDescription = mutation({
+  args: { slug: v.string(), description: v.string() },
+  handler: async (ctx, { slug, description }) => {
+    const doc = await ctx.db
+      .query("documents")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .first();
+    if (!doc) return { found: false };
+    await ctx.db.patch(doc._id, { description });
+    return { found: true };
+  },
+});
+
 export const deleteBySlug = mutation({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {

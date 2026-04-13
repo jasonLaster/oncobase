@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@convex/_generated/api";
 import { getMarkdownFile, getAllSlugs } from "@/lib/markdown";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { CopyPageButton } from "@/components/copy-page-button";
+
+export const dynamicParams = true;
 
 export async function generateStaticParams() {
   return getAllSlugs()
@@ -10,6 +15,45 @@ export async function generateStaticParams() {
     .map((slug) => ({
       slug: slug.split("/"),
     }));
+}
+
+async function getCachedDescription(slug: string): Promise<string | null> {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!convexUrl) return null;
+  try {
+    const convex = new ConvexHttpClient(convexUrl);
+    return await convex.query(api.documents.getDescription, { slug });
+  } catch {
+    return null;
+  }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string[] }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const filePath = slug.map(decodeURIComponent).join("/");
+  const file = getMarkdownFile(filePath);
+  if (!file) return {};
+
+  const description = await getCachedDescription(file.slug);
+
+  return {
+    title: `${file.title} — Diana's TNBC`,
+    description: description ?? undefined,
+    openGraph: {
+      title: file.title,
+      description: description ?? undefined,
+      type: "article",
+    },
+    twitter: {
+      card: "summary",
+      title: file.title,
+      description: description ?? undefined,
+    },
+  };
 }
 
 export default async function DocPage({

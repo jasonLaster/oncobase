@@ -22,6 +22,16 @@ export const metadata: Metadata = {
   description: "Breast cancer research and treatment knowledge base",
   robots: { index: false, follow: false },
   icons: { icon: isDev ? "/favicon-dev.svg" : "/favicon.svg" },
+  openGraph: {
+    title: "Diana's TNBC",
+    description: "Breast cancer research and treatment knowledge base",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Diana's TNBC",
+    description: "Breast cancer research and treatment knowledge base",
+  },
 };
 
 export default function RootLayout({

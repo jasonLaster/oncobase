@@ -10,6 +10,7 @@ export default defineSchema({
     contentHash: v.optional(v.string()),
     embedding: v.optional(v.array(v.float64())),
     embeddingHash: v.optional(v.string()),
+    description: v.optional(v.string()),
     updatedAt: v.number(),
   })
     .index("by_slug", ["slug"])

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "bun scripts/generate-descriptions.ts && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "npx playwright test",

@@ -4,23 +4,18 @@ import {
   convertToModelMessages,
   type UIMessage,
 } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { embed } from "@/lib/embeddings";
+import { fastTextModel } from "@/lib/ai";
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
   if (!url) throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
   return new ConvexHttpClient(url);
 }
-
-const openrouter = createOpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
 
 const SYSTEM_PROMPT_BASE = `You are a research assistant for Diana's TNBC (triple-negative breast cancer) knowledge base. You help answer questions about Diana's diagnosis, treatment plan, research, and related medical topics.
 
@@ -209,7 +204,7 @@ export async function POST(request: Request) {
   const systemPrompt = await buildSystemPrompt();
 
   const result = streamText({
-    model: openrouter.chat("openai/gpt-5.4-mini"), // see scripts/eval-chat.ts for model leaderboard
+    model: fastTextModel(), // see scripts/eval-chat.ts for model leaderboard
     maxOutputTokens: 50000,
     system: systemPrompt,
     messages: modelMessages,
