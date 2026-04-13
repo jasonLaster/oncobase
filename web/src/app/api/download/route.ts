@@ -91,6 +91,8 @@ async function setCachedZipInfo(info: ZipCacheInfo) {
 }
 
 function isCacheFresh(info: ZipCacheInfo): boolean {
+  // Private-access blobs can't be served via redirect — treat as stale
+  if (info.url.includes(".private.blob.")) return false;
   // In Vercel deployments, stale once the deployment changes
   const deployId = process.env.VERCEL_DEPLOYMENT_ID ?? null;
   if (deployId && info.deployId !== deployId) return false;
@@ -109,7 +111,7 @@ async function uploadStreamViaMultipart(
   const { createMultipartUploader } = await import("@vercel/blob");
 
   const uploader = await createMultipartUploader("diana-tnbc-wiki-full.zip", {
-    access: "private",
+    access: "public",
     token,
     allowOverwrite: true,
   });
@@ -229,21 +231,9 @@ function zipResponse(stream: ReadableStream<Uint8Array>): Response {
   });
 }
 
-async function cachedBlobResponse(url: string, token: string): Promise<Response | null> {
-  try {
-    const { get } = await import("@vercel/blob");
-    const blobResult = await get(url, { token, access: "private" });
-    if (!blobResult) return null;
-    const headers = new Headers({
-      "Content-Type": "application/zip",
-      "Content-Disposition": 'attachment; filename="diana-tnbc-wiki-full.zip"',
-    });
-    const contentLength = blobResult.headers.get("content-length");
-    if (contentLength) headers.set("Content-Length", contentLength);
-    return new Response(blobResult.stream, { headers });
-  } catch {
-    return null;
-  }
+function cachedBlobRedirect(url: string): Response {
+  // Public blob — redirect directly to CDN, no proxying needed
+  return NextResponse.redirect(url);
 }
 
 // ─── route handler ────────────────────────────────────────────────────────────
@@ -258,13 +248,11 @@ export async function GET(request: NextRequest) {
 
   const token = process.env.BLOB_READ_WRITE_TOKEN;
 
-  // ── Fast path: serve from cached Blob ───────────────────────────────────────
+  // ── Fast path: redirect to cached public Blob URL ──────────────────────────
   if (token) {
     const cached = await getCachedZipInfo();
     if (cached && isCacheFresh(cached)) {
-      const response = await cachedBlobResponse(cached.url, token);
-      if (response) return response;
-      // Blob fetch failed (e.g. URL expired) — fall through to rebuild
+      return cachedBlobRedirect(cached.url);
     }
   }
 
