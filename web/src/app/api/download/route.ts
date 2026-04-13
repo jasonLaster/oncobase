@@ -185,14 +185,25 @@ async function buildArchiveFromBlob(token: string): Promise<archiver.Archiver> {
   const arc = archiver("zip", { zlib: { level: 1 } });
 
   const pdfAssets = await fetchQuery(api.documents.listPdfAssets, {});
+  console.log(`[download] buildArchiveFromBlob: ${pdfAssets.length} PDF assets, token=${token ? "set" : "MISSING"}`);
+  let pdfAppended = 0;
   for (const asset of pdfAssets) {
-    const blobResult = await get(asset.blobUrl, { token, access: "private" });
-    if (!blobResult) continue;
-    const nodeStream = Readable.fromWeb(
-      blobResult.stream as Parameters<typeof Readable.fromWeb>[0]
-    );
-    arc.append(nodeStream, { name: asset.path });
+    try {
+      const blobResult = await get(asset.blobUrl, { token, access: "private" });
+      if (!blobResult) { console.log(`[download] get() returned falsy for ${asset.path}`); continue; }
+      console.log(`[download] PDF #${pdfAppended + 1} statusCode=${blobResult.statusCode} hasStream=${!!blobResult.stream}`);
+      const nodeStream = Readable.fromWeb(
+        blobResult.stream as Parameters<typeof Readable.fromWeb>[0]
+      );
+      arc.append(nodeStream, { name: asset.path });
+      pdfAppended++;
+      if (pdfAppended >= 3) break; // debug: only first 3 PDFs
+    } catch (err) {
+      console.error(`[download] get() threw for ${asset.path}:`, err);
+      break;
+    }
   }
+  console.log(`[download] Appended ${pdfAppended} PDFs to archive`);
 
   type ListPageResult = {
     page: Array<{ slug: string; title: string; tags: string[] }>;
