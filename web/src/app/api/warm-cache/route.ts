@@ -1,22 +1,24 @@
 /**
  * POST /api/warm-cache
  *
- * Triggers durable workflows to pre-build both download zips and cache them to
- * Blob. Call this from a Vercel deploy webhook so the first user request after
- * a new deployment always hits the fast path.
+ * Triggers all post-deploy durable workflows in parallel:
+ *   - buildDownloadCacheWorkflow("full")     — pre-build full zip → public Blob
+ *   - buildDownloadCacheWorkflow("markdown") — pre-build markdown zip → public Blob
+ *   - generateDescriptionsWorkflow           — AI descriptions for new pages
+ *   - ingestEmbeddingsWorkflow               — OpenAI embeddings for semantic search
  *
- * Secured via WARM_CACHE_SECRET env var. Set it in Vercel and include it in the
- * deploy webhook URL:
+ * Each workflow is independently retryable. Embedding and description workflows
+ * run regardless of blob token availability.
+ *
+ * Secured via WARM_CACHE_SECRET env var:
  *   https://diana-tnbc.com/api/warm-cache?secret=<WARM_CACHE_SECRET>
- *
- * Vercel deploy webhook setup:
- *   Project Settings → Git → Deploy Hooks → add hook pointing to this URL.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { start } from "workflow/api";
 import { buildDownloadCacheWorkflow } from "@/workflows/build-download-cache";
 import { generateDescriptionsWorkflow } from "@/workflows/generate-descriptions";
+import { ingestEmbeddingsWorkflow } from "@/workflows/ingest-embeddings";
 
 export const maxDuration = 60;
 
@@ -25,29 +27,32 @@ export async function POST(request: NextRequest) {
   if (secret) {
     const provided = request.nextUrl.searchParams.get("secret");
     if (provided !== secret) {
-      console.warn("[warm-cache] Unauthorized warm-cache request");
+      console.warn("[warm-cache] Unauthorized request");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }
 
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) {
-    console.warn("[warm-cache] BLOB_READ_WRITE_TOKEN not set — skipping");
-    return NextResponse.json({ error: "Storage not configured" }, { status: 503 });
+    console.warn("[warm-cache] BLOB_READ_WRITE_TOKEN not set — download cache workflows will be skipped");
   }
 
-  console.log("[warm-cache] Triggering cache warm for full + markdown");
+  console.log("[warm-cache] Triggering post-deploy workflows");
 
-  const [fullRun, markdownRun, descriptionsRun] = await Promise.all([
-    start(buildDownloadCacheWorkflow, ["full"]),
-    start(buildDownloadCacheWorkflow, ["markdown"]),
+  const [fullRun, markdownRun, descriptionsRun, embeddingsRun] = await Promise.all([
+    token ? start(buildDownloadCacheWorkflow, ["full"]) : Promise.resolve(null),
+    token ? start(buildDownloadCacheWorkflow, ["markdown"]) : Promise.resolve(null),
     start(generateDescriptionsWorkflow, []),
+    start(ingestEmbeddingsWorkflow),
   ]);
 
-  console.log(`[warm-cache] Workflows started: full=${fullRun.runId} markdown=${markdownRun.runId} descriptions=${descriptionsRun.runId}`);
+  const runs = {
+    downloadFull: fullRun?.runId ?? null,
+    downloadMarkdown: markdownRun?.runId ?? null,
+    descriptions: descriptionsRun.runId,
+    embeddings: embeddingsRun.runId,
+  };
 
-  return NextResponse.json({
-    started: true,
-    runs: { full: fullRun.runId, markdown: markdownRun.runId, descriptions: descriptionsRun.runId },
-  });
+  console.log("[warm-cache] Workflows started:", runs);
+  return NextResponse.json({ started: true, runs });
 }
