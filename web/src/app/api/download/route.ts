@@ -149,7 +149,7 @@ async function buildAndCacheToBlob() {
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) return;
 
-  const diskAvailable = fs.existsSync(OBSIDIAN_DIR);
+  const diskAvailable = !process.env.VERCEL && fs.existsSync(OBSIDIAN_DIR);
   if (!diskAvailable) {
     // Production path requires PDFs in Blob + markdown in Convex.
     // Skip caching until ingest-pdfs.ts has run and pdfAssets are populated.
@@ -185,25 +185,15 @@ async function buildArchiveFromBlob(token: string): Promise<archiver.Archiver> {
   const arc = archiver("zip", { zlib: { level: 1 } });
 
   const pdfAssets = await fetchQuery(api.documents.listPdfAssets, {});
-  console.log(`[download] buildArchiveFromBlob: ${pdfAssets.length} PDF assets, token=${token ? "set" : "MISSING"}`);
-  let pdfAppended = 0;
+  console.log(`[download] buildArchiveFromBlob: ${pdfAssets.length} PDF assets`);
   for (const asset of pdfAssets) {
-    try {
-      const blobResult = await get(asset.blobUrl, { token, access: "private" });
-      if (!blobResult) { console.log(`[download] get() returned falsy for ${asset.path}`); continue; }
-      console.log(`[download] PDF #${pdfAppended + 1} statusCode=${blobResult.statusCode} hasStream=${!!blobResult.stream}`);
-      const nodeStream = Readable.fromWeb(
-        blobResult.stream as Parameters<typeof Readable.fromWeb>[0]
-      );
-      arc.append(nodeStream, { name: asset.path });
-      pdfAppended++;
-      if (pdfAppended >= 3) break; // debug: only first 3 PDFs
-    } catch (err) {
-      console.error(`[download] get() threw for ${asset.path}:`, err);
-      break;
-    }
+    const blobResult = await get(asset.blobUrl, { token, access: "private" });
+    if (!blobResult) continue;
+    const nodeStream = Readable.fromWeb(
+      blobResult.stream as Parameters<typeof Readable.fromWeb>[0]
+    );
+    arc.append(nodeStream, { name: asset.path });
   }
-  console.log(`[download] Appended ${pdfAppended} PDFs to archive`);
 
   type ListPageResult = {
     page: Array<{ slug: string; title: string; tags: string[] }>;
@@ -268,7 +258,9 @@ export async function GET(request: NextRequest) {
   }
 
   // ── Slow path: stream zip on-demand ─────────────────────────────────────────
-  const diskAvailable = fs.existsSync(OBSIDIAN_DIR);
+  // On Vercel, the repo (including obsidian/) is deployed but PDFs aren't in git.
+// Always use the Blob path on Vercel; only use disk in local dev.
+const diskAvailable = !process.env.VERCEL && fs.existsSync(OBSIDIAN_DIR);
   const zipStream = diskAvailable
     ? buildZipStreamFromDisk()
     : Readable.toWeb(await buildArchiveFromBlob(token ?? "")) as ReadableStream<Uint8Array>;
