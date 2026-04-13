@@ -16,6 +16,16 @@ const EXCLUDED_DIRS = new Set([
 
 const EXCLUDED_FILES = new Set(["CLAUDE.md"]);
 
+// ── Module-level caches ───────────────────────────────────────────────────────
+// Next.js static generation calls these functions repeatedly across workers.
+// Memoizing here cuts tag-page generation from O(tags × slugs) file reads to
+// O(slugs) — a ~425x reduction for the getPagesByTag scan.
+
+let _slugsCache: string[] | null = null;
+const _fileCache = new Map<string, MarkdownFile | null>();
+let _tagsCache: string[] | null = null;
+const _tagPagesCache = new Map<string, Array<{ slug: string; title: string }>>();
+
 export interface FileNode {
   name: string;
   slug: string;
@@ -66,9 +76,14 @@ export function getFileTree(dir: string = OBSIDIAN_DIR, basePath: string = ""): 
 
 /** Read and parse a single markdown file */
 export function getMarkdownFile(slug: string): MarkdownFile | null {
+  if (_fileCache.has(slug)) return _fileCache.get(slug)!;
+
   const filePath = path.join(OBSIDIAN_DIR, `${slug}.md`);
 
-  if (!fs.existsSync(filePath)) return null;
+  if (!fs.existsSync(filePath)) {
+    _fileCache.set(slug, null);
+    return null;
+  }
 
   const raw = fs.readFileSync(filePath, "utf-8");
   let data: Record<string, unknown> = {};
@@ -86,11 +101,14 @@ export function getMarkdownFile(slug: string): MarkdownFile | null {
   // Strip the leading H1 to avoid double title rendering
   const body = h1Match ? content.replace(/^#\s+.+$/m, "").replace(/^\n+/, "") : content;
 
-  return { slug, title, content: body, frontmatter: data };
+  const result: MarkdownFile = { slug, title, content: body, frontmatter: data };
+  _fileCache.set(slug, result);
+  return result;
 }
 
 /** Get all unique tags across all markdown files */
 export function getAllTags(): string[] {
+  if (_tagsCache) return _tagsCache;
   const tags = new Set<string>();
   const slugs = getAllSlugs();
   for (const slug of slugs) {
@@ -101,14 +119,17 @@ export function getAllTags(): string[] {
       }
     }
   }
-  return Array.from(tags).sort((a, b) => a.localeCompare(b));
+  _tagsCache = Array.from(tags).sort((a, b) => a.localeCompare(b));
+  return _tagsCache;
 }
 
 /** Get all pages that have a given tag */
 export function getPagesByTag(tag: string): { slug: string; title: string }[] {
+  const normalizedTag = tag.toLowerCase();
+  if (_tagPagesCache.has(normalizedTag)) return _tagPagesCache.get(normalizedTag)!;
+
   const slugs = getAllSlugs();
   const pages: { slug: string; title: string }[] = [];
-  const normalizedTag = tag.toLowerCase();
   for (const slug of slugs) {
     const file = getMarkdownFile(slug);
     if (file && Array.isArray(file.frontmatter.tags)) {
@@ -117,11 +138,15 @@ export function getPagesByTag(tag: string): { slug: string; title: string }[] {
       }
     }
   }
-  return pages.sort((a, b) => a.title.localeCompare(b.title));
+  const sorted = pages.sort((a, b) => a.title.localeCompare(b.title));
+  _tagPagesCache.set(normalizedTag, sorted);
+  return sorted;
 }
 
 /** Get all markdown file slugs for static generation */
 export function getAllSlugs(): string[] {
+  if (_slugsCache) return _slugsCache;
+
   const slugs: string[] = [];
 
   function walk(dir: string, basePath: string) {
@@ -142,5 +167,6 @@ export function getAllSlugs(): string[] {
   }
 
   walk(OBSIDIAN_DIR, "");
+  _slugsCache = slugs;
   return slugs;
 }

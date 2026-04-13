@@ -9,12 +9,25 @@ import { CopyPageButton } from "@/components/copy-page-button";
 
 export const dynamicParams = true;
 
+// Directories under sources/ that are deferred to on-demand ISR.
+// These are immutable raw documents rarely visited directly; deferring them
+// cuts static generation from ~2200 → ~400 pages, saving 3-4 min of build time.
+// dynamicParams = true (below) ensures they are still served correctly on request.
+const ISR_DEFERRED_PREFIXES = ["sources/research-articles/", "sources/institutions/"];
+
 export async function generateStaticParams() {
-  return getAllSlugs()
-    .filter((slug) => slug !== "index")
+  const t0 = Date.now();
+  const all = getAllSlugs();
+  const params = all
+    .filter((slug) => {
+      if (slug === "index") return false;
+      return !ISR_DEFERRED_PREFIXES.some((prefix) => slug.startsWith(prefix));
+    })
     .map((slug) => ({
       slug: slug.split("/"),
     }));
+  console.log(`[build] generateStaticParams: ${params.length}/${all.length} pages in ${Date.now() - t0}ms`);
+  return params;
 }
 
 // ── Build-time description cache ─────────────────────────────────────────────
