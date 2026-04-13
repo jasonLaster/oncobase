@@ -194,7 +194,7 @@ async function buildArchiveFromBlob(token: string): Promise<archiver.Archiver> {
       batch.map(async (asset) => {
         try {
           const blobResult = await get(asset.blobUrl, { token, access: "private" });
-          if (!blobResult) return null;
+          if (!blobResult?.stream) return null;
           const chunks: Buffer[] = [];
           const reader = blobResult.stream.getReader();
           while (true) {
