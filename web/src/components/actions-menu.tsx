@@ -88,7 +88,17 @@ export function ActionsMenu() {
               <path d="M8 2v9m0 0L5 8m3 3l3-3" />
               <path d="M2 12v1.5a.5.5 0 00.5.5h11a.5.5 0 00.5-.5V12" />
             </svg>
-            Download wiki
+            Download wiki (full)
+          </button>
+          <button
+            onClick={() => { setOpen(false); window.location.href = "/api/download?type=markdown"; }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors text-left"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="M8 2v9m0 0L5 8m3 3l3-3" />
+              <path d="M2 12v1.5a.5.5 0 00.5.5h11a.5.5 0 00.5-.5V12" />
+            </svg>
+            Download wiki (markdown)
           </button>
           <button
             onClick={cycleTheme}
