@@ -18,7 +18,30 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "2";
+const PIPELINE_VERSION = "3";
+
+/**
+ * Process <!-- table-cols: w1, w2, w3 --> comments immediately before a <table>.
+ * Injects a <colgroup> so authors can control per-column min-widths from markdown.
+ *
+ * Syntax (in any .md file, on its own line before a table):
+ *   <!-- table-cols: 260, 120, 60, 150, 200 -->
+ *
+ * Values without units are treated as pixels. Any CSS length works (e.g. 30ch).
+ */
+function applyTableColWidths(html: string): string {
+  return html.replace(
+    /<!--\s*table-cols:\s*([^>-][^>]*?)-->\s*(<table(?:[^>]*)>)/g,
+    (_match, colsStr: string, tableTag: string) => {
+      const cols = colsStr.split(",").map((w: string) => {
+        const v = w.trim();
+        return /^\d+$/.test(v) ? `${v}px` : v;
+      });
+      const colgroup = `<colgroup>${cols.map((w: string) => `<col style="min-width:${w}">`).join("")}</colgroup>`;
+      return `${tableTag}${colgroup}`;
+    }
+  );
+}
 
 /**
  * Strip .md extension from relative href values in rendered HTML so links like
@@ -99,7 +122,7 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
   }
 
   const raw = processor.processSync(md).toString();
-  const html = fixImageSrcs(fixMarkdownLinks(raw), currentSlug);
+  const html = applyTableColWidths(fixImageSrcs(fixMarkdownLinks(raw), currentSlug));
 
   try {
     ensureCacheDir();
