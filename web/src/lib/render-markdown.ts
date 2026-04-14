@@ -18,7 +18,7 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "3";
+const PIPELINE_VERSION = "4";
 
 /**
  * Process <!-- table-cols: w1, w2, w3 --> comments immediately before a <table>.
@@ -31,7 +31,7 @@ const PIPELINE_VERSION = "3";
  */
 function applyTableColWidths(html: string): string {
   return html.replace(
-    /<!--\s*table-cols:\s*([^>-][^>]*?)-->\s*(<table(?:[^>]*)>)/g,
+    /<!--\s*table-cols:\s*([^>-][^>]*?)-->[\s\S]*?(<table(?:[^>]*)>)/g,
     (_match, colsStr: string, tableTag: string) => {
       const cols = colsStr.split(",").map((w: string) => {
         const v = w.trim();
