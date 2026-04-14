@@ -29,7 +29,9 @@ const _tagPagesCache = new Map<string, Array<{ slug: string; title: string }>>()
 export interface FileNode {
   name: string;
   slug: string;
-  type: "file" | "directory";
+  type: "file" | "directory" | "pdf";
+  /** Relative path within obsidian/ — only set for type === "pdf" */
+  pdfPath?: string;
   children?: FileNode[];
 }
 
@@ -62,6 +64,10 @@ export function getFileTree(dir: string = OBSIDIAN_DIR, basePath: string = ""): 
       const nameWithoutExt = entry.name.replace(/\.md$/, "");
       const fileSlug = basePath ? `${basePath}/${nameWithoutExt}` : nameWithoutExt;
       nodes.push({ name: nameWithoutExt, slug: fileSlug, type: "file" });
+    } else if (entry.name.endsWith(".pdf")) {
+      const nameWithoutExt = entry.name.replace(/\.pdf$/, "");
+      const pdfPath = basePath ? `${basePath}/${entry.name}` : entry.name;
+      nodes.push({ name: nameWithoutExt, slug: pdfPath, type: "pdf", pdfPath });
     }
   }
 

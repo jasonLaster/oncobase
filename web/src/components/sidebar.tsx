@@ -52,6 +52,26 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
     );
   }
 
+  if (node.type === "pdf") {
+    return (
+      <a
+        href={`/api/file?path=${encodeURIComponent(node.pdfPath!)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={onNavigate}
+        className="flex items-center gap-1.5 px-2 py-1 text-sm rounded truncate transition-colors text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+        style={{ paddingLeft: `${depth * 12 + 20}px` }}
+        title={formatName(node.name)}
+      >
+        <svg className="shrink-0 opacity-50" width="11" height="13" viewBox="0 0 11 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6.5 1H2a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V4.5L6.5 1Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+          <path d="M6.5 1v3.5H10" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+        </svg>
+        <span className="truncate">{formatName(node.name)}</span>
+      </a>
+    );
+  }
+
   return (
     <Link
       href={`/${node.slug}`}
