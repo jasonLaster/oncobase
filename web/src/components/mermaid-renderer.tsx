@@ -114,18 +114,10 @@ export function MermaidRenderer() {
           const wrapper = document.createElement("div");
           wrapper.className = "mermaid-diagram";
           wrapper.innerHTML = svg;
-
-          // Let the SVG scale to fill its container while preserving aspect ratio
-          const svgEl = wrapper.querySelector("svg");
-          if (svgEl) {
-            const intrinsicWidth = svgEl.getAttribute("width");
-            if (intrinsicWidth) {
-              svgEl.setAttribute("data-intrinsic-width", intrinsicWidth);
-            }
-            svgEl.removeAttribute("width");
-            svgEl.style.width = "100%";
-            svgEl.style.height = "auto";
-          }
+          // Do NOT modify SVG width — Mermaid positions htmlLabel foreignObjects
+          // in absolute pixel coords tied to the rendered width. Changing width via
+          // CSS detaches labels from their shapes (the overlap bug). Let the
+          // container scroll horizontally instead.
 
           placeholder.replaceWith(wrapper);
         } catch (err) {
