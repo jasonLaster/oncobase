@@ -12,7 +12,7 @@ export function MarkdownRenderer({
   disableAnchors?: boolean;
 }) {
   const resolved = resolveWikilinks(content, currentSlug);
-  const html = renderMarkdown(resolved);
+  const html = renderMarkdown(resolved, currentSlug);
 
   return (
     <div className="prose max-w-none">

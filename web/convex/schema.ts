@@ -38,6 +38,13 @@ export default defineSchema({
     uploadedAt: v.number(),
   }).index("by_path", ["path"]),
 
+  fileAssets: defineTable({
+    path: v.string(),      // relative path within obsidian/ (e.g. "sources/images/foo.jpg")
+    blobUrl: v.string(),   // Vercel Blob URL (public)
+    sizeBytes: v.number(),
+    uploadedAt: v.number(),
+  }).index("by_path", ["path"]),
+
   conversations: defineTable({
     title: v.string(),
     createdAt: v.number(),

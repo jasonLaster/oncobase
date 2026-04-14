@@ -5,6 +5,22 @@ import fs from "fs";
 const OBSIDIAN_DIR =
   process.env.OBSIDIAN_DIR ?? path.join(process.cwd(), "..", "obsidian");
 
+const MIME_TYPES: Record<string, string> = {
+  ".pdf":  "application/pdf",
+  ".csv":  "text/csv; charset=utf-8",
+  ".jpg":  "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png":  "image/png",
+  ".gif":  "image/gif",
+  ".webp": "image/webp",
+  ".svg":  "image/svg+xml",
+};
+
+function getMimeType(filePath: string): string | null {
+  const ext = path.extname(filePath).toLowerCase();
+  return MIME_TYPES[ext] ?? null;
+}
+
 export async function GET(request: NextRequest) {
   const filePath = request.nextUrl.searchParams.get("path");
 
@@ -12,43 +28,49 @@ export async function GET(request: NextRequest) {
     return new NextResponse("Missing path parameter", { status: 400 });
   }
 
-  // Only serve .pdf files through this route
-  if (!filePath.endsWith(".pdf")) {
-    return new NextResponse("Only PDF files are served via this route", { status: 400 });
+  const mimeType = getMimeType(filePath);
+  if (!mimeType) {
+    return new NextResponse("File type not supported", { status: 400 });
   }
 
   // Prevent path traversal
   const normalized = path.normalize(filePath).replace(/^(\.\.(\/|\\|$))+/, "");
 
+  const ext = path.extname(normalized).toLowerCase();
+  const filename = path.basename(normalized);
+
   // ── Local / disk path ──────────────────────────────────────────────────────
   const diskPath = path.join(OBSIDIAN_DIR, normalized);
   if (fs.existsSync(diskPath)) {
     const buf = fs.readFileSync(diskPath);
-    const filename = path.basename(normalized);
     return new NextResponse(buf, {
       headers: {
-        "Content-Type": "application/pdf",
+        "Content-Type": mimeType,
         "Content-Disposition": `inline; filename="${filename}"`,
         "Cache-Control": "public, max-age=86400",
       },
     });
   }
 
-  // ── Production: look up in Convex pdfAssets, proxy through to strip Blob CSP ──
+  // ── Production: look up in Convex, proxy to strip Blob CSP ────────────────
   try {
     const { fetchQuery } = await import("convex/nextjs");
     const { api } = await import("../../../../convex/_generated/api");
-    const asset = await fetchQuery(api.documents.getPdfAssetByPath, { path: normalized });
+
+    // PDFs live in pdfAssets; everything else in fileAssets
+    const asset = ext === ".pdf"
+      ? await fetchQuery(api.documents.getPdfAssetByPath, { path: normalized })
+      : await fetchQuery(api.documents.getFileAssetByPath, { path: normalized });
+
     if (asset?.blobUrl) {
       const upstream = await fetch(asset.blobUrl);
       if (!upstream.ok) {
         return new NextResponse("Blob fetch failed", { status: 502 });
       }
       const buf = Buffer.from(await upstream.arrayBuffer());
-      const filename = path.basename(normalized);
       return new NextResponse(buf, {
         headers: {
-          "Content-Type": "application/pdf",
+          "Content-Type": mimeType,
           "Content-Disposition": `inline; filename="${filename}"`,
           "Cache-Control": "public, max-age=86400",
         },

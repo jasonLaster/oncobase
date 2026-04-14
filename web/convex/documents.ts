@@ -365,6 +365,41 @@ export const upsertPdfAsset = mutation({
   },
 });
 
+export const listFileAssets = query({
+  handler: async (ctx) => {
+    return await ctx.db.query("fileAssets").collect();
+  },
+});
+
+export const getFileAssetByPath = query({
+  args: { path: v.string() },
+  handler: async (ctx, { path }) => {
+    return await ctx.db
+      .query("fileAssets")
+      .withIndex("by_path", (q) => q.eq("path", path))
+      .first();
+  },
+});
+
+export const upsertFileAsset = mutation({
+  args: {
+    path: v.string(),
+    blobUrl: v.string(),
+    sizeBytes: v.number(),
+  },
+  handler: async (ctx, { path, blobUrl, sizeBytes }) => {
+    const existing = await ctx.db
+      .query("fileAssets")
+      .withIndex("by_path", (q) => q.eq("path", path))
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, { blobUrl, sizeBytes, uploadedAt: Date.now() });
+    } else {
+      await ctx.db.insert("fileAssets", { path, blobUrl, sizeBytes, uploadedAt: Date.now() });
+    }
+  },
+});
+
 function extractExcerpt(content: string, query: string): string {
   const lower = content.toLowerCase();
   const idx = lower.indexOf(query.toLowerCase());
