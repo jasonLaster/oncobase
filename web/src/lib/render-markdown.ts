@@ -18,7 +18,22 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "9";
+const PIPELINE_VERSION = "10";
+
+// ─── Mermaid pre-processor ────────────────────────────────────────────────────
+//
+// Converts ```mermaid fenced code blocks into placeholder divs BEFORE unified
+// processes the markdown. This keeps the raw graph source out of the remark AST
+// (which would HTML-escape it) and lets the client MermaidRenderer hydrate them.
+//
+// Output: <div class="mermaid-placeholder" data-graph="<base64-encoded-graph>"></div>
+
+function extractMermaidBlocks(md: string): string {
+  return md.replace(/^```mermaid\r?\n([\s\S]*?)^```/gm, (_match, graph: string) => {
+    const encoded = Buffer.from(graph.trimEnd()).toString("base64");
+    return `<div class="mermaid-placeholder" data-graph="${encoded}"></div>`;
+  });
+}
 
 // ─── Table column width directives ───────────────────────────────────────────
 //
@@ -224,7 +239,8 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
     // Cache miss — render and store
   }
 
-  const { directives, cleanMd } = parseTableDirectives(md);
+  const mermaidExtracted = extractMermaidBlocks(md);
+  const { directives, cleanMd } = parseTableDirectives(mermaidExtracted);
   const raw = processor.processSync(cleanMd).toString();
   // Wrap every table in a scroll container so horizontal scroll works before JS hydrates.
   const wrapped = raw.replace(/<table/g, '<div class="table-scroll-wrapper"><table').replace(/<\/table>/g, "</table></div>");

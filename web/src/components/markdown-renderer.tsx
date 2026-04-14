@@ -1,6 +1,7 @@
 import { resolveWikilinks } from "@/lib/wikilinks";
 import { renderMarkdown } from "@/lib/render-markdown";
 import { InteractiveTables } from "@/components/interactive-tables";
+import { MermaidRenderer } from "@/components/mermaid-renderer";
 
 export function MarkdownRenderer({
   content,
@@ -18,6 +19,7 @@ export function MarkdownRenderer({
     <div className="prose max-w-none">
       <div dangerouslySetInnerHTML={{ __html: html }} />
       <InteractiveTables disableAnchors={disableAnchors} />
+      <MermaidRenderer />
     </div>
   );
 }
