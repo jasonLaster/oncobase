@@ -148,7 +148,7 @@ async function fillFullArchive(arc: import("archiver").Archiver) {
   const { api } = await import("../../convex/_generated/api");
 
   const pdfAssets = await fetchQuery(api.documents.listPdfAssets, {});
-  console.log(`[download-cache] Fetching ${pdfAssets.length} PDFs from Blob`);
+  console.log(`[download-cache] Fetching ${pdfAssets.length} PDFs from public Blob`);
 
   const BATCH = 20;
   for (let i = 0; i < pdfAssets.length; i += BATCH) {

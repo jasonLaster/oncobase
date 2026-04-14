@@ -33,7 +33,7 @@ export default defineSchema({
 
   pdfAssets: defineTable({
     path: v.string(),      // relative path within obsidian/ (e.g. "sources/paper.pdf")
-    blobUrl: v.string(),   // Vercel Blob URL (private)
+    blobUrl: v.string(),   // Vercel Blob URL (public)
     sizeBytes: v.number(),
     uploadedAt: v.number(),
   }).index("by_path", ["path"]),

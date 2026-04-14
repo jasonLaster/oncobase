@@ -5,7 +5,7 @@
  *
  * The markdown zip is written to public/ and served as a static asset.
  * The full zip (may exceed Vercel's 1 GiB static file limit) is uploaded to
- * Vercel Blob when BLOB_READ_WRITE_TOKEN is set, otherwise written to public/.
+ * Vercel Blob when PUBLIC_BLOB_READ_WRITE_TOKEN is set, otherwise written to public/.
  *
  * Also writes public/wiki-download-info.json with sizes and URLs for both
  * archives so the UI and ingest script can display / store them.
@@ -63,9 +63,9 @@ async function buildZip(filter?: (name: string) => boolean): Promise<Buffer> {
 }
 
 async function uploadToBlob(buffer: Buffer, filename: string): Promise<string | null> {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const token = process.env.PUBLIC_BLOB_READ_WRITE_TOKEN;
   if (!token) {
-    console.log(`  No BLOB_READ_WRITE_TOKEN — skipping Blob upload for ${filename}`);
+    console.log(`  No PUBLIC_BLOB_READ_WRITE_TOKEN — skipping Blob upload for ${filename}`);
     return null;
   }
 
@@ -73,7 +73,7 @@ async function uploadToBlob(buffer: Buffer, filename: string): Promise<string | 
     const { put } = await import("@vercel/blob");
     console.log(`  Uploading ${filename} to Vercel Blob…`);
     const blob = await put(filename, buffer, {
-      access: "private",
+      access: "public",
       token,
       allowOverwrite: true,
     });
@@ -122,8 +122,8 @@ async function main() {
 
   if (!fullBlobUrl) {
     // No Blob token — cannot serve full zip from Vercel (exceeds 1 GiB static limit).
-    // Download will be unavailable until BLOB_READ_WRITE_TOKEN is configured.
-    console.warn("  ⚠ Full wiki zip not uploaded (no BLOB_READ_WRITE_TOKEN). Full download will be unavailable.");
+    // Download will be unavailable until PUBLIC_BLOB_READ_WRITE_TOKEN is configured.
+    console.warn("  ⚠ Full wiki zip not uploaded (no PUBLIC_BLOB_READ_WRITE_TOKEN). Full download will be unavailable.");
   }
 
   console.log("Building markdown-only zip…");
