@@ -152,6 +152,24 @@ body {
 .prose strong { font-weight: 600; }
 .prose img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
 
+/* Mermaid diagrams */
+.mermaid-diagram {
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: #fafafa;
+}
+.mermaid-diagram svg {
+  display: block;
+  margin: 0 auto;
+}
+/* Lighten the harsh background on decision nodes that mermaid renders */
+.mermaid-diagram .label foreignObject { overflow: visible; }
+.mermaid-diagram .cluster rect { fill: #f8fafc !important; stroke: #e2e8f0 !important; }
+
 /* PDF chip — inline PDF link rendered as a styled pill */
 .pdf-chip {
   display: inline-flex;
