@@ -168,9 +168,16 @@ function attachResizeHandle(th: HTMLTableCellElement): () => void {
     e.preventDefault();
     const startX = e.clientX;
     const startWidth = th.getBoundingClientRect().width;
+    const table = th.closest("table") as HTMLTableElement | null;
+    const startTableWidth = table?.getBoundingClientRect().width ?? 0;
 
     const onMouseMove = (ev: MouseEvent) => {
-      th.style.width = `${Math.max(60, startWidth + ev.clientX - startX)}px`;
+      const newColWidth = Math.max(60, startWidth + ev.clientX - startX);
+      const actualDelta = newColWidth - startWidth;
+      th.style.width = `${newColWidth}px`;
+      if (table) {
+        table.style.width = `${startTableWidth + actualDelta}px`;
+      }
     };
     const onMouseUp = () => {
       document.removeEventListener("mousemove", onMouseMove);
