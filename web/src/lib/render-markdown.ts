@@ -18,7 +18,7 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "4";
+const PIPELINE_VERSION = "5";
 
 /**
  * Process <!-- table-cols: w1, w2, w3 --> comments immediately before a <table>.
@@ -122,7 +122,9 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
   }
 
   const raw = processor.processSync(md).toString();
-  const html = applyTableColWidths(fixImageSrcs(fixMarkdownLinks(raw), currentSlug));
+  // Wrap every table in a scroll container so horizontal scroll works before JS hydrates.
+  const wrapped = raw.replace(/<table/g, '<div class="table-scroll-wrapper"><table').replace(/<\/table>/g, "</table></div>");
+  const html = applyTableColWidths(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug));
 
   try {
     ensureCacheDir();

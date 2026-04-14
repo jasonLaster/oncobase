@@ -68,11 +68,19 @@ function attachHeadingAnchors(container: HTMLElement) {
 // ─── Table expand / collapse ──────────────────────────────────
 
 function wrapWithExpandCollapse(table: HTMLTableElement): () => void {
-  const wrapper = document.createElement("div");
-  wrapper.className = "not-prose my-4 relative group/table table-scroll-wrapper";
+  // Reuse the SSR-rendered scroll wrapper if present, otherwise create one.
+  const existingWrapper = table.parentElement?.classList.contains("table-scroll-wrapper")
+    ? (table.parentElement as HTMLDivElement)
+    : null;
 
-  table.parentNode?.insertBefore(wrapper, table);
-  wrapper.appendChild(table);
+  const wrapper = existingWrapper ?? document.createElement("div");
+  if (!existingWrapper) {
+    wrapper.className = "not-prose my-4 relative group/table table-scroll-wrapper";
+    table.parentNode?.insertBefore(wrapper, table);
+    wrapper.appendChild(table);
+  } else {
+    wrapper.classList.add("not-prose", "my-4", "relative", "group/table");
+  }
 
   // Detect horizontal overflow for scroll indicator
   const updateScrollable = () => {
@@ -136,8 +144,8 @@ function wrapWithExpandCollapse(table: HTMLTableElement): () => void {
     btn.removeEventListener("click", toggle);
     wrapper.removeEventListener("scroll", onScroll);
     resizeObserver.disconnect();
-    // Unwrap: move table back out
-    if (wrapper.parentNode) {
+    // Only unwrap if we created the wrapper (not the SSR one)
+    if (!existingWrapper && wrapper.parentNode) {
       wrapper.parentNode.insertBefore(table, wrapper);
       wrapper.remove();
     }
