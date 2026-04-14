@@ -1,8 +1,20 @@
 /** Transform Obsidian [[wikilinks]] into standard markdown links */
-export function resolveWikilinks(content: string): string {
+export function resolveWikilinks(content: string, currentSlug?: string): string {
+  // Directory of the current page, used to resolve bare filenames (no path separator)
+  const currentDir = currentSlug ? currentSlug.split("/").slice(0, -1).join("/") : "";
+
   // [[path/to/page|display text]] or [[path/to/page]]
   return content.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, target: string, display?: string) => {
-    // Strip .md extension if present, normalize path
+    const isBare = !target.includes("/");
+
+    if (target.endsWith(".pdf")) {
+      // Bare PDF filenames resolve relative to the current page's directory
+      const pdfPath = isBare && currentDir ? `${currentDir}/${target}` : target;
+      const label = display || target;
+      return `[${label}](/${pdfPath})`;
+    }
+
+    // Strip .md extension, normalize spaces
     const slug = target.replace(/\.md$/, "").replace(/\s+/g, "-");
     const label = display || target.split("/").pop()?.replace(/\.md$/, "") || target;
     return `[${label}](/${slug})`;

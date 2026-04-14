@@ -4,12 +4,14 @@ import { InteractiveTables } from "@/components/interactive-tables";
 
 export function MarkdownRenderer({
   content,
+  currentSlug,
   disableAnchors,
 }: {
   content: string;
+  currentSlug?: string;
   disableAnchors?: boolean;
 }) {
-  const resolved = resolveWikilinks(content);
+  const resolved = resolveWikilinks(content, currentSlug);
   const html = renderMarkdown(resolved);
 
   return (

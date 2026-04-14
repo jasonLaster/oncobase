@@ -146,7 +146,7 @@ export default async function DocPage({
           </div>
         )}
       </header>
-      <MarkdownRenderer content={file.content} />
+      <MarkdownRenderer content={file.content} currentSlug={file.slug} />
     </article>
     </div>
   );
