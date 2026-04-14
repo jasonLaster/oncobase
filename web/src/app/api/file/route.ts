@@ -34,13 +34,24 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ── Production: look up in Convex pdfAssets, redirect to Blob URL ──────────
+  // ── Production: look up in Convex pdfAssets, proxy through to strip Blob CSP ──
   try {
     const { fetchQuery } = await import("convex/nextjs");
     const { api } = await import("../../../../convex/_generated/api");
     const asset = await fetchQuery(api.documents.getPdfAssetByPath, { path: normalized });
     if (asset?.blobUrl) {
-      return NextResponse.redirect(asset.blobUrl);
+      const upstream = await fetch(asset.blobUrl);
+      if (!upstream.ok) {
+        return new NextResponse("Blob fetch failed", { status: 502 });
+      }
+      const filename = path.basename(normalized);
+      return new NextResponse(upstream.body, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${filename}"`,
+          "Cache-Control": "public, max-age=86400",
+        },
+      });
     }
   } catch (err) {
     console.error("[file] Convex lookup failed:", err);
