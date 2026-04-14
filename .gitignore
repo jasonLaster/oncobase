@@ -12,3 +12,4 @@ diagnostics
 .vercel
 web/scripts/test-archive-output.zip
 web/scripts/test-blob-archive.ts
+package-lock.json
