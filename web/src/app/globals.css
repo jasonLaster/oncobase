@@ -139,8 +139,9 @@ body {
 .prose pre { background: var(--sidebar-bg); padding: 1rem; border-radius: 0.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1rem 0; }
 .prose pre code { background: none; padding: 0; }
 .prose { overflow-wrap: break-word; word-break: break-word; }
-.prose table { border-collapse: collapse; margin: 1rem 0; font-size: 0.9375rem; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; min-width: max-content; }
-.prose th, .prose td { white-space: nowrap; }
+.prose table { border-collapse: collapse; margin: 1rem 0; font-size: 0.9375rem; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.prose th { white-space: nowrap; }
+.prose td { white-space: normal; max-width: 40ch; }
 .table-scroll-wrapper { position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table-scroll-wrapper[data-scrollable]::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 32px; background: linear-gradient(to right, transparent, var(--background)); pointer-events: none; }
 .table-scroll-wrapper[data-scrolled-end]::after { display: none; }
