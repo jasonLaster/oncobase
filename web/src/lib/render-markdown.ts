@@ -8,6 +8,7 @@ import remarkRehype from "remark-rehype";
 import rehypeRaw from "rehype-raw";
 import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
+import { renderMermaidSVG } from "beautiful-mermaid";
 
 const processor = unified()
   .use(remarkParse)
@@ -18,20 +19,35 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "11";
+const PIPELINE_VERSION = "12";
+
+// ─── Mermaid theme ────────────────────────────────────────────────────────────
+// Matches the site's light-mode design tokens from globals.css
+const MERMAID_THEME = {
+  bg: "#ffffff",
+  fg: "#1a1a2e",
+  accent: "#4f46e5",
+  line: "#9ca3af",
+  border: "#e5e7eb",
+  surface: "#f0f4ff",
+  muted: "#6b7280",
+};
 
 // ─── Mermaid pre-processor ────────────────────────────────────────────────────
 //
-// Converts ```mermaid fenced code blocks into placeholder divs BEFORE unified
-// processes the markdown. This keeps the raw graph source out of the remark AST
-// (which would HTML-escape it) and lets the client MermaidRenderer hydrate them.
-//
-// Output: <div class="mermaid-placeholder" data-graph="<base64-encoded-graph>"></div>
+// Renders ```mermaid fenced code blocks to SVG server-side using beautiful-mermaid.
+// Output: <div class="mermaid-diagram"><svg ...></svg></div>
 
 function extractMermaidBlocks(md: string): string {
   return md.replace(/^```mermaid\r?\n([\s\S]*?)^```/gm, (_match, graph: string) => {
-    const encoded = Buffer.from(graph.trimEnd()).toString("base64");
-    return `<div class="mermaid-placeholder" data-graph="${encoded}"></div>`;
+    try {
+      const svg = renderMermaidSVG(graph.trimEnd(), MERMAID_THEME);
+      return `<div class="mermaid-diagram">${svg}</div>`;
+    } catch (err) {
+      console.warn("Mermaid render error:", err);
+      const escaped = graph.trimEnd().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      return `<pre class="mermaid-error text-sm text-red-500 font-mono my-4 p-3 border border-red-200 rounded">${escaped}</pre>`;
+    }
   });
 }
 
