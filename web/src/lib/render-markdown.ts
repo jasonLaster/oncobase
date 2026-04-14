@@ -19,7 +19,7 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "13";
+const PIPELINE_VERSION = "14";
 
 // ─── Mermaid pre-processor ────────────────────────────────────────────────────
 //
@@ -31,9 +31,17 @@ const PIPELINE_VERSION = "13";
 //   <div class="mermaid-diagram dark:hidden"><!-- github-light svg --></div>
 //   <div class="mermaid-diagram hidden dark:block"><!-- github-dark svg --></div>
 
+/**
+ * Strip `style NodeName fill:...,color:...,stroke:...` lines from a mermaid
+ * diagram so hardcoded node colours don't override the theme.
+ */
+function stripNodeStyles(graph: string): string {
+  return graph.replace(/^[ \t]*style\s+\S+\s+[^\n]+$/gm, "");
+}
+
 function extractMermaidBlocks(md: string): string {
   return md.replace(/^```mermaid\r?\n([\s\S]*?)^```/gm, (_match, graph: string) => {
-    const src = graph.trimEnd();
+    const src = stripNodeStyles(graph.trimEnd());
     try {
       const svgLight = renderMermaidSVG(src, THEMES["github-light"]);
       const svgDark = renderMermaidSVG(src, THEMES["github-dark"]);
