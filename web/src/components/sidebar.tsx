@@ -63,14 +63,6 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
         style={{ paddingLeft: `${depth * 12 + 20}px` }}
         title={`${formatName(node.name)}.pdf`}
       >
-        {/* PDF document icon — fold corner */}
-        <svg className="shrink-0 opacity-50" width="12" height="14" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M7 1H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5L7 1Z"
-            stroke="currentColor" strokeWidth="1.1"/>
-          <path d="M7 1v3.5h4" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round"/>
-          <line x1="2.75" y1="8" x2="9.25" y2="8" stroke="currentColor" strokeWidth="0.75" strokeLinecap="round" opacity="0.7"/>
-          <line x1="2.75" y1="10" x2="7.5" y2="10" stroke="currentColor" strokeWidth="0.75" strokeLinecap="round" opacity="0.5"/>
-        </svg>
         <span className="truncate">{formatName(node.name)}.pdf</span>
       </a>
     );
