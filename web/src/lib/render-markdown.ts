@@ -18,7 +18,7 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "6";
+const PIPELINE_VERSION = "9";
 
 // ─── Table column width directives ───────────────────────────────────────────
 //
@@ -161,6 +161,46 @@ function fixImageSrcs(html: string, currentSlug?: string): string {
   });
 }
 
+const PDF_DOC_ICON =
+  `<svg width="11" height="13" viewBox="0 0 11 13" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="flex-shrink:0">` +
+  `<path d="M6.5 1H2a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V4.5L6.5 1Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="1.1"/>` +
+  `<path d="M6.5 1v3.5H10" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>` +
+  `<line x1="2.5" y1="7.5" x2="8.5" y2="7.5" stroke="currentColor" stroke-width="0.7" stroke-linecap="round" opacity="0.7"/>` +
+  `<line x1="2.5" y1="9.5" x2="6.5" y2="9.5" stroke="currentColor" stroke-width="0.7" stroke-linecap="round" opacity="0.5"/>` +
+  `</svg>`;
+
+const EXTERNAL_ARROW_ICON =
+  `<svg width="9" height="9" viewBox="0 0 9 9" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="flex-shrink:0;opacity:0.65">` +
+  `<path d="M1.5 7.5 7.5 1.5M4.5 1.5H7.5V4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>` +
+  `</svg>`;
+
+/**
+ * Convert PDF anchor links (href points to /api/file?path=...pdf) into styled chips.
+ * Works with both wikilink-generated links and hand-written markdown links.
+ * Always uses the filename (no directory, no .pdf) as the chip label for consistency.
+ */
+function fixPdfLinks(html: string): string {
+  return html.replace(
+    /<a\b([^>]*)\bhref="(\/api\/file\?path=[^"]*\.pdf[^"]*)"([^>]*)>(.*?)<\/a>/gi,
+    (_match, before, href, after, innerHtml) => {
+      // Don't re-wrap chips
+      if (before.includes("pdf-chip") || after.includes("pdf-chip")) return _match;
+      // Extract filename from the path query param — consistent regardless of wikilink label
+      const rawPath = href.match(/[?&]path=([^&"]*)/)?.[1] ?? "";
+      const fileName = decodeURIComponent(rawPath).split("/").pop()?.replace(/\.pdf$/i, "") || innerHtml.trim();
+      // Preserve any existing id/data-* attributes; strip class/target/rel (chip overrides them)
+      const stripped = (before + after).replace(/\s*(class|target|rel)="[^"]*"/g, "");
+      return (
+        `<a${stripped} href="${href}" class="pdf-chip" target="_blank" rel="noopener noreferrer">` +
+        PDF_DOC_ICON +
+        `<span>${fileName}</span>` +
+        EXTERNAL_ARROW_ICON +
+        `</a>`
+      );
+    }
+  );
+}
+
 // Cache dir inside .next/cache so Vercel preserves it between deploys
 const CACHE_DIR = path.join(process.cwd(), ".next", "cache", "markdown");
 
@@ -188,7 +228,7 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
   const raw = processor.processSync(cleanMd).toString();
   // Wrap every table in a scroll container so horizontal scroll works before JS hydrates.
   const wrapped = raw.replace(/<table/g, '<div class="table-scroll-wrapper"><table').replace(/<\/table>/g, "</table></div>");
-  const html = injectColgroups(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug), directives);
+  const html = fixPdfLinks(injectColgroups(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug), directives));
 
   try {
     ensureCacheDir();

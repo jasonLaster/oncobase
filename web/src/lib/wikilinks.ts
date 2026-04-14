@@ -10,8 +10,10 @@ export function resolveWikilinks(content: string, currentSlug?: string): string 
     if (target.endsWith(".pdf")) {
       // Bare PDF filenames resolve relative to the current page's directory
       const pdfPath = isBare && currentDir ? `${currentDir}/${target}` : target;
-      const label = display || target;
-      return `[${label}](/${pdfPath})`;
+      // Use just the filename (no directory path, no .pdf) as the default label
+      const baseName = target.split("/").pop()?.replace(/\.pdf$/i, "") ?? target;
+      const label = display || baseName;
+      return `[${label}](/api/file?path=${encodeURIComponent(pdfPath)})`;
     }
 
     // Strip .md extension, normalize spaces
