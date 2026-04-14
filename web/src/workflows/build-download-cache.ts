@@ -32,8 +32,8 @@ async function buildAndUpload(type: DownloadType): Promise<string> {
   const path = await import("path");
   const archiver = (await import("archiver")).default;
 
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) throw new FatalError("BLOB_READ_WRITE_TOKEN not set");
+  const token = process.env.PUBLIC_BLOB_READ_WRITE_TOKEN;
+  if (!token) throw new FatalError("PUBLIC_BLOB_READ_WRITE_TOKEN not set");
 
   const OBSIDIAN_DIR = process.env.OBSIDIAN_DIR ?? path.join(process.cwd(), "..", "obsidian");
   const diskAvailable = !process.env.VERCEL && fs.existsSync(OBSIDIAN_DIR);
@@ -62,7 +62,7 @@ async function buildAndUpload(type: DownloadType): Promise<string> {
             const { addDirToDiskArchive } = await import("@/lib/archive-helpers");
             addDirToDiskArchive(arc, OBSIDIAN_DIR);
           } else if (type === "full") {
-            await fillFullArchive(arc, token);
+            await fillFullArchive(arc);
           } else {
             await fillMarkdownArchive(arc);
           }
@@ -143,13 +143,12 @@ async function saveCache(type: DownloadType, url: string): Promise<void> {
 
 // ─── archive fill helpers (called inside step, full Node.js access) ───────────
 
-async function fillFullArchive(arc: import("archiver").Archiver, token: string) {
+async function fillFullArchive(arc: import("archiver").Archiver) {
   const { fetchQuery } = await import("convex/nextjs");
   const { api } = await import("../../convex/_generated/api");
-  const { get } = await import("@vercel/blob");
 
   const pdfAssets = await fetchQuery(api.documents.listPdfAssets, {});
-  console.log(`[download-cache] Fetching ${pdfAssets.length} PDFs from Blob`);
+  console.log(`[download-cache] Fetching ${pdfAssets.length} PDFs from public Blob`);
 
   const BATCH = 20;
   for (let i = 0; i < pdfAssets.length; i += BATCH) {
@@ -158,16 +157,13 @@ async function fillFullArchive(arc: import("archiver").Archiver, token: string) 
     const buffers = await Promise.all(
       batch.map(async (asset) => {
         try {
-          const blobResult = await get(asset.blobUrl, { token, access: "private" });
-          if (!blobResult?.stream) return null;
-          const chunks: Buffer[] = [];
-          const reader = blobResult.stream.getReader();
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            chunks.push(Buffer.from(value));
+          const res = await fetch(asset.blobUrl);
+          if (!res.ok) {
+            console.warn(`[download-cache] Failed to fetch PDF ${asset.path}: ${res.status}`);
+            return null;
           }
-          return { name: asset.path, buf: Buffer.concat(chunks) };
+          const buf = Buffer.from(await res.arrayBuffer());
+          return { name: asset.path, buf };
         } catch (err: unknown) {
           console.warn(`[download-cache] Failed to fetch PDF ${asset.path}:`, err);
           return null;

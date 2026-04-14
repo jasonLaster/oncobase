@@ -34,9 +34,9 @@ async function startChildWorkflows(): Promise<Record<string, string | null>> {
   const { generateDescriptionsWorkflow } = await import("./generate-descriptions");
   const { ingestEmbeddingsWorkflow } = await import("./ingest-embeddings");
 
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const token = process.env.PUBLIC_BLOB_READ_WRITE_TOKEN;
   if (!token) {
-    console.warn("[post-deploy] BLOB_READ_WRITE_TOKEN not set — download cache workflows skipped");
+    console.warn("[post-deploy] PUBLIC_BLOB_READ_WRITE_TOKEN not set — download cache workflows skipped");
   }
 
   const [full, markdown, descriptions, embeddings] = await Promise.all([

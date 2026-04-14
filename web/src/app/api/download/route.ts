@@ -65,12 +65,11 @@ async function getConvexApi() {
   return { fetchQuery, api };
 }
 
-/** Full archive: PDFs from Blob + markdown from Convex */
-function buildFullArchiveStream(token: string): ReadableStream<Uint8Array> {
-  console.log("[download] Building full archive from Blob+Convex");
+/** Full archive: PDFs from public Blob + markdown from Convex */
+function buildFullArchiveStream(): ReadableStream<Uint8Array> {
+  console.log("[download] Building full archive from public Blob+Convex");
   return archiverToStream("full", async (arc) => {
     const { fetchQuery, api } = await getConvexApi();
-    const { get } = await import("@vercel/blob");
 
     const pdfAssets = await fetchQuery(api.documents.listPdfAssets, {});
     console.log(`[download] Full archive: ${pdfAssets.length} PDF assets to fetch`);
@@ -85,19 +84,13 @@ function buildFullArchiveStream(token: string): ReadableStream<Uint8Array> {
       const buffers = await Promise.all(
         batch.map(async (asset) => {
           try {
-            const blobResult = await get(asset.blobUrl, { token, access: "private" });
-            if (!blobResult?.stream) {
-              console.warn(`[download] No stream for PDF: ${asset.path}`);
+            const res = await fetch(asset.blobUrl);
+            if (!res.ok) {
+              console.warn(`[download] Failed to fetch PDF ${asset.path}: ${res.status}`);
               return null;
             }
-            const chunks: Buffer[] = [];
-            const reader = blobResult.stream.getReader();
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              chunks.push(Buffer.from(value));
-            }
-            return { name: asset.path, buf: Buffer.concat(chunks) };
+            const buf = Buffer.from(await res.arrayBuffer());
+            return { name: asset.path, buf };
           } catch (err) {
             console.warn(`[download] Failed to fetch PDF ${asset.path}:`, err);
             return null;
@@ -250,19 +243,13 @@ export async function GET(request: NextRequest) {
 
   console.log(`[download] GET type=${type} deploy=${deployId}`);
 
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-
   // ── Fast path: redirect to cached public Blob URL ──────────────────────────
-  if (token) {
-    const cached = await getCachedZipInfo(type);
-    if (cached && isCacheFresh(cached, type)) {
-      console.log(`[download] Fast path: redirecting to cached blob (${Date.now() - t0}ms)`);
-      return NextResponse.redirect(cached.url);
-    }
-    console.log(`[download] Cache cold — falling through to slow path`);
-  } else {
-    console.warn("[download] BLOB_READ_WRITE_TOKEN not set — skipping cache check");
+  const cached = await getCachedZipInfo(type);
+  if (cached && isCacheFresh(cached, type)) {
+    console.log(`[download] Fast path: redirecting to cached blob (${Date.now() - t0}ms)`);
+    return NextResponse.redirect(cached.url);
   }
+  console.log(`[download] Cache cold — falling through to slow path`);
 
   // ── Slow path: stream zip on-demand ────────────────────────────────────────
   const diskAvailable = !process.env.VERCEL && fs.existsSync(OBSIDIAN_DIR);
@@ -271,18 +258,15 @@ export async function GET(request: NextRequest) {
   let zipStream: ReadableStream<Uint8Array>;
   if (diskAvailable) {
     zipStream = buildZipStreamFromDisk();
-  } else if (!token) {
-    console.error("[download] No disk and no BLOB_READ_WRITE_TOKEN — cannot serve download");
-    return new NextResponse("Download unavailable: storage not configured", { status: 503 });
   } else if (type === "markdown") {
     zipStream = buildMarkdownArchiveStream();
   } else {
-    zipStream = buildFullArchiveStream(token);
+    zipStream = buildFullArchiveStream();
   }
 
   // Kick off background cache warm via the workflow
   // (fire-and-forget: don't await, don't block the response)
-  if (token) {
+  if (process.env.PUBLIC_BLOB_READ_WRITE_TOKEN) {
     console.log(`[download] Scheduling background cache build for type=${type}`);
     import("workflow/api").then(({ start }) =>
       import("@/workflows/build-download-cache").then(({ buildDownloadCacheWorkflow }) =>
