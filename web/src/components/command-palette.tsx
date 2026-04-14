@@ -83,7 +83,7 @@ export function CommandPalette() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === "k" || e.key === "p" || e.key === "o")) {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === "k" || e.key === "o")) {
         e.preventDefault();
         setOpen((o) => !o);
       }
@@ -196,7 +196,7 @@ export function ActionPalette() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "P") {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "K") {
         e.preventDefault();
         setOpen((o) => !o);
       }
