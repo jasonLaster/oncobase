@@ -1,12 +1,13 @@
 /**
- * Upload PDFs from obsidian/ to Vercel Blob, recording each in Convex pdfAssets.
+ * Upload PDFs from obsidian/ to Vercel Blob (public store), recording each in Convex pdfAssets.
  * Skips PDFs already present in Convex — fully incremental.
  *
- * Usage: bun scripts/ingest-pdfs.ts
+ * Usage: bun scripts/ingest-pdfs.ts [--force]
+ *   --force  Re-upload all PDFs even if already in Convex (use after switching blob stores)
  *
  * Requires:
- *   NEXT_PUBLIC_CONVEX_URL   — Convex deployment URL
- *   BLOB_READ_WRITE_TOKEN    — Vercel Blob write token
+ *   NEXT_PUBLIC_CONVEX_URL        — Convex deployment URL
+ *   PUBLIC_BLOB_READ_WRITE_TOKEN  — Vercel Blob write token for the public store
  */
 import fs from "fs";
 import path from "path";
@@ -23,9 +24,9 @@ if (!CONVEX_URL) {
   process.exit(0);
 }
 
-const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
+const BLOB_TOKEN = process.env.PUBLIC_BLOB_READ_WRITE_TOKEN;
 if (!BLOB_TOKEN) {
-  console.error("BLOB_READ_WRITE_TOKEN not set — skipping PDF ingest");
+  console.error("PUBLIC_BLOB_READ_WRITE_TOKEN not set — skipping PDF ingest");
   process.exit(0);
 }
 
@@ -58,6 +59,7 @@ function* findPdfs(dir: string, basePath = ""): Generator<{ fullPath: string; re
 
 async function main() {
   const { put } = await import("@vercel/blob");
+  const force = process.argv.includes("--force");
 
   // Fetch existing PDF assets to determine what's already uploaded
   const existing = await client.query(api.documents.listPdfAssets, {});
@@ -65,16 +67,17 @@ async function main() {
   console.log(`${existing.length} PDFs already in Blob.`);
 
   const pdfs = [...findPdfs(OBSIDIAN_DIR)];
-  const toUpload = pdfs.filter((p) => !existingPaths.has(p.relativePath));
-  console.log(`Found ${pdfs.length} PDFs total, ${toUpload.length} new.`);
+  const toUpload = force ? pdfs : pdfs.filter((p) => !existingPaths.has(p.relativePath));
+  console.log(`Found ${pdfs.length} PDFs total, ${toUpload.length} to upload${force ? " (--force)" : " (new only)"}.`);
 
   let uploaded = 0;
   for (const { fullPath, relativePath } of toUpload) {
     const buffer = fs.readFileSync(fullPath);
     try {
       const blob = await put(`pdfs/${relativePath}`, buffer, {
-        access: "private",
+        access: "public",
         token: BLOB_TOKEN,
+        addRandomSuffix: false,
         allowOverwrite: true,
       });
       await client.mutation(api.documents.upsertPdfAsset, {
