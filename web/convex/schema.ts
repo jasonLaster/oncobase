@@ -63,4 +63,22 @@ export default defineSchema({
     disabled: v.optional(v.boolean()),
     createdAt: v.number(),
   }).index("by_conversation", ["conversationId", "createdAt"]),
+
+  users: defineTable({
+    email: v.string(),
+    name: v.optional(v.string()),
+    passwordHash: v.string(),
+    passwordSalt: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_email", ["email"]),
+
+  userSessions: defineTable({
+    userId: v.id("users"),
+    tokenHash: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_user", ["userId"]),
 });

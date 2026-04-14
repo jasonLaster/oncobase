@@ -1,20 +1,207 @@
 "use client";
 
-import { useState, useRef, useEffect, useSyncExternalStore, useCallback } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { Download, EllipsisVertical, LogIn, LogOut, Moon, Sun, UserPlus } from "lucide-react";
 import { themeEffect } from "@/lib/theme-effect";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+type SessionUser = {
+  email: string;
+  name: string | null;
+};
 
 let listeners: Array<() => void> = [];
 function subscribe(cb: () => void) {
   listeners.push(cb);
-  return () => { listeners = listeners.filter((l) => l !== cb); };
+  return () => {
+    listeners = listeners.filter((l) => l !== cb);
+  };
 }
-function getPreference() { return localStorage.getItem("theme"); }
-function getServerPreference() { return null; }
-function notify() { listeners.forEach((l) => l()); }
+function getPreference() {
+  return localStorage.getItem("theme");
+}
+function getServerPreference() {
+  return null;
+}
+function notify() {
+  listeners.forEach((l) => l());
+}
+
+function AuthDialog({
+  open,
+  mode,
+  onOpenChange,
+  onAuthSuccess,
+}: {
+  open: boolean;
+  mode: "signin" | "signup";
+  onOpenChange: (open: boolean) => void;
+  onAuthSuccess: (user: SessionUser) => void;
+}) {
+  const [activeMode, setActiveMode] = useState(mode);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setActiveMode(mode);
+      setError("");
+    }
+  }, [mode, open]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setPending(true);
+    setError("");
+
+    const endpoint = activeMode === "signup" ? "/api/auth/signup" : "/api/auth/signin";
+    const body =
+      activeMode === "signup"
+        ? { name, email, password }
+        : { email, password };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error ?? "Something went wrong");
+        return;
+      }
+
+      onAuthSuccess(data.user);
+      onOpenChange(false);
+      setPassword("");
+    } catch {
+      setError("Unable to reach the server");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{activeMode === "signup" ? "Create account" : "Sign in"}</DialogTitle>
+          <DialogDescription>
+            Wiki viewing still uses the shared password. This account is for saved access and future user features.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex gap-2 rounded-lg bg-muted p-1">
+          <Button
+            type="button"
+            variant={activeMode === "signin" ? "secondary" : "ghost"}
+            className="flex-1"
+            onClick={() => {
+              setActiveMode("signin");
+              setError("");
+            }}
+          >
+            Sign in
+          </Button>
+          <Button
+            type="button"
+            variant={activeMode === "signup" ? "secondary" : "ghost"}
+            className="flex-1"
+            onClick={() => {
+              setActiveMode("signup");
+              setError("");
+            }}
+          >
+            Sign up
+          </Button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          {activeMode === "signup" && (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="auth-name">
+                Name
+              </label>
+              <Input
+                id="auth-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Diana supporter"
+                autoComplete="name"
+              />
+            </div>
+          )}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground" htmlFor="auth-email">
+              Email
+            </label>
+            <Input
+              id="auth-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground" htmlFor="auth-password">
+              Password
+            </label>
+            <Input
+              id="auth-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={activeMode === "signup" ? "At least 8 characters" : "Your password"}
+              autoComplete={activeMode === "signup" ? "new-password" : "current-password"}
+              required
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" className="w-full" disabled={pending}>
+            {pending
+              ? activeMode === "signup"
+                ? "Creating account..."
+                : "Signing in..."
+              : activeMode === "signup"
+                ? "Create account"
+                : "Sign in"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function ActionsMenu() {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
 
   const preference = useSyncExternalStore(subscribe, getPreference, getServerPreference);
   const currentTheme = useSyncExternalStore(
@@ -28,15 +215,31 @@ export function ActionsMenu() {
   );
 
   useEffect(() => {
-    if (!open) return;
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
+    let cancelled = false;
+
+    async function loadSession() {
+      try {
+        const response = await fetch("/api/auth/session");
+        const data = await response.json();
+        if (!cancelled) {
+          setUser(data.user ?? null);
+        }
+      } catch {
+        if (!cancelled) {
+          setUser(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingUser(false);
+        }
       }
     }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+
+    loadSession();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function cycleTheme() {
     const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -58,65 +261,91 @@ export function ActionsMenu() {
       localStorage.setItem("theme", newPref);
     }
     notify();
-    setOpen(false);
+  }
+
+  async function signOut() {
+    await fetch("/api/auth/signout", { method: "POST" });
+    setUser(null);
   }
 
   const themeLabel =
     preference === null ? "System" : preference === "dark" ? "Dark" : "Light";
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        aria-label="Actions"
-        className="p-1.5 rounded-md hover:bg-[var(--accent-light)] transition-colors text-[var(--text-muted)]"
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-          <circle cx="8" cy="3" r="1.5" />
-          <circle cx="8" cy="8" r="1.5" />
-          <circle cx="8" cy="13" r="1.5" />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-full mt-1 w-48 rounded-lg border border-[var(--sidebar-border)] bg-[var(--background)] shadow-lg z-50 py-1">
-          <button
-            onClick={() => { setOpen(false); window.location.href = "/api/download?type=full"; }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors text-left"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-              <path d="M8 2v9m0 0L5 8m3 3l3-3" />
-              <path d="M2 12v1.5a.5.5 0 00.5.5h11a.5.5 0 00.5-.5V12" />
-            </svg>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Actions"
+              className="text-[var(--text-muted)]"
+            />
+          }
+        >
+          <EllipsisVertical />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem onClick={() => { window.location.href = "/api/download?type=full"; }}>
+            <Download />
             Download wiki (full)
-          </button>
-          <button
-            onClick={() => { setOpen(false); window.location.href = "/api/download?type=markdown"; }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors text-left"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-              <path d="M8 2v9m0 0L5 8m3 3l3-3" />
-              <path d="M2 12v1.5a.5.5 0 00.5.5h11a.5.5 0 00.5-.5V12" />
-            </svg>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { window.location.href = "/api/download?type=markdown"; }}>
+            <Download />
             Download wiki (markdown)
-          </button>
-          <button
-            onClick={cycleTheme}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors text-left"
-          >
-            {currentTheme === "dark" ? (
-              <svg width="14" height="14" viewBox="0 0 56 56" fill="currentColor" className="shrink-0">
-                <path d="M30 4.6c0-1-.9-2-2-2a2 2 0 00-2 2v5c0 1 .9 2 2 2s2-1 2-2zm9.6 9a2 2 0 000 2.8c.8.8 2 .8 2.9 0L46 13a2 2 0 000-2.9 2 2 0 00-3 0zm-26 2.8c.7.8 2 .8 2.8 0 .8-.7.8-2 0-2.9L13 10c-.7-.7-2-.8-2.9 0-.7.8-.7 2.1 0 3zM28 16a12 12 0 00-12 12 12 12 0 0012 12 12 12 0 0012-12 12 12 0 00-12-12zm0 3.6c4.6 0 8.4 3.8 8.4 8.4 0 4.6-3.8 8.4-8.4 8.4a8.5 8.5 0 01-8.4-8.4c0-4.6 3.8-8.4 8.4-8.4zM51.3 30c1.1 0 2-.9 2-2s-.9-2-2-2h-4.9a2 2 0 00-2 2c0 1.1 1 2 2 2zM4.7 26a2 2 0 00-2 2c0 1.1.9 2 2 2h4.9c1 0 2-.9 2-2s-1-2-2-2zm37.8 13.6a2 2 0 00-3 0 2 2 0 000 2.9l3.6 3.5a2 2 0 002.9 0c.8-.8.8-2.1 0-3zM10 43.1a2 2 0 000 2.9c.8.7 2.1.8 3 0l3.4-3.5c.8-.8.8-2.1 0-2.9-.8-.8-2-.8-2.9 0zm20 3.4c0-1.1-.9-2-2-2a2 2 0 00-2 2v4.9c0 1 .9 2 2 2s2-1 2-2z" />
-              </svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 56 56" fill="currentColor" className="shrink-0">
-                <path d="M41.2 36.1c-12.9 0-21-7.8-21-20.3 0-3.5.7-6.7 1.6-8.3.3-.7.4-1 .4-1.5 0-.8-.7-1.7-1.7-1.7-.2 0-.7 0-1.3.3A24.5 24.5 0 004.4 27.1 23.8 23.8 0 0029 51.7c10.2 0 18.4-5.3 22.3-14.1l.3-1.4c0-1-.9-1.6-1.6-1.6a3 3 0 00-1.2.2c-2 .8-4.8 1.3-7.6 1.3zM8.1 27c0-7.3 3.8-14.3 9.9-18-.8 2-1.2 4.5-1.2 7.2 0 14.6 9 23.3 23.9 23.3 2.4 0 4.5-.2 6.4-1a20.8 20.8 0 01-18 9.6C17 48 8.1 39 8.1 27z" />
-              </svg>
-            )}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={cycleTheme}>
+            {currentTheme === "dark" ? <Sun /> : <Moon />}
             Theme: {themeLabel}
-          </button>
-        </div>
-      )}
-    </div>
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Account</DropdownMenuLabel>
+
+            {loadingUser ? (
+              <DropdownMenuItem disabled>Loading account...</DropdownMenuItem>
+            ) : user ? (
+              <>
+                <DropdownMenuItem disabled>{user.name || user.email}</DropdownMenuItem>
+                <DropdownMenuItem onClick={signOut}>
+                  <LogOut />
+                  Sign out
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setAuthMode("signin");
+                    setAuthDialogOpen(true);
+                  }}
+                >
+                  <LogIn />
+                  Sign in
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setAuthMode("signup");
+                    setAuthDialogOpen(true);
+                  }}
+                >
+                  <UserPlus />
+                  Sign up
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AuthDialog
+        open={authDialogOpen}
+        mode={authMode}
+        onOpenChange={setAuthDialogOpen}
+        onAuthSuccess={setUser}
+      />
+    </>
   );
 }
