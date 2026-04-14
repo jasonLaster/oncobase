@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
 import { getMarkdownFile, getAllSlugs } from "@/lib/markdown";
@@ -106,6 +106,18 @@ export default async function DocPage({
 }) {
   const { slug } = await params;
   const filePath = slug.map(decodeURIComponent).join("/");
+
+  // Redirect .pdf URLs to the file-serving API route
+  if (filePath.endsWith(".pdf")) {
+    redirect(`/api/file?path=${encodeURIComponent(filePath)}`);
+  }
+
+  // Strip .md suffix — URLs like /wiki/foo.md should serve /wiki/foo
+  const cleanPath = filePath.endsWith(".md") ? filePath.slice(0, -3) : filePath;
+  if (cleanPath !== filePath) {
+    redirect(`/${cleanPath}`);
+  }
+
   const file = getMarkdownFile(filePath);
 
   if (!file) {

@@ -336,6 +336,16 @@ export const listPdfAssets = query({
   },
 });
 
+export const getPdfAssetByPath = query({
+  args: { path: v.string() },
+  handler: async (ctx, { path }) => {
+    return await ctx.db
+      .query("pdfAssets")
+      .withIndex("by_path", (q) => q.eq("path", path))
+      .first();
+  },
+});
+
 export const upsertPdfAsset = mutation({
   args: {
     path: v.string(),

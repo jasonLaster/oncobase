@@ -18,7 +18,23 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "1";
+const PIPELINE_VERSION = "2";
+
+/**
+ * Strip .md extension from relative href values in rendered HTML so links like
+ * <a href="foo.md"> resolve to the correct slug route (/foo) instead of 404ing.
+ * Absolute URLs (http/https//) are left unchanged.
+ */
+function fixMarkdownLinks(html: string): string {
+  return html.replace(/href="([^"]+\.md(?:#[^"]*)?)"/g, (_match, href) => {
+    // Leave absolute URLs alone
+    if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//")) {
+      return `href="${href}"`;
+    }
+    // Strip .md before any # anchor: "path/to/file.md#section" → "path/to/file#section"
+    return `href="${href.replace(/\.md(#|$)/, "$1")}"`;
+  });
+}
 
 // Cache dir inside .next/cache so Vercel preserves it between deploys
 const CACHE_DIR = path.join(process.cwd(), ".next", "cache", "markdown");
@@ -43,7 +59,8 @@ export function renderMarkdown(md: string): string {
     // Cache miss — render and store
   }
 
-  const html = processor.processSync(md).toString();
+  const raw = processor.processSync(md).toString();
+  const html = fixMarkdownLinks(raw);
 
   try {
     ensureCacheDir();
