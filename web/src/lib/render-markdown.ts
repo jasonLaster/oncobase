@@ -18,7 +18,7 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "10";
+const PIPELINE_VERSION = "11";
 
 // ─── Mermaid pre-processor ────────────────────────────────────────────────────
 //
@@ -202,7 +202,7 @@ function fixPdfLinks(html: string): string {
       if (before.includes("pdf-chip") || after.includes("pdf-chip")) return _match;
       // Extract filename from the path query param — consistent regardless of wikilink label
       const rawPath = href.match(/[?&]path=([^&"]*)/)?.[1] ?? "";
-      const fileName = decodeURIComponent(rawPath).split("/").pop()?.replace(/\.pdf$/i, "") || innerHtml.trim();
+      const fileName = decodeURIComponent(rawPath).split("/").pop() || innerHtml.trim();
       // Preserve any existing id/data-* attributes; strip class/target/rel (chip overrides them)
       const stripped = (before + after).replace(/\s*(class|target|rel)="[^"]*"/g, "");
       return (
