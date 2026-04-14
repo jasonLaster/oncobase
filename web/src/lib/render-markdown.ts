@@ -19,7 +19,7 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "15";
+const PIPELINE_VERSION = "16";
 
 // ─── Mermaid pre-processor ────────────────────────────────────────────────────
 //
