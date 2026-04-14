@@ -18,29 +18,92 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "5";
+const PIPELINE_VERSION = "6";
 
-/**
- * Process <!-- table-cols: w1, w2, w3 --> comments immediately before a <table>.
- * Injects a <colgroup> so authors can control per-column min-widths from markdown.
- *
- * Syntax (in any .md file, on its own line before a table):
- *   <!-- table-cols: 260, 120, 60, 150, 200 -->
- *
- * Values without units are treated as pixels. Any CSS length works (e.g. 30ch).
- */
-function applyTableColWidths(html: string): string {
-  return html.replace(
-    /<!--\s*table-cols:\s*([^>-][^>]*?)-->[\s\S]*?(<table(?:[^>]*)>)/g,
-    (_match, colsStr: string, tableTag: string) => {
-      const cols = colsStr.split(",").map((w: string) => {
+// ─── Table column width directives ───────────────────────────────────────────
+//
+// Syntax (in any .md file, on its own line before a table, blank line allowed):
+//   <!-- table-cols: 260, 120, 60, 150, 200 -->
+//
+// Values without units are treated as pixels. Any CSS length works (e.g. 30ch).
+//
+// HTML comments are stripped by the remark/rehype pipeline, so we pre-scan the
+// raw markdown and remember which table ordinal each directive targets, then
+// inject <colgroup> elements into the rendered HTML afterwards.
+
+interface TableDirective {
+  tableOrdinal: number; // 0-based index of the table this applies to
+  cols: string[];
+}
+
+function parseTableDirectives(md: string): { directives: TableDirective[]; cleanMd: string } {
+  const directives: TableDirective[] = [];
+  let tableCount = 0;
+
+  const lines = md.split("\n");
+  const cleanLines: string[] = [];
+  let pendingCols: string[] | null = null;
+  let inTable = false; // track whether previous line was a table row
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Detect directive
+    const directiveMatch = trimmed.match(/^<!--\s*table-cols:\s*(.*?)-->\s*$/);
+    if (directiveMatch) {
+      pendingCols = directiveMatch[1].split(",").map((w: string) => {
         const v = w.trim();
         return /^\d+$/.test(v) ? `${v}px` : v;
       });
-      const colgroup = `<colgroup>${cols.map((w: string) => `<col style="min-width:${w}">`).join("")}</colgroup>`;
-      return `${tableTag}${colgroup}`;
+      inTable = false;
+      // Strip directive from cleaned markdown (don't emit it)
+      continue;
     }
-  );
+
+    // Detect markdown table row (pipe-delimited)
+    if (trimmed.startsWith("|")) {
+      if (!inTable) {
+        // First row of a new table block
+        if (pendingCols) {
+          directives.push({ tableOrdinal: tableCount, cols: pendingCols });
+          pendingCols = null;
+        }
+        tableCount++;
+        inTable = true;
+      }
+      cleanLines.push(line);
+      continue;
+    }
+
+    // Leaving a table block
+    inTable = false;
+
+    // Empty lines don't cancel a pending directive (allow blank line between directive and table)
+    if (trimmed === "") {
+      cleanLines.push(line);
+      continue;
+    }
+
+    // Any other non-empty content cancels the pending directive
+    pendingCols = null;
+    cleanLines.push(line);
+  }
+
+  return { directives, cleanMd: cleanLines.join("\n") };
+}
+
+function injectColgroups(html: string, directives: TableDirective[]): string {
+  if (directives.length === 0) return html;
+
+  const directiveMap = new Map(directives.map((d) => [d.tableOrdinal, d.cols]));
+  let tableIndex = 0;
+
+  return html.replace(/<table(?:[^>]*)>/g, (tableTag) => {
+    const cols = directiveMap.get(tableIndex++);
+    if (!cols) return tableTag;
+    const colgroup = `<colgroup>${cols.map((w: string) => `<col style="min-width:${w};width:${w}">`).join("")}</colgroup>`;
+    return `${tableTag}${colgroup}`;
+  });
 }
 
 /**
@@ -121,10 +184,11 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
     // Cache miss — render and store
   }
 
-  const raw = processor.processSync(md).toString();
+  const { directives, cleanMd } = parseTableDirectives(md);
+  const raw = processor.processSync(cleanMd).toString();
   // Wrap every table in a scroll container so horizontal scroll works before JS hydrates.
   const wrapped = raw.replace(/<table/g, '<div class="table-scroll-wrapper"><table').replace(/<\/table>/g, "</table></div>");
-  const html = applyTableColWidths(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug));
+  const html = injectColgroups(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug), directives);
 
   try {
     ensureCacheDir();
