@@ -11,7 +11,7 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
-import { FileTextIcon } from "lucide-react";
+import { FileTextIcon, Loader2Icon } from "lucide-react";
 
 interface PageEntry {
   name: string;
@@ -28,6 +28,7 @@ export function openCommandPalette() {
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [pages, setPages] = useState<PageEntry[]>([]);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -50,10 +51,12 @@ export function CommandPalette() {
   // Fetch pages when opened
   useEffect(() => {
     if (open && pages.length === 0) {
+      setLoading(true);
       fetch("/api/pages")
         .then((r) => r.json())
         .then(setPages)
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setLoading(false));
     }
   }, [open, pages.length]);
 
@@ -77,26 +80,35 @@ export function CommandPalette() {
           }}
         />
         <CommandList ref={listRef}>
-          <CommandEmpty>No pages found.</CommandEmpty>
-          <CommandGroup>
-            {pages.map((page) => (
-              <CommandItem
-                key={page.slug}
-                value={`${page.name} ${page.path}`}
-                onSelect={() => handleSelect(page.slug)}
-              >
-                <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50" />
-                <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="truncate">{page.name.replace(/-/g, " ")}</span>
-                  {page.path !== page.name && (
-                    <span className="text-xs text-muted-foreground truncate">
-                      {page.path.replace(/-/g, " ")}
-                    </span>
-                  )}
-                </div>
-              </CommandItem>
-            ))}
-          </CommandGroup>
+          {loading ? (
+            <div className="flex items-center justify-center py-6 text-muted-foreground">
+              <Loader2Icon className="size-4 animate-spin mr-2" />
+              <span className="text-sm">Loading pages…</span>
+            </div>
+          ) : (
+            <>
+              <CommandEmpty>No pages found.</CommandEmpty>
+              <CommandGroup>
+                {pages.map((page) => (
+                  <CommandItem
+                    key={page.slug}
+                    value={`${page.name} ${page.path}`}
+                    onSelect={() => handleSelect(page.slug)}
+                  >
+                    <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50" />
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <span className="truncate">{page.name.replace(/-/g, " ")}</span>
+                      {page.path !== page.name && (
+                        <span className="text-xs text-muted-foreground truncate">
+                          {page.path.replace(/-/g, " ")}
+                        </span>
+                      )}
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
+          )}
         </CommandList>
       </Command>
     </CommandDialog>
