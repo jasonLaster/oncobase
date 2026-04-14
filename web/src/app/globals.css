@@ -139,7 +139,7 @@ body {
 .prose pre { background: var(--sidebar-bg); padding: 1rem; border-radius: 0.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1rem 0; }
 .prose pre code { background: none; padding: 0; }
 .prose { overflow-wrap: break-word; word-break: break-word; }
-.prose table { border-collapse: collapse; font-size: 0.9375rem; }
+.prose table { border-collapse: collapse; font-size: 0.9375rem; width: 100%; }
 .prose th { white-space: nowrap; }
 .prose td { white-space: normal; }
 .table-scroll-wrapper { position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1rem 0; }
@@ -157,15 +157,14 @@ body {
   margin: 1.5rem 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  border: 1px solid var(--sidebar-border);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
   padding: 1rem;
-  background: #fafafa;
+  background: var(--background);
 }
 .mermaid-diagram svg {
   display: block;
   margin: 0 auto;
-  /* Never let CSS scale the SVG — foreignObject label positions are fixed pixels */
   max-width: none;
 }
 
