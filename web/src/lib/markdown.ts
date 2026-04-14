@@ -71,11 +71,8 @@ export function getFileTree(dir: string = OBSIDIAN_DIR, basePath: string = ""): 
     }
   }
 
-  // Sort: directories first, then files, alphabetically within each group
-  nodes.sort((a, b) => {
-    if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
+  // Sort alphabetically regardless of type
+  nodes.sort((a, b) => a.name.localeCompare(b.name));
 
   return nodes;
 }
