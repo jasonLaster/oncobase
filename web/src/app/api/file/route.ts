@@ -44,8 +44,9 @@ export async function GET(request: NextRequest) {
       if (!upstream.ok) {
         return new NextResponse("Blob fetch failed", { status: 502 });
       }
+      const buf = Buffer.from(await upstream.arrayBuffer());
       const filename = path.basename(normalized);
-      return new NextResponse(upstream.body, {
+      return new NextResponse(buf, {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": `inline; filename="${filename}"`,
