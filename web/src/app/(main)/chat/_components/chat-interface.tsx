@@ -724,7 +724,7 @@ export function ChatInterface({
                 <MarkdownRenderer disableAnchors content={serverStreamingText} />
               </div>
             ) : null}
-            {isGenerating && (
+            {isGenerating && !serverHasText && !serverStreamingParts && (
               <div className="flex items-center gap-1.5 pt-1">
                 <span className="inline-block w-1.5 h-4 bg-[var(--brand)] animate-pulse rounded-sm" />
                 <span className="text-xs text-[var(--text-muted)] animate-pulse">Generating...</span>
@@ -734,7 +734,7 @@ export function ChatInterface({
         )}
 
         {/* Waiting: server hasn't produced text yet */}
-        {!error && (serverIsWaiting || (sending && lastMsgIsUser)) && (
+        {!error && !serverHasText && !serverStreamingParts && (serverIsWaiting || (sending && lastMsgIsUser)) && (
           <div className="flex gap-1 py-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce" />
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce [animation-delay:0.15s]" />
