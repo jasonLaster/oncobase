@@ -88,10 +88,22 @@ export function MdTable(props: React.ComponentProps<"table">) {
         if (container) {
           const containerRect = container.getBoundingClientRect();
           const wrapRect = wrapRef.current.getBoundingClientRect();
-          setBleedStyle({
-            marginLeft: -(wrapRect.left - containerRect.left) + 20,
-            marginRight: -(containerRect.right - wrapRect.right) + 20,
-          });
+          const availableWidth = containerRect.width - 40;
+          const tableEl = wrapRef.current.querySelector("table");
+          const tableWidth = tableEl?.scrollWidth ?? wrapRect.width;
+          if (tableWidth < availableWidth) {
+            const centerOffset = (availableWidth - tableWidth) / 2;
+            setBleedStyle({
+              marginLeft: -(wrapRect.left - containerRect.left) + 20 + centerOffset,
+              marginRight: -(containerRect.right - wrapRect.right) + 20 + centerOffset,
+            });
+          } else {
+            setBleedStyle({
+              marginLeft: -(wrapRect.left - containerRect.left) + 20,
+              marginRight: -(containerRect.right - wrapRect.right) + 20,
+              overflow: "auto" as const,
+            });
+          }
         }
       } else {
         setBleedStyle({});
