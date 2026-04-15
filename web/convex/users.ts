@@ -80,6 +80,24 @@ export const getSessionUser = query({
   },
 });
 
+export const getUsersByIds = query({
+  args: { ids: v.array(v.id("users")) },
+  handler: async (ctx, { ids }) => {
+    const results: Array<{ id: string; name: string | null; email: string }> = [];
+    for (const id of ids) {
+      try {
+        const user = await ctx.db.get(id);
+        if (user) {
+          results.push({ id, name: user.name ?? null, email: user.email });
+        }
+      } catch {
+        // Skip invalid IDs
+      }
+    }
+    return results;
+  },
+});
+
 export const deleteSession = mutation({
   args: { tokenHash: v.string() },
   handler: async (ctx, { tokenHash }) => {

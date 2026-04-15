@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
-import { TreeNode, formatName } from "@/components/sidebar";
+import { TreeNode, formatName, SidebarTopLinks } from "@/components/sidebar";
 
 const ConversationList = lazy(() => import("./conversation-list"));
 
 function getPageTitle(pathname: string): string {
   if (pathname === "/") return "Home";
-  if (pathname.startsWith("/chat")) return "Research";
+  if (pathname.startsWith("/chat")) return "Chat with wiki";
+  if (pathname.startsWith("/comments")) return "View comments";
   if (pathname.startsWith("/search")) return "Search";
   if (pathname.startsWith("/tags/")) {
     const tag = decodeURIComponent(pathname.split("/tags/")[1] || "");
@@ -120,6 +121,8 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
 
           {/* Scrollable tree */}
           <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-0.5">
+            <SidebarTopLinks onNavigate={close} tree={tree} />
+            <div className="mb-3 h-px bg-[var(--sidebar-border)]" />
             {isChat ? (
               <Suspense>
                 <ConversationList />

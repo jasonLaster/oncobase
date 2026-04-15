@@ -6,6 +6,7 @@ import { api } from "@convex/_generated/api";
 import { getMarkdownFile, getAllSlugs } from "@/lib/markdown";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { CopyPageButton } from "@/components/copy-page-button";
+import { DocumentComments } from "@/components/document-comments";
 
 export const dynamicParams = true;
 
@@ -125,20 +126,19 @@ export default async function DocPage({
   }
 
   return (
-    <div className="overflow-y-auto h-full">
-    <article className="px-4 py-4 md:px-8 md:py-8 max-w-4xl mx-auto">
+    <DocumentComments documentSlug={file.slug} documentTitle={file.title}>
       <header className="mb-6">
         <div className="flex items-start justify-between gap-2">
           <h1 className="text-3xl font-bold">{file.title}</h1>
           <CopyPageButton markdown={`# ${file.title}\n\n${file.content}`} />
         </div>
         {Array.isArray(file.frontmatter.tags) && (
-          <div className="flex flex-wrap gap-1.5 mt-3">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {(file.frontmatter.tags as string[]).map((tag: string) => (
               <Link
                 key={tag}
                 href={`/tags/${encodeURIComponent(tag)}`}
-                className="text-xs px-2.5 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] ring-1 ring-[var(--brand)]/20 hover:bg-[var(--brand)]/15 transition-colors"
+                className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs text-[var(--brand)] ring-1 ring-[var(--brand)]/20 transition-colors hover:bg-[var(--brand)]/15"
               >
                 {tag}
               </Link>
@@ -147,7 +147,6 @@ export default async function DocPage({
         )}
       </header>
       <MarkdownRenderer content={file.content} currentSlug={file.slug} />
-    </article>
-    </div>
+    </DocumentComments>
   );
 }

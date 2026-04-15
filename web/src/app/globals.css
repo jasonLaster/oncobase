@@ -200,6 +200,60 @@ body {
   max-width: 36ch;
 }
 
+.lb-root {
+  --lb-accent: var(--brand);
+  --lb-background: var(--card);
+  --lb-foreground: var(--foreground);
+  --lb-border: var(--sidebar-border);
+  --lb-radius: 0.9rem;
+}
+
+.lb-composer-override.lb-composer,
+.lb-composer-override .lb-composer-editor,
+.lb-composer-override .lb-composer-footer {
+  background: transparent;
+}
+
+.lb-composer-override.lb-composer {
+  border-color: var(--sidebar-border);
+  border-radius: 0.95rem;
+  box-shadow: none;
+}
+
+.lb-composer-override .lb-composer-editor {
+  min-height: 5.5rem;
+}
+
+.lb-thread,
+.lb-comment {
+  box-shadow: none !important;
+}
+
+.lb-thread {
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.lb-comment {
+  border-radius: 0.85rem !important;
+}
+
+/* Liveblocks portals (dropdowns, emoji pickers) must sit above the
+   fixed comments sidebar (z-30) and the article highlight overlay (z-10). */
+.lb-portal {
+  z-index: 50 !important;
+}
+
+#liveblocks-badge {
+  display: none !important;
+}
+
+@media (min-width: 1024px) {
+  .comments-content-wrapper {
+    padding-right: var(--comments-pane-width, 24rem) !important;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

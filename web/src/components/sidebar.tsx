@@ -16,6 +16,74 @@ export function hasActiveDescendant(node: FileNode, decodedPathname: string): bo
   return node.children?.some((child) => hasActiveDescendant(child, decodedPathname)) ?? false;
 }
 
+function ChatIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+      <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H5l-3 3V3z" />
+    </svg>
+  );
+}
+
+function CommentIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+      <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
+    </svg>
+  );
+}
+
+
+export function SidebarTopLinks({
+  onNavigate,
+  tree,
+}: {
+  onNavigate?: () => void;
+  tree: FileNode[];
+}) {
+  const pathname = usePathname();
+
+  const links = [
+    {
+      href: "/chat",
+      label: "Chat with wiki",
+      active: pathname.startsWith("/chat"),
+      icon: <ChatIcon />,
+    },
+    ...(process.env.NEXT_PUBLIC_ENABLE_COMMENTS === "true"
+      ? [
+          {
+            href: "/comments",
+            label: "View comments",
+            active: pathname.startsWith("/comments"),
+            icon: <CommentIcon />,
+          },
+        ]
+      : []),
+  ];
+
+  return (
+    <div className="mb-3">
+      <div className="space-y-0.5">
+        {links.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            onClick={onNavigate}
+            className={`flex items-center gap-2 rounded px-2 py-1 text-sm transition-colors ${
+              link.active
+                ? "bg-[var(--accent-light)] text-[var(--brand)] font-medium"
+                : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            {link.icon}
+            <span className="truncate">{link.label}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; depth?: number; onNavigate?: () => void }) {
   const rawPathname = usePathname();
   const pathname = decodeURIComponent(rawPathname);
@@ -92,6 +160,8 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
   return (
     <aside className="hidden md:flex flex-col h-full min-h-0 overflow-hidden bg-[var(--sidebar-bg)]">
       <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
+        <SidebarTopLinks tree={tree} />
+        <div className="mb-3 h-px bg-[var(--sidebar-border)]" />
         {isChat ? <Suspense><ConversationList /></Suspense> : tree.map((node) => (
           <TreeNode key={node.slug} node={node} />
         ))}

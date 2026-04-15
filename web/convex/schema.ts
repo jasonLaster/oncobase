@@ -73,6 +73,18 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_email", ["email"]),
 
+  guestNames: defineTable({
+    guestId: v.string(),
+    name: v.string(),
+    updatedAt: v.number(),
+  }).index("by_guest_id", ["guestId"]),
+
+  commentRooms: defineTable({
+    roomId: v.string(), // e.g. "markdown:wiki/diagnosis"
+    threadCount: v.number(),
+    updatedAt: v.number(),
+  }).index("by_room_id", ["roomId"]),
+
   userSessions: defineTable({
     userId: v.id("users"),
     tokenHash: v.string(),
