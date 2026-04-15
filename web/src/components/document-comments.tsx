@@ -991,27 +991,225 @@ function InactiveShell({
   onActivate: () => void;
 }) {
   return (
-    <div className="h-full overflow-y-auto">
+    <OutlineShell>
+      {children}
+    </OutlineShell>
+  );
+}
+
+/**
+ * Outline-only sidebar shell. Always rendered — provides document outline
+ * without any Liveblocks/comments dependency.
+ */
+function OutlineShell({ children }: { children: ReactNode }) {
+  const articleRef = useRef<HTMLElement | null>(null);
+  const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(COMMENTS_PANE_STORAGE_KEY) === "1";
+  });
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    if (typeof window === "undefined") return COMMENTS_DEFAULT_WIDTH;
+    const stored = localStorage.getItem(COMMENTS_WIDTH_STORAGE_KEY);
+    if (stored) {
+      const n = parseInt(stored, 10);
+      if (n >= COMMENTS_MIN_WIDTH && n <= COMMENTS_MAX_WIDTH) return n;
+    }
+    return COMMENTS_DEFAULT_WIDTH;
+  });
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const startWidth = useRef(0);
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      dragging.current = true;
+      startX.current = e.clientX;
+      startWidth.current = sidebarWidth;
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    },
+    [sidebarWidth]
+  );
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    const delta = startX.current - e.clientX;
+    const next = Math.min(
+      COMMENTS_MAX_WIDTH,
+      Math.max(COMMENTS_MIN_WIDTH, startWidth.current + delta)
+    );
+    setSidebarWidth(next);
+  }, []);
+
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    const delta = startX.current - e.clientX;
+    const next = Math.min(
+      COMMENTS_MAX_WIDTH,
+      Math.max(COMMENTS_MIN_WIDTH, startWidth.current + delta)
+    );
+    setSidebarWidth(next);
+    localStorage.setItem(COMMENTS_WIDTH_STORAGE_KEY, String(next));
+  }, []);
+
+  const toggleSidebar = () => {
+    setSidebarOpen((current) => {
+      const next = !current;
+      window.localStorage.setItem(COMMENTS_PANE_STORAGE_KEY, next ? "1" : "0");
+      return next;
+    });
+  };
+
+  const jumpToHeading = (id: string) => {
+    const root = articleRef.current;
+    if (!root) return;
+    const target = root.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
+    if (!target) return;
+    scrollElementIntoContainerView(target, 24);
+  };
+
+  useEffect(() => {
+    const root = articleRef.current;
+    if (!root) return;
+
+    const updateOutline = () => {
+      const headings = Array.from(
+        root.querySelectorAll<HTMLHeadingElement>("h1[id], h2[id], h3[id], h4[id]")
+      );
+      setOutlineItems(
+        headings.map((heading) => ({
+          id: heading.id,
+          text:
+            heading.textContent
+              ?.replace(/^#{1,6}\s*/, "")
+              .trim() || heading.id,
+          level: Number.parseInt(heading.tagName.slice(1), 10),
+        }))
+      );
+    };
+
+    updateOutline();
+    const observer = new MutationObserver(updateOutline);
+    observer.observe(root, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [children]);
+
+  return (
+    <div
+      className="h-full overflow-y-auto"
+      style={
+        {
+          "--comments-pane-width": sidebarOpen
+            ? `${sidebarWidth}px`
+            : `${COMMENTS_COLLAPSED_WIDTH}px`,
+        } as React.CSSProperties
+      }
+    >
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4 md:px-8 md:py-8 comments-content-wrapper">
         <div className="min-w-0 flex-1">
-          <article className="relative mx-auto max-w-4xl overflow-visible">
+          <article ref={articleRef} className="relative mx-auto max-w-4xl overflow-visible">
             {children}
           </article>
         </div>
+        <aside className="w-full lg:hidden">
+          <div className="overflow-hidden border border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]">
+            <div className="bg-[var(--background)]/40 p-3">
+              {outlineItems.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[var(--sidebar-border)] px-4 py-6 text-sm text-[var(--text-muted)]">
+                  No headings found on this page.
+                </div>
+              ) : (
+                <div className="space-y-0.5">
+                  {outlineItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => jumpToHeading(item.id)}
+                      className="block w-full rounded px-2 py-1.5 text-left text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+                      style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
+                      title={item.text}
+                    >
+                      <span className="line-clamp-2">{item.text}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </aside>
       </div>
 
-      {/* Collapsed sidebar with just the comment activation button */}
-      <aside className="hidden lg:flex fixed right-0 top-12 bottom-0 z-30 bg-[var(--sidebar-bg)] w-16 flex-col items-center py-3 border-l border-[var(--sidebar-border)]">
-        <button
-          type="button"
-          onClick={onActivate}
-          aria-label="Open comments"
-          className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
-          </svg>
-        </button>
+      <aside
+        className={cn(
+          "hidden lg:flex fixed right-0 top-12 bottom-0 z-30 bg-[var(--sidebar-bg)]",
+          sidebarOpen ? "flex-col" : "w-16 flex-col items-center py-3 border-l border-[var(--sidebar-border)]"
+        )}
+        style={sidebarOpen ? { width: sidebarWidth } : undefined}
+      >
+        {sidebarOpen ? (
+          <>
+            <div
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-[var(--sidebar-border)] hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
+            />
+            <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] px-3 py-2">
+              <span className="flex-1 text-xs font-medium text-[var(--foreground)]">Outline</span>
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                aria-label="Collapse outline pane"
+                className="rounded-md px-2 py-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 4 10 8 6 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="bg-[var(--background)]/40 p-3">
+                {outlineItems.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[var(--sidebar-border)] px-4 py-6 text-sm text-[var(--text-muted)]">
+                    No headings found on this page.
+                  </div>
+                ) : (
+                  <div className="space-y-0.5">
+                    {outlineItems.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => jumpToHeading(item.id)}
+                        className="block w-full rounded px-2 py-1.5 text-left text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+                        style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
+                        title={item.text}
+                      >
+                        <span className="line-clamp-2">{item.text}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setSidebarOpen(true);
+              window.localStorage.setItem(COMMENTS_PANE_STORAGE_KEY, "1");
+            }}
+            aria-label="Open outline"
+            className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent-light)] text-[var(--brand)] transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 4h10M3 8h10M3 12h6" />
+            </svg>
+          </button>
+        )}
       </aside>
     </div>
   );
@@ -1032,7 +1230,7 @@ export function DocumentComments({
   const [liveblocksActive, setLiveblocksActive] = useState(false);
 
   if (!commentsEnabled) {
-    return <>{children}</>;
+    return <OutlineShell>{children}</OutlineShell>;
   }
 
   if (!liveblocksActive) {
