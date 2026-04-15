@@ -1,6 +1,16 @@
 # Comments Feature Spec
 
-Liveblocks-powered commenting system that supports page-level and text-selection-anchored comments across every document in the wiki.
+Liveblocks-powered commenting system that supports page-level and text-selection-anchored comments across document pages in the wiki when comments are enabled.
+
+## Availability
+
+- The comments product surface is gated by `NEXT_PUBLIC_ENABLE_COMMENTS`.
+- When disabled:
+  - `/comments` redirects to `/`
+  - the "View comments" navigation link is hidden
+- When enabled:
+  - document pages render the comments sidebar
+  - `/comments` exposes the global timeline
 
 ## Authentication & Identity
 
@@ -80,8 +90,8 @@ Liveblocks portals (dropdowns, emoji pickers) require `z-index: 50` (via `.lb-po
 
 ## Sidebar Navigation
 
-- **"Chat with wiki"** link always visible (no feature flag).
-- **"View comments"** link (no unread count).
+- **"Chat with wiki"** link always visible from navigation, even if chat is disabled and the route redirects.
+- **"View comments"** link appears only when comments are enabled (no unread count).
 
 ## Environment Variables
 
