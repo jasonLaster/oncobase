@@ -14,7 +14,9 @@ export const dynamicParams = true;
 // These are immutable raw documents rarely visited directly; deferring them
 // cuts static generation from ~2200 → ~400 pages, saving 3-4 min of build time.
 // dynamicParams = true (below) ensures they are still served correctly on request.
-const ISR_DEFERRED_PREFIXES = ["sources/research-articles/", "sources/institutions/"];
+// All sources/ content is immutable raw documents rarely visited directly.
+// Deferring them to on-demand ISR saves significant build time.
+const ISR_DEFERRED_PREFIXES = ["sources/"];
 
 export async function generateStaticParams() {
   const t0 = Date.now();
