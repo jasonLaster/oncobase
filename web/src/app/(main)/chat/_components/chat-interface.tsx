@@ -228,6 +228,24 @@ function SourceLinks({ pages }: { pages: Array<{ slug: string; title: string }> 
   );
 }
 
+/** Group consecutive text parts so they render in a single prose container. */
+function groupParts(parts: Array<{ type: string; [k: string]: unknown }>) {
+  const groups: Array<{ kind: "text"; texts: string[] } | { kind: "other"; part: { type: string; [k: string]: unknown } }> = [];
+  for (const part of parts) {
+    if (part.type === "text" && part.text) {
+      const last = groups[groups.length - 1];
+      if (last?.kind === "text") {
+        last.texts.push(part.text as string);
+      } else {
+        groups.push({ kind: "text", texts: [part.text as string] });
+      }
+    } else {
+      groups.push({ kind: "other", part });
+    }
+  }
+  return groups;
+}
+
 function AssistantMessage({ message }: { message: UIMessage }) {
   const parts = message.parts;
   const sourcePages = extractSourcePages(parts);
@@ -236,21 +254,24 @@ function AssistantMessage({ message }: { message: UIMessage }) {
   const hasToolParts = parts.some((p) => isToolPart(p));
   if (!hasText && !hasReasoning && !hasToolParts) return null;
 
+  const groups = groupParts(parts as Array<{ type: string; [k: string]: unknown }>);
+
   return (
     <div className="flex justify-start">
-      <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-2.5 bg-[var(--accent-light)] text-[var(--foreground)] text-sm">
-        {parts.map((part, i) => {
-          if (part.type === "text" && part.text) {
+      <div className="max-w-[90%] sm:max-w-[85%] rounded-2xl rounded-bl-md px-3 sm:px-4 py-2 sm:py-2.5 bg-[var(--accent-light)] text-[var(--foreground)] text-sm">
+        {groups.map((group, i) => {
+          if (group.kind === "text") {
             return (
               <div key={i} className="prose text-sm">
-                <MarkdownRenderer disableAnchors content={part.text} />
+                <MarkdownRenderer disableAnchors content={group.texts.join("\n\n")} />
               </div>
             );
           }
+          const { part } = group;
           if (part.type === "reasoning") {
             return <ReasoningBlock key={i} text={(part as { type: "reasoning"; text: string }).text} />;
           }
-          if (isToolPart(part)) {
+          if (isToolPart(part as { type: string })) {
             const info = getToolInfo(part as Record<string, unknown>);
             if (!info) return null;
             return <ToolCallBlock key={i} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
@@ -504,17 +525,17 @@ export function ChatInterface({
     <div className="flex flex-col h-full max-w-3xl mx-auto w-full relative">
       <div
         ref={scrollRef}
-        className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4"
+        className="flex-1 min-h-0 overflow-y-auto px-2 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4"
       >
         {messages.length === 0 && !isBusy && (
-          <div className="text-center py-16 text-[var(--text-muted)]">
+          <div className="text-center py-10 sm:py-16 text-[var(--text-muted)]">
             <h1 className="text-lg font-semibold text-[var(--foreground)] mb-1">
               Research Assistant
             </h1>
-            <p className="text-xs mb-6">
+            <p className="text-xs mb-4 sm:mb-6">
               Ask questions about Diana&apos;s diagnosis, treatment, and research
             </p>
-            <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto">
+            <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto px-2">
               {[
                 "What is Diana's treatment plan?",
                 "Explain ctDNA monitoring options",
@@ -543,7 +564,7 @@ export function ChatInterface({
                     });
                     triggerGeneration(convIdRef.current!, [userMsg]);
                   }}
-                  className="text-xs px-3 py-1.5 rounded-full border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] transition-colors text-left"
+                  className="text-xs sm:text-sm px-3 py-2 sm:py-1.5 rounded-full border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] active:bg-[var(--accent-light)] transition-colors text-left"
                 >
                   {q}
                 </button>
@@ -573,7 +594,7 @@ export function ChatInterface({
                     <path d="M11.5 2.5l2 2L5 13H3v-2z" />
                   </svg>
                 </button>
-                <div className={`max-w-[85%] rounded-2xl rounded-br-md px-4 py-2.5 text-sm whitespace-pre-wrap ${
+                <div className={`max-w-[90%] sm:max-w-[85%] rounded-2xl rounded-br-md px-3 sm:px-4 py-2 sm:py-2.5 text-sm whitespace-pre-wrap ${
                   chatMsg.disabled
                     ? "bg-[var(--sidebar-border)] text-[var(--text-muted)] line-through"
                     : "bg-[var(--brand)] text-white"
@@ -589,21 +610,23 @@ export function ChatInterface({
         {/* Server stream with structured parts — hide if last message is already assistant (final synced) */}
         {(serverHasText || serverStreamingParts) && !(messages.length > 0 && messages[messages.length - 1]?.role === "assistant") && (
           <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-2.5 bg-[var(--accent-light)] text-[var(--foreground)] text-sm">
+            <div className="max-w-[90%] sm:max-w-[85%] rounded-2xl rounded-bl-md px-3 sm:px-4 py-2 sm:py-2.5 bg-[var(--accent-light)] text-[var(--foreground)] text-sm">
               {serverStreamingParts ? (
                 (() => {
                   try {
                     const parts = JSON.parse(serverStreamingParts) as Array<Record<string, unknown>>;
-                    return parts.map((part, i) => {
-                      if (part.type === "text" && part.text) {
+                    const groups = groupParts(parts as Array<{ type: string; [k: string]: unknown }>);
+                    return groups.map((group, i) => {
+                      if (group.kind === "text") {
                         return (
                           <div key={i} className="prose text-sm">
-                            <MarkdownRenderer disableAnchors content={part.text as string} />
+                            <MarkdownRenderer disableAnchors content={group.texts.join("\n\n")} />
                           </div>
                         );
                       }
+                      const { part } = group;
                       if (isToolPart(part as { type: string })) {
-                        const info = getToolInfo(part);
+                        const info = getToolInfo(part as Record<string, unknown>);
                         if (!info) return null;
                         return <ToolCallBlock key={i} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
                       }
@@ -642,11 +665,11 @@ export function ChatInterface({
 
       {/* Scroll to bottom */}
       {showScrollButton && (
-        <div className="absolute bottom-20 right-4 z-10">
+        <div className="absolute bottom-20 right-3 sm:right-4 z-10">
           <button
             onClick={scrollToBottom}
             aria-label="Scroll to bottom"
-            className="p-2 rounded-full bg-[var(--background)] border border-[var(--sidebar-border)] text-[var(--text-muted)] hover:text-[var(--foreground)] shadow-md hover:shadow-lg transition-all"
+            className="p-2.5 sm:p-2 rounded-full bg-[var(--background)] border border-[var(--sidebar-border)] text-[var(--text-muted)] hover:text-[var(--foreground)] shadow-md hover:shadow-lg transition-all active:scale-95"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="4 6 8 10 12 6" />
@@ -655,7 +678,7 @@ export function ChatInterface({
         </div>
       )}
 
-      <div className="shrink-0 border-t border-[var(--sidebar-border)] px-4 py-3">
+      <div className="shrink-0 border-t border-[var(--sidebar-border)] px-2 sm:px-4 py-2 sm:py-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:pb-3">
         <form onSubmit={handleSubmit} className="flex gap-2 items-end">
           <GrowingTextarea
             autoFocus
@@ -669,13 +692,13 @@ export function ChatInterface({
             }}
             placeholder="Ask a question..."
             maxHeight={160}
-            className="flex-1 resize-none rounded-xl border border-[var(--sidebar-border)] bg-[var(--background)] px-4 py-2.5 text-sm leading-relaxed focus:outline-none focus:border-[var(--brand)] transition-colors placeholder:text-[var(--text-muted)]"
+            className="flex-1 resize-none rounded-xl border border-[var(--sidebar-border)] bg-[var(--background)] px-3 sm:px-4 py-2.5 text-base sm:text-sm leading-relaxed focus:outline-none focus:border-[var(--brand)] transition-colors placeholder:text-[var(--text-muted)]"
           />
           {isBusy ? (
             <button
               type="button"
               onClick={handleStop}
-              className="shrink-0 px-4 py-2.5 rounded-xl border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--foreground)] text-sm font-medium hover:bg-[var(--destructive)] hover:text-white hover:border-[var(--destructive)] transition-colors"
+              className="shrink-0 px-4 py-2.5 rounded-xl border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--foreground)] text-sm font-medium hover:bg-[var(--destructive)] hover:text-white hover:border-[var(--destructive)] active:bg-[var(--destructive)] active:text-white transition-colors"
             >
               Stop
             </button>
@@ -683,7 +706,7 @@ export function ChatInterface({
             <button
               type="submit"
               disabled={!input.trim()}
-              className="shrink-0 px-4 py-2.5 rounded-xl bg-[var(--brand)] text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition-opacity"
+              className="shrink-0 px-4 py-2.5 rounded-xl bg-[var(--brand)] text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 active:opacity-80 transition-opacity"
             >
               Send
             </button>
