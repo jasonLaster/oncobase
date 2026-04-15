@@ -38,6 +38,20 @@ export const get = query({
   },
 });
 
+/** Lightweight query for streaming state only — avoids re-fetching all messages on every flush. */
+export const getStreamingState = query({
+  args: { id: v.id("conversations") },
+  handler: async (ctx, { id }) => {
+    const conv = await ctx.db.get(id);
+    if (!conv) return null;
+    return {
+      streamingText: conv.streamingText,
+      streamingParts: conv.streamingParts,
+      streamingUpdatedAt: conv.streamingUpdatedAt,
+    };
+  },
+});
+
 export const create = mutation({
   args: { title: v.string() },
   handler: async (ctx, { title }) => {

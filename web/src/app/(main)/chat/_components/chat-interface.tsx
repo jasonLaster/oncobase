@@ -1,7 +1,7 @@
 "use client";
 
 import type { UIMessage } from "ai";
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -320,7 +320,8 @@ export function ChatInterface({
   // Track conversation ID in state so useQuery re-subscribes when it changes
   const [activeConvId, setActiveConvId] = useState<string | null>(initialConversationId);
 
-  // Subscribe to conversation for reactive streamingText
+  // Subscribe to conversation for reactive streamingText + messages
+  // TODO: split into getStreamingState query once convex dev syncs the new function
   const conversation = useQuery(
     api.conversations.get,
     activeConvId ? { id: activeConvId as Id<"conversations"> } : "skip"
@@ -379,6 +380,18 @@ export function ChatInterface({
   const serverIsWaiting = isGenerating && serverStreamingText === "";
   const isBusy = sending || isGenerating;
 
+  // Memoize parsed streaming parts — avoid JSON.parse in the render path
+  const parsedStreamingParts = useMemo(() => {
+    if (!serverStreamingParts) return null;
+    try { return JSON.parse(serverStreamingParts) as Array<{ type: string; [k: string]: unknown }>; }
+    catch { return null; }
+  }, [serverStreamingParts]);
+
+  const streamingGroups = useMemo(
+    () => parsedStreamingParts ? groupParts(parsedStreamingParts) : null,
+    [parsedStreamingParts]
+  );
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -398,12 +411,39 @@ export function ChatInterface({
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Auto-scroll only when near bottom
+  // Auto-scroll: instant pin during streaming (no animation overhead), smooth for final messages
   useEffect(() => {
-    if (isNearBottomRef.current && bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+    if (!isNearBottomRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    if (isGenerating) {
+      if (process.env.NODE_ENV === "development") {
+        const t = performance.now();
+        el.scrollTop = el.scrollHeight;
+        const dt = performance.now() - t;
+        if (dt > 5) console.warn(`[chat-scroll] layout: ${dt.toFixed(1)}ms`);
+      } else {
+        el.scrollTop = el.scrollHeight;
+      }
+    } else {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, serverStreamingText]);
+  }, [messages, serverStreamingText, isGenerating]);
+
+  // Perf: warn on slow renders during streaming (dev only)
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development" || !isGenerating) return;
+    const t0 = performance.now();
+    requestAnimationFrame(() => {
+      const dt = performance.now() - t0;
+      if (dt > 32) {
+        console.warn(`[chat-stream] slow render: ${dt.toFixed(1)}ms`, {
+          parts: parsedStreamingParts?.length ?? 0,
+          textLen: serverStreamingText?.length ?? 0,
+        });
+      }
+    });
+  });
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -420,6 +460,17 @@ export function ChatInterface({
   useEffect(() => {
     const wasStreaming = prevStreamingRef.current !== undefined;
     const nowDone = serverStreamingText === undefined;
+    if (process.env.NODE_ENV === "development") {
+      if (wasStreaming && !nowDone) {
+        console.log("[chat-client] streaming update", { textLen: serverStreamingText?.length });
+      }
+      if (wasStreaming && nowDone) {
+        console.log("[chat-client] streaming ended — syncing messages");
+      }
+      if (!wasStreaming && !nowDone) {
+        console.log("[chat-client] streaming started");
+      }
+    }
     prevStreamingRef.current = serverStreamingText;
 
     if (wasStreaming && nowDone && conversation?.messages) {
@@ -617,8 +668,10 @@ export function ChatInterface({
             return (
               <div key={message.id} className={`group/msg border-t border-[var(--sidebar-border)] pt-4 ${chatMsg.disabled ? "opacity-50" : ""}`}>
                 <div className="flex items-start gap-2">
-                  <div className={`text-base font-medium whitespace-pre-wrap flex-1 ${
-                    chatMsg.disabled ? "text-[var(--text-muted)] line-through" : "text-[var(--foreground)]"
+                  <div className={`rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap flex-1 ${
+                    chatMsg.disabled
+                      ? "bg-[var(--sidebar-border)] text-[var(--text-muted)] line-through"
+                      : "bg-[var(--accent-light)] text-[var(--brand)]"
                   }`}>
                     {text}
                   </div>
@@ -628,7 +681,7 @@ export function ChatInterface({
                       setMessages((prev) => prev.slice(0, idx));
                     }}
                     title="Edit message"
-                    className="shrink-0 mt-1 p-0.5 rounded opacity-0 group-hover/msg:opacity-100 hover:bg-[var(--accent-light)] text-[var(--text-muted)] hover:text-[var(--foreground)] transition-all"
+                    className="shrink-0 mt-2 p-0.5 rounded opacity-0 group-hover/msg:opacity-100 hover:bg-[var(--accent-light)] text-[var(--text-muted)] hover:text-[var(--foreground)] transition-all"
                   >
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M11.5 2.5l2 2L5 13H3v-2z" />
@@ -644,43 +697,38 @@ export function ChatInterface({
         {/* Server stream with structured parts — hide if last message is already assistant (final synced) */}
         {(serverHasText || serverStreamingParts) && !(messages.length > 0 && messages[messages.length - 1]?.role === "assistant") && (
           <div className="text-sm space-y-3">
-            {serverStreamingParts ? (
-              (() => {
-                try {
-                  const parts = JSON.parse(serverStreamingParts) as Array<Record<string, unknown>>;
-                  const groups = groupParts(parts as Array<{ type: string; [k: string]: unknown }>);
-                  return groups.map((group, i) => {
-                    if (group.kind === "text") {
-                      return (
-                        <div key={i} className="prose text-sm max-w-none">
-                          <MarkdownRenderer disableAnchors content={group.texts.join("\n\n")} />
-                        </div>
-                      );
-                    }
-                    if (group.kind === "tools") {
-                      return (
-                        <div key={i} className="space-y-1 py-1">
-                          {group.parts.map((part, j) => {
-                            const info = getToolInfo(part as Record<string, unknown>);
-                            if (!info) return null;
-                            return <ToolCallBlock key={j} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
-                          })}
-                        </div>
-                      );
-                    }
-                    return null;
-                  });
-                } catch {
-                  return null;
+            {streamingGroups ? (
+              streamingGroups.map((group, i) => {
+                if (group.kind === "text") {
+                  return (
+                    <div key={i} className="prose text-sm max-w-none">
+                      <MarkdownRenderer disableAnchors content={group.texts.join("\n\n")} />
+                    </div>
+                  );
                 }
-              })()
+                if (group.kind === "tools") {
+                  return (
+                    <div key={i} className="space-y-1 py-1">
+                      {group.parts.map((part, j) => {
+                        const info = getToolInfo(part as Record<string, unknown>);
+                        if (!info) return null;
+                        return <ToolCallBlock key={j} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
+                      })}
+                    </div>
+                  );
+                }
+                return null;
+              })
             ) : serverStreamingText ? (
               <div className="prose text-sm max-w-none">
                 <MarkdownRenderer disableAnchors content={serverStreamingText} />
               </div>
             ) : null}
             {isGenerating && (
-              <span className="inline-block w-1.5 h-4 bg-[var(--brand)] animate-pulse ml-0.5 -mb-0.5 rounded-sm" />
+              <div className="flex items-center gap-1.5 pt-1">
+                <span className="inline-block w-1.5 h-4 bg-[var(--brand)] animate-pulse rounded-sm" />
+                <span className="text-xs text-[var(--text-muted)] animate-pulse">Generating...</span>
+              </div>
             )}
           </div>
         )}
