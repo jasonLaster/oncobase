@@ -818,7 +818,7 @@ function CommentsShell({
   return (
     <div className="h-full overflow-y-auto">
       <div
-        className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4 md:px-8 md:py-8 comments-content-wrapper"
+        className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-4 md:px-8 md:py-8 comments-content-wrapper"
         style={{
           ["--comments-pane-width" as string]: commentsOpen
             ? `${commentsWidth}px`
@@ -1108,7 +1108,7 @@ function OutlineShell({ children }: { children: ReactNode }) {
         } as React.CSSProperties
       }
     >
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4 md:px-8 md:py-8 comments-content-wrapper">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-4 md:px-8 md:py-8 comments-content-wrapper">
         <div className="min-w-0 flex-1">
           <article ref={articleRef} className="relative mx-auto max-w-4xl overflow-visible">
             {children}

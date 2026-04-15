@@ -152,6 +152,12 @@ body {
 .prose strong { font-weight: 600; }
 .prose img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
 
+/* Heading anchor links: inline right on mobile, absolute left on desktop */
+.heading-anchor { margin-left: 0.5rem; }
+@media (min-width: 768px) {
+  .heading-anchor { position: absolute; left: -1.5rem; top: 0; margin-left: 0; }
+}
+
 /* Mermaid diagrams */
 .mermaid-diagram {
   margin: 1.5rem 0;

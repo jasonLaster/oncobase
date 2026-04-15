@@ -73,11 +73,11 @@ function attachHeadingAnchors(container: HTMLElement) {
     const anchor = document.createElement("a");
     anchor.href = `#${id}`;
     anchor.className =
-      "absolute -left-6 top-0 opacity-0 group-hover:opacity-100 text-[var(--text-muted)] no-underline hover:no-underline hover:text-[var(--brand)] transition-opacity cursor-pointer";
+      "heading-anchor opacity-0 group-hover:opacity-100 text-[var(--text-muted)] no-underline hover:no-underline hover:text-[var(--brand)] transition-opacity cursor-pointer";
     anchor.setAttribute("aria-label", `Link to "${heading.textContent}"`);
     anchor.textContent = "#";
 
-    heading.insertBefore(anchor, heading.firstChild);
+    heading.appendChild(anchor);
   });
 }
 
