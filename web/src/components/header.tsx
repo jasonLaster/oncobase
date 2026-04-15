@@ -6,6 +6,14 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ActionsMenu } from "@/components/actions-menu";
 import { openCommandPalette } from "@/components/command-palette";
 
+function ChatIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H5l-3 3V3z" />
+    </svg>
+  );
+}
+
 export function Header() {
   return (
     <Suspense>
@@ -30,13 +38,16 @@ function HeaderInner() {
   return (
     <header className="shrink-0 z-30 flex items-center gap-3 border-b border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]/95 backdrop-blur-sm px-4 h-12">
       {/* Logo */}
-      <Link href="/" className="text-sm font-semibold tracking-tight shrink-0">
-        Diana&apos;s TNBC
+      <Link href="/" aria-label="Home" className="shrink-0">
+        <svg width="24" height="24" viewBox="0 0 32 32" className="rounded-md">
+          <rect width="32" height="32" rx="6" fill="#4f46e5"/>
+          <text x="16" y="23" fontFamily="system-ui, -apple-system, sans-serif" fontSize="22" fontWeight="700" fill="white" textAnchor="middle">D</text>
+        </svg>
       </Link>
 
       {/* Search bar + find files */}
       <div className="flex-1 flex justify-center">
-        <div className="w-full max-w-md flex items-center gap-1.5">
+        <div className="w-full max-w-xl flex items-center gap-1.5">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -55,9 +66,18 @@ function HeaderInner() {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.stopPropagation()}
               placeholder="Search wiki..."
-              className="w-full pl-9 pr-3 py-1.5 rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--text-muted)] hover:border-[var(--brand)] focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)] transition-colors"
+              className="w-full h-[30px] pl-9 pr-3 rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--text-muted)] hover:border-[var(--brand)] focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)] transition-colors"
             />
           </form>
+          <Link
+            href="/chat"
+            aria-label="New chat"
+            title="New chat"
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] transition-colors text-[var(--text-muted)] text-xs shrink-0"
+          >
+            <ChatIcon />
+            <span className="hidden sm:inline">New chat</span>
+          </Link>
           <button
             onClick={openCommandPalette}
             aria-label="Find files (⌘P)"

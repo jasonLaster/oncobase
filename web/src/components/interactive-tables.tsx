@@ -67,6 +67,8 @@ function attachHeadingAnchors(container: HTMLElement) {
   headings.forEach((heading) => {
     const id = heading.id;
     if (!id) return;
+    // Guard against duplicate anchors (e.g. React strict mode double-mount)
+    if (heading.querySelector(".heading-anchor")) return;
 
     heading.classList.add("group", "relative");
 

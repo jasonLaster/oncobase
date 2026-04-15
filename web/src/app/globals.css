@@ -152,9 +152,10 @@ body {
 .prose strong { font-weight: 600; }
 .prose img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
 
-/* Heading anchor links: inline right on mobile, absolute left on desktop */
-.heading-anchor { margin-left: 0.5rem; }
-@media (min-width: 768px) {
+/* Heading anchor links: inline on narrow viewports, absolute-left on wide */
+.heading-anchor { margin-left: 0.5rem; text-decoration: none !important; }
+.heading-anchor:hover { text-decoration: none !important; color: var(--brand) !important; opacity: 1 !important; }
+@media (min-width: 1024px) {
   .heading-anchor { position: absolute; left: -1.5rem; top: 0; margin-left: 0; }
 }
 
