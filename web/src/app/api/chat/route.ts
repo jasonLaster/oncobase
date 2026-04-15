@@ -29,7 +29,7 @@ IMPORTANT CITATION RULES:
 - Do NOT list sources at the end — weave them inline throughout your response.
 
 Search strategy:
-- Use the PAGE INDEX below to find the right slug, then use read_page to get details
+- FIRST check the PAGE INDEX below — if the question maps directly to a known page (e.g. "treatment plan" → wiki/treatment/plan/index, "diagnosis" → wiki/diagnostics/diagnosis), use read_page immediately without searching
 - Use search_wiki for broad discovery when you're not sure which page has the answer
 - After searching, read the 2-3 most relevant pages before answering
 - When you read a page, check its linked_pages list — these are pages referenced in the text. Follow links that are directly relevant to the question (e.g. a treatment page linking to a specific trial or meeting notes). Skip generic links like "diagnosis" or "prognosis" unless they're what the user asked about.
@@ -87,9 +87,12 @@ function generateSearchPatterns(query: string): string[] {
     "it", "they", "we", "you", "i", "me", "she", "he",
     "before", "after", "during", "between", "through", "into", "like",
     // Domain-generic terms — too broad, would match nearly every document
-    "diana", "diana's", "tnbc", "breast", "cancer", "tumor", "treatment",
-    "diagnosis", "patient", "doctor", "medical", "clinical", "results",
-    "test", "tests", "ucsf", "stanford",
+    // NOTE: "treatment", "diagnosis", "test" were removed from this list —
+    // they appear in key page titles/slugs and stripping them breaks
+    // common queries like "What is Diana's treatment plan?"
+    "diana", "diana's", "tnbc", "breast", "cancer", "tumor",
+    "patient", "doctor", "medical", "clinical", "results",
+    "ucsf", "stanford",
   ]);
 
   // 1. Cleaned query — strip stop words, keep the meaningful terms together
@@ -460,6 +463,7 @@ export async function POST(request: Request) {
       }
     },
     onFinish: async ({ text, steps }) => {
+      console.log("[chat] onFinish fired", { convId, textLen: text?.length, steps: steps?.length });
       if (convId) {
         // Build UI-compatible parts from steps for full restoration
         const uiParts: Array<Record<string, unknown>> = [];
@@ -493,6 +497,7 @@ export async function POST(request: Request) {
           // Save message FIRST, then clear streaming — so the final message
           // is available before streamingText goes undefined (prevents flash)
           if (text) {
+            console.log("[chat] saving message", { convId, partsCount: uiParts.length });
             await getConvex().mutation(api.conversations.saveMessages, {
               conversationId: convId,
               messages: [
@@ -504,12 +509,15 @@ export async function POST(request: Request) {
                 },
               ],
             });
+            console.log("[chat] message saved");
           }
+          console.log("[chat] clearing streaming");
           await getConvex().mutation(api.conversations.clearStreaming, {
             conversationId: convId,
           });
+          console.log("[chat] streaming cleared");
         } catch (e) {
-          console.error("Failed to save assistant message:", e);
+          console.error("[chat] Failed to save assistant message:", e);
         }
       }
     },
