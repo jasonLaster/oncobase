@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
@@ -22,7 +23,7 @@ const EXCLUDED_FILES = new Set(["CLAUDE.md"]);
 // O(slugs) — a ~425x reduction for the getPagesByTag scan.
 
 let _slugsCache: string[] | null = null;
-const _fileCache = new Map<string, MarkdownFile | null>();
+const _fileCache = new Map<string, { hash: string; result: MarkdownFile } | null>();
 let _tagsCache: string[] | null = null;
 const _tagPagesCache = new Map<string, Array<{ slug: string; title: string }>>();
 
@@ -79,8 +80,6 @@ export function getFileTree(dir: string = OBSIDIAN_DIR, basePath: string = ""): 
 
 /** Read and parse a single markdown file */
 export function getMarkdownFile(slug: string): MarkdownFile | null {
-  if (_fileCache.has(slug)) return _fileCache.get(slug)!;
-
   const filePath = path.join(OBSIDIAN_DIR, `${slug}.md`);
 
   if (!fs.existsSync(filePath)) {
@@ -89,6 +88,12 @@ export function getMarkdownFile(slug: string): MarkdownFile | null {
   }
 
   const raw = fs.readFileSync(filePath, "utf-8");
+  const hash = createHash("md5").update(raw).digest("hex");
+
+  // Return cached parse if the file hasn't changed
+  const cached = _fileCache.get(slug);
+  if (cached && cached.hash === hash) return cached.result;
+
   let data: Record<string, unknown> = {};
   let content = raw;
   try {
@@ -105,7 +110,7 @@ export function getMarkdownFile(slug: string): MarkdownFile | null {
   const body = h1Match ? content.replace(/^#\s+.+$/m, "").replace(/^\n+/, "") : content;
 
   const result: MarkdownFile = { slug, title, content: body, frontmatter: data };
-  _fileCache.set(slug, result);
+  _fileCache.set(slug, { hash, result });
   return result;
 }
 
