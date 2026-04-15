@@ -1001,7 +1001,7 @@ function InactiveShell({
  * Outline-only sidebar shell. Always rendered — provides document outline
  * without any Liveblocks/comments dependency.
  */
-function OutlineShell({ children }: { children: ReactNode }) {
+export function OutlineShell({ children, onActivate }: { children: ReactNode; onActivate?: () => void }) {
   const articleRef = useRef<HTMLElement | null>(null);
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -1196,19 +1196,38 @@ function OutlineShell({ children }: { children: ReactNode }) {
             </div>
           </>
         ) : (
-          <button
-            type="button"
-            onClick={() => {
-              setSidebarOpen(true);
-              window.localStorage.setItem(COMMENTS_PANE_STORAGE_KEY, "1");
-            }}
-            aria-label="Open outline"
-            className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent-light)] text-[var(--brand)] transition-colors"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 4h10M3 8h10M3 12h6" />
-            </svg>
-          </button>
+          <>
+            {onActivate ? (
+              <button
+                type="button"
+                onClick={onActivate}
+                aria-label="Open comments"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
+                </svg>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                setSidebarOpen(true);
+                window.localStorage.setItem(COMMENTS_PANE_STORAGE_KEY, "1");
+              }}
+              aria-label="Open outline"
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+                onActivate
+                  ? "mt-2 bg-[var(--accent-light)] text-[var(--brand)]"
+                  : "bg-[var(--accent-light)] text-[var(--brand)]"
+              )}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 4h10M3 8h10M3 12h6" />
+              </svg>
+            </button>
+          </>
         )}
       </aside>
     </div>
@@ -1218,7 +1237,7 @@ function OutlineShell({ children }: { children: ReactNode }) {
 export const commentsEnabled =
   process.env.NEXT_PUBLIC_ENABLE_COMMENTS === "true";
 
-export function DocumentComments({
+export function ActiveDocumentComments({
   documentSlug,
   documentTitle,
   children,
@@ -1227,20 +1246,6 @@ export function DocumentComments({
   documentTitle: string;
   children: ReactNode;
 }) {
-  const [liveblocksActive, setLiveblocksActive] = useState(false);
-
-  if (!commentsEnabled) {
-    return <OutlineShell>{children}</OutlineShell>;
-  }
-
-  if (!liveblocksActive) {
-    return (
-      <InactiveShell onActivate={() => setLiveblocksActive(true)}>
-        {children}
-      </InactiveShell>
-    );
-  }
-
   return (
     <LiveblocksRoom roomId={getRoomId(documentSlug)}>
       <CommentsShell documentSlug={documentSlug} documentTitle={documentTitle}>

@@ -6,7 +6,7 @@ import { api } from "@convex/_generated/api";
 import { getMarkdownFile, getAllSlugs } from "@/lib/markdown";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { CopyPageButton } from "@/components/copy-page-button";
-import { DocumentComments } from "@/components/document-comments";
+import { DocumentComments } from "@/components/document-comments-wrapper";
 
 export const dynamicParams = true;
 

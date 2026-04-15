@@ -1,6 +1,6 @@
 import { getMarkdownFile } from "@/lib/markdown";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
-import { DocumentComments } from "@/components/document-comments";
+import { DocumentComments } from "@/components/document-comments-wrapper";
 
 export default function Home() {
   const file = getMarkdownFile("index");
