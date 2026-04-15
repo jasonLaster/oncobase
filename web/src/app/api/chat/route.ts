@@ -148,6 +148,14 @@ function generateSearchPatterns(query: string): string[] {
 }
 
 export async function POST(request: Request) {
+  // Fail fast on missing credentials
+  if (!process.env.OPENROUTER_API_KEY) {
+    return new Response(
+      JSON.stringify({ error: "OPENROUTER_API_KEY is not configured. Add it to .env.local to enable chat." }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   const { messages, conversationId } = (await request.json()) as {
     messages: UIMessage[];
     conversationId?: string;
@@ -411,6 +419,44 @@ export async function POST(request: Request) {
           part.state = "output-available";
         }
         flushNow();
+      }
+    },
+    onError: async (event) => {
+      const errMsg = event.error instanceof Error ? event.error.message : String(event.error);
+      console.error("Chat stream error:", errMsg);
+      if (convId) {
+        try {
+          // Write error as streaming text so the client sees it immediately
+          const isAuth = errMsg.includes("Authentication") || errMsg.includes("401") || errMsg.includes("Unauthorized");
+          const isCredits = errMsg.includes("credits") || errMsg.includes("402");
+          const userMsg = isAuth
+            ? "API key is invalid or missing. Check your OPENROUTER_API_KEY in .env.local."
+            : isCredits
+              ? "Out of API credits. Add credits at openrouter.ai/settings/keys."
+              : `Something went wrong: ${errMsg}`;
+          await getConvex().mutation(api.conversations.updateStreaming, {
+            conversationId: convId,
+            text: userMsg,
+            parts: JSON.stringify([{ type: "text", text: userMsg }]),
+          });
+          // Clear streaming after a brief delay so the message is visible
+          setTimeout(async () => {
+            try {
+              await getConvex().mutation(api.conversations.saveMessages, {
+                conversationId: convId,
+                messages: [{
+                  role: "assistant" as const,
+                  content: userMsg,
+                  parts: JSON.stringify([{ type: "text", text: userMsg }]),
+                  createdAt: Date.now(),
+                }],
+              });
+              await getConvex().mutation(api.conversations.clearStreaming, {
+                conversationId: convId,
+              });
+            } catch {}
+          }, 500);
+        } catch {}
       }
     },
     onFinish: async ({ text, steps }) => {

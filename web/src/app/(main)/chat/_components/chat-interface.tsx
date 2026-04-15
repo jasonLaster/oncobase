@@ -62,27 +62,25 @@ function ReadPageBadge({ input, output, done }: { input: Record<string, unknown>
   const hasError = result?.error;
 
   return (
-    <div className="my-1.5">
-      <a
-        href={`/${slug}`}
-        className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border transition-colors ${
-          done && !hasError
-            ? "bg-[var(--background)] border-[var(--sidebar-border)] text-[var(--brand)] hover:border-[var(--brand)]"
-            : done && hasError
-              ? "bg-[var(--background)] border-red-300 text-red-500"
-              : "bg-[var(--background)] border-[var(--sidebar-border)] text-[var(--text-muted)]"
-        }`}
-      >
-        {!done ? (
-          <span className="inline-block w-3 h-3 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-60">
-            <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
-          </svg>
-        )}
-        <span className="truncate max-w-[200px]">{done ? `Read ${title}` : `Reading ${slug}...`}</span>
-      </a>
-    </div>
+    <a
+      href={`/${slug}`}
+      className={`inline-flex items-center gap-1.5 text-xs transition-colors ${
+        done && !hasError
+          ? "text-[var(--text-muted)] hover:text-[var(--brand)]"
+          : done && hasError
+            ? "text-red-500"
+            : "text-[var(--text-muted)]"
+      }`}
+    >
+      {!done ? (
+        <span className="inline-block w-3 h-3 border-[1.5px] border-[var(--text-muted)] border-t-transparent rounded-full animate-spin shrink-0" />
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-40">
+          <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
+        </svg>
+      )}
+      <span className="truncate max-w-[250px]">{done ? `Read ${title}` : `Reading ${slug}...`}</span>
+    </a>
   );
 }
 
@@ -94,19 +92,19 @@ function SearchResultsBlock({ output, done, query }: { output: unknown; done: bo
   if (!query && results.length === 0) return null;
 
   return (
-    <div className="my-1.5">
+    <div>
       <button
         onClick={() => done && setExpanded(!expanded)}
-        className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border transition-colors text-left ${
+        className={`inline-flex items-center gap-1.5 text-xs transition-colors text-left ${
           done
-            ? "bg-[var(--background)] border-[var(--sidebar-border)] text-[var(--text-muted)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
-            : "bg-[var(--background)] border-[var(--sidebar-border)] text-[var(--text-muted)]"
+            ? "text-[var(--text-muted)] hover:text-[var(--foreground)]"
+            : "text-[var(--text-muted)]"
         }`}
       >
         {!done ? (
-          <span className="inline-block w-3 h-3 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin shrink-0" />
+          <span className="inline-block w-3 h-3 border-[1.5px] border-[var(--text-muted)] border-t-transparent rounded-full animate-spin shrink-0" />
         ) : (
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-60">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-40">
             <path d="M15.25 14.19l-4.06-4.06a5.5 5.5 0 1 0-1.06 1.06l4.06 4.06a.75.75 0 1 0 1.06-1.06zM2 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0z" />
           </svg>
         )}
@@ -116,11 +114,13 @@ function SearchResultsBlock({ output, done, query }: { output: unknown; done: bo
             : `Searched "${query}" — ${results.length} result${results.length !== 1 ? "s" : ""}`}
         </span>
         {done && results.length > 0 && (
-          <span className="text-[10px] shrink-0 ml-1">{expanded ? "▼" : "▶"}</span>
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className={`shrink-0 opacity-30 transition-transform ${expanded ? "rotate-90" : ""}`}>
+            <path d="M6 4l4 4-4 4" />
+          </svg>
         )}
       </button>
       {expanded && results.length > 0 && (
-        <div className="mt-1 ml-1 border-l-2 border-[var(--sidebar-border)] pl-2 space-y-0.5">
+        <div className="mt-0.5 ml-4 pl-2 border-l border-[var(--sidebar-border)] space-y-0">
           {results.map((r, i) => (
             <a
               key={i}
@@ -152,13 +152,15 @@ function ToolCallBlock({ toolName, state, output, input }: { toolName: string; s
   // Generic fallback
   const label = done ? `Used ${toolName}` : `Running ${toolName}...`;
   return (
-    <div className="flex items-center gap-1.5 my-1 text-xs text-[var(--text-muted)]">
+    <div className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
       {!done ? (
-        <span className="inline-block w-3 h-3 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
+        <span className="inline-block w-3 h-3 border-[1.5px] border-[var(--text-muted)] border-t-transparent rounded-full animate-spin shrink-0" />
       ) : (
-        <span className="text-[10px]">✓</span>
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0 opacity-40">
+          <polyline points="4 8 7 11 12 5" />
+        </svg>
       )}
-      <span className="italic">{label}</span>
+      <span>{label}</span>
     </div>
   );
 }
@@ -228,9 +230,14 @@ function SourceLinks({ pages }: { pages: Array<{ slug: string; title: string }> 
   );
 }
 
-/** Group consecutive text parts so they render in a single prose container. */
-function groupParts(parts: Array<{ type: string; [k: string]: unknown }>) {
-  const groups: Array<{ kind: "text"; texts: string[] } | { kind: "other"; part: { type: string; [k: string]: unknown } }> = [];
+/** Group consecutive text parts and consecutive tool parts for compact rendering. */
+type PartGroup =
+  | { kind: "text"; texts: string[] }
+  | { kind: "tools"; parts: Array<{ type: string; [k: string]: unknown }> }
+  | { kind: "other"; part: { type: string; [k: string]: unknown } };
+
+function groupParts(parts: Array<{ type: string; [k: string]: unknown }>): PartGroup[] {
+  const groups: PartGroup[] = [];
   for (const part of parts) {
     if (part.type === "text" && part.text) {
       const last = groups[groups.length - 1];
@@ -238,6 +245,13 @@ function groupParts(parts: Array<{ type: string; [k: string]: unknown }>) {
         last.texts.push(part.text as string);
       } else {
         groups.push({ kind: "text", texts: [part.text as string] });
+      }
+    } else if (isToolPart(part as { type: string })) {
+      const last = groups[groups.length - 1];
+      if (last?.kind === "tools") {
+        last.parts.push(part);
+      } else {
+        groups.push({ kind: "tools", parts: [part] });
       }
     } else {
       groups.push({ kind: "other", part });
@@ -257,29 +271,33 @@ function AssistantMessage({ message }: { message: UIMessage }) {
   const groups = groupParts(parts as Array<{ type: string; [k: string]: unknown }>);
 
   return (
-    <div className="flex justify-start">
-      <div className="max-w-[90%] sm:max-w-[85%] rounded-2xl rounded-bl-md px-3 sm:px-4 py-2 sm:py-2.5 bg-[var(--accent-light)] text-[var(--foreground)] text-sm">
-        {groups.map((group, i) => {
-          if (group.kind === "text") {
-            return (
-              <div key={i} className="prose text-sm">
-                <MarkdownRenderer disableAnchors content={group.texts.join("\n\n")} />
-              </div>
-            );
-          }
-          const { part } = group;
-          if (part.type === "reasoning") {
-            return <ReasoningBlock key={i} text={(part as { type: "reasoning"; text: string }).text} />;
-          }
-          if (isToolPart(part as { type: string })) {
-            const info = getToolInfo(part as Record<string, unknown>);
-            if (!info) return null;
-            return <ToolCallBlock key={i} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
-          }
-          return null;
-        })}
-        <SourceLinks pages={sourcePages} />
-      </div>
+    <div className="text-sm space-y-3">
+      {groups.map((group, i) => {
+        if (group.kind === "text") {
+          return (
+            <div key={i} className="prose text-sm max-w-none">
+              <MarkdownRenderer disableAnchors content={group.texts.join("\n\n")} />
+            </div>
+          );
+        }
+        if (group.kind === "tools") {
+          return (
+            <div key={i} className="space-y-1 py-1">
+              {group.parts.map((part, j) => {
+                const info = getToolInfo(part as Record<string, unknown>);
+                if (!info) return null;
+                return <ToolCallBlock key={j} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
+              })}
+            </div>
+          );
+        }
+        const { part } = group;
+        if (part.type === "reasoning") {
+          return <ReasoningBlock key={i} text={(part as { type: "reasoning"; text: string }).text} />;
+        }
+        return null;
+      })}
+      <SourceLinks pages={sourcePages} />
     </div>
   );
 }
@@ -318,6 +336,7 @@ export function ChatInterface({
   );
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -422,6 +441,7 @@ export function ChatInterface({
 
   function triggerGeneration(convId: string, msgs: Array<{ id: string; role: string; parts: unknown[] }>) {
     hasResumed.current = true; // prevent auto-resume from double-firing
+    setError(null);
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -433,7 +453,21 @@ export function ChatInterface({
         conversationId: convId,
       }),
       signal: controller.signal,
-    }).catch(() => {});
+    }).then(async (res) => {
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const msg = data?.error || `Chat failed (${res.status})`;
+        setError(msg);
+        clearStreamingMutation({ conversationId: convId as Id<"conversations"> });
+        disableLastUserMessage();
+      }
+    }).catch((err) => {
+      if (err?.name !== "AbortError") {
+        setError("Failed to connect to chat API.");
+        clearStreamingMutation({ conversationId: convId as Id<"conversations"> });
+        disableLastUserMessage();
+      }
+    });
   }
 
   const handleStop = useCallback(() => {
@@ -581,25 +615,25 @@ export function ChatInterface({
               .map((p) => p.text)
               .join("");
             return (
-              <div key={message.id} className={`flex justify-end gap-1 group/msg items-start ${chatMsg.disabled ? "opacity-50" : ""}`}>
-                <button
-                  onClick={() => {
-                    setInput(text);
-                    setMessages((prev) => prev.slice(0, idx));
-                  }}
-                  title="Edit message"
-                  className="shrink-0 mt-2 p-1 rounded opacity-0 group-hover/msg:opacity-100 hover:bg-[var(--accent-light)] text-[var(--text-muted)] hover:text-[var(--foreground)] transition-all"
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11.5 2.5l2 2L5 13H3v-2z" />
-                  </svg>
-                </button>
-                <div className={`max-w-[90%] sm:max-w-[85%] rounded-2xl rounded-br-md px-3 sm:px-4 py-2 sm:py-2.5 text-sm whitespace-pre-wrap ${
-                  chatMsg.disabled
-                    ? "bg-[var(--sidebar-border)] text-[var(--text-muted)] line-through"
-                    : "bg-[var(--brand)] text-white"
-                }`}>
-                  {text}
+              <div key={message.id} className={`group/msg border-t border-[var(--sidebar-border)] pt-4 ${chatMsg.disabled ? "opacity-50" : ""}`}>
+                <div className="flex items-start gap-2">
+                  <div className={`text-base font-medium whitespace-pre-wrap flex-1 ${
+                    chatMsg.disabled ? "text-[var(--text-muted)] line-through" : "text-[var(--foreground)]"
+                  }`}>
+                    {text}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setInput(text);
+                      setMessages((prev) => prev.slice(0, idx));
+                    }}
+                    title="Edit message"
+                    className="shrink-0 mt-1 p-0.5 rounded opacity-0 group-hover/msg:opacity-100 hover:bg-[var(--accent-light)] text-[var(--text-muted)] hover:text-[var(--foreground)] transition-all"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11.5 2.5l2 2L5 13H3v-2z" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             );
@@ -609,55 +643,64 @@ export function ChatInterface({
 
         {/* Server stream with structured parts — hide if last message is already assistant (final synced) */}
         {(serverHasText || serverStreamingParts) && !(messages.length > 0 && messages[messages.length - 1]?.role === "assistant") && (
-          <div className="flex justify-start">
-            <div className="max-w-[90%] sm:max-w-[85%] rounded-2xl rounded-bl-md px-3 sm:px-4 py-2 sm:py-2.5 bg-[var(--accent-light)] text-[var(--foreground)] text-sm">
-              {serverStreamingParts ? (
-                (() => {
-                  try {
-                    const parts = JSON.parse(serverStreamingParts) as Array<Record<string, unknown>>;
-                    const groups = groupParts(parts as Array<{ type: string; [k: string]: unknown }>);
-                    return groups.map((group, i) => {
-                      if (group.kind === "text") {
-                        return (
-                          <div key={i} className="prose text-sm">
-                            <MarkdownRenderer disableAnchors content={group.texts.join("\n\n")} />
-                          </div>
-                        );
-                      }
-                      const { part } = group;
-                      if (isToolPart(part as { type: string })) {
-                        const info = getToolInfo(part as Record<string, unknown>);
-                        if (!info) return null;
-                        return <ToolCallBlock key={i} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
-                      }
-                      return null;
-                    });
-                  } catch {
+          <div className="text-sm space-y-3">
+            {serverStreamingParts ? (
+              (() => {
+                try {
+                  const parts = JSON.parse(serverStreamingParts) as Array<Record<string, unknown>>;
+                  const groups = groupParts(parts as Array<{ type: string; [k: string]: unknown }>);
+                  return groups.map((group, i) => {
+                    if (group.kind === "text") {
+                      return (
+                        <div key={i} className="prose text-sm max-w-none">
+                          <MarkdownRenderer disableAnchors content={group.texts.join("\n\n")} />
+                        </div>
+                      );
+                    }
+                    if (group.kind === "tools") {
+                      return (
+                        <div key={i} className="space-y-1 py-1">
+                          {group.parts.map((part, j) => {
+                            const info = getToolInfo(part as Record<string, unknown>);
+                            if (!info) return null;
+                            return <ToolCallBlock key={j} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
+                          })}
+                        </div>
+                      );
+                    }
                     return null;
-                  }
-                })()
-              ) : serverStreamingText ? (
-                <div className="prose text-sm">
-                  <MarkdownRenderer disableAnchors content={serverStreamingText} />
-                </div>
-              ) : null}
-              {isGenerating && (
-                <span className="inline-block w-1.5 h-4 bg-[var(--brand)] animate-pulse ml-0.5 -mb-0.5 rounded-sm" />
-              )}
-            </div>
+                  });
+                } catch {
+                  return null;
+                }
+              })()
+            ) : serverStreamingText ? (
+              <div className="prose text-sm max-w-none">
+                <MarkdownRenderer disableAnchors content={serverStreamingText} />
+              </div>
+            ) : null}
+            {isGenerating && (
+              <span className="inline-block w-1.5 h-4 bg-[var(--brand)] animate-pulse ml-0.5 -mb-0.5 rounded-sm" />
+            )}
           </div>
         )}
 
         {/* Waiting: server hasn't produced text yet */}
-        {(serverIsWaiting || (sending && lastMsgIsUser)) && (
-          <div className="flex justify-start">
-            <div className="rounded-2xl rounded-bl-md px-4 py-2.5 bg-[var(--accent-light)]">
-              <div className="flex gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce" />
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce [animation-delay:0.15s]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce [animation-delay:0.3s]" />
-              </div>
-            </div>
+        {!error && (serverIsWaiting || (sending && lastMsgIsUser)) && (
+          <div className="flex gap-1 py-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce [animation-delay:0.15s]" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce [animation-delay:0.3s]" />
+          </div>
+        )}
+
+        {/* Error message */}
+        {error && (
+          <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-sm">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 mt-0.5">
+              <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 4a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0V5zm.75 6.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z" />
+            </svg>
+            <span>{error}</span>
           </div>
         )}
         <div ref={bottomRef} />
