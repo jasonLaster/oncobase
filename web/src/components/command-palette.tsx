@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useSyncExternalStore } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import {
   CommandDialog,
@@ -11,7 +11,8 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
-import { FileTextIcon, Loader2Icon } from "lucide-react";
+import { FileTextIcon, Loader2Icon, ClockIcon } from "lucide-react";
+import fuzzysort from "fuzzysort";
 import { themeEffect } from "@/lib/theme-effect";
 
 interface PageEntry {
@@ -62,6 +63,29 @@ const SearchIcon = () => (
   </svg>
 );
 
+// ─── Recent files (localStorage) ─────────────────────────────────────────────
+
+const RECENT_KEY = "cmd-palette-recent";
+const MAX_RECENT = 8;
+
+function getRecentSlugs(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addRecentSlug(slug: string) {
+  const recent = getRecentSlugs().filter((s) => s !== slug);
+  recent.unshift(slug);
+  if (recent.length > MAX_RECENT) recent.length = MAX_RECENT;
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+  } catch { /* quota exceeded — ignore */ }
+}
+
 // ─── File palette (Cmd+K) ─────────────────────────────────────────────────────
 
 let globalOpenFiles: (() => void) | null = null;
@@ -73,6 +97,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [pages, setPages] = useState<PageEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
   const router = useRouter();
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -103,41 +128,92 @@ export function CommandPalette() {
     }
   }, [open, pages.length]);
 
+  // Reset search when closing
+  useEffect(() => {
+    if (!open) setSearch("");
+  }, [open]);
+
   const handleSelect = useCallback(
     (slug: string) => {
+      addRecentSlug(slug);
       setOpen(false);
       router.push(`/${slug}`);
     },
     [router]
   );
 
-  // Group pages by their top-level parent directory.
-  // slug format: "wiki/research/paper-catalog" → group "research"
-  // Top-level files (no parent dir) go into "" group rendered last.
-  const grouped = useCallback((): [string, PageEntry[]][] => {
+  const recentSlugs = useMemo(() => (open ? getRecentSlugs() : []), [open]);
+
+  // Prepare fuzzysort targets (stable across renders for same pages)
+  const prepared = useMemo(() =>
+    pages.map((page) => ({
+      page,
+      prepName: fuzzysort.prepare(page.name.replace(/-/g, " ")),
+      prepPath: fuzzysort.prepare(page.path),
+    })),
+    [pages]
+  );
+
+  // Build display: when searching → flat ranked list via fuzzysort; otherwise → Recent + grouped
+  const { recentEntries, searchResults, groupedEntries } = useMemo(() => {
+    const empty = { recentEntries: [] as PageEntry[], searchResults: null as PageEntry[] | null, groupedEntries: [] as [string, PageEntry[]][] };
+    if (!pages.length) return empty;
+
+    const recentSet = new Set(recentSlugs);
+
+    if (search.trim()) {
+      const results = fuzzysort.go(search, prepared, {
+        keys: ["prepName", "prepPath"],
+        limit: 50,
+        threshold: -1000,
+      });
+
+      // Sort: fuzzysort score first, then boost recents within similar scores
+      const ranked = results
+        .map((r) => ({ page: r.obj.page, score: r.score }))
+        .sort((a, b) => {
+          const diff = b.score - a.score;
+          // Within a tight score band, prefer recents
+          if (Math.abs(diff) < 50) {
+            const aRecent = recentSet.has(a.page.slug) ? 1 : 0;
+            const bRecent = recentSet.has(b.page.slug) ? 1 : 0;
+            if (aRecent !== bRecent) return bRecent - aRecent;
+          }
+          return diff;
+        })
+        .map((r) => r.page);
+
+      return { recentEntries: [], searchResults: ranked, groupedEntries: [] };
+    }
+
+    // No search — show recents first, then all grouped
+    const recent = recentSlugs
+      .map((slug) => pages.find((p) => p.slug === slug))
+      .filter((p): p is PageEntry => !!p);
+
     const map = new Map<string, PageEntry[]>();
     for (const page of pages) {
-      const parts = page.slug.split("/");
-      // Use second segment if available (e.g. "research" from "wiki/research/foo"),
-      // otherwise the first segment, otherwise "".
-      const group = parts.length >= 3 ? parts[1] : parts.length === 2 ? parts[0] : "";
+      const group = getGroup(page.slug);
       if (!map.has(group)) map.set(group, []);
       map.get(group)!.push(page);
     }
-    // Sort: named groups first (alphabetically), then the catch-all ""
-    return [...map.entries()].sort(([a], [b]) => {
+    const entries = [...map.entries()].sort(([a], [b]) => {
       if (a === "") return 1;
       if (b === "") return -1;
       return a.localeCompare(b);
     });
-  }, [pages]);
+
+    return { recentEntries: recent, searchResults: null, groupedEntries: entries };
+  }, [pages, prepared, search, recentSlugs]);
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen} title="Go to page" description="Search pages">
-      <Command>
+      <Command shouldFilter={!search.trim()}>
         <CommandInput
           placeholder="Search pages…"
-          onValueChange={() => {
+          value={search}
+          onValueChange={(v) => {
+            setSearch(v);
             requestAnimationFrame(() => listRef.current?.scrollTo(0, 0));
           }}
         />
@@ -150,7 +226,47 @@ export function CommandPalette() {
           ) : (
             <>
               <CommandEmpty>No pages found.</CommandEmpty>
-              {grouped().map(([group, entries]) => (
+
+              {/* Search results — flat ranked list */}
+              {searchResults && (
+                <CommandGroup>
+                  {searchResults.map((page) => (
+                    <CommandItem
+                      key={page.slug}
+                      value={page.slug}
+                      onSelect={() => handleSelect(page.slug)}
+                      className="py-2.5"
+                    >
+                      <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate">{page.name.replace(/-/g, " ")}</span>
+                        <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+
+              {/* No search — recent files + grouped */}
+              {!searchResults && recentEntries.length > 0 && (
+                <CommandGroup heading="Recent">
+                  {recentEntries.map((page) => (
+                    <CommandItem
+                      key={`recent-${page.slug}`}
+                      value={`${page.name} ${page.path} ${getGroup(page.slug)}`}
+                      onSelect={() => handleSelect(page.slug)}
+                      className="py-2.5"
+                    >
+                      <ClockIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate">{page.name.replace(/-/g, " ")}</span>
+                        <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {!searchResults && groupedEntries.map(([group, entries]) => (
                 <CommandGroup
                   key={group || "__root__"}
                   heading={group ? group.replace(/-/g, " ") : undefined}
@@ -160,9 +276,13 @@ export function CommandPalette() {
                       key={page.slug}
                       value={`${page.name} ${page.path} ${group}`}
                       onSelect={() => handleSelect(page.slug)}
+                      className="py-2.5"
                     >
-                      <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50" />
-                      <span className="truncate">{page.name.replace(/-/g, " ")}</span>
+                      <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate">{page.name.replace(/-/g, " ")}</span>
+                        <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
+                      </div>
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -173,6 +293,16 @@ export function CommandPalette() {
       </Command>
     </CommandDialog>
   );
+}
+
+function getGroup(slug: string): string {
+  const parts = slug.split("/");
+  return parts.length >= 3 ? parts[1] : parts.length === 2 ? parts[0] : "";
+}
+
+function formatPath(slug: string): string {
+  const parts = slug.split("/");
+  return parts.length > 1 ? parts.slice(0, -1).join("/") : "";
 }
 
 // ─── Action palette (Cmd+Shift+P) ────────────────────────────────────────────

@@ -30,6 +30,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "convex": "^1.34.1",
+    "fuzzysort": "^3.1.0",
     "gray-matter": "^4.0.3",
     "jszip": "^3.10.1",
     "lexical": "^0.43.0",
