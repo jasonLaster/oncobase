@@ -29,6 +29,22 @@ export function InteractiveTables({
     const cleanups: (() => void)[] = [];
 
     tables.forEach((table) => {
+      // If the table has a colgroup with explicit widths, use fixed layout
+      // so col widths are respected and the table can exceed the container
+      const colgroup = table.querySelector("colgroup");
+      if (colgroup) {
+        const cols = colgroup.querySelectorAll<HTMLElement>("col");
+        let totalWidth = 0;
+        cols.forEach((col) => {
+          const w = parseInt(col.style.width, 10);
+          if (w) totalWidth += w;
+        });
+        if (totalWidth > 0) {
+          table.style.tableLayout = "fixed";
+          table.style.width = `${totalWidth}px`;
+        }
+      }
+
       cleanups.push(wrapWithExpandCollapse(table));
       table.querySelectorAll<HTMLTableCellElement>("thead th").forEach((th) => {
         cleanups.push(attachResizeHandle(th));
@@ -119,6 +135,7 @@ function wrapWithExpandCollapse(table: HTMLTableElement): () => void {
     btn.title = expanded ? "Collapse table" : "Expand table";
 
     if (expanded) {
+      // Expand to full available width, left-aligned
       const scrollParent =
         wrapper.closest("[class*='overflow-y-auto']") ||
         wrapper
@@ -128,28 +145,23 @@ function wrapWithExpandCollapse(table: HTMLTableElement): () => void {
       if (container) {
         const containerRect = container.getBoundingClientRect();
         const wrapRect = wrapper.getBoundingClientRect();
-        const availableWidth = containerRect.width - 40; // 20px padding each side
-        const tableWidth = table.scrollWidth;
-        // Center the table within the available container space
-        if (tableWidth < availableWidth) {
-          const centerOffset = (availableWidth - tableWidth) / 2;
-          wrapper.style.marginLeft = `${-(wrapRect.left - containerRect.left) + 20 + centerOffset}px`;
-          wrapper.style.marginRight = `${-(containerRect.right - wrapRect.right) + 20 + centerOffset}px`;
-        } else {
-          wrapper.style.marginLeft = `${-(wrapRect.left - containerRect.left) + 20}px`;
-          wrapper.style.marginRight = `${-(containerRect.right - wrapRect.right) + 20}px`;
-        }
-        wrapper.style.overflow = "auto";
+        wrapper.style.marginLeft = `${-(wrapRect.left - containerRect.left) + 20}px`;
+        wrapper.style.marginRight = `${-(containerRect.right - wrapRect.right) + 20}px`;
       }
     } else {
       wrapper.style.marginLeft = "";
       wrapper.style.marginRight = "";
-      wrapper.style.overflow = "";
     }
   };
 
   btn.addEventListener("click", toggle);
   wrapper.appendChild(btn);
+
+  // Auto-expand tables with 5+ columns
+  const colCount = table.querySelectorAll("thead th").length;
+  if (colCount >= 5) {
+    toggle();
+  }
 
   return () => {
     btn.removeEventListener("click", toggle);
@@ -182,25 +194,17 @@ function attachResizeHandle(th: HTMLTableCellElement): () => void {
     const table = th.closest("table") as HTMLTableElement | null;
     const startTableWidth = table?.getBoundingClientRect().width ?? 0;
 
-    const wrapper = table?.closest(".table-scroll-wrapper") as HTMLElement | null;
-    const prose = wrapper?.parentElement;
+    // Find the matching <col> element for fixed-layout tables
+    const thIndex = Array.from(th.parentElement?.children ?? []).indexOf(th);
+    const col = table?.querySelector(`colgroup col:nth-child(${thIndex + 1})`) as HTMLElement | null;
 
     const onMouseMove = (ev: MouseEvent) => {
-      const newColWidth = Math.max(60, startWidth + ev.clientX - startX);
+      const newColWidth = Math.max(20, startWidth + ev.clientX - startX);
       const actualDelta = newColWidth - startWidth;
       th.style.width = `${newColWidth}px`;
+      if (col) col.style.width = `${newColWidth}px`;
       if (table) {
-        const newTableWidth = startTableWidth + actualDelta;
-        table.style.width = `${newTableWidth}px`;
-        // Let the table grow beyond the container when dragging wider
-        if (wrapper && prose) {
-          const proseWidth = prose.getBoundingClientRect().width;
-          if (newTableWidth > proseWidth) {
-            wrapper.style.overflow = "visible";
-          } else {
-            wrapper.style.overflow = "";
-          }
-        }
+        table.style.width = `${startTableWidth + actualDelta}px`;
       }
     };
     const onMouseUp = () => {

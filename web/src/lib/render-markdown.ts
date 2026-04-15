@@ -19,7 +19,7 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "16";
+const PIPELINE_VERSION = "17";
 
 // ─── Mermaid pre-processor ────────────────────────────────────────────────────
 //
@@ -130,7 +130,7 @@ function injectColgroups(html: string, directives: TableDirective[]): string {
   return html.replace(/<table(?:[^>]*)>/g, (tableTag) => {
     const cols = directiveMap.get(tableIndex++);
     if (!cols) return tableTag;
-    const colgroup = `<colgroup>${cols.map((w: string) => `<col style="min-width:${w};width:${w}">`).join("")}</colgroup>`;
+    const colgroup = `<colgroup>${cols.map((w: string) => `<col style="width:${w}">`).join("")}</colgroup>`;
     return `${tableTag}${colgroup}`;
   });
 }

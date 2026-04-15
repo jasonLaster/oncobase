@@ -33,7 +33,7 @@ function ResizableHead({
       const startWidth = th.getBoundingClientRect().width;
 
       const onMouseMove = (ev: MouseEvent) => {
-        const newWidth = Math.max(60, startWidth + ev.clientX - startX);
+        const newWidth = Math.max(20, startWidth + ev.clientX - startX);
         setWidth(newWidth);
       };
 
@@ -81,29 +81,17 @@ export function MdTable(props: React.ComponentProps<"table">) {
     setExpanded((prev) => {
       const next = !prev;
       if (next && wrapRef.current) {
-        // Find the scrollable content ancestor to measure available width
+        // Expand to full available width, left-aligned
         const scrollParent = wrapRef.current.closest("[class*='overflow-y-auto']") ||
           wrapRef.current.closest("[class*='overflow-hidden']")?.querySelector("[class*='overflow-y-auto']");
         const container = scrollParent || wrapRef.current.parentElement;
         if (container) {
           const containerRect = container.getBoundingClientRect();
           const wrapRect = wrapRef.current.getBoundingClientRect();
-          const availableWidth = containerRect.width - 40;
-          const tableEl = wrapRef.current.querySelector("table");
-          const tableWidth = tableEl?.scrollWidth ?? wrapRect.width;
-          if (tableWidth < availableWidth) {
-            const centerOffset = (availableWidth - tableWidth) / 2;
-            setBleedStyle({
-              marginLeft: -(wrapRect.left - containerRect.left) + 20 + centerOffset,
-              marginRight: -(containerRect.right - wrapRect.right) + 20 + centerOffset,
-            });
-          } else {
-            setBleedStyle({
-              marginLeft: -(wrapRect.left - containerRect.left) + 20,
-              marginRight: -(containerRect.right - wrapRect.right) + 20,
-              overflow: "auto" as const,
-            });
-          }
+          setBleedStyle({
+            marginLeft: -(wrapRect.left - containerRect.left) + 20,
+            marginRight: -(containerRect.right - wrapRect.right) + 20,
+          });
         }
       } else {
         setBleedStyle({});
