@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
-import { getMarkdownFile, getAllSlugs } from "@/lib/markdown";
-import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { getMarkdownFile, getMarkdownFileAsync, getAllSlugs } from "@/lib/markdown";
+import { MarkdownRenderer, MarkdownRendererAsync } from "@/components/markdown-renderer";
 import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
 
@@ -119,6 +120,8 @@ export default async function DocPage({
     notFound();
   }
 
+  const isDeferred = ISR_DEFERRED_PREFIXES.some((p) => filePath.startsWith(p));
+
   return (
     <DocumentComments documentSlug={file.slug} documentTitle={file.title}>
       <header className="mb-6">
@@ -140,7 +143,24 @@ export default async function DocPage({
           </div>
         )}
       </header>
-      <MarkdownRenderer content={file.content} currentSlug={file.slug} />
+      {isDeferred ? (
+        <Suspense fallback={null}>
+          <DeferredMarkdownBody filePath={filePath} slug={file.slug} />
+        </Suspense>
+      ) : (
+        <MarkdownRenderer content={file.content} currentSlug={file.slug} />
+      )}
     </DocumentComments>
   );
+}
+
+/**
+ * Async body for ISR (deferred) pages. Wrapped in Suspense so PPR can
+ * cache and send the header/sidebar shell immediately while the markdown
+ * body streams in on first cold visit. SSG pages bypass this entirely.
+ */
+async function DeferredMarkdownBody({ filePath, slug }: { filePath: string; slug: string }) {
+  const file = await getMarkdownFileAsync(filePath);
+  if (!file) notFound();
+  return <MarkdownRendererAsync content={file.content} currentSlug={slug} />;
 }
