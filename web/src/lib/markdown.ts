@@ -66,6 +66,10 @@ export function getFileTree(dir: string = OBSIDIAN_DIR, basePath: string = ""): 
       const fileSlug = basePath ? `${basePath}/${nameWithoutExt}` : nameWithoutExt;
       nodes.push({ name: nameWithoutExt, slug: fileSlug, type: "file" });
     } else if (entry.name.endsWith(".pdf")) {
+      // Skip Git LFS pointer files — they are tiny text files (< 200 bytes)
+      const stat = fs.statSync(fullPath);
+      if (stat.size < 200) continue;
+
       const nameWithoutExt = entry.name.replace(/\.pdf$/, "");
       const pdfPath = basePath ? `${basePath}/${entry.name}` : entry.name;
       nodes.push({ name: nameWithoutExt, slug: pdfPath, type: "pdf", pdfPath });
@@ -79,36 +83,18 @@ export function getFileTree(dir: string = OBSIDIAN_DIR, basePath: string = ""): 
 }
 
 /**
- * Fetch PDF paths from Convex via raw HTTP (avoids ConvexHttpClient's
- * Math.random() which conflicts with Next.js prerendering).
+ * Fetch PDF paths from Convex using the official SDK (fetchQuery).
  * Cached at build time so the sidebar includes PDFs even when they
  * aren't on disk (i.e. on Vercel).
  */
 async function fetchConvexPdfPaths(): Promise<string[]> {
   "use cache";
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!convexUrl) return [];
+  if (!process.env.NEXT_PUBLIC_CONVEX_URL) return [];
   try {
-    // Convex HTTP API: POST to /api/query with the function path
-    const siteUrl = convexUrl.replace(/\.cloud$/, ".convex.site").replace(/\.cloud\//, ".convex.site/");
-    const apiUrl = `${convexUrl}/api/query`;
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        path: "documents:listPdfAssets",
-        args: {},
-        format: "json",
-      }),
-    });
-    if (!res.ok) {
-      console.warn(`[fetchConvexPdfPaths] Convex query failed: ${res.status}`);
-      return [];
-    }
-    const data = await res.json();
-    // Convex returns { value: [...], status: "success" } or the array directly
-    const assets: Array<{ path: string }> = data.value ?? data;
-    return assets.map((a) => a.path);
+    const { fetchQuery } = await import("convex/nextjs");
+    const { api } = await import("../../convex/_generated/api");
+    const assets = await fetchQuery(api.documents.listPdfAssets, {});
+    return assets.map((a: { path: string }) => a.path);
   } catch (err) {
     console.warn("[fetchConvexPdfPaths] Failed:", err);
     return [];

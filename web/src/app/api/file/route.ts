@@ -40,16 +40,21 @@ export async function GET(request: NextRequest) {
   const filename = path.basename(normalized);
 
   // ── Local / disk path ──────────────────────────────────────────────────────
+  // Skip LFS pointer files — they start with "version https://git-lfs"
   const diskPath = path.join(OBSIDIAN_DIR, normalized);
   if (fs.existsSync(diskPath)) {
     const buf = fs.readFileSync(diskPath);
-    return new NextResponse(buf, {
-      headers: {
-        "Content-Type": mimeType,
-        "Content-Disposition": `inline; filename="${filename}"`,
-        "Cache-Control": "public, max-age=86400",
-      },
-    });
+    const isLfsPointer = buf.length < 200 && buf.toString("utf8", 0, 40).includes("git-lfs");
+    if (!isLfsPointer) {
+      return new NextResponse(buf, {
+        headers: {
+          "Content-Type": mimeType,
+          "Content-Disposition": `inline; filename="${filename}"`,
+          "Cache-Control": "public, max-age=86400",
+        },
+      });
+    }
+    // LFS pointer — fall through to Convex lookup below
   }
 
   // ── Production: look up in Convex, proxy to strip Blob CSP ────────────────
