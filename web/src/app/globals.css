@@ -181,10 +181,10 @@ body {
   align-items: center;
   gap: 0.3rem;
   padding: 0.2rem 0.55rem 0.2rem 0.45rem;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
   border-radius: 0.35rem;
-  color: #dc2626 !important;
+  color: #4f46e5 !important;
   font-size: 0.8125rem;
   font-weight: 500;
   text-decoration: none !important;
@@ -195,8 +195,8 @@ body {
   max-width: 100%;
 }
 .pdf-chip:hover {
-  background: #fee2e2 !important;
-  border-color: #f87171;
+  background: #e0e7ff !important;
+  border-color: #818cf8;
   opacity: 1 !important;
   text-decoration: none !important;
 }

@@ -78,6 +78,105 @@ export function getFileTree(dir: string = OBSIDIAN_DIR, basePath: string = ""): 
   return nodes;
 }
 
+/**
+ * Fetch PDF paths from Convex via raw HTTP (avoids ConvexHttpClient's
+ * Math.random() which conflicts with Next.js prerendering).
+ * Cached at build time so the sidebar includes PDFs even when they
+ * aren't on disk (i.e. on Vercel).
+ */
+async function fetchConvexPdfPaths(): Promise<string[]> {
+  "use cache";
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!convexUrl) return [];
+  try {
+    // Convex HTTP API: POST to /api/query with the function path
+    const siteUrl = convexUrl.replace(/\.cloud$/, ".convex.site").replace(/\.cloud\//, ".convex.site/");
+    const apiUrl = `${convexUrl}/api/query`;
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        path: "documents:listPdfAssets",
+        args: {},
+        format: "json",
+      }),
+    });
+    if (!res.ok) {
+      console.warn(`[fetchConvexPdfPaths] Convex query failed: ${res.status}`);
+      return [];
+    }
+    const data = await res.json();
+    // Convex returns { value: [...], status: "success" } or the array directly
+    const assets: Array<{ path: string }> = data.value ?? data;
+    return assets.map((a) => a.path);
+  } catch (err) {
+    console.warn("[fetchConvexPdfPaths] Failed:", err);
+    return [];
+  }
+}
+
+/**
+ * Build the file tree and merge in PDF entries from Convex.
+ * On Vercel, PDFs aren't on disk — they live in Blob and are tracked in
+ * the Convex pdfAssets table.  This function fetches those paths and
+ * inserts them into the tree so the sidebar shows PDFs in prod.
+ */
+export async function getFileTreeWithPdfs(): Promise<FileNode[]> {
+  const tree = getFileTree();
+
+  // Collect PDF paths already discovered on disk
+  const diskPdfs = new Set<string>();
+  (function walk(nodes: FileNode[]) {
+    for (const n of nodes) {
+      if (n.type === "pdf" && n.pdfPath) diskPdfs.add(n.pdfPath);
+      if (n.children) walk(n.children);
+    }
+  })(tree);
+
+  // Fetch PDF asset paths from Convex (cached at build time)
+  const pdfPaths = await fetchConvexPdfPaths();
+  if (pdfPaths.length === 0) return tree;
+
+  let added = 0;
+  for (const pdfPath of pdfPaths) {
+    if (diskPdfs.has(pdfPath)) continue; // already in tree from disk
+
+    const segments = pdfPath.split("/");
+    const fileName = segments.pop()!;
+    const nameWithoutExt = fileName.replace(/\.pdf$/, "");
+
+    // Walk/create directory nodes to reach the parent folder
+    let current = tree;
+    for (const seg of segments) {
+      let dir = current.find((n) => n.type === "directory" && n.name === seg);
+      if (!dir) {
+        dir = { name: seg, slug: segments.slice(0, segments.indexOf(seg) + 1).join("/"), type: "directory", children: [] };
+        current.push(dir);
+      }
+      current = dir.children!;
+    }
+
+    current.push({
+      name: nameWithoutExt,
+      slug: pdfPath,
+      type: "pdf",
+      pdfPath,
+    });
+    added++;
+  }
+
+  // Re-sort any nodes we touched
+  if (added > 0) {
+    (function sortTree(nodes: FileNode[]) {
+      nodes.sort((a, b) => a.name.localeCompare(b.name));
+      for (const n of nodes) if (n.children) sortTree(n.children);
+    })(tree);
+    console.log(`[getFileTreeWithPdfs] Merged ${added} PDFs from Convex`);
+  }
+
+  return tree;
+}
+
 /** Read and parse a single markdown file (sync — for static generation) */
 export function getMarkdownFile(slug: string): MarkdownFile | null {
   const filePath = path.join(OBSIDIAN_DIR, `${slug}.md`);

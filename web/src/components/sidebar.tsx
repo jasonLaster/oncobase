@@ -35,7 +35,6 @@ function CommentIcon() {
 
 export function SidebarTopLinks({
   onNavigate,
-  tree,
 }: {
   onNavigate?: () => void;
   tree: FileNode[];
@@ -127,7 +126,7 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
         target="_blank"
         rel="noopener noreferrer"
         onClick={onNavigate}
-        className="flex items-center gap-1.5 px-2 py-1 text-sm rounded truncate transition-colors text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+        className="flex items-center gap-1.5 px-2 py-1 text-sm rounded truncate transition-colors text-[var(--brand)] hover:bg-[var(--accent-light)] hover:text-[var(--brand)]"
         style={{ paddingLeft: `${depth * 12 + 20}px` }}
         title={`${formatName(node.name)}.pdf`}
       >

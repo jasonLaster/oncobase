@@ -3,16 +3,14 @@ import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { ResizableLayout } from "@/components/resizable-layout";
 import { BottomNav } from "@/components/bottom-nav";
-import { getFileTree } from "@/lib/markdown";
+import { getFileTreeWithPdfs } from "@/lib/markdown";
 
-export default function MainLayout({
+export default async function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const t0 = performance.now();
-  const tree = getFileTree();
-  console.log(`[perf] getFileTree ${(performance.now() - t0).toFixed(1)}ms`);
+  const tree = await getFileTreeWithPdfs();
 
   return (
     <div className="grid grid-rows-[auto_1fr] h-dvh overflow-hidden">
