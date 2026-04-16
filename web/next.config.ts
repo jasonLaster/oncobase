@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
       "metabolic-therapy": "treatment/metabolic-therapy",
       "scalp-cooling": "treatment/scalp-cooling",
       // prognosis
-      prognosis: "prognosis/prognosis",
+      prognosis: "prognosis/Prognostic%20Indicators",
       "survival-statistics": "prognosis/survival-statistics",
       // people
       "medical-team": "people/medical-team",
@@ -61,6 +61,15 @@ const nextConfig: NextConfig = {
       {
         source: "/wiki/diagnostics/biopsy-plan-april10",
         destination: "/wiki/diagnostics/biopsy/biopsy-plan-april10",
+      },
+      // Prognosis page renamed
+      {
+        source: "/wiki/prognosis/prognosis",
+        destination: "/wiki/prognosis/Prognostic%20Indicators",
+      },
+      {
+        source: "/wiki/prognosis/Prognosis%20Indicators",
+        destination: "/wiki/prognosis/Prognostic%20Indicators",
       },
     ];
 
