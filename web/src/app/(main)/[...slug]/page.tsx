@@ -11,7 +11,6 @@ import { DocumentComments } from "@/components/document-comments-wrapper";
 
 // All sources/ content is immutable raw documents rarely visited directly.
 // Deferring them to on-demand rendering saves significant build time.
-// With cacheComponents enabled, non-prebuilt pages render on demand automatically.
 const ISR_DEFERRED_PREFIXES = ["sources/"];
 
 export async function generateStaticParams() {
@@ -95,6 +94,38 @@ export async function generateMetadata({
   };
 }
 
+// ── Page header (static in PPR cache) ────────────────────────────────────────
+function DocHeader({ file }: { file: { title: string; content: string; frontmatter: Record<string, unknown> } }) {
+  return (
+    <header className="mb-6">
+      <div className="flex items-start justify-between gap-2">
+        <h1 className="text-3xl font-bold">{file.title}</h1>
+        <CopyPageButton markdown={`# ${file.title}\n\n${file.content}`} />
+      </div>
+      {Array.isArray(file.frontmatter.tags) && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {(file.frontmatter.tags as string[]).map((tag: string) => (
+            <Link
+              key={tag}
+              href={`/tags/${encodeURIComponent(tag)}`}
+              className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs text-[var(--brand)] ring-1 ring-[var(--brand)]/20 transition-colors hover:bg-[var(--brand)]/15"
+            >
+              {tag}
+            </Link>
+          ))}
+        </div>
+      )}
+    </header>
+  );
+}
+
+// ── Async body for ISR pages (streamed via PPR) ──────────────────────────────
+async function DeferredMarkdownBody({ filePath, slug }: { filePath: string; slug: string }) {
+  const file = await getMarkdownFileAsync(filePath);
+  if (!file) notFound();
+  return <MarkdownRendererAsync content={file.content} currentSlug={slug} />;
+}
+
 export default async function DocPage({
   params,
 }: {
@@ -114,6 +145,7 @@ export default async function DocPage({
     redirect(`/${cleanPath}`);
   }
 
+  // Sync file read — always fast (local disk), provides header data for PPR cache
   const file = getMarkdownFile(filePath);
 
   if (!file) {
@@ -124,25 +156,7 @@ export default async function DocPage({
 
   return (
     <DocumentComments documentSlug={file.slug} documentTitle={file.title}>
-      <header className="mb-6">
-        <div className="flex items-start justify-between gap-2">
-          <h1 className="text-3xl font-bold">{file.title}</h1>
-          <CopyPageButton markdown={`# ${file.title}\n\n${file.content}`} />
-        </div>
-        {Array.isArray(file.frontmatter.tags) && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {(file.frontmatter.tags as string[]).map((tag: string) => (
-              <Link
-                key={tag}
-                href={`/tags/${encodeURIComponent(tag)}`}
-                className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs text-[var(--brand)] ring-1 ring-[var(--brand)]/20 transition-colors hover:bg-[var(--brand)]/15"
-              >
-                {tag}
-              </Link>
-            ))}
-          </div>
-        )}
-      </header>
+      <DocHeader file={file} />
       {isDeferred ? (
         <Suspense fallback={null}>
           <DeferredMarkdownBody filePath={filePath} slug={file.slug} />
@@ -152,15 +166,4 @@ export default async function DocPage({
       )}
     </DocumentComments>
   );
-}
-
-/**
- * Async body for ISR (deferred) pages. Wrapped in Suspense so PPR can
- * cache and send the header/sidebar shell immediately while the markdown
- * body streams in on first cold visit. SSG pages bypass this entirely.
- */
-async function DeferredMarkdownBody({ filePath, slug }: { filePath: string; slug: string }) {
-  const file = await getMarkdownFileAsync(filePath);
-  if (!file) notFound();
-  return <MarkdownRendererAsync content={file.content} currentSlug={slug} />;
 }
