@@ -1,28 +1,24 @@
-import { Suspense } from "react";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { ResizableLayout } from "@/components/resizable-layout";
 import { BottomNav } from "@/components/bottom-nav";
-import { getFileTreeWithPdfs } from "@/lib/markdown";
+import { getFileTree } from "@/lib/markdown";
 
-export default async function MainLayout({
+export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const tree = await getFileTreeWithPdfs();
+  // Sync file tree read — no async, no Suspense, fully static in PPR cache
+  const tree = getFileTree();
 
   return (
     <div className="grid grid-rows-[auto_1fr] h-dvh overflow-hidden">
-      <Suspense>
-        <Header />
-      </Suspense>
-      <ResizableLayout sidebar={<Suspense><Sidebar tree={tree} /></Suspense>}>
+      <Header />
+      <ResizableLayout sidebar={<Sidebar tree={tree} />}>
         {children}
       </ResizableLayout>
-      <Suspense>
-        <BottomNav tree={tree} />
-      </Suspense>
+      <BottomNav tree={tree} />
     </div>
   );
 }
