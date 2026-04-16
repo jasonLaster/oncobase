@@ -1,18 +1,16 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Suspense } from "react";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
 import { getMarkdownFile, getMarkdownFileAsync, getAllSlugs } from "@/lib/markdown";
-import { MarkdownRendererAsync } from "@/components/markdown-renderer";
+import { MarkdownRenderer, MarkdownRendererAsync } from "@/components/markdown-renderer";
 import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
 
-// Directories under sources/ that are deferred to on-demand rendering.
-// These are immutable raw documents rarely visited directly; deferring them
-// cuts static generation from ~2200 → ~400 pages, saving 3-4 min of build time.
-// With cacheComponents (PPR), ungenerated pages are rendered on demand automatically.
+// All sources/ content is immutable raw documents rarely visited directly.
+// Deferring them to on-demand ISR saves significant build time.
 const ISR_DEFERRED_PREFIXES = ["sources/"];
 
 export async function generateStaticParams() {
@@ -31,10 +29,6 @@ export async function generateStaticParams() {
 }
 
 // ── Build-time description cache ─────────────────────────────────────────────
-// Fetched once per worker via paginated scan instead of one query per page.
-// Module-level Promise ensures concurrent generateMetadata() calls share a
-// single in-flight fetch rather than firing 2000+ individual Convex queries.
-
 let _descriptionsCache: Promise<Map<string, string>> | null = null;
 
 function getDescriptionMap(): Promise<Map<string, string>> {
@@ -84,7 +78,7 @@ export async function generateMetadata({
   const description = (await getDescriptionMap()).get(file.slug) ?? null;
 
   return {
-    title: file.title,
+    title: `${file.title} — Diana's TNBC`,
     description: description ?? undefined,
     openGraph: {
       title: file.title,
@@ -99,25 +93,19 @@ export async function generateMetadata({
   };
 }
 
-export default async function DocPage({
-  params,
-}: {
-  params: Promise<{ slug: string[] }>;
-}) {
-  const { slug } = await params;
-  const filePath = slug.map(decodeURIComponent).join("/");
+// ── Content skeleton shown while ISR pages render on first visit ─────────────
+function ContentSkeleton() {
+  return (
+    <div className="animate-pulse space-y-2.5 py-2">
+      <div className="h-3.5 w-full rounded bg-[var(--sidebar-border)]" />
+      <div className="h-3.5 w-4/5 rounded bg-[var(--sidebar-border)]" />
+      <div className="h-3.5 w-3/5 rounded bg-[var(--sidebar-border)]" />
+    </div>
+  );
+}
 
-  // Redirect .pdf URLs to the file-serving API route
-  if (filePath.endsWith(".pdf")) {
-    redirect(`/api/file?path=${encodeURIComponent(filePath)}`);
-  }
-
-  // Strip .md suffix — URLs like /wiki/foo.md should serve /wiki/foo
-  const cleanPath = filePath.endsWith(".md") ? filePath.slice(0, -3) : filePath;
-  if (cleanPath !== filePath) {
-    redirect(`/${cleanPath}`);
-  }
-
+// ── Async page content — wrapped in Suspense for PPR ─────────────────────────
+async function DocContent({ filePath }: { filePath: string }) {
   const file = await getMarkdownFileAsync(filePath);
 
   if (!file) {
@@ -145,9 +133,33 @@ export default async function DocPage({
           </div>
         )}
       </header>
-      <Suspense fallback={<div className="prose max-w-none animate-pulse"><div className="h-4 bg-muted rounded w-3/4 mb-3" /><div className="h-4 bg-muted rounded w-1/2 mb-3" /><div className="h-4 bg-muted rounded w-5/6" /></div>}>
-        <MarkdownRendererAsync content={file.content} currentSlug={file.slug} />
-      </Suspense>
+      <MarkdownRendererAsync content={file.content} currentSlug={file.slug} />
     </DocumentComments>
+  );
+}
+
+export default async function DocPage({
+  params,
+}: {
+  params: Promise<{ slug: string[] }>;
+}) {
+  const { slug } = await params;
+  const filePath = slug.map(decodeURIComponent).join("/");
+
+  // Redirect .pdf URLs to the file-serving API route
+  if (filePath.endsWith(".pdf")) {
+    redirect(`/api/file?path=${encodeURIComponent(filePath)}`);
+  }
+
+  // Strip .md suffix — URLs like /wiki/foo.md should serve /wiki/foo
+  const cleanPath = filePath.endsWith(".md") ? filePath.slice(0, -3) : filePath;
+  if (cleanPath !== filePath) {
+    redirect(`/${cleanPath}`);
+  }
+
+  return (
+    <Suspense fallback={<ContentSkeleton />}>
+      <DocContent filePath={filePath} />
+    </Suspense>
   );
 }

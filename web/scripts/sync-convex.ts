@@ -31,8 +31,8 @@ if (DEV_URL === PROD_URL) {
 }
 
 async function main() {
-  const prod = new ConvexHttpClient(PROD_URL);
-  const dev = new ConvexHttpClient(DEV_URL);
+  const prod = new ConvexHttpClient(PROD_URL!);
+  const dev = new ConvexHttpClient(DEV_URL!);
 
   // Fetch all PDF assets from prod
   const prodAssets = await prod.query(api.documents.listPdfAssets, {});
