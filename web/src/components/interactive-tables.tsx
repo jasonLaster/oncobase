@@ -159,9 +159,9 @@ function wrapWithExpandCollapse(table: HTMLTableElement): () => void {
   btn.addEventListener("click", toggle);
   wrapper.appendChild(btn);
 
-  // Auto-expand tables with 5+ columns
-  const colCount = table.querySelectorAll("thead th").length;
-  if (colCount >= 5) {
+  // Auto-expand tables that actually overflow their container.
+  // Tables with many columns but narrow content should stay centered.
+  if (wrapper.scrollWidth > wrapper.clientWidth + 2) {
     toggle();
   }
 

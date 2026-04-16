@@ -145,6 +145,8 @@ body {
 .table-scroll-wrapper { position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1rem 0; }
 .table-scroll-wrapper[data-scrollable]::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 32px; background: linear-gradient(to right, transparent, var(--background)); pointer-events: none; }
 .table-scroll-wrapper[data-scrolled-end]::after { display: none; }
+/* Center fixed-width tables that fit within the container */
+.table-scroll-wrapper:not([data-scrollable]) table[style*="table-layout"] { margin-left: auto; margin-right: auto; }
 .prose th { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 2px solid var(--sidebar-border); font-weight: 600; }
 .prose td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--sidebar-border); }
 .prose tr:hover td { background: var(--accent-light); }
