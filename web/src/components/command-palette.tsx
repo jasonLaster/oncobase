@@ -119,6 +119,7 @@ export function CommandPalette() {
 
   useEffect(() => {
     if (open && pages.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy data fetch on dialog open
       setLoading(true);
       fetch("/api/pages")
         .then((r) => r.json())
@@ -130,6 +131,7 @@ export function CommandPalette() {
 
   // Reset search when closing
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset derived state on close
     if (!open) setSearch("");
   }, [open]);
 
@@ -345,7 +347,11 @@ export function ActionPalette() {
     } else {
       newPref = null;
     }
-    newPref === null ? localStorage.removeItem("theme") : localStorage.setItem("theme", newPref);
+    if (newPref === null) {
+      localStorage.removeItem("theme");
+    } else {
+      localStorage.setItem("theme", newPref);
+    }
     notifyTheme();
     setOpen(false);
   }

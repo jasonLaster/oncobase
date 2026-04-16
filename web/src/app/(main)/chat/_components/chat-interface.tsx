@@ -490,7 +490,7 @@ export function ChatInterface({
   // Generation trigger with abort support
   const abortRef = useRef<AbortController | null>(null);
 
-  function triggerGeneration(convId: string, msgs: Array<{ id: string; role: string; parts: unknown[] }>) {
+  const triggerGeneration = useCallback((convId: string, msgs: Array<{ id: string; role: string; parts: unknown[] }>) => {
     hasResumed.current = true; // prevent auto-resume from double-firing
     setError(null);
     abortRef.current?.abort();
@@ -519,7 +519,7 @@ export function ChatInterface({
         disableLastUserMessage();
       }
     });
-  }
+  }, [clearStreamingMutation, disableLastUserMessage]);
 
   const handleStop = useCallback(() => {
     abortRef.current?.abort();
@@ -541,14 +541,13 @@ export function ChatInterface({
     if (!lastMsgIsActiveUser) return;
     if (serverStreamingText !== undefined) return; // already streaming
 
-    hasResumed.current = true;
-    // Only include non-disabled messages in the generation request
+    // triggerGeneration sets hasResumed.current = true internally
     const activeMessages = messages.filter((m) => !(m as ChatUIMessage).disabled);
-    triggerGeneration(
+    triggerGeneration( // eslint-disable-line react-hooks/set-state-in-effect -- fire-and-forget async generation on mount
       activeConvId,
       activeMessages.map((m) => ({ id: m.id, role: m.role, parts: m.parts as unknown[] }))
     );
-  }, [activeConvId, lastMsgIsActiveUser, serverStreamingText, messages]);
+  }, [activeConvId, lastMsgIsActiveUser, serverStreamingText, messages, triggerGeneration]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -560,7 +559,7 @@ export function ChatInterface({
 
       // Create conversation on first message
       if (!convIdRef.current) {
-        const title = text.slice(0, 60) + (text.length > 60 ? "..." : "");
+        const title = text.slice(0, 60) + (text.length > 60 ? "…" : "");
         const id = await createConversation({ title });
         convIdRef.current = id;
         setActiveConvId(id);
@@ -603,7 +602,7 @@ export function ChatInterface({
       setInput("");
       isNearBottomRef.current = true; // force scroll on new message
     },
-    [input, isBusy, createConversation, sendMessageMutation, messages]
+    [input, isBusy, createConversation, sendMessageMutation, messages, triggerGeneration]
   );
 
   return (

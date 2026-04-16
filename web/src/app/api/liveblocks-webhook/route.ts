@@ -72,10 +72,10 @@ export async function POST(req: NextRequest) {
 // Since module-level state is shared within the same process,
 // we expose a setter from the threads route module.
 
-function clearThreadsCache() {
+async function clearThreadsCache() {
   try {
     // Dynamic import to avoid circular deps — the cache lives in the threads route
-    const threadsModule = require("../liveblocks-threads/route");
+    const threadsModule = await import("../liveblocks-threads/route");
     if (typeof threadsModule.invalidateCache === "function") {
       threadsModule.invalidateCache();
     }

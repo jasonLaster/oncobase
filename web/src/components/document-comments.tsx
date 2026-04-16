@@ -239,7 +239,10 @@ function CommentsShell({
   children: ReactNode;
 }) {
   const threadsResult = useThreads();
-  const threads = threadsResult.isLoading || threadsResult.error ? [] : threadsResult.threads;
+  const threads = useMemo(
+    () => (threadsResult.isLoading || threadsResult.error ? [] : threadsResult.threads),
+    [threadsResult.isLoading, threadsResult.error, threadsResult.threads]
+  );
   const articleRef = useRef<HTMLElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const pendingSelectionId = useId();
@@ -975,26 +978,6 @@ function CommentsShell({
 
 function getRoomId(slug: string) {
   return `markdown:${slug}`;
-}
-
-/**
- * Lightweight shell rendered before Liveblocks connects.
- * Just renders the document content — no sidebar, no Liveblocks connection.
- * This avoids creating a Liveblocks room for every page visit (free plan: 500 rooms).
- * Liveblocks only activates when the user clicks the comment button.
- */
-function InactiveShell({
-  children,
-  onActivate,
-}: {
-  children: ReactNode;
-  onActivate: () => void;
-}) {
-  return (
-    <OutlineShell>
-      {children}
-    </OutlineShell>
-  );
 }
 
 /**

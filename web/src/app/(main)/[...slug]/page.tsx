@@ -104,7 +104,6 @@ export default async function DocPage({
 }: {
   params: Promise<{ slug: string[] }>;
 }) {
-  const t0 = performance.now();
   const { slug } = await params;
   const filePath = slug.map(decodeURIComponent).join("/");
 
@@ -120,15 +119,10 @@ export default async function DocPage({
   }
 
   const file = await getMarkdownFileAsync(filePath);
-  const tFile = performance.now();
 
   if (!file) {
     notFound();
   }
-
-  console.log(
-    `[perf] DocPage slug=${filePath} fileRead=${(tFile - t0).toFixed(1)}ms`
-  );
 
   return (
     <DocumentComments documentSlug={file.slug} documentTitle={file.title}>

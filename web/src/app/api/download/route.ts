@@ -172,11 +172,6 @@ const CACHE_KEYS = {
 
 type DownloadType = keyof typeof CACHE_KEYS;
 
-const BLOB_NAMES = {
-  full: "diana-tnbc-wiki-full.zip",
-  markdown: "diana-tnbc-wiki-markdown.zip",
-} as const;
-
 const CONTENT_DISPOSITIONS = {
   full: 'attachment; filename="diana-tnbc-wiki-full.zip"',
   markdown: 'attachment; filename="diana-tnbc-wiki-markdown.zip"',
