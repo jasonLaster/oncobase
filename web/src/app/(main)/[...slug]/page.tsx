@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
-import { getMarkdownFile, getMarkdownFileAsync, getAllSlugs } from "@/lib/markdown";
-import { MarkdownRenderer, MarkdownRendererAsync } from "@/components/markdown-renderer";
+import { getMarkdownFile, getAllSlugs } from "@/lib/markdown";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
 
 // All sources/ content is immutable raw documents rarely visited directly.
-// Deferring them to on-demand ISR saves significant build time.
+// Deferring them to on-demand rendering saves significant build time.
+// With cacheComponents enabled, non-prebuilt pages render on demand automatically.
 const ISR_DEFERRED_PREFIXES = ["sources/"];
 
 export async function generateStaticParams() {
@@ -37,6 +37,7 @@ function getDescriptionMap(): Promise<Map<string, string>> {
 }
 
 async function fetchAllDescriptions(): Promise<Map<string, string>> {
+  "use cache";
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
   if (!convexUrl) return new Map();
   try {
@@ -93,20 +94,26 @@ export async function generateMetadata({
   };
 }
 
-// ── Content skeleton shown while ISR pages render on first visit ─────────────
-function ContentSkeleton() {
-  return (
-    <div className="animate-pulse space-y-2.5 py-2">
-      <div className="h-3.5 w-full rounded bg-[var(--sidebar-border)]" />
-      <div className="h-3.5 w-4/5 rounded bg-[var(--sidebar-border)]" />
-      <div className="h-3.5 w-3/5 rounded bg-[var(--sidebar-border)]" />
-    </div>
-  );
-}
+export default async function DocPage({
+  params,
+}: {
+  params: Promise<{ slug: string[] }>;
+}) {
+  const { slug } = await params;
+  const filePath = slug.map(decodeURIComponent).join("/");
 
-// ── Async page content — wrapped in Suspense for PPR ─────────────────────────
-async function DocContent({ filePath }: { filePath: string }) {
-  const file = await getMarkdownFileAsync(filePath);
+  // Redirect .pdf URLs to the file-serving API route
+  if (filePath.endsWith(".pdf")) {
+    redirect(`/api/file?path=${encodeURIComponent(filePath)}`);
+  }
+
+  // Strip .md suffix — URLs like /wiki/foo.md should serve /wiki/foo
+  const cleanPath = filePath.endsWith(".md") ? filePath.slice(0, -3) : filePath;
+  if (cleanPath !== filePath) {
+    redirect(`/${cleanPath}`);
+  }
+
+  const file = getMarkdownFile(filePath);
 
   if (!file) {
     notFound();
@@ -133,33 +140,7 @@ async function DocContent({ filePath }: { filePath: string }) {
           </div>
         )}
       </header>
-      <MarkdownRendererAsync content={file.content} currentSlug={file.slug} />
+      <MarkdownRenderer content={file.content} currentSlug={file.slug} />
     </DocumentComments>
-  );
-}
-
-export default async function DocPage({
-  params,
-}: {
-  params: Promise<{ slug: string[] }>;
-}) {
-  const { slug } = await params;
-  const filePath = slug.map(decodeURIComponent).join("/");
-
-  // Redirect .pdf URLs to the file-serving API route
-  if (filePath.endsWith(".pdf")) {
-    redirect(`/api/file?path=${encodeURIComponent(filePath)}`);
-  }
-
-  // Strip .md suffix — URLs like /wiki/foo.md should serve /wiki/foo
-  const cleanPath = filePath.endsWith(".md") ? filePath.slice(0, -3) : filePath;
-  if (cleanPath !== filePath) {
-    redirect(`/${cleanPath}`);
-  }
-
-  return (
-    <Suspense fallback={<ContentSkeleton />}>
-      <DocContent filePath={filePath} />
-    </Suspense>
   );
 }
