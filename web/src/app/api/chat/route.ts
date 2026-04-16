@@ -152,9 +152,9 @@ function generateSearchPatterns(query: string): string[] {
 
 export async function POST(request: Request) {
   // Fail fast on missing credentials
-  if (!process.env.OPENROUTER_API_KEY) {
+  if (!process.env.AI_GATEWAY_API_KEY) {
     return new Response(
-      JSON.stringify({ error: "OPENROUTER_API_KEY is not configured. Add it to .env.local to enable chat." }),
+      JSON.stringify({ error: "AI_GATEWAY_API_KEY is not configured. Add it to .env.local to enable chat." }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -433,9 +433,9 @@ export async function POST(request: Request) {
           const isAuth = errMsg.includes("Authentication") || errMsg.includes("401") || errMsg.includes("Unauthorized");
           const isCredits = errMsg.includes("credits") || errMsg.includes("402");
           const userMsg = isAuth
-            ? "API key is invalid or missing. Check your OPENROUTER_API_KEY in .env.local."
+            ? "API key is invalid or missing. Check your AI_GATEWAY_API_KEY in .env.local."
             : isCredits
-              ? "Out of API credits. Add credits at openrouter.ai/settings/keys."
+              ? "Out of API credits. Check your Vercel AI Gateway usage."
               : `Something went wrong: ${errMsg}`;
           await getConvex().mutation(api.conversations.updateStreaming, {
             conversationId: convId,
@@ -533,7 +533,7 @@ export async function POST(request: Request) {
     return new Response(
       JSON.stringify({
         error: isCredits
-          ? "Out of API credits. Please add credits at openrouter.ai/settings/keys."
+          ? "Out of API credits. Check your Vercel AI Gateway usage."
           : `Chat error: ${msg}`,
       }),
       { status: isCredits ? 402 : 500, headers: { "Content-Type": "application/json" } }

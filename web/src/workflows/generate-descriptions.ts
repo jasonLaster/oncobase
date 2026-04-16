@@ -2,7 +2,7 @@
  * Durable workflow for generating AI descriptions for wiki pages.
  *
  * Triggered as a child of postDeployWorkflow. For each page in Convex that
- * lacks a description, calls OpenRouter to generate one and saves it back.
+ * lacks a description, calls Vercel AI Gateway to generate one and saves it back.
  * Already-described pages are skipped (idempotent).
  */
 
@@ -50,25 +50,19 @@ async function fetchPagesBatch(cursor: string | null): Promise<{
 async function generateAndSaveBatch(docs: Array<{ slug: string; title: string; content: string }>): Promise<number> {
   "use step";
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new FatalError("OPENROUTER_API_KEY not set");
+  const apiKey = process.env.AI_GATEWAY_API_KEY;
+  if (!apiKey) throw new FatalError("AI_GATEWAY_API_KEY not set");
 
   const { fetchMutation } = await import("convex/nextjs");
   const { api } = await import("../../convex/_generated/api");
-  const { createOpenAI } = await import("@ai-sdk/openai");
   const { generateText } = await import("ai");
-
-  const openrouter = createOpenAI({
-    baseURL: "https://openrouter.ai/api/v1",
-    apiKey,
-  });
 
   let saved = 0;
   await Promise.all(
     docs.map(async (doc) => {
       try {
         const { text } = await generateText({
-          model: openrouter.chat("openai/gpt-4.1-mini"),
+          model: "openai/gpt-4.1-mini",
           maxOutputTokens: 80,
           system:
             "You write one-sentence descriptions for wiki pages in a breast cancer research knowledge base. Write a single sentence (max 155 characters) summarizing what the page covers. No quotes, no trailing period required.",
@@ -90,9 +84,9 @@ async function generateAndSaveBatch(docs: Array<{ slug: string; title: string; c
 export async function generateDescriptionsWorkflow() {
   "use workflow";
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.AI_GATEWAY_API_KEY;
   if (!apiKey) {
-    console.log("[generate-descriptions] OPENROUTER_API_KEY not set — skipping");
+    console.log("[generate-descriptions] AI_GATEWAY_API_KEY not set — skipping");
     return;
   }
 

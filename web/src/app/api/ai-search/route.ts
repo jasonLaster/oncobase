@@ -125,7 +125,7 @@ Score this document's relevance to the query (0-10). A score of 5+ means it dire
     const msg = (e as Error).message ?? "";
     if (msg.includes("limit") || msg.includes("402") || msg.includes("403")) {
       return Response.json(
-        { results: [], error: "API key limit reached. Increase your limit at openrouter.ai/settings/keys." },
+        { results: [], error: "API key limit reached. Check your Vercel AI Gateway usage." },
         { status: 402 }
       );
     }

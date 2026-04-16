@@ -8,20 +8,14 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import { embed } from "../src/lib/embeddings";
-import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 
 // Load env: run with `bun --env-file=.env.local --env-file=.env scripts/eval-ai-search.ts`
-// or set OPENAI_API_KEY, OPENROUTER_API_KEY, NEXT_PUBLIC_CONVEX_URL in your shell
+// or set OPENAI_API_KEY, AI_GATEWAY_API_KEY, NEXT_PUBLIC_CONVEX_URL in your shell
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL!;
 const convex = new ConvexHttpClient(CONVEX_URL);
-
-const openrouter = createOpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
 
 const scoreSchema = z.object({
   relevance: z.number().min(0).max(10),
@@ -178,7 +172,7 @@ async function runPipeline(query: string, textSlugs: string[] = []): Promise<Sta
         batch.map(async (doc) => {
           try {
             const { object } = await generateObject({
-              model: openrouter.chat("openai/gpt-5.4-mini"),
+              model: "openai/gpt-5.4-mini",
               maxOutputTokens: 200,
               schema: scoreSchema,
               prompt: `You are evaluating a search result for the query: "${query}"

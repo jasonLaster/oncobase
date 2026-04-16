@@ -21,7 +21,6 @@ import {
   stepCountIs,
   type ModelMessage,
 } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
@@ -35,12 +34,7 @@ const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 if (!CONVEX_URL) { console.error("NEXT_PUBLIC_CONVEX_URL not set"); process.exit(1); }
 const convex = new ConvexHttpClient(CONVEX_URL);
 
-const openrouter = createOpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
-
-// --- Cost per 1M tokens (input/output) from OpenRouter ---
+// --- Cost per 1M tokens (input/output) ---
 const COST_PER_1M: Record<string, { input: number; output: number }> = {
   "openai/gpt-5.4-mini":          { input: 1.00, output: 4.00 },
   "openai/gpt-4.1-mini":          { input: 0.40, output: 1.60 },
@@ -233,7 +227,7 @@ function heuristicScore(events: ToolEvent[], text: string): { retrieval: number;
 async function judgeReadability(question: string, response: string): Promise<number> {
   try {
     const result = await generateText({
-      model: openrouter.chat("google/gemini-2.5-flash"), // cheap judge; swap to sonnet-4.6 when credits allow
+      model: "google/gemini-2.5-flash", // cheap judge; swap to sonnet-4.6 when credits allow
       system: `You are an evaluator scoring a medical research assistant's response for readability and helpfulness.
 Score from 1-10 where:
 1-3: Confusing, poorly organized, hard to follow
@@ -284,7 +278,7 @@ async function runOne(question: string, model: string): Promise<EvalResult> {
   const messages: ModelMessage[] = [{ role: "user", content: question }];
 
   const result = await streamText({
-    model: openrouter.chat(model),
+    model: model,
     system: systemPrompt,
     messages,
     stopWhen: stepCountIs(10),

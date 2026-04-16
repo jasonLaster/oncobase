@@ -5,13 +5,12 @@
  * Run before next build:
  *   bun scripts/generate-descriptions.ts
  *
- * Requires NEXT_PUBLIC_CONVEX_URL and OPENROUTER_API_KEY.
+ * Requires NEXT_PUBLIC_CONVEX_URL and AI_GATEWAY_API_KEY.
  */
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { ConvexHttpClient } from "convex/browser";
-import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { api } from "../convex/_generated/api";
 import dotenv from "dotenv";
@@ -25,9 +24,9 @@ if (!CONVEX_URL) {
   process.exit(0);
 }
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-if (!OPENROUTER_API_KEY) {
-  console.error("OPENROUTER_API_KEY not set — skipping");
+const AI_GATEWAY_API_KEY = process.env.AI_GATEWAY_API_KEY;
+if (!AI_GATEWAY_API_KEY) {
+  console.error("AI_GATEWAY_API_KEY not set — skipping");
   process.exit(0);
 }
 
@@ -65,15 +64,10 @@ function getAllPages(dir: string = OBSIDIAN_DIR, basePath: string = ""): PageEnt
   return pages;
 }
 
-const openrouter = createOpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: OPENROUTER_API_KEY,
-});
-
 async function generateDescription(title: string, content: string): Promise<string> {
   const excerpt = content.slice(0, 2000);
   const { text } = await generateText({
-    model: openrouter.chat("openai/gpt-5.4-mini"),
+    model: "openai/gpt-5.4-mini",
     maxOutputTokens: 80,
     system:
       "You write one-sentence descriptions for wiki pages in a breast cancer research knowledge base. Write a single sentence (max 155 characters) summarizing what the page covers. No quotes, no trailing period required.",

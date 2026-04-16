@@ -342,8 +342,8 @@ This document focuses on shipped behavior and notable implementation details. De
   - enables or disables the comments product surface
 - `NEXT_PUBLIC_CONVEX_URL`
   - powers chat persistence, document queries, metadata, and production asset lookup
-- `OPENROUTER_API_KEY`
-  - required for chat responses and AI-generated page descriptions
+- `AI_GATEWAY_API_KEY`
+  - required for chat responses and AI-generated page descriptions (Vercel AI Gateway)
 - `OPENAI_API_KEY`
   - required for embeddings and semantic search
 - `LIVEBLOCKS_SECRET_KEY` or `LIVEBLOCKS_API_KEY`
