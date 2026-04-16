@@ -829,7 +829,7 @@ function CommentsShell({
           <article
             ref={articleRef}
             onPointerUp={handlePointerUp}
-            className="relative mx-auto max-w-4xl overflow-visible"
+            className="relative mx-auto max-w-4xl overflow-visible pr-4 md:pr-8"
           >
             <div className="pointer-events-none absolute inset-0 z-10">
               {highlightRects.map((rect) => (
@@ -1110,7 +1110,7 @@ export function OutlineShell({ children, onActivate }: { children: ReactNode; on
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-4 md:px-8 md:py-8 comments-content-wrapper">
         <div className="min-w-0 flex-1">
-          <article ref={articleRef} className="relative mx-auto max-w-4xl overflow-visible">
+          <article ref={articleRef} className="relative mx-auto max-w-4xl overflow-visible pr-4 md:pr-8">
             {children}
           </article>
         </div>

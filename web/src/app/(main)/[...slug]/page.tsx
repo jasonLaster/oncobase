@@ -9,14 +9,10 @@ import { MarkdownRendererAsync } from "@/components/markdown-renderer";
 import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
 
-export const dynamicParams = true;
-
-// Directories under sources/ that are deferred to on-demand ISR.
+// Directories under sources/ that are deferred to on-demand rendering.
 // These are immutable raw documents rarely visited directly; deferring them
 // cuts static generation from ~2200 → ~400 pages, saving 3-4 min of build time.
-// dynamicParams = true (below) ensures they are still served correctly on request.
-// All sources/ content is immutable raw documents rarely visited directly.
-// Deferring them to on-demand ISR saves significant build time.
+// With cacheComponents (PPR), ungenerated pages are rendered on demand automatically.
 const ISR_DEFERRED_PREFIXES = ["sources/"];
 
 export async function generateStaticParams() {

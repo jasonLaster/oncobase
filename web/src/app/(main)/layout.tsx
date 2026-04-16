@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { ResizableLayout } from "@/components/resizable-layout";
@@ -15,11 +16,15 @@ export default function MainLayout({
 
   return (
     <div className="grid grid-rows-[auto_1fr] h-dvh overflow-hidden">
-      <Header />
-      <ResizableLayout sidebar={<Sidebar tree={tree} />}>
+      <Suspense>
+        <Header />
+      </Suspense>
+      <ResizableLayout sidebar={<Suspense><Sidebar tree={tree} /></Suspense>}>
         {children}
       </ResizableLayout>
-      <BottomNav tree={tree} />
+      <Suspense>
+        <BottomNav tree={tree} />
+      </Suspense>
     </div>
   );
 }

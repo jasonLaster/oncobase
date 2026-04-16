@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  cacheComponents: true,
   async redirects() {
     const wikiRedirects: Record<string, string> = {
       // diagnostics
