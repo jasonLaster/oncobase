@@ -1,8 +1,25 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllTags, getPagesByTag } from "@/lib/markdown";
 
 export async function generateStaticParams() {
   return getAllTags().map((tag) => ({ tag }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ tag: string }>;
+}): Promise<Metadata> {
+  const { tag } = await params;
+  const decodedTag = decodeURIComponent(tag);
+  const pages = getPagesByTag(decodedTag);
+  const description = `${pages.length} pages tagged "${decodedTag}"`;
+  return {
+    title: `Tag: ${decodedTag}`,
+    description,
+    openGraph: { title: `Tag: ${decodedTag}`, description },
+  };
 }
 
 export default async function TagPage({

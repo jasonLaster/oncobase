@@ -26,7 +26,10 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Diana's TNBC",
+  title: {
+    default: "Diana's TNBC",
+    template: "%s — Diana's TNBC",
+  },
   description: "Breast cancer research and treatment knowledge base",
   robots: { index: false, follow: false },
   icons: { icon: isDev ? "/favicon-dev.svg" : "/favicon.svg" },
@@ -34,6 +37,7 @@ export const metadata: Metadata = {
     title: "Diana's TNBC",
     description: "Breast cancer research and treatment knowledge base",
     type: "website",
+    siteName: "Diana's TNBC",
   },
   twitter: {
     card: "summary",

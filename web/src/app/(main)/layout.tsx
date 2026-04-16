@@ -9,7 +9,9 @@ export default function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const t0 = performance.now();
   const tree = getFileTree();
+  console.log(`[perf] getFileTree ${(performance.now() - t0).toFixed(1)}ms`);
 
   return (
     <div className="grid grid-rows-[auto_1fr] h-dvh overflow-hidden">

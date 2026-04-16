@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { CommentsPageClient } from "@/components/comments-page-client";
+
+export const metadata: Metadata = {
+  title: "Comments",
+  description: "Recent comments and discussions",
+  openGraph: { title: "Comments", description: "Recent comments and discussions" },
+};
 
 function CommentsPageFallback() {
   return (

@@ -78,7 +78,7 @@ export function getFileTree(dir: string = OBSIDIAN_DIR, basePath: string = ""): 
   return nodes;
 }
 
-/** Read and parse a single markdown file */
+/** Read and parse a single markdown file (sync — for static generation) */
 export function getMarkdownFile(slug: string): MarkdownFile | null {
   const filePath = path.join(OBSIDIAN_DIR, `${slug}.md`);
 
@@ -88,6 +88,23 @@ export function getMarkdownFile(slug: string): MarkdownFile | null {
   }
 
   const raw = fs.readFileSync(filePath, "utf-8");
+  return parseMarkdownFile(slug, raw);
+}
+
+/** Read and parse a single markdown file (async — for page rendering) */
+export async function getMarkdownFileAsync(slug: string): Promise<MarkdownFile | null> {
+  const filePath = path.join(OBSIDIAN_DIR, `${slug}.md`);
+
+  try {
+    const raw = await fs.promises.readFile(filePath, "utf-8");
+    return parseMarkdownFile(slug, raw);
+  } catch {
+    _fileCache.set(slug, null);
+    return null;
+  }
+}
+
+function parseMarkdownFile(slug: string, raw: string): MarkdownFile {
   const hash = createHash("md5").update(raw).digest("hex");
 
   // Return cached parse if the file hasn't changed

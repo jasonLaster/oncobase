@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Suspense } from "react";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
-import { getMarkdownFile, getAllSlugs } from "@/lib/markdown";
-import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { getMarkdownFile, getMarkdownFileAsync, getAllSlugs } from "@/lib/markdown";
+import { MarkdownRendererAsync } from "@/components/markdown-renderer";
 import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
 
@@ -87,7 +88,7 @@ export async function generateMetadata({
   const description = (await getDescriptionMap()).get(file.slug) ?? null;
 
   return {
-    title: `${file.title} — Diana's TNBC`,
+    title: file.title,
     description: description ?? undefined,
     openGraph: {
       title: file.title,
@@ -107,6 +108,7 @@ export default async function DocPage({
 }: {
   params: Promise<{ slug: string[] }>;
 }) {
+  const t0 = performance.now();
   const { slug } = await params;
   const filePath = slug.map(decodeURIComponent).join("/");
 
@@ -121,11 +123,16 @@ export default async function DocPage({
     redirect(`/${cleanPath}`);
   }
 
-  const file = getMarkdownFile(filePath);
+  const file = await getMarkdownFileAsync(filePath);
+  const tFile = performance.now();
 
   if (!file) {
     notFound();
   }
+
+  console.log(
+    `[perf] DocPage slug=${filePath} fileRead=${(tFile - t0).toFixed(1)}ms`
+  );
 
   return (
     <DocumentComments documentSlug={file.slug} documentTitle={file.title}>
@@ -148,7 +155,9 @@ export default async function DocPage({
           </div>
         )}
       </header>
-      <MarkdownRenderer content={file.content} currentSlug={file.slug} />
+      <Suspense fallback={<div className="prose max-w-none animate-pulse"><div className="h-4 bg-muted rounded w-3/4 mb-3" /><div className="h-4 bg-muted rounded w-1/2 mb-3" /><div className="h-4 bg-muted rounded w-5/6" /></div>}>
+        <MarkdownRendererAsync content={file.content} currentSlug={file.slug} />
+      </Suspense>
     </DocumentComments>
   );
 }

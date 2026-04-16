@@ -269,3 +269,45 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
 
   return html;
 }
+
+/** Async version — uses async unified pipeline and non-blocking I/O */
+export async function renderMarkdownAsync(md: string, currentSlug?: string): Promise<string> {
+  const t0 = performance.now();
+  const key = hashKey(`${currentSlug ?? ""}:${md}`);
+  const cachePath = path.join(CACHE_DIR, `${key}.html`);
+
+  try {
+    const cached = await fs.promises.readFile(cachePath, "utf-8");
+    console.log(`[perf] renderMarkdown cache-hit slug=${currentSlug} ${(performance.now() - t0).toFixed(1)}ms`);
+    return cached;
+  } catch {
+    // Cache miss — render and store
+  }
+
+  const t1 = performance.now();
+  const mermaidExtracted = extractMermaidBlocks(md);
+  const tMermaid = performance.now();
+
+  const { directives, cleanMd } = parseTableDirectives(mermaidExtracted);
+  const raw = (await processor.process(cleanMd)).toString();
+  const tPipeline = performance.now();
+
+  // Wrap every table in a scroll container so horizontal scroll works before JS hydrates.
+  const wrapped = raw.replace(/<table/g, '<div class="table-scroll-wrapper"><table').replace(/<\/table>/g, "</table></div>");
+  const html = fixPdfLinks(injectColgroups(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug), directives));
+
+  console.log(
+    `[perf] renderMarkdown cache-miss slug=${currentSlug} ` +
+    `mermaid=${(tMermaid - t1).toFixed(1)}ms pipeline=${(tPipeline - tMermaid).toFixed(1)}ms ` +
+    `total=${(performance.now() - t0).toFixed(1)}ms`
+  );
+
+  try {
+    ensureCacheDir();
+    await fs.promises.writeFile(cachePath, html);
+  } catch {
+    // Non-fatal — cache write failure doesn't break the build
+  }
+
+  return html;
+}
