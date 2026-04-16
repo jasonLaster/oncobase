@@ -161,9 +161,13 @@ function wrapWithExpandCollapse(table: HTMLTableElement): () => void {
 
   // Auto-expand tables that actually overflow their container.
   // Tables with many columns but narrow content should stay centered.
-  if (wrapper.scrollWidth > wrapper.clientWidth + 2) {
-    toggle();
-  }
+  // Use rAF to check after the browser has laid out the table with
+  // any colgroup fixed widths applied above.
+  requestAnimationFrame(() => {
+    if (wrapper.scrollWidth > wrapper.clientWidth + 2) {
+      toggle();
+    }
+  });
 
   return () => {
     btn.removeEventListener("click", toggle);
