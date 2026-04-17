@@ -18,7 +18,7 @@ test.describe("Page viewing & sidebar navigation", () => {
 
     // Click a top-level file link visible without expanding (e.g., "index" or "Journal")
     await nav.getByRole("link", { name: "Journal" }).click();
-    await expect(page).toHaveURL(/\/Journal/);
+    await expect(page).toHaveURL(/\/about/Journal/);
     await expect(page.locator("h1").first()).toBeVisible();
   });
 

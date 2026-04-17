@@ -71,7 +71,7 @@ async function commentsAreEnabled(page: Page) {
 
 test.describe("Document comments sidebar", () => {
   test("sidebar loads with Comments / Outline toggle", async ({ page }) => {
-    await page.goto("/wiki/about");
+    await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     await activateAndWaitForComments(page);
 
@@ -84,7 +84,7 @@ test.describe("Document comments sidebar", () => {
 
   test("sidebar shows thread count", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto("/wiki/about");
+    await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     await activateAndWaitForComments(page);
     await ensureCommentsPaneOpen(page);
@@ -97,7 +97,7 @@ test.describe("Document comments sidebar", () => {
   });
 
   test("switching to Outline tab shows headings", async ({ page }) => {
-    await page.goto("/wiki/about");
+    await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     await activateAndWaitForComments(page);
 
@@ -110,7 +110,7 @@ test.describe("Document comments sidebar", () => {
   });
 
   test("outline sidebar renders on document page", async ({ page }) => {
-    await page.goto("/wiki/about");
+    await page.goto("/about/About");
     // The outline sidebar should render (with or without comments)
     await expect(page.locator("article").first()).toBeVisible({ timeout: 10_000 });
     // Either "Open outline" or "Outline" tab should be present
@@ -132,7 +132,7 @@ test.describe("Document comments sidebar", () => {
 
 test.describe("Comment actions dropdown", () => {
   test("comment actions menu opens with filter option", async ({ page }) => {
-    await page.goto("/Journal");
+    await page.goto("/about/Journal");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     await activateAndWaitForComments(page);
     await ensureCommentsPaneOpen(page);
@@ -144,7 +144,7 @@ test.describe("Comment actions dropdown", () => {
   });
 
   test("toggling resolved filter changes thread count label", async ({ page }) => {
-    await page.goto("/Journal");
+    await page.goto("/about/Journal");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     await activateAndWaitForComments(page);
     await ensureCommentsPaneOpen(page);
@@ -177,7 +177,7 @@ test.describe("Comment actions dropdown", () => {
 
 test.describe("Creating comments", () => {
   test("page-level composer opens and has send button", async ({ page }) => {
-    await page.goto("/Journal");
+    await page.goto("/about/Journal");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     await activateAndWaitForComments(page);
     await ensureCommentsPaneOpen(page);
@@ -196,7 +196,7 @@ test.describe("Creating comments", () => {
   });
 
   test("typing in composer enables send button", async ({ page }) => {
-    await page.goto("/Journal");
+    await page.goto("/about/Journal");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     await activateAndWaitForComments(page);
     await ensureCommentsPaneOpen(page);
@@ -221,7 +221,7 @@ test.describe("Creating comments", () => {
 
 test.describe("Text selection", () => {
   test("highlight overlay does not block text selection", async ({ page }) => {
-    await page.goto("/wiki/about");
+    await page.goto("/about/About");
     // Wait for page content to render (works with or without comments)
     await expect(page.locator("article").first()).toBeVisible();
 
@@ -339,7 +339,7 @@ test.describe("Delete thread", () => {
   });
 
   test("delete thread menu item appears on first comment", async ({ page }) => {
-    await page.goto("/wiki/about");
+    await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     await activateAndWaitForComments(page);
     await ensureCommentsPaneOpen(page);

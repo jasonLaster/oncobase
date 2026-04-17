@@ -302,7 +302,7 @@ export async function POST(request: Request) {
           while ((match = linkRegex.exec(doc.content)) !== null) {
             const linked = match[1].trim();
             // Skip Terminology anchors and self-links
-            if (linked.startsWith("Terminology") || linked === slug) continue;
+            if (linked.startsWith("about/Terminology") || linked === slug) continue;
             linkedSlugs.add(linked);
           }
 
