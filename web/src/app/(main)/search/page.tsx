@@ -16,6 +16,11 @@ interface AISearchResult {
   summary: string;
 }
 
+interface AISearchResponse {
+  results?: AISearchResult[];
+  error?: string;
+}
+
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -395,10 +400,26 @@ function AISearch({
       body: JSON.stringify({ query, slugs }),
     })
       .then(async (res) => {
-        const data = await res.json();
+        const raw = await res.text();
+        let data: AISearchResponse = {};
+
+        if (raw) {
+          try {
+            data = JSON.parse(raw) as AISearchResponse;
+          } catch {
+            throw new Error(
+              res.ok
+                ? "Search returned an invalid response."
+                : `Search failed with ${res.status} ${res.statusText}.`
+            );
+          }
+        }
+
         if (!cancelled) {
           if (data.error) {
             setError(data.error);
+          } else if (!res.ok) {
+            setError(`Search failed with ${res.status} ${res.statusText}.`);
           } else {
             setResults(data.results ?? []);
           }

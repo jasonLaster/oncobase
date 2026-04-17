@@ -109,4 +109,19 @@ test.describe("Search", () => {
       page.getByText("Search failed").first()
     ).toBeVisible({ timeout: 10_000 });
   });
+
+  test("AI mode shows readable error when API returns a non-JSON failure", async ({ page }) => {
+    await page.route("**/api/ai-search", (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: "text/html",
+        body: "<html><body>Internal Server Error</body></html>",
+      })
+    );
+
+    await page.goto("/search?q=treatment");
+    await expect(
+      page.getByText("Search failed with 500 Internal Server Error.").first()
+    ).toBeVisible({ timeout: 10_000 });
+  });
 });
