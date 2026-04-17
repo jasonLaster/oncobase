@@ -158,6 +158,8 @@ function wrapWithExpandCollapse(
   };
 
   const syncExpandedLayout = () => {
+    syncCollapsedStateForNarrowViewport();
+    updateButtonVisibility();
     updateScrollable();
     if (!expanded) {
       return;
@@ -224,6 +226,25 @@ function wrapWithExpandCollapse(
   let restoreFrame = 0;
   let destroyed = false;
 
+  const shouldUseExpansionOverlay = () =>
+    window.matchMedia("(min-width: 1024px)").matches;
+
+  const updateButtonVisibility = () => {
+    button.style.display = shouldUseExpansionOverlay() ? "" : "none";
+  };
+
+  const syncCollapsedStateForNarrowViewport = () => {
+    if (shouldUseExpansionOverlay() || !expanded) {
+      return;
+    }
+
+    expanded = false;
+    persistExpandedPreference(false);
+    button.innerHTML = expandIcon;
+    button.setAttribute("aria-label", "Expand table");
+    button.title = "Expand table";
+  };
+
   const updateButtonPlacement = () => {
     button.className = expanded
       ? "absolute -top-3 right-1.5 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/96 text-[var(--text-muted)] opacity-100 shadow-sm transition-all hover:border-[var(--brand)] hover:text-[var(--brand)]"
@@ -239,6 +260,21 @@ function wrapWithExpandCollapse(
     if (button.parentElement !== shell) {
       shell.appendChild(button);
     }
+  };
+
+  const releaseExpansionLayer = () => {
+    expandedCleanup?.();
+    expandedCleanup = null;
+    shell.style.minHeight = "";
+    wrapper.style.removeProperty("width");
+    wrapper.style.removeProperty("margin");
+
+    if (wrapper.parentElement !== shell) {
+      shell.appendChild(wrapper);
+    }
+
+    expansionLayer?.remove();
+    expansionLayer = null;
   };
 
   const readExpandedPreference = () => {
@@ -261,6 +297,15 @@ function wrapWithExpandCollapse(
 
   const applyExpansionLayout = () => {
     if (destroyed) {
+      return;
+    }
+
+    if (!shouldUseExpansionOverlay()) {
+      syncCollapsedStateForNarrowViewport();
+      releaseExpansionLayer();
+      updateButtonPlacement();
+      updateButtonVisibility();
+      updateScrollable();
       return;
     }
 
@@ -312,18 +357,7 @@ function wrapWithExpandCollapse(
       return;
     }
 
-    expandedCleanup?.();
-    expandedCleanup = null;
-    shell.style.minHeight = "";
-    wrapper.style.removeProperty("width");
-    wrapper.style.removeProperty("margin");
-
-    if (wrapper.parentElement !== shell) {
-      shell.appendChild(wrapper);
-    }
-
-    expansionLayer?.remove();
-    expansionLayer = null;
+    releaseExpansionLayer();
     updateButtonPlacement();
   };
 
@@ -351,6 +385,7 @@ function wrapWithExpandCollapse(
 
   button.addEventListener("click", toggle);
   updateButtonPlacement();
+  updateButtonVisibility();
 
   restoreFrame = window.requestAnimationFrame(() => {
     restoreFrame = 0;
@@ -358,8 +393,10 @@ function wrapWithExpandCollapse(
       return;
     }
 
+    syncCollapsedStateForNarrowViewport();
+    updateButtonVisibility();
     updateScrollable();
-    if (readExpandedPreference()) {
+    if (readExpandedPreference() && shouldUseExpansionOverlay()) {
       toggle();
     }
   });

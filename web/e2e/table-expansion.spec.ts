@@ -135,6 +135,60 @@ test.describe("Prose table expansion", () => {
     expect(after.td?.borderBottomWidth).toBe(before.td?.borderBottomWidth);
   });
 
+  test("falls back to the in-flow table when resized to mobile while expanded", async ({ page }) => {
+    await page.getByRole("button", { name: "Expand table" }).first().click();
+
+    await expect
+      .poll(() => getFirstTableMetrics(page))
+      .toMatchObject({
+        expanded: true,
+      });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(250);
+
+    const state = await page.evaluate(() => {
+      const shell = document.querySelector<HTMLElement>("[data-smart-table-shell]");
+      const layer = document.querySelector<HTMLElement>(".table-expansion-layer");
+      const wrapper = document.querySelector<HTMLElement>("[data-smart-table-wrapper]");
+      const toggles = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[aria-label="Collapse table"], [aria-label="Expand table"]'
+        )
+      );
+      const visibleToggleCount = toggles.filter((toggle) => {
+        const style = window.getComputedStyle(toggle);
+        const rect = toggle.getBoundingClientRect();
+        return style.display !== "none" && rect.width > 0 && rect.height > 0;
+      }).length;
+
+      const rect = (node: HTMLElement | null) =>
+        node
+          ? {
+              top: node.getBoundingClientRect().top,
+              left: node.getBoundingClientRect().left,
+              width: node.getBoundingClientRect().width,
+              height: node.getBoundingClientRect().height,
+            }
+          : null;
+
+      return {
+        hasLayer: Boolean(layer),
+        wrapperParentIsShell: wrapper?.parentElement === shell,
+        shell: rect(shell),
+        wrapper: rect(wrapper),
+        viewportWidth: window.innerWidth,
+        visibleToggleCount,
+      };
+    });
+
+    expect(state.hasLayer).toBe(false);
+    expect(state.wrapperParentIsShell).toBe(true);
+    expect(state.visibleToggleCount).toBe(0);
+    expect(state.wrapper?.width ?? 0).toBeLessThanOrEqual((state.viewportWidth ?? 0) + 1);
+    expect((state.wrapper?.top ?? 0) - (state.shell?.top ?? 0)).toBeGreaterThanOrEqual(0);
+  });
+
   test("manual column resize widens the collapsed table", async ({ page }) => {
     await dragFirstResizeHandle(page, 520);
 
