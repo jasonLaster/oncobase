@@ -23,6 +23,7 @@ const EXCLUDED_FILES = new Set(["CLAUDE.md"]);
 // O(slugs) — a ~425x reduction for the getPagesByTag scan.
 
 let _slugsCache: string[] | null = null;
+let _canonicalSlugsCache: Map<string, string> | null = null;
 const _fileCache = new Map<string, { hash: string; result: MarkdownFile } | null>();
 let _tagsCache: string[] | null = null;
 const _tagPagesCache = new Map<string, Array<{ slug: string; title: string }>>();
@@ -41,6 +42,21 @@ export interface MarkdownFile {
   title: string;
   content: string;
   frontmatter: Record<string, unknown>;
+}
+
+function buildCanonicalSlugMap(): Map<string, string> {
+  if (_canonicalSlugsCache) return _canonicalSlugsCache;
+
+  const canonicalSlugs = new Map<string, string>();
+  for (const slug of getAllSlugs()) {
+    const normalizedSlug = slug.toLowerCase();
+    if (!canonicalSlugs.has(normalizedSlug)) {
+      canonicalSlugs.set(normalizedSlug, slug);
+    }
+  }
+
+  _canonicalSlugsCache = canonicalSlugs;
+  return canonicalSlugs;
 }
 
 /** Build a tree of markdown files for the sidebar */
@@ -189,6 +205,10 @@ export async function getMarkdownFileAsync(slug: string): Promise<MarkdownFile |
   }
 }
 
+export function getCanonicalSlug(slug: string): string | null {
+  return buildCanonicalSlugMap().get(slug.toLowerCase()) ?? null;
+}
+
 function parseMarkdownFile(slug: string, raw: string): MarkdownFile {
   const hash = createHash("md5").update(raw).digest("hex");
 
@@ -278,5 +298,6 @@ export function getAllSlugs(): string[] {
 
   walk(OBSIDIAN_DIR, "");
   _slugsCache = slugs;
+  _canonicalSlugsCache = null;
   return slugs;
 }

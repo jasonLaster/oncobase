@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
             value: "diana-tnbc.com",
           },
         ],
-        destination: "/about/index",
+        destination: "/about/Index",
         permanent: true as const,
       },
     ];

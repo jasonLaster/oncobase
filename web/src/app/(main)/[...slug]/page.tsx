@@ -4,7 +4,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
-import { getMarkdownFile, getMarkdownFileAsync, getAllSlugs } from "@/lib/markdown";
+import {
+  getAllSlugs,
+  getCanonicalSlug,
+  getMarkdownFile,
+  getMarkdownFileAsync,
+} from "@/lib/markdown";
 import { MarkdownRenderer, MarkdownRendererAsync } from "@/components/markdown-renderer";
 import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
@@ -73,7 +78,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const filePath = slug.map(decodeURIComponent).join("/");
-  const file = getMarkdownFile(filePath);
+  const cleanPath = filePath.replace(/\.md$/i, "");
+  const canonicalPath = getCanonicalSlug(cleanPath) ?? cleanPath;
+  const file = getMarkdownFile(canonicalPath);
   if (!file) return {};
 
   const description = (await getDescriptionMap()).get(file.slug) ?? null;
@@ -135,31 +142,37 @@ export default async function DocPage({
   const filePath = slug.map(decodeURIComponent).join("/");
 
   // Redirect .pdf URLs to the file-serving API route
-  if (filePath.endsWith(".pdf")) {
+  if (/\.pdf$/i.test(filePath)) {
     redirect(`/api/file?path=${encodeURIComponent(filePath)}`);
   }
 
   // Strip .md suffix — URLs like /wiki/foo.md should serve /wiki/foo
-  const cleanPath = filePath.endsWith(".md") ? filePath.slice(0, -3) : filePath;
+  const cleanPath = filePath.replace(/\.md$/i, "");
   if (cleanPath !== filePath) {
     redirect(`/${cleanPath}`);
   }
 
+  const canonicalPath = getCanonicalSlug(cleanPath);
+  if (canonicalPath && canonicalPath !== cleanPath) {
+    redirect(`/${canonicalPath}`);
+  }
+
   // Sync file read — always fast (local disk), provides header data for PPR cache
-  const file = getMarkdownFile(filePath);
+  const file = getMarkdownFile(canonicalPath ?? cleanPath);
 
   if (!file) {
     notFound();
   }
 
-  const isDeferred = ISR_DEFERRED_PREFIXES.some((p) => filePath.startsWith(p));
+  const resolvedPath = file.slug;
+  const isDeferred = ISR_DEFERRED_PREFIXES.some((p) => resolvedPath.startsWith(p));
 
   return (
     <DocumentComments documentSlug={file.slug} documentTitle={file.title}>
       <DocHeader file={file} />
       {isDeferred ? (
         <Suspense fallback={null}>
-          <DeferredMarkdownBody filePath={filePath} slug={file.slug} />
+          <DeferredMarkdownBody filePath={resolvedPath} slug={file.slug} />
         </Suspense>
       ) : (
         <MarkdownRenderer content={file.content} currentSlug={file.slug} />

@@ -18,7 +18,13 @@ test.describe("Page viewing & sidebar navigation", () => {
 
     // Click a top-level file link visible without expanding (e.g., "index" or "Journal")
     await nav.getByRole("link", { name: "Journal" }).click();
-    await expect(page).toHaveURL(/\/about/Journal/);
+    await expect(page).toHaveURL(/\/about\/Journal/);
+    await expect(page.locator("h1").first()).toBeVisible();
+  });
+
+  test("redirects mixed-case wiki paths to canonical casing", async ({ page }) => {
+    await page.goto("/about/index");
+    await expect(page).toHaveURL(/\/about\/Index$/);
     await expect(page.locator("h1").first()).toBeVisible();
   });
 
