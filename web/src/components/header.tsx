@@ -23,6 +23,7 @@ export function Header() {
 }
 
 function HeaderInner() {
+  const isDev = process.env.NODE_ENV === "development";
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -40,7 +41,7 @@ function HeaderInner() {
       {/* Logo */}
       <Link href="/" aria-label="Home" className="shrink-0">
         <svg width="24" height="24" viewBox="0 0 32 32" className="rounded-md">
-          <rect width="32" height="32" rx="6" fill="#4f46e5"/>
+          <rect width="32" height="32" rx="6" fill={isDev ? "#22c55e" : "#4f46e5"} />
           <text x="16" y="23" fontFamily="system-ui, -apple-system, sans-serif" fontSize="22" fontWeight="700" fill="white" textAnchor="middle">D</text>
         </svg>
       </Link>
