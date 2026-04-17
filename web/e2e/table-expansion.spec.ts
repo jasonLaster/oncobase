@@ -135,6 +135,40 @@ test.describe("Prose table expansion", () => {
     expect(after.td?.borderBottomWidth).toBe(before.td?.borderBottomWidth);
   });
 
+  test("keeps the overflow fade pinned to the physical right edge", async ({ page }) => {
+    await page.getByRole("button", { name: "Expand table" }).first().click();
+
+    const fade = await page.evaluate(() => {
+      const layer = document.querySelector<HTMLElement>(".table-expansion-layer");
+      const shell = document.querySelector<HTMLElement>("[data-smart-table-shell]");
+      const wrapper =
+        layer?.querySelector<HTMLElement>(":scope > .table-scroll-wrapper") ??
+        shell?.querySelector<HTMLElement>("[data-smart-table-wrapper]") ??
+        document.querySelector<HTMLElement>("[data-smart-table-wrapper]");
+      const table = wrapper?.querySelector<HTMLTableElement>("table");
+
+      if (!wrapper || !table) {
+        return null;
+      }
+
+      table.style.minWidth = `${wrapper.clientWidth + 400}px`;
+      table.style.width = `${wrapper.clientWidth + 400}px`;
+      wrapper.setAttribute("data-scrollable", "");
+      wrapper.removeAttribute("data-scrolled-end");
+
+      const style = window.getComputedStyle(wrapper, "::after");
+      return {
+        right: style.right,
+        left: style.left,
+        width: style.width,
+      };
+    });
+
+    expect(fade).not.toBeNull();
+    expect(fade?.right).toBe("0px");
+    expect(Number.parseFloat(fade?.width ?? "0")).toBeGreaterThan(0);
+  });
+
   test("falls back to the in-flow table when resized to mobile while expanded", async ({ page }) => {
     await page.getByRole("button", { name: "Expand table" }).first().click();
 

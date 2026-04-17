@@ -142,10 +142,10 @@ body {
 .prose table, .table-expansion-layer table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.9375rem; color: var(--foreground); }
 .prose th, .table-expansion-layer th { white-space: normal; }
 .prose td, .table-expansion-layer td { white-space: normal; }
-.table-scroll-wrapper { position: relative; box-sizing: border-box; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1rem 0; padding-inline-end: 0.875rem; border: 1px solid color-mix(in srgb, var(--sidebar-border) 88%, transparent); border-radius: 1rem; background: linear-gradient(180deg, color-mix(in srgb, var(--background) 97%, var(--sidebar-bg) 3%), var(--background)); box-shadow: inset 0 1px 0 color-mix(in srgb, white 6%, transparent); }
+.table-scroll-wrapper { position: relative; box-sizing: border-box; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1rem 0; padding-right: 0.875rem; border: 1px solid color-mix(in srgb, var(--sidebar-border) 88%, transparent); border-radius: 1rem; background: linear-gradient(180deg, color-mix(in srgb, var(--background) 97%, var(--sidebar-bg) 3%), var(--background)); box-shadow: inset 0 1px 0 color-mix(in srgb, white 6%, transparent); }
 .table-expansion-layer { position: fixed; z-index: 20; }
 .table-expansion-layer > .table-scroll-wrapper { margin: 0; width: 100%; }
-.table-scroll-wrapper[data-scrollable]::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: linear-gradient(to right, transparent, color-mix(in srgb, var(--background) 96%, var(--sidebar-bg) 4%)); pointer-events: none; }
+.table-scroll-wrapper[data-scrollable]::after { content: ''; position: absolute; left: auto; right: 0; top: 0; bottom: 0; width: 40px; background: linear-gradient(to right, transparent, color-mix(in srgb, var(--background) 96%, var(--sidebar-bg) 4%)); pointer-events: none; }
 .table-scroll-wrapper[data-scrolled-end]::after { display: none; }
 .table-scroll-wrapper table { min-width: 100%; }
 .prose thead th, .table-expansion-layer thead th { position: relative; text-align: left; padding: 0.8rem 0.9rem; border-bottom: 1px solid color-mix(in srgb, var(--sidebar-border) 92%, transparent); background: color-mix(in srgb, var(--sidebar-bg) 60%, var(--background) 40%); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: color-mix(in srgb, var(--foreground) 88%, var(--text-muted) 12%); }
