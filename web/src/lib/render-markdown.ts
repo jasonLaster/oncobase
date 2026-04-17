@@ -19,7 +19,7 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "17";
+const PIPELINE_VERSION = "18";
 
 // ─── Mermaid pre-processor ────────────────────────────────────────────────────
 //
@@ -49,90 +49,15 @@ function extractMermaidBlocks(md: string): string {
   });
 }
 
-// ─── Table column width directives ───────────────────────────────────────────
+// ─── Legacy table directive cleanup ──────────────────────────────────────────
 //
-// Syntax (in any .md file, on its own line before a table, blank line allowed):
-//   <!-- table-cols: 260, 120, 60, 150, 200 -->
-//
-// Values without units are treated as pixels. Any CSS length works (e.g. 30ch).
-//
-// HTML comments are stripped by the remark/rehype pipeline, so we pre-scan the
-// raw markdown and remember which table ordinal each directive targets, then
-// inject <colgroup> elements into the rendered HTML afterwards.
+// Older markdown pages used `<!-- table-cols: ... -->` comments to steer a
+// post-processing `<colgroup>` injection pass. Tables now size themselves on
+// the client, but we still strip the legacy comments so they never leak into
+// the rendered HTML or search snippets.
 
-interface TableDirective {
-  tableOrdinal: number; // 0-based index of the table this applies to
-  cols: string[];
-}
-
-function parseTableDirectives(md: string): { directives: TableDirective[]; cleanMd: string } {
-  const directives: TableDirective[] = [];
-  let tableCount = 0;
-
-  const lines = md.split("\n");
-  const cleanLines: string[] = [];
-  let pendingCols: string[] | null = null;
-  let inTable = false; // track whether previous line was a table row
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Detect directive
-    const directiveMatch = trimmed.match(/^<!--\s*table-cols:\s*(.*?)-->\s*$/);
-    if (directiveMatch) {
-      pendingCols = directiveMatch[1].split(",").map((w: string) => {
-        const v = w.trim();
-        return /^\d+$/.test(v) ? `${v}px` : v;
-      });
-      inTable = false;
-      // Strip directive from cleaned markdown (don't emit it)
-      continue;
-    }
-
-    // Detect markdown table row (pipe-delimited)
-    if (trimmed.startsWith("|")) {
-      if (!inTable) {
-        // First row of a new table block
-        if (pendingCols) {
-          directives.push({ tableOrdinal: tableCount, cols: pendingCols });
-          pendingCols = null;
-        }
-        tableCount++;
-        inTable = true;
-      }
-      cleanLines.push(line);
-      continue;
-    }
-
-    // Leaving a table block
-    inTable = false;
-
-    // Empty lines don't cancel a pending directive (allow blank line between directive and table)
-    if (trimmed === "") {
-      cleanLines.push(line);
-      continue;
-    }
-
-    // Any other non-empty content cancels the pending directive
-    pendingCols = null;
-    cleanLines.push(line);
-  }
-
-  return { directives, cleanMd: cleanLines.join("\n") };
-}
-
-function injectColgroups(html: string, directives: TableDirective[]): string {
-  if (directives.length === 0) return html;
-
-  const directiveMap = new Map(directives.map((d) => [d.tableOrdinal, d.cols]));
-  let tableIndex = 0;
-
-  return html.replace(/<table(?:[^>]*)>/g, (tableTag) => {
-    const cols = directiveMap.get(tableIndex++);
-    if (!cols) return tableTag;
-    const colgroup = `<colgroup>${cols.map((w: string) => `<col style="width:${w}">`).join("")}</colgroup>`;
-    return `${tableTag}${colgroup}`;
-  });
+function stripLegacyTableDirectives(md: string): string {
+  return md.replace(/^\s*<!--\s*table-cols:\s*.*?-->\s*$/gm, "");
 }
 
 /**
@@ -254,11 +179,11 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
   }
 
   const mermaidExtracted = extractMermaidBlocks(md);
-  const { directives, cleanMd } = parseTableDirectives(mermaidExtracted);
+  const cleanMd = stripLegacyTableDirectives(mermaidExtracted);
   const raw = processor.processSync(cleanMd).toString();
   // Wrap every table in a scroll container so horizontal scroll works before JS hydrates.
   const wrapped = raw.replace(/<table/g, '<div class="table-scroll-wrapper"><table').replace(/<\/table>/g, "</table></div>");
-  const html = fixPdfLinks(injectColgroups(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug), directives));
+  const html = fixPdfLinks(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug));
 
   try {
     ensureCacheDir();
@@ -288,13 +213,13 @@ export async function renderMarkdownAsync(md: string, currentSlug?: string): Pro
   const mermaidExtracted = extractMermaidBlocks(md);
   const tMermaid = performance.now();
 
-  const { directives, cleanMd } = parseTableDirectives(mermaidExtracted);
+  const cleanMd = stripLegacyTableDirectives(mermaidExtracted);
   const raw = (await processor.process(cleanMd)).toString();
   const tPipeline = performance.now();
 
   // Wrap every table in a scroll container so horizontal scroll works before JS hydrates.
   const wrapped = raw.replace(/<table/g, '<div class="table-scroll-wrapper"><table').replace(/<\/table>/g, "</table></div>");
-  const html = fixPdfLinks(injectColgroups(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug), directives));
+  const html = fixPdfLinks(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug));
 
   console.log(
     `[perf] renderMarkdown cache-miss slug=${currentSlug} ` +

@@ -23,13 +23,4 @@ export default defineConfig({
     baseURL,
     screenshot: "only-on-failure",
   },
-  ...(isLocal
-    ? {
-        webServer: {
-          command: "npm run dev",
-          url: "http://localhost:3000",
-          reuseExistingServer: true,
-        },
-      }
-    : {}),
 });

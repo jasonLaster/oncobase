@@ -79,11 +79,11 @@ This document focuses on shipped behavior and notable implementation details. De
 ### Tables
 
 - All rendered tables are wrapped in a horizontal scroll container before hydration so wide tables are usable immediately.
-- Markdown authors can specify table column widths with a `<!-- table-cols: ... -->` directive placed before a table.
+- Tables use a content-aware client layout pass that balances column width against row height instead of relying on hand-authored column width comments.
 - Client-side enhancement adds:
   - expand/collapse controls
-  - column resize handles on header cells
-  - automatic expansion for tables with 5 or more columns
+  - column resize handles on header cells that lock the current layout after manual adjustment
+  - automatic expansion for tables that materially overflow their container
   - overflow detection with a right-edge gradient hint
 
 ### Search

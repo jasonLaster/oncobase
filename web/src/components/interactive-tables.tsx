@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import {
+  attachSmartResizeHandles,
+  installSmartTableLayout,
+} from "@/lib/smart-table-layout";
+
+const COMMENTS_PANE_EVENT = "comments-pane-state-change";
+const expandedTableMemory = new Map<string, boolean>();
 
 /**
- * Client island that progressively enhances server-rendered tables
- * with resize handles and expand/collapse controls.
- * Mounts once and attaches listeners to all <table> elements
- * inside the parent .prose container.
+ * Client island that progressively enhances server-rendered prose content
+ * with heading anchors and smarter markdown tables.
  */
 export function InteractiveTables({
   disableAnchors,
@@ -17,58 +22,47 @@ export function InteractiveTables({
 
   useEffect(() => {
     const prose = sentinelRef.current?.parentElement;
-    if (!prose) return;
+    if (!prose) {
+      return;
+    }
 
-    // --- Heading anchors (desktop only — touch devices can't hover) ---
     if (!disableAnchors && window.matchMedia("(hover: hover)").matches) {
       attachHeadingAnchors(prose);
     }
 
-    // --- Table enhancements ---
+    const cleanups: Array<() => void> = [];
     const tables = prose.querySelectorAll<HTMLTableElement>("table");
-    const cleanups: (() => void)[] = [];
 
-    tables.forEach((table) => {
-      // If the table has a colgroup with explicit widths, use fixed layout
-      // so col widths are respected and the table can exceed the container
-      const colgroup = table.querySelector("colgroup");
-      if (colgroup) {
-        const cols = colgroup.querySelectorAll<HTMLElement>("col");
-        let totalWidth = 0;
-        cols.forEach((col) => {
-          const w = parseInt(col.style.width, 10);
-          if (w) totalWidth += w;
-        });
-        if (totalWidth > 0) {
-          table.style.tableLayout = "fixed";
-          table.style.width = `${totalWidth}px`;
-        }
-      }
-
-      cleanups.push(wrapWithExpandCollapse(table));
-      table.querySelectorAll<HTMLTableCellElement>("thead th").forEach((th) => {
-        cleanups.push(attachResizeHandle(th));
+    tables.forEach((table, index) => {
+      const persistenceKey = `${window.location.pathname}::prose-table-${index}`;
+      const { wrapper, cleanup } = wrapWithExpandCollapse(table, {
+        persistenceKey,
       });
+      cleanups.push(cleanup);
+      cleanups.push(
+        installSmartTableLayout(table, wrapper, { persistenceKey })
+      );
+      cleanups.push(attachSmartResizeHandles(table, { persistenceKey }));
     });
 
-    return () => cleanups.forEach((fn) => fn());
+    return () => {
+      cleanups.forEach((cleanup) => cleanup());
+    };
   }, [disableAnchors]);
 
-  // Hidden sentinel so we can find the parent .prose div
   return <div ref={sentinelRef} style={{ display: "none" }} />;
 }
-
-// ─── Heading anchors ──────────────────────────────────────────
 
 function attachHeadingAnchors(container: HTMLElement) {
   const headings = container.querySelectorAll<HTMLElement>(
     "h1, h2, h3, h4, h5, h6"
   );
+
   headings.forEach((heading) => {
     const id = heading.id;
-    if (!id) return;
-    // Guard against duplicate anchors (e.g. React strict mode double-mount)
-    if (heading.querySelector(".heading-anchor")) return;
+    if (!id || heading.querySelector(".heading-anchor")) {
+      return;
+    }
 
     heading.classList.add("group", "relative");
 
@@ -83,158 +77,525 @@ function attachHeadingAnchors(container: HTMLElement) {
   });
 }
 
-// ─── Table expand / collapse ──────────────────────────────────
-
-function wrapWithExpandCollapse(table: HTMLTableElement): () => void {
-  // Reuse the SSR-rendered scroll wrapper if present, otherwise create one.
+function wrapWithExpandCollapse(
+  table: HTMLTableElement,
+  options: { persistenceKey?: string } = {}
+) {
   const existingWrapper = table.parentElement?.classList.contains("table-scroll-wrapper")
     ? (table.parentElement as HTMLDivElement)
     : null;
+  const existingShell = existingWrapper?.parentElement?.hasAttribute("data-smart-table-shell")
+    ? (existingWrapper.parentElement as HTMLDivElement)
+    : null;
 
   const wrapper = existingWrapper ?? document.createElement("div");
-  if (!existingWrapper) {
-    wrapper.className = "not-prose my-4 relative group/table table-scroll-wrapper";
-    table.parentNode?.insertBefore(wrapper, table);
-    wrapper.appendChild(table);
+  const shell = existingShell ?? document.createElement("div");
+
+  if (!existingShell) {
+    shell.setAttribute("data-smart-table-shell", "");
+    shell.className = "not-prose my-4 relative pt-3 group/table";
   } else {
-    wrapper.classList.add("not-prose", "my-4", "relative", "group/table");
+    shell.classList.add("not-prose", "my-4", "relative", "pt-3", "group/table");
   }
 
-  // Detect horizontal overflow for scroll indicator
+  shell
+    .querySelectorAll<HTMLElement>(':scope > [data-smart-table-toggle="true"]')
+    .forEach((toggle) => toggle.remove());
+
+  if (options.persistenceKey) {
+    document
+      .querySelectorAll<HTMLElement>(
+        `.table-expansion-layer[data-smart-table-layer="${CSS.escape(
+          options.persistenceKey
+        )}"]`
+      )
+      .forEach((layer) => layer.remove());
+  }
+
+  if (!existingWrapper) {
+    wrapper.className = "table-scroll-wrapper";
+    if (!existingShell) {
+      table.parentNode?.insertBefore(shell, table);
+    }
+    shell.appendChild(wrapper);
+    wrapper.appendChild(table);
+  } else {
+    wrapper.classList.add("table-scroll-wrapper");
+    if (!existingShell) {
+      wrapper.parentNode?.insertBefore(shell, wrapper);
+      shell.appendChild(wrapper);
+    }
+  }
+
+  wrapper.setAttribute("data-smart-table-wrapper", "");
+
   const updateScrollable = () => {
     if (wrapper.scrollWidth > wrapper.clientWidth + 2) {
       wrapper.setAttribute("data-scrollable", "");
     } else {
       wrapper.removeAttribute("data-scrollable");
     }
-  };
-  const onScroll = () => {
+
     if (wrapper.scrollLeft + wrapper.clientWidth >= wrapper.scrollWidth - 2) {
       wrapper.setAttribute("data-scrolled-end", "");
     } else {
       wrapper.removeAttribute("data-scrolled-end");
     }
   };
-  updateScrollable();
-  wrapper.addEventListener("scroll", onScroll);
-  const resizeObserver = new ResizeObserver(updateScrollable);
-  resizeObserver.observe(wrapper);
 
-  // Expand/collapse button
-  const btn = document.createElement("button");
-  btn.className =
-    "absolute top-1 right-1 z-10 opacity-0 group-hover/table:opacity-100 transition-opacity p-1 rounded bg-[var(--background)] border border-[var(--sidebar-border)] text-[var(--text-muted)] hover:text-[var(--brand)] hover:border-[var(--brand)]";
-  btn.setAttribute("aria-label", "Expand table");
-  btn.title = "Expand table";
-  btn.innerHTML = expandIcon;
+  const onScroll = () => {
+    updateScrollable();
+  };
 
-  let expanded = false;
+  const updateReservedHeight = () => {
+    if (!expanded) {
+      return;
+    }
 
-  const toggle = () => {
-    expanded = !expanded;
-    btn.innerHTML = expanded ? collapseIcon : expandIcon;
-    btn.setAttribute("aria-label", expanded ? "Collapse table" : "Expand table");
-    btn.title = expanded ? "Collapse table" : "Expand table";
+    shell.style.minHeight = `${Math.ceil(
+      shellOffsetTop + wrapper.getBoundingClientRect().height
+    )}px`;
+  };
 
-    if (expanded) {
-      // Expand to full available width, left-aligned
-      const scrollParent =
-        wrapper.closest("[class*='overflow-y-auto']") ||
-        wrapper
-          .closest("[class*='overflow-hidden']")
-          ?.querySelector("[class*='overflow-y-auto']");
-      const container = scrollParent || wrapper.parentElement;
-      if (container) {
-        const containerRect = container.getBoundingClientRect();
-        const wrapRect = wrapper.getBoundingClientRect();
-        wrapper.style.marginLeft = `${-(wrapRect.left - containerRect.left) + 20}px`;
-        wrapper.style.marginRight = `${-(containerRect.right - wrapRect.right) + 20}px`;
+  const syncExpandedLayout = () => {
+    updateScrollable();
+    if (!expanded) {
+      return;
+    }
+
+    applyExpansionLayout();
+  };
+
+  const onWheel = (event: WheelEvent) => {
+    if (!expanded) {
+      return;
+    }
+
+    const scrollOwner = getVerticalScrollContainer(shell);
+    if (!scrollOwner) {
+      return;
+    }
+
+    let handled = false;
+
+    if (Math.abs(event.deltaX) > 0.01) {
+      wrapper.scrollLeft += event.deltaX;
+      handled = true;
+    }
+
+    if (Math.abs(event.deltaY) > 0.01) {
+      if (
+        scrollOwner === document.documentElement ||
+        scrollOwner === document.body ||
+        scrollOwner === document.scrollingElement
+      ) {
+        window.scrollBy({ top: event.deltaY, left: 0, behavior: "auto" });
+      } else {
+        scrollOwner.scrollTop += event.deltaY;
       }
-    } else {
-      wrapper.style.marginLeft = "";
-      wrapper.style.marginRight = "";
+      handled = true;
+    }
+
+    if (handled) {
+      event.preventDefault();
     }
   };
 
-  btn.addEventListener("click", toggle);
-  wrapper.appendChild(btn);
+  wrapper.addEventListener("scroll", onScroll);
+  wrapper.addEventListener("wheel", onWheel, { passive: false });
 
-  // Auto-expand tables that actually overflow their container.
-  // Tables with many columns but narrow content should stay centered.
-  // Use rAF to check after the browser has laid out the table with
-  // any colgroup fixed widths applied above.
-  requestAnimationFrame(() => {
-    if (wrapper.scrollWidth > wrapper.clientWidth + 2) {
+  const resizeObserver = new ResizeObserver(() => {
+    syncExpandedLayout();
+  });
+  resizeObserver.observe(wrapper);
+  resizeObserver.observe(table);
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.setAttribute("aria-label", "Expand table");
+  button.title = "Expand table";
+  button.dataset.smartTableToggle = "true";
+  button.innerHTML = expandIcon;
+
+  let expanded = false;
+  let expandedCleanup: (() => void) | null = null;
+  let expansionLayer: HTMLDivElement | null = null;
+  let shellOffsetTop = 0;
+  let restoreFrame = 0;
+  let destroyed = false;
+
+  const updateButtonPlacement = () => {
+    button.className = expanded
+      ? "absolute -top-3 right-1.5 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/96 text-[var(--text-muted)] opacity-100 shadow-sm transition-all hover:border-[var(--brand)] hover:text-[var(--brand)]"
+      : "absolute top-0 right-1.5 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/96 text-[var(--text-muted)] opacity-100 shadow-sm transition-all md:opacity-0 md:group-hover/table:opacity-100 hover:border-[var(--brand)] hover:text-[var(--brand)]";
+
+    if (expanded && expansionLayer) {
+      if (button.parentElement !== expansionLayer) {
+        expansionLayer.appendChild(button);
+      }
+      return;
+    }
+
+    if (button.parentElement !== shell) {
+      shell.appendChild(button);
+    }
+  };
+
+  const readExpandedPreference = () => {
+    return options.persistenceKey
+      ? expandedTableMemory.get(options.persistenceKey) === true
+      : false;
+  };
+
+  const persistExpandedPreference = (nextExpanded: boolean) => {
+    if (!options.persistenceKey) {
+      return;
+    }
+
+    if (nextExpanded) {
+      expandedTableMemory.set(options.persistenceKey, true);
+    } else {
+      expandedTableMemory.delete(options.persistenceKey);
+    }
+  };
+
+  const applyExpansionLayout = () => {
+    if (destroyed) {
+      return;
+    }
+
+    if (wrapper.parentElement === shell) {
+      const shellRect = shell.getBoundingClientRect();
+      const wrapperRect = wrapper.getBoundingClientRect();
+      shellOffsetTop = wrapperRect.top - shellRect.top;
+    }
+
+    const layout = getExpansionLayerLayout(
+      wrapper,
+      shell,
+      shellOffsetTop
+    );
+    if (!layout) {
+      return;
+    }
+
+    if (!expansionLayer) {
+      expansionLayer = document.createElement("div");
+      expansionLayer.className = "table-expansion-layer";
+      if (options.persistenceKey) {
+        expansionLayer.dataset.smartTableLayer = options.persistenceKey;
+      }
+    }
+
+    expansionLayer.style.left = `${layout.left}px`;
+    expansionLayer.style.top = `${layout.top}px`;
+    expansionLayer.style.width = `${layout.width}px`;
+    if (!expansionLayer.isConnected || expansionLayer.parentElement !== layout.parent) {
+      layout.parent.appendChild(expansionLayer);
+    }
+
+    wrapper.style.width = "100%";
+    wrapper.style.margin = "0";
+    if (wrapper.parentElement !== expansionLayer) {
+      expansionLayer.appendChild(wrapper);
+    }
+
+    updateButtonPlacement();
+    updateReservedHeight();
+  };
+
+  const collapseExpansion = () => {
+    if (destroyed) {
+      return;
+    }
+
+    expandedCleanup?.();
+    expandedCleanup = null;
+    shell.style.minHeight = "";
+    wrapper.style.removeProperty("width");
+    wrapper.style.removeProperty("margin");
+
+    if (wrapper.parentElement !== shell) {
+      shell.appendChild(wrapper);
+    }
+
+    expansionLayer?.remove();
+    expansionLayer = null;
+    updateButtonPlacement();
+  };
+
+  const toggle = () => {
+    if (destroyed) {
+      return;
+    }
+
+    expanded = !expanded;
+    button.innerHTML = expanded ? collapseIcon : expandIcon;
+    button.setAttribute("aria-label", expanded ? "Collapse table" : "Expand table");
+    button.title = expanded ? "Collapse table" : "Expand table";
+
+    if (expanded) {
+      persistExpandedPreference(true);
+      applyExpansionLayout();
+      expandedCleanup = observeExpansionLayerLayout(wrapper, shell, () => {
+        applyExpansionLayout();
+      });
+    } else {
+      persistExpandedPreference(false);
+      collapseExpansion();
+    }
+  };
+
+  button.addEventListener("click", toggle);
+  updateButtonPlacement();
+
+  restoreFrame = window.requestAnimationFrame(() => {
+    restoreFrame = 0;
+    if (destroyed) {
+      return;
+    }
+
+    updateScrollable();
+    if (readExpandedPreference()) {
       toggle();
     }
   });
 
-  return () => {
-    btn.removeEventListener("click", toggle);
-    wrapper.removeEventListener("scroll", onScroll);
-    resizeObserver.disconnect();
-    // Only unwrap if we created the wrapper (not the SSR one)
-    if (!existingWrapper && wrapper.parentNode) {
-      wrapper.parentNode.insertBefore(table, wrapper);
-      wrapper.remove();
-    }
-  };
-}
-
-// ─── Column resize handle ─────────────────────────────────────
-
-function attachResizeHandle(th: HTMLTableCellElement): () => void {
-  th.classList.add("relative", "group/resize");
-
-  const handle = document.createElement("div");
-  handle.className =
-    "absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover/resize:opacity-100 hover:!opacity-100 bg-[var(--brand)] transition-opacity";
-  handle.setAttribute("role", "separator");
-  handle.setAttribute("aria-orientation", "vertical");
-  th.appendChild(handle);
-
-  const onMouseDown = (e: MouseEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = th.getBoundingClientRect().width;
-    const table = th.closest("table") as HTMLTableElement | null;
-    const startTableWidth = table?.getBoundingClientRect().width ?? 0;
-
-    // Find the matching <col> element for fixed-layout tables
-    const thIndex = Array.from(th.parentElement?.children ?? []).indexOf(th);
-    const col = table?.querySelector(`colgroup col:nth-child(${thIndex + 1})`) as HTMLElement | null;
-
-    const onMouseMove = (ev: MouseEvent) => {
-      const newColWidth = Math.max(20, startWidth + ev.clientX - startX);
-      const actualDelta = newColWidth - startWidth;
-      th.style.width = `${newColWidth}px`;
-      if (col) col.style.width = `${newColWidth}px`;
-      if (table) {
-        table.style.width = `${startTableWidth + actualDelta}px`;
+  return {
+    wrapper,
+    cleanup: () => {
+      if (restoreFrame !== 0) {
+        window.cancelAnimationFrame(restoreFrame);
+        restoreFrame = 0;
       }
-    };
-    const onMouseUp = () => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
+      collapseExpansion();
+      destroyed = true;
+      button.removeEventListener("click", toggle);
+      button.remove();
+      wrapper.removeEventListener("scroll", onScroll);
+      wrapper.removeEventListener("wheel", onWheel);
+      resizeObserver.disconnect();
 
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
-  };
-
-  handle.addEventListener("mousedown", onMouseDown);
-
-  return () => {
-    handle.removeEventListener("mousedown", onMouseDown);
-    handle.remove();
+      if (!existingShell && shell.parentNode) {
+        if (existingWrapper) {
+          shell.parentNode.insertBefore(wrapper, shell);
+        } else {
+          shell.parentNode.insertBefore(table, shell);
+          wrapper.remove();
+        }
+        shell.remove();
+      }
+    },
   };
 }
 
-// ─── SVG icons ────────────────────────────────────────────────
+function getExpansionLayerLayout(
+  wrapper: HTMLElement,
+  shell: HTMLElement,
+  shellOffsetTop: number
+) {
+  const shellRect = shell.getBoundingClientRect();
+  const contentWrapper = shell.closest(".comments-content-wrapper");
+  const contentRect = contentWrapper instanceof HTMLElement
+    ? contentWrapper.getBoundingClientRect()
+    : null;
+  const contentStyle = contentWrapper instanceof HTMLElement
+    ? window.getComputedStyle(contentWrapper)
+    : null;
+  const contentLeft =
+    contentRect && contentStyle
+      ? contentRect.left + (Number.parseFloat(contentStyle.paddingLeft) || 0)
+      : shellRect.left;
+  const contentRight =
+    contentRect && contentStyle
+      ? contentRect.right - (Number.parseFloat(contentStyle.paddingRight) || 0)
+      : shellRect.right;
+
+  const leftRect = getLeftRailRect();
+  const rightRect = getRightRailRect();
+  const gutter = 20;
+  const left = leftRect ? leftRect.right + gutter : contentLeft;
+  const right = rightRect ? rightRect.left - gutter : contentRight;
+  const width = right - left;
+
+  if (width <= 0) {
+    return null;
+  }
+
+  return {
+    parent: document.body,
+    left,
+    top: shellRect.top + shellOffsetTop,
+    width,
+  };
+}
+
+function observeExpansionLayerLayout(
+  wrapper: HTMLElement,
+  shell: HTMLElement,
+  onLayout: () => void
+) {
+  const contentWrapper = shell.closest(".comments-content-wrapper");
+  const scrollContainer = getVerticalScrollContainer(shell);
+
+  let frame = 0;
+  let observedTargets = new Set<HTMLElement>();
+
+  const scheduleUpdate = () => {
+    if (frame !== 0) {
+      return;
+    }
+
+    frame = window.requestAnimationFrame(() => {
+      frame = 0;
+      syncResizeTargets();
+      onLayout();
+    });
+  };
+
+  const resizeObserver = new ResizeObserver(scheduleUpdate);
+  const syncResizeTargets = () => {
+    const nextTargets = new Set<HTMLElement>([shell]);
+
+    if (contentWrapper instanceof HTMLElement) {
+      nextTargets.add(contentWrapper);
+    }
+
+    const leftRail = getLeftRailElement();
+    const rightRail = getRightRailElement();
+    if (leftRail) {
+      nextTargets.add(leftRail);
+    }
+    if (rightRail) {
+      nextTargets.add(rightRail);
+    }
+
+    observedTargets.forEach((target) => {
+      if (!nextTargets.has(target)) {
+        resizeObserver.unobserve(target);
+      }
+    });
+
+    nextTargets.forEach((target) => {
+      if (!observedTargets.has(target)) {
+        resizeObserver.observe(target);
+      }
+    });
+
+    observedTargets = nextTargets;
+  };
+
+  syncResizeTargets();
+
+  const mutationObserver = new MutationObserver(scheduleUpdate);
+  let current = shell.parentElement;
+  while (current) {
+    if (current.style.getPropertyValue("--comments-pane-width")) {
+      mutationObserver.observe(current, {
+        attributes: true,
+        attributeFilter: ["class", "style"],
+      });
+    }
+    current = current.parentElement;
+  }
+  mutationObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["class", "style", "aria-hidden"],
+  });
+
+  window.addEventListener("resize", scheduleUpdate);
+  window.addEventListener("scroll", scheduleUpdate, { passive: true });
+  window.addEventListener(COMMENTS_PANE_EVENT, scheduleUpdate);
+  if (
+    scrollContainer &&
+    scrollContainer !== document.documentElement &&
+    scrollContainer !== document.body &&
+    scrollContainer !== document.scrollingElement
+  ) {
+    scrollContainer.addEventListener("scroll", scheduleUpdate, {
+      passive: true,
+    });
+  }
+
+  return () => {
+    if (frame !== 0) {
+      window.cancelAnimationFrame(frame);
+    }
+    if (
+      scrollContainer &&
+      scrollContainer !== document.documentElement &&
+      scrollContainer !== document.body &&
+      scrollContainer !== document.scrollingElement
+    ) {
+      scrollContainer.removeEventListener("scroll", scheduleUpdate);
+    }
+    window.removeEventListener(COMMENTS_PANE_EVENT, scheduleUpdate);
+    window.removeEventListener("scroll", scheduleUpdate);
+    window.removeEventListener("resize", scheduleUpdate);
+    resizeObserver.disconnect();
+    mutationObserver.disconnect();
+  };
+}
 
 const expandIcon = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2L2 2L2 4"/><path d="M12 2L14 2L14 4"/><path d="M4 14L2 14L2 12"/><path d="M12 14L14 14L14 12"/></svg>`;
 const collapseIcon = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2L4 2L4 4"/><path d="M14 2L12 2L12 4"/><path d="M2 14L4 14L4 12"/><path d="M14 14L12 14L12 12"/></svg>`;
+
+function getLeftRailElement() {
+  const collapsedButton = document.querySelector('[aria-label="Expand sidebar"]');
+  const collapsedRail = collapsedButton?.parentElement;
+  if (collapsedRail instanceof HTMLElement) {
+    return collapsedRail;
+  }
+
+  const expandedButton = document.querySelector('[aria-label="Collapse sidebar"]');
+  const expandedRail = expandedButton?.parentElement;
+  if (expandedRail instanceof HTMLElement) {
+    return expandedRail;
+  }
+
+  const asideFallback = Array.from(document.querySelectorAll("aside")).find((aside) => {
+    const rect = aside.getBoundingClientRect();
+    return (
+      rect.width >= 40 &&
+      rect.width <= 500 &&
+      rect.left <= 4 &&
+      rect.right < window.innerWidth / 2
+    );
+  });
+
+  return asideFallback instanceof HTMLElement ? asideFallback : null;
+}
+
+function getLeftRailRect() {
+  return getLeftRailElement()?.getBoundingClientRect() ?? null;
+}
+
+function getRightRailElement() {
+  const rightRail = document.querySelector("aside.hidden.lg\\:flex.fixed.right-0");
+  return rightRail instanceof HTMLElement ? rightRail : null;
+}
+
+function getRightRailRect() {
+  return getRightRailElement()?.getBoundingClientRect() ?? null;
+}
+
+function getVerticalScrollContainer(node: HTMLElement) {
+  let current: HTMLElement | null = node.parentElement;
+
+  while (current) {
+    const { overflowY } = window.getComputedStyle(current);
+    if (
+      (overflowY === "auto" || overflowY === "scroll") &&
+      current.scrollHeight > current.clientHeight
+    ) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+
+  return document.scrollingElement instanceof HTMLElement
+    ? document.scrollingElement
+    : document.documentElement;
+}

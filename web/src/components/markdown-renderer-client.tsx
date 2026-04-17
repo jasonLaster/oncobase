@@ -3,6 +3,14 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import {
+  MdTable,
+  MdTbody,
+  MdTd,
+  MdTh,
+  MdThead,
+  MdTr,
+} from "@/components/markdown-table";
 import { resolveWikilinks } from "@/lib/wikilinks";
 
 /**
@@ -20,7 +28,18 @@ export function MarkdownRendererClient({
 
   return (
     <div className="prose max-w-none">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw]}
+        components={{
+          table: MdTable,
+          thead: MdThead,
+          tbody: MdTbody,
+          tr: MdTr,
+          th: MdTh,
+          td: MdTd,
+        }}
+      >
         {resolved}
       </ReactMarkdown>
     </div>

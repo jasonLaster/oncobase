@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import type { ThreadData } from "@liveblocks/client";
 import { useThreads } from "@liveblocks/react";
@@ -59,6 +60,175 @@ const COMMENTS_MAX_WIDTH = 640;
 const COMMENTS_DEFAULT_WIDTH = 384; // 24rem
 const COMMENTS_COLLAPSED_WIDTH = 64; // w-16
 const DESKTOP_SIDEBAR_TOP_OFFSET = 24;
+const COMMENTS_PANE_EVENT = "comments-pane-state-change";
+
+type PaneStateSnapshot = {
+  open: boolean;
+  width: number;
+};
+
+let paneStateCache: PaneStateSnapshot | null = null;
+const SERVER_PANE_STATE_OPEN: PaneStateSnapshot = {
+  open: true,
+  width: COMMENTS_DEFAULT_WIDTH,
+};
+const SERVER_PANE_STATE_CLOSED: PaneStateSnapshot = {
+  open: false,
+  width: COMMENTS_DEFAULT_WIDTH,
+};
+
+function readStoredPaneOpen(fallbackOpen: boolean) {
+  if (typeof window === "undefined") return fallbackOpen;
+
+  const stored = window.localStorage.getItem(COMMENTS_PANE_STORAGE_KEY);
+  if (stored === "1") return true;
+  if (stored === "0") return false;
+  return fallbackOpen;
+}
+
+function readStoredPaneWidth() {
+  if (typeof window === "undefined") return COMMENTS_DEFAULT_WIDTH;
+
+  const stored = window.localStorage.getItem(COMMENTS_WIDTH_STORAGE_KEY);
+  if (stored) {
+    const nextWidth = parseInt(stored, 10);
+    if (nextWidth >= COMMENTS_MIN_WIDTH && nextWidth <= COMMENTS_MAX_WIDTH) {
+      return nextWidth;
+    }
+  }
+
+  return COMMENTS_DEFAULT_WIDTH;
+}
+
+function getServerPaneState(defaultOpen: boolean): PaneStateSnapshot {
+  return defaultOpen ? SERVER_PANE_STATE_OPEN : SERVER_PANE_STATE_CLOSED;
+}
+
+function getPaneStateSnapshot(defaultOpen: boolean): PaneStateSnapshot {
+  if (typeof window === "undefined") {
+    return getServerPaneState(defaultOpen);
+  }
+
+  if (paneStateCache) {
+    return paneStateCache;
+  }
+
+  paneStateCache = {
+    open: readStoredPaneOpen(defaultOpen),
+    width: readStoredPaneWidth(),
+  };
+
+  return paneStateCache;
+}
+
+function subscribeToPaneState(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const handleStorage = (event: StorageEvent) => {
+    if (
+      event.key &&
+      event.key !== COMMENTS_PANE_STORAGE_KEY &&
+      event.key !== COMMENTS_WIDTH_STORAGE_KEY
+    ) {
+      return;
+    }
+
+    paneStateCache = null;
+    onStoreChange();
+  };
+
+  window.addEventListener(COMMENTS_PANE_EVENT, onStoreChange);
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    window.removeEventListener(COMMENTS_PANE_EVENT, onStoreChange);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
+function updatePaneState(
+  defaultOpen: boolean,
+  updates: Partial<PaneStateSnapshot>,
+  options?: {
+    persistOpen?: boolean;
+    persistWidth?: boolean;
+  }
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const nextState = {
+    ...getPaneStateSnapshot(defaultOpen),
+    ...updates,
+  };
+
+  paneStateCache = nextState;
+
+  if (options?.persistOpen && updates.open !== undefined) {
+    window.localStorage.setItem(
+      COMMENTS_PANE_STORAGE_KEY,
+      nextState.open ? "1" : "0"
+    );
+  }
+
+  if (options?.persistWidth && updates.width !== undefined) {
+    window.localStorage.setItem(
+      COMMENTS_WIDTH_STORAGE_KEY,
+      String(nextState.width)
+    );
+  }
+
+  window.dispatchEvent(new Event(COMMENTS_PANE_EVENT));
+}
+
+function usePersistedPaneState(defaultOpen: boolean) {
+  const snapshot = useSyncExternalStore(
+    subscribeToPaneState,
+    () => getPaneStateSnapshot(defaultOpen),
+    () => getServerPaneState(defaultOpen)
+  );
+
+  const setOpen = useCallback(
+    (next: React.SetStateAction<boolean>) => {
+      const currentOpen = getPaneStateSnapshot(defaultOpen).open;
+      updatePaneState(
+        defaultOpen,
+        {
+          open: typeof next === "function" ? next(currentOpen) : next,
+        },
+        { persistOpen: true }
+      );
+    },
+    [defaultOpen]
+  );
+
+  const setWidth = useCallback(
+    (
+      next: React.SetStateAction<number>,
+      options?: { persist?: boolean }
+    ) => {
+      const currentWidth = getPaneStateSnapshot(defaultOpen).width;
+      updatePaneState(
+        defaultOpen,
+        {
+          width: typeof next === "function" ? next(currentWidth) : next,
+        },
+        { persistWidth: options?.persist ?? false }
+      );
+    },
+    [defaultOpen]
+  );
+
+  return {
+    open: snapshot.open,
+    setOpen,
+    width: snapshot.width,
+    setWidth,
+  };
+}
 
 function getScrollContainer(element: HTMLElement | null) {
   if (!element) return null;
@@ -254,19 +424,12 @@ function CommentsShell({
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("comments");
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
   const [showResolvedThreads, setShowResolvedThreads] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(COMMENTS_PANE_STORAGE_KEY) !== "0";
-  });
-  const [commentsWidth, setCommentsWidth] = useState(() => {
-    if (typeof window === "undefined") return COMMENTS_DEFAULT_WIDTH;
-    const stored = localStorage.getItem(COMMENTS_WIDTH_STORAGE_KEY);
-    if (stored) {
-      const n = parseInt(stored, 10);
-      if (n >= COMMENTS_MIN_WIDTH && n <= COMMENTS_MAX_WIDTH) return n;
-    }
-    return COMMENTS_DEFAULT_WIDTH;
-  });
+  const {
+    open: commentsOpen,
+    setOpen: setCommentsOpen,
+    width: commentsWidth,
+    setWidth: setCommentsWidth,
+  } = usePersistedPaneState(true);
   const commentsDragging = useRef(false);
   const commentsStartX = useRef(0);
   const commentsStartWidth = useRef(0);
@@ -291,7 +454,7 @@ function CommentsShell({
       Math.max(COMMENTS_MIN_WIDTH, commentsStartWidth.current + delta)
     );
     setCommentsWidth(next);
-  }, []);
+  }, [setCommentsWidth]);
 
   const onCommentsPointerUp = useCallback((e: React.PointerEvent) => {
     if (!commentsDragging.current) return;
@@ -302,9 +465,8 @@ function CommentsShell({
       COMMENTS_MAX_WIDTH,
       Math.max(COMMENTS_MIN_WIDTH, commentsStartWidth.current + delta)
     );
-    setCommentsWidth(next);
-    localStorage.setItem(COMMENTS_WIDTH_STORAGE_KEY, String(next));
-  }, []);
+    setCommentsWidth(next, { persist: true });
+  }, [setCommentsWidth]);
 
   const sortedThreads = useMemo(() => sortThreads(threads), [threads]);
   const visibleThreads = useMemo(
@@ -330,11 +492,7 @@ function CommentsShell({
     : null;
 
   const toggleCommentsPane = () => {
-    setCommentsOpen((current) => {
-      const next = !current;
-      window.localStorage.setItem(COMMENTS_PANE_STORAGE_KEY, next ? "1" : "0");
-      return next;
-    });
+    setCommentsOpen((current) => !current);
   };
 
   useEffect(() => {
@@ -987,19 +1145,12 @@ function getRoomId(slug: string) {
 export function OutlineShell({ children, onActivate }: { children: ReactNode; onActivate?: () => void }) {
   const articleRef = useRef<HTMLElement | null>(null);
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(COMMENTS_PANE_STORAGE_KEY) === "1";
-  });
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    if (typeof window === "undefined") return COMMENTS_DEFAULT_WIDTH;
-    const stored = localStorage.getItem(COMMENTS_WIDTH_STORAGE_KEY);
-    if (stored) {
-      const n = parseInt(stored, 10);
-      if (n >= COMMENTS_MIN_WIDTH && n <= COMMENTS_MAX_WIDTH) return n;
-    }
-    return COMMENTS_DEFAULT_WIDTH;
-  });
+  const {
+    open: sidebarOpen,
+    setOpen: setSidebarOpen,
+    width: sidebarWidth,
+    setWidth: setSidebarWidth,
+  } = usePersistedPaneState(false);
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
@@ -1023,7 +1174,7 @@ export function OutlineShell({ children, onActivate }: { children: ReactNode; on
       Math.max(COMMENTS_MIN_WIDTH, startWidth.current + delta)
     );
     setSidebarWidth(next);
-  }, []);
+  }, [setSidebarWidth]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     if (!dragging.current) return;
@@ -1034,16 +1185,11 @@ export function OutlineShell({ children, onActivate }: { children: ReactNode; on
       COMMENTS_MAX_WIDTH,
       Math.max(COMMENTS_MIN_WIDTH, startWidth.current + delta)
     );
-    setSidebarWidth(next);
-    localStorage.setItem(COMMENTS_WIDTH_STORAGE_KEY, String(next));
-  }, []);
+    setSidebarWidth(next, { persist: true });
+  }, [setSidebarWidth]);
 
   const toggleSidebar = () => {
-    setSidebarOpen((current) => {
-      const next = !current;
-      window.localStorage.setItem(COMMENTS_PANE_STORAGE_KEY, next ? "1" : "0");
-      return next;
-    });
+    setSidebarOpen((current) => !current);
   };
 
   const jumpToHeading = (id: string) => {
