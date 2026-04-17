@@ -1,11 +1,81 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useSyncExternalStore } from "react";
 
 const MIN_WIDTH = 160;
 const MAX_WIDTH = 480;
 const DEFAULT_WIDTH = 256;
 const STORAGE_KEY = "sidebar-width";
+let listeners: Array<() => void> = [];
+let widthCache: number | null = null;
+
+function readStoredWidth() {
+  if (typeof window === "undefined") return DEFAULT_WIDTH;
+
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    const nextWidth = parseInt(stored, 10);
+    if (nextWidth >= 0 && nextWidth <= MAX_WIDTH) {
+      return nextWidth;
+    }
+  }
+
+  return DEFAULT_WIDTH;
+}
+
+function subscribe(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  listeners.push(onStoreChange);
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key && event.key !== STORAGE_KEY) return;
+
+    widthCache = null;
+    onStoreChange();
+  };
+
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    listeners = listeners.filter((listener) => listener !== onStoreChange);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
+function getWidthSnapshot() {
+  if (typeof window === "undefined") return DEFAULT_WIDTH;
+
+  if (widthCache !== null) {
+    return widthCache;
+  }
+
+  widthCache = readStoredWidth();
+  return widthCache;
+}
+
+function getServerWidthSnapshot() {
+  return DEFAULT_WIDTH;
+}
+
+function updateWidth(
+  nextWidth: number,
+  options?: {
+    persist?: boolean;
+  }
+) {
+  if (typeof window === "undefined") return;
+
+  widthCache = nextWidth;
+
+  if (options?.persist ?? true) {
+    window.localStorage.setItem(STORAGE_KEY, String(nextWidth));
+  }
+
+  listeners.forEach((listener) => listener());
+}
 
 export function ResizableLayout({
   sidebar,
@@ -14,15 +84,11 @@ export function ResizableLayout({
   sidebar: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const [width, setWidth] = useState(() => {
-    if (typeof window === "undefined") return DEFAULT_WIDTH;
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const n = parseInt(stored, 10);
-      if (n >= 0 && n <= MAX_WIDTH) return n;
-    }
-    return DEFAULT_WIDTH;
-  });
+  const width = useSyncExternalStore(
+    subscribe,
+    getWidthSnapshot,
+    getServerWidthSnapshot
+  );
   const collapsed = width === 0;
   const dragging = useRef(false);
   const startX = useRef(0);
@@ -30,12 +96,9 @@ export function ResizableLayout({
 
   const toggle = useCallback(() => {
     if (collapsed) {
-      const restored = DEFAULT_WIDTH;
-      setWidth(restored);
-      localStorage.setItem(STORAGE_KEY, String(restored));
+      updateWidth(DEFAULT_WIDTH);
     } else {
-      setWidth(0);
-      localStorage.setItem(STORAGE_KEY, "0");
+      updateWidth(0);
     }
   }, [collapsed]);
 
@@ -54,7 +117,7 @@ export function ResizableLayout({
     if (!dragging.current) return;
     const delta = e.clientX - startX.current;
     const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta));
-    setWidth(next);
+    updateWidth(next, { persist: false });
   }, []);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
@@ -63,8 +126,7 @@ export function ResizableLayout({
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     const delta = e.clientX - startX.current;
     const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta));
-    setWidth(next);
-    localStorage.setItem(STORAGE_KEY, String(next));
+    updateWidth(next);
   }, []);
 
   return (
