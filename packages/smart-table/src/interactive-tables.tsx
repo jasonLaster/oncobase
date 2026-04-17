@@ -10,24 +10,16 @@ const COMMENTS_PANE_EVENT = "comments-pane-state-change";
 const expandedTableMemory = new Map<string, boolean>();
 
 /**
- * Client island that progressively enhances server-rendered prose content
- * with heading anchors and smarter markdown tables.
+ * Client island that progressively enhances server-rendered prose tables
+ * with smart expansion and resizing behavior.
  */
-export function InteractiveTables({
-  disableAnchors,
-}: {
-  disableAnchors?: boolean;
-}) {
+export function InteractiveTables() {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const prose = sentinelRef.current?.parentElement;
     if (!prose) {
       return;
-    }
-
-    if (!disableAnchors && window.matchMedia("(hover: hover)").matches) {
-      attachHeadingAnchors(prose);
     }
 
     const cleanups: Array<() => void> = [];
@@ -48,33 +40,9 @@ export function InteractiveTables({
     return () => {
       cleanups.forEach((cleanup) => cleanup());
     };
-  }, [disableAnchors]);
+  }, []);
 
   return <div ref={sentinelRef} style={{ display: "none" }} />;
-}
-
-function attachHeadingAnchors(container: HTMLElement) {
-  const headings = container.querySelectorAll<HTMLElement>(
-    "h1, h2, h3, h4, h5, h6"
-  );
-
-  headings.forEach((heading) => {
-    const id = heading.id;
-    if (!id || heading.querySelector(".heading-anchor")) {
-      return;
-    }
-
-    heading.classList.add("group", "relative");
-
-    const anchor = document.createElement("a");
-    anchor.href = `#${id}`;
-    anchor.className =
-      "heading-anchor opacity-0 group-hover:opacity-100 text-[var(--text-muted)] no-underline hover:no-underline hover:text-[var(--brand)] transition-opacity cursor-pointer";
-    anchor.setAttribute("aria-label", `Link to "${heading.textContent}"`);
-    anchor.textContent = "#";
-
-    heading.appendChild(anchor);
-  });
 }
 
 function wrapWithExpandCollapse(

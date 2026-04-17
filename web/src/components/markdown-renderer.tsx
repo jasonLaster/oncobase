@@ -1,6 +1,7 @@
 import { resolveWikilinks } from "@/lib/wikilinks";
 import { renderMarkdown, renderMarkdownAsync } from "@/lib/render-markdown";
 import { InteractiveTables } from "@diana-tnbc/smart-table";
+import { MarkdownHeadingAnchors } from "@/components/markdown-heading-anchors";
 
 export function MarkdownRenderer({
   content,
@@ -17,7 +18,8 @@ export function MarkdownRenderer({
   return (
     <div className="prose max-w-none">
       <div dangerouslySetInnerHTML={{ __html: html }} />
-      <InteractiveTables disableAnchors={disableAnchors} />
+      <MarkdownHeadingAnchors disableAnchors={disableAnchors} />
+      <InteractiveTables />
     </div>
   );
 }
@@ -38,7 +40,8 @@ export async function MarkdownRendererAsync({
   return (
     <div className="prose max-w-none">
       <div dangerouslySetInnerHTML={{ __html: html }} />
-      <InteractiveTables disableAnchors={disableAnchors} />
+      <MarkdownHeadingAnchors disableAnchors={disableAnchors} />
+      <InteractiveTables />
     </div>
   );
 }

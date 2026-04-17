@@ -12,6 +12,7 @@ import {
   MdTr,
 } from "@diana-tnbc/smart-table";
 import { resolveWikilinks } from "@/lib/wikilinks";
+import { MarkdownHeadingAnchors } from "@/components/markdown-heading-anchors";
 
 /**
  * Client-side markdown renderer for interactive contexts (chat, search)
@@ -20,6 +21,7 @@ import { resolveWikilinks } from "@/lib/wikilinks";
  */
 export function MarkdownRendererClient({
   content,
+  disableAnchors,
 }: {
   content: string;
   disableAnchors?: boolean;
@@ -42,6 +44,7 @@ export function MarkdownRendererClient({
       >
         {resolved}
       </ReactMarkdown>
+      <MarkdownHeadingAnchors disableAnchors={disableAnchors} />
     </div>
   );
 }
