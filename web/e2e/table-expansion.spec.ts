@@ -108,6 +108,33 @@ test.describe("Prose table expansion", () => {
     expect(Math.abs((after.layer?.top ?? 0) - (before.layer?.top ?? 0))).toBeGreaterThan(150);
   });
 
+  test("preserves table styling when expanded", async ({ page }) => {
+    const before = await getFirstTableStyleSnapshot(page);
+
+    await page.getByRole("button", { name: "Expand table" }).first().click();
+
+    await expect
+      .poll(() => getFirstTableMetrics(page))
+      .toMatchObject({
+        expanded: true,
+      });
+
+    const after = await getFirstTableStyleSnapshot(page);
+
+    expect(after.wrapper?.backgroundImage).toBe(before.wrapper?.backgroundImage);
+    expect(after.wrapper?.borderTopWidth).toBe(before.wrapper?.borderTopWidth);
+    expect(after.wrapper?.borderRadius).toBe(before.wrapper?.borderRadius);
+    expect(after.wrapper?.paddingRight).toBe(before.wrapper?.paddingRight);
+    expect(after.th?.backgroundColor).toBe(before.th?.backgroundColor);
+    expect(after.th?.paddingTop).toBe(before.th?.paddingTop);
+    expect(after.th?.paddingRight).toBe(before.th?.paddingRight);
+    expect(after.th?.textTransform).toBe(before.th?.textTransform);
+    expect(after.th?.letterSpacing).toBe(before.th?.letterSpacing);
+    expect(after.td?.paddingTop).toBe(before.td?.paddingTop);
+    expect(after.td?.paddingRight).toBe(before.td?.paddingRight);
+    expect(after.td?.borderBottomWidth).toBe(before.td?.borderBottomWidth);
+  });
+
   test("manual column resize widens the collapsed table", async ({ page }) => {
     await dragFirstResizeHandle(page, 520);
 
@@ -331,6 +358,45 @@ async function getPrimaryTableState(page: Page) {
       locked: table?.dataset.smartTableLocked ?? null,
       tableWidth: table?.style.width ?? null,
       cols,
+    };
+  });
+}
+
+async function getFirstTableStyleSnapshot(page: Page) {
+  return page.evaluate(() => {
+    const layer = document.querySelector<HTMLElement>(".table-expansion-layer");
+    const shell = document.querySelector<HTMLElement>("[data-smart-table-shell]");
+    const wrapper =
+      layer?.querySelector<HTMLElement>(":scope > .table-scroll-wrapper") ??
+      shell?.querySelector<HTMLElement>("[data-smart-table-wrapper]") ??
+      document.querySelector<HTMLElement>("[data-smart-table-wrapper]");
+    const table = wrapper?.querySelector<HTMLTableElement>("table");
+    const th = table?.querySelector<HTMLTableCellElement>("thead th");
+    const td = table?.querySelector<HTMLTableCellElement>("tbody td");
+
+    const pick = (node: HTMLElement | null | undefined) => {
+      if (!(node instanceof HTMLElement)) {
+        return null;
+      }
+
+      const style = window.getComputedStyle(node);
+      return {
+        backgroundImage: style.backgroundImage,
+        backgroundColor: style.backgroundColor,
+        borderTopWidth: style.borderTopWidth,
+        borderBottomWidth: style.borderBottomWidth,
+        borderRadius: style.borderRadius,
+        paddingTop: style.paddingTop,
+        paddingRight: style.paddingRight,
+        textTransform: style.textTransform,
+        letterSpacing: style.letterSpacing,
+      };
+    };
+
+    return {
+      wrapper: pick(wrapper),
+      th: pick(th),
+      td: pick(td),
     };
   });
 }

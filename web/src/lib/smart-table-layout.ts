@@ -1,3 +1,10 @@
+import {
+  measureLineStats,
+  measureNaturalWidth,
+  prepareWithSegments,
+  type PreparedTextWithSegments,
+} from "@chenglou/pretext";
+
 const WIDTH_ROUNDING = 4;
 const DEFAULT_LINE_HEIGHT_RATIO = 1.45;
 const CANDIDATE_STEPS = [0, 0.38, 0.72, 1];
@@ -48,6 +55,7 @@ let measurementHost: HTMLDivElement | null = null;
 let measurementNode: HTMLDivElement | null = null;
 const textWidthCache = new Map<string, number>();
 const textHeightCache = new Map<string, number>();
+const preparedTextCache = new Map<string, PreparedTextWithSegments>();
 const manualWidthMemory = new Map<string, number[]>();
 const MANUAL_WIDTHS_PREFIX = "smart-table-widths:";
 
@@ -143,7 +151,7 @@ function readTextMetrics(cell: HTMLTableCellElement): TextMetrics {
   };
 }
 
-function measureTextWidth(text: string, metrics: TextMetrics) {
+function measureTextWidthWithCanvas(text: string, metrics: TextMetrics) {
   const renderedText = applyTextTransform(text || " ", metrics.textTransform);
   const cacheKey = [
     "w",
@@ -173,6 +181,46 @@ function measureTextWidth(text: string, metrics: TextMetrics) {
   return measured;
 }
 
+function getPreparedText(text: string, metrics: TextMetrics) {
+  const cacheKey = ["p", metrics.font, text].join("|");
+  let prepared = preparedTextCache.get(cacheKey);
+  if (!prepared) {
+    prepared = prepareWithSegments(text || " ", metrics.font);
+    preparedTextCache.set(cacheKey, prepared);
+  }
+
+  return prepared;
+}
+
+function measureTextWidth(text: string, metrics: TextMetrics) {
+  const renderedText = applyTextTransform(text || " ", metrics.textTransform);
+  const cacheKey = [
+    "w-pre",
+    metrics.font,
+    metrics.letterSpacing,
+    metrics.paddingX,
+    renderedText,
+  ].join("|");
+  const cached = textWidthCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  let measured = 0;
+  if (metrics.letterSpacing !== 0) {
+    measured = measureTextWidthWithCanvas(renderedText, metrics);
+  } else {
+    try {
+      measured = measureNaturalWidth(getPreparedText(renderedText, metrics)) + metrics.paddingX;
+    } catch {
+      measured = measureTextWidthWithCanvas(renderedText, metrics);
+    }
+  }
+
+  textWidthCache.set(cacheKey, measured);
+  return measured;
+}
+
 function measureLongestToken(text: string, metrics: TextMetrics) {
   const tokens = normalizeText(text)
     .split(/[\s/]+/)
@@ -188,6 +236,24 @@ function measureLongestToken(text: string, metrics: TextMetrics) {
   }
 
   return widest;
+}
+
+function measureTextHeightWithDom(text: string, metrics: TextMetrics, width: number) {
+  const node = getMeasurementNode();
+  node.style.boxSizing = "border-box";
+  node.style.width = `${Math.max(roundWidth(width), WIDTH_ROUNDING)}px`;
+  node.style.padding = `${metrics.paddingY / 2}px ${metrics.paddingX / 2}px`;
+  node.style.fontFamily = metrics.fontFamily;
+  node.style.fontSize = `${metrics.fontSize}px`;
+  node.style.fontWeight = metrics.fontWeight;
+  node.style.lineHeight = `${metrics.lineHeight}px`;
+  node.style.letterSpacing = `${metrics.letterSpacing}px`;
+  node.style.whiteSpace = "normal";
+  node.style.overflowWrap = "anywhere";
+  node.style.wordBreak = "break-word";
+  node.textContent = text;
+
+  return Math.ceil(node.getBoundingClientRect().height);
 }
 
 function measureTextHeight(text: string, metrics: TextMetrics, width: number) {
@@ -207,21 +273,25 @@ function measureTextHeight(text: string, metrics: TextMetrics, width: number) {
     return cached;
   }
 
-  const node = getMeasurementNode();
-  node.style.boxSizing = "border-box";
-  node.style.width = `${Math.max(roundWidth(width), WIDTH_ROUNDING)}px`;
-  node.style.padding = `${metrics.paddingY / 2}px ${metrics.paddingX / 2}px`;
-  node.style.fontFamily = metrics.fontFamily;
-  node.style.fontSize = `${metrics.fontSize}px`;
-  node.style.fontWeight = metrics.fontWeight;
-  node.style.lineHeight = `${metrics.lineHeight}px`;
-  node.style.letterSpacing = `${metrics.letterSpacing}px`;
-  node.style.whiteSpace = "normal";
-  node.style.overflowWrap = "anywhere";
-  node.style.wordBreak = "break-word";
-  node.textContent = renderedText;
+  let measured = 0;
+  // Pretext measures from font metrics, not CSS letter-spacing, so keep the
+  // DOM path for header-like cells that intentionally track out their text.
+  if (metrics.letterSpacing !== 0) {
+    measured = measureTextHeightWithDom(renderedText, metrics, width);
+  } else {
+    try {
+      const prepared = getPreparedText(renderedText, metrics);
+      const contentWidth = Math.max(
+        1,
+        roundWidth(Math.max(WIDTH_ROUNDING, width - metrics.paddingX))
+      );
+      const { lineCount } = measureLineStats(prepared, contentWidth);
+      measured = Math.ceil(lineCount * metrics.lineHeight + metrics.paddingY);
+    } catch {
+      measured = measureTextHeightWithDom(renderedText, metrics, width);
+    }
+  }
 
-  const measured = Math.ceil(node.getBoundingClientRect().height);
   textHeightCache.set(cacheKey, measured);
   return measured;
 }

@@ -282,6 +282,9 @@ function wrapWithExpandCollapse(
     if (!expansionLayer) {
       expansionLayer = document.createElement("div");
       expansionLayer.className = "table-expansion-layer";
+      expansionLayer.style.position = "fixed";
+      expansionLayer.style.zIndex = "20";
+      expansionLayer.style.boxSizing = "border-box";
       if (options.persistenceKey) {
         expansionLayer.dataset.smartTableLayer = options.persistenceKey;
       }
