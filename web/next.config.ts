@@ -5,6 +5,20 @@ import path from "path";
 const nextConfig: NextConfig = {
   cacheComponents: true,
   async redirects() {
+    const rootRedirects = [
+      {
+        source: "/",
+        has: [
+          {
+            type: "host" as const,
+            value: "diana-tnbc.com",
+          },
+        ],
+        destination: "/about/index",
+        permanent: true as const,
+      },
+    ];
+
     const wikiRedirects: Record<string, string> = {
       // diagnostics
       diagnosis: "diagnostics/diagnosis",
@@ -74,6 +88,7 @@ const nextConfig: NextConfig = {
     ];
 
     return [
+      ...rootRedirects,
       ...Object.entries(wikiRedirects).map(([from, to]) => ({
         source: `/wiki/${from}`,
         destination: `/wiki/${to}`,
