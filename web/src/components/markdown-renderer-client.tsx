@@ -10,7 +10,7 @@ import {
   MdTh,
   MdThead,
   MdTr,
-} from "@/components/markdown-table";
+} from "@diana-tnbc/smart-table";
 import { resolveWikilinks } from "@/lib/wikilinks";
 
 /**

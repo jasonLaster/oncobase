@@ -6,8 +6,15 @@
       "persistent": true
     },
     "build": {
+      "dependsOn": ["^build"],
       "outputs": [".next/**"]
     },
-    "lint": {}
+    "lint": {},
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "test:unit": {
+      "dependsOn": ["^test:unit"]
+    }
   }
 }

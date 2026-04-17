@@ -86,6 +86,7 @@ const nextConfig: NextConfig = {
     ];
   },
   serverExternalPackages: ["gray-matter"],
+  transpilePackages: ["@diana-tnbc/smart-table"],
   outputFileTracingRoot: path.join(__dirname, ".."),
   outputFileTracingExcludes: {
     "*": [

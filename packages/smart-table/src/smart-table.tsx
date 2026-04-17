@@ -7,16 +7,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+} from "./table";
+import { cn } from "./cn";
 import {
   getExpandedTableBleed,
   observeExpandedTableBleed,
-} from "@/lib/table-expansion";
+} from "./table-expansion";
 import {
   attachSmartResizeHandles,
   installSmartTableLayout,
-} from "@/lib/smart-table-layout";
+} from "./smart-table-layout";
 
 function assignRef<T>(
   ref: React.ForwardedRef<T>,

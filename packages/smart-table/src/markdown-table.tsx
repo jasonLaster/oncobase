@@ -7,7 +7,7 @@ import {
   SmartTableHead,
   SmartTableHeader,
   SmartTableRow,
-} from "@/components/ui/smart-table";
+} from "./smart-table";
 
 export function MdTable(props: React.ComponentProps<typeof SmartTable>) {
   return <SmartTable {...props} />;

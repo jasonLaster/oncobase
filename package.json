@@ -1,11 +1,13 @@
 {
   "name": "diana-breast-cancer",
   "private": true,
-  "workspaces": ["web"],
+  "workspaces": ["web", "packages/*"],
   "scripts": {
-    "dev": "turbo dev",
-    "build": "turbo build",
-    "lint": "turbo lint"
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test:unit": "turbo run test:unit"
   },
   "devDependencies": {
     "turbo": "^2"

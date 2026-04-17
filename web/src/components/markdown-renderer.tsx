@@ -1,6 +1,6 @@
 import { resolveWikilinks } from "@/lib/wikilinks";
 import { renderMarkdown, renderMarkdownAsync } from "@/lib/render-markdown";
-import { InteractiveTables } from "@/components/interactive-tables";
+import { InteractiveTables } from "@diana-tnbc/smart-table";
 
 export function MarkdownRenderer({
   content,

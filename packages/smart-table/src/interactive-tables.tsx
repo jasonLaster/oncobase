@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import {
   attachSmartResizeHandles,
   installSmartTableLayout,
-} from "@/lib/smart-table-layout";
+} from "./smart-table-layout";
 
 const COMMENTS_PANE_EVENT = "comments-pane-state-change";
 const expandedTableMemory = new Map<string, boolean>();
