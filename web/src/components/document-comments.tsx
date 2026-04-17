@@ -53,6 +53,21 @@ type OutlineItem = {
   level: number;
 };
 
+function getOutlineHeadingText(heading: HTMLHeadingElement): string {
+  const clone = heading.cloneNode(true) as HTMLHeadingElement;
+  clone
+    .querySelectorAll('a[href^="#"], a[aria-hidden="true"], .anchor, .header-anchor, .hash-link')
+    .forEach((anchor) => {
+      anchor.remove();
+    });
+
+  const text = clone.textContent ?? heading.textContent ?? "";
+  return text
+    .replace(/^#{1,6}\s*/, "")
+    .replace(/(?:\s*#\s*)+$/, "")
+    .trim();
+}
+
 const COMMENTS_PANE_STORAGE_KEY = "comments-pane-open";
 const COMMENTS_WIDTH_STORAGE_KEY = "comments-pane-width";
 const COMMENTS_MIN_WIDTH = 240;
@@ -597,10 +612,7 @@ function CommentsShell({
       setOutlineItems(
         headings.map((heading) => ({
           id: heading.id,
-          text:
-            heading.textContent
-              ?.replace(/^#{1,6}\s*/, "")
-              .trim() || heading.id,
+          text: getOutlineHeadingText(heading) || heading.id,
           level: Number.parseInt(heading.tagName.slice(1), 10),
         }))
       );
@@ -1211,10 +1223,7 @@ export function OutlineShell({ children, onActivate }: { children: ReactNode; on
       setOutlineItems(
         headings.map((heading) => ({
           id: heading.id,
-          text:
-            heading.textContent
-              ?.replace(/^#{1,6}\s*/, "")
-              .trim() || heading.id,
+          text: getOutlineHeadingText(heading) || heading.id,
           level: Number.parseInt(heading.tagName.slice(1), 10),
         }))
       );
