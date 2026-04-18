@@ -3,7 +3,8 @@ import path from "path";
 import fs from "fs";
 
 const OBSIDIAN_DIR =
-  process.env.OBSIDIAN_DIR ?? path.join(process.cwd(), "..", "obsidian");
+  process.env.OBSIDIAN_DIR ??
+  path.join(/* turbopackIgnore: true */ process.cwd(), "..", "obsidian");
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf":  "application/pdf",
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
 
   // ── Local / disk path ──────────────────────────────────────────────────────
   // Skip LFS pointer files — they start with "version https://git-lfs"
-  const diskPath = path.join(OBSIDIAN_DIR, normalized);
+  const diskPath = path.join(/* turbopackIgnore: true */ OBSIDIAN_DIR, normalized);
   if (fs.existsSync(diskPath)) {
     const buf = fs.readFileSync(diskPath);
     const isLfsPointer = buf.length < 200 && buf.toString("utf8", 0, 40).includes("git-lfs");

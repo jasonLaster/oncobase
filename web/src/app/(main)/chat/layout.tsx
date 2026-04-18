@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 
+export const unstable_instant = false;
+
 export const chatEnabled =
   process.env.NEXT_PUBLIC_ENABLE_CHAT === "true" 
 

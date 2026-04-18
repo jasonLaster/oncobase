@@ -57,12 +57,26 @@ function* findPdfs(dir: string, basePath = ""): Generator<{ fullPath: string; re
   }
 }
 
+function isMissingFunctionError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("Could not find public function");
+}
+
 async function main() {
   const { put } = await import("@vercel/blob");
   const force = process.argv.includes("--force");
 
   // Fetch existing PDF assets to determine what's already uploaded
-  const existing = await client.query(api.documents.listPdfAssets, {});
+  let existing: Array<{ path: string }> = [];
+  try {
+    existing = await client.query(api.documents.listPdfAssets, {});
+  } catch (error) {
+    if (isMissingFunctionError(error)) {
+      console.warn("Convex PDF asset functions are not available in this deployment — skipping PDF ingest.");
+      return;
+    }
+    throw error;
+  }
   const existingPaths = new Set(existing.map((a) => a.path));
   console.log(`${existing.length} PDFs already in Blob.`);
 

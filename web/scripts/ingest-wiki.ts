@@ -66,6 +66,11 @@ function hashContent(content: string): string {
   return crypto.createHash("sha256").update(content).digest("hex").slice(0, 16);
 }
 
+function isMissingFunctionError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("Could not find public function");
+}
+
 function prepareUpsertArgs(file: FileEntry) {
   const raw = fs.readFileSync(file.filePath, "utf-8");
   const contentHash = hashContent(raw);
@@ -89,6 +94,17 @@ function prepareUpsertArgs(file: FileEntry) {
 
 async function main() {
   const t0 = Date.now();
+
+  try {
+    await client.query(api.documents.listPageDescriptions, { cursor: null, numItems: 1 });
+  } catch (error) {
+    if (isMissingFunctionError(error)) {
+      console.warn("Convex document functions are not available in this deployment — skipping wiki ingest.");
+      return;
+    }
+    throw error;
+  }
+
   const files = getAllMarkdownFiles();
   console.log(`Found ${files.length} markdown files`);
 

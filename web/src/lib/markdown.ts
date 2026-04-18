@@ -100,11 +100,11 @@ export function getFileTree(dir: string = OBSIDIAN_DIR, basePath: string = ""): 
 
 /**
  * Fetch PDF paths from Convex using the official SDK (fetchQuery).
- * Cached at build time so the sidebar includes PDFs even when they
- * aren't on disk (i.e. on Vercel).
+ * Callers decide whether to cache the result; the navigation shell now
+ * fetches the merged tree dynamically so newly ingested PDFs can appear
+ * without being pinned into the PPR layout shell.
  */
 async function fetchConvexPdfPaths(): Promise<string[]> {
-  "use cache";
   if (!process.env.NEXT_PUBLIC_CONVEX_URL) return [];
   try {
     const { fetchQuery } = await import("convex/nextjs");

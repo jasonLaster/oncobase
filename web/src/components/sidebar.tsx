@@ -32,6 +32,17 @@ function CommentIcon() {
   );
 }
 
+function PdfIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+      <path d="M5 2.5h4.5L13 6v7.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1Z" />
+      <path d="M9.5 2.5V6H13" />
+      <path d="M6 9.5h4" />
+      <path d="M6 11.5h3" />
+    </svg>
+  );
+}
+
 
 export function SidebarTopLinks({
   onNavigate,
@@ -130,6 +141,7 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
         style={{ paddingLeft: `${depth * 12 + 20}px` }}
         title={`${formatName(node.name)}.pdf`}
       >
+        <PdfIcon />
         <span className="truncate">{formatName(node.name)}.pdf</span>
       </a>
     );
