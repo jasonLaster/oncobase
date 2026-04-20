@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const PASSWORDS = ["wallify", "diana"];
+const LINK_PREVIEW_BOT_RE =
+  /\b(slackbot|twitterbot|facebookexternalhit|facebot|linkedinbot|discordbot|whatsapp|telegrambot|skypeuripreview|microsoftpreview|teamsbot|pinterest|redditbot|applebot)\b/i;
 
 export function middleware(request: NextRequest) {
   const isAuthed = request.cookies.get("authed")?.value === "true";
   const isLoginPage = request.nextUrl.pathname === "/login";
+  const isSharePreviewRequest =
+    (request.method === "GET" || request.method === "HEAD") &&
+    LINK_PREVIEW_BOT_RE.test(request.headers.get("user-agent") ?? "");
 
   // Magic link: ?token=<password> on any page auto-logs in and strips the param
   const token = request.nextUrl.searchParams.get("token");
@@ -29,6 +34,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (!isAuthed && isSharePreviewRequest) {
+    const previewUrl = new URL("/api/share-preview", request.url);
+    previewUrl.searchParams.set("path", request.nextUrl.pathname);
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-share-preview-path", request.nextUrl.pathname);
+    return NextResponse.rewrite(previewUrl, {
+      request: { headers: requestHeaders },
+    });
+  }
+
   if (!isAuthed) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
@@ -40,6 +55,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|api/auth|api/login|api/liveblocks|api/post-deploy|api/file|\\.well-known/workflow).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|api/auth|api/login|api/share-preview|api/liveblocks|api/post-deploy|api/file|\\.well-known/workflow).*)",
   ],
 };

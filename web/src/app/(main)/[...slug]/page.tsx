@@ -2,14 +2,13 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "@convex/_generated/api";
 import {
   getAllSlugs,
   getCanonicalSlug,
   getMarkdownFile,
   getMarkdownFileAsync,
 } from "@/lib/markdown";
+import { getMarkdownPageMetadata, toNextMetadata } from "@/lib/page-metadata";
 import { MarkdownRenderer, MarkdownRendererAsync } from "@/components/markdown-renderer";
 import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
@@ -33,72 +32,14 @@ export async function generateStaticParams() {
   return params;
 }
 
-// ── Build-time description cache ─────────────────────────────────────────────
-let _descriptionsCache: Promise<Map<string, string>> | null = null;
-
-function getDescriptionMap(): Promise<Map<string, string>> {
-  if (!_descriptionsCache) _descriptionsCache = fetchAllDescriptions();
-  return _descriptionsCache;
-}
-
-async function fetchAllDescriptions(): Promise<Map<string, string>> {
-  "use cache";
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!convexUrl) return new Map();
-  try {
-    const convex = new ConvexHttpClient(convexUrl);
-    const map = new Map<string, string>();
-    let cursor: string | null = null;
-    let isDone = false;
-    const t0 = Date.now();
-    while (!isDone) {
-      const page = await convex.query(api.documents.listPageDescriptions, { cursor, numItems: 100 }) as {
-        page: Array<{ slug: string; description: string | null }>;
-        isDone: boolean;
-        continueCursor: string;
-      };
-      for (const { slug, description } of page.page) {
-        if (description) map.set(slug, description);
-      }
-      isDone = page.isDone;
-      cursor = page.continueCursor;
-    }
-    console.log(`[build] descriptions loaded: ${map.size} in ${Date.now() - t0}ms`);
-    return map;
-  } catch (err) {
-    console.warn("[build] failed to load descriptions:", err);
-    return new Map();
-  }
-}
-
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string[] }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const filePath = slug.map(decodeURIComponent).join("/");
-  const cleanPath = filePath.replace(/\.md$/i, "");
-  const canonicalPath = getCanonicalSlug(cleanPath) ?? cleanPath;
-  const file = getMarkdownFile(canonicalPath);
-  if (!file) return {};
-
-  const description = (await getDescriptionMap()).get(file.slug) ?? null;
-
-  return {
-    title: `${file.title} — Diana's TNBC`,
-    description: description ?? undefined,
-    openGraph: {
-      title: file.title,
-      description: description ?? undefined,
-      type: "article",
-    },
-    twitter: {
-      card: "summary",
-      title: file.title,
-      description: description ?? undefined,
-    },
-  };
+  const page = await getMarkdownPageMetadata(slug.join("/"));
+  return page ? toNextMetadata(page) : {};
 }
 
 // ── Page header (static in PPR cache) ────────────────────────────────────────
