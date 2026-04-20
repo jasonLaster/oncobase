@@ -14,3 +14,4 @@ web/scripts/test-archive-output.zip
 web/scripts/test-blob-archive.ts
 package-lock.json
 test-results/
+.env*.local
