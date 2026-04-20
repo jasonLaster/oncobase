@@ -2,6 +2,7 @@
 
 import {
   Fragment,
+  type ButtonHTMLAttributes,
   type ReactNode,
   useCallback,
   useEffect,
@@ -52,6 +53,37 @@ type OutlineItem = {
   text: string;
   level: number;
 };
+
+type SidebarButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  active?: boolean;
+  variant?: "tab" | "icon" | "list";
+};
+
+function SidebarButton({
+  active = false,
+  className,
+  variant = "icon",
+  type = "button",
+  ...props
+}: SidebarButtonProps) {
+  return (
+    <button
+      type={type}
+      className={cn(
+        "cursor-pointer rounded transition-colors active:bg-[var(--accent-light)] active:text-[var(--brand)]",
+        variant === "tab" && "flex-1 px-2 py-1 text-xs font-medium",
+        variant === "icon" && "flex h-7 w-7 items-center justify-center rounded-md",
+        variant === "list" &&
+          "block w-full px-2 py-1.5 text-left text-sm text-[var(--text-muted)]",
+        active
+          ? "bg-[var(--accent-light)] text-[var(--brand)]"
+          : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]",
+        className
+      )}
+      {...props}
+    />
+  );
+}
 
 function getOutlineHeadingText(heading: HTMLHeadingElement): string {
   const clone = heading.cloneNode(true) as HTMLHeadingElement;
@@ -680,41 +712,30 @@ function CommentsShell({
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex items-center gap-2">
           <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
-            <button
-              type="button"
+            <SidebarButton
+              variant="tab"
+              active={sidebarMode === "comments"}
               onClick={() => setSidebarMode("comments")}
-              className={cn(
-                "flex-1 rounded px-2 py-1 text-xs font-medium transition-colors",
-                sidebarMode === "comments"
-                  ? "bg-[var(--accent-light)] text-[var(--brand)]"
-                  : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
-              )}
             >
               Comments
-            </button>
-            <button
-              type="button"
+            </SidebarButton>
+            <SidebarButton
+              variant="tab"
+              active={sidebarMode === "outline"}
               onClick={() => setSidebarMode("outline")}
-              className={cn(
-                "flex-1 rounded px-2 py-1 text-xs font-medium transition-colors",
-                sidebarMode === "outline"
-                  ? "bg-[var(--accent-light)] text-[var(--brand)]"
-                  : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
-              )}
             >
               Outline
-            </button>
+            </SidebarButton>
           </div>
-          <button
-            type="button"
+          <SidebarButton
             onClick={toggleCommentsPane}
             aria-label="Collapse comments pane"
-            className="rounded-md px-2 py-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+            className="h-auto w-auto px-2 py-1"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 4 10 8 6 12" />
             </svg>
-          </button>
+          </SidebarButton>
         </div>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
@@ -830,16 +851,15 @@ function CommentsShell({
           ) : (
             <div className="space-y-0.5">
               {outlineItems.map((item) => (
-                <button
+                <SidebarButton
                   key={item.id}
-                  type="button"
+                  variant="list"
                   onClick={() => jumpToHeading(item.id)}
-                  className="block w-full rounded px-2 py-1.5 text-left text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
                   style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
                   title={item.text}
                 >
                   <span className="line-clamp-2">{item.text}</span>
-                </button>
+                </SidebarButton>
               ))}
             </div>
           )
@@ -1101,44 +1121,33 @@ function CommentsShell({
           </>
         ) : (
           <>
-            <button
-              type="button"
+            <SidebarButton
+              active={sidebarMode === "comments"}
               onClick={() => {
                 setSidebarMode("comments");
                 setCommentsOpen(true);
                 window.localStorage.setItem(COMMENTS_PANE_STORAGE_KEY, "1");
               }}
               aria-label="Open comments"
-              className={cn(
-                "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
-                sidebarMode === "comments"
-                  ? "bg-[var(--accent-light)] text-[var(--brand)]"
-                  : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
-              )}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
               </svg>
-            </button>
-            <button
-              type="button"
+            </SidebarButton>
+            <SidebarButton
+              active={sidebarMode === "outline"}
               onClick={() => {
                 setSidebarMode("outline");
                 setCommentsOpen(true);
                 window.localStorage.setItem(COMMENTS_PANE_STORAGE_KEY, "1");
               }}
               aria-label="Open outline"
-              className={cn(
-                "mt-2 flex h-7 w-7 items-center justify-center rounded-md transition-colors",
-                sidebarMode === "outline"
-                  ? "bg-[var(--accent-light)] text-[var(--brand)]"
-                  : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
-              )}
+              className="mt-2"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 4h10M3 8h10M3 12h6" />
               </svg>
-            </button>
+            </SidebarButton>
           </>
         )}
       </aside>
@@ -1262,16 +1271,15 @@ export function OutlineShell({ children, onActivate }: { children: ReactNode; on
               ) : (
                 <div className="space-y-0.5">
                   {outlineItems.map((item) => (
-                    <button
+                    <SidebarButton
                       key={item.id}
-                      type="button"
+                      variant="list"
                       onClick={() => jumpToHeading(item.id)}
-                      className="block w-full rounded px-2 py-1.5 text-left text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
                       style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
                       title={item.text}
                     >
                       <span className="line-clamp-2">{item.text}</span>
-                    </button>
+                    </SidebarButton>
                   ))}
                 </div>
               )}
@@ -1297,16 +1305,15 @@ export function OutlineShell({ children, onActivate }: { children: ReactNode; on
             />
             <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] px-3 py-2">
               <span className="flex-1 text-xs font-medium text-[var(--foreground)]">Outline</span>
-              <button
-                type="button"
+              <SidebarButton
                 onClick={toggleSidebar}
                 aria-label="Collapse outline pane"
-                className="rounded-md px-2 py-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+                className="h-auto w-auto px-2 py-1"
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="6 4 10 8 6 12" />
                 </svg>
-              </button>
+              </SidebarButton>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="bg-[var(--background)]/40 p-3">
@@ -1317,16 +1324,15 @@ export function OutlineShell({ children, onActivate }: { children: ReactNode; on
                 ) : (
                   <div className="space-y-0.5">
                     {outlineItems.map((item) => (
-                      <button
+                      <SidebarButton
                         key={item.id}
-                        type="button"
+                        variant="list"
                         onClick={() => jumpToHeading(item.id)}
-                        className="block w-full rounded px-2 py-1.5 text-left text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
                         style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
                         title={item.text}
                       >
                         <span className="line-clamp-2">{item.text}</span>
-                      </button>
+                      </SidebarButton>
                     ))}
                   </div>
                 )}
@@ -1336,35 +1342,28 @@ export function OutlineShell({ children, onActivate }: { children: ReactNode; on
         ) : (
           <>
             {onActivate ? (
-              <button
-                type="button"
+              <SidebarButton
                 onClick={onActivate}
                 aria-label="Open comments"
-                className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] transition-colors"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
                 </svg>
-              </button>
+              </SidebarButton>
             ) : null}
-            <button
-              type="button"
+            <SidebarButton
+              active
               onClick={() => {
                 setSidebarOpen(true);
                 window.localStorage.setItem(COMMENTS_PANE_STORAGE_KEY, "1");
               }}
               aria-label="Open outline"
-              className={cn(
-                "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
-                onActivate
-                  ? "mt-2 bg-[var(--accent-light)] text-[var(--brand)]"
-                  : "bg-[var(--accent-light)] text-[var(--brand)]"
-              )}
+              className={cn(onActivate && "mt-2")}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 4h10M3 8h10M3 12h6" />
               </svg>
-            </button>
+            </SidebarButton>
           </>
         )}
       </aside>
