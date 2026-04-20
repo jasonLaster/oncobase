@@ -17,7 +17,7 @@ export default function Home() {
   const file = getMarkdownFile("index");
 
   if (!file) {
-    return <p>No about/Index.md found.</p>;
+    return <p>No index.md found.</p>;
   }
 
   return (

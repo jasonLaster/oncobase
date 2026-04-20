@@ -3,7 +3,6 @@ import { getCanonicalSlug } from "./markdown";
 
 describe("getCanonicalSlug", () => {
   test("returns the on-disk casing for mixed-case wiki routes", () => {
-    expect(getCanonicalSlug("about/index")).toBe("about/Index");
     expect(getCanonicalSlug("ABOUT/jOuRnAl")).toBe("about/Journal");
   });
 
