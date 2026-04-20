@@ -111,13 +111,6 @@ function exampleToggle(shell: Locator) {
   return shell.getByRole("button", { name: "Expand table" });
 }
 
-async function exampleExpandedState(
-  page: Page,
-  example: ExampleTableDefinition
-) {
-  return exampleGeometry(page, example);
-}
-
 async function exampleGeometry(page: Page, example: ExampleTableDefinition) {
   return page.evaluate((exampleId) => {
     const heading = Array.from(document.querySelectorAll("h2")).find((node) =>
