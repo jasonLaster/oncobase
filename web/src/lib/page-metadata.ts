@@ -19,15 +19,9 @@ export type MarkdownPageMetadata = {
   description: string;
 };
 
-let _descriptionsCache: Promise<Map<string, string>> | null = null;
-
-function getDescriptionMap(): Promise<Map<string, string>> {
-  if (!_descriptionsCache) _descriptionsCache = fetchAllDescriptions();
-  return _descriptionsCache;
-}
-
-async function fetchAllDescriptions(): Promise<Map<string, string>> {
+async function getDescriptionMap(): Promise<Map<string, string>> {
   "use cache";
+
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
   if (!convexUrl) return new Map();
   try {
