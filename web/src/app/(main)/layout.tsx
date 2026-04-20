@@ -2,12 +2,18 @@ import { Header } from "@/components/header";
 import { NavigationShell } from "@/components/navigation-shell";
 import { getFileTree } from "@/lib/markdown";
 
-export default function MainLayout({
+async function getInitialFileTree() {
+  "use cache";
+
+  return getFileTree();
+}
+
+export default async function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const tree = getFileTree();
+  const tree = await getInitialFileTree();
 
   return (
     <div className="grid grid-rows-[auto_1fr] h-dvh overflow-hidden">
