@@ -4,7 +4,7 @@ import {
   generateDocumentMetadata,
 } from "../../_components/document-page";
 
-export const unstable_instant = { prefetch: "static" };
+export const unstable_instant = false;
 
 function withSourcesPrefix(params: Promise<{ slug: string[] }>) {
   return params.then(({ slug }) => ({ slug: ["sources", ...slug] }));
