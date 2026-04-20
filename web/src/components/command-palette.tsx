@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   CommandDialog,
@@ -98,6 +98,7 @@ export function CommandPalette() {
   const [pages, setPages] = useState<PageEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [isNavigating, startNavigation] = useTransition();
   const router = useRouter();
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -137,11 +138,14 @@ export function CommandPalette() {
 
   const handleSelect = useCallback(
     (slug: string) => {
+      const href = `/${slug}`;
       addRecentSlug(slug);
       setOpen(false);
-      router.push(`/${slug}`);
+      startNavigation(() => {
+        router.push(href);
+      });
     },
-    [router]
+    [router, startNavigation]
   );
 
   const recentSlugs = useMemo(() => (open ? getRecentSlugs() : []), [open]);
@@ -208,92 +212,113 @@ export function CommandPalette() {
     return { recentEntries: recent, searchResults: null, groupedEntries: entries };
   }, [pages, prepared, search, recentSlugs]);
 
+  useEffect(() => {
+    if (!open || loading) return;
+
+    const page = searchResults?.[0] ?? recentEntries[0];
+    if (page) {
+      router.prefetch(`/${page.slug}`);
+    }
+  }, [loading, open, recentEntries, router, searchResults]);
+
   return (
-    <CommandDialog open={open} onOpenChange={setOpen} title="Go to page" description="Search pages">
-      <Command shouldFilter={!search.trim()}>
-        <CommandInput
-          placeholder="Search pages…"
-          value={search}
-          onValueChange={(v) => {
-            setSearch(v);
-            requestAnimationFrame(() => listRef.current?.scrollTo(0, 0));
-          }}
-        />
-        <CommandList ref={listRef}>
-          {loading ? (
-            <div className="flex items-center justify-center py-6 text-muted-foreground">
-              <Loader2Icon className="size-4 animate-spin mr-2" />
-              <span className="text-sm">Loading pages…</span>
-            </div>
-          ) : (
-            <>
-              <CommandEmpty>No pages found.</CommandEmpty>
+    <>
+      {isNavigating ? (
+        <div
+          className="fixed inset-x-0 top-0 z-[60] h-0.5 bg-transparent"
+          role="status"
+          aria-label="Opening page"
+        >
+          <div className="h-full w-full animate-pulse bg-[var(--brand)]/60" />
+        </div>
+      ) : null}
 
-              {/* Search results — flat ranked list */}
-              {searchResults && (
-                <CommandGroup>
-                  {searchResults.map((page) => (
-                    <CommandItem
-                      key={page.slug}
-                      value={page.slug}
-                      onSelect={() => handleSelect(page.slug)}
-                      className="py-2.5"
-                    >
-                      <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
-                      <div className="flex flex-col min-w-0">
-                        <span className="truncate">{page.name.replace(/-/g, " ")}</span>
-                        <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
+      <CommandDialog open={open} onOpenChange={setOpen} title="Go to page" description="Search pages">
+        <Command shouldFilter={!search.trim()}>
+          <CommandInput
+            placeholder="Search pages…"
+            value={search}
+            onValueChange={(v) => {
+              setSearch(v);
+              requestAnimationFrame(() => listRef.current?.scrollTo(0, 0));
+            }}
+          />
+          <CommandList ref={listRef}>
+            {loading ? (
+              <div className="flex items-center justify-center py-6 text-muted-foreground">
+                <Loader2Icon className="size-4 animate-spin mr-2" />
+                <span className="text-sm">Loading pages…</span>
+              </div>
+            ) : (
+              <>
+                <CommandEmpty>No pages found.</CommandEmpty>
 
-              {/* No search — recent files + grouped */}
-              {!searchResults && recentEntries.length > 0 && (
-                <CommandGroup heading="Recent">
-                  {recentEntries.map((page) => (
-                    <CommandItem
-                      key={`recent-${page.slug}`}
-                      value={`${page.name} ${page.path} ${getGroup(page.slug)}`}
-                      onSelect={() => handleSelect(page.slug)}
-                      className="py-2.5"
-                    >
-                      <ClockIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
-                      <div className="flex flex-col min-w-0">
-                        <span className="truncate">{page.name.replace(/-/g, " ")}</span>
-                        <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-              {!searchResults && groupedEntries.map(([group, entries]) => (
-                <CommandGroup
-                  key={group || "__root__"}
-                  heading={group ? group.replace(/-/g, " ") : undefined}
-                >
-                  {entries.map((page) => (
-                    <CommandItem
-                      key={page.slug}
-                      value={`${page.name} ${page.path} ${group}`}
-                      onSelect={() => handleSelect(page.slug)}
-                      className="py-2.5"
-                    >
-                      <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
-                      <div className="flex flex-col min-w-0">
-                        <span className="truncate">{page.name.replace(/-/g, " ")}</span>
-                        <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              ))}
-            </>
-          )}
-        </CommandList>
-      </Command>
-    </CommandDialog>
+                {/* Search results — flat ranked list */}
+                {searchResults && (
+                  <CommandGroup>
+                    {searchResults.map((page) => (
+                      <CommandItem
+                        key={page.slug}
+                        value={page.slug}
+                        onSelect={() => handleSelect(page.slug)}
+                        className="py-2.5"
+                      >
+                        <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
+                        <div className="flex flex-col min-w-0">
+                          <span className="truncate">{page.name.replace(/-/g, " ")}</span>
+                          <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {/* No search — recent files + grouped */}
+                {!searchResults && recentEntries.length > 0 && (
+                  <CommandGroup heading="Recent">
+                    {recentEntries.map((page) => (
+                      <CommandItem
+                        key={`recent-${page.slug}`}
+                        value={`${page.name} ${page.path} ${getGroup(page.slug)}`}
+                        onSelect={() => handleSelect(page.slug)}
+                        className="py-2.5"
+                      >
+                        <ClockIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
+                        <div className="flex flex-col min-w-0">
+                          <span className="truncate">{page.name.replace(/-/g, " ")}</span>
+                          <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+                {!searchResults && groupedEntries.map(([group, entries]) => (
+                  <CommandGroup
+                    key={group || "__root__"}
+                    heading={group ? group.replace(/-/g, " ") : undefined}
+                  >
+                    {entries.map((page) => (
+                      <CommandItem
+                        key={page.slug}
+                        value={`${page.name} ${page.path} ${group}`}
+                        onSelect={() => handleSelect(page.slug)}
+                        className="py-2.5"
+                      >
+                        <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
+                        <div className="flex flex-col min-w-0">
+                          <span className="truncate">{page.name.replace(/-/g, " ")}</span>
+                          <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ))}
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </CommandDialog>
+    </>
   );
 }
 
