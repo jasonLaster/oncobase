@@ -2,6 +2,60 @@
 
 import { useEffect, useRef } from "react";
 
+function getScrollContainer(element: HTMLElement | null) {
+  if (!element) return null;
+
+  let current = element.parentElement;
+  while (current) {
+    const style = window.getComputedStyle(current);
+    const overflowY = style.overflowY;
+    if ((overflowY === "auto" || overflowY === "scroll") && current.scrollHeight > current.clientHeight) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+
+  return document.scrollingElement instanceof HTMLElement
+    ? document.scrollingElement
+    : document.documentElement;
+}
+
+function scrollElementIntoContainerView(target: HTMLElement, behavior: ScrollBehavior = "auto") {
+  const scrollContainer = getScrollContainer(target);
+  if (!scrollContainer) return;
+
+  const targetRect = target.getBoundingClientRect();
+
+  if (
+    scrollContainer === document.documentElement ||
+    scrollContainer === document.body ||
+    scrollContainer === document.scrollingElement
+  ) {
+    window.scrollTo({
+      top: Math.max(0, window.scrollY + targetRect.top),
+      behavior,
+    });
+    return;
+  }
+
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const nextTop = scrollContainer.scrollTop + targetRect.top - containerRect.top;
+  scrollContainer.scrollTo({ top: Math.max(0, nextTop), behavior });
+}
+
+function getElementForHash(root: HTMLElement, hash: string) {
+  if (!hash || hash === "#") return null;
+
+  let id = hash.slice(1);
+  try {
+    id = decodeURIComponent(id);
+  } catch {
+    // Malformed hashes should not break page hydration.
+  }
+
+  return root.querySelector<HTMLElement>(`#${CSS.escape(id)}`) ?? document.getElementById(id);
+}
+
 export function MarkdownHeadingAnchors({
   disableAnchors,
 }: {
@@ -18,6 +72,22 @@ export function MarkdownHeadingAnchors({
     if (!prose) {
       return;
     }
+
+    const scrollToHash = (behavior: ScrollBehavior = "auto") => {
+      const target = getElementForHash(prose, window.location.hash);
+      if (!target) return;
+      scrollElementIntoContainerView(target, behavior);
+    };
+
+    if (window.location.hash) {
+      requestAnimationFrame(() => {
+        scrollToHash();
+        window.setTimeout(scrollToHash, 100);
+      });
+    }
+
+    const onHashChange = () => scrollToHash("smooth");
+    window.addEventListener("hashchange", onHashChange);
 
     const headingCleanupFns: Array<() => void> = [];
     const supportsHover = window.matchMedia("(hover: hover)").matches;
@@ -39,9 +109,7 @@ export function MarkdownHeadingAnchors({
 
         const nextHash = `#${id}`;
         if (window.location.hash === nextHash) {
-          document
-            .getElementById(id)
-            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          scrollElementIntoContainerView(heading, "smooth");
           return;
         }
 
@@ -68,6 +136,7 @@ export function MarkdownHeadingAnchors({
     });
 
     return () => {
+      window.removeEventListener("hashchange", onHashChange);
       headingCleanupFns.forEach((cleanup) => cleanup());
     };
   }, [disableAnchors]);

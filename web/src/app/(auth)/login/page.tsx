@@ -19,7 +19,9 @@ function LoginForm() {
 
     if (res.ok) {
       const redirect = searchParams.get("redirect") || "/";
-      router.push(redirect);
+      const hash = window.location.hash;
+      const destination = hash && !redirect.includes("#") ? `${redirect}${hash}` : redirect;
+      router.push(destination);
       router.refresh();
     } else {
       setError("Incorrect password");
