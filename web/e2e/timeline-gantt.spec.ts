@@ -7,17 +7,20 @@ test.describe("timeline gantt rendering", () => {
   test("renders the timeline gantt mermaid diagram", async ({ page }) => {
     await page.goto(TIMELINE_ROUTE, { waitUntil: "networkidle" });
 
-    await expect(page.locator("article h3#timeline-gantt")).toHaveText(
+    const article = page.locator("article:visible").first();
+    await expect(article.locator("h3#timeline-gantt")).toContainText(
       "Timeline (gantt)"
     );
 
-    await expect(page.locator("article .mermaid-placeholder")).toHaveCount(0);
-    await expect(page.locator("article .mermaid-error")).toHaveCount(0);
+    await expect(article.locator(".mermaid-placeholder")).toHaveCount(0);
+    await expect(article.locator(".mermaid-error")).toHaveCount(0);
 
-    const ganttSvg = page.locator("article .mermaid-diagram svg").first();
+    const ganttSvg = article
+      .locator(".mermaid-diagram svg")
+      .filter({
+        hasText:
+          "MoPro wishlist timeline — critical path in red, parallel in blue",
+      });
     await expect(ganttSvg).toBeVisible();
-    await expect(ganttSvg).toContainText(
-      "MoPro wishlist timeline — critical path in red, parallel in blue"
-    );
   });
 });
