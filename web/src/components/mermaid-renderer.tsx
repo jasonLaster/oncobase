@@ -205,7 +205,7 @@ function injectGanttMarkers(svg: SVGSVGElement, markers: GanttMarker[]): void {
 
 const GANTT_MARKERS: GanttMarker[] = [
   { date: "2026-07-14", label: "Phase 2 (12 weeks)" },
-  { date: "2026-08-15", label: "Surgery" },
+  { date: "2026-09-10", label: "Surgery" },
 ];
 
 function flowchartTheme(scheme: Scheme) {
@@ -352,6 +352,7 @@ export function MermaidRenderer() {
             rightPadding: 60,
             gridLineStartPadding: 36,
             useMaxWidth: false,
+            tickInterval: "1week",
           },
           themeVariables: gantt ? ganttTheme(scheme) : flowchartTheme(scheme),
         });
