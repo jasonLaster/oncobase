@@ -71,6 +71,49 @@ function parseAxisTick(text: string | null | undefined): number | null {
   return Date.UTC(AXIS_REFERENCE_YEAR, month, Number(m[2]));
 }
 
+function fixGanttTextColors(svg: SVGSVGElement, scheme: Scheme): void {
+  // Text INSIDE a colored bar needs to contrast with that bar's fill; text
+  // OUTSIDE the bar sits on the page/card background and must use the normal
+  // foreground color regardless of the bar kind.
+  const texts = svg.querySelectorAll<SVGTextElement>(
+    "text.taskText, text.taskTextOutsideRight, text.taskTextOutsideLeft"
+  );
+
+  for (const t of Array.from(texts)) {
+    const cls = t.getAttribute("class") ?? "";
+    const isOutside =
+      cls.includes("taskTextOutsideRight") || cls.includes("taskTextOutsideLeft");
+    const isActive = /\bactiveText\d\b/.test(cls);
+    const isActiveCrit = /\bactiveCritText\d\b/.test(cls);
+    const isCrit = /\bcritText\d\b/.test(cls) && !isActiveCrit;
+    const isDone = /\bdoneText\d\b/.test(cls);
+
+    let fill: string | null = null;
+    let weight: string | null = null;
+
+    if (isOutside) {
+      // Sits on the card background — keep it neutral and readable.
+      fill = scheme === "dark" ? "#e2e8f0" : "#1f2937";
+      weight = "500";
+    } else if (isActiveCrit || isActive) {
+      // Indigo fills contrast well with white in both modes.
+      fill = "#ffffff";
+      weight = "600";
+    } else if (isCrit) {
+      fill = scheme === "dark" ? "#ffffff" : "#7f1d1d";
+      weight = "600";
+    } else if (isDone) {
+      fill = scheme === "dark" ? "#ffffff" : "#14532d";
+      weight = "600";
+    }
+
+    // Use setProperty with "important" priority — beats Mermaid's embedded
+    // <style> block AND stale globals.css rules that may linger through HMR.
+    if (fill) t.style.setProperty("fill", fill, "important");
+    if (weight) t.style.setProperty("font-weight", weight, "important");
+  }
+}
+
 function injectGanttMarkers(svg: SVGSVGElement, markers: GanttMarker[]): void {
   const ticks = svg.querySelectorAll<SVGGElement>("g.grid g.tick");
   if (ticks.length < 2) return;
@@ -326,6 +369,7 @@ export function MermaidRenderer() {
             const rendered = host.querySelector("svg") as SVGSVGElement | null;
             rendered?.removeAttribute("style");
             if (rendered) {
+              fixGanttTextColors(rendered, scheme);
               injectGanttMarkers(rendered, GANTT_MARKERS);
               const vb = rendered.getAttribute("viewBox")?.split(/\s+/);
               if (vb && vb.length === 4) {

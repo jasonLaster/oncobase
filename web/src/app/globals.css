@@ -253,47 +253,9 @@ body {
   font-size: 12px !important;
   font-weight: 500;
 }
-/* Active bars are the indigo fills — white text reads well on them in
-   both modes. */
-.mermaid-diagram[data-kind="gantt"] text.activeText0,
-.mermaid-diagram[data-kind="gantt"] text.activeText1,
-.mermaid-diagram[data-kind="gantt"] text.activeText2,
-.mermaid-diagram[data-kind="gantt"] text.activeText3,
-.mermaid-diagram[data-kind="gantt"] text.activeCritText0,
-.mermaid-diagram[data-kind="gantt"] text.activeCritText1,
-.mermaid-diagram[data-kind="gantt"] text.activeCritText2,
-.mermaid-diagram[data-kind="gantt"] text.activeCritText3 {
-  fill: #ffffff !important;
-  font-weight: 600 !important;
-}
-
-/* Dark mode: crit/done bars use dark-red / dark-green fills, so white text
-   wins. Light mode: the same bars are soft pink/green — need dark ink. */
-.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.critText0,
-.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.critText1,
-.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.critText2,
-.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.critText3,
-.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.doneText0,
-.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.doneText1,
-.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.doneText2,
-.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.doneText3 {
-  fill: #ffffff !important;
-  font-weight: 600 !important;
-}
-.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.critText0,
-.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.critText1,
-.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.critText2,
-.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.critText3 {
-  fill: #7f1d1d !important;
-  font-weight: 600 !important;
-}
-.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.doneText0,
-.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.doneText1,
-.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.doneText2,
-.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.doneText3 {
-  fill: #14532d !important;
-  font-weight: 600 !important;
-}
+/* Task-bar text colors (active/crit/done + outside-right/left) are set as
+   SVG `fill` attributes by the renderer — see fixGanttTextColors. Inline
+   attrs beat Mermaid's style element reliably and survive HMR restarts. */
 
 /* Custom vertical markers (surgery, phase 2, etc.) */
 .mermaid-diagram[data-kind="gantt"] .gantt-marker-line {
