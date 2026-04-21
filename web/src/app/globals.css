@@ -146,18 +146,174 @@ body {
 
 /* Mermaid diagrams */
 .mermaid-diagram {
-  margin: 1.5rem 0;
+  margin: 1.75rem 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: 0.625rem;
   padding: 1rem;
-  background: var(--background);
+  background: var(--card);
+  color: var(--card-foreground);
 }
 .mermaid-diagram svg {
   display: block;
   margin: 0 auto;
   max-width: none;
+}
+
+/* Gantt-specific polish (applied via data-kind="gantt" on the wrapper) */
+.mermaid-diagram[data-kind="gantt"] {
+  padding: 1.25rem 0.5rem 1rem;
+  background: var(--card);
+}
+/* Gantt uses its natural width (preserves readable type); the wrapper
+   scrolls horizontally if the viewport is narrower than the diagram. */
+.mermaid-diagram[data-kind="gantt"] svg {
+  width: auto !important;
+  max-width: none !important;
+  height: auto;
+  min-width: 100%;
+}
+/* Title typography */
+.mermaid-diagram[data-kind="gantt"] text.titleText {
+  font-weight: 600;
+  font-size: 15px !important;
+  letter-spacing: -0.01em;
+  fill: var(--foreground);
+}
+/* Pull title away from the first row */
+.mermaid-diagram[data-kind="gantt"] text.titleText {
+  transform: translateY(-4px);
+}
+/* Axis grid lines */
+.mermaid-diagram[data-kind="gantt"] .grid .tick line,
+.mermaid-diagram[data-kind="gantt"] .grid path {
+  stroke: var(--border);
+  stroke-opacity: 0.45;
+  shape-rendering: crispEdges;
+}
+/* Axis date labels — force over mermaid's inline fill="#000" */
+.mermaid-diagram[data-kind="gantt"] .grid .tick text {
+  fill: var(--foreground) !important;
+  font-size: 12px !important;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.9;
+}
+/* Outside-right / outside-left labels (tasks with no room inside the bar) */
+.mermaid-diagram[data-kind="gantt"] text.taskTextOutsideRight,
+.mermaid-diagram[data-kind="gantt"] text.taskTextOutsideLeft {
+  fill: var(--foreground);
+  font-size: 12px !important;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+/* Section labels on the left */
+.mermaid-diagram[data-kind="gantt"] text.sectionTitle,
+.mermaid-diagram[data-kind="gantt"] text.sectionTitle0,
+.mermaid-diagram[data-kind="gantt"] text.sectionTitle1,
+.mermaid-diagram[data-kind="gantt"] text.sectionTitle2,
+.mermaid-diagram[data-kind="gantt"] text.sectionTitle3 {
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  fill: var(--foreground);
+}
+/* Today marker line */
+.mermaid-diagram[data-kind="gantt"] line.today {
+  stroke-width: 1.5 !important;
+  stroke-dasharray: 3 3;
+}
+/* Task bar strokes — soften borders, add subtle rounding */
+.mermaid-diagram[data-kind="gantt"] rect.task,
+.mermaid-diagram[data-kind="gantt"] rect.task0,
+.mermaid-diagram[data-kind="gantt"] rect.task1,
+.mermaid-diagram[data-kind="gantt"] rect.task2,
+.mermaid-diagram[data-kind="gantt"] rect.task3,
+.mermaid-diagram[data-kind="gantt"] rect.active0,
+.mermaid-diagram[data-kind="gantt"] rect.active1,
+.mermaid-diagram[data-kind="gantt"] rect.active2,
+.mermaid-diagram[data-kind="gantt"] rect.active3,
+.mermaid-diagram[data-kind="gantt"] rect.done0,
+.mermaid-diagram[data-kind="gantt"] rect.done1,
+.mermaid-diagram[data-kind="gantt"] rect.done2,
+.mermaid-diagram[data-kind="gantt"] rect.done3,
+.mermaid-diagram[data-kind="gantt"] rect.crit0,
+.mermaid-diagram[data-kind="gantt"] rect.crit1,
+.mermaid-diagram[data-kind="gantt"] rect.crit2,
+.mermaid-diagram[data-kind="gantt"] rect.crit3 {
+  rx: 3;
+  ry: 3;
+}
+/* In-bar task labels */
+.mermaid-diagram[data-kind="gantt"] text.taskText,
+.mermaid-diagram[data-kind="gantt"] text.taskText0,
+.mermaid-diagram[data-kind="gantt"] text.taskText1,
+.mermaid-diagram[data-kind="gantt"] text.taskText2,
+.mermaid-diagram[data-kind="gantt"] text.taskText3 {
+  font-size: 12px !important;
+  font-weight: 500;
+}
+/* Active bars are the indigo fills — white text reads well on them in
+   both modes. */
+.mermaid-diagram[data-kind="gantt"] text.activeText0,
+.mermaid-diagram[data-kind="gantt"] text.activeText1,
+.mermaid-diagram[data-kind="gantt"] text.activeText2,
+.mermaid-diagram[data-kind="gantt"] text.activeText3,
+.mermaid-diagram[data-kind="gantt"] text.activeCritText0,
+.mermaid-diagram[data-kind="gantt"] text.activeCritText1,
+.mermaid-diagram[data-kind="gantt"] text.activeCritText2,
+.mermaid-diagram[data-kind="gantt"] text.activeCritText3 {
+  fill: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Dark mode: crit/done bars use dark-red / dark-green fills, so white text
+   wins. Light mode: the same bars are soft pink/green — need dark ink. */
+.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.critText0,
+.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.critText1,
+.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.critText2,
+.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.critText3,
+.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.doneText0,
+.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.doneText1,
+.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.doneText2,
+.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] text.doneText3 {
+  fill: #ffffff !important;
+  font-weight: 600 !important;
+}
+.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.critText0,
+.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.critText1,
+.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.critText2,
+.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.critText3 {
+  fill: #7f1d1d !important;
+  font-weight: 600 !important;
+}
+.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.doneText0,
+.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.doneText1,
+.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.doneText2,
+.mermaid-diagram[data-kind="gantt"][data-scheme="light"] text.doneText3 {
+  fill: #14532d !important;
+  font-weight: 600 !important;
+}
+
+/* Custom vertical markers (surgery, phase 2, etc.) */
+.mermaid-diagram[data-kind="gantt"] .gantt-marker-line {
+  stroke: #7c3aed;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  stroke-opacity: 0.75;
+}
+.mermaid-diagram[data-kind="gantt"] .gantt-marker-label {
+  fill: #7c3aed;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] .gantt-marker-line {
+  stroke: #a78bfa;
+}
+.mermaid-diagram[data-kind="gantt"][data-scheme="dark"] .gantt-marker-label {
+  fill: #c4b5fd;
 }
 
 /* PDF chip — inline PDF link rendered as a styled pill */
