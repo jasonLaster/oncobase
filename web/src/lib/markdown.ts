@@ -32,6 +32,7 @@ export interface FileNode {
   name: string;
   slug: string;
   type: "file" | "directory" | "pdf";
+  badge?: string;
   /** Relative path within obsidian/ — only set for type === "pdf" */
   pdfPath?: string;
   children?: FileNode[];
@@ -57,6 +58,95 @@ function buildCanonicalSlugMap(): Map<string, string> {
 
   _canonicalSlugsCache = canonicalSlugs;
   return canonicalSlugs;
+}
+
+type CollectionPart = "markdown" | "analysis" | "pdf";
+
+function getCollectionPart(node: FileNode): { baseName: string; part: CollectionPart } | null {
+  if (node.type === "pdf") return { baseName: node.name, part: "pdf" };
+  if (node.type !== "file") return null;
+  if (node.name.endsWith("-analysis")) {
+    return { baseName: node.name.replace(/-analysis$/, ""), part: "analysis" };
+  }
+  if (node.name.endsWith("-overview")) {
+    return { baseName: node.name.replace(/-overview$/, ""), part: "analysis" };
+  }
+  return { baseName: node.name, part: "markdown" };
+}
+
+function getCollectionChildName(node: FileNode, part: CollectionPart): string {
+  if (part === "pdf") return "PDF";
+  if (part === "markdown") return "Markdown";
+  if (node.name.endsWith("-overview")) return "Overview";
+  return "Analysis";
+}
+
+function groupPaperCollections(nodes: FileNode[]): FileNode[] {
+  const groups = new Map<string, Partial<Record<CollectionPart, FileNode[]>>>();
+
+  for (const node of nodes) {
+    const collectionPart = getCollectionPart(node);
+    if (!collectionPart) continue;
+
+    const group = groups.get(collectionPart.baseName) ?? {};
+    const partNodes = group[collectionPart.part] ?? [];
+    partNodes.push(node);
+    group[collectionPart.part] = partNodes;
+    groups.set(collectionPart.baseName, group);
+  }
+
+  const groupedNodes = new Set<FileNode>();
+  const collectionNodes: FileNode[] = [];
+
+  for (const [baseName, group] of groups) {
+    if (!group.markdown?.length || !group.analysis?.length || !group.pdf?.length) {
+      continue;
+    }
+
+    const children = [
+      ...group.pdf.map((node) => ({ node, part: "pdf" as const })),
+      ...group.analysis.map((node) => ({ node, part: "analysis" as const })),
+      ...group.markdown.map((node) => ({ node, part: "markdown" as const })),
+    ].map(({ node, part }) => {
+      groupedNodes.add(node);
+      return {
+        ...node,
+        name: getCollectionChildName(node, part),
+      };
+    });
+    const firstChild = children[0];
+    const parentSlug = firstChild.slug.includes("/") ? firstChild.slug.split("/").slice(0, -1).join("/") : "";
+
+    collectionNodes.push({
+      name: baseName,
+      slug: parentSlug ? `${parentSlug}/${baseName}__paper-set` : `${baseName}__paper-set`,
+      type: "directory",
+      badge: "PDF set",
+      children,
+    });
+  }
+
+  if (collectionNodes.length === 0) return nodes;
+  return [...nodes.filter((node) => !groupedNodes.has(node)), ...collectionNodes];
+}
+
+function groupPaperCollectionsDeep(nodes: FileNode[]): FileNode[] {
+  const withGroupedChildren = nodes.map((node) => {
+    if (!node.children) return node;
+    return {
+      ...node,
+      children: groupPaperCollectionsDeep(node.children),
+    };
+  });
+
+  return groupPaperCollections(withGroupedChildren);
+}
+
+function sortTree(nodes: FileNode[]) {
+  nodes.sort((a, b) => a.name.localeCompare(b.name));
+  for (const node of nodes) {
+    if (node.children) sortTree(node.children);
+  }
 }
 
 /** Build a tree of markdown files for the sidebar */
@@ -93,9 +183,10 @@ export function getFileTree(dir: string = OBSIDIAN_DIR, basePath: string = ""): 
   }
 
   // Sort alphabetically regardless of type
-  nodes.sort((a, b) => a.name.localeCompare(b.name));
+  const groupedNodes = groupPaperCollections(nodes);
+  groupedNodes.sort((a, b) => a.name.localeCompare(b.name));
 
-  return nodes;
+  return groupedNodes;
 }
 
 /**
@@ -169,10 +260,9 @@ export async function getFileTreeWithPdfs(): Promise<FileNode[]> {
 
   // Re-sort any nodes we touched
   if (added > 0) {
-    (function sortTree(nodes: FileNode[]) {
-      nodes.sort((a, b) => a.name.localeCompare(b.name));
-      for (const n of nodes) if (n.children) sortTree(n.children);
-    })(tree);
+    const groupedTree = groupPaperCollectionsDeep(tree);
+    tree.splice(0, tree.length, ...groupedTree);
+    sortTree(tree);
     console.log(`[getFileTreeWithPdfs] Merged ${added} PDFs from Convex`);
   }
 

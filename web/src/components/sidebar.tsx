@@ -117,7 +117,12 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
         >
           <span className="text-xs opacity-60">{open ? "▼" : "▶"}</span>
-          <span className="font-medium truncate">{formatName(node.name)}</span>
+          <span className="min-w-0 flex-1 truncate font-medium">{formatName(node.name)}</span>
+          {node.badge && (
+            <span className="ml-auto shrink-0 rounded border border-[var(--brand)]/20 bg-[var(--accent-light)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--brand)]">
+              {node.badge}
+            </span>
+          )}
         </button>
         {open && node.children && (
           <div>
