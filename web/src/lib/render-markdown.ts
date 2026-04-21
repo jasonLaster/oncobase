@@ -43,8 +43,10 @@ function extractMermaidBlocks(md: string): string {
       );
     } catch (err) {
       console.warn("Mermaid render error:", err);
-      const escaped = src.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      return `<pre class="mermaid-error text-sm text-red-500 font-mono my-4 p-3 border border-red-200 rounded">${escaped}</pre>`;
+      // Fallback to client-side rendering for diagrams unsupported by beautiful-mermaid
+      // (for example, timeline/gantt).
+      const encoded = Buffer.from(src, "utf-8").toString("base64");
+      return `<div class="mermaid-placeholder" data-graph="${encoded}"></div>`;
     }
   });
 }
