@@ -1,5 +1,5 @@
 import { Liveblocks } from "@liveblocks/node";
-import { NextResponse } from "next/server";
+import { connection, NextResponse } from "next/server";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { getConvexServerClient } from "@/lib/convex-server";
@@ -24,6 +24,8 @@ export function invalidateCache() {
 }
 
 export async function GET() {
+  await connection();
+
   if (!liveblocksSecret) {
     return NextResponse.json(
       { error: "Liveblocks secret key not configured" },

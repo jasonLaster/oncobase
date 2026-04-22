@@ -2,16 +2,52 @@ import { test, expect } from "@playwright/test";
 
 const sidebar = "aside.hidden.md\\:flex nav";
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /** Open a directory button only if it is currently collapsed (shows "▶"). */
 async function expandIfCollapsed(nav: ReturnType<import("@playwright/test").Page["locator"]>, name: string) {
-  const btn = nav.getByRole("button", { name }).first();
+  const btn = nav.getByRole("button", { name: new RegExp(`^[▶▼]\\s*${escapeRegExp(name)}$`) }).first();
   const text = await btn.textContent();
   if (text?.includes("▶")) {
     await btn.click();
   }
 }
 
+test.describe("Sidebar source files", () => {
+  test("sources directory contains markdown source links after drilling into stanford/telli", async ({ page }) => {
+    await page.goto("/");
+    const nav = page.locator(sidebar);
+
+    // sources is open at depth=0 by default — no click needed
+    await expandIfCollapsed(nav, "institutions");
+    await expandIfCollapsed(nav, "stanford");
+    await expandIfCollapsed(nav, "telli");
+
+    const sourceLinks = nav.locator('a[href^="/sources/institutions/stanford/telli/"]');
+    await expect(sourceLinks.first()).toBeVisible();
+    await expect(sourceLinks.first()).not.toHaveAttribute("href", /\/api\/file/);
+  });
+
+  test("wiki/research pages are markdown links, not PDF links", async ({ page }) => {
+    await page.goto("/");
+    const nav = page.locator(sidebar);
+
+    await expandIfCollapsed(nav, "wiki");
+    await expandIfCollapsed(nav, "research");
+
+    const mdLinks = nav.locator('a[href^="/wiki/research/"]');
+    await expect(mdLinks.first()).toBeVisible();
+
+    const pdfInWiki = nav.locator('a[href^="/wiki/research/"][href*="api/file"]');
+    await expect(pdfInWiki).toHaveCount(0);
+  });
+});
+
 test.describe("Sidebar PDF files", () => {
+  test.skip(process.env.TEST_ENV === "prod", "Preview deploys skip full PDF sync for fast ISG builds.");
+
   test("sources directory contains PDF links after drilling into stanford/telli", async ({ page }) => {
     await page.goto("/");
     const nav = page.locator(sidebar);
@@ -62,18 +98,6 @@ test.describe("Sidebar PDF files", () => {
     await expect(firstPdf.locator("svg")).toBeVisible();
   });
 
-  test("wiki/research pages are markdown links, not PDF links", async ({ page }) => {
-    // Navigate to a wiki/research page so that section is expanded in sidebar
-    await page.goto("/wiki/research/paper-catalog");
-    const nav = page.locator(sidebar);
-
-    const mdLinks = nav.locator('a[href^="/wiki/research/"]');
-    await expect(mdLinks.first()).toBeVisible();
-
-    // None of the wiki/research links should be PDF links
-    const pdfInWiki = nav.locator('a[href^="/wiki/research/"][href*="api/file"]');
-    await expect(pdfInWiki).toHaveCount(0);
-  });
 });
 
 test.describe("PDF serving via /api/file", () => {

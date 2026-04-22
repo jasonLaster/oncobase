@@ -10,7 +10,8 @@
  *
  * Requires:
  *   NEXT_PUBLIC_CONVEX_URL        — Convex deployment URL
- *   PUBLIC_BLOB_READ_WRITE_TOKEN  — Vercel Blob write token for the public store
+ *   PUBLIC_BLOB_READ_WRITE_TOKEN or BLOB_READ_WRITE_TOKEN
+ *                             — Vercel Blob write token for the public store
  */
 import fs from "fs";
 import path from "path";
@@ -27,9 +28,11 @@ if (!CONVEX_URL) {
   process.exit(0);
 }
 
-const BLOB_TOKEN = process.env.PUBLIC_BLOB_READ_WRITE_TOKEN;
+const BLOB_TOKEN =
+  process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ??
+  process.env.BLOB_READ_WRITE_TOKEN;
 if (!BLOB_TOKEN) {
-  console.error("PUBLIC_BLOB_READ_WRITE_TOKEN not set — skipping asset ingest");
+  console.error("Blob write token not set — skipping asset ingest");
   process.exit(0);
 }
 

@@ -66,12 +66,16 @@ function appHeader(page: Page) {
   return page.locator("header").filter({ has: page.getByLabel("Home") }).first();
 }
 
+function headerSearchInput(page: Page) {
+  return appHeader(page).locator('input[placeholder="Search wiki..."]').first();
+}
+
 async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
   await page.setViewportSize(desktopViewport);
   await blockAppScripts(page);
   await page.goto(pageCase.route, { waitUntil: "commit" });
 
-  const searchInput = page.getByPlaceholder("Search wiki...");
+  const searchInput = headerSearchInput(page);
   const header = appHeader(page);
   const sidebar = page.locator("aside.hidden.md\\:flex").first();
   const title = page.locator("article h1:visible").first();
@@ -143,7 +147,7 @@ test.describe("Page load experience", () => {
     const title = page.locator("article h1:visible").first();
 
     await expect(header).toBeVisible();
-    await expect(page.getByPlaceholder("Search wiki...")).toBeVisible();
+    await expect(headerSearchInput(page)).toBeVisible();
     await expect(bottomBar).toBeVisible();
     await expect(title).toHaveText("Index");
 

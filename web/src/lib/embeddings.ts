@@ -1,6 +1,20 @@
 import OpenAI from "openai";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let client: OpenAI | null = null;
+
+function getClient() {
+  if (client) {
+    return client;
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not set");
+  }
+
+  client = new OpenAI({ apiKey });
+  return client;
+}
 
 /**
  * Generate an embedding for a text string using OpenAI text-embedding-3-small.
@@ -9,7 +23,7 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 export async function embed(text: string): Promise<number[]> {
   // Truncate to ~8000 tokens worth of text (~32k chars) to stay within limits
   const truncated = text.slice(0, 24000);
-  const res = await client.embeddings.create({
+  const res = await getClient().embeddings.create({
     model: "text-embedding-3-small",
     input: truncated,
   });
@@ -22,7 +36,7 @@ export async function embed(text: string): Promise<number[]> {
  */
 export async function embedBatch(texts: string[]): Promise<number[][]> {
   const truncated = texts.map((t) => t.slice(0, 32000));
-  const res = await client.embeddings.create({
+  const res = await getClient().embeddings.create({
     model: "text-embedding-3-small",
     input: truncated,
   });

@@ -13,8 +13,10 @@ export const metadata: Metadata = {
   },
 };
 
+const HOME_SLUG = "index";
+
 export default function Home() {
-  const file = getMarkdownFile("index");
+  const file = getMarkdownFile(HOME_SLUG);
 
   if (!file) {
     return <p>No index.md found.</p>;

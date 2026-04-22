@@ -2,7 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllTags, getPagesByTag } from "@/lib/markdown";
 
+function isPreviewDeployment() {
+  return process.env.VERCEL_ENV === "preview";
+}
+
 export async function generateStaticParams() {
+  if (isPreviewDeployment()) {
+    return [{ tag: "tnbc" }];
+  }
+
   return getAllTags().map((tag) => ({ tag }));
 }
 

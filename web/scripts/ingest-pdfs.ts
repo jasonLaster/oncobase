@@ -7,7 +7,8 @@
  *
  * Requires:
  *   NEXT_PUBLIC_CONVEX_URL        — Convex deployment URL
- *   PUBLIC_BLOB_READ_WRITE_TOKEN  — Vercel Blob write token for the public store
+ *   PUBLIC_BLOB_READ_WRITE_TOKEN or BLOB_READ_WRITE_TOKEN
+ *                             — Vercel Blob write token for the public store
  */
 import fs from "fs";
 import path from "path";
@@ -24,9 +25,11 @@ if (!CONVEX_URL) {
   process.exit(0);
 }
 
-const BLOB_TOKEN = process.env.PUBLIC_BLOB_READ_WRITE_TOKEN;
+const BLOB_TOKEN =
+  process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ??
+  process.env.BLOB_READ_WRITE_TOKEN;
 if (!BLOB_TOKEN) {
-  console.error("PUBLIC_BLOB_READ_WRITE_TOKEN not set — skipping PDF ingest");
+  console.error("Blob write token not set — skipping PDF ingest");
   process.exit(0);
 }
 
@@ -85,8 +88,17 @@ async function main() {
   console.log(`Found ${pdfs.length} PDFs total, ${toUpload.length} to upload${force ? " (--force)" : " (new only)"}.`);
 
   let uploaded = 0;
+  let skippedPointers = 0;
   for (const { fullPath, relativePath } of toUpload) {
     const buffer = fs.readFileSync(fullPath);
+    const isLfsPointer =
+      buffer.length < 200 && buffer.toString("utf8", 0, 64).includes("git-lfs");
+
+    if (isLfsPointer) {
+      skippedPointers++;
+      continue;
+    }
+
     try {
       const blob = await put(`pdfs/${relativePath}`, buffer, {
         access: "public",
@@ -108,7 +120,9 @@ async function main() {
     }
   }
 
-  console.log(`Done! ${uploaded} PDFs uploaded, ${existing.length} already present.`);
+  console.log(
+    `Done! ${uploaded} PDFs uploaded, ${skippedPointers} LFS pointers skipped, ${existing.length} already present.`
+  );
 }
 
 main().catch((err) => {

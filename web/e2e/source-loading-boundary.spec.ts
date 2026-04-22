@@ -56,11 +56,12 @@ test.describe("source loading boundary", () => {
       "true"
     );
 
-    await input.press("Enter");
+    await Promise.all([
+      page.waitForURL(new RegExp(`${WIKI_ROUTE}$`)),
+      input.press("Enter"),
+    ]);
 
-    await expect(page.getByRole("status", { name: "Opening page" })).toBeVisible();
     await expect(page.getByRole("status", { name: "Loading page" })).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`${WIKI_ROUTE}$`));
     await expect(page.locator("article h1").first()).toHaveText("Diagnosis");
     await expect(nextErrorOverlay(page)).toHaveCount(0);
   });

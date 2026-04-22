@@ -25,6 +25,12 @@ if (!CONVEX_URL) {
 
 const client = new ConvexHttpClient(CONVEX_URL);
 const OBSIDIAN_DIR = path.join(__dirname, "..", "..", "obsidian");
+const PREVIEW_SEED_SLUGS = new Set([
+  "index",
+  "wiki/diagnostics/diagnosis",
+  "wiki/prognosis/survival-statistics",
+  "wiki/treatment/keynote-522",
+]);
 
 const EXCLUDED_DIRS = new Set([
   ".obsidian",
@@ -39,6 +45,16 @@ const EXCLUDED_FILES = new Set(["CLAUDE.md"]);
 interface FileEntry {
   filePath: string;
   slug: string;
+}
+
+interface ExistingHashPage {
+  page: Array<{ slug: string; contentHash: string | undefined }>;
+  isDone: boolean;
+  continueCursor: string;
+}
+
+function isPreviewDeployment() {
+  return process.env.VERCEL_ENV === "preview";
 }
 
 function getAllMarkdownFiles(dir: string = OBSIDIAN_DIR, basePath: string = ""): FileEntry[] {
@@ -92,6 +108,28 @@ function prepareUpsertArgs(file: FileEntry) {
   return { slug: file.slug, title, content: truncatedBody, tags, contentHash };
 }
 
+async function loadExistingContentHashes(): Promise<Map<string, string>> {
+  const hashes = new Map<string, string>();
+  let cursor: string | null = null;
+  let isDone = false;
+
+  while (!isDone) {
+    const page = (await client.query(api.documents.embeddingStatusPage, {
+      cursor,
+      numItems: 200,
+    })) as ExistingHashPage;
+
+    for (const doc of page.page) {
+      if (doc.contentHash) hashes.set(doc.slug, doc.contentHash);
+    }
+
+    isDone = page.isDone;
+    cursor = page.continueCursor;
+  }
+
+  return hashes;
+}
+
 async function main() {
   const t0 = Date.now();
 
@@ -105,8 +143,19 @@ async function main() {
     throw error;
   }
 
-  const files = getAllMarkdownFiles();
-  console.log(`Found ${files.length} markdown files`);
+  const allFiles = getAllMarkdownFiles();
+  const files = isPreviewDeployment()
+    ? allFiles.filter((file) => PREVIEW_SEED_SLUGS.has(file.slug))
+    : allFiles;
+  if (isPreviewDeployment()) {
+    console.log(
+      `Found ${allFiles.length} markdown files; preview ingesting ${files.length} seed documents`
+    );
+  } else {
+    console.log(`Found ${files.length} markdown files`);
+  }
+  const existingHashes = await loadExistingContentHashes();
+  console.log(`Loaded ${existingHashes.size} existing document hashes`);
 
   let updated = 0;
   let skipped = 0;
@@ -120,6 +169,10 @@ async function main() {
     const results = await Promise.all(
       batch.map(async (file) => {
         const args = prepareUpsertArgs(file);
+        if (existingHashes.get(args.slug) === args.contentHash) {
+          return { slug: file.slug, result: { skipped: true } };
+        }
+
         try {
           const result = await client.mutation(api.documents.upsert, args);
           return { slug: file.slug, result };

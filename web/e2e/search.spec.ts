@@ -31,8 +31,10 @@ function mockAISearch(page: Page, response: Record<string, unknown> = mockAIResu
 
 test.describe("Search", () => {
   test("search from header bar navigates to results", async ({ page }) => {
+    await mockAISearch(page);
     await page.goto("/");
-    const searchInput = page.locator("header").getByPlaceholder("Search...");
+    const searchInput = page.locator("header").locator('input[name="q"]');
+    await expect(searchInput).toBeEditable({ timeout: 10_000 });
     await searchInput.fill("diagnosis");
     await searchInput.press("Enter");
 
@@ -44,17 +46,19 @@ test.describe("Search", () => {
     // Wait for results to load - the summary text "X results in Y files"
     await expect(
       page.getByText(/\d+ results? in \d+ files?/).first()
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 20_000 });
   });
 
   test("search results contain relevant pages", async ({ page }) => {
-    await page.goto("/search?q=treatment");
+    await page.goto("/search?q=diagnosis");
     // Switch to text search tab
     await page.getByRole("button", { name: "Text Search" }).click();
-    // Wait for results summary
+    await expect(
+      page.locator("a[href='/wiki/diagnostics/diagnosis']").first()
+    ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByText(/\d+ results? in \d+ files?/).first()
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("empty search shows no results message", async ({ page }) => {

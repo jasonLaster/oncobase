@@ -30,10 +30,9 @@ test.describe("Chat", () => {
     });
   });
 
-  test("Research link in header navigates to chat", async ({ page }) => {
+  test("new chat link in header navigates to chat", async ({ page }) => {
     await page.goto("/");
-    // Scope to header to avoid matching "Research" in page content
-    await page.locator("header").getByRole("link", { name: "Research" }).click();
+    await page.locator("header").getByRole("link", { name: "New chat" }).click();
     await expect(page).toHaveURL(/\/chat/);
   });
 });

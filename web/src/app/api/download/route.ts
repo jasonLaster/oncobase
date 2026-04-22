@@ -261,7 +261,10 @@ export async function GET(request: NextRequest) {
 
   // Kick off background cache warm via the workflow
   // (fire-and-forget: don't await, don't block the response)
-  if (process.env.PUBLIC_BLOB_READ_WRITE_TOKEN) {
+  if (
+    process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ||
+    process.env.BLOB_READ_WRITE_TOKEN
+  ) {
     console.log(`[download] Scheduling background cache build for type=${type}`);
     import("workflow/api").then(({ start }) =>
       import("@/workflows/build-download-cache").then(({ buildDownloadCacheWorkflow }) =>

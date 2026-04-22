@@ -77,6 +77,13 @@ function HeaderSearch() {
   const derivedQuery = pathname === "/search" ? (searchParams.get("q") || "") : "";
   const [query, setQuery] = useState(derivedQuery);
 
+  function navigateToSearch(rawQuery: string) {
+    const trimmed = rawQuery.trim();
+    if (trimmed) {
+      router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+    }
+  }
+
   useEffect(() => {
     setQuery(derivedQuery);
   }, [derivedQuery]);
@@ -85,9 +92,8 @@ function HeaderSearch() {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (query.trim()) {
-          router.push(`/search?q=${encodeURIComponent(query.trim())}`);
-        }
+        const formData = new FormData(e.currentTarget);
+        navigateToSearch(String(formData.get("q") ?? ""));
       }}
       className="flex-1 relative"
     >
@@ -95,6 +101,7 @@ function HeaderSearch() {
         <path d="M15.25 14.19l-4.06-4.06a5.5 5.5 0 1 0-1.06 1.06l4.06 4.06a.75.75 0 1 0 1.06-1.06zM2 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0z" />
       </svg>
       <input
+        name="q"
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}

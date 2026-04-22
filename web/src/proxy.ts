@@ -4,7 +4,7 @@ const PASSWORDS = ["wallify", "diana"];
 const LINK_PREVIEW_BOT_RE =
   /\b(slackbot|twitterbot|facebookexternalhit|facebot|linkedinbot|discordbot|whatsapp|telegrambot|skypeuripreview|microsoftpreview|teamsbot|pinterest|redditbot|applebot)\b/i;
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const isAuthed = request.cookies.get("authed")?.value === "true";
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isSharePreviewRequest =

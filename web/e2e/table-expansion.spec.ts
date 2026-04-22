@@ -1,13 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const TABLE_PAGE = "/wiki/research/ai-models-overview";
+const TABLE_PAGE = "/wiki/research/ai-models/index";
+const TABLE_PAGE_HEADING = "AI Models for Diana's Case — Canonical Index";
 
 test.describe("Prose table expansion", () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(TABLE_PAGE);
     await expect(
-      page.getByRole("heading", { name: "AI Models & Computational Tools Overview" })
+      page.getByRole("heading", { name: TABLE_PAGE_HEADING })
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Expand table" }).first()
@@ -309,7 +310,7 @@ test.describe("Prose table expansion", () => {
 
     await page.reload();
     await expect(
-      page.getByRole("heading", { name: "AI Models & Computational Tools Overview" })
+      page.getByRole("heading", { name: TABLE_PAGE_HEADING })
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Expand table" }).first()

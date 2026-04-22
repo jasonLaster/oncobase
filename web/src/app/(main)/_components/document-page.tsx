@@ -16,9 +16,23 @@ import { DocumentComments } from "@/components/document-comments-wrapper";
 // All sources/ content is immutable raw documents rarely visited directly.
 // Deferring them to on-demand rendering saves significant build time.
 const ISR_DEFERRED_PREFIXES = ["sources/"];
+const PREVIEW_STATIC_PARAMS = [{ slug: ["about", "Index"] }];
+const ROUTE_SLUG_ALIASES = new Map([["about/index", "index"]]);
+const ROUTE_ALIAS_CANONICAL_PATHS = new Map([["about/index", "about/Index"]]);
+
+function isPreviewDeployment() {
+  return process.env.VERCEL_ENV === "preview";
+}
 
 export async function generateDocumentStaticParams() {
   const t0 = Date.now();
+  if (isPreviewDeployment()) {
+    console.log(
+      `[build] preview generateStaticParams: ${PREVIEW_STATIC_PARAMS.length} seed page in ${Date.now() - t0}ms`
+    );
+    return PREVIEW_STATIC_PARAMS;
+  }
+
   const all = getAllSlugs();
   const params = all
     .filter((slug) => {
@@ -28,6 +42,7 @@ export async function generateDocumentStaticParams() {
     .map((slug) => ({
       slug: slug.split("/"),
     }));
+  params.unshift(...PREVIEW_STATIC_PARAMS);
   console.log(`[build] generateStaticParams: ${params.length}/${all.length} pages in ${Date.now() - t0}ms`);
   return params;
 }
@@ -91,24 +106,35 @@ export async function DocumentPage({
     redirect(`/${cleanPath}`);
   }
 
-  const canonicalPath = getCanonicalSlug(cleanPath);
-  if (canonicalPath && canonicalPath !== cleanPath) {
+  const routeAliasKey = cleanPath.toLowerCase();
+  const aliasCanonicalPath = ROUTE_ALIAS_CANONICAL_PATHS.get(routeAliasKey);
+  if (aliasCanonicalPath && cleanPath !== aliasCanonicalPath) {
+    redirect(`/${aliasCanonicalPath}`);
+  }
+
+  const contentPath = ROUTE_SLUG_ALIASES.get(routeAliasKey) ?? cleanPath;
+  const canonicalPath = getCanonicalSlug(contentPath);
+  if (!aliasCanonicalPath && canonicalPath && canonicalPath !== contentPath) {
     redirect(`/${canonicalPath}`);
   }
 
   // Sync file read -- always fast (local disk), provides header data for PPR cache
-  const file = getMarkdownFile(canonicalPath ?? cleanPath);
+  const file = getMarkdownFile(canonicalPath ?? contentPath);
 
   if (!file) {
     notFound();
   }
 
   const resolvedPath = file.slug;
+  const displayFile =
+    aliasCanonicalPath && file.slug === "index" && file.title === "index"
+      ? { ...file, title: "Index" }
+      : file;
   const isDeferred = ISR_DEFERRED_PREFIXES.some((p) => resolvedPath.startsWith(p));
 
   return (
-    <DocumentComments documentSlug={file.slug} documentTitle={file.title}>
-      <DocHeader file={file} />
+    <DocumentComments documentSlug={file.slug} documentTitle={displayFile.title}>
+      <DocHeader file={displayFile} />
       {isDeferred ? (
         <Suspense fallback={null}>
           <DeferredMarkdownBody filePath={resolvedPath} slug={file.slug} />

@@ -16,8 +16,8 @@ const PROD_URL = process.env.NEXT_PUBLIC_CONVEX_URL_PROD;
 const DEV_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 
 if (!PROD_URL) {
-  console.error("NEXT_PUBLIC_CONVEX_URL_PROD not set in .env.local");
-  process.exit(1);
+  console.warn("NEXT_PUBLIC_CONVEX_URL_PROD not set — skipping PDF asset sync.");
+  process.exit(0);
 }
 
 if (!DEV_URL) {

@@ -32,8 +32,10 @@ async function buildAndUpload(type: DownloadType): Promise<string> {
   const path = await import("path");
   const archiver = (await import("archiver")).default;
 
-  const token = process.env.PUBLIC_BLOB_READ_WRITE_TOKEN;
-  if (!token) throw new FatalError("PUBLIC_BLOB_READ_WRITE_TOKEN not set");
+  const token =
+    process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ??
+    process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) throw new FatalError("Blob write token not set");
 
   const OBSIDIAN_DIR = process.env.OBSIDIAN_DIR ?? path.join(process.cwd(), "..", "obsidian");
   const diskAvailable = !process.env.VERCEL && fs.existsSync(OBSIDIAN_DIR);

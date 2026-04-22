@@ -63,9 +63,11 @@ async function buildZip(filter?: (name: string) => boolean): Promise<Buffer> {
 }
 
 async function uploadToBlob(buffer: Buffer, filename: string): Promise<string | null> {
-  const token = process.env.PUBLIC_BLOB_READ_WRITE_TOKEN;
+  const token =
+    process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ??
+    process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) {
-    console.log(`  No PUBLIC_BLOB_READ_WRITE_TOKEN — skipping Blob upload for ${filename}`);
+    console.log(`  No Blob write token — skipping Blob upload for ${filename}`);
     return null;
   }
 
@@ -123,7 +125,7 @@ async function main() {
   if (!fullBlobUrl) {
     // No Blob token — cannot serve full zip from Vercel (exceeds 1 GiB static limit).
     // Download will be unavailable until PUBLIC_BLOB_READ_WRITE_TOKEN is configured.
-    console.warn("  ⚠ Full wiki zip not uploaded (no PUBLIC_BLOB_READ_WRITE_TOKEN). Full download will be unavailable.");
+    console.warn("  ⚠ Full wiki zip not uploaded (no Blob write token). Full download will be unavailable.");
   }
 
   console.log("Building markdown-only zip…");

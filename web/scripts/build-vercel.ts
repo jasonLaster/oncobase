@@ -51,8 +51,12 @@ const buildEnv = {
   CONVEX_URL: convexUrl,
 };
 
-// Ingest wiki and PDFs against the just-deployed Convex backend before Next builds.
-run("sh", [
-  "-c",
-  "(bun scripts/ingest-wiki.ts & bun scripts/ingest-pdfs.ts & wait) && bun run build",
-], buildEnv);
+// Preview branches prioritize fast feedback; production keeps the full data sync.
+if (process.env.VERCEL_ENV === "preview") {
+  run("sh", ["-c", "bun scripts/ingest-wiki.ts && bun run build"], buildEnv);
+} else {
+  run("sh", [
+    "-c",
+    "(bun scripts/ingest-wiki.ts & bun scripts/sync-convex.ts & wait) && bun scripts/ingest-pdfs.ts && bun run build",
+  ], buildEnv);
+}

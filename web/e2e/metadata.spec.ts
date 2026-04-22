@@ -8,6 +8,15 @@ import {
 const DEFAULT_DESCRIPTION = "Breast cancer research and treatment knowledge base";
 const LINK_PREVIEW_USER_AGENT =
   "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)";
+const previewBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+
+function previewBypassHeaders(): Record<string, string> {
+  if (!previewBypassSecret) {
+    return {};
+  }
+
+  return { "x-vercel-protection-bypass": previewBypassSecret };
+}
 
 function decodeHtml(value: string) {
   return value
@@ -58,7 +67,10 @@ test.describe("page metadata", () => {
   test("serves page-specific metadata to link preview bots without a login cookie", async ({ baseURL }) => {
     const botRequest = await playwrightRequest.newContext({
       baseURL,
-      extraHTTPHeaders: { "user-agent": LINK_PREVIEW_USER_AGENT },
+      extraHTTPHeaders: {
+        ...previewBypassHeaders(),
+        "user-agent": LINK_PREVIEW_USER_AGENT,
+      },
       storageState: { cookies: [], origins: [] },
     });
 
@@ -80,6 +92,7 @@ test.describe("page metadata", () => {
   test("keeps normal unauthenticated page requests behind login", async ({ baseURL }) => {
     const anonymousRequest = await playwrightRequest.newContext({
       baseURL,
+      extraHTTPHeaders: previewBypassHeaders(),
       storageState: { cookies: [], origins: [] },
     });
 

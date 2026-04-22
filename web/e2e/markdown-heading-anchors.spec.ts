@@ -3,6 +3,15 @@ import { expect, test, type Page } from "@playwright/test";
 const HASHED_WEEK_5_URL =
   "/wiki/updates/week-5-april-12-to-18#-therapeutics--still-evolving";
 const WEEK_5_TARGET = "-therapeutics--still-evolving";
+const previewBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+
+function previewBypassHeaders(): Record<string, string> {
+  if (!previewBypassSecret) {
+    return {};
+  }
+
+  return { "x-vercel-protection-bypass": previewBypassSecret };
+}
 
 async function getHashTargetState(page: Page) {
   return page.evaluate((id) => {
@@ -77,6 +86,7 @@ test.describe("Markdown heading anchors", () => {
 
   test("login redirects preserve the original URL hash", async ({ browser, baseURL }) => {
     const context = await browser.newContext({
+      extraHTTPHeaders: previewBypassHeaders(),
       storageState: { cookies: [], origins: [] },
     });
     const page = await context.newPage();
