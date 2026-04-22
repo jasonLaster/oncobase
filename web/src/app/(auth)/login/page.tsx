@@ -9,7 +9,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const res = await fetch("/api/login", {
       method: "POST",
@@ -29,6 +29,15 @@ function LoginForm() {
     }
   }
 
+  function handlePasswordKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter" || e.nativeEvent.isComposing) {
+      return;
+    }
+
+    e.preventDefault();
+    e.currentTarget.form?.requestSubmit();
+  }
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -42,7 +51,9 @@ function LoginForm() {
         placeholder="Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={handlePasswordKeyDown}
         className="w-full px-4 py-2 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+        enterKeyHint="go"
         autoFocus
       />
       {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
