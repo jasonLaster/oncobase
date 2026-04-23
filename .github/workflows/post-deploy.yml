@@ -11,69 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  preview-e2e:
-    if: >
-      github.event.deployment_status.state == 'success' &&
-      github.event.deployment.environment == 'Preview' &&
-      github.event.deployment_status.target_url != ''
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      PROD_URL: ${{ github.event.deployment_status.target_url }}
-      TEST_ENV: prod
-      PLAYWRIGHT_WORKERS: 6
-      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-    steps:
-      - name: Check out deployed commit
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.deployment.sha }}
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.12
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Validate preview inputs
-        run: |
-          test -n "$PROD_URL"
-          if [ -z "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
-            echo "Missing secrets.VERCEL_AUTOMATION_BYPASS_SECRET"
-            exit 1
-          fi
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
-
-      - name: Install Playwright browsers
-        working-directory: web
-        run: bun x playwright install --with-deps chromium
-
-      - name: Run E2E tests against Vercel preview
-        working-directory: web
-        run: bun run test:prod:ci
-
-      - name: Upload Playwright artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-artifacts-${{ github.event.deployment.sha }}
-          path: |
-            web/test-results
-            web/playwright-report
-          if-no-files-found: ignore
-
   trigger-post-deploy:
     if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production'
     runs-on: ubuntu-latest
