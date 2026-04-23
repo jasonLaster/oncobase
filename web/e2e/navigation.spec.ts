@@ -3,6 +3,10 @@ import { test, expect } from "@playwright/test";
 // Desktop sidebar locator
 const sidebar = "aside.hidden.md\\:flex nav";
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 test.describe("Page viewing & sidebar navigation", () => {
   test("home page loads with wiki content", async ({ page }) => {
     await page.goto("/");
@@ -55,5 +59,40 @@ test.describe("Page viewing & sidebar navigation", () => {
     await expect(
       page.locator('[role="dialog"] [role="combobox"]').first()
     ).toBeVisible();
+  });
+
+  test("outline palette jumps to a selected heading", async ({ page }) => {
+    await page.goto("/table-examples");
+
+    const heading = page.locator("article h2[id]").first();
+    await expect(heading).toBeVisible();
+
+    const id = await heading.getAttribute("id");
+    const headingText = await heading.evaluate((node) => {
+      const clone = node.cloneNode(true) as HTMLElement;
+      clone.querySelectorAll(".heading-anchor").forEach((anchor) => anchor.remove());
+      return (clone.textContent ?? "").replace(/(?:\s*#\s*)+$/, "").trim();
+    });
+
+    if (!id || !headingText) {
+      throw new Error("Expected the first table example heading to have text and an id");
+    }
+
+    await page.keyboard.press("Meta+Shift+O");
+    const input = page.getByPlaceholder("Search headings…");
+    await expect(input).toBeVisible();
+    const dialog = page.locator('[role="dialog"]').filter({ has: input });
+
+    await input.fill(headingText);
+    await dialog.locator("[cmdk-item]").filter({ hasText: headingText }).first().click();
+
+    await expect(page).toHaveURL(new RegExp(`#${escapeRegex(encodeURIComponent(id))}$`));
+    await expect.poll(async () => {
+      return page.evaluate((targetId) => {
+        const target = document.getElementById(targetId);
+        if (!target) return false;
+        return target.getBoundingClientRect().top < 140;
+      }, id);
+    }).toBe(true);
   });
 });

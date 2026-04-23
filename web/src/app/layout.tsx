@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
-import { CommandPalette, ActionPalette } from "@/components/command-palette";
+import { CommandPalette, OutlinePalette, ActionPalette } from "@/components/command-palette";
 import { ConvexClientProvider } from "@/components/convex-provider";
 import "@liveblocks/react-ui/styles.css";
 import "@diana-tnbc/smart-table/styles.css";
@@ -66,6 +66,7 @@ export default function RootLayout({
           {children}
         </ConvexClientProvider>
         <CommandPalette />
+        <OutlinePalette />
         <ActionPalette />
         <Analytics />
       </body>

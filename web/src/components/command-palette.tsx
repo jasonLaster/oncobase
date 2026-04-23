@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo, useSyncExternalStore, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   CommandDialog,
   Command,
@@ -10,8 +10,9 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
+  CommandShortcut,
 } from "@/components/ui/command";
-import { FileTextIcon, Loader2Icon, ClockIcon } from "lucide-react";
+import { FileTextIcon, Loader2Icon, ClockIcon, HeadingIcon, ListTreeIcon } from "lucide-react";
 import fuzzysort from "fuzzysort";
 import { themeEffect } from "@/lib/theme-effect";
 
@@ -20,6 +21,14 @@ interface PageEntry {
   slug: string;
   path: string;
 }
+
+type OutlineHeading = {
+  key: string;
+  id: string | null;
+  index: number;
+  level: number;
+  text: string;
+};
 
 // ─── Theme store ──────────────────────────────────────────────────────────────
 
@@ -332,6 +341,224 @@ function formatPath(slug: string): string {
   return parts.length > 1 ? parts.slice(0, -1).join("/") : "";
 }
 
+// ─── Outline palette (Cmd+Shift+O) ───────────────────────────────────────────
+
+let globalOpenOutline: (() => void) | null = null;
+export function openOutlinePalette() {
+  globalOpenOutline?.();
+}
+
+function isVisible(element: HTMLElement) {
+  return element.offsetParent !== null || element.getClientRects().length > 0;
+}
+
+function getOutlineRoot() {
+  const articles = Array.from(document.querySelectorAll<HTMLElement>("article"));
+  return articles.find(isVisible) ?? null;
+}
+
+function getOutlineHeadingText(heading: HTMLHeadingElement) {
+  const clone = heading.cloneNode(true) as HTMLHeadingElement;
+  clone
+    .querySelectorAll('a[href^="#"], a[aria-hidden="true"], .anchor, .header-anchor, .hash-link, .heading-anchor')
+    .forEach((anchor) => anchor.remove());
+
+  const text = clone.textContent ?? heading.textContent ?? "";
+  return text
+    .replace(/^#{1,6}\s*/, "")
+    .replace(/(?:\s*#\s*)+$/, "")
+    .trim();
+}
+
+function getOutlineHeadingElements(root = getOutlineRoot()) {
+  if (!root) return [];
+
+  return Array.from(
+    root.querySelectorAll<HTMLHeadingElement>("h1, h2, h3, h4, h5, h6")
+  ).filter((heading) => getOutlineHeadingText(heading).length > 0);
+}
+
+function getOutlineHeadings(): OutlineHeading[] {
+  return getOutlineHeadingElements().map((heading, index) => {
+    const id = heading.id || null;
+    return {
+      key: id ? `id:${id}` : `index:${index}`,
+      id,
+      index,
+      level: Number.parseInt(heading.tagName.slice(1), 10),
+      text: getOutlineHeadingText(heading),
+    };
+  });
+}
+
+function getScrollContainer(element: HTMLElement | null) {
+  if (!element) return null;
+
+  let current = element.parentElement;
+  while (current) {
+    const style = window.getComputedStyle(current);
+    const overflowY = style.overflowY;
+    if ((overflowY === "auto" || overflowY === "scroll") && current.scrollHeight > current.clientHeight) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+
+  return document.scrollingElement instanceof HTMLElement
+    ? document.scrollingElement
+    : document.documentElement;
+}
+
+function scrollElementIntoContainerView(target: HTMLElement) {
+  const scrollContainer = getScrollContainer(target);
+  if (!scrollContainer) return;
+
+  const offset = 24;
+  const targetRect = target.getBoundingClientRect();
+
+  if (
+    scrollContainer === document.documentElement ||
+    scrollContainer === document.body ||
+    scrollContainer === document.scrollingElement
+  ) {
+    window.scrollTo({
+      top: Math.max(0, window.scrollY + targetRect.top - offset),
+      behavior: "smooth",
+    });
+    return;
+  }
+
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const nextTop = scrollContainer.scrollTop + targetRect.top - containerRect.top - offset;
+  scrollContainer.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+}
+
+function getElementForHeading(item: OutlineHeading) {
+  const root = getOutlineRoot();
+  if (!root) return null;
+
+  if (item.id) {
+    return root.querySelector<HTMLElement>(`#${CSS.escape(item.id)}`) ?? document.getElementById(item.id);
+  }
+
+  return getOutlineHeadingElements(root)[item.index] ?? null;
+}
+
+export function OutlinePalette() {
+  const [open, setOpen] = useState(false);
+  const [headings, setHeadings] = useState<OutlineHeading[]>([]);
+  const [search, setSearch] = useState("");
+  const pathname = usePathname();
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const refreshHeadings = useCallback(() => {
+    setHeadings(getOutlineHeadings());
+  }, []);
+
+  useEffect(() => {
+    globalOpenOutline = () => {
+      refreshHeadings();
+      setOpen(true);
+    };
+    return () => { globalOpenOutline = null; };
+  }, [refreshHeadings]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === "KeyO") {
+        e.preventDefault();
+        refreshHeadings();
+        setOpen((o) => !o);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [refreshHeadings]);
+
+  useEffect(() => {
+    if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset dialog query after close
+      setSearch("");
+      return;
+    }
+
+    refreshHeadings();
+    const root = getOutlineRoot();
+    if (!root) return;
+
+    const observer = new MutationObserver(refreshHeadings);
+    observer.observe(root, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, [open, pathname, refreshHeadings]);
+
+  const handleSelect = useCallback((item: OutlineHeading) => {
+    const target = getElementForHeading(item);
+    if (!target) return;
+
+    if (item.id) {
+      window.history.pushState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}#${encodeURIComponent(item.id)}`
+      );
+    }
+
+    if (!target.hasAttribute("tabindex")) {
+      target.tabIndex = -1;
+    }
+
+    setOpen(false);
+    requestAnimationFrame(() => {
+      target.focus({ preventScroll: true });
+      scrollElementIntoContainerView(target);
+    });
+  }, []);
+
+  return (
+    <CommandDialog open={open} onOpenChange={setOpen} title="Outline" description="Jump to a heading">
+      <Command>
+        <CommandInput
+          placeholder="Search headings…"
+          value={search}
+          onValueChange={(v) => {
+            setSearch(v);
+            requestAnimationFrame(() => listRef.current?.scrollTo(0, 0));
+          }}
+        />
+        <CommandList ref={listRef}>
+          <CommandEmpty>
+            {headings.length === 0 ? "No headings found on this page." : "No matching headings."}
+          </CommandEmpty>
+          {headings.length > 0 ? (
+            <CommandGroup heading="Headings">
+              {headings.map((heading) => (
+                <CommandItem
+                  key={heading.key}
+                  value={`${heading.text} h${heading.level} ${heading.id ?? ""}`}
+                  onSelect={() => handleSelect(heading)}
+                  className="py-2.5"
+                >
+                  <HeadingIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
+                  <div
+                    className="flex min-w-0 flex-1 flex-col"
+                    style={{ paddingLeft: `${Math.max(0, heading.level - 1) * 10}px` }}
+                  >
+                    <span className="truncate">{heading.text}</span>
+                    {heading.id ? (
+                      <span className="truncate text-xs text-muted-foreground">#{heading.id}</span>
+                    ) : null}
+                  </div>
+                  <CommandShortcut className="tracking-normal">H{heading.level}</CommandShortcut>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ) : null}
+        </CommandList>
+      </Command>
+    </CommandDialog>
+  );
+}
+
 // ─── Action palette (Cmd+Shift+P) ────────────────────────────────────────────
 
 export function ActionPalette() {
@@ -425,6 +652,11 @@ export function ActionPalette() {
             </CommandItem>
           </CommandGroup>
           <CommandGroup heading="Navigate">
+            <CommandItem value="outline headings headers current page" onSelect={() => { setOpen(false); openOutlinePalette(); }}>
+              <ListTreeIcon />
+              <span className="ml-2">Open outline</span>
+              <CommandShortcut>⌘⇧O</CommandShortcut>
+            </CommandItem>
             <CommandItem value="search full text" onSelect={() => { setOpen(false); router.push("/search"); }}>
               <SearchIcon />
               <span className="ml-2">Open search</span>
