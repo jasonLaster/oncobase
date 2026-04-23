@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
 import { TreeNode, formatName, SidebarTopLinks } from "@/components/sidebar";
+import { chatConfigured } from "@/lib/chat-config";
 
 const ConversationList = lazy(() => import("./conversation-list"));
 
@@ -24,7 +25,7 @@ function getPageTitle(pathname: string): string {
 export function BottomNav({ tree }: { tree: FileNode[] }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const isChat = pathname.startsWith("/chat");
+  const isChat = chatConfigured && pathname.startsWith("/chat");
   const title = getPageTitle(pathname);
 
   const close = useCallback(() => setOpen(false), []);

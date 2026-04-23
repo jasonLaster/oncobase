@@ -1,5 +1,7 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { ConversationPageClient } from "./client";
+import { chatConfigured } from "@/lib/chat-config";
 
 function ChatLoading() {
   return (
@@ -20,6 +22,10 @@ export default function ConversationPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!chatConfigured) {
+    redirect("/");
+  }
+
   return (
     <Suspense fallback={<ChatLoading />}>
       <ConversationContent params={params} />

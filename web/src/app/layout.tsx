@@ -5,7 +5,6 @@ import { Analytics } from "@vercel/analytics/next";
 import { CommandPalette, OutlinePalette, ActionPalette } from "@/components/command-palette";
 import { ConvexClientProvider } from "@/components/convex-provider";
 import "@liveblocks/react-ui/styles.css";
-import "@diana-tnbc/smart-table/styles.css";
 import "./globals.css";
 
 const geistSans = Geist({

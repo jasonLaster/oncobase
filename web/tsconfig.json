@@ -21,7 +21,14 @@
     "types": ["bun-types"],
     "paths": {
       "@/*": ["./src/*"],
-      "@convex/*": ["./convex/*"]
+      "@convex/*": ["./convex/*"],
+      "@diana-tnbc/smart-table": ["../packages/smart-table/src/index.ts"],
+      "@diana-tnbc/smart-table/examples": [
+        "../packages/smart-table/src/example-tables.ts"
+      ],
+      "@diana-tnbc/smart-table/layout-adapter": [
+        "../packages/smart-table/src/layout-adapter.ts"
+      ]
     }
   },
   "include": [

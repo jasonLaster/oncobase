@@ -1,5 +1,7 @@
 "use client";
 
+import "./styles.css";
+
 export {
   SmartTable,
   SmartTableBody,
@@ -16,4 +18,19 @@ export {
   MdThead,
   MdTr,
 } from "./markdown-table";
-export { InteractiveTables } from "./interactive-tables";
+export {
+  SmartTableEnhancer,
+  InteractiveTables,
+} from "./interactive-tables";
+export {
+  defaultSmartTableToggleLabels,
+  type SmartTableToggleLabels,
+} from "./enhance-table";
+export {
+  createViewportSmartTableLayoutAdapter,
+  defaultSmartTableLayoutAdapter,
+  getDefaultVerticalScrollContainer,
+  type SmartTableBleed,
+  type SmartTableLayoutAdapter,
+  type SmartTableOverlayLayout,
+} from "./layout-adapter";

@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
+import { chatConfigured } from "@/lib/chat-config";
 
 export const unstable_instant = false;
 
-export const chatEnabled =
-  process.env.NEXT_PUBLIC_ENABLE_CHAT === "true" 
+export const chatEnabled = chatConfigured;
 
 export default function ChatLayout({
   children,

@@ -4,6 +4,7 @@ import {
   convertToModelMessages,
   type UIMessage,
 } from "ai";
+import { connection } from "next/server";
 import { z } from "zod";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
@@ -151,6 +152,8 @@ function generateSearchPatterns(query: string): string[] {
 }
 
 export async function POST(request: Request) {
+  await connection();
+
   // Fail fast on missing credentials
   if (!process.env.AI_GATEWAY_API_KEY) {
     return new Response(

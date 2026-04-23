@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, lazy, Suspense } from "react";
 import type { FileNode } from "@/lib/markdown";
+import { chatConfigured } from "@/lib/chat-config";
 
 const ConversationList = lazy(() => import("./conversation-list"));
 
@@ -53,12 +54,16 @@ export function SidebarTopLinks({
   const pathname = usePathname();
 
   const links = [
-    {
-      href: "/chat",
-      label: "Chat with wiki",
-      active: pathname.startsWith("/chat"),
-      icon: <ChatIcon />,
-    },
+    ...(chatConfigured
+      ? [
+          {
+            href: "/chat",
+            label: "Chat with wiki",
+            active: pathname.startsWith("/chat"),
+            icon: <ChatIcon />,
+          },
+        ]
+      : []),
     ...(process.env.NEXT_PUBLIC_ENABLE_COMMENTS === "true"
       ? [
           {
@@ -171,7 +176,7 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
 
 export function Sidebar({ tree }: { tree: FileNode[] }) {
   const pathname = usePathname();
-  const isChat = pathname.startsWith("/chat");
+  const isChat = chatConfigured && pathname.startsWith("/chat");
 
   return (
     <aside className="hidden md:flex flex-col h-full min-h-0 overflow-hidden bg-[var(--sidebar-bg)]">

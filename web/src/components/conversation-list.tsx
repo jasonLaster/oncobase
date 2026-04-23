@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { ConversationDropdown } from "@/app/(main)/chat/_components/chat-actions";
+import { chatConfigured } from "@/lib/chat-config";
 
 function useActiveConversationId(): string | null {
   const pathname = usePathname();
@@ -43,7 +44,7 @@ function useActiveConversationId(): string | null {
   return replaceStateId ?? pathnameId;
 }
 
-export default function ConversationList() {
+function ConversationListContent() {
   const conversations = useQuery(api.conversations.list);
   const pathname = usePathname();
   const activeId = useActiveConversationId();
@@ -114,4 +115,12 @@ export default function ConversationList() {
       </div>
     </div>
   );
+}
+
+export default function ConversationList() {
+  if (!chatConfigured) {
+    return null;
+  }
+
+  return <ConversationListContent />;
 }

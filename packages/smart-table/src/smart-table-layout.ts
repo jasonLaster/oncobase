@@ -8,6 +8,7 @@ import {
 const WIDTH_ROUNDING = 4;
 const DEFAULT_LINE_HEIGHT_RATIO = 1.45;
 const CANDIDATE_STEPS = [0, 0.38, 0.72, 1];
+export const SMART_TABLE_LAYOUT_EVENT = "smart-table:layout-change";
 
 type ColumnKind = "numeric" | "compact" | "text";
 
@@ -356,6 +357,42 @@ function collectTableMatrix(table: HTMLTableElement): TableMatrix | null {
   return { rows, columns, columnCount };
 }
 
+function shouldPreserveNativeAutoLayout(
+  table: HTMLTableElement,
+  wrapper: HTMLElement
+) {
+  const matrix = collectTableMatrix(table);
+  if (!matrix) {
+    return false;
+  }
+
+  if (matrix.columnCount > 2) {
+    return false;
+  }
+
+  if (wrapper.scrollWidth > wrapper.clientWidth + 2) {
+    return false;
+  }
+
+  const texts = matrix.columns
+    .flat()
+    .map((cell) => normalizeText(cell.textContent ?? ""))
+    .filter(Boolean);
+
+  if (texts.length === 0) {
+    return false;
+  }
+
+  const longestText = texts.reduce(
+    (max, text) => Math.max(max, text.length),
+    0
+  );
+  const averageLength =
+    texts.reduce((sum, text) => sum + text.length, 0) / texts.length;
+
+  return longestText <= 24 && averageLength <= 12;
+}
+
 function buildColumnModel(cells: HTMLTableCellElement[]): ColumnModel {
   const texts = cells.map((cell) => normalizeText(cell.textContent ?? ""));
   const kind = classifyColumn(texts);
@@ -673,6 +710,7 @@ function syncWidthsFromColumns(table: HTMLTableElement, widths: number[]) {
   table.style.tableLayout = "fixed";
   table.style.width = `${roundWidth(widths.reduce((sum, width) => sum + width, 0))}px`;
   table.dataset.smartTable = "enhanced";
+  table.dispatchEvent(new CustomEvent(SMART_TABLE_LAYOUT_EVENT));
 }
 
 function syncWidthFromColgroup(table: HTMLTableElement) {
@@ -686,6 +724,15 @@ function syncWidthFromColgroup(table: HTMLTableElement) {
 
   table.style.tableLayout = "fixed";
   table.style.width = `${roundWidth(widths.reduce((sum, width) => sum + width, 0))}px`;
+  table.dispatchEvent(new CustomEvent(SMART_TABLE_LAYOUT_EVENT));
+}
+
+function clearColumnSizing(table: HTMLTableElement) {
+  table.querySelector(":scope > colgroup")?.remove();
+  table.style.removeProperty("table-layout");
+  table.style.removeProperty("width");
+  delete table.dataset.smartTableWidths;
+  table.dispatchEvent(new CustomEvent(SMART_TABLE_LAYOUT_EVENT));
 }
 
 function getStoredManualWidths(key?: string) {
@@ -779,6 +826,40 @@ export function installSmartTableLayout(
     return false;
   };
 
+  const applyLayout = () => {
+    if (cancelled || !table.isConnected || !wrapper.isConnected) {
+      return;
+    }
+
+    if (restorePersistedState()) {
+      return;
+    }
+
+    if (shouldPreserveNativeAutoLayout(table, wrapper)) {
+      clearColumnSizing(table);
+      return;
+    }
+
+    const wrapperStyle = window.getComputedStyle(wrapper);
+    const paddingLeft = Number.parseFloat(wrapperStyle.paddingLeft) || 0;
+    const paddingRight = Number.parseFloat(wrapperStyle.paddingRight) || 0;
+    const availableWidth = Math.floor(
+      wrapper.clientWidth - paddingLeft - paddingRight
+    );
+    const plan = computeTablePlan(table, availableWidth);
+    if (!plan) {
+      return;
+    }
+
+    const nextKey = plan.widths.map((width) => roundWidth(width)).join(",");
+    if (table.dataset.smartTableWidths === nextKey) {
+      return;
+    }
+
+    table.dataset.smartTableWidths = nextKey;
+    syncWidthsFromColumns(table, plan.widths);
+  };
+
   const schedule = () => {
     if (cancelled) {
       return;
@@ -786,36 +867,12 @@ export function installSmartTableLayout(
 
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(() => {
-      if (cancelled || !table.isConnected || !wrapper.isConnected) {
-        return;
-      }
-
-      if (restorePersistedState()) {
-        return;
-      }
-
-      const wrapperStyle = window.getComputedStyle(wrapper);
-      const paddingLeft = Number.parseFloat(wrapperStyle.paddingLeft) || 0;
-      const paddingRight = Number.parseFloat(wrapperStyle.paddingRight) || 0;
-      const availableWidth = Math.floor(
-        wrapper.clientWidth - paddingLeft - paddingRight
-      );
-      const plan = computeTablePlan(table, availableWidth);
-      if (!plan) {
-        return;
-      }
-
-      const nextKey = plan.widths.map((width) => roundWidth(width)).join(",");
-      if (table.dataset.smartTableWidths === nextKey) {
-        return;
-      }
-
-      table.dataset.smartTableWidths = nextKey;
-      syncWidthsFromColumns(table, plan.widths);
+      frame = 0;
+      applyLayout();
     });
   };
 
-  schedule();
+  applyLayout();
 
   const resizeObserver = new ResizeObserver(schedule);
   resizeObserver.observe(wrapper);
@@ -843,11 +900,10 @@ export function attachSmartResizeHandles(
   const cleanups: Array<() => void> = [];
 
   headerCells.forEach((cell, columnIndex) => {
-    cell.classList.add("relative", "group/resize");
+    cell.classList.add("smart-table-resize-target");
 
     const handle = document.createElement("div");
-    handle.className =
-      "smart-table-resize-handle absolute right-0 top-0 bottom-0 w-2 cursor-col-resize opacity-0 group-hover/resize:opacity-100 hover:!opacity-100 bg-[var(--brand)]/70 transition-opacity";
+    handle.className = "smart-table-resize-handle";
     handle.setAttribute("role", "separator");
     handle.setAttribute("aria-orientation", "vertical");
     handle.setAttribute("aria-label", `Resize column ${columnIndex + 1}`);
@@ -873,24 +929,47 @@ export function attachSmartResizeHandles(
       const startX = event.clientX;
       const startWidth = widths[columnIndex] ?? cell.getBoundingClientRect().width;
       const startTableWidth = widths.reduce((sum, width) => sum + width, 0);
+      const nextWidths = widths.map((width) => roundWidth(width));
+      let pendingWidth = startWidth;
+      let appliedWidth = roundWidth(startWidth);
+      let frame = 0;
 
-      const onMouseMove = (moveEvent: MouseEvent) => {
-        const nextWidth = Math.max(56, roundWidth(startWidth + moveEvent.clientX - startX));
+      const applyPendingWidth = () => {
+        frame = 0;
+        const nextWidth = Math.max(56, roundWidth(pendingWidth));
+        if (nextWidth === appliedWidth) {
+          return;
+        }
         const delta = nextWidth - startWidth;
-
         const col = cols[columnIndex];
         if (col) {
           col.style.width = `${nextWidth}px`;
         }
-        const nextTableWidth = roundWidth(startTableWidth + delta);
-        table.style.width = `${nextTableWidth}px`;
-        const nextWidths = cols.map((col) => Number.parseFloat(col.style.width)).filter(
-          (width) => Number.isFinite(width) && width > 0
-        );
-        persistManualWidths(options.persistenceKey, nextWidths);
+        nextWidths[columnIndex] = nextWidth;
+        appliedWidth = nextWidth;
+        table.style.width = `${roundWidth(startTableWidth + delta)}px`;
+        table.dispatchEvent(new CustomEvent(SMART_TABLE_LAYOUT_EVENT));
+      };
+
+      const scheduleWidthUpdate = () => {
+        if (frame !== 0) {
+          return;
+        }
+
+        frame = requestAnimationFrame(applyPendingWidth);
+      };
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        pendingWidth = startWidth + moveEvent.clientX - startX;
+        scheduleWidthUpdate();
       };
 
       const onMouseUp = () => {
+        if (frame !== 0) {
+          cancelAnimationFrame(frame);
+          applyPendingWidth();
+        }
+        persistManualWidths(options.persistenceKey, nextWidths);
         document.removeEventListener("mousemove", onMouseMove);
         document.removeEventListener("mouseup", onMouseUp);
         document.body.style.cursor = "";

@@ -9,8 +9,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:unit": "bun test src/lib/render-markdown.test.ts",
-    "test": "npx playwright test",
-    "test:prod": "TEST_ENV=prod npx playwright test"
+    "test": "bunx playwright test",
+    "test:prod": "TEST_ENV=prod bunx playwright test",
+    "test:prod:ci": "TEST_ENV=prod bunx playwright test e2e/table-examples.spec.ts e2e/table-expansion.spec.ts e2e/table-performance.spec.ts --project=tests"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.149",

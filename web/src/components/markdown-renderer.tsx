@@ -1,8 +1,8 @@
 import { resolveWikilinks } from "@/lib/wikilinks";
 import { renderMarkdown, renderMarkdownAsync } from "@/lib/render-markdown";
-import { InteractiveTables } from "@diana-tnbc/smart-table";
 import { MarkdownHeadingAnchors } from "@/components/markdown-heading-anchors";
 import { MermaidRenderer } from "@/components/mermaid-renderer";
+import { InteractiveTables } from "@/components/interactive-tables";
 
 export function MarkdownRenderer({
   content,

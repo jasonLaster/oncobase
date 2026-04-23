@@ -2,11 +2,16 @@ export interface ExampleTableDefinition {
   id: string;
   title: string;
   description: string;
+  category: string;
   stressors: string[];
+  recommendedChecks: string[];
+  apiModes: Array<"markdown" | "declarative">;
   headers: string[];
   rows: string[][];
   legacyDirective?: string;
   expectInitialScrollable?: boolean;
+  featured?: boolean;
+  resizeAudit?: boolean;
 }
 
 function escapeMarkdownCell(value: string) {
@@ -30,13 +35,17 @@ export function renderExampleTableSection(example: ExampleTableDefinition) {
     `<div data-table-example="${example.id}"></div>`,
     `## ${example.title}`,
     example.description,
+    `- Category: ${example.category}`,
     `- Stressors: ${example.stressors.join(", ")}`,
+    `- API modes: ${example.apiModes.join(", ")}`,
     `- Fixture id: \`${example.id}\``,
   ];
 
   if (example.expectInitialScrollable) {
     lines.push("- Expected behavior: should already overflow horizontally on desktop.");
   }
+
+  lines.push(`- QA checks: ${example.recommendedChecks.join("; ")}`);
 
   if (example.legacyDirective) {
     lines.push(`<!-- table-cols: ${example.legacyDirective} -->`);
@@ -54,13 +63,25 @@ export function buildExampleTablesDocument() {
   ].join("\n\n");
 }
 
+export function getExampleTable(id: string) {
+  return exampleTables.find((example) => example.id === id);
+}
+
 export const exampleTables: ExampleTableDefinition[] = [
   {
     id: "dense-comparison",
     title: "Dense Comparison Matrix",
     description:
       "A realistic comparison table with mixed prose, numbers, and source columns similar to the research overview pages.",
+    category: "Research comparison",
     stressors: ["mixed column widths", "dense prose", "source citations"],
+    recommendedChecks: [
+      "Verify resize handles stay aligned with dense headers",
+      "Confirm expansion gives wider prose columns without dropping styles",
+      "Check that mixed text and numeric cells preserve readable balance",
+    ],
+    apiModes: ["markdown", "declarative"],
+    featured: true,
     headers: ["Model", "What It Does", "Key Numbers", "Source", "Relevance"],
     rows: [
       [
@@ -98,7 +119,16 @@ export const exampleTables: ExampleTableDefinition[] = [
     title: "Long Prose Treatment Notes",
     description:
       "Every body cell is intentionally verbose so we can catch wrapping, row-height estimation, and expansion styling regressions.",
+    category: "Wrapped prose",
     stressors: ["long wrapped prose", "tall rows", "line-height estimation"],
+    recommendedChecks: [
+      "Watch for clipped copy or row-height underestimation",
+      "Resize the first column and confirm the layout stays stable",
+      "Compare collapsed and expanded styling after a resize",
+    ],
+    apiModes: ["markdown", "declarative"],
+    featured: true,
+    resizeAudit: true,
     headers: ["Topic", "Clinical Note", "Potential Risk", "Follow-up"],
     rows: [
       [
@@ -126,7 +156,16 @@ export const exampleTables: ExampleTableDefinition[] = [
     title: "Numeric Monitoring Snapshot",
     description:
       "A mostly numeric table for exercising the numeric column classification path and compact width allocation.",
+    category: "Numeric summary",
     stressors: ["numeric columns", "percentages", "dates", "compact cells"],
+    recommendedChecks: [
+      "Confirm numeric columns remain compact after resize",
+      "Check that dragged widths persist through expansion",
+      "Verify the table does not over-expand when numbers are short",
+    ],
+    apiModes: ["markdown", "declarative"],
+    featured: true,
+    resizeAudit: true,
     headers: ["Week", "ANC", "Hemoglobin", "Platelets", "Dose Change", "Status"],
     rows: [
       ["Week 1", "4.2", "12.8", "274", "0%", "On track"],
@@ -141,7 +180,14 @@ export const exampleTables: ExampleTableDefinition[] = [
     title: "Compact Regimen Codes",
     description:
       "Short labels and slash-separated tokens help exercise the compact-column logic without relying on long prose.",
+    category: "Compact tokens",
     stressors: ["short tokens", "slash-separated values", "compact headers"],
+    recommendedChecks: [
+      "Confirm compact headers do not get excessive width",
+      "Check that hover-only resize affordances stay subtle but discoverable",
+      "Verify short tokens still align cleanly after drag",
+    ],
+    apiModes: ["markdown", "declarative"],
     headers: ["Regimen", "Setting", "Window", "Owner", "Status"],
     rows: [
       ["TC", "Neo/adjuvant", "Wk 1-12", "Med onc", "Active"],
@@ -155,8 +201,17 @@ export const exampleTables: ExampleTableDefinition[] = [
     title: "Overflow Landscape Grid",
     description:
       "This one is deliberately wide on desktop so horizontal scrolling and the right-edge fade can be tested without manual resize first.",
+    category: "Overflow stress",
     stressors: ["many columns", "default overflow", "expanded horizontal scroll"],
+    recommendedChecks: [
+      "Verify the right-edge fade stays pinned to the scroll lane",
+      "Resize a leading column and keep the table scrollable",
+      "Confirm the expanded overlay widens the available lane",
+    ],
+    apiModes: ["markdown", "declarative"],
     expectInitialScrollable: true,
+    featured: true,
+    resizeAudit: true,
     headers: [
       "Program",
       "Target",
@@ -221,7 +276,14 @@ export const exampleTables: ExampleTableDefinition[] = [
     title: "Legacy Directive Cleanup",
     description:
       "This fixture keeps a legacy table directive comment in the markdown source so unit tests can confirm the renderer strips it cleanly.",
+    category: "Legacy migration",
     stressors: ["legacy directive stripping", "simple sanity fixture"],
+    recommendedChecks: [
+      "Ensure directive comments do not leak into rendered HTML",
+      "Verify server-rendered markup is already styled before hydration",
+      "Confirm enhancement still adds expand and resize controls",
+    ],
+    apiModes: ["markdown"],
     legacyDirective: "18, 34, 48",
     headers: ["Directive", "Expectation", "Observed"],
     rows: [
@@ -231,3 +293,11 @@ export const exampleTables: ExampleTableDefinition[] = [
     ],
   },
 ];
+
+export const featuredExampleTables = exampleTables.filter(
+  (example) => example.featured
+);
+
+export const resizeAuditExampleTables = exampleTables.filter(
+  (example) => example.resizeAudit
+);

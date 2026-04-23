@@ -1,0 +1,147 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  deployments: read
+  pull-requests: read
+  statuses: read
+
+jobs:
+  static:
+    name: Static
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build
+        env:
+          VERCEL_ENV: preview
+          NEXT_PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
+        run: bun run build
+
+  unit:
+    name: Unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run unit tests
+        run: bun run test:unit
+
+  preview-url:
+    name: Resolve Preview URL
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.resolve.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for Vercel preview deployment
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for attempt in $(seq 1 40); do
+            deployment_id="$(
+              gh api "repos/${REPOSITORY}/deployments?sha=${HEAD_SHA}&per_page=20" \
+                | jq -r '[.[] | select(.environment == "Preview")] | first | .id // empty'
+            )"
+
+            if [[ -z "${deployment_id}" ]]; then
+              echo "Preview deployment not created yet (attempt ${attempt}/40)."
+              sleep 15
+              continue
+            fi
+
+            status_json="$(
+              gh api "repos/${REPOSITORY}/deployments/${deployment_id}/statuses" \
+                | jq 'first'
+            )"
+
+            state="$(jq -r '.state // empty' <<<"${status_json}")"
+            preview_url="$(jq -r '.environment_url // .target_url // empty' <<<"${status_json}")"
+            description="$(jq -r '.description // empty' <<<"${status_json}")"
+
+            case "${state}" in
+              success)
+                if [[ -n "${preview_url}" ]]; then
+                  echo "url=${preview_url}" >> "${GITHUB_OUTPUT}"
+                  exit 0
+                fi
+                ;;
+              failure|error)
+                echo "Preview deployment failed: ${description}" >&2
+                if [[ -n "${preview_url}" ]]; then
+                  echo "Failed preview URL: ${preview_url}" >&2
+                fi
+                exit 1
+                ;;
+            esac
+
+            echo "Preview deployment state: ${state:-unknown} (attempt ${attempt}/40)."
+            sleep 15
+          done
+
+          echo "Timed out waiting for a successful Vercel preview deployment." >&2
+          exit 1
+
+  e2e-preview:
+    name: E2E (Preview)
+    runs-on: ubuntu-latest
+    needs: preview-url
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: web
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run e2e tests against preview
+        working-directory: web
+        env:
+          TEST_ENV: prod
+          PROD_URL: ${{ needs.preview-url.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: bun run test:prod:ci

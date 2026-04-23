@@ -19,7 +19,7 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "18";
+const PIPELINE_VERSION = "19";
 
 // ─── Mermaid pre-processor ────────────────────────────────────────────────────
 //
@@ -60,6 +60,75 @@ function extractMermaidBlocks(md: string): string {
 
 function stripLegacyTableDirectives(md: string): string {
   return md.replace(/^\s*<!--\s*table-cols:\s*.*?-->\s*$/gm, "");
+}
+
+type TagDecoration = {
+  className?: string;
+  attributes?: Record<string, string>;
+};
+
+function decorateOpeningTag(
+  html: string,
+  tagName: string,
+  decoration: TagDecoration
+): string {
+  const pattern = new RegExp(`<${tagName}\\b([^>]*)>`, "g");
+
+  return html.replace(pattern, (_match, rawAttributes: string) => {
+    let attributes = rawAttributes;
+
+    if (decoration.className) {
+      const classMatch = attributes.match(/\bclass="([^"]*)"/);
+      if (classMatch) {
+        const merged = `${classMatch[1]} ${decoration.className}`.trim();
+        attributes = attributes.replace(
+          /\bclass="([^"]*)"/,
+          `class="${merged}"`
+        );
+      } else {
+        attributes += ` class="${decoration.className}"`;
+      }
+    }
+
+    Object.entries(decoration.attributes ?? {}).forEach(([name, value]) => {
+      if (!new RegExp(`\\b${name}=`).test(attributes)) {
+        attributes += ` ${name}="${value}"`;
+      }
+    });
+
+    return `<${tagName}${attributes}>`;
+  });
+}
+
+function decorateRenderedTables(html: string): string {
+  const decoratedTables = decorateOpeningTag(html, "table", {
+    className: "smart-table",
+    attributes: {
+      "data-smart-table": "",
+      "data-slot": "table",
+    },
+  });
+
+  const wrappedTables = decoratedTables
+    .replace(
+      /<table\b([^>]*)>/g,
+      '<div data-smart-table-shell class="smart-table-shell"><div data-smart-table-wrapper class="smart-table-wrapper table-scroll-wrapper"><table$1>'
+    )
+    .replace(/<\/table>/g, "</table></div></div>");
+
+  const decorations: Array<[string, TagDecoration]> = [
+    ["thead", { className: "smart-table-header", attributes: { "data-slot": "table-header" } }],
+    ["tbody", { className: "smart-table-body", attributes: { "data-slot": "table-body" } }],
+    ["tfoot", { className: "smart-table-footer", attributes: { "data-slot": "table-footer" } }],
+    ["tr", { className: "smart-table-row", attributes: { "data-slot": "table-row" } }],
+    ["th", { className: "smart-table-head-cell", attributes: { "data-slot": "table-head" } }],
+    ["td", { className: "smart-table-cell", attributes: { "data-slot": "table-cell" } }],
+    ["caption", { className: "smart-table-caption", attributes: { "data-slot": "table-caption" } }],
+  ];
+
+  return decorations.reduce((acc, [tagName, decoration]) => {
+    return decorateOpeningTag(acc, tagName, decoration);
+  }, wrappedTables);
 }
 
 /**
@@ -183,8 +252,7 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
   const mermaidExtracted = extractMermaidBlocks(md);
   const cleanMd = stripLegacyTableDirectives(mermaidExtracted);
   const raw = processor.processSync(cleanMd).toString();
-  // Wrap every table in a scroll container so horizontal scroll works before JS hydrates.
-  const wrapped = raw.replace(/<table/g, '<div class="table-scroll-wrapper"><table').replace(/<\/table>/g, "</table></div>");
+  const wrapped = decorateRenderedTables(raw);
   const html = fixPdfLinks(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug));
 
   try {
@@ -219,8 +287,7 @@ export async function renderMarkdownAsync(md: string, currentSlug?: string): Pro
   const raw = (await processor.process(cleanMd)).toString();
   const tPipeline = performance.now();
 
-  // Wrap every table in a scroll container so horizontal scroll works before JS hydrates.
-  const wrapped = raw.replace(/<table/g, '<div class="table-scroll-wrapper"><table').replace(/<\/table>/g, "</table></div>");
+  const wrapped = decorateRenderedTables(raw);
   const html = fixPdfLinks(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug));
 
   console.log(

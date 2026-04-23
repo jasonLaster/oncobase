@@ -9,7 +9,9 @@ function getClient() {
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not set");
+    throw new Error(
+      "OPENAI_API_KEY is not configured. Embeddings are only available at runtime."
+    );
   }
 
   client = new OpenAI({ apiKey });
@@ -21,9 +23,10 @@ function getClient() {
  * Returns a 1536-dimensional float64 array.
  */
 export async function embed(text: string): Promise<number[]> {
+  const client = getClient();
   // Truncate to ~8000 tokens worth of text (~32k chars) to stay within limits
   const truncated = text.slice(0, 24000);
-  const res = await getClient().embeddings.create({
+  const res = await client.embeddings.create({
     model: "text-embedding-3-small",
     input: truncated,
   });
@@ -35,8 +38,9 @@ export async function embed(text: string): Promise<number[]> {
  * Returns an array of 1536-dimensional float64 arrays.
  */
 export async function embedBatch(texts: string[]): Promise<number[][]> {
+  const client = getClient();
   const truncated = texts.map((t) => t.slice(0, 32000));
-  const res = await getClient().embeddings.create({
+  const res = await client.embeddings.create({
     model: "text-embedding-3-small",
     input: truncated,
   });

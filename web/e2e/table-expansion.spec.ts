@@ -2,6 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 const TABLE_PAGE = "/wiki/research/ai-models/index";
 const TABLE_PAGE_HEADING = "AI Models for Diana's Case — Canonical Index";
+const PAPER_CATALOG_PAGE = "/wiki/research/paper-catalog";
+const AUTH_STATE_PATH = "e2e/.auth/state.json";
 
 test.describe("Prose table expansion", () => {
   test.beforeEach(async ({ page }) => {
@@ -27,6 +29,13 @@ test.describe("Prose table expansion", () => {
         expanded: true,
       });
 
+    await expect
+      .poll(async () => {
+        const metrics = await getFirstTableMetrics(page);
+        return (metrics.button?.top ?? 0) + (metrics.button?.height ?? 0) - (metrics.layer?.top ?? 0);
+      })
+      .toBeLessThanOrEqual(1);
+
     const expanded = await getFirstTableMetrics(page);
     expect(expanded.layer?.width ?? 0).toBeGreaterThan(collapsed.wrapper?.width ?? 0);
     expect(expanded.shell).not.toBeNull();
@@ -36,6 +45,10 @@ test.describe("Prose table expansion", () => {
     expect(Math.abs((expanded.shellReservedHeight ?? 0) - (expanded.shell?.height ?? 0))).toBeLessThan(4);
     expect((expanded.button?.right ?? 0) - (collapsed.button?.right ?? 0)).toBeGreaterThan(80);
     expect(Math.abs((expanded.button?.right ?? 0) - (expanded.layer?.right ?? 0))).toBeLessThan(24);
+    expect((expanded.button?.top ?? 0)).toBeLessThan((expanded.layer?.top ?? 0));
+    expect((expanded.button?.top ?? 0) + (expanded.button?.height ?? 0)).toBeLessThanOrEqual(
+      (expanded.layer?.top ?? 0) + 1
+    );
 
     await page.getByRole("button", { name: "Collapse table" }).first().click();
 
@@ -112,6 +125,13 @@ test.describe("Prose table expansion", () => {
   test("preserves table styling when expanded", async ({ page }) => {
     const before = await getFirstTableStyleSnapshot(page);
 
+    expect(Number.parseFloat(before.wrapper?.borderTopWidth ?? "0")).toBeGreaterThan(0);
+    expect(Number.parseFloat(before.wrapper?.borderRadius ?? "0")).toBeGreaterThan(0);
+    expect(before.th?.textTransform).toBe("uppercase");
+    expect(Number.parseFloat(before.th?.letterSpacing ?? "0")).toBeGreaterThan(0);
+    expect(Number.parseFloat(before.td?.paddingTop ?? "0")).toBeGreaterThan(0);
+    expect(Number.parseFloat(before.td?.borderBottomWidth ?? "0")).toBeGreaterThan(0);
+
     await page.getByRole("button", { name: "Expand table" }).first().click();
 
     await expect
@@ -154,20 +174,29 @@ test.describe("Prose table expansion", () => {
 
       table.style.minWidth = `${wrapper.clientWidth + 400}px`;
       table.style.width = `${wrapper.clientWidth + 400}px`;
-      wrapper.setAttribute("data-scrollable", "");
-      wrapper.removeAttribute("data-scrolled-end");
+      table.dispatchEvent(new CustomEvent("smart-table:layout-change"));
+      wrapper.scrollLeft = 1;
+      wrapper.dispatchEvent(new Event("scroll"));
+      const fadeNode =
+        layer?.querySelector<HTMLElement>(".smart-table-overflow-fade") ??
+        wrapper.querySelector<HTMLElement>(".smart-table-overflow-fade");
+      if (!layer || !fadeNode) {
+        return null;
+      }
 
-      const style = window.getComputedStyle(wrapper, "::after");
+      const fadeRect = fadeNode.getBoundingClientRect();
+      const layerRect = layer.getBoundingClientRect();
       return {
-        right: style.right,
-        left: style.left,
-        width: style.width,
+        offsetFromLayerRight: Math.abs(layerRect.right - fadeRect.right),
+        width: fadeRect.width,
+        left: fadeRect.left,
+        layerRight: layerRect.right,
       };
     });
 
     expect(fade).not.toBeNull();
-    expect(fade?.right).toBe("0px");
-    expect(Number.parseFloat(fade?.width ?? "0")).toBeGreaterThan(0);
+    expect(fade?.offsetFromLayerRight ?? 999).toBeLessThanOrEqual(1);
+    expect(fade?.width ?? 0).toBeGreaterThan(0);
   });
 
   test("falls back to the in-flow table when resized to mobile while expanded", async ({ page }) => {
@@ -225,6 +254,59 @@ test.describe("Prose table expansion", () => {
   });
 
   test("manual column resize widens the collapsed table", async ({ page }) => {
+    const resizeHandleStyle = await page.evaluate(() => {
+      const handle = document.querySelector<HTMLElement>(
+        '[aria-label="Resize column 1"]'
+      );
+      if (!handle) {
+        return null;
+      }
+
+      const style = window.getComputedStyle(handle);
+      return {
+        opacity: style.opacity,
+        backgroundImage: style.backgroundImage,
+      };
+    });
+
+    expect(resizeHandleStyle).not.toBeNull();
+    expect(Number.parseFloat(resizeHandleStyle?.opacity ?? "1")).toBe(0);
+    expect(resizeHandleStyle?.backgroundImage).toBe("none");
+
+    const resizeTargetBox = await page
+      .locator(".smart-table-resize-target")
+      .first()
+      .boundingBox();
+
+    if (!resizeTargetBox) {
+      throw new Error("Resize target bounding box unavailable");
+    }
+
+    await page.mouse.move(
+      resizeTargetBox.x + resizeTargetBox.width - 2,
+      resizeTargetBox.y + resizeTargetBox.height / 2
+    );
+    await page.waitForTimeout(100);
+
+    const hoveredResizeHandleStyle = await page.evaluate(() => {
+      const handle = document.querySelector<HTMLElement>(
+        '[aria-label="Resize column 1"]'
+      );
+      if (!handle) {
+        return null;
+      }
+
+      const style = window.getComputedStyle(handle);
+      return {
+        opacity: style.opacity,
+        backgroundImage: style.backgroundImage,
+      };
+    });
+
+    expect(hoveredResizeHandleStyle).not.toBeNull();
+    expect(Number.parseFloat(hoveredResizeHandleStyle?.opacity ?? "0")).toBeGreaterThan(0);
+    expect(hoveredResizeHandleStyle?.backgroundImage).not.toBe("none");
+
     await dragFirstResizeHandle(page, 520);
 
     const metrics = await getFirstTableMetrics(page);
@@ -335,6 +417,57 @@ test.describe("Prose table expansion", () => {
         }).length
     );
     expect(visibleCollapseCount).toBe(0);
+  });
+
+  test("paper catalog first paint keeps compact table styling without javascript", async ({
+    browser,
+    baseURL,
+  }) => {
+    const context = await browser.newContext({
+      javaScriptEnabled: false,
+      storageState: AUTH_STATE_PATH,
+    });
+    const page = await context.newPage();
+    const appBaseUrl = baseURL ?? "http://localhost:3000";
+
+    try {
+      await page.goto(`${appBaseUrl}${PAPER_CATALOG_PAGE}`);
+      await expect(
+        page.getByRole("heading", { name: "Paper Catalog" })
+      ).toBeVisible();
+
+      const snapshot = await page.evaluate(() => {
+        const wrapper = document.querySelector<HTMLElement>(".table-scroll-wrapper");
+        const th = wrapper?.querySelector<HTMLElement>("th");
+        const td = wrapper?.querySelector<HTMLElement>("td");
+        if (!wrapper || !th || !td) {
+          return null;
+        }
+
+        const wrapperStyle = getComputedStyle(wrapper);
+        const thStyle = getComputedStyle(th);
+        const tdStyle = getComputedStyle(td);
+
+        return {
+          wrapperBorderTopWidth: wrapperStyle.borderTopWidth,
+          wrapperBorderRadius: wrapperStyle.borderRadius,
+          thTextTransform: thStyle.textTransform,
+          thTextAlign: thStyle.textAlign,
+          thLetterSpacing: thStyle.letterSpacing,
+          tdPaddingTop: tdStyle.paddingTop,
+        };
+      });
+
+      expect(snapshot).not.toBeNull();
+      expect(Number.parseFloat(snapshot?.wrapperBorderTopWidth ?? "0")).toBeGreaterThan(0);
+      expect(Number.parseFloat(snapshot?.wrapperBorderRadius ?? "0")).toBeGreaterThan(0);
+      expect(snapshot?.thTextTransform).toBe("uppercase");
+      expect(snapshot?.thTextAlign).toBe("left");
+      expect(Number.parseFloat(snapshot?.thLetterSpacing ?? "0")).toBeGreaterThan(0);
+      expect(Number.parseFloat(snapshot?.tdPaddingTop ?? "0")).toBeGreaterThan(0);
+    } finally {
+      await context.close();
+    }
   });
 });
 

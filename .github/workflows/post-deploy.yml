@@ -62,7 +62,7 @@ jobs:
 
       - name: Run E2E tests against Vercel preview
         working-directory: web
-        run: bun run test
+        run: bun run test:prod:ci
 
       - name: Upload Playwright artifacts
         if: failure()

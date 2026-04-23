@@ -1,32 +1,78 @@
 {
   "name": "@diana-tnbc/smart-table",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
+  "description": "Adaptive React tables with content-aware sizing, resize handles, and optional overlay expansion.",
+  "keywords": [
+    "react",
+    "table",
+    "markdown",
+    "layout",
+    "resize",
+    "ui"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jasonLaster/diana-tnbc.git",
+    "directory": "packages/smart-table"
+  },
+  "bugs": {
+    "url": "https://github.com/jasonLaster/diana-tnbc/issues"
+  },
+  "homepage": "https://github.com/jasonLaster/diana-tnbc/tree/main/packages/smart-table",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
-  "types": "./src/index.ts",
-  "sideEffects": ["./src/styles.css"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src/styles.css",
+    "README.md"
+  ],
+  "sideEffects": ["./src/styles.css", "./dist/styles.css"],
   "exports": {
-    ".": "./src/index.ts",
-    "./examples": "./src/example-tables.ts",
-    "./styles.css": "./src/styles.css"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./layout-adapter": {
+      "types": "./dist/layout-adapter.d.ts",
+      "import": "./dist/layout-adapter.js",
+      "default": "./dist/layout-adapter.js"
+    },
+    "./examples": {
+      "types": "./dist/example-tables.d.ts",
+      "import": "./dist/example-tables.js",
+      "default": "./dist/example-tables.js"
+    },
+    "./styles.css": "./src/styles.css",
+    "./package.json": "./package.json"
   },
   "scripts": {
+    "build": "tsup src/index.ts src/layout-adapter.ts src/example-tables.ts --format esm --dts --external react --external react-dom --out-dir dist --clean && cp src/styles.css dist/styles.css",
+    "dev": "tsup src/index.ts src/layout-adapter.ts src/example-tables.ts --format esm --dts --external react --external react-dom --out-dir dist --watch --onSuccess 'cp src/styles.css dist/styles.css'",
+    "pack:dry-run": "bun run build && bun pm pack --dry-run",
+    "prepare": "bun run build",
+    "prepublishOnly": "bun run build",
     "typecheck": "tsc --noEmit",
     "test:unit": "bun test src/example-tables.test.ts"
   },
   "dependencies": {
     "@chenglou/pretext": "^0.0.5",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^3.5.0"
+    "clsx": "^2.1.1"
   },
   "peerDependencies": {
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0"
   },
   "devDependencies": {
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "bun-types": "^1.3.12",
+    "tsup": "^8.5.0",
     "typescript": "^5"
   }
 }

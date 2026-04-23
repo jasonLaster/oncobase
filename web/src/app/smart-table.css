@@ -29,11 +29,16 @@
   -webkit-overflow-scrolling: touch;
   margin: 1rem 0;
   padding-right: 0;
-  border: 1px solid color-mix(in srgb, var(--smart-table-border-color) 88%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--smart-table-border-color) 88%, transparent);
   border-radius: 1rem;
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--smart-table-surface) 97%, var(--smart-table-surface-muted) 3%),
+    color-mix(
+      in srgb,
+      var(--smart-table-surface) 97%,
+      var(--smart-table-surface-muted) 3%
+    ),
     var(--smart-table-surface)
   );
   box-shadow: inset 0 1px 0 color-mix(in srgb, white 6%, transparent);
@@ -63,7 +68,11 @@
   background: linear-gradient(
     to right,
     transparent,
-    color-mix(in srgb, var(--smart-table-surface) 96%, var(--smart-table-surface-muted) 4%)
+    color-mix(
+      in srgb,
+      var(--smart-table-surface) 96%,
+      var(--smart-table-surface-muted) 4%
+    )
   );
   pointer-events: none;
 }
@@ -89,7 +98,11 @@
   background: linear-gradient(
     to right,
     transparent,
-    color-mix(in srgb, var(--smart-table-surface) 96%, var(--smart-table-surface-muted) 4%)
+    color-mix(
+      in srgb,
+      var(--smart-table-surface) 96%,
+      var(--smart-table-surface-muted) 4%
+    )
   );
 }
 
@@ -116,14 +129,15 @@
   color: var(--smart-table-foreground);
 }
 
-.smart-table-header {}
-
-.smart-table-body {}
-
 .smart-table-footer,
 .table-scroll-wrapper > table:not(.smart-table) tfoot {
-  border-top: 1px solid color-mix(in srgb, var(--smart-table-border-color) 80%, transparent);
-  background: color-mix(in srgb, var(--smart-table-surface-muted) 50%, transparent);
+  border-top: 1px solid
+    color-mix(in srgb, var(--smart-table-border-color) 80%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--smart-table-surface-muted) 50%,
+    transparent
+  );
   font-weight: 500;
 }
 
@@ -140,13 +154,22 @@
   text-align: left;
   vertical-align: middle;
   white-space: normal;
-  border-bottom: 1px solid color-mix(in srgb, var(--smart-table-border-color) 92%, transparent);
-  background: color-mix(in srgb, var(--smart-table-surface-muted) 60%, var(--smart-table-surface) 40%);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--smart-table-border-color) 92%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--smart-table-surface-muted) 60%,
+    var(--smart-table-surface) 40%
+  );
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--smart-table-foreground) 88%, var(--smart-table-muted-foreground) 12%);
+  color: color-mix(
+    in srgb,
+    var(--smart-table-foreground) 88%,
+    var(--smart-table-muted-foreground) 12%
+  );
 }
 
 .smart-table thead .smart-table-head-cell:first-child,
@@ -168,8 +191,13 @@
   padding: 0.8rem 0.9rem;
   vertical-align: top;
   white-space: normal;
-  border-bottom: 1px solid color-mix(in srgb, var(--smart-table-border-color) 65%, transparent);
-  color: color-mix(in srgb, var(--smart-table-foreground) 94%, var(--smart-table-muted-foreground) 6%);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--smart-table-border-color) 65%, transparent);
+  color: color-mix(
+    in srgb,
+    var(--smart-table-foreground) 94%,
+    var(--smart-table-muted-foreground) 6%
+  );
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -183,7 +211,11 @@
 .smart-table tbody tr:hover .smart-table-cell,
 .smart-table tbody tr:hover td,
 .table-scroll-wrapper > table:not(.smart-table) tbody tr:hover td {
-  background: color-mix(in srgb, var(--smart-table-accent) 70%, var(--smart-table-surface) 30%);
+  background: color-mix(
+    in srgb,
+    var(--smart-table-accent) 70%,
+    var(--smart-table-surface) 30%
+  );
 }
 
 .smart-table tbody tr:last-child .smart-table-cell,

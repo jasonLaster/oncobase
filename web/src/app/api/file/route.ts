@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, connection } from "next/server";
 import path from "path";
 import fs from "fs";
 
 const OBSIDIAN_DIR =
   process.env.OBSIDIAN_DIR ??
   path.join(/* turbopackIgnore: true */ process.cwd(), "..", "obsidian");
-
 const MIME_TYPES: Record<string, string> = {
   ".pdf":  "application/pdf",
   ".csv":  "text/csv; charset=utf-8",
@@ -23,6 +22,8 @@ function getMimeType(filePath: string): string | null {
 }
 
 export async function GET(request: NextRequest) {
+  await connection();
+
   const filePath = request.nextUrl.searchParams.get("path");
 
   if (!filePath) {
