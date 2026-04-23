@@ -50,6 +50,29 @@ function isTransientNavigationError(error: unknown) {
   );
 }
 
+async function getHeadingAnchorCounts(page: Page) {
+  return page.evaluate(() => {
+    const headings = document.querySelectorAll(
+      "article .prose h1[id], article .prose h2[id], article .prose h3[id], article .prose h4[id], article .prose h5[id], article .prose h6[id]"
+    );
+    const anchors = document.querySelectorAll("article .prose .heading-anchor");
+
+    return {
+      headings: headings.length,
+      anchors: anchors.length,
+    };
+  });
+}
+
+async function expectHeadingAnchorsReady(page: Page) {
+  await expect
+    .poll(async () => {
+      const counts = await getHeadingAnchorCounts(page);
+      return counts.headings > 0 && counts.anchors === counts.headings;
+    })
+    .toBe(true);
+}
+
 test.describe("Markdown heading anchors", () => {
   test("clicking a markdown heading updates the URL hash", async ({ page }) => {
     test.skip(
@@ -117,6 +140,27 @@ test.describe("Markdown heading anchors", () => {
     expect(state.targetTop!).toBeLessThan(140);
 
     await context.close();
+  });
+
+  test("command palette navigation wires anchors on the destination page", async ({ page }) => {
+    await page.goto("/about/About");
+
+    await expectHeadingAnchorsReady(page);
+
+    await page.getByRole("button", { name: /Find files/ }).click();
+    const input = page.getByPlaceholder("Search pages");
+    await input.fill("about terminology");
+    await expect(page.locator('[cmdk-item][data-value="about/Terminology"]')).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+
+    await Promise.all([
+      page.waitForURL(/\/about\/Terminology$/),
+      input.press("Enter"),
+    ]);
+
+    await expectHeadingAnchorsReady(page);
   });
 });
 

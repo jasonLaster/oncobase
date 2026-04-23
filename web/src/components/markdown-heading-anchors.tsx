@@ -58,8 +58,11 @@ function getElementForHash(root: HTMLElement, hash: string) {
 
 export function MarkdownHeadingAnchors({
   disableAnchors,
+  scopeKey,
 }: {
   disableAnchors?: boolean;
+  // Resyncs headings when RSC navigation preserves this client component.
+  scopeKey?: string;
 }) {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -139,7 +142,7 @@ export function MarkdownHeadingAnchors({
       window.removeEventListener("hashchange", onHashChange);
       headingCleanupFns.forEach((cleanup) => cleanup());
     };
-  }, [disableAnchors]);
+  }, [disableAnchors, scopeKey]);
 
   return <div ref={sentinelRef} style={{ display: "none" }} />;
 }

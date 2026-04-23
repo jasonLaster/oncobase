@@ -8,10 +8,12 @@ export function MarkdownRenderer({
   content,
   currentSlug,
   disableAnchors,
+  anchorScopeKey,
 }: {
   content: string;
   currentSlug?: string;
   disableAnchors?: boolean;
+  anchorScopeKey?: string;
 }) {
   const resolved = resolveWikilinks(content, currentSlug);
   const html = renderMarkdown(resolved, currentSlug);
@@ -19,7 +21,10 @@ export function MarkdownRenderer({
   return (
     <div className="prose max-w-none">
       <div dangerouslySetInnerHTML={{ __html: html }} />
-      <MarkdownHeadingAnchors disableAnchors={disableAnchors} />
+      <MarkdownHeadingAnchors
+        disableAnchors={disableAnchors}
+        scopeKey={anchorScopeKey ?? currentSlug}
+      />
       <InteractiveTables />
       <MermaidRenderer />
     </div>
@@ -31,10 +36,12 @@ export async function MarkdownRendererAsync({
   content,
   currentSlug,
   disableAnchors,
+  anchorScopeKey,
 }: {
   content: string;
   currentSlug?: string;
   disableAnchors?: boolean;
+  anchorScopeKey?: string;
 }) {
   const resolved = resolveWikilinks(content, currentSlug);
   const html = await renderMarkdownAsync(resolved, currentSlug);
@@ -42,7 +49,10 @@ export async function MarkdownRendererAsync({
   return (
     <div className="prose max-w-none">
       <div dangerouslySetInnerHTML={{ __html: html }} />
-      <MarkdownHeadingAnchors disableAnchors={disableAnchors} />
+      <MarkdownHeadingAnchors
+        disableAnchors={disableAnchors}
+        scopeKey={anchorScopeKey ?? currentSlug}
+      />
       <InteractiveTables />
       <MermaidRenderer />
     </div>

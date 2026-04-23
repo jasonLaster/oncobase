@@ -24,7 +24,7 @@ export default function Home() {
 
   return (
     <DocumentComments documentSlug={file.slug} documentTitle={file.title}>
-        <MarkdownRenderer content={file.content} />
+      <MarkdownRenderer content={file.content} anchorScopeKey={HOME_SLUG} />
     </DocumentComments>
   );
 }
