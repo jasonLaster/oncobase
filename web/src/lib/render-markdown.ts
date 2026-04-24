@@ -11,6 +11,7 @@ import {
   markdownRehypePlugins,
   markdownRemarkPlugins,
 } from "@/lib/markdown-math";
+import { preprocessCitationMarkdown } from "@/lib/citation-links";
 
 const processor = unified()
   .use(remarkParse)
@@ -21,7 +22,7 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "20";
+const PIPELINE_VERSION = "22";
 
 // ─── Mermaid pre-processor ────────────────────────────────────────────────────
 //
@@ -251,7 +252,8 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
     // Cache miss — render and store
   }
 
-  const mermaidExtracted = extractMermaidBlocks(md);
+  const citationLinked = preprocessCitationMarkdown(md);
+  const mermaidExtracted = extractMermaidBlocks(citationLinked);
   const cleanMd = stripLegacyTableDirectives(mermaidExtracted);
   const raw = processor.processSync(cleanMd).toString();
   const wrapped = decorateRenderedTables(raw);
@@ -282,7 +284,8 @@ export async function renderMarkdownAsync(md: string, currentSlug?: string): Pro
   }
 
   const t1 = performance.now();
-  const mermaidExtracted = extractMermaidBlocks(md);
+  const citationLinked = preprocessCitationMarkdown(md);
+  const mermaidExtracted = extractMermaidBlocks(citationLinked);
   const tMermaid = performance.now();
 
   const cleanMd = stripLegacyTableDirectives(mermaidExtracted);

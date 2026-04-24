@@ -15,6 +15,7 @@ import {
   markdownRehypePlugins,
   markdownRemarkPlugins,
 } from "@/lib/markdown-math";
+import { preprocessCitationMarkdown } from "@/lib/citation-links";
 
 /**
  * Client-side markdown renderer for interactive contexts (chat, search)
@@ -29,6 +30,7 @@ export function MarkdownRendererClient({
   disableAnchors?: boolean;
 }) {
   const resolved = resolveWikilinks(content);
+  const citationLinked = preprocessCitationMarkdown(resolved);
 
   return (
     <div className="prose max-w-none">
@@ -44,7 +46,7 @@ export function MarkdownRendererClient({
           td: MdTd,
         }}
       >
-        {resolved}
+        {citationLinked}
       </ReactMarkdown>
       <MarkdownHeadingAnchors disableAnchors={disableAnchors} />
     </div>

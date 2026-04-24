@@ -73,6 +73,84 @@ describe("renderMarkdown example tables", () => {
     expect(html).not.toContain("$50 - \\mu \\mathrm{g}$");
     expect(html).not.toContain("$\\gamma$");
   });
+
+  test("turns numeric bracket citations into links to the references section", () => {
+    const html = renderMarkdown(
+      "Clinically significant complications are rare [1-3].\n\n## References\n\n1. One\n2. Two\n3. Three",
+      "citations/numeric"
+    );
+
+    expect(html).toContain('href="#references"');
+    expect(html).toContain('class="citation-ref"');
+    expect(html).toContain(">References</h2>");
+    expect(html).toContain(">[1-3]</a>");
+  });
+
+  test("turns LaTeX cite commands into links to the references section", () => {
+    const html = renderMarkdown(
+      "This matches prior work \\cite{Smith2026, Jones2025}.\n\n## References\n\n1. Smith 2026\n2. Jones 2025",
+      "citations/latex"
+    );
+
+    expect(html).toContain('href="#references"');
+    expect(html).toContain(">[Smith2026, Jones2025]</a>");
+  });
+
+  test("turns inline superscript citations into links to the references section", () => {
+    const html = renderMarkdown(
+      "The recurrence rate declines rapidly thereafter^{1}. Neoantigens^{2,3} can still be targeted.\n\n## References\n\n1. One\n2. Two\n3. Three",
+      "citations/superscript"
+    );
+
+    expect(html).toContain('href="#references"');
+    expect(html).toContain('thereafter<sup><a href="#references" class="citation-ref"');
+    expect(html).toContain(">1</a></sup>");
+    expect(html).toContain("Neoantigens<sup><a href=\"#references\"");
+    expect(html).toContain(">2,3</a></sup>");
+  });
+
+  test("adds a references anchor before numbered bibliographies without a references heading", () => {
+    const html = renderMarkdown(
+      "The recurrence rate declines rapidly thereafter^{1}.\n\n# Online content\n\n1. One\n2. Two\n3. Three",
+      "citations/generated-heading"
+    );
+
+    expect(html).toContain('href="#references"');
+    expect(html).toContain('id="references"');
+    expect(html).toContain(">References</h2>");
+    expect(html).toContain("thereafter<sup><a href=\"#references\"");
+  });
+
+  test("does not rewrite non-citation superscripts", () => {
+    const html = renderMarkdown(
+      "CD4^{+} T cells expand, while ^{68}Ga tracers stay unchanged.\n\n## References\n\n1. One",
+      "citations/non-citation-superscript"
+    );
+
+    expect(html).not.toContain("citation-ref");
+    expect(html).toContain("CD4^{+}");
+    expect(html).toContain("^{68}Ga");
+  });
+
+  test("does not add a references anchor for ordinary numbered lists", () => {
+    const html = renderMarkdown(
+      "1. First\n2. Second\n3. Third",
+      "citations/plain-numbered-list"
+    );
+
+    expect(html).not.toContain('id="references"');
+    expect(html).not.toContain("citation-ref");
+  });
+
+  test("preserves gfm footnotes", () => {
+    const html = renderMarkdown(
+      "Alpha[^1]\n\n[^1]: Citation body",
+      "citations/footnote"
+    );
+
+    expect(html).toContain('data-footnote-ref=""');
+    expect(html).toContain('data-footnote-backref=""');
+  });
 });
 
 describe("normalizeMathValue", () => {
