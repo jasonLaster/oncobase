@@ -4,9 +4,11 @@ import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
 import { searchMarkdown, type SearchResult } from "@/lib/search";
+import {
+  markdownRehypePlugins,
+  markdownRemarkPlugins,
+} from "@/lib/markdown-math";
 
 interface AISearchResult {
   slug: string;
@@ -111,7 +113,10 @@ function FileMatches({ result, collapsed, onToggle, query }: {
                 {match.lineNumber}
               </span>
               <span className="text-[var(--foreground)] opacity-80 leading-relaxed break-words max-w-none [&>*]:m-0 [&_a]:text-[var(--brand)] [&_a]:no-underline [&_h1]:text-base [&_h1]:font-bold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-medium [&_h4]:text-sm [&_h4]:font-medium [&_strong]:font-semibold [&_code]:bg-[var(--sidebar-bg)] [&_code]:px-1 [&_code]:rounded [&_code]:text-xs [&_table]:text-xs [&_table]:border-collapse [&_th]:text-left [&_th]:pr-3 [&_th]:font-semibold [&_th]:border-b [&_th]:border-[var(--sidebar-border)] [&_td]:pr-3 [&_td]:py-0.5 [&_td]:border-b [&_td]:border-[var(--sidebar-border)] [&_li]:list-disc [&_li]:ml-4 [&_mark]:bg-[var(--brand)]/15 [&_mark]:text-[var(--brand)] [&_mark]:rounded-sm [&_mark]:px-0.5">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                <ReactMarkdown
+                  remarkPlugins={markdownRemarkPlugins}
+                  rehypePlugins={markdownRehypePlugins}
+                >
                   {highlightQuery(match.lineContent, query)}
                 </ReactMarkdown>
               </span>

@@ -5,6 +5,7 @@ import {
   renderExampleTableSection,
 } from "@diana-tnbc/smart-table/examples";
 import { renderMarkdown } from "./render-markdown";
+import { normalizeMathValue } from "./markdown-math";
 
 function countMatches(source: string, pattern: RegExp) {
   return source.match(pattern)?.length ?? 0;
@@ -59,5 +60,25 @@ describe("renderMarkdown example tables", () => {
     expect(html).not.toContain("table-cols:");
     expect(html).toContain("<table");
     expect(html).toContain("data-table-example=\"legacy-directive-cleanup\"");
+  });
+
+  test("renders inline latex with katex after cleaning OCR-style syntax", () => {
+    const html = renderMarkdown(
+      "Dose escalation: $(n = 3$ and $50 - \\mu \\mathrm{g}$ and IFN $\\gamma$",
+      "table-examples/inline-math"
+    );
+
+    expect(html).toContain('class="katex"');
+    expect(html).not.toContain("$(n = 3$");
+    expect(html).not.toContain("$50 - \\mu \\mathrm{g}$");
+    expect(html).not.toContain("$\\gamma$");
+  });
+});
+
+describe("normalizeMathValue", () => {
+  test("repairs unbalanced parens and unit spacing from OCR output", () => {
+    expect(normalizeMathValue("(n = 3")).toBe("(n = 3)");
+    expect(normalizeMathValue("50 - \\mu \\mathrm{g}")).toBe("50\\,\\mu\\mathrm{g}");
+    expect(normalizeMathValue("50~\\mu \\mathrm{g}")).toBe("50\\,\\mu\\mathrm{g}");
   });
 });

@@ -3,23 +3,25 @@ import path from "path";
 import crypto from "crypto";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
-import rehypeRaw from "rehype-raw";
 import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import { renderMermaidSVG, THEMES } from "beautiful-mermaid";
+import {
+  markdownRehypePlugins,
+  markdownRemarkPlugins,
+} from "@/lib/markdown-math";
 
 const processor = unified()
   .use(remarkParse)
-  .use(remarkGfm)
+  .use(markdownRemarkPlugins)
   .use(remarkRehype, { allowDangerousHtml: true })
-  .use(rehypeRaw)
+  .use(markdownRehypePlugins)
   .use(rehypeSlug)
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "19";
+const PIPELINE_VERSION = "20";
 
 // ─── Mermaid pre-processor ────────────────────────────────────────────────────
 //

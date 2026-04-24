@@ -1,8 +1,6 @@
 "use client";
 
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
 import {
   MdTable,
   MdTbody,
@@ -13,6 +11,10 @@ import {
 } from "@/components/markdown-table";
 import { resolveWikilinks } from "@/lib/wikilinks";
 import { MarkdownHeadingAnchors } from "@/components/markdown-heading-anchors";
+import {
+  markdownRehypePlugins,
+  markdownRemarkPlugins,
+} from "@/lib/markdown-math";
 
 /**
  * Client-side markdown renderer for interactive contexts (chat, search)
@@ -31,8 +33,8 @@ export function MarkdownRendererClient({
   return (
     <div className="prose max-w-none">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw]}
+        remarkPlugins={markdownRemarkPlugins}
+        rehypePlugins={markdownRehypePlugins}
         components={{
           table: MdTable,
           thead: MdThead,

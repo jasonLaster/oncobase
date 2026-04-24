@@ -140,6 +140,9 @@ body {
 .prose pre { background: var(--sidebar-bg); padding: 1rem; border-radius: 0.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1rem 0; }
 .prose pre code { background: none; padding: 0; }
 .prose { overflow-wrap: break-word; word-break: break-word; }
+.prose .katex { font-size: 1em; }
+.prose .katex-display { margin: 1rem 0; overflow-x: auto; overflow-y: hidden; padding: 0.25rem 0; }
+.prose .katex-display > .katex { min-width: max-content; }
 .prose hr { border: none; border-top: 1px solid var(--sidebar-border); margin: 1.5rem 0; }
 .prose strong { font-weight: 600; }
 .prose img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
