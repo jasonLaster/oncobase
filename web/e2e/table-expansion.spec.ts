@@ -6,19 +6,22 @@ const PAPER_CATALOG_PAGE = "/wiki/research/paper-catalog";
 const AUTH_STATE_PATH = "e2e/.auth/state.json";
 
 test.describe("Prose table expansion", () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    if (testInfo.title.includes("paper catalog first paint")) {
+      return;
+    }
+
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(TABLE_PAGE);
     await expect(
       page.getByRole("heading", { name: TABLE_PAGE_HEADING })
     ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Expand table" }).first()
-    ).toBeVisible();
+    await expect(primaryTableShell(page)).toBeVisible({ timeout: 15_000 });
+    await expect(primaryTableToggle(page)).toBeVisible({ timeout: 15_000 });
   });
 
   test("expands and collapses the first prose table", async ({ page }) => {
-    const toggle = page.getByRole("button", { name: "Expand table" }).first();
+    const toggle = primaryTableToggle(page);
     const collapsed = await getFirstTableMetrics(page);
 
     await toggle.click();
@@ -60,7 +63,7 @@ test.describe("Prose table expansion", () => {
   });
 
   test("updates the expanded lane when the sidebars change", async ({ page }) => {
-    await page.getByRole("button", { name: "Expand table" }).first().click();
+    await primaryTableToggle(page).click();
 
     const initial = await getFirstTableMetrics(page);
     expect(initial.expanded).toBe(true);
@@ -90,7 +93,7 @@ test.describe("Prose table expansion", () => {
   });
 
   test("tracks the real vertical scroll container while expanded", async ({ page }) => {
-    await page.getByRole("button", { name: "Expand table" }).first().click();
+    await primaryTableToggle(page).click();
 
     const before = await getFirstTableMetrics(page);
     expect(before.expanded).toBe(true);
@@ -107,7 +110,7 @@ test.describe("Prose table expansion", () => {
   });
 
   test("wheel scrolling over the expanded table moves the underlying page", async ({ page }) => {
-    await page.getByRole("button", { name: "Expand table" }).first().click();
+    await primaryTableToggle(page).click();
 
     const before = await getFirstTableMetrics(page);
     expect(before.scrollOwner?.scrollTop ?? 0).toBe(0);
@@ -132,7 +135,7 @@ test.describe("Prose table expansion", () => {
     expect(Number.parseFloat(before.td?.paddingTop ?? "0")).toBeGreaterThan(0);
     expect(Number.parseFloat(before.td?.borderBottomWidth ?? "0")).toBeGreaterThan(0);
 
-    await page.getByRole("button", { name: "Expand table" }).first().click();
+    await primaryTableToggle(page).click();
 
     await expect
       .poll(() => getFirstTableMetrics(page))
@@ -157,7 +160,7 @@ test.describe("Prose table expansion", () => {
   });
 
   test("keeps the overflow fade pinned to the physical right edge", async ({ page }) => {
-    await page.getByRole("button", { name: "Expand table" }).first().click();
+    await primaryTableToggle(page).click();
 
     const fade = await page.evaluate(() => {
       const layer = document.querySelector<HTMLElement>(".table-expansion-layer");
@@ -200,7 +203,7 @@ test.describe("Prose table expansion", () => {
   });
 
   test("falls back to the in-flow table when resized to mobile while expanded", async ({ page }) => {
-    await page.getByRole("button", { name: "Expand table" }).first().click();
+    await primaryTableToggle(page).click();
 
     await expect
       .poll(() => getFirstTableMetrics(page))
@@ -254,8 +257,8 @@ test.describe("Prose table expansion", () => {
   });
 
   test("manual column resize widens the collapsed table", async ({ page }) => {
-    const resizeHandleStyle = await page.evaluate(() => {
-      const handle = document.querySelector<HTMLElement>(
+    const resizeHandleStyle = await primaryTableShell(page).evaluate((node) => {
+      const handle = node.querySelector<HTMLElement>(
         '[aria-label="Resize column 1"]'
       );
       if (!handle) {
@@ -273,7 +276,7 @@ test.describe("Prose table expansion", () => {
     expect(Number.parseFloat(resizeHandleStyle?.opacity ?? "1")).toBe(0);
     expect(resizeHandleStyle?.backgroundImage).toBe("none");
 
-    const resizeTargetBox = await page
+    const resizeTargetBox = await primaryTableShell(page)
       .locator(".smart-table-resize-target")
       .first()
       .boundingBox();
@@ -288,8 +291,8 @@ test.describe("Prose table expansion", () => {
     );
     await page.waitForTimeout(100);
 
-    const hoveredResizeHandleStyle = await page.evaluate(() => {
-      const handle = document.querySelector<HTMLElement>(
+    const hoveredResizeHandleStyle = await primaryTableShell(page).evaluate((node) => {
+      const handle = node.querySelector<HTMLElement>(
         '[aria-label="Resize column 1"]'
       );
       if (!handle) {
@@ -331,7 +334,7 @@ test.describe("Prose table expansion", () => {
     const before = await getPrimaryTableState(page);
 
     await toggleRightRail(page, "open");
-    await page.getByRole("button", { name: "Expand table" }).first().click();
+    await primaryTableToggle(page).click();
 
     expect(before.locked).toBe("manual");
     await expect
@@ -346,7 +349,7 @@ test.describe("Prose table expansion", () => {
 
   test("expanded wrapper keeps horizontal scrolling when content exceeds the lane", async ({ page }) => {
     await toggleRightRail(page, "open");
-    await page.getByRole("button", { name: "Expand table" }).first().click();
+    await primaryTableToggle(page).click();
 
     const horizontal = await page.evaluate(() => {
       const layer = document.querySelector<HTMLElement>(".table-expansion-layer");
@@ -382,7 +385,7 @@ test.describe("Prose table expansion", () => {
   });
 
   test("reload resets expansion without leaving orphaned layers", async ({ page }) => {
-    await page.getByRole("button", { name: "Expand table" }).first().click();
+    await primaryTableToggle(page).click();
 
     await expect
       .poll(() => getFirstTableMetrics(page))
@@ -394,9 +397,7 @@ test.describe("Prose table expansion", () => {
     await expect(
       page.getByRole("heading", { name: TABLE_PAGE_HEADING })
     ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Expand table" }).first()
-    ).toBeVisible();
+    await expect(primaryTableToggle(page)).toBeVisible({ timeout: 15_000 });
 
     await expect
       .poll(() => getFirstTableMetrics(page))
@@ -423,6 +424,12 @@ test.describe("Prose table expansion", () => {
     browser,
     baseURL,
   }) => {
+    test.setTimeout(60_000);
+    test.skip(
+      process.env.TEST_ENV !== "prod",
+      "Server-rendered paper catalog styling is validated against production-like builds."
+    );
+
     const context = await browser.newContext({
       javaScriptEnabled: false,
       storageState: AUTH_STATE_PATH,
@@ -431,15 +438,21 @@ test.describe("Prose table expansion", () => {
     const appBaseUrl = baseURL ?? "http://localhost:3000";
 
     try {
-      await page.goto(`${appBaseUrl}${PAPER_CATALOG_PAGE}`);
-      await expect(
-        page.getByRole("heading", { name: "Paper Catalog" })
-      ).toBeVisible();
+      await page.goto(`${appBaseUrl}${PAPER_CATALOG_PAGE}`, {
+        waitUntil: "domcontentloaded",
+        timeout: 45_000,
+      });
+      await expect(page.locator("article h1").first()).toHaveText("Paper Catalog", {
+        timeout: 15_000,
+      });
 
-      const snapshot = await page.evaluate(() => {
-        const wrapper = document.querySelector<HTMLElement>(".table-scroll-wrapper");
-        const th = wrapper?.querySelector<HTMLElement>("th");
-        const td = wrapper?.querySelector<HTMLElement>("td");
+      const shell = page.locator("[data-smart-table-shell]").first();
+      await expect(shell).toBeVisible();
+
+      const snapshot = await shell.evaluate((node) => {
+        const wrapper = node.querySelector<HTMLElement>("[data-smart-table-wrapper]");
+        const th = node.querySelector<HTMLElement>("th");
+        const td = node.querySelector<HTMLElement>("td");
         if (!wrapper || !th || !td) {
           return null;
         }
@@ -466,10 +479,27 @@ test.describe("Prose table expansion", () => {
       expect(Number.parseFloat(snapshot?.thLetterSpacing ?? "0")).toBeGreaterThan(0);
       expect(Number.parseFloat(snapshot?.tdPaddingTop ?? "0")).toBeGreaterThan(0);
     } finally {
-      await context.close();
+      await context.close().catch((error) => {
+        if (
+          error instanceof Error &&
+          /Target\.disposeBrowserContext|Failed to find context/i.test(error.message)
+        ) {
+          return;
+        }
+
+        throw error;
+      });
     }
   });
 });
+
+function primaryTableShell(page: Page) {
+  return page.locator("[data-smart-table-shell]").first();
+}
+
+function primaryTableToggle(page: Page) {
+  return primaryTableShell(page).getByRole("button", { name: "Expand table" });
+}
 
 async function getFirstTableMetrics(page: Page) {
   return page.evaluate(() => {

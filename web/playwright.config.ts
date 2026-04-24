@@ -4,6 +4,14 @@ const isLocal = process.env.TEST_ENV !== "prod";
 const baseURL = isLocal
   ? "http://localhost:3000"
   : process.env.PROD_URL || "https://diana-tnbc.vercel.app";
+const webServer = isLocal
+  ? {
+      command: "bun dev",
+      url: baseURL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    }
+  : undefined;
 const previewBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 const extraHTTPHeaders = previewBypassSecret
   ? {
@@ -12,18 +20,20 @@ const extraHTTPHeaders = previewBypassSecret
     }
   : undefined;
 const requestedProdWorkers = Number.parseInt(
-  process.env.PLAYWRIGHT_WORKERS ?? "6",
+  process.env.PLAYWRIGHT_WORKERS ?? "10",
   10
 );
 const prodWorkers = Number.isFinite(requestedProdWorkers)
-  ? Math.min(Math.max(requestedProdWorkers, 5), 10)
-  : 6;
+  ? Math.min(Math.max(requestedProdWorkers, 8), 10)
+  : 10;
 
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
+  fullyParallel: !isLocal,
   retries: isLocal ? 0 : 1,
   workers: isLocal ? undefined : prodWorkers,
+  webServer,
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {

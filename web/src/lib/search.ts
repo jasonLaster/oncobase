@@ -30,6 +30,19 @@ export interface SearchResult {
   matches: SearchMatch[];
 }
 
+function parseMarkdownFile(raw: string) {
+  try {
+    return matter(raw);
+  } catch {
+    // Keep search resilient when a file has malformed frontmatter.
+    const content = raw.startsWith("---")
+      ? raw.replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, "")
+      : raw;
+
+    return { data: {} as Record<string, unknown>, content };
+  }
+}
+
 function getAllMarkdownFiles(
   dir: string = OBSIDIAN_DIR,
   basePath: string = ""
@@ -68,7 +81,8 @@ export async function searchMarkdown(query: string): Promise<SearchResult[]> {
 
   for (const file of files) {
     const raw = fs.readFileSync(file.filePath, "utf-8");
-    const { data, content } = matter(raw);
+    const { data, content } = parseMarkdownFile(raw);
+    const frontmatter = data as { title?: string };
     const lines = content.split("\n");
     const matches: SearchMatch[] = [];
 
@@ -91,7 +105,7 @@ export async function searchMarkdown(query: string): Promise<SearchResult[]> {
     if (matches.length > 0) {
       const h1Match = content.match(/^#\s+(.+)$/m);
       const title =
-        (data.title as string) ||
+        frontmatter.title ||
         h1Match?.[1] ||
         file.slug.split("/").pop() ||
         file.slug;

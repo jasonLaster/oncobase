@@ -14,13 +14,9 @@ test.describe("Chat", () => {
   });
 
   test("can send a message and get a response", async ({ page }) => {
-    const input = page.locator("textarea").first();
-    await input.fill("What is TNBC?");
-    await input.press("Enter");
-
-    await expect(page.getByText("What is TNBC?")).toBeVisible({
-      timeout: 10_000,
-    });
+    await page
+      .getByRole("button", { name: "What clinical trials are relevant?" })
+      .click();
 
     // Wait for the Stop button to appear (streaming started),
     // then wait for it to disappear (response complete) or

@@ -90,6 +90,7 @@
         "@types/react": "^19",
         "@types/react-dom": "^19",
         "bun-types": "^1.3.12",
+        "endform": "^0.62.0",
         "eslint": "^9",
         "eslint-config-next": "16.2.2",
         "tailwindcss": "^4",
@@ -1571,6 +1572,16 @@
     "emoji-regex": ["emoji-regex@9.2.2", "", {}, "sha512-L18DaJsXSUk2+42pv8mLs5jJT2hqFkFE4j21wOmgbUqsZ2hL72NsUU785g9RXgo3s0ZNgVl42TiHp3ZtOv/Vyg=="],
 
     "encodeurl": ["encodeurl@2.0.0", "", {}, "sha512-Q0n9HRi4m6JuGIV1eFlmvJB7ZEVxu93IrMyiMsGC0lrMJMWzRgx6WGquyfQgZVb31vhGgXnfmPNNXmxnOkRBrg=="],
+
+    "endform": ["endform@0.62.0", "", { "optionalDependencies": { "endform-darwin-arm64": "0.62.0", "endform-darwin-x86": "0.62.0", "endform-linux-arm64": "0.62.0", "endform-linux-x86": "0.62.0" }, "bin": { "endform": "bin/endform" } }, "sha512-eBfrND1YpMi9KavEeAtzWIZVRfqXEB+OMV5omuxipjC0sP1eMTZLfEEly0nvZVeV3lBTDHiLj7we1pwDlXfxrg=="],
+
+    "endform-darwin-arm64": ["endform-darwin-arm64@0.62.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-ymU59ZVXb6cGwlSjqxxkZnY/NaG4SaNL2ZzYEYc7/x3AeKREQ3SDZHvPvCAX/oBd7hmw33VUYiMqzv3qPRttPA=="],
+
+    "endform-darwin-x86": ["endform-darwin-x86@0.62.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-fcdXGr83Q1NxskJs/XWIr5KlXxdk7cOrPyQqbmxVuEyXFkSAUVZW/RpHTIZMM+n4+N0OolnlsJFVkWddEureJA=="],
+
+    "endform-linux-arm64": ["endform-linux-arm64@0.62.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-8WYOoEZhh1WQ542Dxo41QNa8fyoZ7Qr7fwHZbAqpnfCprgEdMgNZaiSOvG7SggRZaL1nvqyd0XwiWlgHrF5gCg=="],
+
+    "endform-linux-x86": ["endform-linux-x86@0.62.0", "", { "os": "linux", "cpu": "x64" }, "sha512-3RukYA+jF48H76fYK9/dYj9Cwrc+C1zyz3WjWr2Ft6GQw5/en+vIIsv7wwG1YbNKqzYa2qCKxgpgCiFqAEpxAA=="],
 
     "enhanced-resolve": ["enhanced-resolve@5.20.1", "", { "dependencies": { "graceful-fs": "^4.2.4", "tapable": "^2.3.0" } }, "sha512-Qohcme7V1inbAfvjItgw0EaxVX5q2rdVEZHRBrEQdRZTssLDGsL8Lwrznl8oQ/6kuTJONLaDcGjkNP247XEhcA=="],
 

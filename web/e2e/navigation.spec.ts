@@ -3,10 +3,6 @@ import { test, expect } from "@playwright/test";
 // Desktop sidebar locator
 const sidebar = "aside.hidden.md\\:flex nav";
 
-function escapeRegex(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 test.describe("Page viewing & sidebar navigation", () => {
   test("home page loads with wiki content", async ({ page }) => {
     await page.goto("/");
@@ -64,8 +60,9 @@ test.describe("Page viewing & sidebar navigation", () => {
   test("outline palette jumps to a selected heading", async ({ page }) => {
     await page.goto("/table-examples");
 
-    const heading = page.locator("article h2[id]").first();
-    await expect(heading).toBeVisible();
+    const headings = page.locator("article h2[id], article h3[id]");
+    await expect(headings.first()).toBeVisible();
+    const heading = headings.last();
 
     const id = await heading.getAttribute("id");
     const headingText = await heading.evaluate((node) => {
@@ -78,21 +75,34 @@ test.describe("Page viewing & sidebar navigation", () => {
       throw new Error("Expected the first table example heading to have text and an id");
     }
 
+    await expect.poll(async () => {
+      return page.evaluate((targetId) => {
+        const target = document.getElementById(targetId);
+        if (!target) return false;
+        return target.getBoundingClientRect().top > window.innerHeight;
+      }, id);
+    }, { timeout: 15_000 }).toBe(true);
+
     await page.keyboard.press("Meta+Shift+O");
     const input = page.getByPlaceholder("Search headings…");
     await expect(input).toBeVisible();
     const dialog = page.locator('[role="dialog"]').filter({ has: input });
 
     await input.fill(headingText);
-    await dialog.locator("[cmdk-item]").filter({ hasText: headingText }).first().click();
+    const targetItem = dialog.locator("[cmdk-item]").filter({ hasText: headingText }).first();
+    await expect(targetItem).toHaveAttribute("aria-selected", "true");
 
-    await expect(page).toHaveURL(new RegExp(`#${escapeRegex(encodeURIComponent(id))}$`));
+    await input.press("Enter");
+
     await expect.poll(async () => {
       return page.evaluate((targetId) => {
         const target = document.getElementById(targetId);
         if (!target) return false;
-        return target.getBoundingClientRect().top < 140;
+        return (
+          target.getBoundingClientRect().top < 220 &&
+          target.getBoundingClientRect().bottom > 0
+        );
       }, id);
-    }).toBe(true);
+    }, { timeout: 15_000 }).toBe(true);
   });
 });

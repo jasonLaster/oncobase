@@ -4,6 +4,7 @@ on:
   deployment_status:
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -11,6 +12,177 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  preview-e2e:
+    if: >
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment == 'Preview' &&
+      github.event.deployment_status.target_url != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TEST_ENV: prod
+      PLAYWRIGHT_WORKERS: 8
+      ENDFORM_API_KEY: ${{ secrets.ENDFORM_API_KEY }}
+      VERCEL_PROJECT_NAME: diana-tnbc
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      - name: Check out deployed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Resolve GitHub preview metadata
+        id: github-preview
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+            });
+
+            const pr = run.data.pull_requests?.[0];
+            const branch = pr?.head?.ref ?? run.data.head_branch;
+            const sha = pr?.head?.sha ?? run.data.head_sha;
+
+            if (!branch || !sha) {
+              core.setFailed("Could not determine the preview branch and commit from the workflow run metadata.");
+              return;
+            }
+
+            core.setOutput("branch", branch);
+            core.setOutput("sha", sha);
+
+      - name: Resolve Vercel preview branch URL
+        id: vercel-preview
+        env:
+          DEPLOYMENT_URL: ${{ github.event.deployment_status.target_url }}
+          PREVIEW_BRANCH: ${{ steps.github-preview.outputs.branch }}
+        run: |
+          node <<'NODE'
+          const { URL } = require("node:url");
+          const fs = require("node:fs");
+
+          const deploymentUrl = process.env.DEPLOYMENT_URL;
+          const previewBranch = process.env.PREVIEW_BRANCH;
+          const projectName = process.env.VERCEL_PROJECT_NAME;
+
+          if (!deploymentUrl || !previewBranch || !projectName) {
+            throw new Error("Missing deployment URL, preview branch, or Vercel project name.");
+          }
+
+          const host = new URL(deploymentUrl).host;
+          if (!host.endsWith(".vercel.app")) {
+            throw new Error(`Expected a vercel.app deployment URL, got ${host}`);
+          }
+
+          const hostnameWithoutSuffix = host.slice(0, -".vercel.app".length);
+          const projectPrefix = `${projectName}-`;
+
+          if (!hostnameWithoutSuffix.startsWith(projectPrefix)) {
+            throw new Error(`Deployment host ${host} does not match project prefix ${projectPrefix}`);
+          }
+
+          const remainder = hostnameWithoutSuffix.slice(projectPrefix.length);
+          const separatorIndex = remainder.indexOf("-");
+          if (separatorIndex === -1) {
+            throw new Error(`Could not extract the Vercel team slug from ${host}`);
+          }
+
+          const teamSlug = remainder.slice(separatorIndex + 1);
+          const sanitizedBranch = previewBranch
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .replace(/-+/g, "-");
+
+          if (!sanitizedBranch) {
+            throw new Error(`Preview branch ${previewBranch} could not be converted to a branch alias.`);
+          }
+
+          const previewUrl = `https://${projectName}-git-${sanitizedBranch}-${teamSlug}.vercel.app`;
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `url=${previewUrl}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `team_slug=${teamSlug}\n`);
+          NODE
+
+      - name: Validate preview inputs
+        env:
+          PROD_URL: ${{ steps.vercel-preview.outputs.url }}
+          EXPECTED_PREVIEW_SHA: ${{ steps.github-preview.outputs.sha }}
+        run: |
+          test -n "$PROD_URL"
+          test -n "$EXPECTED_PREVIEW_SHA"
+          if [ -z "$ENDFORM_API_KEY" ]; then
+            echo "Missing secrets.ENDFORM_API_KEY"
+            exit 1
+          fi
+          if [ -z "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+            echo "Missing secrets.VERCEL_AUTOMATION_BYPASS_SECRET"
+            exit 1
+          fi
+          if [ "$EXPECTED_PREVIEW_SHA" != "${{ github.event.deployment.sha }}" ]; then
+            echo "GitHub run commit $EXPECTED_PREVIEW_SHA does not match deployment commit ${{ github.event.deployment.sha }}"
+            exit 1
+          fi
+
+      - name: Validate Vercel preview branch
+        env:
+          PROD_URL: ${{ steps.vercel-preview.outputs.url }}
+        run: |
+          node <<'NODE'
+          (async () => {
+            const previewUrl = process.env.PROD_URL;
+            const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+
+            if (!previewUrl || !bypassSecret) {
+              throw new Error("Missing preview URL or Vercel automation bypass secret.");
+            }
+
+            const hostname = new URL(previewUrl).host;
+            if (!hostname.includes("-git-")) {
+              throw new Error(`Expected a Vercel preview branch alias, got ${hostname}`);
+            }
+
+            const response = await fetch(previewUrl, {
+              redirect: "manual",
+              headers: {
+                "x-vercel-protection-bypass": bypassSecret,
+                "x-vercel-set-bypass-cookie": "true",
+              },
+            });
+
+            if (response.status >= 400) {
+              throw new Error(
+                `Expected to run against the Vercel preview branch URL, but ${previewUrl} returned HTTP ${response.status}`
+              );
+            }
+          })().catch((error) => {
+            console.error(error instanceof Error ? error.message : error);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Run E2E tests against Vercel preview with Endform
+        working-directory: web
+        env:
+          PROD_URL: ${{ steps.vercel-preview.outputs.url }}
+          ENDFORM_GIT_BRANCH: ${{ steps.github-preview.outputs.branch }}
+          ENDFORM_GIT_COMMIT_SHA: ${{ steps.github-preview.outputs.sha }}
+        run: bun run test:endform
   trigger-post-deploy:
     if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production'
     runs-on: ubuntu-latest

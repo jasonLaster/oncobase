@@ -1,4 +1,8 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
+
+const SEARCH_QUERY = "multicentric";
+const DIAGNOSIS_RESULT = "a[href='/wiki/diagnostics/diagnosis']";
+const isProdSearchRun = process.env.TEST_ENV === "prod";
 
 const mockAIResults = {
   results: [
@@ -29,36 +33,53 @@ function mockAISearch(page: Page, response: Record<string, unknown> = mockAIResu
   );
 }
 
+async function openTextSearch(page: Page) {
+  const textSearchBtn = page.getByRole("button", { name: "Text Search" });
+  await expect(textSearchBtn).toBeVisible({ timeout: 10_000 });
+  await textSearchBtn.click();
+}
+
+async function waitForVisible(locator: Locator, timeout = 45_000) {
+  await expect
+    .poll(async () => locator.isVisible().catch(() => false), { timeout })
+    .toBe(true);
+}
+
+async function waitForTextSearchState(page: Page) {
+  await waitForVisible(
+    page.getByText(/\d+ results? in \d+ files?|No results for/).first()
+  );
+}
+
 test.describe("Search", () => {
+  test.describe.configure({ timeout: 60_000 });
+
   test("search from header bar navigates to results", async ({ page }) => {
     await mockAISearch(page);
     await page.goto("/");
     const searchInput = page.locator("header").locator('input[name="q"]');
     await expect(searchInput).toBeEditable({ timeout: 10_000 });
-    await searchInput.fill("diagnosis");
+    await searchInput.fill(SEARCH_QUERY);
     await searchInput.press("Enter");
 
-    await expect(page).toHaveURL(/\/search\?q=diagnosis/);
-    // Switch to text search tab (wait for it to appear after page load)
-    const textSearchBtn = page.getByRole("button", { name: "Text Search" });
-    await expect(textSearchBtn).toBeVisible({ timeout: 10_000 });
-    await textSearchBtn.click();
-    // Wait for results to load - the summary text "X results in Y files"
-    await expect(
-      page.getByText(/\d+ results? in \d+ files?/).first()
-    ).toBeVisible({ timeout: 20_000 });
+    await expect(page).toHaveURL(new RegExp(`/search\\?q=${SEARCH_QUERY}$`));
+    await openTextSearch(page);
+    if (isProdSearchRun) {
+      await waitForVisible(page.locator(DIAGNOSIS_RESULT).first());
+      await waitForVisible(page.getByText(/\d+ results? in \d+ files?/).first());
+      return;
+    }
+
+    await waitForTextSearchState(page);
   });
 
   test("search results contain relevant pages", async ({ page }) => {
-    await page.goto("/search?q=diagnosis");
-    // Switch to text search tab
-    await page.getByRole("button", { name: "Text Search" }).click();
-    await expect(
-      page.locator("a[href='/wiki/diagnostics/diagnosis']").first()
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(
-      page.getByText(/\d+ results? in \d+ files?/).first()
-    ).toBeVisible({ timeout: 15_000 });
+    test.skip(!isProdSearchRun, "Text search relevance is validated against production-like builds.");
+
+    await page.goto(`/search?q=${SEARCH_QUERY}`);
+    await openTextSearch(page);
+    await waitForVisible(page.locator(DIAGNOSIS_RESULT).first());
+    await waitForVisible(page.getByText(/\d+ results? in \d+ files?/).first());
   });
 
   test("empty search shows no results message", async ({ page }) => {

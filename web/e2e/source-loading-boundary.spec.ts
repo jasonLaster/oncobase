@@ -48,18 +48,26 @@ test.describe("source loading boundary", () => {
     await page.goto("/", { waitUntil: "networkidle" });
     await delayRoutePayload(page, WIKI_ROUTE);
 
-    await page.getByRole("button", { name: /Find files/ }).click();
-    const input = page.getByPlaceholder("Search pages");
+    const input = page.getByPlaceholder(/Search pages/);
+    await expect
+      .poll(
+        async () => {
+          await page.getByRole("button", { name: /Find files/ }).click();
+          return input.isVisible().catch(() => false);
+        },
+        { timeout: 15_000 }
+      )
+      .toBe(true);
     await input.fill("wiki diagnostics diagnosis");
     await expect(page.locator('[cmdk-item][data-value="wiki/diagnostics/diagnosis"]')).toHaveAttribute(
       "aria-selected",
       "true"
     );
 
-    await Promise.all([
-      page.waitForURL(new RegExp(`${WIKI_ROUTE}$`)),
-      input.press("Enter"),
-    ]);
+    await input.press("Enter");
+    await expect(page).toHaveURL(new RegExp(`${WIKI_ROUTE}$`), {
+      timeout: 15_000,
+    });
 
     await expect(page.getByRole("status", { name: "Loading page" })).toHaveCount(0);
     await expect(page.locator("article h1").first()).toHaveText("Diagnosis");

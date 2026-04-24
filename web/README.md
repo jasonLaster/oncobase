@@ -1,24 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a Next.js 16 app-router project managed with Bun.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies from the workspace root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+cd ..
+bun install
+cd web
+```
+
+Run the development server:
+
+```bash
 bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Testing
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run the local Playwright suite:
+
+```bash
+bun run test
+```
+
+Run the same suite on Endform:
+
+```bash
+bun x endform login
+bun run test:endform
+```
+
+Endform currently requires Node 22+.
+
+`bun run test:endform` uses the Playwright `webServer` config, so Endform can automatically proxy your local `http://localhost:3000` app to the remote runners.
+
+To target a deployed preview instead of a local server:
+
+```bash
+TEST_ENV=prod PROD_URL=https://your-preview-url.vercel.app bun run test:endform
+```
+
+The GitHub preview workflow now expects these repository secrets:
+
+- `ENDFORM_API_KEY`
+- `VERCEL_AUTOMATION_BYPASS_SECRET`
+
+You can start editing the app in `src/app`. The page auto-updates as you edit the file.
 
 ## Learn More
 
