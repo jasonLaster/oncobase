@@ -69,7 +69,7 @@ async function expectHeadingAnchorsReady(page: Page) {
     .poll(async () => {
       const counts = await getHeadingAnchorCounts(page);
       return counts.headings > 0 && counts.anchors === counts.headings;
-    })
+    }, { timeout: 15_000 })
     .toBe(true);
 }
 

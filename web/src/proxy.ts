@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const PASSWORDS = ["wallify", "diana"];
+const CANONICAL_PATHS = new Map([["/about/index", "/about/Index"]]);
 const LINK_PREVIEW_BOT_RE =
   /\b(slackbot|twitterbot|facebookexternalhit|facebot|linkedinbot|discordbot|whatsapp|telegrambot|skypeuripreview|microsoftpreview|teamsbot|pinterest|redditbot|applebot)\b/i;
 
 export function proxy(request: NextRequest) {
+  const canonicalPath = CANONICAL_PATHS.get(request.nextUrl.pathname);
+  if (canonicalPath) {
+    const canonicalUrl = request.nextUrl.clone();
+    canonicalUrl.pathname = canonicalPath;
+    return NextResponse.redirect(canonicalUrl);
+  }
+
   const isAuthed = request.cookies.get("authed")?.value === "true";
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isSharePreviewRequest =

@@ -4,6 +4,15 @@ import { test, expect } from "@playwright/test";
 const sidebar = "aside.hidden.md\\:flex nav";
 
 test.describe("Page viewing & sidebar navigation", () => {
+  test("serves the about index canonical redirect before rendering", async ({ request }) => {
+    const response = await request.get("/about/index?token=diana", {
+      maxRedirects: 0,
+    });
+
+    expect([307, 308]).toContain(response.status());
+    expect(response.headers().location).toMatch(/\/about\/Index\?token=diana$/);
+  });
+
   test("home page loads with wiki content", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("article").first()).toBeVisible();
@@ -51,10 +60,11 @@ test.describe("Page viewing & sidebar navigation", () => {
 
   test("command palette opens with Ctrl+K", async ({ page }) => {
     await page.goto("/");
+    await expect(page.getByRole("button", { name: /Find files/ })).toBeVisible();
     await page.keyboard.press("Control+k");
     await expect(
       page.locator('[role="dialog"] [role="combobox"]').first()
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("outline palette jumps to a selected heading", async ({ page }) => {

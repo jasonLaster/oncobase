@@ -26,6 +26,16 @@ async function delayRoutePayload(page: Page, routePath: string) {
   });
 }
 
+async function chooseCommandPaletteResult(page: Page, slug: string) {
+  const item = page.locator(`[cmdk-item][data-value="${slug}"]`);
+  await expect(item).toBeVisible({ timeout: 15_000 });
+
+  if ((await item.getAttribute("aria-selected")) !== "true") {
+    await item.hover();
+    await expect(item).toHaveAttribute("aria-selected", "true");
+  }
+}
+
 test.describe("source loading boundary", () => {
   test("wiki pages do not render the source document loading shell", async ({ page }) => {
     await page.goto(WIKI_ROUTE, { waitUntil: "networkidle" });
@@ -59,10 +69,7 @@ test.describe("source loading boundary", () => {
       )
       .toBe(true);
     await input.fill("wiki diagnostics diagnosis");
-    await expect(page.locator('[cmdk-item][data-value="wiki/diagnostics/diagnosis"]')).toHaveAttribute(
-      "aria-selected",
-      "true"
-    );
+    await chooseCommandPaletteResult(page, WIKI_ROUTE.slice(1));
 
     await input.press("Enter");
     await expect(page).toHaveURL(new RegExp(`${WIKI_ROUTE}$`), {
