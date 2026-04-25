@@ -6,29 +6,57 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { ChatInterface } from "../_components/chat-interface";
 
-// Module-level cache: snapshot initial messages per conversation ID
-const messageCache = new Map<
-  string,
-  Array<{ _id?: string; role: "user" | "assistant"; content: string; parts?: string | unknown[]; disabled?: boolean }>
->();
+type CachedSnapshot = Array<{
+  _id?: string;
+  role: "user" | "assistant";
+  content: string;
+  parts?: string | unknown[];
+  disabled?: boolean;
+}>;
+
+// Module-level LRU cache: snapshot initial messages per conversation ID.
+// Phase 8 of the chat-performance plan: bounded so heavy navigators don't
+// leak memory. Implemented as a Map (insertion-ordered) + delete-on-set,
+// no library.
+const MAX_CACHE_SIZE = 20;
+const messageCache = new Map<string, CachedSnapshot>();
+
+function lruGet(id: string): CachedSnapshot | undefined {
+  const v = messageCache.get(id);
+  if (v) {
+    messageCache.delete(id);
+    messageCache.set(id, v);
+  }
+  return v;
+}
+
+function lruSet(id: string, value: CachedSnapshot): void {
+  if (messageCache.has(id)) messageCache.delete(id);
+  messageCache.set(id, value);
+  if (messageCache.size > MAX_CACHE_SIZE) {
+    const oldest = messageCache.keys().next().value;
+    if (oldest !== undefined) messageCache.delete(oldest);
+  }
+}
 
 export function ConversationPageClient({ id }: { id: string }) {
   const conversation = useQuery(api.conversations.get, {
     id: id as Id<"conversations">,
   });
 
-  // Cache initial messages on first load per ID
+  // Cache initial messages on first load per ID.
   const initialMessages = useMemo(() => {
-    if (messageCache.has(id)) return messageCache.get(id)!;
+    const cached = lruGet(id);
+    if (cached) return cached;
     if (!conversation) return undefined;
-    const snapshot = conversation.messages.map((m) => ({
+    const snapshot: CachedSnapshot = conversation.messages.map((m) => ({
       _id: m._id,
       role: m.role,
       content: m.content,
       parts: m.parts,
       disabled: m.disabled,
     }));
-    messageCache.set(id, snapshot);
+    lruSet(id, snapshot);
     return snapshot;
   }, [id, conversation]);
 

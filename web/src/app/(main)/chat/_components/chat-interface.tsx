@@ -307,7 +307,9 @@ export function ChatInterface({
   // gives us focus on mount.
 
   // Auto-resume: if the trailing user message has no assistant follow-up
-  // and no other tab is streaming, kick off a generation.
+  // and no other tab is streaming, kick off a generation. Debounced via
+  // sessionStorage on (conversationId, lastUserMessageId) so a fast double
+  // mount in dev does not fire twice.
   const autoResumed = useRef(false);
   useEffect(() => {
     if (autoResumed.current) return;
@@ -315,11 +317,23 @@ export function ChatInterface({
     if (status !== "ready") return;
     if (!lastIsActiveUser) return;
     if (serverStreamingText !== undefined) return;
+    const lastUserId = lastMessage?.id;
+    if (!lastUserId) return;
+    const key = `chat:auto-resume:${activeConvId}:${lastUserId}`;
+    if (typeof sessionStorage !== "undefined") {
+      try {
+        if (sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key, "1");
+      } catch {
+        // sessionStorage may be unavailable (cookies disabled, private mode);
+        // fall through to the in-memory ref guard.
+      }
+    }
     autoResumed.current = true;
     startTracker();
     void regenerate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConvId, status, lastIsActiveUser, serverStreamingText]);
+  }, [activeConvId, status, lastIsActiveUser, serverStreamingText, lastMessage]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -468,10 +482,14 @@ export function ChatInterface({
         {/* Submit pending — model has not started streaming yet. */}
         {isStreaming &&
           (!lastMessage || lastMessage.role === "user") && (
-            <div className="flex gap-1 py-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce" />
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce [animation-delay:0.15s]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce [animation-delay:0.3s]" />
+            <div
+              className="flex gap-1 py-2 motion-reduce:animate-none"
+              role="status"
+              aria-label="Generating response"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce motion-reduce:animate-none" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce motion-reduce:animate-none [animation-delay:0.15s]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce motion-reduce:animate-none [animation-delay:0.3s]" />
             </div>
           )}
 
