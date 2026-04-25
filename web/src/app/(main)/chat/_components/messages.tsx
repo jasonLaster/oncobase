@@ -18,7 +18,7 @@
 
 import type { UIMessage } from "ai";
 import { memo, useState } from "react";
-import { MarkdownRendererClient as MarkdownRenderer } from "@/components/markdown-renderer-client";
+import { StreamingMarkdown } from "@/components/chat/streaming-markdown";
 
 export interface ChatUIMessage extends UIMessage {
   dbId?: string;
@@ -198,7 +198,7 @@ const ToolCallBlock = memo(function ToolCallBlock({
 const MessageMarkdown = memo(function MessageMarkdown({ content }: { content: string }) {
   return (
     <div className="prose text-sm max-w-none">
-      <MarkdownRenderer disableAnchors content={content} />
+      <StreamingMarkdown disableAnchors content={content} />
     </div>
   );
 });

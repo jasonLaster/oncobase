@@ -3,6 +3,11 @@
 @import "shadcn/tailwind.css";
 @import "./smart-table.css";
 
+/* Tailwind v4 needs to scan Streamdown's compiled output to pick up the
+   utility classes used internally by its components. Only takes effect when
+   NEXT_PUBLIC_CHAT_STREAMDOWN=1 — otherwise the bundle never imports it. */
+@source "../../../node_modules/streamdown/dist";
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
