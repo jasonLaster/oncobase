@@ -25,6 +25,8 @@ interface SaveMessageInput {
   content: string;
   parts?: string;
   createdAt: number;
+  /** Phase 7: server-generated stable id for idempotent saves. */
+  messageId?: string;
 }
 
 export interface ConvexFlusher {
@@ -40,7 +42,7 @@ export interface ConvexFlusher {
    */
   finalize(messages: SaveMessageInput[]): Promise<void>;
   /** Mark the stream as failed; write a one-line error and clear. */
-  finalizeError(message: string): Promise<void>;
+  finalizeError(message: string, errorMessageId?: string): Promise<void>;
   /** Save partial text on abort and clear the streaming row. */
   finalizeAbort(): Promise<void>;
   /** Snapshot of the current accumulated text (used by abort handling). */
@@ -150,7 +152,7 @@ export function createConvexFlusher({
         // the row if we somehow leave it dirty.
       }
     },
-    async finalizeError(message) {
+    async finalizeError(message, errorMessageId) {
       if (finalized || !conversationId) {
         finalized = true;
         return;
@@ -177,6 +179,7 @@ export function createConvexFlusher({
               content: message,
               parts: errorParts as unknown as string,
               createdAt: Date.now(),
+              messageId: errorMessageId,
             },
           ],
         });

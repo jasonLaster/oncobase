@@ -65,7 +65,13 @@ export default defineSchema({
     parts: v.optional(v.union(v.string(), v.array(v.any()))),
     disabled: v.optional(v.boolean()),
     createdAt: v.number(),
-  }).index("by_conversation", ["conversationId", "createdAt"]),
+    // Phase 7: server-generated stable id. Lets saveMessages be idempotent
+    // under retries (route gets re-invoked, double-finish, etc). Optional
+    // for backward compat with existing rows.
+    messageId: v.optional(v.string()),
+  })
+    .index("by_conversation", ["conversationId", "createdAt"])
+    .index("by_message_id", ["conversationId", "messageId"]),
 
   users: defineTable({
     email: v.string(),

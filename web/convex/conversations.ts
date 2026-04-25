@@ -114,12 +114,25 @@ export const saveMessages = mutation({
         content: v.string(),
         parts: v.optional(v.union(v.string(), v.array(v.any()))),
         createdAt: v.number(),
+        // Phase 7: optional server-generated id for idempotent inserts.
+        messageId: v.optional(v.string()),
       })
     ),
     updateTitle: v.optional(v.string()),
   },
   handler: async (ctx, { conversationId, messages, updateTitle }) => {
     for (const msg of messages) {
+      // Idempotent path: if messageId is provided and a row with that
+      // (conversationId, messageId) already exists, skip the insert.
+      if (msg.messageId) {
+        const existing = await ctx.db
+          .query("messages")
+          .withIndex("by_message_id", (q) =>
+            q.eq("conversationId", conversationId).eq("messageId", msg.messageId)
+          )
+          .first();
+        if (existing) continue;
+      }
       await ctx.db.insert("messages", { conversationId, ...msg });
     }
     const updates: Record<string, number | string> = {

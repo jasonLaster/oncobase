@@ -3,6 +3,7 @@ import {
   stepCountIs,
   smoothStream,
   convertToModelMessages,
+  createIdGenerator,
   type UIMessage,
 } from "ai";
 import { connection } from "next/server";
@@ -14,6 +15,9 @@ import { embed } from "@/lib/embeddings";
 import { fastTextModel } from "@/lib/ai";
 import { applyPiiRedactions } from "@/lib/pii-redaction";
 import { createConvexFlusher } from "./_flusher";
+import { getCachedSystemPrompt } from "./_system-prompt-cache";
+
+const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 });
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -41,7 +45,7 @@ Search strategy:
 
 Be direct, compassionate, and precise. Use medical terminology but explain it when needed.`;
 
-async function buildSystemPrompt(): Promise<string> {
+async function loadSystemPrompt(): Promise<string> {
   const convex = getConvex();
   const [indexDoc, diagnosisDoc] = await Promise.all([
     convex.query(api.documents.getBySlug, { slug: "index" }),
@@ -59,6 +63,10 @@ async function buildSystemPrompt(): Promise<string> {
   }
 
   return prompt;
+}
+
+function buildSystemPrompt(): Promise<string> {
+  return getCachedSystemPrompt(loadSystemPrompt);
 }
 
 /**
@@ -157,8 +165,11 @@ function generateSearchPatterns(query: string): string[] {
 export async function POST(request: Request) {
   await connection();
 
+  const requestId = crypto.randomUUID().slice(0, 8);
+
   // Fail fast on missing credentials
   if (!process.env.AI_GATEWAY_API_KEY) {
+    console.error(`[chat ${requestId}] missing AI_GATEWAY_API_KEY`);
     return new Response(
       JSON.stringify({ error: "AI_GATEWAY_API_KEY is not configured. Add it to .env.local to enable chat." }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -173,6 +184,9 @@ export async function POST(request: Request) {
   const modelMessages = await convertToModelMessages(messages);
   const convId = conversationId as Id<"conversations"> | undefined;
   const convex = getConvex();
+  console.log(
+    `[chat ${requestId}] start conv=${convId ?? "n/a"} msgs=${messages.length}`
+  );
 
   // Mark stream as active immediately so clients see the waiting state
   if (convId) {
@@ -383,7 +397,7 @@ export async function POST(request: Request) {
     onError: async (event) => {
       const errMsg =
         event.error instanceof Error ? event.error.message : String(event.error);
-      console.error("Chat stream error:", errMsg);
+      console.error(`[chat ${requestId}] stream error:`, errMsg);
       const isAuth =
         errMsg.includes("Authentication") ||
         errMsg.includes("401") ||
@@ -394,7 +408,7 @@ export async function POST(request: Request) {
         : isCredits
           ? "Out of API credits. Check your Vercel AI Gateway usage."
           : `Something went wrong: ${errMsg}`;
-      await flusher.finalizeError(userMsg);
+      await flusher.finalizeError(userMsg, generateMessageId());
     },
     onFinish: async ({ text, steps }) => {
       if (!convId) return;
@@ -423,6 +437,9 @@ export async function POST(request: Request) {
         }
         if (step.text) uiParts.push({ type: "text", text: step.text });
       }
+      console.log(
+        `[chat ${requestId}] finished textLen=${text?.length ?? 0} steps=${steps.length}`
+      );
       await flusher.finalize(
         text
           ? [
@@ -432,6 +449,8 @@ export async function POST(request: Request) {
                 // Phase 2: parts is union(string, array); write native array.
                 parts: uiParts as unknown as string,
                 createdAt: Date.now(),
+                // Phase 7: server-generated id for idempotent saveMessages.
+                messageId: generateMessageId(),
               },
             ]
           : []
@@ -440,19 +459,22 @@ export async function POST(request: Request) {
   });
 
   try {
-    return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse({
+      generateMessageId,
+      headers: { "x-request-id": requestId },
+    });
   } catch (err: unknown) {
     const msg =
       err instanceof Error ? err.message : "An unexpected error occurred";
     const isCredits = msg.includes("credits") || msg.includes("402");
-    console.error("Chat stream error:", msg);
+    console.error(`[chat ${requestId}] response error:`, msg);
     return new Response(
       JSON.stringify({
         error: isCredits
           ? "Out of API credits. Check your Vercel AI Gateway usage."
           : `Chat error: ${msg}`,
       }),
-      { status: isCredits ? 402 : 500, headers: { "Content-Type": "application/json" } }
+      { status: isCredits ? 402 : 500, headers: { "Content-Type": "application/json", "x-request-id": requestId } }
     );
   }
 }
