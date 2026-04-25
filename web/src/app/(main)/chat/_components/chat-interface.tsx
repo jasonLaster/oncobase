@@ -1,6 +1,10 @@
 "use client";
 
-import type { UIMessage } from "ai";
+import {
+  DefaultChatTransport,
+  type UIMessage,
+} from "ai";
+import { useChat } from "@ai-sdk/react";
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
@@ -19,7 +23,7 @@ interface StoredMessage {
   disabled?: boolean;
 }
 
-// Extended UIMessage with our metadata
+// Extended UIMessage with our metadata.
 interface ChatUIMessage extends UIMessage {
   dbId?: string;
   disabled?: boolean;
@@ -317,6 +321,47 @@ function AssistantMessage({ message }: { message: UIMessage }) {
   );
 }
 
+function CrossTabStream({
+  text,
+  parts,
+}: {
+  text: string;
+  parts: Array<{ type: string; [k: string]: unknown }> | null;
+}) {
+  const groups = useMemo(() => (parts ? groupParts(parts) : null), [parts]);
+  return (
+    <div className="text-sm space-y-3">
+      {groups ? (
+        groups.map((group, i) => {
+          if (group.kind === "text") {
+            return (
+              <div key={i} className="prose text-sm max-w-none">
+                <MarkdownRenderer disableAnchors content={group.texts.join("\n\n")} />
+              </div>
+            );
+          }
+          if (group.kind === "tools") {
+            return (
+              <div key={i} className="space-y-1 py-1">
+                {group.parts.map((part, j) => {
+                  const info = getToolInfo(part as Record<string, unknown>);
+                  if (!info) return null;
+                  return <ToolCallBlock key={j} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
+                })}
+              </div>
+            );
+          }
+          return null;
+        })
+      ) : text ? (
+        <div className="prose text-sm max-w-none">
+          <MarkdownRenderer disableAnchors content={text} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 interface ChatInterfaceProps {
   conversationId: string | null;
   initialMessages?: Array<{ role: "user" | "assistant"; content: string; parts?: string | unknown[] }>;
@@ -328,76 +373,119 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const createConversation = useMutation(api.conversations.create);
   const sendMessageMutation = useMutation(api.conversations.sendMessage);
+  const clearStreamingMutation = useMutation(api.conversations.clearStreaming);
+  const disableMessageMutation = useMutation(api.conversations.disableMessage);
 
-  const convIdRef = useRef<Id<"conversations"> | null>(
-    initialConversationId as Id<"conversations"> | null
+  // The Convex conversation id. Null until the first message is sent.
+  const [activeConvId, setActiveConvId] = useState<string | null>(
+    initialConversationId
   );
-  // Track conversation ID in state so useQuery re-subscribes when it changes
-  const [activeConvId, setActiveConvId] = useState<string | null>(initialConversationId);
+  const convIdRef = useRef<string | null>(activeConvId);
+  useEffect(() => {
+    convIdRef.current = activeConvId;
+  }, [activeConvId]);
 
-  // Subscribe to conversation for reactive streamingText + messages
-  // TODO: split into getStreamingState query once convex dev syncs the new function
+  // Convex subscription (cross-tab + history).
   const conversation = useQuery(
     api.conversations.get,
     activeConvId ? { id: activeConvId as Id<"conversations"> } : "skip"
   );
-  const clearStreamingMutation = useMutation(api.conversations.clearStreaming);
-  const disableMessageMutation = useMutation(api.conversations.disableMessage);
   const serverStreamingText = conversation?.streamingText;
   const serverStreamingParts = conversation?.streamingParts;
   const streamingUpdatedAt = conversation?.streamingUpdatedAt;
 
-  const [messages, setMessages] = useState<ChatUIMessage[]>(() =>
-    initialMessages ? storedToUIMessages(initialMessages) : []
+  // Initial messages — captured once on mount; useChat owns the running list.
+  const initialUIMessages = useMemo(
+    () => (initialMessages ? storedToUIMessages(initialMessages) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Disable the last user message and mark it visually
-  const disableLastUserMessage = useCallback(() => {
-    setMessages((prev) => {
-      const last = prev[prev.length - 1] as ChatUIMessage;
-      if (last?.role === "user" && last.dbId) {
-        disableMessageMutation({ id: last.dbId as Id<"messages"> });
-        return prev.map((m, i) =>
-          i === prev.length - 1 ? { ...m, disabled: true } as ChatUIMessage : m
-        );
-      }
-      return prev;
+  // SSE transport — adds conversationId to the request body so the route
+  // can write its Convex mirror.
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport<ChatUIMessage>({
+        api: "/api/chat",
+        prepareSendMessagesRequest: ({ messages, body }) => ({
+          body: {
+            ...(body ?? {}),
+            messages,
+            conversationId: convIdRef.current,
+          },
+        }),
+      }),
+    []
+  );
+
+  // Track perf for the active stream. trackStream hooks fire from
+  // sendMessage / regenerate / stop.
+  const trackerRef = useRef<ReturnType<typeof trackStream> | null>(null);
+  function startTracker() {
+    const submitT = nowMs();
+    recordChatPerf({ type: "submit", t: submitT, conversationId: convIdRef.current });
+    trackerRef.current = trackStream({
+      conversationId: convIdRef.current,
+      submitT,
     });
-  }, [disableMessageMutation]);
+  }
+  function endTracker(reason: "ok" | "abort" | "error") {
+    trackerRef.current?.end(reason);
+    trackerRef.current = null;
+  }
 
-  // Detect and clear stale streams (no update in 30s)
+  const {
+    messages,
+    sendMessage,
+    regenerate,
+    stop,
+    status,
+    error,
+    setMessages,
+    clearError,
+  } = useChat<ChatUIMessage>({
+    messages: initialUIMessages,
+    transport,
+    experimental_throttle: 50,
+    onFinish: () => {
+      endTracker("ok");
+    },
+    onError: () => {
+      endTracker("error");
+    },
+  });
+
+  // useChat does not expose first-byte timing; approximate by recording the
+  // first message-id we observe after submit. Phase 0 instrumentation runs
+  // through trackerRef so the perf buffer still gets samples.
   useEffect(() => {
-    if (serverStreamingText === undefined || !streamingUpdatedAt || !activeConvId) return;
-    const age = Date.now() - streamingUpdatedAt;
-
-    function handleStale() {
-      clearStreamingMutation({ conversationId: activeConvId as Id<"conversations"> });
-      disableLastUserMessage();
+    if (status === "streaming" && trackerRef.current) {
+      // Touch the tracker so the first-token event fires.
+      trackerRef.current.tick(0);
     }
+  }, [status]);
 
-    if (age > 30_000) {
-      handleStale();
-      return;
-    }
-    const timer = setTimeout(handleStale, 30_000 - age);
-    return () => clearTimeout(timer);
-  }, [serverStreamingText, streamingUpdatedAt, activeConvId, clearStreamingMutation, disableLastUserMessage]);
+  const [input, setInput] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
-  const lastMsgIsUser =
-    messages.length > 0 && messages[messages.length - 1]?.role === "user";
-  const isGenerating = serverStreamingText !== undefined;
-  const serverHasText = isGenerating && serverStreamingText !== "";
-  const serverIsWaiting = isGenerating && serverStreamingText === "";
-  const isBusy = sending || isGenerating;
+  const lastMessage = messages[messages.length - 1] as ChatUIMessage | undefined;
+  const lastIsActiveUser =
+    lastMessage?.role === "user" && !lastMessage.disabled;
+  const isStreaming = status === "submitted" || status === "streaming";
 
-  // Memoize parsed streaming parts. Phase 2: column is union(string, array);
-  // when it's already an array (post-migration writes), skip JSON.parse.
-  const parsedStreamingParts = useMemo(() => {
+  // Cross-tab streaming visibility: render the Convex mirror only when this
+  // tab is not driving the stream and the mirror is non-empty.
+  const showCrossTabStream =
+    !isStreaming &&
+    serverStreamingText !== undefined &&
+    (serverStreamingText.length > 0 ||
+      (Array.isArray(serverStreamingParts) && serverStreamingParts.length > 0));
+
+  const parsedCrossTabParts = useMemo(() => {
     if (!serverStreamingParts) return null;
     if (Array.isArray(serverStreamingParts)) {
       return serverStreamingParts as Array<{ type: string; [k: string]: unknown }>;
@@ -415,16 +503,61 @@ export function ChatInterface({
     return null;
   }, [serverStreamingParts]);
 
-  const streamingGroups = useMemo(
-    () => parsedStreamingParts ? groupParts(parsedStreamingParts) : null,
-    [parsedStreamingParts]
-  );
+  // Sync from Convex when the local list is behind (e.g., another tab's
+  // stream completed and saved messages).
+  useEffect(() => {
+    if (status !== "ready") return;
+    if (!conversation?.messages) return;
+    if (conversation.messages.length <= messages.length) return;
+    const next = storedToUIMessages(
+      conversation.messages.map((m) => ({
+        _id: m._id,
+        role: m.role,
+        content: m.content,
+        parts: m.parts,
+        disabled: m.disabled,
+      }))
+    );
+    setMessages(next);
+  }, [status, conversation, messages.length, setMessages]);
 
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const isNearBottomRef = useRef(true);
-  const [showScrollButton, setShowScrollButton] = useState(false);
+  // 30s stale-stream watchdog — clears the Convex mirror if the server died.
+  const disableLastUserMessage = useCallback(() => {
+    setMessages((prev) => {
+      const last = prev[prev.length - 1] as ChatUIMessage;
+      if (last?.role === "user" && last.dbId) {
+        disableMessageMutation({ id: last.dbId as Id<"messages"> });
+        return prev.map((m, i) =>
+          i === prev.length - 1 ? ({ ...m, disabled: true } as ChatUIMessage) : m
+        );
+      }
+      return prev;
+    });
+  }, [disableMessageMutation, setMessages]);
 
-  // Track whether user has scrolled up
+  useEffect(() => {
+    if (serverStreamingText === undefined || !streamingUpdatedAt || !activeConvId) return;
+    const age = Date.now() - streamingUpdatedAt;
+    function handleStale() {
+      clearStreamingMutation({ conversationId: activeConvId as Id<"conversations"> });
+      disableLastUserMessage();
+    }
+    if (age > 30_000) {
+      handleStale();
+      return;
+    }
+    const timer = setTimeout(handleStale, 30_000 - age);
+    return () => clearTimeout(timer);
+  }, [
+    serverStreamingText,
+    streamingUpdatedAt,
+    activeConvId,
+    clearStreamingMutation,
+    disableLastUserMessage,
+  ]);
+
+  // Scroll-pin contract: stay at bottom while streaming unless user scrolled
+  // up. (Phase 6 swaps this for use-stick-to-bottom via ai-elements.)
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -439,39 +572,16 @@ export function ChatInterface({
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Auto-scroll: instant pin during streaming (no animation overhead), smooth for final messages
   useEffect(() => {
     if (!isNearBottomRef.current) return;
     const el = scrollRef.current;
     if (!el) return;
-    if (isGenerating) {
-      if (process.env.NODE_ENV === "development") {
-        const t = performance.now();
-        el.scrollTop = el.scrollHeight;
-        const dt = performance.now() - t;
-        if (dt > 5) console.warn(`[chat-scroll] layout: ${dt.toFixed(1)}ms`);
-      } else {
-        el.scrollTop = el.scrollHeight;
-      }
+    if (isStreaming) {
+      el.scrollTop = el.scrollHeight;
     } else {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, serverStreamingText, isGenerating]);
-
-  // Perf: warn on slow renders during streaming (dev only)
-  useEffect(() => {
-    if (process.env.NODE_ENV !== "development" || !isGenerating) return;
-    const t0 = performance.now();
-    requestAnimationFrame(() => {
-      const dt = performance.now() - t0;
-      if (dt > 32) {
-        console.warn(`[chat-stream] slow render: ${dt.toFixed(1)}ms`, {
-          parts: parsedStreamingParts?.length ?? 0,
-          textLen: serverStreamingText?.length ?? 0,
-        });
-      }
-    });
-  });
+  }, [messages, isStreaming]);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -482,182 +592,61 @@ export function ChatInterface({
     inputRef.current?.focus();
   }, []);
 
-  // Sync messages from Convex when generation completes
-  // (streamingText goes from defined to undefined = new message saved)
-  const prevStreamingRef = useRef(serverStreamingText);
+  // Auto-resume: if the trailing user message has no assistant follow-up
+  // and no other tab is streaming, kick off a generation.
+  const autoResumed = useRef(false);
   useEffect(() => {
-    const wasStreaming = prevStreamingRef.current !== undefined;
-    const nowDone = serverStreamingText === undefined;
-    if (process.env.NODE_ENV === "development") {
-      if (wasStreaming && !nowDone) {
-        console.log("[chat-client] streaming update", { textLen: serverStreamingText?.length });
-      }
-      if (wasStreaming && nowDone) {
-        console.log("[chat-client] streaming ended — syncing messages");
-      }
-      if (!wasStreaming && !nowDone) {
-        console.log("[chat-client] streaming started");
-      }
-    }
-    prevStreamingRef.current = serverStreamingText;
-
-    if (wasStreaming && nowDone && conversation?.messages) {
-      const next = storedToUIMessages(
-        conversation.messages.map((m) => ({
-          _id: m._id,
-          role: m.role,
-          content: m.content,
-          parts: m.parts,
-          disabled: m.disabled,
-        }))
-      );
-      queueMicrotask(() => setMessages(next));
-    }
-  }, [serverStreamingText, conversation]);
-
-  // Generation trigger with abort support
-  const abortRef = useRef<AbortController | null>(null);
-
-  const triggerGeneration = useCallback((convId: string, msgs: Array<{ id: string; role: string; parts: unknown[] }>) => {
-    hasResumed.current = true; // prevent auto-resume from double-firing
-    setError(null);
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    const submitT = nowMs();
-    recordChatPerf({ type: "submit", t: submitT, conversationId: convId });
-    const tracker = trackStream({ conversationId: convId, submitT });
-    fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: msgs,
-        conversationId: convId,
-      }),
-      signal: controller.signal,
-    }).then(async (res) => {
-      if (!res.ok) {
-        tracker.end("error");
-        const data = await res.json().catch(() => null);
-        const msg = data?.error || `Chat failed (${res.status})`;
-        setError(msg);
-        clearStreamingMutation({ conversationId: convId as Id<"conversations"> });
-        disableLastUserMessage();
-        return;
-      }
-      // Drain the stream so the perf buffer captures TTFB + bytes/sec for the
-      // active tab. The Convex mirror still drives the rendered tokens; this
-      // only measures the wire. Phase 3 swaps this drain for useChat.
-      const reader = res.body?.getReader();
-      if (!reader) {
-        tracker.end("ok");
-        return;
-      }
-      try {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          if (value) tracker.tick(value.byteLength);
-        }
-        tracker.end("ok");
-      } catch {
-        tracker.end("error");
-      }
-    }).catch((err) => {
-      if (err?.name === "AbortError") {
-        tracker.end("abort");
-      } else {
-        tracker.end("error");
-        setError("Failed to connect to chat API.");
-        clearStreamingMutation({ conversationId: convId as Id<"conversations"> });
-        disableLastUserMessage();
-      }
-    });
-  }, [clearStreamingMutation, disableLastUserMessage]);
-
-  const handleStop = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    if (activeConvId) {
-      clearStreamingMutation({ conversationId: activeConvId as Id<"conversations"> });
-      disableLastUserMessage();
-    }
-  }, [activeConvId, clearStreamingMutation, disableLastUserMessage]);
-
-  // Auto-resume: if last message is user (not disabled) with no active stream, re-trigger
-  const lastMsg = messages[messages.length - 1] as ChatUIMessage | undefined;
-  const lastMsgIsActiveUser = lastMsgIsUser && !lastMsg?.disabled;
-
-  const hasResumed = useRef(false);
-  useEffect(() => {
-    if (hasResumed.current) return;
+    if (autoResumed.current) return;
     if (!activeConvId) return;
-    if (!lastMsgIsActiveUser) return;
-    if (serverStreamingText !== undefined) return; // already streaming
-
-    // triggerGeneration sets hasResumed.current = true internally
-    const activeMessages = messages.filter((m) => !(m as ChatUIMessage).disabled);
-    triggerGeneration( // eslint-disable-line react-hooks/set-state-in-effect -- fire-and-forget async generation on mount
-      activeConvId,
-      activeMessages.map((m) => ({ id: m.id, role: m.role, parts: m.parts as unknown[] }))
-    );
-  }, [activeConvId, lastMsgIsActiveUser, serverStreamingText, messages, triggerGeneration]);
+    if (status !== "ready") return;
+    if (!lastIsActiveUser) return;
+    if (serverStreamingText !== undefined) return;
+    autoResumed.current = true;
+    startTracker();
+    void regenerate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConvId, status, lastIsActiveUser, serverStreamingText]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       const text = input.trim();
-      if (!text || isBusy) return;
+      if (!text || isStreaming) return;
+      clearError();
 
-      setSending(true);
-
-      // Create conversation on first message
-      if (!convIdRef.current) {
+      let convId = convIdRef.current;
+      if (!convId) {
         const title = text.slice(0, 60) + (text.length > 60 ? "…" : "");
-        const id = await createConversation({ title });
-        convIdRef.current = id;
-        setActiveConvId(id);
-        window.history.replaceState(null, "", `/chat/${id}`);
+        convId = await createConversation({ title });
+        convIdRef.current = convId;
+        setActiveConvId(convId);
+        window.history.replaceState(null, "", `/chat/${convId}`);
       }
 
-      // Add user message to local state immediately
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `local-${Date.now()}`,
-          role: "user" as const,
-          parts: [{ type: "text" as const, text }],
-        },
-      ]);
-
-      // Save user message via Convex mutation (also sets streamingText="")
+      // Persist the user message so cross-tab subscribers see it and the
+      // 30s watchdog has a streamingUpdatedAt to track.
       await sendMessageMutation({
-        conversationId: convIdRef.current,
+        conversationId: convId as Id<"conversations">,
         text,
       });
 
-      // Fire-and-forget: trigger generation via the Next.js API route
-      // The route writes streamingText + final message to Convex
-      const activeMessages = messages.filter((m) => !(m as ChatUIMessage).disabled);
-      triggerGeneration(convIdRef.current, [
-        ...activeMessages.map((m) => ({
-          id: m.id,
-          role: m.role,
-          parts: m.parts,
-        })),
-        {
-          id: `local-${Date.now()}`,
-          role: "user" as const,
-          parts: [{ type: "text" as const, text }],
-        },
-      ]);
-
-      setSending(false);
+      autoResumed.current = true;
       setInput("");
-      isNearBottomRef.current = true; // force scroll on new message
+      isNearBottomRef.current = true;
+      startTracker();
+      await sendMessage({ text });
     },
-    [input, isBusy, createConversation, sendMessageMutation, messages, triggerGeneration]
+    [input, isStreaming, clearError, createConversation, sendMessageMutation, sendMessage]
   );
+
+  const handleStop = useCallback(() => {
+    stop();
+    endTracker("abort");
+    if (activeConvId) {
+      clearStreamingMutation({ conversationId: activeConvId as Id<"conversations"> });
+      disableLastUserMessage();
+    }
+  }, [stop, activeConvId, clearStreamingMutation, disableLastUserMessage]);
 
   return (
     <div className="flex flex-col h-full max-w-3xl mx-auto w-full relative">
@@ -665,7 +654,7 @@ export function ChatInterface({
         ref={scrollRef}
         className="flex-1 min-h-0 overflow-y-auto px-2 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4"
       >
-        {messages.length === 0 && !isBusy && (
+        {messages.length === 0 && !isStreaming && (
           <div className="text-center py-10 sm:py-16 text-[var(--text-muted)]">
             <h1 className="text-lg font-semibold text-[var(--foreground)] mb-1">
               Research Assistant
@@ -683,24 +672,21 @@ export function ChatInterface({
                 <button
                   key={q}
                   onClick={async () => {
-                    if (!convIdRef.current) {
+                    let convId = convIdRef.current;
+                    if (!convId) {
                       const title = q.slice(0, 60) + (q.length > 60 ? "..." : "");
-                      const id = await createConversation({ title });
-                      convIdRef.current = id;
-                      setActiveConvId(id);
-                      window.history.replaceState(null, "", `/chat/${id}`);
+                      convId = await createConversation({ title });
+                      convIdRef.current = convId;
+                      setActiveConvId(convId);
+                      window.history.replaceState(null, "", `/chat/${convId}`);
                     }
-                    const userMsg = {
-                      id: `local-${Date.now()}`,
-                      role: "user" as const,
-                      parts: [{ type: "text" as const, text: q }],
-                    };
-                    setMessages([userMsg]);
                     await sendMessageMutation({
-                      conversationId: convIdRef.current!,
+                      conversationId: convId as Id<"conversations">,
                       text: q,
                     });
-                    triggerGeneration(convIdRef.current!, [userMsg]);
+                    autoResumed.current = true;
+                    startTracker();
+                    void sendMessage({ text: q });
                   }}
                   className="text-xs sm:text-sm px-3 py-2 sm:py-1.5 rounded-full border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] active:bg-[var(--accent-light)] transition-colors text-left"
                 >
@@ -747,67 +733,35 @@ export function ChatInterface({
           return <AssistantMessage key={message.id} message={message} />;
         })}
 
-        {/* Server stream with structured parts — hide if last message is already assistant (final synced) */}
-        {(serverHasText || serverStreamingParts) && !(messages.length > 0 && messages[messages.length - 1]?.role === "assistant") && (
-          <div className="text-sm space-y-3">
-            {streamingGroups ? (
-              streamingGroups.map((group, i) => {
-                if (group.kind === "text") {
-                  return (
-                    <div key={i} className="prose text-sm max-w-none">
-                      <MarkdownRenderer disableAnchors content={group.texts.join("\n\n")} />
-                    </div>
-                  );
-                }
-                if (group.kind === "tools") {
-                  return (
-                    <div key={i} className="space-y-1 py-1">
-                      {group.parts.map((part, j) => {
-                        const info = getToolInfo(part as Record<string, unknown>);
-                        if (!info) return null;
-                        return <ToolCallBlock key={j} toolName={info.toolName} state={info.state} output={info.output} input={info.input} />;
-                      })}
-                    </div>
-                  );
-                }
-                return null;
-              })
-            ) : serverStreamingText ? (
-              <div className="prose text-sm max-w-none">
-                <MarkdownRenderer disableAnchors content={serverStreamingText} />
-              </div>
-            ) : null}
-            {isGenerating && !serverHasText && !serverStreamingParts && (
-              <div className="flex items-center gap-1.5 pt-1">
-                <span className="inline-block w-1.5 h-4 bg-[var(--brand)] animate-pulse rounded-sm" />
-                <span className="text-xs text-[var(--text-muted)] animate-pulse">Generating...</span>
-              </div>
-            )}
-          </div>
+        {/* Cross-tab visibility: another tab is driving a stream. */}
+        {showCrossTabStream && (
+          <CrossTabStream
+            text={serverStreamingText ?? ""}
+            parts={parsedCrossTabParts}
+          />
         )}
 
-        {/* Waiting: server hasn't produced text yet */}
-        {!error && !serverHasText && !serverStreamingParts && (serverIsWaiting || (sending && lastMsgIsUser)) && (
-          <div className="flex gap-1 py-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce" />
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce [animation-delay:0.15s]" />
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce [animation-delay:0.3s]" />
-          </div>
-        )}
+        {/* Submit pending — model has not started streaming yet. */}
+        {isStreaming &&
+          (!lastMessage || lastMessage.role === "user") && (
+            <div className="flex gap-1 py-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce [animation-delay:0.15s]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce [animation-delay:0.3s]" />
+            </div>
+          )}
 
-        {/* Error message */}
         {error && (
           <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-sm">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 mt-0.5">
               <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 4a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0V5zm.75 6.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z" />
             </svg>
-            <span>{error}</span>
+            <span>{error.message}</span>
           </div>
         )}
         <div ref={bottomRef} />
       </div>
 
-      {/* Scroll to bottom */}
       {showScrollButton && (
         <div className="absolute bottom-20 right-3 sm:right-4 z-10">
           <button
@@ -829,6 +783,7 @@ export function ChatInterface({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
+              // IME-safe Enter handling lands in Phase 6.
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleSubmit(e as unknown as React.FormEvent);
@@ -838,7 +793,7 @@ export function ChatInterface({
             maxHeight={160}
             className="flex-1 resize-none rounded-xl border border-[var(--sidebar-border)] bg-[var(--background)] px-3 sm:px-4 py-2.5 text-base sm:text-sm leading-relaxed focus:outline-none focus:border-[var(--brand)] transition-colors placeholder:text-[var(--text-muted)]"
           />
-          {isBusy ? (
+          {isStreaming ? (
             <button
               type="button"
               onClick={handleStop}
