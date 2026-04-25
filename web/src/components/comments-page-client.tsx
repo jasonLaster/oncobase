@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import { getCommentPlainText } from "@/lib/liveblocks-comments";
+import { formatLiveblocksUserId } from "@/lib/liveblocks-user-format";
 
 type ServerComment = {
   id: string;
@@ -38,13 +39,6 @@ type ThreadItem = {
   anchorQuote?: string;
 };
 
-function formatUserId(userId: string): string {
-  if (userId.startsWith("guest_")) return "Guest";
-  if (userId === "anonymous") return "Anonymous";
-  if (/^[a-z0-9]{32}$/.test(userId)) return "User";
-  return userId.length > 20 ? `${userId.slice(0, 12)}...` : userId;
-}
-
 function buildThreadItems(
   threads: ServerThread[],
   userNames: Map<string, string>
@@ -65,7 +59,7 @@ function buildThreadItems(
         comments: thread.comments.map((c) => ({
           id: c.id,
           author:
-            userNames.get(c.userId) || formatUserId(c.userId),
+            userNames.get(c.userId) || formatLiveblocksUserId(c.userId),
           createdAt: new Date(c.createdAt),
           text: getCommentPlainText(c.body),
         })),

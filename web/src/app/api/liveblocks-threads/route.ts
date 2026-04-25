@@ -1,8 +1,8 @@
 import { Liveblocks } from "@liveblocks/node";
 import { connection, NextResponse } from "next/server";
 import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
 import { getConvexServerClient } from "@/lib/convex-server";
+import { resolveLiveblocksUsers } from "@/lib/liveblocks-user-resolution";
 
 const liveblocksSecret =
   process.env.LIVEBLOCKS_SECRET_KEY ?? process.env.LIVEBLOCKS_API_KEY;
@@ -141,38 +141,15 @@ export async function GET() {
 
     // ── 3. Resolve user names ───────────────────────────────
     const t2 = Date.now();
-    const CONVEX_ID_RE = /^[a-z0-9]{32}$/;
     const uniqueUserIds = [
       ...new Set(
         allThreads.flatMap((t) => t.comments.map((c) => c.userId))
       ),
     ];
-    const convexIds = uniqueUserIds.filter((id) => CONVEX_ID_RE.test(id));
-    const guestIds = uniqueUserIds.filter((id) => id.startsWith("guest_"));
-    const userNames: Record<string, string> = {};
-
-    const [convexResult, guestResult] = await Promise.allSettled([
-      convexIds.length > 0
-        ? convex
-            .query(api.users.getUsersByIds, {
-              ids: convexIds as Id<"users">[],
-            })
-            .then((users) => {
-              for (const u of users) {
-                userNames[u.id] = u.name ?? u.email;
-              }
-            })
-        : Promise.resolve(),
-      guestIds.length > 0
-        ? convex
-            .query(api.guestNames.getByIds, { guestIds })
-            .then((guestNameMap) => {
-              for (const [id, name] of Object.entries(guestNameMap)) {
-                userNames[id] = name;
-              }
-            })
-        : Promise.resolve(),
-    ]);
+    const resolvedUsers = await resolveLiveblocksUsers(uniqueUserIds);
+    const userNames = Object.fromEntries(
+      Object.entries(resolvedUsers).map(([id, user]) => [id, user.name])
+    );
 
     timing.resolveNames = Date.now() - t2;
     timing.total = Date.now() - t0;
@@ -189,13 +166,7 @@ export async function GET() {
     console.log(
       `[liveblocks-threads] ${mode} | ` +
         `${roomsToQuery.length} rooms queried, ${allThreads.length} threads | ` +
-        `convexLookup=${timing.convexLookup}ms fetchThreads=${timing.fetchThreads}ms resolveNames=${timing.resolveNames}ms total=${timing.total}ms` +
-        (convexResult.status === "rejected"
-          ? ` | convex error: ${convexResult.reason}`
-          : "") +
-        (guestResult.status === "rejected"
-          ? ` | guest error: ${guestResult.reason}`
-          : "")
+        `convexLookup=${timing.convexLookup}ms fetchThreads=${timing.fetchThreads}ms resolveNames=${timing.resolveNames}ms total=${timing.total}ms`
     );
 
     return NextResponse.json(body);

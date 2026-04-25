@@ -9,18 +9,25 @@ import {
   parseGuestUser,
   serializeGuestUser,
 } from "@/lib/guest-user";
+import { formatLiveblocksUserId } from "@/lib/liveblocks-user-format";
 
 const FALLBACK_PUBLIC_API_KEY =
   "pk_dev_HXZfdhC5pUVp1uUoX4mp31GEwMiYRKXXF5uoiZugexxsNV65JmHUqcRN__UFGQ05";
 
 type SessionUser = {
+  _id?: string;
   email: string;
   name: string | null;
 };
 
 type Identity = {
+  id?: string;
   name: string;
   email?: string;
+};
+
+type ResolvedUsersResponse = {
+  users?: Record<string, { name?: string; email?: string }>;
 };
 
 export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
@@ -68,10 +75,12 @@ export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
         setIdentity(
           sessionUser
             ? {
+                id: sessionUser._id,
                 name: sessionUser.name || sessionUser.email,
                 email: sessionUser.email,
               }
             : {
+                id: guest.id,
                 name: guest.name,
               }
         );
@@ -104,17 +113,37 @@ export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
         ? { authEndpoint: "/api/liveblocks-auth" }
         : { publicApiKey })}
       resolveUsers={async ({ userIds }) => {
-        // For auth mode, Liveblocks stores userInfo from the token alongside
-        // comments.  resolveUsers is only called as a fallback for user IDs
-        // that were never seen through an auth token (e.g. old comments
-        // created before auth was enabled).  Return the current user's
-        // identity when we recognise our own ID; otherwise return an empty
-        // object so Liveblocks falls back to whatever it already has stored.
-        if (!identity) return userIds.map(() => ({}));
-        return userIds.map(() => ({
-          name: identity.name,
-          ...(identity.email ? { email: identity.email } : {}),
-        }));
+        try {
+          const response = await fetch("/api/liveblocks-users", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userIds }),
+          });
+
+          if (response.ok) {
+            const data = (await response.json()) as ResolvedUsersResponse;
+            return userIds.map((userId) => {
+              const user = data.users?.[userId];
+              return {
+                name: user?.name ?? formatLiveblocksUserId(userId),
+                ...(user?.email ? { email: user.email } : {}),
+              };
+            });
+          }
+        } catch {
+          // Fall back below so author labels remain stable offline.
+        }
+
+        return userIds.map((userId) => {
+          if (identity?.id === userId && identity.name) {
+            return {
+              name: identity.name,
+              ...(identity.email ? { email: identity.email } : {}),
+            };
+          }
+
+          return { name: formatLiveblocksUserId(userId) };
+        });
       }}
     >
       {children}

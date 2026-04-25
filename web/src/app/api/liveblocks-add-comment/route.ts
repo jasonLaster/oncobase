@@ -2,6 +2,7 @@ import { Liveblocks } from "@liveblocks/node";
 import { NextResponse } from "next/server";
 import { getSessionUserFromRequest } from "@/lib/session-user";
 import { LIVEBLOCKS_GUEST_COOKIE, parseGuestUser } from "@/lib/guest-user";
+import { persistLiveblocksGuestName } from "@/lib/liveblocks-user-resolution";
 
 const liveblocksSecret =
   process.env.LIVEBLOCKS_SECRET_KEY ?? process.env.LIVEBLOCKS_API_KEY;
@@ -35,6 +36,9 @@ export async function POST(request: Request) {
     .find((part) => part.startsWith(`${LIVEBLOCKS_GUEST_COOKIE}=`))
     ?.slice(LIVEBLOCKS_GUEST_COOKIE.length + 1);
   const guestUser = parseGuestUser(guestCookie);
+  if (guestUser) {
+    await persistLiveblocksGuestName(guestUser).catch(() => {});
+  }
 
   const userId = sessionUser?._id ?? guestUser?.id ?? `guest:${roomId}`;
 

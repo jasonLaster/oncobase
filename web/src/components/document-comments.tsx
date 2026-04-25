@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Fragment,
   type ButtonHTMLAttributes,
   type ReactNode,
   useCallback,
@@ -24,9 +23,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  buildCommentListItems,
   createThreadMetadata,
   getCommentPlainText,
   getThreadAnchor,
+  type CommentThreadMetadata,
   type SelectionAnchor,
   sortThreads,
 } from "@/lib/liveblocks-comments";
@@ -82,6 +83,31 @@ function SidebarButton({
       )}
       {...props}
     />
+  );
+}
+
+function RailToggleIcon({ direction }: { direction: "up" | "down" | "right" }) {
+  const points =
+    direction === "up"
+      ? "4 10 8 6 12 10"
+      : direction === "down"
+        ? "4 6 8 10 12 6"
+        : "6 4 10 8 6 12";
+
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points={points} />
+    </svg>
   );
 }
 
@@ -320,6 +346,23 @@ function scrollElementIntoContainerView(
   scrollContainer.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
 }
 
+function updateThreadQueryParam(threadId: string | null) {
+  if (typeof window === "undefined") return;
+
+  const url = new URL(window.location.href);
+  if (threadId) {
+    url.searchParams.set("thread", threadId);
+  } else {
+    url.searchParams.delete("thread");
+  }
+
+  window.history.replaceState(
+    null,
+    "",
+    `${url.pathname}${url.search}${url.hash}`
+  );
+}
+
 function getRangeOffsets(root: HTMLElement, range: Range) {
   const beforeStart = range.cloneRange();
   beforeStart.selectNodeContents(root);
@@ -415,33 +458,48 @@ function getRangeAnchorElement(range: Range) {
   return null;
 }
 
-function CommentSelectionCard({
+function DraftSelectionThreadCard({
   anchor,
-  title,
+  metadata,
   onDismiss,
 }: {
   anchor: SelectionAnchor;
-  title: string;
+  metadata: CommentThreadMetadata | undefined;
   onDismiss: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-sm dark:border-amber-500/30 dark:bg-amber-500/10">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div>
-          <p className="font-medium text-[var(--foreground)]">New comment on selection</p>
-          <p className="text-xs text-[var(--text-muted)]">{title}</p>
+    <div
+      data-comment-draft-thread
+      data-comment-list-item="draft-selection"
+      data-anchor-start={anchor.start}
+      className="rounded-xl border border-[var(--sidebar-border)] bg-[var(--background)] transition"
+    >
+      <div className="border-b border-[var(--sidebar-border)] px-3 py-2">
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+            Linked selection
+          </p>
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="rounded-md px-2 py-1 text-xs text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+          >
+            Clear
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="rounded-md px-2 py-1 text-xs text-[var(--text-muted)] hover:bg-black/5 dark:hover:bg-white/5"
-        >
-          Clear
-        </button>
+        <p className="line-clamp-3 text-sm text-[var(--foreground)]">
+          {anchor.quote}
+        </p>
       </div>
-      <blockquote className="line-clamp-5 border-l-2 border-amber-400/80 pl-3 text-[var(--foreground)]">
-        {anchor.quote}
-      </blockquote>
+      <div className="px-1 py-1">
+        <Composer
+          key={`${anchor.start}-${anchor.end}`}
+          metadata={metadata}
+          autoFocus
+          className="lb-composer-override lb-composer-draft-thread"
+          onComposerSubmit={onDismiss}
+        />
+      </div>
     </div>
   );
 }
@@ -541,6 +599,18 @@ function CommentsShell({
   const toggleCommentsPane = () => {
     setCommentsOpen((current) => !current);
   };
+  const toggleSidebarMode = useCallback(
+    (mode: SidebarMode) => {
+      if (commentsOpen && sidebarMode === mode) {
+        setCommentsOpen(false);
+        return;
+      }
+
+      setSidebarMode(mode);
+      setCommentsOpen(true);
+    },
+    [commentsOpen, setCommentsOpen, sidebarMode]
+  );
 
   useEffect(() => {
     const root = articleRef.current;
@@ -669,16 +739,20 @@ function CommentsShell({
       }
 
       setActiveThreadId(null);
+      updateThreadQueryParam(null);
       setPendingSelection(nextSelection);
       setComposerMode(null);
     }, 0);
   };
 
-  const focusThread = (thread: ThreadData) => {
+  const focusThread = useCallback((thread: ThreadData, options?: { syncUrl?: boolean }) => {
     const root = articleRef.current;
     setPendingSelection(null);
     setComposerMode(null);
     setActiveThreadId(thread.id);
+    if (options?.syncUrl !== false) {
+      updateThreadQueryParam(thread.id);
+    }
 
     const anchor = getThreadAnchor(thread);
     if (!root || !anchor) return;
@@ -688,7 +762,34 @@ function CommentsShell({
     const target = getRangeAnchorElement(range);
     if (!target) return;
     scrollElementIntoContainerView(target, 96);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const threadId = new URL(window.location.href).searchParams.get("thread");
+    if (!threadId || activeThreadId === threadId) return;
+
+    const thread = sortedThreads.find((candidate) => candidate.id === threadId);
+    if (!thread) return;
+
+    const timeoutId = window.setTimeout(() => {
+      if (thread.resolved && !showResolvedThreads) {
+        setShowResolvedThreads(true);
+      }
+      setSidebarMode("comments");
+      setCommentsOpen(true);
+      focusThread(thread, { syncUrl: false });
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    activeThreadId,
+    focusThread,
+    setCommentsOpen,
+    showResolvedThreads,
+    sortedThreads,
+  ]);
 
   const jumpToHeading = (id: string) => {
     const root = articleRef.current;
@@ -706,6 +807,16 @@ function CommentsShell({
         documentTitle,
       })
     : undefined;
+  const hasDraftSelection =
+    sidebarMode === "comments" &&
+    pendingSelection !== null &&
+    effectiveComposerMode === "selection";
+  const commentListItems = useMemo(() => {
+    return buildCommentListItems(
+      visibleThreads,
+      hasDraftSelection ? pendingSelection : null
+    );
+  }, [hasDraftSelection, pendingSelection, visibleThreads]);
 
   const sidebarHeader = (
     <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] px-3 py-2">
@@ -715,14 +826,14 @@ function CommentsShell({
             <SidebarButton
               variant="tab"
               active={sidebarMode === "comments"}
-              onClick={() => setSidebarMode("comments")}
+              onClick={() => toggleSidebarMode("comments")}
             >
               Comments
             </SidebarButton>
             <SidebarButton
               variant="tab"
               active={sidebarMode === "outline"}
-              onClick={() => setSidebarMode("outline")}
+              onClick={() => toggleSidebarMode("outline")}
             >
               Outline
             </SidebarButton>
@@ -795,6 +906,7 @@ function CommentsShell({
               setPendingSelection(null);
               setSelectionTooltip(null);
               setActiveThreadId(null);
+              updateThreadQueryParam(null);
               setComposerMode("page");
             }}
             className="flex w-full items-center justify-between rounded-xl border border-dashed border-[var(--sidebar-border)] bg-[var(--background)] px-3 py-3 text-left text-sm text-[var(--text-muted)] transition-colors hover:border-[var(--brand)] hover:text-[var(--foreground)]"
@@ -804,31 +916,6 @@ function CommentsShell({
               <path d="M8 3.25v9.5M3.25 8h9.5" />
             </svg>
           </button>
-        ) : null}
-
-        {sidebarMode === "comments" && pendingSelection && effectiveComposerMode === "selection" ? (
-          <Fragment>
-            <CommentSelectionCard
-              anchor={pendingSelection}
-              title={documentTitle}
-              onDismiss={() => {
-                setPendingSelection(null);
-                setSelectionTooltip(null);
-                setComposerMode(null);
-              }}
-            />
-            <Composer
-              key={`${pendingSelection.start}-${pendingSelection.end}`}
-              metadata={selectionMetadata}
-              autoFocus
-              className="lb-composer-override"
-              onComposerSubmit={() => {
-                setPendingSelection(null);
-                setSelectionTooltip(null);
-                setComposerMode(null);
-              }}
-            />
-          </Fragment>
         ) : null}
 
         {sidebarMode === "comments" && effectiveComposerMode === "page" ? (
@@ -863,7 +950,7 @@ function CommentsShell({
               ))}
             </div>
           )
-        ) : visibleThreads.length === 0 ? (
+        ) : commentListItems.length === 0 ? (
           <div className="rounded-xl border border-dashed border-[var(--sidebar-border)] px-4 py-6 text-sm text-[var(--text-muted)]">
             {threadsResult.error
               ? "Comments are temporarily unavailable."
@@ -875,13 +962,33 @@ function CommentsShell({
           </div>
         ) : (
           <div className="space-y-3">
-            {visibleThreads.map((thread) => {
+            {commentListItems.map((item) => {
+              if (item.type === "draft-selection") {
+                if (!pendingSelection) return null;
+                return (
+                  <DraftSelectionThreadCard
+                    key="draft-selection"
+                    anchor={pendingSelection}
+                    metadata={selectionMetadata}
+                    onDismiss={() => {
+                      setPendingSelection(null);
+                      setSelectionTooltip(null);
+                      setComposerMode(null);
+                    }}
+                  />
+                );
+              }
+
+              const { thread } = item;
               const anchor = getThreadAnchor(thread);
               const isActive = thread.id === effectiveActiveThreadId;
 
               return (
                 <div
                   key={thread.id}
+                  data-comment-list-item="thread"
+                  data-thread-id={thread.id}
+                  data-anchor-start={anchor?.start}
                   className={cn(
                     "rounded-xl border transition",
                     isActive
@@ -963,16 +1070,31 @@ function CommentsShell({
                             {isFirstComment ? (
                               <Comment.DropdownItem
                                 onSelect={() => {
-                                  fetch("/api/liveblocks-delete-thread", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({
-                                      roomId: thread.roomId,
-                                      threadId: thread.id,
-                                    }),
-                                  }).then(() => {
-                                    window.location.reload();
-                                  });
+                                  void (async () => {
+                                    const response = await fetch(
+                                      "/api/liveblocks-delete-thread",
+                                      {
+                                        method: "POST",
+                                        headers: {
+                                          "Content-Type": "application/json",
+                                        },
+                                        body: JSON.stringify({
+                                          roomId: thread.roomId,
+                                          threadId: thread.id,
+                                        }),
+                                      }
+                                    );
+
+                                    if (!response.ok) return;
+                                    setActiveThreadId((current) => {
+                                      if (current === thread.id) {
+                                        updateThreadQueryParam(null);
+                                        return null;
+                                      }
+
+                                      return current;
+                                    });
+                                  })();
                                 }}
                                 icon={
                                   <svg
@@ -1016,6 +1138,9 @@ function CommentsShell({
           ["--comments-pane-width" as string]: commentsOpen
             ? `${commentsWidth}px`
             : `${COMMENTS_COLLAPSED_WIDTH}px`,
+          ["--comments-mobile-rail-height" as string]: commentsOpen
+            ? "min(52dvh, 30rem)"
+            : "3.5rem",
         }}
       >
         <div className="min-w-0 flex-1">
@@ -1024,10 +1149,16 @@ function CommentsShell({
             onPointerUp={handlePointerUp}
             className="relative mx-auto max-w-4xl overflow-visible pr-4 md:pr-8"
           >
-            <div className="pointer-events-none absolute inset-0 z-10">
+            <div
+              data-comment-highlight-layer
+              className="pointer-events-none absolute inset-0 z-0"
+            >
               {highlightRects.map((rect) => (
                 <div
                   key={rect.id}
+                  data-comment-highlight={
+                    rect.pending ? "pending" : rect.active ? "active" : "saved"
+                  }
                   className={cn(
                     "absolute rounded-[0.35rem]",
                     rect.pending
@@ -1090,16 +1221,57 @@ function CommentsShell({
               </div>
             ) : null}
 
-            {children}
+            <div data-comment-content className="relative z-10">{children}</div>
           </article>
         </div>
-        <aside className="w-full lg:hidden">
-          <div className="overflow-hidden border border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]">
-            {sidebarHeader}
-            {sidebarContent}
-          </div>
-        </aside>
       </div>
+
+      <aside
+        data-comments-bottom-rail
+        aria-label="Document comments and outline"
+        className={cn(
+          "fixed inset-x-0 bottom-[calc(3rem+env(safe-area-inset-bottom))] z-40 flex flex-col border-t border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-[0_-12px_28px_rgba(15,23,42,0.14)] transition-[height] duration-200 ease-out md:bottom-0 lg:hidden",
+          commentsOpen ? "h-[min(52dvh,30rem)]" : "h-14"
+        )}
+      >
+        {commentsOpen ? (
+          <>
+            <div className="shrink-0 pt-1">
+              <div className="mx-auto mb-1 h-1 w-8 rounded-full bg-[var(--text-muted)]/30" />
+              {sidebarHeader}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              {sidebarContent}
+            </div>
+          </>
+        ) : (
+          <div className="flex h-full items-center gap-2 px-3">
+            <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
+              <SidebarButton
+                variant="tab"
+                active={sidebarMode === "comments"}
+                onClick={() => toggleSidebarMode("comments")}
+              >
+                Comments
+              </SidebarButton>
+              <SidebarButton
+                variant="tab"
+                active={sidebarMode === "outline"}
+                onClick={() => toggleSidebarMode("outline")}
+              >
+                Outline
+              </SidebarButton>
+            </div>
+            <SidebarButton
+              onClick={() => setCommentsOpen(true)}
+              aria-label="Expand comments rail"
+              className="h-auto w-auto px-2 py-1"
+            >
+              <RailToggleIcon direction="up" />
+            </SidebarButton>
+          </div>
+        )}
+      </aside>
 
       <aside
         className={cn(
@@ -1114,6 +1286,9 @@ function CommentsShell({
               onPointerDown={onCommentsPointerDown}
               onPointerMove={onCommentsPointerMove}
               onPointerUp={onCommentsPointerUp}
+              role="separator"
+              aria-label="Resize comments pane"
+              aria-orientation="vertical"
               className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-[var(--sidebar-border)] hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
             />
             {sidebarHeader}
@@ -1123,11 +1298,7 @@ function CommentsShell({
           <>
             <SidebarButton
               active={sidebarMode === "comments"}
-              onClick={() => {
-                setSidebarMode("comments");
-                setCommentsOpen(true);
-                window.localStorage.setItem(COMMENTS_PANE_STORAGE_KEY, "1");
-              }}
+              onClick={() => toggleSidebarMode("comments")}
               aria-label="Open comments"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1136,11 +1307,7 @@ function CommentsShell({
             </SidebarButton>
             <SidebarButton
               active={sidebarMode === "outline"}
-              onClick={() => {
-                setSidebarMode("outline");
-                setCommentsOpen(true);
-                window.localStorage.setItem(COMMENTS_PANE_STORAGE_KEY, "1");
-              }}
+              onClick={() => toggleSidebarMode("outline")}
               aria-label="Open outline"
               className="mt-2"
             >
@@ -1252,6 +1419,9 @@ export function OutlineShell({ children, onActivate }: { children: ReactNode; on
           "--comments-pane-width": sidebarOpen
             ? `${sidebarWidth}px`
             : `${COMMENTS_COLLAPSED_WIDTH}px`,
+          "--comments-mobile-rail-height": sidebarOpen
+            ? "min(52dvh, 30rem)"
+            : "3.5rem",
         } as React.CSSProperties
       }
     >
@@ -1261,9 +1431,64 @@ export function OutlineShell({ children, onActivate }: { children: ReactNode; on
             {children}
           </article>
         </div>
-        <aside className="w-full lg:hidden">
-          <div className="overflow-hidden border border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]">
-            <div className="bg-[var(--background)]/40 p-3">
+      </div>
+
+      <aside
+        data-comments-bottom-rail
+        aria-label="Document comments and outline"
+        className={cn(
+          "fixed inset-x-0 bottom-[calc(3rem+env(safe-area-inset-bottom))] z-40 flex flex-col border-t border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-[0_-12px_28px_rgba(15,23,42,0.14)] transition-[height] duration-200 ease-out md:bottom-0 lg:hidden",
+          sidebarOpen ? "h-[min(52dvh,30rem)]" : "h-14"
+        )}
+      >
+        {sidebarOpen ? (
+          <>
+            <div className="shrink-0 border-b border-[var(--sidebar-border)] px-3 pb-2 pt-1">
+              <div className="mx-auto mb-1 h-1 w-8 rounded-full bg-[var(--text-muted)]/30" />
+              {onActivate ? (
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
+                    <SidebarButton
+                      variant="tab"
+                      onClick={onActivate}
+                    >
+                      Comments
+                    </SidebarButton>
+                    <SidebarButton
+                      variant="tab"
+                      active
+                      onClick={toggleSidebar}
+                    >
+                      Outline
+                    </SidebarButton>
+                  </div>
+                  <SidebarButton
+                    onClick={toggleSidebar}
+                    aria-label="Collapse outline rail"
+                    className="h-auto w-auto px-2 py-1"
+                  >
+                    <RailToggleIcon direction="down" />
+                  </SidebarButton>
+                </div>
+              ) : (
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="min-w-0 flex-1 text-xs font-medium text-[var(--foreground)]">
+                    Outline
+                  </span>
+                  <SidebarButton
+                    onClick={toggleSidebar}
+                    aria-label="Collapse outline rail"
+                    className="h-auto w-auto px-2 py-1"
+                  >
+                    <RailToggleIcon direction="down" />
+                  </SidebarButton>
+                </div>
+              )}
+              <p className="text-xs text-[var(--text-muted)]">
+                {outlineItems.length} heading{outlineItems.length === 1 ? "" : "s"}
+              </p>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--background)]/40 p-3">
               {outlineItems.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-[var(--sidebar-border)] px-4 py-6 text-sm text-[var(--text-muted)]">
                   No headings found on this page.
@@ -1284,9 +1509,40 @@ export function OutlineShell({ children, onActivate }: { children: ReactNode; on
                 </div>
               )}
             </div>
+          </>
+        ) : (
+          <div className="flex h-full items-center gap-2 px-3">
+            {onActivate ? (
+              <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
+                <SidebarButton
+                  variant="tab"
+                  onClick={onActivate}
+                >
+                  Comments
+                </SidebarButton>
+                <SidebarButton
+                  variant="tab"
+                  active
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  Outline
+                </SidebarButton>
+              </div>
+            ) : (
+              <span className="min-w-0 flex-1 text-sm font-medium text-[var(--foreground)]">
+                Outline
+              </span>
+            )}
+            <SidebarButton
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Expand outline rail"
+              className="h-auto w-auto px-2 py-1"
+            >
+              <RailToggleIcon direction="up" />
+            </SidebarButton>
           </div>
-        </aside>
-      </div>
+        )}
+      </aside>
 
       <aside
         className={cn(
@@ -1301,19 +1557,58 @@ export function OutlineShell({ children, onActivate }: { children: ReactNode; on
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
+              role="separator"
+              aria-label="Resize outline pane"
+              aria-orientation="vertical"
               className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-[var(--sidebar-border)] hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
             />
             <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] px-3 py-2">
-              <span className="flex-1 text-xs font-medium text-[var(--foreground)]">Outline</span>
-              <SidebarButton
-                onClick={toggleSidebar}
-                aria-label="Collapse outline pane"
-                className="h-auto w-auto px-2 py-1"
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="6 4 10 8 6 12" />
-                </svg>
-              </SidebarButton>
+              {onActivate ? (
+                <div className="min-w-0 flex-1">
+                  <div className="mb-2 flex items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
+                      <SidebarButton
+                        variant="tab"
+                        onClick={onActivate}
+                      >
+                        Comments
+                      </SidebarButton>
+                      <SidebarButton
+                        variant="tab"
+                        active
+                        onClick={toggleSidebar}
+                      >
+                        Outline
+                      </SidebarButton>
+                    </div>
+                    <SidebarButton
+                      onClick={toggleSidebar}
+                      aria-label="Collapse outline pane"
+                      className="h-auto w-auto px-2 py-1"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <polyline points="6 4 10 8 6 12" />
+                      </svg>
+                    </SidebarButton>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {outlineItems.length} heading{outlineItems.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <span className="flex-1 text-xs font-medium text-[var(--foreground)]">Outline</span>
+                  <SidebarButton
+                    onClick={toggleSidebar}
+                    aria-label="Collapse outline pane"
+                    className="h-auto w-auto px-2 py-1"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="6 4 10 8 6 12" />
+                    </svg>
+                  </SidebarButton>
+                </>
+              )}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="bg-[var(--background)]/40 p-3">

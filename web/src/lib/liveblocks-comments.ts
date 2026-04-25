@@ -78,6 +78,44 @@ export function sortThreads(threads: ThreadData[]) {
   });
 }
 
+export type CommentListItem =
+  | {
+      type: "thread";
+      thread: ThreadData;
+      order: number;
+      anchorStart: number;
+    }
+  | {
+      type: "draft-selection";
+      order: number;
+      anchorStart: number;
+    };
+
+export function buildCommentListItems(
+  threads: ThreadData[],
+  draftAnchor?: SelectionAnchor | null
+): CommentListItem[] {
+  const items: CommentListItem[] = threads.map((thread, order) => ({
+    type: "thread",
+    thread,
+    order,
+    anchorStart: getThreadAnchor(thread)?.start ?? Number.POSITIVE_INFINITY,
+  }));
+
+  if (draftAnchor) {
+    items.push({
+      type: "draft-selection",
+      order: threads.length,
+      anchorStart: draftAnchor.start,
+    });
+  }
+
+  return items.sort((a, b) => {
+    if (a.anchorStart !== b.anchorStart) return a.anchorStart - b.anchorStart;
+    return a.order - b.order;
+  });
+}
+
 export function getCommentPlainText(body: unknown): string {
   if (!body || typeof body !== "object") return "";
   const content = (body as { content?: Array<{ children?: Array<{ text?: string }> }> }).content;

@@ -207,7 +207,7 @@ This document focuses on shipped behavior and notable implementation details. De
   - persistent session cookies
 - Liveblocks comments use either:
   - authenticated users resolved through Convex
-  - a persistent guest identity stored in both a cookie and local storage
+  - a persistent guest identity stored in a cookie, local storage, and Convex so other users can resolve the display name
 
 ## Responsive And Mobile Behavior
 
@@ -220,7 +220,7 @@ This document focuses on shipped behavior and notable implementation details. De
 - Hover-only heading anchors are disabled on non-hover devices.
 - Tables and Mermaid diagrams preserve horizontal scroll on small screens.
 - The chat UI reduces padding and button sizes for narrow viewports.
-- The comments implementation renders inline below the article on smaller screens when comments are enabled.
+- The comments implementation uses a single fixed bottom rail for comments and outline below `lg`; on phones it sits above the bottom navigation, and on iPad widths it pins to the viewport bottom.
 
 ## Persistence And Saving
 

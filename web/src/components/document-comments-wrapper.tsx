@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState, lazy, Suspense } from "react";
+import { type ReactNode, useEffect, useState, lazy, Suspense } from "react";
 import { OutlineShell, commentsEnabled } from "@/components/document-comments";
 
 const ActiveComments = lazy(
@@ -17,6 +17,16 @@ export function DocumentComments({
   children: ReactNode;
 }) {
   const [liveblocksActive, setLiveblocksActive] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("thread")) {
+      const frameId = window.requestAnimationFrame(() => {
+        setLiveblocksActive(true);
+      });
+
+      return () => window.cancelAnimationFrame(frameId);
+    }
+  }, []);
 
   if (!commentsEnabled) {
     return <OutlineShell>{children}</OutlineShell>;

@@ -388,7 +388,7 @@ body {
 }
 
 /* Liveblocks portals (dropdowns, emoji pickers) must sit above the
-   fixed comments sidebar (z-30) and the article highlight overlay (z-10). */
+   fixed comments sidebar (z-30) and the article highlight overlay. */
 .lb-portal {
   z-index: 50 !important;
 }
@@ -401,6 +401,24 @@ body {
   .comments-content-wrapper {
     position: relative;
     padding-right: var(--comments-pane-width, 24rem) !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .comments-content-wrapper {
+    padding-bottom: calc(
+      var(--comments-mobile-rail-height, 3.5rem) + 3rem +
+        env(safe-area-inset-bottom) + 1rem
+    ) !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .comments-content-wrapper {
+    padding-bottom: calc(
+      var(--comments-mobile-rail-height, 3.5rem) + env(safe-area-inset-bottom) +
+        1rem
+    ) !important;
   }
 }
 
