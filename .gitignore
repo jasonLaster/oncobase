@@ -14,6 +14,10 @@ web/scripts/test-archive-output.zip
 web/scripts/test-blob-archive.ts
 package-lock.json
 test-results/
+.env
+.env.*
 .env*.local
+web/web
+**/web/web
 .claude/worktrees
 obsidian/.claude/worktrees/
