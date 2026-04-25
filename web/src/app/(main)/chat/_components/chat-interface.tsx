@@ -7,6 +7,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { MarkdownRendererClient as MarkdownRenderer } from "@/components/markdown-renderer-client";
 import { GrowingTextarea } from "@/components/growing-textarea";
+import { nowMs, recordChatPerf, trackStream } from "@/lib/chat/perf";
 
 interface StoredMessage {
   _id?: string;
@@ -496,6 +497,9 @@ export function ChatInterface({
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    const submitT = nowMs();
+    recordChatPerf({ type: "submit", t: submitT, conversationId: convId });
+    const tracker = trackStream({ conversationId: convId, submitT });
     fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -506,14 +510,37 @@ export function ChatInterface({
       signal: controller.signal,
     }).then(async (res) => {
       if (!res.ok) {
+        tracker.end("error");
         const data = await res.json().catch(() => null);
         const msg = data?.error || `Chat failed (${res.status})`;
         setError(msg);
         clearStreamingMutation({ conversationId: convId as Id<"conversations"> });
         disableLastUserMessage();
+        return;
+      }
+      // Drain the stream so the perf buffer captures TTFB + bytes/sec for the
+      // active tab. The Convex mirror still drives the rendered tokens; this
+      // only measures the wire. Phase 3 swaps this drain for useChat.
+      const reader = res.body?.getReader();
+      if (!reader) {
+        tracker.end("ok");
+        return;
+      }
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) tracker.tick(value.byteLength);
+        }
+        tracker.end("ok");
+      } catch {
+        tracker.end("error");
       }
     }).catch((err) => {
-      if (err?.name !== "AbortError") {
+      if (err?.name === "AbortError") {
+        tracker.end("abort");
+      } else {
+        tracker.end("error");
         setError("Failed to connect to chat API.");
         clearStreamingMutation({ conversationId: convId as Id<"conversations"> });
         disableLastUserMessage();
