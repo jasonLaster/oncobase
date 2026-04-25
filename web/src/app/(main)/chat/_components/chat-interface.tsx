@@ -12,6 +12,10 @@ import type { Id } from "@convex/_generated/dataModel";
 import { GrowingTextarea } from "@/components/growing-textarea";
 import { nowMs, recordChatPerf, trackStream } from "@/lib/chat/perf";
 import {
+  StickToBottom,
+  useStickToBottomContext,
+} from "use-stick-to-bottom";
+import {
   AssistantMessage,
   PriorMessages,
   StreamingMessage,
@@ -82,6 +86,30 @@ function CrossTabStream({
     [text, parts]
   );
   return <AssistantMessage message={synthetic} />;
+}
+
+/**
+ * Floating "scroll to bottom" pill. Pulls live state from the
+ * <StickToBottom> wrapping it; only renders when the user has scrolled away
+ * from the bottom (i.e., escaped from the auto-pin lock).
+ */
+function ScrollToBottomButton() {
+  const { isAtBottom, scrollToBottom } = useStickToBottomContext();
+  if (isAtBottom) return null;
+  return (
+    <div className="absolute bottom-3 right-3 sm:right-4 z-10">
+      <button
+        type="button"
+        onClick={() => scrollToBottom()}
+        aria-label="Scroll to bottom"
+        className="p-2.5 sm:p-2 rounded-full bg-[var(--background)] border border-[var(--sidebar-border)] text-[var(--text-muted)] hover:text-[var(--foreground)] shadow-md hover:shadow-lg transition-all active:scale-95"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="4 6 8 10 12 6" />
+        </svg>
+      </button>
+    </div>
+  );
 }
 
 interface ChatInterfaceProps {
@@ -188,11 +216,6 @@ export function ChatInterface({
   }, [status]);
 
   const [input, setInput] = useState("");
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const isNearBottomRef = useRef(true);
-  const [showScrollButton, setShowScrollButton] = useState(false);
 
   const lastMessage = messages[messages.length - 1] as ChatUIMessage | undefined;
   const lastIsActiveUser =
@@ -278,41 +301,10 @@ export function ChatInterface({
     disableLastUserMessage,
   ]);
 
-  // Scroll-pin contract: stay at bottom while streaming unless user scrolled
-  // up. (Phase 6 swaps this for use-stick-to-bottom via ai-elements.)
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    function onScroll() {
-      if (!el) return;
-      const threshold = 100;
-      const near = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-      isNearBottomRef.current = near;
-      setShowScrollButton(!near);
-    }
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    if (!isNearBottomRef.current) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    if (isStreaming) {
-      el.scrollTop = el.scrollHeight;
-    } else {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages, isStreaming]);
-
-  const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    setShowScrollButton(false);
-  }, []);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+  // Scroll pin is owned by <StickToBottom> below + the floating
+  // <ScrollToBottomButton>. The hook handles "user scrolled up → release pin
+  // → show pill", which we used to do by hand. autoFocus on the textarea
+  // gives us focus on mount.
 
   // Auto-resume: if the trailing user message has no assistant follow-up
   // and no other tab is streaming, kick off a generation.
@@ -354,7 +346,6 @@ export function ChatInterface({
 
       autoResumed.current = true;
       setInput("");
-      isNearBottomRef.current = true;
       startTracker();
       await sendMessage({ text });
     },
@@ -404,10 +395,16 @@ export function ChatInterface({
 
   return (
     <div className="flex flex-col h-full max-w-3xl mx-auto w-full relative">
-      <div
-        ref={scrollRef}
-        className="flex-1 min-h-0 overflow-y-auto px-2 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4"
+      <StickToBottom
+        className="flex-1 min-h-0"
+        resize="smooth"
+        initial="instant"
       >
+        <StickToBottom.Content
+          className="px-2 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4"
+          role="log"
+          aria-live="polite"
+        >
         {messages.length === 0 && !isStreaming && (
           <div className="text-center py-10 sm:py-16 text-[var(--text-muted)]">
             <h1 className="text-lg font-semibold text-[var(--foreground)] mb-1">
@@ -486,22 +483,9 @@ export function ChatInterface({
             <span>{error.message}</span>
           </div>
         )}
-        <div ref={bottomRef} />
-      </div>
-
-      {showScrollButton && (
-        <div className="absolute bottom-20 right-3 sm:right-4 z-10">
-          <button
-            onClick={scrollToBottom}
-            aria-label="Scroll to bottom"
-            className="p-2.5 sm:p-2 rounded-full bg-[var(--background)] border border-[var(--sidebar-border)] text-[var(--text-muted)] hover:text-[var(--foreground)] shadow-md hover:shadow-lg transition-all active:scale-95"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="4 6 8 10 12 6" />
-            </svg>
-          </button>
-        </div>
-      )}
+        </StickToBottom.Content>
+        <ScrollToBottomButton />
+      </StickToBottom>
 
       <div className="shrink-0 border-t border-[var(--sidebar-border)] px-2 sm:px-4 py-2 sm:py-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:pb-3">
         <form onSubmit={handleSubmit} className="flex gap-2 items-end">
@@ -510,7 +494,11 @@ export function ChatInterface({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              // IME-safe Enter handling lands in Phase 6.
+              // IME-safe Enter: keyCode 229 / isComposing means an IME is
+              // mid-composition; Enter then commits the candidate, not the
+              // form. Without this, Japanese / Chinese / Korean composition
+              // submits the partial.
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleSubmit(e as unknown as React.FormEvent);
