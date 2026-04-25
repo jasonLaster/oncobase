@@ -61,7 +61,7 @@ const EVAL_QUERIES: EvalQuery[] = [
     expectedSlugs: ["vaccine", "cancer-vaccine", "mRNA"],
   },
   {
-    query: "What is Diana's prognosis?",
+    query: "What is the prognosis?",
     description: "Patient-specific question",
     expectedSlugs: ["prognosis"],
   },

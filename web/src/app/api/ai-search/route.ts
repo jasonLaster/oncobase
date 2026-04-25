@@ -4,6 +4,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
 import { embed } from "@/lib/embeddings";
 import { fastTextModel } from "@/lib/ai";
+import { applyPiiRedactions } from "@/lib/pii-redaction";
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -60,8 +61,8 @@ export async function POST(request: Request) {
     );
 
     const diagnosisContext = diagnosisDoc
-      ? `Patient: Diana Laster, Age 36, Diagnosed March 2026\n${diagnosisDoc.content.slice(0, 1500)}`
-      : "Patient: Diana Laster, Age 36, Stage III TNBC, IDC Grade 3, KEYNOTE-522 protocol";
+      ? `Patient diagnosis context:\n${applyPiiRedactions(diagnosisDoc.content).slice(0, 1500)}`
+      : "Patient diagnosis context: Stage III TNBC, IDC Grade 3, KEYNOTE-522 protocol";
 
     const docsWithContent = docs.filter(
       (d): d is NonNullable<typeof d> => d !== null
@@ -92,19 +93,19 @@ export async function POST(request: Request) {
               schema: scoreSchema,
               prompt: `You are evaluating a search result for the query: "${query}"
 
-Diana's diagnosis context:
+Patient diagnosis context:
 ${diagnosisContext}
 
 Document: "${doc.title}" (${doc.slug})
 Tags: ${doc.tags.join(", ") || "none"}
 Content preview:
-${doc.content.slice(0, 800)}
+${applyPiiRedactions(doc.content).slice(0, 800)}
 
 Score this document's relevance to the query (0-10). A score of 5+ means it directly addresses the query topic. A score of 3-4 means it's tangentially related. Write a 1-2 sentence summary explaining the relevance.`,
             });
             return {
               slug: doc.slug,
-              title: doc.title,
+              title: applyPiiRedactions(doc.title),
               tags: doc.tags,
               relevance: object.relevance,
               summary: object.summary,

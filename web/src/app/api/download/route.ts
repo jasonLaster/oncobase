@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 import archiver from "archiver";
-import { addDirToDiskArchive } from "@/lib/archive-helpers";
+import {
+  addDirToDiskArchive,
+  addRedactedMarkdownToArchive,
+} from "@/lib/archive-helpers";
+import { applyPiiRedactions } from "@/lib/pii-redaction";
 
 export const maxDuration = 300;
 
@@ -49,10 +53,13 @@ function archiverToStream(
   });
 }
 
-function buildZipStreamFromDisk(): ReadableStream<Uint8Array> {
-  console.log(`[download] Building zip from disk: ${OBSIDIAN_DIR}`);
-  return archiverToStream("disk", (arc) => {
-    addDirToDiskArchive(arc, OBSIDIAN_DIR);
+function buildZipStreamFromDisk(type: DownloadType): ReadableStream<Uint8Array> {
+  console.log(`[download] Building ${type} zip from disk: ${OBSIDIAN_DIR}`);
+  return archiverToStream(`disk-${type}`, (arc) => {
+    if (type === "full") {
+      addDirToDiskArchive(arc, OBSIDIAN_DIR);
+    }
+    addRedactedMarkdownToArchive(arc);
     arc.finalize();
   });
 }
@@ -148,7 +155,8 @@ async function appendMarkdownToArchive(
 
     for (const doc of page.page) {
       if (doc.content) {
-        arc.append(Buffer.from(doc.content, "utf-8"), { name: `${doc.slug}.md` });
+        const content = applyPiiRedactions(doc.content);
+        arc.append(Buffer.from(content, "utf-8"), { name: `${doc.slug}.md` });
         totalDocs++;
       }
     }
@@ -252,7 +260,7 @@ export async function GET(request: NextRequest) {
 
   let zipStream: ReadableStream<Uint8Array>;
   if (diskAvailable) {
-    zipStream = buildZipStreamFromDisk();
+    zipStream = buildZipStreamFromDisk(type);
   } else if (type === "markdown") {
     zipStream = buildMarkdownArchiveStream();
   } else {

@@ -2,6 +2,10 @@ import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import {
+  applyPiiRedactions,
+  type PiiRedactionMode,
+} from "@/lib/pii-redaction";
 
 const OBSIDIAN_DIR = path.join(process.cwd(), "..", "obsidian");
 
@@ -149,6 +153,10 @@ function sortTree(nodes: FileNode[]) {
   }
 }
 
+interface MarkdownReadOptions {
+  piiMode?: PiiRedactionMode;
+}
+
 /** Build a tree of markdown files for the sidebar */
 export function getFileTree(dir: string = OBSIDIAN_DIR, basePath: string = ""): FileNode[] {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -270,27 +278,35 @@ export async function getFileTreeWithPdfs(): Promise<FileNode[]> {
 }
 
 /** Read and parse a single markdown file (sync — for static generation) */
-export function getMarkdownFile(slug: string): MarkdownFile | null {
+export function getMarkdownFile(
+  slug: string,
+  { piiMode = "redacted" }: MarkdownReadOptions = {}
+): MarkdownFile | null {
   const filePath = path.join(OBSIDIAN_DIR, `${slug}.md`);
+  const cacheKey = `${piiMode}:${slug}`;
 
   if (!fs.existsSync(filePath)) {
-    _fileCache.set(slug, null);
+    _fileCache.set(cacheKey, null);
     return null;
   }
 
   const raw = fs.readFileSync(filePath, "utf-8");
-  return parseMarkdownFile(slug, raw);
+  return parseMarkdownFile(slug, raw, piiMode);
 }
 
 /** Read and parse a single markdown file (async — for page rendering) */
-export async function getMarkdownFileAsync(slug: string): Promise<MarkdownFile | null> {
+export async function getMarkdownFileAsync(
+  slug: string,
+  { piiMode = "redacted" }: MarkdownReadOptions = {}
+): Promise<MarkdownFile | null> {
   const filePath = path.join(OBSIDIAN_DIR, `${slug}.md`);
+  const cacheKey = `${piiMode}:${slug}`;
 
   try {
     const raw = await fs.promises.readFile(filePath, "utf-8");
-    return parseMarkdownFile(slug, raw);
+    return parseMarkdownFile(slug, raw, piiMode);
   } catch {
-    _fileCache.set(slug, null);
+    _fileCache.set(cacheKey, null);
     return null;
   }
 }
@@ -299,11 +315,16 @@ export function getCanonicalSlug(slug: string): string | null {
   return buildCanonicalSlugMap().get(slug.toLowerCase()) ?? null;
 }
 
-function parseMarkdownFile(slug: string, raw: string): MarkdownFile {
-  const hash = createHash("md5").update(raw).digest("hex");
+function parseMarkdownFile(
+  slug: string,
+  raw: string,
+  piiMode: PiiRedactionMode
+): MarkdownFile {
+  const cacheKey = `${piiMode}:${slug}`;
+  const hash = createHash("md5").update(`${piiMode}:${raw}`).digest("hex");
 
   // Return cached parse if the file hasn't changed
-  const cached = _fileCache.get(slug);
+  const cached = _fileCache.get(cacheKey);
   if (cached && cached.hash === hash) return cached.result;
 
   let data: Record<string, unknown> = {};
@@ -314,15 +335,19 @@ function parseMarkdownFile(slug: string, raw: string): MarkdownFile {
     // Malformed YAML frontmatter (e.g. `**bold:**` misread as YAML alias)
   }
 
+  const sanitizedContent = applyPiiRedactions(content, { mode: piiMode });
+
   // Derive title from first H1, frontmatter, or filename
-  const h1Match = content.match(/^#\s+(.+)$/m);
+  const h1Match = sanitizedContent.match(/^#\s+(.+)$/m);
   const title = (data.title as string) || h1Match?.[1] || slug.split("/").pop() || slug;
 
   // Strip the leading H1 to avoid double title rendering
-  const body = h1Match ? content.replace(/^#\s+.+$/m, "").replace(/^\n+/, "") : content;
+  const body = h1Match
+    ? sanitizedContent.replace(/^#\s+.+$/m, "").replace(/^\n+/, "")
+    : sanitizedContent;
 
   const result: MarkdownFile = { slug, title, content: body, frontmatter: data };
-  _fileCache.set(slug, { hash, result });
+  _fileCache.set(cacheKey, { hash, result });
   return result;
 }
 

@@ -18,7 +18,7 @@ const pageCases: PageLoadCase[] = [
   {
     route: "/wiki/diagnostics/diagnosis",
     heading: "Diagnosis",
-    bodyText: "Patient:",
+    bodyText: "Patient identifiers hidden.",
   },
   {
     route: "/sources/meeting-notes/409---dirbas-biopsy-planning-overview",
@@ -47,10 +47,10 @@ async function assertServerShellHtml(
 
   expect(html).toContain('aria-label="Home"');
   expect(html).toContain('placeholder="Search wiki..."');
+  expect(html).toContain('aria-label="New chat"');
   expect(html).toContain('aria-label="Find files (⌘P)"');
   expect(html).toContain('aria-label="Actions"');
   expect(html).toContain('aria-label="Collapse sidebar"');
-  expect(html).toContain("Chat with wiki");
   expect(html).toContain(pageCase.heading);
 
   if (pageCase.bodyText) {

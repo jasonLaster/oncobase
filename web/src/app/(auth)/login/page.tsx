@@ -44,7 +44,7 @@ function LoginForm() {
       className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm"
     >
       <h1 className="text-xl font-semibold mb-6 text-center text-gray-900">
-        Diana&apos;s TNBC
+        TNBC Knowledge Base
       </h1>
       <input
         type="password"

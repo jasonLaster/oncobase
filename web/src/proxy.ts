@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const PASSWORDS = ["wallify", "diana"];
+const SHOW_PII_QUERY_PARAM = "showPII";
+const SHOW_PII_TRUTHY_VALUES = new Set(["1", "true", "yes", "on"]);
 const CANONICAL_PATHS = new Map([["/about/index", "/about/Index"]]);
 const LINK_PREVIEW_BOT_RE =
   /\b(slackbot|twitterbot|facebookexternalhit|facebot|linkedinbot|discordbot|whatsapp|telegrambot|skypeuripreview|microsoftpreview|teamsbot|pinterest|redditbot|applebot)\b/i;
@@ -58,7 +60,28 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  if (
+    shouldRevealPii(request.nextUrl.searchParams.get(SHOW_PII_QUERY_PARAM)) &&
+    !request.nextUrl.pathname.startsWith("/api/") &&
+    !request.nextUrl.pathname.startsWith("/pii-view")
+  ) {
+    const piiUrl = request.nextUrl.clone();
+    piiUrl.pathname =
+      request.nextUrl.pathname === "/"
+        ? "/pii-view/index"
+        : `/pii-view${request.nextUrl.pathname}`;
+    return NextResponse.rewrite(piiUrl);
+  }
+
   return NextResponse.next();
+}
+
+function shouldRevealPii(value: string | null) {
+  if (!value) {
+    return false;
+  }
+
+  return SHOW_PII_TRUTHY_VALUES.has(value.toLowerCase());
 }
 
 export const config = {

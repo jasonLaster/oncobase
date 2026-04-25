@@ -49,8 +49,8 @@ test.describe("page metadata", () => {
     const diagnosis = await getHtml(request, "/wiki/diagnostics/diagnosis");
     const survival = await getHtml(request, "/wiki/prognosis/survival-statistics");
 
-    expect(readTitle(diagnosis)).toBe("Diagnosis \u2014 Diana's TNBC");
-    expect(readTitle(survival)).toBe("Survival Statistics \u2014 Diana's TNBC");
+    expect(readTitle(diagnosis)).toBe("Diagnosis \u2014 TNBC Knowledge Base");
+    expect(readTitle(survival)).toBe("Survival Statistics \u2014 TNBC Knowledge Base");
 
     const diagnosisDescription = readMetaContent(diagnosis, "description");
     const survivalDescription = readMetaContent(survival, "description");
@@ -78,8 +78,8 @@ test.describe("page metadata", () => {
       const diagnosis = await getHtml(botRequest, "/wiki/diagnostics/diagnosis");
       const survival = await getHtml(botRequest, "/wiki/prognosis/survival-statistics");
 
-      expect(readTitle(diagnosis)).toBe("Diagnosis \u2014 Diana's TNBC");
-      expect(readTitle(survival)).toBe("Survival Statistics \u2014 Diana's TNBC");
+      expect(readTitle(diagnosis)).toBe("Diagnosis \u2014 TNBC Knowledge Base");
+      expect(readTitle(survival)).toBe("Survival Statistics \u2014 TNBC Knowledge Base");
       expect(readMetaContent(diagnosis, "og:title")).toBe("Diagnosis");
       expect(readMetaContent(survival, "og:title")).toBe("Survival Statistics");
       expect(readMetaContent(diagnosis, "description")).not.toBe(DEFAULT_DESCRIPTION);

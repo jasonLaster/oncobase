@@ -11,7 +11,7 @@ const mockAIResults = {
       title: "KEYNOTE-522 Protocol",
       tags: ["treatment", "immunotherapy"],
       relevance: 9,
-      summary: "Core treatment protocol for Diana's TNBC case.",
+      summary: "Core treatment protocol for this TNBC case.",
     },
     {
       slug: "wiki/diagnostics/diagnosis",

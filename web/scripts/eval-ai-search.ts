@@ -159,8 +159,8 @@ async function runPipeline(query: string, textSlugs: string[] = []): Promise<Sta
     ]);
 
     const diagnosisContext = diagnosisDoc
-      ? `Patient: Diana Laster, Age 36, Diagnosed March 2026\n${diagnosisDoc.content.slice(0, 1500)}`
-      : "Patient: Diana Laster, Age 36, Stage III TNBC, IDC Grade 3, KEYNOTE-522 protocol";
+      ? diagnosisDoc.content.slice(0, 1500)
+      : "Stage III TNBC, IDC Grade 3, KEYNOTE-522 protocol";
 
     const docsWithContent = docs.filter((d): d is NonNullable<typeof d> => d !== null);
 
@@ -177,7 +177,7 @@ async function runPipeline(query: string, textSlugs: string[] = []): Promise<Sta
               schema: scoreSchema,
               prompt: `You are evaluating a search result for the query: "${query}"
 
-Diana's diagnosis context:
+Patient diagnosis context:
 ${diagnosisContext}
 
 Document: "${doc.title}" (${doc.slug})

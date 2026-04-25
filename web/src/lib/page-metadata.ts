@@ -7,7 +7,7 @@ import {
   type MarkdownFile,
 } from "@/lib/markdown";
 
-export const SITE_NAME = "Diana's TNBC";
+export const SITE_NAME = "TNBC Knowledge Base";
 export const DEFAULT_SITE_DESCRIPTION =
   "Breast cancer research and treatment knowledge base";
 

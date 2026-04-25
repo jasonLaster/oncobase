@@ -3,6 +3,7 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { applyPiiRedactions } from "@/lib/pii-redaction";
 
 const OBSIDIAN_DIR = path.join(process.cwd(), "..", "obsidian");
 
@@ -83,7 +84,8 @@ export async function searchMarkdown(query: string): Promise<SearchResult[]> {
     const raw = fs.readFileSync(file.filePath, "utf-8");
     const { data, content } = parseMarkdownFile(raw);
     const frontmatter = data as { title?: string };
-    const lines = content.split("\n");
+    const sanitizedContent = applyPiiRedactions(content);
+    const lines = sanitizedContent.split("\n");
     const matches: SearchMatch[] = [];
 
     for (let i = 0; i < lines.length; i++) {
@@ -103,7 +105,7 @@ export async function searchMarkdown(query: string): Promise<SearchResult[]> {
     }
 
     if (matches.length > 0) {
-      const h1Match = content.match(/^#\s+(.+)$/m);
+      const h1Match = sanitizedContent.match(/^#\s+(.+)$/m);
       const title =
         frontmatter.title ||
         h1Match?.[1] ||

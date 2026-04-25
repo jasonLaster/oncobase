@@ -28,21 +28,21 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Diana's TNBC",
-    template: "%s — Diana's TNBC",
+    default: "TNBC Knowledge Base",
+    template: "%s — TNBC Knowledge Base",
   },
   description: "Breast cancer research and treatment knowledge base",
   robots: { index: false, follow: false },
   icons: { icon: isDev ? "/favicon-dev.svg" : "/favicon.svg" },
   openGraph: {
-    title: "Diana's TNBC",
+    title: "TNBC Knowledge Base",
     description: "Breast cancer research and treatment knowledge base",
     type: "website",
-    siteName: "Diana's TNBC",
+    siteName: "TNBC Knowledge Base",
   },
   twitter: {
     card: "summary",
-    title: "Diana's TNBC",
+    title: "TNBC Knowledge Base",
     description: "Breast cancer research and treatment knowledge base",
   },
 };

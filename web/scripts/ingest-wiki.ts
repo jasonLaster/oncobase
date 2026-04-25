@@ -13,6 +13,7 @@ import matter from "gray-matter";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import dotenv from "dotenv";
+import { applyPiiRedactions } from "../src/lib/pii-redaction";
 
 // Load .env.local if present (local dev); on Vercel, env vars are injected automatically
 dotenv.config({ path: path.join(__dirname, "..", ".env.local") });
@@ -89,7 +90,6 @@ function isMissingFunctionError(error: unknown): boolean {
 
 function prepareUpsertArgs(file: FileEntry) {
   const raw = fs.readFileSync(file.filePath, "utf-8");
-  const contentHash = hashContent(raw);
   let data: Record<string, unknown> = {};
   let content = raw;
   try {
@@ -97,9 +97,13 @@ function prepareUpsertArgs(file: FileEntry) {
   } catch {
     console.warn(`  ⚠ YAML parse error in ${file.slug} — ingesting without frontmatter`);
   }
-  const h1Match = content.match(/^#\s+(.+)$/m);
+  const sanitizedContent = applyPiiRedactions(content);
+  const contentHash = hashContent(sanitizedContent);
+  const h1Match = sanitizedContent.match(/^#\s+(.+)$/m);
   const title = (data.title as string) || h1Match?.[1] || file.slug.split("/").pop() || file.slug;
-  const body = h1Match ? content.replace(/^#\s+.+$/m, "").replace(/^\n+/, "") : content;
+  const body = h1Match
+    ? sanitizedContent.replace(/^#\s+.+$/m, "").replace(/^\n+/, "")
+    : sanitizedContent;
   const tags = Array.isArray(data.tags) ? (data.tags as string[]) : [];
   const MAX_CONTENT = 900_000;
   const truncatedBody = body.length > MAX_CONTENT

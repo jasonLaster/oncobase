@@ -61,8 +61,14 @@ async function buildAndUpload(type: DownloadType): Promise<string> {
 
         (async () => {
           if (diskAvailable) {
-            const { addDirToDiskArchive } = await import("@/lib/archive-helpers");
-            addDirToDiskArchive(arc, OBSIDIAN_DIR);
+            const {
+              addDirToDiskArchive,
+              addRedactedMarkdownToArchive,
+            } = await import("@/lib/archive-helpers");
+            if (type === "full") {
+              addDirToDiskArchive(arc, OBSIDIAN_DIR);
+            }
+            addRedactedMarkdownToArchive(arc);
           } else if (type === "full") {
             await fillFullArchive(arc);
           } else {
@@ -191,12 +197,14 @@ async function fillMarkdownArchive(arc: import("archiver").Archiver) {
   let isDone = false;
   let pageNum = 0;
   let totalDocs = 0;
+  const { applyPiiRedactions } = await import("@/lib/pii-redaction");
 
   while (!isDone) {
     const page = (await fetchQuery(api.documents.listPageWithContent, { cursor, numItems: 50 })) as ListPageResult;
     for (const doc of page.page) {
       if (doc.content) {
-        arc.append(Buffer.from(doc.content, "utf-8"), { name: `${doc.slug}.md` });
+        const content = applyPiiRedactions(doc.content);
+        arc.append(Buffer.from(content, "utf-8"), { name: `${doc.slug}.md` });
         totalDocs++;
       }
     }

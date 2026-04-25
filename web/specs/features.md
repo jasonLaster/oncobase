@@ -68,6 +68,7 @@ This document focuses on shipped behavior and notable implementation details. De
   - `.md` link cleanup so rendered links use slug routes instead of raw filenames
   - relative image/file proxying for supported assets
 - The renderer rewrites inline PDF links into styled PDF chips with a document icon and external-link affordance.
+- Server-side markdown redaction supports inline `<redact ...>...</redact>` spans and `:::redact ... :::` blocks so patient identifiers stay hidden by default across rendering, search, chat context, and exports. Detailed behavior lives in [pii-redaction.md](./pii-redaction.md).
 
 ### Mermaid And Diagrams
 

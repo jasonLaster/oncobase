@@ -617,11 +617,11 @@ export function ChatInterface({
               Research Assistant
             </h1>
             <p className="text-xs mb-4 sm:mb-6">
-              Ask questions about Diana&apos;s diagnosis, treatment, and research
+              Ask questions about the diagnosis, treatment, and research
             </p>
             <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto px-2">
               {[
-                "What is Diana's treatment plan?",
+                "What is the treatment plan?",
                 "Explain ctDNA monitoring options",
                 "What clinical trials are relevant?",
                 "Summarize the prognosis",

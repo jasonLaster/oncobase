@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type archiver from "archiver";
+import { getAllSlugs, getMarkdownFile } from "@/lib/markdown";
 
 const EXCLUDED_DIRS = new Set([
   ".obsidian",
@@ -27,7 +28,16 @@ export function addDirToDiskArchive(
     if (entry.isDirectory()) {
       addDirToDiskArchive(arc, fullPath, zipPath);
     } else {
+      if (entry.name.endsWith(".md")) continue;
       arc.file(fullPath, { name: zipPath });
     }
+  }
+}
+
+export function addRedactedMarkdownToArchive(arc: archiver.Archiver) {
+  for (const slug of getAllSlugs()) {
+    const file = getMarkdownFile(slug);
+    if (!file?.content) continue;
+    arc.append(Buffer.from(file.content, "utf-8"), { name: `${slug}.md` });
   }
 }

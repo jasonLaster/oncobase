@@ -48,14 +48,14 @@ const COST_PER_1M: Record<string, { input: number; output: number }> = {
 };
 
 // --- System prompt ---
-const SYSTEM_PROMPT_BASE = `You are a research assistant for Diana's TNBC (triple-negative breast cancer) knowledge base. You help answer questions about Diana's diagnosis, treatment plan, research, and related medical topics.
+const SYSTEM_PROMPT_BASE = `You are a research assistant for a triple-negative breast cancer (TNBC) knowledge base. You help answer questions about the patient's diagnosis, treatment plan, research, and related medical topics.
 
 You have access to tools that let you search and read wiki pages. Use them to find relevant information before answering. Always ground your answers in the wiki content when possible.
 
 IMPORTANT CITATION RULES:
 - ALWAYS cite sources using inline markdown links: [Page Title](/slug)
 - Every factual claim should have a citation. Aim for 5+ citations per response.
-- Example: "Diana is on [KEYNOTE-522](/wiki/treatment/treatment-plan) which includes..."
+- Example: "The treatment plan uses [KEYNOTE-522](/wiki/treatment/treatment-plan), which includes..."
 - Do NOT list sources at the end — weave them inline throughout your response.
 
 Search strategy:
@@ -322,14 +322,14 @@ async function runModel(model: string, questions: string[]): Promise<EvalResult[
 
 // --- Test questions ---
 const TEST_QUESTIONS = [
-  "What is Diana's treatment plan?",
-  "What clinical trials should Diana consider?",
+  "What is the treatment plan?",
+  "What clinical trials should the patient consider?",
   "Explain the prognosis for stage III TNBC",
   "What is ctDNA monitoring and why does it matter?",
   "What mRNA vaccines are being studied for TNBC?",
-  "Who is on Diana's medical team?",
-  "What side effects should Diana expect from KEYNOTE-522?",
-  "What happens if Diana doesn't achieve pCR?",
+  "Who is on the medical team?",
+  "What side effects should be expected from KEYNOTE-522?",
+  "What happens if the patient doesn't achieve pCR?",
 ];
 
 const DEFAULT_MODELS = [

@@ -12,6 +12,7 @@ import { getMarkdownPageMetadata, toNextMetadata } from "@/lib/page-metadata";
 import { MarkdownRenderer, MarkdownRendererAsync } from "@/components/markdown-renderer";
 import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
+import { SHOW_PII_QUERY_PARAM } from "@/lib/pii-redaction";
 
 // All sources/ content is immutable raw documents rarely visited directly.
 // Deferring them to on-demand rendering saves significant build time.
@@ -81,16 +82,37 @@ function DocHeader({ file }: { file: { title: string; content: string; frontmatt
 }
 
 // -- Async body for ISR pages (streamed via PPR) -----------------------------
-async function DeferredMarkdownBody({ filePath, slug }: { filePath: string; slug: string }) {
-  const file = await getMarkdownFileAsync(filePath);
+async function DeferredMarkdownBody({
+  filePath,
+  showPii,
+  slug,
+}: {
+  filePath: string;
+  showPii: boolean;
+  slug: string;
+}) {
+  const file = await getMarkdownFileAsync(filePath, {
+    piiMode: showPii ? "revealed" : "redacted",
+  });
   if (!file) notFound();
   return <MarkdownRendererAsync content={file.content} currentSlug={slug} />;
 }
 
-export async function DocumentPage({
+function documentRedirectPath(pathname: string, showPii: boolean) {
+  if (!showPii) {
+    return pathname;
+  }
+
+  const separator = pathname.includes("?") ? "&" : "?";
+  return `${pathname}${separator}${SHOW_PII_QUERY_PARAM}=1`;
+}
+
+export async function renderDocumentPage({
   params,
+  showPii = false,
 }: {
   params: Promise<{ slug: string[] }>;
+  showPii?: boolean;
 }) {
   const { slug } = await params;
   const filePath = slug.map(decodeURIComponent).join("/");
@@ -103,23 +125,25 @@ export async function DocumentPage({
   // Strip .md suffix -- URLs like /wiki/foo.md should serve /wiki/foo
   const cleanPath = filePath.replace(/\.md$/i, "");
   if (cleanPath !== filePath) {
-    redirect(`/${cleanPath}`);
+    redirect(documentRedirectPath(`/${cleanPath}`, showPii));
   }
 
   const routeAliasKey = cleanPath.toLowerCase();
   const aliasCanonicalPath = ROUTE_ALIAS_CANONICAL_PATHS.get(routeAliasKey);
   if (aliasCanonicalPath && cleanPath !== aliasCanonicalPath) {
-    redirect(`/${aliasCanonicalPath}`);
+    redirect(documentRedirectPath(`/${aliasCanonicalPath}`, showPii));
   }
 
   const contentPath = ROUTE_SLUG_ALIASES.get(routeAliasKey) ?? cleanPath;
   const canonicalPath = getCanonicalSlug(contentPath);
   if (!aliasCanonicalPath && canonicalPath && canonicalPath !== contentPath) {
-    redirect(`/${canonicalPath}`);
+    redirect(documentRedirectPath(`/${canonicalPath}`, showPii));
   }
 
   // Sync file read -- always fast (local disk), provides header data for PPR cache
-  const file = getMarkdownFile(canonicalPath ?? contentPath);
+  const file = getMarkdownFile(canonicalPath ?? contentPath, {
+    piiMode: showPii ? "revealed" : "redacted",
+  });
 
   if (!file) {
     notFound();
@@ -137,13 +161,25 @@ export async function DocumentPage({
       <DocHeader file={displayFile} />
       {isDeferred ? (
         <Suspense fallback={null}>
-          <DeferredMarkdownBody filePath={resolvedPath} slug={file.slug} />
+          <DeferredMarkdownBody
+            filePath={resolvedPath}
+            showPii={showPii}
+            slug={file.slug}
+          />
         </Suspense>
       ) : (
         <MarkdownRenderer content={file.content} currentSlug={file.slug} />
       )}
     </DocumentComments>
   );
+}
+
+export function DocumentPage({
+  params,
+}: {
+  params: Promise<{ slug: string[] }>;
+}) {
+  return renderDocumentPage({ params });
 }
 
 export function DocumentPageLoading() {

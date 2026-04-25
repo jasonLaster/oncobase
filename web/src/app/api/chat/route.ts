@@ -11,6 +11,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { embed } from "@/lib/embeddings";
 import { fastTextModel } from "@/lib/ai";
+import { applyPiiRedactions } from "@/lib/pii-redaction";
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -18,14 +19,14 @@ function getConvex() {
   return new ConvexHttpClient(url);
 }
 
-const SYSTEM_PROMPT_BASE = `You are a research assistant for Diana's TNBC (triple-negative breast cancer) knowledge base. You help answer questions about Diana's diagnosis, treatment plan, research, and related medical topics.
+const SYSTEM_PROMPT_BASE = `You are a research assistant for a triple-negative breast cancer (TNBC) knowledge base. You help answer questions about the patient's diagnosis, treatment plan, research, and related medical topics.
 
 You have access to tools that let you search and read wiki pages. Use them to find relevant information before answering. Always ground your answers in the wiki content when possible.
 
 IMPORTANT CITATION RULES:
 - ALWAYS cite sources using inline markdown links: [Page Title](/slug)
 - Every factual claim should have a citation. Aim for 5+ citations per response.
-- Example: "Diana is on [KEYNOTE-522](/wiki/treatment/treatment-plan) which includes..."
+- Example: "The treatment plan uses [KEYNOTE-522](/wiki/treatment/treatment-plan), which includes..."
 - Cite specific source pages when referencing research: [Sahin 2026](/sources/research-articles/sahin-2026-tnbc-mrna-vaccine)
 - Do NOT list sources at the end — weave them inline throughout your response.
 
@@ -48,11 +49,11 @@ async function buildSystemPrompt(): Promise<string> {
   let prompt = SYSTEM_PROMPT_BASE;
 
   if (diagnosisDoc) {
-    prompt += `\n\n## DIANA'S DIAGNOSIS\n\n${diagnosisDoc.content}`;
+    prompt += `\n\n## PATIENT DIAGNOSIS\n\n${applyPiiRedactions(diagnosisDoc.content)}`;
   }
 
   if (indexDoc) {
-    prompt += `\n\n## PAGE INDEX\n\nUse these slugs with read_page to get full content:\n\n${indexDoc.content}`;
+    prompt += `\n\n## PAGE INDEX\n\nUse these slugs with read_page to get full content:\n\n${applyPiiRedactions(indexDoc.content)}`;
   }
 
   return prompt;
@@ -71,7 +72,7 @@ async function buildSystemPrompt(): Promise<string> {
  * 3. Individual specific terms — when the cleaned query is long, a single
  *    precise term like "pembrolizumab" can surface docs the full query misses
  *
- * Example: "peptide vaccines for Diana's TNBC" →
+ * Example: "peptide vaccines for TNBC" →
  *   ["peptide vaccines", "triple-negative breast cancer", "vaccines", "peptide"]
  */
 function generateSearchPatterns(query: string): string[] {
@@ -90,7 +91,7 @@ function generateSearchPatterns(query: string): string[] {
     // Domain-generic terms — too broad, would match nearly every document
     // NOTE: "treatment", "diagnosis", "test" were removed from this list —
     // they appear in key page titles/slugs and stripping them breaks
-    // common queries like "What is Diana's treatment plan?"
+    // common queries like "What is the treatment plan?"
     "diana", "diana's", "tnbc", "breast", "cancer", "tumor",
     "patient", "doctor", "medical", "clinical", "results",
     "ucsf", "stanford",
@@ -268,7 +269,11 @@ export async function POST(request: Request) {
             for (const r of results) {
               if (!seen.has(r.slug)) {
                 seen.add(r.slug);
-                merged.push(r);
+                merged.push({
+                  ...r,
+                  title: applyPiiRedactions(r.title),
+                  excerpt: r.excerpt ? applyPiiRedactions(r.excerpt) : undefined,
+                });
               }
             }
           }
@@ -277,7 +282,11 @@ export async function POST(request: Request) {
           for (const r of vectorResults) {
             if (!seen.has(r.slug)) {
               seen.add(r.slug);
-              merged.push({ slug: r.slug, title: r.title, tags: r.tags });
+              merged.push({
+                slug: r.slug,
+                title: applyPiiRedactions(r.title),
+                tags: r.tags,
+              });
             }
           }
 
@@ -297,12 +306,13 @@ export async function POST(request: Request) {
         execute: async ({ slug }: { slug: string }) => {
           const doc = await getConvex().query(api.documents.getBySlug, { slug });
           if (!doc) return { error: `Page not found: ${slug}` };
+          const content = applyPiiRedactions(doc.content);
 
           // Extract wikilinks [[slug]] and [[slug|label]] from content
           const linkRegex = /\[\[([^\]|]+?)(?:\|[^\]]+?)?\]\]/g;
           const linkedSlugs = new Set<string>();
           let match;
-          while ((match = linkRegex.exec(doc.content)) !== null) {
+          while ((match = linkRegex.exec(content)) !== null) {
             const linked = match[1].trim();
             // Skip Terminology anchors and self-links
             if (linked.startsWith("about/Terminology") || linked === slug) continue;
@@ -315,16 +325,18 @@ export async function POST(request: Request) {
             await Promise.all(
               slugsToResolve.map(async (s) => {
                 const linked = await getConvex().query(api.documents.getBySlug, { slug: s });
-                return linked ? { slug: linked.slug, title: linked.title } : null;
+                return linked
+                  ? { slug: linked.slug, title: applyPiiRedactions(linked.title) }
+                  : null;
               })
             )
           ).filter((p): p is { slug: string; title: string } => p !== null);
 
           return {
             slug: doc.slug,
-            title: doc.title,
+            title: applyPiiRedactions(doc.title),
             tags: doc.tags,
-            content: doc.content.slice(0, 8000),
+            content: content.slice(0, 8000),
             linked_pages: linkedPages,
           };
         },

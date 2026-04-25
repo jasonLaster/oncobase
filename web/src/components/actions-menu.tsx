@@ -148,7 +148,7 @@ function AuthDialog({
                 id="auth-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Diana supporter"
+                placeholder="Supporter name"
                 autoComplete="name"
               />
             </div>

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { getCanonicalSlug, getFileTree } from "./markdown";
+import { getCanonicalSlug, getFileTree, getMarkdownFile } from "./markdown";
 
 function createVault(files: Record<string, string | Buffer>) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "file-tree-"));
@@ -71,5 +71,26 @@ describe("getFileTree", () => {
 
     expect(tree.some((node) => node.badge === "PDF set")).toBe(false);
     expect(tree.map((node) => node.name)).toEqual(["paper", "paper-analysis"]);
+  });
+});
+
+describe("getMarkdownFile PII modes", () => {
+  test("keeps redacted and revealed diagnosis reads isolated", () => {
+    const redacted = getMarkdownFile("wiki/diagnostics/diagnosis");
+    const revealed = getMarkdownFile("wiki/diagnostics/diagnosis", {
+      piiMode: "revealed",
+    });
+    const redactedAgain = getMarkdownFile("wiki/diagnostics/diagnosis");
+
+    expect(redacted?.content).toContain("Patient identifiers hidden.");
+    expect(redacted?.content).not.toContain("Diana Laster");
+    expect(redacted?.content).not.toContain("88855655");
+
+    expect(revealed?.content).toContain("Diana Laster");
+    expect(revealed?.content).toContain("88855655");
+    expect(revealed?.content).not.toContain("Patient identifiers hidden.");
+
+    expect(redactedAgain?.content).toBe(redacted?.content);
+    expect(redactedAgain?.content).not.toContain("Diana Laster");
   });
 });
