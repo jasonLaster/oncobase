@@ -9,7 +9,7 @@ import { ChatInterface } from "../_components/chat-interface";
 // Module-level cache: snapshot initial messages per conversation ID
 const messageCache = new Map<
   string,
-  Array<{ _id?: string; role: "user" | "assistant"; content: string; parts?: string; disabled?: boolean }>
+  Array<{ _id?: string; role: "user" | "assistant"; content: string; parts?: string | unknown[]; disabled?: boolean }>
 >();
 
 export function ConversationPageClient({ id }: { id: string }) {

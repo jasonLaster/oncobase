@@ -68,7 +68,7 @@ export const updateStreaming = mutation({
   args: {
     conversationId: v.id("conversations"),
     text: v.string(),
-    parts: v.optional(v.string()),
+    parts: v.optional(v.union(v.string(), v.array(v.any()))),
   },
   handler: async (ctx, { conversationId, text, parts }) => {
     const patch: Record<string, unknown> = {
@@ -112,7 +112,7 @@ export const saveMessages = mutation({
       v.object({
         role: v.union(v.literal("user"), v.literal("assistant")),
         content: v.string(),
-        parts: v.optional(v.string()),
+        parts: v.optional(v.union(v.string(), v.array(v.any()))),
         createdAt: v.number(),
       })
     ),

@@ -82,7 +82,10 @@ export function createConvexFlusher({
       .mutation(api.conversations.updateStreaming, {
         conversationId,
         text: currentText,
-        parts: JSON.stringify(parts),
+        // Phase 2: parts column is union(string, array). We always write the
+        // native array form. The schema validator accepts both for backward
+        // compat with rows that pre-date the migration.
+        parts: parts as unknown as string,
       })
       .then(
         () => undefined,
@@ -158,12 +161,13 @@ export function createConvexFlusher({
         timer = null;
       }
       try {
+        const errorParts = [{ type: "text" as const, text: message }];
         // Surface the error as streaming text so the client sees it before
         // we clear, then save it as the assistant message and clear.
         await convex.mutation(api.conversations.updateStreaming, {
           conversationId,
           text: message,
-          parts: JSON.stringify([{ type: "text", text: message }]),
+          parts: errorParts as unknown as string,
         });
         await convex.mutation(api.conversations.saveMessages, {
           conversationId,
@@ -171,7 +175,7 @@ export function createConvexFlusher({
             {
               role: "assistant",
               content: message,
-              parts: JSON.stringify([{ type: "text", text: message }]),
+              parts: errorParts as unknown as string,
               createdAt: Date.now(),
             },
           ],

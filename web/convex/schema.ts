@@ -51,7 +51,10 @@ export default defineSchema({
     updatedAt: v.number(),
     archived: v.optional(v.boolean()),
     streamingText: v.optional(v.string()),
-    streamingParts: v.optional(v.string()), // JSON-serialized parts array
+    // Phase 2 of chat-perf: parts are stored as a typed array. The string form
+    // is still accepted for in-flight rows that pre-date the migration; new
+    // writes always use the array form. See convex/migrations.ts.
+    streamingParts: v.optional(v.union(v.string(), v.array(v.any()))),
     streamingUpdatedAt: v.optional(v.number()),
   }).index("by_updated", ["updatedAt"]),
 
@@ -59,7 +62,7 @@ export default defineSchema({
     conversationId: v.id("conversations"),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
-    parts: v.optional(v.string()), // JSON-serialized UIMessage parts
+    parts: v.optional(v.union(v.string(), v.array(v.any()))),
     disabled: v.optional(v.boolean()),
     createdAt: v.number(),
   }).index("by_conversation", ["conversationId", "createdAt"]),

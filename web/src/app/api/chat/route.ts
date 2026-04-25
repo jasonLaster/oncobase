@@ -429,7 +429,8 @@ export async function POST(request: Request) {
               {
                 role: "assistant",
                 content: text,
-                parts: JSON.stringify(uiParts),
+                // Phase 2: parts is union(string, array); write native array.
+                parts: uiParts as unknown as string,
                 createdAt: Date.now(),
               },
             ]

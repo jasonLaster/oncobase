@@ -13,7 +13,9 @@ interface StoredMessage {
   _id?: string;
   role: "user" | "assistant";
   content: string;
-  parts?: string;
+  // Phase 2: parts is union(string, array). Old rows are JSON-encoded strings
+  // until the migration runs; new rows are native arrays.
+  parts?: string | unknown[];
   disabled?: boolean;
 }
 
@@ -23,14 +25,26 @@ interface ChatUIMessage extends UIMessage {
   disabled?: boolean;
 }
 
+function readParts(parts: string | unknown[] | undefined): UIMessage["parts"] | null {
+  if (parts === undefined) return null;
+  if (Array.isArray(parts)) return parts as UIMessage["parts"];
+  if (typeof parts === "string" && parts.length > 0) {
+    try {
+      return JSON.parse(parts) as UIMessage["parts"];
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 function storedToUIMessages(msgs: StoredMessage[]): ChatUIMessage[] {
   const cleaned = msgs.filter((m) => m.role === "user" || m.content || m.parts);
   return cleaned.map((m, i) => ({
     id: m._id || `stored-${i}`,
     role: m.role,
-    parts: m.parts
-      ? (JSON.parse(m.parts) as UIMessage["parts"])
-      : [{ type: "text" as const, text: m.content }],
+    parts:
+      readParts(m.parts) ?? [{ type: "text" as const, text: m.content }],
     dbId: m._id,
     disabled: m.disabled,
   }));
@@ -305,7 +319,7 @@ function AssistantMessage({ message }: { message: UIMessage }) {
 
 interface ChatInterfaceProps {
   conversationId: string | null;
-  initialMessages?: Array<{ role: "user" | "assistant"; content: string; parts?: string }>;
+  initialMessages?: Array<{ role: "user" | "assistant"; content: string; parts?: string | unknown[] }>;
 }
 
 export function ChatInterface({
@@ -381,11 +395,24 @@ export function ChatInterface({
   const serverIsWaiting = isGenerating && serverStreamingText === "";
   const isBusy = sending || isGenerating;
 
-  // Memoize parsed streaming parts — avoid JSON.parse in the render path
+  // Memoize parsed streaming parts. Phase 2: column is union(string, array);
+  // when it's already an array (post-migration writes), skip JSON.parse.
   const parsedStreamingParts = useMemo(() => {
     if (!serverStreamingParts) return null;
-    try { return JSON.parse(serverStreamingParts) as Array<{ type: string; [k: string]: unknown }>; }
-    catch { return null; }
+    if (Array.isArray(serverStreamingParts)) {
+      return serverStreamingParts as Array<{ type: string; [k: string]: unknown }>;
+    }
+    if (typeof serverStreamingParts === "string") {
+      try {
+        return JSON.parse(serverStreamingParts) as Array<{
+          type: string;
+          [k: string]: unknown;
+        }>;
+      } catch {
+        return null;
+      }
+    }
+    return null;
   }, [serverStreamingParts]);
 
   const streamingGroups = useMemo(
