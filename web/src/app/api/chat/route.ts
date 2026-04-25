@@ -1,6 +1,7 @@
 import {
   streamText,
   stepCountIs,
+  smoothStream,
   convertToModelMessages,
   type UIMessage,
 } from "ai";
@@ -12,6 +13,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { embed } from "@/lib/embeddings";
 import { fastTextModel } from "@/lib/ai";
 import { applyPiiRedactions } from "@/lib/pii-redaction";
+import { createConvexFlusher } from "./_flusher";
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -170,51 +172,19 @@ export async function POST(request: Request) {
 
   const modelMessages = await convertToModelMessages(messages);
   const convId = conversationId as Id<"conversations"> | undefined;
+  const convex = getConvex();
 
   // Mark stream as active immediately so clients see the waiting state
   if (convId) {
-    getConvex().mutation(api.conversations.updateStreaming, {
-      conversationId: convId,
-      text: "",
-    }).catch(() => {});
+    convex
+      .mutation(api.conversations.updateStreaming, {
+        conversationId: convId,
+        text: "",
+      })
+      .catch(() => {});
   }
 
-  // Streaming parts + text flush to Convex
-  let currentText = "";
-  const streamingParts: Array<Record<string, unknown>> = [];
-  let flushQueued = false;
-  let lastFlush = 0;
-  const FLUSH_INTERVAL = 500; // ms
-
-  function scheduleFlush() {
-    if (!convId || flushQueued) return;
-    const now = Date.now();
-    const wait = Math.max(0, FLUSH_INTERVAL - (now - lastFlush));
-    flushQueued = true;
-    setTimeout(async () => {
-      flushQueued = false;
-      lastFlush = Date.now();
-      try {
-        await getConvex().mutation(api.conversations.updateStreaming, {
-          conversationId: convId,
-          text: currentText,
-          parts: JSON.stringify(streamingParts),
-        });
-      } catch {
-        // Best-effort
-      }
-    }, wait);
-  }
-
-  function flushNow() {
-    if (!convId) return;
-    getConvex().mutation(api.conversations.updateStreaming, {
-      conversationId: convId,
-      text: currentText,
-      parts: JSON.stringify(streamingParts),
-    }).catch(() => {});
-    lastFlush = Date.now();
-  }
+  const flusher = createConvexFlusher({ convex, conversationId: convId });
 
   const systemPrompt = await buildSystemPrompt();
 
@@ -224,6 +194,7 @@ export async function POST(request: Request) {
     system: systemPrompt,
     messages: modelMessages,
     stopWhen: stepCountIs(10),
+    experimental_transform: smoothStream({ delayInMs: 25, chunking: "word" }),
     tools: {
       search_wiki: {
         description:
@@ -367,174 +338,103 @@ export async function POST(request: Request) {
       },
     },
     onAbort: async () => {
-      if (convId) {
-        try {
-          // Save whatever partial text we accumulated as the assistant message
-          await Promise.all([
-            currentText
-              ? getConvex().mutation(api.conversations.saveMessages, {
-                  conversationId: convId,
-                  messages: [
-                    {
-                      role: "assistant" as const,
-                      content: currentText,
-                      createdAt: Date.now(),
-                    },
-                  ],
-                })
-              : Promise.resolve(),
-            getConvex().mutation(api.conversations.clearStreaming, {
-              conversationId: convId,
-            }),
-          ]);
-        } catch {
-          // Best-effort
-        }
-      }
+      await flusher.finalizeAbort();
     },
     onChunk: ({ chunk }) => {
       if (!convId) return;
       if (chunk.type === "text-delta") {
-        currentText += (chunk as { text: string }).text;
-        // Update or create trailing text part
-        const last = streamingParts[streamingParts.length - 1];
-        if (last && last.type === "text") {
-          last.text = (last.text as string) + (chunk as { text: string }).text;
-        } else {
-          streamingParts.push({ type: "text", text: (chunk as { text: string }).text });
-        }
-        scheduleFlush();
+        flusher.pushText((chunk as { text: string }).text);
       } else if (chunk.type === "tool-call") {
         const tc = chunk as unknown as Record<string, unknown>;
         const toolArgs = tc.args || tc.input;
-        streamingParts.push({
+        flusher.pushToolCall({
           type: `tool-${tc.toolName}`,
           toolName: tc.toolName as string,
           toolCallId: tc.toolCallId as string,
           input: toolArgs,
           state: "calling",
         });
-        flushNow();
       } else if (chunk.type === "tool-result") {
         const tr = chunk as unknown as { toolCallId: string; result: unknown };
-        const part = streamingParts.find(
-          (p) => (p.toolCallId as string) === tr.toolCallId
-        );
-        if (part) {
-          // Strip large content from tool results to keep payload small
-          const result = tr.result as Record<string, unknown> | unknown;
-          if (typeof result === "object" && result !== null && "content" in (result as Record<string, unknown>)) {
-            const r = result as Record<string, unknown>;
-            part.output = Object.fromEntries(Object.entries(r).filter(([k]) => k !== "content"));
-          } else if (Array.isArray(result)) {
-            // For search results, keep just slug/title
-            part.output = (result as Array<Record<string, unknown>>).map(
-              (r) => ({ slug: r.slug, title: r.title })
-            );
-          } else {
-            part.output = result;
-          }
-          part.state = "output-available";
+        // Strip large content from tool results to keep the streaming row small.
+        const result = tr.result;
+        let output: unknown;
+        if (
+          typeof result === "object" &&
+          result !== null &&
+          "content" in (result as Record<string, unknown>)
+        ) {
+          const r = result as Record<string, unknown>;
+          output = Object.fromEntries(
+            Object.entries(r).filter(([k]) => k !== "content")
+          );
+        } else if (Array.isArray(result)) {
+          // For search results, keep just slug/title.
+          output = (result as Array<Record<string, unknown>>).map((r) => ({
+            slug: r.slug,
+            title: r.title,
+          }));
+        } else {
+          output = result;
         }
-        flushNow();
+        flusher.updateToolResult(tr.toolCallId, output);
       }
     },
     onError: async (event) => {
-      const errMsg = event.error instanceof Error ? event.error.message : String(event.error);
+      const errMsg =
+        event.error instanceof Error ? event.error.message : String(event.error);
       console.error("Chat stream error:", errMsg);
-      if (convId) {
-        try {
-          // Write error as streaming text so the client sees it immediately
-          const isAuth = errMsg.includes("Authentication") || errMsg.includes("401") || errMsg.includes("Unauthorized");
-          const isCredits = errMsg.includes("credits") || errMsg.includes("402");
-          const userMsg = isAuth
-            ? "API key is invalid or missing. Check your AI_GATEWAY_API_KEY in .env.local."
-            : isCredits
-              ? "Out of API credits. Check your Vercel AI Gateway usage."
-              : `Something went wrong: ${errMsg}`;
-          await getConvex().mutation(api.conversations.updateStreaming, {
-            conversationId: convId,
-            text: userMsg,
-            parts: JSON.stringify([{ type: "text", text: userMsg }]),
-          });
-          // Clear streaming after a brief delay so the message is visible
-          setTimeout(async () => {
-            try {
-              await getConvex().mutation(api.conversations.saveMessages, {
-                conversationId: convId,
-                messages: [{
-                  role: "assistant" as const,
-                  content: userMsg,
-                  parts: JSON.stringify([{ type: "text", text: userMsg }]),
-                  createdAt: Date.now(),
-                }],
-              });
-              await getConvex().mutation(api.conversations.clearStreaming, {
-                conversationId: convId,
-              });
-            } catch {}
-          }, 500);
-        } catch {}
-      }
+      const isAuth =
+        errMsg.includes("Authentication") ||
+        errMsg.includes("401") ||
+        errMsg.includes("Unauthorized");
+      const isCredits = errMsg.includes("credits") || errMsg.includes("402");
+      const userMsg = isAuth
+        ? "API key is invalid or missing. Check your AI_GATEWAY_API_KEY in .env.local."
+        : isCredits
+          ? "Out of API credits. Check your Vercel AI Gateway usage."
+          : `Something went wrong: ${errMsg}`;
+      await flusher.finalizeError(userMsg);
     },
     onFinish: async ({ text, steps }) => {
-      console.log("[chat] onFinish fired", { convId, textLen: text?.length, steps: steps?.length });
-      if (convId) {
-        // Build UI-compatible parts from steps for full restoration
-        const uiParts: Array<Record<string, unknown>> = [];
-        for (const step of steps) {
-          // Reasoning
-          for (const r of step.reasoning) {
-            if (r.text) {
-              uiParts.push({ type: "reasoning", text: r.text });
+      if (!convId) return;
+      // Build UI-compatible parts from steps for full restoration.
+      const uiParts: Array<Record<string, unknown>> = [];
+      for (const step of steps) {
+        for (const r of step.reasoning) {
+          if (r.text) uiParts.push({ type: "reasoning", text: r.text });
+        }
+        for (const tc of step.toolCalls) {
+          const tr = (
+            step as unknown as {
+              toolResults?: Array<{ toolCallId: string; result: unknown }>;
             }
-          }
-          // Tool calls with results
-          for (const tc of step.toolCalls) {
-            const tr = (step as unknown as { toolResults?: Array<{ toolCallId: string; result: unknown }> })
-              .toolResults?.find((r) => r.toolCallId === tc.toolCallId);
-            uiParts.push({
-              type: `tool-${tc.toolName}`,
-              toolName: tc.toolName,
-              toolCallId: tc.toolCallId,
-              input: (tc as unknown as Record<string, unknown>).args ?? (tc as unknown as Record<string, unknown>).input,
-              output: tr?.result ?? null,
-              state: "output-available",
-            });
-          }
-          // Text
-          if (step.text) {
-            uiParts.push({ type: "text", text: step.text });
-          }
-        }
-
-        try {
-          // Save message FIRST, then clear streaming — so the final message
-          // is available before streamingText goes undefined (prevents flash)
-          if (text) {
-            console.log("[chat] saving message", { convId, partsCount: uiParts.length });
-            await getConvex().mutation(api.conversations.saveMessages, {
-              conversationId: convId,
-              messages: [
-                {
-                  role: "assistant" as const,
-                  content: text,
-                  parts: JSON.stringify(uiParts),
-                  createdAt: Date.now(),
-                },
-              ],
-            });
-            console.log("[chat] message saved");
-          }
-          console.log("[chat] clearing streaming");
-          await getConvex().mutation(api.conversations.clearStreaming, {
-            conversationId: convId,
+          ).toolResults?.find((r) => r.toolCallId === tc.toolCallId);
+          uiParts.push({
+            type: `tool-${tc.toolName}`,
+            toolName: tc.toolName,
+            toolCallId: tc.toolCallId,
+            input:
+              (tc as unknown as Record<string, unknown>).args ??
+              (tc as unknown as Record<string, unknown>).input,
+            output: tr?.result ?? null,
+            state: "output-available",
           });
-          console.log("[chat] streaming cleared");
-        } catch (e) {
-          console.error("[chat] Failed to save assistant message:", e);
         }
+        if (step.text) uiParts.push({ type: "text", text: step.text });
       }
+      await flusher.finalize(
+        text
+          ? [
+              {
+                role: "assistant",
+                content: text,
+                parts: JSON.stringify(uiParts),
+                createdAt: Date.now(),
+              },
+            ]
+          : []
+      );
     },
   });
 
