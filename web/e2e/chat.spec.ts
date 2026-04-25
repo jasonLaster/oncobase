@@ -22,13 +22,15 @@ test.describe("Chat", () => {
     // then wait for it to disappear (response complete) or
     // just check that new content appeared beyond the user message.
     await expect(page.getByRole("button", { name: "Stop" })).toBeVisible({
-      timeout: 15_000,
+      timeout: 30_000,
     });
   });
 
   test("new chat link in header navigates to chat", async ({ page }) => {
     await page.goto("/");
-    await page.locator("header").getByRole("link", { name: "New chat" }).click();
-    await expect(page).toHaveURL(/\/chat/);
+    const newChat = page.locator("header").getByRole("link", { name: "New chat" });
+    await expect(newChat).toBeVisible();
+    await newChat.click();
+    await expect(page).toHaveURL(/\/chat/, { timeout: 15_000 });
   });
 });

@@ -9,7 +9,9 @@ test.describe("timeline gantt rendering", () => {
     const article = page.locator("article:visible").first();
     await expect(article).toBeVisible();
 
-    await expect(article.locator(".mermaid-placeholder")).toHaveCount(0);
+    await expect(article.locator(".mermaid-placeholder")).toHaveCount(0, {
+      timeout: 25_000,
+    });
     await expect(article.locator(".mermaid-error")).toHaveCount(0);
 
     const ganttSvg = article

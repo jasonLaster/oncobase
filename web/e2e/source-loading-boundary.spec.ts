@@ -28,7 +28,7 @@ async function delayRoutePayload(page: Page, routePath: string) {
 
 async function chooseCommandPaletteResult(page: Page, slug: string) {
   const item = page.locator(`[cmdk-item][data-value="${slug}"]`);
-  await expect(item).toBeVisible({ timeout: 15_000 });
+  await expect(item).toBeVisible({ timeout: 25_000 });
 
   if ((await item.getAttribute("aria-selected")) !== "true") {
     await item.hover();

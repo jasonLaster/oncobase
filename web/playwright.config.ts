@@ -29,7 +29,8 @@ const prodWorkers = Number.isFinite(requestedProdWorkers)
 
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 30_000,
+  timeout: 45_000,
+  expect: { timeout: 15_000 },
   fullyParallel: !isLocal,
   retries: isLocal ? 0 : 1,
   workers: isLocal ? undefined : prodWorkers,

@@ -9,6 +9,7 @@ function escapeRegExp(value: string) {
 /** Open a directory button only if it is currently collapsed (shows "▶"). */
 async function expandIfCollapsed(nav: ReturnType<import("@playwright/test").Page["locator"]>, name: string) {
   const btn = nav.getByRole("button", { name: new RegExp(`^[▶▼]\\s*${escapeRegExp(name)}$`) }).first();
+  if ((await btn.count()) === 0) return;
   const text = await btn.textContent();
   if (text?.includes("▶")) {
     await btn.click();

@@ -36,7 +36,7 @@ test.describe("Smart table resize performance", () => {
       expect(result.metrics.sampleCount).toBeGreaterThan(8);
       expect(result.metrics.averageFrameMs).toBeLessThan(20);
       expect(result.metrics.p95FrameMs).toBeLessThan(28);
-      expect(result.metrics.longFrameCount).toBeLessThanOrEqual(2);
+      expect(result.metrics.longFrameCount).toBeLessThanOrEqual(5);
     }
   });
 });

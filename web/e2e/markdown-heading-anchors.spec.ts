@@ -66,10 +66,20 @@ async function getHeadingAnchorCounts(page: Page) {
 
 async function expectHeadingAnchorsReady(page: Page) {
   await expect
-    .poll(async () => {
-      const counts = await getHeadingAnchorCounts(page);
-      return counts.headings > 0 && counts.anchors === counts.headings;
-    }, { timeout: 15_000 })
+    .poll(
+      async () => {
+        try {
+          const counts = await getHeadingAnchorCounts(page);
+          return counts.headings > 0 && counts.anchors === counts.headings;
+        } catch (error) {
+          if (isTransientNavigationError(error)) {
+            return false;
+          }
+          throw error;
+        }
+      },
+      { timeout: 25_000 }
+    )
     .toBe(true);
 }
 
