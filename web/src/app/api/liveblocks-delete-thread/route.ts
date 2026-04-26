@@ -5,13 +5,6 @@ const liveblocksSecret =
   process.env.LIVEBLOCKS_SECRET_KEY ?? process.env.LIVEBLOCKS_API_KEY;
 
 export async function POST(request: Request) {
-  if (!liveblocksSecret) {
-    return NextResponse.json(
-      { error: "Liveblocks secret key not configured" },
-      { status: 503 }
-    );
-  }
-
   const { roomId, threadId } = (await request.json()) as {
     roomId?: string;
     threadId?: string;
@@ -21,6 +14,13 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "roomId and threadId are required" },
       { status: 400 }
+    );
+  }
+
+  if (!liveblocksSecret) {
+    return NextResponse.json(
+      { error: "Liveblocks secret key not configured" },
+      { status: 503 }
     );
   }
 

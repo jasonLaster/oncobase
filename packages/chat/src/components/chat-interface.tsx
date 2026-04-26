@@ -105,7 +105,7 @@ export function ChatInterface({
   conversationId: initialConversationId,
   initialMessages,
 }: ChatInterfaceProps) {
-  const { apiPath, convexApi } = useChatRuntime();
+  const { apiPath, convexApi, copy, routes, storageKeyPrefix } = useChatRuntime();
   const createConversation = useMutation(convexApi.conversations.create);
   const sendMessageMutation = useMutation(convexApi.conversations.sendMessage);
   const clearStreamingMutation = useMutation(convexApi.conversations.clearStreaming);
@@ -214,7 +214,7 @@ export function ChatInterface({
 
   // Composer draft persistence keyed by conversation id. Drafts survive page
   // navigation. Saved on every change, restored on mount.
-  const draftKey = `chat:draft:${activeConvId ?? "new"}`;
+  const draftKey = `${storageKeyPrefix}:draft:${activeConvId ?? "new"}`;
   const [input, setInput] = useState<string>(() => {
     if (typeof window === "undefined") return "";
     try {
@@ -335,7 +335,7 @@ export function ChatInterface({
     if (serverStreamingText !== undefined) return;
     const lastUserId = lastMessage?.id;
     if (!lastUserId) return;
-    const key = `chat:auto-resume:${activeConvId}:${lastUserId}`;
+    const key = `${storageKeyPrefix}:auto-resume:${activeConvId}:${lastUserId}`;
     if (typeof sessionStorage !== "undefined") {
       try {
         if (sessionStorage.getItem(key)) return;
@@ -360,10 +360,15 @@ export function ChatInterface({
       let convId = convIdRef.current;
       if (!convId) {
         const title = trimmed.slice(0, 60) + (trimmed.length > 60 ? "…" : "");
-        convId = await createConversation({ title });
+        const createdConvId = (await createConversation({ title })) as string;
+        convId = createdConvId;
         convIdRef.current = convId;
         setActiveConvId(convId);
-        window.history.replaceState(null, "", `/chat/${convId}`);
+        window.history.replaceState(
+          null,
+          "",
+          routes.conversationPath(createdConvId)
+        );
       }
 
       // Persist the user message so cross-tab subscribers see it and the
@@ -378,7 +383,14 @@ export function ChatInterface({
       startTracker();
       await sendMessage({ text: trimmed });
     },
-    [isStreaming, clearError, createConversation, sendMessageMutation, sendMessage]
+    [
+      isStreaming,
+      clearError,
+      createConversation,
+      sendMessageMutation,
+      sendMessage,
+      routes,
+    ]
   );
 
   // <PromptInput> hands us its own message + event shape on submit.
@@ -510,35 +522,32 @@ export function ChatInterface({
         >
           {messages.length === 0 && !isStreaming && (
             <ConversationEmptyState
-              title="Research Assistant"
-              description="Ask questions about the diagnosis, treatment, and research"
+              title={copy.emptyStateTitle}
+              description={copy.emptyStateDescription}
             >
               <div className="space-y-3">
                 <div className="space-y-1 text-center">
                   <h3 className="font-semibold text-base text-[var(--foreground)]">
-                    Research Assistant
+                    {copy.emptyStateTitle}
                   </h3>
                   <p className="text-xs text-[var(--text-muted)]">
-                    Ask questions about the diagnosis, treatment, and research
+                    {copy.emptyStateDescription}
                   </p>
                 </div>
-                <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto px-2">
-                  {[
-                    "What is the treatment plan?",
-                    "Explain ctDNA monitoring options",
-                    "What clinical trials are relevant?",
-                    "Summarize the prognosis",
-                  ].map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      onClick={() => void submitMessage(q)}
-                      className="text-xs sm:text-sm px-3 py-2 sm:py-1.5 rounded-full border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] active:bg-[var(--accent-light)] transition-colors text-left"
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
+                {copy.suggestedPrompts.length > 0 && (
+                  <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto px-2">
+                    {copy.suggestedPrompts.map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => void submitMessage(q)}
+                        className="text-xs sm:text-sm px-3 py-2 sm:py-1.5 rounded-full border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] active:bg-[var(--accent-light)] transition-colors text-left"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </ConversationEmptyState>
           )}
@@ -567,7 +576,7 @@ export function ChatInterface({
               <div
                 className="flex gap-1 py-2 motion-reduce:animate-none"
                 role="status"
-                aria-label="Generating response"
+                aria-label={copy.generatingLabel}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce motion-reduce:animate-none" />
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce motion-reduce:animate-none [animation-delay:0.15s]" />
@@ -599,7 +608,7 @@ export function ChatInterface({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleComposerKeyDown}
-              placeholder="Ask a question..."
+              placeholder={copy.promptPlaceholder}
             />
           </PromptInputBody>
           <PromptInputFooter>

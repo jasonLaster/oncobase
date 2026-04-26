@@ -33,7 +33,7 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   fullyParallel: !isLocal,
   retries: isLocal ? 0 : 1,
-  workers: isLocal ? undefined : prodWorkers,
+  workers: isLocal ? 1 : prodWorkers,
   webServer,
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },

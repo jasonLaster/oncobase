@@ -6,14 +6,14 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { ConversationDropdown } from "./chat-actions";
 import { useChatRuntime } from "../runtime";
+import type { ChatRoutes } from "../routes";
 
-function useActiveConversationId(): string | null {
+function useActiveConversationId(routes: ChatRoutes): string | null {
   const pathname = usePathname();
 
   const pathnameId = useMemo(() => {
-    const match = pathname.match(/^\/chat\/(.+)$/);
-    return match ? match[1] : null;
-  }, [pathname]);
+    return routes.matchConversationId(pathname);
+  }, [pathname, routes]);
 
   const [replaceStateId, setReplaceStateId] = useState<string | null>(null);
 
@@ -21,8 +21,7 @@ function useActiveConversationId(): string | null {
     let mounted = true;
     const handler = () => {
       if (!mounted) return;
-      const match = window.location.pathname.match(/^\/chat\/(.+)$/);
-      setReplaceStateId(match ? match[1] : null);
+      setReplaceStateId(routes.matchConversationId(window.location.pathname));
     };
     window.addEventListener("popstate", handler);
 
@@ -38,22 +37,22 @@ function useActiveConversationId(): string | null {
       window.removeEventListener("popstate", handler);
       history.replaceState = origReplace;
     };
-  }, []);
+  }, [routes]);
 
   return replaceStateId ?? pathnameId;
 }
 
 function ConversationListContent() {
-  const { convexApi } = useChatRuntime();
+  const { convexApi, copy, routes } = useChatRuntime();
   const conversations = useQuery(convexApi.conversations.list);
   const pathname = usePathname();
-  const activeId = useActiveConversationId();
-  const isNewChat = pathname === "/chat" && activeId === null;
+  const activeId = useActiveConversationId(routes);
+  const isNewChat = routes.isNewChatPath(pathname) && activeId === null;
 
   return (
     <div className="space-y-0.5">
       <Link
-        href="/chat"
+        href={routes.newChatPath}
         className={`flex items-center gap-1.5 px-2 py-1.5 text-sm rounded transition-colors ${
           isNewChat
             ? "bg-[var(--accent-light)] text-[var(--brand)] font-medium"
@@ -64,17 +63,19 @@ function ConversationListContent() {
           <line x1="8" y1="3" x2="8" y2="13" />
           <line x1="3" y1="8" x2="13" y2="8" />
         </svg>
-        New chat
+        {copy.newChatLabel}
       </Link>
       {conversations === undefined && (
-        <div className="px-2 py-1 text-xs text-[var(--text-muted)]">Loading...</div>
+        <div className="px-2 py-1 text-xs text-[var(--text-muted)]">
+          {copy.loadingConversations}
+        </div>
       )}
       {conversations?.map((conv: { _id: string; title: string }) => {
         const isActive = conv._id === activeId;
         return (
           <div key={conv._id} className="group/item flex items-center rounded hover:bg-[var(--accent-light)] transition-colors">
             <Link
-              href={`/chat/${conv._id}`}
+              href={routes.conversationPath(conv._id)}
               onClick={(e) => {
                 if (isActive) e.preventDefault();
               }}
@@ -94,13 +95,15 @@ function ConversationListContent() {
         );
       })}
       {conversations?.length === 0 && (
-        <div className="px-2 py-1 text-xs text-[var(--text-muted)]">No conversations yet</div>
+        <div className="px-2 py-1 text-xs text-[var(--text-muted)]">
+          {copy.noConversations}
+        </div>
       )}
       <div className="mt-4 pt-2 border-t border-[var(--sidebar-border)]">
         <Link
-          href="/chat/archived"
+          href={routes.archivedPath}
           className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors ${
-            pathname === "/chat/archived"
+            routes.isArchivedPath(pathname)
               ? "text-[var(--brand)] bg-[var(--accent-light)]"
               : "text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--accent-light)]"
           }`}
@@ -110,7 +113,7 @@ function ConversationListContent() {
             <path d="M2 6v7a1 1 0 001 1h10a1 1 0 001-1V6" />
             <path d="M6.5 9.5h3" />
           </svg>
-          View archived
+          {copy.viewArchivedLabel}
         </Link>
       </div>
     </div>

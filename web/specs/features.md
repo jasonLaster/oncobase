@@ -113,6 +113,9 @@ This document focuses on shipped behavior and notable implementation details. De
 ### Chat With Wiki
 
 - Chat is behind `NEXT_PUBLIC_ENABLE_CHAT`. When disabled, `/chat` redirects to `/`.
+- The reusable chat feature lives in `packages/chat`; Diana-specific prompts,
+  generated Convex refs, markdown transforms, tool UI, and suggested prompts are
+  configured from the web app. See [chat-package.md](./chat-package.md).
 - Chat routes:
   - `/chat` starts a new conversation
   - `/chat/[id]` reopens an existing conversation

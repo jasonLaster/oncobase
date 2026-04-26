@@ -18,9 +18,8 @@ export default function ChatLayout({
   return (
     <>
       {children}
-      {/* Toaster mounted only on the chat path so the (very-high-z-index)
-          Sonner portal doesn't shadow Radix command-palette dialogs on
-          wiki pages. */}
+      {/* Keep the Sonner portal scoped to the chat feature so host-level
+          dialogs do not inherit its z-index behavior. */}
       <Toaster
         richColors
         closeButton

@@ -1,4 +1,5 @@
 import type { FunctionReference } from "convex/server";
+import type { UIMessage } from "ai";
 import type { ComponentType } from "react";
 
 export type ChatQueryRef = FunctionReference<"query", "public", any, any>;
@@ -32,3 +33,41 @@ export interface ChatMarkdownRendererProps {
 }
 
 export type ChatMarkdownRenderer = ComponentType<ChatMarkdownRendererProps>;
+
+export interface ChatCopy {
+  newChatLabel?: string;
+  loadingConversations?: string;
+  noConversations?: string;
+  viewArchivedLabel?: string;
+  archivedTitle?: string;
+  noArchivedConversations?: string;
+  restoreLabel?: string;
+  loadingConversation?: string;
+  conversationNotFound?: string;
+  emptyStateTitle?: string;
+  emptyStateDescription?: string;
+  suggestedPrompts?: string[];
+  promptPlaceholder?: string;
+  generatingLabel?: string;
+  sourcesLabel?: string;
+}
+
+export type ResolvedChatCopy = Required<ChatCopy>;
+
+export interface ChatToolCallRendererProps {
+  toolName: string;
+  state: string;
+  done: boolean;
+  output?: unknown;
+  input?: unknown;
+}
+
+export type ChatToolCallRenderer = ComponentType<ChatToolCallRendererProps>;
+
+export interface ChatSource {
+  id?: string;
+  title: string;
+  href?: string;
+}
+
+export type ChatSourceExtractor = (parts: UIMessage["parts"]) => ChatSource[];

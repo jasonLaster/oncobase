@@ -39,7 +39,7 @@ function lruSet(id: string, value: CachedSnapshot): void {
 }
 
 export function ConversationPageClient({ id }: { id: string }) {
-  const { convexApi } = useChatRuntime();
+  const { convexApi, copy } = useChatRuntime();
   const conversation = useQuery(convexApi.conversations.get, { id });
 
   // Cache initial messages on first load per ID.
@@ -62,7 +62,7 @@ export function ConversationPageClient({ id }: { id: string }) {
     return (
       <div className="flex items-center justify-center h-full text-sm text-[var(--text-muted)]">
         <span className="inline-block w-4 h-4 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin mr-2" />
-        Loading conversation...
+        {copy.loadingConversation}
       </div>
     );
   }
@@ -70,7 +70,7 @@ export function ConversationPageClient({ id }: { id: string }) {
   if (conversation === null) {
     return (
       <div className="flex items-center justify-center h-full text-sm text-[var(--text-muted)]">
-        Conversation not found
+        {copy.conversationNotFound}
       </div>
     );
   }

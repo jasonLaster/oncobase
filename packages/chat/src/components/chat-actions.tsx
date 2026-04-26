@@ -33,7 +33,7 @@ export function ConversationDropdown({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const { convexApi } = useChatRuntime();
+  const { convexApi, routes } = useChatRuntime();
   const archiveConversation = useMutation(convexApi.conversations.archive);
 
   useEffect(() => {
@@ -54,13 +54,13 @@ export function ConversationDropdown({
       id: conversationId,
     });
     setOpen(false);
-    router.push("/chat");
+    router.push(routes.newChatPath);
   }
 
   async function handleCopyUrl(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/chat/${conversationId}`;
+    const url = routes.conversationUrl(conversationId, window.location.origin);
     await navigator.clipboard.writeText(url);
     setOpen(false);
   }
@@ -127,7 +127,7 @@ export function ChatBottomActions({
 }) {
   const [copied, setCopied] = useState<string | null>(null);
   const router = useRouter();
-  const { convexApi } = useChatRuntime();
+  const { convexApi, routes } = useChatRuntime();
   const archiveConversation = useMutation(convexApi.conversations.archive);
 
   if (messages.length === 0) return null;
@@ -145,7 +145,7 @@ export function ChatBottomActions({
 
   async function handleCopyUrl() {
     if (!conversationId) return;
-    const url = `${window.location.origin}/chat/${conversationId}`;
+    const url = routes.conversationUrl(conversationId, window.location.origin);
     await navigator.clipboard.writeText(url);
     setCopied("url");
     setTimeout(() => setCopied(null), 2000);
@@ -156,7 +156,7 @@ export function ChatBottomActions({
     await archiveConversation({
       id: conversationId,
     });
-    router.push("/chat");
+    router.push(routes.newChatPath);
   }
 
   return (

@@ -20,6 +20,7 @@ import type { UIMessage } from "ai";
 import { memo, useMemo, useState } from "react";
 import { StreamingMarkdown } from "./streaming-markdown";
 import { useChatRuntime } from "../runtime";
+import type { ChatSource, ChatToolCallRendererProps } from "../types";
 
 export interface ChatUIMessage extends UIMessage {
   dbId?: string;
@@ -48,140 +49,16 @@ const ReasoningBlock = memo(function ReasoningBlock({ text }: { text: string }) 
   );
 });
 
-const ReadPageBadge = memo(function ReadPageBadge({
-  input,
-  output,
-  done,
-}: {
-  input: Record<string, unknown>;
-  output: unknown;
-  done: boolean;
-}) {
-  const slug = (input?.slug as string) || "";
-  const result = output as { title?: string; slug?: string; error?: string } | null;
-  const title = result?.title || slug.split("/").pop() || slug;
-  const hasError = result?.error;
-
-  return (
-    <a
-      href={`/${slug}`}
-      className={`inline-flex items-center gap-1.5 text-xs transition-colors ${
-        done && !hasError
-          ? "text-[var(--text-muted)] hover:text-[var(--brand)]"
-          : done && hasError
-            ? "text-red-500"
-            : "text-[var(--text-muted)]"
-      }`}
-    >
-      {!done ? (
-        <span className="inline-block w-3 h-3 border-[1.5px] border-[var(--text-muted)] border-t-transparent rounded-full animate-spin shrink-0" />
-      ) : (
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-40">
-          <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
-        </svg>
-      )}
-      <span className="truncate max-w-[250px]">{done ? `Read ${title}` : `Reading ${slug}...`}</span>
-    </a>
-  );
-});
-
-const SearchResultsBlock = memo(function SearchResultsBlock({
-  output,
-  done,
-  query,
-}: {
-  output: unknown;
-  done: boolean;
-  query: string;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const results = (Array.isArray(output) ? output : []) as Array<{ slug?: string; title?: string }>;
-
-  if (!query && results.length === 0) return null;
-
-  return (
-    <div>
-      <button
-        onClick={() => done && setExpanded(!expanded)}
-        className={`inline-flex items-center gap-1.5 text-xs transition-colors text-left ${
-          done
-            ? "text-[var(--text-muted)] hover:text-[var(--foreground)]"
-            : "text-[var(--text-muted)]"
-        }`}
-      >
-        {!done ? (
-          <span className="inline-block w-3 h-3 border-[1.5px] border-[var(--text-muted)] border-t-transparent rounded-full animate-spin shrink-0" />
-        ) : (
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-40">
-            <path d="M15.25 14.19l-4.06-4.06a5.5 5.5 0 1 0-1.06 1.06l4.06 4.06a.75.75 0 1 0 1.06-1.06zM2 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0z" />
-          </svg>
-        )}
-        <span className="truncate">
-          {!done
-            ? query
-              ? `Searching "${query}"...`
-              : "Searching..."
-            : `Searched "${query}" — ${results.length} result${results.length !== 1 ? "s" : ""}`}
-        </span>
-        {done && results.length > 0 && (
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 16 16"
-            fill="currentColor"
-            className={`shrink-0 opacity-30 transition-transform ${expanded ? "rotate-90" : ""}`}
-          >
-            <path d="M6 4l4 4-4 4" />
-          </svg>
-        )}
-      </button>
-      {expanded && results.length > 0 && (
-        <div className="mt-0.5 ml-4 pl-2 border-l border-[var(--sidebar-border)] space-y-0">
-          {results.map((r, i) => (
-            <a
-              key={i}
-              href={`/${r.slug}`}
-              className="flex items-center gap-1.5 text-xs py-0.5 text-[var(--text-muted)] hover:text-[var(--brand)] transition-colors"
-            >
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-40">
-                <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
-              </svg>
-              <span className="truncate">{r.title || r.slug}</span>
-            </a>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-});
-
-const ToolCallBlock = memo(function ToolCallBlock({
+export const DefaultToolCallBlock = memo(function DefaultToolCallBlock({
   toolName,
   state,
-  output,
-  input,
 }: {
   toolName: string;
   state: string;
-  output?: unknown;
-  input?: unknown;
 }) {
   const done = state === "output-available" || state === "output-error";
-  const inputObj = (input || {}) as Record<string, unknown>;
-
-  if (toolName === "read_page") {
-    return <ReadPageBadge input={inputObj} output={output} done={done} />;
-  }
-  if (toolName === "search_wiki") {
-    return (
-      <SearchResultsBlock
-        output={output}
-        done={done}
-        query={(inputObj.query as string) || ""}
-      />
-    );
-  }
-  const label = done ? `Used ${toolName}` : `Running ${toolName}...`;
+  const readableName = toolName.replace(/[-_]+/g, " ");
+  const label = done ? `Used ${readableName}` : `Running ${readableName}...`;
   return (
     <div className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
       {!done ? (
@@ -194,6 +71,30 @@ const ToolCallBlock = memo(function ToolCallBlock({
       <span>{label}</span>
     </div>
   );
+});
+
+const ToolCallBlock = memo(function ToolCallBlock({
+  toolName,
+  state,
+  output,
+  input,
+}: Omit<ChatToolCallRendererProps, "done">) {
+  const done = state === "output-available" || state === "output-error";
+  const { ToolCallRenderer } = useChatRuntime();
+
+  if (ToolCallRenderer) {
+    return (
+      <ToolCallRenderer
+        toolName={toolName}
+        state={state}
+        done={done}
+        output={output}
+        input={input}
+      />
+    );
+  }
+
+  return <DefaultToolCallBlock toolName={toolName} state={state} />;
 });
 
 const MessageMarkdown = memo(function MessageMarkdown({
@@ -216,29 +117,41 @@ const MessageMarkdown = memo(function MessageMarkdown({
 });
 
 const SourceLinks = memo(function SourceLinks({
-  pages,
+  sources,
 }: {
-  pages: Array<{ slug: string; title: string }>;
+  sources: ChatSource[];
 }) {
-  if (pages.length === 0) return null;
+  const { copy } = useChatRuntime();
+  if (sources.length === 0) return null;
   return (
     <div className="mt-3 pt-2 border-t border-[var(--sidebar-border)]">
       <div className="text-[10px] uppercase tracking-wide text-[var(--text-muted)] mb-1.5">
-        Sources
+        {copy.sourcesLabel}
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {pages.map((page) => (
-          <a
-            key={page.slug}
-            href={`/${page.slug}`}
-            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-[var(--background)] border border-[var(--sidebar-border)] text-[var(--brand)] hover:border-[var(--brand)] transition-colors"
-          >
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-50">
-              <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
-            </svg>
-            {page.title}
-          </a>
-        ))}
+        {sources.map((source) => {
+          const content = (
+            <>
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-50">
+                <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
+              </svg>
+              {source.title}
+            </>
+          );
+          const className =
+            "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-[var(--background)] border border-[var(--sidebar-border)] text-[var(--brand)] hover:border-[var(--brand)] transition-colors";
+          const key = source.id ?? source.href ?? source.title;
+
+          return source.href ? (
+            <a key={key} href={source.href} className={className}>
+              {content}
+            </a>
+          ) : (
+            <span key={key} className={className}>
+              {content}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
@@ -250,7 +163,7 @@ function isToolPart(part: { type: string }): boolean {
   return part.type.startsWith("tool-") || part.type === "dynamic-tool";
 }
 
-function getToolInfo(part: Record<string, unknown>) {
+export function getChatToolInfo(part: Record<string, unknown>) {
   const type = part.type as string;
   if (type === "dynamic-tool" || type.startsWith("tool-")) {
     return {
@@ -263,30 +176,63 @@ function getToolInfo(part: Record<string, unknown>) {
   return null;
 }
 
-export function extractSourcePages(parts: UIMessage["parts"]) {
+function sourceFromRecord(record: Record<string, unknown>): ChatSource | null {
+  const title =
+    typeof record.title === "string"
+      ? record.title
+      : typeof record.name === "string"
+        ? record.name
+        : null;
+  const href =
+    typeof record.href === "string"
+      ? record.href
+      : typeof record.url === "string"
+        ? record.url
+        : undefined;
+  if (!title) return null;
+  return {
+    id:
+      typeof record.id === "string"
+        ? record.id
+        : href ?? title,
+    title,
+    href,
+  };
+}
+
+function collectSources(value: unknown): ChatSource[] {
+  if (Array.isArray(value)) {
+    return value.flatMap(collectSources);
+  }
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+  const record = value as Record<string, unknown>;
+  const ownSource = sourceFromRecord(record);
+  const nestedSources = Array.isArray(record.sources)
+    ? record.sources.flatMap(collectSources)
+    : [];
+  return ownSource ? [ownSource, ...nestedSources] : nestedSources;
+}
+
+export function extractSourcesFromToolOutputs(parts: UIMessage["parts"]) {
   const seen = new Set<string>();
-  const pages: Array<{ slug: string; title: string }> = [];
+  const sources: ChatSource[] = [];
   for (const part of parts) {
-    const info = getToolInfo(part as Record<string, unknown>);
+    const info = getChatToolInfo(part as Record<string, unknown>);
     if (!info || info.state !== "output-available") continue;
-    if (info.toolName === "read_page" && info.output && typeof info.output === "object") {
-      const o = info.output as { slug?: string; title?: string; error?: string };
-      if (o.slug && o.title && !o.error && !seen.has(o.slug)) {
-        seen.add(o.slug);
-        pages.push({ slug: o.slug, title: o.title });
-      }
-    }
-    if (info.toolName === "search_wiki" && Array.isArray(info.output)) {
-      for (const item of info.output as Array<{ slug?: string; title?: string }>) {
-        if (item.slug && item.title && !seen.has(item.slug)) {
-          seen.add(item.slug);
-          pages.push({ slug: item.slug, title: item.title });
-        }
+    for (const source of collectSources(info.output)) {
+      const key = source.id ?? source.href ?? source.title;
+      if (!seen.has(key)) {
+        seen.add(key);
+        sources.push(source);
       }
     }
   }
-  return pages;
+  return sources;
 }
+
+export const extractSourcePages = extractSourcesFromToolOutputs;
 
 type PartGroup =
   | { kind: "text"; texts: string[] }
@@ -337,12 +283,16 @@ function AssistantMessageImpl({
    */
   isStreaming?: boolean;
 }) {
+  const { extractSources = extractSourcesFromToolOutputs } = useChatRuntime();
   const parts = message.parts;
   // Memoize derivations on the parts ref. The streaming-tail message
-  // re-renders per token-batch; without these memos, extractSourcePages and
+  // re-renders per token-batch; without these memos, source extraction and
   // groupParts both walk all parts on every commit. With memos, they only
   // run when parts identity actually changes (which useChat does on append).
-  const sourcePages = useMemo(() => extractSourcePages(parts), [parts]);
+  const sources = useMemo(
+    () => extractSources(parts),
+    [parts, extractSources]
+  );
   const groups = useMemo(
     () => groupParts(parts as Array<{ type: string; [k: string]: unknown }>),
     [parts]
@@ -378,7 +328,7 @@ function AssistantMessageImpl({
           return (
             <div key={i} className="space-y-1 py-1">
               {group.parts.map((part, j) => {
-                const info = getToolInfo(part as Record<string, unknown>);
+                const info = getChatToolInfo(part as Record<string, unknown>);
                 if (!info) return null;
                 return (
                   <ToolCallBlock
@@ -399,7 +349,7 @@ function AssistantMessageImpl({
         }
         return null;
       })}
-      <SourceLinks pages={sourcePages} />
+      <SourceLinks sources={sources} />
       {showActions && fullText && (
         <AssistantMessageActions
           text={fullText}

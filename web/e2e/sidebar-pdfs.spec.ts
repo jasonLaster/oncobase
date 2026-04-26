@@ -16,6 +16,15 @@ async function expandIfCollapsed(nav: ReturnType<import("@playwright/test").Page
   }
 }
 
+async function expandFirstPdfSet(nav: ReturnType<import("@playwright/test").Page["locator"]>) {
+  const pdfSet = nav.getByRole("button", { name: /PDF set$/ }).first();
+  await expect(pdfSet).toBeVisible();
+  const text = await pdfSet.textContent();
+  if (text?.includes("▶")) {
+    await pdfSet.click();
+  }
+}
+
 test.describe("Sidebar source files", () => {
   test("sources directory contains markdown source links after drilling into stanford/telli", async ({ page }) => {
     await page.goto("/");
@@ -57,6 +66,7 @@ test.describe("Sidebar PDF files", () => {
     await expandIfCollapsed(nav, "institutions");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");
+    await expandFirstPdfSet(nav);
 
     const pdfLinks = nav.locator('a[href*="/api/file?path="]');
     await expect(pdfLinks.first()).toBeVisible();
@@ -69,6 +79,7 @@ test.describe("Sidebar PDF files", () => {
     await expandIfCollapsed(nav, "institutions");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");
+    await expandFirstPdfSet(nav);
 
     const firstPdf = nav.locator('a[href*="/api/file?path="]').first();
     const href = await firstPdf.getAttribute("href");
@@ -82,6 +93,7 @@ test.describe("Sidebar PDF files", () => {
     await expandIfCollapsed(nav, "institutions");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");
+    await expandFirstPdfSet(nav);
 
     const firstPdf = nav.locator('a[href*="/api/file?path="]').first();
     await expect(firstPdf).toHaveAttribute("target", "_blank");
@@ -94,6 +106,7 @@ test.describe("Sidebar PDF files", () => {
     await expandIfCollapsed(nav, "institutions");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");
+    await expandFirstPdfSet(nav);
 
     const firstPdf = nav.locator('a[href*="/api/file?path="]').first();
     await expect(firstPdf.locator("svg")).toBeVisible();

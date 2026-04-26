@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { useChatRuntime } from "../runtime";
 
 export function ArchivedChatsClient() {
-  const { convexApi } = useChatRuntime();
+  const { convexApi, copy, routes } = useChatRuntime();
   const archived = useQuery(convexApi.conversations.listArchived);
   const restoreConversation = useMutation(convexApi.conversations.restore);
 
@@ -18,23 +18,25 @@ export function ArchivedChatsClient() {
       <div className="px-4 py-4 md:px-8 md:py-8 max-w-3xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <Link
-            href="/chat"
+            href={routes.newChatPath}
             className="p-1.5 rounded-md hover:bg-[var(--accent-light)] text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="10 3 5 8 10 13" />
             </svg>
           </Link>
-          <h1 className="text-xl font-semibold">Archived Chats</h1>
+          <h1 className="text-xl font-semibold">{copy.archivedTitle}</h1>
         </div>
 
         {archived === undefined && (
-          <p className="text-sm text-[var(--text-muted)]">Loading...</p>
+          <p className="text-sm text-[var(--text-muted)]">
+            {copy.loadingConversations}
+          </p>
         )}
 
         {archived?.length === 0 && (
           <p className="text-sm text-[var(--text-muted)]">
-            No archived conversations.
+            {copy.noArchivedConversations}
           </p>
         )}
 
@@ -47,7 +49,7 @@ export function ArchivedChatsClient() {
               >
                 <div className="min-w-0">
                   <Link
-                    href={`/chat/${conv._id}`}
+                    href={routes.conversationPath(conv._id)}
                     className="text-sm font-medium text-[var(--foreground)] hover:text-[var(--brand)] transition-colors truncate block"
                   >
                     {conv.title}
@@ -70,7 +72,7 @@ export function ArchivedChatsClient() {
                     <path d="M13 8a5 5 0 01-9.54 2" />
                     <polyline points="4 14 3.5 10 7.5 10" />
                   </svg>
-                  Restore
+                  {copy.restoreLabel}
                 </button>
               </div>
             ))}

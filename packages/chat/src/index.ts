@@ -3,18 +3,30 @@ export { ChatInterface } from "./components/chat-interface";
 export { default as ConversationList } from "./components/conversation-list";
 export {
   AssistantMessage,
+  DefaultToolCallBlock,
   PriorMessages,
   StreamingMessage,
   UserMessageRow,
+  extractSourcesFromToolOutputs,
   extractSourcePages,
+  getChatToolInfo,
   groupParts,
   type ChatUIMessage,
 } from "./components/messages";
 export { StreamingMarkdown } from "./components/streaming-markdown";
+export { defaultChatCopy, resolveChatCopy } from "./copy";
 export { ChatRuntimeProvider, useChatRuntime } from "./runtime";
+export { createChatRoutes } from "./routes";
 export { nowMs, recordChatPerf, trackStream, type ChatPerfEvent } from "./perf";
 export type {
   ChatConvexApi,
+  ChatCopy,
   ChatMarkdownRenderer,
   ChatMarkdownRendererProps,
+  ChatSource,
+  ChatSourceExtractor,
+  ChatToolCallRenderer,
+  ChatToolCallRendererProps,
+  ResolvedChatCopy,
 } from "./types";
+export type { ChatRouteConfig, ChatRoutes } from "./routes";

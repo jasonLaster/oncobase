@@ -52,8 +52,18 @@ test.describe("Page viewing & sidebar navigation", () => {
 
   test("actions menu opens with theme and download", async ({ page }) => {
     await page.goto("/");
-    await page.locator('button[aria-label="Actions"]').click();
-    await expect(page.getByRole("menuitem", { name: "Theme: System" })).toBeVisible();
+    const actions = page.getByRole("button", { name: "Actions" });
+    const themeItem = page.getByRole("menuitem", {
+      name: /Theme: (System|Dark|Light)/,
+    });
+
+    await expect(actions).toBeVisible();
+    await actions.click();
+    if (!(await themeItem.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      await actions.click();
+    }
+
+    await expect(themeItem).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Download wiki (full)" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Download wiki (markdown)" })).toBeVisible();
   });

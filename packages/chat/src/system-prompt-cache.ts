@@ -1,9 +1,9 @@
 /**
  * Memoizes the chat system prompt. Phase 7 of the chat-performance plan.
  *
- * The diagnosis + page index docs are global. Both change rarely. Caching
- * the assembled prompt for 60s saves two Convex queries per chat turn in a
- * hot conversation, which dominates the cold-start work in /api/chat.
+ * Prompt context is often shared across chat turns. Caching the assembled
+ * prompt for 60s lets the host app avoid repeating expensive reads during a
+ * hot conversation.
  *
  * Cache key is intentionally global (no conversationId) — the prompt does
  * not depend on the conversation. Per-conversation overrides would key

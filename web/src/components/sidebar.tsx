@@ -54,16 +54,12 @@ export function SidebarTopLinks({
   const pathname = usePathname();
 
   const links = [
-    ...(chatConfigured
-      ? [
-          {
-            href: "/chat",
-            label: "Chat with wiki",
-            active: pathname.startsWith("/chat"),
-            icon: <ChatIcon />,
-          },
-        ]
-      : []),
+    {
+      href: "/chat",
+      label: "Chat with wiki",
+      active: pathname.startsWith("/chat"),
+      icon: <ChatIcon />,
+    },
     ...(process.env.NEXT_PUBLIC_ENABLE_COMMENTS === "true"
       ? [
           {

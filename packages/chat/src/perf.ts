@@ -5,7 +5,8 @@
  * stale-stream events. Dev mode logs to console; prod is sampled and emitted
  * via `window.__CHAT_PERF__` for an external sink (Playwright reads it).
  *
- * See web/specs/chat-performance-testing.md for the budget table.
+ * Host apps can read `window.__CHAT_PERF__` from Playwright or their own
+ * telemetry bridge.
  */
 
 export type ChatPerfEvent =
