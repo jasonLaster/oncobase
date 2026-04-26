@@ -22,6 +22,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@convex/*": ["./convex/*"],
+      "@diana-tnbc/chat": ["../packages/chat/src/index.ts"],
+      "@diana-tnbc/chat/*": ["../packages/chat/src/*"],
       "@diana-tnbc/smart-table": ["../packages/smart-table/src/index.ts"],
       "@diana-tnbc/smart-table/examples": [
         "../packages/smart-table/src/example-tables.ts"

@@ -18,7 +18,8 @@
 
 import type { UIMessage } from "ai";
 import { memo, useMemo, useState } from "react";
-import { StreamingMarkdown } from "@/components/chat/streaming-markdown";
+import { StreamingMarkdown } from "./streaming-markdown";
+import { useChatRuntime } from "../runtime";
 
 export interface ChatUIMessage extends UIMessage {
   dbId?: string;
@@ -202,9 +203,10 @@ const MessageMarkdown = memo(function MessageMarkdown({
   content: string;
   isStreaming?: boolean;
 }) {
+  const { MarkdownRenderer = StreamingMarkdown } = useChatRuntime();
   return (
     <div className="prose text-sm max-w-none">
-      <StreamingMarkdown
+      <MarkdownRenderer
         disableAnchors
         content={content}
         isStreaming={isStreaming}

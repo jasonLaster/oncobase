@@ -3,9 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
 import type { UIMessage } from "ai";
+import { useChatRuntime } from "../runtime";
 
 function getTextContent(message: UIMessage): string {
   return message.parts
@@ -34,7 +33,8 @@ export function ConversationDropdown({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const archiveConversation = useMutation(api.conversations.archive);
+  const { convexApi } = useChatRuntime();
+  const archiveConversation = useMutation(convexApi.conversations.archive);
 
   useEffect(() => {
     if (!open) return;
@@ -51,7 +51,7 @@ export function ConversationDropdown({
     e.preventDefault();
     e.stopPropagation();
     await archiveConversation({
-      id: conversationId as Id<"conversations">,
+      id: conversationId,
     });
     setOpen(false);
     router.push("/chat");
@@ -127,7 +127,8 @@ export function ChatBottomActions({
 }) {
   const [copied, setCopied] = useState<string | null>(null);
   const router = useRouter();
-  const archiveConversation = useMutation(api.conversations.archive);
+  const { convexApi } = useChatRuntime();
+  const archiveConversation = useMutation(convexApi.conversations.archive);
 
   if (messages.length === 0) return null;
 
@@ -153,7 +154,7 @@ export function ChatBottomActions({
   async function handleArchive() {
     if (!conversationId) return;
     await archiveConversation({
-      id: conversationId as Id<"conversations">,
+      id: conversationId,
     });
     router.push("/chat");
   }

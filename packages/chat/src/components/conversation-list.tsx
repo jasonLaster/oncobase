@@ -4,9 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "convex/react";
-import { api } from "@convex/_generated/api";
-import { ConversationDropdown } from "@/app/(main)/chat/_components/chat-actions";
-import { chatConfigured } from "@/lib/chat-config";
+import { ConversationDropdown } from "./chat-actions";
+import { useChatRuntime } from "../runtime";
 
 function useActiveConversationId(): string | null {
   const pathname = usePathname();
@@ -45,7 +44,8 @@ function useActiveConversationId(): string | null {
 }
 
 function ConversationListContent() {
-  const conversations = useQuery(api.conversations.list);
+  const { convexApi } = useChatRuntime();
+  const conversations = useQuery(convexApi.conversations.list);
   const pathname = usePathname();
   const activeId = useActiveConversationId();
   const isNewChat = pathname === "/chat" && activeId === null;
@@ -69,7 +69,7 @@ function ConversationListContent() {
       {conversations === undefined && (
         <div className="px-2 py-1 text-xs text-[var(--text-muted)]">Loading...</div>
       )}
-      {conversations?.map((conv) => {
+      {conversations?.map((conv: { _id: string; title: string }) => {
         const isActive = conv._id === activeId;
         return (
           <div key={conv._id} className="group/item flex items-center rounded hover:bg-[var(--accent-light)] transition-colors">
@@ -118,9 +118,5 @@ function ConversationListContent() {
 }
 
 export default function ConversationList() {
-  if (!chatConfigured) {
-    return null;
-  }
-
   return <ConversationListContent />;
 }

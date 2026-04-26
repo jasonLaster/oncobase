@@ -6,7 +6,7 @@ import type { FileNode } from "@/lib/markdown";
 import { TreeNode, formatName, SidebarTopLinks } from "@/components/sidebar";
 import { chatConfigured } from "@/lib/chat-config";
 
-const ConversationList = lazy(() => import("./conversation-list"));
+const ConversationList = lazy(() => import("@diana-tnbc/chat/components/conversation-list"));
 
 function getPageTitle(pathname: string): string {
   if (pathname === "/") return "Home";

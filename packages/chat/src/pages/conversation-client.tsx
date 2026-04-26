@@ -2,9 +2,8 @@
 
 import { useMemo } from "react";
 import { useQuery } from "convex/react";
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
-import { ChatInterface } from "../_components/chat-interface";
+import { ChatInterface } from "../components/chat-interface";
+import { useChatRuntime } from "../runtime";
 
 type CachedSnapshot = Array<{
   _id?: string;
@@ -40,16 +39,15 @@ function lruSet(id: string, value: CachedSnapshot): void {
 }
 
 export function ConversationPageClient({ id }: { id: string }) {
-  const conversation = useQuery(api.conversations.get, {
-    id: id as Id<"conversations">,
-  });
+  const { convexApi } = useChatRuntime();
+  const conversation = useQuery(convexApi.conversations.get, { id });
 
   // Cache initial messages on first load per ID.
   const initialMessages = useMemo(() => {
     const cached = lruGet(id);
     if (cached) return cached;
     if (!conversation) return undefined;
-    const snapshot: CachedSnapshot = conversation.messages.map((m) => ({
+    const snapshot: CachedSnapshot = conversation.messages.map((m: CachedSnapshot[number]) => ({
       _id: m._id,
       role: m.role,
       content: m.content,

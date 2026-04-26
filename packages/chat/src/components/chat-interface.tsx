@@ -7,15 +7,14 @@ import {
 import { useChat } from "@ai-sdk/react";
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
-import { nowMs, recordChatPerf, trackStream } from "@/lib/chat/perf";
+import { nowMs, recordChatPerf, trackStream } from "../perf";
+import { useChatRuntime } from "../runtime";
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
   ConversationEmptyState,
-} from "@/components/ai-elements/conversation";
+} from "./ai-elements/conversation";
 import {
   PromptInput,
   PromptInputBody,
@@ -23,7 +22,7 @@ import {
   PromptInputSubmit,
   PromptInputFooter,
   type PromptInputMessage,
-} from "@/components/ai-elements/prompt-input";
+} from "./ai-elements/prompt-input";
 import {
   AssistantMessage,
   PriorMessages,
@@ -106,11 +105,12 @@ export function ChatInterface({
   conversationId: initialConversationId,
   initialMessages,
 }: ChatInterfaceProps) {
-  const createConversation = useMutation(api.conversations.create);
-  const sendMessageMutation = useMutation(api.conversations.sendMessage);
-  const clearStreamingMutation = useMutation(api.conversations.clearStreaming);
-  const cancelStreamMutation = useMutation(api.conversations.cancelStream);
-  const disableMessageMutation = useMutation(api.conversations.disableMessage);
+  const { apiPath, convexApi } = useChatRuntime();
+  const createConversation = useMutation(convexApi.conversations.create);
+  const sendMessageMutation = useMutation(convexApi.conversations.sendMessage);
+  const clearStreamingMutation = useMutation(convexApi.conversations.clearStreaming);
+  const cancelStreamMutation = useMutation(convexApi.conversations.cancelStream);
+  const disableMessageMutation = useMutation(convexApi.conversations.disableMessage);
 
   // The Convex conversation id. Null until the first message is sent.
   const [activeConvId, setActiveConvId] = useState<string | null>(
@@ -130,12 +130,12 @@ export function ChatInterface({
   //     It re-runs only when messages are inserted (saveMessages on
   //     submit + onFinish), not on streaming patches.
   const streamingState = useQuery(
-    api.conversations.getStreamingState,
-    activeConvId ? { id: activeConvId as Id<"conversations"> } : "skip"
+    convexApi.conversations.getStreamingState,
+    activeConvId ? { id: activeConvId } : "skip"
   );
   const conversationMessages = useQuery(
-    api.conversations.getMessages,
-    activeConvId ? { id: activeConvId as Id<"conversations"> } : "skip"
+    convexApi.conversations.getMessages,
+    activeConvId ? { id: activeConvId } : "skip"
   );
   const serverStreamingText = streamingState?.streamingText;
   const serverStreamingParts = streamingState?.streamingParts;
@@ -153,7 +153,7 @@ export function ChatInterface({
   const transport = useMemo(
     () =>
       new DefaultChatTransport<ChatUIMessage>({
-        api: "/api/chat",
+        api: apiPath,
         prepareSendMessagesRequest: ({ messages, body }) => ({
           body: {
             ...(body ?? {}),
@@ -162,7 +162,7 @@ export function ChatInterface({
           },
         }),
       }),
-    []
+    [apiPath]
   );
 
   // Track perf for the active stream. trackStream hooks fire from
@@ -271,7 +271,7 @@ export function ChatInterface({
     if (!conversationMessages) return;
     if (conversationMessages.length <= messages.length) return;
     const next = storedToUIMessages(
-      conversationMessages.map((m) => ({
+      conversationMessages.map((m: StoredMessage) => ({
         _id: m._id,
         role: m.role,
         content: m.content,
@@ -287,7 +287,7 @@ export function ChatInterface({
     setMessages((prev) => {
       const last = prev[prev.length - 1] as ChatUIMessage;
       if (last?.role === "user" && last.dbId) {
-        disableMessageMutation({ id: last.dbId as Id<"messages"> });
+        disableMessageMutation({ id: last.dbId });
         return prev.map((m, i) =>
           i === prev.length - 1 ? ({ ...m, disabled: true } as ChatUIMessage) : m
         );
@@ -300,7 +300,7 @@ export function ChatInterface({
     if (serverStreamingText === undefined || !streamingUpdatedAt || !activeConvId) return;
     const age = Date.now() - streamingUpdatedAt;
     function handleStale() {
-      clearStreamingMutation({ conversationId: activeConvId as Id<"conversations"> });
+      clearStreamingMutation({ conversationId: activeConvId });
       disableLastUserMessage();
     }
     if (age > 30_000) {
@@ -369,7 +369,7 @@ export function ChatInterface({
       // Persist the user message so cross-tab subscribers see it and the
       // 30s watchdog has a streamingUpdatedAt to track.
       await sendMessageMutation({
-        conversationId: convId as Id<"conversations">,
+        conversationId: convId,
         text: trimmed,
       });
 
@@ -442,13 +442,13 @@ export function ChatInterface({
     endTracker("abort");
     if (activeConvId) {
       cancelStreamMutation({
-        conversationId: activeConvId as Id<"conversations">,
+        conversationId: activeConvId,
       });
       // Optimistic UX: clear the local streaming row so the user sees the
       // composer settle. The server's onAbort will save partial text via
       // the flusher.
       clearStreamingMutation({
-        conversationId: activeConvId as Id<"conversations">,
+        conversationId: activeConvId,
       });
       disableLastUserMessage();
     }

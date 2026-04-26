@@ -1,34 +1,10 @@
-import { Suspense } from "react";
-import { redirect } from "next/navigation";
-import { ConversationPageClient } from "./client";
+import ConversationPage from "@diana-tnbc/chat/pages/conversation-page";
 import { chatConfigured } from "@/lib/chat-config";
 
-function ChatLoading() {
-  return (
-    <div className="flex items-center justify-center h-full text-sm text-[var(--text-muted)]">
-      <span className="inline-block w-4 h-4 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin mr-2" />
-      Loading conversation...
-    </div>
-  );
-}
-
-async function ConversationContent({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  return <ConversationPageClient id={id} />;
-}
-
-export default function ConversationPage({
+export default function Page({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  if (!chatConfigured) {
-    redirect("/");
-  }
-
-  return (
-    <Suspense fallback={<ChatLoading />}>
-      <ConversationContent params={params} />
-    </Suspense>
-  );
+  return <ConversationPage chatConfigured={chatConfigured} params={params} />;
 }

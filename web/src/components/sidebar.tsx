@@ -6,7 +6,7 @@ import { useState, lazy, Suspense } from "react";
 import type { FileNode } from "@/lib/markdown";
 import { chatConfigured } from "@/lib/chat-config";
 
-const ConversationList = lazy(() => import("./conversation-list"));
+const ConversationList = lazy(() => import("@diana-tnbc/chat/components/conversation-list"));
 
 export function formatName(name: string): string {
   return name.replace(/-/g, " ");

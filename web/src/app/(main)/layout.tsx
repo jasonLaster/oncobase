@@ -1,5 +1,6 @@
 import { Header } from "@/components/header";
 import { NavigationShell } from "@/components/navigation-shell";
+import { WebChatRuntimeProvider } from "@/components/chat-runtime-provider";
 import { getFileTree } from "@/lib/markdown";
 
 export default async function MainLayout({
@@ -12,11 +13,13 @@ export default async function MainLayout({
   const tree = getFileTree();
 
   return (
-    <div className="grid grid-rows-[auto_1fr] h-dvh overflow-hidden">
-      <Header />
-      <NavigationShell initialTree={tree}>
-        {children}
-      </NavigationShell>
-    </div>
+    <WebChatRuntimeProvider>
+      <div className="grid grid-rows-[auto_1fr] h-dvh overflow-hidden">
+        <Header />
+        <NavigationShell initialTree={tree}>
+          {children}
+        </NavigationShell>
+      </div>
+    </WebChatRuntimeProvider>
   );
 }

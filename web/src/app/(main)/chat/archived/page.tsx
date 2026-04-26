@@ -1,11 +1,6 @@
-import { redirect } from "next/navigation";
-import { ArchivedChatsClient } from "./client";
+import ArchivedChatsPage from "@diana-tnbc/chat/pages/archived-page";
 import { chatConfigured } from "@/lib/chat-config";
 
-export default function ArchivedChatsPage() {
-  if (!chatConfigured) {
-    redirect("/");
-  }
-
-  return <ArchivedChatsClient />;
+export default function Page() {
+  return <ArchivedChatsPage chatConfigured={chatConfigured} />;
 }

@@ -15,9 +15,7 @@
  * back to the pre-Phase-1 cadence without reverting code.
  */
 
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
+import type { ChatConvexApi } from "./types";
 
 export type FlusherPart = Record<string, unknown>;
 
@@ -51,8 +49,11 @@ export interface ConvexFlusher {
 }
 
 interface CreateOptions {
-  convex: ConvexHttpClient;
-  conversationId?: Id<"conversations">;
+  convex: {
+    mutation: (ref: any, args: Record<string, unknown>) => Promise<unknown>;
+  };
+  conversations: ChatConvexApi["conversations"];
+  conversationId?: string;
   /** runId for this turn. Convex mutations reject mismatched runIds. */
   runId?: string;
   intervalMs?: number;
@@ -64,6 +65,7 @@ const DEFAULT_INTERVAL_MS = Number(
 
 export function createConvexFlusher({
   convex,
+  conversations,
   conversationId,
   runId,
   intervalMs = DEFAULT_INTERVAL_MS,
@@ -87,7 +89,7 @@ export function createConvexFlusher({
     if (!dirty) return Promise.resolve();
     dirty = false;
     return convex
-      .mutation(api.conversations.updateStreaming, {
+      .mutation(conversations.updateStreaming, {
         conversationId,
         runId,
         text: currentText,
@@ -143,13 +145,13 @@ export function createConvexFlusher({
       cancelTimer();
       try {
         if (messages.length > 0) {
-          await convex.mutation(api.conversations.saveMessages, {
+          await convex.mutation(conversations.saveMessages, {
             conversationId,
             runId,
             messages,
           });
         }
-        await convex.mutation(api.conversations.clearStreaming, {
+        await convex.mutation(conversations.clearStreaming, {
           conversationId,
           runId,
         });
@@ -169,13 +171,13 @@ export function createConvexFlusher({
         const errorParts = [{ type: "text" as const, text: message }];
         // Surface the error as streaming text so the client sees it before
         // we clear, then save it as the assistant message and clear.
-        await convex.mutation(api.conversations.updateStreaming, {
+        await convex.mutation(conversations.updateStreaming, {
           conversationId,
           runId,
           text: message,
           parts: errorParts as unknown as string,
         });
-        await convex.mutation(api.conversations.saveMessages, {
+        await convex.mutation(conversations.saveMessages, {
           conversationId,
           runId,
           messages: [
@@ -188,7 +190,7 @@ export function createConvexFlusher({
             },
           ],
         });
-        await convex.mutation(api.conversations.clearStreaming, {
+        await convex.mutation(conversations.clearStreaming, {
           conversationId,
           runId,
         });
@@ -210,7 +212,7 @@ export function createConvexFlusher({
       finalized = true;
       cancelTimer();
       try {
-        await convex.mutation(api.conversations.clearStreaming, {
+        await convex.mutation(conversations.clearStreaming, {
           conversationId,
           runId,
         });

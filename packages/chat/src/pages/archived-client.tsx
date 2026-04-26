@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
+import { useChatRuntime } from "../runtime";
 
 export function ArchivedChatsClient() {
-  const archived = useQuery(api.conversations.listArchived);
-  const restoreConversation = useMutation(api.conversations.restore);
+  const { convexApi } = useChatRuntime();
+  const archived = useQuery(convexApi.conversations.listArchived);
+  const restoreConversation = useMutation(convexApi.conversations.restore);
 
-  async function handleRestore(id: Id<"conversations">) {
+  async function handleRestore(id: string) {
     await restoreConversation({ id });
   }
 
@@ -40,7 +40,7 @@ export function ArchivedChatsClient() {
 
         {archived && archived.length > 0 && (
           <div className="space-y-2">
-            {archived.map((conv) => (
+            {archived.map((conv: { _id: string; title: string; createdAt: number }) => (
               <div
                 key={conv._id}
                 className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-[var(--sidebar-border)] bg-[var(--background)]"
