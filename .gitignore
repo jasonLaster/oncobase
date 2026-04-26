@@ -22,4 +22,5 @@ web/web
 .claude/worktrees
 obsidian/.claude/worktrees/
 web/.claude/worktrees/
+web/.swc/
 .codex/
