@@ -56,6 +56,13 @@ export default defineSchema({
     // writes always use the array form. See convex/migrations.ts.
     streamingParts: v.optional(v.union(v.string(), v.array(v.any()))),
     streamingUpdatedAt: v.optional(v.number()),
+    // Batch A of chat-patterns: when set, the route's userStopSignal aborts on
+    // the next throttled poll. Lets the Stop button decouple from req.signal.
+    canceledAt: v.optional(v.number()),
+    // PR 28 review: every active stream carries a runId. Convex mutations
+    // reject writes whose runId doesn't match the current active runId so a
+    // stale flush from a prior run can't clobber a newer one.
+    activeRunId: v.optional(v.string()),
   }).index("by_updated", ["updatedAt"]),
 
   messages: defineTable({

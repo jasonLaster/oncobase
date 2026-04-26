@@ -9,12 +9,21 @@ import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import { GrowingTextarea } from "@/components/growing-textarea";
 import { nowMs, recordChatPerf, trackStream } from "@/lib/chat/perf";
 import {
-  StickToBottom,
-  useStickToBottomContext,
-} from "use-stick-to-bottom";
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+  ConversationEmptyState,
+} from "@/components/ai-elements/conversation";
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputTextarea,
+  PromptInputSubmit,
+  PromptInputFooter,
+  type PromptInputMessage,
+} from "@/components/ai-elements/prompt-input";
 import {
   AssistantMessage,
   PriorMessages,
@@ -85,31 +94,7 @@ function CrossTabStream({
     }),
     [text, parts]
   );
-  return <AssistantMessage message={synthetic} />;
-}
-
-/**
- * Floating "scroll to bottom" pill. Pulls live state from the
- * <StickToBottom> wrapping it; only renders when the user has scrolled away
- * from the bottom (i.e., escaped from the auto-pin lock).
- */
-function ScrollToBottomButton() {
-  const { isAtBottom, scrollToBottom } = useStickToBottomContext();
-  if (isAtBottom) return null;
-  return (
-    <div className="absolute bottom-3 right-3 sm:right-4 z-10">
-      <button
-        type="button"
-        onClick={() => scrollToBottom()}
-        aria-label="Scroll to bottom"
-        className="p-2.5 sm:p-2 rounded-full bg-[var(--background)] border border-[var(--sidebar-border)] text-[var(--text-muted)] hover:text-[var(--foreground)] shadow-md hover:shadow-lg transition-all active:scale-95"
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="4 6 8 10 12 6" />
-        </svg>
-      </button>
-    </div>
-  );
+  return <AssistantMessage message={synthetic} isStreaming />;
 }
 
 interface ChatInterfaceProps {
@@ -124,6 +109,7 @@ export function ChatInterface({
   const createConversation = useMutation(api.conversations.create);
   const sendMessageMutation = useMutation(api.conversations.sendMessage);
   const clearStreamingMutation = useMutation(api.conversations.clearStreaming);
+  const cancelStreamMutation = useMutation(api.conversations.cancelStream);
   const disableMessageMutation = useMutation(api.conversations.disableMessage);
 
   // The Convex conversation id. Null until the first message is sent.
@@ -135,14 +121,25 @@ export function ChatInterface({
     convIdRef.current = activeConvId;
   }, [activeConvId]);
 
-  // Convex subscription (cross-tab + history).
-  const conversation = useQuery(
-    api.conversations.get,
+  // PR 28 review — Data Subscriptions: split message history from streaming
+  // state. The streaming-state hot path (4Hz writes during a turn) must NOT
+  // invalidate the message-history query. Two queries:
+  //   - getStreamingState reads only `conversations.streaming*` and
+  //     `activeRunId`. It re-runs on every flush, but it's tiny.
+  //   - getMessages reads only the `messages` table (joined by index).
+  //     It re-runs only when messages are inserted (saveMessages on
+  //     submit + onFinish), not on streaming patches.
+  const streamingState = useQuery(
+    api.conversations.getStreamingState,
     activeConvId ? { id: activeConvId as Id<"conversations"> } : "skip"
   );
-  const serverStreamingText = conversation?.streamingText;
-  const serverStreamingParts = conversation?.streamingParts;
-  const streamingUpdatedAt = conversation?.streamingUpdatedAt;
+  const conversationMessages = useQuery(
+    api.conversations.getMessages,
+    activeConvId ? { id: activeConvId as Id<"conversations"> } : "skip"
+  );
+  const serverStreamingText = streamingState?.streamingText;
+  const serverStreamingParts = streamingState?.streamingParts;
+  const streamingUpdatedAt = streamingState?.streamingUpdatedAt;
 
   // Initial messages — captured once on mount; useChat owns the running list.
   const initialUIMessages = useMemo(
@@ -215,7 +212,26 @@ export function ChatInterface({
     }
   }, [status]);
 
-  const [input, setInput] = useState("");
+  // Composer draft persistence keyed by conversation id. Drafts survive page
+  // navigation. Saved on every change, restored on mount.
+  const draftKey = `chat:draft:${activeConvId ?? "new"}`;
+  const [input, setInput] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      return sessionStorage.getItem(draftKey) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (input) sessionStorage.setItem(draftKey, input);
+      else sessionStorage.removeItem(draftKey);
+    } catch {
+      // sessionStorage may be blocked; ignore.
+    }
+  }, [input, draftKey]);
 
   const lastMessage = messages[messages.length - 1] as ChatUIMessage | undefined;
   const lastIsActiveUser =
@@ -252,10 +268,10 @@ export function ChatInterface({
   // stream completed and saved messages).
   useEffect(() => {
     if (status !== "ready") return;
-    if (!conversation?.messages) return;
-    if (conversation.messages.length <= messages.length) return;
+    if (!conversationMessages) return;
+    if (conversationMessages.length <= messages.length) return;
     const next = storedToUIMessages(
-      conversation.messages.map((m) => ({
+      conversationMessages.map((m) => ({
         _id: m._id,
         role: m.role,
         content: m.content,
@@ -264,7 +280,7 @@ export function ChatInterface({
       }))
     );
     setMessages(next);
-  }, [status, conversation, messages.length, setMessages]);
+  }, [status, conversationMessages, messages.length, setMessages]);
 
   // 30s stale-stream watchdog — clears the Convex mirror if the server died.
   const disableLastUserMessage = useCallback(() => {
@@ -335,16 +351,15 @@ export function ChatInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConvId, status, lastIsActiveUser, serverStreamingText, lastMessage]);
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      const text = input.trim();
-      if (!text || isStreaming) return;
+  const submitMessage = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || isStreaming) return;
       clearError();
 
       let convId = convIdRef.current;
       if (!convId) {
-        const title = text.slice(0, 60) + (text.length > 60 ? "…" : "");
+        const title = trimmed.slice(0, 60) + (trimmed.length > 60 ? "…" : "");
         convId = await createConversation({ title });
         convIdRef.current = convId;
         setActiveConvId(convId);
@@ -355,15 +370,23 @@ export function ChatInterface({
       // 30s watchdog has a streamingUpdatedAt to track.
       await sendMessageMutation({
         conversationId: convId as Id<"conversations">,
-        text,
+        text: trimmed,
       });
 
       autoResumed.current = true;
       setInput("");
       startTracker();
-      await sendMessage({ text });
+      await sendMessage({ text: trimmed });
     },
-    [input, isStreaming, clearError, createConversation, sendMessageMutation, sendMessage]
+    [isStreaming, clearError, createConversation, sendMessageMutation, sendMessage]
+  );
+
+  // <PromptInput> hands us its own message + event shape on submit.
+  const handlePromptSubmit = useCallback(
+    async (message: PromptInputMessage) => {
+      await submitMessage(message.text);
+    },
+    [submitMessage]
   );
 
   // Edit-trailing-user-message handler. Stable reference so PriorMessages
@@ -377,6 +400,17 @@ export function ChatInterface({
       });
     },
     [setMessages]
+  );
+
+  // Regenerate-this-assistant-message handler. Asks useChat to re-run the
+  // model from the message *before* the targeted assistant message.
+  const handleRegenerate = useCallback(
+    (messageId: string) => {
+      void regenerate({ messageId }).catch(() => {
+        // useChat surfaces the error via its `error` state; no toast here.
+      });
+    },
+    [regenerate]
   );
 
   // Split messages into the memoized prior list + the live streaming tail.
@@ -399,151 +433,184 @@ export function ChatInterface({
   }, [messages, isStreaming, lastMessage]);
 
   const handleStop = useCallback(() => {
+    // Batch A: tell the server to abort via the cancel flag (the route polls
+    // it via getCancelState and aborts the model). Don't just clear the
+    // streaming row locally — the server-side streamText is no longer tied
+    // to the request lifecycle, so without an explicit cancel signal, the
+    // model would keep running.
     stop();
     endTracker("abort");
     if (activeConvId) {
-      clearStreamingMutation({ conversationId: activeConvId as Id<"conversations"> });
+      cancelStreamMutation({
+        conversationId: activeConvId as Id<"conversations">,
+      });
+      // Optimistic UX: clear the local streaming row so the user sees the
+      // composer settle. The server's onAbort will save partial text via
+      // the flusher.
+      clearStreamingMutation({
+        conversationId: activeConvId as Id<"conversations">,
+      });
       disableLastUserMessage();
     }
-  }, [stop, activeConvId, clearStreamingMutation, disableLastUserMessage]);
+  }, [
+    stop,
+    activeConvId,
+    cancelStreamMutation,
+    clearStreamingMutation,
+    disableLastUserMessage,
+  ]);
+
+  // Composer keyboard handler:
+  // - Up arrow on empty composer focuses the last user message for edit
+  //   (terminal-style history recall).
+  // - Esc aborts an active stream.
+  // ai-elements <PromptInputTextarea> handles Enter (IME-safe) internally.
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const handleComposerKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "ArrowUp" && !e.currentTarget.value && !e.shiftKey) {
+        const last = [...messages].reverse().find((m) => m.role === "user");
+        if (!last) return;
+        const text = last.parts
+          .filter((p): p is { type: "text"; text: string } => p.type === "text")
+          .map((p) => p.text)
+          .join("");
+        if (!text) return;
+        e.preventDefault();
+        handleEditUser(text, last as ChatUIMessage);
+      } else if (e.key === "Escape") {
+        if (isStreaming) {
+          e.preventDefault();
+          handleStop();
+        }
+      }
+    },
+    [messages, isStreaming, handleEditUser, handleStop]
+  );
+
+  // Global keyboard shortcuts:
+  // - Cmd/Ctrl+/ focuses the composer from anywhere on the chat page.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
+        e.preventDefault();
+        textareaRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <div className="flex flex-col h-full max-w-3xl mx-auto w-full relative">
-      <StickToBottom
-        className="flex-1 min-h-0"
-        resize="smooth"
-        initial="instant"
-      >
-        <StickToBottom.Content
+      <Conversation className="flex-1 min-h-0">
+        <ConversationContent
           className="px-2 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4"
-          role="log"
           aria-live="polite"
         >
-        {messages.length === 0 && !isStreaming && (
-          <div className="text-center py-10 sm:py-16 text-[var(--text-muted)]">
-            <h1 className="text-lg font-semibold text-[var(--foreground)] mb-1">
-              Research Assistant
-            </h1>
-            <p className="text-xs mb-4 sm:mb-6">
-              Ask questions about the diagnosis, treatment, and research
-            </p>
-            <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto px-2">
-              {[
-                "What is the treatment plan?",
-                "Explain ctDNA monitoring options",
-                "What clinical trials are relevant?",
-                "Summarize the prognosis",
-              ].map((q) => (
-                <button
-                  key={q}
-                  onClick={async () => {
-                    let convId = convIdRef.current;
-                    if (!convId) {
-                      const title = q.slice(0, 60) + (q.length > 60 ? "..." : "");
-                      convId = await createConversation({ title });
-                      convIdRef.current = convId;
-                      setActiveConvId(convId);
-                      window.history.replaceState(null, "", `/chat/${convId}`);
-                    }
-                    await sendMessageMutation({
-                      conversationId: convId as Id<"conversations">,
-                      text: q,
-                    });
-                    autoResumed.current = true;
-                    startTracker();
-                    void sendMessage({ text: q });
-                  }}
-                  className="text-xs sm:text-sm px-3 py-2 sm:py-1.5 rounded-full border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] active:bg-[var(--accent-light)] transition-colors text-left"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Memoized list. Re-renders only when length or trailing id change. */}
-        <PriorMessages
-          messages={priorMessages}
-          onEditUser={handleEditUser}
-        />
-
-        {/* The streaming tail — only this re-renders per token tick. */}
-        {streamingTail && <StreamingMessage message={streamingTail} />}
-
-        {/* Cross-tab visibility: another tab is driving a stream. */}
-        {showCrossTabStream && (
-          <CrossTabStream
-            text={serverStreamingText ?? ""}
-            parts={parsedCrossTabParts as UIMessage["parts"] | null}
-          />
-        )}
-
-        {/* Submit pending — model has not started streaming yet. */}
-        {isStreaming &&
-          (!lastMessage || lastMessage.role === "user") && (
-            <div
-              className="flex gap-1 py-2 motion-reduce:animate-none"
-              role="status"
-              aria-label="Generating response"
+          {messages.length === 0 && !isStreaming && (
+            <ConversationEmptyState
+              title="Research Assistant"
+              description="Ask questions about the diagnosis, treatment, and research"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce motion-reduce:animate-none" />
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce motion-reduce:animate-none [animation-delay:0.15s]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce motion-reduce:animate-none [animation-delay:0.3s]" />
-            </div>
+              <div className="space-y-3">
+                <div className="space-y-1 text-center">
+                  <h3 className="font-semibold text-base text-[var(--foreground)]">
+                    Research Assistant
+                  </h3>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Ask questions about the diagnosis, treatment, and research
+                  </p>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto px-2">
+                  {[
+                    "What is the treatment plan?",
+                    "Explain ctDNA monitoring options",
+                    "What clinical trials are relevant?",
+                    "Summarize the prognosis",
+                  ].map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => void submitMessage(q)}
+                      className="text-xs sm:text-sm px-3 py-2 sm:py-1.5 rounded-full border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] active:bg-[var(--accent-light)] transition-colors text-left"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </ConversationEmptyState>
           )}
 
-        {error && (
-          <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-sm">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 mt-0.5">
-              <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 4a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0V5zm.75 6.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z" />
-            </svg>
-            <span>{error.message}</span>
-          </div>
-        )}
-        </StickToBottom.Content>
-        <ScrollToBottomButton />
-      </StickToBottom>
+          {/* Memoized list. Re-renders only when length or trailing id change. */}
+          <PriorMessages
+            messages={priorMessages}
+            onEditUser={handleEditUser}
+            onRegenerate={handleRegenerate}
+          />
+
+          {/* The streaming tail — only this re-renders per token tick. */}
+          {streamingTail && <StreamingMessage message={streamingTail} />}
+
+          {/* Cross-tab visibility: another tab is driving a stream. */}
+          {showCrossTabStream && (
+            <CrossTabStream
+              text={serverStreamingText ?? ""}
+              parts={parsedCrossTabParts as UIMessage["parts"] | null}
+            />
+          )}
+
+          {/* Submit pending — model has not started streaming yet. */}
+          {isStreaming &&
+            (!lastMessage || lastMessage.role === "user") && (
+              <div
+                className="flex gap-1 py-2 motion-reduce:animate-none"
+                role="status"
+                aria-label="Generating response"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce motion-reduce:animate-none" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce motion-reduce:animate-none [animation-delay:0.15s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce motion-reduce:animate-none [animation-delay:0.3s]" />
+              </div>
+            )}
+
+          {error && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-sm">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 mt-0.5">
+                <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 4a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0V5zm.75 6.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z" />
+              </svg>
+              <span>{error.message}</span>
+            </div>
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
       <div className="shrink-0 border-t border-[var(--sidebar-border)] px-2 sm:px-4 py-2 sm:py-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:pb-3">
-        <form onSubmit={handleSubmit} className="flex gap-2 items-end">
-          <GrowingTextarea
-            autoFocus
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              // IME-safe Enter: keyCode 229 / isComposing means an IME is
-              // mid-composition; Enter then commits the candidate, not the
-              // form. Without this, Japanese / Chinese / Korean composition
-              // submits the partial.
-              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit(e as unknown as React.FormEvent);
-              }
-            }}
-            placeholder="Ask a question..."
-            maxHeight={160}
-            className="flex-1 resize-none rounded-xl border border-[var(--sidebar-border)] bg-[var(--background)] px-3 sm:px-4 py-2.5 text-base sm:text-sm leading-relaxed focus:outline-none focus:border-[var(--brand)] transition-colors placeholder:text-[var(--text-muted)]"
-          />
-          {isStreaming ? (
-            <button
-              type="button"
-              onClick={handleStop}
-              className="shrink-0 px-4 py-2.5 rounded-xl border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--foreground)] text-sm font-medium hover:bg-[var(--destructive)] hover:text-white hover:border-[var(--destructive)] active:bg-[var(--destructive)] active:text-white transition-colors"
-            >
-              Stop
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!input.trim()}
-              className="shrink-0 px-4 py-2.5 rounded-xl bg-[var(--brand)] text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 active:opacity-80 transition-opacity"
-            >
-              Send
-            </button>
-          )}
-        </form>
+        <PromptInput
+          onSubmit={handlePromptSubmit}
+          // No file attachments yet; PromptInput's file infra is dormant.
+        >
+          <PromptInputBody>
+            <PromptInputTextarea
+              autoFocus
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              placeholder="Ask a question..."
+            />
+          </PromptInputBody>
+          <PromptInputFooter>
+            <span className="flex-1" />
+            <PromptInputSubmit
+              status={status}
+              disabled={!isStreaming && !input.trim()}
+              onStop={handleStop}
+            />
+          </PromptInputFooter>
+        </PromptInput>
       </div>
     </div>
   );

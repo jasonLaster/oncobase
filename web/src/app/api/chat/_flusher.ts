@@ -6,9 +6,10 @@
  * coalesces text + tool deltas; finalize() writes the persisted message once
  * and clears the streaming row.
  *
- * Today the row stays a JSON-encoded string (Phase 2 turns it into a native
- * array). The flusher's interface is shaped so Phase 2 only changes the
- * serialization, not the call sites.
+ * PR 28 review: every write carries a runId. Convex mutations reject mismatched
+ * runIds so a stale flush from a prior run can never clobber the current one.
+ * finalizeAbort clears the matching active run rather than persisting partial
+ * assistant text — aborted streams produce no half-written assistant rows.
  *
  * Env override: CHAT_FLUSHER_INTERVAL_MS (default 250). Set to 500 to roll
  * back to the pre-Phase-1 cadence without reverting code.
@@ -36,14 +37,12 @@ export interface ConvexFlusher {
   pushToolCall(part: FlusherPart): void;
   /** Update an existing tool part with a result. Flushed on the next tick. */
   updateToolResult(toolCallId: string, output: unknown): void;
-  /**
-   * Save the final assistant message and clear the streaming row.
-   * Idempotent for our purposes: if invoked twice, the second call is a no-op.
-   */
+  /** Final: save the assistant message + clear streaming row, both runId-guarded. */
   finalize(messages: SaveMessageInput[]): Promise<void>;
-  /** Mark the stream as failed; write a one-line error and clear. */
+  /** Error path: write error as streaming text, save as assistant message, clear. */
   finalizeError(message: string, errorMessageId?: string): Promise<void>;
-  /** Save partial text on abort and clear the streaming row. */
+  /** Abort path: cancel pending timer + clear streaming row. Does NOT persist
+   *  partial assistant text — aborted streams clear the matching active run. */
   finalizeAbort(): Promise<void>;
   /** Snapshot of the current accumulated text (used by abort handling). */
   getCurrentText(): string;
@@ -54,6 +53,8 @@ export interface ConvexFlusher {
 interface CreateOptions {
   convex: ConvexHttpClient;
   conversationId?: Id<"conversations">;
+  /** runId for this turn. Convex mutations reject mismatched runIds. */
+  runId?: string;
   intervalMs?: number;
 }
 
@@ -64,6 +65,7 @@ const DEFAULT_INTERVAL_MS = Number(
 export function createConvexFlusher({
   convex,
   conversationId,
+  runId,
   intervalMs = DEFAULT_INTERVAL_MS,
 }: CreateOptions): ConvexFlusher {
   let currentText = "";
@@ -72,17 +74,22 @@ export function createConvexFlusher({
   let timer: ReturnType<typeof setTimeout> | null = null;
   let finalized = false;
 
-  function flushNow(): Promise<void> {
-    if (!conversationId) return Promise.resolve();
+  function cancelTimer() {
     if (timer) {
       clearTimeout(timer);
       timer = null;
     }
+  }
+
+  function flushNow(): Promise<void> {
+    if (!conversationId) return Promise.resolve();
+    cancelTimer();
     if (!dirty) return Promise.resolve();
     dirty = false;
     return convex
       .mutation(api.conversations.updateStreaming, {
         conversationId,
+        runId,
         text: currentText,
         // Phase 2: parts column is union(string, array). We always write the
         // native array form. The schema validator accepts both for backward
@@ -133,19 +140,18 @@ export function createConvexFlusher({
         return;
       }
       finalized = true;
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
+      cancelTimer();
       try {
         if (messages.length > 0) {
           await convex.mutation(api.conversations.saveMessages, {
             conversationId,
+            runId,
             messages,
           });
         }
         await convex.mutation(api.conversations.clearStreaming, {
           conversationId,
+          runId,
         });
       } catch {
         // Best-effort. The 30s stale-stream watchdog on the client clears
@@ -158,21 +164,20 @@ export function createConvexFlusher({
         return;
       }
       finalized = true;
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
+      cancelTimer();
       try {
         const errorParts = [{ type: "text" as const, text: message }];
         // Surface the error as streaming text so the client sees it before
         // we clear, then save it as the assistant message and clear.
         await convex.mutation(api.conversations.updateStreaming, {
           conversationId,
+          runId,
           text: message,
           parts: errorParts as unknown as string,
         });
         await convex.mutation(api.conversations.saveMessages, {
           conversationId,
+          runId,
           messages: [
             {
               role: "assistant",
@@ -185,42 +190,30 @@ export function createConvexFlusher({
         });
         await convex.mutation(api.conversations.clearStreaming, {
           conversationId,
+          runId,
         });
       } catch {
         // Best-effort.
       }
     },
+    /**
+     * Abort path: cancel the pending flush timer and clear the streaming row,
+     * runId-guarded. Per the spec, aborted streams must clear the matching
+     * active run rather than save partial assistant text — a half-finished
+     * row would be indistinguishable from a completed response in the UI.
+     */
     async finalizeAbort() {
       if (finalized || !conversationId) {
         finalized = true;
         return;
       }
       finalized = true;
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
+      cancelTimer();
       try {
-        const ops: Array<Promise<unknown>> = [
-          convex.mutation(api.conversations.clearStreaming, {
-            conversationId,
-          }),
-        ];
-        if (currentText) {
-          ops.push(
-            convex.mutation(api.conversations.saveMessages, {
-              conversationId,
-              messages: [
-                {
-                  role: "assistant",
-                  content: currentText,
-                  createdAt: Date.now(),
-                },
-              ],
-            })
-          );
-        }
-        await Promise.all(ops);
+        await convex.mutation(api.conversations.clearStreaming, {
+          conversationId,
+          runId,
+        });
       } catch {
         // Best-effort.
       }

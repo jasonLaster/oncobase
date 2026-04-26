@@ -17,7 +17,7 @@
  */
 
 import type { UIMessage } from "ai";
-import { memo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { StreamingMarkdown } from "@/components/chat/streaming-markdown";
 
 export interface ChatUIMessage extends UIMessage {
@@ -195,10 +195,20 @@ const ToolCallBlock = memo(function ToolCallBlock({
   );
 });
 
-const MessageMarkdown = memo(function MessageMarkdown({ content }: { content: string }) {
+const MessageMarkdown = memo(function MessageMarkdown({
+  content,
+  isStreaming,
+}: {
+  content: string;
+  isStreaming?: boolean;
+}) {
   return (
     <div className="prose text-sm max-w-none">
-      <StreamingMarkdown disableAnchors content={content} />
+      <StreamingMarkdown
+        disableAnchors
+        content={content}
+        isStreaming={isStreaming}
+      />
     </div>
   );
 });
@@ -309,21 +319,58 @@ export function groupParts(
 
 // ---------------- assistant + user message rows ----------------
 
-function AssistantMessageImpl({ message }: { message: UIMessage }) {
+function AssistantMessageImpl({
+  message,
+  onRegenerate,
+  showActions = true,
+  isStreaming = false,
+}: {
+  message: UIMessage;
+  onRegenerate?: (messageId: string) => void;
+  showActions?: boolean;
+  /**
+   * True only for the assistant row that is currently receiving tokens.
+   * Threaded down to the markdown wrapper so Streamdown runs in
+   * `mode="streaming"` with a caret. Completed rows render as static.
+   */
+  isStreaming?: boolean;
+}) {
   const parts = message.parts;
-  const sourcePages = extractSourcePages(parts);
-  const hasText = parts.some((p) => p.type === "text" && p.text);
-  const hasReasoning = parts.some((p) => p.type === "reasoning");
-  const hasToolParts = parts.some((p) => isToolPart(p));
-  if (!hasText && !hasReasoning && !hasToolParts) return null;
-
-  const groups = groupParts(parts as Array<{ type: string; [k: string]: unknown }>);
+  // Memoize derivations on the parts ref. The streaming-tail message
+  // re-renders per token-batch; without these memos, extractSourcePages and
+  // groupParts both walk all parts on every commit. With memos, they only
+  // run when parts identity actually changes (which useChat does on append).
+  const sourcePages = useMemo(() => extractSourcePages(parts), [parts]);
+  const groups = useMemo(
+    () => groupParts(parts as Array<{ type: string; [k: string]: unknown }>),
+    [parts]
+  );
+  const hasContent = useMemo(
+    () => parts.some((p) => (p.type === "text" && p.text) || p.type === "reasoning" || isToolPart(p)),
+    [parts]
+  );
+  // Concatenate all text parts for copy-to-clipboard.
+  const fullText = useMemo(
+    () =>
+      parts
+        .filter((p): p is { type: "text"; text: string } => p.type === "text")
+        .map((p) => p.text)
+        .join("\n\n"),
+    [parts]
+  );
+  if (!hasContent) return null;
 
   return (
-    <div className="text-sm space-y-3">
+    <div className="group/assistant text-sm space-y-3" data-slot="assistant-message">
       {groups.map((group, i) => {
         if (group.kind === "text") {
-          return <MessageMarkdown key={i} content={group.texts.join("\n\n")} />;
+          return (
+            <MessageMarkdown
+              key={i}
+              content={group.texts.join("\n\n")}
+              isStreaming={isStreaming}
+            />
+          );
         }
         if (group.kind === "tools") {
           return (
@@ -351,12 +398,101 @@ function AssistantMessageImpl({ message }: { message: UIMessage }) {
         return null;
       })}
       <SourceLinks pages={sourcePages} />
+      {showActions && fullText && (
+        <AssistantMessageActions
+          text={fullText}
+          messageId={message.id}
+          onRegenerate={onRegenerate}
+        />
+      )}
     </div>
   );
 }
 
 /** Memoized assistant row. Re-renders only when its message reference changes. */
-export const AssistantMessage = memo(AssistantMessageImpl, (a, b) => a.message === b.message);
+export const AssistantMessage = memo(
+  AssistantMessageImpl,
+  (a, b) =>
+    a.message === b.message &&
+    a.onRegenerate === b.onRegenerate &&
+    a.showActions === b.showActions &&
+    a.isStreaming === b.isStreaming
+);
+
+function AssistantMessageActionsImpl({
+  text,
+  messageId,
+  onRegenerate,
+}: {
+  text: string;
+  messageId: string;
+  onRegenerate?: (messageId: string) => void;
+}) {
+  return (
+    <div
+      className="flex items-center gap-1 opacity-0 group-hover/assistant:opacity-100 transition-opacity"
+      data-slot="assistant-message-actions"
+    >
+      <CopyButton text={text} />
+      {onRegenerate && (
+        <RegenerateButton onClick={() => onRegenerate(messageId)} />
+      )}
+    </div>
+  );
+}
+const AssistantMessageActions = memo(AssistantMessageActionsImpl);
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard API can fail in insecure contexts; fail silently.
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title={copied ? "Copied!" : "Copy message"}
+      aria-label={copied ? "Copied" : "Copy message"}
+      className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-xs text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors"
+    >
+      {copied ? (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="3 8 7 12 13 4" />
+        </svg>
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="5" y="5" width="9" height="9" rx="1" />
+          <path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" />
+        </svg>
+      )}
+      <span>{copied ? "Copied" : "Copy"}</span>
+    </button>
+  );
+}
+
+function RegenerateButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Regenerate this response"
+      aria-label="Regenerate response"
+      className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-xs text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors"
+    >
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2v4h-4M2 14v-4h4" />
+        <path d="M13.5 6.5A6 6 0 0 0 4 4M2.5 9.5A6 6 0 0 0 12 12" />
+      </svg>
+      <span>Regenerate</span>
+    </button>
+  );
+}
 
 interface UserMessageRowProps {
   message: ChatUIMessage;
@@ -406,9 +542,10 @@ export const UserMessageRow = memo(UserMessageRowImpl, (a, b) =>
 interface PriorMessagesProps {
   messages: ChatUIMessage[];
   onEditUser: (text: string, msg: ChatUIMessage) => void;
+  onRegenerate?: (messageId: string) => void;
 }
 
-function PriorMessagesImpl({ messages, onEditUser }: PriorMessagesProps) {
+function PriorMessagesImpl({ messages, onEditUser, onRegenerate }: PriorMessagesProps) {
   return (
     <>
       {messages.map((message) => {
@@ -421,7 +558,13 @@ function PriorMessagesImpl({ messages, onEditUser }: PriorMessagesProps) {
             />
           );
         }
-        return <AssistantMessage key={message.id} message={message} />;
+        return (
+          <AssistantMessage
+            key={message.id}
+            message={message}
+            onRegenerate={onRegenerate}
+          />
+        );
       })}
     </>
   );
@@ -435,6 +578,7 @@ function PriorMessagesImpl({ messages, onEditUser }: PriorMessagesProps) {
  */
 export const PriorMessages = memo(PriorMessagesImpl, (prev, next) => {
   if (prev.onEditUser !== next.onEditUser) return false;
+  if (prev.onRegenerate !== next.onRegenerate) return false;
   if (prev.messages.length !== next.messages.length) return false;
   if (prev.messages.length === 0) return true;
   const lastA = prev.messages[prev.messages.length - 1];
@@ -449,7 +593,11 @@ interface StreamingMessageProps {
 /**
  * The current streaming message. Re-renders per throttled token tick. NOT
  * memoized — that's the whole point: it owns the per-token render budget.
+ * Actions (Copy/Regenerate) are hidden on the streaming tail; they appear
+ * only on committed messages.
  */
 export function StreamingMessage({ message }: StreamingMessageProps) {
-  return <AssistantMessageImpl message={message} />;
+  return (
+    <AssistantMessageImpl message={message} showActions={false} isStreaming />
+  );
 }

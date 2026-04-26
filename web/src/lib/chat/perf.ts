@@ -58,13 +58,22 @@ function getBuffer(): ChatPerfBuffer | null {
 }
 
 const DEV = process.env.NODE_ENV === "development";
-const ENABLED =
+const FLAG_ENABLED =
   DEV ||
   (typeof process !== "undefined" &&
     process.env.NEXT_PUBLIC_CHAT_PERF === "1");
 
+/**
+ * Recording is enabled if any of:
+ *   - dev mode
+ *   - NEXT_PUBLIC_CHAT_PERF=1 at build time
+ *   - the page injected `window.__CHAT_PERF__` before mount (e.g. Playwright
+ *     `addInitScript`). The presence of the buffer is itself an opt-in.
+ */
 export function recordChatPerf(event: ChatPerfEvent): void {
-  if (!ENABLED) return;
+  if (typeof window === "undefined") return;
+  const preInjected = window.__CHAT_PERF__ !== undefined;
+  if (!FLAG_ENABLED && !preInjected) return;
   const buf = getBuffer();
   if (!buf) return;
   buf.push(event);

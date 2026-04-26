@@ -4,6 +4,7 @@ import {
   smoothStream,
   convertToModelMessages,
   createIdGenerator,
+  consumeStream,
   type UIMessage,
 } from "ai";
 import { connection } from "next/server";
@@ -18,6 +19,57 @@ import { createConvexFlusher } from "./_flusher";
 import { getCachedSystemPrompt } from "./_system-prompt-cache";
 
 const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 });
+const generateRunId = createIdGenerator({ prefix: "run", size: 16 });
+
+/**
+ * Per-request body schema. Validated before any AI SDK conversion so
+ * malformed clients get a 400 instead of a 500 deep in convertToModelMessages.
+ * Spec acceptance criterion: "/api/chat validates its request body before
+ * converting UI messages to model messages."
+ */
+const ChatRequestSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        role: z.enum(["user", "assistant", "system"]),
+        // The full UIMessage parts shape is intentionally unconstrained here —
+        // AI SDK validates internally via convertToModelMessages. We just need
+        // the array to exist with non-null entries.
+        parts: z.array(z.unknown()).optional(),
+        content: z.string().optional(),
+      })
+    )
+    .min(1, "messages must not be empty"),
+  conversationId: z.string().optional(),
+});
+
+/**
+ * Strip the large `content` field from `read_page` tool outputs (and
+ * structurally-similar shapes) so persisted message parts don't carry 8KB
+ * of page text per call. Used by both the streaming flush path AND the
+ * final onFinish save so a completed assistant row matches the in-flight
+ * shape. Spec acceptance criterion: "Stored assistant message parts
+ * exclude large `content` fields from `read_page` tool results."
+ */
+function compactToolResult(result: unknown): unknown {
+  if (
+    typeof result === "object" &&
+    result !== null &&
+    "content" in (result as Record<string, unknown>)
+  ) {
+    const r = result as Record<string, unknown>;
+    return Object.fromEntries(Object.entries(r).filter(([k]) => k !== "content"));
+  }
+  if (Array.isArray(result)) {
+    // Search results: keep just slug/title.
+    return (result as Array<Record<string, unknown>>).map((r) => ({
+      slug: r.slug,
+      title: r.title,
+    }));
+  }
+  return result;
+}
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -176,29 +228,79 @@ export async function POST(request: Request) {
     );
   }
 
-  const { messages, conversationId } = (await request.json()) as {
-    messages: UIMessage[];
-    conversationId?: string;
-  };
+  // PR 28 review: validate body before convertToModelMessages.
+  let parsedBody: z.infer<typeof ChatRequestSchema>;
+  try {
+    parsedBody = ChatRequestSchema.parse(await request.json());
+  } catch (err) {
+    const issues =
+      err instanceof z.ZodError
+        ? err.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")
+        : "invalid request body";
+    console.error(`[chat ${requestId}] validation failed:`, issues);
+    return new Response(
+      JSON.stringify({ error: { code: "validation", message: issues } }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json", "x-request-id": requestId },
+      }
+    );
+  }
+  const messages = parsedBody.messages as unknown as UIMessage[];
 
   const modelMessages = await convertToModelMessages(messages);
-  const convId = conversationId as Id<"conversations"> | undefined;
+  const convId = parsedBody.conversationId as Id<"conversations"> | undefined;
   const convex = getConvex();
+  const runId = generateRunId();
   console.log(
-    `[chat ${requestId}] start conv=${convId ?? "n/a"} msgs=${messages.length}`
+    `[chat ${requestId}] start conv=${convId ?? "n/a"} run=${runId} msgs=${messages.length}`
   );
 
-  // Mark stream as active immediately so clients see the waiting state
+  // Begin the run server-side: sets activeRunId and clears any prior
+  // canceledAt + streaming row in one atomic patch. From this point on,
+  // any flush from a *prior* run with a different runId is a no-op (the
+  // mutation rejects mismatched runIds).
   if (convId) {
-    convex
-      .mutation(api.conversations.updateStreaming, {
+    await convex
+      .mutation(api.conversations.beginRun, {
         conversationId: convId,
-        text: "",
+        runId,
       })
       .catch(() => {});
   }
 
-  const flusher = createConvexFlusher({ convex, conversationId: convId });
+  // Compose abort signals so BOTH the explicit Stop button AND the request
+  // lifecycle (disconnect / abort) cancel the model. Spec acceptance:
+  // "The server must pass `request.signal` to `streamText` so Stop and
+  // disconnects cancel provider work." Stop writes `canceledAt` via Convex
+  // and aborts the userStopSignal once the throttled poll picks it up.
+  const userStopSignal = new AbortController();
+  const composedAbortSignal = AbortSignal.any([
+    request.signal,
+    userStopSignal.signal,
+  ]);
+  let lastCancelPoll = 0;
+  const CANCEL_POLL_INTERVAL_MS = 1000;
+
+  async function maybeAbortOnCancel() {
+    if (!convId) return;
+    const now = Date.now();
+    if (now - lastCancelPoll < CANCEL_POLL_INTERVAL_MS) return;
+    lastCancelPoll = now;
+    try {
+      const state = await convex.query(api.conversations.getCancelState, {
+        conversationId: convId,
+      });
+      if (state?.canceledAt) {
+        console.log(`[chat ${requestId}] user-cancel detected, aborting`);
+        userStopSignal.abort();
+      }
+    } catch {
+      // Best-effort; don't fail the stream on a transient query error.
+    }
+  }
+
+  const flusher = createConvexFlusher({ convex, conversationId: convId, runId });
 
   const systemPrompt = await buildSystemPrompt();
 
@@ -208,6 +310,7 @@ export async function POST(request: Request) {
     system: systemPrompt,
     messages: modelMessages,
     stopWhen: stepCountIs(10),
+    abortSignal: composedAbortSignal,
     experimental_transform: smoothStream({ delayInMs: 25, chunking: "word" }),
     tools: {
       search_wiki: {
@@ -355,6 +458,8 @@ export async function POST(request: Request) {
       await flusher.finalizeAbort();
     },
     onChunk: ({ chunk }) => {
+      // Poll for user cancel on every chunk (throttled to 1Hz inside).
+      void maybeAbortOnCancel();
       if (!convId) return;
       if (chunk.type === "text-delta") {
         flusher.pushText((chunk as { text: string }).text);
@@ -370,28 +475,7 @@ export async function POST(request: Request) {
         });
       } else if (chunk.type === "tool-result") {
         const tr = chunk as unknown as { toolCallId: string; result: unknown };
-        // Strip large content from tool results to keep the streaming row small.
-        const result = tr.result;
-        let output: unknown;
-        if (
-          typeof result === "object" &&
-          result !== null &&
-          "content" in (result as Record<string, unknown>)
-        ) {
-          const r = result as Record<string, unknown>;
-          output = Object.fromEntries(
-            Object.entries(r).filter(([k]) => k !== "content")
-          );
-        } else if (Array.isArray(result)) {
-          // For search results, keep just slug/title.
-          output = (result as Array<Record<string, unknown>>).map((r) => ({
-            slug: r.slug,
-            title: r.title,
-          }));
-        } else {
-          output = result;
-        }
-        flusher.updateToolResult(tr.toolCallId, output);
+        flusher.updateToolResult(tr.toolCallId, compactToolResult(tr.result));
       }
     },
     onError: async (event) => {
@@ -431,7 +515,9 @@ export async function POST(request: Request) {
             input:
               (tc as unknown as Record<string, unknown>).args ??
               (tc as unknown as Record<string, unknown>).input,
-            output: tr?.result ?? null,
+            // PR 28 review: same compaction as the streaming path so completed
+            // assistant rows don't carry the 8KB read_page page content.
+            output: tr ? compactToolResult(tr.result) : null,
             state: "output-available",
           });
         }
@@ -460,7 +546,14 @@ export async function POST(request: Request) {
 
   try {
     return result.toUIMessageStreamResponse({
+      // PR 28 review: stable UI message identity across the SSE round-trip.
+      originalMessages: messages,
       generateMessageId,
+      // PR 28 review: use the AI SDK's consumeStream so the tee'd UI-message
+      // stream is drained even when the visible UI is backed by another
+      // transport (Convex mirror). This honors backpressure + abort handling
+      // correctly without the hand-rolled `after()` reader.
+      consumeSseStream: consumeStream,
       headers: { "x-request-id": requestId },
     });
   } catch (err: unknown) {
