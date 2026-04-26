@@ -277,21 +277,33 @@ export async function getFileTreeWithPdfs(): Promise<FileNode[]> {
   return tree;
 }
 
+/**
+ * Resolve a slug to a concrete .md path on disk.
+ *
+ * `{slug}.md` wins; if that's missing, fall back to `{slug}/index.md` so a
+ * directory landing page is reachable at the bare directory URL.
+ */
+function resolveSlugToFile(slug: string): { filePath: string; resolvedSlug: string } | null {
+  const direct = path.join(OBSIDIAN_DIR, `${slug}.md`);
+  if (fs.existsSync(direct)) return { filePath: direct, resolvedSlug: slug };
+  const indexPath = path.join(OBSIDIAN_DIR, slug, "index.md");
+  if (fs.existsSync(indexPath)) return { filePath: indexPath, resolvedSlug: `${slug}/index` };
+  return null;
+}
+
 /** Read and parse a single markdown file (sync — for static generation) */
 export function getMarkdownFile(
   slug: string,
   { piiMode = "redacted" }: MarkdownReadOptions = {}
 ): MarkdownFile | null {
-  const filePath = path.join(OBSIDIAN_DIR, `${slug}.md`);
   const cacheKey = `${piiMode}:${slug}`;
-
-  if (!fs.existsSync(filePath)) {
+  const resolved = resolveSlugToFile(slug);
+  if (!resolved) {
     _fileCache.set(cacheKey, null);
     return null;
   }
-
-  const raw = fs.readFileSync(filePath, "utf-8");
-  return parseMarkdownFile(slug, raw, piiMode);
+  const raw = fs.readFileSync(resolved.filePath, "utf-8");
+  return parseMarkdownFile(resolved.resolvedSlug, raw, piiMode);
 }
 
 /** Read and parse a single markdown file (async — for page rendering) */
@@ -299,12 +311,15 @@ export async function getMarkdownFileAsync(
   slug: string,
   { piiMode = "redacted" }: MarkdownReadOptions = {}
 ): Promise<MarkdownFile | null> {
-  const filePath = path.join(OBSIDIAN_DIR, `${slug}.md`);
   const cacheKey = `${piiMode}:${slug}`;
-
+  const resolved = resolveSlugToFile(slug);
+  if (!resolved) {
+    _fileCache.set(cacheKey, null);
+    return null;
+  }
   try {
-    const raw = await fs.promises.readFile(filePath, "utf-8");
-    return parseMarkdownFile(slug, raw, piiMode);
+    const raw = await fs.promises.readFile(resolved.filePath, "utf-8");
+    return parseMarkdownFile(resolved.resolvedSlug, raw, piiMode);
   } catch {
     _fileCache.set(cacheKey, null);
     return null;
@@ -396,6 +411,11 @@ export function getAllSlugs(): string[] {
 
   function walk(dir: string, basePath: string) {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
+    const hasIndexMd = entries.some((e) => e.isFile() && e.name === "index.md");
+    if (hasIndexMd && basePath) {
+      // Expose the directory itself as a slug so /foo/bar resolves to foo/bar/index.md.
+      slugs.push(basePath);
+    }
     for (const entry of entries) {
       if (entry.name.startsWith(".")) continue;
       if (EXCLUDED_DIRS.has(entry.name)) continue;
