@@ -51,12 +51,21 @@ const buildEnv = {
   CONVEX_URL: convexUrl,
 };
 
+// Materialize Git LFS pointers (images, large binaries) before ingest.
+// `|| true` keeps the build going if LFS isn't installed — the ingest scripts
+// guard against pointer files and just skip them.
+spawnSync("sh", ["-c", "git -C .. lfs pull || true"], {
+  cwd: ROOT,
+  env: buildEnv,
+  stdio: "inherit",
+});
+
 // Preview branches prioritize fast feedback; production keeps the full data sync.
 if (process.env.VERCEL_ENV === "preview") {
   run("sh", ["-c", "bun scripts/ingest-wiki.ts && bun run build"], buildEnv);
 } else {
   run("sh", [
     "-c",
-    "(bun scripts/ingest-wiki.ts & bun scripts/sync-convex.ts & wait) && bun scripts/ingest-pdfs.ts && bun run build",
+    "(bun scripts/ingest-wiki.ts & bun scripts/sync-convex.ts & wait) && bun scripts/ingest-pdfs.ts && bun scripts/ingest-assets.ts && bun run build",
   ], buildEnv);
 }

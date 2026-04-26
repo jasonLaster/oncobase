@@ -96,8 +96,14 @@ async function main() {
 
   let uploaded = 0;
   let failed = 0;
+  let skippedLfs = 0;
   for (const { fullPath, relativePath } of toUpload) {
     const buffer = fs.readFileSync(fullPath);
+    if (buffer.length < 200 && buffer.toString("utf8", 0, 40).includes("git-lfs")) {
+      skippedLfs++;
+      console.error(`  ✗ Skipping ${relativePath}: unmaterialized Git LFS pointer (run \`git lfs pull\` first)`);
+      continue;
+    }
     try {
       const blob = await put(`files/${relativePath}`, buffer, {
         access: "public",
@@ -120,7 +126,9 @@ async function main() {
     }
   }
 
-  console.log(`Done! ${uploaded} assets uploaded, ${failed} failed, ${existing.length} already present.`);
+  console.log(
+    `Done! ${uploaded} assets uploaded, ${failed} failed, ${skippedLfs} skipped (LFS pointers), ${existing.length} already present.`,
+  );
 }
 
 main().catch((err) => {
