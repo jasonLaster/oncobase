@@ -8,7 +8,7 @@ web/public/diana-tnbc-wiki-markdown.zip
 web/public/wiki-download-info.json
 web/e2e/.auth/
 web/test-results/
-diagnostics
+/diagnostics
 .vercel
 web/scripts/test-archive-output.zip
 web/scripts/test-blob-archive.ts
