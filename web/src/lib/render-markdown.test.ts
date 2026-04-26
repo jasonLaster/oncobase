@@ -153,6 +153,44 @@ describe("renderMarkdown example tables", () => {
   });
 });
 
+describe("renderMarkdown theme-paired images", () => {
+  test("expands data-theme-pair img into a light/dark sibling pair", () => {
+    const html = renderMarkdown(
+      `# Page\n\n<img src="./images/foo-light.png" alt="foo cartoon" data-theme-pair>\n`,
+      "wiki/example",
+    );
+
+    expect(html).toMatch(/<img[^>]*foo-light\.png[^>]*class="dark:hidden"/);
+    expect(html).toMatch(/<img[^>]*foo-dark\.png[^>]*class="hidden dark:block"/);
+    expect(html).not.toContain("data-theme-pair");
+    // alt is preserved on both tags
+    expect(countMatches(html, /alt="foo cartoon"/g)).toBe(2);
+    // both srcs get proxied through /api/file
+    expect(html).toContain("/api/file?path=");
+  });
+
+  test("leaves the tag alone when src is not a -light variant", () => {
+    const html = renderMarkdown(
+      `<img src="./images/foo.png" alt="x" data-theme-pair>`,
+      "wiki/example",
+    );
+
+    expect(html).toContain("data-theme-pair");
+    expect(html).not.toContain("foo-dark.png");
+    expect(html).not.toContain("dark:hidden");
+  });
+
+  test("ignores plain img tags without data-theme-pair", () => {
+    const html = renderMarkdown(
+      `<img src="./images/foo-light.png" alt="x">`,
+      "wiki/example",
+    );
+
+    expect(html).not.toContain("foo-dark.png");
+    expect(html).not.toContain("dark:hidden");
+  });
+});
+
 describe("normalizeMathValue", () => {
   test("repairs unbalanced parens and unit spacing from OCR output", () => {
     expect(normalizeMathValue("(n = 3")).toBe("(n = 3)");

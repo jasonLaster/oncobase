@@ -22,7 +22,7 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "22";
+const PIPELINE_VERSION = "23";
 
 // ─── Mermaid pre-processor ────────────────────────────────────────────────────
 //
@@ -153,6 +153,34 @@ function fixMarkdownLinks(html: string): string {
 const PROXIED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".csv", ".pdf"]);
 
 /**
+ * Expand `<img data-theme-pair src="…-light.png">` into a paired light/dark
+ * `<img>` that swaps with the `dark` class on `<html>` (same Tailwind pattern
+ * used for mermaid diagrams). Authors write a single tag pointing at the
+ * light variant; this derives the `-dark` sibling by filename.
+ *
+ * Runs BEFORE fixImageSrcs so both produced tags get proxied through /api/file.
+ */
+function expandThemeImages(html: string): string {
+  return html.replace(/<img\b([^>]*?)\s*\/?>/g, (match, rawAttrs: string) => {
+    if (!/\bdata-theme-pair\b/.test(rawAttrs)) return match;
+    const srcMatch = rawAttrs.match(/\bsrc="([^"]*)"/);
+    if (!srcMatch) return match;
+    const lightSrc = srcMatch[1];
+    const lightSuffix = lightSrc.match(/^(.*)-light(\.[a-zA-Z0-9]+)$/);
+    if (!lightSuffix) return match;
+    const darkSrc = `${lightSuffix[1]}-dark${lightSuffix[2]}`;
+
+    const cleanAttrs = rawAttrs
+      .replace(/\sdata-theme-pair(?:="[^"]*")?/g, "")
+      .replace(/\sclass="[^"]*"/g, "");
+    const lightTag = `<img${cleanAttrs} class="dark:hidden">`;
+    const darkAttrs = cleanAttrs.replace(/\bsrc="[^"]*"/, `src="${darkSrc}"`);
+    const darkTag = `<img${darkAttrs} class="hidden dark:block">`;
+    return `${lightTag}${darkTag}`;
+  });
+}
+
+/**
  * Rewrite relative image src values to proxy through /api/file so that:
  *   - Images load in production (served from Vercel Blob via proxy)
  *   - CSP headers from blob CDN are stripped
@@ -257,7 +285,7 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
   const cleanMd = stripLegacyTableDirectives(mermaidExtracted);
   const raw = processor.processSync(cleanMd).toString();
   const wrapped = decorateRenderedTables(raw);
-  const html = fixPdfLinks(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug));
+  const html = fixPdfLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped)), currentSlug));
 
   try {
     ensureCacheDir();
@@ -293,7 +321,7 @@ export async function renderMarkdownAsync(md: string, currentSlug?: string): Pro
   const tPipeline = performance.now();
 
   const wrapped = decorateRenderedTables(raw);
-  const html = fixPdfLinks(fixImageSrcs(fixMarkdownLinks(wrapped), currentSlug));
+  const html = fixPdfLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped)), currentSlug));
 
   console.log(
     `[perf] renderMarkdown cache-miss slug=${currentSlug} ` +
