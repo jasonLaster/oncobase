@@ -21,11 +21,11 @@ const pageCases: PageLoadCase[] = [
     bodyText: "Patient identifiers hidden.",
   },
   {
-    route: "/sources/meeting-notes/409---dirbas-biopsy-planning-overview",
+    route: "/sources/meeting-notes/04-09---dirbas-biopsy-planning-overview",
     heading: "Dr. Dirbas Biopsy Planning Call — April 8, 2026",
   },
   {
-    route: "/sources/diagnostics/410-stanford-research-consent",
+    route: "/sources/diagnostics/04-10-stanford-research-consent",
     heading: "Stanford University Research Consent Form — OCR",
   },
 ];
