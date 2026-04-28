@@ -121,6 +121,18 @@ export function ChatInterface({
     convIdRef.current = activeConvId;
   }, [activeConvId]);
 
+  const resetTokenRef = useRef(0);
+  const [resetToken, setResetToken] = useState(0);
+  useEffect(() => {
+    function onNewChat() {
+      setActiveConvId(null);
+      resetTokenRef.current += 1;
+      setResetToken(resetTokenRef.current);
+    }
+    window.addEventListener("chat:new", onNewChat);
+    return () => window.removeEventListener("chat:new", onNewChat);
+  }, []);
+
   // PR 28 review — Data Subscriptions: split message history from streaming
   // state. The streaming-state hot path (4Hz writes during a turn) must NOT
   // invalidate the message-history query. Two queries:
@@ -232,6 +244,14 @@ export function ChatInterface({
       // sessionStorage may be blocked; ignore.
     }
   }, [input, draftKey]);
+
+  useEffect(() => {
+    if (resetToken === 0) return;
+    stop();
+    setMessages([]);
+    clearError();
+    setInput("");
+  }, [resetToken, stop, setMessages, clearError]);
 
   const lastMessage = messages[messages.length - 1] as ChatUIMessage | undefined;
   const lastIsActiveUser =

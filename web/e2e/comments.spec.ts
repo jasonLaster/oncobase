@@ -1375,11 +1375,7 @@ test.describe("API endpoints", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Sidebar navigation", () => {
-  test("Chat with wiki link is visible in sidebar", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByRole("link", { name: "Chat with wiki" })).toBeVisible();
-  });
-
+  // Note: chat is reached via the header "New chat" button (covered in chat.spec.ts).
   test("View comments link is visible in sidebar", async ({ page }) => {
     await page.goto("/");
     const link = page.getByRole("link", { name: "View comments" });

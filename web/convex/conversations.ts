@@ -26,13 +26,15 @@ export const listArchived = query({
 });
 
 export const get = query({
-  args: { id: v.id("conversations") },
+  args: { id: v.string() },
   handler: async (ctx, { id }) => {
-    const conversation = await ctx.db.get(id);
+    const convId = ctx.db.normalizeId("conversations", id);
+    if (!convId) return null;
+    const conversation = await ctx.db.get(convId);
     if (!conversation) return null;
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", id))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", convId))
       .collect();
     return { ...conversation, messages };
   },
@@ -46,20 +48,24 @@ export const get = query({
  * (below) for streaming updates.
  */
 export const getMessages = query({
-  args: { id: v.id("conversations") },
+  args: { id: v.string() },
   handler: async (ctx, { id }) => {
+    const convId = ctx.db.normalizeId("conversations", id);
+    if (!convId) return [];
     return await ctx.db
       .query("messages")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", id))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", convId))
       .collect();
   },
 });
 
 /** Minimal conversation metadata (title, archived, etc) without messages or streaming state. */
 export const getMeta = query({
-  args: { id: v.id("conversations") },
+  args: { id: v.string() },
   handler: async (ctx, { id }) => {
-    const c = await ctx.db.get(id);
+    const convId = ctx.db.normalizeId("conversations", id);
+    if (!convId) return null;
+    const c = await ctx.db.get(convId);
     if (!c) return null;
     return {
       _id: c._id,
@@ -73,9 +79,11 @@ export const getMeta = query({
 
 /** Lightweight query for streaming state only — high-frequency hot path. */
 export const getStreamingState = query({
-  args: { id: v.id("conversations") },
+  args: { id: v.string() },
   handler: async (ctx, { id }) => {
-    const conv = await ctx.db.get(id);
+    const convId = ctx.db.normalizeId("conversations", id);
+    if (!convId) return null;
+    const conv = await ctx.db.get(convId);
     if (!conv) return null;
     return {
       streamingText: conv.streamingText,

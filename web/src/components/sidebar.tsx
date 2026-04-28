@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, lazy, Suspense } from "react";
+import { useState } from "react";
 import type { FileNode } from "@/lib/markdown";
-import { chatConfigured } from "@/lib/chat-config";
-
-const ConversationList = lazy(() => import("@diana-tnbc/chat/components/conversation-list"));
 
 export function formatName(name: string): string {
   return name.replace(/-/g, " ");
@@ -15,22 +12,6 @@ export function formatName(name: string): string {
 export function hasActiveDescendant(node: FileNode, decodedPathname: string): boolean {
   if (node.type === "file") return decodedPathname === `/${node.slug}`;
   return node.children?.some((child) => hasActiveDescendant(child, decodedPathname)) ?? false;
-}
-
-function ChatIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-      <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H5l-3 3V3z" />
-    </svg>
-  );
-}
-
-function CommentIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-      <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
-    </svg>
-  );
 }
 
 function PdfIcon() {
@@ -44,56 +25,6 @@ function PdfIcon() {
   );
 }
 
-
-export function SidebarTopLinks({
-  onNavigate,
-}: {
-  onNavigate?: () => void;
-  tree: FileNode[];
-}) {
-  const pathname = usePathname();
-
-  const links = [
-    {
-      href: "/chat",
-      label: "Chat with wiki",
-      active: pathname.startsWith("/chat"),
-      icon: <ChatIcon />,
-    },
-    ...(process.env.NEXT_PUBLIC_ENABLE_COMMENTS === "true"
-      ? [
-          {
-            href: "/comments",
-            label: "View comments",
-            active: pathname.startsWith("/comments"),
-            icon: <CommentIcon />,
-          },
-        ]
-      : []),
-  ];
-
-  return (
-    <div className="mb-3">
-      <div className="space-y-0.5">
-        {links.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            onClick={onNavigate}
-            className={`flex items-center gap-2 rounded px-2 py-1 text-sm transition-colors ${
-              link.active
-                ? "bg-[var(--accent-light)] text-[var(--brand)] font-medium"
-                : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
-            }`}
-          >
-            {link.icon}
-            <span className="truncate">{link.label}</span>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; depth?: number; onNavigate?: () => void }) {
   const rawPathname = usePathname();
@@ -171,15 +102,10 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
 }
 
 export function Sidebar({ tree }: { tree: FileNode[] }) {
-  const pathname = usePathname();
-  const isChat = chatConfigured && pathname.startsWith("/chat");
-
   return (
     <aside className="hidden md:flex flex-col h-full min-h-0 overflow-hidden bg-[var(--sidebar-bg)]">
       <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
-        <SidebarTopLinks tree={tree} />
-        <div className="mb-3 h-px bg-[var(--sidebar-border)]" />
-        {isChat ? <Suspense><ConversationList /></Suspense> : tree.map((node) => (
+        {tree.map((node) => (
           <TreeNode key={node.slug} node={node} />
         ))}
       </nav>

@@ -6,6 +6,7 @@ import type { FileNode } from "@/lib/markdown";
 import { BottomNav } from "@/components/bottom-nav";
 import { ResizableLayout } from "@/components/resizable-layout";
 import { Sidebar } from "@/components/sidebar";
+import { ConversationList } from "@diana-tnbc/chat";
 
 function SidebarFallback() {
   return (
@@ -60,13 +61,23 @@ export function NavigationShell({
     };
   }, [pathname]);
 
+  const isChat = pathname.startsWith("/chat");
+
+  const sidebar = isChat ? (
+    <aside className="hidden md:flex flex-col h-full min-h-0 overflow-hidden bg-[var(--sidebar-bg)]">
+      <nav className="flex-1 min-h-0 overflow-y-auto p-2">
+        <ConversationList />
+      </nav>
+    </aside>
+  ) : tree.length > 0 ? (
+    <Sidebar tree={tree} />
+  ) : (
+    <SidebarFallback />
+  );
+
   return (
     <>
-      <ResizableLayout
-        sidebar={tree.length > 0 ? <Sidebar tree={tree} /> : <SidebarFallback />}
-      >
-        {children}
-      </ResizableLayout>
+      <ResizableLayout sidebar={sidebar}>{children}</ResizableLayout>
       <BottomNav tree={tree} />
     </>
   );

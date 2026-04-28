@@ -1,16 +1,46 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ActionsMenu } from "@/components/actions-menu";
 import { openCommandPalette } from "@/components/command-palette";
 
-function ChatIcon() {
+function NewChatIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H5l-3 3V3z" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.7.7 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+      <path d="m9 11 2 2 4-4" />
     </svg>
+  );
+}
+
+function NewChatButton() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [pending, startTransition] = useTransition();
+
+  function handleClick() {
+    if (pathname.startsWith("/chat")) {
+      window.dispatchEvent(new CustomEvent("chat:new"));
+    }
+    startTransition(() => {
+      router.push("/chat");
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      aria-label="New chat"
+      title="New chat"
+      data-pending={pending ? "" : undefined}
+      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] active:scale-[0.97] transition-all text-[var(--text-muted)] text-xs shrink-0 data-[pending]:opacity-60"
+    >
+      <NewChatIcon />
+      <span className="hidden sm:inline">New chat</span>
+    </button>
   );
 }
 
@@ -26,15 +56,7 @@ export function Header() {
           <Suspense fallback={<HeaderSearchFallback />}>
             <HeaderSearch />
           </Suspense>
-          <Link
-            href="/chat"
-            aria-label="New chat"
-            title="New chat"
-            className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] transition-colors text-[var(--text-muted)] text-xs shrink-0"
-          >
-            <ChatIcon />
-            <span className="hidden sm:inline">New chat</span>
-          </Link>
+          <NewChatButton />
           <button
             type="button"
             onClick={openCommandPalette}
@@ -42,10 +64,8 @@ export function Header() {
             title="Find files (⌘P)"
             className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] transition-colors text-[var(--text-muted)] text-xs shrink-0"
           >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 2a2 2 0 0 0-2 2v0a2 2 0 0 0 2 2h1v4H4a2 2 0 0 0-2 2v0a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V9h4v3a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2v0a2 2 0 0 0-2-2h-1V6h1a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h0a2 2 0 0 0-2 2v1H6V4a2 2 0 0 0-2-2z" />
-              <line x1="6" y1="6" x2="10" y2="6" />
-              <line x1="6" y1="10" x2="10" y2="10" />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3" />
             </svg>
             <span className="hidden sm:inline">Find files</span>
           </button>

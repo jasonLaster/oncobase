@@ -82,7 +82,7 @@ async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
 
   await expect(header).toBeVisible();
   await expect(searchInput).toBeVisible();
-  await expect(page.getByRole("link", { name: "New chat" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "New chat" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Find files (⌘P)" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Actions" })).toBeVisible();
   await expect(sidebar).toBeVisible();

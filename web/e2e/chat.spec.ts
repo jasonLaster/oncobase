@@ -26,9 +26,9 @@ test.describe("Chat", () => {
     });
   });
 
-  test("new chat link in header navigates to chat", async ({ page }) => {
+  test("new chat button in header navigates to chat", async ({ page }) => {
     await page.goto("/");
-    const newChat = page.locator("header").getByRole("link", { name: "New chat" });
+    const newChat = page.locator("header").getByRole("button", { name: "New chat" });
     await expect(newChat).toBeVisible();
     await newChat.click();
     await expect(page).toHaveURL(/\/chat/, { timeout: 15_000 });

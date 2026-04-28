@@ -1,12 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
-import { TreeNode, formatName, SidebarTopLinks } from "@/components/sidebar";
-import { chatConfigured } from "@/lib/chat-config";
-
-const ConversationList = lazy(() => import("@diana-tnbc/chat/components/conversation-list"));
+import { TreeNode, formatName } from "@/components/sidebar";
 
 function getPageTitle(pathname: string): string {
   if (pathname === "/") return "Home";
@@ -25,7 +22,6 @@ function getPageTitle(pathname: string): string {
 export function BottomNav({ tree }: { tree: FileNode[] }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const isChat = chatConfigured && pathname.startsWith("/chat");
   const title = getPageTitle(pathname);
 
   const close = useCallback(() => setOpen(false), []);
@@ -96,9 +92,7 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
           <div className="shrink-0 pt-2 pb-1 px-4">
             <div className="w-8 h-1 rounded-full bg-[var(--text-muted)]/30 mx-auto mb-2" />
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold">
-                {isChat ? "Conversations" : "Pages"}
-              </span>
+              <span className="text-sm font-semibold">Pages</span>
               <button
                 onClick={close}
                 aria-label="Close navigation"
@@ -122,21 +116,13 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
 
           {/* Scrollable tree */}
           <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-0.5">
-            <SidebarTopLinks onNavigate={close} tree={tree} />
-            <div className="mb-3 h-px bg-[var(--sidebar-border)]" />
-            {isChat ? (
-              <Suspense>
-                <ConversationList />
-              </Suspense>
-            ) : (
-              tree.map((node) => (
-                <TreeNode
-                  key={node.slug}
-                  node={node}
-                  onNavigate={close}
-                />
-              ))
-            )}
+            {tree.map((node) => (
+              <TreeNode
+                key={node.slug}
+                node={node}
+                onNavigate={close}
+              />
+            ))}
           </nav>
         </div>
       </div>
