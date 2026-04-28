@@ -14,8 +14,12 @@ test.describe("Chat", () => {
   });
 
   test("can send a message and get a response", async ({ page }) => {
+    // Click the first suggested-prompt button on the empty state.
     await page
-      .getByRole("button", { name: "What clinical trials are relevant?" })
+      .getByRole("button", {
+        name: /ctDNA|treatment plan|clinical trial|prognosis|vaccine|pembrolizumab|immune|chemo/i,
+      })
+      .first()
       .click();
 
     // Wait for the Stop button to appear (streaming started),

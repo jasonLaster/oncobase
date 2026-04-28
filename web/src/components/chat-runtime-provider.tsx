@@ -9,14 +9,14 @@ import {
 } from "@/components/diana-chat-tooling";
 
 const dianaChatCopy = {
-  emptyStateTitle: "Research Assistant",
-  emptyStateDescription:
-    "Ask questions about the diagnosis, treatment, and research",
+  emptyStateTitle: "What questions do you have?",
+  emptyStateDescription: "",
   suggestedPrompts: [
-    "What is the treatment plan?",
-    "Explain ctDNA monitoring options",
-    "What clinical trials are relevant?",
-    "Summarize the prognosis",
+    { badge: "💊", label: "When does AC chemo start, and how long is the immune-suppression window after the last cycle?" },
+    { badge: "🧬", label: "What's the optimal timing to start a personalized mRNA neoantigen vaccine relative to AC and pembrolizumab?" },
+    { badge: "🧪", label: "Which mRNA vaccine trials (Moderna mRNA-4157, BNT122) are currently enrolling for TNBC, and when would Diana be eligible?" },
+    { badge: "📊", label: "How does ctDNA clearance timing during NACT predict pCR and inform vaccine sequencing?" },
+    { badge: "⏱️", label: "When should immune reconstitution be confirmed before starting neoantigen vaccination?" },
   ],
   promptPlaceholder: "Ask a question...",
 };

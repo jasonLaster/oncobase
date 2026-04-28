@@ -533,44 +533,114 @@ export function ChatInterface({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  const showEmptyState = messages.length === 0 && !isStreaming;
+
+  const renderComposer = (flat = false) => (
+    <PromptInput
+      onSubmit={handlePromptSubmit}
+      className={
+        flat
+          ? "[&_[data-slot=input-group]]:bg-white [&_[data-slot=input-group]]:border-[var(--sidebar-border)] dark:[&_[data-slot=input-group]]:bg-neutral-800 dark:[&_[data-slot=input-group]]:border-neutral-700 [&_[data-slot=input-group]]:shadow-sm [&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-0 [&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:border-[var(--brand)]"
+          : undefined
+      }
+    >
+      <PromptInputBody>
+        <PromptInputTextarea
+          autoFocus
+          ref={textareaRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleComposerKeyDown}
+          placeholder={copy.promptPlaceholder}
+        />
+      </PromptInputBody>
+      <PromptInputFooter>
+        <span className="flex-1" />
+        <PromptInputSubmit
+          status={status}
+          disabled={!isStreaming && !input.trim()}
+          onStop={handleStop}
+          className="bg-[var(--brand)] text-white hover:bg-[var(--brand)]/90 disabled:bg-[var(--brand)] disabled:text-white disabled:opacity-100"
+        />
+      </PromptInputFooter>
+    </PromptInput>
+  );
+
+  const suggestedPills = copy.suggestedPrompts.length > 0 && (
+    <section className="w-full flex-1 border-t border-[var(--sidebar-border)]">
+      <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-16 flex flex-col gap-4">
+        <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
+          Example questions
+        </h3>
+        <ul className="flex flex-col divide-y divide-[var(--sidebar-border)]">
+          {copy.suggestedPrompts.map((p) => {
+            const prompt = typeof p === "string" ? { label: p } : p;
+            return (
+              <li key={prompt.label}>
+                <button
+                  type="button"
+                  aria-label={prompt.label}
+                  onClick={() => void submitMessage(prompt.label)}
+                  className="w-full flex items-start gap-3 text-left text-sm py-3 cursor-pointer hover:text-[var(--brand)] transition-colors"
+                >
+                  {prompt.badge && (
+                    <span
+                      aria-hidden="true"
+                      className="shrink-0 text-base leading-6"
+                    >
+                      {prompt.badge}
+                    </span>
+                  )}
+                  <span>{prompt.label}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
+  );
+
   return (
-    <div className="flex flex-col h-full max-w-3xl mx-auto w-full relative">
+    <div
+      className={`flex flex-col h-full w-full relative ${
+        showEmptyState ? "" : "max-w-3xl mx-auto"
+      }`}
+    >
+      {showEmptyState ? (
+        <div className="flex-1 min-h-0 flex flex-col w-full overflow-y-auto">
+          <div className="w-full px-4 sm:px-6 pt-16 sm:pt-24 pb-24 sm:pb-32 flex flex-col items-center">
+            <div className="w-full max-w-2xl flex flex-col gap-6">
+              <div className="space-y-2 text-center">
+                <h2 className="font-semibold text-2xl sm:text-3xl tracking-tight text-[var(--foreground)]">
+                  {copy.emptyStateTitle}
+                </h2>
+                {copy.emptyStateDescription && (
+                  <p className="text-sm text-[var(--text-muted)]">
+                    {copy.emptyStateDescription}
+                  </p>
+                )}
+              </div>
+              {renderComposer(true)}
+              {error && (
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-sm">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 mt-0.5">
+                    <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 4a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0V5zm.75 6.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z" />
+                  </svg>
+                  <span>{error.message}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          {suggestedPills}
+        </div>
+      ) : (
+        <>
       <Conversation className="flex-1 min-h-0">
         <ConversationContent
           className="px-2 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4"
           aria-live="polite"
         >
-          {messages.length === 0 && !isStreaming && (
-            <ConversationEmptyState
-              title={copy.emptyStateTitle}
-              description={copy.emptyStateDescription}
-            >
-              <div className="space-y-3">
-                <div className="space-y-1 text-center">
-                  <h3 className="font-semibold text-base text-[var(--foreground)]">
-                    {copy.emptyStateTitle}
-                  </h3>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {copy.emptyStateDescription}
-                  </p>
-                </div>
-                {copy.suggestedPrompts.length > 0 && (
-                  <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto px-2">
-                    {copy.suggestedPrompts.map((q) => (
-                      <button
-                        key={q}
-                        type="button"
-                        onClick={() => void submitMessage(q)}
-                        className="text-xs sm:text-sm px-3 py-2 sm:py-1.5 rounded-full border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] active:bg-[var(--accent-light)] transition-colors text-left"
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </ConversationEmptyState>
-          )}
 
           {/* Memoized list. Re-renders only when length or trailing id change. */}
           <PriorMessages
@@ -617,30 +687,10 @@ export function ChatInterface({
       </Conversation>
 
       <div className="shrink-0 border-t border-[var(--sidebar-border)] px-2 sm:px-4 py-2 sm:py-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:pb-3">
-        <PromptInput
-          onSubmit={handlePromptSubmit}
-          // No file attachments yet; PromptInput's file infra is dormant.
-        >
-          <PromptInputBody>
-            <PromptInputTextarea
-              autoFocus
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleComposerKeyDown}
-              placeholder={copy.promptPlaceholder}
-            />
-          </PromptInputBody>
-          <PromptInputFooter>
-            <span className="flex-1" />
-            <PromptInputSubmit
-              status={status}
-              disabled={!isStreaming && !input.trim()}
-              onStop={handleStop}
-            />
-          </PromptInputFooter>
-        </PromptInput>
+        {renderComposer()}
       </div>
+        </>
+      )}
     </div>
   );
 }

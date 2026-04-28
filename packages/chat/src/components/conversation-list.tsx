@@ -50,7 +50,8 @@ function ConversationListContent() {
   const isNewChat = routes.isNewChatPath(pathname) && activeId === null;
 
   return (
-    <div className="space-y-0.5">
+    <div className="flex flex-col min-h-full">
+      <div className="space-y-0.5">
       <Link
         href={routes.newChatPath}
         className={`flex items-center gap-1.5 px-2 py-1.5 text-sm rounded transition-colors ${
@@ -99,7 +100,8 @@ function ConversationListContent() {
           {copy.noConversations}
         </div>
       )}
-      <div className="mt-4 pt-2 border-t border-[var(--sidebar-border)]">
+      </div>
+      <div className="mt-auto pt-2 border-t border-[var(--sidebar-border)]">
         <Link
           href={routes.archivedPath}
           className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors ${

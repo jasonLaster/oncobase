@@ -28,5 +28,6 @@ export type {
   ChatToolCallRenderer,
   ChatToolCallRendererProps,
   ResolvedChatCopy,
+  SuggestedPrompt,
 } from "./types";
 export type { ChatRouteConfig, ChatRoutes } from "./routes";

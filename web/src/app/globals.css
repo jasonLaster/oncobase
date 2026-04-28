@@ -7,6 +7,7 @@
    utility classes used internally by its components. Only takes effect when
    NEXT_PUBLIC_CHAT_STREAMDOWN=1 — otherwise the bundle never imports it. */
 @source "../../../node_modules/streamdown/dist";
+@source "../../../packages/chat/src";
 
 @custom-variant dark (&:is(.dark *));
 

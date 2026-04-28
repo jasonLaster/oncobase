@@ -34,6 +34,8 @@ export interface ChatMarkdownRendererProps {
 
 export type ChatMarkdownRenderer = ComponentType<ChatMarkdownRendererProps>;
 
+export type SuggestedPrompt = string | { label: string; badge?: string };
+
 export interface ChatCopy {
   newChatLabel?: string;
   loadingConversations?: string;
@@ -46,7 +48,7 @@ export interface ChatCopy {
   conversationNotFound?: string;
   emptyStateTitle?: string;
   emptyStateDescription?: string;
-  suggestedPrompts?: string[];
+  suggestedPrompts?: SuggestedPrompt[];
   promptPlaceholder?: string;
   generatingLabel?: string;
   sourcesLabel?: string;
