@@ -12,7 +12,7 @@ import {
   CommandItem,
   CommandShortcut,
 } from "@/components/ui/command";
-import { FileTextIcon, Loader2Icon, ClockIcon, HeadingIcon, ListTreeIcon } from "lucide-react";
+import { FileTextIcon, Loader2Icon, ClockIcon, HeadingIcon, ListTreeIcon, CalculatorIcon } from "lucide-react";
 import fuzzysort from "fuzzysort";
 import { themeEffect } from "@/lib/theme-effect";
 
@@ -95,12 +95,36 @@ function addRecentSlug(slug: string) {
   } catch { /* quota exceeded — ignore */ }
 }
 
-// ─── File palette (Cmd+K) ─────────────────────────────────────────────────────
+// ─── Palette globals + chord state ───────────────────────────────────────────
 
 let globalOpenFiles: (() => void) | null = null;
+let globalOpenOutline: (() => void) | null = null;
+let globalOpenAction: (() => void) | null = null;
+
 export function openCommandPalette() {
   globalOpenFiles?.();
 }
+export function openActionPalette() {
+  globalOpenAction?.();
+}
+
+const CHORD_WINDOW_MS = 600;
+let chordTimer: ReturnType<typeof setTimeout> | null = null;
+
+function startChord() {
+  if (chordTimer) clearTimeout(chordTimer);
+  chordTimer = setTimeout(() => {
+    chordTimer = null;
+    globalOpenFiles?.();
+  }, CHORD_WINDOW_MS);
+}
+
+function endChord() {
+  if (chordTimer) clearTimeout(chordTimer);
+  chordTimer = null;
+}
+
+// ─── File palette (Cmd+K) ─────────────────────────────────────────────────────
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -118,13 +142,69 @@ export function CommandPalette() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.code === "KeyK" || e.code === "KeyO")) {
+      const mod = e.metaKey || e.ctrlKey;
+
+      // Chord follow-up — plain F/O/A within the chord window
+      if (chordTimer && !mod && !e.shiftKey && !e.altKey) {
+        if (e.code === "KeyF") {
+          e.preventDefault();
+          e.stopPropagation();
+          endChord();
+          globalOpenFiles?.();
+          return;
+        }
+        if (e.code === "KeyO") {
+          e.preventDefault();
+          e.stopPropagation();
+          endChord();
+          globalOpenOutline?.();
+          return;
+        }
+        if (e.code === "KeyA") {
+          e.preventDefault();
+          e.stopPropagation();
+          endChord();
+          globalOpenAction?.();
+          return;
+        }
+        endChord();
+      }
+
+      if (!mod) return;
+
+      // ⌘K — chord leader (opens files after CHORD_WINDOW_MS unless overridden)
+      if (!e.shiftKey && e.code === "KeyK") {
         e.preventDefault();
-        setOpen((o) => !o);
+        startChord();
+        return;
+      }
+
+      // ⌘O — files (legacy)
+      if (!e.shiftKey && e.code === "KeyO") {
+        e.preventDefault();
+        globalOpenFiles?.();
+        return;
+      }
+
+      // ⌘⇧O — outline (legacy)
+      if (e.shiftKey && e.code === "KeyO") {
+        e.preventDefault();
+        globalOpenOutline?.();
+        return;
+      }
+
+      // ⌘⇧K — actions (legacy)
+      if (e.shiftKey && e.code === "KeyK") {
+        e.preventDefault();
+        globalOpenAction?.();
+        return;
       }
     }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    document.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => {
+      document.removeEventListener("keydown", onKeyDown, { capture: true });
+      endChord();
+    };
   }, []);
 
   useEffect(() => {
@@ -343,7 +423,6 @@ function formatPath(slug: string): string {
 
 // ─── Outline palette (Cmd+Shift+O) ───────────────────────────────────────────
 
-let globalOpenOutline: (() => void) | null = null;
 export function openOutlinePalette() {
   globalOpenOutline?.();
 }
@@ -464,18 +543,6 @@ export function OutlinePalette() {
   }, [refreshHeadings]);
 
   useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === "KeyO") {
-        e.preventDefault();
-        refreshHeadings();
-        setOpen((o) => !o);
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [refreshHeadings]);
-
-  useEffect(() => {
     if (!open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset dialog query after close
       setSearch("");
@@ -559,7 +626,7 @@ export function OutlinePalette() {
   );
 }
 
-// ─── Action palette (Cmd+Shift+P) ────────────────────────────────────────────
+// ─── Action palette (Cmd+K A / Cmd+Shift+K) ─────────────────────────────────
 
 export function ActionPalette() {
   const [open, setOpen] = useState(false);
@@ -579,14 +646,8 @@ export function ActionPalette() {
   const themeLabel = preference === null ? "System" : preference === "dark" ? "Dark" : "Light";
 
   useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === "KeyK") {
-        e.preventDefault();
-        setOpen((o) => !o);
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    globalOpenAction = () => setOpen(true);
+    return () => { globalOpenAction = null; };
   }, []);
 
   function cycleTheme() {
@@ -652,14 +713,25 @@ export function ActionPalette() {
             </CommandItem>
           </CommandGroup>
           <CommandGroup heading="Navigate">
+            <CommandItem value="files pages palette" onSelect={() => { setOpen(false); openCommandPalette(); }}>
+              <FileTextIcon />
+              <span className="ml-2">Find files</span>
+              <CommandShortcut>⌘K F</CommandShortcut>
+            </CommandItem>
             <CommandItem value="outline headings headers current page" onSelect={() => { setOpen(false); openOutlinePalette(); }}>
               <ListTreeIcon />
               <span className="ml-2">Open outline</span>
-              <CommandShortcut>⌘⇧O</CommandShortcut>
+              <CommandShortcut>⌘K O</CommandShortcut>
             </CommandItem>
             <CommandItem value="search full text" onSelect={() => { setOpen(false); router.push("/search"); }}>
               <SearchIcon />
               <span className="ml-2">Open search</span>
+            </CommandItem>
+          </CommandGroup>
+          <CommandGroup heading="Tools">
+            <CommandItem value="medical deduction calculator tax planner" onSelect={() => { setOpen(false); router.push("/tools/medical-deduction"); }}>
+              <CalculatorIcon className="size-4 shrink-0 opacity-70" />
+              <span className="ml-2">Medical deduction calculator</span>
             </CommandItem>
           </CommandGroup>
         </CommandList>

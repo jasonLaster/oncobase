@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { Download, EllipsisVertical, LogIn, LogOut, Moon, Sun, UserPlus } from "lucide-react";
+import { Command, Download, EllipsisVertical, LogIn, LogOut, Moon, Sun, UserPlus } from "lucide-react";
 import { themeEffect } from "@/lib/theme-effect";
+import { openActionPalette } from "@/components/command-palette";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -287,6 +288,12 @@ export function ActionsMenu() {
           <EllipsisVertical />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem onClick={() => openActionPalette()}>
+            <Command />
+            Command palette
+            <span className="ml-auto text-xs text-muted-foreground">⌘K A</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => { window.location.href = "/api/download?type=full"; }}>
             <Download />
             Download wiki (full)
