@@ -4,10 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 // ─── Tax engine ───────────────────────────────────────────────────────────────
 
-const STD_DEDUCTION_MFJ = 31_500;
+const STD_DEDUCTION_MFJ = 32_200;
 const SALT_CAP = 10_000;
 const AGI_FLOOR = 0.075;
-const OBBBA_CAP_HAIRCUT = 0.02;
+const TOP_BRACKET_MFJ_2026 = 768_600;
+const HIGH_EARNER_HAIRCUT_RATIO = 2 / 37; // OB3 / OBBBA 35% itemized cap, expressed per Kate's spreadsheet
 
 type Bracket = { top: number; rate: number };
 
@@ -74,7 +75,19 @@ interface CalcResult {
 function calc(agi: number, medical: number): CalcResult {
   const floor = agi * AGI_FLOOR;
   const deductibleMedical = Math.max(0, medical - floor);
-  const itemized = deductibleMedical > 0 ? deductibleMedical + SALT_CAP : 0;
+  const totalPotentiallyDeductible = deductibleMedical > 0 ? deductibleMedical + SALT_CAP : 0;
+
+  // High-earner haircut (per Kate's formula at the tax firm, mirroring OB3/OBBBA 35% itemized cap):
+  //   reduction = MIN( (2/37) × total_potentially_deductible , (2/37) × (AGI − $768,600) )
+  // applied as a reduction to the deductible amount itself.
+  let highEarnerReduction = 0;
+  if (agi > TOP_BRACKET_MFJ_2026) {
+    highEarnerReduction = Math.min(
+      HIGH_EARNER_HAIRCUT_RATIO * totalPotentiallyDeductible,
+      HIGH_EARNER_HAIRCUT_RATIO * (agi - TOP_BRACKET_MFJ_2026),
+    );
+  }
+  const itemized = Math.max(0, totalPotentiallyDeductible - highEarnerReduction);
 
   const baselineDeduction = Math.max(STD_DEDUCTION_MFJ, SALT_CAP);
   const tiBaseline = Math.max(0, agi - baselineDeduction);
@@ -83,15 +96,11 @@ function calc(agi: number, medical: number): CalcResult {
 
   const fedBaseline = bracketTax(tiBaseline, FED_BRACKETS);
   const fedWith = bracketTax(tiWith, FED_BRACKETS);
-  let fedSavings = fedBaseline - fedWith;
+  const fedSavings = fedBaseline - fedWith;
 
-  const top37 = 770_000;
-  let obbba = 0;
-  if (tiBaseline > top37) {
-    const reductionIn37 = Math.max(0, tiBaseline - Math.max(tiWith, top37));
-    obbba = reductionIn37 * OBBBA_CAP_HAIRCUT;
-    fedSavings -= obbba;
-  }
+  // `obbba` field: federal-tax cost of the high-earner haircut, computed at the
+  // 37% marginal rate of the lost deduction. Used by the comparison table.
+  const obbba = highEarnerReduction * 0.37;
 
   const caBaseline = bracketTax(tiBaseline, CA_BRACKETS) + caMentalHealth(tiBaseline);
   const caWith = bracketTax(tiWith, CA_BRACKETS) + caMentalHealth(tiWith);
@@ -294,7 +303,7 @@ export function MedicalDeductionCalculator() {
       <SectionHeader>Breakdown</SectionHeader>
       <Panel>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Federal Savings" value={fmtMoneyExact(r.fedSavings)} sub="After OBBBA cap" />
+          <Stat label="Federal Savings" value={fmtMoneyExact(r.fedSavings)} sub={r.obbba > 0 ? `After ${fmtMoneyExact(r.obbba)} high-earner haircut` : "After 37%-bracket cap"} />
           <Stat label="California Savings" value={fmtMoneyExact(r.caSavings)} />
           <Stat label="7.5% AGI Floor" value={fmtMoneyExact(r.floor)} sub="Non-deductible base" />
           <Stat label="Deductible Amount" value={fmtMoneyExact(r.deductibleMedical)} sub="After floor" />
@@ -339,9 +348,10 @@ export function MedicalDeductionCalculator() {
       <SectionHeader>Notes &amp; Caveats</SectionHeader>
       <Panel>
         <ul className="space-y-2 text-sm text-[var(--text-muted)]">
-          <li>2026 federal MFJ brackets, inflation-projected. OBBBA itemized-deduction cap at 35% applied to the 37%-bracket portion.</li>
+          <li>2026 federal MFJ brackets, inflation-projected. 37% bracket starts at <strong>$768,600 MFJ</strong>. High-earner haircut applied per Kate&apos;s tax-firm formula (4/29 call): the deduction is reduced by <strong>MIN((2/37) × total itemized, (2/37) × (AGI − $768,600))</strong> — the OB3 / OBBBA 35% cap expressed as a deduction-amount reduction.</li>
           <li>2026 California MFJ brackets including the 1% mental-health surcharge above $1M. CA conforms to the federal 7.5% AGI floor for medical.</li>
-          <li>Baseline assumes the 2026 standard deduction (~$31,500 MFJ) when not itemizing. SALT capped at $10K (fully phased back at AGI &gt; ~$600K under OBBBA) and not modeled separately.</li>
+          <li>Baseline assumes the <strong>2026 standard deduction ($32,200 MFJ)</strong> when not itemizing. SALT capped at $10K (fully phased back at AGI &gt; ~$600K under OBBBA) and not modeled separately.</li>
+          <li>Deduction timing follows when cash leaves (credit-card charge date counts; statement-payment date does not). Year-end timing of large invoices may shift the deduction across tax years.</li>
           <li>Does not model AMT, NIIT, payroll tax, or capital gains. NIIT does not move with the medical deduction since medical is below-the-line.</li>
           <li>Assumes all medical spend qualifies under IRC §213(d). Echo Services Fee qualification is a separate question addressed by the SOW v2.3 clarifying amendments.</li>
           <li>Estimates only. Confirm with a tax professional before relying on these numbers for planning.</li>
@@ -479,7 +489,7 @@ function Hero({ result, medical, spread, onSpread }: {
 
 function ComparisonTable({ r }: { r: CalcResult }) {
   const totalBase = r.fedBaseline + r.caBaseline;
-  const totalWith = r.fedWith + r.obbba + r.caWith;
+  const totalWith = r.fedWith + r.caWith;
   const cell = "px-3 py-2 text-right tabular-nums";
   const head = "px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]";
   return (
@@ -495,7 +505,7 @@ function ComparisonTable({ r }: { r: CalcResult }) {
         </thead>
         <tbody>
           <Row label="Taxable income" base={r.tiBaseline} withVal={r.tiWith} diff={r.tiWith - r.tiBaseline} cell={cell} />
-          <Row label="Federal tax" base={r.fedBaseline} withVal={r.fedWith + r.obbba} diff={-r.fedSavings} cell={cell} />
+          <Row label="Federal tax" base={r.fedBaseline} withVal={r.fedWith} diff={-r.fedSavings} cell={cell} />
           <Row label="California tax" base={r.caBaseline} withVal={r.caWith} diff={-r.caSavings} cell={cell} />
           <tr className="border-t-2 border-[var(--border)] font-semibold">
             <td className="px-3 py-2 text-left">Total tax</td>
