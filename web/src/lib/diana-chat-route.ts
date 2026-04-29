@@ -15,6 +15,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { embed } from "@/lib/embeddings";
 import { fastTextModel } from "@/lib/ai";
 import { applyPiiRedactions } from "@/lib/pii-redaction";
+import { splitWikilinkAlias } from "@/lib/wikilinks";
 import {
   createConvexFlusher,
   getCachedSystemPrompt,
@@ -403,12 +404,12 @@ export async function POST(request: Request) {
           if (!doc) return { error: `Page not found: ${slug}` };
           const content = applyPiiRedactions(doc.content);
 
-          // Extract wikilinks [[slug]] and [[slug|label]] from content
-          const linkRegex = /\[\[([^\]|]+?)(?:\|[^\]]+?)?\]\]/g;
+          // Extract wikilinks [[slug]], [[slug|label]], and table-safe [[slug\|label]].
+          const linkRegex = /\[\[([^\]]+?)\]\]/g;
           const linkedSlugs = new Set<string>();
           let match;
           while ((match = linkRegex.exec(content)) !== null) {
-            const linked = match[1].trim();
+            const linked = splitWikilinkAlias(match[1]).target;
             // Skip Terminology anchors and self-links
             if (linked.startsWith("about/Terminology") || linked === slug) continue;
             linkedSlugs.add(linked);
