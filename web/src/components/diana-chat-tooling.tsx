@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
+import Link from "next/link";
 import {
   DefaultToolCallBlock,
   getChatToolInfo,
@@ -23,7 +24,7 @@ const ReadPageBadge = memo(function ReadPageBadge({
   const hasError = result?.error;
 
   return (
-    <a
+    <Link
       href={`/${slug}`}
       className={`inline-flex items-center gap-1.5 text-xs transition-colors ${
         done && !hasError
@@ -43,7 +44,7 @@ const ReadPageBadge = memo(function ReadPageBadge({
       <span className="truncate max-w-[250px]">
         {done ? `Read ${title}` : `Reading ${slug}...`}
       </span>
-    </a>
+    </Link>
   );
 });
 
@@ -103,7 +104,7 @@ const SearchResultsBlock = memo(function SearchResultsBlock({
       {expanded && results.length > 0 && (
         <div className="mt-0.5 ml-4 pl-2 border-l border-[var(--sidebar-border)] space-y-0">
           {results.map((result, i) => (
-            <a
+            <Link
               key={i}
               href={`/${result.slug}`}
               className="flex items-center gap-1.5 text-xs py-0.5 text-[var(--text-muted)] hover:text-[var(--brand)] transition-colors"
@@ -112,7 +113,7 @@ const SearchResultsBlock = memo(function SearchResultsBlock({
                 <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
               </svg>
               <span className="truncate">{result.title || result.slug}</span>
-            </a>
+            </Link>
           ))}
         </div>
       )}

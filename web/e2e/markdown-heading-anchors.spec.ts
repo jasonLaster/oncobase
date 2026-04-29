@@ -13,7 +13,7 @@ function previewBypassHeaders(): Record<string, string> {
   return { "x-vercel-protection-bypass": previewBypassSecret };
 }
 
-async function getHashTargetState(page: Page) {
+async function getHashTargetState(page: Page, targetId = WEEK_5_TARGET) {
   return page.evaluate((id) => {
     const target = document.getElementById(id);
     const scrollContainer = target
@@ -38,7 +38,7 @@ async function getHashTargetState(page: Page) {
       targetTop: target?.getBoundingClientRect().top ?? null,
       scrollTop: scrollContainer instanceof HTMLElement ? scrollContainer.scrollTop : 0,
     };
-  }, WEEK_5_TARGET);
+  }, targetId);
 }
 
 function isTransientNavigationError(error: unknown) {
@@ -105,6 +105,28 @@ test.describe("Markdown heading anchors", () => {
     await expect(page).toHaveURL(new RegExp(`#${id}$`), { timeout: 15_000 });
   });
 
+  test("clicking a heading permalink copies the section URL", async ({ page, baseURL }) => {
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
+      origin: baseURL ?? "http://localhost:3000",
+    });
+    await page.goto("/wiki/updates/week-5-april-12-to-18");
+
+    const heading = page.locator(".prose h2[id]").first();
+    await expect(heading).toBeVisible();
+    const id = await heading.getAttribute("id");
+    if (!id) {
+      throw new Error("Expected markdown heading to have an id attribute");
+    }
+
+    await heading.locator(".heading-anchor").click({ force: true });
+
+    await expect(page).toHaveURL(new RegExp(`#${id}$`), { timeout: 15_000 });
+    await expect(page.getByText("Link copied")).toBeVisible();
+
+    const copiedText = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copiedText).toBe(`${baseURL ?? "http://localhost:3000"}/wiki/updates/week-5-april-12-to-18#${id}`);
+  });
+
   test("deep links scroll to the target heading for authenticated sessions", async ({ page }) => {
     await page.goto(HASHED_WEEK_5_URL);
 
@@ -127,6 +149,63 @@ test.describe("Markdown heading anchors", () => {
     expect(state.scrollTop).toBeGreaterThan(1000);
     expect(state.targetTop).not.toBeNull();
     expect(state.targetTop!).toBeLessThan(140);
+  });
+
+  test("cross-page markdown hash links use app navigation and scroll the article pane", async ({ page }) => {
+    await page.goto("/wiki/updates/week-5-april-12-to-18");
+
+    await page.evaluate(() => {
+      (window as typeof window & { __markdownAnchorClientNav?: boolean }).__markdownAnchorClientNav = true;
+    });
+
+    await page.locator('.prose a[href="/about/Terminology#brca"]').first().click();
+
+    await expect(page).toHaveURL(/\/about\/Terminology#brca$/, { timeout: 15_000 });
+    await expect
+      .poll(
+        async () =>
+          page.evaluate(
+            () => (window as typeof window & { __markdownAnchorClientNav?: boolean }).__markdownAnchorClientNav === true
+          ),
+        { timeout: 15_000 }
+      )
+      .toBe(true);
+
+    await expect.poll(async () => isHashTargetScrolled(page, "brca"), { timeout: 15_000 }).toBe(true);
+
+    const state = await getHashTargetState(page, "brca");
+    expect(state.scrollTop).toBeGreaterThan(1000);
+    expect(state.targetTop).not.toBeNull();
+    expect(state.targetTop!).toBeLessThan(140);
+  });
+
+  test("cross-page markdown links without hashes reset the article scroll after app navigation", async ({ page }) => {
+    await page.goto(HASHED_WEEK_5_URL);
+    await expect.poll(async () => isHashTargetScrolled(page), { timeout: 15_000 }).toBe(true);
+
+    await page.evaluate(() => {
+      (window as typeof window & { __markdownAnchorClientNav?: boolean }).__markdownAnchorClientNav = true;
+    });
+
+    await page
+      .locator('.prose a[href="/wiki/treatment/therapeutics/radioligand-therapy"]')
+      .first()
+      .click();
+
+    await expect(page).toHaveURL(/\/wiki\/treatment\/therapeutics\/radioligand-therapy$/, {
+      timeout: 15_000,
+    });
+    await expect
+      .poll(
+        async () =>
+          page.evaluate(
+            () => (window as typeof window & { __markdownAnchorClientNav?: boolean }).__markdownAnchorClientNav === true
+          ),
+        { timeout: 15_000 }
+      )
+      .toBe(true);
+
+    await expect.poll(async () => getArticleScrollTop(page), { timeout: 15_000 }).toBeLessThan(80);
   });
 
   test("login redirects preserve the original URL hash", async ({ browser, baseURL }) => {
@@ -174,10 +253,10 @@ test.describe("Markdown heading anchors", () => {
   });
 });
 
-async function isHashTargetScrolled(page: Page) {
+async function isHashTargetScrolled(page: Page, targetId = WEEK_5_TARGET) {
   let state;
   try {
-    state = await getHashTargetState(page);
+    state = await getHashTargetState(page, targetId);
   } catch (error) {
     if (isTransientNavigationError(error)) {
       return false;
@@ -186,9 +265,32 @@ async function isHashTargetScrolled(page: Page) {
   }
 
   return (
-    state.hash === `#${WEEK_5_TARGET}` &&
+    state.hash === `#${targetId}` &&
     state.scrollTop > 1000 &&
     state.targetTop !== null &&
     state.targetTop < 140
   );
+}
+
+async function getArticleScrollTop(page: Page) {
+  return page.evaluate(() => {
+    const article = document.querySelector("article");
+    if (!article) return 0;
+
+    let current = article.parentElement;
+    while (current) {
+      const style = window.getComputedStyle(current);
+      if (
+        (style.overflowY === "auto" || style.overflowY === "scroll") &&
+        current.scrollHeight > current.clientHeight
+      ) {
+        return current.scrollTop;
+      }
+      current = current.parentElement;
+    }
+
+    return document.scrollingElement instanceof HTMLElement
+      ? document.scrollingElement.scrollTop
+      : 0;
+  });
 }

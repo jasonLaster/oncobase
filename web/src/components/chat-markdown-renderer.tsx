@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import type { AnchorHTMLAttributes } from "react";
 import { Streamdown, type Components as StreamdownComponents } from "streamdown";
 import rehypeKatex from "rehype-katex";
 import type { ChatMarkdownRendererProps } from "@diana-tnbc/chat";
@@ -15,6 +17,7 @@ import { resolveWikilinks } from "@/lib/wikilinks";
 import { markdownRemarkPlugins } from "@/lib/markdown-math";
 import { preprocessCitationMarkdown } from "@/lib/citation-links";
 import { MarkdownRendererClient } from "@/components/markdown-renderer-client";
+import { RoutedAnchorLinks } from "@/components/markdown-heading-anchors";
 
 const STREAMDOWN_DISABLED = process.env.NEXT_PUBLIC_CHAT_STREAMDOWN === "0";
 const chatRehypePlugins = [rehypeKatex];
@@ -33,6 +36,21 @@ export function DianaChatMarkdownRenderer({
   const resolved = resolveWikilinks(content);
   const citationLinked = preprocessCitationMarkdown(resolved);
   const components = {
+    a: ({ href, children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) => {
+      if (href?.startsWith("/")) {
+        return (
+          <Link href={href} {...props}>
+            {children}
+          </Link>
+        );
+      }
+
+      return (
+        <a href={href} {...props}>
+          {children}
+        </a>
+      );
+    },
     table: MdTable,
     thead: MdThead,
     tbody: MdTbody,
@@ -55,6 +73,7 @@ export function DianaChatMarkdownRenderer({
       >
         {citationLinked}
       </Streamdown>
+      <RoutedAnchorLinks />
     </div>
   );
 }

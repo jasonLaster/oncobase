@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
+const ROUTED_ANCHOR_SCROLL_KEY = "diana:routed-anchor-scroll";
 
 function getScrollContainer(element: HTMLElement | null) {
   if (!element) return null;
@@ -43,6 +47,22 @@ function scrollElementIntoContainerView(target: HTMLElement, behavior: ScrollBeh
   scrollContainer.scrollTo({ top: Math.max(0, nextTop), behavior });
 }
 
+function scrollContainerToTop(element: HTMLElement) {
+  const scrollContainer = getScrollContainer(element);
+  if (!scrollContainer) return;
+
+  if (
+    scrollContainer === document.documentElement ||
+    scrollContainer === document.body ||
+    scrollContainer === document.scrollingElement
+  ) {
+    window.scrollTo({ top: 0, behavior: "auto" });
+    return;
+  }
+
+  scrollContainer.scrollTo({ top: 0, behavior: "auto" });
+}
+
 function getElementForHash(root: HTMLElement, hash: string) {
   if (!hash || hash === "#") return null;
 
@@ -56,6 +76,179 @@ function getElementForHash(root: HTMLElement, hash: string) {
   return root.querySelector<HTMLElement>(`#${CSS.escape(id)}`) ?? document.getElementById(id);
 }
 
+function scrollToHash(root: HTMLElement, hash: string, behavior: ScrollBehavior = "auto") {
+  const target = getElementForHash(root, hash);
+  if (!target) return false;
+  scrollElementIntoContainerView(target, behavior);
+  return true;
+}
+
+function isPlainLeftClick(event: MouseEvent) {
+  return (
+    event.button === 0 &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey
+  );
+}
+
+function isSkippableAnchor(anchor: HTMLAnchorElement) {
+  const target = anchor.getAttribute("target");
+  return (
+    anchor.hasAttribute("download") ||
+    (target !== null && target.toLowerCase() !== "_self")
+  );
+}
+
+function isAppRouteUrl(url: URL) {
+  if (url.origin !== window.location.origin) return false;
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/_next/")) {
+    return false;
+  }
+
+  const lastSegment = url.pathname.split("/").pop() ?? "";
+  const extension = lastSegment.match(/\.([a-z0-9]{1,8})$/i)?.[1]?.toLowerCase();
+  return !extension || extension === "md";
+}
+
+function toAppHref(url: URL) {
+  const pathname = url.pathname.replace(/\.md$/i, "");
+  return `${pathname}${url.search}${url.hash}`;
+}
+
+function markPendingRoutedAnchorScroll(mode: "hash" | "top") {
+  try {
+    window.sessionStorage.setItem(ROUTED_ANCHOR_SCROLL_KEY, mode);
+  } catch {
+    // Storage can be unavailable in private contexts; navigation should still work.
+  }
+}
+
+function consumePendingRoutedAnchorScroll() {
+  try {
+    const value = window.sessionStorage.getItem(ROUTED_ANCHOR_SCROLL_KEY);
+    window.sessionStorage.removeItem(ROUTED_ANCHOR_SCROLL_KEY);
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+function updateAddressBar(url: URL) {
+  window.history.pushState(null, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+function copyText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    document.execCommand("copy");
+    return Promise.resolve();
+  } catch (error) {
+    return Promise.reject(error);
+  } finally {
+    textarea.remove();
+  }
+}
+
+function copyHeadingAnchorUrl(url: URL) {
+  copyText(url.toString())
+    .then(() => {
+      toast.success("Link copied");
+    })
+    .catch(() => {
+      toast.error("Unable to copy link");
+    });
+}
+
+function handleRoutedAnchorClick(
+  event: MouseEvent,
+  root: HTMLElement,
+  router: ReturnType<typeof useRouter>
+) {
+  if (event.defaultPrevented || !isPlainLeftClick(event)) return;
+
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+
+  const anchor = target.closest<HTMLAnchorElement>("a[href]");
+  if (!anchor || !root.contains(anchor) || isSkippableAnchor(anchor)) return;
+
+  const rawHref = anchor.getAttribute("href");
+  if (!rawHref || rawHref.startsWith("#:~:text=")) return;
+
+  let url: URL;
+  try {
+    url = new URL(rawHref, window.location.href);
+  } catch {
+    return;
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") return;
+  if (!isAppRouteUrl(url)) return;
+
+  event.preventDefault();
+
+  const shouldCopyHeadingLink = anchor.classList.contains("heading-anchor");
+  const current = new URL(window.location.href);
+  const samePage =
+    url.pathname === current.pathname && url.search === current.search;
+
+  if (samePage) {
+    if (url.hash) {
+      const nextHref = `${url.pathname}${url.search}${url.hash}`;
+      const currentHref = `${current.pathname}${current.search}${current.hash}`;
+      if (nextHref !== currentHref) {
+        updateAddressBar(url);
+      }
+      if (shouldCopyHeadingLink) {
+        copyHeadingAnchorUrl(url);
+      }
+      scrollToHash(root, url.hash, "smooth");
+      return;
+    }
+
+    updateAddressBar(url);
+    scrollContainerToTop(root);
+    return;
+  }
+
+  markPendingRoutedAnchorScroll(url.hash ? "hash" : "top");
+  router.push(toAppHref(url), { scroll: !url.hash });
+}
+
+export function RoutedAnchorLinks({ scopeKey }: { scopeKey?: string }) {
+  const router = useRouter();
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const root = sentinelRef.current?.parentElement;
+    if (!root) return;
+
+    const onClick = (event: MouseEvent) => {
+      handleRoutedAnchorClick(event, root, router);
+    };
+
+    root.addEventListener("click", onClick);
+    return () => {
+      root.removeEventListener("click", onClick);
+    };
+  }, [router, scopeKey]);
+
+  return <div ref={sentinelRef} style={{ display: "none" }} />;
+}
+
 export function MarkdownHeadingAnchors({
   disableAnchors,
   scopeKey,
@@ -64,32 +257,41 @@ export function MarkdownHeadingAnchors({
   // Resyncs headings when RSC navigation preserves this client component.
   scopeKey?: string;
 }) {
+  const router = useRouter();
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (disableAnchors) {
-      return;
-    }
-
     const prose = sentinelRef.current?.parentElement;
     if (!prose) {
       return;
     }
 
-    const scrollToHash = (behavior: ScrollBehavior = "auto") => {
-      const target = getElementForHash(prose, window.location.hash);
-      if (!target) return;
-      scrollElementIntoContainerView(target, behavior);
+    const onRoutedAnchorClick = (event: MouseEvent) => {
+      handleRoutedAnchorClick(event, prose, router);
     };
+
+    prose.addEventListener("click", onRoutedAnchorClick);
+
+    if (disableAnchors) {
+      return () => {
+        prose.removeEventListener("click", onRoutedAnchorClick);
+      };
+    }
+
+    const pendingScroll = consumePendingRoutedAnchorScroll();
 
     if (window.location.hash) {
       requestAnimationFrame(() => {
-        scrollToHash();
-        window.setTimeout(scrollToHash, 100);
+        scrollToHash(prose, window.location.hash);
+        window.setTimeout(() => scrollToHash(prose, window.location.hash), 100);
+      });
+    } else if (pendingScroll === "top") {
+      requestAnimationFrame(() => {
+        scrollContainerToTop(prose);
       });
     }
 
-    const onHashChange = () => scrollToHash("smooth");
+    const onHashChange = () => scrollToHash(prose, window.location.hash, "smooth");
     window.addEventListener("hashchange", onHashChange);
 
     const headingCleanupFns: Array<() => void> = [];
@@ -139,10 +341,11 @@ export function MarkdownHeadingAnchors({
     });
 
     return () => {
+      prose.removeEventListener("click", onRoutedAnchorClick);
       window.removeEventListener("hashchange", onHashChange);
       headingCleanupFns.forEach((cleanup) => cleanup());
     };
-  }, [disableAnchors, scopeKey]);
+  }, [disableAnchors, router, scopeKey]);
 
   return <div ref={sentinelRef} style={{ display: "none" }} />;
 }
