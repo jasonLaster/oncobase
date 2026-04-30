@@ -295,54 +295,68 @@ export function MarkdownHeadingAnchors({
     window.addEventListener("hashchange", onHashChange);
 
     const headingCleanupFns: Array<() => void> = [];
+    const wiredHeadings = new WeakSet<HTMLElement>();
     const supportsHover = window.matchMedia("(hover: hover)").matches;
-    const headings = prose.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6");
 
-    headings.forEach((heading) => {
-      const id = heading.id;
-      if (!id) {
-        return;
-      }
+    const syncHeadings = () => {
+      const headings = prose.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6");
 
-      heading.classList.add("cursor-pointer");
-
-      const onClick = (event: MouseEvent) => {
-        const target = event.target as HTMLElement | null;
-        if (target?.closest("a,button,input,select,textarea,[role='button']")) {
+      headings.forEach((heading) => {
+        if (wiredHeadings.has(heading)) {
           return;
         }
 
-        const nextHash = `#${id}`;
-        if (window.location.hash === nextHash) {
-          scrollElementIntoContainerView(heading, "smooth");
+        const id = heading.id;
+        if (!id) {
           return;
         }
 
-        window.location.hash = id;
-      };
+        wiredHeadings.add(heading);
+        heading.classList.add("cursor-pointer");
 
-      heading.addEventListener("click", onClick);
-      headingCleanupFns.push(() => heading.removeEventListener("click", onClick));
+        const onClick = (event: MouseEvent) => {
+          const target = event.target as HTMLElement | null;
+          if (target?.closest("a,button,input,select,textarea,[role='button']")) {
+            return;
+          }
 
-      if (!supportsHover || heading.querySelector(".heading-anchor")) {
-        return;
-      }
+          const nextHash = `#${id}`;
+          if (window.location.hash === nextHash) {
+            scrollElementIntoContainerView(heading, "smooth");
+            return;
+          }
 
-      heading.classList.add("group", "relative");
+          window.location.hash = id;
+        };
 
-      const anchor = document.createElement("a");
-      anchor.href = `#${id}`;
-      anchor.className =
-        "heading-anchor opacity-0 group-hover:opacity-100 text-[var(--text-muted)] no-underline hover:no-underline hover:text-[var(--brand)] transition-opacity cursor-pointer";
-      anchor.setAttribute("aria-label", `Link to \"${heading.textContent}\"`);
-      anchor.textContent = "#";
+        heading.addEventListener("click", onClick);
+        headingCleanupFns.push(() => heading.removeEventListener("click", onClick));
 
-      heading.appendChild(anchor);
-    });
+        if (!supportsHover || heading.querySelector(".heading-anchor")) {
+          return;
+        }
+
+        heading.classList.add("group", "relative");
+
+        const anchor = document.createElement("a");
+        anchor.href = `#${id}`;
+        anchor.className =
+          "heading-anchor opacity-0 group-hover:opacity-100 text-[var(--text-muted)] no-underline hover:no-underline hover:text-[var(--brand)] transition-opacity cursor-pointer";
+        anchor.setAttribute("aria-label", `Link to \"${heading.textContent}\"`);
+        anchor.textContent = "#";
+
+        heading.appendChild(anchor);
+      });
+    };
+
+    syncHeadings();
+    const observer = new MutationObserver(syncHeadings);
+    observer.observe(prose, { childList: true, subtree: true });
 
     return () => {
       prose.removeEventListener("click", onRoutedAnchorClick);
       window.removeEventListener("hashchange", onHashChange);
+      observer.disconnect();
       headingCleanupFns.forEach((cleanup) => cleanup());
     };
   }, [disableAnchors, router, scopeKey]);

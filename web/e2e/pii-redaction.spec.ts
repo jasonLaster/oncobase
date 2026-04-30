@@ -1,11 +1,41 @@
 import JSZip from "jszip";
-import { test, expect } from "@playwright/test";
+import { test, expect, type APIRequestContext, type APIResponse } from "@playwright/test";
 
 const diagnosisPath = "/wiki/diagnostics/diagnosis";
 const aboutPath = "/about/About";
 const hiddenPatientName = "Diana Laster";
 const hiddenMrn = "88855655";
 const redactedBanner = "Patient identifiers hidden.";
+
+function isTransientRequestError(error: unknown) {
+  return (
+    error instanceof Error &&
+    /ECONNRESET|socket hang up|ETIMEDOUT|fetch failed/i.test(error.message)
+  );
+}
+
+async function getWithTransientRetry(
+  request: APIRequestContext,
+  url: string,
+  attempts = 3
+): Promise<APIResponse> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await request.get(url, { timeout: 60_000 });
+    } catch (error) {
+      if (!isTransientRequestError(error) || attempt === attempts) {
+        throw error;
+      }
+
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+    }
+  }
+
+  throw lastError;
+}
 
 test.describe("PII redaction", () => {
   test("redacts server-rendered diagnosis identifiers by default", async ({
@@ -118,7 +148,8 @@ test.describe("PII redaction", () => {
   }) => {
     test.slow();
 
-    const response = await request.get(
+    const response = await getWithTransientRetry(
+      request,
       `${baseURL}/api/download?type=markdown&showPII=1&token=diana`
     );
 

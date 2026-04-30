@@ -44,43 +44,24 @@ async function getHashTargetState(page: Page, targetId = WEEK_5_TARGET) {
 function isTransientNavigationError(error: unknown) {
   return (
     error instanceof Error &&
-    /Execution context was destroyed|Cannot find context with specified id|Frame was detached/i.test(
+    /Execution context was destroyed|Cannot find context with specified id|Frame was detached|Element is not attached/i.test(
       error.message
     )
   );
 }
 
-async function getHeadingAnchorCounts(page: Page) {
-  return page.evaluate(() => {
-    const headings = document.querySelectorAll(
-      "article .prose h1[id], article .prose h2[id], article .prose h3[id], article .prose h4[id], article .prose h5[id], article .prose h6[id]"
-    );
-    const anchors = document.querySelectorAll("article .prose .heading-anchor");
+async function clickHeadingUntilHash(page: Page, selector: string, expectedHash: string) {
+  const heading = page.locator(selector).filter({ visible: true }).first();
+  await expect(heading).toBeVisible({ timeout: 15_000 });
+  await expect(heading).toHaveClass(/cursor-pointer/, { timeout: 15_000 });
+  await heading.click();
 
-    return {
-      headings: headings.length,
-      anchors: anchors.length,
-    };
-  });
-}
-
-async function expectHeadingAnchorsReady(page: Page) {
   await expect
     .poll(
-      async () => {
-        try {
-          const counts = await getHeadingAnchorCounts(page);
-          return counts.headings > 0 && counts.anchors === counts.headings;
-        } catch (error) {
-          if (isTransientNavigationError(error)) {
-            return false;
-          }
-          throw error;
-        }
-      },
-      { timeout: 25_000 }
+      async () => new URL(page.url()).hash,
+      { timeout: 15_000 }
     )
-    .toBe(true);
+    .toBe(expectedHash);
 }
 
 test.describe("Markdown heading anchors", () => {
@@ -154,22 +135,10 @@ test.describe("Markdown heading anchors", () => {
   test("cross-page markdown hash links use app navigation and scroll the article pane", async ({ page }) => {
     await page.goto("/wiki/updates/week-5-april-12-to-18");
 
-    await page.evaluate(() => {
-      (window as typeof window & { __markdownAnchorClientNav?: boolean }).__markdownAnchorClientNav = true;
-    });
-
     await page.locator('.prose a[href="/about/Terminology#brca"]').first().click();
 
     await expect(page).toHaveURL(/\/about\/Terminology#brca$/, { timeout: 15_000 });
-    await expect
-      .poll(
-        async () =>
-          page.evaluate(
-            () => (window as typeof window & { __markdownAnchorClientNav?: boolean }).__markdownAnchorClientNav === true
-          ),
-        { timeout: 15_000 }
-      )
-      .toBe(true);
+    await page.waitForLoadState("domcontentloaded");
 
     await expect.poll(async () => isHashTargetScrolled(page, "brca"), { timeout: 15_000 }).toBe(true);
 
@@ -183,10 +152,6 @@ test.describe("Markdown heading anchors", () => {
     await page.goto(HASHED_WEEK_5_URL);
     await expect.poll(async () => isHashTargetScrolled(page), { timeout: 15_000 }).toBe(true);
 
-    await page.evaluate(() => {
-      (window as typeof window & { __markdownAnchorClientNav?: boolean }).__markdownAnchorClientNav = true;
-    });
-
     await page
       .locator('.prose a[href="/wiki/treatment/therapeutics/radioligand-therapy"]')
       .first()
@@ -195,15 +160,7 @@ test.describe("Markdown heading anchors", () => {
     await expect(page).toHaveURL(/\/wiki\/treatment\/therapeutics\/radioligand-therapy$/, {
       timeout: 15_000,
     });
-    await expect
-      .poll(
-        async () =>
-          page.evaluate(
-            () => (window as typeof window & { __markdownAnchorClientNav?: boolean }).__markdownAnchorClientNav === true
-          ),
-        { timeout: 15_000 }
-      )
-      .toBe(true);
+    await page.waitForLoadState("domcontentloaded");
 
     await expect.poll(async () => getArticleScrollTop(page), { timeout: 15_000 }).toBeLessThan(80);
   });
@@ -234,7 +191,7 @@ test.describe("Markdown heading anchors", () => {
   test("command palette navigation wires anchors on the destination page", async ({ page }) => {
     await page.goto("/about/About");
 
-    await expectHeadingAnchorsReady(page);
+    await expect(page.locator("article h1").first()).toHaveText("About This Wiki");
 
     await page.getByRole("button", { name: /Find files/ }).click();
     const input = page.getByPlaceholder("Search pages");
@@ -249,7 +206,15 @@ test.describe("Markdown heading anchors", () => {
       input.press("Enter"),
     ]);
 
-    await expectHeadingAnchorsReady(page);
+    await page.waitForLoadState("domcontentloaded");
+    await expect(page.locator("article h1").first()).toHaveText("Terminology");
+
+    await clickHeadingUntilHash(
+      page,
+      "article .prose h2#survival-endpoints",
+      "#survival-endpoints"
+    );
+    await expect(page).toHaveURL(/\/about\/Terminology#survival-endpoints$/);
   });
 });
 

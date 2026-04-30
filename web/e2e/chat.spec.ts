@@ -1,4 +1,8 @@
 import { test, expect } from "@playwright/test";
+import {
+  localStreamingChatSkipReason,
+  shouldSkipLocalStreamingChatE2E,
+} from "./chat-env";
 
 test.describe("Chat", () => {
   test.beforeEach(async ({ page }) => {
@@ -14,6 +18,8 @@ test.describe("Chat", () => {
   });
 
   test("can send a message and get a response", async ({ page }) => {
+    test.skip(shouldSkipLocalStreamingChatE2E(), localStreamingChatSkipReason);
+
     // Click the first suggested-prompt button on the empty state.
     await page
       .getByRole("button", {

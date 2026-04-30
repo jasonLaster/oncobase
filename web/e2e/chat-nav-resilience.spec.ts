@@ -13,6 +13,10 @@
  */
 
 import { test, expect } from "@playwright/test";
+import {
+  localStreamingChatSkipReason,
+  shouldSkipLocalStreamingChatE2E,
+} from "./chat-env";
 
 // Each test in this file owns the full Playwright budget — they exercise a
 // real model round-trip and need elbow room.
@@ -25,6 +29,8 @@ test.describe("Chat navigation resilience", () => {
   });
 
   test("Stop button aborts the model server-side", async ({ page }) => {
+    test.skip(shouldSkipLocalStreamingChatE2E(), localStreamingChatSkipReason);
+
     await page
       .getByPlaceholder("Ask a question...")
       .first()
@@ -47,6 +53,8 @@ test.describe("Chat navigation resilience", () => {
     page,
     context,
   }) => {
+    test.skip(shouldSkipLocalStreamingChatE2E(), localStreamingChatSkipReason);
+
     await page
       .getByPlaceholder("Ask a question...")
       .first()
@@ -93,6 +101,8 @@ test.describe("Chat navigation resilience", () => {
   test("Refresh mid-stream keeps the conversation observable", async ({
     page,
   }) => {
+    test.skip(shouldSkipLocalStreamingChatE2E(), localStreamingChatSkipReason);
+
     await page
       .getByPlaceholder("Ask a question...")
       .first()

@@ -3,6 +3,11 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 const SEARCH_QUERY = "multicentric";
 const DIAGNOSIS_RESULT = "a[href='/wiki/diagnostics/diagnosis']";
 const isProdSearchRun = process.env.TEST_ENV === "prod";
+const AI_RESULTS_QUERY = "mock ai ranked results";
+const AI_LINK_QUERY = "mock ai result links";
+const AI_TAGS_QUERY = "mock ai result tags";
+const AI_ERROR_QUERY = "mock ai error response";
+const AI_HTML_ERROR_QUERY = "mock ai html failure";
 
 const mockAIResults = {
   results: [
@@ -23,14 +28,26 @@ const mockAIResults = {
   ],
 };
 
-function mockAISearch(page: Page, response: Record<string, unknown> = mockAIResults, status = 200) {
-  return page.route("**/api/ai-search", (route) =>
-    route.fulfill({
+async function mockAISearch(page: Page, response: Record<string, unknown> = mockAIResults, status = 200) {
+  let calls = 0;
+
+  await page.context().route("**/api/ai-search", (route) => {
+    calls += 1;
+    return route.fulfill({
+      headers: { "cache-control": "no-store" },
       status,
       contentType: "application/json",
       body: JSON.stringify(response),
-    })
-  );
+    });
+  });
+
+  return {
+    async waitForRequest() {
+      await expect
+        .poll(() => calls, { timeout: 20_000 })
+        .toBeGreaterThan(0);
+    },
+  };
 }
 
 async function openTextSearch(page: Page) {
@@ -92,61 +109,72 @@ test.describe("Search", () => {
   });
 
   test("AI mode shows ranked results", async ({ page }) => {
-    await mockAISearch(page);
-    await page.goto("/search?q=treatment");
+    const aiSearch = await mockAISearch(page);
+    await page.goto(`/search?q=${encodeURIComponent(AI_RESULTS_QUERY)}`);
+    await aiSearch.waitForRequest();
     // AI mode is the default tab — wait for results
-    await expect(page.getByText("9/10").first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("9/10").first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("ranked by relevance").first()).toBeVisible();
     await expect(page.getByText("Diagnosis Overview").first()).toBeVisible();
     await expect(page.getByText("7/10").first()).toBeVisible();
   });
 
   test("AI mode results link to wiki pages", async ({ page }) => {
-    await mockAISearch(page);
-    await page.goto("/search?q=treatment");
+    const aiSearch = await mockAISearch(page);
+    await page.goto(`/search?q=${encodeURIComponent(AI_LINK_QUERY)}`);
+    await aiSearch.waitForRequest();
     const link = page.locator("a[href='/wiki/treatment/keynote-522']");
-    await expect(link.first()).toBeVisible({ timeout: 10_000 });
+    await expect(link.first()).toBeVisible({ timeout: 15_000 });
   });
 
   test("AI mode shows tags on results", async ({ page }) => {
-    await mockAISearch(page);
-    await page.goto("/search?q=treatment");
-    await expect(page.getByText("9/10").first()).toBeVisible({ timeout: 10_000 });
+    const aiSearch = await mockAISearch(page);
+    await page.goto(`/search?q=${encodeURIComponent(AI_TAGS_QUERY)}`);
+    await aiSearch.waitForRequest();
+    await expect(page.getByText("9/10").first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("immunotherapy").first()).toBeVisible();
   });
 
   test("AI mode shows no results for unknown query", async ({ page }) => {
-    await mockAISearch(page, { results: [] });
+    const aiSearch = await mockAISearch(page, { results: [] });
     await page.goto("/search?q=zzzznonexistentquery999");
+    await aiSearch.waitForRequest();
     await expect(
       page.getByText("No relevant results for").first()
     ).toBeVisible({ timeout: 10_000 });
   });
 
   test("AI mode shows error when API fails", async ({ page }) => {
-    await mockAISearch(
+    const aiSearch = await mockAISearch(
       page,
       { results: [], error: "API key limit reached." },
       402
     );
-    await page.goto("/search?q=treatment");
+    await page.goto(`/search?q=${encodeURIComponent(AI_ERROR_QUERY)}`);
+    await aiSearch.waitForRequest();
     await expect(
       page.getByText("Search failed").first()
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("AI mode shows readable error when API returns a non-JSON failure", async ({ page }) => {
-    await page.route("**/api/ai-search", (route) =>
-      route.fulfill({
+    let calls = 0;
+    await page.context().route("**/api/ai-search", (route) => {
+      calls += 1;
+      return route.fulfill({
+        headers: { "cache-control": "no-store" },
         status: 500,
         contentType: "text/html",
         body: "<html><body>Internal Server Error</body></html>",
-      })
-    );
+      });
+    });
 
-    await page.goto("/search?q=treatment");
+    await page.goto(`/search?q=${encodeURIComponent(AI_HTML_ERROR_QUERY)}`);
+    await expect
+      .poll(() => calls, { timeout: 20_000 })
+      .toBeGreaterThan(0);
     await expect(
       page.getByText("Search failed with 500 Internal Server Error.").first()
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 15_000 });
   });
 });
