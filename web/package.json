@@ -15,7 +15,10 @@
     "test:prod": "TEST_ENV=prod bunx playwright test",
     "test:prod:ci": "TEST_ENV=prod bunx playwright test --project=tests",
     "test:endform": "bunx endform test",
-    "test:endform:prod": "TEST_ENV=prod bunx endform test"
+    "test:endform:prod": "TEST_ENV=prod bunx endform test",
+    "wiki:init": "bun scripts/publish/init.ts",
+    "wiki:check": "bun scripts/publish/check.ts",
+    "wiki:publish": "bun scripts/publish/publish.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.149",
