@@ -159,7 +159,7 @@ limit. Phase 4 documented this in the work-log.
 
 ## Cross-site leak tests
 
-`web/e2e/multi-site-isolation.spec.ts` exercises three invariants
+`web/e2e/multi-site-isolation.spec.ts` exercises five invariants
 in CI on every PR. Setup spins up two synthetic sites with
 per-run-nonce slugs in dev Convex, publishes one doc to each via
 `/api/publish`, and tears them down on completion.
@@ -172,27 +172,67 @@ per-run-nonce slugs in dev Convex, publishes one doc to each via
    present in both sites returns only the host site's documents
    when queried per-host. Convex `searchIndex.filterFields["siteId"]`
    is what makes this work.
+4. **`/api/file-tree` and `/api/pages` are empty for non-Diana
+   sites.** These two routes still use the fs-backed renderer
+   (deferred Phase 7 work); without explicit gating they would
+   serve Diana's sidebar tree to every host. The route handlers
+   short-circuit to an empty array unless `siteSlug === "diana"`.
+5. **`/api/tools` (chat tool calls) are site-scoped.** The
+   `search_wiki` tool used by the chat agent threads
+   `siteSlug` from the proxy header to its Convex queries —
+   alpha's chat sees only alpha's docs.
 
 Failing any invariant is P0. Add new cases here when a new
 feature could leak across sites.
 
+## Route handler → Convex siteSlug threading
+
+Phase 2b made every public Convex function take an optional
+`siteSlug`. Phase 3 set the `x-site-slug` header in the proxy.
+The bridge — having every route handler read the header and pass
+it through to its Convex calls — landed during the QA review pass:
+
+| Route | siteSlug source |
+|-------|-----------------|
+| `/api/search` | `x-site-slug` header (proxy-set) |
+| `/api/file` | `x-site-slug` header — proxy now runs over this route too |
+| `/api/file-tree`, `/api/pages` | `x-site-slug` header (renders Diana fs tree only when slug is Diana) |
+| `/api/login` (GET / POST) | `x-site-slug` header — validates against `sites.config.passwordHash` |
+| `/api/auth/signin` / `signup` / `signout` | `x-site-slug` header — `users` is site-scoped |
+| `/api/auth/session` | `x-site-slug` via `getSessionUserFromRequest` |
+| `/api/ai-search` | `x-site-slug` header — vector search filtered by `siteId` |
+| `/api/tools` | `x-site-slug` header — every chat tool call is per-site |
+| `/api/chat` | `x-site-slug` header — flusher takes `siteSlug` and passes it through every Convex mutation |
+| `/api/publish/*` | `siteSlug` from request body (token-authenticated, not host-derived) |
+| `/api/liveblocks-threads` | `x-site-slug` header for `commentRooms` queries |
+| `/api/liveblocks-webhook` | Defaults to Diana (deferred — see below) |
+
+Per-site password cookie names: Diana keeps the legacy `authed`
+cookie during the migration window; other sites get
+`authed_<siteSlug>`. Magic-link tokens validate against:
+- The site's `config.passwordHash` (sha256:<hex>) when set.
+- The Diana legacy passwords array (`wallify`, `diana`) only on
+  the Diana site.
+
 ## What's deferred
 
-The renderer for tenant-scoped pages still uses
-`src/lib/markdown.ts` which reads from disk. That path serves
-Diana correctly because Next's `outputFileTracingRoot` ships her
-markdown into the function bundle. New sites onboarded through
-Phase 4 publish into Convex but their pages render Diana defaults
-(title, sidebar) until the rendering layer is swapped. That swap
-is Phase 7 cleanup; until then, new sites have correct data plane
-and incorrect visual chrome.
+1. **Static-gen renderer.** `src/lib/markdown.ts` reads from disk,
+   which Next ships into the function bundle for Diana via
+   `outputFileTracingRoot`. New sites publish into Convex but
+   their pages render Diana defaults (title, sidebar) until the
+   rendering layer is swapped. The static-gen path through
+   `page-metadata.ts`, `(main)/layout.tsx`, and
+   `(main)/_components/document-page.tsx` is still single-site.
+   `/api/file-tree` and `/api/pages` short-circuit to empty for
+   non-Diana sites until this work lands.
 
-`/api/file`, `/api/search`, and the Convex queries that back the
-chat tools are all Convex-backed and site-scoped. The
-incomplete bit is the static-generation path through
-`page-metadata.ts`, `(main)/layout.tsx`, and
-`(main)/_components/document-page.tsx`.
+2. **Per-site Liveblocks workspaces.** v1's intent is one
+   Liveblocks workspace per site. Today the deployment-level
+   fallback is shared across sites, and `/api/liveblocks-webhook`
+   defaults to Diana for `commentRooms` writes. When
+   `wiki:site:create` wires up Liveblocks's management API to
+   provision a workspace, the webhook routes its events by
+   workspace ID → siteSlug.
 
-The plan's deferral and its tripwire live at
-[plans/multi-tenant-wiki/work-log.md](../../plans/multi-tenant-wiki/work-log.md)
-under "Phase 2c — re-scoped, deferred to Phase 7".
+The plan's deferrals and tripwires live at
+[plans/multi-tenant-wiki/work-log.md](../../plans/multi-tenant-wiki/work-log.md).

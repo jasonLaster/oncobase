@@ -1,5 +1,6 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
+import { siteSlugFromRequest } from "@/lib/site";
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
     args: Record<string, unknown>;
   };
 
+  const siteSlug = siteSlugFromRequest(request);
   const convex = getConvex();
 
   switch (tool) {
@@ -20,12 +22,14 @@ export async function POST(request: Request) {
       const results = await convex.query(api.documents.search, {
         query: args.query as string,
         limit: 8,
+        siteSlug,
       });
       return Response.json(results);
     }
     case "read_page": {
       const doc = await convex.query(api.documents.getBySlug, {
         slug: args.slug as string,
+        siteSlug,
       });
       if (!doc) return Response.json({ error: `Page not found: ${args.slug}` });
       return Response.json({
@@ -36,15 +40,22 @@ export async function POST(request: Request) {
       });
     }
     case "list_pages": {
-      return Response.json(await convex.action(api.documents.list, {}));
+      return Response.json(
+        await convex.action(api.documents.list, { siteSlug }),
+      );
     }
     case "get_pages_by_tag": {
       return Response.json(
-        await convex.action(api.documents.getByTag, { tag: args.tag as string })
+        await convex.action(api.documents.getByTag, {
+          tag: args.tag as string,
+          siteSlug,
+        }),
       );
     }
     case "list_tags": {
-      return Response.json(await convex.action(api.documents.listTags, {}));
+      return Response.json(
+        await convex.action(api.documents.listTags, { siteSlug }),
+      );
     }
     default:
       return Response.json({ error: `Unknown tool: ${tool}` }, { status: 400 });

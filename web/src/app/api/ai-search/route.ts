@@ -5,6 +5,7 @@ import { api } from "@convex/_generated/api";
 import { embed } from "@/lib/embeddings";
 import { fastTextModel } from "@/lib/ai";
 import { applyPiiRedactions } from "@/lib/pii-redaction";
+import { siteSlugFromRequest } from "@/lib/site";
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -28,18 +29,23 @@ export async function POST(request: Request) {
       return Response.json({ results: [] });
     }
 
+    const siteSlug = siteSlugFromRequest(request);
     const convex = getConvex();
 
     // Run vector search in parallel with text-based slug fetching
     // This ensures natural language queries find relevant docs even with 0 text matches
     const [queryEmbedding, diagnosisDoc] = await Promise.all([
       embed(query),
-      convex.query(api.documents.getBySlug, { slug: "wiki/diagnostics/diagnosis" }),
+      convex.query(api.documents.getBySlug, {
+        slug: "wiki/diagnostics/diagnosis",
+        siteSlug,
+      }),
     ]);
 
     const vectorResults = await convex.action(api.documents.vectorSearch, {
       embedding: queryEmbedding,
       limit: 12,
+      siteSlug,
     });
 
     // Merge text-search slugs with vector-search slugs, deduplicating
@@ -56,7 +62,7 @@ export async function POST(request: Request) {
     // Fetch doc content for all candidate slugs
     const docs = await Promise.all(
       allSlugs.map((slug) =>
-        convex.query(api.documents.getBySlug, { slug })
+        convex.query(api.documents.getBySlug, { slug, siteSlug })
       ),
     );
 

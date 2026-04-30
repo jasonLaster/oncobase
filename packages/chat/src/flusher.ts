@@ -56,6 +56,10 @@ interface CreateOptions {
   conversationId?: string;
   /** runId for this turn. Convex mutations reject mismatched runIds. */
   runId?: string;
+  /** Active site slug for multi-tenant scoping. Threaded into every
+   * Convex mutation so the underlying conversations row is verified
+   * to belong to this site before being patched. */
+  siteSlug?: string;
   intervalMs?: number;
 }
 
@@ -68,6 +72,7 @@ export function createConvexFlusher({
   conversations,
   conversationId,
   runId,
+  siteSlug,
   intervalMs = DEFAULT_INTERVAL_MS,
 }: CreateOptions): ConvexFlusher {
   let currentText = "";
@@ -92,6 +97,7 @@ export function createConvexFlusher({
       .mutation(conversations.updateStreaming, {
         conversationId,
         runId,
+        siteSlug,
         text: currentText,
         // Phase 2: parts column is union(string, array). We always write the
         // native array form. The schema validator accepts both for backward
@@ -148,12 +154,14 @@ export function createConvexFlusher({
           await convex.mutation(conversations.saveMessages, {
             conversationId,
             runId,
+            siteSlug,
             messages,
           });
         }
         await convex.mutation(conversations.clearStreaming, {
           conversationId,
           runId,
+          siteSlug,
         });
       } catch {
         // Best-effort. The 30s stale-stream watchdog on the client clears
@@ -169,17 +177,17 @@ export function createConvexFlusher({
       cancelTimer();
       try {
         const errorParts = [{ type: "text" as const, text: message }];
-        // Surface the error as streaming text so the client sees it before
-        // we clear, then save it as the assistant message and clear.
         await convex.mutation(conversations.updateStreaming, {
           conversationId,
           runId,
+          siteSlug,
           text: message,
           parts: errorParts as unknown as string,
         });
         await convex.mutation(conversations.saveMessages, {
           conversationId,
           runId,
+          siteSlug,
           messages: [
             {
               role: "assistant",
@@ -193,6 +201,7 @@ export function createConvexFlusher({
         await convex.mutation(conversations.clearStreaming, {
           conversationId,
           runId,
+          siteSlug,
         });
       } catch {
         // Best-effort.
@@ -215,6 +224,7 @@ export function createConvexFlusher({
         await convex.mutation(conversations.clearStreaming, {
           conversationId,
           runId,
+          siteSlug,
         });
       } catch {
         // Best-effort.

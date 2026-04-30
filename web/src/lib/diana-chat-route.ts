@@ -20,6 +20,7 @@ import {
   createConvexFlusher,
   getCachedSystemPrompt,
 } from "@diana-tnbc/chat/route";
+import { siteSlugFromRequest } from "@/lib/site";
 
 const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 });
 const generateRunId = createIdGenerator({ prefix: "run", size: 16 });
@@ -100,11 +101,14 @@ Search strategy:
 
 Be direct, compassionate, and precise. Use medical terminology but explain it when needed.`;
 
-async function loadSystemPrompt(): Promise<string> {
+async function loadSystemPrompt(siteSlug: string): Promise<string> {
   const convex = getConvex();
   const [indexDoc, diagnosisDoc] = await Promise.all([
-    convex.query(api.documents.getBySlug, { slug: "index" }),
-    convex.query(api.documents.getBySlug, { slug: "wiki/diagnostics/diagnosis" }),
+    convex.query(api.documents.getBySlug, { slug: "index", siteSlug }),
+    convex.query(api.documents.getBySlug, {
+      slug: "wiki/diagnostics/diagnosis",
+      siteSlug,
+    }),
   ]);
 
   let prompt = SYSTEM_PROMPT_BASE;
@@ -120,8 +124,11 @@ async function loadSystemPrompt(): Promise<string> {
   return prompt;
 }
 
-function buildSystemPrompt(): Promise<string> {
-  return getCachedSystemPrompt(loadSystemPrompt);
+function buildSystemPrompt(siteSlug: string): Promise<string> {
+  // System prompts are site-scoped (per-site index + diagnosis docs).
+  // The cache key is the slug so each site keeps its own cached
+  // prompt instead of clobbering each other.
+  return getCachedSystemPrompt(siteSlug, () => loadSystemPrompt(siteSlug));
 }
 
 /**
@@ -253,6 +260,7 @@ export async function POST(request: Request) {
 
   const modelMessages = await convertToModelMessages(messages);
   const convId = parsedBody.conversationId as Id<"conversations"> | undefined;
+  const siteSlug = siteSlugFromRequest(request);
   const convex = getConvex();
   const runId = generateRunId();
   console.log(
@@ -268,6 +276,7 @@ export async function POST(request: Request) {
       .mutation(api.conversations.beginRun, {
         conversationId: convId,
         runId,
+        siteSlug,
       })
       .catch(() => {});
   }
@@ -293,6 +302,7 @@ export async function POST(request: Request) {
     try {
       const state = await convex.query(api.conversations.getCancelState, {
         conversationId: convId,
+        siteSlug,
       });
       if (state?.canceledAt) {
         console.log(`[chat ${requestId}] user-cancel detected, aborting`);
@@ -308,9 +318,10 @@ export async function POST(request: Request) {
     conversations: api.conversations,
     conversationId: convId,
     runId,
+    siteSlug,
   });
 
-  const systemPrompt = await buildSystemPrompt();
+  const systemPrompt = await buildSystemPrompt(siteSlug);
 
   const result = streamText({
     model: fastTextModel(), // see scripts/eval-chat.ts for model leaderboard
@@ -331,12 +342,16 @@ export async function POST(request: Request) {
           // Generate multiple search patterns from the query
           const patterns = generateSearchPatterns(query);
 
-          // Fan out: text search + vector search in parallel
           const textSearchPromise = Promise.all(
-            patterns.map((p) => getConvex().query(api.documents.search, { query: p, limit: 6 }))
+            patterns.map((p) =>
+              getConvex().query(api.documents.search, {
+                query: p,
+                limit: 6,
+                siteSlug,
+              }),
+            ),
           );
 
-          // Vector search — embed the query and find semantically similar docs
           const vectorSearchPromise = (async () => {
             try {
               if (!process.env.OPENAI_API_KEY) return [];
@@ -344,9 +359,9 @@ export async function POST(request: Request) {
               return await getConvex().action(api.documents.vectorSearch, {
                 embedding: queryEmbedding,
                 limit: 6,
+                siteSlug,
               });
             } catch {
-              // Vector search is best-effort — fall back to text-only
               return [];
             }
           })();
@@ -400,7 +415,7 @@ export async function POST(request: Request) {
             ),
         }),
         execute: async ({ slug }: { slug: string }) => {
-          const doc = await getConvex().query(api.documents.getBySlug, { slug });
+          const doc = await getConvex().query(api.documents.getBySlug, { slug, siteSlug });
           if (!doc) return { error: `Page not found: ${slug}` };
           const content = applyPiiRedactions(doc.content);
 

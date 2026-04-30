@@ -3,6 +3,7 @@ import { connection, NextResponse } from "next/server";
 import { api } from "@convex/_generated/api";
 import { getConvexServerClient } from "@/lib/convex-server";
 import { resolveLiveblocksUsers } from "@/lib/liveblocks-user-resolution";
+import { getRequestSiteSlug } from "@/lib/site";
 
 const liveblocksSecret =
   process.env.LIVEBLOCKS_SECRET_KEY ?? process.env.LIVEBLOCKS_API_KEY;
@@ -40,6 +41,7 @@ export async function GET() {
 
   const liveblocks = new Liveblocks({ secret: liveblocksSecret });
   const convex = getConvexServerClient();
+  const siteSlug = await getRequestSiteSlug();
   const t0 = Date.now();
   const timing: Record<string, number> = {};
 
@@ -54,7 +56,7 @@ export async function GET() {
     // Falls back to full Liveblocks scan if Convex lookup fails (e.g. function not deployed).
     let activeRooms: string[] = [];
     try {
-      activeRooms = await convex.query(api.commentRooms.listActive, {});
+      activeRooms = await convex.query(api.commentRooms.listActive, { siteSlug });
     } catch {
       // commentRooms function may not be deployed yet — fall through to full scan
     }
@@ -83,7 +85,7 @@ export async function GET() {
 
       // Seed Convex with the results so future requests use the fast path
       // (done async, don't block response)
-      seedConvexInBackground(liveblocks, roomsToQuery);
+      seedConvexInBackground(liveblocks, roomsToQuery, siteSlug);
     }
 
     timing.listRooms = Date.now() - t0;
@@ -185,7 +187,8 @@ export async function GET() {
 
 async function seedConvexInBackground(
   liveblocks: Liveblocks,
-  allRoomIds: string[]
+  allRoomIds: string[],
+  siteSlug: string,
 ) {
   try {
     const convex = getConvexServerClient();
@@ -205,7 +208,7 @@ async function seedConvexInBackground(
     }
 
     if (roomCounts.length > 0) {
-      await convex.mutation(api.commentRooms.syncRooms, { rooms: roomCounts });
+      await convex.mutation(api.commentRooms.syncRooms, { rooms: roomCounts, siteSlug });
       console.log(
         `[liveblocks-threads] Seeded ${roomCounts.length} active rooms into Convex`
       );

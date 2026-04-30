@@ -242,4 +242,67 @@ test.describe("multi-site isolation", () => {
       expect(r.title).toMatch(/Beta/);
     }
   });
+
+  test("invariant 4: /api/file-tree is empty for non-Diana sites", async ({
+    request,
+    baseURL,
+  }) => {
+    const url = baseURL ?? "http://localhost:3000";
+
+    // Until the deferred Phase 7 swap of the static-gen renderer to
+    // Convex-backed reads, /api/file-tree returns Diana's
+    // fs-backed tree only when the active site is Diana. For new
+    // sites it must return an empty tree, not Diana's tree —
+    // otherwise alpha would render Diana's sidebar.
+    const alphaResp = await request.get(`${url}/api/file-tree`, {
+      headers: { Host: `${ALPHA_SLUG}.localhost` },
+    });
+    expect(alphaResp.ok()).toBeTruthy();
+    const alphaTree = (await alphaResp.json()) as unknown[];
+    expect(Array.isArray(alphaTree)).toBe(true);
+    expect(alphaTree.length).toBe(0);
+
+    // /api/pages mirrors the file-tree route — also empty for non-Diana.
+    const alphaPages = await request.get(`${url}/api/pages`, {
+      headers: { Host: `${ALPHA_SLUG}.localhost` },
+    });
+    expect(alphaPages.ok()).toBeTruthy();
+    const alphaPagesJson = (await alphaPages.json()) as unknown[];
+    expect(alphaPagesJson.length).toBe(0);
+
+    // Sanity: localhost (Diana) still gets a populated tree, so we
+    // know the test isn't trivially passing because the routes are
+    // broken.
+    const dianaResp = await request.get(`${url}/api/file-tree`);
+    const dianaTree = (await dianaResp.json()) as unknown[];
+    expect(dianaTree.length).toBeGreaterThan(0);
+  });
+
+  test("invariant 5: /api/tools chat tool calls are site-scoped", async ({
+    request,
+    baseURL,
+  }) => {
+    const url = baseURL ?? "http://localhost:3000";
+
+    // search_wiki tool uses the same Convex documents.search as
+    // /api/search, but goes through a different code path. This
+    // catches the scenario where /api/tools forgets to thread
+    // siteSlug — the chat would otherwise see Diana's data when
+    // run from alpha.
+    const alphaTool = await request.post(`${url}/api/tools`, {
+      headers: { Host: `${ALPHA_SLUG}.localhost` },
+      data: { tool: "search_wiki", args: { query: "alphabarbatross" } },
+    });
+    const alphaToolResults = (await alphaTool.json()) as Array<{ slug: string }>;
+    expect(Array.isArray(alphaToolResults)).toBe(true);
+    expect(alphaToolResults.length).toBeGreaterThan(0);
+    expect(alphaToolResults[0].slug).toBe("home");
+
+    const betaTool = await request.post(`${url}/api/tools`, {
+      headers: { Host: `${BETA_SLUG}.localhost` },
+      data: { tool: "search_wiki", args: { query: "alphabarbatross" } },
+    });
+    const betaToolResults = (await betaTool.json()) as Array<unknown>;
+    expect(betaToolResults.length).toBe(0);
+  });
 });

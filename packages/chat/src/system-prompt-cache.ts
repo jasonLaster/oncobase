@@ -1,13 +1,11 @@
 /**
- * Memoizes the chat system prompt. Phase 7 of the chat-performance plan.
+ * Memoizes the chat system prompt per site. Phase 7 of the
+ * chat-performance plan, plus multi-tenant scoping.
  *
- * Prompt context is often shared across chat turns. Caching the assembled
- * prompt for 60s lets the host app avoid repeating expensive reads during a
- * hot conversation.
- *
- * Cache key is intentionally global (no conversationId) — the prompt does
- * not depend on the conversation. Per-conversation overrides would key
- * differently if they exist later.
+ * The prompt is built from per-site index + diagnosis docs, so the
+ * cache key includes the site slug. Without per-site keying, the
+ * first site to warm the cache would serve its prompt to every
+ * other site for the next 60 seconds.
  */
 
 const TTL_MS = Number(process.env.CHAT_SYSTEM_PROMPT_TTL_MS ?? 60_000);
@@ -17,35 +15,40 @@ interface CacheEntry {
   ts: number;
 }
 
-let cached: CacheEntry | null = null;
-let inFlight: Promise<string> | null = null;
+const cache = new Map<string, CacheEntry>();
+const inFlight = new Map<string, Promise<string>>();
 
 /**
- * Returns the cached prompt if fresh; otherwise calls `loader` exactly once
- * and caches its result. Concurrent callers share a single in-flight promise.
+ * Returns the cached prompt for `siteSlug` if fresh; otherwise calls
+ * `loader` exactly once and caches its result. Concurrent callers
+ * for the same site share a single in-flight promise.
  */
 export async function getCachedSystemPrompt(
-  loader: () => Promise<string>
+  siteSlug: string,
+  loader: () => Promise<string>,
 ): Promise<string> {
   const now = Date.now();
-  if (cached && now - cached.ts < TTL_MS) {
-    return cached.prompt;
+  const hit = cache.get(siteSlug);
+  if (hit && now - hit.ts < TTL_MS) {
+    return hit.prompt;
   }
-  if (inFlight) return inFlight;
-  inFlight = (async () => {
+  const existing = inFlight.get(siteSlug);
+  if (existing) return existing;
+  const promise = (async () => {
     try {
       const prompt = await loader();
-      cached = { prompt, ts: Date.now() };
+      cache.set(siteSlug, { prompt, ts: Date.now() });
       return prompt;
     } finally {
-      inFlight = null;
+      inFlight.delete(siteSlug);
     }
   })();
-  return inFlight;
+  inFlight.set(siteSlug, promise);
+  return promise;
 }
 
 /** Test / debug only. */
 export function _resetSystemPromptCache(): void {
-  cached = null;
-  inFlight = null;
+  cache.clear();
+  inFlight.clear();
 }

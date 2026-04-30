@@ -175,11 +175,16 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = withSiteHeader(request, site.slug);
 
   // Auth/login routes own their own auth flow — bypass the password
-  // gate but still set x-site-slug.
+  // gate but still set x-site-slug. /api/file is here because it's
+  // a content endpoint that needs site scoping; the password gate
+  // historically didn't apply (excluded from the matcher) and we
+  // preserve that, while getting the proxy-set x-site-slug header
+  // so the client can't inject a different site.
   if (
     request.nextUrl.pathname.startsWith("/api/login") ||
     request.nextUrl.pathname.startsWith("/api/auth") ||
-    request.nextUrl.pathname.startsWith("/api/publish")
+    request.nextUrl.pathname.startsWith("/api/publish") ||
+    request.nextUrl.pathname.startsWith("/api/file")
   ) {
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
@@ -249,6 +254,10 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|api/share-preview|api/post-deploy|api/file|\\.well-known/workflow).*)",
+    // /api/file is now inside the matcher so the proxy can set
+    // x-site-slug on it (passed through to Convex for site-scoped
+    // asset lookups). It still bypasses the password gate via the
+    // explicit branch above.
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|api/share-preview|api/post-deploy|\\.well-known/workflow).*)",
   ],
 };

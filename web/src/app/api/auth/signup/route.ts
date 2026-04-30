@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { api } from "@convex/_generated/api";
 import { getConvexServerClient } from "@/lib/convex-server";
+import { siteSlugFromRequest } from "@/lib/site";
 import {
   USER_SESSION_COOKIE,
   createPasswordSalt,
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
     }
 
+    const siteSlug = siteSlugFromRequest(request);
     const convex = getConvexServerClient();
     const passwordSalt = createPasswordSalt();
     const passwordHash = hashPassword(password, passwordSalt);
@@ -35,6 +37,7 @@ export async function POST(request: Request) {
       name: trimmedName || undefined,
       passwordHash,
       passwordSalt,
+      siteSlug,
     });
 
     const sessionToken = createSessionToken();
@@ -42,6 +45,7 @@ export async function POST(request: Request) {
       userId,
       tokenHash: hashSessionToken(sessionToken),
       expiresAt: getSessionExpiry(),
+      siteSlug,
     });
 
     const response = NextResponse.json({

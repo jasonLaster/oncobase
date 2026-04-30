@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, connection } from "next/server";
 import path from "path";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@convex/_generated/api";
+import { siteSlugFromRequest } from "@/lib/site";
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf":  "application/pdf",
@@ -37,10 +38,15 @@ export async function GET(request: NextRequest) {
   const ext = path.extname(normalized).toLowerCase();
   const filename = path.basename(normalized);
 
+  // /api/file is in the proxy's matcher exclude list, so x-site-slug
+  // may not be set. siteSlugFromRequest falls back to the Diana
+  // default — fine during the migration window.
+  const siteSlug = siteSlugFromRequest(request);
+
   try {
     const asset = ext === ".pdf"
-      ? await fetchQuery(api.documents.getPdfAssetByPath, { path: normalized })
-      : await fetchQuery(api.documents.getFileAssetByPath, { path: normalized });
+      ? await fetchQuery(api.documents.getPdfAssetByPath, { path: normalized, siteSlug })
+      : await fetchQuery(api.documents.getFileAssetByPath, { path: normalized, siteSlug });
 
     if (asset?.blobUrl) {
       const upstream = await fetch(asset.blobUrl);
