@@ -4,9 +4,18 @@ Current-state feature inventory for the `web` app, based on the implementation i
 
 This document focuses on shipped behavior and notable implementation details. Detailed comments behavior still lives in [comments.md](./comments.md).
 
+## Multi-site model
+
+The app is a multi-site wiki publishing platform. Diana is site #1; additional sites share the same Next.js deployment, Convex deployment, Blob store, and codebase, with isolation enforced in code. The full contract lives in [multi-site.md](./multi-site.md). Key points:
+
+- The proxy resolves the active site from the `Host` header on every request and sets `x-site-slug` on the forwarded request. Client-supplied `x-site-slug` is overwritten.
+- Every public Convex function takes an optional `siteSlug` and threads it through the `requireSite` helper. ESLint bans raw `ctx.db.query(` outside the helper.
+- Diana's content is rendered through the sibling `obsidian/` tree at static-generation time during the migration window; new sites publish into Convex via `bun run wiki:publish` and serve from there. Both paths coexist; the cutover that retires the fs path is documented in [plans/multi-tenant-wiki/work-log.md](../../plans/multi-tenant-wiki/work-log.md).
+- `/api/file`, `/api/search`, downloads, comments, chat — all Convex-backed and site-scoped via `requireSite`.
+
 ## Product Surface
 
-- The app is a password-gated wiki and research workspace backed by the sibling `obsidian/` content tree.
+- The app is a password-gated wiki and research workspace. For Diana the content tree is the sibling `obsidian/` directory; for new sites it is Convex (populated by the publisher CLI).
 - Primary route surfaces:
   - `/` renders `index.md`
   - `/[...slug]` renders markdown pages and redirects `.pdf` and `.md` URL variants
