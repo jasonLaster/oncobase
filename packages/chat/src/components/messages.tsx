@@ -123,41 +123,52 @@ const SourceLinks = memo(function SourceLinks({
   sources: ChatSource[];
 }) {
   const { copy } = useChatRuntime();
+  const [open, setOpen] = useState(false);
   if (sources.length === 0) return null;
   return (
     <div className="mt-3 pt-2 border-t border-[var(--sidebar-border)]">
-      <div className="text-[10px] uppercase tracking-wide text-[var(--text-muted)] mb-1.5">
-        {copy.sourcesLabel}
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {sources.map((source) => {
-          const content = (
-            <>
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-50">
-                <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
-              </svg>
-              {source.title}
-            </>
-          );
-          const className =
-            "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-[var(--background)] border border-[var(--sidebar-border)] text-[var(--brand)] hover:border-[var(--brand)] transition-colors";
-          const key = source.id ?? source.href ?? source.title;
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
+      >
+        <span className="text-[10px]">{open ? "▼" : "▶"}</span>
+        <span>
+          {copy.sourcesLabel} ({sources.length})
+        </span>
+      </button>
+      {open && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {sources.map((source) => {
+            const content = (
+              <>
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-50">
+                  <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
+                </svg>
+                {source.title}
+              </>
+            );
+            const className =
+              "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-[var(--background)] border border-[var(--sidebar-border)] text-[var(--brand)] hover:border-[var(--brand)] transition-colors";
+            const key = source.id ?? source.href ?? source.title;
 
-          return source.href?.startsWith("/") ? (
-            <Link key={key} href={source.href} className={className}>
-              {content}
-            </Link>
-          ) : source.href ? (
-            <a key={key} href={source.href} className={className}>
-              {content}
-            </a>
-          ) : (
-            <span key={key} className={className}>
-              {content}
-            </span>
-          );
-        })}
-      </div>
+            return source.href?.startsWith("/") ? (
+              <Link key={key} href={source.href} className={className}>
+                {content}
+              </Link>
+            ) : source.href ? (
+              <a key={key} href={source.href} className={className}>
+                {content}
+              </a>
+            ) : (
+              <span key={key} className={className}>
+                {content}
+              </span>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 });
