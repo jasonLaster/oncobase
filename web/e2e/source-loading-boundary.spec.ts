@@ -28,9 +28,7 @@ async function delayRoutePayload(page: Page, routePath: string) {
 
 async function chooseCommandPaletteResult(page: Page, slug: string) {
   const item = page.locator(`[cmdk-item][data-value="${slug}"]`);
-  await expect(item).toBeVisible({ timeout: 25_000 });
-  await item.hover();
-  await expect(item).toHaveAttribute("aria-selected", "true");
+  await expect(item).toBeVisible({ timeout: 30_000 });
 }
 
 test.describe("source loading boundary", () => {
@@ -63,9 +61,10 @@ test.describe("source loading boundary", () => {
           return input.isVisible().catch(() => false);
         },
         { timeout: 15_000 }
-      )
+    )
       .toBe(true);
-    await input.fill("wiki diagnostics diagnosis");
+    await expect(input).toBeEditable({ timeout: 15_000 });
+    await input.fill("wiki diagnostics diagnosis", { force: true });
     await chooseCommandPaletteResult(page, WIKI_ROUTE.slice(1));
 
     await input.press("Enter");

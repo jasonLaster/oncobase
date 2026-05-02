@@ -10,7 +10,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:unit": "bun test src/lib/*.test.ts",
+    "test:unit": "bun test src/lib/*.test.ts scripts/**/*.test.ts",
     "test": "bunx playwright test",
     "test:prod": "TEST_ENV=prod bunx playwright test",
     "test:prod:ci": "TEST_ENV=prod bunx playwright test --project=tests",
@@ -22,7 +22,8 @@
     "wiki:site:create": "bun scripts/admin/create-site.ts",
     "wiki:site:archive": "bun scripts/admin/archive-site.ts",
     "wiki:site:restore": "bun scripts/admin/restore-site.ts",
-    "wiki:site:lock-clear": "bun scripts/admin/clear-publish-lock.ts"
+    "wiki:site:lock-clear": "bun scripts/admin/clear-publish-lock.ts",
+    "wiki:site:backfill": "bun scripts/admin/backfill-site-ids.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.149",

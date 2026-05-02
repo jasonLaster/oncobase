@@ -1,12 +1,4 @@
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "@convex/_generated/api";
-import { siteSlugFromRequest } from "@/lib/site";
-
-function getConvex() {
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!url) throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
-  return new ConvexHttpClient(url);
-}
+import { siteDataFromRequest } from "@/lib/site-data";
 
 export async function POST(request: Request) {
   const { tool, args } = (await request.json()) as {
@@ -14,22 +6,19 @@ export async function POST(request: Request) {
     args: Record<string, unknown>;
   };
 
-  const siteSlug = siteSlugFromRequest(request);
-  const convex = getConvex();
+  const siteData = siteDataFromRequest(request);
 
   switch (tool) {
     case "search_wiki": {
-      const results = await convex.query(api.documents.search, {
+      const results = await siteData.documents.search({
         query: args.query as string,
         limit: 8,
-        siteSlug,
       });
       return Response.json(results);
     }
     case "read_page": {
-      const doc = await convex.query(api.documents.getBySlug, {
+      const doc = await siteData.documents.getBySlug({
         slug: args.slug as string,
-        siteSlug,
       });
       if (!doc) return Response.json({ error: `Page not found: ${args.slug}` });
       return Response.json({
@@ -40,22 +29,17 @@ export async function POST(request: Request) {
       });
     }
     case "list_pages": {
-      return Response.json(
-        await convex.action(api.documents.list, { siteSlug }),
-      );
+      return Response.json(await siteData.documents.list());
     }
     case "get_pages_by_tag": {
       return Response.json(
-        await convex.action(api.documents.getByTag, {
+        await siteData.documents.getByTag({
           tag: args.tag as string,
-          siteSlug,
         }),
       );
     }
     case "list_tags": {
-      return Response.json(
-        await convex.action(api.documents.listTags, { siteSlug }),
-      );
+      return Response.json(await siteData.documents.listTags());
     }
     default:
       return Response.json({ error: `Unknown tool: ${tool}` }, { status: 400 });

@@ -68,22 +68,20 @@ jobs:
             core.setOutput("branch", branch);
             core.setOutput("sha", sha);
 
-      - name: Resolve Vercel preview branch URL
+      - name: Use Vercel preview deployment URL
         id: vercel-preview
         env:
           DEPLOYMENT_URL: ${{ github.event.deployment_status.target_url }}
-          PREVIEW_BRANCH: ${{ steps.github-preview.outputs.branch }}
         run: |
           node <<'NODE'
           const { URL } = require("node:url");
           const fs = require("node:fs");
 
           const deploymentUrl = process.env.DEPLOYMENT_URL;
-          const previewBranch = process.env.PREVIEW_BRANCH;
           const projectName = process.env.VERCEL_PROJECT_NAME;
 
-          if (!deploymentUrl || !previewBranch || !projectName) {
-            throw new Error("Missing deployment URL, preview branch, or Vercel project name.");
+          if (!deploymentUrl || !projectName) {
+            throw new Error("Missing deployment URL or Vercel project name.");
           }
 
           const host = new URL(deploymentUrl).host;
@@ -98,26 +96,7 @@ jobs:
             throw new Error(`Deployment host ${host} does not match project prefix ${projectPrefix}`);
           }
 
-          const remainder = hostnameWithoutSuffix.slice(projectPrefix.length);
-          const separatorIndex = remainder.indexOf("-");
-          if (separatorIndex === -1) {
-            throw new Error(`Could not extract the Vercel team slug from ${host}`);
-          }
-
-          const teamSlug = remainder.slice(separatorIndex + 1);
-          const sanitizedBranch = previewBranch
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-+|-+$/g, "")
-            .replace(/-+/g, "-");
-
-          if (!sanitizedBranch) {
-            throw new Error(`Preview branch ${previewBranch} could not be converted to a branch alias.`);
-          }
-
-          const previewUrl = `https://${projectName}-git-${sanitizedBranch}-${teamSlug}.vercel.app`;
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `url=${previewUrl}\n`);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `team_slug=${teamSlug}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `url=${deploymentUrl}\n`);
           NODE
 
       - name: Validate preview inputs
@@ -140,7 +119,7 @@ jobs:
             exit 1
           fi
 
-      - name: Validate Vercel preview branch
+      - name: Validate Vercel preview deployment
         env:
           PROD_URL: ${{ steps.vercel-preview.outputs.url }}
         run: |
@@ -154,8 +133,8 @@ jobs:
             }
 
             const hostname = new URL(previewUrl).host;
-            if (!hostname.includes("-git-")) {
-              throw new Error(`Expected a Vercel preview branch alias, got ${hostname}`);
+            if (!hostname.endsWith(".vercel.app")) {
+              throw new Error(`Expected a Vercel preview deployment URL, got ${hostname}`);
             }
 
             const response = await fetch(previewUrl, {
@@ -168,7 +147,7 @@ jobs:
 
             if (response.status >= 400) {
               throw new Error(
-                `Expected to run against the Vercel preview branch URL, but ${previewUrl} returned HTTP ${response.status}`
+                `Expected to run against the Vercel preview deployment URL, but ${previewUrl} returned HTTP ${response.status}`
               );
             }
           })().catch((error) => {

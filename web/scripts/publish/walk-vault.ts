@@ -57,13 +57,23 @@ export type PublishAsset = {
   hash: string;
 };
 
-function hashContent(content: string) {
+function hashBytes(content: string | Buffer) {
   return crypto.createHash("sha256").update(content).digest("hex").slice(0, 16);
 }
 
 function hashFile(filePath: string) {
   const buf = fs.readFileSync(filePath);
-  return crypto.createHash("sha256").update(buf).digest("hex").slice(0, 16);
+  return hashBytes(buf);
+}
+
+function hashDocument(doc: Pick<PublishDocument, "title" | "content" | "tags">) {
+  return hashBytes(
+    JSON.stringify({
+      title: doc.title,
+      content: doc.content,
+      tags: doc.tags,
+    }),
+  );
 }
 
 type Entry = { filePath: string; relativePath: string };
@@ -108,13 +118,15 @@ export function readVaultDocuments(vaultPath: string): PublishDocument[] {
       const body = h1Match
         ? content.replace(/^#\s+.+$/m, "").replace(/^\n+/, "")
         : content;
-      const tags = Array.isArray(data.tags) ? (data.tags as string[]) : [];
+      const tags = Array.isArray(data.tags)
+        ? (data.tags as unknown[]).filter((tag): tag is string => typeof tag === "string")
+        : [];
       return {
         slug,
         title,
         content: body,
         tags,
-        hash: hashContent(body),
+        hash: hashDocument({ title, content: body, tags }),
       };
     });
 }

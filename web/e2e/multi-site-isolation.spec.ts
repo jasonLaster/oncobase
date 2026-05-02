@@ -20,10 +20,10 @@
 import crypto from "node:crypto";
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
+import JSZip from "jszip";
 import { api } from "../convex/_generated/api";
 
-const CONVEX_URL =
-  process.env.NEXT_PUBLIC_CONVEX_URL ?? "https://fleet-ferret-544.convex.cloud";
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 
 // Unique slugs per run so the test is idempotent without needing
 // upsert semantics on sites:create. Slugs must match
@@ -77,13 +77,18 @@ async function publishOne(
 }
 
 test.describe("multi-site isolation", () => {
+  test.skip(
+    !CONVEX_URL,
+    "Multi-site publish isolation requires NEXT_PUBLIC_CONVEX_URL for the same Convex deployment as the target app."
+  );
+
   let convex: ConvexHttpClient;
   let alphaToken: string;
   let betaToken: string;
 
   test.beforeAll(async ({ request, baseURL }) => {
     const url = baseURL ?? "http://localhost:3000";
-    convex = new ConvexHttpClient(CONVEX_URL);
+    convex = new ConvexHttpClient(CONVEX_URL!);
 
     const { token: alphaT, hash: alphaH } = tokenAndHash();
     const { token: betaT, hash: betaH } = tokenAndHash();
@@ -304,5 +309,94 @@ test.describe("multi-site isolation", () => {
     });
     const betaToolResults = (await betaTool.json()) as Array<unknown>;
     expect(betaToolResults.length).toBe(0);
+  });
+
+  test("invariant 6: markdown downloads are site-scoped", async ({
+    request,
+    baseURL,
+  }) => {
+    const url = baseURL ?? "http://localhost:3000";
+
+    const response = await request.get(`${url}/api/download?type=markdown`, {
+      headers: { Host: `${ALPHA_SLUG}.localhost` },
+    });
+    expect(response.ok(), await response.text()).toBeTruthy();
+
+    const zip = await JSZip.loadAsync(await response.body());
+    const home = zip.file("home.md");
+    expect(home).toBeTruthy();
+    const content = await home!.async("string");
+    expect(content).toContain("alphabarbatross");
+    expect(content).not.toContain("betarhinoceros");
+  });
+
+  test("invariant 7: /api/share-preview reflects the active site", async ({
+    request,
+    baseURL,
+  }) => {
+    const url = baseURL ?? "http://localhost:3000";
+
+    // Hit the share-preview endpoint as a link-preview bot would after
+    // the proxy rewrites to it. The proxy preserves x-site-slug across
+    // the rewrite. We simulate that by setting both Host (so proxy
+    // resolution would target alpha) and the share-preview headers it
+    // adds. The OG site_name must NOT be Diana's "TNBC Knowledge Base"
+    // for a non-Diana host — that was the R2 leak.
+    const response = await request.get(`${url}/api/share-preview?path=/`, {
+      headers: {
+        Host: `${ALPHA_SLUG}.localhost`,
+        "x-site-slug": ALPHA_SLUG,
+        "x-share-preview-path": "/",
+      },
+    });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    const html = await response.text();
+    expect(html).not.toContain("TNBC Knowledge Base");
+    expect(html.toLowerCase()).toContain(ALPHA_SLUG);
+  });
+
+  test("invariant 8: Liveblocks routes are 503 for sites without per-site keys", async ({
+    request,
+    baseURL,
+  }) => {
+    const url = baseURL ?? "http://localhost:3000";
+
+    // Comments require per-site Liveblocks credentials. The synthetic
+    // alpha site has none — its sites.liveblocksSecretKey is undefined
+    // and its sites.config.enableComments may default true, so the
+    // helper returns `credentials-missing` → 503. This test verifies
+    // the friend-launch gate from R7 is enforced in code, not just in
+    // the runbook.
+    const auth = await request.post(`${url}/api/liveblocks-auth`, {
+      headers: { Host: `${ALPHA_SLUG}.localhost` },
+      data: { room: "markdown:home" },
+    });
+    expect(auth.status()).toBe(503);
+
+    const threads = await request.get(`${url}/api/liveblocks-threads`, {
+      headers: { Host: `${ALPHA_SLUG}.localhost` },
+    });
+    expect(threads.status()).toBe(503);
+  });
+
+  test("invariant 9: /api/file returns 404 for paths the active site does not own", async ({
+    request,
+    baseURL,
+  }) => {
+    const url = baseURL ?? "http://localhost:3000";
+
+    // /api/file resolves an asset path against the request's active
+    // site. Asking alpha for a path no Convex row backs (under alpha's
+    // siteId) must not silently fall through to Diana's legacy index.
+    const response = await request.get(
+      `${url}/api/file?path=does-not-exist-${RUN_NONCE}`,
+      {
+        headers: { Host: `${ALPHA_SLUG}.localhost` },
+      },
+    );
+    // Either 404 or 4xx is acceptable — the only forbidden outcome is
+    // a 200 that returns a Diana-owned blob URL.
+    expect(response.status()).toBeGreaterThanOrEqual(400);
+    expect(response.status()).toBeLessThan(500);
   });
 });

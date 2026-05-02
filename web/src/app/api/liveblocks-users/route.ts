@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveLiveblocksUsers } from "@/lib/liveblocks-user-resolution";
+import { siteDataFromRequest } from "@/lib/site-data";
 
 const MAX_USER_IDS = 100;
 
@@ -33,6 +34,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const users = await resolveLiveblocksUsers(userIds);
+  const users = await resolveLiveblocksUsers(userIds, siteDataFromRequest(request));
   return NextResponse.json({ users });
 }

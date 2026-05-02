@@ -77,6 +77,30 @@ After Phase 7 cutover finishes (Diana fully published into Convex
 with `siteId` on every row), the legacy fallback paths get deleted
 and the helpers narrow to require `siteId`.
 
+## Server-side SiteData interface
+
+Route handlers and server-only libraries must not call tenant-owned
+Convex functions directly. They create a `SiteData` object from the
+request via `siteDataFromRequest(request)` in `web/src/lib/site-data.ts`.
+`SiteData` owns the active `siteSlug` and exposes scoped methods such
+as `siteData.documents.getBySlug({ slug })`,
+`siteData.users.getSessionUser({ tokenHash })`, and
+`siteData.commentRooms.listActive()`.
+
+TypeScript derives each method's argument type from the generated
+Convex function reference, removes `siteSlug`, and marks it as
+`never`; callers cannot pass or forget `siteSlug` through that
+interface. Lower-level `createSiteConvex(scope)` exists for rare
+cases such as the chat flusher, but new request code should prefer
+the domain methods.
+
+ESLint blocks raw `api.documents`, `api.users`, `api.guestNames`,
+`api.commentRooms`, and `api.conversations` usage in `src/app/**`
+and `src/lib/**` outside `site-data.ts` and the documented Diana-only
+static renderer exceptions. This is the main compile-time guardrail
+against the bug class where a route handler silently falls back to
+Diana by omitting `siteSlug`.
+
 ## Scoped tables
 
 Every tenant-owned table carries `siteId: v.optional(v.id("sites"))`
@@ -137,9 +161,11 @@ with a Bearer publish token whose hash matches
 `sites.publishTokenHash`.
 
 - `POST /api/publish/begin` — JSON manifest of `{slug, hash}` for
-  documents and `{path, hash, kind}` for assets. Returns
-  `{runId, missingDocumentSlugs, missingAssetPaths}`. Acquires a
-  publish lock unless `dryRun: true`.
+  documents and `{path, hash, kind}` for assets. Document hashes cover
+  title, tags, and body content so metadata-only edits republish.
+  Returns `{runId, missingDocumentSlugs, missingAssetPaths,
+  staleDocumentSlugs, staleAssetPaths}`. Acquires a publish lock
+  unless `dryRun: true`.
 - `POST /api/publish/document` — JSON body with one document.
   Server applies `applyPiiRedactions` before write. Convex stores
   only redacted content; raw markdown stays in the publisher's
@@ -150,8 +176,8 @@ with a Bearer publish token whose hash matches
   `sitePut`, records in `pdfAssets` / `fileAssets`. ~24 MB body
   cap (Vercel Fluid Compute default); larger files surface in
   `.skipped-assets.txt`.
-- `POST /api/publish/finish` — releases the lock and bumps
-  `lastPublishedAt`.
+- `POST /api/publish/finish` — tombstones manifest-stale documents
+  and assets, releases the lock, and bumps `lastPublishedAt`.
 
 Embeddings are computed in chunks (≤800K chars per request, ≤100
 docs per request) to stay under OpenAI's 300K-tokens-per-request
@@ -159,7 +185,7 @@ limit. Phase 4 documented this in the work-log.
 
 ## Cross-site leak tests
 
-`web/e2e/multi-site-isolation.spec.ts` exercises five invariants
+`web/e2e/multi-site-isolation.spec.ts` exercises six invariants
 in CI on every PR. Setup spins up two synthetic sites with
 per-run-nonce slugs in dev Convex, publishes one doc to each via
 `/api/publish`, and tears them down on completion.
@@ -181,6 +207,9 @@ per-run-nonce slugs in dev Convex, publishes one doc to each via
    `search_wiki` tool used by the chat agent threads
    `siteSlug` from the proxy header to its Convex queries —
    alpha's chat sees only alpha's docs.
+6. **Markdown downloads are site-scoped.** `/api/download?type=markdown`
+   builds the archive from the active site's Convex rows, not Diana's
+   fallback rows or a cache entry from another host.
 
 Failing any invariant is P0. Add new cases here when a new
 feature could leak across sites.
@@ -203,6 +232,7 @@ it through to its Convex calls — landed during the QA review pass:
 | `/api/ai-search` | `x-site-slug` header — vector search filtered by `siteId` |
 | `/api/tools` | `x-site-slug` header — every chat tool call is per-site |
 | `/api/chat` | `x-site-slug` header — flusher takes `siteSlug` and passes it through every Convex mutation |
+| `/api/download` | `x-site-slug` header — cache lookup and on-demand archive queries are site-scoped; background cache warming is Diana-only until per-site zip workflows ship |
 | `/api/publish/*` | `siteSlug` from request body (token-authenticated, not host-derived) |
 | `/api/liveblocks-threads` | `x-site-slug` header for `commentRooms` queries |
 | `/api/liveblocks-webhook` | Defaults to Diana (deferred — see below) |

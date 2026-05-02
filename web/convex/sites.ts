@@ -50,6 +50,20 @@ export const getBySlug = query({
   },
 });
 
+export const getByLiveblocksWorkspace = query({
+  args: { workspaceId: v.string() },
+  handler: async (ctx, { workspaceId }) => {
+    const site = await ctx.db
+      .query("sites")
+      .withIndex("by_liveblocks_workspace", (q) =>
+        q.eq("liveblocksWorkspaceId", workspaceId),
+      )
+      .first();
+    if (!site || site.status !== "active") return null;
+    return { slug: site.slug, name: site.name };
+  },
+});
+
 export const ensureDiana = mutation({
   args: {
     ownerEmail: v.optional(v.string()),

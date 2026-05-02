@@ -18,6 +18,11 @@ const RAW_BLOB_IMPORT_MESSAGE =
   "skips the sites/<siteSlug>/ key prefix and creates a cross-site " +
   "leak surface.";
 
+const TENANT_API_MESSAGE =
+  "Use src/lib/site-data.ts for tenant-owned Convex tables. The " +
+  "SiteData interface injects siteSlug and makes raw siteSlug " +
+  "threading harder to forget.";
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -39,16 +44,27 @@ const eslintConfig = defineConfig([
     files: ["convex/**/*.ts"],
     ignores: [
       "convex/_generated/**",
+      // requireSite + sites resolution own direct sites/* table access.
       "convex/lib/site.ts",
-      // sites.ts is the resolution + onboarding layer that owns
-      // direct sites-table access. requireSite uses it.
       "convex/sites.ts",
+      // Schema-level migrations that intentionally page through every
+      // table. Keep direct queries here behind a clearly named module.
       "convex/migrations.ts",
+      // Tenant data files keep their *internal* helper queries (paginate,
+      // by-id lookups, legacy fallbacks) using ctx.db.query — every
+      // public function still calls requireSite at the boundary. The
+      // exemption is narrow: the rule still fires on any new module
+      // added to convex/ that hasn't been wired to requireSite.
+      "convex/commentRooms.ts",
+      "convex/conversations.ts",
+      "convex/documents.ts",
+      "convex/guestNames.ts",
+      "convex/users.ts",
       "convex/admin/**",
     ],
     rules: {
       "no-restricted-syntax": [
-        "warn",
+        "error",
         {
           selector: "CallExpression[callee.property.name='query'][callee.object.property.name='db']",
           message: RAW_DB_QUERY_MESSAGE,
@@ -61,7 +77,7 @@ const eslintConfig = defineConfig([
     ignores: ["src/lib/blob.ts", "scripts/publish/**", "scripts/ingest-*.ts", "scripts/build-*.ts", "scripts/admin/**"],
     rules: {
       "no-restricted-imports": [
-        "warn",
+        "error",
         {
           paths: [
             {
@@ -69,6 +85,26 @@ const eslintConfig = defineConfig([
               message: RAW_BLOB_IMPORT_MESSAGE,
             },
           ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/app/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}"],
+    ignores: [
+      "src/lib/site-data.ts",
+      // Diana-only static renderer during the migration window. New
+      // request/route code should use SiteData instead.
+      "src/lib/markdown.ts",
+      "src/lib/page-metadata.ts",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "MemberExpression[object.name='api'][property.name=/^(documents|users|guestNames|commentRooms|conversations)$/]",
+          message: TENANT_API_MESSAGE,
         },
       ],
     },

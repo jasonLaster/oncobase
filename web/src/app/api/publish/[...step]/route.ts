@@ -3,8 +3,13 @@ import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { api } from "@convex/_generated/api";
 import { getConvexServerClient } from "@/lib/convex-server";
-import { applyPiiRedactions } from "@/lib/pii-redaction";
+import {
+  applyPiiRedactions,
+  parseSitePiiPatterns,
+  type PiiPattern,
+} from "@/lib/pii-redaction";
 import { sitePut } from "@/lib/blob";
+import { siteDataFromSlug, type SiteData } from "@/lib/site-data";
 
 // Multi-tenant publish API (Phase 4). The publisher CLI in
 // scripts/publish/* talks to these endpoints with a Bearer publish
@@ -27,6 +32,21 @@ function bearerToken(request: Request) {
   return match?.[1] ?? null;
 }
 
+function assetKey(asset: { path: string; kind?: "pdf" | "file" }) {
+  return `${asset.kind ?? "file"}:${asset.path}`;
+}
+
+function pathFromAssetKey(key: string) {
+  return key.slice(key.indexOf(":") + 1);
+}
+
+function constantTimeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return crypto.timingSafeEqual(ab, bb);
+}
+
 async function requirePublishSite(request: Request, siteSlug: string) {
   const token = bearerToken(request);
   if (!token) {
@@ -34,14 +54,17 @@ async function requirePublishSite(request: Request, siteSlug: string) {
   }
   const convex = getConvexServerClient();
   const site = await convex.query(api.sites.getBySlug, { slug: siteSlug });
-  if (!site || site.publishTokenHash !== hashToken(token)) {
+  if (!site || !constantTimeEqual(site.publishTokenHash, hashToken(token))) {
     throw new Response("Invalid publish token", { status: 401 });
   }
-  return { convex, site };
+  return { convex, site, siteData: siteDataFromSlug(siteSlug, convex) };
 }
 
-async function currentDocumentHashes(siteSlug: string) {
-  const convex = getConvexServerClient();
+function sitePiiPatterns(site: { config: { piiPatterns?: string[] } }): PiiPattern[] {
+  return parseSitePiiPatterns(site.config.piiPatterns);
+}
+
+async function currentDocumentHashes(siteData: SiteData) {
   const hashes = new Map<string, string | undefined>();
   let cursor: string | null = null;
   let isDone = false;
@@ -50,10 +73,9 @@ async function currentDocumentHashes(siteSlug: string) {
       page: Array<{ slug: string; contentHash: string | undefined }>;
       isDone: boolean;
       continueCursor: string;
-    } = await convex.query(api.documents.embeddingStatusPage, {
+    } = await siteData.documents.embeddingStatusPage({
       cursor,
       numItems: 100,
-      siteSlug,
     });
     for (const doc of page.page) {
       hashes.set(doc.slug, doc.contentHash);
@@ -64,12 +86,11 @@ async function currentDocumentHashes(siteSlug: string) {
   return hashes;
 }
 
-async function currentAssetHashes(siteSlug: string) {
-  const convex = getConvexServerClient();
+async function currentAssetHashes(siteData: SiteData) {
   const hashes = new Map<string, string | undefined>();
-  const pdfs = await convex.query(api.documents.listPdfAssets, { siteSlug });
+  const pdfs = await siteData.documents.listPdfAssets();
   for (const asset of pdfs) hashes.set(`pdf:${asset.path}`, asset.contentHash);
-  const files = await convex.query(api.documents.listFileAssets, { siteSlug });
+  const files = await siteData.documents.listFileAssets();
   for (const asset of files)
     hashes.set(`file:${asset.path}`, asset.contentHash);
   return hashes;
@@ -94,7 +115,7 @@ async function handleAssetUpload(request: Request) {
   const contentType =
     request.headers.get("content-type") ?? "application/octet-stream";
 
-  const { convex } = await requirePublishSite(request, siteSlug);
+  const { siteData } = await requirePublishSite(request, siteSlug);
 
   const buffer = Buffer.from(await request.arrayBuffer());
   if (buffer.byteLength === 0) {
@@ -108,16 +129,14 @@ async function handleAssetUpload(request: Request) {
   });
 
   if (kind === "pdf") {
-    await convex.mutation(api.documents.upsertPdfAsset, {
-      siteSlug,
+    await siteData.documents.upsertPdfAsset({
       path: assetPath,
       blobUrl: blob.url,
       sizeBytes: buffer.byteLength,
       contentHash,
     });
   } else {
-    await convex.mutation(api.documents.upsertFileAsset, {
-      siteSlug,
+    await siteData.documents.upsertFileAsset({
       path: assetPath,
       blobUrl: blob.url,
       sizeBytes: buffer.byteLength,
@@ -149,7 +168,8 @@ export async function POST(
       return new Response("siteSlug is required", { status: 400 });
     }
 
-    const { convex } = await requirePublishSite(request, siteSlug);
+    const { convex, site, siteData } = await requirePublishSite(request, siteSlug);
+    const piiPatterns = sitePiiPatterns(site);
 
     if (step === "begin") {
       const manifest = (body.manifest ?? {}) as Manifest;
@@ -161,27 +181,40 @@ export async function POST(
         await convex.mutation(api.sites.beginPublish, { slug: siteSlug });
       }
 
-      const existingDocHashes = await currentDocumentHashes(siteSlug);
+      const existingDocHashes = await currentDocumentHashes(siteData);
       const missingDocumentSlugs = force
         ? (manifest.documents ?? []).map((doc) => doc.slug)
         : (manifest.documents ?? [])
             .filter((doc) => existingDocHashes.get(doc.slug) !== doc.hash)
             .map((doc) => doc.slug);
+      const manifestDocumentSlugs = new Set(
+        (manifest.documents ?? []).map((doc) => doc.slug),
+      );
+      const staleDocumentSlugs = Array.from(existingDocHashes.keys()).filter(
+        (slug) => !manifestDocumentSlugs.has(slug),
+      );
 
-      const existingAssetHashes = await currentAssetHashes(siteSlug);
+      const existingAssetHashes = await currentAssetHashes(siteData);
       const missingAssetPaths = force
         ? (manifest.assets ?? []).map((asset) => asset.path)
         : (manifest.assets ?? [])
             .filter((asset) => {
-              const key = `${asset.kind ?? "file"}:${asset.path}`;
-              return existingAssetHashes.get(key) !== asset.hash;
+              return existingAssetHashes.get(assetKey(asset)) !== asset.hash;
             })
             .map((asset) => asset.path);
+      const manifestAssetKeys = new Set(
+        (manifest.assets ?? []).map((asset) => assetKey(asset)),
+      );
+      const staleAssetPaths = Array.from(existingAssetHashes.keys())
+        .filter((key) => !manifestAssetKeys.has(key))
+        .map(pathFromAssetKey);
 
       return NextResponse.json({
         runId: crypto.randomUUID(),
         missingDocumentSlugs,
         missingAssetPaths,
+        staleDocumentSlugs,
+        staleAssetPaths,
       });
     }
 
@@ -205,9 +238,10 @@ export async function POST(
       // publisher's local vault — backups, exports, search indexes,
       // and chat tools all see the redacted text. See
       // web/specs/multi-site.md.
-      const redactedContent = applyPiiRedactions(content);
-      await convex.mutation(api.documents.upsert, {
-        siteSlug,
+      const redactedContent = applyPiiRedactions(content, {
+        patterns: piiPatterns,
+      });
+      await siteData.documents.upsert({
         slug,
         title,
         content: redactedContent,
@@ -215,8 +249,7 @@ export async function POST(
         contentHash: hash,
       });
       if (Array.isArray(embedding)) {
-        await convex.mutation(api.documents.upsertEmbedding, {
-          siteSlug,
+        await siteData.documents.upsertEmbedding({
           slug,
           embedding,
           embeddingHash: hash,
@@ -227,14 +260,33 @@ export async function POST(
     }
 
     if (step === "finish") {
-      for (const slug of body.deletedDocSlugs ?? []) {
-        if (typeof slug === "string") {
-          await convex.mutation(api.documents.deleteBySlug, { siteSlug, slug });
+      // Tombstone deletions can throw on a malformed slug or transient
+      // Convex error. Without explicit failPublish, the publish lock
+      // sits for its full 10-minute TTL and the next publisher gets
+      // "publish already running" with no obvious recovery. Wrap the
+      // body so any error releases the lock and surfaces a 500.
+      try {
+        for (const slug of body.deletedDocSlugs ?? []) {
+          if (typeof slug === "string") {
+            await siteData.documents.deleteBySlug({ slug });
+          }
         }
+        for (const path of body.deletedAssetPaths ?? []) {
+          if (typeof path === "string") {
+            await siteData.documents.deletePdfAssetByPath({ path });
+            await siteData.documents.deleteFileAssetByPath({ path });
+          }
+        }
+        await convex.mutation(api.sites.finishPublish, { slug: siteSlug });
+        revalidateTag(`site:${siteSlug}`, "default");
+        return NextResponse.json({ ok: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await convex
+          .mutation(api.sites.failPublish, { slug: siteSlug, error: message })
+          .catch(() => {});
+        throw error;
       }
-      await convex.mutation(api.sites.finishPublish, { slug: siteSlug });
-      revalidateTag(`site:${siteSlug}`, "default");
-      return NextResponse.json({ ok: true });
     }
 
     return new Response(`Unknown publish step: ${step}`, { status: 404 });

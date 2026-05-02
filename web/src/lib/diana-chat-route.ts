@@ -10,7 +10,6 @@ import {
 import { connection } from "next/server";
 import { z } from "zod";
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { embed } from "@/lib/embeddings";
 import { fastTextModel } from "@/lib/ai";
@@ -21,6 +20,7 @@ import {
   getCachedSystemPrompt,
 } from "@diana-tnbc/chat/route";
 import { siteSlugFromRequest } from "@/lib/site";
+import { siteDataFromSlug } from "@/lib/site-data";
 
 const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 });
 const generateRunId = createIdGenerator({ prefix: "run", size: 16 });
@@ -102,12 +102,11 @@ Search strategy:
 Be direct, compassionate, and precise. Use medical terminology but explain it when needed.`;
 
 async function loadSystemPrompt(siteSlug: string): Promise<string> {
-  const convex = getConvex();
+  const siteData = siteDataFromSlug(siteSlug);
   const [indexDoc, diagnosisDoc] = await Promise.all([
-    convex.query(api.documents.getBySlug, { slug: "index", siteSlug }),
-    convex.query(api.documents.getBySlug, {
+    siteData.documents.getBySlug({ slug: "index" }),
+    siteData.documents.getBySlug({
       slug: "wiki/diagnostics/diagnosis",
-      siteSlug,
     }),
   ]);
 
@@ -262,6 +261,7 @@ export async function POST(request: Request) {
   const convId = parsedBody.conversationId as Id<"conversations"> | undefined;
   const siteSlug = siteSlugFromRequest(request);
   const convex = getConvex();
+  const siteData = siteDataFromSlug(siteSlug, convex);
   const runId = generateRunId();
   console.log(
     `[chat ${requestId}] start conv=${convId ?? "n/a"} run=${runId} msgs=${messages.length}`
@@ -272,11 +272,10 @@ export async function POST(request: Request) {
   // any flush from a *prior* run with a different runId is a no-op (the
   // mutation rejects mismatched runIds).
   if (convId) {
-    await convex
-      .mutation(api.conversations.beginRun, {
+    await siteData.conversations
+      .beginRun({
         conversationId: convId,
         runId,
-        siteSlug,
       })
       .catch(() => {});
   }
@@ -300,9 +299,8 @@ export async function POST(request: Request) {
     if (now - lastCancelPoll < CANCEL_POLL_INTERVAL_MS) return;
     lastCancelPoll = now;
     try {
-      const state = await convex.query(api.conversations.getCancelState, {
+      const state = await siteData.conversations.getCancelState({
         conversationId: convId,
-        siteSlug,
       });
       if (state?.canceledAt) {
         console.log(`[chat ${requestId}] user-cancel detected, aborting`);
@@ -315,7 +313,7 @@ export async function POST(request: Request) {
 
   const flusher = createConvexFlusher({
     convex,
-    conversations: api.conversations,
+    conversations: siteData.conversations.refs,
     conversationId: convId,
     runId,
     siteSlug,
@@ -344,10 +342,9 @@ export async function POST(request: Request) {
 
           const textSearchPromise = Promise.all(
             patterns.map((p) =>
-              getConvex().query(api.documents.search, {
+              siteData.documents.search({
                 query: p,
                 limit: 6,
-                siteSlug,
               }),
             ),
           );
@@ -356,10 +353,9 @@ export async function POST(request: Request) {
             try {
               if (!process.env.OPENAI_API_KEY) return [];
               const queryEmbedding = await embed(query);
-              return await getConvex().action(api.documents.vectorSearch, {
+              return await siteData.documents.vectorSearch({
                 embedding: queryEmbedding,
                 limit: 6,
-                siteSlug,
               });
             } catch {
               return [];
@@ -415,7 +411,7 @@ export async function POST(request: Request) {
             ),
         }),
         execute: async ({ slug }: { slug: string }) => {
-          const doc = await getConvex().query(api.documents.getBySlug, { slug, siteSlug });
+          const doc = await siteData.documents.getBySlug({ slug });
           if (!doc) return { error: `Page not found: ${slug}` };
           const content = applyPiiRedactions(doc.content);
 
@@ -435,7 +431,9 @@ export async function POST(request: Request) {
           const linkedPages = (
             await Promise.all(
               slugsToResolve.map(async (s) => {
-                const linked = await getConvex().query(api.documents.getBySlug, { slug: s });
+                const linked = await siteData.documents.getBySlug({
+                  slug: s,
+                });
                 return linked
                   ? { slug: linked.slug, title: applyPiiRedactions(linked.title) }
                   : null;
@@ -457,7 +455,7 @@ export async function POST(request: Request) {
           "List all available wiki pages to discover what content exists.",
         inputSchema: z.object({}),
         execute: async () => {
-          return await getConvex().action(api.documents.list, {});
+          return await siteData.documents.list();
         },
       },
       get_pages_by_tag: {
@@ -466,14 +464,16 @@ export async function POST(request: Request) {
           tag: z.string().describe("The tag to search for"),
         }),
         execute: async ({ tag }: { tag: string }) => {
-          return await getConvex().action(api.documents.getByTag, { tag });
+          return await siteData.documents.getByTag({
+            tag,
+          });
         },
       },
       list_tags: {
         description: "List all tags used across the wiki.",
         inputSchema: z.object({}),
         execute: async () => {
-          return await getConvex().action(api.documents.listTags, {});
+          return await siteData.documents.listTags();
         },
       },
     },

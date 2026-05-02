@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { api } from "@convex/_generated/api";
+import { getConvexServerClient } from "@/lib/convex-server";
+import { DEFAULT_SITE_SLUG, siteSlugFromRequest } from "@/lib/site";
 import {
   DEFAULT_SITE_DESCRIPTION,
   formatDocumentTitle,
@@ -6,17 +9,68 @@ import {
   SITE_NAME,
 } from "@/lib/page-metadata";
 
+// Multi-site share-preview: link-preview bots (Slack, Twitter, etc.)
+// fetch this endpoint via a proxy.ts rewrite that preserves the
+// `x-site-slug` header. Without site-scoping, every site's link
+// previews would render Diana's SITE_NAME — see R2 in
+// plans/multi-tenant-wiki/risk-assessment.md.
+//
+// Diana keeps the legacy fs-backed metadata loader during the
+// migration window (markdown.ts is the deferred Phase 7 swap).
+// Other sites get OG metadata from the Convex `sites.config`
+// title/description, with the document title still from Convex if
+// available — but we don't dig into the document body for them yet
+// because the renderer is still fs-only.
+
+type SiteOg = { title: string; description: string };
+
+async function siteOgFromConvex(siteSlug: string): Promise<SiteOg | null> {
+  try {
+    const site = await getConvexServerClient().query(api.sites.getBySlug, {
+      slug: siteSlug,
+    });
+    if (!site) return null;
+    return {
+      title: site.config.title ?? site.name,
+      description: site.config.description ?? DEFAULT_SITE_DESCRIPTION,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const routePath =
     request.headers.get("x-share-preview-path") ??
     url.searchParams.get("path") ??
     "/";
-  const page = await getMarkdownPageMetadata(routePath);
 
-  const title = page ? formatDocumentTitle(page.title) : SITE_NAME;
-  const description = page?.description ?? DEFAULT_SITE_DESCRIPTION;
-  const ogTitle = page?.title ?? SITE_NAME;
+  const siteSlug = siteSlugFromRequest(request);
+  const isDiana = siteSlug === DEFAULT_SITE_SLUG;
+
+  let title: string;
+  let description: string;
+  let ogTitle: string;
+  let siteName: string;
+
+  if (isDiana) {
+    const page = await getMarkdownPageMetadata(routePath);
+    title = page ? formatDocumentTitle(page.title) : SITE_NAME;
+    description = page?.description ?? DEFAULT_SITE_DESCRIPTION;
+    ogTitle = page?.title ?? SITE_NAME;
+    siteName = SITE_NAME;
+  } else {
+    const og = (await siteOgFromConvex(siteSlug)) ?? {
+      title: siteSlug,
+      description: DEFAULT_SITE_DESCRIPTION,
+    };
+    title = og.title;
+    description = og.description;
+    ogTitle = og.title;
+    siteName = og.title;
+  }
+
   const canonicalPath = routePath.startsWith("/") ? routePath : `/${routePath}`;
   const canonicalUrl = new URL(canonicalPath, url.origin).toString();
 
@@ -30,7 +84,7 @@ export async function GET(request: Request) {
     <meta property="og:title" content="${escapeHtml(ogTitle)}">
     <meta property="og:description" content="${escapeHtml(description)}">
     <meta property="og:type" content="article">
-    <meta property="og:site_name" content="${escapeHtml(SITE_NAME)}">
+    <meta property="og:site_name" content="${escapeHtml(siteName)}">
     <meta property="og:url" content="${escapeHtml(canonicalUrl)}">
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="${escapeHtml(ogTitle)}">
@@ -44,6 +98,7 @@ export async function GET(request: Request) {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "x-robots-tag": "noindex, nofollow",
+      "x-site-slug": siteSlug,
     },
   });
 }

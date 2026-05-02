@@ -6,7 +6,15 @@ import {
   addDirToDiskArchive,
   addRedactedMarkdownToArchive,
 } from "@/lib/archive-helpers";
-import { applyPiiRedactions } from "@/lib/pii-redaction";
+import { api } from "@convex/_generated/api";
+import {
+  applyPiiRedactions,
+  parseSitePiiPatterns,
+  type PiiPattern,
+} from "@/lib/pii-redaction";
+import { getConvexServerClient } from "@/lib/convex-server";
+import { siteDataFromRequest, type SiteData } from "@/lib/site-data";
+import { DEFAULT_SITE_SLUG } from "@/lib/site";
 
 export const maxDuration = 300;
 
@@ -66,19 +74,16 @@ function buildZipStreamFromDisk(type: DownloadType): ReadableStream<Uint8Array> 
 
 // ─── Convex helpers ───────────────────────────────────────────────────────────
 
-async function getConvexApi() {
-  const { fetchQuery } = await import("convex/nextjs");
-  const { api } = await import("../../../../convex/_generated/api");
-  return { fetchQuery, api };
-}
-
 /** Full archive: PDFs from public Blob + markdown from Convex */
-function buildFullArchiveStream(): ReadableStream<Uint8Array> {
-  console.log("[download] Building full archive from public Blob+Convex");
+function buildFullArchiveStream(
+  siteData: SiteData,
+  piiPatterns: PiiPattern[],
+): ReadableStream<Uint8Array> {
+  console.log(
+    `[download] Building full archive from public Blob+Convex for site=${siteData.siteSlug}`,
+  );
   return archiverToStream("full", async (arc) => {
-    const { fetchQuery, api } = await getConvexApi();
-
-    const pdfAssets = await fetchQuery(api.documents.listPdfAssets, {});
+    const pdfAssets = await siteData.documents.listPdfAssets();
     console.log(`[download] Full archive: ${pdfAssets.length} PDF assets to fetch`);
 
     const BATCH = 20;
@@ -115,17 +120,21 @@ function buildFullArchiveStream(): ReadableStream<Uint8Array> {
     }
 
     console.log(`[download] PDFs complete: ${pdfsFetched} added, ${pdfsFailed} failed`);
-    await appendMarkdownToArchive(arc, fetchQuery, api);
+    await appendMarkdownToArchive(arc, siteData, piiPatterns);
     arc.finalize();
   });
 }
 
 /** Markdown-only archive: just markdown from Convex */
-function buildMarkdownArchiveStream(): ReadableStream<Uint8Array> {
-  console.log("[download] Building markdown-only archive from Convex");
+function buildMarkdownArchiveStream(
+  siteData: SiteData,
+  piiPatterns: PiiPattern[],
+): ReadableStream<Uint8Array> {
+  console.log(
+    `[download] Building markdown-only archive from Convex for site=${siteData.siteSlug}`,
+  );
   return archiverToStream("markdown", async (arc) => {
-    const { fetchQuery, api } = await getConvexApi();
-    await appendMarkdownToArchive(arc, fetchQuery, api);
+    await appendMarkdownToArchive(arc, siteData, piiPatterns);
     arc.finalize();
   });
 }
@@ -138,8 +147,8 @@ type ListPageWithContentResult = {
 
 async function appendMarkdownToArchive(
   arc: archiver.Archiver,
-  fetchQuery: Awaited<ReturnType<typeof getConvexApi>>["fetchQuery"],
-  api: Awaited<ReturnType<typeof getConvexApi>>["api"]
+  siteData: SiteData,
+  piiPatterns: PiiPattern[],
 ) {
   let cursor: string | null = null;
   let isDone = false;
@@ -148,14 +157,16 @@ async function appendMarkdownToArchive(
   const t0 = Date.now();
 
   while (!isDone) {
-    const page = (await fetchQuery(api.documents.listPageWithContent, {
+    const page = (await siteData.documents.listPageWithContent({
       cursor,
       numItems: 50,
     })) as ListPageWithContentResult;
 
     for (const doc of page.page) {
       if (doc.content) {
-        const content = applyPiiRedactions(doc.content);
+        const content = applyPiiRedactions(doc.content, {
+          patterns: piiPatterns,
+        });
         arc.append(Buffer.from(content, "utf-8"), { name: `${doc.slug}.md` });
         totalDocs++;
       }
@@ -180,10 +191,11 @@ const CACHE_KEYS = {
 
 type DownloadType = keyof typeof CACHE_KEYS;
 
-const CONTENT_DISPOSITIONS = {
-  full: 'attachment; filename="diana-tnbc-wiki-full.zip"',
-  markdown: 'attachment; filename="diana-tnbc-wiki-markdown.zip"',
-} as const;
+function contentDisposition(type: DownloadType, siteSlug: string) {
+  const sitePart = siteSlug === DEFAULT_SITE_SLUG ? "diana-tnbc" : siteSlug;
+  const suffix = type === "full" ? "full" : "markdown";
+  return `attachment; filename="${sitePart}-wiki-${suffix}.zip"`;
+}
 
 interface ZipCacheInfo {
   url: string;
@@ -191,11 +203,12 @@ interface ZipCacheInfo {
   deployId: string | null;
 }
 
-async function getCachedZipInfo(type: DownloadType): Promise<ZipCacheInfo | null> {
+async function getCachedZipInfo(type: DownloadType, siteData: SiteData): Promise<ZipCacheInfo | null> {
   const t0 = Date.now();
   try {
-    const { fetchQuery, api } = await getConvexApi();
-    const raw = await fetchQuery(api.documents.getMeta, { key: CACHE_KEYS[type] });
+    const raw = await siteData.documents.getMeta({
+      key: CACHE_KEYS[type],
+    });
     const result = raw ? (JSON.parse(raw) as ZipCacheInfo) : null;
     console.log(
       `[download] Cache lookup for type=${type}: ${result ? "found" : "miss"} (${Date.now() - t0}ms)`
@@ -227,11 +240,15 @@ function isCacheFresh(info: ZipCacheInfo, type: DownloadType): boolean {
 
 // ─── response builders ────────────────────────────────────────────────────────
 
-function zipResponse(stream: ReadableStream<Uint8Array>, type: DownloadType): Response {
+function zipResponse(
+  stream: ReadableStream<Uint8Array>,
+  type: DownloadType,
+  siteSlug: string,
+): Response {
   return new Response(stream, {
     headers: {
       "Content-Type": "application/zip",
-      "Content-Disposition": CONTENT_DISPOSITIONS[type],
+      "Content-Disposition": contentDisposition(type, siteSlug),
     },
   });
 }
@@ -243,11 +260,13 @@ export async function GET(request: NextRequest) {
   const rawType = request.nextUrl.searchParams.get("type") ?? "full";
   const type: DownloadType = rawType === "markdown" ? "markdown" : "full";
   const deployId = process.env.VERCEL_DEPLOYMENT_ID ?? "local";
+  const siteData = siteDataFromRequest(request);
+  const siteSlug = siteData.siteSlug;
 
-  console.log(`[download] GET type=${type} deploy=${deployId}`);
+  console.log(`[download] GET site=${siteSlug} type=${type} deploy=${deployId}`);
 
   // ── Fast path: redirect to cached public Blob URL ──────────────────────────
-  const cached = await getCachedZipInfo(type);
+  const cached = await getCachedZipInfo(type, siteData);
   if (cached && isCacheFresh(cached, type)) {
     console.log(`[download] Fast path: redirecting to cached blob (${Date.now() - t0}ms)`);
     return NextResponse.redirect(cached.url);
@@ -255,23 +274,36 @@ export async function GET(request: NextRequest) {
   console.log(`[download] Cache cold — falling through to slow path`);
 
   // ── Slow path: stream zip on-demand ────────────────────────────────────────
-  const diskAvailable = !process.env.VERCEL && fs.existsSync(OBSIDIAN_DIR);
+  const diskAvailable =
+    siteSlug === DEFAULT_SITE_SLUG &&
+    !process.env.VERCEL &&
+    fs.existsSync(OBSIDIAN_DIR);
   console.log(`[download] Slow path: diskAvailable=${diskAvailable} type=${type}`);
+
+  // Resolve site-scoped PII patterns once per request. The disk path
+  // (Diana single-tenant, dev only) keeps using the legacy hardcoded
+  // fallbacks via the existing buildZipStreamFromDisk path; the Convex
+  // archive paths thread per-site patterns explicitly.
+  const site = await getConvexServerClient().query(api.sites.getBySlug, {
+    slug: siteSlug,
+  });
+  const piiPatterns = parseSitePiiPatterns(site?.config.piiPatterns);
 
   let zipStream: ReadableStream<Uint8Array>;
   if (diskAvailable) {
     zipStream = buildZipStreamFromDisk(type);
   } else if (type === "markdown") {
-    zipStream = buildMarkdownArchiveStream();
+    zipStream = buildMarkdownArchiveStream(siteData, piiPatterns);
   } else {
-    zipStream = buildFullArchiveStream();
+    zipStream = buildFullArchiveStream(siteData, piiPatterns);
   }
 
   // Kick off background cache warm via the workflow
   // (fire-and-forget: don't await, don't block the response)
   if (
-    process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ||
-    process.env.BLOB_READ_WRITE_TOKEN
+    siteSlug === DEFAULT_SITE_SLUG &&
+    (process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ||
+      process.env.BLOB_READ_WRITE_TOKEN)
   ) {
     console.log(`[download] Scheduling background cache build for type=${type}`);
     import("workflow/api").then(({ start }) =>
@@ -284,5 +316,5 @@ export async function GET(request: NextRequest) {
   }
 
   console.log(`[download] Streaming response started (${Date.now() - t0}ms to first byte)`);
-  return zipResponse(zipStream, type);
+  return zipResponse(zipStream, type, siteSlug);
 }

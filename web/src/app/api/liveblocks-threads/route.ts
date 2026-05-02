@@ -1,12 +1,11 @@
 import { Liveblocks } from "@liveblocks/node";
 import { connection, NextResponse } from "next/server";
-import { api } from "@convex/_generated/api";
-import { getConvexServerClient } from "@/lib/convex-server";
 import { resolveLiveblocksUsers } from "@/lib/liveblocks-user-resolution";
-import { getRequestSiteSlug } from "@/lib/site";
-
-const liveblocksSecret =
-  process.env.LIVEBLOCKS_SECRET_KEY ?? process.env.LIVEBLOCKS_API_KEY;
+import { siteDataFromRequest, type SiteData } from "@/lib/site-data";
+import {
+  liveblocksDisabledResponse,
+  resolveLiveblocksConfig,
+} from "@/lib/liveblocks-site";
 
 // ── Cache layer ────────────────────────────────────────────
 // Response cache (30s TTL). Invalidated early by webhooks.
@@ -17,31 +16,33 @@ type CachedResponse = {
 };
 
 const RESPONSE_TTL_MS = 30_000; // 30s
-let responseCache: CachedResponse | null = null;
+const responseCache = new Map<string, CachedResponse>();
 
 /** Called by the webhook route to bust the cache when comments change. */
-export function invalidateCache() {
-  responseCache = null;
+export function invalidateCache(siteSlug?: string) {
+  if (siteSlug) {
+    responseCache.delete(siteSlug);
+  } else {
+    responseCache.clear();
+  }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   await connection();
 
-  if (!liveblocksSecret) {
-    return NextResponse.json(
-      { error: "Liveblocks secret key not configured" },
-      { status: 503 }
-    );
+  const config = await resolveLiveblocksConfig(request);
+  if (!config.ok) {
+    return liveblocksDisabledResponse(config);
   }
 
-  // Return cached response if fresh
-  if (responseCache && Date.now() - responseCache.timestamp < RESPONSE_TTL_MS) {
-    return NextResponse.json(responseCache.body);
+  const liveblocks = new Liveblocks({ secret: config.creds.secretKey });
+  const siteData = siteDataFromRequest(request);
+  const siteSlug = siteData.siteSlug;
+  const cached = responseCache.get(siteSlug);
+  if (cached && Date.now() - cached.timestamp < RESPONSE_TTL_MS) {
+    return NextResponse.json(cached.body);
   }
 
-  const liveblocks = new Liveblocks({ secret: liveblocksSecret });
-  const convex = getConvexServerClient();
-  const siteSlug = await getRequestSiteSlug();
   const t0 = Date.now();
   const timing: Record<string, number> = {};
 
@@ -56,7 +57,7 @@ export async function GET() {
     // Falls back to full Liveblocks scan if Convex lookup fails (e.g. function not deployed).
     let activeRooms: string[] = [];
     try {
-      activeRooms = await convex.query(api.commentRooms.listActive, { siteSlug });
+      activeRooms = await siteData.commentRooms.listActive();
     } catch {
       // commentRooms function may not be deployed yet — fall through to full scan
     }
@@ -85,7 +86,7 @@ export async function GET() {
 
       // Seed Convex with the results so future requests use the fast path
       // (done async, don't block response)
-      seedConvexInBackground(liveblocks, roomsToQuery, siteSlug);
+      seedConvexInBackground(liveblocks, roomsToQuery, siteData);
     }
 
     timing.listRooms = Date.now() - t0;
@@ -148,7 +149,7 @@ export async function GET() {
         allThreads.flatMap((t) => t.comments.map((c) => c.userId))
       ),
     ];
-    const resolvedUsers = await resolveLiveblocksUsers(uniqueUserIds);
+    const resolvedUsers = await resolveLiveblocksUsers(uniqueUserIds, siteData);
     const userNames = Object.fromEntries(
       Object.entries(resolvedUsers).map(([id, user]) => [id, user.name])
     );
@@ -163,7 +164,7 @@ export async function GET() {
     };
 
     // Cache the response
-    responseCache = { body, timestamp: Date.now() };
+    responseCache.set(siteSlug, { body, timestamp: Date.now() });
 
     console.log(
       `[liveblocks-threads] ${mode} | ` +
@@ -188,10 +189,9 @@ export async function GET() {
 async function seedConvexInBackground(
   liveblocks: Liveblocks,
   allRoomIds: string[],
-  siteSlug: string,
+  siteData: SiteData,
 ) {
   try {
-    const convex = getConvexServerClient();
     const roomCounts: Array<{ roomId: string; threadCount: number }> = [];
 
     const results = await Promise.allSettled(
@@ -208,7 +208,7 @@ async function seedConvexInBackground(
     }
 
     if (roomCounts.length > 0) {
-      await convex.mutation(api.commentRooms.syncRooms, { rooms: roomCounts, siteSlug });
+      await siteData.commentRooms.syncRooms({ rooms: roomCounts });
       console.log(
         `[liveblocks-threads] Seeded ${roomCounts.length} active rooms into Convex`
       );

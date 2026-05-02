@@ -11,7 +11,17 @@ import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 type AnyCtx = QueryCtx | MutationCtx;
 
 async function listAll(ctx: AnyCtx, site: SiteCtx) {
-  // Conversations are typically small per site; collect + filter is fine.
+  // Use the site-scoped index so a high-activity sibling site cannot
+  // push this site's recent conversations off the global top-200. The
+  // legacy `by_updated` path is kept only for sites without a resolved
+  // siteId (Diana migration window before backfill).
+  if (site.siteId) {
+    return await ctx.db
+      .query("conversations")
+      .withIndex("by_site_updated", (q) => q.eq("siteId", site.siteId!))
+      .order("desc")
+      .take(200);
+  }
   const all = await ctx.db
     .query("conversations")
     .withIndex("by_updated")

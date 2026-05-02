@@ -1,10 +1,16 @@
 import { Liveblocks } from "@liveblocks/node";
 import { NextResponse } from "next/server";
-
-const liveblocksSecret =
-  process.env.LIVEBLOCKS_SECRET_KEY ?? process.env.LIVEBLOCKS_API_KEY;
+import {
+  liveblocksDisabledResponse,
+  resolveLiveblocksConfig,
+} from "@/lib/liveblocks-site";
 
 export async function POST(request: Request) {
+  const config = await resolveLiveblocksConfig(request);
+  if (!config.ok) {
+    return liveblocksDisabledResponse(config);
+  }
+
   const { roomId, threadId } = (await request.json()) as {
     roomId?: string;
     threadId?: string;
@@ -17,15 +23,8 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!liveblocksSecret) {
-    return NextResponse.json(
-      { error: "Liveblocks secret key not configured" },
-      { status: 503 }
-    );
-  }
-
   try {
-    const liveblocks = new Liveblocks({ secret: liveblocksSecret });
+    const liveblocks = new Liveblocks({ secret: config.creds.secretKey });
     await liveblocks.deleteThread({ roomId, threadId });
     return NextResponse.json({ ok: true });
   } catch (err) {

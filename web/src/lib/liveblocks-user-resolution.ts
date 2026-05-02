@@ -1,7 +1,6 @@
-import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import type { GuestUser } from "@/lib/guest-user";
-import { getConvexServerClient } from "@/lib/convex-server";
+import type { SiteData } from "@/lib/site-data";
 import {
   formatLiveblocksUserId,
   type ResolvedLiveblocksUser,
@@ -19,32 +18,34 @@ function uniqueUserIds(userIds: readonly string[]) {
   ];
 }
 
-export async function persistLiveblocksGuestName(guest: GuestUser | null) {
+export async function persistLiveblocksGuestName(
+  guest: GuestUser | null,
+  siteData: SiteData,
+) {
   if (!guest) return;
 
   const guestId = guest.id.trim();
   const name = guest.name.trim();
   if (!guestId || !name) return;
 
-  const convex = getConvexServerClient();
-  await convex.mutation(api.guestNames.upsert, { guestId, name });
+  await siteData.guestNames.upsert({ guestId, name });
 }
 
 export async function resolveLiveblocksUsers(
-  userIds: readonly string[]
+  userIds: readonly string[],
+  siteData: SiteData,
 ): Promise<Record<string, ResolvedLiveblocksUser>> {
   const ids = uniqueUserIds(userIds);
   const resolvedUsers: Record<string, ResolvedLiveblocksUser> = {};
 
   try {
-    const convex = getConvexServerClient();
     const convexIds = ids.filter((id) => CONVEX_USER_ID_RE.test(id));
     const guestIds = ids.filter((id) => id.startsWith("guest_"));
 
     await Promise.allSettled([
       convexIds.length > 0
-        ? convex
-            .query(api.users.getUsersByIds, {
+        ? siteData.users
+            .getUsersByIds({
               ids: convexIds as Id<"users">[],
             })
             .then((users) => {
@@ -57,8 +58,8 @@ export async function resolveLiveblocksUsers(
             })
         : Promise.resolve(),
       guestIds.length > 0
-        ? convex
-            .query(api.guestNames.getByIds, { guestIds })
+        ? siteData.guestNames
+            .getByIds({ guestIds })
             .then((guestNameMap) => {
               for (const [id, name] of Object.entries(guestNameMap)) {
                 resolvedUsers[id] = { name };

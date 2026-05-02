@@ -48,6 +48,8 @@ const result = (await response.json()) as {
   runId: string;
   missingDocumentSlugs: string[];
   missingAssetPaths: string[];
+  staleDocumentSlugs?: string[];
+  staleAssetPaths?: string[];
 };
 
 console.log(
@@ -59,5 +61,10 @@ console.log(
   `Assets:    ${result.missingAssetPaths.length} changed, ${
     assets.length - result.missingAssetPaths.length
   } unchanged`,
+);
+console.log(
+  `Stale:     ${result.staleDocumentSlugs?.length ?? 0} documents, ${
+    result.staleAssetPaths?.length ?? 0
+  } assets will be tombstoned on publish`,
 );
 console.log(`Run id:    ${result.runId}`);

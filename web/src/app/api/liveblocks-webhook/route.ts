@@ -3,18 +3,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { api } from "@convex/_generated/api";
 import { getConvexServerClient } from "@/lib/convex-server";
 import { DEFAULT_SITE_SLUG } from "@/lib/site";
+import { siteDataFromSlug } from "@/lib/site-data";
 
 const webhookSecret = process.env.LIVEBLOCKS_WEBHOOK_SECRET;
 
-// Multi-site TODO: webhook events come server-to-server from
-// Liveblocks itself, not from a tenant request. The active site has
-// to be derived from the Liveblocks workspace (one per site, per
-// the Phase 6 plan). Until per-site workspace provisioning is
-// wired up (`wiki:site:create` calling the Liveblocks management
-// API), every webhook event defaults to Diana — which is correct
-// for the migration window. Once workspaces per site exist, look
-// up the site by `event.data.workspaceId` (or whatever Liveblocks
-// surfaces) and pass that slug to the Convex mutations.
+// Multi-site webhook routing: Liveblocks sends events server-to-server,
+// not from a tenant request, so the active site has to be derived from
+// the event payload itself. Each Liveblocks workspace belongs to one
+// site (per plans/multi-tenant-wiki/MVP.md "Per-site Liveblocks
+// workspaces"). We look up the site by `event.data.projectId` against
+// `sites.liveblocksWorkspaceId`. Diana's existing webhook (no per-site
+// workspace yet) falls back to DEFAULT_SITE_SLUG so existing comments
+// continue to flow during the migration window.
+
+async function resolveSiteFromEvent(event: {
+  data?: { projectId?: string };
+}): Promise<string> {
+  const workspaceId = event.data?.projectId;
+  if (!workspaceId) return DEFAULT_SITE_SLUG;
+  try {
+    const site = await getConvexServerClient().query(
+      api.sites.getByLiveblocksWorkspace,
+      { workspaceId },
+    );
+    return site?.slug ?? DEFAULT_SITE_SLUG;
+  } catch {
+    return DEFAULT_SITE_SLUG;
+  }
+}
 
 export async function POST(req: NextRequest) {
   if (!webhookSecret) {
@@ -39,26 +55,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  const convex = getConvexServerClient();
+  const siteSlug = await resolveSiteFromEvent(event);
+  const siteData = siteDataFromSlug(siteSlug);
 
   try {
     switch (event.type) {
       case "threadCreated": {
         const { roomId } = event.data;
-        await convex.mutation(api.commentRooms.incrementRoom, {
+        await siteData.commentRooms.incrementRoom({
           roomId,
-          siteSlug: DEFAULT_SITE_SLUG,
         });
-        clearThreadsCache();
+        clearThreadsCache(siteSlug);
         break;
       }
       case "threadDeleted": {
         const { roomId } = event.data;
-        await convex.mutation(api.commentRooms.decrementRoom, {
+        await siteData.commentRooms.decrementRoom({
           roomId,
-          siteSlug: DEFAULT_SITE_SLUG,
         });
-        clearThreadsCache();
+        clearThreadsCache(siteSlug);
         break;
       }
       // commentCreated/commentDeleted don't change which rooms are active,
@@ -68,7 +83,7 @@ export async function POST(req: NextRequest) {
       case "commentDeleted":
       case "threadMarkedAsResolved":
       case "threadMarkedAsUnresolved": {
-        clearThreadsCache();
+        clearThreadsCache(siteSlug);
         break;
       }
     }
@@ -88,12 +103,12 @@ export async function POST(req: NextRequest) {
 // Since module-level state is shared within the same process,
 // we expose a setter from the threads route module.
 
-async function clearThreadsCache() {
+async function clearThreadsCache(siteSlug: string) {
   try {
     // Dynamic import to avoid circular deps — the cache lives in the threads route
     const threadsModule = await import("../liveblocks-threads/route");
     if (typeof threadsModule.invalidateCache === "function") {
-      threadsModule.invalidateCache();
+      threadsModule.invalidateCache(siteSlug);
     }
   } catch {
     // If module isn't loaded yet, cache is empty anyway

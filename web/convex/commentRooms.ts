@@ -31,6 +31,13 @@ export const listActive = query({
   args: { siteSlug: v.optional(v.string()) },
   handler: async (ctx, { siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
+    if (site.siteId) {
+      const scoped = await ctx.db
+        .query("commentRooms")
+        .withIndex("by_site_room", (q) => q.eq("siteId", site.siteId!))
+        .collect();
+      return scoped.filter((r) => r.threadCount > 0).map((r) => r.roomId);
+    }
     const rows = await ctx.db.query("commentRooms").collect();
     return rows
       .filter((r) => rowBelongsToSite(r, site) && r.threadCount > 0)

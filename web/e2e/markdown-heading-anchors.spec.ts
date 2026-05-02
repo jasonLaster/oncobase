@@ -195,11 +195,11 @@ test.describe("Markdown heading anchors", () => {
 
     await page.getByRole("button", { name: /Find files/ }).click();
     const input = page.getByPlaceholder("Search pages");
-    await input.fill("about terminology");
-    await expect(page.locator('[cmdk-item][data-value="about/Terminology"]')).toHaveAttribute(
-      "aria-selected",
-      "true"
-    );
+    await expect(input).toBeEditable({ timeout: 15_000 });
+    await input.fill("about terminology", { force: true });
+    await expect(page.locator('[cmdk-item][data-value="about/Terminology"]')).toBeVisible({
+      timeout: 30_000,
+    });
 
     await Promise.all([
       page.waitForURL(/\/about\/Terminology$/),

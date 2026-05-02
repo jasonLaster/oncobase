@@ -514,6 +514,13 @@ export const listPdfAssets = query({
   args: { siteSlug: v.optional(v.string()) },
   handler: async (ctx, { siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
+    if (site.siteId) {
+      const scoped = await ctx.db
+        .query("pdfAssets")
+        .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
+        .collect();
+      return scoped.filter((row) => !row.deletedAt);
+    }
     const all = await ctx.db.query("pdfAssets").collect();
     return all.filter((row) => rowBelongsToSite(row, site) && !row.deletedAt);
   },
@@ -562,10 +569,28 @@ export const upsertPdfAsset = mutation({
   },
 });
 
+export const deletePdfAssetByPath = mutation({
+  args: { path: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { path, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const row = await findAssetByPath(ctx, "pdfAssets", site, path);
+    if (!row) return { deleted: false };
+    await ctx.db.patch(row._id, { deletedAt: Date.now() });
+    return { deleted: true };
+  },
+});
+
 export const listFileAssets = query({
   args: { siteSlug: v.optional(v.string()) },
   handler: async (ctx, { siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
+    if (site.siteId) {
+      const scoped = await ctx.db
+        .query("fileAssets")
+        .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
+        .collect();
+      return scoped.filter((row) => !row.deletedAt);
+    }
     const all = await ctx.db.query("fileAssets").collect();
     return all.filter((row) => rowBelongsToSite(row, site) && !row.deletedAt);
   },
@@ -611,6 +636,17 @@ export const upsertFileAsset = mutation({
         uploadedAt: Date.now(),
       });
     }
+  },
+});
+
+export const deleteFileAssetByPath = mutation({
+  args: { path: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { path, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const row = await findAssetByPath(ctx, "fileAssets", site, path);
+    if (!row) return { deleted: false };
+    await ctx.db.patch(row._id, { deletedAt: Date.now() });
+    return { deleted: true };
   },
 });
 

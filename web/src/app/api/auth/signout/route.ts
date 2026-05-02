@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { api } from "@convex/_generated/api";
-import { getConvexServerClient } from "@/lib/convex-server";
-import { siteSlugFromRequest } from "@/lib/site";
+import { siteDataFromRequest } from "@/lib/site-data";
 import { USER_SESSION_COOKIE, hashSessionToken } from "@/lib/user-auth";
 
 export async function POST(request: Request) {
@@ -12,11 +10,9 @@ export async function POST(request: Request) {
     ?.slice(USER_SESSION_COOKIE.length + 1);
 
   if (sessionToken) {
-    const siteSlug = siteSlugFromRequest(request);
-    const convex = getConvexServerClient();
-    await convex.mutation(api.users.deleteSession, {
+    const siteData = siteDataFromRequest(request);
+    await siteData.users.deleteSession({
       tokenHash: hashSessionToken(sessionToken),
-      siteSlug,
     });
   }
 

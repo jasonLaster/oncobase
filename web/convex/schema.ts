@@ -51,7 +51,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_slug", ["slug"])
-    .index("by_domains", ["domains"]),
+    .index("by_domains", ["domains"])
+    .index("by_liveblocks_workspace", ["liveblocksWorkspaceId"]),
 
   documents: defineTable({
     siteId: v.optional(v.id("sites")),

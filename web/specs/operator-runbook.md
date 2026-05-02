@@ -99,6 +99,10 @@ downloads.
    inconsistent.
 4. Verify `lastPublishedAt` advances and the cache invalidates.
 
+`wiki:publish --dry-run` is safe to run before clearing or retrying:
+it passes `dryRun: true` to `/api/publish/begin`, so it does not
+acquire the 10-minute publish lock.
+
 ## Rebuild Embeddings
 
 The publisher CLI generates embeddings using their own
@@ -165,7 +169,8 @@ this on purpose — operator attention is the safety mechanism.
 
 1. Ask the publisher to run `wiki:publish --dry-run` to confirm
    their local vault is the source of truth — that's the
-   markdown export.
+   markdown export. The dry run also reports stale remote documents
+   and assets that the next real publish will tombstone.
 2. Convex export for chat / comments / users (handoff): query the
    site-scoped tables via the dashboard or a one-shot script
    targeting the row's `siteId`.

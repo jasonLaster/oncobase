@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 // ─── Tax engine ───────────────────────────────────────────────────────────────
 
@@ -136,31 +136,6 @@ const fmtMoneyExact = (n: number) => {
 const fmtPct = (n: number) => Math.round(n * 100) + "%";
 
 // ─── Multi-year optimizer ─────────────────────────────────────────────────────
-
-interface OptResult { savings: number; allocation: number[] }
-
-function findOptimalSplit(agis: number[], totalMedical: number): OptResult {
-  const n = agis.length;
-  const step = n >= 4 ? 50_000 : 25_000;
-  const steps = Math.round(totalMedical / step);
-  let best: OptResult = { savings: -Infinity, allocation: [] };
-
-  function recurse(yearIdx: number, remaining: number, alloc: number[]): void {
-    if (yearIdx === n - 1) {
-      alloc[yearIdx] = remaining * step;
-      let total = 0;
-      for (let i = 0; i < n; i++) total += calc(agis[i], alloc[i]).totalSavings;
-      if (total > best.savings) best = { savings: total, allocation: [...alloc] };
-      return;
-    }
-    for (let s = 0; s <= remaining; s++) {
-      alloc[yearIdx] = s * step;
-      recurse(yearIdx + 1, remaining - s, alloc);
-    }
-  }
-  recurse(0, steps, new Array(n).fill(0));
-  return best;
-}
 
 // Default distribution: frontload year 1 up to the wasted-deduction boundary,
 // then overflow into year 2, year 3, etc. This concentrates spend earliest while
@@ -820,4 +795,3 @@ function NumberInput({ label, value, step, onChange }: { label: string; value: n
     </label>
   );
 }
-

@@ -3,16 +3,16 @@ import { NextResponse } from "next/server";
 import { getSessionUserFromRequest } from "@/lib/session-user";
 import { LIVEBLOCKS_GUEST_COOKIE, parseGuestUser } from "@/lib/guest-user";
 import { persistLiveblocksGuestName } from "@/lib/liveblocks-user-resolution";
-
-const liveblocksSecret =
-  process.env.LIVEBLOCKS_SECRET_KEY ?? process.env.LIVEBLOCKS_API_KEY;
+import { siteDataFromRequest } from "@/lib/site-data";
+import {
+  liveblocksDisabledResponse,
+  resolveLiveblocksConfig,
+} from "@/lib/liveblocks-site";
 
 export async function POST(request: Request) {
-  if (!liveblocksSecret) {
-    return NextResponse.json(
-      { error: "Liveblocks secret key not configured" },
-      { status: 503 }
-    );
+  const config = await resolveLiveblocksConfig(request);
+  if (!config.ok) {
+    return liveblocksDisabledResponse(config);
   }
 
   const { roomId, threadId, body: commentText } = (await request.json()) as {
@@ -30,6 +30,7 @@ export async function POST(request: Request) {
 
   // Resolve the current user
   const sessionUser = await getSessionUserFromRequest(request);
+  const siteData = siteDataFromRequest(request);
   const cookieHeader = request.headers.get("cookie") ?? "";
   const guestCookie = cookieHeader
     .split(/;\s*/)
@@ -37,13 +38,13 @@ export async function POST(request: Request) {
     ?.slice(LIVEBLOCKS_GUEST_COOKIE.length + 1);
   const guestUser = parseGuestUser(guestCookie);
   if (guestUser) {
-    await persistLiveblocksGuestName(guestUser).catch(() => {});
+    await persistLiveblocksGuestName(guestUser, siteData).catch(() => {});
   }
 
   const userId = sessionUser?._id ?? guestUser?.id ?? `guest:${roomId}`;
 
   try {
-    const liveblocks = new Liveblocks({ secret: liveblocksSecret });
+    const liveblocks = new Liveblocks({ secret: config.creds.secretKey });
     const comment = await liveblocks.createComment({
       roomId,
       threadId,

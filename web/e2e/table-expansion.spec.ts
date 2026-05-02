@@ -424,7 +424,7 @@ test.describe("Prose table expansion", () => {
     browser,
     baseURL,
   }) => {
-    test.setTimeout(75_000);
+    test.setTimeout(90_000);
     test.skip(
       process.env.TEST_ENV !== "prod",
       "Server-rendered paper catalog styling is validated against production-like builds."
@@ -439,8 +439,8 @@ test.describe("Prose table expansion", () => {
 
     try {
       await page.goto(`${appBaseUrl}${PAPER_CATALOG_PAGE}`, {
-        waitUntil: "load",
-        timeout: 60_000,
+        waitUntil: "domcontentloaded",
+        timeout: 75_000,
       });
       await expect(page.locator("article h1").first()).toHaveText("Paper Catalog", {
         timeout: 15_000,

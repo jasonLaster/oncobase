@@ -117,10 +117,13 @@ const begin = (await post(`${config.publishUrl}/begin`, token, {
     })),
   },
   force,
+  dryRun,
 })) as {
   runId: string;
   missingDocumentSlugs: string[];
   missingAssetPaths: string[];
+  staleDocumentSlugs?: string[];
+  staleAssetPaths?: string[];
 };
 
 const changedDocs = force
@@ -133,7 +136,9 @@ const changedAssets = force
 
 if (dryRun) {
   console.log(
-    `Dry run: ${changedDocs.length} documents changed, ${changedAssets.length} assets changed`,
+    `Dry run: ${changedDocs.length} documents changed, ${changedAssets.length} assets changed, ${
+      begin.staleDocumentSlugs?.length ?? 0
+    } documents stale, ${begin.staleAssetPaths?.length ?? 0} assets stale`,
   );
   process.exit(0);
 }
@@ -195,10 +200,12 @@ if (skipped.length > 0) {
 await post(`${config.publishUrl}/finish`, token, {
   runId: begin.runId,
   siteSlug: config.site,
-  deletedDocSlugs: [],
-  deletedAssetPaths: [],
+  deletedDocSlugs: begin.staleDocumentSlugs ?? [],
+  deletedAssetPaths: begin.staleAssetPaths ?? [],
 });
 
 console.log(
-  `Published ${changedDocs.length} documents and ${uploaded} assets for ${config.site}.`,
+  `Published ${changedDocs.length} documents, ${uploaded} assets, tombstoned ${
+    begin.staleDocumentSlugs?.length ?? 0
+  } documents and ${begin.staleAssetPaths?.length ?? 0} assets for ${config.site}.`,
 );

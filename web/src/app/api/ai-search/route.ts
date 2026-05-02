@@ -1,17 +1,14 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "@convex/_generated/api";
 import { embed } from "@/lib/embeddings";
 import { fastTextModel } from "@/lib/ai";
-import { applyPiiRedactions } from "@/lib/pii-redaction";
-import { siteSlugFromRequest } from "@/lib/site";
-
-function getConvex() {
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!url) throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
-  return new ConvexHttpClient(url);
-}
+import {
+  applyPiiRedactions,
+  parseSitePiiPatterns,
+} from "@/lib/pii-redaction";
+import { getConvexServerClient } from "@/lib/convex-server";
+import { siteDataFromRequest } from "@/lib/site-data";
 
 const scoreSchema = z.object({
   relevance: z.number().min(0).max(10),
@@ -29,23 +26,29 @@ export async function POST(request: Request) {
       return Response.json({ results: [] });
     }
 
-    const siteSlug = siteSlugFromRequest(request);
-    const convex = getConvex();
+    const siteData = siteDataFromRequest(request);
+    // Site-scoped PII patterns: Diana's content gets the legacy
+    // hardcoded list; other sites get whatever's in sites.config.piiPatterns
+    // (or `[]`, meaning inline `<redact>` blocks only).
+    const site = await getConvexServerClient().query(api.sites.getBySlug, {
+      slug: siteData.siteSlug,
+    });
+    const piiPatterns = parseSitePiiPatterns(site?.config.piiPatterns);
+    const redact = (text: string) =>
+      applyPiiRedactions(text, { patterns: piiPatterns });
 
     // Run vector search in parallel with text-based slug fetching
     // This ensures natural language queries find relevant docs even with 0 text matches
     const [queryEmbedding, diagnosisDoc] = await Promise.all([
       embed(query),
-      convex.query(api.documents.getBySlug, {
+      siteData.documents.getBySlug({
         slug: "wiki/diagnostics/diagnosis",
-        siteSlug,
       }),
     ]);
 
-    const vectorResults = await convex.action(api.documents.vectorSearch, {
+    const vectorResults = await siteData.documents.vectorSearch({
       embedding: queryEmbedding,
       limit: 12,
-      siteSlug,
     });
 
     // Merge text-search slugs with vector-search slugs, deduplicating
@@ -62,12 +65,12 @@ export async function POST(request: Request) {
     // Fetch doc content for all candidate slugs
     const docs = await Promise.all(
       allSlugs.map((slug) =>
-        convex.query(api.documents.getBySlug, { slug, siteSlug })
+        siteData.documents.getBySlug({ slug })
       ),
     );
 
     const diagnosisContext = diagnosisDoc
-      ? `Patient diagnosis context:\n${applyPiiRedactions(diagnosisDoc.content).slice(0, 1500)}`
+      ? `Patient diagnosis context:\n${redact(diagnosisDoc.content).slice(0, 1500)}`
       : "Patient diagnosis context: Stage III TNBC, IDC Grade 3, KEYNOTE-522 protocol";
 
     const docsWithContent = docs.filter(
@@ -105,13 +108,13 @@ ${diagnosisContext}
 Document: "${doc.title}" (${doc.slug})
 Tags: ${doc.tags.join(", ") || "none"}
 Content preview:
-${applyPiiRedactions(doc.content).slice(0, 800)}
+${redact(doc.content).slice(0, 800)}
 
 Score this document's relevance to the query (0-10). A score of 5+ means it directly addresses the query topic. A score of 3-4 means it's tangentially related. Write a 1-2 sentence summary explaining the relevance.`,
             });
             return {
               slug: doc.slug,
-              title: applyPiiRedactions(doc.title),
+              title: redact(doc.title),
               tags: doc.tags,
               relevance: object.relevance,
               summary: object.summary,

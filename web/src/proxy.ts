@@ -16,6 +16,7 @@ const LINK_PREVIEW_BOT_RE =
 
 const DEFAULT_SITE_SLUG = "diana";
 const HOST_CACHE_TTL_MS = 15_000;
+const VERCEL_PROJECT_HOST_PREFIX = "diana-tnbc";
 
 type ResolvedSite = {
   slug: string;
@@ -54,6 +55,31 @@ function localSiteForHost(host: string): string | null {
   return null;
 }
 
+function previewSiteForHost(host: string): string | null {
+  const override = process.env.SITE_SLUG;
+  if (override) return override;
+  if (process.env.VERCEL_ENV !== "preview") return null;
+  if (!host.endsWith(".vercel.app")) return null;
+  if (
+    host === `${VERCEL_PROJECT_HOST_PREFIX}.vercel.app` ||
+    host.startsWith(`${VERCEL_PROJECT_HOST_PREFIX}-`)
+  ) {
+    return DEFAULT_SITE_SLUG;
+  }
+  return null;
+}
+
+function entryForSlug(siteSlug: string): ResolvedSite {
+  return {
+    slug: siteSlug,
+    // Diana keeps the existing global password gate during the migration
+    // window. Other explicit site overrides default to no gate unless
+    // Convex resolves their real config.
+    passwordGate: siteSlug === DEFAULT_SITE_SLUG,
+    expires: Date.now() + HOST_CACHE_TTL_MS,
+  };
+}
+
 async function resolveHost(host: string): Promise<ResolvedSite | null> {
   const hit = hostCache.get(host);
   if (hit && hit.expires > Date.now()) return hit;
@@ -62,26 +88,23 @@ async function resolveHost(host: string): Promise<ResolvedSite | null> {
   if (isDev) {
     const localSlug = localSiteForHost(host);
     if (localSlug) {
-      const entry: ResolvedSite = {
-        slug: localSlug,
-        // Diana keeps the existing global password gate during the
-        // migration window. Other local sites default to no gate.
-        passwordGate: localSlug === DEFAULT_SITE_SLUG,
-        expires: Date.now() + HOST_CACHE_TTL_MS,
-      };
+      const entry = entryForSlug(localSlug);
       hostCache.set(host, entry);
       return entry;
     }
   }
 
+  const previewSlug = previewSiteForHost(host);
+  if (previewSlug) {
+    const entry = entryForSlug(previewSlug);
+    hostCache.set(host, entry);
+    return entry;
+  }
+
   const convex = getConvex();
   if (!convex) {
     // No Convex configured — fall back to Diana so dev still works.
-    const entry: ResolvedSite = {
-      slug: DEFAULT_SITE_SLUG,
-      passwordGate: true,
-      expires: Date.now() + HOST_CACHE_TTL_MS,
-    };
+    const entry = entryForSlug(DEFAULT_SITE_SLUG);
     hostCache.set(host, entry);
     return entry;
   }
@@ -109,11 +132,7 @@ async function resolveHost(host: string): Promise<ResolvedSite | null> {
   } catch {
     // Convex outage — fail closed for new hosts, fail open for Diana.
     if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
-      const entry: ResolvedSite = {
-        slug: DEFAULT_SITE_SLUG,
-        passwordGate: true,
-        expires: Date.now() + HOST_CACHE_TTL_MS,
-      };
+      const entry = entryForSlug(DEFAULT_SITE_SLUG);
       hostCache.set(host, entry);
       return entry;
     }
@@ -128,11 +147,22 @@ function authedCookieName(siteSlug: string) {
   return siteSlug === DEFAULT_SITE_SLUG ? "authed" : `authed_${siteSlug}`;
 }
 
-function isValidMagicToken(token: string, site: ResolvedSite) {
+async function hashPassword(password: string) {
+  const encoded = new TextEncoder().encode(password);
+  const digest = await crypto.subtle.digest("SHA-256", encoded);
+  const hex = Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return `sha256:${hex}`;
+}
+
+async function isValidMagicToken(token: string, site: ResolvedSite) {
   if (site.slug === DEFAULT_SITE_SLUG) {
     return PASSWORDS.includes(token);
   }
-  if (site.passwordHash && token === site.passwordHash) return true;
+  if (site.passwordHash && (await hashPassword(token)) === site.passwordHash) {
+    return true;
+  }
   return false;
 }
 
@@ -198,7 +228,7 @@ export async function proxy(request: NextRequest) {
 
   // Magic link: ?token=<password> auto-logs in and strips the param.
   const token = request.nextUrl.searchParams.get("token");
-  if (token && isValidMagicToken(token, site)) {
+  if (token && (await isValidMagicToken(token, site))) {
     const clean = new URL(request.url);
     clean.searchParams.delete("token");
     const response = NextResponse.redirect(clean);
