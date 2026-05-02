@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { sitePut } from "../../src/lib/blob";
 import { embedBatch } from "../../src/lib/embeddings";
 import { loadConfig, loadPublishToken } from "./config";
 import {
@@ -28,17 +29,36 @@ async function post(url: string, token: string, body: unknown) {
   return await response.json();
 }
 
-// Vercel function bodies cap around 24MB on Fluid Compute defaults;
-// stream-direct-upload is the proper fix for outliers (e.g. 100MB
-// PDFs in the obsidian sources tree). Phase 4 covers ~99% of typical
-// wiki assets and skips outliers with a clear warning + log.
-const MAX_ASSET_BYTES = 24 * 1024 * 1024;
+// Assets go directly to Vercel Blob from the publisher (the function
+// is metadata-only), so the cap here is just RAM headroom for
+// fs.readFileSync. Stream the body if outliers exceed this.
+const MAX_ASSET_BYTES = 200 * 1024 * 1024;
 const SKIPPED_ASSET_LOG = ".skipped-assets.txt";
-// OpenAI embeddings cap at 300K tokens per request and ~8K tokens
-// per input. Chunk by total chars (rough upper bound for tokens) to
-// stay safely under both limits without modeling the tokenizer.
-const EMBED_BATCH_MAX_CHARS = 800_000;
-const EMBED_BATCH_MAX_DOCS = 100;
+// Doc POSTs are small JSON; asset uploads are up to 24MB and bandwidth-bound.
+const DOC_CONCURRENCY = 16;
+const ASSET_CONCURRENCY = 6;
+
+async function runWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<void>,
+) {
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, () =>
+    (async () => {
+      while (true) {
+        const i = next++;
+        if (i >= items.length) return;
+        await worker(items[i], i);
+      }
+    })(),
+  );
+  await Promise.all(runners);
+}
+// embed() in src/lib/embeddings handles chunking + pooling per doc.
+// Parallelize at the doc level instead of OpenAI's request-batching
+// since long docs need their own multi-chunk request anyway.
+const EMBED_CONCURRENCY = 8;
 
 async function uploadAsset(
   assetUrl: string,
@@ -46,18 +66,28 @@ async function uploadAsset(
   siteSlug: string,
   asset: PublishAsset,
 ) {
+  // Upload bytes directly to Vercel Blob (bypasses the function body
+  // size cap), then POST metadata-only so Convex registers the URL.
   const body = fs.readFileSync(asset.filePath);
+  const blob = await sitePut(siteSlug, `${asset.kind}s/${asset.relativePath}`, body, {
+    contentType: asset.contentType,
+    addRandomSuffix: false,
+    allowOverwrite: true,
+  });
   const response = await fetch(assetUrl, {
     method: "POST",
     headers: {
-      "Content-Type": asset.contentType,
+      "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-      "x-publish-site": siteSlug,
-      "x-publish-path": asset.relativePath,
-      "x-publish-kind": asset.kind,
-      "x-publish-hash": asset.hash,
     },
-    body,
+    body: JSON.stringify({
+      siteSlug,
+      assetPath: asset.relativePath,
+      kind: asset.kind,
+      contentHash: asset.hash,
+      blobUrl: blob.url,
+      sizeBytes: asset.sizeBytes,
+    }),
   });
   if (!response.ok) {
     throw new Error(`${response.status} ${await response.text()}`);
@@ -69,23 +99,21 @@ async function embedInChunks(
   docs: PublishDocument[],
 ): Promise<(number[] | undefined)[]> {
   const out: (number[] | undefined)[] = new Array(docs.length).fill(undefined);
-  let i = 0;
-  while (i < docs.length) {
-    let j = i;
-    let charSum = 0;
-    while (j < docs.length && j - i < EMBED_BATCH_MAX_DOCS) {
-      const next = charSum + docs[j].content.length;
-      if (j > i && next > EMBED_BATCH_MAX_CHARS) break;
-      charSum = next;
-      j++;
+  let done = 0;
+  await runWithConcurrency(docs, EMBED_CONCURRENCY, async (doc, i) => {
+    try {
+      const [vec] = await embedBatch([doc.content]);
+      out[i] = vec;
+    } catch (error) {
+      console.warn(
+        `  skipping embedding for ${doc.slug}: ${(error as Error).message}`,
+      );
     }
-    const chunk = docs.slice(i, j);
-    const embeddings = await embedBatch(chunk.map((d) => d.content));
-    for (let k = 0; k < chunk.length; k++) {
-      out[i + k] = embeddings[k];
+    done++;
+    if (done % 100 === 0) {
+      console.log(`  ${done}/${docs.length} embeddings`);
     }
-    i = j;
-  }
+  });
   return out;
 }
 
@@ -148,25 +176,26 @@ const embeddings = doEmbed
   ? await embedInChunks(changedDocs)
   : new Array<undefined>(changedDocs.length).fill(undefined);
 
-for (let i = 0; i < changedDocs.length; i++) {
-  const doc = changedDocs[i];
+let docsDone = 0;
+await runWithConcurrency(changedDocs, DOC_CONCURRENCY, async (doc, i) => {
   await post(`${config.publishUrl}/document`, token, {
     runId: begin.runId,
     siteSlug: config.site,
     ...doc,
     embedding: embeddings[i],
   });
-  if ((i + 1) % 100 === 0) {
-    console.log(`  ${i + 1}/${changedDocs.length} documents`);
+  docsDone++;
+  if (docsDone % 100 === 0) {
+    console.log(`  ${docsDone}/${changedDocs.length} documents`);
   }
-}
+});
 
 const skipped: PublishAsset[] = [];
 let uploaded = 0;
-for (const asset of changedAssets) {
+await runWithConcurrency(changedAssets, ASSET_CONCURRENCY, async (asset) => {
   if (asset.sizeBytes > MAX_ASSET_BYTES) {
     skipped.push(asset);
-    continue;
+    return;
   }
   try {
     await uploadAsset(`${config.publishUrl}/asset`, token, config.site, asset);
@@ -180,7 +209,7 @@ for (const asset of changedAssets) {
     );
     skipped.push(asset);
   }
-}
+});
 
 if (skipped.length > 0) {
   fs.writeFileSync(

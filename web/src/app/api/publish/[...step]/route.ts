@@ -8,7 +8,7 @@ import {
   parseSitePiiPatterns,
   type PiiPattern,
 } from "@/lib/pii-redaction";
-import { sitePut } from "@/lib/blob";
+import { siteBlobKey } from "@/lib/blob";
 import { siteDataFromSlug, type SiteData } from "@/lib/site-data";
 
 // Multi-tenant publish API (Phase 4). The publisher CLI in
@@ -96,59 +96,63 @@ async function currentAssetHashes(siteData: SiteData) {
   return hashes;
 }
 
+// Metadata-only finalize: the publisher uploads bytes directly to
+// Vercel Blob (bypassing this function's 4.5 MB body cap) and then
+// POSTs JSON here to register the resulting blob URL in Convex.
 async function handleAssetUpload(request: Request) {
-  const siteSlug = request.headers.get("x-publish-site") ?? "";
-  if (!siteSlug)
-    return new Response("x-publish-site header required", { status: 400 });
+  const body = (await request.json()) as {
+    siteSlug?: string;
+    assetPath?: string;
+    kind?: string;
+    contentHash?: string;
+    blobUrl?: string;
+    sizeBytes?: number;
+  };
 
-  const assetPath = request.headers.get("x-publish-path") ?? "";
-  if (!assetPath)
-    return new Response("x-publish-path header required", { status: 400 });
+  const siteSlug = body.siteSlug ?? "";
+  if (!siteSlug) return new Response("siteSlug required", { status: 400 });
 
-  const kindHeader = request.headers.get("x-publish-kind");
-  const kind: "pdf" | "file" = kindHeader === "pdf" ? "pdf" : "file";
+  const assetPath = body.assetPath ?? "";
+  if (!assetPath) return new Response("assetPath required", { status: 400 });
 
-  const contentHash = request.headers.get("x-publish-hash") ?? "";
+  const kind: "pdf" | "file" = body.kind === "pdf" ? "pdf" : "file";
+
+  const contentHash = body.contentHash ?? "";
   if (!contentHash)
-    return new Response("x-publish-hash header required", { status: 400 });
+    return new Response("contentHash required", { status: 400 });
 
-  const contentType =
-    request.headers.get("content-type") ?? "application/octet-stream";
+  const blobUrl = body.blobUrl ?? "";
+  if (!blobUrl) return new Response("blobUrl required", { status: 400 });
 
-  const { siteData } = await requirePublishSite(request, siteSlug);
-
-  const buffer = Buffer.from(await request.arrayBuffer());
-  if (buffer.byteLength === 0) {
-    return new Response("Empty request body", { status: 400 });
+  const sizeBytes = Number(body.sizeBytes);
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+    return new Response("sizeBytes required", { status: 400 });
   }
 
-  const blob = await sitePut(siteSlug, `${kind}s/${assetPath}`, buffer, {
-    contentType,
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  });
+  const expectedKey = siteBlobKey(siteSlug, `${kind}s/${assetPath}`);
+  if (!blobUrl.includes(expectedKey)) {
+    return new Response("blobUrl does not match site/path", { status: 400 });
+  }
+
+  const { siteData } = await requirePublishSite(request, siteSlug);
 
   if (kind === "pdf") {
     await siteData.documents.upsertPdfAsset({
       path: assetPath,
-      blobUrl: blob.url,
-      sizeBytes: buffer.byteLength,
+      blobUrl,
+      sizeBytes,
       contentHash,
     });
   } else {
     await siteData.documents.upsertFileAsset({
       path: assetPath,
-      blobUrl: blob.url,
-      sizeBytes: buffer.byteLength,
+      blobUrl,
+      sizeBytes,
       contentHash,
     });
   }
 
-  return NextResponse.json({
-    ok: true,
-    blobUrl: blob.url,
-    sizeBytes: buffer.byteLength,
-  });
+  return NextResponse.json({ ok: true, blobUrl, sizeBytes });
 }
 
 export async function POST(
