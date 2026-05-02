@@ -2,17 +2,21 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { connection } from "next/server";
 import {
   getAllSlugs,
   getCanonicalSlug,
   getMarkdownFile,
   getMarkdownFileAsync,
+  type MarkdownFile,
 } from "@/lib/markdown";
 import { getMarkdownPageMetadata, toNextMetadata } from "@/lib/page-metadata";
 import { MarkdownRenderer, MarkdownRendererAsync } from "@/components/markdown-renderer";
 import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
 import { SHOW_PII_QUERY_PARAM } from "@/lib/pii-redaction";
+import { getRequestSiteSlug } from "@/lib/site";
+import { siteDataFromSlug } from "@/lib/site-data";
 
 // All sources/ content is immutable raw documents rarely visited directly.
 // Deferring them to on-demand rendering saves significant build time.
@@ -20,6 +24,26 @@ const ISR_DEFERRED_PREFIXES = ["sources/"];
 const PREVIEW_STATIC_PARAMS = [{ slug: ["about", "Index"] }];
 const ROUTE_SLUG_ALIASES = new Map([["about/index", "index"]]);
 const ROUTE_ALIAS_CANONICAL_PATHS = new Map([["about/index", "about/Index"]]);
+
+async function getPublishedMarkdownFile(slug: string): Promise<MarkdownFile | null> {
+  if (!process.env.NEXT_PUBLIC_CONVEX_URL) return null;
+
+  try {
+    const siteSlug = await getRequestSiteSlug();
+    const doc = await siteDataFromSlug(siteSlug).documents.getBySlug({ slug });
+    if (!doc) return null;
+
+    return {
+      slug: doc.slug,
+      title: doc.title,
+      content: doc.content,
+      frontmatter: { tags: doc.tags },
+    };
+  } catch (error) {
+    console.warn("[document-page] Published document lookup failed:", error);
+    return null;
+  }
+}
 
 function isPreviewDeployment() {
   return process.env.VERCEL_ENV === "preview";
@@ -114,6 +138,8 @@ export async function renderDocumentPage({
   params: Promise<{ slug: string[] }>;
   showPii?: boolean;
 }) {
+  await connection();
+
   const { slug } = await params;
   const filePath = slug.map(decodeURIComponent).join("/");
 
@@ -140,10 +166,16 @@ export async function renderDocumentPage({
     redirect(documentRedirectPath(`/${canonicalPath}`, showPii));
   }
 
-  // Sync file read -- always fast (local disk), provides header data for PPR cache
-  const file = getMarkdownFile(canonicalPath ?? contentPath, {
+  const resolvedContentPath = canonicalPath ?? contentPath;
+  const localFile = getMarkdownFile(resolvedContentPath, {
     piiMode: showPii ? "revealed" : "redacted",
   });
+  // Published Convex documents are already redacted. Keep the reveal route
+  // local-only so it can still read the raw vault.
+  const publishedFile = showPii
+    ? null
+    : await getPublishedMarkdownFile(resolvedContentPath);
+  const file = publishedFile ?? localFile;
 
   if (!file) {
     notFound();
