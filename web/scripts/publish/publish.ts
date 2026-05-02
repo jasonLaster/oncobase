@@ -1,7 +1,13 @@
 import fs from "node:fs";
 import { sitePut } from "../../src/lib/blob";
-import { embedBatch } from "../../src/lib/embeddings";
+import { countEmbeddingTokens, embedBatch } from "../../src/lib/embeddings";
 import { loadConfig, loadPublishToken } from "./config";
+import {
+  readPositiveIntEnv,
+  retryRateLimited,
+  RetryCooldown,
+  TokenWindow,
+} from "./rate-limit";
 import {
   readVaultAssets,
   readVaultDocuments,
@@ -58,7 +64,12 @@ async function runWithConcurrency<T>(
 // embed() in src/lib/embeddings handles chunking + pooling per doc.
 // Parallelize at the doc level instead of OpenAI's request-batching
 // since long docs need their own multi-chunk request anyway.
-const EMBED_CONCURRENCY = 8;
+const EMBED_CONCURRENCY = readPositiveIntEnv("PUBLISH_EMBED_CONCURRENCY", 8);
+const EMBED_TOKENS_PER_MINUTE = readPositiveIntEnv(
+  "PUBLISH_EMBED_TPM",
+  4_500_000,
+);
+const EMBED_MAX_ATTEMPTS = readPositiveIntEnv("PUBLISH_EMBED_MAX_ATTEMPTS", 12);
 
 async function uploadAsset(
   assetUrl: string,
@@ -99,14 +110,31 @@ async function embedInChunks(
   docs: PublishDocument[],
 ): Promise<(number[] | undefined)[]> {
   const out: (number[] | undefined)[] = new Array(docs.length).fill(undefined);
+  const tokenWindow = new TokenWindow(EMBED_TOKENS_PER_MINUTE);
+  const cooldown = new RetryCooldown();
+  const tokenCounts = docs.map((doc) => countEmbeddingTokens(doc.content));
   let done = 0;
+
+  console.log(
+    `  embedding ${docs.length} documents with concurrency ${EMBED_CONCURRENCY}, TPM cap ${EMBED_TOKENS_PER_MINUTE}`,
+  );
+
   await runWithConcurrency(docs, EMBED_CONCURRENCY, async (doc, i) => {
     try {
-      const [vec] = await embedBatch([doc.content]);
+      const [vec] = await retryRateLimited(
+        () => embedBatch([doc.content]),
+        {
+          label: doc.slug,
+          maxAttempts: EMBED_MAX_ATTEMPTS,
+          cooldown,
+          reserveTokens: () => tokenWindow.reserve(tokenCounts[i]),
+          onRetry: (message) => console.warn(message),
+        },
+      );
       out[i] = vec;
     } catch (error) {
-      console.warn(
-        `  skipping embedding for ${doc.slug}: ${(error as Error).message}`,
+      throw new Error(
+        `embedding failed for ${doc.slug}: ${(error as Error).message}`,
       );
     }
     done++;

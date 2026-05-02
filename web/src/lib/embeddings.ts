@@ -57,6 +57,10 @@ function chunkByTokens(text: string, maxTokens: number): string[] {
   return chunks;
 }
 
+export function countEmbeddingTokens(text: string): number {
+  return getEncoder().encode(prepareForEmbedding(text)).length;
+}
+
 function meanPool(vectors: number[][]): number[] {
   const dim = vectors[0].length;
   const sum = new Array<number>(dim).fill(0);
