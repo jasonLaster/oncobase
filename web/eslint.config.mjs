@@ -40,6 +40,9 @@ const eslintConfig = defineConfig([
     ignores: [
       "convex/_generated/**",
       "convex/lib/site.ts",
+      // sites.ts is the resolution + onboarding layer that owns
+      // direct sites-table access. requireSite uses it.
+      "convex/sites.ts",
       "convex/migrations.ts",
       "convex/admin/**",
     ],

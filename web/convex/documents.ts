@@ -1,29 +1,92 @@
-import { query, mutation, action } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
+import {
+  action,
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
+import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
+
+// Multi-tenant scoping: every public function takes an optional
+// `siteSlug` argument. During the Diana migration window, omitting it
+// resolves to the Diana site (DEFAULT_SITE_SLUG). After Phase 3 wires
+// the host-derived header into every callsite, the slug becomes
+// effectively required.
+
+type AnyCtx = QueryCtx | MutationCtx;
+
+async function findDocBySlug(ctx: AnyCtx, site: SiteCtx, slug: string) {
+  const siteId = site.siteId;
+  if (siteId) {
+    const scoped = await ctx.db
+      .query("documents")
+      .withIndex("by_site_slug", (q) => q.eq("siteId", siteId).eq("slug", slug))
+      .first();
+    if (scoped) return scoped;
+  }
+  // Legacy rows without siteId — accepted only on the default site.
+  const legacy = await ctx.db
+    .query("documents")
+    .withIndex("by_slug", (q) => q.eq("slug", slug))
+    .first();
+  if (legacy && rowBelongsToSite(legacy, site)) return legacy;
+  return null;
+}
+
+async function findAssetByPath(
+  ctx: AnyCtx,
+  table: "pdfAssets" | "fileAssets",
+  site: SiteCtx,
+  pathArg: string,
+) {
+  const siteId = site.siteId;
+  if (siteId) {
+    const scoped = await ctx.db
+      .query(table)
+      .withIndex("by_site_path", (q) => q.eq("siteId", siteId).eq("path", pathArg))
+      .first();
+    if (scoped) return scoped;
+  }
+  const legacy = await ctx.db
+    .query(table)
+    .withIndex("by_path", (q) => q.eq("path", pathArg))
+    .first();
+  if (legacy && rowBelongsToSite(legacy, site)) return legacy;
+  return null;
+}
 
 export const search = query({
-  args: { query: v.string(), limit: v.optional(v.number()) },
-  handler: async (ctx, { query: q, limit }) => {
+  args: { query: v.string(), limit: v.optional(v.number()), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { query: q, limit, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
     const take = limit ?? 10;
 
-    // Search both content and title indexes, then merge
+    // searchIndex filterFields include siteId — this prevents ranking
+    // leak across sites. For legacy rows without siteId, we widen by
+    // filtering after with rowBelongsToSite. Diana sees both; other
+    // sites only see their own siteId rows.
     const [contentResults, titleResults] = await Promise.all([
       ctx.db
         .query("documents")
-        .withSearchIndex("search_content", (s) => s.search("content", q))
-        .take(take),
+        .withSearchIndex("search_content", (s) =>
+          site.siteId ? s.search("content", q).eq("siteId", site.siteId) : s.search("content", q),
+        )
+        .take(take * 2),
       ctx.db
         .query("documents")
-        .withSearchIndex("search_title", (s) => s.search("title", q))
-        .take(take),
+        .withSearchIndex("search_title", (s) =>
+          site.siteId ? s.search("title", q).eq("siteId", site.siteId) : s.search("title", q),
+        )
+        .take(take * 2),
     ]);
 
-    // Deduplicate, preferring content matches
     const seen = new Set<string>();
     const merged = [];
     for (const doc of [...titleResults, ...contentResults]) {
       if (seen.has(doc._id)) continue;
+      if (!rowBelongsToSite(doc, site)) continue;
       seen.add(doc._id);
       merged.push(doc);
     }
@@ -38,13 +101,11 @@ export const search = query({
 });
 
 export const getBySlug = query({
-  args: { slug: v.string() },
-  handler: async (ctx, { slug }) => {
-    const doc = await ctx.db
-      .query("documents")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .first();
-    if (!doc) return null;
+  args: { slug: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { slug, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const doc = await findDocBySlug(ctx, site, slug);
+    if (!doc || doc.deletedAt) return null;
     return {
       slug: doc.slug,
       title: doc.title,
@@ -54,70 +115,98 @@ export const getBySlug = query({
   },
 });
 
-/** Paginated internal query — fetches one page at a time */
+async function paginatedDocs(ctx: AnyCtx, site: SiteCtx, cursor: string | null, numItems: number) {
+  const siteId = site.siteId;
+  if (siteId) {
+    return await ctx.db
+      .query("documents")
+      .withIndex("by_site_slug", (q) => q.eq("siteId", siteId))
+      .paginate({ cursor, numItems });
+  }
+  return await ctx.db.query("documents").paginate({ cursor, numItems });
+}
+
 export const listPage = query({
-  args: { cursor: v.union(v.string(), v.null()), numItems: v.number() },
-  handler: async (ctx, { cursor, numItems }): Promise<{
-    page: Array<{ slug: string; title: string; tags: string[] }>;
-    isDone: boolean;
-    continueCursor: string;
-  }> => {
-    const result = await ctx.db.query("documents").paginate({ cursor, numItems });
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const result = await paginatedDocs(ctx, site, cursor, numItems);
     return {
-      page: result.page.map(({ slug, title, tags }) => ({ slug, title, tags })),
+      page: result.page
+        .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
+        .map(({ slug, title, tags }) => ({ slug, title, tags })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
     };
   },
 });
 
-/** Paginated query with title + description + content — used by the description generator */
 export const listPageWithDescriptions = query({
-  args: { cursor: v.union(v.string(), v.null()), numItems: v.number() },
-  handler: async (ctx, { cursor, numItems }): Promise<{
-    page: Array<{ slug: string; title: string; description: string | null; content: string }>;
-    isDone: boolean;
-    continueCursor: string;
-  }> => {
-    const result = await ctx.db.query("documents").paginate({ cursor, numItems });
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const result = await paginatedDocs(ctx, site, cursor, numItems);
     return {
-      page: result.page.map(({ slug, title, description, content }) => ({
-        slug,
-        title,
-        description: description ?? null,
-        content,
-      })),
+      page: result.page
+        .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
+        .map(({ slug, title, description, content }) => ({
+          slug,
+          title,
+          description: description ?? null,
+          content,
+        })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
     };
   },
 });
 
-/** Paginated query that includes content — used by the archive builder to avoid N+1 getBySlug calls */
 export const listPageWithContent = query({
-  args: { cursor: v.union(v.string(), v.null()), numItems: v.number() },
-  handler: async (ctx, { cursor, numItems }): Promise<{
-    page: Array<{ slug: string; content: string }>;
-    isDone: boolean;
-    continueCursor: string;
-  }> => {
-    const result = await ctx.db.query("documents").paginate({ cursor, numItems });
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const result = await paginatedDocs(ctx, site, cursor, numItems);
     return {
-      page: result.page.map(({ slug, content }) => ({ slug, content })),
+      page: result.page
+        .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
+        .map(({ slug, content }) => ({ slug, content })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
     };
   },
 });
 
-/** Collects all documents via paginated action to avoid query size limits */
 export const list = action({
-  handler: async (ctx): Promise<Array<{ slug: string; title: string; tags: string[] }>> => {
+  args: { siteSlug: v.optional(v.string()) },
+  handler: async (
+    ctx,
+    { siteSlug },
+  ): Promise<Array<{ slug: string; title: string; tags: string[] }>> => {
     const results: Array<{ slug: string; title: string; tags: string[] }> = [];
     let cursor: string | null = null;
     let isDone = false;
     while (!isDone) {
-      const page: { page: Array<{ slug: string; title: string; tags: string[] }>; isDone: boolean; continueCursor: string } = await ctx.runQuery(api.documents.listPage, { cursor, numItems: 50 });
+      const page: {
+        page: Array<{ slug: string; title: string; tags: string[] }>;
+        isDone: boolean;
+        continueCursor: string;
+      } = await ctx.runQuery(api.documents.listPage, {
+        cursor,
+        numItems: 50,
+        siteSlug,
+      });
       results.push(...page.page);
       isDone = page.isDone;
       cursor = page.continueCursor;
@@ -127,9 +216,9 @@ export const list = action({
 });
 
 export const getByTag = action({
-  args: { tag: v.string() },
-  handler: async (ctx, { tag }): Promise<Array<{ slug: string; title: string }>> => {
-    const allDocs = await ctx.runAction(api.documents.list, {});
+  args: { tag: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { tag, siteSlug }): Promise<Array<{ slug: string; title: string }>> => {
+    const allDocs = await ctx.runAction(api.documents.list, { siteSlug });
     return allDocs
       .filter((d) => d.tags.includes(tag))
       .map(({ slug, title }) => ({ slug, title }))
@@ -138,8 +227,9 @@ export const getByTag = action({
 });
 
 export const listTags = action({
-  handler: async (ctx): Promise<string[]> => {
-    const docs = await ctx.runAction(api.documents.list, {});
+  args: { siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { siteSlug }): Promise<string[]> => {
+    const docs = await ctx.runAction(api.documents.list, { siteSlug });
     const tags = new Set<string>();
     for (const doc of docs) {
       for (const tag of doc.tags) tags.add(tag);
@@ -150,40 +240,57 @@ export const listTags = action({
 
 export const upsert = mutation({
   args: {
+    siteSlug: v.optional(v.string()),
     slug: v.string(),
     title: v.string(),
     content: v.string(),
     tags: v.array(v.string()),
     contentHash: v.string(),
   },
-  handler: async (ctx, { slug, title, content, tags, contentHash }) => {
-    const existing = await ctx.db
-      .query("documents")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .first();
+  handler: async (ctx, { siteSlug, slug, title, content, tags, contentHash }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const existing = await findDocBySlug(ctx, site, slug);
     if (existing) {
-      if (existing.contentHash === contentHash) return { skipped: true };
-      await ctx.db.patch(existing._id, { title, content, tags, contentHash, updatedAt: Date.now() });
-      return { skipped: false };
-    } else {
-      await ctx.db.insert("documents", { slug, title, content, tags, contentHash, updatedAt: Date.now() });
+      if (existing.contentHash === contentHash && !existing.deletedAt) {
+        return { skipped: true };
+      }
+      await ctx.db.patch(existing._id, {
+        title,
+        content,
+        tags,
+        contentHash,
+        siteId: site.siteId ?? existing.siteId,
+        deletedAt: undefined,
+        updatedAt: Date.now(),
+      });
       return { skipped: false };
     }
+    await ctx.db.insert("documents", {
+      ...(site.siteId ? { siteId: site.siteId } : {}),
+      slug,
+      title,
+      content,
+      tags,
+      contentHash,
+      updatedAt: Date.now(),
+    });
+    return { skipped: false };
   },
 });
 
-/** Lean paginated query returning only slug + description — used at build time to
- *  batch-load all descriptions in generateMetadata() instead of one query per page. */
 export const listPageDescriptions = query({
-  args: { cursor: v.union(v.string(), v.null()), numItems: v.number() },
-  handler: async (ctx, { cursor, numItems }): Promise<{
-    page: Array<{ slug: string; description: string | null }>;
-    isDone: boolean;
-    continueCursor: string;
-  }> => {
-    const result = await ctx.db.query("documents").paginate({ cursor, numItems });
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const result = await paginatedDocs(ctx, site, cursor, numItems);
     return {
-      page: result.page.map(({ slug, description }) => ({ slug, description: description ?? null })),
+      page: result.page
+        .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
+        .map(({ slug, description }) => ({ slug, description: description ?? null })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
     };
@@ -191,23 +298,19 @@ export const listPageDescriptions = query({
 });
 
 export const getDescription = query({
-  args: { slug: v.string() },
-  handler: async (ctx, { slug }) => {
-    const doc = await ctx.db
-      .query("documents")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .first();
+  args: { slug: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { slug, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const doc = await findDocBySlug(ctx, site, slug);
     return doc?.description ?? null;
   },
 });
 
 export const setDescription = mutation({
-  args: { slug: v.string(), description: v.string() },
-  handler: async (ctx, { slug, description }) => {
-    const doc = await ctx.db
-      .query("documents")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .first();
+  args: { slug: v.string(), description: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { slug, description, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const doc = await findDocBySlug(ctx, site, slug);
     if (!doc) return { found: false };
     await ctx.db.patch(doc._id, { description });
     return { found: true };
@@ -215,58 +318,104 @@ export const setDescription = mutation({
 });
 
 export const deleteBySlug = mutation({
-  args: { slug: v.string() },
-  handler: async (ctx, { slug }) => {
-    const doc = await ctx.db
-      .query("documents")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .first();
-    if (doc) {
-      await ctx.db.delete(doc._id);
-      return { deleted: true };
-    }
-    return { deleted: false };
+  args: { slug: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { slug, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const doc = await findDocBySlug(ctx, site, slug);
+    if (!doc) return { deleted: false };
+    // Tombstone rather than hard-delete — gives a 90-day undo window.
+    // Phase 4's publish/finish writes deletedAt; Phase 6 destroy
+    // hard-deletes rows past the retention window.
+    await ctx.db.patch(doc._id, { deletedAt: Date.now() });
+    return { deleted: true };
   },
 });
 
 export const getById = query({
-  args: { id: v.id("documents") },
-  handler: async (ctx, { id }) => {
+  args: { id: v.id("documents"), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { id, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
     const doc = await ctx.db.get(id);
-    if (!doc) return null;
+    if (!doc || doc.deletedAt || !rowBelongsToSite(doc, site)) return null;
     return { slug: doc.slug, title: doc.title, tags: doc.tags };
   },
 });
 
 export const vectorSearch = action({
-  args: { embedding: v.array(v.float64()), limit: v.optional(v.number()) },
-  handler: async (ctx, { embedding, limit }): Promise<Array<{ slug: string; title: string; tags: string[]; score: number }>> => {
+  args: {
+    embedding: v.array(v.float64()),
+    limit: v.optional(v.number()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    { embedding, limit, siteSlug },
+  ): Promise<
+    Array<{ slug: string; title: string; tags: string[]; score: number }>
+  > => {
     const take = limit ?? 10;
+    // Resolve site so we can pass siteId into the vector filter and
+    // reject results that don't belong (covers legacy rows for Diana).
+    const site = await ctx.runQuery(api.sites.getBySlug, {
+      slug: siteSlug ?? "diana",
+    });
+
+    const siteId = site?._id;
     const results = await ctx.vectorSearch("documents", "by_embedding", {
       vector: embedding,
       limit: take,
+      ...(siteId ? { filter: (q) => q.eq("siteId", siteId) } : {}),
     });
 
-    const docs: Array<{ slug: string; title: string; tags: string[]; score: number } | null> = await Promise.all(
+    const docs = await Promise.all(
       results.map(async (r) => {
-        const doc = await ctx.runQuery(api.documents.getById, { id: r._id });
+        const doc = await ctx.runQuery(api.documents.getById, {
+          id: r._id,
+          siteSlug,
+        });
         if (!doc) return null;
-        return { slug: doc.slug, title: doc.title, tags: doc.tags, score: r._score };
-      })
+        return {
+          slug: doc.slug,
+          title: doc.title,
+          tags: doc.tags,
+          score: r._score,
+        };
+      }),
     );
 
     return docs.filter((d): d is NonNullable<typeof d> => d !== null);
   },
 });
 
-/** Return embedding status for all docs so the ingest script can skip unchanged ones */
 export const embeddingStatus = action({
-  handler: async (ctx): Promise<Array<{ slug: string; contentHash: string | undefined; embeddingHash: string | undefined }>> => {
-    const results: Array<{ slug: string; contentHash: string | undefined; embeddingHash: string | undefined }> = [];
+  args: { siteSlug: v.optional(v.string()) },
+  handler: async (
+    ctx,
+    { siteSlug },
+  ): Promise<
+    Array<{
+      slug: string;
+      contentHash: string | undefined;
+      embeddingHash: string | undefined;
+    }>
+  > => {
+    const results: Array<{
+      slug: string;
+      contentHash: string | undefined;
+      embeddingHash: string | undefined;
+    }> = [];
     let cursor: string | null = null;
     let isDone = false;
     while (!isDone) {
-      const page: { page: Array<{ slug: string; contentHash: string | undefined; embeddingHash: string | undefined }>; isDone: boolean; continueCursor: string } = await ctx.runQuery(api.documents.embeddingStatusPage, { cursor, numItems: 50 });
+      const page: {
+        page: Array<{ slug: string; contentHash: string | undefined; embeddingHash: string | undefined }>;
+        isDone: boolean;
+        continueCursor: string;
+      } = await ctx.runQuery(api.documents.embeddingStatusPage, {
+        cursor,
+        numItems: 50,
+        siteSlug,
+      });
       results.push(...page.page);
       isDone = page.isDone;
       cursor = page.continueCursor;
@@ -276,15 +425,22 @@ export const embeddingStatus = action({
 });
 
 export const embeddingStatusPage = query({
-  args: { cursor: v.union(v.string(), v.null()), numItems: v.number() },
-  handler: async (ctx, { cursor, numItems }) => {
-    const result = await ctx.db.query("documents").paginate({ cursor, numItems });
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const result = await paginatedDocs(ctx, site, cursor, numItems);
     return {
-      page: result.page.map((doc) => ({
-        slug: doc.slug,
-        contentHash: doc.contentHash,
-        embeddingHash: doc.embeddingHash,
-      })),
+      page: result.page
+        .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
+        .map((doc) => ({
+          slug: doc.slug,
+          contentHash: doc.contentHash,
+          embeddingHash: doc.embeddingHash,
+        })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
     };
@@ -292,12 +448,15 @@ export const embeddingStatusPage = query({
 });
 
 export const upsertEmbedding = mutation({
-  args: { slug: v.string(), embedding: v.array(v.float64()), embeddingHash: v.optional(v.string()) },
-  handler: async (ctx, { slug, embedding, embeddingHash }) => {
-    const doc = await ctx.db
-      .query("documents")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .first();
+  args: {
+    slug: v.string(),
+    embedding: v.array(v.float64()),
+    embeddingHash: v.optional(v.string()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { slug, embedding, embeddingHash, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const doc = await findDocBySlug(ctx, site, slug);
     if (!doc) return { found: false };
     await ctx.db.patch(doc._id, { embedding, embeddingHash });
     return { found: true };
@@ -305,97 +464,152 @@ export const upsertEmbedding = mutation({
 });
 
 export const getMeta = query({
-  args: { key: v.string() },
-  handler: async (ctx, { key }) => {
-    const row = await ctx.db
+  args: { key: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { key, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const siteId = site.siteId;
+    if (siteId) {
+      const scoped = await ctx.db
+        .query("meta")
+        .withIndex("by_site_key", (q) => q.eq("siteId", siteId).eq("key", key))
+        .first();
+      if (scoped) return scoped.value;
+    }
+    const legacy = await ctx.db
       .query("meta")
       .withIndex("by_key", (q) => q.eq("key", key))
       .first();
-    return row ? row.value : null;
+    if (legacy && rowBelongsToSite(legacy, site)) return legacy.value;
+    return null;
   },
 });
 
 export const setMeta = mutation({
-  args: { key: v.string(), value: v.string() },
-  handler: async (ctx, { key, value }) => {
-    const existing = await ctx.db
-      .query("meta")
-      .withIndex("by_key", (q) => q.eq("key", key))
-      .first();
-    if (existing) {
+  args: { key: v.string(), value: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { key, value, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const siteId = site.siteId;
+    const existing = siteId
+      ? await ctx.db
+          .query("meta")
+          .withIndex("by_site_key", (q) => q.eq("siteId", siteId).eq("key", key))
+          .first()
+      : await ctx.db
+          .query("meta")
+          .withIndex("by_key", (q) => q.eq("key", key))
+          .first();
+    if (existing && rowBelongsToSite(existing, site)) {
       await ctx.db.patch(existing._id, { value });
     } else {
-      await ctx.db.insert("meta", { key, value });
+      await ctx.db.insert("meta", {
+        ...(site.siteId ? { siteId: site.siteId } : {}),
+        key,
+        value,
+      });
     }
   },
 });
 
 export const listPdfAssets = query({
-  handler: async (ctx) => {
-    return await ctx.db.query("pdfAssets").collect();
+  args: { siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const all = await ctx.db.query("pdfAssets").collect();
+    return all.filter((row) => rowBelongsToSite(row, site) && !row.deletedAt);
   },
 });
 
 export const getPdfAssetByPath = query({
-  args: { path: v.string() },
-  handler: async (ctx, { path }) => {
-    return await ctx.db
-      .query("pdfAssets")
-      .withIndex("by_path", (q) => q.eq("path", path))
-      .first();
+  args: { path: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { path, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const row = await findAssetByPath(ctx, "pdfAssets", site, path);
+    if (!row || row.deletedAt) return null;
+    return row;
   },
 });
 
 export const upsertPdfAsset = mutation({
   args: {
+    siteSlug: v.optional(v.string()),
     path: v.string(),
     blobUrl: v.string(),
     sizeBytes: v.number(),
+    contentHash: v.optional(v.string()),
   },
-  handler: async (ctx, { path, blobUrl, sizeBytes }) => {
-    const existing = await ctx.db
-      .query("pdfAssets")
-      .withIndex("by_path", (q) => q.eq("path", path))
-      .first();
+  handler: async (ctx, { siteSlug, path, blobUrl, sizeBytes, contentHash }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const existing = await findAssetByPath(ctx, "pdfAssets", site, path);
     if (existing) {
-      await ctx.db.patch(existing._id, { blobUrl, sizeBytes, uploadedAt: Date.now() });
+      await ctx.db.patch(existing._id, {
+        blobUrl,
+        sizeBytes,
+        contentHash,
+        siteId: site.siteId ?? existing.siteId,
+        deletedAt: undefined,
+        uploadedAt: Date.now(),
+      });
     } else {
-      await ctx.db.insert("pdfAssets", { path, blobUrl, sizeBytes, uploadedAt: Date.now() });
+      await ctx.db.insert("pdfAssets", {
+        ...(site.siteId ? { siteId: site.siteId } : {}),
+        path,
+        blobUrl,
+        sizeBytes,
+        contentHash,
+        uploadedAt: Date.now(),
+      });
     }
   },
 });
 
 export const listFileAssets = query({
-  handler: async (ctx) => {
-    return await ctx.db.query("fileAssets").collect();
+  args: { siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const all = await ctx.db.query("fileAssets").collect();
+    return all.filter((row) => rowBelongsToSite(row, site) && !row.deletedAt);
   },
 });
 
 export const getFileAssetByPath = query({
-  args: { path: v.string() },
-  handler: async (ctx, { path }) => {
-    return await ctx.db
-      .query("fileAssets")
-      .withIndex("by_path", (q) => q.eq("path", path))
-      .first();
+  args: { path: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { path, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const row = await findAssetByPath(ctx, "fileAssets", site, path);
+    if (!row || row.deletedAt) return null;
+    return row;
   },
 });
 
 export const upsertFileAsset = mutation({
   args: {
+    siteSlug: v.optional(v.string()),
     path: v.string(),
     blobUrl: v.string(),
     sizeBytes: v.number(),
+    contentHash: v.optional(v.string()),
   },
-  handler: async (ctx, { path, blobUrl, sizeBytes }) => {
-    const existing = await ctx.db
-      .query("fileAssets")
-      .withIndex("by_path", (q) => q.eq("path", path))
-      .first();
+  handler: async (ctx, { siteSlug, path, blobUrl, sizeBytes, contentHash }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const existing = await findAssetByPath(ctx, "fileAssets", site, path);
     if (existing) {
-      await ctx.db.patch(existing._id, { blobUrl, sizeBytes, uploadedAt: Date.now() });
+      await ctx.db.patch(existing._id, {
+        blobUrl,
+        sizeBytes,
+        contentHash,
+        siteId: site.siteId ?? existing.siteId,
+        deletedAt: undefined,
+        uploadedAt: Date.now(),
+      });
     } else {
-      await ctx.db.insert("fileAssets", { path, blobUrl, sizeBytes, uploadedAt: Date.now() });
+      await ctx.db.insert("fileAssets", {
+        ...(site.siteId ? { siteId: site.siteId } : {}),
+        path,
+        blobUrl,
+        sizeBytes,
+        contentHash,
+        uploadedAt: Date.now(),
+      });
     }
   },
 });
@@ -406,5 +620,9 @@ function extractExcerpt(content: string, query: string): string {
   if (idx === -1) return content.slice(0, 200);
   const start = Math.max(0, idx - 80);
   const end = Math.min(content.length, idx + query.length + 120);
-  return (start > 0 ? "..." : "") + content.slice(start, end) + (end < content.length ? "..." : "");
+  return (
+    (start > 0 ? "..." : "") +
+    content.slice(start, end) +
+    (end < content.length ? "..." : "")
+  );
 }

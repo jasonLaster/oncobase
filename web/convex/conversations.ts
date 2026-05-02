@@ -1,72 +1,85 @@
-import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import type { Doc, Id } from "./_generated/dataModel";
+import {
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
+import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
+
+type AnyCtx = QueryCtx | MutationCtx;
+
+async function listAll(ctx: AnyCtx, site: SiteCtx) {
+  // Conversations are typically small per site; collect + filter is fine.
+  const all = await ctx.db
+    .query("conversations")
+    .withIndex("by_updated")
+    .order("desc")
+    .take(200);
+  return all.filter((c) => rowBelongsToSite(c, site));
+}
+
+async function getOwnedConversation(ctx: AnyCtx, site: SiteCtx, id: string) {
+  const convId = ctx.db.normalizeId("conversations", id);
+  if (!convId) return null;
+  const conversation = await ctx.db.get(convId);
+  if (!conversation || !rowBelongsToSite(conversation, site)) return null;
+  return { convId, conversation };
+}
 
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    const all = await ctx.db
-      .query("conversations")
-      .withIndex("by_updated")
-      .order("desc")
-      .take(100);
-    return all.filter((c) => !c.archived);
+  args: { siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const all = await listAll(ctx, site);
+    return all.filter((c) => !c.archived).slice(0, 100);
   },
 });
 
 export const listArchived = query({
-  args: {},
-  handler: async (ctx) => {
-    const all = await ctx.db
-      .query("conversations")
-      .withIndex("by_updated")
-      .order("desc")
-      .take(100);
-    return all.filter((c) => c.archived);
+  args: { siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const all = await listAll(ctx, site);
+    return all.filter((c) => c.archived).slice(0, 100);
   },
 });
 
 export const get = query({
-  args: { id: v.string() },
-  handler: async (ctx, { id }) => {
-    const convId = ctx.db.normalizeId("conversations", id);
-    if (!convId) return null;
-    const conversation = await ctx.db.get(convId);
-    if (!conversation) return null;
+  args: { id: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { id, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const owned = await getOwnedConversation(ctx, site, id);
+    if (!owned) return null;
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", convId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", owned.convId))
       .collect();
-    return { ...conversation, messages };
+    return { ...owned.conversation, messages };
   },
 });
 
-/**
- * PR 28 review — Data Subscriptions: streaming patches must NOT invalidate
- * the message-history query. This query only reads the `messages` table, so
- * patches to `conversations.streamingText` / `streamingParts` / `activeRunId`
- * do not cause Convex to re-run it. The hot path uses `getStreamingState`
- * (below) for streaming updates.
- */
 export const getMessages = query({
-  args: { id: v.string() },
-  handler: async (ctx, { id }) => {
-    const convId = ctx.db.normalizeId("conversations", id);
-    if (!convId) return [];
+  args: { id: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { id, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const owned = await getOwnedConversation(ctx, site, id);
+    if (!owned) return [];
     return await ctx.db
       .query("messages")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", convId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", owned.convId))
       .collect();
   },
 });
 
-/** Minimal conversation metadata (title, archived, etc) without messages or streaming state. */
 export const getMeta = query({
-  args: { id: v.string() },
-  handler: async (ctx, { id }) => {
-    const convId = ctx.db.normalizeId("conversations", id);
-    if (!convId) return null;
-    const c = await ctx.db.get(convId);
-    if (!c) return null;
+  args: { id: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { id, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const owned = await getOwnedConversation(ctx, site, id);
+    if (!owned) return null;
+    const c = owned.conversation;
     return {
       _id: c._id,
       title: c.title,
@@ -77,14 +90,13 @@ export const getMeta = query({
   },
 });
 
-/** Lightweight query for streaming state only — high-frequency hot path. */
 export const getStreamingState = query({
-  args: { id: v.string() },
-  handler: async (ctx, { id }) => {
-    const convId = ctx.db.normalizeId("conversations", id);
-    if (!convId) return null;
-    const conv = await ctx.db.get(convId);
-    if (!conv) return null;
+  args: { id: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { id, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const owned = await getOwnedConversation(ctx, site, id);
+    if (!owned) return null;
+    const conv = owned.conversation;
     return {
       streamingText: conv.streamingText,
       streamingParts: conv.streamingParts,
@@ -95,10 +107,12 @@ export const getStreamingState = query({
 });
 
 export const create = mutation({
-  args: { title: v.string() },
-  handler: async (ctx, { title }) => {
+  args: { title: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { title, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
     const now = Date.now();
     return await ctx.db.insert("conversations", {
+      ...(site.siteId ? { siteId: site.siteId } : {}),
       title,
       createdAt: now,
       updatedAt: now,
@@ -106,18 +120,25 @@ export const create = mutation({
   },
 });
 
-/**
- * Begin a new turn. Sets activeRunId and clears any prior canceledAt /
- * streaming row so a stale cancel doesn't kill the new turn. Subsequent
- * updateStreaming / clearStreaming / saveMessages calls must pass the same
- * runId; mutations with mismatched runId become no-ops.
- */
+async function ensureOwnedConvById(
+  ctx: AnyCtx,
+  site: SiteCtx,
+  conversationId: Id<"conversations">,
+): Promise<Doc<"conversations"> | null> {
+  const conv = await ctx.db.get(conversationId);
+  if (!conv || !rowBelongsToSite(conv, site)) return null;
+  return conv;
+}
+
 export const beginRun = mutation({
   args: {
     conversationId: v.id("conversations"),
     runId: v.string(),
+    siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, runId }) => {
+  handler: async (ctx, { conversationId, runId, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    if (!(await ensureOwnedConvById(ctx, site, conversationId))) return;
     await ctx.db.patch(conversationId, {
       activeRunId: runId,
       canceledAt: undefined,
@@ -134,12 +155,13 @@ export const updateStreaming = mutation({
     runId: v.optional(v.string()),
     text: v.string(),
     parts: v.optional(v.union(v.string(), v.array(v.any()))),
+    siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, runId, text, parts }) => {
-    if (runId) {
-      const existing = await ctx.db.get(conversationId);
-      if (!existing || existing.activeRunId !== runId) return;
-    }
+  handler: async (ctx, { conversationId, runId, text, parts, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const conv = await ensureOwnedConvById(ctx, site, conversationId);
+    if (!conv) return;
+    if (runId && conv.activeRunId !== runId) return;
     const patch: Record<string, unknown> = {
       streamingText: text,
       streamingUpdatedAt: Date.now(),
@@ -153,12 +175,13 @@ export const clearStreaming = mutation({
   args: {
     conversationId: v.id("conversations"),
     runId: v.optional(v.string()),
+    siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, runId }) => {
-    if (runId) {
-      const existing = await ctx.db.get(conversationId);
-      if (!existing || existing.activeRunId !== runId) return;
-    }
+  handler: async (ctx, { conversationId, runId, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const conv = await ensureOwnedConvById(ctx, site, conversationId);
+    if (!conv) return;
+    if (runId && conv.activeRunId !== runId) return;
     await ctx.db.patch(conversationId, {
       streamingText: undefined,
       streamingParts: undefined,
@@ -168,27 +191,38 @@ export const clearStreaming = mutation({
   },
 });
 
-/** Stop-button signal. The route polls canceledAt and aborts the model. */
 export const cancelStream = mutation({
-  args: { conversationId: v.id("conversations") },
-  handler: async (ctx, { conversationId }) => {
+  args: {
+    conversationId: v.id("conversations"),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { conversationId, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    if (!(await ensureOwnedConvById(ctx, site, conversationId))) return;
     await ctx.db.patch(conversationId, { canceledAt: Date.now() });
   },
 });
 
-/** Cleared at the start of every new turn so prior cancellations don't kill it. */
 export const clearCancel = mutation({
-  args: { conversationId: v.id("conversations") },
-  handler: async (ctx, { conversationId }) => {
+  args: {
+    conversationId: v.id("conversations"),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { conversationId, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    if (!(await ensureOwnedConvById(ctx, site, conversationId))) return;
     await ctx.db.patch(conversationId, { canceledAt: undefined });
   },
 });
 
-/** Read just the cancel + streaming flags. Cheap, polled by the route. */
 export const getCancelState = query({
-  args: { conversationId: v.id("conversations") },
-  handler: async (ctx, { conversationId }) => {
-    const conv = await ctx.db.get(conversationId);
+  args: {
+    conversationId: v.id("conversations"),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { conversationId, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const conv = await ensureOwnedConvById(ctx, site, conversationId);
     if (!conv) return null;
     return {
       canceledAt: conv.canceledAt,
@@ -199,15 +233,19 @@ export const getCancelState = query({
 });
 
 export const archive = mutation({
-  args: { id: v.id("conversations") },
-  handler: async (ctx, { id }) => {
+  args: { id: v.id("conversations"), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { id, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    if (!(await ensureOwnedConvById(ctx, site, id))) return;
     await ctx.db.patch(id, { archived: true, updatedAt: Date.now() });
   },
 });
 
 export const restore = mutation({
-  args: { id: v.id("conversations") },
-  handler: async (ctx, { id }) => {
+  args: { id: v.id("conversations"), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { id, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    if (!(await ensureOwnedConvById(ctx, site, id))) return;
     await ctx.db.patch(id, { archived: false, updatedAt: Date.now() });
   },
 });
@@ -215,7 +253,6 @@ export const restore = mutation({
 export const saveMessages = mutation({
   args: {
     conversationId: v.id("conversations"),
-    /** runId guard — mutation is a no-op if it doesn't match the active run. */
     runId: v.optional(v.string()),
     messages: v.array(
       v.object({
@@ -223,30 +260,35 @@ export const saveMessages = mutation({
         content: v.string(),
         parts: v.optional(v.union(v.string(), v.array(v.any()))),
         createdAt: v.number(),
-        // Phase 7: optional server-generated id for idempotent inserts.
         messageId: v.optional(v.string()),
-      })
+      }),
     ),
     updateTitle: v.optional(v.string()),
+    siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, runId, messages, updateTitle }) => {
-    if (runId) {
-      const existing = await ctx.db.get(conversationId);
-      if (!existing || existing.activeRunId !== runId) return;
-    }
+  handler: async (
+    ctx,
+    { conversationId, runId, messages, updateTitle, siteSlug },
+  ) => {
+    const site = await requireSite(ctx, siteSlug);
+    const conv = await ensureOwnedConvById(ctx, site, conversationId);
+    if (!conv) return;
+    if (runId && conv.activeRunId !== runId) return;
     for (const msg of messages) {
-      // Idempotent path: if messageId is provided and a row with that
-      // (conversationId, messageId) already exists, skip the insert.
       if (msg.messageId) {
         const existing = await ctx.db
           .query("messages")
           .withIndex("by_message_id", (q) =>
-            q.eq("conversationId", conversationId).eq("messageId", msg.messageId)
+            q.eq("conversationId", conversationId).eq("messageId", msg.messageId),
           )
           .first();
         if (existing) continue;
       }
-      await ctx.db.insert("messages", { conversationId, ...msg });
+      await ctx.db.insert("messages", {
+        ...(site.siteId ? { siteId: site.siteId } : {}),
+        conversationId,
+        ...msg,
+      });
     }
     const updates: Record<string, number | string> = {
       updatedAt: Date.now(),
@@ -260,10 +302,13 @@ export const sendMessage = mutation({
   args: {
     conversationId: v.id("conversations"),
     text: v.string(),
+    siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, text }) => {
-    // Save the user message
+  handler: async (ctx, { conversationId, text, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    if (!(await ensureOwnedConvById(ctx, site, conversationId))) return;
     await ctx.db.insert("messages", {
+      ...(site.siteId ? { siteId: site.siteId } : {}),
       conversationId,
       role: "user",
       content: text,
@@ -278,8 +323,11 @@ export const sendMessage = mutation({
 });
 
 export const disableMessage = mutation({
-  args: { id: v.id("messages") },
-  handler: async (ctx, { id }) => {
+  args: { id: v.id("messages"), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { id, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const msg = await ctx.db.get(id);
+    if (!msg || !rowBelongsToSite(msg, site)) return;
     await ctx.db.patch(id, { disabled: true });
   },
 });

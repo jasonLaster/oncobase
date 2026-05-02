@@ -12,7 +12,9 @@ import type * as commentRooms from "../commentRooms.js";
 import type * as conversations from "../conversations.js";
 import type * as documents from "../documents.js";
 import type * as guestNames from "../guestNames.js";
+import type * as lib_site from "../lib/site.js";
 import type * as migrations from "../migrations.js";
+import type * as sites from "../sites.js";
 import type * as users from "../users.js";
 
 import type {
@@ -26,7 +28,9 @@ declare const fullApi: ApiFromModules<{
   conversations: typeof conversations;
   documents: typeof documents;
   guestNames: typeof guestNames;
+  "lib/site": typeof lib_site;
   migrations: typeof migrations;
+  sites: typeof sites;
   users: typeof users;
 }>;
 

@@ -1,8 +1,60 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+// Multi-tenant migration: every tenant-owned row carries an optional
+// siteId. It is optional during the Diana backfill window — operator
+// migration code populates it for legacy rows. New writes always set
+// it. Search and vector indexes include siteId in filterFields so
+// ranking does not leak across sites.
+//
+// The "siteSlug" handle is the human-readable one used everywhere
+// outside Convex (host resolution, blob keys, cache tags); inside
+// Convex we use the Id<"sites"> for joins.
+
 export default defineSchema({
+  sites: defineTable({
+    slug: v.string(),
+    name: v.string(),
+    ownerEmail: v.string(),
+    status: v.union(v.literal("active"), v.literal("archived")),
+    domains: v.array(v.string()),
+    publishTokenHash: v.string(),
+    config: v.object({
+      title: v.optional(v.string()),
+      description: v.optional(v.string()),
+      enableChat: v.boolean(),
+      enableComments: v.boolean(),
+      enableDownloads: v.boolean(),
+      passwordGate: v.boolean(),
+      passwordHash: v.optional(v.string()),
+      redirects: v.optional(
+        v.array(v.object({ from: v.string(), to: v.string() })),
+      ),
+      piiPatterns: v.optional(v.array(v.string())),
+      previewSeedSlugs: v.optional(v.array(v.string())),
+      exclusions: v.optional(v.array(v.string())),
+    }),
+    liveblocksWorkspaceId: v.optional(v.string()),
+    liveblocksSecretKey: v.optional(v.string()),
+    liveblocksPublicKey: v.optional(v.string()),
+    quotas: v.object({
+      monthlyOpenAITokens: v.number(),
+      blobBytes: v.number(),
+    }),
+    monthlyTokensUsed: v.optional(v.number()),
+    lastPublishedAt: v.optional(v.number()),
+    lastPublishStatus: v.optional(v.string()),
+    lastPublishError: v.optional(v.string()),
+    publishLockUntil: v.optional(v.number()),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_domains", ["domains"]),
+
   documents: defineTable({
+    siteId: v.optional(v.id("sites")),
     slug: v.string(),
     title: v.string(),
     content: v.string(),
@@ -12,101 +64,123 @@ export default defineSchema({
     embeddingHash: v.optional(v.string()),
     description: v.optional(v.string()),
     updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
   })
     .index("by_slug", ["slug"])
+    .index("by_site_slug", ["siteId", "slug"])
     .searchIndex("search_content", {
       searchField: "content",
-      filterFields: ["slug", "tags"],
+      filterFields: ["siteId", "slug", "tags"],
     })
     .searchIndex("search_title", {
       searchField: "title",
+      filterFields: ["siteId"],
     })
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
       dimensions: 1536,
+      filterFields: ["siteId"],
     }),
 
   meta: defineTable({
+    siteId: v.optional(v.id("sites")),
     key: v.string(),
     value: v.string(),
-  }).index("by_key", ["key"]),
+  })
+    .index("by_key", ["key"])
+    .index("by_site_key", ["siteId", "key"]),
 
   pdfAssets: defineTable({
-    path: v.string(),      // relative path within obsidian/ (e.g. "sources/paper.pdf")
-    blobUrl: v.string(),   // Vercel Blob URL (public)
+    siteId: v.optional(v.id("sites")),
+    path: v.string(),
+    blobUrl: v.string(),
     sizeBytes: v.number(),
+    contentHash: v.optional(v.string()),
     uploadedAt: v.number(),
-  }).index("by_path", ["path"]),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("by_path", ["path"])
+    .index("by_site_path", ["siteId", "path"]),
 
   fileAssets: defineTable({
-    path: v.string(),      // relative path within obsidian/ (e.g. "sources/images/foo.jpg")
-    blobUrl: v.string(),   // Vercel Blob URL (public)
+    siteId: v.optional(v.id("sites")),
+    path: v.string(),
+    blobUrl: v.string(),
     sizeBytes: v.number(),
+    contentHash: v.optional(v.string()),
     uploadedAt: v.number(),
-  }).index("by_path", ["path"]),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("by_path", ["path"])
+    .index("by_site_path", ["siteId", "path"]),
 
   conversations: defineTable({
+    siteId: v.optional(v.id("sites")),
     title: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
     archived: v.optional(v.boolean()),
     streamingText: v.optional(v.string()),
-    // Phase 2 of chat-perf: parts are stored as a typed array. The string form
-    // is still accepted for in-flight rows that pre-date the migration; new
-    // writes always use the array form. See convex/migrations.ts.
     streamingParts: v.optional(v.union(v.string(), v.array(v.any()))),
     streamingUpdatedAt: v.optional(v.number()),
-    // Batch A of chat-patterns: when set, the route's userStopSignal aborts on
-    // the next throttled poll. Lets the Stop button decouple from req.signal.
     canceledAt: v.optional(v.number()),
-    // PR 28 review: every active stream carries a runId. Convex mutations
-    // reject writes whose runId doesn't match the current active runId so a
-    // stale flush from a prior run can't clobber a newer one.
     activeRunId: v.optional(v.string()),
-  }).index("by_updated", ["updatedAt"]),
+  })
+    .index("by_updated", ["updatedAt"])
+    .index("by_site_updated", ["siteId", "updatedAt"]),
 
   messages: defineTable({
+    siteId: v.optional(v.id("sites")),
     conversationId: v.id("conversations"),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
     parts: v.optional(v.union(v.string(), v.array(v.any()))),
     disabled: v.optional(v.boolean()),
     createdAt: v.number(),
-    // Phase 7: server-generated stable id. Lets saveMessages be idempotent
-    // under retries (route gets re-invoked, double-finish, etc). Optional
-    // for backward compat with existing rows.
     messageId: v.optional(v.string()),
   })
     .index("by_conversation", ["conversationId", "createdAt"])
-    .index("by_message_id", ["conversationId", "messageId"]),
+    .index("by_message_id", ["conversationId", "messageId"])
+    .index("by_site_conversation", ["siteId", "conversationId", "createdAt"]),
 
   users: defineTable({
+    siteId: v.optional(v.id("sites")),
     email: v.string(),
     name: v.optional(v.string()),
     passwordHash: v.string(),
     passwordSalt: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_email", ["email"]),
+  })
+    .index("by_email", ["email"])
+    .index("by_site_email", ["siteId", "email"]),
 
   guestNames: defineTable({
+    siteId: v.optional(v.id("sites")),
     guestId: v.string(),
     name: v.string(),
     updatedAt: v.number(),
-  }).index("by_guest_id", ["guestId"]),
+  })
+    .index("by_guest_id", ["guestId"])
+    .index("by_site_guest", ["siteId", "guestId"]),
 
   commentRooms: defineTable({
-    roomId: v.string(), // e.g. "markdown:wiki/diagnosis"
+    siteId: v.optional(v.id("sites")),
+    roomId: v.string(),
     threadCount: v.number(),
     updatedAt: v.number(),
-  }).index("by_room_id", ["roomId"]),
+  })
+    .index("by_room_id", ["roomId"])
+    .index("by_site_room", ["siteId", "roomId"]),
 
   userSessions: defineTable({
+    siteId: v.optional(v.id("sites")),
     userId: v.id("users"),
     tokenHash: v.string(),
     createdAt: v.number(),
     expiresAt: v.number(),
   })
     .index("by_token_hash", ["tokenHash"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_site_token", ["siteId", "tokenHash"]),
 });
