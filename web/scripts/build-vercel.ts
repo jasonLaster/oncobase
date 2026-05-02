@@ -54,10 +54,10 @@ const buildEnv = {
 // Materialize Git LFS pointers (images, large binaries) before ingest.
 // `|| true` keeps the build going if LFS isn't installed — the ingest scripts
 // guard against pointer files and just skip them.
-spawnSync("sh", ["-c", "git -C .. lfs pull || true"], {
+spawnSync("sh", ["-c", "git -C .. lfs pull 2>/dev/null || true"], {
   cwd: ROOT,
   env: buildEnv,
-  stdio: "inherit",
+  stdio: ["ignore", "inherit", "ignore"],
 });
 
 // Preview branches prioritize fast feedback; production keeps the full data sync.

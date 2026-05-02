@@ -97,11 +97,12 @@ async function main() {
   let uploaded = 0;
   let failed = 0;
   let skippedLfs = 0;
+  const skippedLfsSamples: string[] = [];
   for (const { fullPath, relativePath } of toUpload) {
     const buffer = fs.readFileSync(fullPath);
     if (buffer.length < 200 && buffer.toString("utf8", 0, 40).includes("git-lfs")) {
       skippedLfs++;
-      console.error(`  ✗ Skipping ${relativePath}: unmaterialized Git LFS pointer (run \`git lfs pull\` first)`);
+      if (skippedLfsSamples.length < 5) skippedLfsSamples.push(relativePath);
       continue;
     }
     try {
@@ -123,6 +124,16 @@ async function main() {
     } catch (err) {
       failed++;
       console.error(`  ✗ Failed to upload ${relativePath}: ${(err as Error).message}`);
+    }
+  }
+
+  if (skippedLfs > 0) {
+    console.warn(
+      `  ⚠ Skipped ${skippedLfs} unmaterialized Git LFS pointer${skippedLfs === 1 ? "" : "s"} (run \`git lfs pull\` to materialize). Examples:`,
+    );
+    for (const sample of skippedLfsSamples) console.warn(`      ${sample}`);
+    if (skippedLfs > skippedLfsSamples.length) {
+      console.warn(`      …and ${skippedLfs - skippedLfsSamples.length} more`);
     }
   }
 

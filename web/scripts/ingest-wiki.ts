@@ -88,6 +88,8 @@ function isMissingFunctionError(error: unknown): boolean {
   return message.includes("Could not find public function");
 }
 
+const yamlParseFailures: string[] = [];
+
 function prepareUpsertArgs(file: FileEntry) {
   const raw = fs.readFileSync(file.filePath, "utf-8");
   let data: Record<string, unknown> = {};
@@ -95,7 +97,7 @@ function prepareUpsertArgs(file: FileEntry) {
   try {
     ({ data, content } = matter(raw));
   } catch {
-    console.warn(`  ⚠ YAML parse error in ${file.slug} — ingesting without frontmatter`);
+    yamlParseFailures.push(file.slug);
   }
   const sanitizedContent = applyPiiRedactions(content);
   const contentHash = hashContent(sanitizedContent);
@@ -196,8 +198,21 @@ async function main() {
     }
 
     const done = Math.min(i + CONCURRENCY, files.length);
-    if (done % 100 === 0 || done === files.length) {
+    const hasChanges = updated > 0 || failed > 0;
+    if ((hasChanges && done % 100 === 0) || done === files.length) {
       console.log(`  Processed ${done}/${files.length} — ${updated} updated, ${skipped} skipped, ${failed} failed (${Date.now() - t0}ms)`);
+    }
+  }
+
+  if (yamlParseFailures.length > 0) {
+    const byDir = new Map<string, number>();
+    for (const slug of yamlParseFailures) {
+      const dir = slug.includes("/") ? slug.slice(0, slug.lastIndexOf("/")) : "(root)";
+      byDir.set(dir, (byDir.get(dir) ?? 0) + 1);
+    }
+    console.warn(`  ⚠ ${yamlParseFailures.length} file${yamlParseFailures.length === 1 ? "" : "s"} ingested without frontmatter (YAML parse errors):`);
+    for (const [dir, count] of byDir) {
+      console.warn(`      ${count} in ${dir}/`);
     }
   }
 
