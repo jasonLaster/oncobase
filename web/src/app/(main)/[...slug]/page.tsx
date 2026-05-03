@@ -19,14 +19,12 @@ export async function generateMetadata({
   return generateDocumentMetadata(params);
 }
 
-export default function DocPage({
+export default async function DocPage({
   params,
 }: {
   params: Promise<{ slug: string[] }>;
 }) {
-  if (process.env.VERCEL_ENV === "preview") {
-    return connection().then(() => <DocumentPage params={params} />);
-  }
+  await connection();
 
   return <DocumentPage params={params} />;
 }

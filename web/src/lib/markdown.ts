@@ -1,4 +1,3 @@
-import { cacheLife, cacheTag } from "next/cache";
 import { headers } from "next/headers";
 import { siteDataFromSlug } from "@/lib/site-data";
 import { DEFAULT_SITE_SLUG, toSiteSlug, type SiteSlug } from "@/lib/site";
@@ -65,9 +64,6 @@ export function isHiddenFileTreePath(path: string): boolean {
 async function fetchAllDocsForSite(
   siteSlug: SiteSlug,
 ): Promise<Array<{ slug: string; title: string; tags: string[] }>> {
-  "use cache";
-  cacheLife("max");
-  cacheTag(`site:${siteSlug}`);
   if (shouldSkipConvexReads()) return [];
   return await siteDataFromSlug(siteSlug).documents.list();
 }
@@ -96,9 +92,6 @@ async function paginateAssetPaths(
 }
 
 async function fetchAllPdfPathsForSite(siteSlug: SiteSlug): Promise<string[]> {
-  "use cache";
-  cacheLife("max");
-  cacheTag(`site:${siteSlug}`);
   if (shouldSkipConvexReads()) return [];
   const siteData = siteDataFromSlug(siteSlug);
   try {
@@ -116,9 +109,6 @@ async function fetchAllPdfPathsForSite(siteSlug: SiteSlug): Promise<string[]> {
 }
 
 async function fetchAllFilePathsForSite(siteSlug: SiteSlug): Promise<string[]> {
-  "use cache";
-  cacheLife("max");
-  cacheTag(`site:${siteSlug}`);
   if (shouldSkipConvexReads()) return [];
   const siteData = siteDataFromSlug(siteSlug);
   try {
@@ -146,9 +136,6 @@ async function fetchAllFilePaths() {
 async function fetchCanonicalSlugEntriesForSite(
   siteSlug: SiteSlug,
 ): Promise<Array<[string, string]>> {
-  "use cache";
-  cacheLife("max");
-  cacheTag(`site:${siteSlug}`);
   const docs = await fetchAllDocsForSite(siteSlug);
   const entries: Array<[string, string]> = [];
   const seen = new Set<string>();
@@ -178,9 +165,6 @@ async function getMarkdownFileForSite(
   siteSlug: SiteSlug,
   slug: string,
 ): Promise<MarkdownFile | null> {
-  "use cache";
-  cacheLife("max");
-  cacheTag(`site:${siteSlug}`, `site:${siteSlug}:doc:${slug}`);
   if (shouldSkipConvexReads()) return null;
   const siteData = siteDataFromSlug(siteSlug);
   let doc = await siteData.documents.getBySlug({ slug });
@@ -188,7 +172,6 @@ async function getMarkdownFileForSite(
     doc = await siteData.documents.getBySlug({ slug: `${slug}/index` });
   }
   if (!doc) return null;
-  cacheTag(`site:${siteSlug}:doc:${doc.slug}`);
 
   const tags = Array.isArray(doc.tags) ? doc.tags : [];
   const frontmatter: Record<string, unknown> = { tags };
@@ -268,9 +251,6 @@ export async function getCanonicalSlug(slug: string): Promise<string | null> {
 }
 
 async function getAllTagsForSite(siteSlug: SiteSlug): Promise<string[]> {
-  "use cache";
-  cacheLife("max");
-  cacheTag(`site:${siteSlug}`);
   if (shouldSkipConvexReads()) return [];
   const tags = await siteDataFromSlug(siteSlug).documents.listTags();
   return tags
@@ -286,9 +266,6 @@ async function getPagesByTagForSite(
   siteSlug: SiteSlug,
   tag: string,
 ): Promise<Array<{ slug: string; title: string }>> {
-  "use cache";
-  cacheLife("max");
-  cacheTag(`site:${siteSlug}`);
   if (shouldSkipConvexReads()) return [];
   // Convex `getByTag` matches case-sensitively; tags are lowercased at
   // publish time, so the lookup just needs the normalized form.

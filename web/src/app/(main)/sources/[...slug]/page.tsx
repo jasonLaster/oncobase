@@ -18,16 +18,12 @@ export async function generateMetadata({
   return generateDocumentMetadata(withSourcesPrefix(params));
 }
 
-export default function SourcePage({
+export default async function SourcePage({
   params,
 }: {
   params: Promise<{ slug: string[] }>;
 }) {
-  if (process.env.VERCEL_ENV === "preview") {
-    return connection().then(() => (
-      <DocumentPage params={withSourcesPrefix(params)} />
-    ));
-  }
+  await connection();
 
   return <DocumentPage params={withSourcesPrefix(params)} />;
 }
