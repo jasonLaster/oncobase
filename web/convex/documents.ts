@@ -285,6 +285,25 @@ export const upsert = mutation({
   },
 });
 
+// Admin-only: overwrite a doc's contentHash without touching any
+// other fields. Used by scripts/admin/backfill-content-hashes.ts to
+// migrate from the legacy ingest hash function to the publisher's.
+export const setContentHash = mutation({
+  args: {
+    siteSlug: v.optional(v.string()),
+    slug: v.string(),
+    contentHash: v.string(),
+  },
+  handler: async (ctx, { siteSlug, slug, contentHash }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const doc = await findDocBySlug(ctx, site, slug);
+    if (!doc) return { found: false, patched: false };
+    if (doc.contentHash === contentHash) return { found: true, patched: false };
+    await ctx.db.patch(doc._id, { contentHash });
+    return { found: true, patched: true };
+  },
+});
+
 export const listPageDescriptions = query({
   args: {
     cursor: v.union(v.string(), v.null()),
@@ -655,7 +674,11 @@ export const assetHashesPage = query({
       blobUrl: string;
     }> = [];
 
+    // Convex allows only one paginate() call per query function.
+    // Run pdfAssets pagination until done, THEN switch to fileAssets
+    // on a subsequent call — never both in the same invocation.
     let pdfState = { cursor: parsed.pdf, done: parsed.pdfDone };
+    let fileState = { cursor: parsed.file, done: parsed.fileDone };
     if (!pdfState.done) {
       const result = site.siteId
         ? await ctx.db
@@ -676,10 +699,7 @@ export const assetHashesPage = query({
         });
       }
       pdfState = { cursor: result.continueCursor, done: result.isDone };
-    }
-
-    let fileState = { cursor: parsed.file, done: parsed.fileDone };
-    if (pdfState.done && !fileState.done) {
+    } else if (!fileState.done) {
       const result = site.siteId
         ? await ctx.db
             .query("fileAssets")

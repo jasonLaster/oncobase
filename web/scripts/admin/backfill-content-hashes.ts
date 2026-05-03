@@ -1,0 +1,159 @@
+/**
+ * One-shot backfill: replace legacy `contentHash` values with the new
+ * publisher-style hash so wiki:check reflects the real diff.
+ *
+ * Background. Until commit afd82ad2 ("runtime: read wiki content from
+ * Convex and Blob"), the build pipeline ran `scripts/ingest-wiki.ts`,
+ * which stored `contentHash = sha256(redactedContent).slice(0,16)`.
+ * The new publisher computes `hashDocument({title, content, tags})`
+ * over the *raw* (un-redacted) local content. The two functions
+ * disagree, so every legacy doc registers as "changed" even when it
+ * wasn't.
+ *
+ * Strategy:
+ *   - For every local vault doc that was NOT modified after the last
+ *     fs-ingest deploy boundary (`--since-ref`, defaults to the
+ *     cutover commit), compute the new-style hash and patch it onto
+ *     the matching remote row.
+ *   - For docs that WERE touched after the boundary (today's edits),
+ *     leave the legacy hash in place. Those will surface as "changed"
+ *     in the next `wiki:check` and republish through the normal flow.
+ *
+ *   bun scripts/admin/backfill-content-hashes.ts --site diana
+ *   bun scripts/admin/backfill-content-hashes.ts --site diana --dry-run
+ *   bun scripts/admin/backfill-content-hashes.ts --site diana --since-ref de2914a5
+ */
+import path from "node:path";
+import { execFileSync } from "node:child_process";
+import { ConvexHttpClient } from "convex/browser";
+import dotenv from "dotenv";
+import { api } from "../../convex/_generated/api";
+import { hashDocument, readVaultDocuments } from "../publish/walk-vault";
+import { readFlag } from "../publish/cli";
+import { loadConfig } from "../publish/config";
+
+dotenv.config({
+  path: path.join(__dirname, "..", "..", ".env.local"),
+  quiet: true,
+});
+
+const args = process.argv.slice(2);
+const siteSlug = readFlag(args, "--site");
+const dryRun = args.includes("--dry-run");
+// Default boundary: last commit that was deployed with the old
+// fs-ingest pipeline. Files modified after this point should NOT be
+// backfilled — they reflect edits that haven't yet been published
+// and need to flow through wiki:publish normally.
+const sinceRef = readFlag(args, "--since-ref") ?? "de2914a5";
+
+if (!siteSlug) {
+  console.error("Usage: bun scripts/admin/backfill-content-hashes.ts --site <slug> [--dry-run] [--since-ref <commit>]");
+  process.exit(1);
+}
+
+const config = loadConfig(siteSlug);
+const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+if (!url) {
+  console.error("NEXT_PUBLIC_CONVEX_URL is not set");
+  process.exit(1);
+}
+
+const repoRoot = path.resolve(path.join(__dirname, "..", "..", ".."));
+const vaultRel = path.relative(repoRoot, config.vaultPath);
+
+function changedSlugsSinceRef(ref: string): Set<string> {
+  // Note: passing `${vaultRel}/**.md` as a pathspec silently misses
+  // nested directories on some git versions. Use the directory and
+  // filter to .md in JS.
+  const out = execFileSync(
+    "git",
+    ["log", `${ref}..HEAD`, "--name-only", "--pretty=format:", "--", `${vaultRel}/`],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  const slugs = new Set<string>();
+  for (const line of out.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (!trimmed.endsWith(".md")) continue;
+    const rel = trimmed.startsWith(`${vaultRel}/`)
+      ? trimmed.slice(vaultRel.length + 1)
+      : trimmed;
+    slugs.add(rel.replace(/\.md$/, ""));
+  }
+  return slugs;
+}
+
+const skipSlugs = changedSlugsSinceRef(sinceRef);
+console.log(`Skipping ${skipSlugs.size} slugs touched since ${sinceRef}:`);
+for (const s of [...skipSlugs].sort()) console.log("  -", s);
+
+const localDocs = readVaultDocuments(config.vaultPath);
+const localBySlug = new Map(localDocs.map((d) => [d.slug, d]));
+console.log(`\nLocal vault docs: ${localDocs.length}`);
+
+const client = new ConvexHttpClient(url);
+
+let cursor: string | null = null;
+let scanned = 0;
+let alreadyMatching = 0;
+let patched = 0;
+let skippedTouched = 0;
+let missingLocal = 0;
+
+while (true) {
+  const page: {
+    page: Array<{ slug: string; title: string; content: string; tags: string[]; contentHash?: string }>;
+    isDone: boolean;
+    continueCursor: string;
+  } = await client.query(api.documents.listPageWithContent, {
+    cursor,
+    numItems: 200,
+    siteSlug,
+  });
+
+  for (const remote of page.page) {
+    scanned++;
+    const local = localBySlug.get(remote.slug);
+    if (!local) {
+      missingLocal++;
+      continue;
+    }
+    if (skipSlugs.has(remote.slug)) {
+      skippedTouched++;
+      continue;
+    }
+    const newHash = hashDocument({
+      title: local.title,
+      content: local.content,
+      tags: local.tags,
+    });
+    if (remote.contentHash === newHash) {
+      alreadyMatching++;
+      continue;
+    }
+    if (dryRun) {
+      patched++;
+      continue;
+    }
+    const result = await client.mutation(api.documents.setContentHash, {
+      slug: remote.slug,
+      contentHash: newHash,
+      siteSlug,
+    });
+    if (result.patched) patched++;
+  }
+
+  process.stdout.write(
+    `\rscanned=${scanned} patched=${patched} alreadyMatching=${alreadyMatching} skippedTouched=${skippedTouched} missingLocal=${missingLocal}`,
+  );
+
+  if (page.isDone) break;
+  cursor = page.continueCursor;
+}
+
+process.stdout.write("\n");
+console.log(
+  `${dryRun ? "[dry-run] would patch" : "patched"} ${patched} docs ` +
+    `(already matching: ${alreadyMatching}, skipped touched: ${skippedTouched}, ` +
+    `missing local: ${missingLocal}, total scanned: ${scanned})`,
+);
