@@ -24,13 +24,13 @@
  *   bun scripts/admin/backfill-content-hashes.ts --site diana --since-ref de2914a5
  */
 import path from "node:path";
-import { execFileSync } from "node:child_process";
 import { ConvexHttpClient } from "convex/browser";
 import dotenv from "dotenv";
 import { api } from "../../convex/_generated/api";
-import { hashDocument, readVaultDocuments } from "../publish/walk-vault";
+import { HASH_FUNCTION_VERSION, hashDocument, readVaultDocuments } from "../publish/walk-vault";
 import { readFlag } from "../publish/cli";
 import { loadConfig } from "../publish/config";
+import { changedSlugsSinceRef } from "./changed-slugs";
 
 dotenv.config({
   path: path.join(__dirname, "..", "..", ".env.local"),
@@ -61,29 +61,11 @@ if (!url) {
 const repoRoot = path.resolve(path.join(__dirname, "..", "..", ".."));
 const vaultRel = path.relative(repoRoot, config.vaultPath);
 
-function changedSlugsSinceRef(ref: string): Set<string> {
-  // Note: passing `${vaultRel}/**.md` as a pathspec silently misses
-  // nested directories on some git versions. Use the directory and
-  // filter to .md in JS.
-  const out = execFileSync(
-    "git",
-    ["log", `${ref}..HEAD`, "--name-only", "--pretty=format:", "--", `${vaultRel}/`],
-    { cwd: repoRoot, encoding: "utf8" },
-  );
-  const slugs = new Set<string>();
-  for (const line of out.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    if (!trimmed.endsWith(".md")) continue;
-    const rel = trimmed.startsWith(`${vaultRel}/`)
-      ? trimmed.slice(vaultRel.length + 1)
-      : trimmed;
-    slugs.add(rel.replace(/\.md$/, ""));
-  }
-  return slugs;
-}
-
-const skipSlugs = changedSlugsSinceRef(sinceRef);
+const skipSlugs = changedSlugsSinceRef({
+  cwd: repoRoot,
+  vaultRel,
+  ref: sinceRef,
+});
 console.log(`Skipping ${skipSlugs.size} slugs touched since ${sinceRef}:`);
 for (const s of [...skipSlugs].sort()) console.log("  -", s);
 
@@ -93,12 +75,37 @@ console.log(`\nLocal vault docs: ${localDocs.length}`);
 
 const client = new ConvexHttpClient(url);
 
+// 200 entries × ~120 bytes/each ≈ 24KB per call — well under
+// Convex's 16MB function-arg limit but small enough that a failure
+// only retries a tractable batch.
+const BATCH_SIZE = 200;
+
 let cursor: string | null = null;
 let scanned = 0;
 let alreadyMatching = 0;
 let patched = 0;
 let skippedTouched = 0;
 let missingLocal = 0;
+
+let pendingBatch: Array<{ slug: string; contentHash: string }> = [];
+
+async function flushBatch() {
+  if (pendingBatch.length === 0) return;
+  const entries = pendingBatch;
+  pendingBatch = [];
+  if (dryRun) {
+    patched += entries.length;
+    return;
+  }
+  const result = await client.mutation(api.documents.bulkSetContentHash, {
+    siteSlug,
+    hashFunctionVersion: HASH_FUNCTION_VERSION,
+    entries,
+  });
+  patched += result.patched;
+  alreadyMatching += result.alreadyMatching;
+  missingLocal += result.missing;
+}
 
 while (true) {
   const page: {
@@ -131,16 +138,10 @@ while (true) {
       alreadyMatching++;
       continue;
     }
-    if (dryRun) {
-      patched++;
-      continue;
+    pendingBatch.push({ slug: remote.slug, contentHash: newHash });
+    if (pendingBatch.length >= BATCH_SIZE) {
+      await flushBatch();
     }
-    const result = await client.mutation(api.documents.setContentHash, {
-      slug: remote.slug,
-      contentHash: newHash,
-      siteSlug,
-    });
-    if (result.patched) patched++;
   }
 
   process.stdout.write(
@@ -150,6 +151,8 @@ while (true) {
   if (page.isDone) break;
   cursor = page.continueCursor;
 }
+
+await flushBatch();
 
 process.stdout.write("\n");
 console.log(

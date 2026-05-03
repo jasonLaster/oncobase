@@ -1,7 +1,9 @@
 import { loadConfig, loadPublishToken } from "./config";
 import { readVaultAssets, readVaultDocuments } from "./walk-vault";
-import { readFlag } from "./cli";
+import { hasFlag, readFlag } from "./cli";
 import { PUBLISHER_PROTOCOL_VERSION, PUBLISHER_VERSION_HEADER } from "./version";
+import { readErrorBody } from "./http";
+import { ensureCleanVault } from "./working-tree";
 
 const site = readFlag(process.argv.slice(2), "--site");
 if (!site) {
@@ -9,8 +11,11 @@ if (!site) {
   process.exit(1);
 }
 
+const allowDirty = hasFlag(process.argv.slice(2), "--allow-dirty");
+
 const config = loadConfig(site);
 const token = loadPublishToken(site);
+ensureCleanVault(config.vaultPath, { allowDirty });
 const documents = readVaultDocuments(config.vaultPath);
 const assets = readVaultAssets(config.vaultPath);
 
@@ -42,7 +47,7 @@ if (!response.ok) {
     process.exit(1);
   }
   console.error(
-    `Publish check failed: ${response.status} ${await response.text()}`,
+    `Publish check failed: ${response.status} ${await readErrorBody(response)}`,
   );
   process.exit(1);
 }
@@ -53,7 +58,12 @@ const result = (await response.json()) as {
   missingAssetPaths: string[];
   staleDocumentSlugs?: string[];
   staleAssetPaths?: string[];
+  staleHashVersionSlugs?: string[];
 };
+
+const staleDocs = result.staleDocumentSlugs ?? [];
+const staleAssets = result.staleAssetPaths ?? [];
+const staleHashVersion = result.staleHashVersionSlugs?.length ?? 0;
 
 console.log(
   `Documents: ${result.missingDocumentSlugs.length} changed, ${
@@ -66,8 +76,18 @@ console.log(
   } unchanged`,
 );
 console.log(
-  `Stale:     ${result.staleDocumentSlugs?.length ?? 0} documents, ${
-    result.staleAssetPaths?.length ?? 0
-  } assets will be tombstoned on publish`,
+  `Stale:     ${staleDocs.length} documents, ${staleAssets.length} assets will be tombstoned on publish`,
 );
+if (staleDocs.length > 0) {
+  console.log(`  Documents: ${staleDocs.slice(0, 20).join(", ")}${staleDocs.length > 20 ? ", ..." : ""}`);
+}
+if (staleAssets.length > 0) {
+  console.log(`  Assets: ${staleAssets.slice(0, 20).join(", ")}${staleAssets.length > 20 ? ", ..." : ""}`);
+}
+if (staleHashVersion > 0) {
+  console.log(
+    `Hash format: ${staleHashVersion} of the changed documents differ only by hash format ` +
+      `(run scripts/admin/backfill-content-hashes.ts to migrate without re-uploading).`,
+  );
+}
 console.log(`Run id:    ${result.runId}`);

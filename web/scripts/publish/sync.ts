@@ -5,6 +5,7 @@ import { readFlag } from "./cli";
 import { loadConfig, loadPublishToken } from "./config";
 import { syncSkills } from "./skills";
 import { PUBLISHER_PROTOCOL_VERSION, PUBLISHER_VERSION_HEADER } from "./version";
+import { readErrorBody } from "./http";
 import {
   hashBytes,
   hashDocument,
@@ -71,7 +72,7 @@ async function post<T>(
     if (response.status === 426) {
       throw new Error(`${await response.text()}\nDownload the latest vault starter, then retry.`);
     }
-    throw new Error(`${response.status} ${await response.text()}`);
+    throw new Error(`${response.status} ${await readErrorBody(response)}`);
   }
   return (await response.json()) as T;
 }

@@ -10,12 +10,15 @@ import {
   TokenWindow,
 } from "./rate-limit";
 import {
+  HASH_FUNCTION_VERSION,
   readVaultAssets,
   readVaultDocuments,
   type PublishAsset,
   type PublishDocument,
 } from "./walk-vault";
 import { PUBLISHER_PROTOCOL_VERSION, PUBLISHER_VERSION_HEADER } from "./version";
+import { readErrorBody } from "./http";
+import { ensureCleanVault } from "./working-tree";
 
 async function post(url: string, token: string, body: unknown) {
   const response = await fetch(url, {
@@ -33,7 +36,7 @@ async function post(url: string, token: string, body: unknown) {
         `${await response.text()}\nUpdate the publisher scripts, then retry. For a vault, download the latest starter zip and copy scripts/publish/ over this vault.`,
       );
     }
-    throw new Error(`${response.status} ${await response.text()}`);
+    throw new Error(`${response.status} ${await readErrorBody(response)}`);
   }
   return await response.json();
 }
@@ -154,16 +157,18 @@ const dryRun = hasFlag(args, "--dry-run");
 const force = hasFlag(args, "--force");
 const confirmTombstone = hasFlag(args, "--confirm-tombstone") || force;
 const syncFirst = hasFlag(args, "--sync-first");
+const allowDirty = hasFlag(args, "--allow-dirty");
 
 if (!site) {
   console.error(
-    "Usage: bun scripts/publish/publish.ts --site <slug> [--dry-run] [--force] [--confirm-tombstone] [--sync-first]",
+    "Usage: bun scripts/publish/publish.ts --site <slug> [--dry-run] [--force] [--confirm-tombstone] [--sync-first] [--allow-dirty]",
   );
   process.exit(1);
 }
 
 const config = loadConfig(site);
 const token = loadPublishToken(site);
+ensureCleanVault(config.vaultPath, { allowDirty });
 
 if (syncFirst) {
   const { runSync } = await import("./sync");
@@ -175,6 +180,7 @@ const assets = readVaultAssets(config.vaultPath);
 
 const begin = (await post(`${config.publishUrl}/begin`, token, {
   siteSlug: config.site,
+  hashFunctionVersion: HASH_FUNCTION_VERSION,
   manifest: {
     documents: documents.map(({ slug, hash }) => ({ slug, hash })),
     assets: assets.map(({ relativePath, hash, kind }) => ({
@@ -191,7 +197,43 @@ const begin = (await post(`${config.publishUrl}/begin`, token, {
   missingAssetPaths: string[];
   staleDocumentSlugs?: string[];
   staleAssetPaths?: string[];
+  staleHashVersionSlugs?: string[];
 };
+
+const staleHashVersionCount = begin.staleHashVersionSlugs?.length ?? 0;
+if (staleHashVersionCount > 0) {
+  console.log(
+    `  ${staleHashVersionCount} of the changed documents differ only by hash format — run ` +
+      `\`bun scripts/admin/backfill-content-hashes.ts --site ${config.site}\` ` +
+      `to migrate hashes without re-uploading content (and embeddings).`,
+  );
+}
+
+// /begin acquires the publish lock for 10 minutes (unless dryRun).
+// Anything thrown between here and the /finish call must release
+// the lock via /abort, otherwise the next publisher gets "publish
+// already running" and an operator has to clear it manually. Track
+// whether we still own the lock and ensure the abort fires once.
+let lockHeld = !dryRun;
+async function abortIfHolding(reason: string) {
+  if (!lockHeld) return;
+  lockHeld = false;
+  await post(`${config.publishUrl}/abort`, token, {
+    siteSlug: config.site,
+    error: reason,
+  }).catch((error) => {
+    console.warn(
+      `  failed to release publish lock: ${(error as Error).message}`,
+    );
+  });
+}
+function abortOnSignal(signal: NodeJS.Signals) {
+  abortIfHolding(`publisher received ${signal}`).finally(() => {
+    process.exit(130);
+  });
+}
+process.once("SIGINT", abortOnSignal);
+process.once("SIGTERM", abortOnSignal);
 
 const changedDocs = force
   ? documents
@@ -214,6 +256,7 @@ if (!dryRun && !confirmTombstone && (staleDocCount > 0 || staleAssetCount > 0)) 
     console.error(`Assets: ${begin.staleAssetPaths.slice(0, 20).join(", ")}${begin.staleAssetPaths.length > 20 ? ", ..." : ""}`);
   }
   console.error("Re-run with --confirm-tombstone to delete these remote rows, --sync-first to fetch missing local files first, or --force to force the full publish.");
+  await abortIfHolding("aborted: stale remote rows; rerun with --confirm-tombstone");
   process.exit(1);
 }
 
@@ -226,6 +269,7 @@ if (dryRun) {
   process.exit(0);
 }
 
+try {
 const doEmbed = Boolean(process.env.OPENAI_API_KEY) && changedDocs.length > 0;
 const embeddings = doEmbed
   ? await embedInChunks(changedDocs)
@@ -237,6 +281,7 @@ await runWithConcurrency(changedDocs, DOC_CONCURRENCY, async (doc, i) => {
     runId: begin.runId,
     siteSlug: config.site,
     ...doc,
+    hashFunctionVersion: HASH_FUNCTION_VERSION,
     embedding: embeddings[i],
   });
   docsDone++;
@@ -287,9 +332,24 @@ await post(`${config.publishUrl}/finish`, token, {
   deletedDocSlugs: begin.staleDocumentSlugs ?? [],
   deletedAssetPaths: begin.staleAssetPaths ?? [],
 });
+lockHeld = false; // /finish releases the lock; don't double-abort.
 
+const tombstonedDocSlugs = begin.staleDocumentSlugs ?? [];
+const tombstonedAssetPaths = begin.staleAssetPaths ?? [];
 console.log(
   `Published ${changedDocs.length} documents, ${uploaded} assets, tombstoned ${
-    begin.staleDocumentSlugs?.length ?? 0
-  } documents and ${begin.staleAssetPaths?.length ?? 0} assets for ${config.site}.`,
+    tombstonedDocSlugs.length
+  } documents and ${tombstonedAssetPaths.length} assets for ${config.site}.`,
 );
+if (tombstonedDocSlugs.length > 0) {
+  console.log(`  Tombstoned documents: ${tombstonedDocSlugs.join(", ")}`);
+}
+if (tombstonedAssetPaths.length > 0) {
+  console.log(`  Tombstoned assets: ${tombstonedAssetPaths.join(", ")}`);
+}
+} catch (error) {
+  await abortIfHolding(
+    error instanceof Error ? error.message : String(error),
+  );
+  throw error;
+}

@@ -85,13 +85,22 @@ function sitePiiPatterns(site: { config: { piiPatterns?: string[] } }): PiiPatte
   return parseSitePiiPatterns(site.config.piiPatterns);
 }
 
+type DocHashRow = {
+  contentHash: string | undefined;
+  hashFunctionVersion: number | undefined;
+};
+
 async function currentDocumentHashes(siteData: SiteData) {
-  const hashes = new Map<string, string | undefined>();
+  const hashes = new Map<string, DocHashRow>();
   let cursor: string | null = null;
   let isDone = false;
   while (!isDone) {
     const page: {
-      page: Array<{ slug: string; contentHash: string | undefined }>;
+      page: Array<{
+        slug: string;
+        contentHash: string | undefined;
+        hashFunctionVersion?: number | undefined;
+      }>;
       isDone: boolean;
       continueCursor: string;
     } = await siteData.documents.embeddingStatusPage({
@@ -99,7 +108,10 @@ async function currentDocumentHashes(siteData: SiteData) {
       numItems: 100,
     });
     for (const doc of page.page) {
-      hashes.set(doc.slug, doc.contentHash);
+      hashes.set(doc.slug, {
+        contentHash: doc.contentHash,
+        hashFunctionVersion: doc.hashFunctionVersion,
+      });
     }
     isDone = page.isDone;
     cursor = page.continueCursor;
@@ -192,11 +204,33 @@ async function handleAssetUpload(request: Request) {
   return NextResponse.json({ ok: true, blobUrl, sizeBytes });
 }
 
+function logRouteError(step: string, error: unknown) {
+  // Centralized so any failure path that returns 500 also leaves a
+  // server-side breadcrumb. Without this, Convex query errors only
+  // surface in `bunx convex logs --prod` and the Vercel access log
+  // shows a bare 500 with no `logs:[]` — the publisher then sees
+  // "[Request ID: ...] Server Error" and the operator has to tail
+  // two log streams to find the cause.
+  const stack = error instanceof Error ? error.stack : undefined;
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`[publish] ${step} failed: ${message}`, stack ?? "");
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ step: string[] }> },
 ) {
-  const step = (await params).step.join("/");
+  let step = "<unknown>";
+
+  try {
+    step = (await params).step.join("/");
+  } catch (error) {
+    logRouteError("params", error);
+    return NextResponse.json(
+      { error: "Failed to parse route params" },
+      { status: 500 },
+    );
+  }
 
   try {
     if (step === "asset") {
@@ -249,6 +283,10 @@ export async function POST(
       const manifest = (body.manifest ?? {}) as Manifest;
       const force = Boolean(body.force);
       const dryRun = Boolean(body.dryRun);
+      const manifestHashFunctionVersion =
+        typeof body.hashFunctionVersion === "number"
+          ? body.hashFunctionVersion
+          : undefined;
       // wiki:check sets dryRun so a check doesn't acquire the lock
       // and block real publishes for ten minutes.
       if (!dryRun) {
@@ -256,14 +294,28 @@ export async function POST(
       }
 
       const existingDocHashes = await currentDocumentHashes(siteData);
-      const missingDocumentSlugs = force
-        ? (manifest.documents ?? []).map((doc) => doc.slug)
-        : (manifest.documents ?? [])
-            .filter((doc) => existingDocHashes.get(doc.slug) !== doc.hash)
-            .map((doc) => doc.slug);
-      const manifestDocumentSlugs = new Set(
-        (manifest.documents ?? []).map((doc) => doc.slug),
-      );
+      const docManifest = manifest.documents ?? [];
+      const missingDocumentSlugs: string[] = [];
+      // Subset of missingDocumentSlugs whose hash differs solely
+      // because the stored hashFunctionVersion is older than the
+      // publisher's. Surfacing this lets operators run a hash-only
+      // backfill before publishing — much cheaper than re-uploading
+      // every doc and regenerating embeddings.
+      const staleHashVersionSlugs: string[] = [];
+      for (const doc of docManifest) {
+        const existing = existingDocHashes.get(doc.slug);
+        if (force || !existing || existing.contentHash !== doc.hash) {
+          missingDocumentSlugs.push(doc.slug);
+          if (
+            existing &&
+            manifestHashFunctionVersion !== undefined &&
+            (existing.hashFunctionVersion ?? 0) < manifestHashFunctionVersion
+          ) {
+            staleHashVersionSlugs.push(doc.slug);
+          }
+        }
+      }
+      const manifestDocumentSlugs = new Set(docManifest.map((doc) => doc.slug));
       const staleDocumentSlugs = Array.from(existingDocHashes.keys()).filter(
         (slug) => !manifestDocumentSlugs.has(slug),
       );
@@ -289,16 +341,18 @@ export async function POST(
         missingAssetPaths,
         staleDocumentSlugs,
         staleAssetPaths,
+        staleHashVersionSlugs,
       });
     }
 
     if (step === "document") {
-      const { slug, title, content, tags, hash, embedding } = body as {
+      const { slug, title, content, tags, hash, hashFunctionVersion, embedding } = body as {
         slug?: string;
         title?: string;
         content?: string;
         tags?: string[];
         hash?: string;
+        hashFunctionVersion?: number;
         embedding?: number[];
       };
 
@@ -321,6 +375,7 @@ export async function POST(
         content: redactedContent,
         tags: Array.isArray(tags) ? tags : [],
         contentHash: hash,
+        hashFunctionVersion,
       });
       if (Array.isArray(embedding)) {
         await siteData.documents.upsertEmbedding({
@@ -330,6 +385,24 @@ export async function POST(
         });
       }
       revalidateTag(`site:${siteSlug}:doc:${slug}`, "default");
+      return NextResponse.json({ ok: true });
+    }
+
+    if (step === "abort") {
+      // Publisher calls this in its catch/finally so a mid-flight
+      // failure releases the publish lock immediately instead of
+      // waiting out the 10-minute TTL. The error message is best-
+      // effort context for the operator; the lock release is what
+      // matters.
+      const errorMessage =
+        typeof body.error === "string" ? body.error.slice(0, 2000) : "publisher aborted";
+      await convex
+        .mutation(api.sites.failPublish, { slug: siteSlug, error: errorMessage })
+        .catch((error) => {
+          // failPublish errors here would just confuse the caller;
+          // log and let the lock TTL out as a safety net.
+          logRouteError("abort", error);
+        });
       return NextResponse.json({ ok: true });
     }
 
@@ -366,7 +439,15 @@ export async function POST(
     return new Response(`Unknown publish step: ${step}`, { status: 404 });
   } catch (error) {
     if (error instanceof Response) return error;
+    logRouteError(step, error);
     const message = error instanceof Error ? error.message : String(error);
-    return new Response(message, { status: 500 });
+    // NextResponse.json sets Content-Type: application/json so the
+    // publisher can parse it; plain `new Response(string)` was being
+    // surfaced by Vercel as a generic "[Request ID: ...] Server
+    // Error" page in some failure modes.
+    return NextResponse.json(
+      { step, error: message },
+      { status: 500 },
+    );
   }
 }

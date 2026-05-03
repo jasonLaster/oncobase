@@ -57,6 +57,16 @@ export type PublishAsset = {
   hash: string;
 };
 
+// Bumped when the hash recipe changes (fields hashed, JSON shape,
+// whitespace handling, redaction stage, etc.). Stored alongside each
+// doc's contentHash so /begin can distinguish "content edited" from
+// "hash format upgraded" — the difference matters because a format
+// upgrade doesn't need to regenerate embeddings.
+//
+// History:
+//   1 — JSON.stringify({title, content, tags}) over RAW vault content
+export const HASH_FUNCTION_VERSION = 1;
+
 export function hashBytes(content: string | Buffer) {
   return crypto.createHash("sha256").update(content).digest("hex").slice(0, 16);
 }

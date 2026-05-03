@@ -112,6 +112,8 @@ export const getBySlug = query({
       content: doc.content,
       tags: doc.tags,
       description: doc.description,
+      contentHash: doc.contentHash,
+      hashFunctionVersion: doc.hashFunctionVersion,
     };
   },
 });
@@ -253,12 +255,20 @@ export const upsert = mutation({
     content: v.string(),
     tags: v.array(v.string()),
     contentHash: v.string(),
+    hashFunctionVersion: v.optional(v.number()),
   },
-  handler: async (ctx, { siteSlug, slug, title, content, tags, contentHash }) => {
+  handler: async (
+    ctx,
+    { siteSlug, slug, title, content, tags, contentHash, hashFunctionVersion },
+  ) => {
     const site = await requireSite(ctx, siteSlug);
     const existing = await findDocBySlug(ctx, site, slug);
     if (existing) {
-      if (existing.contentHash === contentHash && !existing.deletedAt) {
+      if (
+        existing.contentHash === contentHash &&
+        existing.hashFunctionVersion === hashFunctionVersion &&
+        !existing.deletedAt
+      ) {
         return { skipped: true };
       }
       await ctx.db.patch(existing._id, {
@@ -266,6 +276,7 @@ export const upsert = mutation({
         content,
         tags,
         contentHash,
+        hashFunctionVersion,
         siteId: site.siteId ?? existing.siteId,
         deletedAt: undefined,
         updatedAt: Date.now(),
@@ -279,6 +290,7 @@ export const upsert = mutation({
       content,
       tags,
       contentHash,
+      hashFunctionVersion,
       updatedAt: Date.now(),
     });
     return { skipped: false };
@@ -301,6 +313,43 @@ export const setContentHash = mutation({
     if (doc.contentHash === contentHash) return { found: true, patched: false };
     await ctx.db.patch(doc._id, { contentHash });
     return { found: true, patched: true };
+  },
+});
+
+// Bulk variant of setContentHash. Backfilling 4000+ rows
+// one-mutation-per-call took ~90s; one mutation per batch of 200
+// finishes in seconds. Convex enforces a 16MB function-arg cap, so
+// callers must batch.
+export const bulkSetContentHash = mutation({
+  args: {
+    siteSlug: v.optional(v.string()),
+    hashFunctionVersion: v.optional(v.number()),
+    entries: v.array(
+      v.object({ slug: v.string(), contentHash: v.string() }),
+    ),
+  },
+  handler: async (ctx, { siteSlug, hashFunctionVersion, entries }) => {
+    const site = await requireSite(ctx, siteSlug);
+    let patched = 0;
+    let alreadyMatching = 0;
+    let missing = 0;
+    for (const { slug, contentHash } of entries) {
+      const doc = await findDocBySlug(ctx, site, slug);
+      if (!doc) {
+        missing++;
+        continue;
+      }
+      if (
+        doc.contentHash === contentHash &&
+        doc.hashFunctionVersion === hashFunctionVersion
+      ) {
+        alreadyMatching++;
+        continue;
+      }
+      await ctx.db.patch(doc._id, { contentHash, hashFunctionVersion });
+      patched++;
+    }
+    return { patched, alreadyMatching, missing };
   },
 });
 
@@ -465,6 +514,7 @@ export const embeddingStatusPage = query({
         .map((doc) => ({
           slug: doc.slug,
           contentHash: doc.contentHash,
+          hashFunctionVersion: doc.hashFunctionVersion,
           embeddingHash: doc.embeddingHash,
         })),
       isDone: result.isDone,
