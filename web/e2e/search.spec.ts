@@ -76,6 +76,11 @@ test.describe("Search", () => {
     await page.goto("/");
     const searchInput = page.locator("header").locator('input[name="q"]');
     await expect(searchInput).toBeEditable({ timeout: 10_000 });
+    // The form's onSubmit handler is attached during React hydration.
+    // Pressing Enter before hydration triggers a native GET against the
+    // current URL (the form has no action attribute) and we land on "/"
+    // instead of "/search?q=…".
+    await page.waitForTimeout(1_000);
     await searchInput.fill(SEARCH_QUERY);
     await searchInput.press("Enter");
 

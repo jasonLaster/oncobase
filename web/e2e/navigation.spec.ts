@@ -71,6 +71,10 @@ test.describe("Page viewing & sidebar navigation", () => {
   test("command palette opens with Ctrl+K", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("button", { name: /Find files/ })).toBeVisible();
+    // The Cmd+K handler is registered in a useEffect after hydration.
+    // Pressing the shortcut before that resolves is a no-op on slow CI
+    // runners — same workaround used at line 100.
+    await page.waitForTimeout(1_000);
     await page.keyboard.press("Control+k");
     await expect(
       page.locator('[role="dialog"] [role="combobox"]').first()

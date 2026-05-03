@@ -527,13 +527,25 @@ async function getFirstTableMetrics(page: Page) {
       layer?.querySelector<HTMLElement>(":scope > .table-scroll-wrapper") ??
       shell?.querySelector<HTMLElement>("[data-smart-table-wrapper]") ??
       document.querySelector<HTMLElement>("[data-smart-table-wrapper]");
+    const isMeasurable = (element: HTMLElement) => {
+      const elRect = element.getBoundingClientRect();
+      const elStyle = window.getComputedStyle(element);
+      return (
+        elRect.width > 0 &&
+        elRect.height > 0 &&
+        elStyle.display !== "none" &&
+        elStyle.visibility !== "hidden"
+      );
+    };
     const leftCollapsedButton = document.querySelector<HTMLElement>('[aria-label="Expand sidebar"]');
     const leftExpandedButton = document.querySelector<HTMLElement>('[aria-label="Collapse sidebar"]');
+    const collapsedRail = leftCollapsedButton?.parentElement;
+    const expandedRail = leftExpandedButton?.parentElement;
     const leftRail =
-      leftCollapsedButton?.parentElement instanceof HTMLElement
-        ? leftCollapsedButton.parentElement
-        : leftExpandedButton?.parentElement instanceof HTMLElement
-          ? leftExpandedButton.parentElement
+      collapsedRail instanceof HTMLElement && isMeasurable(collapsedRail)
+        ? collapsedRail
+        : expandedRail instanceof HTMLElement && isMeasurable(expandedRail)
+          ? expandedRail
           : null;
     const rightRail = document.querySelector<HTMLElement>("aside.hidden.lg\\:flex.fixed.right-0");
     const scrollOwner = shell ? getVerticalScrollContainer(shell) : null;
