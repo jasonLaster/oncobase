@@ -177,6 +177,17 @@ body {
 .prose hr { border: none; border-top: 1px solid var(--sidebar-border); margin: 1.5rem 0; }
 .prose strong { font-weight: 600; }
 .prose img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+.prose img[data-theater-image] {
+  cursor: zoom-in;
+  transition: filter 120ms ease, outline-color 120ms ease;
+}
+.prose img[data-theater-image]:hover {
+  filter: brightness(0.97);
+}
+.prose img[data-theater-image]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
 
 .heading-anchor {
   margin-left: 0.5rem;

@@ -3,6 +3,7 @@ import { renderMarkdown, renderMarkdownAsync } from "@/lib/render-markdown";
 import { MarkdownHeadingAnchors } from "@/components/markdown-heading-anchors";
 import { MermaidRenderer } from "@/components/mermaid-renderer";
 import { InteractiveTables } from "@/components/interactive-tables";
+import { ImageTheater } from "@/components/image-theater";
 
 export function MarkdownRenderer({
   content,
@@ -27,6 +28,7 @@ export function MarkdownRenderer({
       />
       <InteractiveTables />
       <MermaidRenderer />
+      <ImageTheater />
     </div>
   );
 }
@@ -55,6 +57,7 @@ export async function MarkdownRendererAsync({
       />
       <InteractiveTables />
       <MermaidRenderer />
+      <ImageTheater />
     </div>
   );
 }

@@ -189,6 +189,18 @@ describe("renderMarkdown theme-paired images", () => {
     expect(html).not.toContain("foo-dark.png");
     expect(html).not.toContain("dark:hidden");
   });
+
+  test("marks rendered images as theater-openable controls", () => {
+    const html = renderMarkdown(
+      `<img src="./images/foo.png" alt="Figure 1">`,
+      "wiki/example",
+    );
+
+    expect(html).toContain("data-theater-image");
+    expect(html).toContain('role="button"');
+    expect(html).toContain('tabindex="0"');
+    expect(html).toContain('aria-label="Open image: Figure 1"');
+  });
 });
 
 describe("normalizeMathValue", () => {

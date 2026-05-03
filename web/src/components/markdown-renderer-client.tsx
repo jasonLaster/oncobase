@@ -11,6 +11,7 @@ import {
 } from "@/components/markdown-table";
 import { resolveWikilinks } from "@/lib/wikilinks";
 import { MarkdownHeadingAnchors } from "@/components/markdown-heading-anchors";
+import { TheaterImage } from "@/components/image-theater";
 import {
   markdownRehypePlugins,
   markdownRemarkPlugins,
@@ -44,6 +45,7 @@ export function MarkdownRendererClient({
           tr: MdTr,
           th: MdTh,
           td: MdTd,
+          img: TheaterImage,
         }}
       >
         {citationLinked}

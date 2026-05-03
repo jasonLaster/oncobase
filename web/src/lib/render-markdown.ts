@@ -22,7 +22,7 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "23";
+const PIPELINE_VERSION = "24";
 
 // ─── Mermaid pre-processor ────────────────────────────────────────────────────
 //
@@ -134,6 +134,31 @@ function decorateRenderedTables(html: string): string {
   }, wrappedTables);
 }
 
+function decorateRenderedImages(html: string): string {
+  return html.replace(/<img\b([^>]*?)\s*\/?>/g, (match, rawAttributes: string) => {
+    if (/\bdata-theater-image\b/.test(rawAttributes)) return match;
+
+    let attributes = rawAttributes;
+    const alt = attributes.match(/\balt="([^"]*)"/)?.[1];
+    const label = alt ? `Open image: ${alt}` : "Open image";
+
+    const additions: Record<string, string> = {
+      "data-theater-image": "",
+      role: "button",
+      tabindex: "0",
+      "aria-label": label,
+    };
+
+    Object.entries(additions).forEach(([name, value]) => {
+      if (!new RegExp(`\\b${name}=`).test(attributes)) {
+        attributes += value ? ` ${name}="${value}"` : ` ${name}`;
+      }
+    });
+
+    return `<img${attributes}>`;
+  });
+}
+
 /**
  * Strip .md extension from relative href values in rendered HTML so links like
  * <a href="foo.md"> resolve to the correct slug route (/foo) instead of 404ing.
@@ -212,6 +237,7 @@ function fixImageSrcs(html: string, currentSlug?: string): string {
         : currentSlug;
       resolvedPath = `${dir}/${src}`;
     }
+    resolvedPath = path.posix.normalize(resolvedPath);
 
     return `${before}src="/api/file?path=${encodeURIComponent(resolvedPath)}"${after}`;
   });
@@ -285,7 +311,9 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
   const cleanMd = stripLegacyTableDirectives(mermaidExtracted);
   const raw = processor.processSync(cleanMd).toString();
   const wrapped = decorateRenderedTables(raw);
-  const html = fixPdfLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped)), currentSlug));
+  const html = decorateRenderedImages(
+    fixPdfLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped)), currentSlug))
+  );
 
   try {
     ensureCacheDir();
@@ -321,7 +349,9 @@ export async function renderMarkdownAsync(md: string, currentSlug?: string): Pro
   const tPipeline = performance.now();
 
   const wrapped = decorateRenderedTables(raw);
-  const html = fixPdfLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped)), currentSlug));
+  const html = decorateRenderedImages(
+    fixPdfLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped)), currentSlug))
+  );
 
   console.log(
     `[perf] renderMarkdown cache-miss slug=${currentSlug} ` +
