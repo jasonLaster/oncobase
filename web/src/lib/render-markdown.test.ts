@@ -74,6 +74,18 @@ describe("renderMarkdown example tables", () => {
     expect(html).not.toContain("$\\gamma$");
   });
 
+  test("does not render currency ranges as inline latex", () => {
+    const html = renderMarkdown(
+      "| Stage | Cost |\n| --- | --- |\n| 1 | ~$60,000 |\n| 3 | $50,000-$70,000 |\n| Total | $180,000-$200,000 |",
+      "table-examples/currency-ranges"
+    );
+
+    expect(html).not.toContain('class="katex"');
+    expect(html).toContain("~$60,000");
+    expect(html).toContain("$50,000-$70,000");
+    expect(html).toContain("$180,000-$200,000");
+  });
+
   test("turns numeric bracket citations into links to the references section", () => {
     const html = renderMarkdown(
       "Clinically significant complications are rare [1-3].\n\n## References\n\n1. One\n2. Two\n3. Three",

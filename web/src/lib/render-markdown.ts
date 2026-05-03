@@ -22,7 +22,7 @@ const processor = unified()
   .use(rehypeStringify);
 
 // Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "24";
+const PIPELINE_VERSION = "25";
 
 // ─── Mermaid pre-processor ────────────────────────────────────────────────────
 //
@@ -63,6 +63,13 @@ function extractMermaidBlocks(md: string): string {
 
 function stripLegacyTableDirectives(md: string): string {
   return md.replace(/^\s*<!--\s*table-cols:\s*.*?-->\s*$/gm, "");
+}
+
+function escapeCurrencyDollars(md: string): string {
+  return md.replace(
+    /(^|[^\\])\$(?=\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:\b|[-–—]))/g,
+    "$1\\$"
+  );
 }
 
 type TagDecoration = {
@@ -308,7 +315,7 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
 
   const citationLinked = preprocessCitationMarkdown(md);
   const mermaidExtracted = extractMermaidBlocks(citationLinked);
-  const cleanMd = stripLegacyTableDirectives(mermaidExtracted);
+  const cleanMd = escapeCurrencyDollars(stripLegacyTableDirectives(mermaidExtracted));
   const raw = processor.processSync(cleanMd).toString();
   const wrapped = decorateRenderedTables(raw);
   const html = decorateRenderedImages(
@@ -344,7 +351,7 @@ export async function renderMarkdownAsync(md: string, currentSlug?: string): Pro
   const mermaidExtracted = extractMermaidBlocks(citationLinked);
   const tMermaid = performance.now();
 
-  const cleanMd = stripLegacyTableDirectives(mermaidExtracted);
+  const cleanMd = escapeCurrencyDollars(stripLegacyTableDirectives(mermaidExtracted));
   const raw = (await processor.process(cleanMd)).toString();
   const tPipeline = performance.now();
 
