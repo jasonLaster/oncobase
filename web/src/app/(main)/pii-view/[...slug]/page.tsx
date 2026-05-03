@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import {
   generateDocumentMetadata,
   renderDocumentPage,
@@ -18,5 +19,9 @@ export default function PiiDocPage({
 }: {
   params: Promise<{ slug: string[] }>;
 }) {
+  if (process.env.VERCEL_ENV === "preview") {
+    return connection().then(() => renderDocumentPage({ params, showPii: true }));
+  }
+
   return renderDocumentPage({ params, showPii: true });
 }

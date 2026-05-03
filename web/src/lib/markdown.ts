@@ -1,7 +1,8 @@
-import { cache } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { headers } from "next/headers";
 import { siteDataFromSlug } from "@/lib/site-data";
 import { DEFAULT_SITE_SLUG, toSiteSlug, type SiteSlug } from "@/lib/site";
+import { shouldSkipConvexReads } from "@/lib/convex-url";
 import type { PiiRedactionMode } from "@/lib/pii-redaction";
 
 // Resolve the active site from the proxy-set `x-site-slug` header.
@@ -12,14 +13,6 @@ async function readSiteSlug(): Promise<SiteSlug> {
   } catch {
     return toSiteSlug(DEFAULT_SITE_SLUG);
   }
-}
-
-// CI runs `next build` with NEXT_PUBLIC_CONVEX_URL pointed at a
-// placeholder host so it can verify the bundle compiles without a
-// live Convex backend. The readers below short-circuit to empty data
-// in that case so static prerender doesn't crash on unreachable URLs.
-function isBuildPlaceholderConvex(): boolean {
-  return process.env.NEXT_PUBLIC_CONVEX_URL === "https://placeholder.convex.cloud";
 }
 
 // All reads route through Convex. The publisher CLI in
@@ -72,11 +65,16 @@ export function isHiddenFileTreePath(path: string): boolean {
 async function fetchAllDocsForSite(
   siteSlug: SiteSlug,
 ): Promise<Array<{ slug: string; title: string; tags: string[] }>> {
-if (isBuildPlaceholderConvex()) return [];
+  "use cache";
+  cacheLife("max");
+  cacheTag(`site:${siteSlug}`);
+  if (shouldSkipConvexReads()) return [];
   return await siteDataFromSlug(siteSlug).documents.list();
 }
 
-const fetchAllDocs = cache(async () => fetchAllDocsForSite(await readSiteSlug()));
+async function fetchAllDocs() {
+  return fetchAllDocsForSite(await readSiteSlug());
+}
 
 async function paginateAssetPaths(
   fetchPage: (args: { cursor: string | null; numItems: number }) => Promise<{
@@ -98,7 +96,10 @@ async function paginateAssetPaths(
 }
 
 async function fetchAllPdfPathsForSite(siteSlug: SiteSlug): Promise<string[]> {
-  if (isBuildPlaceholderConvex()) return [];
+  "use cache";
+  cacheLife("max");
+  cacheTag(`site:${siteSlug}`);
+  if (shouldSkipConvexReads()) return [];
   const siteData = siteDataFromSlug(siteSlug);
   try {
     return await paginateAssetPaths((args) =>
@@ -115,7 +116,10 @@ async function fetchAllPdfPathsForSite(siteSlug: SiteSlug): Promise<string[]> {
 }
 
 async function fetchAllFilePathsForSite(siteSlug: SiteSlug): Promise<string[]> {
-  if (isBuildPlaceholderConvex()) return [];
+  "use cache";
+  cacheLife("max");
+  cacheTag(`site:${siteSlug}`);
+  if (shouldSkipConvexReads()) return [];
   const siteData = siteDataFromSlug(siteSlug);
   try {
     return await paginateAssetPaths((args) =>
@@ -131,22 +135,42 @@ async function fetchAllFilePathsForSite(siteSlug: SiteSlug): Promise<string[]> {
   }
 }
 
-const fetchAllPdfPaths = cache(async () =>
-  fetchAllPdfPathsForSite(await readSiteSlug()),
-);
-const fetchAllFilePaths = cache(async () =>
-  fetchAllFilePathsForSite(await readSiteSlug()),
-);
+async function fetchAllPdfPaths() {
+  return fetchAllPdfPathsForSite(await readSiteSlug());
+}
 
-const fetchCanonicalSlugMap = cache(async (): Promise<Map<string, string>> => {
-  const docs = await fetchAllDocs();
-  const map = new Map<string, string>();
+async function fetchAllFilePaths() {
+  return fetchAllFilePathsForSite(await readSiteSlug());
+}
+
+async function fetchCanonicalSlugEntriesForSite(
+  siteSlug: SiteSlug,
+): Promise<Array<[string, string]>> {
+  "use cache";
+  cacheLife("max");
+  cacheTag(`site:${siteSlug}`);
+  const docs = await fetchAllDocsForSite(siteSlug);
+  const entries: Array<[string, string]> = [];
+  const seen = new Set<string>();
   for (const doc of docs) {
     const lower = doc.slug.toLowerCase();
-    if (!map.has(lower)) map.set(lower, doc.slug);
+    if (!seen.has(lower)) {
+      entries.push([lower, doc.slug]);
+      seen.add(lower);
+    }
   }
-  return map;
-});
+  return entries;
+}
+
+async function fetchCanonicalSlugMapForSite(
+  siteSlug: SiteSlug,
+): Promise<Map<string, string>> {
+  return new Map(await fetchCanonicalSlugEntriesForSite(siteSlug));
+}
+
+async function fetchCanonicalSlugMap(): Promise<Map<string, string>> {
+  return fetchCanonicalSlugMapForSite(await readSiteSlug());
+}
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -154,13 +178,17 @@ async function getMarkdownFileForSite(
   siteSlug: SiteSlug,
   slug: string,
 ): Promise<MarkdownFile | null> {
-if (isBuildPlaceholderConvex()) return null;
+  "use cache";
+  cacheLife("max");
+  cacheTag(`site:${siteSlug}`, `site:${siteSlug}:doc:${slug}`);
+  if (shouldSkipConvexReads()) return null;
   const siteData = siteDataFromSlug(siteSlug);
   let doc = await siteData.documents.getBySlug({ slug });
   if (!doc) {
     doc = await siteData.documents.getBySlug({ slug: `${slug}/index` });
   }
   if (!doc) return null;
+  cacheTag(`site:${siteSlug}:doc:${doc.slug}`);
 
   const tags = Array.isArray(doc.tags) ? doc.tags : [];
   const frontmatter: Record<string, unknown> = { tags };
@@ -240,7 +268,10 @@ export async function getCanonicalSlug(slug: string): Promise<string | null> {
 }
 
 async function getAllTagsForSite(siteSlug: SiteSlug): Promise<string[]> {
-if (isBuildPlaceholderConvex()) return [];
+  "use cache";
+  cacheLife("max");
+  cacheTag(`site:${siteSlug}`);
+  if (shouldSkipConvexReads()) return [];
   const tags = await siteDataFromSlug(siteSlug).documents.listTags();
   return tags
     .map((t: string) => t.toLowerCase())
@@ -255,7 +286,10 @@ async function getPagesByTagForSite(
   siteSlug: SiteSlug,
   tag: string,
 ): Promise<Array<{ slug: string; title: string }>> {
-if (isBuildPlaceholderConvex()) return [];
+  "use cache";
+  cacheLife("max");
+  cacheTag(`site:${siteSlug}`);
+  if (shouldSkipConvexReads()) return [];
   // Convex `getByTag` matches case-sensitively; tags are lowercased at
   // publish time, so the lookup just needs the normalized form.
   return await siteDataFromSlug(siteSlug).documents.getByTag({

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import {
   DocumentPage,
   generateDocumentMetadata,
@@ -23,5 +24,9 @@ export default function DocPage({
 }: {
   params: Promise<{ slug: string[] }>;
 }) {
+  if (process.env.VERCEL_ENV === "preview") {
+    return connection().then(() => <DocumentPage params={params} />);
+  }
+
   return <DocumentPage params={params} />;
 }

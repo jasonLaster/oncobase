@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { connection } from "next/server";
 import {
   getAllSlugs,
   getCanonicalSlug,
@@ -20,7 +21,9 @@ const ISR_DEFERRED_PREFIXES = ["sources/"];
 // content from prod Convex per request, so there's no static benefit
 // to building the page tree at preview time. Production seeds the
 // most-trafficked pages via generateDocumentStaticParams below.
-const PREVIEW_STATIC_PARAMS: { slug: string[] }[] = [];
+const CACHE_COMPONENTS_VALIDATION_PARAMS: { slug: string[] }[] = [
+  { slug: ["about", "Index"] },
+];
 const ROUTE_SLUG_ALIASES = new Map([["about/index", "index"]]);
 const ROUTE_ALIAS_CANONICAL_PATHS = new Map([["about/index", "about/Index"]]);
 
@@ -32,9 +35,9 @@ export async function generateDocumentStaticParams() {
   const t0 = Date.now();
   if (isPreviewDeployment()) {
     console.log(
-      `[build] preview generateStaticParams: ${PREVIEW_STATIC_PARAMS.length} seed page in ${Date.now() - t0}ms`
+      `[build] preview generateStaticParams: ${CACHE_COMPONENTS_VALIDATION_PARAMS.length} seed page in ${Date.now() - t0}ms`
     );
-    return PREVIEW_STATIC_PARAMS;
+    return CACHE_COMPONENTS_VALIDATION_PARAMS;
   }
 
   const all = await getAllSlugs();
@@ -46,7 +49,9 @@ export async function generateDocumentStaticParams() {
     .map((slug) => ({
       slug: slug.split("/"),
     }));
-  params.unshift(...PREVIEW_STATIC_PARAMS);
+  if (params.length === 0) {
+    params.unshift(...CACHE_COMPONENTS_VALIDATION_PARAMS);
+  }
   console.log(`[build] generateStaticParams: ${params.length}/${all.length} pages in ${Date.now() - t0}ms`);
   return params;
 }
@@ -54,6 +59,10 @@ export async function generateDocumentStaticParams() {
 export async function generateDocumentMetadata(
   params: Promise<{ slug: string[] }>
 ): Promise<Metadata> {
+  if (isPreviewDeployment()) {
+    await connection();
+  }
+
   const { slug } = await params;
   const page = await getMarkdownPageMetadata(slug.join("/"));
   return page ? toNextMetadata(page) : {};
@@ -117,6 +126,10 @@ export async function renderDocumentPage({
   params: Promise<{ slug: string[] }>;
   showPii?: boolean;
 }) {
+  if (isPreviewDeployment()) {
+    await connection();
+  }
+
   const { slug } = await params;
   const filePath = slug.map(decodeURIComponent).join("/");
 

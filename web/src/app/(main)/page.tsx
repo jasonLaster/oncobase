@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { getMarkdownFile } from "@/lib/markdown";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { DocumentComments } from "@/components/document-comments-wrapper";
@@ -16,6 +17,10 @@ export const metadata: Metadata = {
 const HOME_SLUG = "index";
 
 export default async function Home() {
+  if (process.env.VERCEL_ENV === "preview") {
+    await connection();
+  }
+
   const file = await getMarkdownFile(HOME_SLUG);
 
   if (!file) {

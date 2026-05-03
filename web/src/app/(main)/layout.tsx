@@ -1,28 +1,45 @@
+import { Suspense } from "react";
 import { Header } from "@/components/header";
 import { NavigationShell } from "@/components/navigation-shell";
 import { WebChatRuntimeProvider } from "@/components/chat-runtime-provider";
-import { getFileTree } from "@/lib/markdown";
 
-// Every page under (main) reads the active site from x-site-slug
-// (set by the multi-tenant proxy) and pulls content from Convex per
-// request. Force the segment dynamic so build-time prerender doesn't
-// try to hit Convex without a request context.
-export const dynamic = "force-dynamic";
+function MainContentFallback() {
+  return (
+    <div className="h-full overflow-y-auto" role="status" aria-label="Loading page">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-4 md:px-8 md:py-8">
+        <div className="min-w-0 flex-1">
+          <article className="relative mx-auto max-w-4xl overflow-visible pr-4 md:pr-8">
+            <div className="mb-6 flex items-start justify-between gap-3">
+              <div className="h-9 w-2/3 max-w-2xl animate-pulse rounded-md bg-[var(--accent-light)]" />
+              <div className="h-8 w-8 shrink-0 animate-pulse rounded-md bg-[var(--accent-light)]" />
+            </div>
+            <div className="space-y-4">
+              <div className="h-4 w-full animate-pulse rounded bg-[var(--accent-light)]" />
+              <div className="h-4 w-[92%] animate-pulse rounded bg-[var(--accent-light)]" />
+              <div className="h-4 w-[76%] animate-pulse rounded bg-[var(--accent-light)]" />
+              <div className="h-28 w-full animate-pulse rounded-lg bg-[var(--accent-light)]" />
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-export default async function MainLayout({
+export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const tree = await getFileTree();
-
   return (
     <WebChatRuntimeProvider>
       <div className="grid grid-rows-[auto_1fr] h-dvh overflow-hidden">
-        <Header />
-        <NavigationShell initialTree={tree}>
-          {children}
-        </NavigationShell>
+        <Suspense fallback={<div className="h-12 shrink-0 border-b border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]" />}>
+          <Header />
+        </Suspense>
+        <Suspense fallback={<MainContentFallback />}>
+          <NavigationShell initialTree={[]}>{children}</NavigationShell>
+        </Suspense>
       </div>
     </WebChatRuntimeProvider>
   );

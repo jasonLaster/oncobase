@@ -2,11 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getPagesByTag } from "@/lib/markdown";
 
-// Tags resolve from the active site (x-site-slug header), so the
-// route is dynamic per request. The underlying Convex query is still
-// memoized in-render via React cache().
-export const dynamic = "force-dynamic";
-
 export async function generateMetadata({
   params,
 }: {

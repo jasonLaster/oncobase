@@ -3,13 +3,7 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  // Cache Components (PPR) was useful when content came from disk and
-  // every page was effectively static. With Convex-backed reads + the
-  // multi-tenant proxy, every render depends on the request's
-  // x-site-slug header, so PPR can't statically prerender pages
-  // anyway. Disabled for now; revisit when we add per-site
-  // cache tags + prerender on publish.
-  cacheComponents: false,
+  cacheComponents: true,
   async redirects() {
     const wikiRedirects: Record<string, string> = {
       // diagnostics

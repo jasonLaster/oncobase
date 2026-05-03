@@ -16,6 +16,12 @@ async function expandIfCollapsed(nav: ReturnType<import("@playwright/test").Page
   }
 }
 
+async function waitForSidebarTree(nav: ReturnType<import("@playwright/test").Page["locator"]>) {
+  await expect(
+    nav.getByRole("button", { name: /^[▶▼]\s*sources$/ }).first()
+  ).toBeVisible({ timeout: 30_000 });
+}
+
 async function expandFirstPdfSet(nav: ReturnType<import("@playwright/test").Page["locator"]>) {
   const pdfSet = nav.getByRole("button", { name: /PDF set$/ }).first();
   await expect(pdfSet).toBeVisible();
@@ -30,10 +36,13 @@ test.describe("Sidebar source files", () => {
     await page.goto("/");
     const nav = page.locator(sidebar);
 
+    await waitForSidebarTree(nav);
     // sources is open at depth=0 by default — no click needed
+    await expandIfCollapsed(nav, "sources");
     await expandIfCollapsed(nav, "institutions");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");
+    await expandFirstPdfSet(nav);
 
     const sourceLinks = nav.locator('a[href^="/sources/institutions/stanford/telli/"]');
     await expect(sourceLinks.first()).toBeVisible();
@@ -44,6 +53,8 @@ test.describe("Sidebar source files", () => {
     await page.goto("/");
     const nav = page.locator(sidebar);
 
+    await waitForSidebarTree(nav);
+    await expandIfCollapsed(nav, "sources");
     await expandIfCollapsed(nav, "wiki");
     await expandIfCollapsed(nav, "research");
 
@@ -64,7 +75,9 @@ test.describe("Sidebar PDF files", () => {
     await page.goto("/");
     const nav = page.locator(sidebar);
 
+    await waitForSidebarTree(nav);
     // sources is open at depth=0 by default — no click needed
+    await expandIfCollapsed(nav, "sources");
     await expandIfCollapsed(nav, "institutions");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");
@@ -78,6 +91,8 @@ test.describe("Sidebar PDF files", () => {
     await page.goto("/");
     const nav = page.locator(sidebar);
 
+    await waitForSidebarTree(nav);
+    await expandIfCollapsed(nav, "sources");
     await expandIfCollapsed(nav, "institutions");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");
@@ -92,6 +107,8 @@ test.describe("Sidebar PDF files", () => {
     await page.goto("/");
     const nav = page.locator(sidebar);
 
+    await waitForSidebarTree(nav);
+    await expandIfCollapsed(nav, "sources");
     await expandIfCollapsed(nav, "institutions");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");
@@ -105,6 +122,8 @@ test.describe("Sidebar PDF files", () => {
     await page.goto("/");
     const nav = page.locator(sidebar);
 
+    await waitForSidebarTree(nav);
+    await expandIfCollapsed(nav, "sources");
     await expandIfCollapsed(nav, "institutions");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");

@@ -49,6 +49,20 @@ test.describe("source loading boundary", () => {
     await expect(nextErrorOverlay(page)).toHaveCount(0);
   });
 
+  test("source route shell includes the loading state before streamed content", async ({
+    page,
+  }) => {
+    const response = await page.request.get(SOURCE_ROUTE);
+    expect(response.ok()).toBe(true);
+    const html = await response.text();
+
+    expect(html).toContain('role="status" aria-label="Loading page"');
+    expect(html).toContain(
+      "ZEST \u2014 Niraparib vs Placebo in ctDNA-Positive Breast Cancer"
+    );
+    expect(html).not.toContain("$RX(");
+  });
+
   test("command palette Enter opens wiki results without the source loading shell", async ({ page }) => {
     await page.goto("/", { waitUntil: "networkidle" });
     await delayRoutePayload(page, WIKI_ROUTE);

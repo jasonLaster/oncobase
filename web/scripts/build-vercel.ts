@@ -1,6 +1,10 @@
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
+import {
+  isPlaceholderConvexUrl,
+  PROD_CONVEX_FALLBACK_URL,
+} from "../src/lib/convex-url";
 
 const ROOT = path.join(__dirname, "..");
 const CONVEX_URL_FILE = path.join(ROOT, ".convex-deployment-url");
@@ -59,13 +63,16 @@ if (isProductionDeploy) {
   // data is what users see in production). If the Vercel env var is
   // unset/empty, fall back to the well-known prod Convex URL so the
   // build still produces a working preview.
-  const PROD_CONVEX_FALLBACK = "https://youthful-cricket-560.convex.cloud";
   const fromEnv = process.env.NEXT_PUBLIC_CONVEX_URL?.trim() || "";
-  convexUrl = fromEnv || PROD_CONVEX_FALLBACK;
+  convexUrl = fromEnv && !isPlaceholderConvexUrl(fromEnv)
+    ? fromEnv
+    : PROD_CONVEX_FALLBACK_URL;
   console.log(
     `Skipping Convex deploy (VERCEL_ENV=${process.env.VERCEL_ENV ?? "unset"}); ` +
       `using NEXT_PUBLIC_CONVEX_URL=${convexUrl}` +
-      (fromEnv ? "" : " (fallback — env var was empty)"),
+      (fromEnv && !isPlaceholderConvexUrl(fromEnv)
+        ? ""
+        : " (fallback — env var was empty or placeholder)"),
   );
 }
 

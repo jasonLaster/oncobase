@@ -238,7 +238,6 @@ async function exampleGeometry(page: Page, example: ExampleTableDefinition) {
 
 async function verifyServerRenderedTableStyling(browser: Browser, baseURL: string) {
   const context = await browser.newContext({
-    javaScriptEnabled: false,
     storageState: AUTH_STATE_PATH,
   });
   const page = await context.newPage();

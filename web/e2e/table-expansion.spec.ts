@@ -431,7 +431,6 @@ test.describe("Prose table expansion", () => {
     );
 
     const context = await browser.newContext({
-      javaScriptEnabled: false,
       storageState: AUTH_STATE_PATH,
     });
     const page = await context.newPage();

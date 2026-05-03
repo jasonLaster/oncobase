@@ -384,7 +384,7 @@ export async function POST(
           embeddingHash: hash,
         });
       }
-      revalidateTag(`site:${siteSlug}:doc:${slug}`, "default");
+      revalidateTag(`site:${siteSlug}:doc:${slug}`, { expire: 0 });
       return NextResponse.json({ ok: true });
     }
 
@@ -425,7 +425,7 @@ export async function POST(
           }
         }
         await convex.mutation(api.sites.finishPublish, { slug: siteSlug });
-        revalidateTag(`site:${siteSlug}`, "default");
+        revalidateTag(`site:${siteSlug}`, { expire: 0 });
         return NextResponse.json({ ok: true });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

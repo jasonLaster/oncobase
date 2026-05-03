@@ -4,9 +4,6 @@ export const metadata = {
   title: "Medical Expense Deduction Calculator",
 };
 
-// Embeds a Convex-using client component; render dynamic.
-export const dynamic = "force-dynamic";
-
 export default function MedicalDeductionPage() {
   return (
     <div className="h-full overflow-y-auto">

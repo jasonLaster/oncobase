@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "sonner";
+import { Suspense } from "react";
 import { CommandPalette, OutlinePalette, ActionPalette } from "@/components/command-palette";
 import { ConvexClientProvider } from "@/components/convex-provider";
 import "@liveblocks/react-ui/styles.css";
@@ -67,9 +68,11 @@ export default function RootLayout({
       </head>
       <body className="min-h-full">
         <ConvexClientProvider>{children}</ConvexClientProvider>
-        <CommandPalette />
-        <OutlinePalette />
-        <ActionPalette />
+        <Suspense fallback={null}>
+          <CommandPalette />
+          <OutlinePalette />
+          <ActionPalette />
+        </Suspense>
         <Toaster richColors closeButton position="bottom-right" theme="system" />
         <Analytics />
       </body>
