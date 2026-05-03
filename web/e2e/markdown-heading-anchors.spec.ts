@@ -65,12 +65,9 @@ async function clickHeadingUntilHash(page: Page, selector: string, expectedHash:
 }
 
 test.describe("Markdown heading anchors", () => {
+  // Click-to-update-hash also runs on prod now; the rest of the suite
+  // already does, and the prod render path emits the same anchor ids.
   test("clicking a markdown heading updates the URL hash", async ({ page }) => {
-    test.skip(
-      process.env.TEST_ENV === "prod",
-      "Production-like runs validate hash navigation via deep links and TOC links."
-    );
-
     await page.goto("/wiki/updates/week-5-april-12-to-18");
 
     const heading = page.locator(".prose h2[id]").first();

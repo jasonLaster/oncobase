@@ -10,6 +10,7 @@ import localHosts from "../.local-hosts.json";
 const PASSWORDS = ["wallify", "diana"];
 const SHOW_PII_QUERY_PARAM = "showPII";
 const SHOW_PII_TRUTHY_VALUES = new Set(["1", "true", "yes", "on"]);
+const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
 const CANONICAL_PATHS = new Map([["/about/index", "/about/Index"]]);
 const LINK_PREVIEW_BOT_RE =
   /\b(slackbot|twitterbot|facebookexternalhit|facebot|linkedinbot|discordbot|whatsapp|telegrambot|skypeuripreview|microsoftpreview|teamsbot|pinterest|redditbot|applebot)\b/i;
@@ -179,6 +180,16 @@ function withSiteHeader(request: NextRequest, siteSlug: string) {
   return requestHeaders;
 }
 
+function isDianaPreviewTestAuth(request: NextRequest, site: ResolvedSite) {
+  const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  return (
+    process.env.VERCEL_ENV === "preview" &&
+    site.slug === DEFAULT_SITE_SLUG &&
+    Boolean(secret) &&
+    request.headers.get(DIANA_TEST_AUTH_HEADER) === secret
+  );
+}
+
 export async function proxy(request: NextRequest) {
   const canonicalPath = CANONICAL_PATHS.get(request.nextUrl.pathname);
   if (canonicalPath) {
@@ -220,7 +231,9 @@ export async function proxy(request: NextRequest) {
   }
 
   const cookieName = authedCookieName(site.slug);
-  const isAuthed = request.cookies.get(cookieName)?.value === "true";
+  const isAuthed =
+    request.cookies.get(cookieName)?.value === "true" ||
+    isDianaPreviewTestAuth(request, site);
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isSharePreviewRequest =
     (request.method === "GET" || request.method === "HEAD") &&

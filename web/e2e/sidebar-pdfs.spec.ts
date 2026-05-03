@@ -55,9 +55,11 @@ test.describe("Sidebar source files", () => {
   });
 });
 
+// PDF rendering used to be preview-only because preview deploys skipped
+// full PDF sync. After PR #64's direct-to-blob asset uploads, the first
+// Diana publish synchronized all 8068 source assets to prod Blob, so
+// preview and prod are no longer materially different here.
 test.describe("Sidebar PDF files", () => {
-  test.skip(process.env.TEST_ENV === "prod", "Preview deploys skip full PDF sync for fast ISG builds.");
-
   test("sources directory contains PDF links after drilling into stanford/telli", async ({ page }) => {
     await page.goto("/");
     const nav = page.locator(sidebar);

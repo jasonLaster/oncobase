@@ -53,61 +53,19 @@ test.describe("PII redaction", () => {
     await expect(article.getByText(hiddenMrn)).toHaveCount(0);
   });
 
-  test("reveals diagnosis identifiers only when showPII is present", async ({
+  test("showPII does not reveal identifiers — content is redacted at publish", async ({
     page,
   }) => {
+    // Convex stores only redacted markdown; the publisher never uploads
+    // raw PII. Even with `?showPII=1`, the page must stay redacted.
     await page.goto(`${diagnosisPath}?showPII=1`);
-    const article = page.getByRole("article");
-
-    await expect(
-      article.getByText(new RegExp(`Patient:\\s*${hiddenPatientName}`)).first()
-    ).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(article.getByText(new RegExp(`MRN:\\s*${hiddenMrn}`)).first()).toBeVisible();
-    await expect(article.getByText(redactedBanner)).toHaveCount(0);
-  });
-
-  test("reveals diagnosis identifiers for alternate truthy showPII values", async ({
-    page,
-  }) => {
-    await page.goto(`${diagnosisPath}?showPII=TRUE`);
-    const article = page.getByRole("article");
-
-    await expect(
-      article.getByText(new RegExp(`Patient:\\s*${hiddenPatientName}`)).first()
-    ).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(article.getByText(new RegExp(`MRN:\\s*${hiddenMrn}`)).first()).toBeVisible();
-  });
-
-  test("does not reveal diagnosis identifiers for falsey showPII values", async ({
-    page,
-  }) => {
-    await page.goto(`${diagnosisPath}?showPII=0`);
     const article = page.getByRole("article");
 
     await expect(page.getByRole("heading", { name: "Diagnosis" })).toBeVisible({
       timeout: 10_000,
     });
-    await expect(page.getByText(redactedBanner).first()).toBeVisible();
     await expect(article.getByText(hiddenPatientName)).toHaveCount(0);
     await expect(article.getByText(hiddenMrn)).toHaveCount(0);
-  });
-
-  test("preserves reveal mode for markdown suffix requests", async ({
-    page,
-  }) => {
-    await page.goto(`${diagnosisPath}.md?showPII=yes`);
-    const article = page.getByRole("article");
-
-    await expect(
-      article.getByText(new RegExp(`Patient:\\s*${hiddenPatientName}`)).first()
-    ).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(article.getByText(new RegExp(`MRN:\\s*${hiddenMrn}`)).first()).toBeVisible();
   });
 
   test("redacts inline patient references on the about page", async ({
