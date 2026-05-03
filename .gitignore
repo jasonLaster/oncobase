@@ -19,8 +19,8 @@ test-results/
 .env*.local
 web/web
 **/web/web
-.claude/worktrees
-obsidian/.claude/worktrees/
-web/.claude/worktrees/
+.agents/worktrees
+obsidian/.agents/worktrees/
+web/.agents/worktrees/
 web/.swc/
 .codex/
