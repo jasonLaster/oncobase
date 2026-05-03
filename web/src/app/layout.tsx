@@ -21,6 +21,7 @@ const geistMono = Geist_Mono({
 const isDev = process.env.NODE_ENV === "development";
 
 const themeInitScript = `(function(){try{var t=localStorage.getItem("theme");var d=window.matchMedia("(prefers-color-scheme: dark)").matches;if(t==="dark"||(t===null&&d)){document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark"}else{document.documentElement.classList.remove("dark");document.documentElement.style.colorScheme="light"}}catch(e){}})();`;
+const sidebarInitScript = `(function(){try{var w=localStorage.getItem("sidebar-width");document.documentElement.dataset.initialSidebarState=w==="0"?"collapsed":"expanded"}catch(e){}})();`;
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -62,6 +63,7 @@ export default function RootLayout({
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script dangerouslySetInnerHTML={{ __html: sidebarInitScript }} />
       </head>
       <body className="min-h-full">
         <ConvexClientProvider>{children}</ConvexClientProvider>

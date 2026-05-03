@@ -48,6 +48,23 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+[data-sidebar-layout][data-sidebar-state="expanded"] > [data-sidebar-collapsed-rail],
+[data-sidebar-layout][data-sidebar-state="collapsed"] > [data-sidebar-expanded-rail] {
+  display: none;
+}
+
+html[data-initial-sidebar-state="collapsed"]
+  [data-sidebar-layout][data-sidebar-state="expanded"]
+  > [data-sidebar-collapsed-rail] {
+  display: flex;
+}
+
+html[data-initial-sidebar-state="collapsed"]
+  [data-sidebar-layout][data-sidebar-state="expanded"]
+  > [data-sidebar-expanded-rail] {
+  display: none;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

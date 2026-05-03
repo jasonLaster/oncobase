@@ -137,6 +137,18 @@ test.describe("Page load experience", () => {
     });
   }
 
+  test("desktop initial paint honors a collapsed sidebar preference", async ({ page }) => {
+    await page.setViewportSize(desktopViewport);
+    await page.addInitScript(() => {
+      localStorage.setItem("sidebar-width", "0");
+    });
+    await blockAppScripts(page);
+    await page.goto(withMagicLink("/about/Index"), { waitUntil: "commit" });
+
+    await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeHidden();
+  });
+
   test("mobile initial paint keeps header and bottom page affordance", async ({ page }) => {
     await page.setViewportSize(mobileViewport);
     await blockAppScripts(page);
