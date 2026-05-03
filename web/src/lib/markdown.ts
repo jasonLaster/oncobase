@@ -45,6 +45,12 @@ export interface MarkdownFile {
   frontmatter: Record<string, unknown>;
 }
 
+export interface PageEntry {
+  name: string;
+  slug: string;
+  path: string;
+}
+
 interface MarkdownReadOptions {
   // Convex stores content already redacted at publish time, so the
   // mode here is informational. The reveal path is gone with the fs
@@ -203,12 +209,25 @@ const [docs, pdfPaths, filePaths] = await Promise.all([
 export const getFileTreeWithPdfs = getFileTree;
 
 export async function getAllSlugs(): Promise<string[]> {
-const docs = await fetchAllDocs();
+  const docs = await fetchAllDocs();
   return docs.map((d) => d.slug);
 }
 
+export async function getAllPageEntries(): Promise<PageEntry[]> {
+  const docs = await fetchAllDocs();
+  return docs.map((doc) => {
+    const segments = doc.slug.split("/");
+    const name = segments.at(-1) ?? doc.slug;
+    return {
+      name,
+      slug: doc.slug,
+      path: segments.join(" / "),
+    };
+  });
+}
+
 export async function getCanonicalSlug(slug: string): Promise<string | null> {
-const map = await fetchCanonicalSlugMap();
+  const map = await fetchCanonicalSlugMap();
   return map.get(slug.toLowerCase()) ?? null;
 }
 
