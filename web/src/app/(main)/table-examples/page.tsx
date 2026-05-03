@@ -3,6 +3,9 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { DeclarativeSmartTableExample } from "@/components/declarative-smart-table-example";
 import { DocumentComments } from "@/components/document-comments-wrapper";
 
+// DocumentComments wraps a Convex client; render dynamic.
+export const dynamic = "force-dynamic";
+
 export default function TableExamplesPage() {
   const content = buildExampleTablesDocument();
 

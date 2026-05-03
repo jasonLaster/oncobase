@@ -88,11 +88,27 @@ async function currentDocumentHashes(siteData: SiteData) {
 
 async function currentAssetHashes(siteData: SiteData) {
   const hashes = new Map<string, string | undefined>();
-  const pdfs = await siteData.documents.listPdfAssets();
-  for (const asset of pdfs) hashes.set(`pdf:${asset.path}`, asset.contentHash);
-  const files = await siteData.documents.listFileAssets();
-  for (const asset of files)
-    hashes.set(`file:${asset.path}`, asset.contentHash);
+  let cursor: string | null = null;
+  let isDone = false;
+  while (!isDone) {
+    const page = (await siteData.documents.assetHashesPage({
+      cursor,
+      numItems: 1000,
+    })) as {
+      page: Array<{
+        kind: "pdf" | "file";
+        path: string;
+        contentHash: string | undefined;
+      }>;
+      isDone: boolean;
+      continueCursor: string;
+    };
+    for (const asset of page.page) {
+      hashes.set(`${asset.kind}:${asset.path}`, asset.contentHash);
+    }
+    isDone = page.isDone;
+    cursor = page.continueCursor;
+  }
   return hashes;
 }
 

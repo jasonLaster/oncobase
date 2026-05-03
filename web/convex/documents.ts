@@ -111,6 +111,7 @@ export const getBySlug = query({
       title: doc.title,
       content: doc.content,
       tags: doc.tags,
+      description: doc.description,
     };
   },
 });
@@ -181,7 +182,7 @@ export const listPageWithContent = query({
     return {
       page: result.page
         .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
-        .map(({ slug, content }) => ({ slug, content })),
+        .map(({ slug, title, content }) => ({ slug, title, content })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
     };
@@ -204,7 +205,7 @@ export const list = action({
         continueCursor: string;
       } = await ctx.runQuery(api.documents.listPage, {
         cursor,
-        numItems: 50,
+        numItems: 1000,
         siteSlug,
       });
       results.push(...page.page);
@@ -526,6 +527,32 @@ export const listPdfAssets = query({
   },
 });
 
+// Paginated path-only listing — keeps under Convex's 8192-entry cap
+// and is what the renderer needs to build the sidebar tree.
+export const listPdfAssetPathsPage = query({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const result = site.siteId
+      ? await ctx.db
+          .query("pdfAssets")
+          .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
+          .paginate({ cursor, numItems })
+      : await ctx.db.query("pdfAssets").paginate({ cursor, numItems });
+    return {
+      page: result.page
+        .filter((row) => rowBelongsToSite(row, site) && !row.deletedAt)
+        .map((row) => row.path),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  },
+});
+
 export const getPdfAssetByPath = query({
   args: { path: v.string(), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { path, siteSlug }) => {
@@ -593,6 +620,107 @@ export const listFileAssets = query({
     }
     const all = await ctx.db.query("fileAssets").collect();
     return all.filter((row) => rowBelongsToSite(row, site) && !row.deletedAt);
+  },
+});
+
+// Paginated `{kind, path, contentHash}` listing across both
+// `pdfAssets` and `fileAssets`, used by the publisher to diff the
+// site's current asset state against the local manifest. Tablesare
+// scanned in lockstep so a single cursor traverses both.
+export const assetHashesPage = query({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const parsed = cursor ? (JSON.parse(cursor) as {
+      pdf: string | null;
+      pdfDone: boolean;
+      file: string | null;
+      fileDone: boolean;
+    }) : { pdf: null, pdfDone: false, file: null, fileDone: false };
+
+    const out: Array<{
+      kind: "pdf" | "file";
+      path: string;
+      contentHash: string | undefined;
+    }> = [];
+
+    let pdfState = { cursor: parsed.pdf, done: parsed.pdfDone };
+    if (!pdfState.done) {
+      const result = site.siteId
+        ? await ctx.db
+            .query("pdfAssets")
+            .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
+            .paginate({ cursor: pdfState.cursor, numItems })
+        : await ctx.db.query("pdfAssets").paginate({
+            cursor: pdfState.cursor,
+            numItems,
+          });
+      for (const row of result.page) {
+        if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+        out.push({ kind: "pdf", path: row.path, contentHash: row.contentHash });
+      }
+      pdfState = { cursor: result.continueCursor, done: result.isDone };
+    }
+
+    let fileState = { cursor: parsed.file, done: parsed.fileDone };
+    if (pdfState.done && !fileState.done) {
+      const result = site.siteId
+        ? await ctx.db
+            .query("fileAssets")
+            .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
+            .paginate({ cursor: fileState.cursor, numItems })
+        : await ctx.db.query("fileAssets").paginate({
+            cursor: fileState.cursor,
+            numItems,
+          });
+      for (const row of result.page) {
+        if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+        out.push({ kind: "file", path: row.path, contentHash: row.contentHash });
+      }
+      fileState = { cursor: result.continueCursor, done: result.isDone };
+    }
+
+    const isDone = pdfState.done && fileState.done;
+    return {
+      page: out,
+      isDone,
+      continueCursor: JSON.stringify({
+        pdf: pdfState.cursor,
+        pdfDone: pdfState.done,
+        file: fileState.cursor,
+        fileDone: fileState.done,
+      }),
+    };
+  },
+});
+
+// Paginated path-only listing — keeps under Convex's 8192-entry cap
+// for sites with thousands of file assets.
+export const listFileAssetPathsPage = query({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const result = site.siteId
+      ? await ctx.db
+          .query("fileAssets")
+          .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
+          .paginate({ cursor, numItems })
+      : await ctx.db.query("fileAssets").paginate({ cursor, numItems });
+    return {
+      page: result.page
+        .filter((row) => rowBelongsToSite(row, site) && !row.deletedAt)
+        .map((row) => row.path),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
   },
 });
 

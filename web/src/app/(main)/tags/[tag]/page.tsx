@@ -1,18 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getAllTags, getPagesByTag } from "@/lib/markdown";
+import { getPagesByTag } from "@/lib/markdown";
 
-function isPreviewDeployment() {
-  return process.env.VERCEL_ENV === "preview";
-}
-
-export async function generateStaticParams() {
-  if (isPreviewDeployment()) {
-    return [{ tag: "tnbc" }];
-  }
-
-  return getAllTags().map((tag) => ({ tag }));
-}
+// Tags resolve from the active site (x-site-slug header), so the
+// route is dynamic per request. The underlying Convex query is still
+// memoized in-render via React cache().
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -21,7 +14,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { tag } = await params;
   const decodedTag = decodeURIComponent(tag);
-  const pages = getPagesByTag(decodedTag);
+  const pages = await getPagesByTag(decodedTag);
   const description = `${pages.length} pages tagged "${decodedTag}"`;
   return {
     title: `Tag: ${decodedTag}`,
@@ -37,7 +30,7 @@ export default async function TagPage({
 }) {
   const { tag } = await params;
   const decodedTag = decodeURIComponent(tag);
-  const pages = getPagesByTag(decodedTag);
+  const pages = await getPagesByTag(decodedTag);
 
   return (
     <div className="overflow-y-auto h-full">

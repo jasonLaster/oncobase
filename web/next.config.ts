@@ -3,7 +3,13 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  cacheComponents: true,
+  // Cache Components (PPR) was useful when content came from disk and
+  // every page was effectively static. With Convex-backed reads + the
+  // multi-tenant proxy, every render depends on the request's
+  // x-site-slug header, so PPR can't statically prerender pages
+  // anyway. Disabled for now; revisit when we add per-site
+  // cache tags + prerender on publish.
+  cacheComponents: false,
   async redirects() {
     const wikiRedirects: Record<string, string> = {
       // diagnostics
@@ -85,22 +91,8 @@ const nextConfig: NextConfig = {
       })),
     ];
   },
-  serverExternalPackages: ["gray-matter"],
   transpilePackages: ["@diana-tnbc/chat", "@diana-tnbc/smart-table"],
   outputFileTracingRoot: path.join(__dirname, ".."),
-  outputFileTracingExcludes: {
-    "*": [
-      "../obsidian/**/*.pdf",
-      "../obsidian/**/*.jpg",
-      "../obsidian/**/*.jpeg",
-      "../obsidian/**/*.png",
-      "../obsidian/**/*.gif",
-      "../obsidian/**/*.webp",
-      "../obsidian/.claude/**",
-      "../obsidian/node_modules/**",
-      "../obsidian/.obsidian/**",
-    ],
-  },
   turbopack: {
     root: path.join(__dirname, ".."),
   },

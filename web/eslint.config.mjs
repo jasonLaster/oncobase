@@ -92,11 +92,9 @@ const eslintConfig = defineConfig([
   {
     files: ["src/app/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}"],
     ignores: [
+      // SiteData is the only file allowed to reference tenant-scoped
+      // `api.documents`/`api.users`/etc. directly.
       "src/lib/site-data.ts",
-      // Diana-only static renderer during the migration window. New
-      // request/route code should use SiteData instead.
-      "src/lib/markdown.ts",
-      "src/lib/page-metadata.ts",
     ],
     rules: {
       "no-restricted-syntax": [

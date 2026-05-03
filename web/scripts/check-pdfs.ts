@@ -78,7 +78,7 @@ async function main() {
       console.error(`  - ${relativePath}`);
     }
     console.error(
-      `\nRun: cd web && bun scripts/ingest-pdfs.ts`
+      `\nRun: cd web && bun run wiki:publish --site diana`,
     );
     process.exit(1);
   }

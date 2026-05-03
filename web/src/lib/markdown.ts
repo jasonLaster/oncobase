@@ -1,43 +1,39 @@
-import { createHash } from "crypto";
-import fs from "fs";
-import path from "path";
-import matter from "gray-matter";
-import {
-  applyPiiRedactions,
-  type PiiRedactionMode,
-} from "@/lib/pii-redaction";
+import { cache } from "react";
+import { headers } from "next/headers";
+import { siteDataFromSlug } from "@/lib/site-data";
+import { DEFAULT_SITE_SLUG, toSiteSlug, type SiteSlug } from "@/lib/site";
+import type { PiiRedactionMode } from "@/lib/pii-redaction";
 
-const OBSIDIAN_DIR = path.join(process.cwd(), "..", "obsidian");
+// Resolve the active site from the proxy-set `x-site-slug` header.
+async function readSiteSlug(): Promise<SiteSlug> {
+  try {
+    const h = await headers();
+    return toSiteSlug(h.get("x-site-slug") ?? DEFAULT_SITE_SLUG);
+  } catch {
+    return toSiteSlug(DEFAULT_SITE_SLUG);
+  }
+}
 
-// Directories to exclude from the file tree
-const EXCLUDED_DIRS = new Set([
-  ".obsidian",
-  ".claude",
-  "Google Drive",
-  "Clippings",
-  "Precision medicine",
-  "node_modules",
-]);
+// CI runs `next build` with NEXT_PUBLIC_CONVEX_URL pointed at a
+// placeholder host so it can verify the bundle compiles without a
+// live Convex backend. The readers below short-circuit to empty data
+// in that case so static prerender doesn't crash on unreachable URLs.
+function isBuildPlaceholderConvex(): boolean {
+  return process.env.NEXT_PUBLIC_CONVEX_URL === "https://placeholder.convex.cloud";
+}
 
-const EXCLUDED_FILES = new Set(["CLAUDE.md"]);
-
-// ── Module-level caches ───────────────────────────────────────────────────────
-// Next.js static generation calls these functions repeatedly across workers.
-// Memoizing here cuts tag-page generation from O(tags × slugs) file reads to
-// O(slugs) — a ~425x reduction for the getPagesByTag scan.
-
-let _slugsCache: string[] | null = null;
-let _canonicalSlugsCache: Map<string, string> | null = null;
-const _fileCache = new Map<string, { hash: string; result: MarkdownFile } | null>();
-let _tagsCache: string[] | null = null;
-const _tagPagesCache = new Map<string, Array<{ slug: string; title: string }>>();
+// All reads route through Convex. The publisher CLI in
+// `web/scripts/publish/` is the only producer of this data; the
+// runtime never touches the filesystem. See:
+// - plans/multi-tenant-wiki/01-content-source.md
+// - web/specs/multi-site.md
 
 export interface FileNode {
   name: string;
   slug: string;
   type: "file" | "directory" | "pdf";
   badge?: string;
-  /** Relative path within obsidian/ — only set for type === "pdf" */
+  /** Asset path within the site's vault — only set for type === "pdf" */
   pdfPath?: string;
   children?: FileNode[];
 }
@@ -49,24 +45,251 @@ export interface MarkdownFile {
   frontmatter: Record<string, unknown>;
 }
 
-function buildCanonicalSlugMap(): Map<string, string> {
-  if (_canonicalSlugsCache) return _canonicalSlugsCache;
+interface MarkdownReadOptions {
+  // Convex stores content already redacted at publish time, so the
+  // mode here is informational. The reveal path is gone with the fs
+  // reader — raw markdown lives only in the publisher's local vault.
+  piiMode?: PiiRedactionMode;
+}
 
-  const canonicalSlugs = new Map<string, string>();
-  for (const slug of getAllSlugs()) {
-    const normalizedSlug = slug.toLowerCase();
-    if (!canonicalSlugs.has(normalizedSlug)) {
-      canonicalSlugs.set(normalizedSlug, slug);
-    }
+// ── Convex fetchers (per-request memoized) ───────────────────────────────────
+// React `cache()` deduplicates these across an RSC tree's reads of the
+// same data. There is no cross-request cache here — Convex is
+// authoritative and the network round trip is cheap.
+
+async function fetchAllDocsForSite(
+  siteSlug: SiteSlug,
+): Promise<Array<{ slug: string; title: string; tags: string[] }>> {
+if (isBuildPlaceholderConvex()) return [];
+  return await siteDataFromSlug(siteSlug).documents.list();
+}
+
+const fetchAllDocs = cache(async () => fetchAllDocsForSite(await readSiteSlug()));
+
+async function paginateAssetPaths(
+  fetchPage: (args: { cursor: string | null; numItems: number }) => Promise<{
+    page: string[];
+    isDone: boolean;
+    continueCursor: string;
+  }>,
+): Promise<string[]> {
+  const out: string[] = [];
+  let cursor: string | null = null;
+  let isDone = false;
+  while (!isDone) {
+    const result = await fetchPage({ cursor, numItems: 1000 });
+    out.push(...result.page);
+    isDone = result.isDone;
+    cursor = result.continueCursor;
+  }
+  return out;
+}
+
+async function fetchAllPdfPathsForSite(siteSlug: SiteSlug): Promise<string[]> {
+  if (isBuildPlaceholderConvex()) return [];
+  const siteData = siteDataFromSlug(siteSlug);
+  try {
+    return await paginateAssetPaths((args) =>
+      siteData.documents.listPdfAssetPathsPage(args),
+    );
+  } catch (error) {
+    console.warn(
+      "[markdown] Falling back to legacy PDF asset listing",
+      error,
+    );
+    const assets = await siteData.documents.listPdfAssets();
+    return assets.map((asset: { path: string }) => asset.path);
+  }
+}
+
+async function fetchAllFilePathsForSite(siteSlug: SiteSlug): Promise<string[]> {
+  if (isBuildPlaceholderConvex()) return [];
+  const siteData = siteDataFromSlug(siteSlug);
+  try {
+    return await paginateAssetPaths((args) =>
+      siteData.documents.listFileAssetPathsPage(args),
+    );
+  } catch (error) {
+    console.warn(
+      "[markdown] Falling back to legacy file asset listing",
+      error,
+    );
+    const assets = await siteData.documents.listFileAssets();
+    return assets.map((asset: { path: string }) => asset.path);
+  }
+}
+
+const fetchAllPdfPaths = cache(async () =>
+  fetchAllPdfPathsForSite(await readSiteSlug()),
+);
+const fetchAllFilePaths = cache(async () =>
+  fetchAllFilePathsForSite(await readSiteSlug()),
+);
+
+const fetchCanonicalSlugMap = cache(async (): Promise<Map<string, string>> => {
+  const docs = await fetchAllDocs();
+  const map = new Map<string, string>();
+  for (const doc of docs) {
+    const lower = doc.slug.toLowerCase();
+    if (!map.has(lower)) map.set(lower, doc.slug);
+  }
+  return map;
+});
+
+// ── Public API ───────────────────────────────────────────────────────────────
+
+async function getMarkdownFileForSite(
+  siteSlug: SiteSlug,
+  slug: string,
+): Promise<MarkdownFile | null> {
+if (isBuildPlaceholderConvex()) return null;
+  const siteData = siteDataFromSlug(siteSlug);
+  let doc = await siteData.documents.getBySlug({ slug });
+  if (!doc) {
+    doc = await siteData.documents.getBySlug({ slug: `${slug}/index` });
+  }
+  if (!doc) return null;
+
+  const tags = Array.isArray(doc.tags) ? doc.tags : [];
+  const frontmatter: Record<string, unknown> = { tags };
+  if (doc.description) frontmatter.description = doc.description;
+
+  return {
+    slug: doc.slug,
+    title: doc.title,
+    content: doc.content,
+    frontmatter,
+  };
+}
+
+/** Read a single markdown row by slug, falling back to `<slug>/index`. */
+export async function getMarkdownFile(
+  slug: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _opts: MarkdownReadOptions = {},
+): Promise<MarkdownFile | null> {
+  return getMarkdownFileForSite(await readSiteSlug(), slug);
+}
+
+/** Async variant — kept as an alias for callers that use the explicit name. */
+export const getMarkdownFileAsync = getMarkdownFile;
+
+/** Build the sidebar file tree from Convex documents + assets. */
+export async function getFileTree(): Promise<FileNode[]> {
+const [docs, pdfPaths, filePaths] = await Promise.all([
+    fetchAllDocs(),
+    fetchAllPdfPaths(),
+    fetchAllFilePaths(),
+  ]);
+
+  const root: FileNode[] = [];
+
+  for (const doc of docs) {
+    insertSlug(root, doc.slug, "file");
+  }
+  for (const pdfPath of pdfPaths) {
+    insertPdf(root, pdfPath);
+  }
+  for (const filePath of filePaths) {
+    insertSlug(root, filePath, "file");
   }
 
-  _canonicalSlugsCache = canonicalSlugs;
-  return canonicalSlugs;
+  const grouped = groupPaperCollectionsDeep(root);
+  sortTree(grouped);
+  return grouped;
 }
+
+/** Convex documents already include PDFs in their own table — single fetch. */
+export const getFileTreeWithPdfs = getFileTree;
+
+export async function getAllSlugs(): Promise<string[]> {
+const docs = await fetchAllDocs();
+  return docs.map((d) => d.slug);
+}
+
+export async function getCanonicalSlug(slug: string): Promise<string | null> {
+const map = await fetchCanonicalSlugMap();
+  return map.get(slug.toLowerCase()) ?? null;
+}
+
+async function getAllTagsForSite(siteSlug: SiteSlug): Promise<string[]> {
+if (isBuildPlaceholderConvex()) return [];
+  const tags = await siteDataFromSlug(siteSlug).documents.listTags();
+  return tags
+    .map((t: string) => t.toLowerCase())
+    .sort((a: string, b: string) => a.localeCompare(b));
+}
+
+export async function getAllTags(): Promise<string[]> {
+  return getAllTagsForSite(await readSiteSlug());
+}
+
+async function getPagesByTagForSite(
+  siteSlug: SiteSlug,
+  tag: string,
+): Promise<Array<{ slug: string; title: string }>> {
+if (isBuildPlaceholderConvex()) return [];
+  // Convex `getByTag` matches case-sensitively; tags are lowercased at
+  // publish time, so the lookup just needs the normalized form.
+  return await siteDataFromSlug(siteSlug).documents.getByTag({
+    tag: tag.toLowerCase(),
+  });
+}
+
+export async function getPagesByTag(
+  tag: string,
+): Promise<Array<{ slug: string; title: string }>> {
+  return getPagesByTagForSite(await readSiteSlug(), tag);
+}
+
+// ── Tree construction ────────────────────────────────────────────────────────
+
+function ensureDirectory(
+  parent: FileNode[],
+  segments: string[],
+  pathSoFar: string[],
+): FileNode[] {
+  if (segments.length === 0) return parent;
+  const [head, ...rest] = segments;
+  const slug = [...pathSoFar, head].join("/");
+  let dir = parent.find((n) => n.type === "directory" && n.name === head);
+  if (!dir) {
+    dir = { name: head, slug, type: "directory", children: [] };
+    parent.push(dir);
+  }
+  if (!dir.children) dir.children = [];
+  return ensureDirectory(dir.children, rest, [...pathSoFar, head]);
+}
+
+function insertSlug(root: FileNode[], slug: string, type: "file") {
+  const segments = slug.split("/");
+  const fileName = segments.pop()!;
+  const dir = ensureDirectory(root, segments, []);
+  if (dir.find((n) => n.slug === slug)) return;
+  dir.push({ name: fileName, slug, type });
+}
+
+function insertPdf(root: FileNode[], pdfPath: string) {
+  const segments = pdfPath.split("/");
+  const fileName = segments.pop()!;
+  const nameWithoutExt = fileName.replace(/\.pdf$/i, "");
+  const dir = ensureDirectory(root, segments, []);
+  if (dir.find((n) => n.type === "pdf" && n.pdfPath === pdfPath)) return;
+  dir.push({
+    name: nameWithoutExt,
+    slug: pdfPath,
+    type: "pdf",
+    pdfPath,
+  });
+}
+
+// ── Paper-collection grouping (carried over from the fs-backed version) ───────
 
 type CollectionPart = "markdown" | "analysis" | "pdf";
 
-function getCollectionPart(node: FileNode): { baseName: string; part: CollectionPart } | null {
+function getCollectionPart(
+  node: FileNode,
+): { baseName: string; part: CollectionPart } | null {
   if (node.type === "pdf") return { baseName: node.name, part: "pdf" };
   if (node.type !== "file") return null;
   if (node.name.endsWith("-analysis")) {
@@ -119,11 +342,15 @@ function groupPaperCollections(nodes: FileNode[]): FileNode[] {
       };
     });
     const firstChild = children[0];
-    const parentSlug = firstChild.slug.includes("/") ? firstChild.slug.split("/").slice(0, -1).join("/") : "";
+    const parentSlug = firstChild.slug.includes("/")
+      ? firstChild.slug.split("/").slice(0, -1).join("/")
+      : "";
 
     collectionNodes.push({
       name: baseName,
-      slug: parentSlug ? `${parentSlug}/${baseName}__paper-set` : `${baseName}__paper-set`,
+      slug: parentSlug
+        ? `${parentSlug}/${baseName}__paper-set`
+        : `${baseName}__paper-set`,
       type: "directory",
       badge: "PDF set",
       children,
@@ -151,288 +378,4 @@ function sortTree(nodes: FileNode[]) {
   for (const node of nodes) {
     if (node.children) sortTree(node.children);
   }
-}
-
-interface MarkdownReadOptions {
-  piiMode?: PiiRedactionMode;
-}
-
-/** Build a tree of markdown files for the sidebar */
-export function getFileTree(dir: string = OBSIDIAN_DIR, basePath: string = ""): FileNode[] {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  const nodes: FileNode[] = [];
-
-  for (const entry of entries) {
-    if (entry.name.startsWith(".")) continue;
-    if (EXCLUDED_DIRS.has(entry.name)) continue;
-    if (EXCLUDED_FILES.has(entry.name)) continue;
-
-    const fullPath = path.join(dir, entry.name);
-    const slug = basePath ? `${basePath}/${entry.name}` : entry.name;
-
-    if (entry.isDirectory()) {
-      const children = getFileTree(fullPath, slug);
-      if (children.length > 0) {
-        nodes.push({ name: entry.name, slug, type: "directory", children });
-      }
-    } else if (entry.name.endsWith(".md")) {
-      const nameWithoutExt = entry.name.replace(/\.md$/, "");
-      const fileSlug = basePath ? `${basePath}/${nameWithoutExt}` : nameWithoutExt;
-      nodes.push({ name: nameWithoutExt, slug: fileSlug, type: "file" });
-    } else if (entry.name.endsWith(".pdf")) {
-      // Skip Git LFS pointer files — they are tiny text files (< 200 bytes)
-      const stat = fs.statSync(fullPath);
-      if (stat.size < 200) continue;
-
-      const nameWithoutExt = entry.name.replace(/\.pdf$/, "");
-      const pdfPath = basePath ? `${basePath}/${entry.name}` : entry.name;
-      nodes.push({ name: nameWithoutExt, slug: pdfPath, type: "pdf", pdfPath });
-    }
-  }
-
-  // Sort alphabetically regardless of type
-  const groupedNodes = groupPaperCollections(nodes);
-  groupedNodes.sort((a, b) => a.name.localeCompare(b.name));
-
-  return groupedNodes;
-}
-
-/**
- * Fetch PDF paths from Convex using the official SDK (fetchQuery).
- * Callers decide whether to cache the result; the navigation shell now
- * fetches the merged tree dynamically so newly ingested PDFs can appear
- * without being pinned into the PPR layout shell.
- */
-async function fetchConvexPdfPaths(): Promise<string[]> {
-  if (!process.env.NEXT_PUBLIC_CONVEX_URL) return [];
-  try {
-    const { fetchQuery } = await import("convex/nextjs");
-    const { api } = await import("../../convex/_generated/api");
-    const assets = await fetchQuery(api.documents.listPdfAssets, {});
-    return assets.map((a: { path: string }) => a.path);
-  } catch (err) {
-    console.warn("[fetchConvexPdfPaths] Failed:", err);
-    return [];
-  }
-}
-
-/**
- * Build the file tree and merge in PDF entries from Convex.
- * On Vercel, PDFs aren't on disk — they live in Blob and are tracked in
- * the Convex pdfAssets table.  This function fetches those paths and
- * inserts them into the tree so the sidebar shows PDFs in prod.
- */
-export async function getFileTreeWithPdfs(): Promise<FileNode[]> {
-  const tree = getFileTree();
-
-  // Collect PDF paths already discovered on disk
-  const diskPdfs = new Set<string>();
-  (function walk(nodes: FileNode[]) {
-    for (const n of nodes) {
-      if (n.type === "pdf" && n.pdfPath) diskPdfs.add(n.pdfPath);
-      if (n.children) walk(n.children);
-    }
-  })(tree);
-
-  // Fetch PDF asset paths from Convex (cached at build time)
-  const pdfPaths = await fetchConvexPdfPaths();
-  if (pdfPaths.length === 0) return tree;
-
-  let added = 0;
-  for (const pdfPath of pdfPaths) {
-    if (diskPdfs.has(pdfPath)) continue; // already in tree from disk
-
-    const segments = pdfPath.split("/");
-    const fileName = segments.pop()!;
-    const nameWithoutExt = fileName.replace(/\.pdf$/, "");
-
-    // Walk/create directory nodes to reach the parent folder
-    let current = tree;
-    for (const seg of segments) {
-      let dir = current.find((n) => n.type === "directory" && n.name === seg);
-      if (!dir) {
-        dir = { name: seg, slug: segments.slice(0, segments.indexOf(seg) + 1).join("/"), type: "directory", children: [] };
-        current.push(dir);
-      }
-      current = dir.children!;
-    }
-
-    current.push({
-      name: nameWithoutExt,
-      slug: pdfPath,
-      type: "pdf",
-      pdfPath,
-    });
-    added++;
-  }
-
-  // Re-sort any nodes we touched
-  if (added > 0) {
-    const groupedTree = groupPaperCollectionsDeep(tree);
-    tree.splice(0, tree.length, ...groupedTree);
-    sortTree(tree);
-    console.log(`[getFileTreeWithPdfs] Merged ${added} PDFs from Convex`);
-  }
-
-  return tree;
-}
-
-/**
- * Resolve a slug to a concrete .md path on disk.
- *
- * `{slug}.md` wins; if that's missing, fall back to `{slug}/index.md` so a
- * directory landing page is reachable at the bare directory URL.
- */
-function resolveSlugToFile(slug: string): { filePath: string; resolvedSlug: string } | null {
-  const direct = path.join(OBSIDIAN_DIR, `${slug}.md`);
-  if (fs.existsSync(direct)) return { filePath: direct, resolvedSlug: slug };
-  const indexPath = path.join(OBSIDIAN_DIR, slug, "index.md");
-  if (fs.existsSync(indexPath)) return { filePath: indexPath, resolvedSlug: `${slug}/index` };
-  return null;
-}
-
-/** Read and parse a single markdown file (sync — for static generation) */
-export function getMarkdownFile(
-  slug: string,
-  { piiMode = "redacted" }: MarkdownReadOptions = {}
-): MarkdownFile | null {
-  const cacheKey = `${piiMode}:${slug}`;
-  const resolved = resolveSlugToFile(slug);
-  if (!resolved) {
-    _fileCache.set(cacheKey, null);
-    return null;
-  }
-  const raw = fs.readFileSync(resolved.filePath, "utf-8");
-  return parseMarkdownFile(resolved.resolvedSlug, raw, piiMode);
-}
-
-/** Read and parse a single markdown file (async — for page rendering) */
-export async function getMarkdownFileAsync(
-  slug: string,
-  { piiMode = "redacted" }: MarkdownReadOptions = {}
-): Promise<MarkdownFile | null> {
-  const cacheKey = `${piiMode}:${slug}`;
-  const resolved = resolveSlugToFile(slug);
-  if (!resolved) {
-    _fileCache.set(cacheKey, null);
-    return null;
-  }
-  try {
-    const raw = await fs.promises.readFile(resolved.filePath, "utf-8");
-    return parseMarkdownFile(resolved.resolvedSlug, raw, piiMode);
-  } catch {
-    _fileCache.set(cacheKey, null);
-    return null;
-  }
-}
-
-export function getCanonicalSlug(slug: string): string | null {
-  return buildCanonicalSlugMap().get(slug.toLowerCase()) ?? null;
-}
-
-function parseMarkdownFile(
-  slug: string,
-  raw: string,
-  piiMode: PiiRedactionMode
-): MarkdownFile {
-  const cacheKey = `${piiMode}:${slug}`;
-  const hash = createHash("md5").update(`${piiMode}:${raw}`).digest("hex");
-
-  // Return cached parse if the file hasn't changed
-  const cached = _fileCache.get(cacheKey);
-  if (cached && cached.hash === hash) return cached.result;
-
-  let data: Record<string, unknown> = {};
-  let content = raw;
-  try {
-    ({ data, content } = matter(raw));
-  } catch {
-    // Malformed YAML frontmatter (e.g. `**bold:**` misread as YAML alias)
-  }
-
-  const sanitizedContent = applyPiiRedactions(content, { mode: piiMode });
-
-  // Derive title from first H1, frontmatter, or filename
-  const h1Match = sanitizedContent.match(/^#\s+(.+)$/m);
-  const title = (data.title as string) || h1Match?.[1] || slug.split("/").pop() || slug;
-
-  // Strip the leading H1 to avoid double title rendering
-  const body = h1Match
-    ? sanitizedContent.replace(/^#\s+.+$/m, "").replace(/^\n+/, "")
-    : sanitizedContent;
-
-  const result: MarkdownFile = { slug, title, content: body, frontmatter: data };
-  _fileCache.set(cacheKey, { hash, result });
-  return result;
-}
-
-/** Get all unique tags across all markdown files */
-export function getAllTags(): string[] {
-  if (_tagsCache) return _tagsCache;
-  const tags = new Set<string>();
-  const slugs = getAllSlugs();
-  for (const slug of slugs) {
-    const file = getMarkdownFile(slug);
-    if (file && Array.isArray(file.frontmatter.tags)) {
-      for (const tag of file.frontmatter.tags as string[]) {
-        tags.add(tag.toLowerCase());
-      }
-    }
-  }
-  _tagsCache = Array.from(tags).sort((a, b) => a.localeCompare(b));
-  return _tagsCache;
-}
-
-/** Get all pages that have a given tag */
-export function getPagesByTag(tag: string): { slug: string; title: string }[] {
-  const normalizedTag = tag.toLowerCase();
-  if (_tagPagesCache.has(normalizedTag)) return _tagPagesCache.get(normalizedTag)!;
-
-  const slugs = getAllSlugs();
-  const pages: { slug: string; title: string }[] = [];
-  for (const slug of slugs) {
-    const file = getMarkdownFile(slug);
-    if (file && Array.isArray(file.frontmatter.tags)) {
-      if ((file.frontmatter.tags as string[]).some((t) => t.toLowerCase() === normalizedTag)) {
-        pages.push({ slug: file.slug, title: file.title });
-      }
-    }
-  }
-  const sorted = pages.sort((a, b) => a.title.localeCompare(b.title));
-  _tagPagesCache.set(normalizedTag, sorted);
-  return sorted;
-}
-
-/** Get all markdown file slugs for static generation */
-export function getAllSlugs(): string[] {
-  if (_slugsCache) return _slugsCache;
-
-  const slugs: string[] = [];
-
-  function walk(dir: string, basePath: string) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    const hasIndexMd = entries.some((e) => e.isFile() && e.name === "index.md");
-    if (hasIndexMd && basePath) {
-      // Expose the directory itself as a slug so /foo/bar resolves to foo/bar/index.md.
-      slugs.push(basePath);
-    }
-    for (const entry of entries) {
-      if (entry.name.startsWith(".")) continue;
-      if (EXCLUDED_DIRS.has(entry.name)) continue;
-      if (EXCLUDED_FILES.has(entry.name)) continue;
-      const fullPath = path.join(dir, entry.name);
-      const slug = basePath ? `${basePath}/${entry.name}` : entry.name;
-
-      if (entry.isDirectory()) {
-        walk(fullPath, slug);
-      } else if (entry.name.endsWith(".md")) {
-        slugs.push(slug.replace(/\.md$/, ""));
-      }
-    }
-  }
-
-  walk(OBSIDIAN_DIR, "");
-  _slugsCache = slugs;
-  _canonicalSlugsCache = null;
-  return slugs;
 }

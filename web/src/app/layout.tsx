@@ -63,9 +63,7 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">
           {`(function(){try{var t=localStorage.getItem("theme"),d=window.matchMedia("(prefers-color-scheme:dark)").matches;if(t==="dark"||(t===null&&d))document.documentElement.classList.add("dark")}catch(e){}})()`}
         </Script>
-        <ConvexClientProvider>
-          {children}
-        </ConvexClientProvider>
+        <ConvexClientProvider>{children}</ConvexClientProvider>
         <CommandPalette />
         <OutlinePalette />
         <ActionPalette />

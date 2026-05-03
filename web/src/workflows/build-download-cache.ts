@@ -28,8 +28,6 @@ async function checkPdfAssets(): Promise<number> {
 
 async function buildAndUpload(type: DownloadType): Promise<string> {
   "use step";
-  const fs = await import("fs");
-  const path = await import("path");
   const archiver = (await import("archiver")).default;
 
   const token =
@@ -37,10 +35,7 @@ async function buildAndUpload(type: DownloadType): Promise<string> {
     process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) throw new FatalError("Blob write token not set");
 
-  const OBSIDIAN_DIR = process.env.OBSIDIAN_DIR ?? path.join(process.cwd(), "..", "obsidian");
-  const diskAvailable = !process.env.VERCEL && fs.existsSync(OBSIDIAN_DIR);
-
-  console.log(`[download-cache] Building ${type} archive (disk=${diskAvailable})`);
+  console.log(`[download-cache] Building ${type} archive from Convex`);
   const t0 = Date.now();
 
   const BLOB_NAMES = {
@@ -60,16 +55,7 @@ async function buildAndUpload(type: DownloadType): Promise<string> {
         arc.on("error", (err: Error) => controller.error(err));
 
         (async () => {
-          if (diskAvailable) {
-            const {
-              addDirToDiskArchive,
-              addRedactedMarkdownToArchive,
-            } = await import("@/lib/archive-helpers");
-            if (type === "full") {
-              addDirToDiskArchive(arc, OBSIDIAN_DIR);
-            }
-            addRedactedMarkdownToArchive(arc);
-          } else if (type === "full") {
+          if (type === "full") {
             await fillFullArchive(arc);
           } else {
             await fillMarkdownArchive(arc);

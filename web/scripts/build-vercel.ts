@@ -25,24 +25,48 @@ if (fs.existsSync(CONVEX_URL_FILE)) {
   fs.rmSync(CONVEX_URL_FILE);
 }
 
-run("npx", [
-  "convex",
-  "deploy",
-  "--cmd-url-env-var-name",
-  "NEXT_PUBLIC_CONVEX_URL",
-  "--cmd",
-  `printf '%s' "$NEXT_PUBLIC_CONVEX_URL" > ${shellQuote(CONVEX_URL_FILE)}`,
-]);
+// Production builds deploy Convex schema/functions and read the
+// resulting URL. Preview builds and CI must NOT spin up a fresh
+// (empty) preview Convex deployment — they read prod Convex via the
+// `NEXT_PUBLIC_CONVEX_URL` env var Vercel injects, so the preview
+// app sees the same content prod sees. (See feedback memory:
+// "Preview/CI Convex points at prod".)
+const isProductionDeploy = process.env.VERCEL_ENV === "production";
 
-if (!fs.existsSync(CONVEX_URL_FILE)) {
-  console.error("Convex deploy did not write a deployment URL.");
-  process.exit(1);
-}
+let convexUrl: string;
+if (isProductionDeploy) {
+  run("npx", [
+    "convex",
+    "deploy",
+    "--cmd-url-env-var-name",
+    "NEXT_PUBLIC_CONVEX_URL",
+    "--cmd",
+    `printf '%s' "$NEXT_PUBLIC_CONVEX_URL" > ${shellQuote(CONVEX_URL_FILE)}`,
+  ]);
 
-const convexUrl = fs.readFileSync(CONVEX_URL_FILE, "utf8").trim();
-if (!convexUrl) {
-  console.error("Convex deploy returned an empty deployment URL.");
-  process.exit(1);
+  if (!fs.existsSync(CONVEX_URL_FILE)) {
+    console.error("Convex deploy did not write a deployment URL.");
+    process.exit(1);
+  }
+
+  convexUrl = fs.readFileSync(CONVEX_URL_FILE, "utf8").trim();
+  if (!convexUrl) {
+    console.error("Convex deploy returned an empty deployment URL.");
+    process.exit(1);
+  }
+} else {
+  // Preview / CI: previews read prod Convex (the URL is public, the
+  // data is what users see in production). If the Vercel env var is
+  // unset/empty, fall back to the well-known prod Convex URL so the
+  // build still produces a working preview.
+  const PROD_CONVEX_FALLBACK = "https://youthful-cricket-560.convex.cloud";
+  const fromEnv = process.env.NEXT_PUBLIC_CONVEX_URL?.trim() || "";
+  convexUrl = fromEnv || PROD_CONVEX_FALLBACK;
+  console.log(
+    `Skipping Convex deploy (VERCEL_ENV=${process.env.VERCEL_ENV ?? "unset"}); ` +
+      `using NEXT_PUBLIC_CONVEX_URL=${convexUrl}` +
+      (fromEnv ? "" : " (fallback — env var was empty)"),
+  );
 }
 
 const buildEnv = {
@@ -51,21 +75,7 @@ const buildEnv = {
   CONVEX_URL: convexUrl,
 };
 
-// Materialize Git LFS pointers (images, large binaries) before ingest.
-// `|| true` keeps the build going if LFS isn't installed — the ingest scripts
-// guard against pointer files and just skip them.
-spawnSync("sh", ["-c", "git -C .. lfs pull 2>/dev/null || true"], {
-  cwd: ROOT,
-  env: buildEnv,
-  stdio: ["ignore", "inherit", "ignore"],
-});
-
-// Preview branches prioritize fast feedback; production keeps the full data sync.
-if (process.env.VERCEL_ENV === "preview") {
-  run("sh", ["-c", "bun scripts/ingest-wiki.ts && bun run build"], buildEnv);
-} else {
-  run("sh", [
-    "-c",
-    "(bun scripts/ingest-wiki.ts & bun scripts/sync-convex.ts & wait) && bun scripts/ingest-pdfs.ts && bun scripts/ingest-assets.ts && bun run build",
-  ], buildEnv);
-}
+// Content lands via the publisher CLI (web/scripts/publish/), not the
+// build. Build-time work is `convex deploy` (production only) +
+// `next build`.
+run("sh", ["-c", "bun run build"], buildEnv);

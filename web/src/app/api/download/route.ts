@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import fs from "fs";
 import archiver from "archiver";
-import {
-  addDirToDiskArchive,
-  addRedactedMarkdownToArchive,
-} from "@/lib/archive-helpers";
 import { api } from "@convex/_generated/api";
 import {
   applyPiiRedactions,
@@ -17,9 +11,6 @@ import { siteDataFromRequest, type SiteData } from "@/lib/site-data";
 import { DEFAULT_SITE_SLUG } from "@/lib/site";
 
 export const maxDuration = 300;
-
-const OBSIDIAN_DIR =
-  process.env.OBSIDIAN_DIR ?? path.join(process.cwd(), "..", "obsidian");
 
 // ─── archive stream builders ──────────────────────────────────────────────────
 
@@ -58,17 +49,6 @@ function archiverToStream(
         controller.error(err);
       });
     },
-  });
-}
-
-function buildZipStreamFromDisk(type: DownloadType): ReadableStream<Uint8Array> {
-  console.log(`[download] Building ${type} zip from disk: ${OBSIDIAN_DIR}`);
-  return archiverToStream(`disk-${type}`, (arc) => {
-    if (type === "full") {
-      addDirToDiskArchive(arc, OBSIDIAN_DIR);
-    }
-    addRedactedMarkdownToArchive(arc);
-    arc.finalize();
   });
 }
 
@@ -271,32 +251,18 @@ export async function GET(request: NextRequest) {
     console.log(`[download] Fast path: redirecting to cached blob (${Date.now() - t0}ms)`);
     return NextResponse.redirect(cached.url);
   }
-  console.log(`[download] Cache cold — falling through to slow path`);
+  console.log(`[download] Cache cold — streaming on demand`);
 
-  // ── Slow path: stream zip on-demand ────────────────────────────────────────
-  const diskAvailable =
-    siteSlug === DEFAULT_SITE_SLUG &&
-    !process.env.VERCEL &&
-    fs.existsSync(OBSIDIAN_DIR);
-  console.log(`[download] Slow path: diskAvailable=${diskAvailable} type=${type}`);
-
-  // Resolve site-scoped PII patterns once per request. The disk path
-  // (Diana single-tenant, dev only) keeps using the legacy hardcoded
-  // fallbacks via the existing buildZipStreamFromDisk path; the Convex
-  // archive paths thread per-site patterns explicitly.
+  // Resolve site-scoped PII patterns once per request.
   const site = await getConvexServerClient().query(api.sites.getBySlug, {
     slug: siteSlug,
   });
   const piiPatterns = parseSitePiiPatterns(site?.config.piiPatterns);
 
-  let zipStream: ReadableStream<Uint8Array>;
-  if (diskAvailable) {
-    zipStream = buildZipStreamFromDisk(type);
-  } else if (type === "markdown") {
-    zipStream = buildMarkdownArchiveStream(siteData, piiPatterns);
-  } else {
-    zipStream = buildFullArchiveStream(siteData, piiPatterns);
-  }
+  const zipStream =
+    type === "markdown"
+      ? buildMarkdownArchiveStream(siteData, piiPatterns)
+      : buildFullArchiveStream(siteData, piiPatterns);
 
   // Kick off background cache warm via the workflow
   // (fire-and-forget: don't await, don't block the response)

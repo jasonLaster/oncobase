@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "@convex/_generated/api";
 import {
   getCanonicalSlug,
   getMarkdownFile,
@@ -19,40 +17,6 @@ export type MarkdownPageMetadata = {
   description: string;
 };
 
-async function getDescriptionMap(): Promise<Map<string, string>> {
-  "use cache";
-
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!convexUrl) return new Map();
-  try {
-    const convex = new ConvexHttpClient(convexUrl);
-    const map = new Map<string, string>();
-    let cursor: string | null = null;
-    let isDone = false;
-    const t0 = Date.now();
-    while (!isDone) {
-      const page = await convex.query(api.documents.listPageDescriptions, {
-        cursor,
-        numItems: 100,
-      }) as {
-        page: Array<{ slug: string; description: string | null }>;
-        isDone: boolean;
-        continueCursor: string;
-      };
-      for (const { slug, description } of page.page) {
-        if (description) map.set(slug, description);
-      }
-      isDone = page.isDone;
-      cursor = page.continueCursor;
-    }
-    console.log(`[build] descriptions loaded: ${map.size} in ${Date.now() - t0}ms`);
-    return map;
-  } catch (err) {
-    console.warn("[build] failed to load descriptions:", err);
-    return new Map();
-  }
-}
-
 export function normalizeMarkdownRoutePath(input: string): string {
   const pathname = input.split("?")[0]?.replace(/^\/+/, "") ?? "";
   const decoded = pathname
@@ -70,25 +34,28 @@ export function normalizeMarkdownRoutePath(input: string): string {
   return decoded.replace(/\.md$/i, "");
 }
 
-export function getMarkdownFileForRoutePath(input: string): MarkdownFile | null {
+export async function getMarkdownFileForRoutePath(
+  input: string,
+): Promise<MarkdownFile | null> {
   const cleanPath = normalizeMarkdownRoutePath(input);
-  const canonicalPath = getCanonicalSlug(cleanPath) ?? cleanPath;
-  return getMarkdownFile(canonicalPath);
+  const canonicalPath = (await getCanonicalSlug(cleanPath)) ?? cleanPath;
+  return await getMarkdownFile(canonicalPath);
 }
 
 export async function getMarkdownPageMetadata(
   routePath: string
 ): Promise<MarkdownPageMetadata | null> {
-  const file = getMarkdownFileForRoutePath(routePath);
+  const file = await getMarkdownFileForRoutePath(routePath);
   if (!file) return null;
 
+  // `getMarkdownFile` now returns the same description Convex stores
+  // alongside the doc — no separate description-map lookup needed.
   const frontmatterDescription =
     typeof file.frontmatter.description === "string"
       ? file.frontmatter.description.trim()
       : "";
-  const storedDescription = (await getDescriptionMap()).get(file.slug);
   const description =
-    truncateDescription(frontmatterDescription || storedDescription || "") ||
+    truncateDescription(frontmatterDescription) ||
     deriveDescriptionFromContent(file) ||
     `${file.title} notes in ${SITE_NAME}`;
 

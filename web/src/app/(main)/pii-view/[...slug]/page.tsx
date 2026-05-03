@@ -4,7 +4,6 @@ import {
   renderDocumentPage,
 } from "../../_components/document-page";
 
-export const unstable_instant = false;
 
 export async function generateMetadata({
   params,

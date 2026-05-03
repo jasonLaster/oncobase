@@ -1,21 +1,7 @@
 "use server";
 
-import fs from "fs";
-import path from "path";
-import matter from "gray-matter";
-import { applyPiiRedactions } from "@/lib/pii-redaction";
-
-const OBSIDIAN_DIR = path.join(process.cwd(), "..", "obsidian");
-
-const EXCLUDED_DIRS = new Set([
-  ".obsidian",
-  ".claude",
-  "Google Drive",
-  "Clippings",
-  "Precision medicine",
-]);
-
-const EXCLUDED_FILES = new Set(["CLAUDE.md"]);
+import { siteDataFromSlug } from "@/lib/site-data";
+import { DEFAULT_SITE_SLUG } from "@/lib/site";
 
 export interface SearchMatch {
   lineNumber: number;
@@ -31,68 +17,43 @@ export interface SearchResult {
   matches: SearchMatch[];
 }
 
-function parseMarkdownFile(raw: string) {
-  try {
-    return matter(raw);
-  } catch {
-    // Keep search resilient when a file has malformed frontmatter.
-    const content = raw.startsWith("---")
-      ? raw.replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, "")
-      : raw;
-
-    return { data: {} as Record<string, unknown>, content };
-  }
-}
-
-function getAllMarkdownFiles(
-  dir: string = OBSIDIAN_DIR,
-  basePath: string = ""
-): { filePath: string; slug: string }[] {
-  const files: { filePath: string; slug: string }[] = [];
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    if (entry.name.startsWith(".")) continue;
-    if (EXCLUDED_DIRS.has(entry.name)) continue;
-    if (EXCLUDED_FILES.has(entry.name)) continue;
-
-    const fullPath = path.join(dir, entry.name);
-    const slug = basePath ? `${basePath}/${entry.name}` : entry.name;
-
-    if (entry.isDirectory()) {
-      files.push(...getAllMarkdownFiles(fullPath, slug));
-    } else if (entry.name.endsWith(".md")) {
-      files.push({
-        filePath: fullPath,
-        slug: slug.replace(/\.md$/, ""),
-      });
-    }
-  }
-
-  return files;
-}
-
+// Per-doc line-level grep, sourced from Convex. Convex content is
+// already PII-redacted at publish time, so the search results never
+// surface raw identifiers.
 export async function searchMarkdown(query: string): Promise<SearchResult[]> {
   if (!query || query.trim().length < 2) return [];
 
   const searchTerm = query.trim();
   const regex = new RegExp(escapeRegex(searchTerm), "gi");
-  const files = getAllMarkdownFiles();
-  const results: SearchResult[] = [];
 
-  for (const file of files) {
-    const raw = fs.readFileSync(file.filePath, "utf-8");
-    const { data, content } = parseMarkdownFile(raw);
-    const frontmatter = data as { title?: string };
-    const sanitizedContent = applyPiiRedactions(content);
-    const lines = sanitizedContent.split("\n");
+  const siteData = siteDataFromSlug(DEFAULT_SITE_SLUG);
+  const docs: Array<{ slug: string; title: string; content: string }> = [];
+  let cursor: string | null = null;
+  let isDone = false;
+  while (!isDone) {
+    const page = (await siteData.documents.listPageWithContent({
+      cursor,
+      numItems: 100,
+    })) as {
+      page: Array<{ slug: string; title: string; content: string }>;
+      isDone: boolean;
+      continueCursor: string;
+    };
+    docs.push(...page.page);
+    isDone = page.isDone;
+    cursor = page.continueCursor;
+  }
+
+  const results: SearchResult[] = [];
+  for (const doc of docs) {
+    if (!doc.content) continue;
+    const lines = doc.content.split("\n");
     const matches: SearchMatch[] = [];
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       let match: RegExpExecArray | null;
       regex.lastIndex = 0;
-
       while ((match = regex.exec(line)) !== null) {
         matches.push({
           lineNumber: i + 1,
@@ -100,30 +61,21 @@ export async function searchMarkdown(query: string): Promise<SearchResult[]> {
           matchStart: match.index,
           matchEnd: match.index + match[0].length,
         });
-        break; // one match per line is enough
+        break;
       }
     }
 
     if (matches.length > 0) {
-      const h1Match = sanitizedContent.match(/^#\s+(.+)$/m);
-      const title =
-        frontmatter.title ||
-        h1Match?.[1] ||
-        file.slug.split("/").pop() ||
-        file.slug;
-
       results.push({
-        filePath: file.slug,
-        slug: file.slug,
-        title,
+        filePath: doc.slug,
+        slug: doc.slug,
+        title: doc.title,
         matches,
       });
     }
   }
 
-  // Sort by number of matches descending
   results.sort((a, b) => b.matches.length - a.matches.length);
-
   return results;
 }
 

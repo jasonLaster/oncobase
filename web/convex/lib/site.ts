@@ -19,16 +19,10 @@ export function assertSiteSlug(slug: string): asserts slug is string {
 /**
  * Resolve and validate the active site for a Convex call.
  *
- * `siteSlug` is passed explicitly during the migration window. Phase 3
- * threads it from the host-resolved request header on every callsite;
- * once the threading is complete, this helper will read it directly
- * from `ctx.auth.getUserIdentity()` and the slug arg becomes a sanity
- * check.
- *
- * Returns `siteId: null` for legacy rows that pre-date the multi-site
- * backfill — callers must filter results to those with no `siteId` OR
- * whose `siteId` matches the resolved site. The
- * `rowBelongsToSite` helper wraps that check.
+ * Returns `siteId: null` only when no row exists for `slug` — every
+ * production tenant table now requires a populated `siteId`, so an
+ * unresolved site causes downstream filters to match nothing rather
+ * than leak across tenants. (See `rowBelongsToSite` below.)
  */
 export async function requireSite(
   ctx: QueryCtx | MutationCtx,
@@ -50,15 +44,14 @@ export async function requireSite(
 }
 
 /**
- * True if the row belongs to the active site, including legacy rows
- * with no siteId during the Diana migration window.
+ * Strict tenant scope check. Rows must carry an explicit `siteId` that
+ * matches the resolved site — the previous Diana-defaults-to-no-siteId
+ * fallback is gone now that every tenant row is backfilled.
  */
 export function rowBelongsToSite(
   row: { siteId?: Id<"sites"> | null },
   site: SiteCtx,
 ): boolean {
-  if (!row.siteId) {
-    return site.siteSlug === DEFAULT_SITE_SLUG;
-  }
+  if (!row.siteId || !site.siteId) return false;
   return row.siteId === site.siteId;
 }

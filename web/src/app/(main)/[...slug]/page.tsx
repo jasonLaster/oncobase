@@ -5,7 +5,6 @@ import {
   generateDocumentStaticParams,
 } from "../_components/document-page";
 
-export const unstable_instant = false;
 
 export async function generateStaticParams() {
   return generateDocumentStaticParams();

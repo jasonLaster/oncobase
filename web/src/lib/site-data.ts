@@ -93,8 +93,20 @@ export function createSiteData(
       listPageWithContent: (
         args: SiteScopedArgs<typeof api.documents.listPageWithContent>,
       ) => convex.query(api.documents.listPageWithContent, args),
+      listPageDescriptions: (
+        args: SiteScopedArgs<typeof api.documents.listPageDescriptions>,
+      ) => convex.query(api.documents.listPageDescriptions, args),
       listPdfAssets: () => convex.query(api.documents.listPdfAssets, {}),
       listFileAssets: () => convex.query(api.documents.listFileAssets, {}),
+      listPdfAssetPathsPage: (
+        args: SiteScopedArgs<typeof api.documents.listPdfAssetPathsPage>,
+      ) => convex.query(api.documents.listPdfAssetPathsPage, args),
+      listFileAssetPathsPage: (
+        args: SiteScopedArgs<typeof api.documents.listFileAssetPathsPage>,
+      ) => convex.query(api.documents.listFileAssetPathsPage, args),
+      assetHashesPage: (
+        args: SiteScopedArgs<typeof api.documents.assetHashesPage>,
+      ) => convex.query(api.documents.assetHashesPage, args),
       getPdfAssetByPath: (
         args: SiteScopedArgs<typeof api.documents.getPdfAssetByPath>,
       ) => convex.query(api.documents.getPdfAssetByPath, args),
