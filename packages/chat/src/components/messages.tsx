@@ -285,11 +285,13 @@ export function groupParts(
 
 function AssistantMessageImpl({
   message,
+  onEdit,
   onRegenerate,
   showActions = true,
   isStreaming = false,
 }: {
-  message: UIMessage;
+  message: ChatUIMessage;
+  onEdit?: () => void;
   onRegenerate?: (messageId: string) => void;
   showActions?: boolean;
   /**
@@ -370,6 +372,7 @@ function AssistantMessageImpl({
         <AssistantMessageActions
           text={fullText}
           messageId={message.id}
+          onEdit={onEdit}
           onRegenerate={onRegenerate}
         />
       )}
@@ -382,6 +385,7 @@ export const AssistantMessage = memo(
   AssistantMessageImpl,
   (a, b) =>
     a.message === b.message &&
+    a.onEdit === b.onEdit &&
     a.onRegenerate === b.onRegenerate &&
     a.showActions === b.showActions &&
     a.isStreaming === b.isStreaming
@@ -390,18 +394,21 @@ export const AssistantMessage = memo(
 function AssistantMessageActionsImpl({
   text,
   messageId,
+  onEdit,
   onRegenerate,
 }: {
   text: string;
   messageId: string;
+  onEdit?: () => void;
   onRegenerate?: (messageId: string) => void;
 }) {
   return (
     <div
-      className="flex items-center gap-1 opacity-0 group-hover/assistant:opacity-100 transition-opacity"
+      className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover/assistant:opacity-100 sm:focus-within:opacity-100 transition-opacity"
       data-slot="assistant-message-actions"
     >
       <CopyButton text={text} />
+      {onEdit && <EditResponseButton onClick={onEdit} />}
       {onRegenerate && (
         <RegenerateButton onClick={() => onRegenerate(messageId)} />
       )}
@@ -409,6 +416,23 @@ function AssistantMessageActionsImpl({
   );
 }
 const AssistantMessageActions = memo(AssistantMessageActionsImpl);
+
+function EditResponseButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Edit response"
+      aria-label="Edit response"
+      className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-xs text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors"
+    >
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11.5 2.5l2 2L5 13H3v-2z" />
+      </svg>
+      <span>Edit</span>
+    </button>
+  );
+}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -513,10 +537,14 @@ interface PriorMessagesProps {
   onRegenerate?: (messageId: string) => void;
 }
 
-function PriorMessagesImpl({ messages, onEditUser, onRegenerate }: PriorMessagesProps) {
+function PriorMessagesImpl({
+  messages,
+  onEditUser,
+  onRegenerate,
+}: PriorMessagesProps) {
   return (
     <>
-      {messages.map((message) => {
+      {messages.map((message, index) => {
         if (message.role === "user") {
           return (
             <UserMessageRow
@@ -526,10 +554,22 @@ function PriorMessagesImpl({ messages, onEditUser, onRegenerate }: PriorMessages
             />
           );
         }
+        const previousUserMessage = [...messages.slice(0, index)]
+          .reverse()
+          .find((m) => m.role === "user" && !m.disabled);
+        const previousUserText = previousUserMessage?.parts
+          .filter((p): p is { type: "text"; text: string } => p.type === "text")
+          .map((p) => p.text)
+          .join("");
         return (
           <AssistantMessage
             key={message.id}
             message={message}
+            onEdit={
+              previousUserMessage && previousUserText
+                ? () => onEditUser(previousUserText, previousUserMessage)
+                : undefined
+            }
             onRegenerate={onRegenerate}
           />
         );
