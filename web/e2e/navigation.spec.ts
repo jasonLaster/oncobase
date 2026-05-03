@@ -77,6 +77,75 @@ test.describe("Page viewing & sidebar navigation", () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
+  test("command palette Enter navigation does not flash the outline palette", async ({ page }) => {
+    await page.route("**/api/pages", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          { name: "Search", slug: "search", path: "search" },
+        ]),
+      });
+    });
+
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: /Find files/ })).toBeVisible();
+    await page.waitForTimeout(1_000);
+    await page.keyboard.press("Control+k");
+
+    const input = page.locator("[data-slot=command-input]");
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    await input.fill("search");
+    await expect(page.locator("[cmdk-item]").filter({ hasText: "Search" }).first()).toBeVisible();
+
+    await page.evaluate(() => {
+      const win = window as typeof window & {
+        __outlineDialogEvents?: string[];
+        __outlineDialogObserver?: MutationObserver;
+      };
+
+      win.__outlineDialogEvents = [];
+      const collectOutlineDialogs = () => {
+        for (const dialog of Array.from(document.querySelectorAll('[role="dialog"]'))) {
+          const text = dialog.textContent ?? "";
+          if (text.includes("Outline") || text.includes("Search headings")) {
+            win.__outlineDialogEvents?.push(text);
+          }
+        }
+      };
+
+      collectOutlineDialogs();
+      win.__outlineDialogObserver = new MutationObserver(collectOutlineDialogs);
+      win.__outlineDialogObserver.observe(document.body, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+      });
+    });
+
+    await Promise.all([
+      page.waitForURL(/\/search$/),
+      input.press("Enter"),
+    ]);
+    await page.waitForTimeout(750);
+
+    const result = await page.evaluate(() => {
+      const win = window as typeof window & {
+        __outlineDialogEvents?: string[];
+        __outlineDialogObserver?: MutationObserver;
+      };
+      win.__outlineDialogObserver?.disconnect();
+
+      return {
+        openDialogCount: document.querySelectorAll('[role="dialog"]').length,
+        outlineDialogEvents: win.__outlineDialogEvents ?? [],
+      };
+    });
+
+    expect(result.openDialogCount).toBe(0);
+    expect(result.outlineDialogEvents).toEqual([]);
+  });
+
   test("outline palette jumps to a selected heading", async ({ page }) => {
     await page.goto("/table-examples");
 

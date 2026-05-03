@@ -198,6 +198,31 @@ test.describe("Markdown heading anchors", () => {
       timeout: 30_000,
     });
 
+    await page.evaluate(() => {
+      const win = window as typeof window & {
+        __paletteDialogObserver?: MutationObserver;
+        __paletteDialogTexts?: string[];
+      };
+
+      win.__paletteDialogTexts = [];
+      const collectOutlineDialogs = () => {
+        for (const dialog of Array.from(document.querySelectorAll('[role="dialog"]'))) {
+          const text = dialog.textContent ?? "";
+          if (text.includes("Outline") || text.includes("Search headings")) {
+            win.__paletteDialogTexts?.push(text);
+          }
+        }
+      };
+
+      collectOutlineDialogs();
+      win.__paletteDialogObserver = new MutationObserver(collectOutlineDialogs);
+      win.__paletteDialogObserver.observe(document.body, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+      });
+    });
+
     await Promise.all([
       page.waitForURL(/\/about\/Terminology$/),
       input.press("Enter"),
@@ -205,6 +230,15 @@ test.describe("Markdown heading anchors", () => {
 
     await page.waitForLoadState("domcontentloaded");
     await expect(page.locator("article h1").first()).toHaveText("Terminology");
+    const outlineDialogTexts = await page.evaluate(() => {
+      const win = window as typeof window & {
+        __paletteDialogObserver?: MutationObserver;
+        __paletteDialogTexts?: string[];
+      };
+      win.__paletteDialogObserver?.disconnect();
+      return win.__paletteDialogTexts ?? [];
+    });
+    expect(outlineDialogTexts).toEqual([]);
 
     await clickHeadingUntilHash(
       page,
