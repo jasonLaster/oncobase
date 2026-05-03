@@ -58,6 +58,12 @@ interface MarkdownReadOptions {
   piiMode?: PiiRedactionMode;
 }
 
+const HIDDEN_FILE_TREE_DIRECTORIES = new Set(["images"]);
+
+export function isHiddenFileTreePath(path: string): boolean {
+  return path.split("/").some((segment) => HIDDEN_FILE_TREE_DIRECTORIES.has(segment));
+}
+
 // ── Convex fetchers (per-request memoized) ───────────────────────────────────
 // React `cache()` deduplicates these across an RSC tree's reads of the
 // same data. There is no cross-request cache here — Convex is
@@ -194,9 +200,11 @@ const [docs, pdfPaths, filePaths] = await Promise.all([
     insertSlug(root, doc.slug, "file");
   }
   for (const pdfPath of pdfPaths) {
+    if (isHiddenFileTreePath(pdfPath)) continue;
     insertPdf(root, pdfPath);
   }
   for (const filePath of filePaths) {
+    if (isHiddenFileTreePath(filePath)) continue;
     insertSlug(root, filePath, "file");
   }
 
