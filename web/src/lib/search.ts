@@ -2,6 +2,7 @@
 
 import { siteDataFromSlug } from "@/lib/site-data";
 import { DEFAULT_SITE_SLUG } from "@/lib/site";
+import { applyPiiRedactions } from "@/lib/pii-redaction";
 
 export interface SearchMatch {
   lineNumber: number;
@@ -17,9 +18,9 @@ export interface SearchResult {
   matches: SearchMatch[];
 }
 
-// Per-doc line-level grep, sourced from Convex. Convex content is
-// already PII-redacted at publish time, so the search results never
-// surface raw identifiers.
+// Per-doc line-level grep, sourced from Convex. Apply the same redaction
+// pass used for page rendering because older published documents can still
+// contain raw identifiers.
 export async function searchMarkdown(query: string): Promise<SearchResult[]> {
   if (!query || query.trim().length < 2) return [];
 
@@ -47,7 +48,9 @@ export async function searchMarkdown(query: string): Promise<SearchResult[]> {
   const results: SearchResult[] = [];
   for (const doc of docs) {
     if (!doc.content) continue;
-    const lines = doc.content.split("\n");
+    const redactedContent = applyPiiRedactions(doc.content);
+    const redactedTitle = applyPiiRedactions(doc.title);
+    const lines = redactedContent.split("\n");
     const matches: SearchMatch[] = [];
 
     for (let i = 0; i < lines.length; i++) {
@@ -69,7 +72,7 @@ export async function searchMarkdown(query: string): Promise<SearchResult[]> {
       results.push({
         filePath: doc.slug,
         slug: doc.slug,
-        title: doc.title,
+        title: redactedTitle,
         matches,
       });
     }

@@ -1,17 +1,17 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const IMAGE_PAGE = "/wiki/education/serova-meeting-prep";
+const IMAGE_PAGE =
+  "/sources/research-articles/cancer-vaccines/cleveland-clinic-2025-alpha-lactalbumin-phase1-final";
 
 async function openFirstTheaterImage(page: Page) {
-  const image = page
-    .locator(".prose img[data-theater-image]")
-    .filter({ visible: true })
-    .first();
+  const image = page.locator(".prose img[data-theater-image]").first();
 
+  await expect(image).toHaveCount(1, { timeout: 15_000 });
+  await image.scrollIntoViewIfNeeded();
   await expect(image).toBeVisible({ timeout: 15_000 });
   await image.click();
 
-  const dialog = page.getByRole("dialog", { name: /cartoon|image preview/i });
+  const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
 
   return dialog;
@@ -31,7 +31,7 @@ test.describe("Image theater", () => {
 
     await expect(page.getByRole("link", { name: "Download image" })).toHaveAttribute(
       "download",
-      /tissue-first-vs-blood-first-light\.png/
+      /3f641eb4ab6c367340c58be37a335e11_MD5\.avif/
     );
 
     const dialogBox = await dialog.boundingBox();

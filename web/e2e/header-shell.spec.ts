@@ -10,7 +10,7 @@ test.describe("Header shell", () => {
 
     expect(html).toContain('aria-label="Home"');
     expect(html).toContain('placeholder="Search wiki..."');
-    expect(html).toContain('disabled=""');
+    expect(html).toContain('aria-label="New chat"');
     expect(html).toContain('aria-label="Find files (⌘P)"');
     expect(html).toContain('aria-label="Actions"');
   });

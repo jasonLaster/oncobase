@@ -36,6 +36,18 @@ function getBleedMutationTargets(shell: HTMLElement) {
   return Array.from(targets);
 }
 
+function isMeasurableElement(element: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  const style = window.getComputedStyle(element);
+
+  return (
+    rect.width > 0 &&
+    rect.height > 0 &&
+    style.display !== "none" &&
+    style.visibility !== "hidden"
+  );
+}
+
 function getExpandedBleed(
   wrapper: HTMLElement,
   shell: HTMLElement
@@ -72,13 +84,13 @@ function getExpandedBleed(
 function getLeftRailElement() {
   const collapsedButton = document.querySelector('[aria-label="Expand sidebar"]');
   const collapsedRail = collapsedButton?.parentElement;
-  if (collapsedRail instanceof HTMLElement) {
+  if (collapsedRail instanceof HTMLElement && isMeasurableElement(collapsedRail)) {
     return collapsedRail;
   }
 
   const expandedButton = document.querySelector('[aria-label="Collapse sidebar"]');
   const expandedRail = expandedButton?.parentElement;
-  if (expandedRail instanceof HTMLElement) {
+  if (expandedRail instanceof HTMLElement && isMeasurableElement(expandedRail)) {
     return expandedRail;
   }
 
