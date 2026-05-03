@@ -57,16 +57,16 @@ export type PublishAsset = {
   hash: string;
 };
 
-function hashBytes(content: string | Buffer) {
+export function hashBytes(content: string | Buffer) {
   return crypto.createHash("sha256").update(content).digest("hex").slice(0, 16);
 }
 
-function hashFile(filePath: string) {
+export function hashFile(filePath: string) {
   const buf = fs.readFileSync(filePath);
   return hashBytes(buf);
 }
 
-function hashDocument(doc: Pick<PublishDocument, "title" | "content" | "tags">) {
+export function hashDocument(doc: Pick<PublishDocument, "title" | "content" | "tags">) {
   return hashBytes(
     JSON.stringify({
       title: doc.title,

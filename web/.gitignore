@@ -40,3 +40,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 test-results/
+public/wiki-vault-starter.zip

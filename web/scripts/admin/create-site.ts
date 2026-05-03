@@ -68,7 +68,7 @@ const siteId = await convex.mutation(api.sites.create, {
   title: title ?? slug,
 });
 
-const tokenEnvName = `WIKI_PUBLISH_TOKEN_${slug.toUpperCase().replace(/-/g, "_")}`;
+const starterUrl = process.env.WIKI_STARTER_URL ?? "https://diana-tnbc.com/wiki-vault-starter.zip";
 
 console.log(`✔ Site created: ${slug}`);
 console.log(`  Convex id:    ${siteId}`);
@@ -79,10 +79,19 @@ console.log("");
 console.log("Operator action required:");
 console.log(`  Vercel dashboard → Project → Domains → Add → ${domain}`);
 console.log("");
-console.log("Publisher setup:");
+console.log("Give the site owner:");
+console.log(`  Starter vault: ${starterUrl}`);
+console.log(`  Site slug:     ${slug}`);
+console.log(`  Publish URL:   https://${domain}/api/publish`);
+console.log(`  Publish token: ${publishToken}`);
+console.log("");
+console.log("Vault setup:");
+console.log(`  curl -L ${starterUrl} -o wiki-vault-starter.zip`);
+console.log(`  unzip wiki-vault-starter.zip -d ${slug}-wiki && cd ${slug}-wiki`);
+console.log("  bun install");
 console.log(
-  `  bun run wiki:init --site ${slug} --vault <path-to-obsidian> --publish-url https://${domain}/api/publish`,
+  `  bun run wiki:init --site ${slug} --publish-url https://${domain}/api/publish`,
 );
-console.log(`  export ${tokenEnvName}=${publishToken}`);
-console.log(`  export OPENAI_API_KEY=...   (optional — skip embeddings if absent)`);
+console.log("  mkdir -p ~/.config/wiki");
+console.log(`  printf '%s\\n' '${publishToken}' > ~/.config/wiki/${slug}.token && chmod 600 ~/.config/wiki/${slug}.token`);
 console.log(`  bun run wiki:publish --site ${slug}`);

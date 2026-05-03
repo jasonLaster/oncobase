@@ -1,6 +1,7 @@
 import fs from "node:fs";
-import { sitePut } from "../../src/lib/blob";
-import { countEmbeddingTokens, embedBatch } from "../../src/lib/embeddings";
+import { sitePut } from "./blob";
+import { countEmbeddingTokens, embedBatch } from "./embeddings";
+import { hasFlag, readFlag } from "./cli";
 import { loadConfig, loadPublishToken } from "./config";
 import {
   readPositiveIntEnv,
@@ -14,11 +15,7 @@ import {
   type PublishAsset,
   type PublishDocument,
 } from "./walk-vault";
-
-function readFlag(args: string[], name: string) {
-  const i = args.indexOf(name);
-  return i === -1 ? undefined : args[i + 1];
-}
+import { PUBLISHER_PROTOCOL_VERSION, PUBLISHER_VERSION_HEADER } from "./version";
 
 async function post(url: string, token: string, body: unknown) {
   const response = await fetch(url, {
@@ -26,10 +23,16 @@ async function post(url: string, token: string, body: unknown) {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
+      [PUBLISHER_VERSION_HEADER]: String(PUBLISHER_PROTOCOL_VERSION),
     },
     body: JSON.stringify(body),
   });
   if (!response.ok) {
+    if (response.status === 426) {
+      throw new Error(
+        `${await response.text()}\nUpdate the publisher scripts, then retry. For a vault, download the latest starter zip and copy scripts/publish/ over this vault.`,
+      );
+    }
     throw new Error(`${response.status} ${await response.text()}`);
   }
   return await response.json();
@@ -147,18 +150,26 @@ async function embedInChunks(
 
 const args = process.argv.slice(2);
 const site = readFlag(args, "--site");
-const dryRun = args.includes("--dry-run");
-const force = args.includes("--force");
+const dryRun = hasFlag(args, "--dry-run");
+const force = hasFlag(args, "--force");
+const confirmTombstone = hasFlag(args, "--confirm-tombstone") || force;
+const syncFirst = hasFlag(args, "--sync-first");
 
 if (!site) {
   console.error(
-    "Usage: bun scripts/publish/publish.ts --site <slug> [--dry-run] [--force]",
+    "Usage: bun scripts/publish/publish.ts --site <slug> [--dry-run] [--force] [--confirm-tombstone] [--sync-first]",
   );
   process.exit(1);
 }
 
 const config = loadConfig(site);
 const token = loadPublishToken(site);
+
+if (syncFirst) {
+  const { runSync } = await import("./sync");
+  await runSync({ site });
+}
+
 const documents = readVaultDocuments(config.vaultPath);
 const assets = readVaultAssets(config.vaultPath);
 
@@ -189,6 +200,22 @@ const missingAssetPathSet = new Set(begin.missingAssetPaths);
 const changedAssets = force
   ? assets
   : assets.filter((asset) => missingAssetPathSet.has(asset.relativePath));
+
+const staleDocCount = begin.staleDocumentSlugs?.length ?? 0;
+const staleAssetCount = begin.staleAssetPaths?.length ?? 0;
+if (!dryRun && !confirmTombstone && (staleDocCount > 0 || staleAssetCount > 0)) {
+  console.error(
+    `Remote has ${staleDocCount} documents and ${staleAssetCount} assets not present locally.`,
+  );
+  if (begin.staleDocumentSlugs?.length) {
+    console.error(`Documents: ${begin.staleDocumentSlugs.slice(0, 20).join(", ")}${begin.staleDocumentSlugs.length > 20 ? ", ..." : ""}`);
+  }
+  if (begin.staleAssetPaths?.length) {
+    console.error(`Assets: ${begin.staleAssetPaths.slice(0, 20).join(", ")}${begin.staleAssetPaths.length > 20 ? ", ..." : ""}`);
+  }
+  console.error("Re-run with --confirm-tombstone to delete these remote rows, --sync-first to fetch missing local files first, or --force to force the full publish.");
+  process.exit(1);
+}
 
 if (dryRun) {
   console.log(

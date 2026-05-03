@@ -182,7 +182,13 @@ export const listPageWithContent = query({
     return {
       page: result.page
         .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
-        .map(({ slug, title, content }) => ({ slug, title, content })),
+        .map(({ slug, title, content, tags, contentHash }) => ({
+          slug,
+          title,
+          content,
+          tags,
+          contentHash,
+        })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
     };
@@ -646,6 +652,7 @@ export const assetHashesPage = query({
       kind: "pdf" | "file";
       path: string;
       contentHash: string | undefined;
+      blobUrl: string;
     }> = [];
 
     let pdfState = { cursor: parsed.pdf, done: parsed.pdfDone };
@@ -661,7 +668,12 @@ export const assetHashesPage = query({
           });
       for (const row of result.page) {
         if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-        out.push({ kind: "pdf", path: row.path, contentHash: row.contentHash });
+        out.push({
+          kind: "pdf",
+          path: row.path,
+          contentHash: row.contentHash,
+          blobUrl: row.blobUrl,
+        });
       }
       pdfState = { cursor: result.continueCursor, done: result.isDone };
     }
@@ -679,7 +691,12 @@ export const assetHashesPage = query({
           });
       for (const row of result.page) {
         if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-        out.push({ kind: "file", path: row.path, contentHash: row.contentHash });
+        out.push({
+          kind: "file",
+          path: row.path,
+          contentHash: row.contentHash,
+          blobUrl: row.blobUrl,
+        });
       }
       fileState = { cursor: result.continueCursor, done: result.isDone };
     }

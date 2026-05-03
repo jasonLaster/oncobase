@@ -1,10 +1,7 @@
 import { loadConfig, loadPublishToken } from "./config";
 import { readVaultAssets, readVaultDocuments } from "./walk-vault";
-
-function readFlag(args: string[], name: string) {
-  const i = args.indexOf(name);
-  return i === -1 ? undefined : args[i + 1];
-}
+import { readFlag } from "./cli";
+import { PUBLISHER_PROTOCOL_VERSION, PUBLISHER_VERSION_HEADER } from "./version";
 
 const site = readFlag(process.argv.slice(2), "--site");
 if (!site) {
@@ -22,6 +19,7 @@ const response = await fetch(`${config.publishUrl}/begin`, {
   headers: {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
+    [PUBLISHER_VERSION_HEADER]: String(PUBLISHER_PROTOCOL_VERSION),
   },
   body: JSON.stringify({
     siteSlug: config.site,
@@ -38,6 +36,11 @@ const response = await fetch(`${config.publishUrl}/begin`, {
 });
 
 if (!response.ok) {
+  if (response.status === 426) {
+    console.error(await response.text());
+    console.error("Update the publisher scripts, then retry. For a vault, download the latest starter zip and copy scripts/publish/ over this vault.");
+    process.exit(1);
+  }
   console.error(
     `Publish check failed: ${response.status} ${await response.text()}`,
   );

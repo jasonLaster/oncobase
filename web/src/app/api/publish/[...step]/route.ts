@@ -10,6 +10,10 @@ import {
 } from "@/lib/pii-redaction";
 import { siteBlobKey } from "@/lib/blob";
 import { siteDataFromSlug, type SiteData } from "@/lib/site-data";
+import {
+  MIN_SUPPORTED_PUBLISHER_PROTOCOL_VERSION,
+  PUBLISHER_VERSION_HEADER,
+} from "@/lib/publish-protocol";
 
 // Multi-tenant publish API (Phase 4). The publisher CLI in
 // scripts/publish/* talks to these endpoints with a Bearer publish
@@ -38,6 +42,23 @@ function assetKey(asset: { path: string; kind?: "pdf" | "file" }) {
 
 function pathFromAssetKey(key: string) {
   return key.slice(key.indexOf(":") + 1);
+}
+
+function publisherVersion(request: Request) {
+  const raw = request.headers.get(PUBLISHER_VERSION_HEADER);
+  if (!raw) return 0;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function unsupportedPublisherResponse(request: Request) {
+  if (publisherVersion(request) >= MIN_SUPPORTED_PUBLISHER_PROTOCOL_VERSION) {
+    return null;
+  }
+  return new Response(
+    `Publisher protocol is too old. Minimum supported version is ${MIN_SUPPORTED_PUBLISHER_PROTOCOL_VERSION}.`,
+    { status: 426 },
+  );
 }
 
 function constantTimeEqual(a: string, b: string) {
@@ -191,7 +212,40 @@ export async function POST(
     const { convex, site, siteData } = await requirePublishSite(request, siteSlug);
     const piiPatterns = sitePiiPatterns(site);
 
+    if (step === "sync/documents") {
+      const unsupported = unsupportedPublisherResponse(request);
+      if (unsupported) return unsupported;
+      const cursor = typeof body.cursor === "string" ? body.cursor : null;
+      const numItems =
+        typeof body.numItems === "number" && body.numItems > 0
+          ? Math.min(body.numItems, 500)
+          : 100;
+      const page = await siteData.documents.listPageWithContent({
+        cursor,
+        numItems,
+      });
+      return NextResponse.json(page);
+    }
+
+    if (step === "sync/assets") {
+      const unsupported = unsupportedPublisherResponse(request);
+      if (unsupported) return unsupported;
+      const cursor = typeof body.cursor === "string" ? body.cursor : null;
+      const numItems =
+        typeof body.numItems === "number" && body.numItems > 0
+          ? Math.min(body.numItems, 500)
+          : 100;
+      const page = await siteData.documents.assetHashesPage({
+        cursor,
+        numItems,
+      });
+      return NextResponse.json(page);
+    }
+
     if (step === "begin") {
+      const unsupported = unsupportedPublisherResponse(request);
+      if (unsupported) return unsupported;
+
       const manifest = (body.manifest ?? {}) as Manifest;
       const force = Boolean(body.force);
       const dryRun = Boolean(body.dryRun);

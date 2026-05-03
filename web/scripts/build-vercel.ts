@@ -77,5 +77,6 @@ const buildEnv = {
 
 // Content lands via the publisher CLI (web/scripts/publish/), not the
 // build. Build-time work is `convex deploy` (production only) +
-// `next build`.
+// starter-vault packaging + `next build`.
+run("bun", ["scripts/publish/build-vault-starter.ts"], buildEnv);
 run("sh", ["-c", "bun run build"], buildEnv);
