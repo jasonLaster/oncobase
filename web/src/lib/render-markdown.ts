@@ -63,11 +63,54 @@ function stripLegacyTableDirectives(md: string): string {
   return md.replace(/^\s*<!--\s*table-cols:\s*.*?-->\s*$/gm, "");
 }
 
-function escapeCurrencyDollars(md: string): string {
-  return md.replace(
-    /(^|[^\\])\$(?=\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:\b|[-–—]))/g,
-    "$1\\$"
+function isCurrencyDollar(md: string, dollarIndex: number): boolean {
+  const rest = md.slice(dollarIndex + 1);
+  const placeholder = rest.match(/^X\b/);
+
+  if (placeholder) {
+    return rest[placeholder[0].length] !== "$";
+  }
+
+  const amount = rest.match(/^\d[\d,]*(?:\.\d+)?[KMBTkmbt]?/);
+
+  if (!amount) {
+    return false;
+  }
+
+  const value = amount[0];
+  const next = rest.slice(value.length);
+
+  if (next.startsWith("$")) {
+    return false;
+  }
+
+  const operator = next.match(/^\s*([-+*/=<>–—])/);
+
+  if (operator) {
+    const afterOperator = next.slice(operator[0].length);
+
+    return (
+      (operator[1] === "-" || operator[1] === "–" || operator[1] === "—") &&
+      /^\s*\$?\d/.test(afterOperator)
+    );
+  }
+
+  return (
+    value.includes(",") ||
+    /[KMBTkmbt]$/.test(value) ||
+    /^\d{4,}/.test(value) ||
+    /^\d+\.\d{2}$/.test(value) ||
+    next.length === 0 ||
+    /^[\s,.;:)\]}*_]/.test(next)
   );
+}
+
+function escapeCurrencyDollars(md: string): string {
+  return md.replace(/(^|[^\\])\$/g, (match, prefix: string, offset: number) => {
+    const dollarIndex = offset + prefix.length;
+
+    return isCurrencyDollar(md, dollarIndex) ? `${prefix}\\$` : match;
+  });
 }
 
 type TagDecoration = {

@@ -86,6 +86,45 @@ describe("renderMarkdown example tables", () => {
     expect(html).toContain("$180,000-$200,000");
   });
 
+  test("does not render compact budget amounts as inline latex", () => {
+    const html = renderMarkdown(
+      [
+        "- **Echo all-in lands in the $350K–$600K range.**",
+        "- **Valius — $50K Core or $150K Comprehensive (quoted).**",
+        "- **Ranata bespoke molecule — $1M–$1.5M *if* triggered.**",
+      ].join("\n"),
+      "table-examples/compact-budget-currency"
+    );
+
+    expect(html).not.toContain('class="katex"');
+    expect(html).toContain("$350K–$600K");
+    expect(html).toContain("$50K Core");
+    expect(html).toContain("$150K Comprehensive");
+    expect(html).toContain("$1M–$1.5M");
+  });
+
+  test("does not render budget placeholders as inline latex", () => {
+    const html = renderMarkdown(
+      "The budget is scenarios where we could spend $X, not commitments to spend $X.",
+      "table-examples/budget-placeholder-currency"
+    );
+
+    expect(html).not.toContain('class="katex"');
+    expect(html).toContain("spend $X");
+    expect(html).toContain("spend $X.");
+  });
+
+  test("keeps numeric latex expressions renderable", () => {
+    const html = renderMarkdown(
+      "Dose escalation: $50 - \\mu \\mathrm{g}$ and $1 + 2 = 3$",
+      "table-examples/numeric-latex"
+    );
+
+    expect(countMatches(html, /class="katex"/g)).toBeGreaterThanOrEqual(2);
+    expect(html).not.toContain("$50 - \\mu \\mathrm{g}$");
+    expect(html).not.toContain("$1 + 2 = 3$");
+  });
+
   test("turns numeric bracket citations into links to the references section", () => {
     const html = renderMarkdown(
       "Clinically significant complications are rare [1-3].\n\n## References\n\n1. One\n2. Two\n3. Three",
