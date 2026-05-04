@@ -195,6 +195,13 @@ export async function getMarkdownFileForSite(
     siteDocCacheTag(siteSlug, slug),
   );
 
+  return readMarkdownFileForSite(siteSlug, slug);
+}
+
+export async function readMarkdownFileForSite(
+  siteSlug: SiteSlug,
+  slug: string,
+): Promise<MarkdownFile | null> {
   if (shouldSkipConvexReads()) return null;
   const siteData = siteDataFromSlug(siteSlug);
   let doc = await siteData.documents.getBySlug({ slug });
@@ -221,7 +228,7 @@ export async function getMarkdownFile(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _opts: MarkdownReadOptions = {},
 ): Promise<MarkdownFile | null> {
-  return getMarkdownFileForSite(await readSiteSlug(), slug);
+  return readMarkdownFileForSite(await readSiteSlug(), slug);
 }
 
 /** Async variant — kept as an alias for callers that use the explicit name. */

@@ -38,6 +38,9 @@ export async function getMarkdownFileForRoutePath(
   input: string,
 ): Promise<MarkdownFile | null> {
   const cleanPath = normalizeMarkdownRoutePath(input);
+  const exactFile = await getMarkdownFile(cleanPath);
+  if (exactFile) return exactFile;
+
   const canonicalPath = (await getCanonicalSlug(cleanPath)) ?? cleanPath;
   return await getMarkdownFile(canonicalPath);
 }

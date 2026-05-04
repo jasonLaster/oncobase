@@ -100,8 +100,8 @@ test.describe("Sidebar source files", () => {
 
     expect(response.ok()).toBeTruthy();
     const html = await response.text();
-    expect(html).toContain("Journal");
-    expect(html).not.toContain("This page could not be found");
+    expect(html).toContain("Saturday, May 2nd");
+    expect(html).not.toContain('E{"digest"');
   });
 
   test("sources directory contains markdown source links after drilling into stanford/telli", async ({ page }) => {

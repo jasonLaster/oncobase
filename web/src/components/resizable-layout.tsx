@@ -139,61 +139,53 @@ export function ResizableLayout({
   }, []);
 
   return (
-    <>
-      {/* Desktop: resizable sidebar */}
+    <div
+      className="flex h-full min-h-0 overflow-hidden"
+      data-sidebar-layout
+      data-sidebar-state={collapsed ? "collapsed" : "expanded"}
+    >
       <div
-        className="hidden md:flex min-h-0 overflow-hidden"
-        data-sidebar-layout
-        data-sidebar-state={collapsed ? "collapsed" : "expanded"}
+        data-sidebar-collapsed-rail
+        className="hidden shrink-0 flex-col items-center border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] pt-2 md:flex md:w-12"
       >
-        <div
-          data-sidebar-collapsed-rail
-          className="shrink-0 flex flex-col items-center pt-2 w-12 bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)]"
+        <button
+          onClick={toggle}
+          aria-label="Expand sidebar"
+          className="rounded-md p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
         >
-          <button
-            onClick={toggle}
-            aria-label="Expand sidebar"
-            className="p-1.5 rounded-md hover:bg-[var(--accent-light)] text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <line x1="3" y1="4.5" x2="15" y2="4.5" />
-              <line x1="3" y1="9" x2="15" y2="9" />
-              <line x1="3" y1="13.5" x2="15" y2="13.5" />
-            </svg>
-          </button>
-        </div>
-        <div
-          data-sidebar-expanded-rail
-          className="shrink-0 min-h-0 overflow-hidden relative group"
-          style={{ width }}
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <line x1="3" y1="4.5" x2="15" y2="4.5" />
+            <line x1="3" y1="9" x2="15" y2="9" />
+            <line x1="3" y1="13.5" x2="15" y2="13.5" />
+          </svg>
+        </button>
+      </div>
+      <div
+        data-sidebar-expanded-rail
+        className="group relative hidden min-h-0 shrink-0 overflow-hidden md:block"
+        style={{ width }}
+      >
+        <button
+          onClick={toggle}
+          aria-label="Collapse sidebar"
+          className="absolute right-2 top-2 z-10 rounded-md border border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] p-1 text-[var(--text-muted)] opacity-0 shadow-sm transition-opacity hover:text-[var(--foreground)] group-hover:opacity-100 [@media(hover:none)]:opacity-100"
         >
-          <button
-            onClick={toggle}
-            aria-label="Collapse sidebar"
-            className="absolute top-2 right-2 z-10 p-1 rounded-md bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] shadow-sm text-[var(--text-muted)] hover:text-[var(--foreground)] opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="11 4 7 8 11 12" />
-            </svg>
-          </button>
-          {sidebar}
-        </div>
-        <div
-          data-sidebar-expanded-rail
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          className="w-[3px] shrink-0 bg-[var(--sidebar-border)] hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize"
-        />
-        <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
-          {children}
-        </div>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="11 4 7 8 11 12" />
+          </svg>
+        </button>
+        {sidebar}
       </div>
-
-      {/* Mobile: content only (navigation via BottomNav) */}
-      <div className="md:hidden h-full min-h-0 overflow-hidden pb-12">
-        <div className="min-w-0 h-full min-h-0 overflow-hidden">{children}</div>
+      <div
+        data-sidebar-expanded-rail
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        className="hidden w-[3px] shrink-0 cursor-col-resize bg-[var(--sidebar-border)] transition-colors hover:bg-[var(--brand)] active:bg-[var(--brand)] md:block"
+      />
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden pb-12 md:pb-0">
+        {children}
       </div>
-    </>
+    </div>
   );
 }

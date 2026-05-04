@@ -155,22 +155,28 @@ export async function renderDocumentPage({
   }
 
   const contentPath = ROUTE_SLUG_ALIASES.get(routeAliasKey) ?? cleanPath;
-  const canonicalPath =
-    contentPath === "index" ? contentPath : await getCanonicalSlug(contentPath);
-  if (!aliasCanonicalPath && canonicalPath && canonicalPath !== contentPath) {
-    redirect(documentRedirectPath(`/${canonicalPath}`, showPii));
-  }
 
-  // Header data for PPR cache; reads come from Convex now.
-  const file =
+  // Try the requested slug first. Most runtime pages already use canonical
+  // casing, and this avoids loading the full slug map in the streamed path.
+  let file =
     contentPath === "index"
       ? await getMarkdownFileForSite(
           toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG),
           contentPath
         )
-      : await getMarkdownFile(canonicalPath ?? contentPath, {
+      : await getMarkdownFile(contentPath, {
           piiMode: showPii ? "revealed" : "redacted",
         });
+
+  if (!file && contentPath !== "index") {
+    const canonicalPath = await getCanonicalSlug(contentPath);
+    if (!aliasCanonicalPath && canonicalPath && canonicalPath !== contentPath) {
+      redirect(documentRedirectPath(`/${canonicalPath}`, showPii));
+    }
+    file = await getMarkdownFile(canonicalPath ?? contentPath, {
+      piiMode: showPii ? "revealed" : "redacted",
+    });
+  }
 
   if (!file) {
     notFound();
