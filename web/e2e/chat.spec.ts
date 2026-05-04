@@ -1,14 +1,22 @@
 import { test, expect } from "@playwright/test";
-import {
-  localStreamingChatSkipReason,
-  shouldSkipLocalStreamingChatE2E,
-} from "./chat-env";
+import { mockChatApi } from "./chat-mock";
 
 test.describe("Chat", () => {
+  let chatMock: Awaited<ReturnType<typeof mockChatApi>> | null = null;
+
   test.beforeEach(async ({ page }) => {
+    chatMock = await mockChatApi(page);
     await page.goto("/chat");
-    const url = page.url();
-    test.skip(!url.includes("/chat"), "Chat is disabled (redirected to /)");
+    await page.waitForLoadState("networkidle").catch(() => {});
+    test.skip(
+      !new URL(page.url()).pathname.startsWith("/chat"),
+      "Chat is disabled (redirected to /)"
+    );
+  });
+
+  test.afterEach(async () => {
+    await chatMock?.cleanup();
+    chatMock = null;
   });
 
   test("chat page loads", async ({ page }) => {
@@ -18,8 +26,6 @@ test.describe("Chat", () => {
   });
 
   test("can send a message and get a response", async ({ page }) => {
-    test.skip(shouldSkipLocalStreamingChatE2E(), localStreamingChatSkipReason);
-
     // Click the first suggested-prompt button on the empty state.
     await page
       .getByRole("button", {
@@ -28,12 +34,10 @@ test.describe("Chat", () => {
       .first()
       .click();
 
-    // Wait for the Stop button to appear (streaming started),
-    // then wait for it to disappear (response complete) or
-    // just check that new content appeared beyond the user message.
-    await expect(page.getByRole("button", { name: "Stop" })).toBeVisible({
-      timeout: 30_000,
+    await expect(page.getByText("mocked chat response", { exact: false })).toBeVisible({
+      timeout: 15_000,
     });
+    await expect(page.getByRole("button", { name: "Submit" })).toBeVisible();
   });
 
   test("new chat button in header navigates to chat", async ({ page }) => {

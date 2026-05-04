@@ -7,30 +7,37 @@
  *   - The server keeps streaming + writes the Convex mirror.
  *   - On return, the assistant message is there as if you never left.
  *
- * These tests REQUIRE a configured env (AI_GATEWAY_API_KEY + Convex). They
- * skip when /chat redirects, so CI's preview env (which has both keys)
- * runs them; ephemeral envs without gateway access skip cleanly.
+ * These tests mock /api/chat at the Playwright network layer. The mock still
+ * writes the assistant row to Convex, so refresh/navigation coverage exercises
+ * the persisted chat UI without spending AI Gateway credits.
  */
 
 import { test, expect } from "@playwright/test";
-import {
-  localStreamingChatSkipReason,
-  shouldSkipLocalStreamingChatE2E,
-} from "./chat-env";
+import { mockChatApi } from "./chat-mock";
 
 // Each test in this file owns the full Playwright budget — they exercise a
 // real model round-trip and need elbow room.
 test.describe.configure({ timeout: 120_000 });
 
 test.describe("Chat navigation resilience", () => {
+  let chatMock: Awaited<ReturnType<typeof mockChatApi>> | null = null;
+
   test.beforeEach(async ({ page }) => {
+    chatMock = await mockChatApi(page, { delayMs: 750 });
     await page.goto("/chat");
-    test.skip(!page.url().includes("/chat"), "Chat is disabled");
+    await page.waitForLoadState("networkidle").catch(() => {});
+    test.skip(
+      !new URL(page.url()).pathname.startsWith("/chat"),
+      "Chat is disabled"
+    );
+  });
+
+  test.afterEach(async () => {
+    await chatMock?.cleanup();
+    chatMock = null;
   });
 
   test("Stop button aborts the model server-side", async ({ page }) => {
-    test.skip(shouldSkipLocalStreamingChatE2E(), localStreamingChatSkipReason);
-
     await page
       .getByPlaceholder("Ask a question...")
       .first()
@@ -53,8 +60,6 @@ test.describe("Chat navigation resilience", () => {
     page,
     context,
   }) => {
-    test.skip(shouldSkipLocalStreamingChatE2E(), localStreamingChatSkipReason);
-
     await page
       .getByPlaceholder("Ask a question...")
       .first()
@@ -70,15 +75,14 @@ test.describe("Chat navigation resilience", () => {
     });
 
     // Navigate away mid-stream. The route's userStopSignal is decoupled
-    // from req.signal so the model keeps running; consumeSseStream + after
-    // keep the function alive past response close.
+    // from req.signal so the model keeps running; the mock mirrors that by
+    // completing its Convex write even after the page leaves.
     await page.goto("/", { waitUntil: "load" });
 
-    // Poll a fresh tab for the saved assistant message. ~80s budget covers
-    // worst-case model + tool latency for this prompt on the dev model.
+    // Poll a fresh tab for the saved assistant message.
     const newPage = await context.newPage();
     let landed = false;
-    const deadline = Date.now() + 80_000;
+    const deadline = Date.now() + 15_000;
     while (Date.now() < deadline && !landed) {
       await newPage.goto(conversationUrl, { waitUntil: "load" });
       const text = await newPage
@@ -90,7 +94,7 @@ test.describe("Chat navigation resilience", () => {
         landed = true;
         break;
       }
-      await newPage.waitForTimeout(2500);
+      await newPage.waitForTimeout(500);
     }
     expect(
       landed,
@@ -101,8 +105,6 @@ test.describe("Chat navigation resilience", () => {
   test("Refresh mid-stream keeps the conversation observable", async ({
     page,
   }) => {
-    test.skip(shouldSkipLocalStreamingChatE2E(), localStreamingChatSkipReason);
-
     await page
       .getByPlaceholder("Ask a question...")
       .first()
