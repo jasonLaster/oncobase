@@ -2,8 +2,25 @@ import { test, expect } from "@playwright/test";
 
 const sidebar = "aside.hidden.md\\:flex nav";
 
+type FileNode = {
+  name: string;
+  slug: string;
+  type: "file" | "directory" | "pdf";
+  pdfPath?: string;
+  children?: FileNode[];
+};
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findNode(nodes: FileNode[], slug: string): FileNode | null {
+  for (const node of nodes) {
+    if (node.slug === slug) return node;
+    const child = node.children ? findNode(node.children, slug) : null;
+    if (child) return child;
+  }
+  return null;
 }
 
 /** Open a directory button only if it is currently collapsed (shows "▶"). */
@@ -32,6 +49,41 @@ async function expandFirstPdfSet(nav: ReturnType<import("@playwright/test").Page
 }
 
 test.describe("Sidebar source files", () => {
+  test("/api/file-tree returns the complete cached tree while page HTML keeps the shell lean", async ({
+    request,
+  }) => {
+    const [treeResponse, htmlResponse] = await Promise.all([
+      request.get("/api/file-tree"),
+      request.get("/wiki/updates/week-6-april-19-to-25?token=diana"),
+    ]);
+
+    expect(treeResponse.ok()).toBeTruthy();
+    expect(htmlResponse.ok()).toBeTruthy();
+
+    const tree = (await treeResponse.json()) as FileNode[];
+    const topLevelSlugs = tree.map((node) => node.slug);
+
+    expect(topLevelSlugs).toContain("wiki");
+    expect(topLevelSlugs).toContain("sources");
+    expect(findNode(tree, "wiki/updates/week-6-april-19-to-25")).toMatchObject({
+      type: "file",
+    });
+    expect(findNode(tree, "sources/institutions/stanford/telli")).toMatchObject({
+      type: "directory",
+    });
+    expect(
+      findNode(
+        tree,
+        "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
+      ),
+    ).toMatchObject({ type: "pdf" });
+
+    const html = await htmlResponse.text();
+    expect(html).toContain("Week 6");
+    expect(html).not.toContain('"initialTree":[{"name":"about"');
+    expect(html).not.toContain("sources/institutions/stanford/telli");
+  });
+
   test("sources directory contains markdown source links after drilling into stanford/telli", async ({ page }) => {
     await page.goto("/");
     const nav = page.locator(sidebar);

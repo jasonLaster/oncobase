@@ -1,12 +1,11 @@
 import { getFileTreeForSite } from "@/lib/markdown";
-import { DEFAULT_SITE_SLUG, toSiteSlug } from "@/lib/site";
+import { siteSlugFromRequest } from "@/lib/site";
 
-// Resolve from the proxy-set `x-site-slug` header and return the cached
-// Convex-backed tree used by the PPR shell.
+// Resolve the site outside the cached helper and pass it explicitly.
+// That keeps `getFileTreeForSite(siteSlug)` site-scoped and guarantees this
+// endpoint returns the full cached tree, not the PPR shell tree.
 export async function GET(request: Request) {
-  const siteSlug = toSiteSlug(
-    request.headers.get("x-site-slug") ?? DEFAULT_SITE_SLUG,
-  );
+  const siteSlug = siteSlugFromRequest(request);
   const tree = await getFileTreeForSite(siteSlug);
   return Response.json(tree);
 }

@@ -2,8 +2,7 @@ import { Suspense } from "react";
 import { Header } from "@/components/header";
 import { NavigationShell } from "@/components/navigation-shell";
 import { WebChatRuntimeProvider } from "@/components/chat-runtime-provider";
-import { getFileTreeForSite, type FileNode } from "@/lib/markdown";
-import { DEFAULT_SITE_SLUG, toSiteSlug } from "@/lib/site";
+import type { FileNode } from "@/lib/markdown";
 
 function MainContentFallback() {
   return (
@@ -37,26 +36,6 @@ function fallbackHref(node: FileNode) {
     return `/api/file?path=${encodeURIComponent(node.pdfPath ?? node.slug)}`;
   }
   return `/${node.slug}`;
-}
-
-function pruneShellTree(nodes: FileNode[]): FileNode[] {
-  return nodes
-    .filter((node) => node.type !== "directory" || depthIsShellDirectory(node))
-    .map((node) => {
-      if (node.type !== "directory") return node;
-
-      return {
-        ...node,
-        children:
-          node.slug === "about"
-            ? (node.children ?? []).filter((child) => child.type !== "directory")
-            : [],
-      };
-    });
-}
-
-function depthIsShellDirectory(node: FileNode) {
-  return node.slug === "about";
 }
 
 function FallbackTree({
@@ -142,15 +121,14 @@ function ShellFallback({ tree }: { tree: FileNode[] }) {
   );
 }
 
-export default async function MainLayout({
+const EMPTY_SHELL_TREE: FileNode[] = [];
+
+export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const initialTree = await getFileTreeForSite(
-    toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG)
-  );
-  const shellTree = pruneShellTree(initialTree);
+  const shellTree = EMPTY_SHELL_TREE;
   const shellFallback = <ShellFallback tree={shellTree} />;
 
   return (
@@ -160,7 +138,7 @@ export default async function MainLayout({
           <Header />
         </Suspense>
         <Suspense fallback={shellFallback}>
-          <NavigationShell initialTree={initialTree}>{children}</NavigationShell>
+          <NavigationShell initialTree={shellTree}>{children}</NavigationShell>
         </Suspense>
       </div>
     </WebChatRuntimeProvider>

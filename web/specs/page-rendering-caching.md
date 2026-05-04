@@ -43,11 +43,10 @@ Every document page should have useful HTML before client JavaScript:
 - body text for the index route and other critical PPR validation pages
 
 The shell fallback in `src/app/(main)/layout.tsx` is deliberately
-small. It includes the `about` branch and top-level files only. It
-does not include full `sources` or `wiki` trees because the full tree
-is very large and serializing it through the RSC stream can dominate
-HTML size and trigger client parse/hydration failures. The client
-refreshes the full tree from `/api/file-tree` after first mount.
+empty. It does not include full `sources` or `wiki` trees because the
+full tree is very large and serializing it through the RSC stream can
+dominate HTML size and trigger client parse/hydration failures. The
+client refreshes the full tree from `/api/file-tree` after first mount.
 
 Pruned shell data must not masquerade as complete data. If a fallback
 tree exposes an expandable `sources` or `wiki` node with empty
@@ -139,8 +138,8 @@ PPR works when the static shell and dynamic work are separated cleanly.
 The layout owns the outer shell:
 
 - `<Header />` is inside its own Suspense boundary.
-- `<NavigationShell initialTree={shellTree}>` gets a pruned initial
-  tree and then loads the full tree on the client.
+- `<NavigationShell initialTree={[]}>` gets an empty initial tree and
+  then loads the full tree on the client.
 - Document content is wrapped inside the navigation shell so the
   layout chrome can paint even when content streams.
 
@@ -205,7 +204,9 @@ The rendering/caching contract is covered by these suites:
 - `e2e/navigation.spec.ts` checks sidebar navigation, actions, command
   palette behavior, and canonical redirects.
 - `e2e/sidebar-pdfs.spec.ts` checks that the full client tree loads
-  after the pruned shell and that PDFs are represented correctly.
+  after the empty shell, that `/api/file-tree` returns the full cached
+  tree, that the page HTML does not serialize that full tree, and that
+  PDFs are represented correctly.
 - `e2e/source-loading-boundary.spec.ts` checks that source loading
   shells do not leak into wiki pages.
 - `e2e/table-expansion.spec.ts` checks that shell/sidebar changes do
