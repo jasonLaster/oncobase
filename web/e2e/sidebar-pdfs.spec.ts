@@ -93,6 +93,17 @@ test.describe("Sidebar source files", () => {
     expect(html).not.toContain("sources/institutions/stanford/telli");
   });
 
+  test("runtime wiki pages render instead of caching a not-found boundary", async ({
+    request,
+  }) => {
+    const response = await request.get("/about/Journal?token=diana");
+
+    expect(response.ok()).toBeTruthy();
+    const html = await response.text();
+    expect(html).toContain("Journal");
+    expect(html).not.toContain("This page could not be found");
+  });
+
   test("sources directory contains markdown source links after drilling into stanford/telli", async ({ page }) => {
     await page.goto("/");
     const nav = page.locator(sidebar);

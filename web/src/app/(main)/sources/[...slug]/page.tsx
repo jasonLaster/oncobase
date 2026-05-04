@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import {
   DocumentPage,
+  DocumentPageLoading,
   generateDocumentMetadata,
 } from "../../_components/document-page";
 
@@ -22,5 +24,9 @@ export default async function SourcePage({
 }: {
   params: Promise<{ slug: string[] }>;
 }) {
-  return <DocumentPage params={withSourcesPrefix(params)} />;
+  return (
+    <Suspense fallback={<DocumentPageLoading />}>
+      <DocumentPage params={withSourcesPrefix(params)} />
+    </Suspense>
+  );
 }
