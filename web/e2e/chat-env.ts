@@ -1,3 +1,5 @@
+import { resolveServerConvexUrl } from "../src/lib/convex-url";
+
 const LOCALHOST_NAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
 function isLocalhostUrl(rawUrl: string | undefined) {
@@ -17,7 +19,7 @@ export function shouldSkipLocalStreamingChatE2E() {
     return false;
   }
 
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL ?? "";
+  const convexUrl = resolveServerConvexUrl();
   return (
     !process.env.AI_GATEWAY_API_KEY ||
     !convexUrl ||

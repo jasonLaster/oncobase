@@ -1,7 +1,24 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 // Desktop sidebar locator
 const sidebar = "aside.hidden.md\\:flex nav";
+
+async function openFilePalette(page: Page) {
+  const input = page.locator("[data-slot=command-input]");
+
+  await expect
+    .poll(
+      async () => {
+        await page.getByRole("button", { name: /Find files/ }).click();
+        return input.isVisible().catch(() => false);
+      },
+      { timeout: 15_000 }
+    )
+    .toBe(true);
+
+  await expect(input).toBeEditable({ timeout: 15_000 });
+  return input;
+}
 
 test.describe("Page viewing & sidebar navigation", () => {
   test("serves the about index canonical redirect before rendering", async ({ request }) => {
@@ -82,25 +99,10 @@ test.describe("Page viewing & sidebar navigation", () => {
   });
 
   test("command palette Enter navigation does not flash the outline palette", async ({ page }) => {
-    await page.route("**/api/pages", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([
-          { name: "Search", slug: "search", path: "search" },
-        ]),
-      });
-    });
-
     await page.goto("/");
-    await expect(page.getByRole("button", { name: /Find files/ })).toBeVisible();
-    await page.waitForTimeout(1_000);
-    await page.keyboard.press("Control+k");
-
-    const input = page.locator("[data-slot=command-input]");
-    await expect(input).toBeVisible({ timeout: 10_000 });
-    await input.fill("search");
-    await expect(page.locator("[cmdk-item]").filter({ hasText: "Search" }).first()).toBeVisible();
+    const input = await openFilePalette(page);
+    await input.fill("Journal");
+    await expect(page.locator('[cmdk-item][data-value="about/Journal"]').first()).toBeVisible();
 
     await page.evaluate(() => {
       const win = window as typeof window & {
@@ -128,7 +130,7 @@ test.describe("Page viewing & sidebar navigation", () => {
     });
 
     await Promise.all([
-      page.waitForURL(/\/search$/),
+      page.waitForURL(/\/about\/Journal$/),
       input.press("Enter"),
     ]);
     await page.waitForTimeout(750);

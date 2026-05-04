@@ -2,12 +2,15 @@ import { defineConfig } from "@playwright/test";
 
 const isLocal = process.env.TEST_ENV !== "prod";
 const isEndform = Boolean(process.env.ENDFORM_API_KEY);
-const baseURL = isLocal
-  ? "http://localhost:3000"
-  : process.env.PROD_URL || "https://diana-tnbc.vercel.app";
+const localPort = process.env.PLAYWRIGHT_PORT || "3000";
+const baseURL =
+  process.env.PLAYWRIGHT_BASE_URL ||
+  (isLocal
+    ? `http://localhost:${localPort}`
+    : process.env.PROD_URL || "https://diana-tnbc.vercel.app");
 const webServer = isLocal
   ? {
-      command: "bun dev",
+      command: `PORT=${localPort} bun dev:app`,
       url: baseURL,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

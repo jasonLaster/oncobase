@@ -14,6 +14,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { embed } from "@/lib/embeddings";
 import { fastTextModel } from "@/lib/ai";
 import { applyPiiRedactions } from "@/lib/pii-redaction";
+import { resolveServerConvexUrl } from "@/lib/convex-url";
 import { splitWikilinkAlias } from "@/lib/wikilinks";
 import {
   createConvexFlusher,
@@ -76,7 +77,7 @@ function compactToolResult(result: unknown): unknown {
 }
 
 function getConvex() {
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+  const url = resolveServerConvexUrl();
   if (!url) throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
   return new ConvexHttpClient(url);
 }

@@ -72,6 +72,7 @@ test.describe("Markdown heading anchors", () => {
 
     const heading = page.locator(".prose h2[id]").first();
     await expect(heading).toBeVisible();
+    await expect(heading).toHaveClass(/cursor-pointer/, { timeout: 15_000 });
 
     const id = await heading.getAttribute("id");
     if (!id) {
@@ -80,7 +81,12 @@ test.describe("Markdown heading anchors", () => {
 
     await heading.click();
 
-    await expect(page).toHaveURL(new RegExp(`#${id}$`), { timeout: 15_000 });
+    await expect
+      .poll(
+        async () => new URL(page.url()).hash,
+        { timeout: 15_000 }
+      )
+      .toBe(`#${id}`);
   });
 
   test("clicking a heading permalink copies the section URL", async ({ page, baseURL }) => {

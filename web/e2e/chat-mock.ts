@@ -2,6 +2,7 @@ import type { Page, Route } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
+import { resolveServerConvexUrl } from "../src/lib/convex-url";
 
 type ChatRequestBody = {
   conversationId?: string;
@@ -21,10 +22,10 @@ function sleep(ms: number) {
 }
 
 function getConvexClient() {
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!url || url.includes("placeholder.convex.cloud")) {
+  const url = resolveServerConvexUrl();
+  if (!url) {
     throw new Error(
-      "NEXT_PUBLIC_CONVEX_URL must point at a real Convex deployment for chat E2E mocking."
+      "Convex must point at a real deployment for chat E2E mocking."
     );
   }
   return new ConvexHttpClient(url);

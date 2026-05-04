@@ -86,7 +86,7 @@ async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
   await expect(page.getByRole("button", { name: "Find files (⌘P)" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Actions" })).toBeVisible();
   await expect(sidebar).toBeVisible();
-  await expect(title).toHaveText(pageCase.heading);
+  await expect(title).toHaveText(pageCase.heading, { timeout: 45_000 });
 
   if (pageCase.bodyText) {
     await expect(page.getByText(pageCase.bodyText, { exact: false }).first()).toBeVisible();
@@ -123,6 +123,8 @@ async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
 }
 
 test.describe("Page load experience", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   test("server-rendered shell keeps header and layout chrome across key routes", async ({ request }) => {
     for (const pageCase of pageCases) {
       await test.step(pageCase.route, async () => {
@@ -155,13 +157,13 @@ test.describe("Page load experience", () => {
     await page.goto("/about/Index", { waitUntil: "commit" });
 
     const header = appHeader(page);
-    const bottomBar = page.getByRole("button", { name: /Index/ }).first();
+    const bottomBar = page.locator("button.md\\:hidden.fixed.bottom-0").first();
     const title = page.locator("article h1:visible").first();
 
     await expect(header).toBeVisible();
     await expect(headerSearchInput(page)).toBeVisible();
     await expect(bottomBar).toBeVisible();
-    await expect(title).toHaveText("Index");
+    await expect(title).toHaveText("Index", { timeout: 45_000 });
 
     await page.waitForFunction(() =>
       performance

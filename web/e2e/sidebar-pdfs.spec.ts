@@ -90,7 +90,7 @@ test.describe("Sidebar source files", () => {
     const html = await htmlResponse.text();
     expect(html).toContain("Week 6");
     expect(html).not.toContain('"initialTree":[{"name":"about"');
-    expect(html).not.toContain("sources/institutions/stanford/telli");
+    expect(html).not.toContain('"initialTree":[{"name":"sources"');
   });
 
   test("runtime wiki pages render instead of caching a not-found boundary", async ({

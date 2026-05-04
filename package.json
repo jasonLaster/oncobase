@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": ["web", "packages/*"],
   "scripts": {
-    "dev": "turbo run dev:app dev:convex",
+    "dev": "turbo run dev:app",
+    "dev:local-convex": "turbo run dev:app dev:convex",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

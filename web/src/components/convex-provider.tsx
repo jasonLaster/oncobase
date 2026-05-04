@@ -2,12 +2,13 @@
 
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { ReactNode } from "react";
+import { resolvePublicConvexUrl } from "@/lib/convex-url";
 
 let convexClient: ConvexReactClient | null = null;
 const FALLBACK_CONVEX_URL = "https://disabled.invalid";
 
 function getConvexUrl(): string {
-  return process.env.NEXT_PUBLIC_CONVEX_URL || FALLBACK_CONVEX_URL;
+  return resolvePublicConvexUrl() || FALLBACK_CONVEX_URL;
 }
 
 function getConvexClient(): ConvexReactClient {

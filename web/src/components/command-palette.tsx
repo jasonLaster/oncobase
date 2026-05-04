@@ -271,6 +271,15 @@ export function CommandPalette({
       const ranked = results
         .map((r) => ({ page: r.obj.page, score: r.score }))
         .sort((a, b) => {
+          const normalizedSearch = search.trim().toLowerCase();
+          const aExact =
+            a.page.slug.toLowerCase() === normalizedSearch ||
+            a.page.name.replace(/-/g, " ").toLowerCase() === normalizedSearch;
+          const bExact =
+            b.page.slug.toLowerCase() === normalizedSearch ||
+            b.page.name.replace(/-/g, " ").toLowerCase() === normalizedSearch;
+          if (aExact !== bExact) return aExact ? -1 : 1;
+
           const diff = b.score - a.score;
           // Within a tight score band, prefer recents
           if (Math.abs(diff) < 50) {

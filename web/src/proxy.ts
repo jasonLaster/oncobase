@@ -1,6 +1,7 @@
 import { ConvexHttpClient } from "convex/browser";
 import { NextRequest, NextResponse } from "next/server";
 import { api } from "@convex/_generated/api";
+import { resolveServerConvexUrl } from "@/lib/convex-url";
 import localHosts from "../.local-hosts.json";
 
 // Phase 3 multi-tenant: resolve the active site from the Host header
@@ -30,7 +31,7 @@ const hostCache = new Map<string, ResolvedSite>();
 let convexClient: ConvexHttpClient | null = null;
 
 function getConvex() {
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+  const url = resolveServerConvexUrl();
   if (!url) return null;
   if (!convexClient) {
     convexClient = new ConvexHttpClient(url);

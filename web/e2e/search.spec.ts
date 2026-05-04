@@ -106,11 +106,11 @@ test.describe("Search", () => {
 
   test("empty search shows no results message", async ({ page }) => {
     await page.goto("/search?q=zzzznonexistentquery999");
-    // Switch to text search tab
-    await page.getByRole("button", { name: "Text Search" }).click();
+    await openTextSearch(page);
+    await waitForTextSearchState(page);
     await expect(
       page.getByText("No results for").first()
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible();
   });
 
   test("AI mode shows ranked results", async ({ page }) => {

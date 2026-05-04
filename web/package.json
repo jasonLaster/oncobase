@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "turbo run dev:app dev:convex",
+    "dev": "bun run dev:app",
+    "dev:local-convex": "turbo run dev:app dev:convex",
     "dev:app": "next dev --turbopack",
     "dev:convex": "convex dev",
     "build": "next build",

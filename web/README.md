@@ -18,6 +18,18 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+By default, the dev app reads from the production Convex deployment
+(`https://youthful-cricket-560.convex.cloud`) so local UI iteration uses the
+same data shape as production. To point at a different Convex deployment, set
+`NEXT_PUBLIC_CONVEX_URL`. To fully disable Convex reads, set
+`NEXT_PUBLIC_USE_PROD_CONVEX=0`.
+
+If you need to run the local Convex dev deployment as well:
+
+```bash
+bun run dev:local-convex
+```
+
 ## Testing
 
 Run the local Playwright suite:
