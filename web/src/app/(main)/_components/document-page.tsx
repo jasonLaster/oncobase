@@ -114,6 +114,7 @@ async function DeferredMarkdownBody({
       content={file.content}
       currentSlug={slug}
       siteSlug={siteSlug}
+      contentHash={file.contentHash}
     />
   );
 }
@@ -188,6 +189,9 @@ export async function renderDocumentPage({
       ? { ...file, title: "Index" }
       : file;
   const isDeferred = ISR_DEFERRED_PREFIXES.some((p) => resolvedPath.startsWith(p));
+  // Keep index routes synchronous so `/` and `/about/Index` include body text
+  // in the prerendered validation shell; normal pages use cached async HTML.
+  const shouldRenderSynchronously = resolvedPath === "index";
   const siteSlug =
     resolvedPath === "index"
       ? toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG)
@@ -205,10 +209,17 @@ export async function renderDocumentPage({
             siteSlug={siteSlug}
           />
         </Suspense>
-      ) : (
+      ) : shouldRenderSynchronously ? (
         <MarkdownRenderer
           content={file.content}
           currentSlug={file.slug}
+        />
+      ) : (
+        <MarkdownRendererAsync
+          content={file.content}
+          currentSlug={file.slug}
+          siteSlug={siteSlug}
+          contentHash={file.contentHash}
         />
       )}
     </DocumentComments>

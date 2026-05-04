@@ -42,16 +42,18 @@ Every document page should have useful HTML before client JavaScript:
 - document title for the requested page
 - body text for the index route and other critical PPR validation pages
 
-The shell fallback in `src/app/(main)/layout.tsx` is deliberately
-empty. It does not include full `sources` or `wiki` trees because the
-full tree is very large and serializing it through the RSC stream can
-dominate HTML size and trigger client parse/hydration failures. The
-client refreshes the full tree from `/api/file-tree` after first mount.
+The shell tree in `src/app/(main)/layout.tsx` is deliberately shallow:
+top-level and second-level nodes only. It does not include full
+`sources` or `wiki` branches because the full tree is very large and
+serializing it through the RSC stream can dominate HTML size and
+trigger client parse/hydration failures. The client refreshes the full
+tree from `/api/file-tree?format=compact` after first mount when the
+initial tree is empty or contains `truncated` nodes.
 
 Pruned shell data must not masquerade as complete data. If a fallback
-tree exposes an expandable `sources` or `wiki` node with empty
-children, tests and users can race the real tree load. Omit incomplete
-branches from the first shell instead.
+tree exposes a `sources` or `wiki` branch with omitted children, that
+directory must be marked `truncated` and rendered as not-yet-loaded,
+not as an expandable empty branch.
 
 ## Data Sources
 
@@ -67,9 +69,16 @@ Important document helpers:
 - `getMarkdownFile(slug)` reads the request site from headers. Use it
   only below a boundary where request-bound rendering is acceptable.
 - `getCompactFileTreeForSite(siteSlug)` builds the cached sidebar tree
-  from documents, PDFs, and file assets as a compact relative trie.
-  `getFileTreeForSite(siteSlug)` expands that cached compact tree for
-  compatibility callers.
+  from documents, PDFs, and file assets as a compact relative trie. The
+  compact form stores ordinary descendants by display name and uses
+  relative path overrides for aliases such as grouped source
+  `Markdown`/`PDF` children, so deep source ancestors are not repeated
+  throughout the payload. `getFileTreeForSite(siteSlug)` expands that
+  cached compact tree for compatibility callers.
+- `getShellFileTreeForSite(siteSlug, { maxDepth: 2 })` expands and
+  prunes the cached full tree into the small server shell tree. Deeper
+  directories are omitted and their visible parent is marked
+  `truncated`.
 - `getCanonicalSlug(contentPath)` resolves casing and index aliases
   from the cached canonical slug map.
 
@@ -90,7 +99,9 @@ There are two markdown renderers:
   document bodies where streaming is acceptable.
 
 The render cache version is `MARKDOWN_RENDER_CACHE_VERSION` in
-`src/lib/wiki-cache-tags.ts`. Bump it when the rendered HTML shape
+`src/lib/wiki-cache-tags.ts`. The shared cached markdown renderer passes
+that version into its cached function arguments, so bump it when the
+rendered HTML shape
 changes, for example markdown plugins, table markup, image theater
 attributes, citation linking, or sanitization behavior.
 
@@ -134,21 +145,32 @@ This design makes publish fast because deployment does not need to
 rebuild the full wiki. It also makes the first request after publish
 pay only for the cache entries that are actually visited.
 
+Post-deploy and post-publish maintenance starts
+`prewarmWikiPagesWorkflow(siteSlug)`, which fetches actual deployed
+routes for `index`, `about/**`, and `wiki/**` in batches. It excludes
+`sources/**`, PDFs, assets, and hidden image paths. Outside production,
+the workflow skips unless `WIKI_PREWARM_BASE_URL` is set. In production,
+it uses `WIKI_PREWARM_BASE_URL` and `WIKI_PREWARM_TOKEN` when set,
+otherwise it warms Diana via `https://diana-tnbc.com` with the Diana
+magic token.
+
 ## PPR Boundaries
 
 PPR works when the static shell and dynamic work are separated cleanly.
 The layout owns the outer shell:
 
 - `<Header />` is inside its own Suspense boundary.
-- `<NavigationShell initialTree={[]}>` gets an empty initial tree and
-  then loads the full tree on the client.
+- `<NavigationShell initialTree={shellTree}>` gets the shallow cached
+  shell tree and then loads the full compact tree on the client when
+  the shell is empty or truncated.
 - Document content is wrapped inside the navigation shell so the
   layout chrome can paint even when content streams.
 
 Rules for adding work above a PPR boundary:
 
 - Use explicit-site cached helpers instead of request-site helpers.
-- Keep serialized props small. A full wiki tree is not a shell prop.
+- Keep serialized props small. A full wiki tree and the full command
+  palette page list are not shell props.
 - Prefer stable fallback dimensions so hydration and table layout do
   not shift after the dynamic content arrives.
 - Do not put client fetches that replace clickable navigation in the
@@ -206,10 +228,10 @@ The rendering/caching contract is covered by these suites:
 - `e2e/navigation.spec.ts` checks sidebar navigation, actions, command
   palette behavior, and canonical redirects.
 - `e2e/sidebar-pdfs.spec.ts` checks that the full client tree loads
-  after the empty shell, that `/api/file-tree` returns the full cached
+  after the shallow shell, that `/api/file-tree` returns the full cached
   tree, that `/api/file-tree?format=compact` avoids repeated ancestor
-  paths, that the page HTML does not serialize that full tree, and that
-  PDFs are represented correctly.
+  paths, that page HTML does not serialize deep source paths or command
+  palette pages, and that PDFs are represented correctly.
 - `e2e/source-loading-boundary.spec.ts` checks that source loading
   shells do not leak into wiki pages.
 - `e2e/table-expansion.spec.ts` checks that shell/sidebar changes do

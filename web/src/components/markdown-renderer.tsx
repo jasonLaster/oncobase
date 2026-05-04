@@ -1,15 +1,10 @@
 import { resolveWikilinks } from "@/lib/wikilinks";
 import { renderMarkdown, renderMarkdownAsync } from "@/lib/render-markdown";
+import { renderCachedMarkdownHtmlForSite } from "@/lib/markdown-render-cache";
 import { MarkdownHeadingAnchors } from "@/components/markdown-heading-anchors";
 import { MermaidRenderer } from "@/components/mermaid-renderer";
 import { InteractiveTables } from "@/components/interactive-tables";
 import { ImageTheater } from "@/components/image-theater";
-import { cacheLife, cacheTag } from "next/cache";
-import {
-  siteCacheTag,
-  siteDocCacheTag,
-  siteRenderCacheTag,
-} from "@/lib/wiki-cache-tags";
 
 type MarkdownRendererProps = {
   content: string;
@@ -17,6 +12,7 @@ type MarkdownRendererProps = {
   disableAnchors?: boolean;
   anchorScopeKey?: string;
   siteSlug?: string;
+  contentHash?: string | null;
 };
 
 export function MarkdownRenderer({
@@ -42,29 +38,6 @@ export function MarkdownRenderer({
   );
 }
 
-async function renderCachedMarkdownHtml({
-  content,
-  currentSlug,
-  siteSlug,
-}: {
-  content: string;
-  currentSlug?: string;
-  siteSlug?: string;
-}) {
-  "use cache";
-  cacheLife("weeks");
-  if (siteSlug) {
-    cacheTag(
-      siteCacheTag(siteSlug),
-      siteRenderCacheTag(siteSlug),
-      ...(currentSlug ? [siteDocCacheTag(siteSlug, currentSlug)] : []),
-    );
-  }
-
-  const resolved = resolveWikilinks(content, currentSlug);
-  return await renderMarkdownAsync(resolved, currentSlug);
-}
-
 /** Async RSC version — non-blocking I/O, lets other work proceed during rendering */
 export async function MarkdownRendererAsync({
   content,
@@ -72,12 +45,17 @@ export async function MarkdownRendererAsync({
   disableAnchors,
   anchorScopeKey,
   siteSlug,
+  contentHash,
 }: MarkdownRendererProps) {
-  const html = await renderCachedMarkdownHtml({
-    content,
-    currentSlug,
-    siteSlug,
-  });
+  const html =
+    siteSlug && currentSlug
+      ? await renderCachedMarkdownHtmlForSite({
+          siteSlug,
+          slug: currentSlug,
+          contentHash,
+          content,
+        })
+      : await renderMarkdownAsync(resolveWikilinks(content, currentSlug), currentSlug);
 
   return (
     <div className="prose max-w-none">

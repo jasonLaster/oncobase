@@ -5,8 +5,6 @@ import { Toaster } from "sonner";
 import { Suspense } from "react";
 import { CommandPalette, OutlinePalette, ActionPalette } from "@/components/command-palette";
 import { ConvexClientProvider } from "@/components/convex-provider";
-import { getAllPageEntriesForSite } from "@/lib/markdown";
-import { DEFAULT_SITE_SLUG, toSiteSlug } from "@/lib/site";
 import "@liveblocks/react-ui/styles.css";
 import "katex/dist/katex.min.css";
 import "./globals.css";
@@ -53,15 +51,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const initialPages = await getAllPageEntriesForSite(
-    toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG)
-  );
-
   return (
     <html
       lang="en"
@@ -75,7 +69,7 @@ export default async function RootLayout({
       <body className="min-h-full">
         <ConvexClientProvider>{children}</ConvexClientProvider>
         <Suspense fallback={null}>
-          <CommandPalette initialPages={initialPages} />
+          <CommandPalette />
           <OutlinePalette />
           <ActionPalette />
         </Suspense>

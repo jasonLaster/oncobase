@@ -126,23 +126,76 @@ function endChord() {
 
 // ─── File palette (Cmd+K) ─────────────────────────────────────────────────────
 
-export function CommandPalette({
-  initialPages = [],
-}: {
-  initialPages?: PageEntry[];
-}) {
+type IdleSchedulerWindow = Window & {
+  requestIdleCallback?: (
+    callback: () => void,
+    options?: { timeout?: number },
+  ) => number;
+  cancelIdleCallback?: (id: number) => void;
+};
+
+export function CommandPalette() {
   const [open, setOpen] = useState(false);
-  const [pages, setPages] = useState<PageEntry[]>(initialPages);
+  const [pages, setPages] = useState<PageEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [isNavigating, startNavigation] = useTransition();
   const router = useRouter();
   const listRef = useRef<HTMLDivElement>(null);
+  const pagesLoadedRef = useRef(false);
+  const pagesRequestRef = useRef<Promise<void> | null>(null);
+
+  const loadPages = useCallback((showLoading = false) => {
+    if (pagesLoadedRef.current) return;
+
+    if (showLoading) {
+      setLoading(true);
+    }
+
+    if (pagesRequestRef.current) {
+      // The in-flight request owns clearing the loading spinner in finally.
+      return;
+    }
+
+    pagesRequestRef.current = fetch("/api/pages")
+      .then((r) => {
+        if (!r.ok) throw new Error(`pages request failed: ${r.status}`);
+        return r.json();
+      })
+      .then((nextPages: PageEntry[]) => {
+        pagesLoadedRef.current = true;
+        setPages(nextPages);
+      })
+      .catch(() => {})
+      .finally(() => {
+        pagesRequestRef.current = null;
+        setLoading(false);
+      });
+  }, []);
 
   useEffect(() => {
     globalOpenFiles = () => setOpen(true);
     return () => { globalOpenFiles = null; };
   }, []);
+
+  useEffect(() => {
+    const idleWindow = window as IdleSchedulerWindow;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let idleId: number | null = null;
+
+    if (idleWindow.requestIdleCallback) {
+      idleId = idleWindow.requestIdleCallback(() => loadPages(), {
+        timeout: 1500,
+      });
+    } else {
+      timeoutId = setTimeout(() => loadPages(), 250);
+    }
+
+    return () => {
+      if (idleId !== null) idleWindow.cancelIdleCallback?.(idleId);
+      if (timeoutId !== null) clearTimeout(timeoutId);
+    };
+  }, [loadPages]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -213,15 +266,10 @@ export function CommandPalette({
 
   useEffect(() => {
     if (open && pages.length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy data fetch on dialog open
-      setLoading(true);
-      fetch("/api/pages")
-        .then((r) => r.json())
-        .then((nextPages: PageEntry[]) => setPages(nextPages))
-        .catch(() => {})
-        .finally(() => setLoading(false));
+      const timeoutId = setTimeout(() => loadPages(true), 0);
+      return () => clearTimeout(timeoutId);
     }
-  }, [open, pages.length]);
+  }, [loadPages, open, pages.length]);
 
   // Reset search when closing
   useEffect(() => {

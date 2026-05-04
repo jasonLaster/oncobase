@@ -5,7 +5,8 @@ import { startWikiMaintenanceWorkflows } from "@/workflows/wiki-maintenance";
  *
  * Runs after the publisher finishes mutating Convex. The publish route handles
  * cache invalidation synchronously; this workflow rebuilds durable artifacts in
- * the background: download zips, generated descriptions, and embeddings.
+ * the background: download zips, generated descriptions, embeddings, and
+ * rendered wiki/about pages.
  */
 export async function postPublishWorkflow(siteSlug = "diana") {
   "use workflow";

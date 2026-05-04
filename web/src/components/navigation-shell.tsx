@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
 import {
   expandCompactFileTree,
   type CompactFileNode,
 } from "@/lib/file-tree-compact";
+import { shouldLoadFullFileTree } from "@/lib/file-tree-shell";
 import { BottomNav } from "@/components/bottom-nav";
 import { ResizableLayout } from "@/components/resizable-layout";
 import { Sidebar } from "@/components/sidebar";
@@ -52,11 +53,20 @@ export function NavigationShell({
 }) {
   const pathname = usePathname();
   const [tree, setTree] = useState(initialTree);
+  const fullTreeRequestedRef = useRef(false);
+  const treeNeedsFullLoad = useMemo(() => shouldLoadFullFileTree(tree), [tree]);
 
   useEffect(() => {
-    if (pathname.startsWith("/chat") || tree.length > 0) return;
+    if (
+      pathname.startsWith("/chat") ||
+      !treeNeedsFullLoad ||
+      fullTreeRequestedRef.current
+    ) {
+      return;
+    }
 
     const controller = new AbortController();
+    fullTreeRequestedRef.current = true;
     fetch("/api/file-tree?format=compact", {
       signal: controller.signal,
       headers: { Accept: "application/json" },
@@ -74,7 +84,7 @@ export function NavigationShell({
       });
 
     return () => controller.abort();
-  }, [pathname, tree.length]);
+  }, [pathname, treeNeedsFullLoad]);
 
   const shouldRenderStaticContent =
     pathname === "/table-examples" || pathname === "/wiki/research/paper-catalog";

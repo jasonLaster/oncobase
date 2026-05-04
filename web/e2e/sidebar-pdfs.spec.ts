@@ -6,6 +6,7 @@ type FileNode = {
   name: string;
   slug: string;
   type: "file" | "directory" | "pdf";
+  truncated?: boolean;
   pdfPath?: string;
   children?: FileNode[];
 };
@@ -39,6 +40,12 @@ async function waitForSidebarTree(nav: ReturnType<import("@playwright/test").Pag
   ).toBeVisible({ timeout: 30_000 });
 }
 
+async function waitForFullSidebarTree(nav: ReturnType<import("@playwright/test").Page["locator"]>) {
+  await expect(
+    nav.getByRole("button", { name: /^[▶▼]\s*institutions$/ }).first()
+  ).toBeVisible({ timeout: 30_000 });
+}
+
 async function expandFirstPdfSet(nav: ReturnType<import("@playwright/test").Page["locator"]>) {
   const pdfSet = nav.getByRole("button", { name: /PDF set$/ }).first();
   await expect(pdfSet).toBeVisible();
@@ -52,14 +59,16 @@ test.describe("Sidebar source files", () => {
   test("/api/file-tree returns the complete cached tree while page HTML keeps the shell lean", async ({
     request,
   }) => {
-    const [treeResponse, compactTreeResponse, htmlResponse] = await Promise.all([
+    const [treeResponse, compactTreeResponse, pagesResponse, htmlResponse] = await Promise.all([
       request.get("/api/file-tree"),
       request.get("/api/file-tree?format=compact"),
+      request.get("/api/pages"),
       request.get("/wiki/updates/week-6-april-19-to-25?token=diana"),
     ]);
 
     expect(treeResponse.ok()).toBeTruthy();
     expect(compactTreeResponse.ok()).toBeTruthy();
+    expect(pagesResponse.ok()).toBeTruthy();
     expect(htmlResponse.ok()).toBeTruthy();
 
     const tree = (await treeResponse.json()) as FileNode[];
@@ -80,28 +89,50 @@ test.describe("Sidebar source files", () => {
       ),
     ).toMatchObject({ type: "pdf" });
 
+    const pages = (await pagesResponse.json()) as Array<{ slug: string }>;
+    expect(pages.some((page) => page.slug === "wiki/updates/week-6-april-19-to-25")).toBe(true);
+    expect(pages.some((page) => page.slug.startsWith("sources/institutions/stanford/telli/"))).toBe(true);
+
     const expandedTreeJson = JSON.stringify(tree);
     const compactTreeJson = await compactTreeResponse.text();
     expect(compactTreeJson.length).toBeLessThan(expandedTreeJson.length);
     expect(compactTreeJson).not.toContain(
       "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc__paper-set",
     );
+    expect(compactTreeJson).not.toContain(
+      "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
+    );
 
     const html = await htmlResponse.text();
     expect(html).toContain("Week 6");
+    expect(html).toContain("wiki/updates");
     expect(html).not.toContain('"initialTree":[{"name":"about"');
-    expect(html).not.toContain('"initialTree":[{"name":"sources"');
+    expect(html).not.toContain("initialPages");
+    expect(html).not.toContain("sources/institutions/stanford/telli");
+    expect(html).not.toContain('E{"digest"');
+    expect(html).not.toContain("$RX(");
   });
 
   test("runtime wiki pages render instead of caching a not-found boundary", async ({
     request,
   }) => {
-    const response = await request.get("/about/Journal?token=diana");
+    const [journalResponse, week6Response] = await Promise.all([
+      request.get("/about/Journal?token=diana"),
+      request.get("/wiki/updates/week-6-april-19-to-25?token=diana"),
+    ]);
 
-    expect(response.ok()).toBeTruthy();
-    const html = await response.text();
-    expect(html).toContain("Saturday, May 2nd");
-    expect(html).not.toContain('E{"digest"');
+    expect(journalResponse.ok()).toBeTruthy();
+    expect(week6Response.ok()).toBeTruthy();
+
+    const journalHtml = await journalResponse.text();
+    expect(journalHtml).toContain("Saturday, May 2nd");
+    expect(journalHtml).not.toContain('E{"digest"');
+    expect(journalHtml).not.toContain("$RX(");
+
+    const week6Html = await week6Response.text();
+    expect(week6Html).toContain("Week 6");
+    expect(week6Html).not.toContain('E{"digest"');
+    expect(week6Html).not.toContain("$RX(");
   });
 
   test("sources directory contains markdown source links after drilling into stanford/telli", async ({ page }) => {
@@ -109,6 +140,7 @@ test.describe("Sidebar source files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
+    await waitForFullSidebarTree(nav);
     // sources is open at depth=0 by default — no click needed
     await expandIfCollapsed(nav, "sources");
     await expandIfCollapsed(nav, "institutions");
@@ -126,6 +158,7 @@ test.describe("Sidebar source files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
+    await waitForFullSidebarTree(nav);
     await expandIfCollapsed(nav, "sources");
     await expandIfCollapsed(nav, "wiki");
     await expandIfCollapsed(nav, "research");
@@ -148,6 +181,7 @@ test.describe("Sidebar PDF files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
+    await waitForFullSidebarTree(nav);
     // sources is open at depth=0 by default — no click needed
     await expandIfCollapsed(nav, "sources");
     await expandIfCollapsed(nav, "institutions");
@@ -164,6 +198,7 @@ test.describe("Sidebar PDF files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
+    await waitForFullSidebarTree(nav);
     await expandIfCollapsed(nav, "sources");
     await expandIfCollapsed(nav, "institutions");
     await expandIfCollapsed(nav, "stanford");
@@ -180,6 +215,7 @@ test.describe("Sidebar PDF files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
+    await waitForFullSidebarTree(nav);
     await expandIfCollapsed(nav, "sources");
     await expandIfCollapsed(nav, "institutions");
     await expandIfCollapsed(nav, "stanford");
@@ -195,6 +231,7 @@ test.describe("Sidebar PDF files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
+    await waitForFullSidebarTree(nav);
     await expandIfCollapsed(nav, "sources");
     await expandIfCollapsed(nav, "institutions");
     await expandIfCollapsed(nav, "stanford");

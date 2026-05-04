@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { Header } from "@/components/header";
 import { NavigationShell } from "@/components/navigation-shell";
 import { WebChatRuntimeProvider } from "@/components/chat-runtime-provider";
-import type { FileNode } from "@/lib/markdown";
+import { getShellFileTreeForSite, type FileNode } from "@/lib/markdown";
+import { DEFAULT_SITE_SLUG, toSiteSlug } from "@/lib/site";
 
 function MainContentFallback() {
   return (
@@ -121,14 +122,15 @@ function ShellFallback({ tree }: { tree: FileNode[] }) {
   );
 }
 
-const EMPTY_SHELL_TREE: FileNode[] = [];
-
-export default function MainLayout({
+export default async function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const shellTree = EMPTY_SHELL_TREE;
+  const shellTree = await getShellFileTreeForSite(
+    toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG),
+    { maxDepth: 2 },
+  );
   const shellFallback = <ShellFallback tree={shellTree} />;
 
   return (

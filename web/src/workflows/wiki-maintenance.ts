@@ -7,6 +7,7 @@ export async function startWikiMaintenanceWorkflows(
   const { buildDownloadCacheWorkflow } = await import("./build-download-cache");
   const { generateDescriptionsWorkflow } = await import("./generate-descriptions");
   const { ingestEmbeddingsWorkflow } = await import("./ingest-embeddings");
+  const { prewarmWikiPagesWorkflow } = await import("./prewarm-wiki-pages");
 
   const token =
     process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ??
@@ -17,7 +18,7 @@ export async function startWikiMaintenanceWorkflows(
     );
   }
 
-  const [full, markdown, descriptions, embeddings] = await Promise.all([
+  const [full, markdown, descriptions, embeddings, prewarm] = await Promise.all([
     token
       ? start(buildDownloadCacheWorkflow, ["full", siteSlug])
       : Promise.resolve(null),
@@ -26,6 +27,7 @@ export async function startWikiMaintenanceWorkflows(
       : Promise.resolve(null),
     start(generateDescriptionsWorkflow, [siteSlug]),
     start(ingestEmbeddingsWorkflow, [siteSlug]),
+    start(prewarmWikiPagesWorkflow, [siteSlug]),
   ]);
 
   return {
@@ -33,5 +35,6 @@ export async function startWikiMaintenanceWorkflows(
     downloadMarkdown: markdown?.runId ?? null,
     descriptions: descriptions.runId,
     embeddings: embeddings.runId,
+    prewarm: prewarm.runId,
   };
 }

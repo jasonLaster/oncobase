@@ -58,13 +58,16 @@ describe("compact file tree", () => {
     ];
 
     const compact = compactFileTree(tree);
+    const compactJson = JSON.stringify(compact);
 
-    expect(JSON.stringify(compact)).not.toContain(
+    expect(compactJson).not.toContain(
       "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc__paper-set",
     );
-    expect(JSON.stringify(compact)).toContain(
+    expect(compactJson).not.toContain(
       "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
     );
+    expect(compactJson).toContain("../telli-2016-hrd-platinum-tnbc");
+    expect(compactJson).toContain("../telli-2016-hrd-platinum-tnbc.pdf");
     expect(expandCompactFileTree(compact)).toEqual(tree);
   });
 });

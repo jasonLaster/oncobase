@@ -10,6 +10,7 @@
  *   - buildDownloadCacheWorkflow("markdown") — markdown-only zip → public Blob
  *   - generateDescriptionsWorkflow           — AI descriptions for new pages
  *   - ingestEmbeddingsWorkflow               — OpenAI embeddings for search
+ *   - prewarmWikiPagesWorkflow               — rendered wiki/about routes
  *
  * start() cannot be called directly inside a workflow function — it must be
  * wrapped in a step. Each child workflow runs independently and is visible

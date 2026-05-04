@@ -9,6 +9,11 @@ import {
   type CompactFileNode,
   type FileNode,
 } from "@/lib/file-tree-compact";
+import {
+  pruneFileTreeForShell,
+  type ShellFileTreeOptions,
+} from "@/lib/file-tree-shell";
+import { isHiddenFileTreePath } from "@/lib/file-tree-paths";
 import type { PiiRedactionMode } from "@/lib/pii-redaction";
 import {
   siteAssetsCacheTag,
@@ -36,11 +41,13 @@ async function readSiteSlug(): Promise<SiteSlug> {
 // - web/specs/multi-site.md
 
 export type { CompactFileNode, FileNode };
+export { isHiddenFileTreePath };
 
 export interface MarkdownFile {
   slug: string;
   title: string;
   content: string;
+  contentHash?: string;
   frontmatter: Record<string, unknown>;
 }
 
@@ -55,12 +62,6 @@ interface MarkdownReadOptions {
   // mode here is informational. The reveal path is gone with the fs
   // reader — raw markdown lives only in the publisher's local vault.
   piiMode?: PiiRedactionMode;
-}
-
-const HIDDEN_FILE_TREE_DIRECTORIES = new Set(["images"]);
-
-export function isHiddenFileTreePath(path: string): boolean {
-  return path.split("/").some((segment) => HIDDEN_FILE_TREE_DIRECTORIES.has(segment));
 }
 
 // ── Convex fetchers (tagged Cache Components entries) ────────────────────────
@@ -218,6 +219,7 @@ export async function readMarkdownFileForSite(
     slug: doc.slug,
     title: doc.title,
     content: doc.content,
+    contentHash: doc.contentHash,
     frontmatter,
   };
 }
@@ -275,6 +277,23 @@ export async function getCompactFileTreeForSite(
 /** Build the sidebar file tree from Convex documents + assets. */
 export async function getFileTreeForSite(siteSlug: SiteSlug): Promise<FileNode[]> {
   return expandCompactFileTree(await getCompactFileTreeForSite(siteSlug));
+}
+
+/** Build a shallow cached tree for the server-rendered wiki shell. */
+export async function getShellFileTreeForSite(
+  siteSlug: SiteSlug,
+  options: ShellFileTreeOptions = {},
+): Promise<FileNode[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(
+    siteCacheTag(siteSlug),
+    siteDocsCacheTag(siteSlug),
+    siteAssetsCacheTag(siteSlug),
+    siteTreeCacheTag(siteSlug),
+  );
+
+  return pruneFileTreeForShell(await getFileTreeForSite(siteSlug), options);
 }
 
 export async function getFileTree(): Promise<FileNode[]> {

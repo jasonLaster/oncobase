@@ -41,6 +41,36 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
   const isActive = pathname === `/${node.slug}`;
 
   if (node.type === "directory") {
+    const hasChildren = (node.children?.length ?? 0) > 0;
+    const isTruncated = Boolean(node.truncated);
+
+    if (!hasChildren) {
+      return (
+        <div>
+          <div
+            className="flex items-center gap-1.5 w-full px-2 py-1 text-left text-sm rounded text-[var(--text-muted)]"
+            style={{ paddingLeft: `${depth * 12 + 8}px` }}
+            title={isTruncated ? "Loading children" : formatName(node.name)}
+          >
+            {isTruncated ? (
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-current opacity-50"
+              />
+            ) : (
+              <span aria-hidden="true" className="w-2 shrink-0" />
+            )}
+            <span className="min-w-0 flex-1 truncate font-medium">{formatName(node.name)}</span>
+            {node.badge && (
+              <span className="ml-auto shrink-0 rounded border border-[var(--brand)]/20 bg-[var(--accent-light)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--brand)]">
+                {node.badge}
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div>
         <button
@@ -56,9 +86,9 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
             </span>
           )}
         </button>
-        {open && node.children && (
+        {open && (
           <div>
-            {node.children.map((child) => (
+            {node.children?.map((child) => (
               <TreeNode key={child.slug} node={child} depth={depth + 1} onNavigate={onNavigate} />
             ))}
           </div>
