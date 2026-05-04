@@ -278,7 +278,13 @@ export async function getAllSlugs(): Promise<string[]> {
 }
 
 export async function getAllPageEntries(): Promise<PageEntry[]> {
-  const docs = await fetchAllDocs();
+  return getAllPageEntriesForSite(await readSiteSlug());
+}
+
+export async function getAllPageEntriesForSite(
+  siteSlug: SiteSlug,
+): Promise<PageEntry[]> {
+  const docs = await fetchAllDocsForSite(siteSlug);
   return docs.map((doc) => {
     const segments = doc.slug.split("/");
     const name = segments.at(-1) ?? doc.slug;

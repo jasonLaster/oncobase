@@ -1,10 +1,10 @@
-import { connection } from "next/server";
-import { getAllPageEntries } from "@/lib/markdown";
+import { getAllPageEntriesForSite } from "@/lib/markdown";
+import { DEFAULT_SITE_SLUG, toSiteSlug } from "@/lib/site";
 
-export async function GET() {
-  await connection();
-  const pages = await getAllPageEntries();
-  return Response.json(pages, {
-    headers: { "Cache-Control": "no-store, max-age=0" },
-  });
+export async function GET(request: Request) {
+  const siteSlug = toSiteSlug(
+    request.headers.get("x-site-slug") ?? DEFAULT_SITE_SLUG,
+  );
+  const pages = await getAllPageEntriesForSite(siteSlug);
+  return Response.json(pages);
 }

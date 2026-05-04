@@ -160,7 +160,7 @@ export default async function MainLayout({
           <Header />
         </Suspense>
         <Suspense fallback={shellFallback}>
-          <NavigationShell initialTree={shellTree}>{children}</NavigationShell>
+          <NavigationShell initialTree={initialTree}>{children}</NavigationShell>
         </Suspense>
       </div>
     </WebChatRuntimeProvider>

@@ -126,9 +126,13 @@ function endChord() {
 
 // ─── File palette (Cmd+K) ─────────────────────────────────────────────────────
 
-export function CommandPalette() {
+export function CommandPalette({
+  initialPages = [],
+}: {
+  initialPages?: PageEntry[];
+}) {
   const [open, setOpen] = useState(false);
-  const [pages, setPages] = useState<PageEntry[]>([]);
+  const [pages, setPages] = useState<PageEntry[]>(initialPages);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [isNavigating, startNavigation] = useTransition();
@@ -213,7 +217,7 @@ export function CommandPalette() {
       setLoading(true);
       fetch("/api/pages")
         .then((r) => r.json())
-        .then(setPages)
+        .then((nextPages: PageEntry[]) => setPages(nextPages))
         .catch(() => {})
         .finally(() => setLoading(false));
     }

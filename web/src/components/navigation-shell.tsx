@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, startTransition, useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
 import { BottomNav } from "@/components/bottom-nav";
@@ -39,19 +39,6 @@ function MainContentFallback() {
   );
 }
 
-async function fetchFileTree(signal: AbortSignal): Promise<FileNode[]> {
-  const response = await fetch("/api/file-tree", {
-    cache: "no-store",
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to load file tree: ${response.status}`);
-  }
-
-  return (await response.json()) as FileNode[];
-}
-
 export function NavigationShell({
   children,
   initialTree,
@@ -60,33 +47,7 @@ export function NavigationShell({
   initialTree: FileNode[];
 }) {
   const pathname = usePathname();
-  const [tree, setTree] = useState(initialTree);
-  const hasMounted = useRef(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const delayMs = hasMounted.current ? 0 : 1_000;
-    hasMounted.current = true;
-
-    async function loadTree() {
-      try {
-        const nextTree = await fetchFileTree(controller.signal);
-        startTransition(() => {
-          setTree(nextTree);
-        });
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        console.error("[navigation-shell] Failed to refresh file tree", error);
-      }
-    }
-
-    const timer = window.setTimeout(loadTree, delayMs);
-
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [pathname]);
+  const tree = initialTree;
 
   const shouldRenderStaticContent =
     pathname === "/table-examples" || pathname === "/wiki/research/paper-catalog";
