@@ -1,8 +1,17 @@
 import { headers } from "next/headers";
+import { cacheLife, cacheTag } from "next/cache";
 import { siteDataFromSlug } from "@/lib/site-data";
 import { DEFAULT_SITE_SLUG, toSiteSlug, type SiteSlug } from "@/lib/site";
 import { shouldSkipConvexReads } from "@/lib/convex-url";
 import type { PiiRedactionMode } from "@/lib/pii-redaction";
+import {
+  siteAssetsCacheTag,
+  siteCacheTag,
+  siteDocCacheTag,
+  siteDocsCacheTag,
+  siteTagsCacheTag,
+  siteTreeCacheTag,
+} from "@/lib/wiki-cache-tags";
 
 // Resolve the active site from the proxy-set `x-site-slug` header.
 async function readSiteSlug(): Promise<SiteSlug> {
@@ -56,14 +65,17 @@ export function isHiddenFileTreePath(path: string): boolean {
   return path.split("/").some((segment) => HIDDEN_FILE_TREE_DIRECTORIES.has(segment));
 }
 
-// ── Convex fetchers (per-request memoized) ───────────────────────────────────
-// React `cache()` deduplicates these across an RSC tree's reads of the
-// same data. There is no cross-request cache here — Convex is
-// authoritative and the network round trip is cheap.
+// ── Convex fetchers (tagged Cache Components entries) ────────────────────────
+// Publish invalidates these tags so the PPR shell, document body, and sidebar
+// tree all observe Convex updates without falling back to uncached rendering.
 
 async function fetchAllDocsForSite(
   siteSlug: SiteSlug,
 ): Promise<Array<{ slug: string; title: string; tags: string[] }>> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(siteCacheTag(siteSlug), siteDocsCacheTag(siteSlug));
+
   if (shouldSkipConvexReads()) return [];
   return await siteDataFromSlug(siteSlug).documents.list();
 }
@@ -92,6 +104,14 @@ async function paginateAssetPaths(
 }
 
 async function fetchAllPdfPathsForSite(siteSlug: SiteSlug): Promise<string[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(
+    siteCacheTag(siteSlug),
+    siteAssetsCacheTag(siteSlug),
+    siteTreeCacheTag(siteSlug),
+  );
+
   if (shouldSkipConvexReads()) return [];
   const siteData = siteDataFromSlug(siteSlug);
   try {
@@ -109,6 +129,14 @@ async function fetchAllPdfPathsForSite(siteSlug: SiteSlug): Promise<string[]> {
 }
 
 async function fetchAllFilePathsForSite(siteSlug: SiteSlug): Promise<string[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(
+    siteCacheTag(siteSlug),
+    siteAssetsCacheTag(siteSlug),
+    siteTreeCacheTag(siteSlug),
+  );
+
   if (shouldSkipConvexReads()) return [];
   const siteData = siteDataFromSlug(siteSlug);
   try {
@@ -125,17 +153,13 @@ async function fetchAllFilePathsForSite(siteSlug: SiteSlug): Promise<string[]> {
   }
 }
 
-async function fetchAllPdfPaths() {
-  return fetchAllPdfPathsForSite(await readSiteSlug());
-}
-
-async function fetchAllFilePaths() {
-  return fetchAllFilePathsForSite(await readSiteSlug());
-}
-
 async function fetchCanonicalSlugEntriesForSite(
   siteSlug: SiteSlug,
 ): Promise<Array<[string, string]>> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(siteCacheTag(siteSlug), siteDocsCacheTag(siteSlug));
+
   const docs = await fetchAllDocsForSite(siteSlug);
   const entries: Array<[string, string]> = [];
   const seen = new Set<string>();
@@ -161,10 +185,18 @@ async function fetchCanonicalSlugMap(): Promise<Map<string, string>> {
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
-async function getMarkdownFileForSite(
+export async function getMarkdownFileForSite(
   siteSlug: SiteSlug,
   slug: string,
 ): Promise<MarkdownFile | null> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(
+    siteCacheTag(siteSlug),
+    siteDocsCacheTag(siteSlug),
+    siteDocCacheTag(siteSlug, slug),
+  );
+
   if (shouldSkipConvexReads()) return null;
   const siteData = siteDataFromSlug(siteSlug);
   let doc = await siteData.documents.getBySlug({ slug });
@@ -198,11 +230,20 @@ export async function getMarkdownFile(
 export const getMarkdownFileAsync = getMarkdownFile;
 
 /** Build the sidebar file tree from Convex documents + assets. */
-export async function getFileTree(): Promise<FileNode[]> {
-const [docs, pdfPaths, filePaths] = await Promise.all([
-    fetchAllDocs(),
-    fetchAllPdfPaths(),
-    fetchAllFilePaths(),
+export async function getFileTreeForSite(siteSlug: SiteSlug): Promise<FileNode[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(
+    siteCacheTag(siteSlug),
+    siteDocsCacheTag(siteSlug),
+    siteAssetsCacheTag(siteSlug),
+    siteTreeCacheTag(siteSlug),
+  );
+
+  const [docs, pdfPaths, filePaths] = await Promise.all([
+    fetchAllDocsForSite(siteSlug),
+    fetchAllPdfPathsForSite(siteSlug),
+    fetchAllFilePathsForSite(siteSlug),
   ]);
 
   const root: FileNode[] = [];
@@ -222,6 +263,10 @@ const [docs, pdfPaths, filePaths] = await Promise.all([
   const grouped = groupPaperCollectionsDeep(root);
   sortTree(grouped);
   return grouped;
+}
+
+export async function getFileTree(): Promise<FileNode[]> {
+  return getFileTreeForSite(await readSiteSlug());
 }
 
 /** Convex documents already include PDFs in their own table — single fetch. */
@@ -251,6 +296,14 @@ export async function getCanonicalSlug(slug: string): Promise<string | null> {
 }
 
 async function getAllTagsForSite(siteSlug: SiteSlug): Promise<string[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(
+    siteCacheTag(siteSlug),
+    siteDocsCacheTag(siteSlug),
+    siteTagsCacheTag(siteSlug),
+  );
+
   if (shouldSkipConvexReads()) return [];
   const tags = await siteDataFromSlug(siteSlug).documents.listTags();
   return tags
@@ -266,6 +319,14 @@ async function getPagesByTagForSite(
   siteSlug: SiteSlug,
   tag: string,
 ): Promise<Array<{ slug: string; title: string }>> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(
+    siteCacheTag(siteSlug),
+    siteDocsCacheTag(siteSlug),
+    siteTagsCacheTag(siteSlug),
+  );
+
   if (shouldSkipConvexReads()) return [];
   // Convex `getByTag` matches case-sensitively; tags are lowercased at
   // publish time, so the lookup just needs the normalized form.

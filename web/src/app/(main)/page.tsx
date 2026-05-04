@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { connection } from "next/server";
-import { getMarkdownFile } from "@/lib/markdown";
+import { getMarkdownFileForSite } from "@/lib/markdown";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { DocumentComments } from "@/components/document-comments-wrapper";
+import { DEFAULT_SITE_SLUG, toSiteSlug } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Home",
@@ -17,9 +17,10 @@ export const metadata: Metadata = {
 const HOME_SLUG = "index";
 
 export default async function Home() {
-  await connection();
-
-  const file = await getMarkdownFile(HOME_SLUG);
+  const file = await getMarkdownFileForSite(
+    toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG),
+    HOME_SLUG
+  );
 
   if (!file) {
     return <p>No index.md found.</p>;
@@ -27,7 +28,11 @@ export default async function Home() {
 
   return (
     <DocumentComments documentSlug={file.slug} documentTitle={file.title}>
-      <MarkdownRenderer content={file.content} anchorScopeKey={HOME_SLUG} />
+      <MarkdownRenderer
+        content={file.content}
+        currentSlug={file.slug}
+        anchorScopeKey={HOME_SLUG}
+      />
     </DocumentComments>
   );
 }

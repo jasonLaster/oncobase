@@ -3,12 +3,7 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  // Temporarily disable Cache Components/PPR for the wiki shell. The
-  // production deployment was caching a React server-stream failure
-  // ("Connection closed", digest 1389600784) for request-scoped markdown
-  // pages after PR #79. Keep the app on request rendering until the PPR
-  // stream can be isolated without risking cached error payloads.
-  cacheComponents: false,
+  cacheComponents: true,
   async redirects() {
     const wikiRedirects: Record<string, string> = {
       // diagnostics

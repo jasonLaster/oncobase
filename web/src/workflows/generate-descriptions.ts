@@ -15,14 +15,14 @@ interface DocPage {
   content: string;
 }
 
-async function fetchPagesBatch(cursor: string | null): Promise<{
+async function fetchPagesBatchForSite(siteSlug: string, cursor: string | null): Promise<{
   page: DocPage[];
   isDone: boolean;
   continueCursor: string;
 }> {
   "use step";
-  const { fetchQuery } = await import("convex/nextjs");
-  const { api } = await import("../../convex/_generated/api");
+  const { siteDataFromSlug } = await import("@/lib/site-data");
+  const siteData = siteDataFromSlug(siteSlug);
 
   type PageResult = {
     page: Array<{ slug: string; title: string; description?: string | null; content: string }>;
@@ -30,7 +30,7 @@ async function fetchPagesBatch(cursor: string | null): Promise<{
     continueCursor: string;
   };
 
-  const result = (await fetchQuery(api.documents.listPageWithDescriptions, {
+  const result = (await siteData.documents.listPageWithDescriptions({
     cursor,
     numItems: 50,
   })) as PageResult;
@@ -47,14 +47,17 @@ async function fetchPagesBatch(cursor: string | null): Promise<{
   };
 }
 
-async function generateAndSaveBatch(docs: Array<{ slug: string; title: string; content: string }>): Promise<number> {
+async function generateAndSaveBatchForSite(
+  siteSlug: string,
+  docs: Array<{ slug: string; title: string; content: string }>,
+): Promise<number> {
   "use step";
 
   const apiKey = process.env.AI_GATEWAY_API_KEY;
   if (!apiKey) throw new FatalError("AI_GATEWAY_API_KEY not set");
 
-  const { fetchMutation } = await import("convex/nextjs");
-  const { api } = await import("../../convex/_generated/api");
+  const { siteDataFromSlug } = await import("@/lib/site-data");
+  const siteData = siteDataFromSlug(siteSlug);
   const { generateText } = await import("ai");
 
   let saved = 0;
@@ -70,7 +73,10 @@ async function generateAndSaveBatch(docs: Array<{ slug: string; title: string; c
         });
         const description = text.trim();
         if (!description) return;
-        await fetchMutation(api.documents.setDescription, { slug: doc.slug, description });
+        await siteData.documents.setDescription({
+          slug: doc.slug,
+          description,
+        });
         saved++;
       } catch (err) {
         console.warn(`[generate-descriptions] Failed for ${doc.slug}:`, err);
@@ -81,7 +87,7 @@ async function generateAndSaveBatch(docs: Array<{ slug: string; title: string; c
   return saved;
 }
 
-export async function generateDescriptionsWorkflow() {
+export async function generateDescriptionsWorkflow(siteSlug = "diana") {
   "use workflow";
 
   const apiKey = process.env.AI_GATEWAY_API_KEY;
@@ -90,7 +96,7 @@ export async function generateDescriptionsWorkflow() {
     return;
   }
 
-  console.log("[generate-descriptions] Workflow started");
+  console.log(`[generate-descriptions] Workflow started site=${siteSlug}`);
 
   let cursor: string | null = null;
   let isDone = false;
@@ -99,7 +105,8 @@ export async function generateDescriptionsWorkflow() {
   let batchNum = 0;
 
   while (!isDone) {
-    const { page, isDone: done, continueCursor } = await fetchPagesBatch(cursor);
+    const { page, isDone: done, continueCursor } =
+      await fetchPagesBatchForSite(siteSlug, cursor);
     isDone = done;
     cursor = continueCursor;
 
@@ -107,7 +114,7 @@ export async function generateDescriptionsWorkflow() {
     totalSkipped += page.length - needsDescription.length;
 
     if (needsDescription.length > 0) {
-      const saved = await generateAndSaveBatch(needsDescription);
+      const saved = await generateAndSaveBatchForSite(siteSlug, needsDescription);
       totalSaved += saved;
     }
 

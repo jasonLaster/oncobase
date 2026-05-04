@@ -21,10 +21,12 @@ const MAX_CHARS = 20_000;
 
 // ─── steps ───────────────────────────────────────────────────────────────────
 
-async function collectDocsToEmbed(): Promise<Array<{ slug: string; contentHash: string | undefined }>> {
+async function collectDocsToEmbed(
+  siteSlug: string,
+): Promise<Array<{ slug: string; contentHash: string | undefined }>> {
   "use step";
-  const { fetchQuery } = await import("convex/nextjs");
-  const { api } = await import("../../convex/_generated/api");
+  const { siteDataFromSlug } = await import("@/lib/site-data");
+  const siteData = siteDataFromSlug(siteSlug);
 
   type StatusPage = {
     page: Array<{ slug: string; contentHash: string | undefined; embeddingHash: string | undefined }>;
@@ -38,7 +40,7 @@ async function collectDocsToEmbed(): Promise<Array<{ slug: string; contentHash: 
   let total = 0;
 
   while (!isDone) {
-    const page = (await fetchQuery(api.documents.embeddingStatusPage, {
+    const page = (await siteData.documents.embeddingStatusPage({
       cursor,
       numItems: 100,
     })) as StatusPage;
@@ -54,11 +56,14 @@ async function collectDocsToEmbed(): Promise<Array<{ slug: string; contentHash: 
     cursor = page.continueCursor;
   }
 
-  console.log(`[ingest-embeddings] ${toEmbed.length} of ${total} docs need embeddings`);
+  console.log(
+    `[ingest-embeddings] ${toEmbed.length} of ${total} docs need embeddings site=${siteSlug}`,
+  );
   return toEmbed;
 }
 
 async function embedBatch(
+  siteSlug: string,
   docs: Array<{ slug: string; contentHash: string | undefined }>
 ): Promise<number> {
   "use step";
@@ -66,15 +71,15 @@ async function embedBatch(
   const openaiKey = process.env.OPENAI_API_KEY;
   if (!openaiKey) throw new FatalError("OPENAI_API_KEY not set");
 
-  const { fetchQuery, fetchMutation } = await import("convex/nextjs");
-  const { api } = await import("../../convex/_generated/api");
+  const { siteDataFromSlug } = await import("@/lib/site-data");
+  const siteData = siteDataFromSlug(siteSlug);
   const OpenAI = (await import("openai")).default;
   const openai = new OpenAI({ apiKey: openaiKey });
 
   // Fetch full content for each slug in parallel
   const contents = await Promise.all(
     docs.map(async ({ slug, contentHash }) => {
-      const doc = await fetchQuery(api.documents.getBySlug, { slug });
+      const doc = await siteData.documents.getBySlug({ slug });
       if (!doc) return null;
       return {
         slug,
@@ -122,7 +127,7 @@ async function embedBatch(
     valid.map(async ({ slug, contentHash }, i) => {
       const emb = embeddings[i];
       if (!emb) return;
-      await fetchMutation(api.documents.upsertEmbedding, {
+      await siteData.documents.upsertEmbedding({
         slug,
         embedding: emb,
         embeddingHash: contentHash,
@@ -137,7 +142,7 @@ async function embedBatch(
 
 // ─── workflow orchestrator ────────────────────────────────────────────────────
 
-export async function ingestEmbeddingsWorkflow() {
+export async function ingestEmbeddingsWorkflow(siteSlug = "diana") {
   "use workflow";
 
   const openaiKey = process.env.OPENAI_API_KEY;
@@ -146,10 +151,10 @@ export async function ingestEmbeddingsWorkflow() {
     return;
   }
 
-  console.log("[ingest-embeddings] Workflow started");
+  console.log(`[ingest-embeddings] Workflow started site=${siteSlug}`);
   const t0 = Date.now();
 
-  const docs = await collectDocsToEmbed();
+  const docs = await collectDocsToEmbed(siteSlug);
   if (docs.length === 0) {
     console.log("[ingest-embeddings] All embeddings up to date");
     return;
@@ -158,7 +163,7 @@ export async function ingestEmbeddingsWorkflow() {
   let totalStored = 0;
   let batchNum = 0;
   for (let i = 0; i < docs.length; i += BATCH_SIZE) {
-    const stored = await embedBatch(docs.slice(i, i + BATCH_SIZE));
+    const stored = await embedBatch(siteSlug, docs.slice(i, i + BATCH_SIZE));
     totalStored += stored;
     console.log(`[ingest-embeddings] Batch ${++batchNum}/${Math.ceil(docs.length / BATCH_SIZE)}: ${totalStored} total stored`);
   }

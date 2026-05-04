@@ -12,6 +12,7 @@ import {
   markdownRemarkPlugins,
 } from "@/lib/markdown-math";
 import { preprocessCitationMarkdown } from "@/lib/citation-links";
+import { MARKDOWN_RENDER_CACHE_VERSION } from "@/lib/wiki-cache-tags";
 
 const processor = unified()
   .use(remarkParse)
@@ -20,9 +21,6 @@ const processor = unified()
   .use(markdownRehypePlugins)
   .use(rehypeSlug)
   .use(rehypeStringify);
-
-// Bump this when the remark/rehype pipeline changes to invalidate cached HTML
-const PIPELINE_VERSION = "25";
 
 // ─── Mermaid pre-processor ────────────────────────────────────────────────────
 //
@@ -300,7 +298,15 @@ function ensureCacheDir() {
 }
 
 function hashKey(md: string): string {
-  return crypto.createHash("sha256").update(`v${PIPELINE_VERSION}:${md}`).digest("hex").slice(0, 16);
+  const deploymentScope =
+    process.env.VERCEL_DEPLOYMENT_ID ??
+    process.env.VERCEL_GIT_COMMIT_SHA ??
+    "local";
+  return crypto
+    .createHash("sha256")
+    .update(`v${MARKDOWN_RENDER_CACHE_VERSION}:${deploymentScope}:${md}`)
+    .digest("hex")
+    .slice(0, 16);
 }
 
 export function renderMarkdown(md: string, currentSlug?: string): string {

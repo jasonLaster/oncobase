@@ -2,17 +2,21 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { connection } from "next/server";
 import {
   getAllSlugs,
   getCanonicalSlug,
   getMarkdownFile,
+  getMarkdownFileForSite,
 } from "@/lib/markdown";
 import { getMarkdownPageMetadata, toNextMetadata } from "@/lib/page-metadata";
-import { MarkdownRenderer, MarkdownRendererAsync } from "@/components/markdown-renderer";
+import {
+  MarkdownRenderer,
+  MarkdownRendererAsync,
+} from "@/components/markdown-renderer";
 import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
 import { SHOW_PII_QUERY_PARAM } from "@/lib/pii-redaction";
+import { DEFAULT_SITE_SLUG, getRequestSiteSlug, toSiteSlug } from "@/lib/site";
 
 // All sources/ content is immutable raw documents rarely visited directly.
 // Deferring them to on-demand rendering saves significant build time.
@@ -59,10 +63,6 @@ export async function generateDocumentStaticParams() {
 export async function generateDocumentMetadata(
   params: Promise<{ slug: string[] }>
 ): Promise<Metadata> {
-  if (isPreviewDeployment()) {
-    await connection();
-  }
-
   const { slug } = await params;
   const page = await getMarkdownPageMetadata(slug.join("/"));
   return page ? toNextMetadata(page) : {};
@@ -98,16 +98,24 @@ async function DeferredMarkdownBody({
   filePath,
   showPii,
   slug,
+  siteSlug,
 }: {
   filePath: string;
   showPii: boolean;
   slug: string;
+  siteSlug: string;
 }) {
   const file = await getMarkdownFile(filePath, {
     piiMode: showPii ? "revealed" : "redacted",
   });
   if (!file) notFound();
-  return <MarkdownRendererAsync content={file.content} currentSlug={slug} />;
+  return (
+    <MarkdownRendererAsync
+      content={file.content}
+      currentSlug={slug}
+      siteSlug={siteSlug}
+    />
+  );
 }
 
 function documentRedirectPath(pathname: string, showPii: boolean) {
@@ -126,10 +134,6 @@ export async function renderDocumentPage({
   params: Promise<{ slug: string[] }>;
   showPii?: boolean;
 }) {
-  if (isPreviewDeployment()) {
-    await connection();
-  }
-
   const { slug } = await params;
   const filePath = slug.map(decodeURIComponent).join("/");
 
@@ -151,15 +155,22 @@ export async function renderDocumentPage({
   }
 
   const contentPath = ROUTE_SLUG_ALIASES.get(routeAliasKey) ?? cleanPath;
-  const canonicalPath = await getCanonicalSlug(contentPath);
+  const canonicalPath =
+    contentPath === "index" ? contentPath : await getCanonicalSlug(contentPath);
   if (!aliasCanonicalPath && canonicalPath && canonicalPath !== contentPath) {
     redirect(documentRedirectPath(`/${canonicalPath}`, showPii));
   }
 
   // Header data for PPR cache; reads come from Convex now.
-  const file = await getMarkdownFile(canonicalPath ?? contentPath, {
-    piiMode: showPii ? "revealed" : "redacted",
-  });
+  const file =
+    contentPath === "index"
+      ? await getMarkdownFileForSite(
+          toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG),
+          contentPath
+        )
+      : await getMarkdownFile(canonicalPath ?? contentPath, {
+          piiMode: showPii ? "revealed" : "redacted",
+        });
 
   if (!file) {
     notFound();
@@ -171,6 +182,10 @@ export async function renderDocumentPage({
       ? { ...file, title: "Index" }
       : file;
   const isDeferred = ISR_DEFERRED_PREFIXES.some((p) => resolvedPath.startsWith(p));
+  const siteSlug =
+    resolvedPath === "index"
+      ? toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG)
+      : await getRequestSiteSlug();
 
   return (
     <DocumentComments documentSlug={file.slug} documentTitle={displayFile.title}>
@@ -181,10 +196,20 @@ export async function renderDocumentPage({
             filePath={resolvedPath}
             showPii={showPii}
             slug={file.slug}
+            siteSlug={siteSlug}
           />
         </Suspense>
+      ) : resolvedPath === "index" ? (
+        <MarkdownRenderer
+          content={file.content}
+          currentSlug={file.slug}
+        />
       ) : (
-        <MarkdownRenderer content={file.content} currentSlug={file.slug} />
+        <MarkdownRendererAsync
+          content={file.content}
+          currentSlug={file.slug}
+          siteSlug={siteSlug}
+        />
       )}
     </DocumentComments>
   );

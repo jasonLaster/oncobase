@@ -16,42 +16,15 @@
  * as its own run in the Vercel Workflow dashboard.
  */
 
+import { startWikiMaintenanceWorkflows } from "@/workflows/wiki-maintenance";
+
 export async function postDeployWorkflow() {
   "use workflow";
 
   const deploy = process.env.VERCEL_DEPLOYMENT_ID ?? "local";
   console.log(`[post-deploy] Workflow started (deploy=${deploy})`);
 
-  const runIds = await startChildWorkflows();
+  const runIds = await startWikiMaintenanceWorkflows("post-deploy", "diana");
 
   console.log("[post-deploy] All child workflows launched:", runIds);
-}
-
-async function startChildWorkflows(): Promise<Record<string, string | null>> {
-  "use step";
-  const { start } = await import("workflow/api");
-  const { buildDownloadCacheWorkflow } = await import("./build-download-cache");
-  const { generateDescriptionsWorkflow } = await import("./generate-descriptions");
-  const { ingestEmbeddingsWorkflow } = await import("./ingest-embeddings");
-
-  const token =
-    process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ??
-    process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    console.warn("[post-deploy] Blob write token not set — download cache workflows skipped");
-  }
-
-  const [full, markdown, descriptions, embeddings] = await Promise.all([
-    token ? start(buildDownloadCacheWorkflow, ["full"]) : Promise.resolve(null),
-    token ? start(buildDownloadCacheWorkflow, ["markdown"]) : Promise.resolve(null),
-    start(generateDescriptionsWorkflow, []),
-    start(ingestEmbeddingsWorkflow),
-  ]);
-
-  return {
-    downloadFull: full?.runId ?? null,
-    downloadMarkdown: markdown?.runId ?? null,
-    descriptions: descriptions.runId,
-    embeddings: embeddings.runId,
-  };
 }

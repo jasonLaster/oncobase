@@ -93,6 +93,9 @@ export function createSiteData(
       listPageWithContent: (
         args: SiteScopedArgs<typeof api.documents.listPageWithContent>,
       ) => convex.query(api.documents.listPageWithContent, args),
+      listPageWithDescriptions: (
+        args: SiteScopedArgs<typeof api.documents.listPageWithDescriptions>,
+      ) => convex.query(api.documents.listPageWithDescriptions, args),
       listPageDescriptions: (
         args: SiteScopedArgs<typeof api.documents.listPageDescriptions>,
       ) => convex.query(api.documents.listPageDescriptions, args),
@@ -117,6 +120,9 @@ export function createSiteData(
         convex.query(api.documents.getMeta, args),
       setMeta: (args: SiteScopedArgs<typeof api.documents.setMeta>) =>
         convex.mutation(api.documents.setMeta, args),
+      setDescription: (
+        args: SiteScopedArgs<typeof api.documents.setDescription>,
+      ) => convex.mutation(api.documents.setDescription, args),
       upsert: (args: SiteScopedArgs<typeof api.documents.upsert>) =>
         convex.mutation(api.documents.upsert, args),
       upsertEmbedding: (

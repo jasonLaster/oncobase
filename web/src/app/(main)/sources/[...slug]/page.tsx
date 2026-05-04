@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { connection } from "next/server";
 import {
   DocumentPage,
   generateDocumentMetadata,
@@ -23,7 +22,5 @@ export default async function SourcePage({
 }: {
   params: Promise<{ slug: string[] }>;
 }) {
-  await connection();
-
   return <DocumentPage params={withSourcesPrefix(params)} />;
 }

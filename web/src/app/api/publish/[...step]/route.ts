@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
+import { start } from "workflow/api";
 import { api } from "@convex/_generated/api";
 import { getConvexServerClient } from "@/lib/convex-server";
 import {
@@ -14,6 +14,12 @@ import {
   MIN_SUPPORTED_PUBLISHER_PROTOCOL_VERSION,
   PUBLISHER_VERSION_HEADER,
 } from "@/lib/publish-protocol";
+import {
+  revalidatePublishedAsset,
+  revalidatePublishedDocument,
+  revalidateSiteAfterPublish,
+} from "@/lib/wiki-revalidation";
+import { postPublishWorkflow } from "@/workflows/post-publish";
 
 // Multi-tenant publish API (Phase 4). The publisher CLI in
 // scripts/publish/* talks to these endpoints with a Bearer publish
@@ -201,6 +207,7 @@ async function handleAssetUpload(request: Request) {
     });
   }
 
+  revalidatePublishedAsset(siteSlug);
   return NextResponse.json({ ok: true, blobUrl, sizeBytes });
 }
 
@@ -214,6 +221,17 @@ function logRouteError(step: string, error: unknown) {
   const stack = error instanceof Error ? error.stack : undefined;
   const message = error instanceof Error ? error.message : String(error);
   console.error(`[publish] ${step} failed: ${message}`, stack ?? "");
+}
+
+async function startPostPublishWorkflow(siteSlug: string) {
+  try {
+    const run = await start(postPublishWorkflow, [siteSlug]);
+    console.log(`[publish] post-publish workflow started: runId=${run.runId}`);
+    return run.runId;
+  } catch (error) {
+    logRouteError("post-publish", error);
+    return null;
+  }
 }
 
 export async function POST(
@@ -384,7 +402,7 @@ export async function POST(
           embeddingHash: hash,
         });
       }
-      revalidateTag(`site:${siteSlug}:doc:${slug}`, { expire: 0 });
+      revalidatePublishedDocument(siteSlug, slug);
       return NextResponse.json({ ok: true });
     }
 
@@ -425,8 +443,9 @@ export async function POST(
           }
         }
         await convex.mutation(api.sites.finishPublish, { slug: siteSlug });
-        revalidateTag(`site:${siteSlug}`, { expire: 0 });
-        return NextResponse.json({ ok: true });
+        revalidateSiteAfterPublish(siteSlug);
+        const postPublishRunId = await startPostPublishWorkflow(siteSlug);
+        return NextResponse.json({ ok: true, postPublishRunId });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         await convex

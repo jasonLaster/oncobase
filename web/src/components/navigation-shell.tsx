@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, startTransition, useEffect, useState, type ReactNode } from "react";
+import { Suspense, startTransition, useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
 import { BottomNav } from "@/components/bottom-nav";
@@ -61,9 +61,12 @@ export function NavigationShell({
 }) {
   const pathname = usePathname();
   const [tree, setTree] = useState(initialTree);
+  const hasMounted = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
+    const delayMs = hasMounted.current ? 0 : 1_000;
+    hasMounted.current = true;
 
     async function loadTree() {
       try {
@@ -77,9 +80,10 @@ export function NavigationShell({
       }
     }
 
-    loadTree();
+    const timer = window.setTimeout(loadTree, delayMs);
 
     return () => {
+      window.clearTimeout(timer);
       controller.abort();
     };
   }, [pathname]);

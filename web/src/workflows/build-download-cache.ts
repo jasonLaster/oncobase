@@ -17,16 +17,22 @@ export type DownloadType = "full" | "markdown";
 
 // ─── steps (full Node.js access) ─────────────────────────────────────────────
 
-async function checkPdfAssets(): Promise<number> {
+async function getWorkflowSiteData(siteSlug: string) {
+  const { siteDataFromSlug } = await import("@/lib/site-data");
+  return siteDataFromSlug(siteSlug);
+}
+
+async function checkPdfAssets(siteSlug: string): Promise<number> {
   "use step";
-  const { fetchQuery } = await import("convex/nextjs");
-  const { api } = await import("../../convex/_generated/api");
-  const assets = await fetchQuery(api.documents.listPdfAssets, {});
-  console.log(`[download-cache] PDF assets in Convex: ${assets.length}`);
+  const siteData = await getWorkflowSiteData(siteSlug);
+  const assets = await siteData.documents.listPdfAssets();
+  console.log(
+    `[download-cache] PDF assets in Convex: ${assets.length} site=${siteSlug}`,
+  );
   return assets.length;
 }
 
-async function buildAndUpload(type: DownloadType): Promise<string> {
+async function buildAndUpload(type: DownloadType, siteSlug: string): Promise<string> {
   "use step";
   const archiver = (await import("archiver")).default;
 
@@ -35,13 +41,19 @@ async function buildAndUpload(type: DownloadType): Promise<string> {
     process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) throw new FatalError("Blob write token not set");
 
-  console.log(`[download-cache] Building ${type} archive from Convex`);
+  console.log(`[download-cache] Building ${type} archive from Convex site=${siteSlug}`);
   const t0 = Date.now();
 
-  const BLOB_NAMES = {
-    full: "diana-tnbc-wiki-full.zip",
-    markdown: "diana-tnbc-wiki-markdown.zip",
-  } as const;
+  const BLOB_NAMES =
+    siteSlug === "diana"
+      ? ({
+          full: "diana-tnbc-wiki-full.zip",
+          markdown: "diana-tnbc-wiki-markdown.zip",
+        } as const)
+      : ({
+          full: `${siteSlug}-wiki-full.zip`,
+          markdown: `${siteSlug}-wiki-markdown.zip`,
+        } as const);
 
   const PART_SIZE = 10 * 1024 * 1024;
 
@@ -56,9 +68,9 @@ async function buildAndUpload(type: DownloadType): Promise<string> {
 
         (async () => {
           if (type === "full") {
-            await fillFullArchive(arc);
+            await fillFullArchive(arc, siteSlug);
           } else {
-            await fillMarkdownArchive(arc);
+            await fillMarkdownArchive(arc, siteSlug);
           }
           arc.finalize();
         })().catch((err: Error) => controller.error(err));
@@ -112,10 +124,13 @@ async function buildAndUpload(type: DownloadType): Promise<string> {
   return result.url;
 }
 
-async function saveCache(type: DownloadType, url: string): Promise<void> {
+async function saveCache(
+  type: DownloadType,
+  url: string,
+  siteSlug: string,
+): Promise<void> {
   "use step";
-  const { fetchMutation } = await import("convex/nextjs");
-  const { api } = await import("../../convex/_generated/api");
+  const siteData = await getWorkflowSiteData(siteSlug);
 
   const CACHE_KEYS = {
     full: "wiki-zip-cache",
@@ -128,20 +143,24 @@ async function saveCache(type: DownloadType, url: string): Promise<void> {
     deployId: process.env.VERCEL_DEPLOYMENT_ID ?? null,
   };
 
-  await fetchMutation(api.documents.setMeta, {
+  await siteData.documents.setMeta({
     key: CACHE_KEYS[type],
     value: JSON.stringify(info),
   });
-  console.log(`[download-cache] Cache entry saved for type=${type} deployId=${info.deployId}`);
+  console.log(
+    `[download-cache] Cache entry saved for type=${type} site=${siteSlug} deployId=${info.deployId}`,
+  );
 }
 
 // ─── archive fill helpers (called inside step, full Node.js access) ───────────
 
-async function fillFullArchive(arc: import("archiver").Archiver) {
-  const { fetchQuery } = await import("convex/nextjs");
-  const { api } = await import("../../convex/_generated/api");
+async function fillFullArchive(
+  arc: import("archiver").Archiver,
+  siteSlug: string,
+) {
+  const siteData = await getWorkflowSiteData(siteSlug);
 
-  const pdfAssets = await fetchQuery(api.documents.listPdfAssets, {});
+  const pdfAssets = await siteData.documents.listPdfAssets();
   console.log(`[download-cache] Fetching ${pdfAssets.length} PDFs from public Blob`);
 
   const BATCH = 20;
@@ -171,12 +190,14 @@ async function fillFullArchive(arc: import("archiver").Archiver) {
     }
   }
 
-  await fillMarkdownArchive(arc);
+  await fillMarkdownArchive(arc, siteSlug);
 }
 
-async function fillMarkdownArchive(arc: import("archiver").Archiver) {
-  const { fetchQuery } = await import("convex/nextjs");
-  const { api } = await import("../../convex/_generated/api");
+async function fillMarkdownArchive(
+  arc: import("archiver").Archiver,
+  siteSlug: string,
+) {
+  const siteData = await getWorkflowSiteData(siteSlug);
 
   type ListPageResult = { page: Array<{ slug: string; content: string }>; isDone: boolean; continueCursor: string };
   let cursor: string | null = null;
@@ -186,7 +207,10 @@ async function fillMarkdownArchive(arc: import("archiver").Archiver) {
   const { applyPiiRedactions } = await import("@/lib/pii-redaction");
 
   while (!isDone) {
-    const page = (await fetchQuery(api.documents.listPageWithContent, { cursor, numItems: 50 })) as ListPageResult;
+    const page = (await siteData.documents.listPageWithContent({
+      cursor,
+      numItems: 50,
+    })) as ListPageResult;
     for (const doc of page.page) {
       if (doc.content) {
         const content = applyPiiRedactions(doc.content);
@@ -202,22 +226,27 @@ async function fillMarkdownArchive(arc: import("archiver").Archiver) {
 
 // ─── workflow orchestrator ────────────────────────────────────────────────────
 
-export async function buildDownloadCacheWorkflow(type: DownloadType) {
+export async function buildDownloadCacheWorkflow(
+  type: DownloadType,
+  siteSlug = "diana",
+) {
   "use workflow";
 
-  console.log(`[download-cache] Workflow started: type=${type} deploy=${process.env.VERCEL_DEPLOYMENT_ID ?? "local"}`);
+  console.log(
+    `[download-cache] Workflow started: type=${type} site=${siteSlug} deploy=${process.env.VERCEL_DEPLOYMENT_ID ?? "local"}`,
+  );
 
   // For the full archive, bail early if PDFs haven't been ingested yet
   if (type === "full") {
-    const pdfCount = await checkPdfAssets();
+    const pdfCount = await checkPdfAssets(siteSlug);
     if (pdfCount === 0) {
       console.log("[download-cache] No PDFs ingested yet — skipping full cache build");
       return;
     }
   }
 
-  const url = await buildAndUpload(type);
-  await saveCache(type, url);
+  const url = await buildAndUpload(type, siteSlug);
+  await saveCache(type, url, siteSlug);
 
   console.log(`[download-cache] Workflow complete: type=${type}`);
 }
