@@ -199,16 +199,10 @@ export async function renderDocumentPage({
             siteSlug={siteSlug}
           />
         </Suspense>
-      ) : resolvedPath === "index" ? (
+      ) : (
         <MarkdownRenderer
           content={file.content}
           currentSlug={file.slug}
-        />
-      ) : (
-        <MarkdownRendererAsync
-          content={file.content}
-          currentSlug={file.slug}
-          siteSlug={siteSlug}
         />
       )}
     </DocumentComments>
