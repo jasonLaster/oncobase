@@ -1,8 +1,12 @@
 "use client";
 
-import { Suspense, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
+import {
+  expandCompactFileTree,
+  type CompactFileNode,
+} from "@/lib/file-tree-compact";
 import { BottomNav } from "@/components/bottom-nav";
 import { ResizableLayout } from "@/components/resizable-layout";
 import { Sidebar } from "@/components/sidebar";
@@ -47,7 +51,30 @@ export function NavigationShell({
   initialTree: FileNode[];
 }) {
   const pathname = usePathname();
-  const tree = initialTree;
+  const [tree, setTree] = useState(initialTree);
+
+  useEffect(() => {
+    if (pathname.startsWith("/chat") || tree.length > 0) return;
+
+    const controller = new AbortController();
+    fetch("/api/file-tree?format=compact", {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error(`file tree request failed: ${response.status}`);
+        return response.json() as Promise<CompactFileNode[]>;
+      })
+      .then((compactTree) => {
+        setTree(expandCompactFileTree(compactTree));
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        console.error("[NavigationShell] Failed to load file tree", error);
+      });
+
+    return () => controller.abort();
+  }, [pathname, tree.length]);
 
   const shouldRenderStaticContent =
     pathname === "/table-examples" || pathname === "/wiki/research/paper-catalog";

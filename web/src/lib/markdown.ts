@@ -3,6 +3,12 @@ import { cacheLife, cacheTag } from "next/cache";
 import { siteDataFromSlug } from "@/lib/site-data";
 import { DEFAULT_SITE_SLUG, toSiteSlug, type SiteSlug } from "@/lib/site";
 import { shouldSkipConvexReads } from "@/lib/convex-url";
+import {
+  compactFileTree,
+  expandCompactFileTree,
+  type CompactFileNode,
+  type FileNode,
+} from "@/lib/file-tree-compact";
 import type { PiiRedactionMode } from "@/lib/pii-redaction";
 import {
   siteAssetsCacheTag,
@@ -29,15 +35,7 @@ async function readSiteSlug(): Promise<SiteSlug> {
 // - plans/multi-tenant-wiki/01-content-source.md
 // - web/specs/multi-site.md
 
-export interface FileNode {
-  name: string;
-  slug: string;
-  type: "file" | "directory" | "pdf";
-  badge?: string;
-  /** Asset path within the site's vault — only set for type === "pdf" */
-  pdfPath?: string;
-  children?: FileNode[];
-}
+export type { CompactFileNode, FileNode };
 
 export interface MarkdownFile {
   slug: string;
@@ -229,8 +227,10 @@ export async function getMarkdownFile(
 /** Async variant — kept as an alias for callers that use the explicit name. */
 export const getMarkdownFileAsync = getMarkdownFile;
 
-/** Build the sidebar file tree from Convex documents + assets. */
-export async function getFileTreeForSite(siteSlug: SiteSlug): Promise<FileNode[]> {
+/** Build the compact sidebar file tree from Convex documents + assets. */
+export async function getCompactFileTreeForSite(
+  siteSlug: SiteSlug,
+): Promise<CompactFileNode[]> {
   "use cache";
   cacheLife("hours");
   cacheTag(
@@ -262,7 +262,12 @@ export async function getFileTreeForSite(siteSlug: SiteSlug): Promise<FileNode[]
 
   const grouped = groupPaperCollectionsDeep(root);
   sortTree(grouped);
-  return grouped;
+  return compactFileTree(grouped);
+}
+
+/** Build the sidebar file tree from Convex documents + assets. */
+export async function getFileTreeForSite(siteSlug: SiteSlug): Promise<FileNode[]> {
+  return expandCompactFileTree(await getCompactFileTreeForSite(siteSlug));
 }
 
 export async function getFileTree(): Promise<FileNode[]> {

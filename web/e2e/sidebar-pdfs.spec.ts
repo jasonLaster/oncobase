@@ -52,12 +52,14 @@ test.describe("Sidebar source files", () => {
   test("/api/file-tree returns the complete cached tree while page HTML keeps the shell lean", async ({
     request,
   }) => {
-    const [treeResponse, htmlResponse] = await Promise.all([
+    const [treeResponse, compactTreeResponse, htmlResponse] = await Promise.all([
       request.get("/api/file-tree"),
+      request.get("/api/file-tree?format=compact"),
       request.get("/wiki/updates/week-6-april-19-to-25?token=diana"),
     ]);
 
     expect(treeResponse.ok()).toBeTruthy();
+    expect(compactTreeResponse.ok()).toBeTruthy();
     expect(htmlResponse.ok()).toBeTruthy();
 
     const tree = (await treeResponse.json()) as FileNode[];
@@ -77,6 +79,13 @@ test.describe("Sidebar source files", () => {
         "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
       ),
     ).toMatchObject({ type: "pdf" });
+
+    const expandedTreeJson = JSON.stringify(tree);
+    const compactTreeJson = await compactTreeResponse.text();
+    expect(compactTreeJson.length).toBeLessThan(expandedTreeJson.length);
+    expect(compactTreeJson).not.toContain(
+      "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc__paper-set",
+    );
 
     const html = await htmlResponse.text();
     expect(html).toContain("Week 6");

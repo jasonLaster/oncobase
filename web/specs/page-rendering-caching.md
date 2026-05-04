@@ -66,8 +66,10 @@ Important document helpers:
   PPR-safe and already knows the site at build time.
 - `getMarkdownFile(slug)` reads the request site from headers. Use it
   only below a boundary where request-bound rendering is acceptable.
-- `getFileTreeForSite(siteSlug)` builds the cached sidebar tree from
-  documents, PDFs, and file assets.
+- `getCompactFileTreeForSite(siteSlug)` builds the cached sidebar tree
+  from documents, PDFs, and file assets as a compact relative trie.
+  `getFileTreeForSite(siteSlug)` expands that cached compact tree for
+  compatibility callers.
 - `getCanonicalSlug(contentPath)` resolves casing and index aliases
   from the cached canonical slug map.
 
@@ -205,7 +207,8 @@ The rendering/caching contract is covered by these suites:
   palette behavior, and canonical redirects.
 - `e2e/sidebar-pdfs.spec.ts` checks that the full client tree loads
   after the empty shell, that `/api/file-tree` returns the full cached
-  tree, that the page HTML does not serialize that full tree, and that
+  tree, that `/api/file-tree?format=compact` avoids repeated ancestor
+  paths, that the page HTML does not serialize that full tree, and that
   PDFs are represented correctly.
 - `e2e/source-loading-boundary.spec.ts` checks that source loading
   shells do not leak into wiki pages.
