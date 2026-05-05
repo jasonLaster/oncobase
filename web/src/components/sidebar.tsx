@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FileNode } from "@/lib/markdown";
 
 export function formatName(name: string): string {
@@ -118,6 +118,7 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
     <Link
       href={`/${node.slug}`}
       onClick={onNavigate}
+      data-selected-file-tree-item={isActive ? "true" : undefined}
       className={`block px-2 py-1 text-sm rounded truncate transition-colors ${
         isActive
           ? "bg-[var(--accent-light)] text-[var(--brand)] font-medium"
@@ -132,9 +133,26 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
 }
 
 export function Sidebar({ tree }: { tree: FileNode[] }) {
+  const rawPathname = usePathname();
+  const pathname = decodeURIComponent(rawPathname);
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const selectedItem = navRef.current?.querySelector<HTMLElement>(
+      '[data-selected-file-tree-item="true"]',
+    );
+    if (!selectedItem) return;
+
+    selectedItem.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "nearest",
+    });
+  }, [pathname, tree]);
+
   return (
     <aside className="hidden md:flex flex-col h-full min-h-0 overflow-hidden bg-[var(--sidebar-bg)]">
-      <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
+      <nav ref={navRef} className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
         {tree.map((node) => (
           <TreeNode key={node.slug} node={node} />
         ))}
