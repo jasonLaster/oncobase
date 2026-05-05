@@ -125,8 +125,15 @@ const SourceLinks = memo(function SourceLinks({
   const { copy } = useChatRuntime();
   const [open, setOpen] = useState(false);
   if (sources.length === 0) return null;
+
+  function anchorLabel(href: string | undefined) {
+    const fragment = href?.split("#")[1];
+    if (!fragment) return null;
+    return `#${decodeURIComponent(fragment).replace(/[-_]+/g, " ")}`;
+  }
+
   return (
-    <div className="mt-3 pt-2 border-t border-[var(--sidebar-border)]">
+    <div className="mt-2 pt-1.5 border-t border-[var(--sidebar-border)]">
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -139,30 +146,33 @@ const SourceLinks = memo(function SourceLinks({
         </span>
       </button>
       {open && (
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
+        <div className="mt-1 flex flex-wrap gap-1">
           {sources.map((source) => {
+            const section = anchorLabel(source.href);
             const content = (
               <>
-                <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-50">
-                  <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
-                </svg>
-                {source.title}
+                <span className="truncate">{source.title}</span>
+                {section ? (
+                  <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
+                    {section}
+                  </span>
+                ) : null}
               </>
             );
             const className =
-              "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-[var(--background)] border border-[var(--sidebar-border)] text-[var(--brand)] hover:border-[var(--brand)] transition-colors";
+              "inline-flex max-w-full items-center gap-1 rounded-sm border border-[var(--sidebar-border)] bg-[var(--background)] px-1.5 py-px text-[11px] leading-5 text-[var(--brand)] hover:border-[var(--brand)] transition-colors sm:max-w-[220px]";
             const key = source.id ?? source.href ?? source.title;
 
             return source.href?.startsWith("/") ? (
-              <Link key={key} href={source.href} className={className}>
+              <Link key={key} href={source.href} title={source.title} className={className}>
                 {content}
               </Link>
             ) : source.href ? (
-              <a key={key} href={source.href} className={className}>
+              <a key={key} href={source.href} title={source.title} className={className}>
                 {content}
               </a>
             ) : (
-              <span key={key} className={className}>
+              <span key={key} title={source.title} className={className}>
                 {content}
               </span>
             );

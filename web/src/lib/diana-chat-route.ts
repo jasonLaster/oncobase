@@ -67,13 +67,29 @@ function compactToolResult(result: unknown): unknown {
     return Object.fromEntries(Object.entries(r).filter(([k]) => k !== "content"));
   }
   if (Array.isArray(result)) {
-    // Search results: keep just slug/title.
+    // Search results: keep just the navigable citation fields.
     return (result as Array<Record<string, unknown>>).map((r) => ({
       slug: r.slug,
       title: r.title,
+      href: r.href,
+      anchor: r.anchor,
     }));
   }
   return result;
+}
+
+function splitSlugAnchor(value: string) {
+  const normalized = value.replace(/^\/+/, "").replace(/\.md(?=#|$)/, "");
+  const hashIndex = normalized.indexOf("#");
+  if (hashIndex === -1) return { slug: normalized, anchor: undefined };
+  return {
+    slug: normalized.slice(0, hashIndex),
+    anchor: normalized.slice(hashIndex + 1) || undefined,
+  };
+}
+
+function hrefForSlug(slug: string, anchor?: string) {
+  return `/${slug}${anchor ? `#${anchor}` : ""}`;
 }
 
 function getConvex() {
@@ -87,9 +103,10 @@ const SYSTEM_PROMPT_BASE = `You are a research assistant for a triple-negative b
 You have access to tools that let you search and read wiki pages. Use them to find relevant information before answering. Always ground your answers in the wiki content when possible.
 
 IMPORTANT CITATION RULES:
-- ALWAYS cite sources using inline markdown links: [Page Title](/slug)
+- ALWAYS cite sources using compact inline markdown links: [short label](/slug#section-anchor)
 - Every factual claim should have a citation. Aim for 5+ citations per response.
-- Example: "The treatment plan uses [KEYNOTE-522](/wiki/treatment/treatment-plan), which includes..."
+- Prefer the most specific page anchor when the source has an obvious heading or section; otherwise cite the page.
+- Example: "The treatment plan uses [KEYNOTE-522](/wiki/treatment/treatment-plan#keynote-522), which includes..."
 - Cite specific source pages when referencing research: [Sahin 2026](/sources/research-articles/sahin-2026-tnbc-mrna-vaccine)
 - Do NOT list sources at the end — weave them inline throughout your response.
 
@@ -412,8 +429,9 @@ export async function POST(request: Request) {
             ),
         }),
         execute: async ({ slug }: { slug: string }) => {
-          const doc = await siteData.documents.getBySlug({ slug });
-          if (!doc) return { error: `Page not found: ${slug}` };
+          const requested = splitSlugAnchor(slug);
+          const doc = await siteData.documents.getBySlug({ slug: requested.slug });
+          if (!doc) return { error: `Page not found: ${requested.slug}` };
           const content = applyPiiRedactions(doc.content);
 
           // Extract wikilinks [[slug]], [[slug|label]], and table-safe [[slug\|label]].
@@ -421,10 +439,10 @@ export async function POST(request: Request) {
           const linkedSlugs = new Set<string>();
           let match;
           while ((match = linkRegex.exec(content)) !== null) {
-            const linked = splitWikilinkAlias(match[1]).target;
+            const linked = splitSlugAnchor(splitWikilinkAlias(match[1]).target);
             // Skip Terminology anchors and self-links
-            if (linked.startsWith("about/Terminology") || linked === slug) continue;
-            linkedSlugs.add(linked);
+            if (linked.slug === "about/Terminology" || linked.slug === doc.slug) continue;
+            linkedSlugs.add(hrefForSlug(linked.slug, linked.anchor).slice(1));
           }
 
           // Batch-resolve linked page titles (best-effort, cap at 10)
@@ -432,19 +450,36 @@ export async function POST(request: Request) {
           const linkedPages = (
             await Promise.all(
               slugsToResolve.map(async (s) => {
+                const linkedTarget = splitSlugAnchor(s);
                 const linked = await siteData.documents.getBySlug({
-                  slug: s,
+                  slug: linkedTarget.slug,
                 });
                 return linked
-                  ? { slug: linked.slug, title: applyPiiRedactions(linked.title) }
+                  ? {
+                      slug: linked.slug,
+                      title: applyPiiRedactions(linked.title),
+                      href: hrefForSlug(linked.slug, linkedTarget.anchor),
+                      anchor: linkedTarget.anchor,
+                    }
                   : null;
               })
             )
-          ).filter((p): p is { slug: string; title: string } => p !== null);
+          ).filter(
+            (
+              p
+            ): p is {
+              slug: string;
+              title: string;
+              href: string;
+              anchor: string | undefined;
+            } => p !== null
+          );
 
           return {
             slug: doc.slug,
             title: applyPiiRedactions(doc.title),
+            href: hrefForSlug(doc.slug, requested.anchor),
+            anchor: requested.anchor,
             tags: doc.tags,
             content: content.slice(0, 8000),
             linked_pages: linkedPages,

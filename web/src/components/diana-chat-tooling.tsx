@@ -9,6 +9,12 @@ import {
   type ChatToolCallRendererProps,
 } from "@diana-tnbc/chat";
 
+function hrefForPage(value: string | undefined, fallback?: string) {
+  const raw = value ?? fallback;
+  if (!raw) return "/";
+  return raw.startsWith("/") ? raw : `/${raw}`;
+}
+
 const ReadPageBadge = memo(function ReadPageBadge({
   input,
   output,
@@ -19,13 +25,13 @@ const ReadPageBadge = memo(function ReadPageBadge({
   done: boolean;
 }) {
   const slug = (input?.slug as string) || "";
-  const result = output as { title?: string; slug?: string; error?: string } | null;
+  const result = output as { title?: string; slug?: string; href?: string; error?: string } | null;
   const title = result?.title || slug.split("/").pop() || slug;
   const hasError = result?.error;
 
   return (
     <Link
-      href={`/${slug}`}
+      href={hrefForPage(result?.href, slug)}
       className={`inline-flex items-center gap-1.5 text-xs transition-colors ${
         done && !hasError
           ? "text-[var(--text-muted)] hover:text-[var(--brand)]"
@@ -61,6 +67,7 @@ const SearchResultsBlock = memo(function SearchResultsBlock({
   const results = (Array.isArray(output) ? output : []) as Array<{
     slug?: string;
     title?: string;
+    href?: string;
   }>;
 
   if (!query && results.length === 0) return null;
@@ -106,7 +113,7 @@ const SearchResultsBlock = memo(function SearchResultsBlock({
           {results.map((result, i) => (
             <Link
               key={i}
-              href={`/${result.slug}`}
+              href={hrefForPage(result.href, result.slug)}
               className="flex items-center gap-1.5 text-xs py-0.5 text-[var(--text-muted)] hover:text-[var(--brand)] transition-colors"
             >
               <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-40">
@@ -159,26 +166,30 @@ export const extractDianaChatSources: ChatSourceExtractor = (parts) => {
       const output = info.output as {
         slug?: string;
         title?: string;
+        href?: string;
+        anchor?: string;
         error?: string;
       };
-      if (output.slug && output.title && !output.error && !seen.has(output.slug)) {
-        seen.add(output.slug);
+      const href = hrefForPage(output.href, output.slug);
+      if (output.slug && output.title && !output.error && !seen.has(href)) {
+        seen.add(href);
         sources.push({
-          id: output.slug,
+          id: href,
           title: output.title,
-          href: `/${output.slug}`,
+          href,
         });
       }
     }
 
     if (info.toolName === "search_wiki" && Array.isArray(info.output)) {
-      for (const item of info.output as Array<{ slug?: string; title?: string }>) {
-        if (item.slug && item.title && !seen.has(item.slug)) {
-          seen.add(item.slug);
+      for (const item of info.output as Array<{ slug?: string; title?: string; href?: string }>) {
+        const href = hrefForPage(item.href, item.slug);
+        if (item.slug && item.title && !seen.has(href)) {
+          seen.add(href);
           sources.push({
-            id: item.slug,
+            id: href,
             title: item.title,
-            href: `/${item.slug}`,
+            href,
           });
         }
       }
