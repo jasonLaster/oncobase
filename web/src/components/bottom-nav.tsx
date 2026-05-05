@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
 import { TreeNode, formatName } from "@/components/sidebar";
+import { ConversationList } from "@diana-tnbc/chat";
 
 function getPageTitle(pathname: string): string {
   if (pathname === "/") return "Home";
@@ -23,6 +24,7 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const title = getPageTitle(pathname);
+  const isChatRoute = pathname.startsWith("/chat");
 
   const close = useCallback(() => setOpen(false), []);
 
@@ -92,7 +94,9 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
           <div className="shrink-0 pt-2 pb-1 px-4">
             <div className="w-8 h-1 rounded-full bg-[var(--text-muted)]/30 mx-auto mb-2" />
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold">Pages</span>
+              <span className="text-sm font-semibold">
+                {isChatRoute ? "Chats" : "Pages"}
+              </span>
               <button
                 onClick={close}
                 aria-label="Close navigation"
@@ -114,15 +118,19 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
             </div>
           </div>
 
-          {/* Scrollable tree */}
+          {/* Scrollable navigation */}
           <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-0.5">
-            {tree.map((node) => (
-              <TreeNode
-                key={node.slug}
-                node={node}
-                onNavigate={close}
-              />
-            ))}
+            {isChatRoute ? (
+              <ConversationList />
+            ) : (
+              tree.map((node) => (
+                <TreeNode
+                  key={node.slug}
+                  node={node}
+                  onNavigate={close}
+                />
+              ))
+            )}
           </nav>
         </div>
       </div>

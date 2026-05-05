@@ -47,4 +47,14 @@ test.describe("Chat", () => {
     await newChat.click();
     await expect(page).toHaveURL(/\/chat/, { timeout: 15_000 });
   });
+
+  test("mobile bottom sheet shows chat history navigation", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await page.getByRole("button", { name: /Chat with wiki/ }).click();
+
+    await expect(page.getByText("Chats", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "New chat" })).toBeVisible();
+    await expect(page.getByText("Pages", { exact: true })).toBeHidden();
+  });
 });
