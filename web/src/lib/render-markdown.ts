@@ -89,9 +89,18 @@ function isCurrencyDollar(md: string, dollarIndex: number): boolean {
   if (operator) {
     const afterOperator = next.slice(operator[0].length);
 
-    return (
+    if (
       (operator[1] === "-" || operator[1] === "–" || operator[1] === "—") &&
       /^\s*\$?\d/.test(afterOperator)
+    ) {
+      return true;
+    }
+
+    return (
+      value.includes(",") ||
+      /[KMBTkmbt]$/.test(value) ||
+      /^\d{4,}/.test(value) ||
+      /^\d+\.\d{2}$/.test(value)
     );
   }
 
@@ -111,6 +120,18 @@ function escapeCurrencyDollars(md: string): string {
 
     return isCurrencyDollar(md, dollarIndex) ? `${prefix}\\$` : match;
   });
+}
+
+function normalizeCurrencyTypos(md: string): string {
+  return md
+    .replace(
+      /\\(\d[\d,]*(?:\.\d+)?[KMBTkmbt])(?=\s*[-–—]\s*\$?\d)/g,
+      "$$$1"
+    )
+    .replace(
+      /\$(\d[\d,]*(?:\.\d+)?[KMBTkmbt])\s*([-–—])\s*(?!\$)(\d[\d,]*(?:\.\d+)?[KMBTkmbt])/g,
+      "$$$1$2$$$3"
+    );
 }
 
 type TagDecoration = {
@@ -364,7 +385,9 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
 
   const citationLinked = preprocessCitationMarkdown(md);
   const mermaidExtracted = extractMermaidBlocks(citationLinked);
-  const cleanMd = escapeCurrencyDollars(stripLegacyTableDirectives(mermaidExtracted));
+  const cleanMd = escapeCurrencyDollars(
+    normalizeCurrencyTypos(stripLegacyTableDirectives(mermaidExtracted))
+  );
   const raw = processor.processSync(cleanMd).toString();
   const wrapped = decorateRenderedTables(raw);
   const html = decorateRenderedImages(
@@ -400,7 +423,9 @@ export async function renderMarkdownAsync(md: string, currentSlug?: string): Pro
   const mermaidExtracted = extractMermaidBlocks(citationLinked);
   const tMermaid = performance.now();
 
-  const cleanMd = escapeCurrencyDollars(stripLegacyTableDirectives(mermaidExtracted));
+  const cleanMd = escapeCurrencyDollars(
+    normalizeCurrencyTypos(stripLegacyTableDirectives(mermaidExtracted))
+  );
   const raw = (await processor.process(cleanMd)).toString();
   const tPipeline = performance.now();
 

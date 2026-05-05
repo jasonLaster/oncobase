@@ -103,6 +103,22 @@ describe("renderMarkdown example tables", () => {
     expect(html).toContain("$1M–$1.5M");
   });
 
+  test("does not render malformed compact budget amounts as inline latex", () => {
+    const html = renderMarkdown(
+      [
+        "- **Ranata bespoke molecule — $1M–1.5M *if* triggered.** Activated this week as parallel insurance, not a default branch.",
+        "**Designing a bespoke ADC with Ranata also lands in the \\1M–$1.5M range** — but ideally won't be necessary.",
+      ].join(" "),
+      "table-examples/normalized-malformed-compact-budget-currency-v2"
+    );
+
+    expect(html).not.toContain("katex-error");
+    expect(html).not.toContain('class="katex"');
+    expect(countMatches(html, /\$1M–\$1\.5M/g)).toBe(2);
+    expect(html).not.toContain("$1M–1.5M");
+    expect(html).not.toContain("\\1M");
+  });
+
   test("does not render budget placeholders as inline latex", () => {
     const html = renderMarkdown(
       "The budget is scenarios where we could spend $X, not commitments to spend $X.",
