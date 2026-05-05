@@ -1,6 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
 import {
@@ -12,6 +19,71 @@ import { BottomNav } from "@/components/bottom-nav";
 import { ResizableLayout } from "@/components/resizable-layout";
 import { Sidebar } from "@/components/sidebar";
 import { ConversationList } from "@diana-tnbc/chat";
+
+type FileTreeScope = "public" | "session";
+
+const FILE_TREE_CACHE_VERSION = "v1";
+const fileTreeMemoryCache = new Map<string, CompactFileNode[]>();
+
+function fileTreeCacheKey(scope: FileTreeScope) {
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  return `${origin}:file-tree:${FILE_TREE_CACHE_VERSION}:${scope}`;
+}
+
+function readCachedCompactTree(cacheKey: string) {
+  const memoryHit = fileTreeMemoryCache.get(cacheKey);
+  if (memoryHit) return memoryHit;
+
+  try {
+    const raw = window.sessionStorage.getItem(cacheKey);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as { tree?: CompactFileNode[] };
+    if (!Array.isArray(parsed.tree)) return null;
+
+    fileTreeMemoryCache.set(cacheKey, parsed.tree);
+    return parsed.tree;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedCompactTree(cacheKey: string, tree: CompactFileNode[]) {
+  fileTreeMemoryCache.set(cacheKey, tree);
+
+  try {
+    window.sessionStorage.setItem(
+      cacheKey,
+      JSON.stringify({ version: FILE_TREE_CACHE_VERSION, tree }),
+    );
+  } catch {
+    // Storage is a best-effort warm cache; quota/private mode failures
+    // should never affect navigation.
+  }
+}
+
+async function fetchCompactFileTree(scope: FileTreeScope, cacheKey: string) {
+  const url = new URL("/api/file-tree", window.location.origin);
+  url.searchParams.set("format", "compact");
+  url.searchParams.set("scope", scope);
+  url.searchParams.set("cacheKey", cacheKey);
+
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    headers: { Accept: "application/json" },
+  });
+
+  if (response.status === 204) return null;
+  if (!response.ok) {
+    throw new Error(`file tree request failed: ${response.status}`);
+  }
+
+  const compactTree = (await response.json()) as CompactFileNode[];
+  if (scope === "public") {
+    writeCachedCompactTree(cacheKey, compactTree);
+  }
+  return compactTree;
+}
 
 function SidebarFallback() {
   return (
@@ -54,37 +126,86 @@ export function NavigationShell({
   const pathname = usePathname();
   const [tree, setTree] = useState(initialTree);
   const fullTreeRequestedRef = useRef(false);
-  const treeNeedsFullLoad = useMemo(() => shouldLoadFullFileTree(tree), [tree]);
+  const treeRef = useRef(tree);
+  const authReloadCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    treeRef.current = tree;
+  }, [tree]);
+
+  const startFullTreeLoad = useCallback(() => {
+    if (pathname.startsWith("/chat")) {
+      return () => {};
+    }
+
+    fullTreeRequestedRef.current = true;
+    let cancelled = false;
+
+    const applyCompactTree = (compactTree: CompactFileNode[] | null) => {
+      if (!cancelled && compactTree) {
+        setTree(expandCompactFileTree(compactTree));
+      }
+    };
+
+    const publicCacheKey = fileTreeCacheKey("public");
+    applyCompactTree(readCachedCompactTree(publicCacheKey));
+
+    const sessionCacheKey = fileTreeCacheKey("session");
+    Promise.allSettled([
+      fetchCompactFileTree("public", publicCacheKey),
+      fetchCompactFileTree("session", sessionCacheKey),
+    ]).then(([publicResult, sessionResult]) => {
+      if (publicResult.status === "fulfilled") {
+        applyCompactTree(publicResult.value);
+      } else {
+        console.error(
+          "[NavigationShell] Failed to load public file tree",
+          publicResult.reason,
+        );
+      }
+
+      if (sessionResult.status === "fulfilled") {
+        applyCompactTree(sessionResult.value);
+      } else {
+        console.error(
+          "[NavigationShell] Failed to load session file tree",
+          sessionResult.reason,
+        );
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   useEffect(() => {
     if (
-      pathname.startsWith("/chat") ||
-      !treeNeedsFullLoad ||
-      fullTreeRequestedRef.current
+      fullTreeRequestedRef.current ||
+      !shouldLoadFullFileTree(treeRef.current)
     ) {
       return;
     }
 
-    const controller = new AbortController();
-    fullTreeRequestedRef.current = true;
-    fetch("/api/file-tree?format=compact", {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error(`file tree request failed: ${response.status}`);
-        return response.json() as Promise<CompactFileNode[]>;
-      })
-      .then((compactTree) => {
-        setTree(expandCompactFileTree(compactTree));
-      })
-      .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error("[NavigationShell] Failed to load file tree", error);
-      });
+    return startFullTreeLoad();
+  }, [startFullTreeLoad]);
 
-    return () => controller.abort();
-  }, [pathname, treeNeedsFullLoad]);
+  useEffect(() => {
+    const handleAuthSessionChange = () => {
+      authReloadCleanupRef.current?.();
+      fullTreeRequestedRef.current = false;
+      authReloadCleanupRef.current = startFullTreeLoad();
+    };
+
+    window.addEventListener("wiki-auth-session-change", handleAuthSessionChange);
+    return () => {
+      authReloadCleanupRef.current?.();
+      window.removeEventListener(
+        "wiki-auth-session-change",
+        handleAuthSessionChange,
+      );
+    };
+  }, [startFullTreeLoad]);
 
   const shouldRenderStaticContent =
     pathname === "/table-examples" || pathname === "/wiki/research/paper-catalog";

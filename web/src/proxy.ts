@@ -302,6 +302,6 @@ export const config = {
     // x-site-slug on it (passed through to Convex for site-scoped
     // asset lookups). It still bypasses the password gate via the
     // explicit branch above.
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|api/share-preview|api/post-deploy|\\.well-known/workflow).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sw\\.js|api/share-preview|api/post-deploy|\\.well-known/workflow).*)",
   ],
 };

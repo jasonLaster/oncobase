@@ -7,6 +7,18 @@ import {
   generateDocumentStaticParams,
 } from "../_components/document-page";
 
+export const unstable_instant = {
+  prefetch: "static",
+  samples: [
+    {
+      headers: [
+        ["x-site-slug", "diana"],
+      ],
+      cookies: [{ name: "wiki_user_session", value: null }],
+      params: { slug: ["about", "Index"] },
+    },
+  ],
+};
 
 export async function generateStaticParams() {
   return generateDocumentStaticParams();

@@ -31,7 +31,6 @@ const CACHE_COMPONENTS_VALIDATION_PARAMS: { slug: string[] }[] = [
 ];
 const ROUTE_SLUG_ALIASES = new Map([["about/index", "index"]]);
 const ROUTE_ALIAS_CANONICAL_PATHS = new Map([["about/index", "about/Index"]]);
-const MAX_CLIENT_COPY_MARKDOWN_LENGTH = 64_000;
 
 function isPreviewDeployment() {
   return process.env.VERCEL_ENV === "preview";
@@ -98,15 +97,25 @@ async function canViewSensitivePages(): Promise<boolean> {
 }
 
 // -- Page header (static in PPR cache) ---------------------------------------
-function DocHeader({ file }: { file: { title: string; content: string; frontmatter: Record<string, unknown> } }) {
-  const markdown = `# ${file.title}\n\n${file.content}`;
-  const canCopyMarkdown = markdown.length <= MAX_CLIENT_COPY_MARKDOWN_LENGTH;
-
+function DocHeader({
+  file,
+}: {
+  file: {
+    slug: string;
+    title: string;
+    contentHash?: string;
+    frontmatter: Record<string, unknown>;
+  };
+}) {
   return (
     <header className="mb-6">
       <div className="flex items-start justify-between gap-2">
         <h1 className="text-3xl font-bold">{file.title}</h1>
-        {canCopyMarkdown ? <CopyPageButton markdown={markdown} /> : null}
+        <CopyPageButton
+          slug={file.slug}
+          title={file.title}
+          contentHash={file.contentHash}
+        />
       </div>
       {Array.isArray(file.frontmatter.tags) && (
         <div className="mt-3 flex flex-wrap gap-1.5">

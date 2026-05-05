@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { Suspense } from "react";
 import { CommandPalette, OutlinePalette, ActionPalette } from "@/components/command-palette";
 import { ConvexClientProvider } from "@/components/convex-provider";
+import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import "@liveblocks/react-ui/styles.css";
 import "katex/dist/katex.min.css";
 import "./globals.css";
@@ -75,6 +76,7 @@ export default function RootLayout({
         </Suspense>
         <Toaster richColors closeButton position="bottom-right" theme="system" />
         <Analytics />
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );

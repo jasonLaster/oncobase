@@ -6,6 +6,18 @@ import {
   generateDocumentMetadata,
 } from "../../_components/document-page";
 
+export const unstable_instant = {
+  prefetch: "static",
+  samples: [
+    {
+      headers: [
+        ["x-site-slug", "diana"],
+      ],
+      cookies: [{ name: "wiki_user_session", value: null }],
+      params: { slug: ["trials", "zest-nct05306330"] },
+    },
+  ],
+};
 
 function withSourcesPrefix(params: Promise<{ slug: string[] }>) {
   return params.then(({ slug }) => ({ slug: ["sources", ...slug] }));

@@ -267,6 +267,12 @@ export function ActionsMenu() {
   async function signOut() {
     await fetch("/api/auth/signout", { method: "POST" });
     setUser(null);
+    window.dispatchEvent(new CustomEvent("wiki-auth-session-change"));
+  }
+
+  function handleAuthSuccess(nextUser: SessionUser) {
+    setUser(nextUser);
+    window.dispatchEvent(new CustomEvent("wiki-auth-session-change"));
   }
 
   const themeLabel =
@@ -351,7 +357,7 @@ export function ActionsMenu() {
         open={authDialogOpen}
         mode={authMode}
         onOpenChange={setAuthDialogOpen}
-        onAuthSuccess={setUser}
+        onAuthSuccess={handleAuthSuccess}
       />
     </>
   );
