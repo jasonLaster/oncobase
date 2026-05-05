@@ -35,7 +35,11 @@ const response = await fetch(`${config.publishUrl}/begin`, {
     hashFunctionVersion: HASH_FUNCTION_VERSION,
     dryRun: true,
     manifest: {
-      documents: documents.map(({ slug, hash }) => ({ slug, hash })),
+      documents: documents.map(({ slug, hash, sensitive }) => ({
+        slug,
+        hash,
+        sensitive,
+      })),
       assets: assets.map(({ relativePath, hash, kind }) => ({
         path: relativePath,
         hash,

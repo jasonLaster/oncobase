@@ -28,7 +28,7 @@ import { postPublishWorkflow } from "@/workflows/post-publish";
 export const maxDuration = 300;
 
 type Manifest = {
-  documents?: Array<{ slug: string; hash: string }>;
+  documents?: Array<{ slug: string; hash: string; sensitive?: boolean }>;
   assets?: Array<{ path: string; hash: string; kind?: "pdf" | "file" }>;
 };
 
@@ -94,6 +94,7 @@ function sitePiiPatterns(site: { config: { piiPatterns?: string[] } }): PiiPatte
 type DocHashRow = {
   contentHash: string | undefined;
   hashFunctionVersion: number | undefined;
+  sensitive: boolean | undefined;
 };
 
 async function currentDocumentHashes(siteData: SiteData) {
@@ -106,6 +107,7 @@ async function currentDocumentHashes(siteData: SiteData) {
         slug: string;
         contentHash: string | undefined;
         hashFunctionVersion?: number | undefined;
+        sensitive?: boolean | undefined;
       }>;
       isDone: boolean;
       continueCursor: string;
@@ -118,6 +120,7 @@ async function currentDocumentHashes(siteData: SiteData) {
       hashes.set(doc.slug, {
         contentHash: doc.contentHash,
         hashFunctionVersion: doc.hashFunctionVersion,
+        sensitive: doc.sensitive,
       });
     }
     isDone = page.isDone;
@@ -326,7 +329,12 @@ export async function POST(
       const staleHashVersionSlugs: string[] = [];
       for (const doc of docManifest) {
         const existing = existingDocHashes.get(doc.slug);
-        if (force || !existing || existing.contentHash !== doc.hash) {
+        if (
+          force ||
+          !existing ||
+          existing.contentHash !== doc.hash ||
+          existing.sensitive === true !== (doc.sensitive === true)
+        ) {
           missingDocumentSlugs.push(doc.slug);
           if (
             existing &&

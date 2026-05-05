@@ -182,7 +182,11 @@ const begin = (await post(`${config.publishUrl}/begin`, token, {
   siteSlug: config.site,
   hashFunctionVersion: HASH_FUNCTION_VERSION,
   manifest: {
-    documents: documents.map(({ slug, hash }) => ({ slug, hash })),
+    documents: documents.map(({ slug, hash, sensitive }) => ({
+      slug,
+      hash,
+      sensitive,
+    })),
     assets: assets.map(({ relativePath, hash, kind }) => ({
       path: relativePath,
       hash,
