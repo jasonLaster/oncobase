@@ -1,4 +1,6 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
+import os from "node:os";
 import path from "node:path";
 import matter from "gray-matter";
 import { readFlag } from "./cli";
@@ -33,9 +35,82 @@ type SyncOptions = {
   site: string;
 };
 
+type SkippedAsset = {
+  path: string;
+  reason: string;
+};
+
+const ASSET_SYNC_CONCURRENCY = 12;
+const SYNC_CACHE_VERSION = 1;
+
+type LocalDocManifest = {
+  slug: string;
+  hash: string;
+};
+
+type LocalAssetManifest = {
+  kind: "pdf" | "file";
+  path: string;
+  hash: string;
+};
+
+type SyncPlan = {
+  documents: RemoteDoc[];
+  assets: RemoteAsset[];
+  remoteDocSlugs: Set<string>;
+  remoteAssetKeys: Set<string>;
+  orphanDocs: string[];
+  orphanAssets: string[];
+  planned: boolean;
+};
+
+type SyncCacheAsset = {
+  contentHash?: string;
+  blobUrl: string;
+  status: "hash-mismatch" | "download-error";
+  reason: string;
+  checkedAt: string;
+};
+
+type SyncCache = {
+  version: number;
+  site: string;
+  vaultPath: string;
+  assets: Record<string, SyncCacheAsset>;
+};
+
 function reviewRoot(vaultPath: string, site: string) {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   return path.join(vaultPath, ".wiki-sync-review", `${site}-${stamp}`);
+}
+
+function syncCachePath(vaultPath: string, site: string) {
+  const vaultKey = crypto.createHash("sha256").update(path.resolve(vaultPath)).digest("hex").slice(0, 12);
+  return path.join(os.homedir(), ".cache", "wiki-sync", `${site}-${vaultKey}.json`);
+}
+
+function readSyncCache(vaultPath: string, site: string): SyncCache {
+  const file = syncCachePath(vaultPath, site);
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as SyncCache;
+    if (parsed.version === SYNC_CACHE_VERSION && parsed.site === site) {
+      return { ...parsed, assets: parsed.assets ?? {} };
+    }
+  } catch {
+    // Cache misses and corrupt cache files should not block sync.
+  }
+  return {
+    version: SYNC_CACHE_VERSION,
+    site,
+    vaultPath: path.resolve(vaultPath),
+    assets: {},
+  };
+}
+
+function writeSyncCache(vaultPath: string, site: string, cache: SyncCache) {
+  const file = syncCachePath(vaultPath, site);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${JSON.stringify(cache, null, 2)}\n`);
 }
 
 export function formatRemoteDocument(doc: RemoteDoc) {
@@ -122,6 +197,78 @@ async function listRemoteAssets(publishUrl: string, token: string, siteSlug: str
   return assets;
 }
 
+async function loadSyncPlan(
+  publishUrl: string,
+  token: string,
+  siteSlug: string,
+  localDocs: Map<string, { hash: string }>,
+  localAssets: Map<string, { kind: "pdf" | "file"; relativePath: string; hash: string }>,
+): Promise<SyncPlan> {
+  const documentManifest: LocalDocManifest[] = Array.from(localDocs.entries()).map(
+    ([slug, doc]) => ({ slug, hash: doc.hash }),
+  );
+  const assetManifest: LocalAssetManifest[] = Array.from(localAssets.values()).map(
+    (asset) => ({
+      kind: asset.kind,
+      path: asset.relativePath,
+      hash: asset.hash,
+    }),
+  );
+
+  try {
+    const plan: {
+      documents: RemoteDoc[];
+      assets: RemoteAsset[];
+      orphanDocs: string[];
+      orphanAssets: string[];
+    } = await post(`${publishUrl}/sync/plan`, token, {
+      siteSlug,
+      manifest: {
+        documents: documentManifest,
+        assets: assetManifest,
+      },
+    });
+    return {
+      documents: plan.documents,
+      assets: plan.assets,
+      remoteDocSlugs: new Set([
+        ...documentManifest
+          .map((doc) => doc.slug)
+          .filter((slug) => !plan.orphanDocs.includes(slug)),
+        ...plan.documents.map((doc) => doc.slug),
+      ]),
+      remoteAssetKeys: new Set([
+        ...assetManifest
+          .map((asset) => `${asset.kind}:${asset.path}`)
+          .filter((key) => !plan.orphanAssets.includes(key)),
+        ...plan.assets.map((asset) => `${asset.kind}:${asset.path}`),
+      ]),
+      orphanDocs: plan.orphanDocs,
+      orphanAssets: plan.orphanAssets,
+      planned: true,
+    };
+  } catch (error) {
+    const message = errorMessage(error);
+    if (!message.startsWith("404 ")) throw error;
+  }
+
+  const documents = await listRemoteDocs(publishUrl, token, siteSlug);
+  const assets = await listRemoteAssets(publishUrl, token, siteSlug);
+  return {
+    documents,
+    assets,
+    remoteDocSlugs: new Set(documents.map((doc) => doc.slug)),
+    remoteAssetKeys: new Set(assets.map((asset) => `${asset.kind}:${asset.path}`)),
+    orphanDocs: Array.from(localDocs.keys()).filter(
+      (slug) => !documents.some((doc) => doc.slug === slug),
+    ),
+    orphanAssets: Array.from(localAssets.values())
+      .map((asset) => `${asset.kind}:${asset.relativePath}`)
+      .filter((key) => !assets.some((asset) => `${asset.kind}:${asset.path}` === key)),
+    planned: false,
+  };
+}
+
 async function downloadAsset(asset: RemoteAsset) {
   const response = await fetch(asset.blobUrl);
   if (!response.ok) {
@@ -130,23 +277,65 @@ async function downloadAsset(asset: RemoteAsset) {
   return Buffer.from(await response.arrayBuffer());
 }
 
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export async function mapWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<void>,
+) {
+  const limit = Math.max(1, Math.floor(concurrency));
+  let next = 0;
+  const runners = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      while (next < items.length) {
+        const index = next++;
+        await worker(items[index], index);
+      }
+    },
+  );
+  await Promise.all(runners);
+}
+
 export async function runSync(options: SyncOptions) {
   const config = loadConfig(options.site);
   const token = loadPublishToken(options.site);
   const vaultPath = config.vaultPath;
-  const remoteDocs = await listRemoteDocs(config.publishUrl, token, config.site);
-  const remoteAssets = await listRemoteAssets(config.publishUrl, token, config.site);
   const localDocs = new Map(readVaultDocuments(vaultPath).map((doc) => [doc.slug, doc]));
   const localAssets = new Map(
     readVaultAssets(vaultPath).map((asset) => [`${asset.kind}:${asset.relativePath}`, asset]),
   );
-  const remoteDocSlugs = new Set(remoteDocs.map((doc) => doc.slug));
-  const remoteAssetKeys = new Set(remoteAssets.map((asset) => `${asset.kind}:${asset.path}`));
+  const plan = await loadSyncPlan(
+    config.publishUrl,
+    token,
+    config.site,
+    localDocs,
+    localAssets,
+  );
+  const remoteDocs = plan.documents;
+  const remoteAssets = plan.assets;
+  const remoteDocSlugs = plan.remoteDocSlugs;
+  const remoteAssetKeys = plan.remoteAssetKeys;
   const reviewDir = reviewRoot(vaultPath, config.site);
   const conflicts: string[] = [];
   let created = 0;
-  let unchanged = 0;
+  let unchanged = plan.planned
+    ? Math.max(
+        0,
+        localDocs.size +
+          localAssets.size -
+          plan.orphanDocs.length -
+          plan.orphanAssets.length -
+          remoteDocs.length -
+          remoteAssets.length,
+      )
+    : 0;
   let reviewed = 0;
+  const skippedAssets: SkippedAsset[] = [];
+  const syncCache = readSyncCache(vaultPath, config.site);
 
   for (const doc of remoteDocs) {
     const tags = doc.tags ?? [];
@@ -181,26 +370,61 @@ export async function runSync(options: SyncOptions) {
     reviewed++;
   }
 
-  for (const asset of remoteAssets) {
+  await mapWithConcurrency(remoteAssets, ASSET_SYNC_CONCURRENCY, async (asset) => {
     const key = `${asset.kind}:${asset.path}`;
     const local = localAssets.get(key);
     if (local && local.hash === asset.contentHash) {
       unchanged++;
-      continue;
+      return;
+    }
+    const cached = syncCache.assets[key];
+    if (
+      cached &&
+      cached.blobUrl === asset.blobUrl &&
+      cached.contentHash === asset.contentHash
+    ) {
+      skippedAssets.push({ path: asset.path, reason: `${cached.reason} (cached)` });
+      return;
     }
 
-    const body = await downloadAsset(asset);
+    let body: Buffer;
+    try {
+      body = await downloadAsset(asset);
+    } catch (error) {
+      const reason = errorMessage(error);
+      syncCache.assets[key] = {
+        contentHash: asset.contentHash,
+        blobUrl: asset.blobUrl,
+        status: "download-error",
+        reason,
+        checkedAt: new Date().toISOString(),
+      };
+      skippedAssets.push({ path: asset.path, reason });
+      return;
+    }
+
     const actualHash = hashBytes(body);
     if (asset.contentHash && actualHash !== asset.contentHash) {
-      throw new Error(`Downloaded hash mismatch for ${asset.path}`);
+      const reason = `downloaded hash ${actualHash} did not match remote hash ${asset.contentHash}`;
+      syncCache.assets[key] = {
+        contentHash: asset.contentHash,
+        blobUrl: asset.blobUrl,
+        status: "hash-mismatch",
+        reason,
+        checkedAt: new Date().toISOString(),
+      };
+      skippedAssets.push({ path: asset.path, reason });
+      return;
     }
+
+    delete syncCache.assets[key];
 
     if (!local) {
       const filePath = ensureInsideVault(vaultPath, asset.path);
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, body);
       created++;
-      continue;
+      return;
     }
 
     const reviewPath = ensureInsideVault(
@@ -211,24 +435,28 @@ export async function runSync(options: SyncOptions) {
     fs.writeFileSync(reviewPath, body);
     conflicts.push(asset.path);
     reviewed++;
-  }
+  });
 
-  const orphanDocs = Array.from(localDocs.keys()).filter((slug) => !remoteDocSlugs.has(slug));
-  const orphanAssets = Array.from(localAssets.values())
-    .map((asset) => `${asset.kind}:${asset.relativePath}`)
-    .filter((key) => !remoteAssetKeys.has(key));
+  const orphanDocs = plan.planned
+    ? plan.orphanDocs
+    : Array.from(localDocs.keys()).filter((slug) => !remoteDocSlugs.has(slug));
+  const orphanAssets = plan.planned
+    ? plan.orphanAssets
+    : Array.from(localAssets.values())
+        .map((asset) => `${asset.kind}:${asset.relativePath}`)
+        .filter((key) => !remoteAssetKeys.has(key));
   const orphanCount = orphanDocs.length + orphanAssets.length;
 
-  if (reviewed > 0) {
+  if (reviewed > 0 || skippedAssets.length > 0) {
     fs.mkdirSync(reviewDir, { recursive: true });
     fs.writeFileSync(
       path.join(reviewDir, "summary.json"),
-      `${JSON.stringify({ conflicts, orphanDocs, orphanAssets }, null, 2)}\n`,
+      `${JSON.stringify({ conflicts, orphanDocs, orphanAssets, skippedAssets }, null, 2)}\n`,
     );
   }
 
   console.log(
-    `Sync ${config.site}: +${created} created, ~${reviewed} review, =${unchanged} unchanged, ?${orphanCount} orphan`,
+    `Sync ${config.site}: +${created} created, ~${reviewed} review, =${unchanged} unchanged, !${skippedAssets.length} skipped, ?${orphanCount} orphan`,
   );
   if (reviewed > 0) {
     console.warn(`Divergent local files were not overwritten. Review remote copies in ${reviewDir}`);
@@ -236,6 +464,18 @@ export async function runSync(options: SyncOptions) {
   if (orphanCount > 0) {
     console.warn("Local-only files are unchanged. They may be new local work or previously tombstoned remote content.");
   }
+  if (skippedAssets.length > 0) {
+    console.warn(
+      `Skipped ${skippedAssets.length} remote assets that could not be downloaded safely. Review ${path.join(reviewDir, "summary.json")}`,
+    );
+    for (const asset of skippedAssets.slice(0, 20)) {
+      console.warn(`  ${asset.path}: ${asset.reason}`);
+    }
+    if (skippedAssets.length > 20) {
+      console.warn(`  ... ${skippedAssets.length - 20} more`);
+    }
+  }
+  writeSyncCache(vaultPath, config.site, syncCache);
   syncSkills(config.site);
 }
 

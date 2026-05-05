@@ -32,6 +32,11 @@ type Manifest = {
   assets?: Array<{ path: string; hash: string; kind?: "pdf" | "file" }>;
 };
 
+type SyncManifest = {
+  documents?: Array<{ slug: string; hash: string }>;
+  assets?: Array<{ path: string; hash: string; kind?: "pdf" | "file" }>;
+};
+
 function hashToken(token: string) {
   return `sha256:${crypto.createHash("sha256").update(token).digest("hex")}`;
 }
@@ -299,6 +304,80 @@ export async function POST(
         includeSensitive: true,
       });
       return NextResponse.json(page);
+    }
+
+    if (step === "sync/plan") {
+      const unsupported = unsupportedPublisherResponse(request);
+      if (unsupported) return unsupported;
+
+      const manifest = (body.manifest ?? {}) as SyncManifest;
+      const localDocHashes = new Map(
+        (manifest.documents ?? []).map((doc) => [doc.slug, doc.hash]),
+      );
+      const localAssetHashes = new Map(
+        (manifest.assets ?? []).map((asset) => [assetKey(asset), asset.hash]),
+      );
+
+      const documents = [];
+      const remoteDocSlugs = new Set<string>();
+      let docCursor: string | null = null;
+      let docsDone = false;
+      while (!docsDone) {
+        const page = await siteData.documents.listPageWithContent({
+          cursor: docCursor,
+          numItems: 500,
+          includeSensitive: true,
+        });
+        for (const doc of page.page) {
+          remoteDocSlugs.add(doc.slug);
+          if (localDocHashes.get(doc.slug) !== doc.contentHash) {
+            documents.push(doc);
+          }
+        }
+        docsDone = page.isDone;
+        docCursor = page.continueCursor;
+      }
+
+      const assets = [];
+      const remoteAssetKeys = new Set<string>();
+      let assetCursor: string | null = null;
+      let assetsDone = false;
+      while (!assetsDone) {
+        const page = (await siteData.documents.assetHashesPage({
+          cursor: assetCursor,
+          numItems: 500,
+          includeSensitive: true,
+        })) as {
+          page: Array<{
+            kind: "pdf" | "file";
+            path: string;
+            contentHash: string | undefined;
+            blobUrl: string;
+          }>;
+          isDone: boolean;
+          continueCursor: string;
+        };
+        for (const asset of page.page) {
+          const key = `${asset.kind}:${asset.path}`;
+          remoteAssetKeys.add(key);
+          if (localAssetHashes.get(key) !== asset.contentHash) {
+            assets.push(asset);
+          }
+        }
+        assetsDone = page.isDone;
+        assetCursor = page.continueCursor;
+      }
+
+      return NextResponse.json({
+        documents,
+        assets,
+        orphanDocs: Array.from(localDocHashes.keys()).filter(
+          (slug) => !remoteDocSlugs.has(slug),
+        ),
+        orphanAssets: Array.from(localAssetHashes.keys()).filter(
+          (key) => !remoteAssetKeys.has(key),
+        ),
+      });
     }
 
     if (step === "begin") {

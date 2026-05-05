@@ -21,6 +21,7 @@ web/web
 **/web/web
 .agents/worktrees
 obsidian/.agents/worktrees/
+obsidian/.wiki-sync-review/
 web/.agents/worktrees/
 web/.swc/
 .codex/

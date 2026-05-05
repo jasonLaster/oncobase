@@ -23,7 +23,15 @@ export function readWorkingTreeStatus(vaultPath: string): WorkingTreeStatus {
   try {
     raw = execFileSync(
       "git",
-      ["status", "--porcelain=1", "--untracked-files=normal", "--", absVault],
+      [
+        "-C",
+        absVault,
+        "status",
+        "--porcelain=1",
+        "--untracked-files=normal",
+        "--",
+        ".",
+      ],
       { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
     );
   } catch (error) {

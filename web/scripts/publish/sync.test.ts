@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
-import { formatRemoteDocument } from "./sync";
+import { formatRemoteDocument, mapWithConcurrency } from "./sync";
 import { hashDocument, readVaultDocuments } from "./walk-vault";
 
 let tmpDir: string | null = null;
@@ -15,6 +15,25 @@ function makeVault() {
 afterEach(() => {
   if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
   tmpDir = null;
+});
+
+describe("mapWithConcurrency", () => {
+  test("runs work in parallel up to the configured limit", async () => {
+    let active = 0;
+    let maxActive = 0;
+    const seen: number[] = [];
+
+    await mapWithConcurrency([1, 2, 3, 4, 5], 2, async (item) => {
+      active++;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      seen.push(item);
+      active--;
+    });
+
+    expect(maxActive).toBe(2);
+    expect(seen.toSorted()).toEqual([1, 2, 3, 4, 5]);
+  });
 });
 
 describe("formatRemoteDocument", () => {
