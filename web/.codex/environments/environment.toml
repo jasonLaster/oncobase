@@ -4,6 +4,6 @@ name = "web"
 
 [setup]
 script = '''
-cp /Users/jasonlaster/src/projects/diana-tnbc/web/.env.local ./web
+cp ~/src/projects/diana-tnbc/.env.local ./
 bun install
 '''
