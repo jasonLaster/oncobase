@@ -18,6 +18,10 @@ import { markdownRemarkPlugins } from "@/lib/markdown-math";
 import { preprocessCitationMarkdown } from "@/lib/citation-links";
 import { MarkdownRendererClient } from "@/components/markdown-renderer-client";
 import { RoutedAnchorLinks } from "@/components/markdown-heading-anchors";
+import {
+  isInternalChatResponseHref,
+  resolveChatResponseHref,
+} from "@/lib/chat-response-links";
 
 const STREAMDOWN_DISABLED = process.env.NEXT_PUBLIC_CHAT_STREAMDOWN === "0";
 const chatRehypePlugins = [rehypeKatex];
@@ -37,16 +41,18 @@ export function DianaChatMarkdownRenderer({
   const citationLinked = preprocessCitationMarkdown(resolved);
   const components = {
     a: ({ href, children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) => {
-      if (href?.startsWith("/")) {
+      const resolvedHref = resolveChatResponseHref(href);
+
+      if (isInternalChatResponseHref(resolvedHref)) {
         return (
-          <Link href={href} {...props}>
+          <Link href={resolvedHref} {...props}>
             {children}
           </Link>
         );
       }
 
       return (
-        <a href={href} {...props}>
+        <a href={resolvedHref} {...props}>
           {children}
         </a>
       );

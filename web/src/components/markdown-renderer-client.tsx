@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import type { AnchorHTMLAttributes } from "react";
 import ReactMarkdown from "react-markdown";
 import {
   MdTable,
@@ -17,6 +19,10 @@ import {
   markdownRemarkPlugins,
 } from "@/lib/markdown-math";
 import { preprocessCitationMarkdown } from "@/lib/citation-links";
+import {
+  isInternalChatResponseHref,
+  resolveChatResponseHref,
+} from "@/lib/chat-response-links";
 
 /**
  * Client-side markdown renderer for interactive contexts (chat, search)
@@ -39,6 +45,23 @@ export function MarkdownRendererClient({
         remarkPlugins={markdownRemarkPlugins}
         rehypePlugins={markdownRehypePlugins}
         components={{
+          a: ({ href, children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) => {
+            const resolvedHref = resolveChatResponseHref(href);
+
+            if (isInternalChatResponseHref(resolvedHref)) {
+              return (
+                <Link href={resolvedHref} {...props}>
+                  {children}
+                </Link>
+              );
+            }
+
+            return (
+              <a href={resolvedHref} {...props}>
+                {children}
+              </a>
+            );
+          },
           table: MdTable,
           thead: MdThead,
           tbody: MdTbody,
