@@ -1,5 +1,9 @@
 import { loadConfig, loadPublishToken } from "./config";
-import { readVaultAssets, readVaultDocuments } from "./walk-vault";
+import {
+  HASH_FUNCTION_VERSION,
+  readVaultAssets,
+  readVaultDocuments,
+} from "./walk-vault";
 import { hasFlag, readFlag } from "./cli";
 import { PUBLISHER_PROTOCOL_VERSION, PUBLISHER_VERSION_HEADER } from "./version";
 import { readErrorBody } from "./http";
@@ -28,6 +32,7 @@ const response = await fetch(`${config.publishUrl}/begin`, {
   },
   body: JSON.stringify({
     siteSlug: config.site,
+    hashFunctionVersion: HASH_FUNCTION_VERSION,
     dryRun: true,
     manifest: {
       documents: documents.map(({ slug, hash }) => ({ slug, hash })),

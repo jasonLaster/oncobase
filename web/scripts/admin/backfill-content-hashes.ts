@@ -75,10 +75,11 @@ console.log(`\nLocal vault docs: ${localDocs.length}`);
 
 const client = new ConvexHttpClient(url);
 
-// 200 entries × ~120 bytes/each ≈ 24KB per call — well under
-// Convex's 16MB function-arg limit but small enough that a failure
-// only retries a tractable batch.
-const BATCH_SIZE = 200;
+// Each bulk mutation reads the full document for every entry to
+// compare hashes. With ~22KB avg and outliers approaching 150KB,
+// 200/batch hits Convex's 16MB-per-call read limit. 50/batch keeps
+// the worst case (50 × 150KB ≈ 7.5MB) well under the cap.
+const BATCH_SIZE = 50;
 
 let cursor: string | null = null;
 let scanned = 0;

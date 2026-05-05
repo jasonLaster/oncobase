@@ -74,6 +74,7 @@ export default defineSchema({
   })
     .index("by_slug", ["slug"])
     .index("by_site_slug", ["siteId", "slug"])
+    .index("by_site_sensitive_slug", ["siteId", "sensitive", "slug"])
     .searchIndex("search_content", {
       searchField: "content",
       filterFields: ["siteId", "slug", "tags"],

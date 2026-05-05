@@ -86,6 +86,28 @@ async function canReadAssetPath(
   return includeSensitive || !(await isSensitiveAssetPath(ctx, site, assetPath));
 }
 
+async function sensitiveSiblingSlugSet(ctx: QueryCtx, site: SiteCtx) {
+  if (!site.siteId) return new Set<string>();
+  const sensitiveDocs = await ctx.db
+    .query("documents")
+    .withIndex("by_site_sensitive_slug", (q) =>
+      q.eq("siteId", site.siteId!).eq("sensitive", true),
+    )
+    .collect();
+  return new Set(
+    sensitiveDocs
+      .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
+      .map((doc) => doc.slug),
+  );
+}
+
+function canReadAssetWithSensitiveSlugs(
+  assetPath: string,
+  sensitiveSlugs: Set<string> | null,
+) {
+  return !sensitiveSlugs?.has(assetPathToSiblingSlug(assetPath));
+}
+
 export const search = query({
   args: {
     query: v.string(),
@@ -665,6 +687,9 @@ export const listPdfAssets = query({
   },
   handler: async (ctx, { includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
+    const sensitiveSlugs = includeSensitive
+      ? null
+      : await sensitiveSiblingSlugSet(ctx, site);
     const rows = site.siteId
       ? await ctx.db
           .query("pdfAssets")
@@ -674,7 +699,7 @@ export const listPdfAssets = query({
     const out = [];
     for (const row of rows) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-      if (!(await canReadAssetPath(ctx, site, row.path, includeSensitive))) continue;
+      if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
       out.push(row);
     }
     return out;
@@ -692,6 +717,9 @@ export const listPdfAssetPathsPage = query({
   },
   handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
+    const sensitiveSlugs = includeSensitive
+      ? null
+      : await sensitiveSiblingSlugSet(ctx, site);
     const result = site.siteId
       ? await ctx.db
           .query("pdfAssets")
@@ -701,7 +729,7 @@ export const listPdfAssetPathsPage = query({
     const page = [];
     for (const row of result.page) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-      if (!(await canReadAssetPath(ctx, site, row.path, includeSensitive))) continue;
+      if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
       page.push(row.path);
     }
     return {
@@ -783,6 +811,9 @@ export const listFileAssets = query({
   },
   handler: async (ctx, { includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
+    const sensitiveSlugs = includeSensitive
+      ? null
+      : await sensitiveSiblingSlugSet(ctx, site);
     const rows = site.siteId
       ? await ctx.db
           .query("fileAssets")
@@ -792,7 +823,7 @@ export const listFileAssets = query({
     const out = [];
     for (const row of rows) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-      if (!(await canReadAssetPath(ctx, site, row.path, includeSensitive))) continue;
+      if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
       out.push(row);
     }
     return out;
@@ -812,6 +843,11 @@ export const assetHashesPage = query({
   },
   handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
+    // This query is used by publisher/admin diffing, not public
+    // navigation. Return the full hash inventory without per-asset
+    // sibling document checks, which can exceed Convex's read limit on
+    // large vaults.
+    const includeAll = includeSensitive ?? true;
     const parsed = cursor ? (JSON.parse(cursor) as {
       pdf: string | null;
       pdfDone: boolean;
@@ -840,7 +876,7 @@ export const assetHashesPage = query({
           });
       for (const row of result.page) {
         if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-        if (!(await canReadAssetPath(ctx, site, row.path, includeSensitive))) continue;
+        if (!(await canReadAssetPath(ctx, site, row.path, includeAll))) continue;
         out.push({
           kind: "pdf",
           path: row.path,
@@ -861,7 +897,7 @@ export const assetHashesPage = query({
           });
       for (const row of result.page) {
         if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-        if (!(await canReadAssetPath(ctx, site, row.path, includeSensitive))) continue;
+        if (!(await canReadAssetPath(ctx, site, row.path, includeAll))) continue;
         out.push({
           kind: "file",
           path: row.path,
@@ -897,6 +933,9 @@ export const listFileAssetPathsPage = query({
   },
   handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
+    const sensitiveSlugs = includeSensitive
+      ? null
+      : await sensitiveSiblingSlugSet(ctx, site);
     const result = site.siteId
       ? await ctx.db
           .query("fileAssets")
@@ -906,7 +945,7 @@ export const listFileAssetPathsPage = query({
     const page = [];
     for (const row of result.page) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-      if (!(await canReadAssetPath(ctx, site, row.path, includeSensitive))) continue;
+      if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
       page.push(row.path);
     }
     return {
