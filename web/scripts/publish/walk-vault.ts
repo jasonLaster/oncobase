@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import { isSensitiveFrontmatter } from "../../src/lib/sensitive-pages";
 
 // Walks a local Obsidian vault and yields the publish-ready
 // document and asset entries. Used by the publisher CLI in
@@ -46,6 +47,7 @@ export type PublishDocument = {
   content: string;
   tags: string[];
   hash: string;
+  sensitive: boolean;
 };
 
 export type PublishAsset = {
@@ -65,7 +67,8 @@ export type PublishAsset = {
 //
 // History:
 //   1 — JSON.stringify({title, content, tags}) over RAW vault content
-export const HASH_FUNCTION_VERSION = 1;
+//   2 — includes the sensitive flag in the hashed document payload
+export const HASH_FUNCTION_VERSION = 2;
 
 export function hashBytes(content: string | Buffer) {
   return crypto.createHash("sha256").update(content).digest("hex").slice(0, 16);
@@ -76,12 +79,17 @@ export function hashFile(filePath: string) {
   return hashBytes(buf);
 }
 
-export function hashDocument(doc: Pick<PublishDocument, "title" | "content" | "tags">) {
+export function hashDocument(
+  doc: Pick<PublishDocument, "title" | "content" | "tags"> & {
+    sensitive?: boolean;
+  },
+) {
   return hashBytes(
     JSON.stringify({
       title: doc.title,
       content: doc.content,
       tags: doc.tags,
+      sensitive: doc.sensitive === true,
     }),
   );
 }
@@ -104,6 +112,23 @@ function vaultFiles(dir: string, basePath = ""): Entry[] {
     }
   }
   return out;
+}
+
+function isSensitiveMarkdownFile(filePath: string) {
+  try {
+    const raw = fs.readFileSync(filePath, "utf8");
+    const { data } = matter(raw);
+    return isSensitiveFrontmatter(data as Record<string, unknown>);
+  } catch {
+    return false;
+  }
+}
+
+function isSensitiveSidecarFile(filePath: string) {
+  const ext = path.extname(filePath);
+  if (!ext || ext === ".md") return false;
+  const siblingMarkdownPath = filePath.slice(0, -ext.length) + ".md";
+  return fs.existsSync(siblingMarkdownPath) && isSensitiveMarkdownFile(siblingMarkdownPath);
 }
 
 export function readVaultDocuments(vaultPath: string): PublishDocument[] {
@@ -131,12 +156,14 @@ export function readVaultDocuments(vaultPath: string): PublishDocument[] {
       const tags = Array.isArray(data.tags)
         ? (data.tags as unknown[]).filter((tag): tag is string => typeof tag === "string")
         : [];
+      const sensitive = isSensitiveFrontmatter(data as Record<string, unknown>);
       return {
         slug,
         title,
         content: body,
         tags,
-        hash: hashDocument({ title, content: body, tags }),
+        sensitive,
+        hash: hashDocument({ title, content: body, tags, sensitive }),
       };
     });
 }
@@ -148,6 +175,7 @@ export function readVaultAssets(vaultPath: string): PublishAsset[] {
     const isPdf = PDF_EXTENSIONS.has(ext);
     const isFile = FILE_ASSET_EXTENSIONS.has(ext);
     if (!isPdf && !isFile) continue;
+    if (isSensitiveSidecarFile(filePath)) continue;
     const stat = fs.statSync(filePath);
     assets.push({
       filePath,

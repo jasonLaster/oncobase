@@ -109,10 +109,11 @@ async function currentDocumentHashes(siteData: SiteData) {
       }>;
       isDone: boolean;
       continueCursor: string;
-    } = await siteData.documents.embeddingStatusPage({
-      cursor,
-      numItems: 100,
-    });
+      } = await siteData.documents.embeddingStatusPage({
+        cursor,
+        numItems: 100,
+        includeSensitive: true,
+      });
     for (const doc of page.page) {
       hashes.set(doc.slug, {
         contentHash: doc.contentHash,
@@ -130,10 +131,11 @@ async function currentAssetHashes(siteData: SiteData) {
   let cursor: string | null = null;
   let isDone = false;
   while (!isDone) {
-    const page = (await siteData.documents.assetHashesPage({
-      cursor,
-      numItems: 1000,
-    })) as {
+      const page = (await siteData.documents.assetHashesPage({
+        cursor,
+        numItems: 1000,
+        includeSensitive: true,
+      })) as {
       page: Array<{
         kind: "pdf" | "file";
         path: string;
@@ -275,6 +277,7 @@ export async function POST(
       const page = await siteData.documents.listPageWithContent({
         cursor,
         numItems,
+        includeSensitive: true,
       });
       return NextResponse.json(page);
     }
@@ -290,6 +293,7 @@ export async function POST(
       const page = await siteData.documents.assetHashesPage({
         cursor,
         numItems,
+        includeSensitive: true,
       });
       return NextResponse.json(page);
     }
@@ -364,7 +368,7 @@ export async function POST(
     }
 
     if (step === "document") {
-      const { slug, title, content, tags, hash, hashFunctionVersion, embedding } = body as {
+      const { slug, title, content, tags, hash, hashFunctionVersion, embedding, sensitive } = body as {
         slug?: string;
         title?: string;
         content?: string;
@@ -372,6 +376,7 @@ export async function POST(
         hash?: string;
         hashFunctionVersion?: number;
         embedding?: number[];
+        sensitive?: boolean;
       };
 
       if (!slug || !title || typeof content !== "string" || !hash) {
@@ -394,6 +399,7 @@ export async function POST(
         tags: Array.isArray(tags) ? tags : [],
         contentHash: hash,
         hashFunctionVersion,
+        sensitive: sensitive === true,
       });
       if (Array.isArray(embedding)) {
         await siteData.documents.upsertEmbedding({

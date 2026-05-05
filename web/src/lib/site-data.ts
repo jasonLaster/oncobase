@@ -31,6 +31,34 @@ function addSiteSlug<FuncRef extends AnyFunctionReference>(
   return { ...args, siteSlug: scope.siteSlug } as FunctionArgs<FuncRef>;
 }
 
+function shouldRetryWithoutIncludeSensitive(
+  args: unknown,
+  error: unknown,
+): args is { includeSensitive: boolean } {
+  if (process.env.VERCEL_ENV !== "preview") return false;
+  if (!args || typeof args !== "object" || !("includeSensitive" in args)) {
+    return false;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return /includeSensitive|extra field|Object contains extra field|Server Error/i.test(
+    message,
+  );
+}
+
+async function withPreviewIncludeSensitiveFallback<TArgs, TResult>(
+  args: TArgs,
+  call: (args: TArgs) => Promise<TResult>,
+): Promise<TResult> {
+  try {
+    return await call(args);
+  } catch (error) {
+    if (!shouldRetryWithoutIncludeSensitive(args, error)) throw error;
+    const legacyArgs = { ...(args as Record<string, unknown>) };
+    delete legacyArgs.includeSensitive;
+    return await call(legacyArgs as TArgs);
+  }
+}
+
 export function siteScopeFromRequest(request: { headers: Headers }): SiteScope {
   return { siteSlug: siteSlugFromRequest(request) };
 }
@@ -76,12 +104,21 @@ export function createSiteData(
     convex,
     documents: {
       search: (args: SiteScopedArgs<typeof api.documents.search>) =>
-        convex.query(api.documents.search, args),
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.search, nextArgs),
+        ),
       getBySlug: (args: SiteScopedArgs<typeof api.documents.getBySlug>) =>
-        convex.query(api.documents.getBySlug, args),
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.getBySlug, nextArgs),
+        ),
       getById: (args: SiteScopedArgs<typeof api.documents.getById>) =>
-        convex.query(api.documents.getById, args),
-      list: () => convex.action(api.documents.list, {}),
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.getById, nextArgs),
+        ),
+      list: (args: SiteScopedArgs<typeof api.documents.list> = {}) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.action(api.documents.list, nextArgs),
+        ),
       getByTag: (args: SiteScopedArgs<typeof api.documents.getByTag>) =>
         convex.action(api.documents.getByTag, args),
       listTags: () => convex.action(api.documents.listTags, {}),
@@ -89,33 +126,70 @@ export function createSiteData(
         convex.action(api.documents.vectorSearch, args),
       embeddingStatusPage: (
         args: SiteScopedArgs<typeof api.documents.embeddingStatusPage>,
-      ) => convex.query(api.documents.embeddingStatusPage, args),
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.embeddingStatusPage, nextArgs),
+        ),
       listPageWithContent: (
         args: SiteScopedArgs<typeof api.documents.listPageWithContent>,
-      ) => convex.query(api.documents.listPageWithContent, args),
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.listPageWithContent, nextArgs),
+        ),
       listPageWithDescriptions: (
         args: SiteScopedArgs<typeof api.documents.listPageWithDescriptions>,
-      ) => convex.query(api.documents.listPageWithDescriptions, args),
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.listPageWithDescriptions, nextArgs),
+        ),
       listPageDescriptions: (
         args: SiteScopedArgs<typeof api.documents.listPageDescriptions>,
-      ) => convex.query(api.documents.listPageDescriptions, args),
-      listPdfAssets: () => convex.query(api.documents.listPdfAssets, {}),
-      listFileAssets: () => convex.query(api.documents.listFileAssets, {}),
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.listPageDescriptions, nextArgs),
+        ),
+      listPdfAssets: (
+        args: SiteScopedArgs<typeof api.documents.listPdfAssets> = {},
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.listPdfAssets, nextArgs),
+        ),
+      listFileAssets: (
+        args: SiteScopedArgs<typeof api.documents.listFileAssets> = {},
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.listFileAssets, nextArgs),
+        ),
       listPdfAssetPathsPage: (
         args: SiteScopedArgs<typeof api.documents.listPdfAssetPathsPage>,
-      ) => convex.query(api.documents.listPdfAssetPathsPage, args),
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.listPdfAssetPathsPage, nextArgs),
+        ),
       listFileAssetPathsPage: (
         args: SiteScopedArgs<typeof api.documents.listFileAssetPathsPage>,
-      ) => convex.query(api.documents.listFileAssetPathsPage, args),
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.listFileAssetPathsPage, nextArgs),
+        ),
       assetHashesPage: (
         args: SiteScopedArgs<typeof api.documents.assetHashesPage>,
-      ) => convex.query(api.documents.assetHashesPage, args),
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.assetHashesPage, nextArgs),
+        ),
       getPdfAssetByPath: (
         args: SiteScopedArgs<typeof api.documents.getPdfAssetByPath>,
-      ) => convex.query(api.documents.getPdfAssetByPath, args),
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.getPdfAssetByPath, nextArgs),
+        ),
       getFileAssetByPath: (
         args: SiteScopedArgs<typeof api.documents.getFileAssetByPath>,
-      ) => convex.query(api.documents.getFileAssetByPath, args),
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.getFileAssetByPath, nextArgs),
+        ),
       getMeta: (args: SiteScopedArgs<typeof api.documents.getMeta>) =>
         convex.query(api.documents.getMeta, args),
       setMeta: (args: SiteScopedArgs<typeof api.documents.setMeta>) =>

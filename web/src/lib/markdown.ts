@@ -48,6 +48,7 @@ export interface MarkdownFile {
   title: string;
   content: string;
   contentHash?: string;
+  sensitive?: boolean;
   frontmatter: Record<string, unknown>;
 }
 
@@ -62,6 +63,11 @@ interface MarkdownReadOptions {
   // mode here is informational. The reveal path is gone with the fs
   // reader — raw markdown lives only in the publisher's local vault.
   piiMode?: PiiRedactionMode;
+  includeSensitive?: boolean;
+}
+
+interface MarkdownDiscoveryOptions {
+  includeSensitive?: boolean;
 }
 
 // ── Convex fetchers (tagged Cache Components entries) ────────────────────────
@@ -70,13 +76,16 @@ interface MarkdownReadOptions {
 
 async function fetchAllDocsForSite(
   siteSlug: SiteSlug,
+  includeSensitive = false,
 ): Promise<Array<{ slug: string; title: string; tags: string[] }>> {
   "use cache";
   cacheLife("hours");
   cacheTag(siteCacheTag(siteSlug), siteDocsCacheTag(siteSlug));
 
   if (shouldSkipConvexReads()) return [];
-  return await siteDataFromSlug(siteSlug).documents.list();
+  return await siteDataFromSlug(siteSlug).documents.list(
+    includeSensitive ? { includeSensitive: true } : {},
+  );
 }
 
 async function fetchAllDocs() {
@@ -102,7 +111,10 @@ async function paginateAssetPaths(
   return out;
 }
 
-async function fetchAllPdfPathsForSite(siteSlug: SiteSlug): Promise<string[]> {
+async function fetchAllPdfPathsForSite(
+  siteSlug: SiteSlug,
+  includeSensitive = false,
+): Promise<string[]> {
   "use cache";
   cacheLife("hours");
   cacheTag(
@@ -115,7 +127,9 @@ async function fetchAllPdfPathsForSite(siteSlug: SiteSlug): Promise<string[]> {
   const siteData = siteDataFromSlug(siteSlug);
   try {
     return await paginateAssetPaths((args) =>
-      siteData.documents.listPdfAssetPathsPage(args),
+      siteData.documents.listPdfAssetPathsPage(
+        includeSensitive ? { ...args, includeSensitive: true } : args,
+      ),
     );
   } catch (error) {
     console.warn(
@@ -127,7 +141,10 @@ async function fetchAllPdfPathsForSite(siteSlug: SiteSlug): Promise<string[]> {
   }
 }
 
-async function fetchAllFilePathsForSite(siteSlug: SiteSlug): Promise<string[]> {
+async function fetchAllFilePathsForSite(
+  siteSlug: SiteSlug,
+  includeSensitive = false,
+): Promise<string[]> {
   "use cache";
   cacheLife("hours");
   cacheTag(
@@ -140,7 +157,9 @@ async function fetchAllFilePathsForSite(siteSlug: SiteSlug): Promise<string[]> {
   const siteData = siteDataFromSlug(siteSlug);
   try {
     return await paginateAssetPaths((args) =>
-      siteData.documents.listFileAssetPathsPage(args),
+      siteData.documents.listFileAssetPathsPage(
+        includeSensitive ? { ...args, includeSensitive: true } : args,
+      ),
     );
   } catch (error) {
     console.warn(
@@ -154,12 +173,13 @@ async function fetchAllFilePathsForSite(siteSlug: SiteSlug): Promise<string[]> {
 
 async function fetchCanonicalSlugEntriesForSite(
   siteSlug: SiteSlug,
+  includeSensitive = false,
 ): Promise<Array<[string, string]>> {
   "use cache";
   cacheLife("hours");
   cacheTag(siteCacheTag(siteSlug), siteDocsCacheTag(siteSlug));
 
-  const docs = await fetchAllDocsForSite(siteSlug);
+  const docs = await fetchAllDocsForSite(siteSlug, includeSensitive);
   const entries: Array<[string, string]> = [];
   const seen = new Set<string>();
   for (const doc of docs) {
@@ -174,12 +194,15 @@ async function fetchCanonicalSlugEntriesForSite(
 
 async function fetchCanonicalSlugMapForSite(
   siteSlug: SiteSlug,
+  includeSensitive = false,
 ): Promise<Map<string, string>> {
-  return new Map(await fetchCanonicalSlugEntriesForSite(siteSlug));
+  return new Map(await fetchCanonicalSlugEntriesForSite(siteSlug, includeSensitive));
 }
 
-async function fetchCanonicalSlugMap(): Promise<Map<string, string>> {
-  return fetchCanonicalSlugMapForSite(await readSiteSlug());
+async function fetchCanonicalSlugMap({
+  includeSensitive = false,
+}: MarkdownDiscoveryOptions = {}): Promise<Map<string, string>> {
+  return fetchCanonicalSlugMapForSite(await readSiteSlug(), includeSensitive);
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
@@ -187,6 +210,7 @@ async function fetchCanonicalSlugMap(): Promise<Map<string, string>> {
 export async function getMarkdownFileForSite(
   siteSlug: SiteSlug,
   slug: string,
+  { includeSensitive = false }: MarkdownReadOptions = {},
 ): Promise<MarkdownFile | null> {
   "use cache";
   cacheLife("hours");
@@ -196,30 +220,40 @@ export async function getMarkdownFileForSite(
     siteDocCacheTag(siteSlug, slug),
   );
 
-  return readMarkdownFileForSite(siteSlug, slug);
+  return readMarkdownFileForSite(siteSlug, slug, { includeSensitive });
 }
 
 export async function readMarkdownFileForSite(
   siteSlug: SiteSlug,
   slug: string,
+  { includeSensitive = false }: MarkdownReadOptions = {},
 ): Promise<MarkdownFile | null> {
   if (shouldSkipConvexReads()) return null;
   const siteData = siteDataFromSlug(siteSlug);
-  let doc = await siteData.documents.getBySlug({ slug });
+  let doc = await siteData.documents.getBySlug(
+    includeSensitive ? { slug, includeSensitive: true } : { slug },
+  );
   if (!doc) {
-    doc = await siteData.documents.getBySlug({ slug: `${slug}/index` });
+    const indexSlug = `${slug}/index`;
+    doc = await siteData.documents.getBySlug(
+      includeSensitive
+        ? { slug: indexSlug, includeSensitive: true }
+        : { slug: indexSlug },
+    );
   }
   if (!doc) return null;
 
   const tags = Array.isArray(doc.tags) ? doc.tags : [];
   const frontmatter: Record<string, unknown> = { tags };
   if (doc.description) frontmatter.description = doc.description;
+  if (doc.sensitive) frontmatter.sensitive = true;
 
   return {
     slug: doc.slug,
     title: doc.title,
     content: doc.content,
     contentHash: doc.contentHash,
+    sensitive: doc.sensitive,
     frontmatter,
   };
 }
@@ -227,10 +261,9 @@ export async function readMarkdownFileForSite(
 /** Read a single markdown row by slug, falling back to `<slug>/index`. */
 export async function getMarkdownFile(
   slug: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _opts: MarkdownReadOptions = {},
+  opts: MarkdownReadOptions = {},
 ): Promise<MarkdownFile | null> {
-  return readMarkdownFileForSite(await readSiteSlug(), slug);
+  return readMarkdownFileForSite(await readSiteSlug(), slug, opts);
 }
 
 /** Async variant — kept as an alias for callers that use the explicit name. */
@@ -239,6 +272,7 @@ export const getMarkdownFileAsync = getMarkdownFile;
 /** Build the compact sidebar file tree from Convex documents + assets. */
 export async function getCompactFileTreeForSite(
   siteSlug: SiteSlug,
+  { includeSensitive = false }: MarkdownDiscoveryOptions = {},
 ): Promise<CompactFileNode[]> {
   "use cache";
   cacheLife("hours");
@@ -250,9 +284,9 @@ export async function getCompactFileTreeForSite(
   );
 
   const [docs, pdfPaths, filePaths] = await Promise.all([
-    fetchAllDocsForSite(siteSlug),
-    fetchAllPdfPathsForSite(siteSlug),
-    fetchAllFilePathsForSite(siteSlug),
+    fetchAllDocsForSite(siteSlug, includeSensitive),
+    fetchAllPdfPathsForSite(siteSlug, includeSensitive),
+    fetchAllFilePathsForSite(siteSlug, includeSensitive),
   ]);
 
   const root: FileNode[] = [];
@@ -275,8 +309,11 @@ export async function getCompactFileTreeForSite(
 }
 
 /** Build the sidebar file tree from Convex documents + assets. */
-export async function getFileTreeForSite(siteSlug: SiteSlug): Promise<FileNode[]> {
-  return expandCompactFileTree(await getCompactFileTreeForSite(siteSlug));
+export async function getFileTreeForSite(
+  siteSlug: SiteSlug,
+  options: MarkdownDiscoveryOptions = {},
+): Promise<FileNode[]> {
+  return expandCompactFileTree(await getCompactFileTreeForSite(siteSlug, options));
 }
 
 /** Build a shallow cached tree for the server-rendered wiki shell. */
@@ -296,15 +333,21 @@ export async function getShellFileTreeForSite(
   return pruneFileTreeForShell(await getFileTreeForSite(siteSlug), options);
 }
 
-export async function getFileTree(): Promise<FileNode[]> {
-  return getFileTreeForSite(await readSiteSlug());
+export async function getFileTree(
+  options: MarkdownDiscoveryOptions = {},
+): Promise<FileNode[]> {
+  return getFileTreeForSite(await readSiteSlug(), options);
 }
 
 /** Convex documents already include PDFs in their own table — single fetch. */
 export const getFileTreeWithPdfs = getFileTree;
 
-export async function getAllSlugs(): Promise<string[]> {
-  const docs = await fetchAllDocs();
+export async function getAllSlugs({
+  includeSensitive = false,
+}: MarkdownDiscoveryOptions = {}): Promise<string[]> {
+  const docs = includeSensitive
+    ? await fetchAllDocsForSite(await readSiteSlug(), true)
+    : await fetchAllDocs();
   return docs.map((d) => d.slug);
 }
 
@@ -314,8 +357,9 @@ export async function getAllPageEntries(): Promise<PageEntry[]> {
 
 export async function getAllPageEntriesForSite(
   siteSlug: SiteSlug,
+  { includeSensitive = false }: MarkdownDiscoveryOptions = {},
 ): Promise<PageEntry[]> {
-  const docs = await fetchAllDocsForSite(siteSlug);
+  const docs = await fetchAllDocsForSite(siteSlug, includeSensitive);
   return docs.map((doc) => {
     const segments = doc.slug.split("/");
     const name = segments.at(-1) ?? doc.slug;
@@ -327,8 +371,11 @@ export async function getAllPageEntriesForSite(
   });
 }
 
-export async function getCanonicalSlug(slug: string): Promise<string | null> {
-  const map = await fetchCanonicalSlugMap();
+export async function getCanonicalSlug(
+  slug: string,
+  { includeSensitive = false }: MarkdownDiscoveryOptions = {},
+): Promise<string | null> {
+  const map = await fetchCanonicalSlugMap({ includeSensitive });
   return map.get(slug.toLowerCase()) ?? null;
 }
 

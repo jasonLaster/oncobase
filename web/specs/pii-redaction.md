@@ -1,18 +1,19 @@
 # PII Redaction Spec
 
-Server-side markdown redaction for patient-identifying content across wiki rendering, search, chat context preparation, and exports.
+Server-side markdown redaction and page-level sensitivity controls for patient-identifying content across wiki rendering, search, chat context preparation, Claude Code maintenance, and exports.
 
 ## Goals
 
 - Let authors mark sensitive spans directly in markdown with a small, readable syntax.
+- Let authors tag an entire page as sensitive when the page, its attachments, or its surrounding context should be hidden from broad/guest access.
 - Hide redacted content by default everywhere the web app reads markdown.
-- Keep hidden content out of rendered HTML, text search, AI/chat context assembly, and downloadable markdown archives.
+- Keep hidden content and sensitive pages out of rendered HTML, text search, AI/chat context assembly, Claude Code wiki updates, and downloadable markdown archives.
 - Allow intentional reveal for page rendering with an explicit query param, without weakening the default server-side protection boundary.
 - Add vault linting so obvious patient identifiers can be found and redacted before they leak into the app.
 
 ## Non-Goals
 
-- Fine-grained per-user authorization for PII reveal.
+- Fine-grained per-span or per-role authorization beyond the signed-in account versus guest boundary.
 - Automatic NLP-based redaction of arbitrary identifiers.
 - Client-only hiding of already-rendered sensitive content.
 - Retroactive cleanup of previously generated embeddings in this change set.
@@ -62,6 +63,33 @@ Patient identifiers hidden.
 
 Reveal render returns the original block body.
 
+### Page-level sensitivity
+
+Use page-level sensitivity when the entire page should be unavailable to guests, search, chat, download archives, and Claude Code wiki maintenance.
+
+Preferred frontmatter:
+
+```md
+---
+title: Private case notes
+sensitive: true
+---
+```
+
+Tag-based authoring is also supported:
+
+```md
+---
+title: Private case notes
+tags:
+  - sensitive
+---
+```
+
+- `sensitive: true`, `sensitive: 1`, `sensitive: yes`, and `sensitive: on` are truthy, case-insensitive values.
+- The tag form requires the exact tag `sensitive`; nearby tags such as `sensitivity-analysis` or `not-sensitive` must not mark a page sensitive.
+- Page-level sensitivity is for whole-page privacy. Use inline or block redaction when the page can stay public after hiding only specific spans.
+
 ## Behavioral Contract
 
 ### Default mode: `redacted`
@@ -108,6 +136,17 @@ Fallback replacements are a defense-in-depth layer for older content that has no
 - Truthy `showPII` requests are routed to the request-time reveal renderer without changing stored markdown, search data, downloads, or AI context.
 - API routes must not be rewritten by `showPII`; they remain redacted by construction.
 
+### Sensitive pages
+
+Sensitive pages are hidden by default from every broad discovery surface.
+
+- Guests and shared-password visitors receive a 404 for direct page requests to sensitive pages.
+- `showPII` does not grant access to sensitive pages; a guest request with `?showPII=1` still receives a 404.
+- Signed-in account users may load a sensitive page directly and may see it in account-scoped page lists/file trees.
+- Sensitive pages must not appear in the sidebar/file tree, page picker, static route params, tag pages, public metadata, share previews, search, AI chat context, downloadable archives, or asset listings for guests.
+- Sidecar files with the same stem as a sensitive markdown page inherit sensitivity. For example, `Case.md` makes `Case.pdf` unavailable to guests and excludes it from broad downloads and asset lists.
+- Liveblocks rooms and comments for sensitive pages are unavailable to guests; guest auth, comment creation, thread deletion, and thread listings must hide or reject sensitive rooms.
+
 ## Security Boundary
 
 The feature must remain server-side first.
@@ -118,6 +157,12 @@ The feature must remain server-side first.
 - Download archives may be built from local disk, Convex records, or prebuilt Blob cache entries; every included markdown entry must be redacted regardless of source.
 - Chat and AI-search context assembly must consume redacted markdown so hidden content is excluded before any model call.
 - Query-param reveal must be read at request time and passed only to the page-level markdown loader; it must not mutate caches or stored source data.
+- Sensitive pages are excluded before search, vector retrieval, tool responses, chat context assembly, and archive generation.
+- Convex public document reads must filter sensitive documents from `getBySlug`, search, vector search, page lists, content lists, descriptions, embedding status, and embedding upserts.
+- Tool routes such as wiki search, page reads, page lists, and tag lookups must not expose sensitive pages to guests or chat workflows.
+- Local markdown search must skip sensitive source files instead of relying only on redaction.
+- Claude Code wiki-maintenance instructions must tell agents not to read, search, summarize, cite, or use sensitive pages unless the user explicitly confirms that page-level sensitive material is in scope.
+- Public Blob URLs cannot be made private retroactively if a URL has already leaked; newly sensitive sidecar assets must be excluded from future route responses, asset lists, archives, and ingest outputs, and leaked Blob objects should be rotated or removed as a follow-up.
 
 ## Implementation Plan
 
@@ -131,13 +176,25 @@ The feature must remain server-side first.
 - Apply conservative fallback replacements for known patient identifiers that still exist in older source material
 - Expose `shouldShowPii()` and `SHOW_PII_QUERY_PARAM`
 
+### Shared sensitivity utility
+
+`src/lib/sensitive-pages.ts`
+
+- Parse frontmatter for page-level sensitivity
+- Treat exact `sensitive` tags as sensitive markers
+- Support truthy frontmatter values consistently with other explicit opt-in flags
+- Keep sensitivity parsing centralized so markdown, ingestion, asset routes, and tests share the same behavior
+
 ### Markdown loading
 
 `src/lib/markdown.ts`
 
 - Add `piiMode` option to markdown reads
+- Add `includeSensitive` options to discovery/read helpers whose callers are allowed to see sensitive pages
 - Redact content before title extraction, body extraction, and cache storage
 - Include `piiMode` in cache keys so revealed and redacted reads never collide
+- Exclude sensitive pages from default slugs, file trees, and PDF/file sidecar discovery
+- Expose helpers for checking whether a markdown slug or Obsidian-relative sidecar path is sensitive
 
 ### Rendering
 
@@ -150,6 +207,9 @@ The feature must remain server-side first.
 - In the proxy, rewrite authenticated requests with truthy `showPII` to the internal reveal route.
 - Use the reveal route only to switch page rendering between `redacted` and `revealed`.
 - Exclude API routes from reveal rewrites so downloads and other server endpoints cannot be flipped by query string.
+- Return 404 for sensitive page requests from guests and shared-password visitors.
+- Let signed-in account sessions view sensitive pages through the normal document page renderer.
+- Apply `noindex,nofollow` metadata to sensitive pages and avoid leaking sensitive titles/descriptions to guests.
 
 ### Search and AI context
 
@@ -160,6 +220,7 @@ The feature must remain server-side first.
 
 - Ensure all search snippets and AI/chat context use redacted markdown
 - Remove hardcoded patient-name examples from prompts and evaluation scripts
+- Skip sensitive pages from local search, Convex search, vector search, page-read tools, page-list tools, and tag lookups used by chat.
 
 ### Downloads and ingestion
 
@@ -171,6 +232,19 @@ The feature must remain server-side first.
 - Skip raw markdown files when archiving from disk
 - Re-append markdown from redacted server reads
 - Ingest redacted markdown into stored document records so later consumers inherit the safe form
+- Store a `sensitive` flag on ingested document records
+- Exclude sensitive markdown and inherited-sensitive sidecar files from archives, asset ingest, PDF ingest, and public asset routes
+
+### Claude Code wiki maintenance
+
+`../obsidian/CLAUDE.md`
+`../obsidian/.agents/skills/update/SKILL.md`
+`../obsidian/.agents/skills/ingest/SKILL.md`
+`../obsidian/.agents/skills/query/SKILL.md`
+
+- Document the page-level sensitivity syntax
+- Instruct Claude Code not to read, search, summarize, cite, ingest, or use sensitive pages by default
+- Require explicit user confirmation before a maintenance task includes sensitive pages
 
 ### Vault hygiene
 
@@ -195,6 +269,16 @@ The feature must remain server-side first.
 - Vault lint can flag obvious, unwrapped PII in the main wiki/source surfaces.
 - Redacted and revealed page cache entries do not collide.
 - API routes ignore `showPII` and do not rewrite to reveal routes.
+- A page with `sensitive: true` does not appear in guest sidebar/file-tree data, page-picker data, static route params, tag pages, search results, chat context, metadata/share previews, asset listings, or download archives.
+- A page tagged with exact `sensitive` behaves the same as one with `sensitive: true`.
+- A page tagged with a nearby but non-exact tag, such as `sensitivity-analysis`, is not treated as sensitive.
+- A guest direct request to a sensitive page returns 404.
+- A guest direct request to a sensitive page with `?showPII=1` still returns 404.
+- A signed-in account user can direct-view a sensitive page and can receive it from account-scoped page/file-tree APIs.
+- Local search, Convex search, vector retrieval, chat tools, and page-read tools cannot return or read sensitive pages.
+- Sidecar PDFs/files that correspond to sensitive markdown pages are not served to guests and are excluded from broad asset lists, asset ingest, PDF ingest, and download archives.
+- Liveblocks guest auth, comment creation, thread deletion, and thread listings hide or reject rooms for sensitive pages.
+- Claude Code wiki-maintenance docs instruct agents to skip sensitive pages unless explicitly authorized.
 
 ## Test Plan
 
@@ -212,6 +296,10 @@ The feature must remain server-side first.
 - `shouldShowPii()` rejects falsey, empty, and missing values.
 - Markdown file reads keep redacted and revealed cache entries isolated.
 - Search indexing returns redacted replacement text without raw hidden values.
+- Page-level sensitivity accepts `sensitive: true` and exact `sensitive` tags.
+- Page-level sensitivity rejects near-match tags such as `sensitivity-analysis`.
+- Markdown file trees exclude sensitive pages and inherited-sensitive sidecar PDFs unless `includeSensitive` is requested.
+- Local search skips sensitive markdown files.
 
 ### End-to-end tests
 
@@ -224,9 +312,18 @@ The feature must remain server-side first.
 - Text search for hidden MRN and patient-name values returns no results.
 - Markdown export remains redacted even when `showPII=1` is appended to the export URL.
 - Markdown export assertions must tolerate deployment sources that do not contain every local markdown file, but any included sensitive page must be redacted.
+- Guest page navigation cannot discover sensitive pages in sidebar or page-picker data.
+- Guest direct navigation to a sensitive page returns 404, including with `showPII=1`.
+- Signed-in account navigation can load a sensitive page directly.
+- Search/chat/tool flows cannot retrieve a known phrase from a sensitive page.
+- Sensitive sidecar PDF/file URLs return 404 for guests and are absent from downloadable archives.
+- Guest Liveblocks calls cannot authenticate, list, create comments, or delete threads for sensitive rooms.
 
 ## Known Follow-Ups
 
 - Refresh embeddings after deploy so semantic/vector retrieval matches the newly redacted stored markdown.
+- Refresh ingestion after deploy so existing Convex document records receive the correct `sensitive` flag.
+- Run Convex codegen in an environment with `CONVEX_DEPLOYMENT` configured.
+- Remove, rotate, or expire previously uploaded public Blob assets for pages that are newly marked sensitive if those URLs may have leaked.
 - Expand lint-driven redaction beyond the first high-risk file set as the remaining backlog is reviewed.
 - Consider replacing the temporary fallback literals with a configurable identifier registry if more patient-specific content is added later.

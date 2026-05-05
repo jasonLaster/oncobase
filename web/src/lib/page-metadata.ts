@@ -15,6 +15,11 @@ export type MarkdownPageMetadata = {
   slug: string;
   title: string;
   description: string;
+  sensitive: boolean;
+};
+
+type MarkdownPageMetadataOptions = {
+  includeSensitive?: boolean;
 };
 
 export function normalizeMarkdownRoutePath(input: string): string {
@@ -36,19 +41,22 @@ export function normalizeMarkdownRoutePath(input: string): string {
 
 export async function getMarkdownFileForRoutePath(
   input: string,
+  { includeSensitive = false }: MarkdownPageMetadataOptions = {},
 ): Promise<MarkdownFile | null> {
   const cleanPath = normalizeMarkdownRoutePath(input);
-  const exactFile = await getMarkdownFile(cleanPath);
+  const exactFile = await getMarkdownFile(cleanPath, { includeSensitive });
   if (exactFile) return exactFile;
 
-  const canonicalPath = (await getCanonicalSlug(cleanPath)) ?? cleanPath;
-  return await getMarkdownFile(canonicalPath);
+  const canonicalPath =
+    (await getCanonicalSlug(cleanPath, { includeSensitive })) ?? cleanPath;
+  return await getMarkdownFile(canonicalPath, { includeSensitive });
 }
 
 export async function getMarkdownPageMetadata(
-  routePath: string
+  routePath: string,
+  options: MarkdownPageMetadataOptions = {},
 ): Promise<MarkdownPageMetadata | null> {
-  const file = await getMarkdownFileForRoutePath(routePath);
+  const file = await getMarkdownFileForRoutePath(routePath, options);
   if (!file) return null;
 
   // `getMarkdownFile` now returns the same description Convex stores
@@ -66,6 +74,7 @@ export async function getMarkdownPageMetadata(
     slug: file.slug,
     title: file.title,
     description,
+    sensitive: file.sensitive === true,
   };
 }
 
@@ -84,6 +93,7 @@ export function toNextMetadata(page: MarkdownPageMetadata): Metadata {
       title: page.title,
       description: page.description,
     },
+    robots: page.sensitive ? { index: false, follow: false } : undefined,
   };
 }
 

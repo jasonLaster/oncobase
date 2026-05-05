@@ -14,6 +14,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { generateText } from "ai";
 import { api } from "../convex/_generated/api";
 import dotenv from "dotenv";
+import { isSensitiveFrontmatter } from "../src/lib/sensitive-pages";
 
 dotenv.config({ path: path.join(__dirname, "..", ".env.local") });
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
@@ -55,6 +56,7 @@ function getAllPages(dir: string = OBSIDIAN_DIR, basePath: string = ""): PageEnt
       const pageSlug = slug.replace(/\.md$/, "");
       const raw = fs.readFileSync(fullPath, "utf-8");
       const { data, content } = matter(raw);
+      if (isSensitiveFrontmatter(data as Record<string, unknown>)) continue;
       const h1Match = content.match(/^#\s+(.+)$/m);
       const title = (data.title as string) || h1Match?.[1] || entry.name.replace(/\.md$/, "");
       const body = h1Match ? content.replace(/^#\s+.+$/m, "").replace(/^\n+/, "") : content;

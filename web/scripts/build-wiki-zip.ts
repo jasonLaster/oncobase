@@ -15,6 +15,8 @@
 import fs from "fs";
 import path from "path";
 import JSZip from "jszip";
+import matter from "gray-matter";
+import { isSensitiveFrontmatter } from "../src/lib/sensitive-pages";
 
 const OBSIDIAN_DIR = path.join(__dirname, "..", "..", "obsidian");
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
@@ -29,6 +31,23 @@ const EXCLUDED_DIRS = new Set([
 ]);
 
 const EXCLUDED_FILES = new Set(["CLAUDE.md"]);
+
+function isSensitiveMarkdownFile(filePath: string) {
+  try {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const { data } = matter(raw);
+    return isSensitiveFrontmatter(data as Record<string, unknown>);
+  } catch {
+    return false;
+  }
+}
+
+function isSensitiveSidecarFile(filePath: string) {
+  const ext = path.extname(filePath);
+  if (!ext || ext === ".md") return false;
+  const siblingMarkdownPath = filePath.slice(0, -ext.length) + ".md";
+  return fs.existsSync(siblingMarkdownPath) && isSensitiveMarkdownFile(siblingMarkdownPath);
+}
 
 function addFilesToZip(
   zip: JSZip,
@@ -48,6 +67,12 @@ function addFilesToZip(
     if (entry.isDirectory()) {
       addFilesToZip(zip, fullPath, zipPath, filter);
     } else {
+      if (
+        (entry.name.endsWith(".md") && isSensitiveMarkdownFile(fullPath)) ||
+        isSensitiveSidecarFile(fullPath)
+      ) {
+        continue;
+      }
       if (filter && !filter(entry.name)) continue;
       zip.file(zipPath, fs.readFileSync(fullPath));
     }

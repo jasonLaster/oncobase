@@ -32,6 +32,10 @@ export async function POST(request: Request) {
 
   const sessionUser = await getSessionUserFromRequest(request);
   const siteData = siteDataFromRequest(request);
+  if (!sessionUser && (await isSensitiveRoom(room, siteData))) {
+    return NextResponse.json({ error: "Room not found" }, { status: 404 });
+  }
+
   const cookieHeader = request.headers.get("cookie") ?? "";
   const guestCookie = cookieHeader
     .split(/;\s*/)
@@ -58,4 +62,13 @@ export async function POST(request: Request) {
       "Content-Type": "application/json",
     },
   });
+}
+
+async function isSensitiveRoom(roomId: string, siteData: ReturnType<typeof siteDataFromRequest>) {
+  if (!roomId.startsWith("markdown:")) return false;
+  const doc = await siteData.documents.getBySlug({
+    slug: roomId.slice("markdown:".length),
+    includeSensitive: true,
+  });
+  return doc?.sensitive === true;
 }

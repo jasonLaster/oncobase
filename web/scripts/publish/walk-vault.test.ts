@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
-import { readVaultDocuments } from "./walk-vault";
+import { readVaultAssets, readVaultDocuments } from "./walk-vault";
 
 let tmpDir: string | null = null;
 
@@ -50,5 +50,32 @@ describe("readVaultDocuments", () => {
 
     expect(retagged.content).toBe(original.content);
     expect(retagged.hash).not.toBe(original.hash);
+  });
+
+  test("reads sensitive frontmatter and includes it in the hash", () => {
+    const vault = makeVault();
+    const publicDoc = writeDoc(vault, "---\ntitle: Alpha\n---\n# Home\nSame body\n");
+    const sensitiveDoc = writeDoc(
+      vault,
+      "---\ntitle: Alpha\nsensitive: true\n---\n# Home\nSame body\n",
+    );
+
+    expect(sensitiveDoc.sensitive).toBe(true);
+    expect(sensitiveDoc.hash).not.toBe(publicDoc.hash);
+  });
+
+  test("excludes assets with sensitive markdown sidecars", () => {
+    const vault = makeVault();
+    fs.writeFileSync(path.join(vault, "public.md"), "# Public\n");
+    fs.writeFileSync(path.join(vault, "public.pdf"), Buffer.alloc(256));
+    fs.writeFileSync(
+      path.join(vault, "private.md"),
+      "---\nsensitive: true\n---\n# Private\n",
+    );
+    fs.writeFileSync(path.join(vault, "private.pdf"), Buffer.alloc(256));
+
+    expect(readVaultAssets(vault).map((asset) => asset.relativePath)).toEqual([
+      "public.pdf",
+    ]);
   });
 });

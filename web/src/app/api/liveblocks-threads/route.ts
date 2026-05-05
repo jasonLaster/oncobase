@@ -2,6 +2,7 @@ import { Liveblocks } from "@liveblocks/node";
 import { connection, NextResponse } from "next/server";
 import { resolveLiveblocksUsers } from "@/lib/liveblocks-user-resolution";
 import { siteDataFromRequest, type SiteData } from "@/lib/site-data";
+import { getSessionUserFromRequest } from "@/lib/session-user";
 import {
   liveblocksDisabledResponse,
   resolveLiveblocksConfig,
@@ -21,7 +22,8 @@ const responseCache = new Map<string, CachedResponse>();
 /** Called by the webhook route to bust the cache when comments change. */
 export function invalidateCache(siteSlug?: string) {
   if (siteSlug) {
-    responseCache.delete(siteSlug);
+    responseCache.delete(`${siteSlug}:public`);
+    responseCache.delete(`${siteSlug}:private`);
   } else {
     responseCache.clear();
   }
@@ -38,7 +40,9 @@ export async function GET(request: Request) {
   const liveblocks = new Liveblocks({ secret: config.creds.secretKey });
   const siteData = siteDataFromRequest(request);
   const siteSlug = siteData.siteSlug;
-  const cached = responseCache.get(siteSlug);
+  const includeSensitive = Boolean(await getSessionUserFromRequest(request));
+  const cacheKey = `${siteSlug}:${includeSensitive ? "private" : "public"}`;
+  const cached = responseCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < RESPONSE_TTL_MS) {
     return NextResponse.json(cached.body);
   }
@@ -90,6 +94,9 @@ export async function GET(request: Request) {
     }
 
     timing.listRooms = Date.now() - t0;
+    if (!includeSensitive) {
+      roomsToQuery = await filterPublicRooms(roomsToQuery, siteData);
+    }
     timing.roomCount = roomsToQuery.length;
 
     // ── 2. Fetch threads from active rooms in parallel ──────
@@ -164,7 +171,7 @@ export async function GET(request: Request) {
     };
 
     // Cache the response
-    responseCache.set(siteSlug, { body, timestamp: Date.now() });
+    responseCache.set(cacheKey, { body, timestamp: Date.now() });
 
     console.log(
       `[liveblocks-threads] ${mode} | ` +
@@ -180,6 +187,20 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
+}
+
+async function filterPublicRooms(roomIds: string[], siteData: SiteData) {
+  const sensitive = await Promise.all(
+    roomIds.map(async (roomId) => {
+      if (!roomId.startsWith("markdown:")) return false;
+      const doc = await siteData.documents.getBySlug({
+        slug: roomId.slice("markdown:".length),
+        includeSensitive: true,
+      });
+      return doc?.sensitive === true;
+    }),
+  );
+  return roomIds.filter((_, index) => !sensitive[index]);
 }
 
 // ── Background seed ────────────────────────────────────────

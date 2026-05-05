@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, connection } from "next/server";
 import path from "path";
 import { siteDataFromRequest } from "@/lib/site-data";
+import { getSessionUserFromRequest } from "@/lib/session-user";
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf":  "application/pdf",
@@ -20,6 +21,10 @@ function getMimeType(filePath: string): string | null {
 
 function getBlobToken() {
   return process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ?? process.env.BLOB_READ_WRITE_TOKEN;
+}
+
+function assetPathToSiblingSlug(assetPath: string) {
+  return assetPath.replace(/\.[^/.]+$/, "");
 }
 
 async function fetchBlobAsset(normalizedPath: string, siteSlug: string) {
@@ -70,11 +75,27 @@ export async function GET(request: NextRequest) {
   const filename = path.basename(normalized);
 
   const siteData = siteDataFromRequest(request);
+  const includeSensitive = Boolean(await getSessionUserFromRequest(request));
+  const siblingDoc = await siteData.documents.getBySlug({
+    slug: assetPathToSiblingSlug(normalized),
+    includeSensitive: true,
+  });
+  if (!includeSensitive && siblingDoc?.sensitive) {
+    return new NextResponse("File not found", { status: 404 });
+  }
 
   try {
     const asset = ext === ".pdf"
-      ? await siteData.documents.getPdfAssetByPath({ path: normalized })
-      : await siteData.documents.getFileAssetByPath({ path: normalized });
+      ? await siteData.documents.getPdfAssetByPath(
+          includeSensitive
+            ? { path: normalized, includeSensitive: true }
+            : { path: normalized },
+        )
+      : await siteData.documents.getFileAssetByPath(
+          includeSensitive
+            ? { path: normalized, includeSensitive: true }
+            : { path: normalized },
+        );
 
     if (asset?.blobUrl) {
       const upstream = await fetch(asset.blobUrl);

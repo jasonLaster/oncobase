@@ -1,5 +1,7 @@
 import { Liveblocks } from "@liveblocks/node";
 import { NextResponse } from "next/server";
+import { getSessionUserFromRequest } from "@/lib/session-user";
+import { siteDataFromRequest } from "@/lib/site-data";
 import {
   liveblocksDisabledResponse,
   resolveLiveblocksConfig,
@@ -23,6 +25,12 @@ export async function POST(request: Request) {
     );
   }
 
+  const sessionUser = await getSessionUserFromRequest(request);
+  const siteData = siteDataFromRequest(request);
+  if (!sessionUser && (await isSensitiveRoom(roomId, siteData))) {
+    return NextResponse.json({ error: "Room not found" }, { status: 404 });
+  }
+
   try {
     const liveblocks = new Liveblocks({ secret: config.creds.secretKey });
     await liveblocks.deleteThread({ roomId, threadId });
@@ -34,4 +42,13 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+async function isSensitiveRoom(roomId: string, siteData: ReturnType<typeof siteDataFromRequest>) {
+  if (!roomId.startsWith("markdown:")) return false;
+  const doc = await siteData.documents.getBySlug({
+    slug: roomId.slice("markdown:".length),
+    includeSensitive: true,
+  });
+  return doc?.sensitive === true;
 }

@@ -19,6 +19,7 @@ type RemoteDoc = {
   content: string;
   tags?: string[];
   contentHash?: string;
+  sensitive?: boolean;
 };
 
 type RemoteAsset = {
@@ -38,10 +39,12 @@ function reviewRoot(vaultPath: string, site: string) {
 }
 
 export function formatRemoteDocument(doc: RemoteDoc) {
-  const raw = matter.stringify(doc.content, {
+  const frontmatter: Record<string, unknown> = {
     title: doc.title,
     tags: doc.tags ?? [],
-  });
+  };
+  if (doc.sensitive) frontmatter.sensitive = true;
+  const raw = matter.stringify(doc.content, frontmatter);
   return doc.content.endsWith("\n") ? raw : raw.replace(/\n$/, "");
 }
 
@@ -148,7 +151,13 @@ export async function runSync(options: SyncOptions) {
   for (const doc of remoteDocs) {
     const tags = doc.tags ?? [];
     const remoteHash =
-      doc.contentHash ?? hashDocument({ title: doc.title, content: doc.content, tags });
+      doc.contentHash ??
+      hashDocument({
+        title: doc.title,
+        content: doc.content,
+        tags,
+        sensitive: doc.sensitive,
+      });
     const local = localDocs.get(doc.slug);
     if (!local) {
       const filePath = ensureInsideVault(vaultPath, `${doc.slug}.md`);

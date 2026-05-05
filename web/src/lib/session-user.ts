@@ -8,8 +8,10 @@ export type SessionUser = {
   createdAt: number;
 };
 
-export async function getSessionUserFromRequest(request: Request): Promise<SessionUser | null> {
-  const cookieHeader = request.headers.get("cookie") ?? "";
+export async function getSessionUserFromCookieHeader(
+  cookieHeader: string,
+  requestHeaders: Headers = new Headers({ cookie: cookieHeader })
+): Promise<SessionUser | null> {
   const sessionToken = cookieHeader
     .split(/;\s*/)
     .find((part) => part.startsWith(`${USER_SESSION_COOKIE}=`))
@@ -19,8 +21,15 @@ export async function getSessionUserFromRequest(request: Request): Promise<Sessi
     return null;
   }
 
-  const siteData = siteDataFromRequest(request);
+  const siteData = siteDataFromRequest({ headers: requestHeaders });
   return await siteData.users.getSessionUser({
     tokenHash: hashSessionToken(sessionToken),
   });
+}
+
+export async function getSessionUserFromRequest(request: Request): Promise<SessionUser | null> {
+  return getSessionUserFromCookieHeader(
+    request.headers.get("cookie") ?? "",
+    request.headers
+  );
 }

@@ -17,6 +17,21 @@ import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 
 type AnyCtx = QueryCtx | MutationCtx;
 
+function isPublicDocument(doc: { sensitive?: boolean }) {
+  return doc.sensitive !== true;
+}
+
+function canReadDocument(
+  doc: { sensitive?: boolean; deletedAt?: number },
+  includeSensitive?: boolean,
+) {
+  return !doc.deletedAt && (includeSensitive || isPublicDocument(doc));
+}
+
+function assetPathToSiblingSlug(assetPath: string) {
+  return assetPath.replace(/\.[^/.]+$/, "");
+}
+
 async function findDocBySlug(ctx: AnyCtx, site: SiteCtx, slug: string) {
   const siteId = site.siteId;
   if (siteId) {
@@ -57,9 +72,28 @@ async function findAssetByPath(
   return null;
 }
 
+async function isSensitiveAssetPath(ctx: AnyCtx, site: SiteCtx, assetPath: string) {
+  const doc = await findDocBySlug(ctx, site, assetPathToSiblingSlug(assetPath));
+  return doc?.sensitive === true;
+}
+
+async function canReadAssetPath(
+  ctx: AnyCtx,
+  site: SiteCtx,
+  assetPath: string,
+  includeSensitive?: boolean,
+) {
+  return includeSensitive || !(await isSensitiveAssetPath(ctx, site, assetPath));
+}
+
 export const search = query({
-  args: { query: v.string(), limit: v.optional(v.number()), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { query: q, limit, siteSlug }) => {
+  args: {
+    query: v.string(),
+    limit: v.optional(v.number()),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { query: q, limit, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const take = limit ?? 10;
 
@@ -87,6 +121,7 @@ export const search = query({
     for (const doc of [...titleResults, ...contentResults]) {
       if (seen.has(doc._id)) continue;
       if (!rowBelongsToSite(doc, site)) continue;
+      if (!canReadDocument(doc, includeSensitive)) continue;
       seen.add(doc._id);
       merged.push(doc);
     }
@@ -101,11 +136,15 @@ export const search = query({
 });
 
 export const getBySlug = query({
-  args: { slug: v.string(), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { slug, siteSlug }) => {
+  args: {
+    slug: v.string(),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { slug, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const doc = await findDocBySlug(ctx, site, slug);
-    if (!doc || doc.deletedAt) return null;
+    if (!doc || !canReadDocument(doc, includeSensitive)) return null;
     return {
       slug: doc.slug,
       title: doc.title,
@@ -114,6 +153,7 @@ export const getBySlug = query({
       description: doc.description,
       contentHash: doc.contentHash,
       hashFunctionVersion: doc.hashFunctionVersion,
+      sensitive: doc.sensitive,
     };
   },
 });
@@ -133,14 +173,15 @@ export const listPage = query({
   args: {
     cursor: v.union(v.string(), v.null()),
     numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
     siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const result = await paginatedDocs(ctx, site, cursor, numItems);
     return {
       page: result.page
-        .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
+        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
         .map(({ slug, title, tags }) => ({ slug, title, tags })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
@@ -152,19 +193,21 @@ export const listPageWithDescriptions = query({
   args: {
     cursor: v.union(v.string(), v.null()),
     numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
     siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const result = await paginatedDocs(ctx, site, cursor, numItems);
     return {
       page: result.page
-        .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
-        .map(({ slug, title, description, content }) => ({
+        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
+        .map(({ slug, title, description, content, sensitive }) => ({
           slug,
           title,
           description: description ?? null,
           content,
+          sensitive,
         })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
@@ -176,20 +219,22 @@ export const listPageWithContent = query({
   args: {
     cursor: v.union(v.string(), v.null()),
     numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
     siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const result = await paginatedDocs(ctx, site, cursor, numItems);
     return {
       page: result.page
-        .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
-        .map(({ slug, title, content, tags, contentHash }) => ({
+        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
+        .map(({ slug, title, content, tags, contentHash, sensitive }) => ({
           slug,
           title,
           content,
           tags,
           contentHash,
+          sensitive,
         })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
@@ -198,12 +243,15 @@ export const listPageWithContent = query({
 });
 
 export const list = action({
-  args: { siteSlug: v.optional(v.string()) },
+  args: {
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
   handler: async (
     ctx,
-    { siteSlug },
-  ): Promise<Array<{ slug: string; title: string; tags: string[] }>> => {
-    const results: Array<{ slug: string; title: string; tags: string[] }> = [];
+    { includeSensitive, siteSlug },
+  ): Promise<Array<{ slug: string; title: string; tags: string[]; sensitive?: boolean }>> => {
+    const results: Array<{ slug: string; title: string; tags: string[]; sensitive?: boolean }> = [];
     let cursor: string | null = null;
     let isDone = false;
     while (!isDone) {
@@ -214,6 +262,7 @@ export const list = action({
       } = await ctx.runQuery(api.documents.listPage, {
         cursor,
         numItems: 1000,
+        includeSensitive,
         siteSlug,
       });
       results.push(...page.page);
@@ -256,10 +305,11 @@ export const upsert = mutation({
     tags: v.array(v.string()),
     contentHash: v.string(),
     hashFunctionVersion: v.optional(v.number()),
+    sensitive: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
-    { siteSlug, slug, title, content, tags, contentHash, hashFunctionVersion },
+    { siteSlug, slug, title, content, tags, contentHash, hashFunctionVersion, sensitive = false },
   ) => {
     const site = await requireSite(ctx, siteSlug);
     const existing = await findDocBySlug(ctx, site, slug);
@@ -267,6 +317,7 @@ export const upsert = mutation({
       if (
         existing.contentHash === contentHash &&
         existing.hashFunctionVersion === hashFunctionVersion &&
+        existing.sensitive === sensitive &&
         !existing.deletedAt
       ) {
         return { skipped: true };
@@ -277,6 +328,7 @@ export const upsert = mutation({
         tags,
         contentHash,
         hashFunctionVersion,
+        sensitive,
         siteId: site.siteId ?? existing.siteId,
         deletedAt: undefined,
         updatedAt: Date.now(),
@@ -291,6 +343,7 @@ export const upsert = mutation({
       tags,
       contentHash,
       hashFunctionVersion,
+      sensitive,
       updatedAt: Date.now(),
     });
     return { skipped: false };
@@ -357,14 +410,15 @@ export const listPageDescriptions = query({
   args: {
     cursor: v.union(v.string(), v.null()),
     numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
     siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const result = await paginatedDocs(ctx, site, cursor, numItems);
     return {
       page: result.page
-        .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
+        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
         .map(({ slug, description }) => ({ slug, description: description ?? null })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
@@ -373,11 +427,15 @@ export const listPageDescriptions = query({
 });
 
 export const getDescription = query({
-  args: { slug: v.string(), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { slug, siteSlug }) => {
+  args: {
+    slug: v.string(),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { slug, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const doc = await findDocBySlug(ctx, site, slug);
-    return doc?.description ?? null;
+    return doc && canReadDocument(doc, includeSensitive) ? doc.description ?? null : null;
   },
 });
 
@@ -407,11 +465,15 @@ export const deleteBySlug = mutation({
 });
 
 export const getById = query({
-  args: { id: v.id("documents"), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { id, siteSlug }) => {
+  args: {
+    id: v.id("documents"),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const doc = await ctx.db.get(id);
-    if (!doc || doc.deletedAt || !rowBelongsToSite(doc, site)) return null;
+    if (!doc || !rowBelongsToSite(doc, site) || !canReadDocument(doc, includeSensitive)) return null;
     return { slug: doc.slug, title: doc.title, tags: doc.tags };
   },
 });
@@ -472,23 +534,31 @@ export const embeddingStatus = action({
       slug: string;
       contentHash: string | undefined;
       embeddingHash: string | undefined;
+      sensitive: boolean | undefined;
     }>
   > => {
     const results: Array<{
       slug: string;
       contentHash: string | undefined;
       embeddingHash: string | undefined;
+      sensitive: boolean | undefined;
     }> = [];
     let cursor: string | null = null;
     let isDone = false;
     while (!isDone) {
       const page: {
-        page: Array<{ slug: string; contentHash: string | undefined; embeddingHash: string | undefined }>;
+        page: Array<{
+          slug: string;
+          contentHash: string | undefined;
+          embeddingHash: string | undefined;
+          sensitive: boolean | undefined;
+        }>;
         isDone: boolean;
         continueCursor: string;
       } = await ctx.runQuery(api.documents.embeddingStatusPage, {
         cursor,
         numItems: 50,
+        includeSensitive: true,
         siteSlug,
       });
       results.push(...page.page);
@@ -503,19 +573,21 @@ export const embeddingStatusPage = query({
   args: {
     cursor: v.union(v.string(), v.null()),
     numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
     siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const result = await paginatedDocs(ctx, site, cursor, numItems);
     return {
       page: result.page
-        .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
+        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
         .map((doc) => ({
           slug: doc.slug,
           contentHash: doc.contentHash,
           hashFunctionVersion: doc.hashFunctionVersion,
           embeddingHash: doc.embeddingHash,
+          sensitive: doc.sensitive,
         })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
@@ -587,18 +659,25 @@ export const setMeta = mutation({
 });
 
 export const listPdfAssets = query({
-  args: { siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { siteSlug }) => {
+  args: {
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    if (site.siteId) {
-      const scoped = await ctx.db
-        .query("pdfAssets")
-        .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
-        .collect();
-      return scoped.filter((row) => !row.deletedAt);
+    const rows = site.siteId
+      ? await ctx.db
+          .query("pdfAssets")
+          .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
+          .collect()
+      : await ctx.db.query("pdfAssets").collect();
+    const out = [];
+    for (const row of rows) {
+      if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+      if (!(await canReadAssetPath(ctx, site, row.path, includeSensitive))) continue;
+      out.push(row);
     }
-    const all = await ctx.db.query("pdfAssets").collect();
-    return all.filter((row) => rowBelongsToSite(row, site) && !row.deletedAt);
+    return out;
   },
 });
 
@@ -608,9 +687,10 @@ export const listPdfAssetPathsPage = query({
   args: {
     cursor: v.union(v.string(), v.null()),
     numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
     siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const result = site.siteId
       ? await ctx.db
@@ -618,10 +698,14 @@ export const listPdfAssetPathsPage = query({
           .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
           .paginate({ cursor, numItems })
       : await ctx.db.query("pdfAssets").paginate({ cursor, numItems });
+    const page = [];
+    for (const row of result.page) {
+      if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+      if (!(await canReadAssetPath(ctx, site, row.path, includeSensitive))) continue;
+      page.push(row.path);
+    }
     return {
-      page: result.page
-        .filter((row) => rowBelongsToSite(row, site) && !row.deletedAt)
-        .map((row) => row.path),
+      page,
       isDone: result.isDone,
       continueCursor: result.continueCursor,
     };
@@ -629,11 +713,21 @@ export const listPdfAssetPathsPage = query({
 });
 
 export const getPdfAssetByPath = query({
-  args: { path: v.string(), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { path, siteSlug }) => {
+  args: {
+    path: v.string(),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { path, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const row = await findAssetByPath(ctx, "pdfAssets", site, path);
-    if (!row || row.deletedAt) return null;
+    if (
+      !row ||
+      row.deletedAt ||
+      !(await canReadAssetPath(ctx, site, row.path, includeSensitive))
+    ) {
+      return null;
+    }
     return row;
   },
 });
@@ -683,18 +777,25 @@ export const deletePdfAssetByPath = mutation({
 });
 
 export const listFileAssets = query({
-  args: { siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { siteSlug }) => {
+  args: {
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    if (site.siteId) {
-      const scoped = await ctx.db
-        .query("fileAssets")
-        .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
-        .collect();
-      return scoped.filter((row) => !row.deletedAt);
+    const rows = site.siteId
+      ? await ctx.db
+          .query("fileAssets")
+          .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
+          .collect()
+      : await ctx.db.query("fileAssets").collect();
+    const out = [];
+    for (const row of rows) {
+      if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+      if (!(await canReadAssetPath(ctx, site, row.path, includeSensitive))) continue;
+      out.push(row);
     }
-    const all = await ctx.db.query("fileAssets").collect();
-    return all.filter((row) => rowBelongsToSite(row, site) && !row.deletedAt);
+    return out;
   },
 });
 
@@ -706,9 +807,10 @@ export const assetHashesPage = query({
   args: {
     cursor: v.union(v.string(), v.null()),
     numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
     siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const parsed = cursor ? (JSON.parse(cursor) as {
       pdf: string | null;
@@ -724,9 +826,6 @@ export const assetHashesPage = query({
       blobUrl: string;
     }> = [];
 
-    // Convex allows only one paginate() call per query function.
-    // Run pdfAssets pagination until done, THEN switch to fileAssets
-    // on a subsequent call — never both in the same invocation.
     let pdfState = { cursor: parsed.pdf, done: parsed.pdfDone };
     let fileState = { cursor: parsed.file, done: parsed.fileDone };
     if (!pdfState.done) {
@@ -741,6 +840,7 @@ export const assetHashesPage = query({
           });
       for (const row of result.page) {
         if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+        if (!(await canReadAssetPath(ctx, site, row.path, includeSensitive))) continue;
         out.push({
           kind: "pdf",
           path: row.path,
@@ -761,6 +861,7 @@ export const assetHashesPage = query({
           });
       for (const row of result.page) {
         if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+        if (!(await canReadAssetPath(ctx, site, row.path, includeSensitive))) continue;
         out.push({
           kind: "file",
           path: row.path,
@@ -791,9 +892,10 @@ export const listFileAssetPathsPage = query({
   args: {
     cursor: v.union(v.string(), v.null()),
     numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
     siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { cursor, numItems, siteSlug }) => {
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const result = site.siteId
       ? await ctx.db
@@ -801,10 +903,14 @@ export const listFileAssetPathsPage = query({
           .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
           .paginate({ cursor, numItems })
       : await ctx.db.query("fileAssets").paginate({ cursor, numItems });
+    const page = [];
+    for (const row of result.page) {
+      if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+      if (!(await canReadAssetPath(ctx, site, row.path, includeSensitive))) continue;
+      page.push(row.path);
+    }
     return {
-      page: result.page
-        .filter((row) => rowBelongsToSite(row, site) && !row.deletedAt)
-        .map((row) => row.path),
+      page,
       isDone: result.isDone,
       continueCursor: result.continueCursor,
     };
@@ -812,11 +918,21 @@ export const listFileAssetPathsPage = query({
 });
 
 export const getFileAssetByPath = query({
-  args: { path: v.string(), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { path, siteSlug }) => {
+  args: {
+    path: v.string(),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { path, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const row = await findAssetByPath(ctx, "fileAssets", site, path);
-    if (!row || row.deletedAt) return null;
+    if (
+      !row ||
+      row.deletedAt ||
+      !(await canReadAssetPath(ctx, site, row.path, includeSensitive))
+    ) {
+      return null;
+    }
     return row;
   },
 });

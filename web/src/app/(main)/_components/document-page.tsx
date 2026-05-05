@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import {
   getAllSlugs,
   getCanonicalSlug,
   getMarkdownFile,
-  getMarkdownFileForSite,
 } from "@/lib/markdown";
 import { getMarkdownPageMetadata, toNextMetadata } from "@/lib/page-metadata";
 import {
@@ -17,6 +17,7 @@ import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
 import { SHOW_PII_QUERY_PARAM } from "@/lib/pii-redaction";
 import { DEFAULT_SITE_SLUG, getRequestSiteSlug, toSiteSlug } from "@/lib/site";
+import { getSessionUserFromCookieHeader } from "@/lib/session-user";
 
 // All sources/ content is immutable raw documents rarely visited directly.
 // Deferring them to on-demand rendering saves significant build time.
@@ -30,6 +31,7 @@ const CACHE_COMPONENTS_VALIDATION_PARAMS: { slug: string[] }[] = [
 ];
 const ROUTE_SLUG_ALIASES = new Map([["about/index", "index"]]);
 const ROUTE_ALIAS_CANONICAL_PATHS = new Map([["about/index", "about/Index"]]);
+const MAX_CLIENT_COPY_MARKDOWN_LENGTH = 64_000;
 
 function isPreviewDeployment() {
   return process.env.VERCEL_ENV === "preview";
@@ -64,17 +66,47 @@ export async function generateDocumentMetadata(
   params: Promise<{ slug: string[] }>
 ): Promise<Metadata> {
   const { slug } = await params;
-  const page = await getMarkdownPageMetadata(slug.join("/"));
-  return page ? toNextMetadata(page) : {};
+  const routePath = slug.join("/");
+  const page = await getMarkdownPageMetadata(routePath);
+  if (page) return toNextMetadata(page);
+
+  if (!(await canViewSensitivePages())) {
+    return {
+      title: "Not found",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const sensitivePage = await getMarkdownPageMetadata(routePath, {
+    includeSensitive: true,
+  });
+  return sensitivePage ? toNextMetadata(sensitivePage) : {};
+}
+
+async function canViewSensitivePages(): Promise<boolean> {
+  try {
+    const requestHeaders = await headers();
+    return Boolean(
+      await getSessionUserFromCookieHeader(
+        requestHeaders.get("cookie") ?? "",
+        requestHeaders,
+      ),
+    );
+  } catch {
+    return false;
+  }
 }
 
 // -- Page header (static in PPR cache) ---------------------------------------
 function DocHeader({ file }: { file: { title: string; content: string; frontmatter: Record<string, unknown> } }) {
+  const markdown = `# ${file.title}\n\n${file.content}`;
+  const canCopyMarkdown = markdown.length <= MAX_CLIENT_COPY_MARKDOWN_LENGTH;
+
   return (
     <header className="mb-6">
       <div className="flex items-start justify-between gap-2">
         <h1 className="text-3xl font-bold">{file.title}</h1>
-        <CopyPageButton markdown={`# ${file.title}\n\n${file.content}`} />
+        {canCopyMarkdown ? <CopyPageButton markdown={markdown} /> : null}
       </div>
       {Array.isArray(file.frontmatter.tags) && (
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -106,6 +138,7 @@ async function DeferredMarkdownBody({
   siteSlug: string;
 }) {
   const file = await getMarkdownFile(filePath, {
+    includeSensitive: true,
     piiMode: showPii ? "revealed" : "redacted",
   });
   if (!file) notFound();
@@ -156,25 +189,24 @@ export async function renderDocumentPage({
   }
 
   const contentPath = ROUTE_SLUG_ALIASES.get(routeAliasKey) ?? cleanPath;
+  const includeSensitive = await canViewSensitivePages();
 
   // Try the requested slug first. Most runtime pages already use canonical
   // casing, and this avoids loading the full slug map in the streamed path.
-  let file =
-    contentPath === "index"
-      ? await getMarkdownFileForSite(
-          toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG),
-          contentPath
-        )
-      : await getMarkdownFile(contentPath, {
-          piiMode: showPii ? "revealed" : "redacted",
-        });
+  let file = await getMarkdownFile(contentPath, {
+    includeSensitive,
+    piiMode: showPii ? "revealed" : "redacted",
+  });
 
   if (!file && contentPath !== "index") {
-    const canonicalPath = await getCanonicalSlug(contentPath);
+    const canonicalPath = await getCanonicalSlug(contentPath, {
+      includeSensitive,
+    });
     if (!aliasCanonicalPath && canonicalPath && canonicalPath !== contentPath) {
       redirect(documentRedirectPath(`/${canonicalPath}`, showPii));
     }
     file = await getMarkdownFile(canonicalPath ?? contentPath, {
+      includeSensitive,
       piiMode: showPii ? "revealed" : "redacted",
     });
   }
