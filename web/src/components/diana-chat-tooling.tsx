@@ -32,7 +32,7 @@ const ReadPageBadge = memo(function ReadPageBadge({
   return (
     <Link
       href={hrefForPage(result?.href, slug)}
-      className={`inline-flex items-center gap-1.5 text-xs transition-colors ${
+      className={`inline-flex max-w-full min-w-0 items-center gap-1.5 text-xs transition-colors ${
         done && !hasError
           ? "text-[var(--text-muted)] hover:text-[var(--brand)]"
           : done && hasError
@@ -47,7 +47,7 @@ const ReadPageBadge = memo(function ReadPageBadge({
           <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
         </svg>
       )}
-      <span className="truncate max-w-[250px]">
+      <span className="min-w-0 max-w-full truncate">
         {done ? `Read ${title}` : `Reading ${slug}...`}
       </span>
     </Link>
@@ -73,10 +73,10 @@ const SearchResultsBlock = memo(function SearchResultsBlock({
   if (!query && results.length === 0) return null;
 
   return (
-    <div>
+    <div className="min-w-0 max-w-full">
       <button
         onClick={() => done && setExpanded(!expanded)}
-        className={`inline-flex items-center gap-1.5 text-xs transition-colors text-left ${
+        className={`inline-flex max-w-full min-w-0 items-center gap-1.5 text-left text-xs transition-colors ${
           done
             ? "text-[var(--text-muted)] hover:text-[var(--foreground)]"
             : "text-[var(--text-muted)]"
@@ -89,7 +89,7 @@ const SearchResultsBlock = memo(function SearchResultsBlock({
             <path d="M15.25 14.19l-4.06-4.06a5.5 5.5 0 1 0-1.06 1.06l4.06 4.06a.75.75 0 1 0 1.06-1.06zM2 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0z" />
           </svg>
         )}
-        <span className="truncate">
+        <span className="min-w-0 truncate">
           {!done
             ? query
               ? `Searching "${query}"...`
@@ -109,17 +109,17 @@ const SearchResultsBlock = memo(function SearchResultsBlock({
         )}
       </button>
       {expanded && results.length > 0 && (
-        <div className="mt-0.5 ml-4 pl-2 border-l border-[var(--sidebar-border)] space-y-0">
+        <div className="mt-0.5 ml-4 min-w-0 max-w-[calc(100%-1rem)] space-y-0 border-l border-[var(--sidebar-border)] pl-2">
           {results.map((result, i) => (
             <Link
               key={i}
               href={hrefForPage(result.href, result.slug)}
-              className="flex items-center gap-1.5 text-xs py-0.5 text-[var(--text-muted)] hover:text-[var(--brand)] transition-colors"
+              className="flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--brand)]"
             >
               <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-40">
                 <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
               </svg>
-              <span className="truncate">{result.title || result.slug}</span>
+              <span className="min-w-0 truncate">{result.title || result.slug}</span>
             </Link>
           ))}
         </div>

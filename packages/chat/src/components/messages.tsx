@@ -61,7 +61,7 @@ export const DefaultToolCallBlock = memo(function DefaultToolCallBlock({
   const readableName = toolName.replace(/[-_]+/g, " ");
   const label = done ? `Used ${readableName}` : `Running ${readableName}...`;
   return (
-    <div className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+    <div className="inline-flex max-w-full min-w-0 items-center gap-1.5 text-xs text-[var(--text-muted)]">
       {!done ? (
         <span className="inline-block w-3 h-3 border-[1.5px] border-[var(--text-muted)] border-t-transparent rounded-full animate-spin shrink-0" />
       ) : (
@@ -69,7 +69,7 @@ export const DefaultToolCallBlock = memo(function DefaultToolCallBlock({
           <polyline points="4 8 7 11 12 5" />
         </svg>
       )}
-      <span>{label}</span>
+      <span className="min-w-0 truncate">{label}</span>
     </div>
   );
 });
@@ -107,7 +107,7 @@ const MessageMarkdown = memo(function MessageMarkdown({
 }) {
   const { MarkdownRenderer = StreamingMarkdown } = useChatRuntime();
   return (
-    <div className="prose text-sm max-w-none">
+    <div className="prose text-sm min-w-0 max-w-full break-words [overflow-wrap:anywhere]">
       <MarkdownRenderer
         disableAnchors
         content={content}
@@ -133,7 +133,7 @@ const SourceLinks = memo(function SourceLinks({
   }
 
   return (
-    <div className="mt-2 pt-1.5 border-t border-[var(--sidebar-border)]">
+    <div className="mt-2 min-w-0 pt-1.5 border-t border-[var(--sidebar-border)]">
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -146,7 +146,7 @@ const SourceLinks = memo(function SourceLinks({
         </span>
       </button>
       {open && (
-        <div className="mt-1 flex flex-wrap gap-1">
+        <div className="mt-1 flex min-w-0 flex-wrap gap-1">
           {sources.map((source) => {
             const section = anchorLabel(source.href);
             const content = (
@@ -160,7 +160,7 @@ const SourceLinks = memo(function SourceLinks({
               </>
             );
             const className =
-              "inline-flex max-w-full items-center gap-1 rounded-sm border border-[var(--sidebar-border)] bg-[var(--background)] px-1.5 py-px text-[11px] leading-5 text-[var(--brand)] hover:border-[var(--brand)] transition-colors sm:max-w-[220px]";
+              "inline-flex max-w-full min-w-0 items-center gap-1 rounded-sm border border-[var(--sidebar-border)] bg-[var(--background)] px-1.5 py-px text-[11px] leading-5 text-[var(--brand)] hover:border-[var(--brand)] transition-colors sm:max-w-[220px]";
             const key = source.id ?? source.href ?? source.title;
 
             return source.href?.startsWith("/") ? (
@@ -341,7 +341,7 @@ function AssistantMessageImpl({
   if (!hasContent) return null;
 
   return (
-    <div className="group/assistant text-sm space-y-3" data-slot="assistant-message">
+    <div className="group/assistant min-w-0 max-w-full text-sm space-y-3" data-slot="assistant-message">
       {groups.map((group, i) => {
         if (group.kind === "text") {
           return (
@@ -354,7 +354,7 @@ function AssistantMessageImpl({
         }
         if (group.kind === "tools") {
           return (
-            <div key={i} className="space-y-1 py-1">
+            <div key={i} className="min-w-0 space-y-1 py-1">
               {group.parts.map((part, j) => {
                 const info = getChatToolInfo(part as Record<string, unknown>);
                 if (!info) return null;
@@ -508,11 +508,11 @@ function UserMessageRowImpl({ message, onEdit }: UserMessageRowProps) {
     .join("");
   return (
     <div
-      className={`group/msg border-t border-[var(--sidebar-border)] pt-4 ${message.disabled ? "opacity-50" : ""}`}
+      className={`group/msg min-w-0 border-t border-[var(--sidebar-border)] pt-4 ${message.disabled ? "opacity-50" : ""}`}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex min-w-0 items-start gap-2">
         <div
-          className={`rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap flex-1 ${
+          className={`min-w-0 max-w-full flex-1 rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${
             message.disabled
               ? "bg-[var(--sidebar-border)] text-[var(--text-muted)] line-through"
               : "bg-[var(--accent-light)] text-[var(--brand)]"

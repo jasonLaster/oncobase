@@ -16,7 +16,7 @@ export function StreamingMarkdown({
   isStreaming = false,
 }: ChatMarkdownRendererProps) {
   return (
-    <div className="prose max-w-none">
+    <div className="prose min-w-0 max-w-full break-words [overflow-wrap:anywhere]">
       <Streamdown
         mode={isStreaming ? "streaming" : "static"}
         caret={isStreaming ? "block" : undefined}
