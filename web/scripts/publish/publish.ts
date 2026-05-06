@@ -47,8 +47,10 @@ async function post(url: string, token: string, body: unknown) {
 const MAX_ASSET_BYTES = 200 * 1024 * 1024;
 const SKIPPED_ASSET_LOG = ".skipped-assets.txt";
 // Doc POSTs are small JSON; asset uploads are up to 24MB and bandwidth-bound.
-const DOC_CONCURRENCY = 16;
-const ASSET_CONCURRENCY = 6;
+// Keep env overrides so operators can back off during large generated batches
+// or transient Convex/Cloudflare instability without editing the script.
+const DOC_CONCURRENCY = readPositiveIntEnv("PUBLISH_DOC_CONCURRENCY", 16);
+const ASSET_CONCURRENCY = readPositiveIntEnv("PUBLISH_ASSET_CONCURRENCY", 6);
 
 async function runWithConcurrency<T>(
   items: T[],
