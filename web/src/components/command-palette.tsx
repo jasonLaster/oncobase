@@ -31,6 +31,10 @@ interface PageEntry {
   path: string;
 }
 
+type PaletteRow =
+  | { type: "heading"; label: string }
+  | { type: "page"; page: PageEntry; pageIndex: number };
+
 type OutlineHeading = {
   key: string;
   id: string | null;
@@ -87,6 +91,7 @@ const RECENT_KEY = "cmd-palette-recent";
 const MAX_RECENT = 8;
 const MAX_SEARCH_RESULTS = 50;
 const PALETTE_ROW_HEIGHT = 58;
+const PALETTE_HEADING_HEIGHT = 32;
 
 function getRecentSlugs(): string[] {
   try {
@@ -154,6 +159,7 @@ export function CommandPalette() {
   const query = search.trim();
   const [isNavigating, startNavigation] = useTransition();
   const router = useRouter();
+  const pathname = usePathname();
   const listRef = useRef<HTMLDivElement>(null);
   const pagesLoadedRef = useRef(false);
   const pagesRequestRef = useRef<Promise<void> | null>(null);
@@ -284,6 +290,15 @@ export function CommandPalette() {
     }
   }, [loadPages, open, pages.length]);
 
+  useEffect(() => {
+    if (!pages.length || pathname === "/") return;
+
+    const slug = decodeURIComponent(pathname.replace(/^\/+/, ""));
+    if (pages.some((page) => page.slug === slug)) {
+      addRecentSlug(slug);
+    }
+  }, [pages, pathname]);
+
   const closePalette = useCallback(() => {
     setOpen(false);
     setSearch("");
@@ -315,11 +330,19 @@ export function CommandPalette() {
   );
 
   // Build display: when searching → flat ranked list via fuzzysort; otherwise → all pages in a virtualized browser.
-  const { recentEntries, searchResults, visibleEntries } = useMemo(() => {
-    const empty = { recentEntries: [] as PageEntry[], searchResults: null as PageEntry[] | null, visibleEntries: [] as PageEntry[] };
+  const { recentEntries, searchResults, visibleEntries, visibleRows } = useMemo(() => {
+    const empty = {
+      recentEntries: [] as PageEntry[],
+      searchResults: null as PageEntry[] | null,
+      visibleEntries: [] as PageEntry[],
+      visibleRows: [] as PaletteRow[],
+    };
     if (!pages.length) return empty;
 
     const recentSet = new Set(recentSlugs);
+    const toPageRows = (entries: PageEntry[]): PaletteRow[] =>
+      entries.map((page, pageIndex) => ({ type: "page", page, pageIndex }));
+
     if (query) {
       const normalizedSearch = query.toLowerCase();
       const results = fuzzysort.go(query, prepared, {
@@ -351,23 +374,58 @@ export function CommandPalette() {
         })
         .map((r) => r.page);
 
-      return { recentEntries: [], searchResults: ranked, visibleEntries: ranked };
+      return {
+        recentEntries: [],
+        searchResults: ranked,
+        visibleEntries: ranked,
+        visibleRows: toPageRows(ranked),
+      };
     }
 
     const recent = recentSlugs
       .map((slug) => pages.find((p) => p.slug === slug))
       .filter((p): p is PageEntry => !!p);
 
-    return { recentEntries: recent, searchResults: null, visibleEntries: pages };
+    const recentSetForDisplay = new Set(recent.map((page) => page.slug));
+    const remainingPages = pages.filter((page) => !recentSetForDisplay.has(page.slug));
+    const groupedEntries = [...recent, ...remainingPages];
+    const rows: PaletteRow[] = [];
+
+    if (recent.length > 0) {
+      rows.push({ type: "heading", label: "Recent pages" });
+      rows.push(...recent.map((page, pageIndex) => ({ type: "page" as const, page, pageIndex })));
+      if (remainingPages.length > 0) {
+        rows.push({ type: "heading", label: "All pages" });
+        rows.push(...remainingPages.map((page, index) => ({
+          type: "page" as const,
+          page,
+          pageIndex: recent.length + index,
+        })));
+      }
+    } else {
+      rows.push(...toPageRows(pages));
+    }
+
+    return {
+      recentEntries: recent,
+      searchResults: null,
+      visibleEntries: groupedEntries,
+      visibleRows: rows,
+    };
   }, [pages, prepared, query, recentSlugs]);
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual owns measurement callbacks for this isolated listbox.
   const rowVirtualizer = useVirtualizer({
-    count: visibleEntries.length,
-    estimateSize: () => PALETTE_ROW_HEIGHT,
+    count: visibleRows.length,
+    estimateSize: (index) => visibleRows[index]?.type === "heading" ? PALETTE_HEADING_HEIGHT : PALETTE_ROW_HEIGHT,
     getScrollElement: () => listRef.current,
     overscan: 8,
   });
+
+  const activeRowIndex = useMemo(
+    () => visibleRows.findIndex((row) => row.type === "page" && row.pageIndex === activeIndex),
+    [activeIndex, visibleRows]
+  );
 
   useEffect(() => {
     if (!open || loading) return;
@@ -386,10 +444,11 @@ export function CommandPalette() {
     setActiveIndex((current) => {
       if (visibleEntries.length === 0) return 0;
       const next = Math.min(Math.max(current + delta, 0), visibleEntries.length - 1);
-      rowVirtualizer.scrollToIndex(next, { align: "auto" });
+      const nextRowIndex = visibleRows.findIndex((row) => row.type === "page" && row.pageIndex === next);
+      rowVirtualizer.scrollToIndex(nextRowIndex === -1 ? next : nextRowIndex, { align: "auto" });
       return next;
     });
-  }, [rowVirtualizer, visibleEntries.length]);
+  }, [rowVirtualizer, visibleEntries.length, visibleRows]);
 
   const selectActive = useCallback(() => {
     const page = visibleEntries[activeIndex];
@@ -412,14 +471,16 @@ export function CommandPalette() {
     if (event.key === "Home") {
       event.preventDefault();
       setActiveIndex(0);
-      rowVirtualizer.scrollToIndex(0, { align: "start" });
+      const firstRowIndex = visibleRows.findIndex((row) => row.type === "page");
+      rowVirtualizer.scrollToIndex(firstRowIndex === -1 ? 0 : firstRowIndex, { align: "start" });
       return;
     }
     if (event.key === "End") {
       event.preventDefault();
       const last = Math.max(0, visibleEntries.length - 1);
       setActiveIndex(last);
-      rowVirtualizer.scrollToIndex(last, { align: "end" });
+      const lastRowIndex = visibleRows.findIndex((row) => row.type === "page" && row.pageIndex === last);
+      rowVirtualizer.scrollToIndex(lastRowIndex === -1 ? last : lastRowIndex, { align: "end" });
       return;
     }
     if (event.key === "Enter") {
@@ -431,7 +492,7 @@ export function CommandPalette() {
       event.preventDefault();
       closePalette();
     }
-  }, [closePalette, moveActive, rowVirtualizer, selectActive, visibleEntries.length]);
+  }, [closePalette, moveActive, rowVirtualizer, selectActive, visibleEntries.length, visibleRows]);
 
   return (
     <>
@@ -465,7 +526,7 @@ export function CommandPalette() {
               <DialogDescription>Search pages</DialogDescription>
             </DialogHeader>
             <div className="flex size-full flex-col overflow-hidden rounded-xl! bg-popover p-1 text-popover-foreground">
-              <div className="p-1 pb-0">
+              <div className="p-1 pb-2">
                 <div className="relative flex h-8! w-full min-w-0 items-center rounded-lg! border border-input/30 bg-input/30 shadow-none!">
                   <input
                     aria-activedescendant={visibleEntries[activeIndex] ? `page-palette-${activeIndex}` : undefined}
@@ -506,9 +567,10 @@ export function CommandPalette() {
                     ) : (
                       <VirtualizedPageEntries
                         activeIndex={activeIndex}
+                        activeRowIndex={activeRowIndex}
                         onActiveIndexChange={setActiveIndex}
                         onSelect={handleSelect}
-                        pages={visibleEntries}
+                        rows={visibleRows}
                         rowVirtualizer={rowVirtualizer}
                         valueMode={query ? "slug" : "label"}
                       />
@@ -526,16 +588,18 @@ export function CommandPalette() {
 
 function VirtualizedPageEntries({
   activeIndex,
+  activeRowIndex,
   onActiveIndexChange,
   onSelect,
-  pages,
+  rows,
   rowVirtualizer,
   valueMode,
 }: {
   activeIndex: number;
+  activeRowIndex: number;
   onActiveIndexChange: (index: number) => void;
   onSelect: (slug: string) => void;
-  pages: PageEntry[];
+  rows: PaletteRow[];
   rowVirtualizer: ReturnType<typeof useVirtualizer<HTMLDivElement, Element>>;
   valueMode: "label" | "slug";
 }) {
@@ -550,11 +614,24 @@ function VirtualizedPageEntries({
         style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
       >
         {virtualItems.map((virtualItem) => {
-          const page = pages[virtualItem.index];
-          if (!page) return null;
+          const row = rows[virtualItem.index];
+          if (!row) return null;
 
+          if (row.type === "heading") {
+            return (
+              <div
+                key={`${row.label}-${virtualItem.index}`}
+                className="absolute left-0 top-0 flex h-8 w-full items-center px-2 pt-1 text-xs font-medium text-muted-foreground"
+                style={{ transform: `translateY(${virtualItem.start}px)` }}
+              >
+                {row.label}
+              </div>
+            );
+          }
+
+          const page = row.page;
           const group = getGroup(page.slug);
-          const selected = virtualItem.index === activeIndex;
+          const selected = row.pageIndex === activeIndex;
           const value = valueMode === "slug"
             ? page.slug
             : `${page.name} ${page.path} ${group}`;
@@ -565,17 +642,18 @@ function VirtualizedPageEntries({
               ref={rowVirtualizer.measureElement}
               {...{ "cmdk-item": "" }}
               aria-selected={selected}
-              data-index={virtualItem.index}
+              data-index={row.pageIndex}
               data-selected={selected ? "true" : undefined}
               data-value={value}
-              id={`page-palette-${virtualItem.index}`}
+              id={`page-palette-${row.pageIndex}`}
               onClick={() => onSelect(page.slug)}
-              onMouseEnter={() => onActiveIndexChange(virtualItem.index)}
+              onMouseEnter={() => onActiveIndexChange(row.pageIndex)}
               role="option"
               type="button"
               className={cn(
                 "absolute left-0 top-0 flex w-full cursor-default items-center gap-2 rounded-lg px-2 py-2.5 text-left text-sm outline-hidden select-none",
-                selected && "bg-muted text-foreground"
+                selected && "bg-muted text-foreground",
+                virtualItem.index === activeRowIndex && "z-10"
               )}
               style={{ transform: `translateY(${virtualItem.start}px)` }}
             >
