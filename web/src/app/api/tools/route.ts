@@ -1,4 +1,5 @@
 import { siteDataFromRequest } from "@/lib/site-data";
+import { readChatPage } from "@/lib/chat-page-reader";
 
 export async function POST(request: Request) {
   const { tool, args } = (await request.json()) as {
@@ -17,16 +18,7 @@ export async function POST(request: Request) {
       return Response.json(results);
     }
     case "read_page": {
-      const doc = await siteData.documents.getBySlug({
-        slug: args.slug as string,
-      });
-      if (!doc) return Response.json({ error: `Page not found: ${args.slug}` });
-      return Response.json({
-        slug: doc.slug,
-        title: doc.title,
-        tags: doc.tags,
-        content: doc.content.slice(0, 8000),
-      });
+      return Response.json(await readChatPage(siteData, args.slug as string));
     }
     case "list_pages": {
       return Response.json(await siteData.documents.list());

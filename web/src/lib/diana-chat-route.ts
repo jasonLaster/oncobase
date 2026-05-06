@@ -15,13 +15,13 @@ import { embed } from "@/lib/embeddings";
 import { fastTextModel } from "@/lib/ai";
 import { applyPiiRedactions } from "@/lib/pii-redaction";
 import { resolveServerConvexUrl } from "@/lib/convex-url";
-import { splitWikilinkAlias } from "@/lib/wikilinks";
 import {
   createConvexFlusher,
   getCachedSystemPrompt,
 } from "@diana-tnbc/chat/route";
 import { siteSlugFromRequest } from "@/lib/site";
 import { siteDataFromSlug } from "@/lib/site-data";
+import { readChatPage } from "@/lib/chat-page-reader";
 
 const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 });
 const generateRunId = createIdGenerator({ prefix: "run", size: 16 });
@@ -78,20 +78,6 @@ function compactToolResult(result: unknown): unknown {
   return result;
 }
 
-function splitSlugAnchor(value: string) {
-  const normalized = value.replace(/^\/+/, "").replace(/\.md(?=#|$)/, "");
-  const hashIndex = normalized.indexOf("#");
-  if (hashIndex === -1) return { slug: normalized, anchor: undefined };
-  return {
-    slug: normalized.slice(0, hashIndex),
-    anchor: normalized.slice(hashIndex + 1) || undefined,
-  };
-}
-
-function hrefForSlug(slug: string, anchor?: string) {
-  return `/${slug}${anchor ? `#${anchor}` : ""}`;
-}
-
 function getConvex() {
   const url = resolveServerConvexUrl();
   if (!url) throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
@@ -115,6 +101,7 @@ Search strategy:
 - Use search_wiki for broad discovery when you're not sure which page has the answer
 - After searching, read the 2-3 most relevant pages before answering
 - When you read a page, check its linked_pages list — these are pages referenced in the text. Follow links that are directly relevant to the question (e.g. a treatment page linking to a specific trial or meeting notes). Skip generic links like "diagnosis" or "prognosis" unless they're what the user asked about.
+- If read_page returns content exactly "unavailable", the page exists but its contents are not available to chat. Say that the source is unavailable instead of treating it as a missing page.
 - Do NOT use list_pages — use the PAGE INDEX instead
 
 Be direct, compassionate, and precise. Use medical terminology but explain it when needed.`;
@@ -429,61 +416,7 @@ export async function POST(request: Request) {
             ),
         }),
         execute: async ({ slug }: { slug: string }) => {
-          const requested = splitSlugAnchor(slug);
-          const doc = await siteData.documents.getBySlug({ slug: requested.slug });
-          if (!doc) return { error: `Page not found: ${requested.slug}` };
-          const content = applyPiiRedactions(doc.content);
-
-          // Extract wikilinks [[slug]], [[slug|label]], and table-safe [[slug\|label]].
-          const linkRegex = /\[\[([^\]]+?)\]\]/g;
-          const linkedSlugs = new Set<string>();
-          let match;
-          while ((match = linkRegex.exec(content)) !== null) {
-            const linked = splitSlugAnchor(splitWikilinkAlias(match[1]).target);
-            // Skip Terminology anchors and self-links
-            if (linked.slug === "about/Terminology" || linked.slug === doc.slug) continue;
-            linkedSlugs.add(hrefForSlug(linked.slug, linked.anchor).slice(1));
-          }
-
-          // Batch-resolve linked page titles (best-effort, cap at 10)
-          const slugsToResolve = Array.from(linkedSlugs).slice(0, 10);
-          const linkedPages = (
-            await Promise.all(
-              slugsToResolve.map(async (s) => {
-                const linkedTarget = splitSlugAnchor(s);
-                const linked = await siteData.documents.getBySlug({
-                  slug: linkedTarget.slug,
-                });
-                return linked
-                  ? {
-                      slug: linked.slug,
-                      title: applyPiiRedactions(linked.title),
-                      href: hrefForSlug(linked.slug, linkedTarget.anchor),
-                      anchor: linkedTarget.anchor,
-                    }
-                  : null;
-              })
-            )
-          ).filter(
-            (
-              p
-            ): p is {
-              slug: string;
-              title: string;
-              href: string;
-              anchor: string | undefined;
-            } => p !== null
-          );
-
-          return {
-            slug: doc.slug,
-            title: applyPiiRedactions(doc.title),
-            href: hrefForSlug(doc.slug, requested.anchor),
-            anchor: requested.anchor,
-            tags: doc.tags,
-            content: content.slice(0, 8000),
-            linked_pages: linkedPages,
-          };
+          return readChatPage(siteData, slug);
         },
       },
       list_pages: {
