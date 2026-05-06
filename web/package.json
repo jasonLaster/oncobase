@@ -47,6 +47,7 @@
     "@streamdown/code": "^1.1.1",
     "@streamdown/math": "^1.0.2",
     "@streamdown/mermaid": "^1.0.2",
+    "@tanstack/react-virtual": "3.13.24",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.3.3",
     "@xyflow/react": "^12.10.2",

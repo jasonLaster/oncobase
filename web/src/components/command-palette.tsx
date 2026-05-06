@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo, useSyncExternalStore, useTransition } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { usePathname, useRouter } from "next/navigation";
 import {
   CommandDialog,
@@ -12,9 +13,17 @@ import {
   CommandItem,
   CommandShortcut,
 } from "@/components/ui/command";
-import { FileTextIcon, Loader2Icon, ClockIcon, HeadingIcon, ListTreeIcon, CalculatorIcon } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FileTextIcon, Loader2Icon, HeadingIcon, ListTreeIcon, CalculatorIcon } from "lucide-react";
 import fuzzysort from "fuzzysort";
 import { themeEffect } from "@/lib/theme-effect";
+import { cn } from "@/lib/utils";
 
 interface PageEntry {
   name: string;
@@ -76,6 +85,8 @@ const SearchIcon = () => (
 
 const RECENT_KEY = "cmd-palette-recent";
 const MAX_RECENT = 8;
+const MAX_SEARCH_RESULTS = 50;
+const PALETTE_ROW_HEIGHT = 58;
 
 function getRecentSlugs(): string[] {
   try {
@@ -139,6 +150,8 @@ export function CommandPalette() {
   const [pages, setPages] = useState<PageEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const query = search.trim();
   const [isNavigating, startNavigation] = useTransition();
   const router = useRouter();
   const listRef = useRef<HTMLDivElement>(null);
@@ -271,22 +284,22 @@ export function CommandPalette() {
     }
   }, [loadPages, open, pages.length]);
 
-  // Reset search when closing
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset derived state on close
-    if (!open) setSearch("");
-  }, [open]);
+  const closePalette = useCallback(() => {
+    setOpen(false);
+    setSearch("");
+    setActiveIndex(0);
+  }, []);
 
   const handleSelect = useCallback(
     (slug: string) => {
       const href = `/${slug}`;
       addRecentSlug(slug);
-      setOpen(false);
+      closePalette();
       startNavigation(() => {
         router.push(href);
       });
     },
-    [router, startNavigation]
+    [closePalette, router, startNavigation]
   );
 
   const recentSlugs = useMemo(() => (open ? getRecentSlugs() : []), [open]);
@@ -301,17 +314,17 @@ export function CommandPalette() {
     [pages]
   );
 
-  // Build display: when searching → flat ranked list via fuzzysort; otherwise → Recent + grouped
-  const { recentEntries, searchResults, groupedEntries } = useMemo(() => {
-    const empty = { recentEntries: [] as PageEntry[], searchResults: null as PageEntry[] | null, groupedEntries: [] as [string, PageEntry[]][] };
+  // Build display: when searching → flat ranked list via fuzzysort; otherwise → all pages in a virtualized browser.
+  const { recentEntries, searchResults, visibleEntries } = useMemo(() => {
+    const empty = { recentEntries: [] as PageEntry[], searchResults: null as PageEntry[] | null, visibleEntries: [] as PageEntry[] };
     if (!pages.length) return empty;
 
     const recentSet = new Set(recentSlugs);
-
-    if (search.trim()) {
-      const results = fuzzysort.go(search, prepared, {
+    if (query) {
+      const normalizedSearch = query.toLowerCase();
+      const results = fuzzysort.go(query, prepared, {
         keys: ["prepName", "prepPath"],
-        limit: 50,
+        limit: MAX_SEARCH_RESULTS,
         threshold: -1000,
       });
 
@@ -319,7 +332,6 @@ export function CommandPalette() {
       const ranked = results
         .map((r) => ({ page: r.obj.page, score: r.score }))
         .sort((a, b) => {
-          const normalizedSearch = search.trim().toLowerCase();
           const aExact =
             a.page.slug.toLowerCase() === normalizedSearch ||
             a.page.name.replace(/-/g, " ").toLowerCase() === normalizedSearch;
@@ -339,37 +351,87 @@ export function CommandPalette() {
         })
         .map((r) => r.page);
 
-      return { recentEntries: [], searchResults: ranked, groupedEntries: [] };
+      return { recentEntries: [], searchResults: ranked, visibleEntries: ranked };
     }
 
-    // No search — show recents first, then all grouped
     const recent = recentSlugs
       .map((slug) => pages.find((p) => p.slug === slug))
       .filter((p): p is PageEntry => !!p);
 
-    const map = new Map<string, PageEntry[]>();
-    for (const page of pages) {
-      const group = getGroup(page.slug);
-      if (!map.has(group)) map.set(group, []);
-      map.get(group)!.push(page);
-    }
-    const entries = [...map.entries()].sort(([a], [b]) => {
-      if (a === "") return 1;
-      if (b === "") return -1;
-      return a.localeCompare(b);
-    });
+    return { recentEntries: recent, searchResults: null, visibleEntries: pages };
+  }, [pages, prepared, query, recentSlugs]);
 
-    return { recentEntries: recent, searchResults: null, groupedEntries: entries };
-  }, [pages, prepared, search, recentSlugs]);
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual owns measurement callbacks for this isolated listbox.
+  const rowVirtualizer = useVirtualizer({
+    count: visibleEntries.length,
+    estimateSize: () => PALETTE_ROW_HEIGHT,
+    getScrollElement: () => listRef.current,
+    overscan: 8,
+  });
 
   useEffect(() => {
     if (!open || loading) return;
 
-    const page = searchResults?.[0] ?? recentEntries[0];
-    if (page) {
-      router.prefetch(`/${page.slug}`);
-    }
+    const timeoutId = setTimeout(() => {
+      const page = searchResults?.[0] ?? recentEntries[0];
+      if (page) {
+        router.prefetch(`/${page.slug}`);
+      }
+    }, 200);
+
+    return () => clearTimeout(timeoutId);
   }, [loading, open, recentEntries, router, searchResults]);
+
+  const moveActive = useCallback((delta: number) => {
+    setActiveIndex((current) => {
+      if (visibleEntries.length === 0) return 0;
+      const next = Math.min(Math.max(current + delta, 0), visibleEntries.length - 1);
+      rowVirtualizer.scrollToIndex(next, { align: "auto" });
+      return next;
+    });
+  }, [rowVirtualizer, visibleEntries.length]);
+
+  const selectActive = useCallback(() => {
+    const page = visibleEntries[activeIndex];
+    if (page) {
+      handleSelect(page.slug);
+    }
+  }, [activeIndex, handleSelect, visibleEntries]);
+
+  const onInputKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      moveActive(1);
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      moveActive(-1);
+      return;
+    }
+    if (event.key === "Home") {
+      event.preventDefault();
+      setActiveIndex(0);
+      rowVirtualizer.scrollToIndex(0, { align: "start" });
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      const last = Math.max(0, visibleEntries.length - 1);
+      setActiveIndex(last);
+      rowVirtualizer.scrollToIndex(last, { align: "end" });
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      selectActive();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closePalette();
+    }
+  }, [closePalette, moveActive, rowVirtualizer, selectActive, visibleEntries.length]);
 
   return (
     <>
@@ -383,92 +445,150 @@ export function CommandPalette() {
         </div>
       ) : null}
 
-      <CommandDialog open={open} onOpenChange={setOpen} title="Go to page" description="Search pages">
-        <Command shouldFilter={!search.trim()}>
-          <CommandInput
-            placeholder="Search pages…"
-            value={search}
-            onValueChange={(v) => {
-              setSearch(v);
-              requestAnimationFrame(() => listRef.current?.scrollTo(0, 0));
-            }}
-          />
-          <CommandList ref={listRef}>
-            {loading ? (
-              <div className="flex items-center justify-center py-6 text-muted-foreground">
-                <Loader2Icon className="size-4 animate-spin mr-2" />
-                <span className="text-sm">Loading pages…</span>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (nextOpen) {
+            setOpen(true);
+          } else {
+            closePalette();
+          }
+        }}
+      >
+        {open ? (
+          <DialogContent
+            className="top-[10%] sm:top-1/4 translate-y-0 overflow-hidden rounded-xl! p-0 max-w-[calc(100%-1rem)] sm:max-w-xl"
+            showCloseButton={false}
+          >
+            <DialogHeader className="sr-only">
+              <DialogTitle>Go to page</DialogTitle>
+              <DialogDescription>Search pages</DialogDescription>
+            </DialogHeader>
+            <div className="flex size-full flex-col overflow-hidden rounded-xl! bg-popover p-1 text-popover-foreground">
+              <div className="p-1 pb-0">
+                <div className="relative flex h-8! w-full min-w-0 items-center rounded-lg! border border-input/30 bg-input/30 shadow-none!">
+                  <input
+                    aria-activedescendant={visibleEntries[activeIndex] ? `page-palette-${activeIndex}` : undefined}
+                    aria-controls="page-palette-list"
+                    aria-expanded={open}
+                    aria-label="Search pages"
+                    autoComplete="off"
+                    className="w-full bg-transparent px-2 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50"
+                    data-slot="command-input"
+                    onChange={(event) => {
+                      setSearch(event.target.value);
+                      setActiveIndex(0);
+                      rowVirtualizer.scrollToIndex(0, { align: "start" });
+                    }}
+                    onKeyDown={onInputKeyDown}
+                    placeholder="Search pages…"
+                    role="combobox"
+                    value={search}
+                  />
+                  <SearchIcon />
+                </div>
               </div>
-            ) : (
-              <>
-                <CommandEmpty>No pages found.</CommandEmpty>
-
-                {/* Search results — flat ranked list */}
-                {searchResults && (
-                  <CommandGroup>
-                    {searchResults.map((page) => (
-                      <CommandItem
-                        key={page.slug}
-                        value={page.slug}
-                        onSelect={() => handleSelect(page.slug)}
-                        className="py-2.5"
-                      >
-                        <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
-                        <div className="flex flex-col min-w-0">
-                          <span className="truncate">{page.name.replace(/-/g, " ")}</span>
-                          <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
+              <div
+                className="no-scrollbar max-h-[60dvh] sm:max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none"
+                id="page-palette-list"
+                ref={listRef}
+                role="listbox"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center py-6 text-muted-foreground">
+                    <Loader2Icon className="size-4 animate-spin mr-2" />
+                    <span className="text-sm">Loading pages…</span>
+                  </div>
+                ) : (
+                  <>
+                    {visibleEntries.length === 0 ? (
+                      <div className="py-6 text-center text-sm">No pages found.</div>
+                    ) : (
+                      <VirtualizedPageEntries
+                        activeIndex={activeIndex}
+                        onActiveIndexChange={setActiveIndex}
+                        onSelect={handleSelect}
+                        pages={visibleEntries}
+                        rowVirtualizer={rowVirtualizer}
+                        valueMode={query ? "slug" : "label"}
+                      />
+                    )}
+                  </>
                 )}
-
-                {/* No search — recent files + grouped */}
-                {!searchResults && recentEntries.length > 0 && (
-                  <CommandGroup heading="Recent">
-                    {recentEntries.map((page) => (
-                      <CommandItem
-                        key={`recent-${page.slug}`}
-                        value={`${page.name} ${page.path} ${getGroup(page.slug)}`}
-                        onSelect={() => handleSelect(page.slug)}
-                        className="py-2.5"
-                      >
-                        <ClockIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
-                        <div className="flex flex-col min-w-0">
-                          <span className="truncate">{page.name.replace(/-/g, " ")}</span>
-                          <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                )}
-                {!searchResults && groupedEntries.map(([group, entries]) => (
-                  <CommandGroup
-                    key={group || "__root__"}
-                    heading={group ? group.replace(/-/g, " ") : undefined}
-                  >
-                    {entries.map((page) => (
-                      <CommandItem
-                        key={page.slug}
-                        value={`${page.name} ${page.path} ${group}`}
-                        onSelect={() => handleSelect(page.slug)}
-                        className="py-2.5"
-                      >
-                        <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
-                        <div className="flex flex-col min-w-0">
-                          <span className="truncate">{page.name.replace(/-/g, " ")}</span>
-                          <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                ))}
-              </>
-            )}
-          </CommandList>
-        </Command>
-      </CommandDialog>
+              </div>
+            </div>
+          </DialogContent>
+        ) : null}
+      </Dialog>
     </>
+  );
+}
+
+function VirtualizedPageEntries({
+  activeIndex,
+  onActiveIndexChange,
+  onSelect,
+  pages,
+  rowVirtualizer,
+  valueMode,
+}: {
+  activeIndex: number;
+  onActiveIndexChange: (index: number) => void;
+  onSelect: (slug: string) => void;
+  pages: PageEntry[];
+  rowVirtualizer: ReturnType<typeof useVirtualizer<HTMLDivElement, Element>>;
+  valueMode: "label" | "slug";
+}) {
+  "use no memo";
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
+
+  return (
+    <div aria-label="Pages" role="group">
+      <div
+        className="relative w-full"
+        style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+      >
+        {virtualItems.map((virtualItem) => {
+          const page = pages[virtualItem.index];
+          if (!page) return null;
+
+          const group = getGroup(page.slug);
+          const selected = virtualItem.index === activeIndex;
+          const value = valueMode === "slug"
+            ? page.slug
+            : `${page.name} ${page.path} ${group}`;
+
+          return (
+            <button
+              key={page.slug}
+              ref={rowVirtualizer.measureElement}
+              {...{ "cmdk-item": "" }}
+              aria-selected={selected}
+              data-index={virtualItem.index}
+              data-selected={selected ? "true" : undefined}
+              data-value={value}
+              id={`page-palette-${virtualItem.index}`}
+              onClick={() => onSelect(page.slug)}
+              onMouseEnter={() => onActiveIndexChange(virtualItem.index)}
+              role="option"
+              type="button"
+              className={cn(
+                "absolute left-0 top-0 flex w-full cursor-default items-center gap-2 rounded-lg px-2 py-2.5 text-left text-sm outline-hidden select-none",
+                selected && "bg-muted text-foreground"
+              )}
+              style={{ transform: `translateY(${virtualItem.start}px)` }}
+            >
+              <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
+              <div className="flex flex-col min-w-0">
+                <span className="truncate">{page.name.replace(/-/g, " ")}</span>
+                <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
