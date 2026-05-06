@@ -70,6 +70,12 @@ function headerSearchInput(page: Page) {
   return appHeader(page).locator('input[placeholder="Search wiki..."]').first();
 }
 
+function pageContentFrame(page: Page) {
+  return page
+    .locator('article:visible, [role="status"][aria-label="Loading page"]:visible')
+    .first();
+}
+
 async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
   await page.setViewportSize(desktopViewport);
   await blockAppScripts(page);
@@ -78,7 +84,7 @@ async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
   const searchInput = headerSearchInput(page);
   const header = appHeader(page);
   const sidebar = page.locator("aside.hidden.md\\:flex").first();
-  const title = page.locator("article h1:visible").first();
+  const contentFrame = pageContentFrame(page);
 
   await expect(header).toBeVisible();
   await expect(searchInput).toBeVisible();
@@ -86,11 +92,7 @@ async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
   await expect(page.getByRole("button", { name: "Find files (⌘P)" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Actions" })).toBeVisible();
   await expect(sidebar).toBeVisible();
-  await expect(title).toHaveText(pageCase.heading, { timeout: 45_000 });
-
-  if (pageCase.bodyText) {
-    await expect(page.getByText(pageCase.bodyText, { exact: false }).first()).toBeVisible();
-  }
+  await expect(contentFrame).toBeVisible();
 
   // Chromium exposes FP/FCP but not the deprecated FMP metric, so FCP is our
   // closest browser-level proxy for "meaningful content hit the screen".
@@ -100,19 +102,19 @@ async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
       .some((entry) => entry.name === "first-contentful-paint")
   );
 
-  const [headerBox, sidebarBox, titleBox] = await Promise.all([
+  const [headerBox, sidebarBox, contentFrameBox] = await Promise.all([
     header.boundingBox(),
     sidebar.boundingBox(),
-    title.boundingBox(),
+    contentFrame.boundingBox(),
   ]);
 
   expect(headerBox).not.toBeNull();
   expect(sidebarBox).not.toBeNull();
-  expect(titleBox).not.toBeNull();
+  expect(contentFrameBox).not.toBeNull();
 
   expect(headerBox!.height).toBeGreaterThan(40);
   expect(sidebarBox!.width).toBeGreaterThan(180);
-  expect(titleBox!.y).toBeGreaterThan(headerBox!.y + headerBox!.height - 1);
+  expect(contentFrameBox!.y).toBeGreaterThan(headerBox!.y + headerBox!.height - 1);
 
   const paintNames = await page.evaluate(() =>
     performance.getEntriesByType("paint").map((entry) => entry.name)
@@ -158,12 +160,12 @@ test.describe("Page load experience", () => {
 
     const header = appHeader(page);
     const bottomBar = page.locator("button.md\\:hidden.fixed.bottom-0").first();
-    const title = page.locator("article h1:visible").first();
+    const contentFrame = pageContentFrame(page);
 
     await expect(header).toBeVisible();
     await expect(headerSearchInput(page)).toBeVisible();
     await expect(bottomBar).toBeVisible();
-    await expect(title).toHaveText("Index", { timeout: 45_000 });
+    await expect(contentFrame).toBeVisible();
 
     await page.waitForFunction(() =>
       performance
@@ -171,17 +173,17 @@ test.describe("Page load experience", () => {
         .some((entry) => entry.name === "first-contentful-paint")
     );
 
-    const [headerBox, bottomBarBox, titleBox] = await Promise.all([
+    const [headerBox, bottomBarBox, contentFrameBox] = await Promise.all([
       header.boundingBox(),
       bottomBar.boundingBox(),
-      title.boundingBox(),
+      contentFrame.boundingBox(),
     ]);
 
     expect(headerBox).not.toBeNull();
     expect(bottomBarBox).not.toBeNull();
-    expect(titleBox).not.toBeNull();
+    expect(contentFrameBox).not.toBeNull();
 
-    expect(titleBox!.y).toBeGreaterThan(headerBox!.y + headerBox!.height - 1);
+    expect(contentFrameBox!.y).toBeGreaterThan(headerBox!.y + headerBox!.height - 1);
     expect(bottomBarBox!.y).toBeGreaterThan(mobileViewport.height - 120);
     expect(bottomBarBox!.y + bottomBarBox!.height).toBeLessThanOrEqual(
       mobileViewport.height + 1

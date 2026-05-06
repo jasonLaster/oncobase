@@ -45,10 +45,14 @@ test.describe("Page viewing & sidebar navigation", () => {
   test("navigate to a page via sidebar", async ({ page }) => {
     await page.goto("/");
     const nav = page.locator(sidebar);
+    const journalLink = nav.getByRole("link", { name: "Journal" });
 
-    // Click a top-level file link visible without expanding (e.g., "index" or "Journal")
-    await nav.getByRole("link", { name: "Journal" }).click();
-    await expect(page).toHaveURL(/\/about\/Journal/);
+    await expect(journalLink).toHaveAttribute("href", "/about/Journal");
+    await expect(journalLink).toBeVisible();
+    await Promise.all([
+      page.waitForURL(/\/about\/Journal$/),
+      journalLink.click(),
+    ]);
     await expect(page.locator("h1").first()).toBeVisible();
   });
 
@@ -102,7 +106,9 @@ test.describe("Page viewing & sidebar navigation", () => {
     await page.goto("/");
     const input = await openFilePalette(page);
     await input.fill("Journal");
-    await expect(page.locator('[cmdk-item][data-value="about/Journal"]').first()).toBeVisible();
+    const journalItem = page.locator('[cmdk-item][data-value="about/Journal"]').first();
+    await expect(journalItem).toBeVisible();
+    await expect(journalItem).toHaveAttribute("aria-selected", "true");
 
     await page.evaluate(() => {
       const win = window as typeof window & {

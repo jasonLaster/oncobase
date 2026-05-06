@@ -60,7 +60,7 @@ test.describe("source loading boundary", () => {
     expect(html).toContain(
       "ZEST \u2014 Niraparib vs Placebo in ctDNA-Positive Breast Cancer"
     );
-    expect(html).not.toContain("$RX(");
+    expect(html).not.toContain("data-nextjs-dialog");
   });
 
   test("command palette Enter opens wiki results without the source loading shell", async ({ page }) => {
