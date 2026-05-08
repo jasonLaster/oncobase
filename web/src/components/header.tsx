@@ -153,7 +153,7 @@ function HeaderSearch() {
         onKeyDown={(e) => e.stopPropagation()}
         placeholder="Search wiki..."
         aria-label="Search wiki"
-        data-test-id="header-search-input"
+        data-test-id="header-search-form-input"
         className="w-full h-[30px] pl-9 pr-3 rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--text-muted)] hover:border-[var(--brand)] focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)] transition-colors"
       />
     </form>
@@ -171,7 +171,7 @@ function HeaderSearchFallback() {
         disabled
         placeholder="Search wiki..."
         aria-label="Search wiki"
-        data-test-id="header-search-input"
+        data-test-id="header-search-fallback-input"
         className="w-full h-[30px] pl-9 pr-3 rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--text-muted)] opacity-100 disabled:cursor-default"
       />
     </div>

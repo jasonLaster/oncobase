@@ -111,7 +111,7 @@ function appHeader(page: Page) {
 }
 
 function headerSearchInput(page: Page) {
-  return appHeader(page).getByTestId("header-search-input");
+  return appHeader(page).getByTestId("header-search-form-input");
 }
 
 async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {

@@ -34,7 +34,7 @@ test.describe("Search", () => {
   test("search from header bar navigates to results", async ({ page }) => {
     await mockAISearch(page);
     await page.goto("/");
-    const searchInput = page.getByTestId("header-search-input");
+    const searchInput = page.getByTestId("header-search-form-input");
     await expect(searchInput).toBeEditable({ timeout: 10_000 });
     await expect(page.getByTestId("header-search-form")).toHaveAttribute(
       "data-hydrated",
