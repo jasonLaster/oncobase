@@ -15,6 +15,63 @@ import { FatalError, RetryableError } from "workflow";
 
 export type DownloadType = "full" | "markdown";
 
+const BLOB_NAMES_BY_SITE = (siteSlug: string) =>
+  siteSlug === "diana"
+    ? ({
+        full: "diana-tnbc-wiki-full.zip",
+        markdown: "diana-tnbc-wiki-markdown.zip",
+      } as const)
+    : ({
+        full: `${siteSlug}-wiki-full.zip`,
+        markdown: `${siteSlug}-wiki-markdown.zip`,
+      } as const);
+
+const PDF_BATCH_TARGET_BYTES = 64 * 1024 * 1024;
+const MIN_MULTIPART_PART_BYTES = 5 * 1024 * 1024;
+const ZIP_MAX_UINT32 = 0xffffffff;
+const ZIP_MAX_UINT16 = 0xffff;
+const ZIP_UTF8_FLAG = 0x0800;
+const ZIP_STORE_METHOD = 0;
+const DEFAULT_DOS_TIME = 0;
+const DEFAULT_DOS_DATE = 0x5821; // 2024-01-01
+
+interface PdfAsset {
+  path: string;
+  blobUrl: string;
+  sizeBytes?: number | null;
+}
+
+interface ArchivePlan {
+  pdfBatches: PdfAsset[][];
+}
+
+interface MultipartUploadState {
+  pathname: string;
+  key: string;
+  uploadId: string;
+}
+
+interface UploadedPart {
+  etag: string;
+  partNumber: number;
+}
+
+interface ZipEntryMetadata {
+  name: string;
+  crc32: number;
+  compressedSize: number;
+  uncompressedSize: number;
+  localHeaderOffset: number;
+  dosTime: number;
+  dosDate: number;
+}
+
+interface ArchivePartResult {
+  part: UploadedPart;
+  entries: ZipEntryMetadata[];
+  bytesUploaded: number;
+}
+
 // ─── steps (full Node.js access) ─────────────────────────────────────────────
 
 async function getWorkflowSiteData(siteSlug: string) {
@@ -22,105 +79,131 @@ async function getWorkflowSiteData(siteSlug: string) {
   return siteDataFromSlug(siteSlug);
 }
 
-async function checkPdfAssets(siteSlug: string): Promise<number> {
+async function collectArchivePlan(
+  type: DownloadType,
+  siteSlug: string,
+): Promise<ArchivePlan> {
   "use step";
   const siteData = await getWorkflowSiteData(siteSlug);
-  const assets = await siteData.documents.listPdfAssets();
+
+  if (type === "markdown") {
+    return { pdfBatches: [] };
+  }
+
+  const assets = ((await siteData.documents.listPdfAssets()) as PdfAsset[]).sort(
+    (a, b) => a.path.localeCompare(b.path),
+  );
   console.log(
     `[download-cache] PDF assets in Convex: ${assets.length} site=${siteSlug}`,
   );
-  return assets.length;
+  return { pdfBatches: batchPdfAssets(assets) };
 }
 
-async function buildAndUpload(type: DownloadType, siteSlug: string): Promise<string> {
+async function createArchiveUpload(
+  type: DownloadType,
+  siteSlug: string,
+): Promise<MultipartUploadState> {
   "use step";
-  const archiver = (await import("archiver")).default;
-
   const token =
     process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ??
     process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) throw new FatalError("Blob write token not set");
 
-  console.log(`[download-cache] Building ${type} archive from Convex site=${siteSlug}`);
-  const t0 = Date.now();
-
-  const BLOB_NAMES =
-    siteSlug === "diana"
-      ? ({
-          full: "diana-tnbc-wiki-full.zip",
-          markdown: "diana-tnbc-wiki-markdown.zip",
-        } as const)
-      : ({
-          full: `${siteSlug}-wiki-full.zip`,
-          markdown: `${siteSlug}-wiki-markdown.zip`,
-        } as const);
-
-  const PART_SIZE = 10 * 1024 * 1024;
-
-  // ── build stream ────────────────────────────────────────────────────────────
-  const zipStream = await new Promise<ReadableStream<Uint8Array>>((resolve) => {
-    resolve(new ReadableStream<Uint8Array>({
-      start(controller) {
-        const arc = archiver("zip", { zlib: { level: 1 } });
-        arc.on("data", (chunk: Buffer) => controller.enqueue(chunk));
-        arc.on("end", () => controller.close());
-        arc.on("error", (err: Error) => controller.error(err));
-
-        (async () => {
-          if (type === "full") {
-            await fillFullArchive(arc, siteSlug);
-          } else {
-            await fillMarkdownArchive(arc, siteSlug);
-          }
-          arc.finalize();
-        })().catch((err: Error) => controller.error(err));
-      },
-    }));
-  });
-
-  // ── multipart upload ────────────────────────────────────────────────────────
-  const { createMultipartUploader } = await import("@vercel/blob");
-  const uploader = await createMultipartUploader(BLOB_NAMES[type], {
+  const pathname = BLOB_NAMES_BY_SITE(siteSlug)[type];
+  const { createMultipartUpload } = await import("@vercel/blob");
+  const upload = await createMultipartUpload(pathname, {
     access: "public",
     token,
     allowOverwrite: true,
+    addRandomSuffix: false,
+    contentType: "application/zip",
   });
+  console.log(`[download-cache] Multipart upload created for ${pathname}`);
+  return { pathname, ...upload };
+}
 
-  const reader = zipStream.getReader();
-  const parts: Array<{ etag: string; partNumber: number }> = [];
-  let partNumber = 1;
-  let chunks: Buffer[] = [];
-  let size = 0;
-  let totalBytes = 0;
+async function uploadPdfArchivePart(
+  upload: MultipartUploadState,
+  batch: PdfAsset[],
+  partNumber: number,
+  startOffset: number,
+): Promise<ArchivePartResult> {
+  "use step";
+  const token =
+    process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ??
+    process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) throw new FatalError("Blob write token not set");
 
-  const flush = async () => {
-    if (size === 0) return;
-    const body = Buffer.concat(chunks);
-    console.log(`[download-cache] Uploading part ${partNumber} (${(size / 1024 / 1024).toFixed(1)} MB)`);
-    try {
-      const part = await uploader.uploadPart(partNumber++, body);
-      parts.push(part);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      throw new RetryableError(`Part upload failed: ${msg}`);
-    }
-    totalBytes += size;
-    chunks = [];
-    size = 0;
-  };
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (value) {
-      chunks.push(Buffer.from(value));
-      size += value.byteLength;
-    }
-    if (size >= PART_SIZE) await flush();
-    if (done) { await flush(); break; }
+  const t0 = Date.now();
+  const { body, entries } = await buildPdfLocalBlocks(batch, startOffset);
+  if (body.byteLength < MIN_MULTIPART_PART_BYTES) {
+    throw new RetryableError(
+      `PDF archive part ${partNumber} is too small for non-final multipart upload`,
+    );
   }
 
-  const result = await uploader.complete(parts);
-  console.log(`[download-cache] Upload complete: ${(totalBytes / 1024 / 1024).toFixed(1)} MB in ${Date.now() - t0}ms → ${result.url}`);
+  const part = await uploadMultipartPart(upload, partNumber, body, token);
+  console.log(
+    `[download-cache] PDF part ${partNumber}: ${entries.length}/${batch.length} PDFs, ${(body.byteLength / 1024 / 1024).toFixed(1)} MB in ${Date.now() - t0}ms`,
+  );
+  return { part, entries, bytesUploaded: body.byteLength };
+}
+
+async function uploadFinalArchivePart(
+  upload: MultipartUploadState,
+  type: DownloadType,
+  siteSlug: string,
+  pdfBatch: PdfAsset[],
+  previousEntries: ZipEntryMetadata[],
+  previousParts: UploadedPart[],
+  partNumber: number,
+  startOffset: number,
+): Promise<string> {
+  "use step";
+  const token =
+    process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ??
+    process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) throw new FatalError("Blob write token not set");
+
+  const t0 = Date.now();
+  const localBuffers: Buffer[] = [];
+  const finalEntries: ZipEntryMetadata[] = [];
+  let offset = startOffset;
+
+  if (type === "full" && pdfBatch.length > 0) {
+    const pdfBlocks = await buildPdfLocalBlocks(pdfBatch, offset);
+    localBuffers.push(pdfBlocks.body);
+    finalEntries.push(...pdfBlocks.entries);
+    offset += pdfBlocks.body.byteLength;
+  }
+
+  const markdownBlocks = await buildMarkdownLocalBlocks(siteSlug, offset);
+  localBuffers.push(markdownBlocks.body);
+  finalEntries.push(...markdownBlocks.entries);
+  offset += markdownBlocks.body.byteLength;
+
+  const allEntries = [...previousEntries, ...finalEntries];
+  const centralDirectory = buildCentralDirectory(allEntries, offset);
+  const body = Buffer.concat([...localBuffers, centralDirectory]);
+  const finalPart = await uploadMultipartPart(upload, partNumber, body, token);
+  const parts = [...previousParts, finalPart].sort(
+    (a, b) => a.partNumber - b.partNumber,
+  );
+
+  const { completeMultipartUpload } = await import("@vercel/blob");
+  const result = await completeMultipartUpload(upload.pathname, parts, {
+    access: "public",
+    token,
+    uploadId: upload.uploadId,
+    key: upload.key,
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    contentType: "application/zip",
+  });
+  const totalBytes = offset + centralDirectory.byteLength;
+  console.log(
+    `[download-cache] Upload complete: ${allEntries.length} entries, ${(totalBytes / 1024 / 1024).toFixed(1)} MB in final step ${Date.now() - t0}ms -> ${result.url}`,
+  );
   return result.url;
 }
 
@@ -152,51 +235,61 @@ async function saveCache(
   );
 }
 
-// ─── archive fill helpers (called inside step, full Node.js access) ───────────
+// ─── archive builders (called inside steps, full Node.js access) ──────────────
 
-async function fillFullArchive(
-  arc: import("archiver").Archiver,
-  siteSlug: string,
-) {
-  const siteData = await getWorkflowSiteData(siteSlug);
+function batchPdfAssets(assets: PdfAsset[]): PdfAsset[][] {
+  const batches: PdfAsset[][] = [];
+  let batch: PdfAsset[] = [];
+  let batchBytes = 0;
 
-  const pdfAssets = await siteData.documents.listPdfAssets();
-  console.log(`[download-cache] Fetching ${pdfAssets.length} PDFs from public Blob`);
-
-  const BATCH = 20;
-  for (let i = 0; i < pdfAssets.length; i += BATCH) {
-    const batch = pdfAssets.slice(i, i + BATCH);
-    const t0 = Date.now();
-    const buffers = await Promise.all(
-      batch.map(async (asset) => {
-        try {
-          const res = await fetch(asset.blobUrl);
-          if (!res.ok) {
-            console.warn(`[download-cache] Failed to fetch PDF ${asset.path}: ${res.status}`);
-            return null;
-          }
-          const buf = Buffer.from(await res.arrayBuffer());
-          return { name: asset.path, buf };
-        } catch (err: unknown) {
-          console.warn(`[download-cache] Failed to fetch PDF ${asset.path}:`, err);
-          return null;
-        }
-      })
-    );
-    const fetched = buffers.filter(Boolean).length;
-    console.log(`[download-cache] PDF batch ${i / BATCH + 1}: ${fetched}/${batch.length} fetched in ${Date.now() - t0}ms`);
-    for (const item of buffers) {
-      if (item) arc.append(item.buf, { name: item.name });
+  for (const asset of assets) {
+    batch.push(asset);
+    batchBytes += Math.max(0, Number(asset.sizeBytes ?? 0));
+    if (batchBytes >= PDF_BATCH_TARGET_BYTES) {
+      batches.push(batch);
+      batch = [];
+      batchBytes = 0;
     }
   }
 
-  await fillMarkdownArchive(arc, siteSlug);
+  if (batch.length > 0) {
+    batches.push(batch);
+  }
+
+  return batches;
 }
 
-async function fillMarkdownArchive(
-  arc: import("archiver").Archiver,
-  siteSlug: string,
-) {
+async function buildPdfLocalBlocks(batch: PdfAsset[], startOffset: number) {
+  const buffers = await Promise.all(
+    batch.map(async (asset) => {
+      try {
+        const res = await fetch(asset.blobUrl);
+        if (!res.ok) {
+          console.warn(
+            `[download-cache] Failed to fetch PDF ${asset.path}: ${res.status}`,
+          );
+          return null;
+        }
+        return {
+          name: asset.path,
+          data: Buffer.from(await res.arrayBuffer()),
+        };
+      } catch (err: unknown) {
+        console.warn(`[download-cache] Failed to fetch PDF ${asset.path}:`, err);
+        return null;
+      }
+    }),
+  );
+
+  const items: NonNullable<(typeof buffers)[number]>[] = [];
+  for (const item of buffers) {
+    if (item) items.push(item);
+  }
+
+  return buildLocalBlocks(items, startOffset);
+}
+
+async function buildMarkdownLocalBlocks(siteSlug: string, startOffset: number) {
   const siteData = await getWorkflowSiteData(siteSlug);
 
   type ListPageResult = { page: Array<{ slug: string; content: string }>; isDone: boolean; continueCursor: string };
@@ -205,6 +298,7 @@ async function fillMarkdownArchive(
   let pageNum = 0;
   let totalDocs = 0;
   const { applyPiiRedactions } = await import("@/lib/pii-redaction");
+  const items: Array<{ name: string; data: Buffer }> = [];
 
   while (!isDone) {
     const page = (await siteData.documents.listPageWithContent({
@@ -214,7 +308,10 @@ async function fillMarkdownArchive(
     for (const doc of page.page) {
       if (doc.content) {
         const content = applyPiiRedactions(doc.content);
-        arc.append(Buffer.from(content, "utf-8"), { name: `${doc.slug}.md` });
+        items.push({
+          name: `${doc.slug}.md`,
+          data: Buffer.from(content, "utf-8"),
+        });
         totalDocs++;
       }
     }
@@ -222,6 +319,164 @@ async function fillMarkdownArchive(
     cursor = page.continueCursor;
     console.log(`[download-cache] Markdown page ${++pageNum}: ${page.page.length} docs (total=${totalDocs}, done=${isDone})`);
   }
+
+  return buildLocalBlocks(items, startOffset);
+}
+
+function buildLocalBlocks(
+  items: Array<{ name: string; data: Buffer }>,
+  startOffset: number,
+): { body: Buffer; entries: ZipEntryMetadata[] } {
+  const buffers: Buffer[] = [];
+  const entries: ZipEntryMetadata[] = [];
+  let offset = startOffset;
+
+  for (const item of items) {
+    const name = normalizeZipEntryName(item.name);
+    const crc = crc32(item.data);
+    const localHeader = buildLocalFileHeader(name, item.data.byteLength, crc);
+
+    entries.push({
+      name,
+      crc32: crc,
+      compressedSize: item.data.byteLength,
+      uncompressedSize: item.data.byteLength,
+      localHeaderOffset: offset,
+      dosTime: DEFAULT_DOS_TIME,
+      dosDate: DEFAULT_DOS_DATE,
+    });
+    buffers.push(localHeader, item.data);
+    offset += localHeader.byteLength + item.data.byteLength;
+  }
+
+  return { body: Buffer.concat(buffers), entries };
+}
+
+function normalizeZipEntryName(name: string) {
+  return name.replace(/^\/+/, "").replaceAll("\\", "/");
+}
+
+function buildLocalFileHeader(name: string, size: number, crc: number) {
+  assertZip32Size(size, "entry size");
+  const nameBuffer = Buffer.from(name, "utf-8");
+  assertZip16Size(nameBuffer.byteLength, "entry name length");
+
+  const header = Buffer.alloc(30 + nameBuffer.byteLength);
+  header.writeUInt32LE(0x04034b50, 0);
+  header.writeUInt16LE(20, 4);
+  header.writeUInt16LE(ZIP_UTF8_FLAG, 6);
+  header.writeUInt16LE(ZIP_STORE_METHOD, 8);
+  header.writeUInt16LE(DEFAULT_DOS_TIME, 10);
+  header.writeUInt16LE(DEFAULT_DOS_DATE, 12);
+  header.writeUInt32LE(crc >>> 0, 14);
+  header.writeUInt32LE(size, 18);
+  header.writeUInt32LE(size, 22);
+  header.writeUInt16LE(nameBuffer.byteLength, 26);
+  header.writeUInt16LE(0, 28);
+  nameBuffer.copy(header, 30);
+  return header;
+}
+
+function buildCentralDirectory(entries: ZipEntryMetadata[], centralOffset: number) {
+  assertZip16Size(entries.length, "ZIP entry count");
+  assertZip32Size(centralOffset, "central directory offset");
+  const records = entries.map(buildCentralDirectoryRecord);
+  const centralSize = records.reduce((total, record) => total + record.byteLength, 0);
+  assertZip32Size(centralSize, "central directory size");
+
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(0, 4);
+  end.writeUInt16LE(0, 6);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(centralOffset, 16);
+  end.writeUInt16LE(0, 20);
+
+  return Buffer.concat([...records, end]);
+}
+
+function buildCentralDirectoryRecord(entry: ZipEntryMetadata) {
+  assertZip32Size(entry.compressedSize, "compressed size");
+  assertZip32Size(entry.uncompressedSize, "uncompressed size");
+  assertZip32Size(entry.localHeaderOffset, "local header offset");
+  const nameBuffer = Buffer.from(entry.name, "utf-8");
+  assertZip16Size(nameBuffer.byteLength, "entry name length");
+
+  const record = Buffer.alloc(46 + nameBuffer.byteLength);
+  record.writeUInt32LE(0x02014b50, 0);
+  record.writeUInt16LE(20, 4);
+  record.writeUInt16LE(20, 6);
+  record.writeUInt16LE(ZIP_UTF8_FLAG, 8);
+  record.writeUInt16LE(ZIP_STORE_METHOD, 10);
+  record.writeUInt16LE(entry.dosTime, 12);
+  record.writeUInt16LE(entry.dosDate, 14);
+  record.writeUInt32LE(entry.crc32 >>> 0, 16);
+  record.writeUInt32LE(entry.compressedSize, 20);
+  record.writeUInt32LE(entry.uncompressedSize, 24);
+  record.writeUInt16LE(nameBuffer.byteLength, 28);
+  record.writeUInt16LE(0, 30);
+  record.writeUInt16LE(0, 32);
+  record.writeUInt16LE(0, 34);
+  record.writeUInt16LE(0, 36);
+  record.writeUInt32LE(0, 38);
+  record.writeUInt32LE(entry.localHeaderOffset, 42);
+  nameBuffer.copy(record, 46);
+  return record;
+}
+
+async function uploadMultipartPart(
+  upload: MultipartUploadState,
+  partNumber: number,
+  body: Buffer,
+  token: string,
+): Promise<UploadedPart> {
+  const { uploadPart } = await import("@vercel/blob");
+  try {
+    return await uploadPart(upload.pathname, body, {
+      access: "public",
+      token,
+      uploadId: upload.uploadId,
+      key: upload.key,
+      partNumber,
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: "application/zip",
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new RetryableError(`Part upload failed: ${msg}`);
+  }
+}
+
+function assertZip16Size(value: number, label: string) {
+  if (value > ZIP_MAX_UINT16) {
+    throw new FatalError(`${label} exceeds ZIP32 limit`);
+  }
+}
+
+function assertZip32Size(value: number, label: string) {
+  if (value > ZIP_MAX_UINT32) {
+    throw new FatalError(`${label} exceeds ZIP32 limit`);
+  }
+}
+
+const CRC_TABLE = new Uint32Array(256);
+for (let i = 0; i < CRC_TABLE.length; i++) {
+  let c = i;
+  for (let k = 0; k < 8; k++) {
+    c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  }
+  CRC_TABLE[i] = c >>> 0;
+}
+
+function crc32(buffer: Buffer) {
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 // ─── workflow orchestrator ────────────────────────────────────────────────────
@@ -236,17 +491,50 @@ export async function buildDownloadCacheWorkflow(
     `[download-cache] Workflow started: type=${type} site=${siteSlug} deploy=${process.env.VERCEL_DEPLOYMENT_ID ?? "local"}`,
   );
 
-  // For the full archive, bail early if PDFs haven't been ingested yet
-  if (type === "full") {
-    const pdfCount = await checkPdfAssets(siteSlug);
-    if (pdfCount === 0) {
-      console.log("[download-cache] No PDFs ingested yet — skipping full cache build");
-      return;
-    }
+  const plan = await collectArchivePlan(type, siteSlug);
+  if (type === "full" && plan.pdfBatches.length === 0) {
+    console.log("[download-cache] No PDFs ingested yet — skipping full cache build");
+    return;
   }
 
-  const url = await buildAndUpload(type, siteSlug);
+  const t0 = Date.now();
+  const upload = await createArchiveUpload(type, siteSlug);
+  const previousEntries: ZipEntryMetadata[] = [];
+  const previousParts: UploadedPart[] = [];
+  const pdfBatchesToUpload =
+    type === "full" ? plan.pdfBatches.slice(0, -1) : [];
+  const finalPdfBatch =
+    type === "full" ? (plan.pdfBatches.at(-1) ?? []) : [];
+  let partNumber = 1;
+  let offset = 0;
+
+  for (const batch of pdfBatchesToUpload) {
+    const result = await uploadPdfArchivePart(
+      upload,
+      batch,
+      partNumber,
+      offset,
+    );
+    previousParts.push(result.part);
+    previousEntries.push(...result.entries);
+    offset += result.bytesUploaded;
+    partNumber++;
+    console.log(
+      `[download-cache] Uploaded ${previousEntries.length} entries so far (${(offset / 1024 / 1024).toFixed(1)} MB)`,
+    );
+  }
+
+  const url = await uploadFinalArchivePart(
+    upload,
+    type,
+    siteSlug,
+    finalPdfBatch,
+    previousEntries,
+    previousParts,
+    partNumber,
+    offset,
+  );
   await saveCache(type, url, siteSlug);
 
-  console.log(`[download-cache] Workflow complete: type=${type}`);
+  console.log(`[download-cache] Workflow complete: type=${type} in ${Date.now() - t0}ms`);
 }

@@ -233,6 +233,43 @@ function zipResponse(
   });
 }
 
+function scheduleBackgroundCacheBuild(type: DownloadType, siteSlug: string) {
+  if (
+    !process.env.PUBLIC_BLOB_READ_WRITE_TOKEN &&
+    !process.env.BLOB_READ_WRITE_TOKEN
+  ) {
+    return false;
+  }
+
+  console.log(`[download] Scheduling background cache build for type=${type}`);
+  import("workflow/api").then(({ start }) =>
+    import("@/workflows/build-download-cache").then(({ buildDownloadCacheWorkflow }) =>
+      start(buildDownloadCacheWorkflow, [type, siteSlug])
+        .then((run) => console.log(`[download] Cache workflow started: ${run.runId}`))
+        .catch((err) => console.error("[download] Failed to start cache workflow:", err))
+    )
+  );
+  return true;
+}
+
+function warmingResponse(siteSlug: string) {
+  return NextResponse.json(
+    {
+      message:
+        "The full wiki download is being prepared. Please try again in a few minutes.",
+      retryAfterSeconds: 600,
+      siteSlug,
+    },
+    {
+      status: 202,
+      headers: {
+        "Cache-Control": "no-store",
+        "Retry-After": "600",
+      },
+    },
+  );
+}
+
 // ─── route handler ────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -251,7 +288,16 @@ export async function GET(request: NextRequest) {
     console.log(`[download] Fast path: redirecting to cached blob (${Date.now() - t0}ms)`);
     return NextResponse.redirect(cached.url);
   }
-  console.log(`[download] Cache cold — streaming on demand`);
+  console.log(`[download] Cache cold`);
+
+  const warmingStarted = scheduleBackgroundCacheBuild(type, siteSlug);
+
+  if (type === "full" && warmingStarted) {
+    console.log(
+      `[download] Full cache cold — returning warming response (${Date.now() - t0}ms)`,
+    );
+    return warmingResponse(siteSlug);
+  }
 
   // Resolve site-scoped PII patterns once per request.
   const site = await getConvexServerClient().query(api.sites.getBySlug, {
@@ -263,23 +309,6 @@ export async function GET(request: NextRequest) {
     type === "markdown"
       ? buildMarkdownArchiveStream(siteData, piiPatterns)
       : buildFullArchiveStream(siteData, piiPatterns);
-
-  // Kick off background cache warm via the workflow
-  // (fire-and-forget: don't await, don't block the response)
-  if (
-    siteSlug === DEFAULT_SITE_SLUG &&
-    (process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ||
-      process.env.BLOB_READ_WRITE_TOKEN)
-  ) {
-    console.log(`[download] Scheduling background cache build for type=${type}`);
-    import("workflow/api").then(({ start }) =>
-      import("@/workflows/build-download-cache").then(({ buildDownloadCacheWorkflow }) =>
-        start(buildDownloadCacheWorkflow, [type])
-          .then((run) => console.log(`[download] Cache workflow started: ${run.runId}`))
-          .catch((err) => console.error("[download] Failed to start cache workflow:", err))
-      )
-    );
-  }
 
   console.log(`[download] Streaming response started (${Date.now() - t0}ms to first byte)`);
   return zipResponse(zipStream, type, siteSlug);
