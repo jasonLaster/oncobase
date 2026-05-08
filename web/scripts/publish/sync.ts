@@ -35,6 +35,19 @@ type SyncOptions = {
   site: string;
 };
 
+export type SyncResult = {
+  site: string;
+  created: number;
+  reviewed: number;
+  unchanged: number;
+  skippedAssets: SkippedAsset[];
+  orphanDocs: string[];
+  orphanAssets: string[];
+  conflicts: string[];
+  reviewDir: string | null;
+  usedPlanEndpoint: boolean;
+};
+
 type SkippedAsset = {
   path: string;
   reason: string;
@@ -300,7 +313,7 @@ export async function mapWithConcurrency<T>(
   await Promise.all(runners);
 }
 
-export async function runSync(options: SyncOptions) {
+export async function runSync(options: SyncOptions): Promise<SyncResult> {
   const config = loadConfig(options.site);
   const token = loadPublishToken(options.site);
   const vaultPath = config.vaultPath;
@@ -319,7 +332,7 @@ export async function runSync(options: SyncOptions) {
   const remoteAssets = plan.assets;
   const remoteDocSlugs = plan.remoteDocSlugs;
   const remoteAssetKeys = plan.remoteAssetKeys;
-  const reviewDir = reviewRoot(vaultPath, config.site);
+  const reviewDirPath = reviewRoot(vaultPath, config.site);
   const conflicts: string[] = [];
   let created = 0;
   let unchanged = plan.planned
@@ -361,7 +374,7 @@ export async function runSync(options: SyncOptions) {
     }
 
     const reviewPath = ensureInsideVault(
-      reviewDir,
+      reviewDirPath,
       path.join("documents", `${doc.slug}.remote.md`),
     );
     fs.mkdirSync(path.dirname(reviewPath), { recursive: true });
@@ -428,7 +441,7 @@ export async function runSync(options: SyncOptions) {
     }
 
     const reviewPath = ensureInsideVault(
-      reviewDir,
+      reviewDirPath,
       path.join("assets", asset.kind, asset.path),
     );
     fs.mkdirSync(path.dirname(reviewPath), { recursive: true });
@@ -448,9 +461,9 @@ export async function runSync(options: SyncOptions) {
   const orphanCount = orphanDocs.length + orphanAssets.length;
 
   if (reviewed > 0 || skippedAssets.length > 0) {
-    fs.mkdirSync(reviewDir, { recursive: true });
+    fs.mkdirSync(reviewDirPath, { recursive: true });
     fs.writeFileSync(
-      path.join(reviewDir, "summary.json"),
+      path.join(reviewDirPath, "summary.json"),
       `${JSON.stringify({ conflicts, orphanDocs, orphanAssets, skippedAssets }, null, 2)}\n`,
     );
   }
@@ -459,14 +472,14 @@ export async function runSync(options: SyncOptions) {
     `Sync ${config.site}: +${created} created, ~${reviewed} review, =${unchanged} unchanged, !${skippedAssets.length} skipped, ?${orphanCount} orphan`,
   );
   if (reviewed > 0) {
-    console.warn(`Divergent local files were not overwritten. Review remote copies in ${reviewDir}`);
+    console.warn(`Divergent local files were not overwritten. Review remote copies in ${reviewDirPath}`);
   }
   if (orphanCount > 0) {
     console.warn("Local-only files are unchanged. They may be new local work or previously tombstoned remote content.");
   }
   if (skippedAssets.length > 0) {
     console.warn(
-      `Skipped ${skippedAssets.length} remote assets that could not be downloaded safely. Review ${path.join(reviewDir, "summary.json")}`,
+      `Skipped ${skippedAssets.length} remote assets that could not be downloaded safely. Review ${path.join(reviewDirPath, "summary.json")}`,
     );
     for (const asset of skippedAssets.slice(0, 20)) {
       console.warn(`  ${asset.path}: ${asset.reason}`);
@@ -477,6 +490,19 @@ export async function runSync(options: SyncOptions) {
   }
   writeSyncCache(vaultPath, config.site, syncCache);
   syncSkills(config.site);
+
+  return {
+    site: config.site,
+    created,
+    reviewed,
+    unchanged,
+    skippedAssets,
+    orphanDocs,
+    orphanAssets,
+    conflicts,
+    reviewDir: reviewed > 0 || skippedAssets.length > 0 ? reviewDirPath : null,
+    usedPlanEndpoint: plan.planned,
+  };
 }
 
 if (import.meta.main) {

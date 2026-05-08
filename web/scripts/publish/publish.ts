@@ -159,11 +159,12 @@ const dryRun = hasFlag(args, "--dry-run");
 const force = hasFlag(args, "--force");
 const confirmTombstone = hasFlag(args, "--confirm-tombstone") || force;
 const syncFirst = hasFlag(args, "--sync-first");
+const noSyncPreflight = hasFlag(args, "--no-sync-preflight");
 const allowDirty = hasFlag(args, "--allow-dirty");
 
 if (!site) {
   console.error(
-    "Usage: bun scripts/publish/publish.ts --site <slug> [--dry-run] [--force] [--confirm-tombstone] [--sync-first] [--allow-dirty]",
+    "Usage: bun scripts/publish/publish.ts --site <slug> [--dry-run] [--force] [--confirm-tombstone] [--sync-first] [--no-sync-preflight] [--allow-dirty]",
   );
   process.exit(1);
 }
@@ -172,9 +173,24 @@ const config = loadConfig(site);
 const token = loadPublishToken(site);
 ensureCleanVault(config.vaultPath, { allowDirty });
 
-if (syncFirst) {
+const shouldRunSyncPreflight = syncFirst || !noSyncPreflight;
+if (shouldRunSyncPreflight) {
   const { runSync } = await import("./sync");
-  await runSync({ site });
+  const syncResult = await runSync({ site });
+  if (syncResult.reviewed > 0 || syncResult.skippedAssets.length > 0) {
+    const reasons: string[] = [];
+    if (syncResult.reviewed > 0) {
+      reasons.push(`${syncResult.reviewed} conflicting remote files copied to review`);
+    }
+    if (syncResult.skippedAssets.length > 0) {
+      reasons.push(`${syncResult.skippedAssets.length} remote assets skipped during sync`);
+    }
+    console.error(`Sync preflight found issues: ${reasons.join("; ")}.`);
+    if (syncResult.reviewDir) {
+      console.error(`Resolve review items in ${syncResult.reviewDir} before publishing.`);
+    }
+    process.exit(1);
+  }
 }
 
 const documents = readVaultDocuments(config.vaultPath);
