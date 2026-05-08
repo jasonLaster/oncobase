@@ -79,6 +79,27 @@ function constantTimeEqual(a: string, b: string) {
   return crypto.timingSafeEqual(ab, bb);
 }
 
+function publishTokenMatches(
+  site: {
+    publishTokenHash: string;
+    publishTokenHashes?: string[];
+    publishTokens?: Array<{ hash: string; revokedAt?: number }>;
+  },
+  token: string,
+) {
+  const tokenHash = hashToken(token);
+  const hashes = Array.from(
+    new Set([
+      site.publishTokenHash,
+      ...(site.publishTokenHashes ?? []),
+      ...(site.publishTokens ?? [])
+        .filter((publishToken) => publishToken.revokedAt === undefined)
+        .map((publishToken) => publishToken.hash),
+    ].filter(Boolean)),
+  );
+  return hashes.some((hash) => constantTimeEqual(hash, tokenHash));
+}
+
 async function requirePublishSite(request: Request, siteSlug: string) {
   const token = bearerToken(request);
   if (!token) {
@@ -86,7 +107,7 @@ async function requirePublishSite(request: Request, siteSlug: string) {
   }
   const convex = getConvexServerClient();
   const site = await convex.query(api.sites.getBySlug, { slug: siteSlug });
-  if (!site || !constantTimeEqual(site.publishTokenHash, hashToken(token))) {
+  if (!site || !publishTokenMatches(site, token)) {
     throw new Response("Invalid publish token", { status: 401 });
   }
   return { convex, site, siteData: siteDataFromSlug(siteSlug, convex) };

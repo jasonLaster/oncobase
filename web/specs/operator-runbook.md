@@ -54,22 +54,41 @@ for publish operations, the per-site
 5. Verify the host resolves to the site, the password gate works
    if enabled, and `x-site-slug` injection is rejected.
 
-## Rotate A Publish Token
+## Add A Publish Token
 
-1. Generate a fresh token + hash:
+Use additive publish tokens for normal recovery, new machines, or
+additional publishers. Existing tokens keep working.
+
+```sh
+bun run wiki:site:token:add --site <slug> --name "Jason laptop"
+```
+
+Send the printed plaintext token to the publisher through a private
+channel, then have them run `wiki:check` to verify.
+
+For the local operator machine, write the token directly to the
+standard publisher token file:
+
+```sh
+bun run wiki:site:token:add --site <slug> --name "operator laptop" --write-local
+```
+
+## Rotate All Publish Tokens
+
+Full rotation should be rare: use it only when an existing token is
+known to be compromised. Until a revocation CLI exists:
+
+1. Generate a replacement token + hash:
    ```sh
    TOKEN=wpt_$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
    HASH=sha256:$(printf %s "$TOKEN" | shasum -a 256 | awk '{print $1}')
    ```
-2. Patch `sites.publishTokenHash` to the new hash via
-   `bunx convex run sites:create` won't work (it'd create a new
-   row). For now, use the Convex dashboard to set
-   `publishTokenHash` directly. Promote to a CLI command on the
-   second rotation.
+2. In Convex, set `sites.publishTokenHash` to `HASH` and
+   `sites.publishTokenHashes` to `[HASH]`.
 3. Send the plaintext token to the publisher through a private
    channel.
 4. Have the publisher run `wiki:check` to verify.
-5. Confirm the old token returns 401 from `/api/publish/begin`.
+5. Confirm old tokens return 401 from `/api/publish/begin`.
 
 ## Archive A Site
 

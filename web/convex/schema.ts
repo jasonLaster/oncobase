@@ -19,6 +19,18 @@ export default defineSchema({
     status: v.union(v.literal("active"), v.literal("archived")),
     domains: v.array(v.string()),
     publishTokenHash: v.string(),
+    publishTokenHashes: v.optional(v.array(v.string())),
+    publishTokens: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          hash: v.string(),
+          createdAt: v.number(),
+          revokedAt: v.optional(v.number()),
+        }),
+      ),
+    ),
     config: v.object({
       title: v.optional(v.string()),
       description: v.optional(v.string()),

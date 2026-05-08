@@ -157,8 +157,10 @@ to bust the per-site cache; per-document edits also bust
 
 Publishers run `bun run wiki:publish` against their local Obsidian
 vault. The CLI hits `web/src/app/api/publish/[...step]/route.ts`
-with a Bearer publish token whose hash matches
-`sites.publishTokenHash`.
+with a Bearer publish token whose hash matches one of the site's
+stored hashes. `sites.publishTokenHash` is the legacy primary hash;
+`sites.publishTokens` stores labelled per-device or per-publisher keys
+without invalidating existing publishers.
 
 - `POST /api/publish/begin` — JSON manifest of `{slug, hash}` for
   documents and `{path, hash, kind}` for assets. Document hashes cover

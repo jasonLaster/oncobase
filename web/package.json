@@ -25,6 +25,7 @@
     "wiki:sync": "bun scripts/publish/sync.ts",
     "wiki:skills": "bun scripts/publish/skills.ts",
     "wiki:site:create": "bun scripts/admin/create-site.ts",
+    "wiki:site:token:add": "bun scripts/admin/add-publish-token.ts",
     "wiki:site:archive": "bun scripts/admin/archive-site.ts",
     "wiki:site:restore": "bun scripts/admin/restore-site.ts",
     "wiki:site:lock-clear": "bun scripts/admin/clear-publish-lock.ts",

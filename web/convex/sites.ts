@@ -21,6 +21,58 @@ const defaultQuotas = {
   blobBytes: 1_000_000_000,
 };
 
+function publishTokenHashes(site: {
+  publishTokenHash: string;
+  publishTokenHashes?: string[];
+  publishTokens?: Array<{ hash: string; revokedAt?: number }>;
+}) {
+  return Array.from(
+    new Set([
+      site.publishTokenHash,
+      ...(site.publishTokenHashes ?? []),
+      ...(site.publishTokens ?? [])
+        .filter((token) => token.revokedAt === undefined)
+        .map((token) => token.hash),
+    ].filter(Boolean)),
+  );
+}
+
+function addPublishTokenHash(
+  site: {
+    publishTokenHash: string;
+    publishTokenHashes?: string[];
+    publishTokens?: Array<{ hash: string; revokedAt?: number }>;
+  },
+  hash: string,
+) {
+  return Array.from(new Set([...publishTokenHashes(site), hash]));
+}
+
+function publishTokenRecord(name: string, hash: string, now: number) {
+  return {
+    id: `${now}-${hash.slice(-8)}`,
+    name,
+    hash,
+    createdAt: now,
+  };
+}
+
+function addPublishTokenRecord(
+  tokens: Array<{
+    id: string;
+    name: string;
+    hash: string;
+    createdAt: number;
+    revokedAt?: number;
+  }> | undefined,
+  name: string,
+  hash: string,
+  now: number,
+) {
+  if (tokens?.some((token) => token.hash === hash)) return tokens;
+  return [...(tokens ?? []), publishTokenRecord(name, hash, now)];
+}
+
 export const getByHost = query({
   args: { host: v.string() },
   handler: async (ctx, { host }) => {
@@ -84,9 +136,21 @@ export const ensureDiana = mutation({
       const domains = existing.domains.includes(domain)
         ? existing.domains
         : [domain, ...existing.domains];
+      const tokenPatch = args.publishTokenHash
+        ? {
+            publishTokenHash: existing.publishTokenHash || args.publishTokenHash,
+            publishTokenHashes: addPublishTokenHash(existing, args.publishTokenHash),
+            publishTokens: addPublishTokenRecord(
+              existing.publishTokens,
+              "diana bootstrap",
+              args.publishTokenHash,
+              now,
+            ),
+          }
+        : {};
       await ctx.db.patch(existing._id, {
         domains,
-        publishTokenHash: args.publishTokenHash ?? existing.publishTokenHash,
+        ...tokenPatch,
         config: args.passwordHash
           ? { ...existing.config, passwordHash: args.passwordHash }
           : existing.config,
@@ -102,6 +166,10 @@ export const ensureDiana = mutation({
       status: "active",
       domains: [domain, "localhost"],
       publishTokenHash: args.publishTokenHash ?? "",
+      publishTokenHashes: args.publishTokenHash ? [args.publishTokenHash] : [],
+      publishTokens: args.publishTokenHash
+        ? [publishTokenRecord("diana bootstrap", args.publishTokenHash, now)]
+        : [],
       config: {
         ...defaultConfig,
         title: "Diana TNBC",
@@ -144,6 +212,8 @@ export const create = mutation({
       status: "active",
       domains: [normalizeHost(args.domain)],
       publishTokenHash: args.publishTokenHash,
+      publishTokenHashes: [args.publishTokenHash],
+      publishTokens: [publishTokenRecord("initial publisher", args.publishTokenHash, now)],
       config: {
         ...defaultConfig,
         title: args.title ?? args.name,
@@ -155,6 +225,38 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
     });
+  },
+});
+
+export const addPublishToken = mutation({
+  args: {
+    slug: v.string(),
+    publishTokenHash: v.string(),
+    name: v.optional(v.string()),
+  },
+  handler: async (ctx, { slug, publishTokenHash, name }) => {
+    assertSiteSlug(slug);
+    const site = await ctx.db
+      .query("sites")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .first();
+    if (!site || site.status !== "active") {
+      throw new Error("site not active");
+    }
+    const hashes = addPublishTokenHash(site, publishTokenHash);
+    const now = Date.now();
+    await ctx.db.patch(site._id, {
+      publishTokenHash: site.publishTokenHash || publishTokenHash,
+      publishTokenHashes: hashes,
+      publishTokens: addPublishTokenRecord(
+        site.publishTokens,
+        name ?? "publisher",
+        publishTokenHash,
+        now,
+      ),
+      updatedAt: now,
+    });
+    return { siteId: site._id, publishTokenHashes: hashes.length };
   },
 });
 

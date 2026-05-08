@@ -72,6 +72,7 @@ These don't run on every publish, but you'll meet them when onboarding a tenant.
 | Script | Use when |
 |---|---|
 | `wiki:site:create` | Bring up a new tenant — inserts the `sites` row, attaches domains. |
+| `wiki:site:token:add` | Add a publish token without invalidating existing publishers. |
 | `wiki:site:archive` / `restore` | Soft-archive a tenant; flips `status` and stops public reads. |
 | `wiki:site:lock-clear` | Clears `publishLockUntil` if a publish hung. |
 | `wiki:site:backfill` | Backfills `siteId` on legacy rows (one-time per tenant). |
