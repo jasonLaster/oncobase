@@ -93,7 +93,7 @@ function CrossTabStream({
     }),
     [text, parts]
   );
-  return <AssistantMessage message={synthetic} isStreaming />;
+  return <AssistantMessage message={synthetic} isStreaming testId="chat-cross-tab-message" />;
 }
 
 interface ChatInterfaceProps {
@@ -538,6 +538,7 @@ export function ChatInterface({
   const renderComposer = (flat = false) => (
     <PromptInput
       onSubmit={handlePromptSubmit}
+      data-test-id="chat-composer"
       className={
         flat
           ? "[&_[data-slot=input-group]]:bg-white [&_[data-slot=input-group]]:border-[var(--sidebar-border)] dark:[&_[data-slot=input-group]]:bg-neutral-800 dark:[&_[data-slot=input-group]]:border-neutral-700 [&_[data-slot=input-group]]:shadow-sm [&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-0 [&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:border-[var(--brand)]"
@@ -552,6 +553,7 @@ export function ChatInterface({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleComposerKeyDown}
           placeholder={copy.promptPlaceholder}
+          data-test-id="chat-composer-textarea"
         />
       </PromptInputBody>
       <PromptInputFooter>
@@ -560,6 +562,7 @@ export function ChatInterface({
           status={status}
           disabled={!isStreaming && !input.trim()}
           onStop={handleStop}
+          data-test-id="chat-submit-button"
           className="bg-[var(--brand)] text-white hover:bg-[var(--brand)]/90 disabled:bg-[var(--brand)] disabled:text-white disabled:opacity-100"
         />
       </PromptInputFooter>
@@ -567,7 +570,10 @@ export function ChatInterface({
   );
 
   const suggestedPills = copy.suggestedPrompts.length > 0 && (
-    <section className="w-full flex-1 border-t border-[var(--sidebar-border)]">
+    <section
+      className="w-full flex-1 border-t border-[var(--sidebar-border)]"
+      data-test-id="chat-suggested-prompts"
+    >
       <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-16 flex flex-col gap-4">
         <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
           Example questions
@@ -581,6 +587,7 @@ export function ChatInterface({
                   type="button"
                   aria-label={prompt.label}
                   onClick={() => void submitMessage(prompt.label)}
+                  data-test-id="chat-suggested-prompt"
                   className="w-full flex items-start gap-3 text-left text-sm py-3 cursor-pointer hover:text-[var(--brand)] transition-colors"
                 >
                   {prompt.badge && (
@@ -606,9 +613,15 @@ export function ChatInterface({
       className={`flex flex-col h-full w-full relative ${
         showEmptyState ? "" : "max-w-3xl mx-auto"
       }`}
+      data-test-id="chat-interface"
+      data-chat-status={status}
+      data-chat-conversation-id={activeConvId ?? "new"}
     >
       {showEmptyState ? (
-        <div className="flex-1 min-h-0 flex flex-col w-full overflow-y-auto">
+        <div
+          className="flex-1 min-h-0 flex flex-col w-full overflow-y-auto"
+          data-test-id="chat-empty-state"
+        >
           <div className="w-full px-4 sm:px-6 pt-16 sm:pt-24 pb-24 sm:pb-32 flex flex-col items-center">
             <div className="w-full max-w-2xl flex flex-col gap-6">
               <div className="space-y-2 text-center">
@@ -623,7 +636,11 @@ export function ChatInterface({
               </div>
               {renderComposer(true)}
               {error && (
-                <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-sm">
+                <div
+                  className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-sm"
+                  data-test-id="chat-error"
+                  role="alert"
+                >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 mt-0.5">
                     <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 4a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0V5zm.75 6.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z" />
                   </svg>
@@ -636,7 +653,7 @@ export function ChatInterface({
         </div>
       ) : (
         <>
-      <Conversation className="flex-1 min-h-0">
+      <Conversation className="flex-1 min-h-0" data-test-id="chat-message-log">
         <ConversationContent
           className="px-2 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4"
           aria-live="polite"
@@ -667,6 +684,7 @@ export function ChatInterface({
                 className="flex gap-1 py-2 motion-reduce:animate-none"
                 role="status"
                 aria-label={copy.generatingLabel}
+                data-test-id="chat-stream-pending"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce motion-reduce:animate-none" />
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] animate-bounce motion-reduce:animate-none [animation-delay:0.15s]" />
@@ -675,7 +693,11 @@ export function ChatInterface({
             )}
 
           {error && (
-            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-sm">
+            <div
+              className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-sm"
+              data-test-id="chat-error"
+              role="alert"
+            >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 mt-0.5">
                 <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 4a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0V5zm.75 6.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z" />
               </svg>

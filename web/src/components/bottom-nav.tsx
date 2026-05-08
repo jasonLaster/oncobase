@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
 import { TreeNode, formatName } from "@/components/sidebar";
@@ -20,9 +20,18 @@ function getPageTitle(pathname: string): string {
   return formatName(decodeURIComponent(last || ""));
 }
 
+function subscribePathnameSnapshot() {
+  return () => {};
+}
+
 export function BottomNav({ tree }: { tree: FileNode[] }) {
   const [open, setOpen] = useState(false);
-  const pathname = usePathname();
+  const routerPathname = usePathname();
+  const pathname = useSyncExternalStore(
+    subscribePathnameSnapshot,
+    () => routerPathname,
+    () => "/"
+  );
   const title = getPageTitle(pathname);
   const isChatRoute = pathname.startsWith("/chat");
 
@@ -52,8 +61,9 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
         onClick={() => setOpen(true)}
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-12 bg-[var(--sidebar-bg)]/95 backdrop-blur-sm border-t border-[var(--sidebar-border)]"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        data-test-id="bottom-nav-trigger"
       >
-        <span className="text-sm font-medium truncate">{title}</span>
+        <span className="truncate text-sm font-medium">{title}</span>
         <svg
           width="16"
           height="16"
@@ -76,6 +86,8 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
         }`}
+        data-test-id="bottom-nav-sheet"
+        data-state={open ? "open" : "closed"}
       >
         {/* Backdrop */}
         <div
@@ -119,7 +131,10 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
           </div>
 
           {/* Scrollable navigation */}
-          <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-0.5">
+          <nav
+            className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain p-2"
+            data-test-id={isChatRoute ? "bottom-nav-chat-list" : "bottom-nav-page-tree"}
+          >
             {isChatRoute ? (
               <ConversationList />
             ) : (

@@ -107,11 +107,11 @@ async function blockAppScripts(page: Page) {
 }
 
 function appHeader(page: Page) {
-  return page.locator("header").filter({ has: page.getByLabel("Home") }).first();
+  return page.getByTestId("app-header");
 }
 
 function headerSearchInput(page: Page) {
-  return appHeader(page).locator('input[placeholder="Search wiki..."]').first();
+  return page.getByTestId("header-search-input");
 }
 
 async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
@@ -168,7 +168,7 @@ test.describe("Page load experience", () => {
     await page.goto(withMagicLink("/about/Index"), { waitUntil: "commit" });
 
     const header = appHeader(page);
-    const bottomBar = page.locator("button.md\\:hidden.fixed.bottom-0").first();
+    const bottomBar = page.getByTestId("bottom-nav-trigger");
 
     await expect(header).toBeVisible();
     await expect(headerSearchInput(page)).toBeVisible();

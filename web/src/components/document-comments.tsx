@@ -1148,6 +1148,9 @@ function CommentsShell({
             ref={articleRef}
             onPointerUp={handlePointerUp}
             className="relative mx-auto max-w-4xl overflow-visible pr-4 md:pr-8"
+            data-test-id="document-article"
+            data-document-slug={documentSlug}
+            aria-label={documentTitle}
           >
             <div
               data-comment-highlight-layer
@@ -1330,7 +1333,17 @@ function getRoomId(slug: string) {
  * Outline-only sidebar shell. Always rendered — provides document outline
  * without any Liveblocks/comments dependency.
  */
-export function OutlineShell({ children, onActivate }: { children: ReactNode; onActivate?: () => void }) {
+export function OutlineShell({
+  children,
+  documentSlug,
+  documentTitle,
+  onActivate,
+}: {
+  children: ReactNode;
+  documentSlug?: string;
+  documentTitle?: string;
+  onActivate?: () => void;
+}) {
   const articleRef = useRef<HTMLElement | null>(null);
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
   const {
@@ -1427,7 +1440,13 @@ export function OutlineShell({ children, onActivate }: { children: ReactNode; on
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-4 md:px-8 md:py-8 comments-content-wrapper">
         <div className="min-w-0 flex-1">
-          <article ref={articleRef} className="relative mx-auto max-w-4xl overflow-visible pr-4 md:pr-8">
+          <article
+            ref={articleRef}
+            className="relative mx-auto max-w-4xl overflow-visible pr-4 md:pr-8"
+            data-test-id="document-article"
+            data-document-slug={documentSlug}
+            aria-label={documentTitle}
+          >
             {children}
           </article>
         </div>

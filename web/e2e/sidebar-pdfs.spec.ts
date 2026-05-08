@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const sidebar = "aside.hidden.md\\:flex nav";
+const sidebar = "[data-test-id='sidebar-tree']";
 
 type FileNode = {
   name: string;

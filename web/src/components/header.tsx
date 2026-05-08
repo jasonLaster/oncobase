@@ -1,6 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useState, useTransition } from "react";
+import {
+  Suspense,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ActionsMenu } from "@/components/actions-menu";
@@ -35,6 +41,7 @@ function NewChatButton() {
       onClick={handleClick}
       aria-label="New chat"
       title="New chat"
+      data-test-id="header-new-chat"
       data-pending={pending ? "" : undefined}
       className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] active:scale-[0.97] transition-all text-[var(--text-muted)] text-xs shrink-0 data-[pending]:opacity-60"
     >
@@ -46,8 +53,11 @@ function NewChatButton() {
 
 export function Header() {
   return (
-    <header className="shrink-0 z-30 flex items-center gap-3 border-b border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]/95 backdrop-blur-sm px-4 h-12">
-      <Link href="/" aria-label="Home" className="shrink-0">
+    <header
+      className="z-30 flex h-12 shrink-0 items-center gap-3 border-b border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]/95 px-4 backdrop-blur-sm"
+      data-test-id="app-header"
+    >
+      <Link href="/" aria-label="Home" className="shrink-0" data-test-id="header-home">
         <Logo />
       </Link>
 
@@ -62,6 +72,7 @@ export function Header() {
             onClick={openCommandPalette}
             aria-label="Find files (⌘P)"
             title="Find files (⌘P)"
+            data-test-id="header-command-palette"
             className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-[var(--sidebar-border)] hover:bg-[var(--accent-light)] transition-colors text-[var(--text-muted)] text-xs shrink-0"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -90,10 +101,19 @@ function Logo() {
   );
 }
 
+function subscribeHydrationSnapshot() {
+  return () => {};
+}
+
 function HeaderSearch() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const hydrated = useSyncExternalStore(
+    subscribeHydrationSnapshot,
+    () => true,
+    () => false
+  );
   const derivedQuery = pathname === "/search" ? (searchParams.get("q") || "") : "";
   const [query, setQuery] = useState(derivedQuery);
 
@@ -110,6 +130,11 @@ function HeaderSearch() {
 
   return (
     <form
+      action="/search"
+      method="get"
+      data-test-id="header-search-form"
+      data-hydrated={hydrated ? "true" : "false"}
+      role="search"
       onSubmit={(e) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
@@ -127,6 +152,8 @@ function HeaderSearch() {
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={(e) => e.stopPropagation()}
         placeholder="Search wiki..."
+        aria-label="Search wiki"
+        data-test-id="header-search-input"
         className="w-full h-[30px] pl-9 pr-3 rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--text-muted)] hover:border-[var(--brand)] focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)] transition-colors"
       />
     </form>
@@ -144,6 +171,7 @@ function HeaderSearchFallback() {
         disabled
         placeholder="Search wiki..."
         aria-label="Search wiki"
+        data-test-id="header-search-input"
         className="w-full h-[30px] pl-9 pr-3 rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--text-muted)] opacity-100 disabled:cursor-default"
       />
     </div>

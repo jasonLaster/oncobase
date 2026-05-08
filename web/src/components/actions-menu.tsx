@@ -287,6 +287,7 @@ export function ActionsMenu() {
               variant="ghost"
               size="icon-sm"
               aria-label="Actions"
+              data-test-id="header-actions-menu"
               className="text-[var(--text-muted)]"
             />
           }

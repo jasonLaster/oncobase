@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { test, expect, type APIRequestContext, type APIResponse } from "@playwright/test";
+import { mockAISearch } from "./ai-search-mock";
 
 const diagnosisPath = "/wiki/diagnostics/diagnosis";
 const aboutPath = "/about/About";
@@ -85,16 +86,16 @@ test.describe("PII redaction", () => {
   });
 
   test("text search excludes redacted identifiers", async ({ page }) => {
+    await mockAISearch(page, { body: { results: [] } });
+
     for (const query of [hiddenMrn, hiddenPatientName]) {
       await page.goto(`/search?q=${encodeURIComponent(query)}`);
 
-      const textSearchButton = page.getByRole("button", { name: "Text Search" });
+      const textSearchButton = page.getByTestId("search-tab-text");
       await expect(textSearchButton).toBeVisible({ timeout: 10_000 });
       await textSearchButton.click();
 
-      await expect(
-        page.locator("div").filter({ hasText: /No results for/i }).last()
-      ).toBeVisible({
+      await expect(page.getByTestId("search-text-empty")).toBeVisible({
         timeout: 30_000,
       });
     }

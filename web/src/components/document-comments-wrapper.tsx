@@ -29,16 +29,32 @@ export function DocumentComments({
   }, []);
 
   if (!commentsEnabled) {
-    return <OutlineShell>{children}</OutlineShell>;
+    return (
+      <OutlineShell documentSlug={documentSlug} documentTitle={documentTitle}>
+        {children}
+      </OutlineShell>
+    );
   }
 
   if (!liveblocksActive) {
-    return <OutlineShell onActivate={() => setLiveblocksActive(true)}>{children}</OutlineShell>;
+    return (
+      <OutlineShell
+        documentSlug={documentSlug}
+        documentTitle={documentTitle}
+        onActivate={() => setLiveblocksActive(true)}
+      >
+        {children}
+      </OutlineShell>
+    );
   }
 
   return (
     <Suspense
-      fallback={<OutlineShell>{children}</OutlineShell>}
+      fallback={
+        <OutlineShell documentSlug={documentSlug} documentTitle={documentTitle}>
+          {children}
+        </OutlineShell>
+      }
     >
       <ActiveComments
         documentSlug={documentSlug}

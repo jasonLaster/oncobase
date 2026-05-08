@@ -54,5 +54,6 @@ export default defineConfig({
     baseURL,
     extraHTTPHeaders,
     screenshot: "only-on-failure",
+    testIdAttribute: "data-test-id",
   },
 });

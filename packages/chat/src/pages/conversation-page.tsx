@@ -4,7 +4,12 @@ import { ConversationPageClient } from "./conversation-client";
 
 function ChatLoading() {
   return (
-    <div className="flex items-center justify-center h-full text-sm text-[var(--text-muted)]">
+    <div
+      className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]"
+      role="status"
+      aria-label="Loading conversation"
+      data-test-id="chat-conversation-loading"
+    >
       <span className="inline-block w-4 h-4 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin mr-2" />
       Loading conversation...
     </div>

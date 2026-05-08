@@ -299,11 +299,13 @@ function AssistantMessageImpl({
   onRegenerate,
   showActions = true,
   isStreaming = false,
+  testId = "chat-assistant-message",
 }: {
   message: ChatUIMessage;
   onEdit?: () => void;
   onRegenerate?: (messageId: string) => void;
   showActions?: boolean;
+  testId?: string;
   /**
    * True only for the assistant row that is currently receiving tokens.
    * Threaded down to the markdown wrapper so Streamdown runs in
@@ -341,7 +343,14 @@ function AssistantMessageImpl({
   if (!hasContent) return null;
 
   return (
-    <div className="group/assistant min-w-0 max-w-full text-sm space-y-3" data-slot="assistant-message">
+    <div
+      className="group/assistant min-w-0 max-w-full text-sm space-y-3"
+      data-slot="assistant-message"
+      data-test-id={testId}
+      data-message-role="assistant"
+      data-message-id={message.id}
+      data-streaming={isStreaming ? "true" : undefined}
+    >
       {groups.map((group, i) => {
         if (group.kind === "text") {
           return (
@@ -398,7 +407,8 @@ export const AssistantMessage = memo(
     a.onEdit === b.onEdit &&
     a.onRegenerate === b.onRegenerate &&
     a.showActions === b.showActions &&
-    a.isStreaming === b.isStreaming
+    a.isStreaming === b.isStreaming &&
+    a.testId === b.testId
 );
 
 function AssistantMessageActionsImpl({
@@ -509,6 +519,10 @@ function UserMessageRowImpl({ message, onEdit }: UserMessageRowProps) {
   return (
     <div
       className={`group/msg min-w-0 border-t border-[var(--sidebar-border)] pt-4 ${message.disabled ? "opacity-50" : ""}`}
+      data-test-id="chat-user-message"
+      data-message-role="user"
+      data-message-id={message.id}
+      data-disabled={message.disabled ? "true" : undefined}
     >
       <div className="flex min-w-0 items-start gap-2">
         <div

@@ -4,9 +4,9 @@ const TIMELINE_ROUTE = "/sources/resources/04-20-phm-mopro-wishlist-analysis";
 
 test.describe("timeline gantt rendering", () => {
   test("renders the timeline gantt mermaid diagram", async ({ page }) => {
-    await page.goto(TIMELINE_ROUTE, { waitUntil: "networkidle" });
+    await page.goto(TIMELINE_ROUTE, { waitUntil: "domcontentloaded" });
 
-    const article = page.locator("article:visible").first();
+    const article = page.getByTestId("document-article").first();
     await expect(article).toBeVisible();
 
     await expect(article.locator(".mermaid-placeholder")).toHaveCount(0, {

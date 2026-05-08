@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { chatComposer } from "./helpers";
 
 /**
  * Chat performance scenarios — Phase 0 baseline + per-phase regression.
@@ -81,7 +82,7 @@ test.describe("Chat perf", () => {
   // many races in degraded environments.
 
   test("P0-A composer accepts input", async ({ page }) => {
-    const textarea = page.getByPlaceholder("Ask a question...").first();
+    const textarea = chatComposer(page);
     await textarea.fill("What is the treatment plan?");
     await expect(textarea).toHaveValue("What is the treatment plan?");
     const sample = await readPerf(page, "P0-A").catch(

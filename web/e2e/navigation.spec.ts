@@ -1,24 +1,8 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import { documentArticle, openCommandPalette } from "./helpers";
 
 // Desktop sidebar locator
-const sidebar = "aside.hidden.md\\:flex nav";
-
-async function openFilePalette(page: Page) {
-  const input = page.locator("[data-slot=command-input]");
-
-  await expect
-    .poll(
-      async () => {
-        await page.getByRole("button", { name: /Find files/ }).click();
-        return input.isVisible().catch(() => false);
-      },
-      { timeout: 15_000 }
-    )
-    .toBe(true);
-
-  await expect(input).toBeEditable({ timeout: 15_000 });
-  return input;
-}
+const sidebar = "[data-test-id='sidebar-tree']";
 
 test.describe("Page viewing & sidebar navigation", () => {
   test("serves the about index canonical redirect before rendering", async ({ request }) => {
@@ -32,7 +16,7 @@ test.describe("Page viewing & sidebar navigation", () => {
 
   test("home page loads with wiki content", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator("article").first()).toBeVisible();
+    await expect(documentArticle(page)).toBeVisible();
     const nav = page.locator(sidebar);
     await expect(
       nav.getByRole("button", { name: /^(▼|▶) sources$/ })
@@ -89,7 +73,7 @@ test.describe("Page viewing & sidebar navigation", () => {
 
   test("command palette opens with Ctrl+K", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("button", { name: /Find files/ })).toBeVisible();
+    await expect(page.getByTestId("header-command-palette")).toBeVisible();
     const commandInput = page.locator('[role="dialog"] [role="combobox"]').first();
 
     await expect
@@ -105,7 +89,7 @@ test.describe("Page viewing & sidebar navigation", () => {
 
   test("command palette Enter navigation does not flash the outline palette", async ({ page }) => {
     await page.goto("/");
-    const input = await openFilePalette(page);
+    const input = await openCommandPalette(page);
     await input.fill("Journal");
     const journalItem = page.locator('[cmdk-item][data-value="about/Journal"]').first();
     await expect(journalItem).toBeVisible();
@@ -138,7 +122,7 @@ test.describe("Page viewing & sidebar navigation", () => {
 
     await input.press("Enter");
     await expect(page).toHaveURL(/\/about\/Journal$/);
-    await page.waitForTimeout(750);
+    await expect(page.locator('[role="dialog"]')).toHaveCount(0);
 
     const result = await page.evaluate(() => {
       const win = window as typeof window & {

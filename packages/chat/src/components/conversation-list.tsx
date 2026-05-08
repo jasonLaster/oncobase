@@ -50,10 +50,11 @@ function ConversationListContent() {
   const isNewChat = routes.isNewChatPath(pathname) && activeId === null;
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="flex min-h-full flex-col" data-test-id="conversation-list">
       <div className="space-y-0.5">
       <Link
         href={routes.newChatPath}
+        data-test-id="conversation-list-new-chat"
         className={`flex items-center gap-1.5 px-2 py-1.5 text-sm rounded transition-colors ${
           isNewChat
             ? "bg-[var(--accent-light)] text-[var(--brand)] font-medium"
@@ -67,7 +68,12 @@ function ConversationListContent() {
         {copy.newChatLabel}
       </Link>
       {conversations === undefined && (
-        <div className="px-2 py-1 text-xs text-[var(--text-muted)]">
+        <div
+          className="px-2 py-1 text-xs text-[var(--text-muted)]"
+          role="status"
+          aria-label="Loading conversations"
+          data-test-id="conversation-list-loading"
+        >
           {copy.loadingConversations}
         </div>
       )}
@@ -86,6 +92,8 @@ function ConversationListContent() {
                   : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
               }`}
               title={conv.title}
+              data-test-id="conversation-list-item"
+              data-conversation-id={conv._id}
             >
               {conv.title}
             </Link>
@@ -96,7 +104,7 @@ function ConversationListContent() {
         );
       })}
       {conversations?.length === 0 && (
-        <div className="px-2 py-1 text-xs text-[var(--text-muted)]">
+        <div className="px-2 py-1 text-xs text-[var(--text-muted)]" data-test-id="conversation-list-empty">
           {copy.noConversations}
         </div>
       )}
@@ -104,6 +112,7 @@ function ConversationListContent() {
       <div className="mt-auto pt-2 border-t border-[var(--sidebar-border)]">
         <Link
           href={routes.archivedPath}
+          data-test-id="conversation-list-archived"
           className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors ${
             routes.isArchivedPath(pathname)
               ? "text-[var(--brand)] bg-[var(--accent-light)]"

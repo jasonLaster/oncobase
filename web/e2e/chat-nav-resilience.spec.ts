@@ -14,6 +14,7 @@
 
 import { test, expect } from "@playwright/test";
 import { mockChatApi } from "./chat-mock";
+import { chatComposer, chatLog, chatSubmitButton } from "./helpers";
 
 // Each test in this file owns the full Playwright budget — they exercise a
 // real model round-trip and need elbow room.
@@ -25,7 +26,6 @@ test.describe("Chat navigation resilience", () => {
   test.beforeEach(async ({ page }) => {
     chatMock = await mockChatApi(page, { delayMs: 750 });
     await page.goto("/chat");
-    await page.waitForLoadState("networkidle").catch(() => {});
     test.skip(
       !new URL(page.url()).pathname.startsWith("/chat"),
       "Chat is disabled"
@@ -38,21 +38,18 @@ test.describe("Chat navigation resilience", () => {
   });
 
   test("Stop button aborts the model server-side", async ({ page }) => {
-    await page
-      .getByPlaceholder("Ask a question...")
-      .first()
-      .fill("Tell me everything you know about TNBC, in detail.");
+    await chatComposer(page).fill("Tell me everything you know about TNBC, in detail.");
     await page.keyboard.press("Enter");
 
-    const stop = page.getByRole("button", { name: "Stop" });
+    const stop = chatSubmitButton(page);
     await stop.waitFor({ timeout: 20_000 });
+    await expect(stop).toHaveAccessibleName("Stop");
     await stop.click();
 
     // Composer settles. The server-side cancel-poll runs at 1Hz so the
     // status flip can take a moment after click.
-    await expect(stop).toBeHidden({ timeout: 20_000 });
-    await expect(page.getByRole("button", { name: "Submit" })).toBeVisible({
-      timeout: 5_000,
+    await expect(chatSubmitButton(page)).toHaveAccessibleName("Submit", {
+      timeout: 20_000,
     });
   });
 
@@ -60,17 +57,14 @@ test.describe("Chat navigation resilience", () => {
     page,
     context,
   }) => {
-    await page
-      .getByPlaceholder("Ask a question...")
-      .first()
-      .fill("What is KEYNOTE-522 in one sentence?");
+    await chatComposer(page).fill("What is KEYNOTE-522 in one sentence?");
     await page.keyboard.press("Enter");
 
     await page.waitForURL(/\/chat\/[a-z0-9]/, { timeout: 15_000 });
     const conversationUrl = page.url();
     expect(conversationUrl).toMatch(/\/chat\/[a-z0-9]+$/);
 
-    await expect(page.getByRole("button", { name: "Stop" })).toBeVisible({
+    await expect(chatSubmitButton(page)).toHaveAccessibleName("Stop", {
       timeout: 25_000,
     });
 
@@ -81,40 +75,32 @@ test.describe("Chat navigation resilience", () => {
 
     // Poll a fresh tab for the saved assistant message.
     const newPage = await context.newPage();
-    let landed = false;
-    const deadline = Date.now() + 15_000;
-    while (Date.now() < deadline && !landed) {
-      await newPage.goto(conversationUrl, { waitUntil: "load" });
-      const text = await newPage
-        .locator('[role="log"], main')
-        .first()
-        .innerText()
-        .catch(() => "");
-      if (/KEYNOTE|pembrolizumab|chemotherapy|trial|breast/i.test(text)) {
-        landed = true;
-        break;
-      }
-      await newPage.waitForTimeout(500);
-    }
-    expect(
-      landed,
-      "assistant message should land after navigation away"
-    ).toBe(true);
+    await expect
+      .poll(
+        async () => {
+          await newPage.goto(conversationUrl, { waitUntil: "domcontentloaded" });
+          return chatLog(newPage)
+            .innerText()
+            .catch(() => "");
+        },
+        {
+          message: "assistant message should land after navigation away",
+          timeout: 15_000,
+        }
+      )
+      .toMatch(/KEYNOTE|pembrolizumab|chemotherapy|trial|breast/i);
   });
 
   test("Refresh mid-stream keeps the conversation observable", async ({
     page,
   }) => {
-    await page
-      .getByPlaceholder("Ask a question...")
-      .first()
-      .fill("What is the prognosis for stage II TNBC?");
+    await chatComposer(page).fill("What is the prognosis for stage II TNBC?");
     await page.keyboard.press("Enter");
 
     await page.waitForURL(/\/chat\/[a-z0-9]/, { timeout: 15_000 });
     const conversationUrl = page.url();
 
-    await expect(page.getByRole("button", { name: "Stop" })).toBeVisible({
+    await expect(chatSubmitButton(page)).toHaveAccessibleName("Stop", {
       timeout: 25_000,
     });
 
@@ -123,15 +109,9 @@ test.describe("Chat navigation resilience", () => {
     await page.reload({ waitUntil: "load" });
     expect(page.url()).toBe(conversationUrl);
 
-    // No "chat-failed" banner pops within a reasonable window after
-    // reload. We scope the selector to text the chat actually emits — broad
-    // selectors like .text-red-400 catch unrelated sidebar affordances.
-    await page.waitForTimeout(3000);
-    const chatErrors = await page
-      .locator(
-        'main:has-text("Chat error"), main:has-text("Something went wrong")'
-      )
-      .count();
-    expect(chatErrors, "no chat error banner after refresh").toBe(0);
+    await expect(page.getByTestId("chat-interface")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId("chat-error")).toHaveCount(0);
   });
 });

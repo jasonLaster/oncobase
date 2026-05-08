@@ -151,8 +151,15 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
   }, [pathname, tree]);
 
   return (
-    <aside className="hidden md:flex flex-col h-full min-h-0 overflow-hidden bg-[var(--sidebar-bg)]">
-      <nav ref={navRef} className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
+    <aside
+      className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
+      data-test-id="sidebar"
+    >
+      <nav
+        ref={navRef}
+        className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2"
+        data-test-id="sidebar-tree"
+      >
         {tree.map((node) => (
           <TreeNode key={node.slug} node={node} />
         ))}
