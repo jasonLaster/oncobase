@@ -439,7 +439,7 @@ function AISearch({
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, textSearchDone]);
+  }, [query, textLoading, textSearchDone]);
 
   if (!query) {
     return (
@@ -449,7 +449,7 @@ function AISearch({
     );
   }
 
-  if (loading) {
+  if (!textSearchDone || loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-[var(--text-muted)] py-4 px-2">
         <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">

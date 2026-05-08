@@ -49,10 +49,8 @@ test.describe("Page viewing & sidebar navigation", () => {
 
     await expect(journalLink).toHaveAttribute("href", "/about/Journal");
     await expect(journalLink).toBeVisible();
-    await Promise.all([
-      page.waitForURL(/\/about\/Journal$/),
-      journalLink.click(),
-    ]);
+    await journalLink.click();
+    await expect(page).toHaveURL(/\/about\/Journal$/);
     await expect(page.locator("h1").first()).toBeVisible();
   });
 
@@ -92,14 +90,17 @@ test.describe("Page viewing & sidebar navigation", () => {
   test("command palette opens with Ctrl+K", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("button", { name: /Find files/ })).toBeVisible();
-    // The Cmd+K handler is registered in a useEffect after hydration.
-    // Pressing the shortcut before that resolves is a no-op on slow CI
-    // runners — same workaround used at line 100.
-    await page.waitForTimeout(1_000);
-    await page.keyboard.press("Control+k");
-    await expect(
-      page.locator('[role="dialog"] [role="combobox"]').first()
-    ).toBeVisible({ timeout: 10_000 });
+    const commandInput = page.locator('[role="dialog"] [role="combobox"]').first();
+
+    await expect
+      .poll(
+        async () => {
+          await page.keyboard.press("Control+k");
+          return commandInput.isVisible().catch(() => false);
+        },
+        { timeout: 15_000 }
+      )
+      .toBe(true);
   });
 
   test("command palette Enter navigation does not flash the outline palette", async ({ page }) => {
@@ -135,10 +136,8 @@ test.describe("Page viewing & sidebar navigation", () => {
       });
     });
 
-    await Promise.all([
-      page.waitForURL(/\/about\/Journal$/),
-      input.press("Enter"),
-    ]);
+    await input.press("Enter");
+    await expect(page).toHaveURL(/\/about\/Journal$/);
     await page.waitForTimeout(750);
 
     const result = await page.evaluate(() => {

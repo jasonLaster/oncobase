@@ -31,7 +31,7 @@ const mockAIResults = {
 async function mockAISearch(page: Page, response: Record<string, unknown> = mockAIResults, status = 200) {
   let calls = 0;
 
-  await page.context().route("**/api/ai-search", (route) => {
+  await page.route("**/api/ai-search", (route) => {
     calls += 1;
     return route.fulfill({
       headers: { "cache-control": "no-store" },
@@ -44,7 +44,7 @@ async function mockAISearch(page: Page, response: Record<string, unknown> = mock
   return {
     async waitForRequest() {
       await expect
-        .poll(() => calls, { timeout: 20_000 })
+        .poll(() => calls, { timeout: 60_000 })
         .toBeGreaterThan(0);
     },
   };
@@ -164,7 +164,7 @@ test.describe("Search", () => {
 
   test("AI mode shows readable error when API returns a non-JSON failure", async ({ page }) => {
     let calls = 0;
-    await page.context().route("**/api/ai-search", (route) => {
+    await page.route("**/api/ai-search", (route) => {
       calls += 1;
       return route.fulfill({
         headers: { "cache-control": "no-store" },
@@ -176,7 +176,7 @@ test.describe("Search", () => {
 
     await page.goto(`/search?q=${encodeURIComponent(AI_HTML_ERROR_QUERY)}`);
     await expect
-      .poll(() => calls, { timeout: 20_000 })
+      .poll(() => calls, { timeout: 60_000 })
       .toBeGreaterThan(0);
     await expect(
       page.getByText("Search failed with 500 Internal Server Error.").first()

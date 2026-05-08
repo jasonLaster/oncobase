@@ -64,6 +64,23 @@ async function clickHeadingUntilHash(page: Page, selector: string, expectedHash:
     .toBe(expectedHash);
 }
 
+async function openFilePalette(page: Page) {
+  const input = page.getByPlaceholder("Search pages");
+
+  await expect
+    .poll(
+      async () => {
+        await page.getByRole("button", { name: /Find files/ }).click().catch(() => {});
+        return input.isVisible().catch(() => false);
+      },
+      { timeout: 15_000 }
+    )
+    .toBe(true);
+
+  await expect(input).toBeEditable({ timeout: 15_000 });
+  return input;
+}
+
 test.describe("Markdown heading anchors", () => {
   // Click-to-update-hash also runs on prod now; the rest of the suite
   // already does, and the prod render path emits the same anchor ids.
@@ -125,7 +142,11 @@ test.describe("Markdown heading anchors", () => {
   test("same-page table-of-contents links scroll inside the article pane", async ({ page }) => {
     await page.goto("/wiki/updates/week-5-april-12-to-18");
 
-    await page.locator(`.prose a[href="#${WEEK_5_TARGET}"]`).first().click();
+    await page
+      .locator(`.prose a[href="#${WEEK_5_TARGET}"]`)
+      .filter({ visible: true })
+      .first()
+      .click();
 
     await expect.poll(async () => isHashTargetScrolled(page), { timeout: 15_000 }).toBe(true);
 
@@ -138,7 +159,11 @@ test.describe("Markdown heading anchors", () => {
   test("cross-page markdown hash links use app navigation and scroll the article pane", async ({ page }) => {
     await page.goto("/wiki/updates/week-5-april-12-to-18");
 
-    await page.locator('.prose a[href="/about/Terminology#brca"]').first().click();
+    await page
+      .locator('.prose a[href="/about/Terminology#brca"]')
+      .filter({ visible: true })
+      .first()
+      .click();
 
     await expect(page).toHaveURL(/\/about\/Terminology#brca$/, { timeout: 15_000 });
     await page.waitForLoadState("domcontentloaded");
@@ -196,9 +221,7 @@ test.describe("Markdown heading anchors", () => {
 
     await expect(page.locator("article h1").first()).toHaveText("About This Wiki");
 
-    await page.getByRole("button", { name: /Find files/ }).click();
-    const input = page.getByPlaceholder("Search pages");
-    await expect(input).toBeEditable({ timeout: 15_000 });
+    const input = await openFilePalette(page);
     await input.fill("about terminology", { force: true });
     await expect(page.locator('[cmdk-item][data-value="about/Terminology"]')).toBeVisible({
       timeout: 30_000,
@@ -229,12 +252,9 @@ test.describe("Markdown heading anchors", () => {
       });
     });
 
-    await Promise.all([
-      page.waitForURL(/\/about\/Terminology$/),
-      input.press("Enter"),
-    ]);
+    await input.press("Enter");
+    await expect(page).toHaveURL(/\/about\/Terminology$/);
 
-    await page.waitForLoadState("domcontentloaded");
     await expect(page.locator("article h1").first()).toHaveText("Terminology");
     const outlineDialogTexts = await page.evaluate(() => {
       const win = window as typeof window & {
