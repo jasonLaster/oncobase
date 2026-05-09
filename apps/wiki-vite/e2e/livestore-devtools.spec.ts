@@ -17,6 +17,7 @@ test.describe("LiveStore devtools footer", () => {
 
     await expect(footer.getByText("Enable to attach the local cache session.")).toBeVisible();
     await expect(footer.getByRole("button", { name: "Enable" })).toBeVisible();
+    await expect(footer.getByRole("button", { name: "Reset cache" })).toBeVisible();
     await expect(footer.getByRole("link", { name: "Open devtools" })).toHaveCount(0);
   });
 
@@ -33,5 +34,21 @@ test.describe("LiveStore devtools footer", () => {
       "/_livestore",
     );
     await expect(footer.getByRole("button", { name: "Disable" })).toBeVisible();
+  });
+
+  test("reset cache clears local state and reloads the reader", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    const footer = page.getByTestId("livestore-devtools-footer");
+    await footer.locator("summary").click();
+    page.once("dialog", async (dialog) => {
+      expect(dialog.message()).toContain("Clear the local LiveStore cache");
+      await dialog.accept();
+    });
+    await footer.getByRole("button", { name: "Reset cache" }).click();
+
+    await expect(page.getByTestId("document-article").locator(".page-header h1")).toHaveText(
+      "Insurance",
+    );
   });
 });

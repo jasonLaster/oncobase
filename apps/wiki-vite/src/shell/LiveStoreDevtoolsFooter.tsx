@@ -3,8 +3,11 @@ import {
   ExternalLinkIcon,
   PowerIcon,
   PowerOffIcon,
+  Trash2Icon,
 } from "lucide-react";
+import { useStore } from "@livestore/react";
 import { reloadWithLiveStoreDevtools } from "../livestore/devtools";
+import { events } from "../livestore/schema";
 
 function shortenStoreId(storeId: string) {
   if (storeId.length <= 34) return storeId;
@@ -18,6 +21,17 @@ export function LiveStoreDevtoolsFooter({
   enabled: boolean;
   storeId: string;
 }) {
+  const { store } = useStore();
+  const resetCache = () => {
+    const confirmed = window.confirm(
+      "Clear the local LiveStore cache for this reader and reload?",
+    );
+    if (!confirmed) return;
+
+    store.commit(events.cacheResetRequested({ requestedAt: Date.now() }));
+    window.location.reload();
+  };
+
   return (
     <footer className="livestore-devtools-footer" data-test-id="livestore-devtools-footer">
       <details>
@@ -32,6 +46,14 @@ export function LiveStoreDevtoolsFooter({
           <span className="devtools-store" title={storeId}>
             Store {shortenStoreId(storeId)}
           </span>
+          <button
+            className="devtools-action danger"
+            type="button"
+            onClick={resetCache}
+          >
+            <Trash2Icon size={14} aria-hidden="true" />
+            <span>Reset cache</span>
+          </button>
           {enabled ? (
             <a
               className="devtools-action"

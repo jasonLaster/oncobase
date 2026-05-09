@@ -54,6 +54,19 @@ bun --cwd apps/wiki-vite typecheck
 bun --cwd apps/wiki-vite test:e2e e2e/navigation.spec.ts e2e/sidebar-pdfs.spec.ts e2e/page-load-experience.spec.ts
 ```
 
+### 2026-05-09 Cache Controls Checkpoint
+
+- Added an explicit local LiveStore cache reset action to the optional footer.
+- The reset path commits `v1.CacheResetRequested`, clears the local reader tables, and reloads the route so the manifest/page body repopulate from the backend APIs.
+- Kept reset scoped to the local Vite reader cache; it does not mutate Convex, publish state, or the current Next app cache.
+- Added Playwright coverage for the footer reset confirmation and reload behavior.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/livestore-devtools.spec.ts
+```
+
 ### 2026-05-09 Backend Deployment Checkpoint
 
 - Deployed the additive Convex backend to `https://youthful-cricket-560.convex.cloud` with `bunx convex deploy --env-file .env.local --typecheck try`.
@@ -109,7 +122,7 @@ These are the major gaps between the prototype and the current wiki experience.
 | Page chrome | Basic title, tags, size, stale/sensitive badges, manifest/hash footer. | Breadcrumbs, page description/meta, source links, PDF/download affordances, print/share/copy actions, edit/source provenance, not-found parity, and route metadata. | Reader parity blocker for pages with sources/assets. |
 | Markdown parity | Shared package handles the main rendering path. | More package tests for smart tables, citations, PDF/image rewriting, theme-paired images, heading anchors, math, Mermaid fallback, and route-link adapters. | Required before trusting the package as the durable reader layer. |
 | Auth/session UX | Scope is selected with `?scope=session`; session identity creates a distinct store id. | Login/session prompts, signed-out recovery, cache reset, active-store inspector, auth-expired handling, and safe session-store invalidation. | Privacy-sensitive. Required before any authenticated pilot. |
-| Offline/cache controls | OPFS persistence and browser storage estimate exist. | Explicit reset, cache warming controls, stale content explanation, storage pressure behavior, versioned cache invalidation, and failed fetch retry UI. | Required before production trial. |
+| Offline/cache controls | OPFS persistence, browser storage estimate, and explicit local cache reset exist. | Cache warming controls, stale content explanation, storage pressure behavior, versioned cache invalidation, and failed fetch retry UI. | Required before production trial. |
 | Performance instrumentation | Metrics panel tracks manifest bytes, markdown bytes, event count, OPFS estimate, and sync state. | Cold/warm navigation timings, per-route network assertions, failed body fetch count, bundle budget reporting, and preview telemetry. | Required before migration decision. |
 | Deployment/ops | Local app runs side by side. | Separate Vercel app/service decision, API origin config, CORS/auth expectations if cross-origin, preview smoke target, environment docs, and rollback story. | Required before reviewers can test without local setup. |
 

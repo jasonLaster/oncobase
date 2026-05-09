@@ -552,6 +552,16 @@ a {
   color: var(--brand);
 }
 
+.devtools-action.danger {
+  color: var(--red);
+}
+
+.devtools-action.danger:hover {
+  background: color-mix(in srgb, var(--red) 8%, white);
+  border-color: color-mix(in srgb, var(--red) 30%, var(--border));
+  color: var(--red);
+}
+
 .toast {
   background: var(--foreground);
   border-radius: 6px;
