@@ -1,6 +1,5 @@
-import { useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 import { Route, Routes } from "react-router";
-import { WikiPage } from "./pages/WikiPage";
 import { Header } from "./shell/Header";
 import { MetricsPanel } from "./shell/MetricsPanel";
 import { MobileNav, Sidebar } from "./shell/Navigation";
@@ -17,6 +16,18 @@ const initialMetrics: Metrics = {
   opfsBytes: null,
   lastSyncMs: null,
 };
+
+const WikiPage = lazy(() =>
+  import("./pages/WikiPage").then((module) => ({ default: module.WikiPage })),
+);
+
+function PageFallback() {
+  return (
+    <article className="page-shell">
+      <div className="loading-line">Preparing markdown renderer</div>
+    </article>
+  );
+}
 
 export function App() {
   const scope = useWikiScope();
@@ -44,9 +55,11 @@ export function App() {
           <Sidebar />
           <main className="content-shell">
             <MetricsPanel metrics={metrics} />
-            <Routes>
-              <Route path="*" element={<WikiPage onMetrics={bumpMetrics} />} />
-            </Routes>
+            <Suspense fallback={<PageFallback />}>
+              <Routes>
+                <Route path="*" element={<WikiPage onMetrics={bumpMetrics} />} />
+              </Routes>
+            </Suspense>
           </main>
         </div>
         <MobileNav />

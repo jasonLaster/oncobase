@@ -37,3 +37,9 @@ LiveStore is used as a local read cache without a remote sync backend. The schem
 On load the app renders whatever markdown is already in LiveStore, fetches `/api/wiki/manifest` in the background, and lets the manifest materializer mark cached pages stale or deleted. Fetch priority is current route first, then sidebar-linked pages, recent pages, and a bounded idle queue. The queue respects browser offline/save-data signals and caps eager work by page count and payload bytes.
 
 Public and session data use separate LiveStore `storeId` values. Public requests never ask for sensitive content; session requests use private cache headers, require the existing wiki session, and clear the local session cache on auth failure. The manifest API prefers the lightweight Convex manifest query; when that is not deployed yet, it may use an explicit content-backed metadata fallback that preserves hashes, sensitivity, and sizes. If reliable metadata cannot be produced, it returns `503` with `no-store` instead of disabling invalidation.
+
+## Bundle Shape
+
+The entry bundle only resolves the public/session scope and asks the existing web app for `/api/wiki/session`. LiveStore startup is lazy-loaded after that identity is known, and the markdown page renderer is lazy-loaded inside the shell so the first paint does not pull in the markdown processor.
+
+Vite/Rolldown code splitting keeps React, LiveStore, Effect, markdown, and icons in separate vendor chunks. Lazy chunk preloads are intentionally suppressed for `LiveStoreRoot` and `WikiPage`; otherwise the browser eagerly requests the expensive local database and markdown renderer before the wiki shell can render.

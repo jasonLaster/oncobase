@@ -1,20 +1,10 @@
-import { makePersistedAdapter } from "@livestore/adapter-web";
-import LiveStoreSharedWorker from "@livestore/adapter-web/shared-worker?sharedworker";
-import { LiveStoreProvider } from "@livestore/react";
 import {
   createWikiContentClient,
-  makeWikiStoreId,
   type WikiScope,
   type WikiSessionIdentity,
 } from "@diana-tnbc/wiki-content";
-import { StrictMode, useEffect, useMemo, useState } from "react";
+import { createElement, lazy, StrictMode, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { unstable_batchedUpdates as batchUpdates } from "react-dom";
-import { BrowserRouter } from "react-router";
-import { App } from "./App";
-import LiveStoreWorker from "./livestore/livestore.worker?worker";
-import { schema } from "./livestore/schema";
-import { WikiScopeProvider, WikiSessionProvider } from "./wiki-context";
 import "./styles.css";
 
 function readScope(): WikiScope {
@@ -29,11 +19,11 @@ function readScope(): WikiScope {
     : "public";
 }
 
-const adapter = makePersistedAdapter({
-  storage: { type: "opfs" },
-  worker: LiveStoreWorker,
-  sharedWorker: LiveStoreSharedWorker,
-});
+const LiveStoreRoot = lazy(() =>
+  import("./livestore/LiveStoreRoot").then((module) => ({
+    default: module.LiveStoreRoot,
+  })),
+);
 
 type BootstrapState =
   | { status: "loading"; scope: WikiScope }
@@ -71,58 +61,31 @@ function WikiViteRoot() {
     };
   }, []);
 
-  const storeId = useMemo(() => {
-    if (state.status !== "ready") return null;
-    return makeWikiStoreId({
-      siteSlug: state.identity.siteSlug,
-      scope: state.scope,
-      origin: window.location.origin,
-      cacheKey: state.identity.cacheKey,
-    });
-  }, [state]);
-
   if (state.status === "loading") {
-    return <div className="app-loading">Opening wiki session...</div>;
+    return createElement("div", { className: "app-loading" }, "Opening wiki session...");
   }
 
   if (state.status === "error") {
-    return (
-      <div className="app-loading app-error">
-        Wiki session failed: {state.message}
-      </div>
+    return createElement(
+      "div",
+      { className: "app-loading app-error" },
+      `Wiki session failed: ${state.message}`,
     );
   }
 
-  if (!storeId) {
-    return <div className="app-loading">Opening wiki session...</div>;
-  }
-
-  return (
-    <LiveStoreProvider
-      schema={schema}
-      adapter={adapter}
-      batchUpdates={batchUpdates}
-      storeId={storeId}
-      renderLoading={({ stage }) => (
-        <div className="app-loading">Opening local wiki cache ({stage})...</div>
-      )}
-      renderError={(error) => (
-        <div className="app-loading app-error">LiveStore failed: {String(error)}</div>
-      )}
-    >
-      <WikiSessionProvider identity={state.identity}>
-        <WikiScopeProvider scope={state.scope}>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
-        </WikiScopeProvider>
-      </WikiSessionProvider>
-    </LiveStoreProvider>
+  return createElement(
+    Suspense,
+    {
+      fallback: createElement(
+        "div",
+        { className: "app-loading" },
+        "Opening local wiki cache...",
+      ),
+    },
+    createElement(LiveStoreRoot, { identity: state.identity, scope: state.scope }),
   );
 }
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <WikiViteRoot />
-  </StrictMode>,
+  createElement(StrictMode, null, createElement(WikiViteRoot)),
 );
