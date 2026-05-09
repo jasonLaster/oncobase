@@ -15,6 +15,21 @@
       "import": "./src/server.ts",
       "default": "./src/server.ts"
     },
+    "./citations": {
+      "types": "./src/citations.ts",
+      "import": "./src/citations.ts",
+      "default": "./src/citations.ts"
+    },
+    "./math": {
+      "types": "./src/math.ts",
+      "import": "./src/math.ts",
+      "default": "./src/math.ts"
+    },
+    "./paths": {
+      "types": "./src/paths.ts",
+      "import": "./src/paths.ts",
+      "default": "./src/paths.ts"
+    },
     "./styles.css": "./src/styles.css",
     "./package.json": "./package.json"
   },
