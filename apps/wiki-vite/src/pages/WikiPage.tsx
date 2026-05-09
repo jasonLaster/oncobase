@@ -1,7 +1,11 @@
 import { useStore } from "@livestore/react";
-import { WikiMarkdown, type WikiMarkdownLinkProps } from "@diana-tnbc/wiki-markdown";
+import {
+  WikiMarkdown,
+  type WikiMarkdownLinkProps,
+  type WikiMarkdownNotificationAdapter,
+} from "@diana-tnbc/wiki-markdown";
 import { RefreshCwIcon } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
   pageContentBySlug$,
@@ -32,6 +36,7 @@ function routeLink({ href, children, ...props }: WikiMarkdownLinkProps) {
 export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => void }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [toast, setToast] = useState<string | null>(null);
   const slug = slugFromPath(location.pathname);
   const page = useStore().store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
   const index = useStore().store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;
@@ -45,6 +50,17 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
     }),
     [navigate],
   );
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 1800);
+  }, []);
+  const notification = useMemo<WikiMarkdownNotificationAdapter>(
+    () => ({
+      success: showToast,
+      error: showToast,
+    }),
+    [showToast],
+  );
 
   useEffect(() => {
     if (page?.content) {
@@ -55,9 +71,13 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
     }
   }, [onMetrics, page?.content, page?.size]);
 
+  useEffect(() => {
+    document.title = page?.title ? `${page.title} - Diana Wiki` : "Diana Wiki";
+  }, [page?.title]);
+
   if (deleted) {
     return (
-      <article className="page-shell">
+      <article className="page-shell" data-test-id="document-article">
         <h1>Page no longer available</h1>
         <p className="muted">
           The latest manifest no longer includes {slug}. The local body is kept
@@ -69,7 +89,7 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
 
   if (page?.missingAt || page?.contentStatus === "missing") {
     return (
-      <article className="page-shell">
+      <article className="page-shell" data-test-id="document-article">
         <h1>Page not found</h1>
         <p className="muted">No markdown body was returned for {slug}.</p>
       </article>
@@ -78,8 +98,8 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
 
   if (!page?.content) {
     return (
-      <article className="page-shell">
-        <div className="loading-line">
+      <article className="page-shell" data-test-id="document-article">
+        <div className="loading-line" data-test-id="page-loading">
           <RefreshCwIcon size={16} aria-hidden="true" />
           Loading markdown for {index?.title ?? slug}
         </div>
@@ -88,7 +108,12 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   }
 
   return (
-    <article className="page-shell">
+    <article className="page-shell" data-test-id="document-article">
+      {toast ? (
+        <div className="toast" role="status">
+          {toast}
+        </div>
+      ) : null}
       <header className="page-header">
         <div>
           <h1>{page.title}</h1>
@@ -113,6 +138,7 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         content={page.content}
         currentSlug={page.slug}
         LinkComponent={routeLink}
+        notification={notification}
         routeAdapter={routeAdapter}
       />
       <footer className="page-footer">

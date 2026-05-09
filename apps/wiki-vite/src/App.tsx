@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from "react";
 import { Route, Routes } from "react-router";
 import { Header } from "./shell/Header";
+import { LiveStoreDevtoolsFooter } from "./shell/LiveStoreDevtoolsFooter";
 import { MetricsPanel } from "./shell/MetricsPanel";
 import { MobileNav, Sidebar } from "./shell/Navigation";
 import { WikiSync } from "./sync/WikiSync";
@@ -29,7 +30,13 @@ function PageFallback() {
   );
 }
 
-export function App() {
+export function App({
+  liveStoreDevtoolsEnabled,
+  storeId,
+}: {
+  liveStoreDevtoolsEnabled: boolean;
+  storeId: string;
+}) {
   const scope = useWikiScope();
   const [metrics, setMetrics] = useState<Metrics>(initialMetrics);
 
@@ -62,6 +69,7 @@ export function App() {
             </Suspense>
           </main>
         </div>
+        <LiveStoreDevtoolsFooter enabled={liveStoreDevtoolsEnabled} storeId={storeId} />
         <MobileNav />
       </div>
     </>

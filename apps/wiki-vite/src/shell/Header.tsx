@@ -1,7 +1,7 @@
 import { useStore } from "@livestore/react";
 import type { WikiScope } from "@diana-tnbc/wiki-content";
 import { FileTextIcon, SearchIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { pageIndex$ } from "../livestore/queries";
 import type { Metrics, PageIndexRow } from "../types";
@@ -9,7 +9,7 @@ import { hrefForSlug } from "../wiki-utils";
 
 export function Header({ scope, metrics }: { scope: WikiScope; metrics: Metrics }) {
   return (
-    <header className="topbar">
+    <header className="topbar" data-test-id="app-header">
       <div className="header-left">
         <Link className="brand" to="/" aria-label="Home">
           <span className="brand-mark">D</span>
@@ -34,6 +34,7 @@ function SearchBox() {
   const pages = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
+  const inputRef = useRef<HTMLInputElement>(null);
   const results = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return pages.slice(0, 8);
@@ -44,11 +45,26 @@ function SearchBox() {
       .slice(0, 12);
   }, [pages, query]);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
     <div className="search-shell">
       <SearchIcon size={16} aria-hidden="true" />
       <input
-        aria-label="Search cached pages"
+        aria-label="Find cached pages"
+        data-slot="command-input"
+        data-test-id="header-search-input"
+        ref={inputRef}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={(event) => {
@@ -57,7 +73,7 @@ function SearchBox() {
             setQuery("");
           }
         }}
-        placeholder="Search cached pages"
+        placeholder="Find cached pages"
       />
       {query ? (
         <div className="search-results">

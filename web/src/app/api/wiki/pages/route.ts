@@ -116,14 +116,27 @@ export async function GET(request: Request) {
         }),
       );
   } else {
-    const result = (await siteData.documents.listPageWithContent({
-      cursor: url.searchParams.get("cursor"),
-      numItems: parseLimit(url),
-      ...(includeSensitive ? { includeSensitive: true } : {}),
-    })) as PageWithContentResult;
-    pages = result.page.map(pageRecord);
-    isDone = result.isDone;
-    continueCursor = result.continueCursor;
+    const limit = parseLimit(url);
+    let cursor = url.searchParams.get("cursor");
+    isDone = false;
+
+    while (!isDone && pages.length < limit) {
+      const result = (await siteData.documents.listPageWithContent({
+        cursor,
+        numItems: limit - pages.length,
+        ...(includeSensitive ? { includeSensitive: true } : {}),
+      })) as PageWithContentResult;
+
+      pages.push(...result.page.map(pageRecord));
+      isDone = result.isDone;
+      cursor = result.continueCursor;
+
+      if (!isDone && !cursor) {
+        throw new Error("Wiki page pagination did not return a continuation cursor");
+      }
+    }
+
+    continueCursor = isDone ? null : cursor;
   }
 
   const body: WikiPageBatch = {

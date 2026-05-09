@@ -43,6 +43,7 @@ const mockPages: MockPage[] = [
 let mockSessionUser: { _id: string } | null = null;
 let manifestFails = false;
 let contentFallbackFails = false;
+let filterPageBatchesAfterPagination = false;
 
 function visiblePages(includeSensitive?: boolean) {
   return mockPages.filter((page) => includeSensitive || !page.sensitive);
@@ -119,7 +120,14 @@ mock.module("@/lib/site-data", () => ({
         includeSensitive?: boolean;
       }) => {
         if (contentFallbackFails) throw new Error("content metadata unavailable");
-        return paginate(visiblePages(includeSensitive), cursor, numItems);
+        if (!filterPageBatchesAfterPagination) {
+          return paginate(visiblePages(includeSensitive), cursor, numItems);
+        }
+        const result = paginate(mockPages, cursor, numItems);
+        return {
+          ...result,
+          page: result.page.filter((page) => includeSensitive || !page.sensitive),
+        };
       },
     },
   }),
@@ -134,6 +142,7 @@ describe("wiki prototype API routes", () => {
     mockSessionUser = null;
     manifestFails = false;
     contentFallbackFails = false;
+    filterPageBatchesAfterPagination = false;
   });
 
   test("manifest omits sensitive pages for public requests", async () => {
@@ -236,6 +245,20 @@ describe("wiki prototype API routes", () => {
     expect(nextBody.pages.map((page: { slug: string }) => page.slug)).toEqual([
       "research/paper",
     ]);
+  });
+
+  test("page batches advance past empty filtered Convex pages", async () => {
+    filterPageBatchesAfterPagination = true;
+    const response = await pagesRoute.GET(
+      new Request("https://example.test/api/wiki/pages?limit=1&cursor=1"),
+    );
+    const body = await response.json();
+
+    expect(body.pages.map((page: { slug: string }) => page.slug)).toEqual([
+      "research/paper",
+    ]);
+    expect(body.isDone).toBe(true);
+    expect(body.continueCursor).toBe(null);
   });
 
   test("priority page fetches respect public and session scopes", async () => {

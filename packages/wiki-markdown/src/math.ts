@@ -1,5 +1,6 @@
 import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
+import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 
@@ -45,4 +46,4 @@ export function remarkCleanMath() {
 }
 
 export const markdownRemarkPlugins = [remarkGfm, remarkMath, remarkCleanMath];
-export const markdownRehypePlugins = [rehypeRaw, rehypeKatex];
+export const markdownRehypePlugins = [rehypeRaw, rehypeSlug, rehypeKatex];

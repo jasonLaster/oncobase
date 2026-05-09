@@ -22,6 +22,18 @@ bun run dev
 
 The Vite dev server proxies `/api/*` to `http://localhost:3000` by default. Override with `VITE_WIKI_API_ORIGIN` if the Next app is on another port.
 
+## Test
+
+Run the migrated Playwright suite with mocked wiki APIs:
+
+```sh
+bun run test:e2e
+```
+
+The suite mirrors the current `web/e2e/*.spec.ts` filenames. Reader-capable specs run against the Vite app; feature areas still owned by the Next app for v1 are skipped in place so the migration gap remains visible.
+
+The header finder is intentionally not the canonical wiki search. It filters the local manifest/page index for instant page switching. Full-text search, AI search, and the full-stack chat experience stay on the existing backend/app surface for v1.
+
 ## Scope
 
 The default store is public-only, even if the browser also has a signed-in wiki session. Open `/?scope=session` to use authenticated content. Session mode first fetches `/api/wiki/session` and only opens LiveStore with a server-issued cache key for the current wiki session.
@@ -35,7 +47,7 @@ The durable wiki behavior should stay in shared packages. `@diana-tnbc/wiki-cont
 LiveStore is used as a local read cache without a remote sync backend. The schema stores:
 
 - `siteState` for manifest metadata and sync timing.
-- `fileTree`, `pageIndex`, and `assetIndex` for navigation, search, and link rewriting.
+- `fileTree`, `pageIndex`, and `assetIndex` for navigation, local page finding, and link rewriting.
 - `pageContent` for fetched markdown bodies plus first-class `fresh`, `stale`, `missing`, and `deleted` states.
 
 On load the app renders whatever markdown is already in LiveStore, fetches `/api/wiki/manifest` in the background, and lets the manifest materializer mark cached pages stale or deleted. Fetch priority is current route first, then sidebar-linked pages, recent pages, and a bounded idle queue. The queue respects browser offline/save-data signals and caps eager work by page count and payload bytes.

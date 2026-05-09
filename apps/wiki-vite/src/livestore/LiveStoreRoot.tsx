@@ -7,6 +7,7 @@ import { unstable_batchedUpdates as batchUpdates } from "react-dom";
 import { BrowserRouter } from "react-router";
 import { App } from "../App";
 import { WikiScopeProvider, WikiSessionProvider } from "../wiki-context";
+import { readLiveStoreDevtoolsEnabled } from "./devtools";
 import LiveStoreWorker from "./livestore.worker?worker";
 import { schema } from "./schema";
 
@@ -33,6 +34,7 @@ export function LiveStoreRoot({
       }),
     [identity.cacheKey, identity.siteSlug, scope],
   );
+  const liveStoreDevtoolsEnabled = useMemo(() => readLiveStoreDevtoolsEnabled(), []);
 
   return (
     <LiveStoreProvider
@@ -40,6 +42,7 @@ export function LiveStoreRoot({
       adapter={adapter}
       batchUpdates={batchUpdates}
       storeId={storeId}
+      disableDevtools={!liveStoreDevtoolsEnabled}
       renderLoading={({ stage }) => (
         <div className="app-loading">Opening local wiki cache ({stage})...</div>
       )}
@@ -50,7 +53,10 @@ export function LiveStoreRoot({
       <WikiSessionProvider identity={identity}>
         <WikiScopeProvider scope={scope}>
           <BrowserRouter>
-            <App />
+            <App
+              liveStoreDevtoolsEnabled={liveStoreDevtoolsEnabled}
+              storeId={storeId}
+            />
           </BrowserRouter>
         </WikiScopeProvider>
       </WikiSessionProvider>

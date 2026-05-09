@@ -58,7 +58,7 @@ a {
 
 .prototype-shell {
   display: grid;
-  grid-template-rows: 48px minmax(0, 1fr);
+  grid-template-rows: 48px minmax(0, 1fr) auto;
   height: 100dvh;
   overflow: hidden;
 }
@@ -352,6 +352,7 @@ a {
   max-width: 896px;
   overflow: visible;
   padding: 28px 32px 72px;
+  position: relative;
 }
 
 .page-header {
@@ -425,6 +426,104 @@ a {
   padding-top: 16px;
 }
 
+.livestore-devtools-footer {
+  background: color-mix(in srgb, var(--sidebar-bg) 96%, white);
+  border-top: 1px solid var(--sidebar-border);
+  color: var(--muted);
+  font-size: 0.75rem;
+  min-width: 0;
+  padding: 4px 12px;
+}
+
+.livestore-devtools-footer details {
+  margin-left: auto;
+  max-width: min(760px, 100%);
+}
+
+.livestore-devtools-footer summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  list-style: none;
+  min-height: 24px;
+  user-select: none;
+}
+
+.livestore-devtools-footer summary::-webkit-details-marker {
+  display: none;
+}
+
+.devtools-state {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  line-height: 1;
+  padding: 3px 7px;
+}
+
+.devtools-state.enabled {
+  border-color: color-mix(in srgb, var(--green) 30%, white);
+  color: var(--green);
+}
+
+.devtools-footer-panel {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  min-height: 32px;
+  padding: 2px 0 4px;
+}
+
+.devtools-store {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devtools-note {
+  color: var(--muted);
+}
+
+.devtools-action {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--foreground);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 8px;
+  text-decoration: none;
+}
+
+.devtools-action:hover {
+  background: var(--accent-light);
+  border-color: color-mix(in srgb, var(--brand) 28%, var(--border));
+  color: var(--brand);
+}
+
+.toast {
+  background: var(--foreground);
+  border-radius: 6px;
+  box-shadow: 0 12px 32px rgb(17 24 39 / 0.18);
+  color: var(--background);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 7px 10px;
+  position: fixed;
+  right: 18px;
+  top: 62px;
+  z-index: 70;
+}
+
 .bottom-nav-trigger,
 .bottom-nav-sheet {
   display: none;
@@ -448,6 +547,10 @@ a {
 
   .content-shell {
     padding-bottom: 48px;
+  }
+
+  .livestore-devtools-footer {
+    margin-bottom: 48px;
   }
 
   .topbar {

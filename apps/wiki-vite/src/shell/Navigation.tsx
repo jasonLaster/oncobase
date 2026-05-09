@@ -8,6 +8,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ChevronUpIcon,
+  FileTextIcon,
   XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -34,11 +35,11 @@ function useWikiTree() {
 export function Sidebar() {
   const tree = useWikiTree();
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" data-test-id="wiki-sidebar">
       <div className="sidebar-heading">File tree</div>
       <nav>
         {tree.map((node) => (
-          <TreeNode key={node.slug} node={node} />
+          <TreeNode key={treeNodeKey(node)} node={node} />
         ))}
       </nav>
     </aside>
@@ -49,6 +50,10 @@ function pageTitleFromPath(pathname: string) {
   if (pathname === "/") return "Home";
   const slug = slugFromPath(pathname);
   return (slug.split("/").at(-1) ?? slug).replace(/-/g, " ");
+}
+
+function treeNodeKey(node: FileNode) {
+  return `${node.type}:${node.slug}:${node.pdfPath ?? ""}`;
 }
 
 export function MobileNav() {
@@ -74,6 +79,7 @@ export function MobileNav() {
     <>
       <button
         className="bottom-nav-trigger"
+        data-test-id="bottom-nav-trigger"
         type="button"
         onClick={() => setOpen(true)}
       >
@@ -97,7 +103,7 @@ export function MobileNav() {
           </div>
           <nav>
             {tree.map((node) => (
-              <TreeNode key={node.slug} node={node} onNavigate={close} />
+              <TreeNode key={treeNodeKey(node)} node={node} onNavigate={close} />
             ))}
           </nav>
         </div>
@@ -138,7 +144,7 @@ function TreeNode({
         {open
           ? node.children?.map((child) => (
               <TreeNode
-                key={child.slug}
+                key={treeNodeKey(child)}
                 node={child}
                 depth={depth + 1}
                 onNavigate={onNavigate}
@@ -159,6 +165,7 @@ function TreeNode({
         rel="noreferrer"
         onClick={onNavigate}
       >
+        <FileTextIcon size={14} aria-hidden="true" />
         {node.name.replace(/-/g, " ")}.pdf
       </a>
     );
