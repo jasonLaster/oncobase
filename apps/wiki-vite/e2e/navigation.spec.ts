@@ -47,10 +47,11 @@ test.describe("Page viewing and sidebar navigation", () => {
     await gotoWiki(page, "/");
 
     await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
-    const input = page.getByTestId("header-search-input");
+    await expect(page.getByTestId("command-palette")).toBeVisible();
+    const input = page.getByTestId("command-palette-input");
     await expect(input).toBeFocused();
     await input.fill("insurance");
-    await expect(page.locator(".search-results").getByRole("link", { name: /Insurance/ })).toBeVisible();
+    await expect(page.getByTestId("command-palette").getByRole("button", { name: /Insurance/ })).toBeVisible();
     await input.press("Enter");
 
     await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);

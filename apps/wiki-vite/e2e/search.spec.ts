@@ -43,6 +43,14 @@ test.describe("Local page finder", () => {
     await expect(page.locator(".badge.sensitive")).toHaveText("sensitive");
   });
 
+  test("header exposes backend search and chat handoffs", async ({ page }) => {
+    await installWikiApiMocks(page);
+    await gotoWiki(page, "/");
+
+    await expect(page.getByRole("link", { name: "Search" })).toHaveAttribute("href", /\/search$/);
+    await expect(page.getByRole("link", { name: "New Chat" })).toHaveAttribute("href", /\/chat$/);
+  });
+
   test.skip("backend text search returns relevant results", async () => {
     // Canonical text search remains a backend/full-stack feature for v1.
     // The Vite reader may link to or call that backend route later, but it

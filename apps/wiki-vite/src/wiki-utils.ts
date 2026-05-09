@@ -12,6 +12,16 @@ export function hrefForSlug(slug: string) {
   return slug === "index" ? "/" : `/${slug}`;
 }
 
+export function backendHref(path: string) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const origin =
+    import.meta.env.VITE_WIKI_APP_ORIGIN ?? import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
+
+  if (!origin) return normalizedPath;
+
+  return `${origin.replace(/\/+$/, "")}${normalizedPath}`;
+}
+
 export function parseJsonArray<T>(raw: string, fallback: T[] = []): T[] {
   try {
     const parsed = JSON.parse(raw) as unknown;

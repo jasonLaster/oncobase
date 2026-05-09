@@ -144,7 +144,7 @@ a {
   border-bottom: 1px solid var(--sidebar-border);
   display: grid;
   gap: 12px;
-  grid-template-columns: 220px minmax(260px, 640px) minmax(180px, 1fr);
+  grid-template-columns: 180px minmax(220px, 1fr) auto minmax(150px, auto);
   min-height: 48px;
   padding: 8px 16px;
   z-index: 30;
@@ -160,6 +160,48 @@ a {
 
 .header-center {
   justify-content: center;
+}
+
+.header-actions {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.topbar-button {
+  align-items: center;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--foreground);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 9px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.topbar-button:hover {
+  background: var(--accent-light);
+  border-color: color-mix(in srgb, var(--brand) 28%, var(--border));
+  color: var(--brand);
+}
+
+.topbar-button.primary {
+  background: var(--foreground);
+  border-color: var(--foreground);
+  color: var(--background);
+}
+
+.topbar-button.primary:hover {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: white;
 }
 
 .brand {
@@ -524,6 +566,163 @@ a {
   z-index: 70;
 }
 
+.command-backdrop {
+  align-items: flex-start;
+  background: rgb(17 24 39 / 0.28);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 72px 18px 18px;
+  position: fixed;
+  z-index: 90;
+}
+
+.command-palette {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 24px 70px rgb(17 24 39 / 0.22);
+  color: var(--foreground);
+  max-height: min(680px, calc(100vh - 96px));
+  overflow: hidden;
+  width: min(720px, 100%);
+}
+
+.command-search {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 12px 0 14px;
+}
+
+.command-search input {
+  background: transparent;
+  border: 0;
+  color: var(--foreground);
+  min-width: 0;
+  outline: 0;
+  width: 100%;
+}
+
+.command-search button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.command-search button:hover {
+  background: var(--surface-muted);
+  color: var(--foreground);
+}
+
+.command-tabs {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+}
+
+.command-tabs button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.command-tabs button:hover,
+.command-tabs button.active {
+  background: var(--accent-light);
+  color: var(--brand);
+}
+
+.command-list {
+  max-height: min(480px, calc(100vh - 250px));
+  overflow: auto;
+  padding: 6px;
+}
+
+.command-list button,
+.command-list a {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--foreground);
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 18px minmax(0, 1fr);
+  min-height: 46px;
+  padding: 7px 10px;
+  text-align: left;
+  text-decoration: none;
+  width: 100%;
+}
+
+.command-list button[style] {
+  padding-left: calc(10px + (var(--outline-depth) * 12px));
+}
+
+.command-list button:hover,
+.command-list a:hover {
+  background: var(--accent-light);
+}
+
+.command-list span,
+.command-list strong,
+.command-list small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-list strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.command-list small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.command-empty {
+  color: var(--muted);
+  padding: 24px 12px;
+  text-align: center;
+}
+
+.command-footer {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  display: flex;
+  font-size: 0.75rem;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 8px 12px;
+}
+
 .bottom-nav-trigger,
 .bottom-nav-sheet {
   display: none;
@@ -564,6 +763,15 @@ a {
 
   .topbar-status {
     justify-content: flex-start;
+  }
+
+  .header-actions {
+    overflow-x: auto;
+    padding-bottom: 1px;
+  }
+
+  .topbar-button {
+    flex: 0 0 auto;
   }
 
   .metrics-panel {

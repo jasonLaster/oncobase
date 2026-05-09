@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_WIKI_API_ORIGIN?: string;
+  readonly VITE_WIKI_APP_ORIGIN?: string;
+}
+
 declare module "*?worker" {
   const workerConstructor: {
     new (): Worker;
