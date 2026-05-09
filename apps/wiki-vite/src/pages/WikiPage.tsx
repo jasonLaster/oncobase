@@ -1,8 +1,8 @@
 import { useStore } from "@livestore/react";
 import { WikiMarkdown, type WikiMarkdownLinkProps } from "@diana-tnbc/wiki-markdown";
 import { RefreshCwIcon } from "lucide-react";
-import { useEffect } from "react";
-import { Link, useLocation } from "react-router";
+import { useEffect, useMemo } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
 import {
   pageContentBySlug$,
   pageIndexBySlug$,
@@ -31,6 +31,7 @@ function routeLink({ href, children, ...props }: WikiMarkdownLinkProps) {
 
 export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => void }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const slug = slugFromPath(location.pathname);
   const page = useStore().store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
   const index = useStore().store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;
@@ -38,6 +39,12 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const stale = page?.contentStatus === "stale";
   const deleted = page?.contentStatus === "deleted";
   const tags = parseJsonArray<string>(page?.tagsJson ?? index?.tagsJson ?? "[]");
+  const routeAdapter = useMemo(
+    () => ({
+      push: (href: string) => navigate(href),
+    }),
+    [navigate],
+  );
 
   useEffect(() => {
     if (page?.content) {
@@ -106,6 +113,7 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         content={page.content}
         currentSlug={page.slug}
         LinkComponent={routeLink}
+        routeAdapter={routeAdapter}
       />
       <footer className="page-footer">
         <span>Manifest: {siteState?.generatedAt ?? "pending"}</span>
