@@ -12,10 +12,10 @@ import {
   MdTh,
   MdThead,
   MdTr,
-} from "@/components/markdown-table";
-import { resolveWikilinks } from "@/lib/wikilinks";
-import { markdownRemarkPlugins } from "@/lib/markdown-math";
-import { preprocessCitationMarkdown } from "@/lib/citation-links";
+  markdownRemarkPlugins,
+  preprocessCitationMarkdown,
+  resolveWikilinks,
+} from "@diana-tnbc/wiki-markdown";
 import { MarkdownRendererClient } from "@/components/markdown-renderer-client";
 import { RoutedAnchorLinks } from "@/components/markdown-heading-anchors";
 import {
