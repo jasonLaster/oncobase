@@ -67,6 +67,24 @@ bun --cwd apps/wiki-vite typecheck
 bun --cwd apps/wiki-vite test:e2e e2e/livestore-devtools.spec.ts
 ```
 
+### 2026-05-09 Local Verification Checkpoint
+
+- Ran the full migrated Vite Playwright suite after the reader parity, sidebar, and cache-control work.
+- Result: 38 passed, 72 skipped. The skipped tests are intentionally retained as the Next-owned feature inventory for chat, comments, backend search/AI search, metadata, PII, multi-site isolation, backend PDF error paths, and timeline/mermaid work.
+- Confirmed the Vite production build completes and keeps LiveStore, React, markdown, icon, and page chunks split.
+- Re-ran the backend wiki API unit tests after the Convex deploy/pagination fix.
+- Re-ran root typecheck across `web`, `apps/wiki-vite`, `packages/wiki-content`, `packages/wiki-markdown`, `@diana-tnbc/chat`, and `@diana-tnbc/smart-table`.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite test:e2e
+bun --cwd apps/wiki-vite build
+bun --cwd web test:unit src/lib/wiki-api-routes.test.ts
+bun --cwd packages/wiki-content test:unit
+bun --cwd packages/wiki-markdown test:unit
+bun run typecheck
+```
+
 ### 2026-05-09 Backend Deployment Checkpoint
 
 - Deployed the additive Convex backend to `https://youthful-cricket-560.convex.cloud` with `bunx convex deploy --env-file .env.local --typecheck try`.
