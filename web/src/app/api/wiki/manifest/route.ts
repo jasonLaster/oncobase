@@ -26,18 +26,22 @@ type ManifestPageArgs = {
   includeSensitive?: boolean;
 };
 
-type LegacyPageResult = {
-  page: Array<{
-    slug: string;
-    title: string;
-    tags: string[];
-  }>;
+type AssetPathResult = {
+  page: string[];
   isDone: boolean;
   continueCursor: string;
 };
 
-type AssetPathResult = {
-  page: string[];
+type PageWithContentResult = {
+  page: Array<{
+    slug: string;
+    title: string;
+    content: string;
+    tags: string[];
+    description?: string | null;
+    contentHash?: string;
+    sensitive?: boolean;
+  }>;
   isDone: boolean;
   continueCursor: string;
 };
@@ -71,6 +75,7 @@ async function listManifestPages(
   const pages: WikiManifestPage[] = [];
   let cursor: string | null = null;
   let isDone = false;
+  let source: "manifest" | "content-fallback" = "manifest";
   let useContentFallback = false;
   while (!isDone) {
     const args: ManifestPageArgs = {
@@ -78,38 +83,36 @@ async function listManifestPages(
       numItems: PAGE_SIZE,
       ...(includeSensitive ? { includeSensitive: true } : {}),
     };
-    const result: ManifestPageResult = useContentFallback
-      ? await listManifestPageFromLegacyPage(siteData, args)
+    const result = useContentFallback
+      ? await listManifestPageFromContent(siteData, args)
       : await siteData.documents.listManifestPage(args)
           .catch(async (error) => {
-            console.warn(
-              "[wiki manifest] Falling back to listPage",
-              error,
-            );
+            console.warn("[wiki manifest] Falling back to content metadata", error);
+            source = "content-fallback";
             useContentFallback = true;
-            return listManifestPageFromLegacyPage(siteData, args);
+            return listManifestPageFromContent(siteData, args);
           }) as ManifestPageResult;
     pages.push(...result.page);
     isDone = result.isDone;
     cursor = result.continueCursor;
   }
-  return pages;
+  return { pages, source };
 }
 
-async function listManifestPageFromLegacyPage(
+async function listManifestPageFromContent(
   siteData: ReturnType<typeof siteDataFromRequest>,
   args: ManifestPageArgs,
 ): Promise<ManifestPageResult> {
-  const result = (await siteData.documents.listPage(args)) as LegacyPageResult;
+  const result = (await siteData.documents.listPageWithContent(args)) as PageWithContentResult;
   return {
     page: result.page.map((page) => ({
       slug: page.slug,
       title: page.title,
       tags: page.tags,
-      description: null,
-      contentHash: null,
-      sensitive: false,
-      size: 0,
+      description: page.description ?? null,
+      contentHash: page.contentHash ?? null,
+      sensitive: page.sensitive === true,
+      size: page.content.length,
     })),
     isDone: result.isDone,
     continueCursor: result.continueCursor,
@@ -172,10 +175,21 @@ export async function GET(request: Request) {
 
   const includeSensitive = scope === "session" && Boolean(sessionUser);
   const siteData = siteDataFromRequest(request);
-  const [pages, assets] = await Promise.all([
-    listManifestPages(siteData, includeSensitive),
-    listAssets(siteData, includeSensitive),
-  ]);
+  let pageResult: Awaited<ReturnType<typeof listManifestPages>>;
+  let assets: WikiManifestAsset[];
+  try {
+    [pageResult, assets] = await Promise.all([
+      listManifestPages(siteData, includeSensitive),
+      listAssets(siteData, includeSensitive),
+    ]);
+  } catch (error) {
+    console.error("[wiki manifest] Reliable manifest metadata unavailable", error);
+    return Response.json(
+      { error: "Reliable wiki manifest metadata is unavailable" },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  const { pages, source } = pageResult;
   const compactTree = buildCompactTreeFromManifest(pages, assets);
 
   const manifestCore = {
@@ -201,6 +215,9 @@ export async function GET(request: Request) {
   };
 
   return Response.json(manifest, {
-    headers: cacheHeaders(scope, manifestHash),
+    headers: {
+      ...cacheHeaders(scope, manifestHash),
+      "X-Wiki-Manifest-Source": source,
+    },
   });
 }

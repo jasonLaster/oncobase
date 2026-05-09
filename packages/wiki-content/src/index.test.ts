@@ -4,6 +4,7 @@ import {
   expandCompactFileTree,
   makeWikiStoreId,
   parseWikiManifest,
+  parseWikiSessionIdentity,
   reconcilePageContent,
 } from "./index";
 
@@ -84,12 +85,29 @@ describe("wiki content contracts", () => {
       siteSlug: "diana",
       scope: "public",
       origin: "https://example.test",
+      cacheKey: "public-v1",
     });
     const sessionId = makeWikiStoreId({
       siteSlug: "diana",
       scope: "session",
       origin: "https://example.test",
+      cacheKey: "session-user-1",
     });
     expect(publicId).not.toBe(sessionId);
+    expect(sessionId).toContain("session-user-1");
+  });
+
+  test("parses server-issued session cache identities", () => {
+    const identity = parseWikiSessionIdentity({
+      siteSlug: "diana",
+      scope: "session",
+      authenticated: true,
+      cacheKey: "diana:session:user:v1",
+      cacheVersion: "v1",
+      userHash: "user",
+    });
+
+    expect(identity.authenticated).toBe(true);
+    expect(identity.cacheKey).toContain("session");
   });
 });

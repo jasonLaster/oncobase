@@ -2,7 +2,13 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { makeInMemoryAdapter } from "@livestore/adapter-web";
 import { createStorePromise } from "@livestore/livestore";
 import { events, schema } from "./schema";
-import { fileTree$, pageContentBySlug$, pageIndex$, siteState$ } from "./queries";
+import {
+  fileTree$,
+  pageContentBySlug$,
+  pageIndex$,
+  siteState$,
+  stalePageContent$,
+} from "./queries";
 
 const stores: Array<{ shutdown: () => Promise<void> }> = [];
 
@@ -62,6 +68,69 @@ describe("wiki vite LiveStore schema", () => {
     expect(store.query(fileTree$)?.treeJson).toContain("index");
     expect(store.query(pageIndex$)).toHaveLength(1);
     expect(store.query(pageContentBySlug$("index"))?.content).toBe("# Hello");
+    expect(store.query(pageContentBySlug$("index"))?.contentStatus).toBe("fresh");
+  });
+
+  test("marks stale and deleted page bodies during manifest reconciliation", async () => {
+    const store = await makeStore();
+    const manifest = (pages: Array<{ slug: string; title: string; hash: string }>) =>
+      events.manifestApplied({
+        siteSlug: "diana",
+        scope: "public",
+        manifestHash: crypto.randomUUID(),
+        generatedAt: "2026-05-09T12:00:00.000Z",
+        receivedAt: Date.now(),
+        manifestSize: 100,
+        compactTreeJson: JSON.stringify(pages.map((page) => ["f", page.slug])),
+        pagesJson: JSON.stringify(
+          pages.map((page) => ({
+            slug: page.slug,
+            title: page.title,
+            tags: [],
+            description: null,
+            contentHash: page.hash,
+            sensitive: false,
+            size: 12,
+          })),
+        ),
+        assetsJson: JSON.stringify([]),
+      });
+
+    store.commit(
+      manifest([
+        { slug: "index", title: "Index", hash: "hash-1" },
+        { slug: "old", title: "Old", hash: "old-1" },
+      ]),
+      events.pageContentFetched({
+        slug: "index",
+        title: "Index",
+        content: "# Hello",
+        tags: [],
+        contentHash: "hash-1",
+        sensitive: false,
+        size: 7,
+        fetchedAt: 2,
+      }),
+      events.pageContentFetched({
+        slug: "old",
+        title: "Old",
+        content: "# Old",
+        tags: [],
+        contentHash: "old-1",
+        sensitive: false,
+        size: 5,
+        fetchedAt: 2,
+      }),
+      manifest([{ slug: "index", title: "Index", hash: "hash-2" }]),
+    );
+
+    expect(store.query(pageContentBySlug$("index"))?.contentStatus).toBe("stale");
+    expect(store.query(pageContentBySlug$("index"))?.expectedContentHash).toBe("hash-2");
+    expect(store.query(pageContentBySlug$("old"))?.contentStatus).toBe("deleted");
+    expect(store.query(stalePageContent$).map((page) => page.slug)).toEqual([
+      "index",
+      "old",
+    ]);
   });
 
   test("separates missing pages and cache resets", async () => {

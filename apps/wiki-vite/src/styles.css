@@ -306,6 +306,10 @@ a {
   background: var(--green);
 }
 
+.sync-dot.offline {
+  background: var(--text-muted);
+}
+
 .sync-dot.error {
   background: var(--red);
 }

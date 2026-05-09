@@ -40,7 +40,9 @@ const mockPages: MockPage[] = [
   },
 ];
 
-let mockSessionUser: { id: string } | null = null;
+let mockSessionUser: { _id: string } | null = null;
+let manifestFails = false;
+let contentFallbackFails = false;
 
 function visiblePages(includeSensitive?: boolean) {
   return mockPages.filter((page) => includeSensitive || !page.sensitive);
@@ -74,8 +76,9 @@ mock.module("@/lib/site-data", () => ({
         cursor: string | null;
         numItems: number;
         includeSensitive?: boolean;
-      }) =>
-        paginate(
+      }) => {
+        if (manifestFails) throw new Error("manifest metadata unavailable");
+        return paginate(
           visiblePages(includeSensitive).map((page) => ({
             slug: page.slug,
             title: page.title,
@@ -87,7 +90,8 @@ mock.module("@/lib/site-data", () => ({
           })),
           cursor,
           numItems,
-        ),
+        );
+      },
       listPdfAssetPathsPage: async () => ({
         page: ["research/paper.pdf"],
         isDone: true,
@@ -113,17 +117,23 @@ mock.module("@/lib/site-data", () => ({
         cursor: string | null;
         numItems: number;
         includeSensitive?: boolean;
-      }) => paginate(visiblePages(includeSensitive), cursor, numItems),
+      }) => {
+        if (contentFallbackFails) throw new Error("content metadata unavailable");
+        return paginate(visiblePages(includeSensitive), cursor, numItems);
+      },
     },
   }),
 }));
 
 const manifestRoute = await import("../app/api/wiki/manifest/route");
 const pagesRoute = await import("../app/api/wiki/pages/route");
+const sessionRoute = await import("../app/api/wiki/session/route");
 
 describe("wiki prototype API routes", () => {
   beforeEach(() => {
     mockSessionUser = null;
+    manifestFails = false;
+    contentFallbackFails = false;
   });
 
   test("manifest omits sensitive pages for public requests", async () => {
@@ -141,7 +151,7 @@ describe("wiki prototype API routes", () => {
   });
 
   test("session manifest uses private cache headers and includes sensitive pages", async () => {
-    mockSessionUser = { id: "user-1" };
+    mockSessionUser = { _id: "user-1" };
     const response = await manifestRoute.GET(
       new Request("https://example.test/api/wiki/manifest?scope=session"),
     );
@@ -167,6 +177,44 @@ describe("wiki prototype API routes", () => {
 
     expect(etag).toBeTruthy();
     expect(second.status).toBe(304);
+  });
+
+  test("manifest can use explicit content-backed metadata fallback", async () => {
+    manifestFails = true;
+    const originalConsoleWarn = console.warn;
+    console.warn = () => {};
+    const response = await manifestRoute.GET(
+      new Request("https://example.test/api/wiki/manifest"),
+    ).finally(() => {
+      console.warn = originalConsoleWarn;
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-wiki-manifest-source")).toBe("content-fallback");
+    expect(body.pages[0].contentHash).toBe("hash-public-index");
+    expect(body.pages[0].sensitive).toBe(false);
+    expect(body.pages[0].size).toBe("# Home".length);
+  });
+
+  test("manifest fails closed when reliable metadata is unavailable", async () => {
+    manifestFails = true;
+    contentFallbackFails = true;
+    const originalConsoleError = console.error;
+    const originalConsoleWarn = console.warn;
+    console.error = () => {};
+    console.warn = () => {};
+    const response = await manifestRoute.GET(
+      new Request("https://example.test/api/wiki/manifest"),
+    ).finally(() => {
+      console.error = originalConsoleError;
+      console.warn = originalConsoleWarn;
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(body.error).toContain("metadata");
   });
 
   test("page batches paginate public markdown without leaking sensitive content", async () => {
@@ -201,7 +249,7 @@ describe("wiki prototype API routes", () => {
       "index",
     ]);
 
-    mockSessionUser = { id: "user-1" };
+    mockSessionUser = { _id: "user-1" };
     const sessionResponse = await pagesRoute.GET(
       new Request(
         "https://example.test/api/wiki/pages?scope=session&slugs=private/plan",
@@ -210,5 +258,31 @@ describe("wiki prototype API routes", () => {
     const sessionBody = await sessionResponse.json();
     expect(sessionResponse.headers.get("cache-control")).toContain("private");
     expect(sessionBody.pages[0].slug).toBe("private/plan");
+  });
+
+  test("session identity gates private stores with a server-issued cache key", async () => {
+    const publicResponse = await sessionRoute.GET(
+      new Request("https://example.test/api/wiki/session"),
+    );
+    const publicBody = await publicResponse.json();
+    expect(publicBody.authenticated).toBe(false);
+    expect(publicBody.cacheKey).toContain("public");
+
+    const unauthorized = await sessionRoute.GET(
+      new Request("https://example.test/api/wiki/session?scope=session"),
+    );
+    expect(unauthorized.status).toBe(401);
+
+    mockSessionUser = { _id: "user-1" };
+    const sessionResponse = await sessionRoute.GET(
+      new Request("https://example.test/api/wiki/session?scope=session"),
+    );
+    const sessionBody = await sessionResponse.json();
+
+    expect(sessionResponse.headers.get("cache-control")).toContain("no-store");
+    expect(sessionBody.authenticated).toBe(true);
+    expect(sessionBody.cacheKey).toContain("session");
+    expect(sessionBody.userHash).toBeTruthy();
+    expect(sessionBody.cacheKey).not.toContain("user-1");
   });
 });

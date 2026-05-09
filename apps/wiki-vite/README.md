@@ -22,7 +22,7 @@ The Vite dev server proxies `/api/*` to `http://localhost:3000` by default. Over
 
 ## Scope
 
-The default store is public-only, even if the browser also has a signed-in wiki session. Open `/?scope=session` to use a separate session store and request authenticated content.
+The default store is public-only, even if the browser also has a signed-in wiki session. Open `/?scope=session` to use authenticated content. Session mode first fetches `/api/wiki/session` and only opens LiveStore with a server-issued cache key for the current wiki session.
 
 ## Architecture Note
 
@@ -32,8 +32,8 @@ LiveStore is used as a local read cache without a remote sync backend. The schem
 
 - `siteState` for manifest metadata and sync timing.
 - `fileTree`, `pageIndex`, and `assetIndex` for navigation, search, and link rewriting.
-- `pageContent` for fetched markdown bodies plus stale/missing state.
+- `pageContent` for fetched markdown bodies plus first-class `fresh`, `stale`, `missing`, and `deleted` states.
 
-On load the app renders whatever markdown is already in LiveStore, fetches `/api/wiki/manifest` in the background, and marks cached pages stale when the manifest hash for that page changes. Fetch priority is current route first, then sidebar-linked pages, then the rest of the public index in idle batches.
+On load the app renders whatever markdown is already in LiveStore, fetches `/api/wiki/manifest` in the background, and lets the manifest materializer mark cached pages stale or deleted. Fetch priority is current route first, then sidebar-linked pages, recent pages, and a bounded idle queue. The queue respects browser offline/save-data signals and caps eager work by page count and payload bytes.
 
-Public and session data use separate LiveStore `storeId` values. Public requests never ask for sensitive content; session requests use private cache headers and require the existing wiki session.
+Public and session data use separate LiveStore `storeId` values. Public requests never ask for sensitive content; session requests use private cache headers, require the existing wiki session, and clear the local session cache on auth failure. The manifest API prefers the lightweight Convex manifest query; when that is not deployed yet, it may use an explicit content-backed metadata fallback that preserves hashes, sensitivity, and sizes. If reliable metadata cannot be produced, it returns `503` with `no-store` instead of disabling invalidation.

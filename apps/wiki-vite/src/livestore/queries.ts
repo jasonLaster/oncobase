@@ -21,6 +21,13 @@ export const pageIndex$ = queryDb(tables.pageIndex.orderBy("slug", "asc"));
 
 export const assets$ = queryDb(tables.assetIndex.orderBy("path", "asc"));
 
+export const stalePageContent$ = queryDb({
+  query:
+    "select * from pageContent where contentStatus in ('stale', 'deleted', 'missing') order by slug asc",
+  schema: Schema.Array(tables.pageContent.rowSchema),
+  queriedTables: new Set(["pageContent"]),
+});
+
 export function pageIndexBySlug$(slug: string) {
   return queryDb(
     {

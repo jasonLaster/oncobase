@@ -42,6 +42,15 @@ export interface WikiManifest {
   assets: WikiManifestAsset[];
 }
 
+export interface WikiSessionIdentity {
+  siteSlug: string;
+  scope: WikiScope;
+  authenticated: boolean;
+  cacheKey: string;
+  cacheVersion: string;
+  userHash: string | null;
+}
+
 export interface WikiPageRecord {
   slug: string;
   title: string;
@@ -328,14 +337,17 @@ export function makeWikiStoreId({
   siteSlug,
   scope,
   origin,
+  cacheKey = "anonymous",
 }: {
   siteSlug: string;
   scope: WikiScope;
   origin: string;
+  cacheKey?: string;
 }) {
   const safeSiteSlug = siteSlug.replace(/[^A-Za-z0-9_-]/g, "_");
   const safeOrigin = origin.replace(/[^A-Za-z0-9_-]/g, "_");
-  return `wiki-vite-${safeSiteSlug}-${scope}-${safeOrigin}`;
+  const safeCacheKey = cacheKey.replace(/[^A-Za-z0-9_-]/g, "_");
+  return `wiki-vite-${safeSiteSlug}-${scope}-${safeOrigin}-${safeCacheKey}`;
 }
 
 function assertObject(value: unknown, label: string): Record<string, unknown> {
@@ -445,6 +457,18 @@ export function parseWikiManifest(value: unknown): WikiManifest {
   };
 }
 
+export function parseWikiSessionIdentity(value: unknown): WikiSessionIdentity {
+  const object = assertObject(value, "session identity");
+  return {
+    siteSlug: asString(object.siteSlug, "session.siteSlug"),
+    scope: asScope(object.scope),
+    authenticated: asBoolean(object.authenticated, "session.authenticated"),
+    cacheKey: asString(object.cacheKey, "session.cacheKey"),
+    cacheVersion: asString(object.cacheVersion, "session.cacheVersion"),
+    userHash: asNullableString(object.userHash, "session.userHash"),
+  };
+}
+
 function parsePageRecord(value: unknown): WikiPageRecord {
   const object = assertObject(value, "page record");
   return {
@@ -503,6 +527,10 @@ export function createWikiContentClient({
     async fetchManifest() {
       const url = urlWithParams(baseUrl, "/api/wiki/manifest", { scope });
       return parseWikiManifest(await fetchJson(fetchFn, url));
+    },
+    async fetchSessionIdentity() {
+      const url = urlWithParams(baseUrl, "/api/wiki/session", { scope });
+      return parseWikiSessionIdentity(await fetchJson(fetchFn, url));
     },
     async fetchPages({ cursor, limit, slugs }: FetchPagesOptions = {}) {
       const params: Record<string, string> = { scope };
