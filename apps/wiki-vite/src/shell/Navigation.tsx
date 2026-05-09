@@ -17,6 +17,8 @@ import { fileTree$, pageIndex$ } from "../livestore/queries";
 import type { PageIndexRow } from "../types";
 import { hrefForSlug, parseJsonArray, slugFromPath } from "../wiki-utils";
 
+const TREE_EXPANSION_KEY = "wiki-vite-expanded-directories";
+
 function useWikiTree() {
   const fileTreeRow = useStore().store.useQuery(fileTree$) as { treeJson: string } | null;
   const pages = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
@@ -32,14 +34,83 @@ function useWikiTree() {
   }, [fileTreeRow, pages]);
 }
 
+function readExpandedDirectories() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(TREE_EXPANSION_KEY) ?? "[]") as unknown;
+    return Array.isArray(parsed)
+      ? new Set(parsed.filter((item): item is string => typeof item === "string"))
+      : new Set<string>();
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function writeExpandedDirectories(slugs: Set<string>) {
+  try {
+    localStorage.setItem(TREE_EXPANSION_KEY, JSON.stringify(Array.from(slugs)));
+  } catch {
+    // Sidebar expansion is a convenience, not critical cache state.
+  }
+}
+
+function collectActiveAncestors(nodes: FileNode[], activeSlug: string) {
+  const ancestors = new Set<string>();
+
+  const visit = (node: FileNode, currentAncestors: string[]): boolean => {
+    if (node.slug === activeSlug) {
+      currentAncestors.forEach((slug) => ancestors.add(slug));
+      return true;
+    }
+
+    if (node.type !== "directory" || !node.children) return false;
+
+    const nextAncestors = [...currentAncestors, node.slug];
+    const found = node.children.some((child) => visit(child, nextAncestors));
+    if (found) ancestors.add(node.slug);
+    return found;
+  };
+
+  nodes.forEach((node) => visit(node, []));
+  return ancestors;
+}
+
+function useTreeExpansion(tree: FileNode[]) {
+  const location = useLocation();
+  const activeSlug = slugFromPath(location.pathname);
+  const [expandedSlugs, setExpandedSlugs] = useState(readExpandedDirectories);
+  const activeAncestorSlugs = useMemo(
+    () => collectActiveAncestors(tree, activeSlug),
+    [activeSlug, tree],
+  );
+  const toggleDirectory = useCallback((slug: string) => {
+    setExpandedSlugs((current) => {
+      const next = new Set(current);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      writeExpandedDirectories(next);
+      return next;
+    });
+  }, []);
+
+  return { activeAncestorSlugs, expandedSlugs, toggleDirectory };
+}
+
 export function Sidebar() {
   const tree = useWikiTree();
+  const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
+
   return (
     <aside className="sidebar" data-test-id="wiki-sidebar">
       <div className="sidebar-heading">File tree</div>
       <nav>
         {tree.map((node) => (
-          <TreeNode key={treeNodeKey(node)} node={node} />
+          <TreeNode
+            key={treeNodeKey(node)}
+            node={node}
+            activeAncestorSlugs={activeAncestorSlugs}
+            expandedSlugs={expandedSlugs}
+            onToggleDirectory={toggleDirectory}
+          />
         ))}
       </nav>
     </aside>
@@ -60,6 +131,7 @@ export function MobileNav() {
   const tree = useWikiTree();
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
   const close = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
@@ -103,7 +175,14 @@ export function MobileNav() {
           </div>
           <nav>
             {tree.map((node) => (
-              <TreeNode key={treeNodeKey(node)} node={node} onNavigate={close} />
+              <TreeNode
+                key={treeNodeKey(node)}
+                node={node}
+                activeAncestorSlugs={activeAncestorSlugs}
+                expandedSlugs={expandedSlugs}
+                onNavigate={close}
+                onToggleDirectory={toggleDirectory}
+              />
             ))}
           </nav>
         </div>
@@ -115,23 +194,31 @@ export function MobileNav() {
 function TreeNode({
   node,
   depth = 0,
+  activeAncestorSlugs,
+  expandedSlugs,
   onNavigate,
+  onToggleDirectory,
 }: {
   node: FileNode;
   depth?: number;
+  activeAncestorSlugs: Set<string>;
+  expandedSlugs: Set<string>;
   onNavigate?: () => void;
+  onToggleDirectory: (slug: string) => void;
 }) {
   const location = useLocation();
-  const [open, setOpen] = useState(depth < 1);
   const active = location.pathname === hrefForSlug(node.slug);
 
   if (node.type === "directory") {
+    const open =
+      depth < 1 || activeAncestorSlugs.has(node.slug) || expandedSlugs.has(node.slug);
+
     return (
       <div>
         <button
           className="tree-directory"
           type="button"
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => onToggleDirectory(node.slug)}
           style={{ paddingLeft: depth * 12 + 8 }}
         >
           {open ? (
@@ -147,7 +234,10 @@ function TreeNode({
                 key={treeNodeKey(child)}
                 node={child}
                 depth={depth + 1}
+                activeAncestorSlugs={activeAncestorSlugs}
+                expandedSlugs={expandedSlugs}
                 onNavigate={onNavigate}
+                onToggleDirectory={onToggleDirectory}
               />
             ))
           : null}

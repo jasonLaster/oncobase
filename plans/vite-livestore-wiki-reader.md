@@ -41,6 +41,19 @@ bun --cwd apps/wiki-vite typecheck
 bun --cwd apps/wiki-vite test:e2e e2e/command-palette.spec.ts e2e/navigation.spec.ts e2e/search.spec.ts
 ```
 
+### 2026-05-09 Sidebar Parity Checkpoint
+
+- Updated the Vite file tree so deep-linked pages auto-expand their active ancestor directories.
+- Persisted manual sidebar expansion in local storage so the tree does not collapse on reload.
+- Applied the same expansion model to the mobile navigation sheet.
+- Added Playwright coverage for active-branch expansion and persisted directory expansion.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/navigation.spec.ts e2e/sidebar-pdfs.spec.ts e2e/page-load-experience.spec.ts
+```
+
 ### 2026-05-09 Backend Deployment Checkpoint
 
 - Deployed the additive Convex backend to `https://youthful-cricket-560.convex.cloud` with `bunx convex deploy --env-file .env.local --typecheck try`.
@@ -92,7 +105,7 @@ These are the major gaps between the prototype and the current wiki experience.
 | Comments and Liveblocks | Not implemented in Vite. | Comment rail, auth gating, Liveblocks tokens, thread persistence, unread/resolved states, and multi-device sync. | Keep in Next for v1. Treat as out of scope unless explicitly pulled forward. |
 | Command palette | Keyboard trigger, local page rows, outline rows, and backend action rows landed. | Better fuzzy ranking, current-page context actions, recents surfacing, tags, source/PDF actions, and a deeper focus/accessibility pass. | Build before production reader parity. It can be powered by the local LiveStore index, while search/chat actions delegate to backend surfaces. |
 | Other palettes | Page, outline, and backend action palettes now exist as modes in one command surface. | Dedicated tag palette, asset/source palette, recent-pages palette, and debug/cache palette for store reset and metrics. | Page palette should be first. Backend search/chat entries should delegate instead of cloning those full-stack flows. |
-| Sidebar/tree | Basic desktop tree and mobile sheet exist. | Persisted expansion state, better active ancestor expansion, richer file/PDF affordances, source grouping, keyboard navigation, and very large tree performance. | Needed before broad preview review, but not before additive backend deployment. |
+| Sidebar/tree | Desktop tree and mobile sheet exist, active branches auto-expand, and manual expansion persists across reloads. | Richer file/PDF affordances, source grouping, keyboard navigation, and very large tree performance. | Needed before broad preview review, but not before additive backend deployment. |
 | Page chrome | Basic title, tags, size, stale/sensitive badges, manifest/hash footer. | Breadcrumbs, page description/meta, source links, PDF/download affordances, print/share/copy actions, edit/source provenance, not-found parity, and route metadata. | Reader parity blocker for pages with sources/assets. |
 | Markdown parity | Shared package handles the main rendering path. | More package tests for smart tables, citations, PDF/image rewriting, theme-paired images, heading anchors, math, Mermaid fallback, and route-link adapters. | Required before trusting the package as the durable reader layer. |
 | Auth/session UX | Scope is selected with `?scope=session`; session identity creates a distinct store id. | Login/session prompts, signed-out recovery, cache reset, active-store inspector, auth-expired handling, and safe session-store invalidation. | Privacy-sensitive. Required before any authenticated pilot. |

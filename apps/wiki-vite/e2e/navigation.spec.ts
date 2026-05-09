@@ -34,6 +34,24 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(documentArticle(page)).toContainText("Prior authorization");
   });
 
+  test("deep links auto-expand the active sidebar branch", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    const sidebar = page.getByTestId("wiki-sidebar");
+    await expect(sidebar.getByRole("link", { name: "insurance" })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: "insurance" })).toHaveClass(/active/);
+  });
+
+  test("sidebar directory expansion persists across reloads", async ({ page }) => {
+    await gotoWiki(page, "/");
+
+    await openDirectory(page, "logistics");
+    await expect(page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" })).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" })).toBeVisible();
+  });
+
   test("page shows tags, sensitive scope, and cache metadata", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
