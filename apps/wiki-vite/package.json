@@ -1,0 +1,33 @@
+{
+  "name": "@diana-tnbc/wiki-vite",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "bun test src/**/*.test.ts"
+  },
+  "dependencies": {
+    "@diana-tnbc/wiki-content": "workspace:*",
+    "@diana-tnbc/wiki-markdown": "workspace:*",
+    "@livestore/adapter-web": "0.3.1",
+    "@livestore/livestore": "0.3.1",
+    "@livestore/peer-deps": "0.3.1",
+    "@livestore/react": "0.3.1",
+    "@livestore/wa-sqlite": "1.0.5-dev.2",
+    "lucide-react": "^1.11.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-router": "7.15.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "6.0.1",
+    "bun-types": "^1.3.12",
+    "typescript": "^5",
+    "vite": "8.0.11"
+  }
+}

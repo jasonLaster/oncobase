@@ -269,6 +269,34 @@ export const listPageWithContent = query({
   },
 });
 
+export const listManifestPage = query({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const result = await paginatedDocs(ctx, site, cursor, numItems);
+    return {
+      page: result.page
+        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
+        .map(({ slug, title, tags, description, content, contentHash, sensitive }) => ({
+          slug,
+          title,
+          tags,
+          description: description ?? null,
+          contentHash: contentHash ?? null,
+          sensitive: sensitive === true,
+          size: content.length,
+        })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  },
+});
+
 export const list = action({
   args: {
     includeSensitive: v.optional(v.boolean()),
@@ -868,6 +896,9 @@ export const assetHashesPage = query({
     // sibling document checks, which can exceed Convex's read limit on
     // large vaults.
     const includeAll = includeSensitive ?? true;
+    const sensitiveSlugs = includeAll
+      ? null
+      : await sensitiveSiblingSlugSet(ctx, site);
     const parsed = cursor ? (JSON.parse(cursor) as {
       pdf: string | null;
       pdfDone: boolean;
@@ -879,6 +910,7 @@ export const assetHashesPage = query({
       kind: "pdf" | "file";
       path: string;
       contentHash: string | undefined;
+      sizeBytes?: number;
       blobUrl: string;
     }> = [];
 
@@ -896,11 +928,12 @@ export const assetHashesPage = query({
           });
       for (const row of result.page) {
         if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-        if (!(await canReadAssetPath(ctx, site, row.path, includeAll))) continue;
+        if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
         out.push({
           kind: "pdf",
           path: row.path,
           contentHash: row.contentHash,
+          sizeBytes: row.sizeBytes,
           blobUrl: row.blobUrl,
         });
       }
@@ -917,11 +950,12 @@ export const assetHashesPage = query({
           });
       for (const row of result.page) {
         if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-        if (!(await canReadAssetPath(ctx, site, row.path, includeAll))) continue;
+        if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
         out.push({
           kind: "file",
           path: row.path,
           contentHash: row.contentHash,
+          sizeBytes: row.sizeBytes,
           blobUrl: row.blobUrl,
         });
       }

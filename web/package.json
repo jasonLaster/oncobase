@@ -38,6 +38,7 @@
     "@diana-tnbc/chat": "workspace:*",
     "@diana-tnbc/smart-table": "workspace:*",
     "@oncobase/oncobase": "workspace:*",
+    "@diana-tnbc/wiki-content": "workspace:*",
     "@lexical/react": "^0.43.0",
     "@liveblocks/client": "^3.18.1",
     "@liveblocks/node": "^3.18.1",

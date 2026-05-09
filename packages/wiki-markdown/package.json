@@ -1,0 +1,40 @@
+{
+  "name": "@diana-tnbc/wiki-markdown",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Client-safe React markdown renderer for Diana wiki pages.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.tsx",
+      "import": "./src/index.tsx",
+      "default": "./src/index.tsx"
+    },
+    "./styles.css": "./src/styles.css",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "bun test src/*.test.ts"
+  },
+  "dependencies": {
+    "@diana-tnbc/smart-table": "workspace:*",
+    "katex": "^0.16.45",
+    "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "bun-types": "^1.3.12",
+    "typescript": "^5"
+  }
+}

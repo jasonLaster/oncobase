@@ -1,7 +1,9 @@
 .DS_Store
 .turbo/
+**/.turbo/
 node_modules/
 packages/oncobase/dist/
+apps/*/dist/
 obsidian/.obsidian/workspace.json
 web/public/diana-tnbc-wiki.zip
 web/public/diana-tnbc-wiki-full.zip
