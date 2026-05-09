@@ -98,6 +98,23 @@ There are two markdown renderers:
   async function tagged by site and render version. Use it for normal
   document bodies where streaming is acceptable.
 
+Both renderers delegate the framework-neutral HTML shape to
+`@diana-tnbc/wiki-markdown/server`. The package owns markdown plugins,
+wikilinks, citations, math cleanup, smart-table markup, PDF chips,
+image-theater attributes, theme-paired images, and Mermaid rendering.
+`web/src/lib/render-markdown.ts` should remain a Next/server wrapper:
+cache key, `.next/cache` filesystem read/write, render-version salt,
+and performance logging.
+
+Client-only markdown behavior follows the same split.
+`@diana-tnbc/wiki-markdown` owns the React markdown renderer, routed
+heading anchors, image theater, and table enhancement islands. The
+Next app supplies only `next/link`, `next/navigation`, Sonner
+notifications, and the Diana-specific smart-table layout adapter. The
+Vite + LiveStore reader supplies React Router navigation and LiveStore
+data. The productionization plan for that reader lives in
+[`../../plans/vite-livestore-wiki-reader.md`](../../plans/vite-livestore-wiki-reader.md).
+
 The render cache version is `MARKDOWN_RENDER_CACHE_VERSION` in
 `src/lib/wiki-cache-tags.ts`. The shared cached markdown renderer passes
 that version into its cached function arguments, so bump it when the

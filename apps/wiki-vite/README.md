@@ -2,6 +2,8 @@
 
 This is a side-by-side prototype for a client-rendered wiki reader. It keeps the existing `web` app as the content source and uses LiveStore as a persistent browser read cache for the file tree, page index, asset index, and markdown bodies.
 
+The productionization plan lives in [`../../plans/vite-livestore-wiki-reader.md`](../../plans/vite-livestore-wiki-reader.md). This README describes how the current prototype runs.
+
 ## Run
 
 Start the current Next app first:
@@ -27,6 +29,8 @@ The default store is public-only, even if the browser also has a signed-in wiki 
 ## Architecture Note
 
 The prototype is intentionally side-by-side with the current Next app. `web` remains the v1 content source and publishing target; this app only consumes public/session API snapshots and stores them in the browser.
+
+The durable wiki behavior should stay in shared packages. `@diana-tnbc/wiki-content` owns manifest/page/tree contracts and cache reconciliation. `@diana-tnbc/wiki-markdown` owns markdown rendering, route-safe links, heading anchors, image theater, citations, math, and smart-table integration. The Vite app should remain the LiveStore and React Router adapter around those packages.
 
 LiveStore is used as a local read cache without a remote sync backend. The schema stores:
 
