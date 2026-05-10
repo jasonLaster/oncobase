@@ -47,6 +47,19 @@ export {
   type WikiToastProps,
 } from "./page-chrome";
 export {
+  WikiMobileNavigation,
+  WikiSidebar,
+  WikiTree,
+  collectActiveAncestors,
+  formatTreeNodeName,
+  treeNodeKey,
+  type WikiMobileNavigationProps,
+  type WikiNavigationNode,
+  type WikiSidebarProps,
+  type WikiTreePageLinkRenderArgs,
+  type WikiTreeProps,
+} from "./navigation";
+export {
   COMMENTS_COLLAPSED_WIDTH,
   COMMENTS_DEFAULT_WIDTH,
   COMMENTS_MAX_WIDTH,

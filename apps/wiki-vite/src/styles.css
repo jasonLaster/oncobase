@@ -581,80 +581,6 @@ a {
   overflow: hidden;
 }
 
-.sidebar {
-  background: var(--sidebar-bg);
-  height: 100%;
-  overflow: auto;
-  padding: 8px;
-}
-
-.sidebar-heading {
-  color: var(--muted);
-  font-size: 0.6875rem;
-  font-weight: 650;
-  letter-spacing: 0;
-  margin: 3px 8px 8px;
-  text-transform: uppercase;
-}
-
-.tree-directory,
-.tree-link {
-  align-items: center;
-  border: 0;
-  border-radius: 4px;
-  color: var(--text-muted);
-  display: flex;
-  gap: 6px;
-  min-height: 26px;
-  text-align: left;
-  text-decoration: none;
-  width: 100%;
-}
-
-.tree-directory {
-  background: transparent;
-  cursor: pointer;
-  font-weight: 500;
-  padding-block: 4px;
-}
-
-.tree-link {
-  font-size: 0.875rem;
-  overflow: hidden;
-  padding-block: 4px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tree-directory:hover,
-.tree-directory:focus-visible,
-.tree-link:hover,
-.tree-link:focus-visible,
-.tree-link.active {
-  background: var(--accent-light);
-  color: var(--foreground);
-}
-
-.tree-link.active {
-  color: var(--brand);
-  font-weight: 550;
-}
-
-.tree-link.pdf {
-  color: var(--brand);
-}
-
-.tree-badge {
-  border: 1px solid color-mix(in srgb, var(--brand) 20%, transparent);
-  border-radius: 4px;
-  color: var(--brand);
-  flex: 0 0 auto;
-  font-size: 0.625rem;
-  font-weight: 650;
-  margin-left: auto;
-  padding: 1px 5px;
-}
-
 .content-shell {
   height: 100%;
   min-width: 0;
@@ -1168,11 +1094,6 @@ a {
   padding: 8px 12px;
 }
 
-.bottom-nav-trigger,
-.bottom-nav-sheet {
-  display: none;
-}
-
 @media (max-width: 860px) {
   .prototype-shell {
     display: block;
@@ -1193,10 +1114,6 @@ a {
 
   .app-content {
     overflow: visible;
-  }
-
-  .sidebar {
-    display: none;
   }
 
   .content-shell {
@@ -1283,117 +1200,4 @@ a {
     color: var(--brand);
   }
 
-  .bottom-nav-trigger {
-    align-items: center;
-    background: color-mix(in srgb, var(--sidebar-bg) 95%, transparent);
-    border: 0;
-    border-top: 1px solid var(--sidebar-border);
-    bottom: 0;
-    color: var(--foreground);
-    display: flex;
-    font-size: 0.875rem;
-    font-weight: 550;
-    height: 48px;
-    justify-content: space-between;
-    left: 0;
-    padding: 0 16px;
-    position: fixed;
-    right: 0;
-    z-index: 40;
-    backdrop-filter: blur(8px);
-  }
-
-  .bottom-nav-trigger span:first-child {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .bottom-nav-sheet {
-    display: block;
-    inset: 0;
-    opacity: 0;
-    pointer-events: none;
-    position: fixed;
-    transition: opacity 180ms ease;
-    z-index: 50;
-  }
-
-  .bottom-nav-sheet.open {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .bottom-nav-backdrop {
-    background: rgb(0 0 0 / 0.48);
-    border: 0;
-    inset: 0;
-    position: absolute;
-    width: 100%;
-  }
-
-  .bottom-nav-panel {
-    background: var(--sidebar-bg);
-    border-radius: 16px 16px 0 0;
-    bottom: 0;
-    box-shadow: 0 -18px 48px rgb(17 24 39 / 0.22);
-    display: flex;
-    flex-direction: column;
-    left: 0;
-    max-height: 85dvh;
-    overflow: hidden;
-    padding-bottom: env(safe-area-inset-bottom);
-    position: absolute;
-    right: 0;
-    transform: translateY(100%);
-    transition: transform 200ms ease;
-  }
-
-  .bottom-nav-sheet.open .bottom-nav-panel {
-    transform: translateY(0);
-  }
-
-  .bottom-nav-handle {
-    background: color-mix(in srgb, var(--text-muted) 30%, transparent);
-    border-radius: 999px;
-    height: 4px;
-    margin: 8px auto;
-    width: 32px;
-  }
-
-  .bottom-nav-header {
-    align-items: center;
-    display: flex;
-    justify-content: space-between;
-    padding: 0 12px 6px 16px;
-  }
-
-  .bottom-nav-header strong {
-    font-size: 0.875rem;
-  }
-
-  .bottom-nav-header button {
-    align-items: center;
-    background: transparent;
-    border: 0;
-    border-radius: 6px;
-    color: var(--text-muted);
-    display: inline-flex;
-    font-size: 1.25rem;
-    height: 32px;
-    justify-content: center;
-    width: 32px;
-  }
-
-  .bottom-nav-header button:hover {
-    background: var(--accent-light);
-    color: var(--foreground);
-  }
-
-  .bottom-nav-panel nav {
-    min-height: 0;
-    overflow: auto;
-    padding: 4px 8px 12px;
-  }
 }

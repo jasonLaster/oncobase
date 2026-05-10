@@ -132,6 +132,86 @@
   width: 1.875rem;
 }
 
+.wiki-shell-sidebar {
+  background: var(--sidebar-bg);
+  height: 100%;
+  overflow: auto;
+  padding: 0.5rem;
+}
+
+.wiki-shell-sidebar-heading {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  margin: 0.1875rem 0.5rem 0.5rem;
+  text-transform: uppercase;
+}
+
+.wiki-shell-tree-directory,
+.wiki-shell-tree-link {
+  align-items: center;
+  border: 0;
+  border-radius: 0.25rem;
+  color: var(--text-muted);
+  display: flex;
+  gap: 0.375rem;
+  min-height: 1.625rem;
+  text-align: left;
+  text-decoration: none;
+  width: 100%;
+}
+
+.wiki-shell-tree-directory {
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 500;
+  padding-block: 0.25rem;
+}
+
+.wiki-shell-tree-link {
+  font-size: 0.875rem;
+  overflow: hidden;
+  padding-block: 0.25rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wiki-shell-tree-directory:hover,
+.wiki-shell-tree-directory:focus-visible,
+.wiki-shell-tree-link:hover,
+.wiki-shell-tree-link:focus-visible,
+.wiki-shell-tree-link.active {
+  background: var(--accent-light);
+  color: var(--foreground);
+}
+
+.wiki-shell-tree-link.active {
+  color: var(--brand);
+  font-weight: 550;
+}
+
+.wiki-shell-tree-link.pdf {
+  color: var(--brand);
+}
+
+.wiki-shell-tree-badge {
+  border: 1px solid color-mix(in srgb, var(--brand) 20%, transparent);
+  border-radius: 0.25rem;
+  color: var(--brand);
+  flex: 0 0 auto;
+  font-size: 0.625rem;
+  font-weight: 650;
+  margin-left: auto;
+  padding: 1px 5px;
+}
+
+.wiki-shell-bottom-nav-trigger,
+.wiki-shell-bottom-nav-sheet {
+  display: none;
+}
+
 .wiki-shell-breadcrumbs {
   color: var(--muted);
   font-size: 0.75rem;
@@ -687,6 +767,125 @@
 
   .wiki-shell-page-badges {
     margin-top: 0.75rem;
+  }
+
+  .wiki-shell-sidebar {
+    display: none;
+  }
+
+  .wiki-shell-bottom-nav-trigger {
+    align-items: center;
+    background: color-mix(in srgb, var(--sidebar-bg) 95%, transparent);
+    border: 0;
+    border-top: 1px solid var(--sidebar-border);
+    bottom: 0;
+    color: var(--foreground);
+    display: flex;
+    font-size: 0.875rem;
+    font-weight: 550;
+    height: 3rem;
+    justify-content: space-between;
+    left: 0;
+    padding: 0 1rem;
+    position: fixed;
+    right: 0;
+    z-index: 40;
+    backdrop-filter: blur(8px);
+  }
+
+  .wiki-shell-bottom-nav-trigger span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wiki-shell-bottom-nav-sheet {
+    display: block;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    position: fixed;
+    transition: opacity 180ms ease;
+    z-index: 50;
+  }
+
+  .wiki-shell-bottom-nav-sheet.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .wiki-shell-bottom-nav-backdrop {
+    background: rgb(0 0 0 / 0.48);
+    border: 0;
+    inset: 0;
+    position: absolute;
+    width: 100%;
+  }
+
+  .wiki-shell-bottom-nav-panel {
+    background: var(--sidebar-bg);
+    border-radius: 1rem 1rem 0 0;
+    bottom: 0;
+    box-shadow: 0 -18px 48px rgb(17 24 39 / 0.22);
+    display: flex;
+    flex-direction: column;
+    left: 0;
+    max-height: 85dvh;
+    overflow: hidden;
+    padding-bottom: env(safe-area-inset-bottom);
+    position: absolute;
+    right: 0;
+    transform: translateY(100%);
+    transition: transform 200ms ease;
+  }
+
+  .wiki-shell-bottom-nav-sheet.open .wiki-shell-bottom-nav-panel {
+    transform: translateY(0);
+  }
+
+  .wiki-shell-bottom-nav-handle {
+    background: color-mix(in srgb, var(--text-muted) 30%, transparent);
+    border-radius: 999px;
+    height: 0.25rem;
+    margin: 0.5rem auto;
+    width: 2rem;
+  }
+
+  .wiki-shell-bottom-nav-header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 0.75rem 0.375rem 1rem;
+  }
+
+  .wiki-shell-bottom-nav-header strong {
+    font-size: 0.875rem;
+  }
+
+  .wiki-shell-bottom-nav-header button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 0.375rem;
+    color: var(--text-muted);
+    display: inline-flex;
+    font-size: 1.25rem;
+    height: 2rem;
+    justify-content: center;
+    width: 2rem;
+  }
+
+  .wiki-shell-bottom-nav-header button:hover,
+  .wiki-shell-bottom-nav-header button:focus-visible {
+    background: var(--accent-light);
+    color: var(--foreground);
+  }
+
+  .wiki-shell-bottom-nav-panel nav {
+    min-height: 0;
+    overflow: auto;
+    padding: 0.25rem 0.5rem 0.75rem;
   }
 }
 
