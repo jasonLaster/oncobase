@@ -15,7 +15,7 @@ The migration is far enough along to test the new data path against a deployed b
 | Area | Status | Notes |
 | --- | --- | --- |
 | Shared content contracts | Mostly productionized | `packages/wiki-content` owns manifest parsing, compact tree expansion, page batches, content-hash reconciliation, versioned reader cache ids, and public/session store ids. Edge-case coverage now includes invalid manifests, pagination cursors, deleted/missing hash reconciliation, and store-id sanitization/versioning. |
-| Shared markdown runtime | Mostly productionized | `packages/wiki-markdown` owns the reusable renderer, route-link adapter, heading anchors, image theater, citations, math cleanup, PDF chips, theme-paired images, and smart-table behavior. The extraction is useful even if Vite is not adopted; package-level server coverage now protects the highest-risk renderer transforms. |
+| Shared markdown runtime | Mostly productionized | `packages/wiki-markdown` owns the reusable renderer, route-link adapter, heading anchors, image theater, citations, math cleanup, PDF chips, theme-paired images, smart-table behavior, and a client-safe Mermaid fallback. The extraction is useful even if Vite is not adopted; package-level server coverage now protects the highest-risk renderer transforms. |
 | Backend API surface | Framework-neutral core landed | `/api/wiki/session`, `/api/wiki/manifest`, and `/api/wiki/pages` are additive. The implementation now lives in `@diana-tnbc/wiki-content/server` with thin Next and Vite adapters. Public/session cache behavior is covered by API tests, and Vite can serve reader APIs directly from Convex through dev middleware or the standalone full-stack server. |
 | Convex support | Deployed additively | `documents.listManifestPage` is additive and mirrors existing document pagination without changing the publish path. Existing page and asset listing queries remain the source for markdown bodies and tree assets. The production Convex deployment now has the additive reader functions. |
 | LiveStore reader | Prototype works | The Vite app persists page index, file tree, asset index, and page bodies in OPFS-backed LiveStore tables. It renders cached markdown first, fetches the manifest in the background, marks stale/deleted/missing content, eagerly fetches markdown in bounded batches, and surfaces storage pressure when browser quota is tight. |
@@ -26,6 +26,23 @@ The migration is far enough along to test the new data path against a deployed b
 | Migration decision | Not ready | The branch is ready to validate the architecture, not to replace the Next app. Keep production routes on Next until reader parity, privacy tests, and preview metrics are in hand. |
 
 ## Work Log
+
+### 2026-05-09 Client Mermaid Fallback Checkpoint
+
+- Added a client-safe Mermaid fallback in `packages/wiki-markdown` for fenced Mermaid blocks. It renders the diagram title, task rows for simple Gantt diagrams, and collapsible source without adding a heavy browser Mermaid renderer.
+- Activated the Vite timeline Gantt Playwright test that had been skipped as a markdown parity gap.
+- Re-ran package markdown checks, the Vite production build, bundle budget, focused timeline coverage, and the full Vite Playwright migration suite: `60 passed, 71 skipped`.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd packages/wiki-markdown typecheck
+bun --cwd packages/wiki-markdown test:unit
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/timeline-gantt.spec.ts
+bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite check:bundle
+bun --cwd apps/wiki-vite test:e2e
+```
 
 ### 2026-05-09 Storage Pressure Checkpoint
 
@@ -265,7 +282,7 @@ bun --cwd apps/wiki-vite test:e2e
 
 - Added `bun run check:bundle` for `apps/wiki-vite` so tree-shaking regressions fail explicitly after a production build.
 - The budget check reports raw and gzip sizes for entry, React, LiveStore, Effect, markdown, page/sync chunks, workers, and SQLite wasm assets.
-- Current built asset total is `1066.5 KiB` gzip including wasm and workers; the entry script is `3.4 KiB` gzip while markdown, LiveStore, and Effect remain split behind separate chunks.
+- Current built asset total is `1067.0 KiB` gzip including wasm and workers; the entry script is `3.4 KiB` gzip while markdown, LiveStore, and Effect remain split behind separate chunks.
 - The current budgets are intentionally close to the known prototype shape, with room for normal hash/minifier drift but not for accidentally pulling markdown or LiveStore back into the entry path.
 - Verification commands run for this checkpoint:
 
@@ -476,7 +493,7 @@ These are the major gaps between the prototype and the current wiki experience.
 | Other palettes | Page, outline, asset, tag, recent, backend action, and debug/cache palettes now exist as modes in one command surface. | Metrics drill-downs and richer cache diagnostics. | Page palette should be first. Backend search/chat entries should delegate instead of cloning those full-stack flows. |
 | Sidebar/tree | Desktop tree and mobile sheet exist, active branches auto-expand, manual expansion persists across reloads, and PDF/file assets are discoverable through the local asset palette. | Richer source grouping, keyboard navigation, and very large tree performance. | Needed before broad preview review, but not before additive backend deployment. |
 | Page chrome | Title, description, breadcrumbs, tags, copy/link/print/download/main-app actions, manifest-backed source/PDF provenance, size, stale/sensitive badges, not-found recovery, failed-fetch retry, and manifest/hash footer exist. | Edit/source provenance and richer mobile action placement. | Reader parity blocker for pages with sources/assets. |
-| Markdown parity | Shared package handles the main rendering path. | More package tests for smart tables, citations, PDF/image rewriting, theme-paired images, heading anchors, math, Mermaid fallback, and route-link adapters. | Required before trusting the package as the durable reader layer. |
+| Markdown parity | Shared package handles the main rendering path, including a client-safe Mermaid fallback for timeline/Gantt fences. | More package tests for the client renderer adapter and route-link edge cases. | Required before trusting the package as the durable reader layer. |
 | Auth/session UX | Scope can be selected with `?scope=session` or the header switcher; session identity creates a distinct store id; signed-out session access shows a recovery screen; auth-expired fetches clear the session store; cache-key rotation opens a separate authenticated store; cross-origin previews use credentialed API requests only when the backend origin is explicitly configured and allowlisted; browser tests cover sensitive session content not leaking into public scope. | Login prompt polish, return-to-reader sign-in flow, and broader session-expiry invalidation tests. | Privacy-sensitive. Required before any authenticated pilot. |
 | Offline/cache controls | OPFS persistence, browser storage estimate, cache quota pressure messaging, explicit local cache reset, manual cache warming, versioned reader cache invalidation, stale-content explanation, failed body fetch metrics, and current-page retry UI exist. | Cache pruning/eviction policy for very large sites. | Required before production trial. |
 | Performance instrumentation | Metrics panel tracks manifest bytes, markdown bytes, event count, OPFS usage/quota pressure, sync state, route render timing, warm render timing, failed body fetch count, screenshot-backed desktop/mobile visual baselines, current-route-first network assertions, and build-time bundle budgets. | Preview telemetry and broader per-route network assertions. | Required before migration decision. |
@@ -495,6 +512,7 @@ Active Vite reader coverage:
 - Image theater behavior for client-rendered markdown images.
 - Heading anchors, copied section links, same-page hash scrolling, cross-page hash navigation, and non-hash scroll reset.
 - Smart table rendering, expansion/collapse, styling preservation, mobile fallback, and a light responsiveness check.
+- Client-safe Mermaid timeline fallback rendering.
 - Warm navigation from cached LiveStore page bodies without a priority page-body refetch.
 - Cold route priority fetching for the visible page body before eager markdown warming.
 - Unknown deep links after manifest sync and current-page markdown fetch retry.
@@ -509,13 +527,12 @@ Skipped-in-place migration inventory:
 - Multi-site backend isolation invariants.
 - PII redaction and markdown download backend checks.
 - Server-rendered header shell before hydration.
-- Mermaid timeline rendering.
 
 Current local result:
 
 ```txt
 bun --cwd apps/wiki-vite test:e2e --reporter=line
-59 passed, 72 skipped
+60 passed, 71 skipped
 ```
 
 The skipped specs are not a hidden success condition. They are the remaining feature inventory to either migrate into Vite, keep routed to Next for v1, or delete from the Vite migration scope explicitly.

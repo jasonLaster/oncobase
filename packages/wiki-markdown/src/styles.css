@@ -81,6 +81,45 @@
   padding: 0;
 }
 
+.wiki-markdown .mermaid-fallback {
+  background: var(--surface-muted, #f1f5f9);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  padding: 1rem;
+}
+
+.wiki-markdown .mermaid-fallback figcaption {
+  color: var(--foreground, #0f172a);
+  font-weight: 650;
+  margin-bottom: 0.75rem;
+}
+
+.wiki-markdown .mermaid-fallback-tasks {
+  display: grid;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+}
+
+.wiki-markdown .mermaid-fallback-tasks li {
+  background: var(--panel, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-left: 4px solid var(--brand, #2563eb);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.wiki-markdown .mermaid-fallback details {
+  color: var(--text-muted, #64748b);
+  font-size: 0.8125rem;
+}
+
+.wiki-markdown .mermaid-fallback details pre {
+  margin-bottom: 0;
+}
+
 .wiki-markdown img {
   border-radius: 0.5rem;
   cursor: zoom-in;
