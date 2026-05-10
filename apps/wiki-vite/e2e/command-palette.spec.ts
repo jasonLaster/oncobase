@@ -49,16 +49,17 @@ test.describe("Command palette parity", () => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
     await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+K" : "Control+Shift+K");
-    await expect(page.getByTestId("command-palette")).toBeVisible();
-    await expect(page.getByRole("link", { name: /Search wiki/ })).toHaveAttribute(
+    const palette = page.getByTestId("command-palette");
+    await expect(palette).toBeVisible();
+    await expect(palette.getByRole("link", { name: /Search wiki/ })).toHaveAttribute(
       "href",
       /\/search\?returnTo=%2Fwiki%2Flogistics%2Finsurance$/,
     );
-    await expect(page.getByRole("link", { name: /New chat/ })).toHaveAttribute(
+    await expect(palette.getByRole("link", { name: /New chat/ })).toHaveAttribute(
       "href",
       /\/chat\?returnTo=%2Fwiki%2Flogistics%2Finsurance$/,
     );
-    await expect(page.getByRole("link", { name: /Download full wiki/ })).toHaveAttribute(
+    await expect(palette.getByRole("link", { name: /Download full wiki/ })).toHaveAttribute(
       "href",
       /\/api\/download\?type=full&scope=public$/,
     );

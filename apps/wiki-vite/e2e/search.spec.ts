@@ -1,64 +1,68 @@
 import { expect, test } from "@playwright/test";
 import { gotoWiki, installWikiApiMocks, waitForPageTitle } from "./fixtures";
 
-test.describe("Local page finder", () => {
-  test("finder from the header navigates to a cached page", async ({ page }) => {
+test.describe("Search and local page finding", () => {
+  test("Find files opens local page navigation", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/");
 
-    await page.getByTestId("header-search-input").fill("diagnosis");
-    await page.getByRole("link", { name: /Diagnosis/ }).click();
+    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("command-palette-input").fill("diagnosis");
+    await page.getByRole("button", { name: /Diagnosis/ }).click();
 
     await expect(page).toHaveURL(/\/wiki\/diagnostics\/diagnosis$/);
     await waitForPageTitle(page, "Diagnosis");
   });
 
-  test("empty local finder shows no results message", async ({ page }) => {
+  test("empty local finder shows no results message in the command palette", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/");
 
-    await page.getByTestId("header-search-input").fill("zzzznonexistentquery999");
+    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("command-palette-input").fill("zzzznonexistentquery999");
 
-    await expect(page.getByText("No local matches")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Search backend" })).toHaveAttribute(
-      "href",
-      /\/search\?q=zzzznonexistentquery999&returnTo=%2F$/,
-    );
+    await expect(page.getByText("No local pages found")).toBeVisible();
   });
 
-  test("public finder does not include sensitive pages", async ({ page }) => {
+  test("public local finder does not include sensitive pages", async ({ page }) => {
     await installWikiApiMocks(page, { sessionAuthenticated: true });
     await gotoWiki(page, "/");
 
-    await page.getByTestId("header-search-input").fill("private plan");
+    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("command-palette-input").fill("private plan");
 
-    await expect(page.getByText("No local matches")).toBeVisible();
+    await expect(page.getByText("No local pages found")).toBeVisible();
   });
 
   test("session finder can include sensitive pages in its separate store", async ({ page }) => {
     await installWikiApiMocks(page, { sessionAuthenticated: true });
     await gotoWiki(page, "/?scope=session");
 
-    await page.getByTestId("header-search-input").fill("private plan");
-    await page.getByRole("link", { name: /Private Plan/ }).click();
+    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("command-palette-input").fill("private plan");
+    await page.getByRole("button", { name: /Private Plan/ }).click();
 
     await expect(page).toHaveURL(/\/private\/plan$/);
     await waitForPageTitle(page, "Private Plan");
     await expect(page.locator(".badge.sensitive")).toHaveText("sensitive");
   });
 
-  test("header exposes backend search and chat handoffs", async ({ page }) => {
+  test("header search submits to backend search and exposes chat/files handoffs", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/logistics/insurance");
 
-    await expect(page.getByRole("link", { name: "Search" })).toHaveAttribute(
-      "href",
-      /\/search\?returnTo=%2Fwiki%2Flogistics%2Finsurance$/,
+    await page.getByTestId("header-search-input").fill("prior auth");
+    await page.getByTestId("header-search-input").press("Enter");
+    await expect(page).toHaveURL(
+      /\/search\?returnTo=%2Fwiki%2Flogistics%2Finsurance&q=prior\+auth$/,
     );
-    await expect(page.getByRole("link", { name: "New Chat" })).toHaveAttribute(
+
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await expect(page.getByRole("link", { name: "New chat" })).toHaveAttribute(
       "href",
       /\/chat\?returnTo=%2Fwiki%2Flogistics%2Finsurance$/,
     );
+    await expect(page.getByRole("button", { name: /Find files/ })).toBeVisible();
   });
 
   test("search route runs backend text search and opens results", async ({ page }) => {

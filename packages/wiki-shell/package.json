@@ -15,6 +15,11 @@
       "import": "./src/outline.ts",
       "default": "./src/outline.ts"
     },
+    "./header": {
+      "types": "./src/header.tsx",
+      "import": "./src/header.tsx",
+      "default": "./src/header.tsx"
+    },
     "./right-rail": {
       "types": "./src/right-rail.tsx",
       "import": "./src/right-rail.tsx",

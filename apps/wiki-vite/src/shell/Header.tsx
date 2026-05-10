@@ -1,23 +1,33 @@
-import { useStore } from "@livestore/react";
 import type { WikiScope } from "@diana-tnbc/wiki-content";
 import {
+  WikiHeader,
+  WikiHeaderButton,
+  WikiHeaderLink,
+  WikiHeaderSearchForm,
+  WikiLogo,
+} from "@diana-tnbc/wiki-shell";
+import {
   CommandIcon,
-  FileTextIcon,
   MessageCircleIcon,
-  SearchIcon,
+  MoreHorizontalIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { pageIndex$ } from "../livestore/queries";
-import type { PageIndexRow } from "../types";
-import { backendHref, hrefForSlug, rememberSlug, returnToHref } from "../wiki-utils";
+import { backendHref, returnToHref } from "../wiki-utils";
 import { CommandPalette, type PaletteMode } from "./CommandPalette";
 
 export function Header() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteMode, setPaletteMode] = useState<PaletteMode>("pages");
+  const [searchQuery, setSearchQuery] = useState("");
   const location = useLocation();
+  const navigate = useNavigate();
   const returnTo = returnToHref(location.pathname, location.search, location.hash);
+
+  const openPalette = (mode: PaletteMode) => {
+    setPaletteMode(mode);
+    setPaletteOpen(true);
+  };
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -25,20 +35,17 @@ export function Header() {
 
       if (event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setPaletteMode(event.shiftKey ? "actions" : "pages");
-        setPaletteOpen(true);
+        openPalette(event.shiftKey ? "actions" : "pages");
       }
 
       if (event.shiftKey && event.key.toLowerCase() === "o") {
         event.preventDefault();
-        setPaletteMode("outline");
-        setPaletteOpen(true);
+        openPalette("outline");
       }
 
       if (event.shiftKey && event.key.toLowerCase() === "d") {
         event.preventDefault();
-        setPaletteMode("debug");
-        setPaletteOpen(true);
+        openPalette("debug");
       }
     };
 
@@ -46,41 +53,68 @@ export function Header() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const params = new URLSearchParams({ returnTo });
+    const trimmed = searchQuery.trim();
+    if (trimmed) params.set("q", trimmed);
+    navigate(`/search?${params.toString()}`);
+  };
+
   return (
     <>
-      <header className="topbar" data-test-id="app-header">
-        <div className="header-left">
-          <Link className="brand" to="/" aria-label="Home">
-            <span className="brand-mark">D</span>
-            <span className="brand-label">Diana Wiki</span>
+      <WikiHeader
+        data-test-id="app-header"
+        home={
+          <Link to="/" aria-label="Home" data-test-id="header-home">
+            <WikiLogo />
           </Link>
-        </div>
-        <div className="header-center">
-          <SearchBox />
-        </div>
-        <div className="header-actions">
-          <button
-            type="button"
-            className="topbar-button"
-            data-test-id="command-palette-trigger"
-            onClick={() => {
-              setPaletteMode("pages");
-              setPaletteOpen(true);
+        }
+        search={
+          <WikiHeaderSearchForm
+            action={backendHref("/search")}
+            method="get"
+            onSubmit={submitSearch}
+            inputProps={{
+              value: searchQuery,
+              onChange: (event) => setSearchQuery(event.currentTarget.value),
+              onKeyDown: (event) => event.stopPropagation(),
             }}
           >
-            <CommandIcon size={15} aria-hidden="true" />
-            <span>Palette</span>
-          </button>
-          <a className="topbar-button" href={backendHref("/search", { returnTo })}>
-            <SearchIcon size={15} aria-hidden="true" />
-            <span>Search</span>
-          </a>
-          <a className="topbar-button primary" href={backendHref("/chat", { returnTo })}>
-            <MessageCircleIcon size={15} aria-hidden="true" />
-            <span>New Chat</span>
-          </a>
-        </div>
-      </header>
+            <input type="hidden" name="returnTo" value={returnTo} />
+          </WikiHeaderSearchForm>
+        }
+        actions={
+          <>
+            <WikiHeaderLink
+              data-test-id="header-new-chat"
+              href={backendHref("/chat", { returnTo })}
+              variant="primary"
+            >
+              <MessageCircleIcon size={14} aria-hidden="true" />
+              <span>New chat</span>
+            </WikiHeaderLink>
+            <WikiHeaderButton
+              aria-label="Find files (⌘K)"
+              title="Find files (⌘K)"
+              data-test-id="command-palette-trigger"
+              onClick={() => openPalette("pages")}
+            >
+              <CommandIcon size={14} aria-hidden="true" />
+              <span>Find files</span>
+            </WikiHeaderButton>
+            <WikiHeaderButton
+              aria-label="Actions"
+              title="Actions"
+              data-test-id="header-actions-menu"
+              onClick={() => openPalette("actions")}
+              variant="icon"
+            >
+              <MoreHorizontalIcon size={16} aria-hidden="true" />
+            </WikiHeaderButton>
+          </>
+        }
+      />
       <CommandPalette
         open={paletteOpen}
         initialMode={paletteMode}
@@ -123,87 +157,6 @@ export function ScopeSwitcher({
       >
         Session
       </a>
-    </div>
-  );
-}
-
-function SearchBox() {
-  const pages = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
-  const [query, setQuery] = useState("");
-  const navigate = useNavigate();
-  const location = useLocation();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const returnTo = returnToHref(location.pathname, location.search, location.hash);
-  const results = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return pages.slice(0, 8);
-    return pages
-      .filter((page) =>
-        `${page.title} ${page.slug} ${page.tagsJson}`.toLowerCase().includes(normalized),
-      )
-      .slice(0, 12);
-  }, [pages, query]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        inputRef.current?.focus();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  return (
-    <div className="search-shell">
-      <SearchIcon size={16} aria-hidden="true" />
-      <input
-        aria-label="Find cached pages"
-        data-slot="command-input"
-        data-test-id="header-search-input"
-        ref={inputRef}
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && results[0]) {
-            rememberSlug(results[0].slug);
-            navigate(hrefForSlug(results[0].slug));
-            setQuery("");
-          }
-        }}
-        placeholder="Find cached pages"
-      />
-      {query ? (
-        <div className="search-results">
-          {results.length === 0 ? (
-            <div className="search-empty">
-              <span>No local matches</span>
-              <a href={backendHref("/search", { q: query, returnTo })}>Search backend</a>
-            </div>
-          ) : (
-            <>
-              {results.map((page) => (
-                <Link
-                  key={page.slug}
-                  to={hrefForSlug(page.slug)}
-                  onClick={() => setQuery("")}
-                >
-                  <FileTextIcon size={14} aria-hidden="true" />
-                  <span>{page.title}</span>
-                  <small>{page.slug}</small>
-                </Link>
-              ))}
-              <a className="backend-search-result" href={backendHref("/search", { q: query, returnTo })}>
-                <SearchIcon size={14} aria-hidden="true" />
-                <span>Search backend</span>
-                <small>{query}</small>
-              </a>
-            </>
-          )}
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -49,7 +49,7 @@ test.describe("Chat", () => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/logistics/insurance");
 
-    await page.getByRole("link", { name: "New Chat" }).click();
+    await page.getByRole("link", { name: "New chat" }).click();
 
     await expect(page).toHaveURL(/\/chat/);
     await expect(page.getByTestId("chat-interface")).toBeVisible();

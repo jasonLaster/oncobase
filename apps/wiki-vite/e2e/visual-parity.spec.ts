@@ -16,8 +16,8 @@ test.describe("Visual parity", () => {
     await gotoWiki(page, "/wiki/logistics/insurance");
     await waitForPageTitle(page, "Insurance");
 
-    await expect(page.locator(".brand-label")).toHaveCSS("color", "rgb(26, 26, 46)");
-    await expect(page.locator(".topbar")).toHaveCSS("border-bottom-width", "1px");
+    await expect(page.getByTestId("header-home")).toBeVisible();
+    await expect(page.locator(".wiki-shell-header")).toHaveCSS("border-bottom-width", "1px");
     await expect(page.locator(".page-action").first()).toHaveCSS("border-radius", "5px");
     await expect(page.locator(".wiki-shell-outline-root")).toHaveScreenshot("desktop-reader-shell.png", {
       animations: "disabled",

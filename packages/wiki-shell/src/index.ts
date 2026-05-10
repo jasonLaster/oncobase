@@ -8,6 +8,18 @@ export {
   type UseDocumentOutlineOptions,
 } from "./outline";
 export {
+  WikiHeader,
+  WikiHeaderButton,
+  WikiHeaderLink,
+  WikiHeaderSearchForm,
+  WikiLogo,
+  type WikiHeaderButtonProps,
+  type WikiHeaderLinkProps,
+  type WikiHeaderProps,
+  type WikiHeaderSearchFormProps,
+  type WikiLogoProps,
+} from "./header";
+export {
   COMMENTS_COLLAPSED_WIDTH,
   COMMENTS_DEFAULT_WIDTH,
   COMMENTS_MAX_WIDTH,
