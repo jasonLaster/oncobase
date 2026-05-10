@@ -4,6 +4,7 @@ import { publishMetrics } from "./observability";
 import { Header } from "./shell/Header";
 import { LiveStoreDevtoolsFooter } from "./shell/LiveStoreDevtoolsFooter";
 import { MobileNav, Sidebar } from "./shell/Navigation";
+import { ResizableAppShell } from "./shell/ResizableAppShell";
 import { WikiSync } from "./sync/WikiSync";
 import type { Metrics } from "./types";
 import { useWikiScope } from "./wiki-context";
@@ -83,8 +84,7 @@ export function App({
       <WikiSync onMetrics={bumpMetrics} />
       <div className="prototype-shell">
         <Header />
-        <div className="app-shell">
-          <Sidebar />
+        <ResizableAppShell sidebar={<Sidebar />}>
           <main className="content-shell">
             <Suspense fallback={<PageFallback />}>
               <Routes>
@@ -96,7 +96,7 @@ export function App({
               </Routes>
             </Suspense>
           </main>
-        </div>
+        </ResizableAppShell>
         <LiveStoreDevtoolsFooter
           enabled={liveStoreDevtoolsEnabled}
           metrics={metrics}

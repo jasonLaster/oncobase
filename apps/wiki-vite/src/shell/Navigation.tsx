@@ -37,17 +37,28 @@ function useWikiTree() {
 function readExpandedDirectories() {
   try {
     const parsed = JSON.parse(localStorage.getItem(TREE_EXPANSION_KEY) ?? "[]") as unknown;
-    return Array.isArray(parsed)
-      ? new Set(parsed.filter((item): item is string => typeof item === "string"))
-      : new Set<string>();
+    if (Array.isArray(parsed)) {
+      return new Map(
+        parsed
+          .filter((item): item is string => typeof item === "string")
+          .map((slug) => [slug, true]),
+      );
+    }
+    if (parsed && typeof parsed === "object") {
+      return new Map(
+        Object.entries(parsed)
+          .filter((entry): entry is [string, boolean] => typeof entry[1] === "boolean"),
+      );
+    }
+    return new Map<string, boolean>();
   } catch {
-    return new Set<string>();
+    return new Map<string, boolean>();
   }
 }
 
-function writeExpandedDirectories(slugs: Set<string>) {
+function writeExpandedDirectories(slugs: Map<string, boolean>) {
   try {
-    localStorage.setItem(TREE_EXPANSION_KEY, JSON.stringify(Array.from(slugs)));
+    localStorage.setItem(TREE_EXPANSION_KEY, JSON.stringify(Object.fromEntries(slugs)));
   } catch {
     // Sidebar expansion is a convenience, not critical cache state.
   }
@@ -82,11 +93,10 @@ function useTreeExpansion(tree: FileNode[]) {
     () => collectActiveAncestors(tree, activeSlug),
     [activeSlug, tree],
   );
-  const toggleDirectory = useCallback((slug: string) => {
+  const toggleDirectory = useCallback((slug: string, open: boolean) => {
     setExpandedSlugs((current) => {
-      const next = new Set(current);
-      if (next.has(slug)) next.delete(slug);
-      else next.add(slug);
+      const next = new Map(current);
+      next.set(slug, !open);
       writeExpandedDirectories(next);
       return next;
     });
@@ -210,25 +220,28 @@ function TreeNode({
   node: FileNode;
   depth?: number;
   activeAncestorSlugs: Set<string>;
-  expandedSlugs: Set<string>;
+  expandedSlugs: Map<string, boolean>;
   onNavigate?: () => void;
-  onToggleDirectory: (slug: string) => void;
+  onToggleDirectory: (slug: string, open: boolean) => void;
 }) {
   const location = useLocation();
   const active = location.pathname === hrefForSlug(node.slug);
 
   if (node.type === "directory") {
+    const userOpen = expandedSlugs.get(node.slug);
     const open =
-      depth < 1 || activeAncestorSlugs.has(node.slug) || expandedSlugs.has(node.slug);
+      userOpen ?? (depth < 1 || activeAncestorSlugs.has(node.slug));
+    const formattedName = node.name.replace(/-/g, " ");
 
     return (
       <div>
         <button
+          aria-label={`${open ? "Collapse" : "Expand"} ${formattedName}`}
           aria-expanded={open}
           className="tree-directory"
           type="button"
-          title={`${open ? "Collapse" : "Expand"} ${node.name.replace(/-/g, " ")}`}
-          onClick={() => onToggleDirectory(node.slug)}
+          title={`${open ? "Collapse" : "Expand"} ${formattedName}`}
+          onClick={() => onToggleDirectory(node.slug, open)}
           style={{ paddingLeft: depth * 12 + 8 }}
         >
           {open ? (
@@ -236,7 +249,8 @@ function TreeNode({
           ) : (
             <ChevronRightIcon size={14} aria-hidden="true" />
           )}
-          <span>{node.name.replace(/-/g, " ")}</span>
+          <span>{formattedName}</span>
+          {node.badge ? <span className="tree-badge">{node.badge}</span> : null}
         </button>
         {open
           ? node.children?.map((child) => (

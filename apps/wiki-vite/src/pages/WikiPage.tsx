@@ -10,6 +10,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import {
   assets$,
   pageContentBySlug$,
+  pageIndex$,
   pageIndexBySlug$,
   siteState$,
 } from "../livestore/queries";
@@ -23,6 +24,7 @@ import type {
 } from "../types";
 import {
   formatBytes,
+  hrefForSlug,
   parseJsonArray,
   slugFromPath,
   storageSnapshot,
@@ -38,6 +40,52 @@ function routeLink({ href, children, ...props }: WikiMarkdownLinkProps) {
     <Link to={href ?? "#"} {...props}>
       {children}
     </Link>
+  );
+}
+
+function formatBreadcrumbLabel(part: string) {
+  return part.replace(/-/g, " ");
+}
+
+function Breadcrumbs({
+  pageSlugs,
+  slug,
+  title,
+}: {
+  pageSlugs?: Set<string>;
+  slug?: string;
+  title?: string;
+}) {
+  const parts = slug?.split("/").filter(Boolean) ?? [];
+
+  return (
+    <nav className="breadcrumbs" aria-label="Breadcrumbs" data-test-id="breadcrumbs">
+      <ol>
+        <li>
+          <Link to="/">Home</Link>
+        </li>
+        {parts.map((part, index) => {
+          const path = parts.slice(0, index + 1).join("/");
+          const isCurrent = index === parts.length - 1;
+          const label = isCurrent && title ? title : formatBreadcrumbLabel(part);
+
+          return (
+            <li key={path}>
+              <span className="breadcrumb-separator" aria-hidden="true">
+                /
+              </span>
+              {isCurrent ? (
+                <span aria-current="page">{label}</span>
+              ) : pageSlugs?.has(path) ? (
+                <Link to={hrefForSlug(path)}>{label}</Link>
+              ) : (
+                <span>{label}</span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }
 
@@ -66,6 +114,7 @@ export function WikiPage({
   });
   const page = useStore().store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
   const index = useStore().store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;
+  const pageIndex = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
   const assets = useStore().store.useQuery(assets$) as AssetIndexRow[];
   const siteState = useStore().store.useQuery(siteState$) as SiteStateRow | null;
   const stale = page?.contentStatus === "stale";
@@ -79,6 +128,10 @@ export function WikiPage({
   const relatedAssets = useMemo(
     () => relatedAssetsForSlug(slug, assets).slice(0, 6),
     [assets, slug],
+  );
+  const pageSlugs = useMemo(
+    () => new Set(pageIndex.map((page) => page.slug)),
+    [pageIndex],
   );
   const description = index?.description ?? null;
   const routeAdapter = useMemo(
@@ -162,9 +215,7 @@ export function WikiPage({
   if (page?.missingAt || page?.contentStatus === "missing") {
     return (
       <article className="page-shell empty-state" data-test-id="document-article">
-        <nav className="breadcrumbs" aria-label="Breadcrumbs" data-test-id="breadcrumbs">
-          <Link to="/">Home</Link>
-        </nav>
+        <Breadcrumbs />
         <h1>Page not found</h1>
         <p className="muted">
           The latest manifest does not include markdown for {slug}. This reader can
@@ -190,13 +241,7 @@ export function WikiPage({
     if (failedCurrentFetch) {
       return (
         <article className="page-shell empty-state" data-test-id="document-article">
-          <nav className="breadcrumbs" aria-label="Breadcrumbs" data-test-id="breadcrumbs">
-            <Link to="/">Home</Link>
-            <span>
-              <span aria-hidden="true">/</span>
-              <span>{slug.replace(/-/g, " ")}</span>
-            </span>
-          </nav>
+          <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={index?.title} />
           <h1>{index?.title ?? "Markdown unavailable"}</h1>
           <p className="muted">
             The page is in the local manifest, but its markdown body could not be
@@ -234,19 +279,7 @@ export function WikiPage({
             {toast}
           </div>
         ) : null}
-        <nav className="breadcrumbs" aria-label="Breadcrumbs" data-test-id="breadcrumbs">
-          <Link to="/">Home</Link>
-          {slug.split("/").map((part, index, parts) => {
-            const label = part.replace(/-/g, " ");
-            const path = parts.slice(0, index + 1).join("/");
-            return (
-              <span key={path}>
-                <span aria-hidden="true">/</span>
-                <span>{label}</span>
-              </span>
-            );
-          })}
-        </nav>
+        <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />
         <header className="page-header">
           <div>
             <h1>{page.title}</h1>

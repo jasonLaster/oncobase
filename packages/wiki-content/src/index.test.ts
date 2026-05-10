@@ -3,6 +3,7 @@ import {
   buildCompactTreeFromManifest,
   createWikiContentClient,
   expandCompactFileTree,
+  isHiddenFileTreePath,
   makeWikiStoreId,
   parseWikiManifest,
   parseWikiPageBatch,
@@ -35,13 +36,31 @@ describe("wiki content contracts", () => {
         ],
       ),
     ).toEqual([
-      ["d", "images", [["f", "scan.png"]]],
       [
         "d",
         "research",
         [["d", "papers", [["f", "index"], ["p", "trial"]]]],
       ],
       ["f", "index"],
+    ]);
+  });
+
+  test("hides image asset directories from the navigation tree only", () => {
+    expect(isHiddenFileTreePath("images/scan.png")).toBe(true);
+    expect(isHiddenFileTreePath("wiki/media/images/scan.png")).toBe(true);
+    expect(isHiddenFileTreePath("wiki/image-analysis/notes")).toBe(false);
+    expect(
+      buildCompactTreeFromManifest(
+        [{ slug: "wiki/image-analysis/notes" }],
+        [
+          { kind: "file", path: "wiki/media/images/scan.png" },
+          { kind: "pdf", path: "sources/images/pathology-slide.pdf" },
+          { kind: "pdf", path: "sources/institutions/stanford/telli.pdf" },
+        ],
+      ),
+    ).toEqual([
+      ["d", "sources", [["d", "institutions", [["d", "stanford", [["p", "telli"]]]]]]],
+      ["d", "wiki", [["d", "image-analysis", [["f", "notes"]]]]],
     ]);
   });
 

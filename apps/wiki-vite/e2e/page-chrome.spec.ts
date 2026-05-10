@@ -9,7 +9,10 @@ test.describe("Page chrome parity", () => {
   test("renders breadcrumbs, description, and page action affordances", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
-    await expect(page.getByTestId("breadcrumbs")).toContainText("Home/wiki/logistics/insurance");
+    const breadcrumbs = page.getByTestId("breadcrumbs");
+    await expect(breadcrumbs.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
+    await expect(breadcrumbs).toContainText("wiki/logistics/Insurance");
+    await expect(breadcrumbs.locator('[aria-current="page"]')).toHaveText("Insurance");
     await expect(documentArticle(page).locator(".page-header")).toContainText(
       "Insurance planning notes.",
     );

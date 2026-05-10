@@ -69,6 +69,30 @@ bun run verify:wiki-vite:server
 
 Result: `verify:wiki-vite` passed with `105 passed, 50 skipped`; `verify:wiki-vite:server` passed with the standalone route gate, metadata, API, and preview smoke checks.
 
+### 2026-05-10 Reader Detail Parity Checkpoint
+
+- Tightened page breadcrumbs from loose path text into an accessible breadcrumb list. The current page now uses the manifest title and `aria-current="page"`, and ancestor crumbs link only when the target slug exists in the local page index.
+- Ported the current web shell's desktop sidebar affordances into Vite: the left rail can collapse to an icon-only rail, expand back to the stored width, resize by dragging the rail handle, and persist width through reloads.
+- Fixed file-tree collapse semantics so an active branch opens by default but a user can still collapse it intentionally; that preference now persists across reloads instead of being overridden by the active route.
+- Moved hidden file-tree path handling into `packages/wiki-content` so `images` directories and image-only assets stay out of the sidebar tree while still remaining available through markdown rendering, source links, and the asset palette.
+- Pulled Vite markdown typography closer to the current web prose styles for h4, links, code/pre surfaces, horizontal rules, and strong text.
+- Expanded regression coverage:
+  - `packages/wiki-content` now tests hidden image-directory filtering.
+  - `navigation.spec.ts` now covers active-branch collapse persistence, hidden image asset directories, asset-palette preservation, and sidebar collapse/resize persistence.
+  - `page-chrome.spec.ts` now checks breadcrumb links/current-page semantics.
+  - Desktop visual parity snapshot was refreshed for the now-visible resize rail.
+- Focused verification:
+
+```sh
+bun --cwd packages/wiki-content test:unit
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/navigation.spec.ts e2e/page-chrome.spec.ts e2e/sidebar-pdfs.spec.ts e2e/page-load-experience.spec.ts e2e/visual-parity.spec.ts
+```
+
+Focused result: wiki-content `17 passed`; Vite typecheck passed; focused Playwright `28 passed`.
+
+Full verification result: `bun run verify:wiki-vite` passed with `108 passed, 50 skipped`; `bun run verify:wiki-vite:server` passed with the standalone route gate, metadata/API checks, and preview smoke.
+
 ### 2026-05-09 P0 Replacement Blockers Checkpoint
 
 - Hardened site isolation for the Vite replacement path. Chat now passes the active `siteSlug` through the shared chat runtime into client-side Convex list/get/create/send/archive/streaming mutations, and the Vite backend keeps resolving sites from `Host` instead of request-injected headers.

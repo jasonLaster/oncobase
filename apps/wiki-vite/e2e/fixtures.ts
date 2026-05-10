@@ -486,9 +486,12 @@ export async function waitForPageTitle(page: Page, title: string | RegExp) {
 }
 
 export async function openDirectory(page: Page, name: string) {
-  const button = page.getByRole("button", { name: new RegExp(`^${name}$`, "i") }).first();
-  if (await button.isVisible().catch(() => false)) {
-    await button.click();
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const expandButton = page
+    .getByRole("button", { name: new RegExp(`^Expand ${escapedName}$`, "i") })
+    .first();
+  if (await expandButton.isVisible().catch(() => false)) {
+    await expandButton.click();
   }
 }
 

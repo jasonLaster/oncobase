@@ -102,6 +102,12 @@ function splitSlug(slug: string) {
   return slug.split("/").filter(Boolean);
 }
 
+const HIDDEN_FILE_TREE_DIRECTORIES = new Set(["images"]);
+
+export function isHiddenFileTreePath(path: string): boolean {
+  return splitSlug(path).some((segment) => HIDDEN_FILE_TREE_DIRECTORIES.has(segment));
+}
+
 function relativeSlug(fromSlug: string, toSlug: string) {
   const from = splitSlug(fromSlug);
   const to = splitSlug(toSlug);
@@ -244,6 +250,7 @@ export function buildFileTreeFromManifest(
 
   for (const page of pages) insertFileNode(root, splitSlug(page.slug), "file");
   for (const asset of assets) {
+    if (isHiddenFileTreePath(asset.path)) continue;
     const segments = splitSlug(asset.path);
     if (segments.length === 0) continue;
 
