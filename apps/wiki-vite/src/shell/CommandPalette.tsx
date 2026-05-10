@@ -8,9 +8,9 @@ import {
   XIcon,
 } from "lucide-react";
 import {
+  type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
-  type CSSProperties,
   useEffect,
   useMemo,
   useRef,
@@ -20,14 +20,9 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { pageIndex$ } from "../livestore/queries";
 import type { PageIndexRow } from "../types";
 import { backendHref, hrefForSlug, rememberSlug } from "../wiki-utils";
+import { collectOutline, scrollToOutlineItem, type OutlineItem } from "./outline";
 
 type PaletteMode = "pages" | "outline" | "actions";
-
-type OutlineItem = {
-  id: string;
-  text: string;
-  level: number;
-};
 
 type ActionItem = {
   label: string;
@@ -38,31 +33,6 @@ type ActionItem = {
 
 function commandLabel() {
   return /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? "⌘K" : "Ctrl K";
-}
-
-function headingText(heading: HTMLElement) {
-  return Array.from(heading.childNodes)
-    .filter(
-      (node) =>
-        !(node instanceof HTMLElement && node.classList.contains("heading-anchor")),
-    )
-    .map((node) => node.textContent ?? "")
-    .join("")
-    .trim();
-}
-
-function collectOutline() {
-  const headings = document.querySelectorAll<HTMLElement>(
-    '[data-test-id="document-article"] .wiki-markdown h1, [data-test-id="document-article"] .wiki-markdown h2, [data-test-id="document-article"] .wiki-markdown h3, [data-test-id="document-article"] .wiki-markdown h4',
-  );
-
-  return Array.from(headings)
-    .map((heading) => ({
-      id: heading.id,
-      text: headingText(heading),
-      level: Number(heading.tagName.replace("H", "")),
-    }))
-    .filter((item) => item.id && item.text);
 }
 
 function pageScore(page: PageIndexRow, query: string) {
@@ -175,9 +145,7 @@ export function CommandPalette({
   };
 
   const openOutline = (item: OutlineItem) => {
-    const heading = document.getElementById(item.id);
-    window.history.replaceState(null, "", `${location.pathname}#${item.id}`);
-    heading?.scrollIntoView({ block: "start", behavior: "smooth" });
+    scrollToOutlineItem(item, location.pathname);
     onOpenChange(false);
   };
 

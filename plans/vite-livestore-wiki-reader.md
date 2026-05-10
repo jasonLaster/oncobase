@@ -19,13 +19,27 @@ The migration is far enough along to test the new data path against a deployed b
 | Backend API surface | Ready for additive deployment rehearsal | `/api/wiki/session`, `/api/wiki/manifest`, and `/api/wiki/pages` are additive. They do not reroute existing pages, and public/session cache behavior is covered by API tests. The manifest route can use the new Convex metadata query when deployed and can fall back to content-backed metadata while the backend rolls out. |
 | Convex support | Ready to deploy if kept additive | `documents.listManifestPage` is additive and mirrors existing document pagination without changing the publish path. Existing page and asset listing queries remain the source for markdown bodies and tree assets. Deploying this lets the manifest endpoint avoid shipping markdown just to compute metadata. |
 | LiveStore reader | Prototype works | The Vite app persists page index, file tree, asset index, and page bodies in OPFS-backed LiveStore tables. It renders cached markdown first, fetches the manifest in the background, marks stale/deleted/missing content, and eagerly fetches markdown in bounded batches. |
-| Reader UI parity | In progress | The current shell has a Diana-style layout, sidebar tree, mobile sheet, local title/slug/tag page finding, command palette, local outline palette, backend search/chat handoffs, sync metrics, stale indicators, and shared markdown rendering. It is still missing several product features listed below. |
+| Reader UI parity | In progress | The current shell has a Diana-style layout, sidebar tree, mobile sheet, breadcrumbs, page actions, persistent outline rail, local title/slug/tag page finding, command palette, backend search/chat handoffs, sync metrics, stale indicators, and shared markdown rendering. It is still missing several product features listed below. |
 | Privacy/cache safety | Initial guardrails landed | Public and session scopes use separate cache headers and store ids; sensitive pages stay out of public APIs. Before any real pilot, add browser-level leak tests across public/session stores and a visible cache reset/store inspector. |
 | Playwright migration | Harness landed | `apps/wiki-vite/e2e` now mirrors every current `web/e2e/*.spec.ts` filename. Reader-capable tests run locally against mocked `/api/wiki/*` responses; Next-owned feature specs are skipped in place so migration gaps stay visible. |
 | Deployment | Not started | The prototype still assumes local/dev wiring. It needs an explicit deployment target, API origin configuration, and preview smoke tests before wider review. |
 | Migration decision | Not ready | The branch is ready to validate the architecture, not to replace the Next app. Keep production routes on Next until reader parity, privacy tests, and preview metrics are in hand. |
 
 ## Work Log
+
+### 2026-05-09 Page Chrome Checkpoint
+
+- Added reader breadcrumbs, page descriptions, and a compact page-action row to the Vite reader.
+- Added local copy-as-markdown and copy-link actions that use the cached markdown body instead of waiting on server-rendered HTML.
+- Added backend handoff links for markdown download through `/api/page-copy` and opening the same page in the current Next app.
+- Added a persistent desktop outline rail sourced from rendered markdown headings, sharing the same outline extraction helper as the command palette.
+- Added Playwright coverage for breadcrumbs, descriptions, page actions, local markdown copy, and outline-rail hash navigation.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/page-chrome.spec.ts e2e/command-palette.spec.ts e2e/navigation.spec.ts
+```
 
 ### 2026-05-09 Reader Parity Checkpoint
 
@@ -132,12 +146,12 @@ These are the major gaps between the prototype and the current wiki experience.
 | Text search | Vite links to the existing backend search surface from the header and action palette. | Snippet/result handoff polish, active query transfer from the local finder, loading/empty/error parity in the backend app, and public/session leak tests. | Keep canonical full-text search on the backend for v1. The Vite reader should not rebuild search from the local markdown cache. |
 | Chat | Vite links to the existing full-stack chat experience from the header and action palette. | Preserve return-to-reader context, conversation resumption handoff, and mobile polish. | Keep chat as a full-stack backend/app experience for v1 unless the migration scope explicitly changes. Link out or route users back to the current app. |
 | AI search | Not implemented in Vite. | `/api/ai-search` route handoff or thin client adapter, citation rendering, loading states, and tenant/session scoping tests. | Keep AI search on the backend/full-stack search surface for v1. Do not block the reader prototype on it. |
-| Outline | Local outline palette extracts headings from rendered markdown and jumps by hash. | Persistent page rail, active-heading tracking, mobile outline placement, hash navigation polish, and accessibility pass. | Should land before reader parity because it is a core reading affordance and can be fully local. |
+| Outline | Local outline palette and persistent desktop outline rail extract headings from rendered markdown and jump by hash. | Mobile outline placement, hash navigation polish, and accessibility pass. | Should land before reader parity because it is a core reading affordance and can be fully local. |
 | Comments and Liveblocks | Not implemented in Vite. | Comment rail, auth gating, Liveblocks tokens, thread persistence, unread/resolved states, and multi-device sync. | Keep in Next for v1. Treat as out of scope unless explicitly pulled forward. |
 | Command palette | Keyboard trigger, local page rows, outline rows, and backend action rows landed. | Better fuzzy ranking, current-page context actions, recents surfacing, tags, source/PDF actions, and a deeper focus/accessibility pass. | Build before production reader parity. It can be powered by the local LiveStore index, while search/chat actions delegate to backend surfaces. |
 | Other palettes | Page, outline, and backend action palettes now exist as modes in one command surface. | Dedicated tag palette, asset/source palette, recent-pages palette, and debug/cache palette for store reset and metrics. | Page palette should be first. Backend search/chat entries should delegate instead of cloning those full-stack flows. |
 | Sidebar/tree | Desktop tree and mobile sheet exist, active branches auto-expand, and manual expansion persists across reloads. | Richer file/PDF affordances, source grouping, keyboard navigation, and very large tree performance. | Needed before broad preview review, but not before additive backend deployment. |
-| Page chrome | Basic title, tags, size, stale/sensitive badges, manifest/hash footer. | Breadcrumbs, page description/meta, source links, PDF/download affordances, print/share/copy actions, edit/source provenance, not-found parity, and route metadata. | Reader parity blocker for pages with sources/assets. |
+| Page chrome | Title, description, breadcrumbs, tags, copy/link/print/download/main-app actions, size, stale/sensitive badges, and manifest/hash footer exist. | Source/PDF provenance, edit/source provenance, not-found parity, route metadata, and richer mobile action placement. | Reader parity blocker for pages with sources/assets. |
 | Markdown parity | Shared package handles the main rendering path. | More package tests for smart tables, citations, PDF/image rewriting, theme-paired images, heading anchors, math, Mermaid fallback, and route-link adapters. | Required before trusting the package as the durable reader layer. |
 | Auth/session UX | Scope is selected with `?scope=session`; session identity creates a distinct store id. | Login/session prompts, signed-out recovery, cache reset, active-store inspector, auth-expired handling, and safe session-store invalidation. | Privacy-sensitive. Required before any authenticated pilot. |
 | Offline/cache controls | OPFS persistence, browser storage estimate, and explicit local cache reset exist. | Cache warming controls, stale content explanation, storage pressure behavior, versioned cache invalidation, and failed fetch retry UI. | Required before production trial. |

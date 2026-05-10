@@ -24,6 +24,9 @@ import {
   slugFromPath,
   storageEstimate,
 } from "../wiki-utils";
+import { useWikiScope } from "../wiki-context";
+import { PageActions } from "./PageActions";
+import { PageOutline } from "./PageOutline";
 
 function routeLink({ href, children, ...props }: WikiMarkdownLinkProps) {
   return (
@@ -36,6 +39,7 @@ function routeLink({ href, children, ...props }: WikiMarkdownLinkProps) {
 export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => void }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const scope = useWikiScope();
   const [toast, setToast] = useState<string | null>(null);
   const slug = slugFromPath(location.pathname);
   const page = useStore().store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
@@ -44,6 +48,7 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const stale = page?.contentStatus === "stale";
   const deleted = page?.contentStatus === "deleted";
   const tags = parseJsonArray<string>(page?.tagsJson ?? index?.tagsJson ?? "[]");
+  const description = index?.description ?? null;
   const routeAdapter = useMemo(
     () => ({
       push: (href: string) => navigate(href),
@@ -108,46 +113,69 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   }
 
   return (
-    <article className="page-shell" data-test-id="document-article">
-      {toast ? (
-        <div className="toast" role="status">
-          {toast}
-        </div>
-      ) : null}
-      <header className="page-header">
-        <div>
-          <h1>{page.title}</h1>
-          <p>{slug}</p>
-        </div>
-        <div className="page-badges">
-          {stale ? <span className="badge updating">updating</span> : null}
-          {page.sensitive ? <span className="badge sensitive">sensitive</span> : null}
-          <span className="badge">{formatBytes(page.size)}</span>
-        </div>
-      </header>
-      {tags.length > 0 ? (
-        <div className="tag-row">
-          {tags.map((tag) => (
-            <Link key={tag} to={`/?q=${encodeURIComponent(tag)}`}>
-              {tag}
-            </Link>
-          ))}
-        </div>
-      ) : null}
-      <WikiMarkdown
-        content={page.content}
-        currentSlug={page.slug}
-        LinkComponent={routeLink}
-        notification={notification}
-        routeAdapter={routeAdapter}
-      />
-      <footer className="page-footer">
-        <span>Manifest: {siteState?.generatedAt ?? "pending"}</span>
-        <span>Content hash: {page.contentHash ?? "none"}</span>
-        {page.expectedContentHash && page.expectedContentHash !== page.contentHash ? (
-          <span>Expected hash: {page.expectedContentHash}</span>
+    <div className="page-layout">
+      <article className="page-shell" data-test-id="document-article">
+        {toast ? (
+          <div className="toast" role="status">
+            {toast}
+          </div>
         ) : null}
-      </footer>
-    </article>
+        <nav className="breadcrumbs" aria-label="Breadcrumbs" data-test-id="breadcrumbs">
+          <Link to="/">Home</Link>
+          {slug.split("/").map((part, index, parts) => {
+            const label = part.replace(/-/g, " ");
+            const path = parts.slice(0, index + 1).join("/");
+            return (
+              <span key={path}>
+                <span aria-hidden="true">/</span>
+                <span>{label}</span>
+              </span>
+            );
+          })}
+        </nav>
+        <header className="page-header">
+          <div>
+            <h1>{page.title}</h1>
+            <p>{description ?? slug}</p>
+          </div>
+          <div className="page-badges">
+            {stale ? <span className="badge updating">updating</span> : null}
+            {page.sensitive ? <span className="badge sensitive">sensitive</span> : null}
+            <span className="badge">{formatBytes(page.size)}</span>
+          </div>
+        </header>
+        <PageActions
+          content={page.content}
+          contentHash={page.contentHash}
+          scope={scope}
+          slug={page.slug}
+          title={page.title}
+        />
+        {tags.length > 0 ? (
+          <div className="tag-row">
+            {tags.map((tag) => (
+              <Link key={tag} to={`/?q=${encodeURIComponent(tag)}`}>
+                {tag}
+              </Link>
+            ))}
+          </div>
+        ) : null}
+        <WikiMarkdown
+          content={page.content}
+          currentSlug={page.slug}
+          LinkComponent={routeLink}
+          notification={notification}
+          routeAdapter={routeAdapter}
+        />
+        <footer className="page-footer">
+          <span>Manifest: {siteState?.generatedAt ?? "pending"}</span>
+          <span>Content hash: {page.contentHash ?? "none"}</span>
+          {page.expectedContentHash && page.expectedContentHash !== page.contentHash ? (
+            <span>Expected hash: {page.expectedContentHash}</span>
+          ) : null}
+        </footer>
+      </article>
+      <PageOutline contentKey={`${page.slug}:${page.contentHash ?? "none"}`} />
+    </div>
   );
 }

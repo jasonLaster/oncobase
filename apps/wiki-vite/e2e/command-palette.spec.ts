@@ -23,7 +23,10 @@ test.describe("Command palette parity", () => {
     await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+O" : "Control+Shift+O");
     await expect(page.getByTestId("command-palette")).toBeVisible();
     await page.getByRole("button", { name: "Outline" }).click();
-    await page.getByRole("button", { name: /Claims follow-up/ }).click();
+    await page
+      .getByTestId("command-palette")
+      .getByRole("button", { name: /Claims follow-up/ })
+      .click();
 
     await expect(page).toHaveURL(/#claims-follow-up$/);
   });
