@@ -1217,6 +1217,23 @@ Concrete examples that moved up from polish into replacement-blocker territory:
 - Changed standalone Vite `/api/download` to return zip archives for both `type=markdown` and `type=full`; full archives include markdown plus PDF assets, while archive responses keep public/session cache scope headers.
 - Added a bounded manifest fallback so a slow full manifest can return a small public-safe manifest instead of a 503. This directly addresses the cold-load timeout surfaced by the backend API test.
 - Added focused coverage for shared action-menu controls, markdown/full archive shape, command-palette archive links, and page chrome archive actions.
+- Added API-boundary unit tests for auth/session cookies and public/session archive scoping with an in-memory Convex client so the tests do not write throwaway users to the live deployment.
+- Added a live-backend clean-browser sidebar smoke that proves real manifest data can render `/wiki/logistics/insurance` and image-only asset paths stay out of the navigation tree.
+
+##### Current P0 Status
+
+| Area | Status | What is done | Remaining P0 proof |
+| --- | --- | --- | --- |
+| Header actions, auth, and theme parity | Closed locally | Shared `WikiActionsMenu` and theme utilities live in `packages/wiki-shell`; web and Vite both consume the package. Vite owns standalone `/api/auth/*` routes, and API-boundary tests cover signup, session fetch, bad sign-in, signout, and cookie clearing without live Convex writes. | Re-run against deployed preview once the standalone Vercel project/env is wired. |
+| Download export parity | Closed locally | Vite now returns zip archives for `type=markdown` and `type=full`; full archives include PDF assets plus markdown and preserve public/session cache headers. API-boundary tests cover public exclusion, session inclusion, private cache headers, PDF entries, and PII redaction. | Re-run against deployed preview and make cache/warming a P1/P2 performance decision, not P0 format parity. |
+| Live manifest and cold-load reliability | Partial | Full manifest calls are timeout-bounded; a bounded content fallback can return a small safe manifest instead of a 503. | Add clean-browser real-backend tests for canonical routes and degraded/partial manifest behavior. Confirm current-route body fetch succeeds when the full manifest is partial. |
+| Rail-aware table and right-sidebar layout | Partial | Shared right-rail shell and table specs exist, and earlier rail overlap fixes landed. | Port/expand the old web table-expansion cases for right-rail widths, sidebar collapse/resize, manual widths, mobile fallback, and reload cleanup. |
+| Real-data sidebar parity | Closed locally | Fixture coverage proves image assets stay out of the navigation tree while remaining available in asset tools. A live-backend clean-browser smoke now asserts the real manifest has hidden image assets while the rendered sidebar has no image-only directories or image asset links. | Keep this smoke in the replacement suite and repeat it against deployed preview. |
+| Metadata hardening | Partial | Standalone server injects page title, description, canonical, and OG tags, plus gate-aware cache headers. | Finalize robots/Twitter behavior and keep standalone smoke as the canonical metadata test harness. |
+| Multi-site isolation | Partial | Vite local invariants cover Host resolution, injected-header overwrite, site-scoped stores, and API isolation. | Re-run the same invariants against a seeded dev Convex site and deployed preview URL. |
+| PII parity | Partial | Local coverage covers rendered pages, search, AI summaries, chat tools, page-copy, and downloads. | Add non-Diana PII fixture coverage and live session-auth sensitive result checks. |
+| Chat resilience and performance | Partial | Streaming, abort, navigation, refresh, failed stream retry, source/tool cards, and perf buffers are covered locally. | Add mobile history/layout pass, deployed credentialed smoke, and rate/cost guardrail reporting. |
+| Deployment and ops | Open | Local one-server verification exists. | Configure real Vercel standalone/service deployment, envs, CI preview smoke, production smoke, and rollback notes. |
 
 | Area | Why it blocks cutover | Concrete work | E2E acceptance |
 | --- | --- | --- | --- |

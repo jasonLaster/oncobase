@@ -10,7 +10,7 @@
     "verify:standalone": "bun scripts/verify-standalone.ts",
     "start:server": "bun server/standalone.ts",
     "typecheck": "tsc --noEmit",
-    "test:unit": "bun test src/**/*.test.ts",
+    "test:unit": "bun test src server",
     "test:e2e": "playwright test",
     "test:e2e:preview": "playwright test --config playwright.preview.config.ts"
   },
