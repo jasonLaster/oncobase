@@ -14,18 +14,32 @@ The migration is far enough along to test the new data path against a deployed b
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Shared content contracts | Mostly productionized | `packages/wiki-content` owns manifest parsing, compact tree expansion, page batches, content-hash reconciliation, and public/session store ids. Edge-case coverage now includes invalid manifests, pagination cursors, deleted/missing hash reconciliation, and store-id sanitization. |
+| Shared content contracts | Mostly productionized | `packages/wiki-content` owns manifest parsing, compact tree expansion, page batches, content-hash reconciliation, versioned reader cache ids, and public/session store ids. Edge-case coverage now includes invalid manifests, pagination cursors, deleted/missing hash reconciliation, and store-id sanitization/versioning. |
 | Shared markdown runtime | Mostly productionized | `packages/wiki-markdown` owns the reusable renderer, route-link adapter, heading anchors, image theater, citations, math cleanup, PDF chips, theme-paired images, and smart-table behavior. The extraction is useful even if Vite is not adopted; package-level server coverage now protects the highest-risk renderer transforms. |
 | Backend API surface | Framework-neutral core landed | `/api/wiki/session`, `/api/wiki/manifest`, and `/api/wiki/pages` are additive. The implementation now lives in `@diana-tnbc/wiki-content/server` with thin Next and Vite adapters. Public/session cache behavior is covered by API tests, and Vite can serve reader APIs directly from Convex through dev middleware or the standalone full-stack server. |
 | Convex support | Deployed additively | `documents.listManifestPage` is additive and mirrors existing document pagination without changing the publish path. Existing page and asset listing queries remain the source for markdown bodies and tree assets. The production Convex deployment now has the additive reader functions. |
 | LiveStore reader | Prototype works | The Vite app persists page index, file tree, asset index, and page bodies in OPFS-backed LiveStore tables. It renders cached markdown first, fetches the manifest in the background, marks stale/deleted/missing content, and eagerly fetches markdown in bounded batches. |
 | Reader UI parity | In progress | The current shell has a Diana-style layout, screenshot-backed desktop/mobile visual baselines, sidebar tree, mobile sheet, breadcrumbs, page actions, desktop/mobile outline, local title/slug/tag page finding, command palette with pages/outline/assets/tags/recents/actions/debug-cache tools, backend search/chat handoffs, sync metrics, stale indicators, not-found recovery, failed-fetch retry, and shared markdown rendering. It is still missing several product features listed below. |
-| Privacy/cache safety | Stronger guardrails landed | Public and session scopes use separate cache headers and store ids; sensitive pages stay out of public APIs. Browser coverage now verifies a session-only page body does not leak after switching back to the public store. Before any real pilot, add session-expiry invalidation and storage-pressure coverage. |
+| Privacy/cache safety | Stronger guardrails landed | Public and session scopes use separate cache headers and store ids; store ids include a reader cache version for intentional OPFS invalidation; sensitive pages stay out of public APIs. Browser coverage now verifies a session-only page body does not leak after switching back to the public store. Before any real pilot, add storage-pressure coverage. |
 | Playwright migration | Harness landed | `apps/wiki-vite/e2e` now mirrors every current `web/e2e/*.spec.ts` filename. Reader-capable tests run locally against mocked `/api/wiki/*` responses and include screenshot-backed visual assertions; Next-owned feature specs are skipped in place so migration gaps stay visible. |
 | Deployment | One-server server rehearsal landed | The prototype has documented API/app origin env vars, cross-origin client credentials when an API origin is configured, backend allowlist CORS for preview origins, an optional Playwright preview smoke config, a Vite dev backend for reader APIs, and a standalone Bun server that serves the built app plus reader APIs from one origin. It still needs an actual Vercel service/app decision and a live preview URL. |
 | Migration decision | Not ready | The branch is ready to validate the architecture, not to replace the Next app. Keep production routes on Next until reader parity, privacy tests, and preview metrics are in hand. |
 
 ## Work Log
+
+### 2026-05-09 Versioned Cache Invalidation Checkpoint
+
+- Added `WIKI_READER_CACHE_VERSION` to `packages/wiki-content` and included it in `makeWikiStoreId`.
+- Future schema or reader cache changes can intentionally open a fresh OPFS-backed LiveStore cache by bumping the shared reader cache version.
+- Added contract coverage for reader cache-version separation and re-ran browser session recovery coverage to preserve public/session/cache-key isolation.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd packages/wiki-content test:unit
+bun --cwd packages/wiki-content typecheck
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/session-recovery.spec.ts
+```
 
 ### 2026-05-09 Debug Palette Checkpoint
 
@@ -448,7 +462,7 @@ These are the major gaps between the prototype and the current wiki experience.
 | Page chrome | Title, description, breadcrumbs, tags, copy/link/print/download/main-app actions, manifest-backed source/PDF provenance, size, stale/sensitive badges, not-found recovery, failed-fetch retry, and manifest/hash footer exist. | Edit/source provenance and richer mobile action placement. | Reader parity blocker for pages with sources/assets. |
 | Markdown parity | Shared package handles the main rendering path. | More package tests for smart tables, citations, PDF/image rewriting, theme-paired images, heading anchors, math, Mermaid fallback, and route-link adapters. | Required before trusting the package as the durable reader layer. |
 | Auth/session UX | Scope can be selected with `?scope=session` or the header switcher; session identity creates a distinct store id; signed-out session access shows a recovery screen; auth-expired fetches clear the session store; cache-key rotation opens a separate authenticated store; cross-origin previews use credentialed API requests only when the backend origin is explicitly configured and allowlisted; browser tests cover sensitive session content not leaking into public scope. | Login prompt polish, return-to-reader sign-in flow, and broader session-expiry invalidation tests. | Privacy-sensitive. Required before any authenticated pilot. |
-| Offline/cache controls | OPFS persistence, browser storage estimate, explicit local cache reset, manual cache warming, stale-content explanation, failed body fetch metrics, and current-page retry UI exist. | Storage pressure behavior and versioned cache invalidation. | Required before production trial. |
+| Offline/cache controls | OPFS persistence, browser storage estimate, explicit local cache reset, manual cache warming, versioned reader cache invalidation, stale-content explanation, failed body fetch metrics, and current-page retry UI exist. | Storage pressure behavior and cache quota pressure messaging. | Required before production trial. |
 | Performance instrumentation | Metrics panel tracks manifest bytes, markdown bytes, event count, OPFS estimate, sync state, route render timing, warm render timing, failed body fetch count, screenshot-backed desktop/mobile visual baselines, and build-time bundle budgets. | Preview telemetry and richer per-route network assertions. | Required before migration decision. |
 | Deployment/ops | Local one-server dev loop exists, origin env docs exist, cross-origin API credentials are wired, backend allowlist CORS exists, and an optional preview smoke config exists. | Separate Vercel app/service decision, real preview URL, preview env values, CI wiring for the smoke test, and rollback story. | Required before reviewers can test without local setup. |
 
@@ -505,6 +519,7 @@ The important review property is that the final framework change is small. Most 
 - Root workspace support for `apps/*` and the runnable `apps/wiki-vite` prototype.
 - Local-only LiveStore cache with OPFS-backed persisted tables for site state, page index, page content, asset index, and file tree.
 - Public/session store separation via server-issued session cache keys.
+- Versioned reader cache ids so future OPFS-breaking changes can intentionally invalidate local stores.
 - API surface in `web`: thin `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages` adapters, plus existing priority fetch through `/api/page-copy`.
 - Vite backend adapter for `/api/wiki/*`, `/api/file`, and `/api/page-copy` so reader development can run without a second Next dev server.
 - Standalone Bun server for full-stack rehearsal after `apps/wiki-vite` builds.

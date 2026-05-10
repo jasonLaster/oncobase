@@ -169,7 +169,27 @@ describe("wiki content contracts", () => {
         origin: "https://example.test/path",
         cacheKey: "user:1/private",
       }),
-    ).toBe("wiki-vite-diana_tn_bc-session-https___example_test_path-user_1_private");
+    ).toBe("wiki-vite-reader-v1-diana_tn_bc-session-https___example_test_path-user_1_private");
+  });
+
+  test("includes the reader cache version in store ids", () => {
+    const currentId = makeWikiStoreId({
+      siteSlug: "diana",
+      scope: "public",
+      origin: "https://example.test",
+      cacheKey: "public-v1",
+    });
+    const nextId = makeWikiStoreId({
+      siteSlug: "diana",
+      scope: "public",
+      origin: "https://example.test",
+      cacheKey: "public-v1",
+      readerCacheVersion: "reader:v2",
+    });
+
+    expect(currentId).toContain("reader-v1");
+    expect(nextId).toBe("wiki-vite-reader_v2-diana-public-https___example_test-public-v1");
+    expect(nextId).not.toBe(currentId);
   });
 
   test("parses server-issued session cache identities", () => {

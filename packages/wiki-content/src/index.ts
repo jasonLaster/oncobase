@@ -15,6 +15,8 @@ export type CompactFileNode =
 
 export type WikiScope = "public" | "session";
 
+export const WIKI_READER_CACHE_VERSION = "reader-v1";
+
 export interface WikiManifestPage {
   slug: string;
   title: string;
@@ -339,16 +341,19 @@ export function makeWikiStoreId({
   scope,
   origin,
   cacheKey = "anonymous",
+  readerCacheVersion = WIKI_READER_CACHE_VERSION,
 }: {
   siteSlug: string;
   scope: WikiScope;
   origin: string;
   cacheKey?: string;
+  readerCacheVersion?: string;
 }) {
+  const safeReaderCacheVersion = readerCacheVersion.replace(/[^A-Za-z0-9_-]/g, "_");
   const safeSiteSlug = siteSlug.replace(/[^A-Za-z0-9_-]/g, "_");
   const safeOrigin = origin.replace(/[^A-Za-z0-9_-]/g, "_");
   const safeCacheKey = cacheKey.replace(/[^A-Za-z0-9_-]/g, "_");
-  return `wiki-vite-${safeSiteSlug}-${scope}-${safeOrigin}-${safeCacheKey}`;
+  return `wiki-vite-${safeReaderCacheVersion}-${safeSiteSlug}-${scope}-${safeOrigin}-${safeCacheKey}`;
 }
 
 function assertObject(value: unknown, label: string): Record<string, unknown> {
