@@ -78,4 +78,25 @@ test.describe("Page load experience", () => {
     await waitForPageTitle(page, "Insurance");
     await expect(documentArticle(page)).toContainText("Prior authorization");
   });
+
+  test("storage pressure appears when browser quota is tight", async ({ page }) => {
+    await page.addInitScript(() => {
+      const originalStorage = navigator.storage;
+      const storage = Object.create(Object.getPrototypeOf(originalStorage)) as StorageManager;
+      storage.estimate = async () => ({ usage: 960, quota: 1000 });
+      storage.getDirectory = originalStorage.getDirectory.bind(originalStorage);
+      storage.persist = originalStorage.persist.bind(originalStorage);
+      storage.persisted = originalStorage.persisted.bind(originalStorage);
+      Object.defineProperty(navigator, "storage", {
+        configurable: true,
+        value: storage,
+      });
+    });
+    await installWikiApiMocks(page);
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    const metrics = page.locator(".metrics-panel");
+    await expect(metrics).toContainText("cache pressure");
+    await expect(metrics).toContainText("96%");
+  });
 });

@@ -15,6 +15,8 @@ const initialMetrics: Metrics = {
   markdownBytes: 0,
   eventCount: 0,
   opfsBytes: null,
+  storageQuotaBytes: null,
+  storagePressure: "unknown",
   lastSyncMs: null,
   coldRouteRenderMs: null,
   warmRouteRenderMs: null,

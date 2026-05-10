@@ -25,7 +25,7 @@ import {
   formatBytes,
   parseJsonArray,
   slugFromPath,
-  storageEstimate,
+  storageSnapshot,
 } from "../wiki-utils";
 import { useWikiScope } from "../wiki-context";
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
@@ -104,7 +104,13 @@ export function WikiPage({
       onMetrics({
         opfsBytes: null,
       });
-      void storageEstimate().then((opfsBytes) => onMetrics({ opfsBytes }));
+      void storageSnapshot().then((storage) =>
+        onMetrics({
+          opfsBytes: storage.usage,
+          storageQuotaBytes: storage.quota,
+          storagePressure: storage.pressure,
+        }),
+      );
     }
   }, [onMetrics, page?.content, page?.size]);
 

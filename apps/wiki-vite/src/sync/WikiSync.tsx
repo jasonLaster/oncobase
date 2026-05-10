@@ -22,7 +22,7 @@ import {
   readRecentSlugs,
   rememberSlug,
   slugFromPath,
-  storageEstimate,
+  storageSnapshot,
 } from "../wiki-utils";
 
 const EAGER_FETCH_BUDGET = {
@@ -238,13 +238,16 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         store.commit(manifestToEvent(manifest, receivedAt));
         const { manifestBySlug, queue, queuedBytes } = buildEagerQueue(currentSlug, manifest);
         const currentPage = manifestBySlug.get(currentSlug);
+        const storage = await storageSnapshot();
         onMetrics({
           status: "ready",
           message: `Manifest ${manifest.manifestHash.slice(0, 8)} loaded`,
           manifestBytes: byteSize(JSON.stringify(manifest)),
           eventCount: 1,
           lastSyncMs: performance.now() - syncStart,
-          opfsBytes: await storageEstimate(),
+          opfsBytes: storage.usage,
+          storageQuotaBytes: storage.quota,
+          storagePressure: storage.pressure,
         });
 
         if (currentPage) {

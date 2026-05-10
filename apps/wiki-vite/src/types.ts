@@ -1,4 +1,5 @@
 export type MetricsStatus = "idle" | "syncing" | "ready" | "offline" | "error";
+export type StoragePressure = "unknown" | "ok" | "warning" | "critical";
 
 export type Metrics = {
   status: MetricsStatus;
@@ -7,6 +8,8 @@ export type Metrics = {
   markdownBytes: number;
   eventCount: number;
   opfsBytes: number | null;
+  storageQuotaBytes: number | null;
+  storagePressure: StoragePressure;
   lastSyncMs: number | null;
   coldRouteRenderMs: number | null;
   warmRouteRenderMs: number | null;

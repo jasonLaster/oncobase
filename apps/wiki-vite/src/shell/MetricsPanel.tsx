@@ -1,6 +1,6 @@
 import { ActivityIcon, ClockIcon, DatabaseIcon, FileTextIcon, WifiOffIcon } from "lucide-react";
 import type { Metrics } from "../types";
-import { formatBytes } from "../wiki-utils";
+import { formatBytes, formatPercent } from "../wiki-utils";
 
 function formatMs(value: number | null) {
   if (value == null) return "pending";
@@ -9,6 +9,11 @@ function formatMs(value: number | null) {
 }
 
 export function MetricsPanel({ metrics }: { metrics: Metrics }) {
+  const storageRatio =
+    metrics.opfsBytes != null && metrics.storageQuotaBytes != null && metrics.storageQuotaBytes > 0
+      ? metrics.opfsBytes / metrics.storageQuotaBytes
+      : null;
+
   return (
     <div className="metrics-panel">
       <div>
@@ -39,8 +44,23 @@ export function MetricsPanel({ metrics }: { metrics: Metrics }) {
       <div>
         <DatabaseIcon size={14} aria-hidden="true" />
         <span>storage</span>
-        <strong>{formatBytes(metrics.opfsBytes)}</strong>
+        <strong
+          title={
+            metrics.storageQuotaBytes == null
+              ? undefined
+              : `${formatBytes(metrics.opfsBytes)} of ${formatBytes(metrics.storageQuotaBytes)}`
+          }
+        >
+          {formatBytes(metrics.opfsBytes)}
+        </strong>
       </div>
+      {metrics.storagePressure === "warning" || metrics.storagePressure === "critical" ? (
+        <div className={`storage-pressure ${metrics.storagePressure}`}>
+          <DatabaseIcon size={14} aria-hidden="true" />
+          <span>cache pressure</span>
+          <strong>{formatPercent(storageRatio)}</strong>
+        </div>
+      ) : null}
       <div>
         <WifiOffIcon size={14} aria-hidden="true" />
         <span>body misses</span>

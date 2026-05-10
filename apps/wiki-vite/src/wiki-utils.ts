@@ -1,5 +1,6 @@
 import type { WikiManifest, WikiPageRecord } from "@diana-tnbc/wiki-content";
 import { events } from "./livestore/schema";
+import type { StoragePressure } from "./types";
 
 const RECENT_KEY = "wiki-vite-recent-slugs";
 
@@ -57,6 +58,11 @@ export function formatBytes(value: number | null) {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+export function formatPercent(value: number | null) {
+  if (value == null) return "unknown";
+  return `${Math.round(value * 100)}%`;
+}
+
 export function readRecentSlugs() {
   try {
     const parsed = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") as unknown;
@@ -77,10 +83,19 @@ export function rememberSlug(slug: string) {
   }
 }
 
-export async function storageEstimate() {
-  if (!navigator.storage?.estimate) return null;
+export async function storageSnapshot() {
+  if (!navigator.storage?.estimate) {
+    return { usage: null, quota: null, usageRatio: null, pressure: "unknown" as const };
+  }
   const estimate = await navigator.storage.estimate();
-  return estimate.usage ?? null;
+  const usage = estimate.usage ?? null;
+  const quota = estimate.quota ?? null;
+  const usageRatio = usage != null && quota != null && quota > 0 ? usage / quota : null;
+  let pressure: StoragePressure = "unknown";
+  if (usageRatio != null) {
+    pressure = usageRatio >= 0.95 ? "critical" : usageRatio >= 0.85 ? "warning" : "ok";
+  }
+  return { usage, quota, usageRatio, pressure };
 }
 
 export function manifestToEvent(manifest: WikiManifest, receivedAt: number) {
