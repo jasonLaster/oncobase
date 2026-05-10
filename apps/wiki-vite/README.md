@@ -82,7 +82,7 @@ PORT=62004 bun run start:server
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:62004 bun run test:e2e:preview
 ```
 
-The suite mirrors the current `web/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app; feature areas still outside the Vite cut, such as comments/Liveblocks and some metadata/multi-site hardening, are skipped in place so the migration gap remains visible.
+The suite mirrors the current `web/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app. P0 migration blockers are labeled in skipped specs for metadata hardening, multi-site isolation, PII parity, and chat resilience/perf. Comments and Liveblocks are labeled as parked backlog so they remain visible without blocking the standalone replacement path.
 
 From the repository root, `bun run verify:wiki-vite` runs the current migration proof: shared content tests, shared markdown tests, Vite typecheck/build, bundle budget, and the migrated Vite Playwright suite.
 

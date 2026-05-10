@@ -27,6 +27,21 @@ The migration is far enough along to use the Vite one-server path as the primary
 
 ## Work Log
 
+### 2026-05-09 Migration Backlog Deepening Checkpoint
+
+- Split the remaining migration inventory into P0 replacement blockers, P1 parity/polish, and parked backlog.
+- Marked comments, Liveblocks, and comment API migration as parked backlog rather than standalone replacement blockers.
+- Expanded the P0 backlog for metadata hardening, multi-site isolation, PII parity, chat resilience/perf, and deployment/ops with concrete acceptance criteria.
+- Updated skipped Playwright spec names so the suite output now distinguishes P0 blockers from parked comments/Liveblocks backlog.
+- Added explicit skipped acceptance placeholders for canonical/OG metadata, metadata cache headers, site-scoped LiveStore caches, site-scoped AI/chat citations, AI/chat PII redaction, failed-stream chat recovery, and chat timing instrumentation.
+- Verification command run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite test:e2e
+```
+
+Latest result: `80 passed, 68 skipped` for the Vite Playwright suite. The increased skip count comes from newly explicit backlog acceptance placeholders, not from new failing behavior.
+
 ### 2026-05-09 Full-Stack E2E Hardening Checkpoint
 
 - Copied the required local test credentials into the ignored `apps/wiki-vite/.env.local` and added a Playwright-only env loader so the Node test runner sees the same Convex and model credentials as the Vite app.
@@ -48,7 +63,7 @@ bun --cwd apps/wiki-vite test:e2e
 bun run verify:wiki-vite
 ```
 
-Latest result: `80 passed, 62 skipped` for the Vite Playwright suite. The skipped tests are the explicit migration inventory for comments/Liveblocks, metadata hardening, multi-site isolation, PII redaction parity, and a few future chat resilience/performance flows.
+Checkpoint result before the backlog placeholders were expanded: `80 passed, 62 skipped` for the Vite Playwright suite. The skipped tests were the explicit migration inventory for comments/Liveblocks, metadata hardening, multi-site isolation, PII redaction parity, and a few future chat resilience/performance flows.
 
 ### 2026-05-09 Password Gate and AI Search Checkpoint
 
@@ -589,14 +604,52 @@ Stop conditions:
 
 These are the major gaps between the prototype and the current wiki experience.
 
+### Migration Backlog Priority
+
+This backlog is ordered around the replacement goal: deploy `apps/wiki-vite` as the standalone app and make deleting `web` a low-drama cleanup. Comments and Liveblocks are explicitly parked in the backlog; they should not block the Vite replacement unless the product scope changes.
+
+#### P0: Replacement Blockers
+
+These must be green before the Vite app can replace the current web app for production traffic.
+
+| Area | Why it blocks cutover | Concrete work | E2E acceptance |
+| --- | --- | --- | --- |
+| Metadata hardening | The Vite app has minimal HTML patching, but production links, previews, indexing, and password-gated pages need predictable metadata without bringing back full React SSR. | Finish standalone server metadata for canonical URLs, OG/Twitter tags, robots policy, public bot access, authenticated page metadata, status codes, and cache headers. Keep the render tiny: page lookup plus HTML patching only. | Unskip `metadata.spec.ts`: authenticated page title/description, bot-safe metadata without login cookie, normal unauthenticated browser requests still gated. Decide whether `header-shell.spec.ts` is obsolete or should become a minimal-shell assertion. |
+| Multi-site isolation | The replacement app cannot assume Diana-only host/site data if `web` is going away. Host resolution, stores, search, chat, assets, and downloads all need site boundaries. | Add a deterministic synthetic-site fixture or dev seeding helper; resolve site only from Host/config; ensure LiveStore store ids include site and session cache identity; route every backend call through site-scoped gateways; remove Diana fallbacks except explicit local-dev defaults. | Unskip `multi-site-isolation.spec.ts`: same slug isolation cold/warm, injected header ignored, text/AI search scoped, tools/chat scoped, files/page-copy/downloads scoped, unknown assets 404, non-enabled feature routes fail closed. |
+| PII parity | The current app relies on publish-time redaction plus runtime safeguards. The replacement cannot leak identifiers through markdown, search, AI search, chat citations, or downloads. | Make redaction expectations explicit in shared package tests and Vite API tests; keep `showPII` from bypassing publish-time redaction; route search/AI/chat/page-copy through the same redacted document reads; add fixture content with known fake identifiers. | Unskip `pii-redaction.spec.ts`: rendered pages redacted, inline patient references redacted, text search excludes identifiers, markdown downloads remain redacted, AI search/chat cannot cite raw identifiers. |
+| Chat resilience and performance | Basic live chat works, but production chat needs durable behavior when users stop, navigate, refresh, or switch conversations. | Wire server-side abort to model cancellation and Convex streaming cleanup; prove conversation persistence/resume; restore mobile history navigation; expose perf marks/buffer in Vite; prevent test conversations and failed streams from polluting the active list. | Unskip `chat-nav-resilience.spec.ts`, `chat-perf.spec.ts`, and the mobile chat navigation test: stop aborts server-side, navigate away/return shows assistant output, refresh mid-stream remains observable, composer perf buffer exists, mobile sheet can navigate history. |
+| Deployment and ops | Local one-server success is not enough to delete `web`; the replacement needs a deploy target, env wiring, CI checks, and rollback. | Configure Vercel standalone/service deployment, env vars, Convex deployment target, preview smoke, production smoke, cache headers, logging, and rollback notes. Keep `verify:wiki-vite` in CI for the replacement path. | Preview URL passes standalone smoke, metadata smoke, backend API smoke, and core reader/search/chat e2e against the deployed Convex backend. |
+
+#### P1: Parity And Polish
+
+These should land before a broad user-facing rollout, but they can follow the P0 safety work if needed.
+
+| Area | Work | Acceptance |
+| --- | --- | --- |
+| Auth/session UX | Polish login screen, return-to-reader flow, hash preservation, expired session recovery, and authenticated/public scope copy. | Hash-preserving login redirect tests pass; session-expiry tests prove public fallback and private store clearing. |
+| Downloads and file actions | Make page-copy/download/file actions standalone Vite-owned where still thin or inherited from old behavior. | Page markdown, source files, PDFs, and missing files are scoped and cache-safe in backend tests. |
+| Search/AI result UX | Improve snippets, citations, empty/error states, keyboard navigation, and sensitive-session result handling. | Search route tests cover keyboard selection, AI citations, and session-only result boundaries. |
+| Command palette and sidebar accessibility | Better fuzzy ranking, focus management, keyboard navigation, large tree behavior, and richer current-page actions. | Keyboard-only smoke covers palette modes, sidebar expansion, outline jumps, and asset actions. |
+| Observability | Add route/API timings, chat first-token/full-completion measurements, failed fetch counters, and OPFS footprint to preview/prod logs or telemetry. | Preview report captures cold route, warm nav, manifest bytes, markdown bytes, chat latency, and search latency. |
+
+#### Parked Backlog
+
+These are intentionally not part of the standalone replacement blocker set right now.
+
+| Area | Reason parked | Re-entry trigger |
+| --- | --- | --- |
+| Comments and Liveblocks | They require Liveblocks tokens, thread persistence, comment rail UX, multi-device sync, unread/resolved state, and per-site readiness. The replacement reader can ship without collaborative comments. | Pull forward only if comments become a launch requirement or if the current Next comments surface must be deleted before replacement. |
+| Comment API migration | Depends on the same comments/Liveblocks decision and should not be implemented independently. | Same as comments; otherwise leave skipped specs as explicit backlog inventory. |
+| Advanced chat workflows | Approval tools, publish/edit through chat, and multi-agent chat features are beyond reader replacement parity. | Revisit after basic chat resilience, site scoping, and cost controls are stable. |
+
 | Feature area | Current prototype | Missing work | V1 stance |
 | --- | --- | --- | --- |
 | Page finder | Header finder filters the local page index by title, slug, and tags. The command palette provides keyboard page navigation, tag slices, and recent pages from local LiveStore/localStorage state. | Better fuzzy scoring, source/PDF context actions, and richer empty states. | Keep this client-local because it is a navigation affordance backed by the manifest, not canonical search. |
 | Text search | Vite serves `/api/search` from the one-server backend path and owns a `/search` page with backend results and reader navigation. The header and action palette preserve `returnTo`, and the local finder transfers the active query when local matches are empty. | Better snippets, keyboard/result polish, loading/empty/error refinement, and public/session search leak tests. | Keep canonical full-text search backend-owned. The Vite reader should not rebuild search from the local markdown cache. |
-| Chat | Vite owns `/chat`, `/chat/:id`, and `/api/chat` with the shared full composer/message UI, Convex conversation list/loading, AI SDK streaming route, and wiki search/read/list tools. The header now navigates into the Vite chat route instead of handing off to Next. | Live send/stream preview with real AI Gateway credentials, archived chat parity, mobile conversation navigation polish, multi-site client-side Convex scoping, and broader resume/abort E2E coverage. | Keep chat full-stack and backend-owned inside Vite. Comments remain parked, but chat is now part of standalone replacement parity. |
+| Chat | Vite owns `/chat`, `/chat/:id`, and `/api/chat` with the shared full composer/message UI, Convex conversation list/loading, AI SDK streaming route, and wiki search/read/list tools. The header now navigates into the Vite chat route instead of handing off to Next. | Abort/resume/refresh resilience, mobile conversation navigation polish, multi-site client-side Convex scoping, perf buffer coverage, cost/rate guardrails, and broader preview/prod credentialed smoke coverage. | Keep chat full-stack and backend-owned inside Vite. Comments remain parked, but chat is now part of standalone replacement parity. |
 | AI search | Vite owns `/api/ai-search` and an AI mode on `/search`. The route uses backend text candidates, optional embedding/vector candidates, Host-resolved site scope, session-sensitive reads, PII redaction, and AI SDK structured scoring. | Citation rendering, richer result metadata, live credentialed route smoke in preview/prod, and sensitive-result leak tests with real session auth. | Backend-owned parity surface. It should stay server-side and should not be rebuilt from local cached markdown. |
 | Outline | Local outline palette, persistent desktop outline rail, and mobile inline outline extract headings from rendered markdown and jump by hash. | Hash navigation polish and accessibility pass. | Should land before reader parity because it is a core reading affordance and can be fully local. |
-| Comments and Liveblocks | Not implemented in Vite. | Comment rail, auth gating, Liveblocks tokens, thread persistence, unread/resolved states, and multi-device sync. | Keep in Next for v1. Treat as out of scope unless explicitly pulled forward. |
+| Comments and Liveblocks | Not implemented in Vite. | Comment rail, auth gating, Liveblocks tokens, thread persistence, unread/resolved states, and multi-device sync. | Parked backlog. Do not treat as a cutover blocker unless explicitly pulled forward. |
 | Command palette | Keyboard trigger, local page rows, outline rows, asset rows, tag slices, recent pages, current-page source/PDF actions, backend action rows, and debug/cache tools landed. | Better fuzzy ranking, richer current-page context actions, and a deeper focus/accessibility pass. | Build before production reader parity. It can be powered by the local LiveStore index, while search/chat actions delegate to backend surfaces. |
 | Other palettes | Page, outline, asset, tag, recent, backend action, and debug/cache palettes now exist as modes in one command surface. | Metrics drill-downs and richer cache diagnostics. | Page palette should be first. Backend search/chat entries should delegate instead of cloning those full-stack flows. |
 | Sidebar/tree | Desktop tree and mobile sheet exist, active branches auto-expand, manual expansion persists across reloads, and PDF/file assets are discoverable through the local asset palette. | Richer source grouping, keyboard navigation, and very large tree performance. | Needed before broad preview review, but not before additive backend deployment. |
@@ -631,18 +684,18 @@ Active Vite reader coverage:
 
 Skipped-in-place migration inventory:
 
-- Comments, Liveblocks, comment APIs, and the full comments/outline rail.
-- Chat performance/resilience scenarios that need durable stream abort/resume behavior.
-- Link-preview metadata hardening and login redirect behavior.
-- Multi-site backend isolation invariants.
-- PII redaction and markdown download backend checks.
-- Server-rendered header shell before hydration.
+- P0 metadata hardening: link-preview bots, authenticated metadata, canonical/cache behavior, and whether the old header-shell expectation should be retired or rewritten for minimal SSR.
+- P0 multi-site isolation: same-slug content, hostile headers, text/AI search, tools/chat, files, downloads, and store separation.
+- P0 PII parity: rendered markdown, text search, AI search, chat citations, and downloads stay redacted.
+- P0 chat resilience/perf: server-side abort, navigation/refresh resume, mobile history navigation, and perf marks.
+- P1 auth polish: login redirect hash preservation and broader session-expiry handling.
+- Parked backlog: comments, Liveblocks, comment APIs, and the full comments rail.
 
 Current local result:
 
 ```txt
 bun --cwd apps/wiki-vite test:e2e --reporter=line
-80 passed, 62 skipped
+80 passed, 68 skipped
 ```
 
 The skipped specs are not a hidden success condition. They are the remaining feature inventory to either migrate into Vite, keep routed to Next for v1, or delete from the Vite migration scope explicitly.
