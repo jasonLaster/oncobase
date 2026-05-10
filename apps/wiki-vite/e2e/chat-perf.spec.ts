@@ -11,6 +11,10 @@ declare global {
       drain: () => Array<{ type: string; [key: string]: unknown }>;
       clear: () => void;
     };
+    __WIKI_VITE_OBSERVABILITY__?: {
+      chat?: { eventCount: number };
+      runtime?: { mode: string };
+    };
   }
 }
 
@@ -59,6 +63,33 @@ test.describe("P0 chat perf", () => {
       drain: "function",
       clear: "function",
     });
+  });
+
+  test("chat perf is mirrored into wiki observability", async ({ page }) => {
+    await page.goto("/chat", { waitUntil: "domcontentloaded" });
+
+    await page.evaluate(() => {
+      window.__CHAT_PERF__?.push({
+        type: "submit",
+        t: 1,
+        conversationId: "test-conversation",
+      });
+    });
+
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => window.__WIKI_VITE_OBSERVABILITY__?.chat?.eventCount ?? 0,
+        ),
+      )
+      .toBe(1);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => window.__WIKI_VITE_OBSERVABILITY__?.runtime?.mode ?? "",
+        ),
+      )
+      .not.toBe("");
   });
 
   test("first-token and full-completion timings are recorded", async ({ page }) => {

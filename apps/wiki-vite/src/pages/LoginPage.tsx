@@ -1,6 +1,8 @@
 import { ArrowLeftIcon } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 
+const descriptionId = "login-description";
+
 export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -32,16 +34,18 @@ export function LoginPage() {
 
   return (
     <article className="login-shell" data-test-id="login-page">
-      <section className="login-panel">
+      <section className="login-panel" aria-describedby={descriptionId}>
         <p className="eyebrow">Private wiki</p>
-        <h1>Sign in</h1>
-        <p className="login-return">
-          Return to <code>{redirect}</code> after sign in.
+        <h1>Sign in to continue</h1>
+        <p className="login-return" id={descriptionId}>
+          This route is protected. After sign in, you will return to{" "}
+          <code>{redirect}</code>.
         </p>
         <form onSubmit={onSubmit}>
           <label>
             <span>Password</span>
             <input
+              aria-invalid={error ? "true" : undefined}
               autoComplete="current-password"
               autoFocus
               name="password"
@@ -50,7 +54,11 @@ export function LoginPage() {
               value={password}
             />
           </label>
-          {error ? <p className="auth-error">{error}</p> : null}
+          {error ? (
+            <p className="auth-error" role="alert">
+              {error}
+            </p>
+          ) : null}
           <button disabled={submitting || !password} type="submit">
             {submitting ? "Signing in..." : "Sign in"}
           </button>

@@ -311,6 +311,13 @@ export function CommandPalette({
     setActiveIndex(0);
   }, [mode, query]);
 
+  useEffect(() => {
+    if (!open) return;
+    document
+      .getElementById(`command-${mode}-${activeIndex}`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, mode, open]);
+
   const openPage = (page: PageIndexRow) => {
     rememberSlug(page.slug);
     navigate(hrefForSlug(page.slug));
@@ -373,7 +380,11 @@ export function CommandPalette({
           <input
             ref={inputRef}
             aria-activedescendant={activeCount > 0 ? `command-${mode}-${activeIndex}` : undefined}
+            aria-controls={`command-${mode}-results`}
+            aria-expanded="true"
+            aria-labelledby="command-palette-title"
             data-test-id="command-palette-input"
+            role="combobox"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onInputKeyDown}
@@ -472,7 +483,17 @@ export function CommandPalette({
             Debug
           </button>
         </WikiCommandTabs>
-        <WikiCommandList aria-label={`${mode} results`}>
+        <span id="command-palette-title" className="wiki-shell-sr-only">
+          Command palette
+        </span>
+        <span aria-live="polite" className="wiki-shell-sr-only">
+          {activeCount} {mode} result{activeCount === 1 ? "" : "s"}
+        </span>
+        <WikiCommandList
+          aria-label={`${mode} results`}
+          id={`command-${mode}-results`}
+          role="listbox"
+        >
           {mode === "pages" ? (
             pageResults.length === 0 ? (
               <WikiCommandEmpty>No local pages found</WikiCommandEmpty>

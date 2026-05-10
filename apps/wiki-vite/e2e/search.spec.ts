@@ -120,6 +120,14 @@ test.describe("Search and local page finding", () => {
               title: "Insurance",
               relevance: 8.5,
               summary: "Insurance is relevant because it covers payer authorization.",
+              sensitive: true,
+              sources: [
+                {
+                  label: "page",
+                  title: "Insurance",
+                  href: "/wiki/logistics/insurance",
+                },
+              ],
               tags: ["logistics"],
             },
           ],
@@ -135,6 +143,8 @@ test.describe("Search and local page finding", () => {
     await expect(page.getByTestId("search-results")).toContainText("8.5 relevance");
     await expect(page.getByTestId("search-results")).toContainText("payer authorization");
     await expect(page.getByTestId("search-results")).toContainText("logistics");
+    await expect(page.getByTestId("search-results")).toContainText("sensitive");
+    await expect(page.getByTestId("search-results")).toContainText("page");
     await expect
       .poll(() =>
         page.evaluate(() => window.__WIKI_VITE_OBSERVABILITY__?.search.at(-1)?.mode),
@@ -194,6 +204,13 @@ test.describe("Search and local page finding", () => {
               title: "Diagnosis",
               relevance: 9,
               summary: "Diagnosis context matches the query.",
+              sources: [
+                {
+                  label: "page",
+                  title: "Diagnosis",
+                  href: "/wiki/diagnostics/diagnosis",
+                },
+              ],
               tags: ["diagnostics"],
             },
           ],

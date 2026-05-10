@@ -57,6 +57,7 @@ export function PageActions({
   const [copied, setCopied] = useState<"markdown" | "link" | null>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyHref = pageCopyHref(slug, contentHash, scope);
+  const fullDownloadHref = backendHref("/api/download", { type: "full", scope });
   const mainAppHref = backendHref(hrefForSlug(slug));
 
   useEffect(() => {
@@ -98,6 +99,10 @@ export function PageActions({
       <WikiPageActionLink href={copyHref} download={`${slug.split("/").at(-1) ?? slug}.md`}>
         <DownloadIcon size={15} />
         <span>Markdown</span>
+      </WikiPageActionLink>
+      <WikiPageActionLink href={fullDownloadHref} download={`wiki-${scope}.md`}>
+        <DownloadIcon size={15} />
+        <span>Full wiki</span>
       </WikiPageActionLink>
       <WikiPageActionLink href={mainAppHref}>
         <ExternalLinkIcon size={15} />

@@ -165,16 +165,17 @@ a {
   align-items: center;
   display: flex;
   justify-content: center;
-  min-height: calc(100dvh - 160px);
+  min-height: calc(100dvh - 96px);
   padding: 24px;
 }
 
 .login-panel {
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 18px 44px rgb(17 24 39 / 0.1);
+  box-shadow: 0 18px 44px rgb(17 24 39 / 0.08);
   max-width: 420px;
-  padding: 22px;
+  padding: 24px;
   width: 100%;
 }
 
@@ -188,7 +189,8 @@ a {
 }
 
 .login-panel h1 {
-  font-size: 1.5rem;
+  font-size: 1.625rem;
+  font-weight: 700;
   line-height: 1.2;
   margin: 0 0 10px;
 }
@@ -219,6 +221,7 @@ a {
 }
 
 .login-panel input {
+  background: var(--background);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--foreground);
@@ -232,6 +235,11 @@ a {
   outline: 0;
 }
 
+.login-panel input[aria-invalid="true"] {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 12%, transparent);
+}
+
 .login-panel button {
   background: var(--foreground);
   border: 1px solid var(--foreground);
@@ -241,6 +249,13 @@ a {
   font-weight: 700;
   min-height: 38px;
   padding: 0 14px;
+}
+
+.login-panel button:hover:not(:disabled),
+.login-panel button:focus-visible {
+  background: var(--brand);
+  border-color: var(--brand);
+  outline: 0;
 }
 
 .login-panel button:disabled {

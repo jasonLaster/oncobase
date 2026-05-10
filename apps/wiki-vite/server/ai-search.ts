@@ -171,6 +171,8 @@ export async function handleAiSearchRequest({
       title: string;
       tags: string[];
       relevance: number;
+      sensitive?: boolean;
+      sources: Array<{ label: string; title: string; href: string }>;
       summary: string;
     } | null> = [];
 
@@ -200,6 +202,14 @@ Score this document's relevance to the query from 0 to 10. A score of 5+ means i
               title: redact(doc.title),
               tags: doc.tags,
               relevance: output.relevance,
+              sensitive: Boolean(doc.sensitive),
+              sources: [
+                {
+                  label: "page",
+                  title: redact(doc.title),
+                  href: `/${doc.slug}`,
+                },
+              ],
               summary: output.summary,
             };
           } catch (error) {

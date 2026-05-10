@@ -31,6 +31,10 @@ test.describe("Page chrome parity", () => {
       "href",
       /\/api\/page-copy\?slug=wiki%2Flogistics%2Finsurance&cacheKey=.*&scope=public/,
     );
+    await expect(actions.getByRole("link", { name: "Full wiki" })).toHaveAttribute(
+      "href",
+      /\/api\/download\?type=full&scope=public$/,
+    );
     await expect(actions.getByRole("link", { name: "Main app" })).toHaveAttribute(
       "href",
       /\/wiki\/logistics\/insurance$/,

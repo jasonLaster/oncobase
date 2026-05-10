@@ -45,6 +45,11 @@
       "import": "./src/chat.tsx",
       "default": "./src/chat.tsx"
     },
+    "./wiki-chat": {
+      "types": "./src/wiki-chat.tsx",
+      "import": "./src/wiki-chat.tsx",
+      "default": "./src/wiki-chat.tsx"
+    },
     "./navigation": {
       "types": "./src/navigation.tsx",
       "import": "./src/navigation.tsx",
@@ -67,6 +72,9 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test:unit": "bun test src/*.test.ts"
+  },
+  "dependencies": {
+    "@diana-tnbc/chat": "workspace:*"
   },
   "peerDependencies": {
     "react": "^19.0.0",

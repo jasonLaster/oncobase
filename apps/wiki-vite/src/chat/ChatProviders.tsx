@@ -1,9 +1,14 @@
 import { ChatRuntimeProvider } from "@diana-tnbc/chat/runtime";
+import {
+  WikiChatToolRenderer,
+  extractWikiChatSources,
+} from "@diana-tnbc/wiki-shell/wiki-chat";
 import { WikiMarkdown } from "@diana-tnbc/wiki-markdown";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { Link } from "react-router";
 import { api } from "../../../../web/convex/_generated/api.js";
+import { publishChatPerfSnapshot } from "../observability";
 import { useWikiSession } from "../wiki-context";
 import { hrefForSlug } from "../wiki-utils";
 
@@ -99,6 +104,16 @@ function ChatMarkdownRenderer({
 
 function ChatRuntime({ children }: { children: ReactNode }) {
   const identity = useWikiSession();
+  useEffect(() => {
+    const publish = () => {
+      if (window.__CHAT_PERF__?.events) {
+        publishChatPerfSnapshot(window.__CHAT_PERF__.events);
+      }
+    };
+    publish();
+    const timer = window.setInterval(publish, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   const routes = useMemo(
     () => ({
       newChatPath: "/chat",
@@ -122,7 +137,9 @@ function ChatRuntime({ children }: { children: ReactNode }) {
       copy={chatCopy}
       LinkComponent={ChatLink}
       MarkdownRenderer={ChatMarkdownRenderer}
+      ToolCallRenderer={WikiChatToolRenderer}
       routes={routes}
+      extractSources={extractWikiChatSources}
       siteSlug={identity?.siteSlug}
       storageKeyPrefix="wiki-vite-chat"
     >

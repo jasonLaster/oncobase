@@ -143,7 +143,9 @@ export type WikiSearchResultLinkProps =
     href: string;
     relevance?: number;
     renderLink?: (props: WikiSearchResultLinkRenderProps) => ReactNode;
+    sensitive?: boolean;
     slug: ReactNode;
+    sources?: Array<{ label?: ReactNode; title: ReactNode; href?: string }>;
     summary?: ReactNode;
     tags?: string[];
     title: ReactNode;
@@ -156,7 +158,9 @@ export function WikiSearchResultLink({
   href,
   relevance,
   renderLink,
+  sensitive,
   slug,
+  sources,
   summary,
   tags,
   title,
@@ -169,8 +173,24 @@ export function WikiSearchResultLink({
         {slug}
         {typeof relevance === "number" ? ` · ${relevance.toFixed(1)} relevance` : ""}
       </span>
-      {tags && tags.length > 0 ? <small>{tags.slice(0, 3).join(" / ")}</small> : null}
+      <div className="wiki-shell-search-result-meta">
+        {sensitive ? <small className="badge sensitive">sensitive</small> : null}
+        {tags && tags.length > 0 ? <small>{tags.slice(0, 3).join(" / ")}</small> : null}
+      </div>
       {summary ? <p>{summary}</p> : excerpt ? <p>{excerpt}</p> : null}
+      {sources && sources.length > 0 ? (
+        <div
+          aria-label="Result sources"
+          className="wiki-shell-search-result-sources"
+        >
+          {sources.slice(0, 3).map((source, index) => (
+            <small key={`${source.href ?? index}-${index}`}>
+              {source.label ? <span>{source.label}</span> : null}
+              {source.title}
+            </small>
+          ))}
+        </div>
+      ) : null}
     </>
   );
   const linkProps: WikiSearchResultLinkRenderProps = {

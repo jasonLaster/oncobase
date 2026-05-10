@@ -92,6 +92,7 @@ export function WikiCommandItemButton({
   return (
     <button
       {...props}
+      aria-selected={active}
       className={cn("wiki-shell-command-item", active && "active", className)}
       data-active={active ? "true" : undefined}
       style={commandItemStyle(style, depth)}
@@ -121,6 +122,7 @@ export function WikiCommandItemLink({
   return (
     <a
       {...props}
+      aria-selected={active}
       className={cn("wiki-shell-command-item", active && "active", className)}
       data-active={active ? "true" : undefined}
       style={commandItemStyle(style, depth)}

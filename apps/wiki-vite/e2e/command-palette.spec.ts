@@ -33,6 +33,22 @@ test.describe("Command palette parity", () => {
     await expect(page.getByTestId("document-article")).toBeVisible();
   });
 
+  test("palette exposes active result semantics for keyboard users", async ({ page }) => {
+    await gotoWiki(page, "/");
+
+    await page.getByTestId("command-palette-trigger").click();
+    const input = page.getByTestId("command-palette-input");
+    await input.fill("wiki/");
+    await expect(input).toHaveAttribute("role", "combobox");
+    await expect(input).toHaveAttribute("aria-controls", "command-pages-results");
+    await expect(page.getByRole("listbox", { name: "pages results" })).toBeVisible();
+
+    await page.keyboard.press("ArrowDown");
+    const activeId = await input.getAttribute("aria-activedescendant");
+    expect(activeId).toBeTruthy();
+    await expect(page.locator(`#${activeId}`)).toHaveAttribute("aria-selected", "true");
+  });
+
   test("outline palette jumps to headings rendered from markdown", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 

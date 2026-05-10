@@ -5,7 +5,14 @@ import {
 } from "@diana-tnbc/wiki-content";
 import { createElement, lazy, StrictMode, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { publishRuntimeEnvironment } from "./observability";
 import "./styles.css";
+
+publishRuntimeEnvironment({
+  mode: import.meta.env.MODE,
+  vercelEnv: import.meta.env.VITE_VERCEL_ENV,
+  commitSha: import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA,
+});
 
 function readScope(): WikiScope {
   const url = new URL(window.location.href);

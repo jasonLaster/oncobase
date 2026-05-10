@@ -713,12 +713,50 @@
   font-size: 0.9375rem;
 }
 
+.wiki-shell-search-result-meta,
+.wiki-shell-search-result-sources {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
 .wiki-shell-search-result span,
 .wiki-shell-search-result small,
 .wiki-shell-search-result p {
   color: var(--text-muted);
   font-size: 0.8125rem;
   margin: 0;
+}
+
+.wiki-shell-search-result .badge.sensitive {
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  margin-right: 0.125rem;
+}
+
+.wiki-shell-search-result-sources {
+  margin-top: 0.125rem;
+}
+
+.wiki-shell-search-result-sources small {
+  align-items: center;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 0.25rem;
+  max-width: 100%;
+  min-height: 1.375rem;
+  padding: 0.0625rem 0.5rem;
+}
+
+.wiki-shell-search-result-sources small span {
+  color: var(--brand);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .wiki-shell-command-backdrop {
@@ -730,6 +768,18 @@
   padding: 72px 18px 18px;
   position: fixed;
   z-index: 90;
+}
+
+.wiki-shell-sr-only {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 .wiki-shell-command-palette {

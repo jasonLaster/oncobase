@@ -19,6 +19,8 @@ type SearchResult = {
   tags?: string[];
   excerpt?: string;
   relevance?: number;
+  sensitive?: boolean;
+  sources?: Array<{ label?: string; title: string; href?: string }>;
   summary?: string;
 };
 
@@ -227,7 +229,20 @@ export function SearchPage() {
                 {children}
               </Link>
             )}
+            sensitive={result.sensitive}
             slug={result.slug}
+            sources={
+              result.sources ??
+              (mode === "ai"
+                ? [
+                    {
+                      label: "source",
+                      title: result.title,
+                      href: hrefForSlug(result.slug),
+                    },
+                  ]
+                : undefined)
+            }
             summary={result.summary}
             tags={result.tags}
             title={result.title}

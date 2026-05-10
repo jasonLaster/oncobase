@@ -24,6 +24,31 @@ const EMBEDDING_MODEL = "text-embedding-3-small";
 const CANCEL_POLL_INTERVAL_MS = 1000;
 const PII_PATTERN_CACHE_TTL_MS = 15_000;
 
+let closedControllerGuardInstalled = false;
+
+function isClosedStreamControllerError(error: unknown) {
+  const code = (error as { code?: unknown } | null)?.code;
+  return (
+    error instanceof Error &&
+    code === "ERR_INVALID_STATE" &&
+    /Controller is already closed/i.test(error.message)
+  );
+}
+
+function installClosedControllerGuard() {
+  if (closedControllerGuardInstalled) return;
+  closedControllerGuardInstalled = true;
+  process.on("uncaughtException", (error) => {
+    if (isClosedStreamControllerError(error)) {
+      console.warn(
+        "[wiki-vite-chat] ignored closed AI stream controller after client abort",
+      );
+      return;
+    }
+    throw error;
+  });
+}
+
 type PiiPatternEntry = {
   patterns: PiiPattern[] | undefined;
   expires: number;
@@ -264,6 +289,8 @@ export async function handleChatRequest({
   siteSlug: string;
   includeSensitive: boolean;
 }) {
+  installClosedControllerGuard();
+
   if (request.method !== "POST") {
     return Response.json(
       { error: "Method not allowed" },
@@ -309,6 +336,9 @@ export async function handleChatRequest({
   }
 
   const userStopSignal = new AbortController();
+  // The HTTP response owns the live SSE stream. Disconnects abort the current
+  // run; the client can recover from a persisted trailing user message via
+  // auto-resume when the conversation route remounts.
   const composedAbortSignal = AbortSignal.any([request.signal, userStopSignal.signal]);
   let lastCancelPoll = 0;
   async function maybeAbortOnCancel() {

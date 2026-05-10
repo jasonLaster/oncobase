@@ -442,12 +442,26 @@ export function ChatInterface({
   // model from the message *before* the targeted assistant message.
   const handleRegenerate = useCallback(
     (messageId: string) => {
+      clearError();
+      startTracker();
       void regenerate({ messageId }).catch(() => {
         // useChat surfaces the error via its `error` state; no toast here.
       });
     },
-    [regenerate]
+    [clearError, regenerate, startTracker]
   );
+
+  const handleRetryAfterError = useCallback(() => {
+    if (messages.length === 0) {
+      clearError();
+      return;
+    }
+    clearError();
+    startTracker();
+    void regenerate().catch(() => {
+      // useChat surfaces the error via its `error` state; no toast here.
+    });
+  }, [clearError, messages.length, regenerate, startTracker]);
 
   // Split messages into the memoized prior list + the live streaming tail.
   // The tail is the last assistant message *while streaming*; otherwise all
@@ -541,6 +555,50 @@ export function ChatInterface({
   }, []);
 
   const showEmptyState = messages.length === 0 && !isStreaming;
+
+  const errorBanner = error ? (
+    <div
+      className="flex min-w-0 flex-col gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400 sm:flex-row sm:items-start"
+      data-test-id="chat-error"
+      role="alert"
+    >
+      <div className="flex min-w-0 flex-1 items-start gap-2">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="currentColor"
+          className="mt-0.5 shrink-0"
+          aria-hidden="true"
+        >
+          <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 4a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0V5zm.75 6.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z" />
+        </svg>
+        <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">
+          {error.message}
+        </span>
+      </div>
+      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
+        {messages.length > 0 ? (
+          <button
+            type="button"
+            onClick={handleRetryAfterError}
+            className="rounded border border-current px-2 py-1 text-xs font-medium transition-colors hover:bg-red-100 dark:hover:bg-red-900/40"
+            data-test-id="chat-error-retry"
+          >
+            Retry
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={clearError}
+          className="rounded px-2 py-1 text-xs font-medium transition-colors hover:bg-red-100 dark:hover:bg-red-900/40"
+          data-test-id="chat-error-dismiss"
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   const renderComposer = (flat = false) => (
     <PromptInput
@@ -642,18 +700,7 @@ export function ChatInterface({
                 )}
               </div>
               {renderComposer(true)}
-              {error && (
-                <div
-                  className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-sm"
-                  data-test-id="chat-error"
-                  role="alert"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 mt-0.5">
-                    <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 4a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0V5zm.75 6.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z" />
-                  </svg>
-                  <span>{error.message}</span>
-                </div>
-              )}
+              {errorBanner}
             </div>
           </div>
           {suggestedPills}
@@ -699,18 +746,7 @@ export function ChatInterface({
               </div>
             )}
 
-          {error && (
-            <div
-              className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-sm"
-              data-test-id="chat-error"
-              role="alert"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 mt-0.5">
-                <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 4a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0V5zm.75 6.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z" />
-              </svg>
-              <span>{error.message}</span>
-            </div>
-          )}
+          {errorBanner}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
