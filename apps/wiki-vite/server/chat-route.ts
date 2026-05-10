@@ -12,7 +12,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { createConvexFlusher } from "@diana-tnbc/chat/flusher";
 import { getCachedSystemPrompt } from "@diana-tnbc/chat/system-prompt-cache";
-import { applyPiiRedactions } from "@diana-tnbc/wiki-content/pii";
+import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@diana-tnbc/wiki-content/pii";
 import { readChatPageFromDocuments } from "@diana-tnbc/wiki-content/chat-tools";
 import { api } from "../../../web/convex/_generated/api.js";
 import type { Id } from "../../../web/convex/_generated/dataModel.js";
@@ -22,6 +22,14 @@ const generateRunId = createIdGenerator({ prefix: "run", size: 16 });
 const TEXT_MODEL = "openai/gpt-5.4-mini";
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const CANCEL_POLL_INTERVAL_MS = 1000;
+const PII_PATTERN_CACHE_TTL_MS = 15_000;
+
+type PiiPatternEntry = {
+  patterns: PiiPattern[] | undefined;
+  expires: number;
+};
+
+const piiPatternCache = new Map<string, PiiPatternEntry>();
 
 const ChatRequestSchema = z.object({
   messages: z
@@ -194,12 +202,33 @@ function documentsGateway(
   };
 }
 
+async function getPiiPatterns(client: ConvexHttpClient, siteSlug: string) {
+  const now = Date.now();
+  const cached = piiPatternCache.get(siteSlug);
+  if (cached && cached.expires > now) return cached.patterns;
+
+  const site = await client.query(api.sites.getBySlug, { slug: siteSlug }).catch(() => null);
+  const configuredPatterns = parseSitePiiPatterns(site?.config?.piiPatterns);
+  const patterns = configuredPatterns.length > 0
+    ? configuredPatterns
+    : siteSlug === "diana"
+      ? undefined
+      : [];
+  piiPatternCache.set(siteSlug, {
+    patterns,
+    expires: now + PII_PATTERN_CACHE_TTL_MS,
+  });
+  return patterns;
+}
+
 async function loadSystemPrompt(
   client: ConvexHttpClient,
   siteSlug: string,
   includeSensitive: boolean,
 ) {
   const documents = documentsGateway(client, siteSlug, includeSensitive);
+  const piiPatterns = await getPiiPatterns(client, siteSlug);
+  const redact = (value: string) => applyPiiRedactions(value, { patterns: piiPatterns });
   const [indexDoc, diagnosisDoc] = await Promise.all([
     documents.getBySlug({ slug: "index" }),
     documents.getBySlug({ slug: "wiki/diagnostics/diagnosis" }),
@@ -207,10 +236,10 @@ async function loadSystemPrompt(
 
   let prompt = SYSTEM_PROMPT_BASE;
   if (diagnosisDoc) {
-    prompt += `\n\n## PATIENT DIAGNOSIS\n\n${applyPiiRedactions(diagnosisDoc.content)}`;
+    prompt += `\n\n## PATIENT DIAGNOSIS\n\n${redact(diagnosisDoc.content)}`;
   }
   if (indexDoc) {
-    prompt += `\n\n## PAGE INDEX\n\nUse these slugs with read_page to get full content:\n\n${applyPiiRedactions(indexDoc.content)}`;
+    prompt += `\n\n## PAGE INDEX\n\nUse these slugs with read_page to get full content:\n\n${redact(indexDoc.content)}`;
   }
   return prompt;
 }
@@ -306,6 +335,8 @@ export async function handleChatRequest({
     siteSlug,
   });
   const systemPrompt = await buildSystemPrompt(client, siteSlug, includeSensitive);
+  const piiPatterns = await getPiiPatterns(client, siteSlug);
+  const redact = (value: string) => applyPiiRedactions(value, { patterns: piiPatterns });
 
   const result = streamText({
     model: TEXT_MODEL,
@@ -346,8 +377,8 @@ export async function handleChatRequest({
               seen.add(result.slug);
               merged.push({
                 ...result,
-                title: applyPiiRedactions(result.title),
-                excerpt: result.excerpt ? applyPiiRedactions(result.excerpt) : undefined,
+                title: redact(result.title),
+                excerpt: result.excerpt ? redact(result.excerpt) : undefined,
               });
             }
           }
@@ -357,7 +388,7 @@ export async function handleChatRequest({
             seen.add(result.slug);
             merged.push({
               slug: result.slug,
-              title: applyPiiRedactions(result.title),
+              title: redact(result.title),
               tags: result.tags,
             });
           }
@@ -377,6 +408,7 @@ export async function handleChatRequest({
               getBySlug: (args) => documents.getBySlug(args),
             },
             slug,
+            { patterns: piiPatterns },
           ),
       },
       list_pages: {

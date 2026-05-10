@@ -17,6 +17,7 @@ interface ChatRuntimeValue {
   convexApi: ChatConvexApi;
   copy: ResolvedChatCopy;
   routes: ChatRoutes;
+  siteSlug?: string;
   storageKeyPrefix: string;
   LinkComponent?: ComponentType<{
     children: ReactNode;
@@ -37,6 +38,7 @@ export function ChatRuntimeProvider({
   convexApi,
   copy,
   routes,
+  siteSlug,
   storageKeyPrefix = "chat",
   LinkComponent,
   MarkdownRenderer,
@@ -48,6 +50,7 @@ export function ChatRuntimeProvider({
   convexApi: ChatConvexApi;
   copy?: ChatCopy;
   routes?: ChatRouteConfig;
+  siteSlug?: string;
   storageKeyPrefix?: string;
   LinkComponent?: ComponentType<{
     children: ReactNode;
@@ -69,6 +72,7 @@ export function ChatRuntimeProvider({
         convexApi,
         copy: resolvedCopy,
         routes: resolvedRoutes,
+        siteSlug,
         storageKeyPrefix,
         LinkComponent,
         MarkdownRenderer,

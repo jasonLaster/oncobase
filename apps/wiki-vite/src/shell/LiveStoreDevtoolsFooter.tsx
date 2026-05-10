@@ -36,7 +36,11 @@ export function LiveStoreDevtoolsFooter({
   const warmCache = () => window.dispatchEvent(new Event(WARM_CACHE_EVENT));
 
   return (
-    <footer className="livestore-devtools-footer" data-test-id="livestore-devtools-footer">
+    <footer
+      className="livestore-devtools-footer"
+      data-store-id={storeId}
+      data-test-id="livestore-devtools-footer"
+    >
       <details>
         <summary>
           <BugIcon size={14} aria-hidden="true" />

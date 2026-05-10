@@ -5,12 +5,13 @@ import { useQuery, useMutation } from "convex/react";
 import { useChatRuntime } from "../runtime";
 
 export function ArchivedChatsClient() {
-  const { convexApi, copy, routes } = useChatRuntime();
-  const archived = useQuery(convexApi.conversations.listArchived);
+  const { convexApi, copy, routes, siteSlug } = useChatRuntime();
+  const siteArgs = siteSlug ? { siteSlug } : {};
+  const archived = useQuery(convexApi.conversations.listArchived, siteArgs);
   const restoreConversation = useMutation(convexApi.conversations.restore);
 
   async function handleRestore(id: string) {
-    await restoreConversation({ id });
+    await restoreConversation({ id, ...siteArgs });
   }
 
   return (

@@ -17,6 +17,8 @@ const handleWikiApiRequest = createWikiApiHandler(client);
 const DEFAULT_SITE_SLUG = "diana";
 const PASSWORD_GATE_CACHE_TTL_MS = 15_000;
 const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml|map)$/i;
+const LINK_PREVIEW_BOT_RE =
+  /\b(slackbot|twitterbot|facebookexternalhit|linkedinbot|discordbot|whatsapp|telegrambot|skypeuripreview|googlebot|bingbot|applebot)\b/i;
 
 type PasswordGateEntry = {
   enabled: boolean;
@@ -66,6 +68,13 @@ function hasAuthCookie(request: Request, siteSlug: string) {
 
 function isAppAssetRequest(pathname: string) {
   return pathname.startsWith("/assets/") || pathname === "/favicon.ico" || ASSET_PATH_RE.test(pathname);
+}
+
+function isLinkPreviewRequest(request: Request) {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  const accept = request.headers.get("accept") ?? "";
+  const userAgent = request.headers.get("user-agent") ?? "";
+  return accept.includes("text/html") && LINK_PREVIEW_BOT_RE.test(userAgent);
 }
 
 async function isPasswordGateEnabled(siteSlug: string) {
@@ -143,14 +152,18 @@ function escapeHtml(value: string) {
 
 function injectHeadMetadata(
   html: string,
-  metadata: { title: string; description?: string | null },
+  metadata: { title: string; description?: string | null; canonicalUrl: string },
 ) {
   const title = escapeHtml(metadata.title);
   const description = escapeHtml(metadata.description || metadata.title);
+  const canonicalUrl = escapeHtml(metadata.canonicalUrl);
   const tags = [
+    `<link rel="canonical" href="${canonicalUrl}" />`,
     `<meta name="description" content="${description}" />`,
     `<meta property="og:title" content="${title}" />`,
     `<meta property="og:description" content="${description}" />`,
+    `<meta property="og:url" content="${canonicalUrl}" />`,
+    `<meta property="og:type" content="article" />`,
   ].join("\n    ");
 
   return html
@@ -160,7 +173,8 @@ function injectHeadMetadata(
 
 async function staticIndexHtml(request: Request, filePath: string) {
   const html = await Bun.file(filePath).text();
-  const slug = slugFromPathname(new URL(request.url).pathname);
+  const url = new URL(request.url);
+  const slug = slugFromPathname(url.pathname);
   if (!slug) return html;
 
   const siteSlug = await resolveSiteSlug(request, client);
@@ -175,7 +189,20 @@ async function staticIndexHtml(request: Request, filePath: string) {
   return injectHeadMetadata(html, {
     title: page.title,
     description: page.description,
+    canonicalUrl: new URL(url.pathname, request.url).toString(),
   });
+}
+
+async function htmlHeaders(request: Request, filePath: string) {
+  const siteSlug = (await resolveSiteSlug(request, client)) ?? DEFAULT_SITE_SLUG;
+  const authed = hasAuthCookie(request, siteSlug);
+  return {
+    ...staticHeaders(filePath),
+    "Cache-Control": authed
+      ? "private, no-store"
+      : "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
+    Vary: authed ? "Accept, Cookie, Host, User-Agent" : "Accept, Host, User-Agent",
+  };
 }
 
 async function serveStatic(request: Request) {
@@ -201,7 +228,7 @@ async function serveStatic(request: Request) {
 
   if (path.basename(filePath) === "index.html") {
     return new Response(await staticIndexHtml(request, filePath), {
-      headers: staticHeaders(filePath),
+      headers: await htmlHeaders(request, filePath),
     });
   }
 
@@ -216,6 +243,9 @@ Bun.serve({
     try {
       const apiResponse = await handleWikiApiRequest(request);
       if (apiResponse) return apiResponse;
+      if (isLinkPreviewRequest(request) && !isAppAssetRequest(new URL(request.url).pathname)) {
+        return await serveStatic(request);
+      }
       const gateResponse = await enforcePasswordGate(request);
       if (gateResponse) return gateResponse;
       return await serveStatic(request);

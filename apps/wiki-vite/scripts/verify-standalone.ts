@@ -52,6 +52,28 @@ try {
     throw new Error(`Standalone route gate redirected to unexpected location: ${gatedLocation}`);
   }
 
+  const botMetadataResponse = await fetch(`${origin}/wiki/logistics/insurance`, {
+    headers: {
+      Accept: "text/html",
+      "User-Agent": "Slackbot-LinkExpanding 1.0",
+    },
+    redirect: "manual",
+  });
+  if (!botMetadataResponse.ok) {
+    throw new Error(`Standalone bot metadata smoke failed: ${botMetadataResponse.status}`);
+  }
+  const botMetadataHtml = await botMetadataResponse.text();
+  if (
+    !/<title>[^<]*Insurance/i.test(botMetadataHtml) ||
+    !botMetadataHtml.includes('rel="canonical"') ||
+    !/property="og:title" content="[^"]*Insurance/i.test(botMetadataHtml)
+  ) {
+    throw new Error("Standalone bot metadata smoke did not inject page-specific canonical/OG tags");
+  }
+  if (!botMetadataResponse.headers.get("cache-control")?.includes("s-maxage")) {
+    throw new Error("Standalone bot metadata smoke did not use production cache headers");
+  }
+
   const sessionResponse = await fetch(`${origin}/api/wiki/session`);
   if (!sessionResponse.ok) {
     throw new Error(`Standalone session smoke failed: ${sessionResponse.status}`);
@@ -101,6 +123,13 @@ try {
   });
   if (!htmlResponse.ok) {
     throw new Error(`Standalone authed HTML smoke failed: ${htmlResponse.status}`);
+  }
+  const authedHtml = await htmlResponse.text();
+  if (!/<title>[^<]*Insurance/i.test(authedHtml)) {
+    throw new Error("Standalone authed HTML smoke did not inject page title");
+  }
+  if (!htmlResponse.headers.get("cache-control")?.includes("no-store")) {
+    throw new Error("Standalone authed HTML smoke did not use private no-store cache headers");
   }
 
   const fileErrorResponse = await fetch(`${origin}/api/file`);

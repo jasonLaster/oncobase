@@ -83,11 +83,11 @@ PORT=62004 bun run start:server
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:62004 bun run test:e2e:preview
 ```
 
-The suite mirrors the current `web/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app. P0 migration blockers are labeled in skipped specs for metadata hardening, multi-site isolation, PII parity, and chat resilience/perf. Comments and Liveblocks are labeled as parked backlog so they remain visible without blocking the standalone replacement path.
+The suite mirrors the current `web/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app. P0 multi-site isolation, PII parity, and chat perf specs are active; standalone metadata hardening is covered by `verify:standalone` because production HTML patching is owned by the Bun server rather than the Vite dev server. Comments, Liveblocks, and deeper chat navigation resilience are labeled as backlog so they remain visible without blocking the standalone replacement path.
 
 From the repository root, `bun run verify:wiki-vite` runs the current migration proof: shared content tests, shared markdown tests, Vite typecheck/build, bundle budget, and the migrated Vite Playwright suite.
 
-`bun run verify:wiki-vite:server` builds the Vite reader, starts the standalone Bun server, checks the built shell plus `/api/wiki/session`, runs the preview smoke against that single origin, and then stops the server.
+`bun run verify:wiki-vite:server` builds the Vite reader, starts the standalone Bun server, checks the password gate, page-specific metadata, bot-safe canonical/OG tags, private/public cache headers, key backend APIs, and the preview smoke against that single origin, then stops the server.
 
 The header finder is intentionally not the canonical wiki search. It filters the local manifest/page index for instant page switching. Canonical text search, AI search, and the full-stack chat experience are now served by the Vite backend/app surface for the standalone migration path.
 
@@ -109,7 +109,7 @@ LiveStore is used as a local read cache without a remote sync backend. The schem
 
 On load the app renders whatever markdown is already in LiveStore, fetches `/api/wiki/manifest` in the background, and lets the manifest materializer mark cached pages stale or deleted. Fetch priority is current route first through an explicit page fetch, then sidebar-linked pages, recent pages, and a bounded idle queue. The idle queue skips the current route so user-visible retry state is not raced by duplicate background fetches. The queue respects browser offline/save-data signals and caps eager work by page count and payload bytes.
 
-Public and session data use separate LiveStore `storeId` values. Public requests never ask for sensitive content; session requests use private cache headers, require the existing wiki session, and clear the local session cache on auth failure. The manifest API prefers the lightweight Convex manifest query; when that is not deployed yet, it may use an explicit content-backed metadata fallback that preserves hashes, sensitivity, and sizes. If reliable metadata cannot be produced, it returns `503` with `no-store` instead of disabling invalidation.
+Public and session data use separate LiveStore `storeId` values that include site, scope, origin, reader cache version, and session cache key. Public requests never ask for sensitive content; session requests use private cache headers, require the existing wiki session, and clear the local session cache on auth failure. The Vite backend also applies defense-in-depth PII redaction across page bodies, search, AI search, chat tools, page-copy, and downloads, even though Convex content should already be redacted at publish time.
 
 ## Bundle Shape
 

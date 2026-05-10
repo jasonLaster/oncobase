@@ -1,4 +1,4 @@
-import { applyPiiRedactions } from "@diana-tnbc/wiki-content/pii";
+import { applyPiiRedactions, type PiiPattern } from "@diana-tnbc/wiki-content/pii";
 
 export const CHAT_UNAVAILABLE_CONTENT = "unavailable";
 
@@ -62,6 +62,7 @@ async function resolveLinkedPages(
   documents: ChatPageDocumentsGateway,
   content: string,
   slug: string,
+  patterns?: PiiPattern[],
 ): Promise<LinkedPage[]> {
   const linkRegex = /\[\[([^\]]+?)\]\]/g;
   const linkedSlugs = new Set<string>();
@@ -81,7 +82,7 @@ async function resolveLinkedPages(
         return linked
           ? {
               slug: linked.slug,
-              title: applyPiiRedactions(linked.title),
+              title: applyPiiRedactions(linked.title, { patterns }),
               href: hrefForSlug(linked.slug, target.anchor),
               anchor: target.anchor,
             }
@@ -95,10 +96,11 @@ async function resolveLinkedPages(
 function redactedReadResult(
   doc: SiteDocument,
   anchor: string | undefined,
+  patterns?: PiiPattern[],
 ): Extract<ChatReadPageResult, { slug: string }> {
   return {
     slug: doc.slug,
-    title: applyPiiRedactions(doc.title),
+    title: applyPiiRedactions(doc.title, { patterns }),
     href: hrefForSlug(doc.slug, anchor),
     anchor,
     tags: doc.tags,
@@ -112,6 +114,7 @@ function redactedReadResult(
 export async function readChatPageFromDocuments(
   documents: ChatPageDocumentsGateway,
   slug: string,
+  options: { patterns?: PiiPattern[] } = {},
 ): Promise<ChatReadPageResult> {
   const requested = splitSlugAnchor(slug);
   const publicDoc = await documents.getBySlug({ slug: requested.slug });
@@ -121,18 +124,23 @@ export async function readChatPageFromDocuments(
       includeSensitive: true,
     });
     if (!unavailableDoc) return { error: `Page not found: ${requested.slug}` };
-    return redactedReadResult(unavailableDoc, requested.anchor);
+    return redactedReadResult(unavailableDoc, requested.anchor, options.patterns);
   }
 
-  const content = applyPiiRedactions(publicDoc.content);
+  const content = applyPiiRedactions(publicDoc.content, { patterns: options.patterns });
 
   return {
     slug: publicDoc.slug,
-    title: applyPiiRedactions(publicDoc.title),
+    title: applyPiiRedactions(publicDoc.title, { patterns: options.patterns }),
     href: hrefForSlug(publicDoc.slug, requested.anchor),
     anchor: requested.anchor,
     tags: publicDoc.tags,
     content: content.slice(0, 8000),
-    linked_pages: await resolveLinkedPages(documents, content, publicDoc.slug),
+    linked_pages: await resolveLinkedPages(
+      documents,
+      content,
+      publicDoc.slug,
+      options.patterns,
+    ),
   };
 }

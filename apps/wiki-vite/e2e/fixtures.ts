@@ -8,6 +8,7 @@ import {
   type WikiPageRecord,
   type WikiScope,
 } from "@diana-tnbc/wiki-content";
+import { applyPiiRedactions } from "@diana-tnbc/wiki-content/pii";
 
 type FixturePage = {
   title: string;
@@ -18,6 +19,7 @@ type FixturePage = {
 };
 
 type MockOptions = {
+  siteSlug?: string;
   sessionAuthenticated?: boolean;
   sessionCacheKey?: string;
   sessionUserHash?: string;
@@ -26,7 +28,7 @@ type MockOptions = {
 };
 
 const generatedAt = "2026-05-09T12:00:00.000Z";
-const siteSlug = "diana";
+const defaultSiteSlug = "diana";
 
 function repeatParagraph(label: string, count: number) {
   return Array.from(
@@ -106,6 +108,7 @@ This page exists so cross-page markdown links can prove app navigation resets sc
     content: `# About This Wiki
 
 The Vite prototype reads markdown from a local LiveStore cache and refreshes content in the background.
+<redact label="the patient">Diana Laster</redact> keeps raw identifiers out of rendered pages.
 
 ## Reading goals
 
@@ -164,6 +167,7 @@ Survival endpoint definitions belong here.
     content: `# Diagnosis
 
 Diagnosis content should render through the Vite shell without a source loading boundary.
+Diana Laster has MRN 88855655 in raw source fixtures, which must not appear in the Vite reader.
 `,
   },
   "sources/institutions/stanford/telli": {
@@ -233,14 +237,15 @@ function pagesForOptions(options: MockOptions) {
 }
 
 function pageRecord(slug: string, page: FixturePage): WikiPageRecord {
+  const content = applyPiiRedactions(page.content);
   return {
     slug,
     title: page.title,
-    content: page.content,
+    content,
     tags: page.tags,
-    contentHash: hash(`${slug}:${page.content}`),
+    contentHash: hash(`${slug}:${content}`),
     sensitive: page.sensitive === true,
-    size: page.content.length,
+    size: content.length,
   };
 }
 
@@ -251,6 +256,7 @@ function visibleRecords(scope: WikiScope, options: MockOptions) {
 }
 
 function manifest(scope: WikiScope, options: MockOptions): WikiManifest {
+  const siteSlug = options.siteSlug ?? defaultSiteSlug;
   const pages: WikiManifestPage[] = visibleRecords(scope, options).map((page) => ({
     slug: page.slug,
     title: page.title,
@@ -287,6 +293,7 @@ const png = Buffer.from(
 );
 
 export async function installWikiApiMocks(page: Page, options: MockOptions = {}) {
+  const siteSlug = options.siteSlug ?? defaultSiteSlug;
   const sessionState = {
     authenticated: options.sessionAuthenticated === true,
     cacheKey: options.sessionCacheKey ?? `${siteSlug}:session:e2e-user:e2e`,

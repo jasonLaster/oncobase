@@ -5,6 +5,7 @@ import { ConvexProvider, ConvexReactClient, useQuery } from "convex/react";
 import { useMemo, type ReactNode } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import { api } from "../../../../web/convex/_generated/api.js";
+import { useWikiSession } from "../wiki-context";
 import { hrefForSlug } from "../wiki-utils";
 
 const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
@@ -98,6 +99,7 @@ function ChatMarkdownRenderer({
 }
 
 function ChatRuntime({ children }: { children: ReactNode }) {
+  const identity = useWikiSession();
   const routes = useMemo(
     () => ({
       newChatPath: "/chat",
@@ -122,6 +124,7 @@ function ChatRuntime({ children }: { children: ReactNode }) {
       LinkComponent={ChatLink}
       MarkdownRenderer={ChatMarkdownRenderer}
       routes={routes}
+      siteSlug={identity?.siteSlug}
       storageKeyPrefix="wiki-vite-chat"
     >
       {children}
@@ -130,7 +133,9 @@ function ChatRuntime({ children }: { children: ReactNode }) {
 }
 
 function ConversationList() {
-  const conversations = useQuery(api.conversations.list, {});
+  const identity = useWikiSession();
+  const siteArgs = identity?.siteSlug ? { siteSlug: identity.siteSlug } : {};
+  const conversations = useQuery(api.conversations.list, siteArgs);
   const location = useLocation();
   const activeId = location.pathname.match(/^\/chat\/([^/?#]+)$/)?.[1] ?? null;
 
@@ -167,7 +172,12 @@ function ConversationList() {
 
 function ChatRouteContent() {
   const { id } = useParams();
-  const conversation = useQuery(api.conversations.get, id && id !== "archived" ? { id } : "skip");
+  const identity = useWikiSession();
+  const siteArgs = identity?.siteSlug ? { siteSlug: identity.siteSlug } : {};
+  const conversation = useQuery(
+    api.conversations.get,
+    id && id !== "archived" ? { id, ...siteArgs } : "skip",
+  );
   if (id === "archived") {
     return (
       <section className="vite-chat-placeholder" data-test-id="chat-archived-placeholder">

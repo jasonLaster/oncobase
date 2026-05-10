@@ -7,9 +7,11 @@ import {
   createWikiManifestResponse,
   createWikiPagesResponse,
   createWikiSessionResponse,
+  type PageWithContent,
   type WikiApiDocumentsGateway,
 } from "@diana-tnbc/wiki-content/server";
 import { readChatPageFromDocuments } from "@diana-tnbc/wiki-content/chat-tools";
+import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@diana-tnbc/wiki-content/pii";
 import { api } from "../../../web/convex/_generated/api.js";
 import { handleAiSearchRequest } from "./ai-search";
 import { handleChatRequest } from "./chat-route";
@@ -34,7 +36,13 @@ type ResolvedSite = {
   expires: number;
 };
 
+type PiiPatternEntry = {
+  patterns: PiiPattern[] | undefined;
+  expires: number;
+};
+
 const hostCache = new Map<string, ResolvedSite>();
+const piiPatternCache = new Map<string, PiiPatternEntry>();
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -212,6 +220,45 @@ function markdownFilename(slug: string) {
   return `${basename.replace(/[^a-z0-9._-]+/gi, "-")}.md`;
 }
 
+async function getPiiPatterns(client: ConvexHttpClient, siteSlug: string) {
+  const now = Date.now();
+  const cached = piiPatternCache.get(siteSlug);
+  if (cached && cached.expires > now) return cached.patterns;
+
+  const site = await client.query(api.sites.getBySlug, { slug: siteSlug }).catch(() => null);
+  const configuredPatterns = parseSitePiiPatterns(site?.config?.piiPatterns);
+  const patterns = configuredPatterns.length > 0
+    ? configuredPatterns
+    : siteSlug === DEFAULT_SITE_SLUG
+      ? undefined
+      : [];
+  piiPatternCache.set(siteSlug, {
+    patterns,
+    expires: now + HOST_CACHE_TTL_MS,
+  });
+  return patterns;
+}
+
+async function redactText(client: ConvexHttpClient, siteSlug: string, text: string) {
+  return applyPiiRedactions(text, {
+    patterns: await getPiiPatterns(client, siteSlug),
+  });
+}
+
+async function redactPageContent(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  page: PageWithContent,
+): Promise<PageWithContent> {
+  return {
+    ...page,
+    content: await redactText(client, siteSlug, page.content),
+    description: page.description
+      ? await redactText(client, siteSlug, page.description)
+      : page.description,
+  };
+}
+
 export function createClient() {
   return new ConvexHttpClient(resolveConvexUrl());
 }
@@ -227,14 +274,26 @@ function createDocumentsGateway(
   return {
     listManifestPage: (args) =>
       client.query(api.documents.listManifestPage, withSiteSlug(siteSlug, args)),
-    listPageWithContent: (args) =>
-      client.query(api.documents.listPageWithContent, withSiteSlug(siteSlug, args)),
+    listPageWithContent: async (args) => {
+      const result = await client.query(
+        api.documents.listPageWithContent,
+        withSiteSlug(siteSlug, args),
+      );
+      return {
+        ...result,
+        page: await Promise.all(
+          result.page.map((page) => redactPageContent(client, siteSlug, page)),
+        ),
+      };
+    },
     listPdfAssetPathsPage: (args) =>
       client.query(api.documents.listPdfAssetPathsPage, withSiteSlug(siteSlug, args)),
     listFileAssetPathsPage: (args) =>
       client.query(api.documents.listFileAssetPathsPage, withSiteSlug(siteSlug, args)),
-    getBySlug: (args) =>
-      client.query(api.documents.getBySlug, withSiteSlug(siteSlug, args)),
+    getBySlug: async (args) => {
+      const page = await client.query(api.documents.getBySlug, withSiteSlug(siteSlug, args));
+      return page ? redactPageContent(client, siteSlug, page) : null;
+    },
   };
 }
 
@@ -393,7 +452,7 @@ async function handlePageCopyRequest(
     withSiteSlug(siteSlug, { slug }),
   );
   if (publicPage) {
-    return new Response(publicPage.content, {
+    return new Response(await redactText(client, siteSlug, publicPage.content), {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
         "Content-Disposition": `attachment; filename="${markdownFilename(slug)}"`,
@@ -417,7 +476,7 @@ async function handlePageCopyRequest(
   );
   if (!privatePage) return new Response("Not found", { status: 404 });
 
-  return new Response(privatePage.content, {
+  return new Response(await redactText(client, siteSlug, privatePage.content), {
     headers: {
       "Content-Type": "text/markdown; charset=utf-8",
       "Content-Disposition": `attachment; filename="${markdownFilename(slug)}"`,
@@ -458,7 +517,8 @@ async function handleDownloadRequest(
     );
 
     for (const page of result.page) {
-      chunks.push(`<!-- ${page.slug} -->\n\n${page.content.trim()}\n`);
+      const content = await redactText(client, siteSlug, page.content);
+      chunks.push(`<!-- ${page.slug} -->\n\n${content.trim()}\n`);
     }
 
     isDone = result.isDone;
@@ -517,9 +577,17 @@ async function handleSearchRequest(
     api.documents.search,
     withSiteSlug(siteSlug, { query, limit, includeSensitive }),
   );
+  const patterns = await getPiiPatterns(client, siteSlug);
+  const redact = (value: string | undefined) =>
+    value == null ? value : applyPiiRedactions(value, { patterns });
+  const redactedResults = results.map((result) => ({
+    ...result,
+    title: redact(result.title) ?? result.title,
+    excerpt: redact(result.excerpt),
+  }));
 
   return Response.json(
-    { results },
+    { results: redactedResults },
     {
       headers: includeSensitive
         ? {
@@ -547,6 +615,7 @@ async function readToolPage(
         client.query(api.documents.getBySlug, withSiteSlug(siteSlug, args)),
     },
     slug,
+    { patterns: await getPiiPatterns(client, siteSlug) },
   );
 }
 
@@ -573,11 +642,20 @@ async function handleToolsRequest(
   switch (tool) {
     case "search_wiki": {
       const query = String(args.query ?? "");
+      const patterns = await getPiiPatterns(client, siteSlug);
       return Response.json(
-        await client.query(
-          api.documents.search,
-          withSiteSlug(siteSlug, { query, limit: 8 }),
-        ),
+        (
+          await client.query(
+            api.documents.search,
+            withSiteSlug(siteSlug, { query, limit: 8 }),
+          )
+        ).map((result) => ({
+          ...result,
+          title: applyPiiRedactions(result.title, { patterns }),
+          excerpt: result.excerpt
+            ? applyPiiRedactions(result.excerpt, { patterns })
+            : result.excerpt,
+        })),
         {
           headers: {
             "Cache-Control": "private, no-store",

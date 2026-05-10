@@ -33,7 +33,7 @@ export function ConversationDropdown({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const { convexApi, routes } = useChatRuntime();
+  const { convexApi, routes, siteSlug } = useChatRuntime();
   const archiveConversation = useMutation(convexApi.conversations.archive);
 
   useEffect(() => {
@@ -52,6 +52,7 @@ export function ConversationDropdown({
     e.stopPropagation();
     await archiveConversation({
       id: conversationId,
+      ...(siteSlug ? { siteSlug } : {}),
     });
     setOpen(false);
     router.push(routes.newChatPath);
@@ -127,7 +128,7 @@ export function ChatBottomActions({
 }) {
   const [copied, setCopied] = useState<string | null>(null);
   const router = useRouter();
-  const { convexApi, routes } = useChatRuntime();
+  const { convexApi, routes, siteSlug } = useChatRuntime();
   const archiveConversation = useMutation(convexApi.conversations.archive);
 
   if (messages.length === 0) return null;
@@ -155,6 +156,7 @@ export function ChatBottomActions({
     if (!conversationId) return;
     await archiveConversation({
       id: conversationId,
+      ...(siteSlug ? { siteSlug } : {}),
     });
     router.push(routes.newChatPath);
   }

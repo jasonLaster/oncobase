@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const hasAiGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
 const hasOpenAi = Boolean(process.env.OPENAI_API_KEY);
+const rawPiiPattern = /Diana Laster|88855655|jason\.laster\.11@gmail\.com/i;
 
 test.describe("Vite backend API", () => {
   test("serves public session identity with public cache headers", async ({ request }) => {
@@ -57,6 +58,7 @@ test.describe("Vite backend API", () => {
     const body = await response.json();
     expect(Array.isArray(body.results)).toBe(true);
     expect(body.results.length).toBeGreaterThan(0);
+    expect(JSON.stringify(body.results)).not.toMatch(rawPiiPattern);
     expect(body.results[0]).toEqual(
       expect.objectContaining({
         slug: expect.any(String),
@@ -122,7 +124,9 @@ test.describe("Vite backend API", () => {
     expect(pageCopy.headers()["content-type"]).toContain("text/markdown");
     expect(pageCopy.headers()["content-disposition"]).toContain("insurance.md");
     expect(pageCopy.headers()["x-wiki-cache-scope"]).toBe("public");
-    expect(await pageCopy.text()).toContain("Insurance");
+    const pageCopyText = await pageCopy.text();
+    expect(pageCopyText).toContain("Insurance");
+    expect(pageCopyText).not.toMatch(rawPiiPattern);
 
     const full = await request.get("/api/download?type=full&scope=public&limit=3", {
       timeout: 60_000,
@@ -131,7 +135,9 @@ test.describe("Vite backend API", () => {
     expect(full.headers()["content-type"]).toContain("text/markdown");
     expect(full.headers()["content-disposition"]).toContain("diana-wiki.md");
     expect(full.headers()["x-wiki-cache-scope"]).toBe("public");
-    expect(await full.text()).toContain("<!--");
+    const fullText = await full.text();
+    expect(fullText).toContain("<!--");
+    expect(fullText).not.toMatch(rawPiiPattern);
   });
 
   test("serves the standalone login API", async ({ request }) => {
@@ -158,6 +164,7 @@ test.describe("Vite backend API", () => {
     const searchResults = await search.json();
     expect(Array.isArray(searchResults)).toBe(true);
     expect(searchResults.length).toBeGreaterThan(0);
+    expect(JSON.stringify(searchResults)).not.toMatch(rawPiiPattern);
 
     const page = await request.post("/api/tools", {
       data: {
@@ -167,6 +174,7 @@ test.describe("Vite backend API", () => {
     });
     expect(page.ok(), await page.text()).toBe(true);
     const pageResult = await page.json();
+    expect(JSON.stringify(pageResult)).not.toMatch(rawPiiPattern);
     expect(pageResult).toEqual(
       expect.objectContaining({
         slug: searchResults[0].slug,

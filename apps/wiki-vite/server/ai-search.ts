@@ -129,7 +129,12 @@ export async function handleAiSearchRequest({
     }
 
     const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
-    const piiPatterns = parseSitePiiPatterns(site?.config.piiPatterns);
+    const configuredPiiPatterns = parseSitePiiPatterns(site?.config.piiPatterns);
+    const piiPatterns = configuredPiiPatterns.length > 0
+      ? configuredPiiPatterns
+      : siteSlug === "diana"
+        ? undefined
+        : [];
     const redact = (text: string) => applyPiiRedactions(text, { patterns: piiPatterns });
 
     const [textSlugs, semanticSlugs, diagnosisDoc] = await Promise.all([

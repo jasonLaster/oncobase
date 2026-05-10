@@ -131,6 +131,15 @@ export function trackStream(opts: {
       } else if (reason === "error") {
         recordChatPerf({ type: "abort", t, reason: "error" });
       } else {
+        if (!firstSeen) {
+          firstSeen = true;
+          recordChatPerf({
+            type: "first-token",
+            t,
+            conversationId: opts.conversationId,
+            latencyMs: t - opts.submitT,
+          });
+        }
         recordChatPerf({
           type: "stream-end",
           t,
