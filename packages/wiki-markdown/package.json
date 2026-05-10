@@ -20,6 +20,11 @@
       "import": "./src/citations.ts",
       "default": "./src/citations.ts"
     },
+    "./frame": {
+      "types": "./src/frame.tsx",
+      "import": "./src/frame.tsx",
+      "default": "./src/frame.tsx"
+    },
     "./math": {
       "types": "./src/math.ts",
       "import": "./src/math.ts",

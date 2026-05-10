@@ -19,13 +19,41 @@ The migration is far enough along to use the Vite one-server path as the primary
 | Backend API surface | Vite-owned path productionizing | `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/search`, `/api/ai-search`, `/api/chat`, `/api/tools`, and `/api/login` are served by the Vite backend. The reader API implementation now lives in `@diana-tnbc/wiki-content/server` with thin adapters, while the Vite backend also owns `/api/file`, `/api/page-copy`, and scoped markdown downloads for one-server development. Vite resolves the active site from `Host`, ignores injected `x-site-slug` headers, and now applies defense-in-depth PII redaction across page bodies, search, tools, page-copy, and downloads. |
 | Convex support | Deployed additively | `documents.listManifestPage` is additive and mirrors existing document pagination without changing the publish path. Existing page and asset listing queries remain the source for markdown bodies and tree assets. The production Convex deployment now has the additive reader functions. |
 | LiveStore reader | Prototype works | The Vite app persists page index, file tree, asset index, and page bodies in OPFS-backed LiveStore tables. It renders cached markdown first, fetches the manifest in the background, marks stale/deleted/missing content, eagerly fetches markdown in bounded batches, and surfaces storage pressure when browser quota is tight. |
-| Reader UI parity | In progress, not cutover-ready | The current shell has a Diana-style layout, screenshot-backed desktop/mobile visual baselines, sidebar tree, mobile sheet, breadcrumbs, page actions, desktop/mobile outline, local title/slug/tag page finding, backend-powered text and AI search pages, a Vite-owned chat route with the shared full composer UI, command palette with pages/outline/assets/tags/recents/actions/debug-cache tools, sync metrics, stale indicators, not-found recovery, failed-fetch retry, and shared markdown rendering. The 2026-05-10 P0 parity pass fixed the live image-directory sidebar leak, rail-aware smart-table expansion, outline collapse participation, `/table-examples` route smoke, and bounded cold-load retry states. `packages/wiki-shell` now owns the shared right rail/outline, resizable layout, header chrome, page chrome, sidebar tree, mobile navigation, and loading/empty state primitives; the next extraction target is prose/theme CSS. |
+| Reader UI parity | In progress, not cutover-ready | The current shell has a Diana-style layout, screenshot-backed desktop/mobile visual baselines, sidebar tree, mobile sheet, breadcrumbs, page actions, desktop/mobile outline, local title/slug/tag page finding, backend-powered text and AI search pages, a Vite-owned chat route with the shared full composer UI, command palette with pages/outline/assets/tags/recents/actions/debug-cache tools, sync metrics, stale indicators, not-found recovery, failed-fetch retry, and shared markdown rendering. The 2026-05-10 P0 parity pass fixed the live image-directory sidebar leak, rail-aware smart-table expansion, outline collapse participation, `/table-examples` route smoke, and bounded cold-load retry states. `packages/wiki-shell` now owns the shared right rail/outline, resizable layout, header chrome, page chrome, sidebar tree, mobile navigation, and loading/empty state primitives; `packages/wiki-markdown` now owns the shared markdown frame and first package-owned prose/media stylesheet pass. The next extraction target is chat/search/palette chrome. |
 | Privacy/cache safety | P0 guardrails covered | Public and session scopes use separate cache headers and store ids; store ids include the site slug, request origin, reader cache version, and session cache key for intentional OPFS separation. Sensitive pages stay out of public APIs, PII redaction is asserted across rendered pages/search/AI/tool/download surfaces, and browser coverage now verifies same-slug multi-site cache isolation. |
 | Playwright migration | Strong but uneven coverage | `apps/wiki-vite/e2e` now mirrors every current `web/e2e/*.spec.ts` filename. Reader-capable tests run locally against mocked `/api/wiki/*` responses and include screenshot-backed visual assertions plus current-route-first network assertions. The unmocked backend API spec exercises the Vite dev backend against Convex for session, manifest, text search, live AI search, chat tool calls, live chat streaming, login, file validation, and PII-safe downloads. P0 multi-site, PII, chat-perf, sidebar collapse/resize, hidden image dirs, cold-load retry, failed-fetch retry, and rail-aware table expansion specs are active. Remaining fixture-bias risks are live-manifest smoke automation, broader visual diff gates, metadata browser placeholders, comments/Liveblocks, and deeper chat navigation-resilience cases. |
 | Deployment | Isolated Vercel project live | `diana-tnbc-wiki-vite` is a separate Vercel project connected to the same Git repo, with SSO deployment protection disabled for smoke testing and env scoped to the new project. Root `vercel.json` builds `apps/wiki-vite`, serves `apps/wiki-vite/dist`, and routes `/api/*` plus app shells through Vercel Functions that share the same request handler as the standalone Bun server. The stable production URL is `https://wiki-vite-zeta.vercel.app`; preview and production smokes now verify session API, route password gate, bot metadata, and browser render. Remaining work is custom-domain cutover, rollback runbook, and CI automation for the preview smoke. |
 | Migration decision | Direction set | Vite is the intended replacement. Keep `web` only until auth, multi-site, metadata, full-stack features, cache policy, UI parity, and E2E coverage are good enough to delete it. |
 
 ## Work Log
+
+### 2026-05-10 Wiki Markdown Frame/Style Checkpoint
+
+Implementation follow-up from page-state extraction:
+
+- Added `WikiMarkdownFrame` to `packages/wiki-markdown` as the shared wrapper for server-rendered and client-rendered markdown bodies.
+- Updated the current Next `MarkdownRenderer` to use the shared frame and import `@diana-tnbc/wiki-markdown/styles.css`, keeping the old app as a reference while moving the durable markdown shell into the package.
+- Moved missing prose/media rules into the package stylesheet: list markers, citation link details, KaTeX overflow, server-rendered image theater affordances, PDF chips, Mermaid diagram base styling, and desktop heading-anchor placement.
+- Kept the existing generic `.prose` styles in `web/src/app/globals.css` for chat/Streamdown contexts until chat-specific markdown chrome is extracted.
+- Fixed two `.js`-suffixed internal imports in `packages/wiki-content` that Turbopack could not resolve from the source-exported workspace package, and tightened a fetch-timeout test mock so package typecheck stays green.
+
+Focused verification:
+
+```sh
+bun --cwd packages/wiki-content typecheck
+bun --cwd packages/wiki-content test:unit
+bun --cwd packages/wiki-markdown typecheck
+bun --cwd packages/wiki-markdown test:unit
+bun --cwd web typecheck
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite check:bundle
+bun --cwd apps/wiki-vite test:e2e e2e/visual-parity.spec.ts e2e/page-chrome.spec.ts --reporter=line
+```
+
+Full Vite verification result: `bun run verify:wiki-vite` passed with `112 passed`, `50 skipped`.
+
+`bun --cwd web build` compiled successfully through the package CSS/import boundary, then failed during static page-data collection because the live Convex host `youthful-cricket-560.convex.cloud` returned a Cloudflare 502. That failure is an upstream data-source outage, not a local package resolution failure.
 
 ### 2026-05-10 Wiki Page State Extraction Checkpoint
 
@@ -951,7 +979,7 @@ The fastest path to visual parity is to extract the mature current-app shell int
 | Header and actions | `web/src/components/header.tsx`, `actions-menu.tsx`, `theme-toggle.tsx` | `apps/wiki-vite/src/shell/Header.tsx` | `WikiHeader`, `WikiHeaderSearchForm`, `WikiHeaderButton`, `WikiHeaderLink`, and `WikiLogo` now live in `packages/wiki-shell`. Vite consumes them with backend-owned search, chat, command-palette, and overflow adapters. Remaining work is richer account/session/theme action parity and page-level overflow actions. | P0 partially done |
 | Page title/chrome | `web/src/app/(main)/_components/document-page.tsx`, `copy-page-button.tsx` | `apps/wiki-vite/src/pages/WikiPage.tsx` | `WikiBreadcrumbs`, `WikiPageHeader`, `WikiPageActions`, `WikiSourceLinks`, `WikiTagList`, `WikiPageFooter`, and related badge/action primitives now live in `packages/wiki-shell`, with Vite providing routing/copy/download adapters. Remaining polish is to converge the visible action density with the current app's compact copy and overflow affordances. | P0 partially done |
 | Sidebar tree and mobile nav | `web/src/components/sidebar.tsx`, `bottom-nav.tsx` | `apps/wiki-vite/src/shell/Navigation.tsx` | `WikiSidebar`, `WikiTree`, `WikiMobileNavigation`, and tree helpers now live in `packages/wiki-shell`, with Vite feeding LiveStore tree data, active route, file URLs, and persisted expansion state. Remaining work is visual tuning against the current app's exact spacing/iconography and any chat-specific mobile nav integration. | P1 partially done |
-| Prose, theme, and media styles | `web/src/app/globals.css`, markdown renderer CSS, image theater CSS | `apps/wiki-vite/src/styles.css`, `packages/wiki-markdown` styles | Move Diana theme tokens, `.dark` behavior, `.prose` rhythm, smart-table lane variables, image theater styling, PDF chips, and shared markdown CSS into package-owned styles imported by both apps. Vite should render markdown through the same `.prose max-w-none` contract. | P0 |
+| Prose, theme, and media styles | `web/src/app/globals.css`, markdown renderer CSS, image theater CSS | `apps/wiki-vite/src/styles.css`, `packages/wiki-markdown` styles | `WikiMarkdownFrame` and `@diana-tnbc/wiki-markdown/styles.css` are now shared by Vite and the current Next renderer, with package-owned list/citation/KaTeX/image/PDF/Mermaid/heading-anchor styling. Remaining work is extracting generic chat `.prose`/Streamdown styling and any app-level theme tokens that still live only in `web/src/app/globals.css`. | P0 partially done |
 | Command palette and page finder | `web/src/components/command-palette.tsx` | `apps/wiki-vite/src/shell/CommandPalette.tsx` | Share row layout, focus states, keyboard semantics, and empty states. Keep Vite's LiveStore-backed pages/outline/assets/tag data as adapter inputs. | P1 |
 | Loading, empty, and error states | `web/src/components/page-loading.tsx`, not-found/error shells | Vite route-level retry/not-found UI | `WikiPageLoading`, `WikiPageSkeleton`, and `WikiEmptyState` now live in `packages/wiki-shell`, with Vite supplying retry events and route-link actions. Remaining polish is comparing skeleton density and not-found/error copy against the current app once the final prose/theme pass lands. | P1 partially done |
 | Search and chat chrome | Current search/chat route components and shared composer pieces | `apps/wiki-vite/src/pages/SearchPage.tsx`, Vite chat route | Keep Vite backend ownership, but reuse cards, pills, source links, mobile layouts, composer styling, and action menus where possible. | P1 |
@@ -961,8 +989,8 @@ Extraction sequence:
 1. Create `packages/wiki-shell` with right rail, resizable layout, shared shell CSS, and package tests for pane state/class contracts.
 2. Replace Vite's `PageOutline` with the shared right rail and add browser tests for collapsed default, resize, mobile rail, hash navigation, and expanded-table bounds with both rails.
 3. Move prose/theme CSS into shared package styles and make Vite render through the same `.prose` contract as the current app.
-4. Extract header/page chrome next so Vite stops exposing a different top-level product shape.
-5. Extract sidebar/bottom navigation, then polish command palette/search/chat rows with shared styles.
+4. Extract chat/search/palette rows with shared styles and focus behavior.
+5. Continue pruning Vite-only CSS once each shared surface has parity coverage.
 
 #### Test Coverage Actions
 
@@ -1082,7 +1110,7 @@ The branch now has four layers plus the next shell boundary:
 
 1. `@diana-tnbc/wiki-content/server` owns the framework-neutral reader API logic, with `web` and Vite supplying adapters.
 2. `packages/wiki-content` owns the shared content contracts: manifests, compact trees, page batches, store ids, and hash reconciliation.
-3. `packages/wiki-markdown` owns the shared markdown runtime: wikilinks, citations, math cleanup, server HTML transforms, client markdown rendering, heading anchors, image theater, and smart-table enhancement.
+3. `packages/wiki-markdown` owns the shared markdown runtime: wikilinks, citations, math cleanup, server HTML transforms, client markdown rendering, heading anchors, image theater, smart-table enhancement, the shared markdown frame, and package-owned prose/media styles.
 4. `packages/wiki-shell` owns the first reusable Diana reader shell slice: right rail/outline, layout rail collapse/resize state, shared outline helpers, header chrome primitives, page chrome primitives, sidebar/mobile navigation primitives, loading/empty state primitives, shell CSS, and the smart-table rail event contract. It should grow next to include shared theme/prose CSS and visual interaction primitives.
 5. `apps/wiki-vite` is the reader framework adapter plus local dev backend: Vite, React Router, LiveStore provider, OPFS persistence, fetch scheduling, local queries, Diana-style shell, and Vite middleware for reader APIs.
 
@@ -1116,7 +1144,8 @@ Keep this phase focused on moving reusable behavior out of `web`, not on changin
 
 - Add package-level tests for `renderWikiMarkdownHtml`, including smart-table markup, PDF chips, image theater attributes, citations, math cleanup, Mermaid fallback, and theme-paired images.
 - Add package-level tests for `MarkdownHeadingAnchors` and `RoutedAnchorLinks` using a DOM runner, with route-adapter and notification fakes.
-- Create `packages/wiki-shell` for shell UI that is currently duplicated between `web` and Vite. Start with the right rail/outline and resizable layout, then move header/page chrome, sidebar/mobile navigation visuals, shared prose/theme CSS, and loading states.
+- Create `packages/wiki-shell` for shell UI that is currently duplicated between `web` and Vite. Start with the right rail/outline and resizable layout, then move header/page chrome, sidebar/mobile navigation visuals, and loading states.
+- Keep markdown body styling in `packages/wiki-markdown`; extract remaining generic chat/Streamdown prose styling once the chat route chrome is ported.
 - Move any remaining framework-neutral markdown helpers out of `web/src/lib/*` into package subpaths.
 - Keep `web` wrappers thin: cache wrapper, Next router/link adapter, notification adapter, Diana shell adapter, and table layout adapter.
 

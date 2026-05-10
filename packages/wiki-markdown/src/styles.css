@@ -45,7 +45,20 @@
 
 .wiki-markdown ul,
 .wiki-markdown ol {
+  list-style-position: outside;
   padding-left: 1.5rem;
+}
+
+.wiki-markdown ul {
+  list-style-type: disc;
+}
+
+.wiki-markdown ol {
+  list-style-type: decimal;
+}
+
+.wiki-markdown li {
+  margin-bottom: 0.25rem;
 }
 
 .wiki-markdown a {
@@ -61,7 +74,13 @@
 }
 
 .wiki-markdown a.citation-ref {
+  font-size: 0.95em;
   opacity: 1;
+  white-space: nowrap;
+}
+
+.wiki-markdown a.citation-ref:hover {
+  text-decoration-thickness: 1.5px;
 }
 
 .wiki-markdown blockquote {
@@ -75,7 +94,8 @@
 .wiki-markdown code {
   background: var(--sidebar-bg, var(--surface-muted, #f1f5f9));
   border-radius: 0.25rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono, ui-monospace), SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
   font-size: 0.875em;
   padding: 0.15rem 0.4rem;
 }
@@ -86,6 +106,7 @@
   margin: 1rem 0;
   overflow-x: auto;
   padding: 1rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .wiki-markdown pre code {
@@ -93,12 +114,30 @@
   padding: 0;
 }
 
+.wiki-markdown .mermaid-diagram.mermaid-fallback,
 .wiki-markdown .mermaid-fallback {
   background: var(--surface-muted, #f1f5f9);
   border: 1px solid var(--border, #e2e8f0);
   border-radius: 0.5rem;
   margin: 1rem 0;
   padding: 1rem;
+}
+
+.wiki-markdown .mermaid-diagram {
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 0.625rem;
+  color: var(--card-foreground, var(--foreground, #0f172a));
+  margin: 1.75rem 0;
+  overflow-x: auto;
+  padding: 1rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.wiki-markdown .mermaid-diagram svg {
+  display: block;
+  margin: 0 auto;
+  max-width: none;
 }
 
 .wiki-markdown .mermaid-fallback figcaption {
@@ -139,6 +178,19 @@
   max-width: 100%;
 }
 
+.wiki-markdown img[data-theater-image] {
+  transition: filter 120ms ease, outline-color 120ms ease;
+}
+
+.wiki-markdown img[data-theater-image]:hover {
+  filter: brightness(0.97);
+}
+
+.wiki-markdown img[data-theater-image]:focus-visible {
+  outline: 2px solid var(--ring, var(--brand, #2563eb));
+  outline-offset: 3px;
+}
+
 .wiki-markdown hr {
   border: 0;
   border-top: 1px solid var(--sidebar-border, var(--border, #e2e8f0));
@@ -149,11 +201,52 @@
   font-weight: 600;
 }
 
+.wiki-markdown .katex {
+  font-size: 1em;
+}
+
 .wiki-markdown .katex-display {
   margin: 1rem 0;
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0.25rem 0;
+}
+
+.wiki-markdown .katex-display > .katex {
+  min-width: max-content;
+}
+
+.wiki-markdown .pdf-chip {
+  align-items: center;
+  background: var(--pdf-chip-bg, #eef2ff);
+  border: 1px solid var(--pdf-chip-border, #c7d2fe);
+  border-radius: 0.35rem;
+  color: var(--pdf-chip-fg, #4f46e5) !important;
+  display: inline-flex;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  gap: 0.3rem;
+  line-height: 1.5;
+  max-width: 100%;
+  opacity: 1 !important;
+  padding: 0.2rem 0.55rem 0.2rem 0.45rem;
+  text-decoration: none !important;
+  transition: background 0.15s, border-color 0.15s;
+  vertical-align: middle;
+}
+
+.wiki-markdown .pdf-chip:hover {
+  background: var(--pdf-chip-bg-hover, #e0e7ff) !important;
+  border-color: var(--pdf-chip-border-hover, #818cf8);
+  opacity: 1 !important;
+  text-decoration: none !important;
+}
+
+.wiki-markdown .pdf-chip span {
+  max-width: 36ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wiki-sr-only {
@@ -193,6 +286,15 @@
 .wiki-heading-group:hover .heading-anchor,
 .heading-anchor:focus-visible {
   opacity: 1;
+}
+
+@media (min-width: 1024px) {
+  .wiki-heading-group .heading-anchor {
+    left: -1.5rem;
+    margin-left: 0;
+    position: absolute;
+    top: 0;
+  }
 }
 
 .wiki-theater-image-button {

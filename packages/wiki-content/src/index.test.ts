@@ -280,12 +280,15 @@ describe("wiki content contracts", () => {
   test("client helpers time out stalled wiki requests", async () => {
     const client = createWikiContentClient({
       requestTimeoutMs: 1,
-      fetch: (async (_url, init) => {
+      fetch: (async (
+        _url: Parameters<typeof fetch>[0],
+        init: Parameters<typeof fetch>[1],
+      ) => {
         await new Promise((_resolve, reject) => {
           init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
         });
         throw new Error("unreachable");
-      }) as typeof fetch,
+      }) as unknown as typeof fetch,
     });
 
     await expect(client.fetchManifest()).rejects.toThrow("timed out");

@@ -31,6 +31,7 @@ import {
 } from "./heading-anchors";
 import { ImageTheater, TheaterImage } from "./image-theater";
 import { markdownRehypePlugins, markdownRemarkPlugins } from "./math";
+import { WikiMarkdownFrame } from "./frame";
 import {
   isInternalWikiHref,
   resolveAssetPath,
@@ -68,10 +69,6 @@ export type WikiMarkdownProps = {
   ) => string | undefined;
   isInternalHref?: (href: string | undefined) => href is string;
 };
-
-function classNames(...values: Array<string | false | null | undefined>) {
-  return values.filter(Boolean).join(" ");
-}
 
 function mermaidTitle(source: string) {
   return source.match(/^\s*title\s+(.+?)\s*$/m)?.[1] ?? "Mermaid diagram";
@@ -170,7 +167,7 @@ export function WikiMarkdown({
   );
 
   return (
-    <div className={classNames("wiki-markdown prose max-w-none", className)}>
+    <WikiMarkdownFrame className={className}>
       <ReactMarkdown
         remarkPlugins={markdownRemarkPlugins}
         rehypePlugins={markdownRehypePlugins}
@@ -223,7 +220,7 @@ export function WikiMarkdown({
         routeAdapter={routeAdapter}
         scopeKey={anchorScopeKey ?? currentSlug}
       />
-    </div>
+    </WikiMarkdownFrame>
   );
 }
 
@@ -238,6 +235,7 @@ export {
   MarkdownHeadingAnchors,
   RoutedAnchorLinks,
   TheaterImage,
+  WikiMarkdownFrame,
   isInternalWikiHref,
   markdownRehypePlugins,
   markdownRemarkPlugins,
