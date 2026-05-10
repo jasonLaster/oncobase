@@ -41,9 +41,15 @@ const server = Bun.spawn(["bun", "server/standalone.ts"], {
 try {
   await waitForServer();
 
-  const htmlResponse = await fetch(`${origin}/wiki/logistics/insurance`);
-  if (!htmlResponse.ok) {
-    throw new Error(`Standalone HTML smoke failed: ${htmlResponse.status}`);
+  const gatedResponse = await fetch(`${origin}/wiki/logistics/insurance`, {
+    redirect: "manual",
+  });
+  if (gatedResponse.status !== 302) {
+    throw new Error(`Standalone route gate smoke failed: ${gatedResponse.status}`);
+  }
+  const gatedLocation = gatedResponse.headers.get("location") ?? "";
+  if (!gatedLocation.includes("/login") || !gatedLocation.includes("redirect=%2Fwiki%2Flogistics%2Finsurance")) {
+    throw new Error(`Standalone route gate redirected to unexpected location: ${gatedLocation}`);
   }
 
   const sessionResponse = await fetch(`${origin}/api/wiki/session`);
@@ -83,6 +89,14 @@ try {
   if (!loginResponse.ok || !loginResponse.headers.get("set-cookie")?.includes("authed=true")) {
     throw new Error(`Standalone login smoke failed: ${loginResponse.status}`);
   }
+  const authCookie = loginResponse.headers.get("set-cookie")?.split(";")[0] ?? "";
+
+  const htmlResponse = await fetch(`${origin}/wiki/logistics/insurance`, {
+    headers: { Cookie: authCookie },
+  });
+  if (!htmlResponse.ok) {
+    throw new Error(`Standalone authed HTML smoke failed: ${htmlResponse.status}`);
+  }
 
   const fileErrorResponse = await fetch(`${origin}/api/file`);
   if (fileErrorResponse.status !== 400) {
@@ -92,6 +106,7 @@ try {
   await runCommand(["bun", "run", "test:e2e:preview"], {
     PLAYWRIGHT_BASE_URL: origin,
     WIKI_VITE_SMOKE_PATH: "/wiki/logistics/insurance",
+    WIKI_VITE_SMOKE_COOKIE: authCookie,
   });
 } finally {
   server.kill();

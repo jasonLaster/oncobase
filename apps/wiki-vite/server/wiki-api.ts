@@ -136,7 +136,7 @@ function hashPassword(password: string) {
   return `sha256:${crypto.createHash("sha256").update(password).digest("hex")}`;
 }
 
-function authedCookieName(siteSlug: string) {
+export function authedCookieName(siteSlug: string) {
   return siteSlug === DEFAULT_SITE_SLUG ? "authed" : `authed_${siteSlug}`;
 }
 

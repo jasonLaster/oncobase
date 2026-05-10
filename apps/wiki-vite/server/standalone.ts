@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { api } from "../../../web/convex/_generated/api.js";
 import {
+  authedCookieName,
   createClient,
   createWikiApiHandler,
   resolveSiteSlug,
@@ -13,6 +14,16 @@ const distDir = fileURLToPath(new URL("../dist", import.meta.url));
 const port = Number(process.env.PORT ?? 62003);
 const client = createClient();
 const handleWikiApiRequest = createWikiApiHandler(client);
+const DEFAULT_SITE_SLUG = "diana";
+const PASSWORD_GATE_CACHE_TTL_MS = 15_000;
+const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml|map)$/i;
+
+type PasswordGateEntry = {
+  enabled: boolean;
+  expires: number;
+};
+
+const passwordGateCache = new Map<string, PasswordGateEntry>();
 
 const STATIC_MIME_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -44,6 +55,82 @@ function slugFromPathname(pathname: string) {
   if (pathname === "/login") return null;
   const decoded = decodeURIComponent(pathname).replace(/^\/+/, "").replace(/\.md$/, "");
   return decoded || "index";
+}
+
+function hasAuthCookie(request: Request, siteSlug: string) {
+  const cookieName = authedCookieName(siteSlug);
+  return (request.headers.get("cookie") ?? "")
+    .split(/;\s*/)
+    .some((part) => part === `${cookieName}=true`);
+}
+
+function isAppAssetRequest(pathname: string) {
+  return pathname.startsWith("/assets/") || pathname === "/favicon.ico" || ASSET_PATH_RE.test(pathname);
+}
+
+async function isPasswordGateEnabled(siteSlug: string) {
+  const now = Date.now();
+  const cached = passwordGateCache.get(siteSlug);
+  if (cached && cached.expires > now) return cached.enabled;
+
+  let enabled = siteSlug === DEFAULT_SITE_SLUG;
+  try {
+    const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
+    enabled = site?.config?.passwordGate ?? enabled;
+  } catch (error) {
+    console.warn("[wiki-vite-server] password gate lookup failed", error);
+  }
+
+  passwordGateCache.set(siteSlug, {
+    enabled,
+    expires: now + PASSWORD_GATE_CACHE_TTL_MS,
+  });
+  return enabled;
+}
+
+async function enforcePasswordGate(request: Request) {
+  const url = new URL(request.url);
+  if (
+    url.pathname.startsWith("/api/") ||
+    isAppAssetRequest(url.pathname)
+  ) {
+    return null;
+  }
+
+  const siteSlug = await resolveSiteSlug(request, client);
+  if (!siteSlug) {
+    return new Response("unknown host", {
+      status: 404,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  const gateEnabled = await isPasswordGateEnabled(siteSlug);
+  const isAuthed = hasAuthCookie(request, siteSlug);
+  const isLoginPage = url.pathname === "/login";
+
+  if (isLoginPage && (isAuthed || !gateEnabled)) {
+    const redirect = url.searchParams.get("redirect") || "/";
+    return Response.redirect(new URL(redirect, request.url), 302);
+  }
+
+  if (!gateEnabled || isAuthed || isLoginPage) {
+    return null;
+  }
+
+  const token = url.searchParams.get("token");
+  if (token) {
+    const clean = new URL(request.url);
+    clean.searchParams.delete("token");
+    const loginUrl = new URL("/api/login", request.url);
+    loginUrl.searchParams.set("token", token);
+    loginUrl.searchParams.set("redirect", `${clean.pathname}${clean.search}`);
+    return Response.redirect(loginUrl, 302);
+  }
+
+  const loginUrl = new URL("/login", request.url);
+  loginUrl.searchParams.set("redirect", `${url.pathname}${url.search}`);
+  return Response.redirect(loginUrl, 302);
 }
 
 function escapeHtml(value: string) {
@@ -129,6 +216,8 @@ Bun.serve({
     try {
       const apiResponse = await handleWikiApiRequest(request);
       if (apiResponse) return apiResponse;
+      const gateResponse = await enforcePasswordGate(request);
+      if (gateResponse) return gateResponse;
       return await serveStatic(request);
     } catch (error) {
       console.error("[wiki-vite-server]", error);

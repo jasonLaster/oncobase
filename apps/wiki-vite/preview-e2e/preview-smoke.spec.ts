@@ -3,6 +3,11 @@ import { expect, test } from "@playwright/test";
 const smokePath = process.env.WIKI_VITE_SMOKE_PATH ?? "/wiki/logistics/insurance";
 
 test("preview loads a public wiki page from the configured backend", async ({ page }) => {
+  const smokeCookie = process.env.WIKI_VITE_SMOKE_COOKIE;
+  if (smokeCookie) {
+    await page.context().setExtraHTTPHeaders({ Cookie: smokeCookie });
+  }
+
   await page.goto(smokePath, { waitUntil: "domcontentloaded" });
 
   const article = page.getByTestId("document-article").first();
