@@ -37,6 +37,10 @@ function backendHref(path: string) {
   return origin ? `${origin.replace(/\/+$/, "")}${normalizedPath}` : normalizedPath;
 }
 
+function apiBaseUrl() {
+  return import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
+}
+
 function switchToPublicScope() {
   window.localStorage.setItem("wiki-vite-scope", "public");
   const url = new URL(window.location.href);
@@ -92,7 +96,12 @@ function WikiViteRoot() {
     let cancelled = false;
     const scope = readScope();
     setState({ status: "loading", scope });
-    const client = createWikiContentClient({ scope });
+    const baseUrl = apiBaseUrl();
+    const client = createWikiContentClient({
+      scope,
+      baseUrl,
+      credentials: baseUrl ? "include" : "same-origin",
+    });
 
     void client.fetchSessionIdentity()
       .then((identity) => {

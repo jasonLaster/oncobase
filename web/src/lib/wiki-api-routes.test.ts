@@ -44,6 +44,7 @@ let mockSessionUser: { _id: string } | null = null;
 let manifestFails = false;
 let contentFallbackFails = false;
 let filterPageBatchesAfterPagination = false;
+const originalWikiViteAllowedOrigins = process.env.WIKI_VITE_ALLOWED_ORIGINS;
 
 function visiblePages(includeSensitive?: boolean) {
   return mockPages.filter((page) => includeSensitive || !page.sensitive);
@@ -143,6 +144,11 @@ describe("wiki prototype API routes", () => {
     manifestFails = false;
     contentFallbackFails = false;
     filterPageBatchesAfterPagination = false;
+    if (originalWikiViteAllowedOrigins == null) {
+      delete process.env.WIKI_VITE_ALLOWED_ORIGINS;
+    } else {
+      process.env.WIKI_VITE_ALLOWED_ORIGINS = originalWikiViteAllowedOrigins;
+    }
   });
 
   test("manifest omits sensitive pages for public requests", async () => {
@@ -307,5 +313,39 @@ describe("wiki prototype API routes", () => {
     expect(sessionBody.cacheKey).toContain("session");
     expect(sessionBody.userHash).toBeTruthy();
     expect(sessionBody.cacheKey).not.toContain("user-1");
+  });
+
+  test("wiki APIs expose CORS only to explicit Vite preview origins", async () => {
+    process.env.WIKI_VITE_ALLOWED_ORIGINS = "https://wiki-vite.example";
+
+    const preflight = await manifestRoute.OPTIONS(
+      new Request("https://example.test/api/wiki/manifest", {
+        method: "OPTIONS",
+        headers: { Origin: "https://wiki-vite.example" },
+      }),
+    );
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("access-control-allow-origin")).toBe(
+      "https://wiki-vite.example",
+    );
+    expect(preflight.headers.get("access-control-allow-credentials")).toBe("true");
+
+    const manifest = await manifestRoute.GET(
+      new Request("https://example.test/api/wiki/manifest", {
+        headers: { Origin: "https://wiki-vite.example" },
+      }),
+    );
+    expect(manifest.headers.get("access-control-allow-origin")).toBe(
+      "https://wiki-vite.example",
+    );
+    expect(manifest.headers.get("vary")).toContain("Origin");
+
+    const denied = await pagesRoute.OPTIONS(
+      new Request("https://example.test/api/wiki/pages", {
+        method: "OPTIONS",
+        headers: { Origin: "https://untrusted.example" },
+      }),
+    );
+    expect(denied.status).toBe(403);
   });
 });

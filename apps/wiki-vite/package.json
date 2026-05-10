@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test:unit": "bun test src/**/*.test.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:preview": "playwright test --config playwright.preview.config.ts"
   },
   "dependencies": {
     "@diana-tnbc/wiki-content": "workspace:*",

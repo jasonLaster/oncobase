@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { getSessionUserFromRequest } from "@/lib/session-user";
 import { siteDataFromRequest } from "@/lib/site-data";
+import { wikiApiHeaders, wikiApiOptions } from "@/lib/wiki-api-cors";
 import {
   buildCompactTreeFromManifest,
   type WikiManifest,
@@ -169,7 +170,10 @@ export async function GET(request: Request) {
   if (scope === "session" && !sessionUser) {
     return Response.json(
       { error: "Session scope requires a signed-in wiki session" },
-      { status: 401, headers: { "Cache-Control": "private, no-store" } },
+      {
+        status: 401,
+        headers: wikiApiHeaders(request, { "Cache-Control": "private, no-store" }),
+      },
     );
   }
 
@@ -186,7 +190,7 @@ export async function GET(request: Request) {
     console.error("[wiki manifest] Reliable manifest metadata unavailable", error);
     return Response.json(
       { error: "Reliable wiki manifest metadata is unavailable" },
-      { status: 503, headers: { "Cache-Control": "no-store" } },
+      { status: 503, headers: wikiApiHeaders(request, { "Cache-Control": "no-store" }) },
     );
   }
   const { pages, source } = pageResult;
@@ -204,7 +208,7 @@ export async function GET(request: Request) {
   if (ifNoneMatch?.includes(manifestHash)) {
     return new Response(null, {
       status: 304,
-      headers: cacheHeaders(scope, manifestHash),
+      headers: wikiApiHeaders(request, cacheHeaders(scope, manifestHash)),
     });
   }
 
@@ -215,9 +219,13 @@ export async function GET(request: Request) {
   };
 
   return Response.json(manifest, {
-    headers: {
+    headers: wikiApiHeaders(request, {
       ...cacheHeaders(scope, manifestHash),
       "X-Wiki-Manifest-Source": source,
-    },
+    }),
   });
+}
+
+export function OPTIONS(request: Request) {
+  return wikiApiOptions(request);
 }

@@ -22,12 +22,31 @@ bun run dev
 
 The Vite dev server proxies `/api/*` to `http://localhost:3000` by default. Override with `VITE_WIKI_API_ORIGIN` if the Next app is on another port.
 
+## Environment
+
+The prototype has two origins:
+
+- `VITE_WIKI_API_ORIGIN`: where `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/page-copy`, and `/api/file` are served from.
+- `VITE_WIKI_APP_ORIGIN`: where backend-owned UI handoffs should open, including search, chat, downloads, and sign-in.
+
+For local dev both can be omitted when the Next app is on `http://localhost:3000`, because Vite proxies `/api/*` there. For a separate preview deployment, set both to the deployed Next app origin. Cross-origin previews must also set `WIKI_VITE_ALLOWED_ORIGINS` on the Next app to the exact Vite preview origin so the additive wiki APIs can return credentialed CORS headers.
+
+Session mode uses `credentials: include` when `VITE_WIKI_API_ORIGIN` is set. That keeps the public store usable without cookies and lets authenticated previews use the existing wiki session when the backend origin explicitly allows the Vite origin.
+
 ## Test
 
 Run the migrated Playwright suite with mocked wiki APIs:
 
 ```sh
 bun run test:e2e
+```
+
+Run the optional preview smoke against a deployed Vite reader:
+
+```sh
+PLAYWRIGHT_BASE_URL=https://wiki-vite-preview.example \
+WIKI_VITE_SMOKE_PATH=/wiki/logistics/insurance \
+bun run test:e2e:preview
 ```
 
 The suite mirrors the current `web/e2e/*.spec.ts` filenames. Reader-capable specs run against the Vite app; feature areas still owned by the Next app for v1 are skipped in place so the migration gap remains visible.

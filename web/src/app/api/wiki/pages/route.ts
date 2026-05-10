@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { getSessionUserFromRequest } from "@/lib/session-user";
 import { siteDataFromRequest } from "@/lib/site-data";
+import { wikiApiHeaders, wikiApiOptions } from "@/lib/wiki-api-cors";
 import type { WikiPageBatch, WikiPageRecord, WikiScope } from "@diana-tnbc/wiki-content";
 
 const PUBLIC_CACHE_CONTROL =
@@ -78,7 +79,10 @@ export async function GET(request: Request) {
   if (scope === "session" && !sessionUser) {
     return Response.json(
       { error: "Session scope requires a signed-in wiki session" },
-      { status: 401, headers: { "Cache-Control": "private, no-store" } },
+      {
+        status: 401,
+        headers: wikiApiHeaders(request, { "Cache-Control": "private, no-store" }),
+      },
     );
   }
 
@@ -159,11 +163,15 @@ export async function GET(request: Request) {
   if (request.headers.get("if-none-match")?.includes(etag)) {
     return new Response(null, {
       status: 304,
-      headers: cacheHeaders(scope, etag),
+      headers: wikiApiHeaders(request, cacheHeaders(scope, etag)),
     });
   }
 
   return Response.json(body, {
-    headers: cacheHeaders(scope, etag),
+    headers: wikiApiHeaders(request, cacheHeaders(scope, etag)),
   });
+}
+
+export function OPTIONS(request: Request) {
+  return wikiApiOptions(request);
 }

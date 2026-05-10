@@ -77,6 +77,7 @@ export type ContentReconciliation =
 
 export type WikiContentClientOptions = {
   baseUrl?: string;
+  credentials?: RequestCredentials;
   scope?: WikiScope;
   fetch?: typeof fetch;
 };
@@ -507,9 +508,13 @@ function urlWithParams(baseUrl: string, pathname: string, params: Record<string,
   return baseUrl.length > 0 ? url.toString() : `${url.pathname}${url.search}`;
 }
 
-async function fetchJson(fetchFn: typeof fetch, url: string) {
+async function fetchJson(
+  fetchFn: typeof fetch,
+  url: string,
+  credentials: RequestCredentials,
+) {
   const response = await fetchFn(url, {
-    credentials: "same-origin",
+    credentials,
     headers: { Accept: "application/json" },
   });
   if (!response.ok) {
@@ -520,17 +525,18 @@ async function fetchJson(fetchFn: typeof fetch, url: string) {
 
 export function createWikiContentClient({
   baseUrl = "",
+  credentials = "same-origin",
   scope = "public",
   fetch: fetchFn = globalThis.fetch,
 }: WikiContentClientOptions = {}) {
   return {
     async fetchManifest() {
       const url = urlWithParams(baseUrl, "/api/wiki/manifest", { scope });
-      return parseWikiManifest(await fetchJson(fetchFn, url));
+      return parseWikiManifest(await fetchJson(fetchFn, url, credentials));
     },
     async fetchSessionIdentity() {
       const url = urlWithParams(baseUrl, "/api/wiki/session", { scope });
-      return parseWikiSessionIdentity(await fetchJson(fetchFn, url));
+      return parseWikiSessionIdentity(await fetchJson(fetchFn, url, credentials));
     },
     async fetchPages({ cursor, limit, slugs }: FetchPagesOptions = {}) {
       const params: Record<string, string> = { scope };
@@ -538,7 +544,7 @@ export function createWikiContentClient({
       if (limit) params.limit = String(limit);
       if (slugs?.length) params.slugs = slugs.join(",");
       const url = urlWithParams(baseUrl, "/api/wiki/pages", params);
-      return parseWikiPageBatch(await fetchJson(fetchFn, url));
+      return parseWikiPageBatch(await fetchJson(fetchFn, url, credentials));
     },
   };
 }

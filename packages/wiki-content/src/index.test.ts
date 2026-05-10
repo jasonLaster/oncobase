@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildCompactTreeFromManifest,
+  createWikiContentClient,
   expandCompactFileTree,
   makeWikiStoreId,
   parseWikiManifest,
@@ -183,5 +184,28 @@ describe("wiki content contracts", () => {
 
     expect(identity.authenticated).toBe(true);
     expect(identity.cacheKey).toContain("session");
+  });
+
+  test("client helpers can include credentials for preview API origins", async () => {
+    let requestInit: RequestInit | undefined;
+    const client = createWikiContentClient({
+      baseUrl: "https://wiki.example",
+      credentials: "include",
+      fetch: (async (_url, init) => {
+        requestInit = init;
+        return Response.json({
+          siteSlug: "diana",
+          scope: "public",
+          authenticated: false,
+          cacheKey: "public",
+          cacheVersion: "v1",
+          userHash: null,
+        });
+      }) as typeof fetch,
+    });
+
+    await client.fetchSessionIdentity();
+
+    expect(requestInit?.credentials).toBe("include");
   });
 });

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { getSessionUserFromRequest } from "@/lib/session-user";
 import { siteDataFromRequest } from "@/lib/site-data";
+import { wikiApiHeaders, wikiApiOptions } from "@/lib/wiki-api-cors";
 import type { WikiScope, WikiSessionIdentity } from "@diana-tnbc/wiki-content";
 
 const SESSION_CACHE_VERSION = "v1";
@@ -32,10 +33,10 @@ export async function GET(request: Request) {
       userHash: null,
     };
     return Response.json(identity, {
-      headers: {
+      headers: wikiApiHeaders(request, {
         "Cache-Control": "public, max-age=300",
         Vary: "Accept, x-site-slug",
-      },
+      }),
     });
   }
 
@@ -43,7 +44,10 @@ export async function GET(request: Request) {
   if (!sessionUser) {
     return Response.json(
       { error: "Session scope requires a signed-in wiki session" },
-      { status: 401, headers: { "Cache-Control": "private, no-store" } },
+      {
+        status: 401,
+        headers: wikiApiHeaders(request, { "Cache-Control": "private, no-store" }),
+      },
     );
   }
 
@@ -58,9 +62,13 @@ export async function GET(request: Request) {
   };
 
   return Response.json(identity, {
-    headers: {
+    headers: wikiApiHeaders(request, {
       "Cache-Control": "private, no-store",
       Vary: "Accept, Cookie, x-site-slug",
-    },
+    }),
   });
+}
+
+export function OPTIONS(request: Request) {
+  return wikiApiOptions(request);
 }

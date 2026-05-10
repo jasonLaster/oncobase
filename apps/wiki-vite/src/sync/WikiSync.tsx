@@ -141,7 +141,14 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const [networkTick, setNetworkTick] = useState(0);
   const manifestRef = useRef<WikiManifest | null>(null);
   const inFlight = useRef(new Set<string>());
-  const client = useMemo(() => createWikiContentClient({ scope }), [scope]);
+  const client = useMemo(() => {
+    const baseUrl = import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
+    return createWikiContentClient({
+      scope,
+      baseUrl,
+      credentials: baseUrl ? "include" : "same-origin",
+    });
+  }, [scope]);
 
   const fetchSlug = useCallback(
     async (slug: string, pageIndex?: WikiManifestPage) => {

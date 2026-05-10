@@ -20,6 +20,8 @@ test-results/
 .env
 .env.*
 .env*.local
+!.env.example
+!apps/**/.env.example
 web/web
 **/web/web
 .agents/worktrees

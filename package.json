@@ -10,7 +10,8 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test:unit": "turbo run test:unit",
-    "test:e2e:wiki-vite": "bun --cwd apps/wiki-vite test:e2e"
+    "test:e2e:wiki-vite": "bun --cwd apps/wiki-vite test:e2e",
+    "test:e2e:wiki-vite:preview": "bun --cwd apps/wiki-vite test:e2e:preview"
   },
   "devDependencies": {
     "turbo": "^2"
