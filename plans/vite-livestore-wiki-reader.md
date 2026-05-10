@@ -119,6 +119,17 @@ bun --cwd apps/wiki-vite test:e2e
 bun run typecheck
 ```
 
+### 2026-05-09 Markdown Package Test Expansion Checkpoint
+
+- Expanded `@diana-tnbc/wiki-markdown` server-rendering tests so the reusable package now directly covers smart-table example fixtures, legacy table directive cleanup, PDF/image URL rewriting, citation variants, generated references anchors, non-citation superscript guardrails, theme-paired images, image-theater attributes, and math/currency behavior.
+- This pulls more durable markdown confidence out of `web` and into the shared package boundary, reducing the behavior that is protected only by the current Next app.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd packages/wiki-markdown test:unit
+bun --cwd packages/wiki-markdown typecheck
+```
+
 ### 2026-05-09 Markdown Package Hardening Checkpoint
 
 - Added package-level server renderer tests for smart-table markup, PDF chips, image theater attributes, citations, theme-paired images, currency preservation, and math rendering.
