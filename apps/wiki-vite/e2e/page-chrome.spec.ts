@@ -27,9 +27,13 @@ test.describe("Page chrome parity", () => {
     await expect(actions.getByRole("button", { name: "Copy page as markdown" })).toBeVisible();
     await expect(actions.getByRole("button", { name: "Copy page link" })).toBeVisible();
     await expect(actions.getByRole("button", { name: "Print page" })).toBeVisible();
-    await expect(actions.getByRole("link", { name: "Markdown" })).toHaveAttribute(
+    await expect(actions.getByRole("link", { name: "Markdown", exact: true })).toHaveAttribute(
       "href",
       /\/api\/page-copy\?slug=wiki%2Flogistics%2Finsurance&cacheKey=.*&scope=public/,
+    );
+    await expect(actions.getByRole("link", { name: "Markdown zip" })).toHaveAttribute(
+      "href",
+      /\/api\/download\?type=markdown&scope=public$/,
     );
     await expect(actions.getByRole("link", { name: "Full wiki" })).toHaveAttribute(
       "href",
@@ -46,7 +50,7 @@ test.describe("Page chrome parity", () => {
 
     const href = await page
       .getByTestId("page-actions")
-      .getByRole("link", { name: "Markdown" })
+      .getByRole("link", { name: "Markdown", exact: true })
       .getAttribute("href");
     expect(href).toBeTruthy();
 

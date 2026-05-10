@@ -222,8 +222,14 @@ export function CommandPalette({
       },
       {
         label: "Download full wiki",
-        description: "Download the current scoped wiki as markdown",
+        description: "Download PDFs and markdown as a zip archive",
         href: backendHref("/api/download", { type: "full", scope }),
+        icon: <DownloadIcon size={15} aria-hidden="true" />,
+      },
+      {
+        label: "Download markdown archive",
+        description: "Download the current scoped markdown as a zip archive",
+        href: backendHref("/api/download", { type: "markdown", scope }),
         icon: <DownloadIcon size={15} aria-hidden="true" />,
       },
       {

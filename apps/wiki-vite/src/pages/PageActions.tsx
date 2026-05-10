@@ -58,6 +58,7 @@ export function PageActions({
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyHref = pageCopyHref(slug, contentHash, scope);
   const fullDownloadHref = backendHref("/api/download", { type: "full", scope });
+  const markdownDownloadHref = backendHref("/api/download", { type: "markdown", scope });
   const mainAppHref = backendHref(hrefForSlug(slug));
 
   useEffect(() => {
@@ -100,7 +101,11 @@ export function PageActions({
         <DownloadIcon size={15} />
         <span>Markdown</span>
       </WikiPageActionLink>
-      <WikiPageActionLink href={fullDownloadHref} download={`wiki-${scope}.md`}>
+      <WikiPageActionLink href={markdownDownloadHref} download={`wiki-${scope}-markdown.zip`}>
+        <DownloadIcon size={15} />
+        <span>Markdown zip</span>
+      </WikiPageActionLink>
+      <WikiPageActionLink href={fullDownloadHref} download={`wiki-${scope}-full.zip`}>
         <DownloadIcon size={15} />
         <span>Full wiki</span>
       </WikiPageActionLink>

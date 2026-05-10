@@ -76,6 +76,10 @@ test.describe("Command palette parity", () => {
       "href",
       /\/api\/download\?type=full&scope=public$/,
     );
+    await expect(palette.getByRole("link", { name: /Download markdown archive/ })).toHaveAttribute(
+      "href",
+      /\/api\/download\?type=markdown&scope=public$/,
+    );
   });
 
   test("action palette includes current-page source file actions", async ({ page }) => {

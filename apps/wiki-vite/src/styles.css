@@ -46,6 +46,40 @@
   color: var(--foreground);
 }
 
+.dark {
+  color-scheme: dark;
+  --sidebar-bg: #161625;
+  --sidebar-border: #2d2d44;
+  --brand: #818cf8;
+  --accent-light: #1e1b4b;
+  --text-muted: #9ca3af;
+  --background: #0f0f1a;
+  --foreground: #e5e5e5;
+  --muted: var(--text-muted);
+  --muted-foreground: var(--text-muted);
+  --border: var(--sidebar-border);
+  --input: var(--sidebar-border);
+  --ring: var(--brand);
+  --primary: var(--brand);
+  --primary-foreground: #0f0f1a;
+  --secondary: #2d2d44;
+  --secondary-foreground: var(--foreground);
+  --accent: #1e1b4b;
+  --accent-foreground: var(--foreground);
+  --popover: #1e1e32;
+  --popover-foreground: var(--foreground);
+  --card: #161625;
+  --card-foreground: var(--foreground);
+  --destructive: #f87171;
+  --panel: #161625;
+  --panel-alt: #10101d;
+  --surface-muted: #2d2d44;
+  --green: #4ade80;
+  --amber: #fbbf24;
+  --red: #f87171;
+  --violet: var(--brand);
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

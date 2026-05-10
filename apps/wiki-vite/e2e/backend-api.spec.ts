@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import JSZip from "jszip";
 
 const hasAiGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
 const hasOpenAi = Boolean(process.env.OPENAI_API_KEY);
@@ -118,7 +119,7 @@ test.describe("Vite backend API", () => {
     expect(await unsupported.text()).toContain("not supported");
   });
 
-  test("serves scoped markdown downloads from the Vite API route", async ({ request }) => {
+  test("serves scoped markdown and archive downloads from the Vite API route", async ({ request }) => {
     const pageCopy = await request.get(
       "/api/page-copy?slug=wiki/logistics/insurance&scope=public",
     );
@@ -130,16 +131,31 @@ test.describe("Vite backend API", () => {
     expect(pageCopyText).toContain("Insurance");
     expect(pageCopyText).not.toMatch(rawPiiPattern);
 
-    const full = await request.get("/api/download?type=full&scope=public&limit=3", {
+    const markdown = await request.get("/api/download?type=markdown&scope=public&limit=3", {
+      timeout: 60_000,
+    });
+    expect(markdown.ok(), await markdown.text()).toBe(true);
+    expect(markdown.headers()["content-type"]).toContain("application/zip");
+    expect(markdown.headers()["content-disposition"]).toContain("diana-tnbc-wiki-markdown.zip");
+    expect(markdown.headers()["x-wiki-cache-scope"]).toBe("public");
+    const markdownZip = await JSZip.loadAsync(await markdown.body());
+    const markdownEntries = Object.keys(markdownZip.files);
+    expect(markdownEntries.some((entry) => entry.endsWith(".md"))).toBe(true);
+    const firstMarkdownEntry = markdownEntries.find((entry) => entry.endsWith(".md"));
+    expect(firstMarkdownEntry).toBeTruthy();
+    const markdownText = await markdownZip.file(firstMarkdownEntry!)!.async("string");
+    expect(markdownText).not.toMatch(rawPiiPattern);
+
+    const full = await request.get("/api/download?type=full&scope=public&limit=1&assetLimit=1", {
       timeout: 60_000,
     });
     expect(full.ok(), await full.text()).toBe(true);
-    expect(full.headers()["content-type"]).toContain("text/markdown");
-    expect(full.headers()["content-disposition"]).toContain("diana-wiki.md");
-    expect(full.headers()["x-wiki-cache-scope"]).toBe("public");
-    const fullText = await full.text();
-    expect(fullText).toContain("<!--");
-    expect(fullText).not.toMatch(rawPiiPattern);
+    expect(full.headers()["content-type"]).toContain("application/zip");
+    expect(full.headers()["content-disposition"]).toContain("diana-tnbc-wiki-full.zip");
+    const fullZip = await JSZip.loadAsync(await full.body());
+    const fullEntries = Object.keys(fullZip.files);
+    expect(fullEntries.some((entry) => entry.endsWith(".md"))).toBe(true);
+    expect(fullEntries.some((entry) => entry.endsWith(".pdf"))).toBe(true);
   });
 
   test("serves the standalone login API", async ({ request }) => {

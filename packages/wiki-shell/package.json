@@ -20,6 +20,16 @@
       "import": "./src/header.tsx",
       "default": "./src/header.tsx"
     },
+    "./actions-menu": {
+      "types": "./src/actions-menu.tsx",
+      "import": "./src/actions-menu.tsx",
+      "default": "./src/actions-menu.tsx"
+    },
+    "./theme": {
+      "types": "./src/theme.ts",
+      "import": "./src/theme.ts",
+      "default": "./src/theme.ts"
+    },
     "./page-chrome": {
       "types": "./src/page-chrome.tsx",
       "import": "./src/page-chrome.tsx",

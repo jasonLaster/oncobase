@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "node:http";
+import archiver from "archiver";
 import { ConvexHttpClient } from "convex/browser";
 import type { Plugin } from "vite";
 import {
@@ -13,6 +14,7 @@ import {
 import { readChatPageFromDocuments } from "../../../packages/wiki-content/src/chat-tools.js";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "../../../packages/wiki-content/src/pii.js";
 import { api } from "../../../web/convex/_generated/api.js";
+import type { Id } from "../../../web/convex/_generated/dataModel.js";
 import { handleAiSearchRequest } from "./ai-search.js";
 import { handleChatRequest } from "./chat-route.js";
 
@@ -21,6 +23,7 @@ const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
 const HOST_CACHE_TTL_MS = 15_000;
 const VERCEL_PROJECT_HOST_PREFIX = "diana-tnbc";
 const USER_SESSION_COOKIE = "wiki_user_session";
+const USER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const DIANA_PASSWORDS = new Set(["wallify", "diana"]);
 const DEFAULT_SEARCH_LIMIT = 10;
 const MAX_SEARCH_LIMIT = 50;
@@ -29,6 +32,11 @@ type PageDownloadResult = {
   page: Array<{ slug: string; content: string }>;
   isDone: boolean;
   continueCursor: string | null;
+};
+
+type DownloadAsset = {
+  blobUrl?: string;
+  path: string;
 };
 
 type ResolvedSite = {
@@ -148,8 +156,41 @@ function hashSessionToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-function hashPassword(password: string) {
+function hashSitePassword(password: string) {
   return `sha256:${crypto.createHash("sha256").update(password).digest("hex")}`;
+}
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+function createPasswordSalt() {
+  return crypto.randomBytes(16).toString("hex");
+}
+
+function hashUserPassword(password: string, salt: string) {
+  return crypto.scryptSync(password, salt, 64).toString("hex");
+}
+
+function verifyUserPassword(password: string, salt: string, expectedHash: string) {
+  const actual = Buffer.from(hashUserPassword(password, salt), "hex");
+  const expected = Buffer.from(expectedHash, "hex");
+  if (actual.length !== expected.length) return false;
+  return crypto.timingSafeEqual(actual, expected);
+}
+
+function createSessionToken() {
+  return crypto.randomBytes(32).toString("base64url");
+}
+
+function sessionCookieHeader(token: string) {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${USER_SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(USER_SESSION_TTL_MS / 1000)}${secure}`;
+}
+
+function clearSessionCookieHeader() {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${USER_SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`;
 }
 
 export function authedCookieName(siteSlug: string) {
@@ -157,10 +198,11 @@ export function authedCookieName(siteSlug: string) {
 }
 
 function sessionTokenFromCookie(cookieHeader: string) {
-  return cookieHeader
+  const rawToken = cookieHeader
     .split(/;\s*/)
     .find((part) => part.startsWith(`${USER_SESSION_COOKIE}=`))
     ?.slice(USER_SESSION_COOKIE.length + 1);
+  return rawToken ? decodeURIComponent(rawToken) : undefined;
 }
 
 function headersFromIncoming(headers: IncomingHttpHeaders) {
@@ -341,7 +383,7 @@ async function isValidPassword(
   if (!expected) {
     return !site.config?.passwordGate;
   }
-  return hashPassword(password) === expected;
+  return hashSitePassword(password) === expected;
 }
 
 function authCookieHeader(siteSlug: string) {
@@ -398,6 +440,179 @@ async function handleLoginRequest(
     {
       status: 401,
       headers: { "Cache-Control": "private, no-store" },
+    },
+  );
+}
+
+function publicSessionUser(user: { email: string; name?: string | null }) {
+  return {
+    email: user.email,
+    name: user.name ?? null,
+  };
+}
+
+async function createUserSessionResponse(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  user: { _id: Id<"users">; email: string; name?: string | null },
+) {
+  const token = createSessionToken();
+  await client.mutation(
+    api.users.createSession,
+    withSiteSlug(siteSlug, {
+      userId: user._id,
+      tokenHash: hashSessionToken(token),
+      expiresAt: Date.now() + USER_SESSION_TTL_MS,
+    }),
+  );
+
+  return Response.json(
+    { ok: true, user: publicSessionUser(user) },
+    {
+      headers: {
+        "Cache-Control": "private, no-store",
+        "Set-Cookie": sessionCookieHeader(token),
+        Vary: "Cookie, Host",
+      },
+    },
+  );
+}
+
+async function handleAuthSessionRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  if (request.method !== "GET") {
+    return Response.json(
+      { error: "Method not allowed" },
+      { status: 405, headers: { Allow: "GET" } },
+    );
+  }
+
+  const user = await getSessionUser(request, client, siteSlug);
+  return Response.json(
+    { user: user ? publicSessionUser(user) : null },
+    {
+      headers: {
+        "Cache-Control": "private, no-store",
+        Vary: "Cookie, Host",
+      },
+    },
+  );
+}
+
+async function handleAuthSigninRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  if (request.method !== "POST") {
+    return Response.json(
+      { error: "Method not allowed" },
+      { status: 405, headers: { Allow: "POST" } },
+    );
+  }
+
+  const body = (await request.json().catch(() => null)) as {
+    email?: string;
+    password?: string;
+  } | null;
+  const email = normalizeEmail(body?.email ?? "");
+  const password = body?.password ?? "";
+  if (!email || !password) {
+    return Response.json({ error: "Email and password are required" }, { status: 400 });
+  }
+
+  const user = await client.query(
+    api.users.getByEmailForAuth,
+    withSiteSlug(siteSlug, { email }),
+  );
+  if (!user || !verifyUserPassword(password, user.passwordSalt, user.passwordHash)) {
+    return Response.json({ error: "Invalid email or password" }, { status: 401 });
+  }
+
+  return createUserSessionResponse(client, siteSlug, user);
+}
+
+async function handleAuthSignupRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  if (request.method !== "POST") {
+    return Response.json(
+      { error: "Method not allowed" },
+      { status: 405, headers: { Allow: "POST" } },
+    );
+  }
+
+  const body = (await request.json().catch(() => null)) as {
+    email?: string;
+    name?: string;
+    password?: string;
+  } | null;
+  const email = normalizeEmail(body?.email ?? "");
+  const password = body?.password ?? "";
+  const name = body?.name?.trim() || undefined;
+
+  if (!email || !email.includes("@")) {
+    return Response.json({ error: "A valid email is required" }, { status: 400 });
+  }
+  if (password.length < 8) {
+    return Response.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+  }
+
+  const passwordSalt = createPasswordSalt();
+  const passwordHash = hashUserPassword(password, passwordSalt);
+
+  try {
+    const userId = await client.mutation(
+      api.users.create,
+      withSiteSlug(siteSlug, {
+        email,
+        name,
+        passwordHash,
+        passwordSalt,
+      }),
+    );
+    return createUserSessionResponse(client, siteSlug, { _id: userId, email, name: name ?? null });
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Unable to create account" },
+      { status: 400 },
+    );
+  }
+}
+
+async function handleAuthSignoutRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  if (request.method !== "POST") {
+    return Response.json(
+      { error: "Method not allowed" },
+      { status: 405, headers: { Allow: "POST" } },
+    );
+  }
+
+  const token = sessionTokenFromCookie(request.headers.get("cookie") ?? "");
+  if (token) {
+    await client.mutation(
+      api.users.deleteSession,
+      withSiteSlug(siteSlug, { tokenHash: hashSessionToken(token) }),
+    );
+  }
+
+  return Response.json(
+    { ok: true },
+    {
+      headers: {
+        "Cache-Control": "private, no-store",
+        "Set-Cookie": clearSessionCookieHeader(),
+        Vary: "Cookie, Host",
+      },
     },
   );
 }
@@ -504,27 +719,49 @@ async function handlePageCopyRequest(
   });
 }
 
-async function handleDownloadRequest(
-  request: Request,
+function archiverToStream(
+  label: string,
+  fill: (arc: archiver.Archiver) => Promise<void>,
+): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      const arc = archiver("zip", { zlib: { level: 1 } });
+      arc.on("data", (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)));
+      arc.on("end", () => controller.close());
+      arc.on("error", (error) => {
+        console.error(`[download] ${label} archive stream error`, error);
+        controller.error(error);
+      });
+      fill(arc).catch((error) => {
+        console.error(`[download] ${label} archive fill error`, error);
+        controller.error(error);
+      });
+    },
+  });
+}
+
+function archiveFilename(type: "full" | "markdown", siteSlug: string) {
+  const sitePart = siteSlug === DEFAULT_SITE_SLUG ? "diana-tnbc" : siteSlug;
+  return `${sitePart}-wiki-${type}.zip`;
+}
+
+function archiveEntryPath(filePath: string) {
+  return normalizeFilePath(filePath).replace(/^\/+/, "") || "file";
+}
+
+async function appendMarkdownToArchive(
+  arc: archiver.Archiver,
   client: ConvexHttpClient,
   siteSlug: string,
+  includeSensitive: boolean,
+  maxPages: number,
 ) {
-  const url = new URL(request.url);
-  if (url.searchParams.get("type") !== "full") {
-    return new Response("Unsupported download type", { status: 400 });
-  }
-
-  const includeSensitive = Boolean(await getSessionUser(request, client, siteSlug));
-  const rawLimit = Number(url.searchParams.get("limit") ?? 0);
-  const maxPages = Number.isFinite(rawLimit) && rawLimit > 0
-    ? Math.min(5000, Math.floor(rawLimit))
-    : Number.POSITIVE_INFINITY;
   let cursor: string | null = null;
   let isDone = false;
-  const chunks: string[] = [];
+  let totalDocs = 0;
 
-  while (!isDone && chunks.length < maxPages) {
-    const numItems = Math.min(100, maxPages - chunks.length);
+  while (!isDone && totalDocs < maxPages) {
+    const numItems = Math.min(100, maxPages - totalDocs);
     const args = includeSensitive
       ? { cursor, numItems, includeSensitive: true as const }
       : { cursor, numItems };
@@ -534,33 +771,91 @@ async function handleDownloadRequest(
     );
 
     for (const page of result.page) {
+      if (!page.content) continue;
       const content = await redactText(client, siteSlug, page.content);
-      chunks.push(`<!-- ${page.slug} -->\n\n${content.trim()}\n`);
+      arc.append(Buffer.from(content, "utf-8"), { name: `${page.slug}.md` });
+      totalDocs++;
+      if (totalDocs >= maxPages) break;
     }
 
     isDone = result.isDone;
     cursor = result.continueCursor;
     if (!isDone && !cursor) {
-      return new Response("Download pagination failed", { status: 502 });
+      throw new Error("Download pagination failed");
     }
   }
+}
 
-  return new Response(chunks.join("\n---\n\n"), {
-    headers: includeSensitive
-      ? {
-          "Content-Type": "text/markdown; charset=utf-8",
-          "Content-Disposition": `attachment; filename="${siteSlug}-wiki.md"`,
-          "Cache-Control": "private, no-store",
-          Vary: "Accept, Cookie, Host",
-          "X-Wiki-Cache-Scope": "session",
-        }
-      : {
-          "Content-Type": "text/markdown; charset=utf-8",
-          "Content-Disposition": `attachment; filename="${siteSlug}-wiki.md"`,
-          "Cache-Control": "public, max-age=300, s-maxage=3600",
-          Vary: "Accept, Host",
-          "X-Wiki-Cache-Scope": "public",
-        },
+async function appendPdfAssetsToArchive(
+  arc: archiver.Archiver,
+  client: ConvexHttpClient,
+  siteSlug: string,
+  includeSensitive: boolean,
+  maxAssets: number,
+) {
+  const assets = (await client.query(
+    api.documents.listPdfAssets,
+    withSiteSlug(
+      siteSlug,
+      includeSensitive ? { includeSensitive: true as const } : {},
+    ),
+  )) as DownloadAsset[];
+
+  for (const asset of assets.slice(0, maxAssets)) {
+    if (!asset.blobUrl) continue;
+    try {
+      const response = await fetch(asset.blobUrl);
+      if (!response.ok) {
+        console.warn(`[download] Failed to fetch PDF ${asset.path}: ${response.status}`);
+        continue;
+      }
+      arc.append(Buffer.from(await response.arrayBuffer()), {
+        name: archiveEntryPath(asset.path),
+      });
+    } catch (error) {
+      console.warn(`[download] Failed to fetch PDF ${asset.path}`, error);
+    }
+  }
+}
+
+async function handleDownloadRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  const url = new URL(request.url);
+  const type = url.searchParams.get("type") === "markdown" ? "markdown" : "full";
+  const scope = url.searchParams.get("scope");
+  const includeSensitive = scope === "public"
+    ? false
+    : Boolean(await getSessionUser(request, client, siteSlug));
+  const rawLimit = Number(url.searchParams.get("limit") ?? 0);
+  const maxPages = Number.isFinite(rawLimit) && rawLimit > 0
+    ? Math.min(5000, Math.floor(rawLimit))
+    : Number.POSITIVE_INFINITY;
+  const rawAssetLimit = Number(url.searchParams.get("assetLimit") ?? 0);
+  const maxAssets = Number.isFinite(rawAssetLimit) && rawAssetLimit > 0
+    ? Math.min(5000, Math.floor(rawAssetLimit))
+    : Number.POSITIVE_INFINITY;
+
+  const stream = archiverToStream(type, async (arc) => {
+    if (type === "full") {
+      await appendPdfAssetsToArchive(arc, client, siteSlug, includeSensitive, maxAssets);
+    }
+    await appendMarkdownToArchive(arc, client, siteSlug, includeSensitive, maxPages);
+    await arc.finalize();
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="${archiveFilename(type, siteSlug)}"`,
+      "Cache-Control": includeSensitive
+        ? "private, no-store"
+        : "public, max-age=300, s-maxage=3600",
+      Vary: includeSensitive ? "Accept, Cookie, Host" : "Accept, Host",
+      "X-Wiki-Cache-Scope": includeSensitive ? "session" : "public",
+    },
   });
 }
 
@@ -733,6 +1028,10 @@ export function createWikiApiHandler(client = createClient()) {
     const handled =
       pathname.startsWith("/api/wiki/") ||
       pathname === "/api/login" ||
+      pathname === "/api/auth/session" ||
+      pathname === "/api/auth/signin" ||
+      pathname === "/api/auth/signup" ||
+      pathname === "/api/auth/signout" ||
       pathname === "/api/ai-search" ||
       pathname === "/api/chat" ||
       pathname === "/api/search" ||
@@ -782,6 +1081,22 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/login") {
       return handleLoginRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/auth/session") {
+      return handleAuthSessionRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/auth/signin") {
+      return handleAuthSigninRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/auth/signup") {
+      return handleAuthSignupRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/auth/signout") {
+      return handleAuthSignoutRequest(request, client, siteSlug);
     }
 
     if (pathname === "/api/search") {

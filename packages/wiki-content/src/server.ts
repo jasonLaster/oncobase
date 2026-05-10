@@ -19,6 +19,7 @@ const MANIFEST_PAGE_SIZE = 100;
 const MANIFEST_FALLBACK_PAGE_SIZE = 25;
 const ASSET_PAGE_SIZE = 1000;
 const MANIFEST_TIMEOUT_MS = 20_000;
+const MANIFEST_BOUNDED_FALLBACK_TIMEOUT_MS = 5_000;
 const DEFAULT_PAGE_LIMIT = 25;
 const MAX_PAGE_LIMIT = 100;
 
@@ -155,6 +156,8 @@ type ApiFileNode = {
   children?: ApiFileNode[];
 };
 
+type ManifestSource = "manifest" | "content-fallback" | "bounded-content-fallback";
+
 function splitSlug(slug: string) {
   return slug.split("/").filter(Boolean);
 }
@@ -262,11 +265,11 @@ async function requireSessionIfNeeded(
 async function listManifestPages(
   context: WikiApiContext,
   includeSensitive: boolean,
-) {
+): Promise<{ pages: WikiManifestPage[]; source: ManifestSource }> {
   const pages: WikiManifestPage[] = [];
   let cursor: string | null = null;
   let isDone = false;
-  let source: "manifest" | "content-fallback" = "manifest";
+  let source: ManifestSource = "manifest";
   let useContentFallback = false;
   while (!isDone) {
     const args: {
@@ -291,6 +294,67 @@ async function listManifestPages(
     cursor = result.continueCursor;
   }
   return { pages, source };
+}
+
+async function boundedManifestFallback(
+  context: WikiApiContext,
+  includeSensitive: boolean,
+) {
+  const args = {
+    cursor: null,
+    numItems: MANIFEST_FALLBACK_PAGE_SIZE,
+    ...(includeSensitive ? { includeSensitive: true } : {}),
+  };
+  const pageResult = await withTimeout(
+    listManifestPageFromContent(context, args),
+    MANIFEST_BOUNDED_FALLBACK_TIMEOUT_MS,
+    "Wiki bounded manifest page fallback",
+  );
+  const assetArgs = {
+    cursor: null,
+    numItems: 100,
+    ...(includeSensitive ? { includeSensitive: true } : {}),
+  };
+  const assets = await withTimeout(
+    Promise.allSettled([
+      context.documents.listPdfAssetPathsPage(assetArgs),
+      context.documents.listFileAssetPathsPage(assetArgs),
+    ]),
+    MANIFEST_BOUNDED_FALLBACK_TIMEOUT_MS,
+    "Wiki bounded manifest asset fallback",
+  )
+    .then((results) => {
+      const [pdfResult, fileResult] = results;
+      const pdfAssets =
+        pdfResult.status === "fulfilled"
+          ? pdfResult.value.page.map((path) => ({
+              kind: "pdf" as const,
+              path,
+              contentHash: null,
+              size: null,
+            }))
+          : [];
+      const fileAssets =
+        fileResult.status === "fulfilled"
+          ? fileResult.value.page.map((path) => ({
+              kind: "file" as const,
+              path,
+              contentHash: null,
+              size: null,
+            }))
+          : [];
+      return [...pdfAssets, ...fileAssets];
+    })
+    .catch((error) => {
+      context.logger?.warn("[wiki manifest] Bounded asset fallback unavailable", error);
+      return [] as WikiManifestAsset[];
+    });
+
+  return {
+    pages: pageResult.page,
+    assets,
+    source: "bounded-content-fallback" as const,
+  };
 }
 
 async function listManifestPageFromContent(
@@ -455,6 +519,7 @@ export async function createWikiManifestResponse(
   const includeSensitive = scope === "session" && Boolean(sessionUser);
   let pageResult: Awaited<ReturnType<typeof listManifestPages>>;
   let assets: WikiManifestAsset[];
+  let partialManifest = false;
   try {
     [pageResult, assets] = await withTimeout(
       Promise.all([
@@ -465,11 +530,19 @@ export async function createWikiManifestResponse(
       "Wiki manifest generation",
     );
   } catch (error) {
-    context.logger?.error("[wiki manifest] Reliable manifest metadata unavailable", error);
-    return Response.json(
-      { error: "Reliable wiki manifest metadata is unavailable" },
-      { status: 503, headers: decorate(context, { "Cache-Control": "no-store" }) },
-    );
+    context.logger?.warn("[wiki manifest] Full manifest unavailable; using bounded fallback", error);
+    try {
+      const fallback = await boundedManifestFallback(context, includeSensitive);
+      pageResult = { pages: fallback.pages, source: fallback.source };
+      assets = fallback.assets;
+      partialManifest = true;
+    } catch (fallbackError) {
+      context.logger?.error("[wiki manifest] Reliable manifest metadata unavailable", fallbackError);
+      return Response.json(
+        { error: "Reliable wiki manifest metadata is unavailable" },
+        { status: 503, headers: decorate(context, { "Cache-Control": "no-store" }) },
+      );
+    }
   }
   const { pages, source } = pageResult;
   const compactTree = buildCompactTreeFromManifest(pages, assets);
@@ -499,6 +572,7 @@ export async function createWikiManifestResponse(
     headers: decorate(context, {
       ...cacheHeaders(scope, manifestHash),
       "X-Wiki-Manifest-Source": source,
+      ...(partialManifest ? { "X-Wiki-Manifest-Partial": "true" } : {}),
     }),
   });
 }

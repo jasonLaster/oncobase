@@ -23,6 +23,27 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(nextErrorOverlay(page)).toHaveCount(0);
   });
 
+  test("shared actions menu exposes command, theme, account, and archive actions", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    const actions = page.getByRole("button", { name: "Actions" });
+    await actions.click();
+    const menu = page.getByRole("menu", { name: "Actions" });
+    await expect(menu.getByRole("menuitem", { name: /Download wiki \(full\)/ })).toHaveAttribute(
+      "href",
+      /\/api\/download\?type=full&scope=public$/,
+    );
+    await expect(menu.getByRole("menuitem", { name: /Download wiki \(markdown\)/ })).toHaveAttribute(
+      "href",
+      /\/api\/download\?type=markdown&scope=public$/,
+    );
+    await expect(menu.getByRole("menuitem", { name: /Theme:/ })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Sign in" })).toBeVisible();
+
+    await menu.getByRole("menuitem", { name: /Command palette/ }).click();
+    await expect(page.getByTestId("command-palette")).toBeVisible();
+  });
+
   test("navigates to a page via sidebar", async ({ page }) => {
     await gotoWiki(page, "/");
 

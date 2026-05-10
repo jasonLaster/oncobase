@@ -20,6 +20,24 @@ export {
   type WikiLogoProps,
 } from "./header";
 export {
+  WikiActionsMenu,
+  type WikiActionsMenuAuthInput,
+  type WikiActionsMenuAuthMode,
+  type WikiActionsMenuProps,
+  type WikiActionsMenuUser,
+} from "./actions-menu";
+export {
+  applyWikiTheme,
+  cycleWikiThemePreference,
+  getWikiThemePreference,
+  setWikiThemePreference,
+  subscribeWikiSystemTheme,
+  subscribeWikiThemePreference,
+  wikiThemeLabel,
+  type WikiResolvedTheme,
+  type WikiThemePreference,
+} from "./theme";
+export {
   WikiBadge,
   WikiBreadcrumbs,
   WikiPageActionButton,
