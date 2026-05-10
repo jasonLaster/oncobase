@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ComponentType, type ReactNode } from "react";
 import { resolveChatCopy } from "./copy";
 import { createChatRoutes, type ChatRouteConfig, type ChatRoutes } from "./routes";
 import type {
@@ -18,6 +18,12 @@ interface ChatRuntimeValue {
   copy: ResolvedChatCopy;
   routes: ChatRoutes;
   storageKeyPrefix: string;
+  LinkComponent?: ComponentType<{
+    children: ReactNode;
+    className?: string;
+    href: string;
+    title?: string;
+  }>;
   MarkdownRenderer?: ChatMarkdownRenderer;
   ToolCallRenderer?: ChatToolCallRenderer;
   extractSources?: ChatSourceExtractor;
@@ -32,6 +38,7 @@ export function ChatRuntimeProvider({
   copy,
   routes,
   storageKeyPrefix = "chat",
+  LinkComponent,
   MarkdownRenderer,
   ToolCallRenderer,
   extractSources,
@@ -42,6 +49,12 @@ export function ChatRuntimeProvider({
   copy?: ChatCopy;
   routes?: ChatRouteConfig;
   storageKeyPrefix?: string;
+  LinkComponent?: ComponentType<{
+    children: ReactNode;
+    className?: string;
+    href: string;
+    title?: string;
+  }>;
   MarkdownRenderer?: ChatMarkdownRenderer;
   ToolCallRenderer?: ChatToolCallRenderer;
   extractSources?: ChatSourceExtractor;
@@ -57,6 +70,7 @@ export function ChatRuntimeProvider({
         copy: resolvedCopy,
         routes: resolvedRoutes,
         storageKeyPrefix,
+        LinkComponent,
         MarkdownRenderer,
         ToolCallRenderer,
         extractSources,

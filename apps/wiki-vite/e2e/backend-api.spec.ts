@@ -142,6 +142,26 @@ test.describe("Vite backend API", () => {
     expect(Array.isArray(await taggedPages.json())).toBe(true);
   });
 
+  test("validates full chat API route ownership", async ({ request }) => {
+    const method = await request.get("/api/chat");
+    expect(method.status()).toBe(405);
+    expect(method.headers()["allow"]).toBe("POST");
+
+    const missingCredentials = await request.post("/api/chat", {
+      data: {
+        messages: [
+          {
+            id: "msg-test",
+            role: "user",
+            parts: [{ type: "text", text: "Hello" }],
+          },
+        ],
+      },
+    });
+    expect(missingCredentials.status()).toBe(500);
+    expect(await missingCredentials.text()).toContain("AI_GATEWAY_API_KEY");
+  });
+
   test("validates unknown chat tools", async ({ request }) => {
     const response = await request.post("/api/tools", {
       data: { tool: "nope", args: {} },

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ChatRuntimeProvider } from "@diana-tnbc/chat/runtime";
 import { api } from "@convex/_generated/api";
 import { DianaChatMarkdownRenderer } from "@/components/chat-markdown-renderer";
@@ -29,6 +30,7 @@ export function WebChatRuntimeProvider({
   return (
     <ChatRuntimeProvider
       convexApi={{ conversations: api.conversations }}
+      LinkComponent={Link}
       MarkdownRenderer={DianaChatMarkdownRenderer}
       ToolCallRenderer={DianaChatToolRenderer}
       extractSources={extractDianaChatSources}

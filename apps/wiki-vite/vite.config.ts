@@ -1,4 +1,5 @@
 import { livestoreDevtoolsPlugin } from "@livestore/devtools-vite";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { wikiApiPlugin } from "./server/wiki-api";
@@ -82,6 +83,7 @@ export default defineConfig({
   worker: { format: "es" },
   plugins: [
     !apiOrigin ? wikiApiPlugin() : null,
+    tailwindcss(),
     react(),
     livestoreDevtoolsPlugin({ schemaPath: "./src/livestore/schema.ts" }),
   ],

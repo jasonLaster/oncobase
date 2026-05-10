@@ -81,6 +81,11 @@ try {
     throw new Error("Standalone tools smoke returned no search results");
   }
 
+  const chatMethodResponse = await fetch(`${origin}/api/chat`);
+  if (chatMethodResponse.status !== 405 || chatMethodResponse.headers.get("allow") !== "POST") {
+    throw new Error(`Standalone chat method smoke failed: ${chatMethodResponse.status}`);
+  }
+
   const loginResponse = await fetch(`${origin}/api/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -1,3 +1,7 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@source "../../../packages/chat/src";
+
 :root {
   color-scheme: light;
   --sidebar-bg: #f8f9fa;
@@ -8,7 +12,22 @@
   --background: #ffffff;
   --foreground: #1a1a2e;
   --muted: var(--text-muted);
+  --muted-foreground: var(--text-muted);
   --border: var(--sidebar-border);
+  --input: var(--sidebar-border);
+  --ring: var(--brand);
+  --primary: var(--brand);
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: var(--foreground);
+  --accent: var(--accent-light);
+  --accent-foreground: var(--foreground);
+  --popover: var(--background);
+  --popover-foreground: var(--foreground);
+  --card: var(--background);
+  --card-foreground: var(--foreground);
+  --destructive: #dc2626;
+  --radius: 0.625rem;
   --panel: #ffffff;
   --panel-alt: var(--sidebar-bg);
   --surface-muted: #f3f4f6;
@@ -23,6 +42,33 @@
   font-weight: 400;
   background: var(--background);
   color: var(--foreground);
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
 }
 
 * {
@@ -326,6 +372,84 @@ a {
   color: var(--text-muted);
   font-size: 0.8125rem;
   margin: 0;
+}
+
+.vite-chat-page {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.vite-chat-sidebar {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.vite-chat-list {
+  display: grid;
+  gap: 4px;
+}
+
+.vite-chat-list-new,
+.vite-chat-list-item {
+  border-radius: 6px;
+  color: var(--text-muted);
+  display: block;
+  font-size: 0.875rem;
+  min-width: 0;
+  overflow: hidden;
+  padding: 7px 8px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vite-chat-list-new {
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.vite-chat-list-new.active,
+.vite-chat-list-item.active,
+.vite-chat-list-new:hover,
+.vite-chat-list-item:hover {
+  background: var(--accent-light);
+  color: var(--brand);
+}
+
+.vite-chat-muted {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin: 4px 8px;
+}
+
+.vite-chat-main {
+  background: var(--background);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.vite-chat-placeholder,
+.vite-chat-loading {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.vite-chat-placeholder h1 {
+  color: var(--foreground);
+  font-size: 1.25rem;
+  margin: 0 0 8px;
 }
 
 .prototype-shell {

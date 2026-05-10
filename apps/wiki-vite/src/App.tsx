@@ -33,6 +33,9 @@ const LoginPage = lazy(() =>
 const SearchPage = lazy(() =>
   import("./pages/SearchPage").then((module) => ({ default: module.SearchPage })),
 );
+const ChatPage = lazy(() =>
+  import("./chat/ChatPage").then((module) => ({ default: module.ChatPage })),
+);
 
 function PageFallback() {
   return (
@@ -82,6 +85,8 @@ export function App({
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/search" element={<SearchPage />} />
+                <Route path="/chat" element={<ChatPage />} />
+                <Route path="/chat/:id" element={<ChatPage />} />
                 <Route path="*" element={<WikiPage metrics={metrics} onMetrics={bumpMetrics} />} />
               </Routes>
             </Suspense>
