@@ -81,6 +81,8 @@ The suite mirrors the current `web/e2e/*.spec.ts` filenames. Reader-capable spec
 
 From the repository root, `bun run verify:wiki-vite` runs the current migration proof: shared content tests, shared markdown tests, Vite typecheck/build, bundle budget, and the migrated Vite Playwright suite.
 
+`bun run verify:wiki-vite:server` builds the Vite reader, starts the standalone Bun server, checks the built shell plus `/api/wiki/session`, runs the preview smoke against that single origin, and then stops the server.
+
 The header finder is intentionally not the canonical wiki search. It filters the local manifest/page index for instant page switching. Full-text search, AI search, and the full-stack chat experience stay on the existing backend/app surface for v1.
 
 ## Scope

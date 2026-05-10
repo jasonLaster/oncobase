@@ -11,6 +11,7 @@
     "typecheck": "turbo run typecheck",
     "test:unit": "turbo run test:unit",
     "verify:wiki-vite": "bun --cwd packages/wiki-content test:unit && bun --cwd packages/wiki-markdown test:unit && bun --cwd apps/wiki-vite typecheck && bun --cwd apps/wiki-vite build && bun --cwd apps/wiki-vite check:bundle && bun --cwd apps/wiki-vite test:e2e",
+    "verify:wiki-vite:server": "bun --cwd apps/wiki-vite verify:standalone",
     "test:e2e:wiki-vite": "bun --cwd apps/wiki-vite test:e2e",
     "test:e2e:wiki-vite:preview": "bun --cwd apps/wiki-vite test:e2e:preview"
   },

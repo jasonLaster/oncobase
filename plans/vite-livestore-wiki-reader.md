@@ -32,10 +32,13 @@ The migration is far enough along to test the new data path against a deployed b
 - Added root `bun run verify:wiki-vite` as the one-command local proof for the migration branch.
 - The script runs shared content tests, shared markdown tests, Vite typecheck/build, the Vite bundle budget, and the migrated Vite Playwright suite.
 - Local result: shared content `10 passed`, shared markdown `21 passed`, and Vite Playwright `61 passed, 70 skipped`.
+- Added `bun run verify:wiki-vite:server` for the one-process server path. It builds `apps/wiki-vite`, starts the standalone Bun server, smokes the built shell and wiki session API, runs the preview smoke against that origin, and shuts the server down.
+- Local standalone result: preview smoke `1 passed`.
 - Verification command for this checkpoint:
 
 ```sh
 bun run verify:wiki-vite
+bun run verify:wiki-vite:server
 ```
 
 ### 2026-05-09 Client Mermaid Fallback Checkpoint
