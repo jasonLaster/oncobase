@@ -19,13 +19,29 @@ The migration is far enough along to test the new data path against a deployed b
 | Backend API surface | Ready for additive deployment rehearsal | `/api/wiki/session`, `/api/wiki/manifest`, and `/api/wiki/pages` are additive. They do not reroute existing pages, and public/session cache behavior is covered by API tests. The manifest route can use the new Convex metadata query when deployed and can fall back to content-backed metadata while the backend rolls out. |
 | Convex support | Ready to deploy if kept additive | `documents.listManifestPage` is additive and mirrors existing document pagination without changing the publish path. Existing page and asset listing queries remain the source for markdown bodies and tree assets. Deploying this lets the manifest endpoint avoid shipping markdown just to compute metadata. |
 | LiveStore reader | Prototype works | The Vite app persists page index, file tree, asset index, and page bodies in OPFS-backed LiveStore tables. It renders cached markdown first, fetches the manifest in the background, marks stale/deleted/missing content, and eagerly fetches markdown in bounded batches. |
-| Reader UI parity | In progress | The current shell has a Diana-style layout, sidebar tree, mobile sheet, breadcrumbs, page actions, persistent outline rail, local title/slug/tag page finding, command palette, backend search/chat handoffs, sync metrics, stale indicators, and shared markdown rendering. It is still missing several product features listed below. |
+| Reader UI parity | In progress | The current shell has a Diana-style layout, sidebar tree, mobile sheet, breadcrumbs, page actions, persistent outline rail, local title/slug/tag page finding, command palette, backend search/chat handoffs, sync metrics, stale indicators, not-found recovery, failed-fetch retry, and shared markdown rendering. It is still missing several product features listed below. |
 | Privacy/cache safety | Initial guardrails landed | Public and session scopes use separate cache headers and store ids; sensitive pages stay out of public APIs. Before any real pilot, add browser-level leak tests across public/session stores and a visible cache reset/store inspector. |
 | Playwright migration | Harness landed | `apps/wiki-vite/e2e` now mirrors every current `web/e2e/*.spec.ts` filename. Reader-capable tests run locally against mocked `/api/wiki/*` responses; Next-owned feature specs are skipped in place so migration gaps stay visible. |
 | Deployment | Not started | The prototype still assumes local/dev wiring. It needs an explicit deployment target, API origin configuration, and preview smoke tests before wider review. |
 | Migration decision | Not ready | The branch is ready to validate the architecture, not to replace the Next app. Keep production routes on Next until reader parity, privacy tests, and preview metrics are in hand. |
 
 ## Work Log
+
+### 2026-05-09 Reader Recovery Checkpoint
+
+- Added explicit not-found handling for deep links that are absent from the latest manifest instead of leaving the reader in a permanent markdown-loading state.
+- Added a current-page markdown fetch failure shell with a local retry action. The retry path reuses the existing LiveStore fetch path and does not fetch server-rendered HTML.
+- Updated the old scope-pill Playwright assertion to match the route-preserving public/session scope switcher.
+- Re-ran the full migrated Vite Playwright suite after adding the recovery coverage.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/page-load-experience.spec.ts e2e/navigation.spec.ts
+bun --cwd apps/wiki-vite test:e2e
+```
+
+Latest result: `47 passed, 72 skipped` for the Vite Playwright suite.
 
 ### 2026-05-09 Markdown Package Hardening Checkpoint
 
@@ -173,7 +189,7 @@ bun --cwd apps/wiki-vite build
 bun run typecheck
 ```
 
-Latest result: `42 passed, 72 skipped` for the Vite Playwright suite.
+Latest result: `47 passed, 72 skipped` for the Vite Playwright suite.
 
 ### 2026-05-09 Backend Deployment Checkpoint
 
@@ -227,10 +243,10 @@ These are the major gaps between the prototype and the current wiki experience.
 | Command palette | Keyboard trigger, local page rows, outline rows, and backend action rows landed. | Better fuzzy ranking, current-page context actions, recents surfacing, tags, source/PDF actions, and a deeper focus/accessibility pass. | Build before production reader parity. It can be powered by the local LiveStore index, while search/chat actions delegate to backend surfaces. |
 | Other palettes | Page, outline, asset, and backend action palettes now exist as modes in one command surface. | Dedicated tag palette, recent-pages palette, and debug/cache palette for store reset and metrics. | Page palette should be first. Backend search/chat entries should delegate instead of cloning those full-stack flows. |
 | Sidebar/tree | Desktop tree and mobile sheet exist, active branches auto-expand, manual expansion persists across reloads, and PDF/file assets are discoverable through the local asset palette. | Richer source grouping, keyboard navigation, and very large tree performance. | Needed before broad preview review, but not before additive backend deployment. |
-| Page chrome | Title, description, breadcrumbs, tags, copy/link/print/download/main-app actions, size, stale/sensitive badges, and manifest/hash footer exist. | Source/PDF provenance, edit/source provenance, not-found parity, route metadata, and richer mobile action placement. | Reader parity blocker for pages with sources/assets. |
+| Page chrome | Title, description, breadcrumbs, tags, copy/link/print/download/main-app actions, size, stale/sensitive badges, not-found recovery, failed-fetch retry, and manifest/hash footer exist. | Source/PDF provenance, edit/source provenance, and richer mobile action placement. | Reader parity blocker for pages with sources/assets. |
 | Markdown parity | Shared package handles the main rendering path. | More package tests for smart tables, citations, PDF/image rewriting, theme-paired images, heading anchors, math, Mermaid fallback, and route-link adapters. | Required before trusting the package as the durable reader layer. |
 | Auth/session UX | Scope can be selected with `?scope=session` or the header switcher; session identity creates a distinct store id; signed-out session access shows a recovery screen; auth-expired fetches clear the session store. | Login prompt polish, return-to-reader sign-in flow, and deeper safe session-store invalidation tests. | Privacy-sensitive. Required before any authenticated pilot. |
-| Offline/cache controls | OPFS persistence, browser storage estimate, explicit local cache reset, manual cache warming, stale-content explanation, and failed body fetch metrics exist. | Storage pressure behavior, versioned cache invalidation, and failed fetch retry UI. | Required before production trial. |
+| Offline/cache controls | OPFS persistence, browser storage estimate, explicit local cache reset, manual cache warming, stale-content explanation, failed body fetch metrics, and current-page retry UI exist. | Storage pressure behavior and versioned cache invalidation. | Required before production trial. |
 | Performance instrumentation | Metrics panel tracks manifest bytes, markdown bytes, event count, OPFS estimate, sync state, route render timing, warm render timing, and failed body fetch count. | Bundle budget reporting, preview telemetry, and richer per-route network assertions. | Required before migration decision. |
 | Deployment/ops | Local app runs side by side. | Separate Vercel app/service decision, API origin config, CORS/auth expectations if cross-origin, preview smoke target, environment docs, and rollback story. | Required before reviewers can test without local setup. |
 
@@ -247,6 +263,7 @@ Active Vite reader coverage:
 - Heading anchors, copied section links, same-page hash scrolling, cross-page hash navigation, and non-hash scroll reset.
 - Smart table rendering, expansion/collapse, styling preservation, mobile fallback, and a light responsiveness check.
 - Warm navigation from cached LiveStore page bodies without a priority page-body refetch.
+- Unknown deep links after manifest sync and current-page markdown fetch retry.
 - Source routes rendering as normal markdown pages without the old Next source-loading boundary.
 
 Skipped-in-place migration inventory:
@@ -264,7 +281,7 @@ Current local result:
 
 ```txt
 bun --cwd apps/wiki-vite test:e2e --reporter=line
-42 passed, 72 skipped
+47 passed, 72 skipped
 ```
 
 The skipped specs are not a hidden success condition. They are the remaining feature inventory to either migrate into Vite, keep routed to Next for v1, or delete from the Vite migration scope explicitly.
@@ -309,7 +326,7 @@ Exit criteria: `web` markdown tests pass through package imports, package tests 
 
 Make the prototype useful enough to compare against the current site on real reading workflows.
 
-- Fill gaps in `apps/wiki-vite` shell parity: command palette, route title/meta behavior, page not found handling, sidebar tree affordances, source/PDF affordances, and mobile navigation polish.
+- Fill gaps in `apps/wiki-vite` shell parity: command palette, route title/meta behavior, sidebar tree affordances, source/PDF affordances, and mobile navigation polish.
 - Reuse package components for headings, image theater, tables, citations, and route links rather than duplicating Vite-only behavior.
 - Add Playwright tests for deep-link cold load, warm navigation without body fetch, stale-hash update indicator, command palette from local index, and public/session cache separation.
 - Add a small route-network assertion that warm navigation does not fetch server-rendered HTML.

@@ -480,6 +480,10 @@ a {
   position: relative;
 }
 
+.page-shell.empty-state {
+  max-width: 720px;
+}
+
 .breadcrumbs {
   align-items: center;
   color: var(--muted);
@@ -540,6 +544,13 @@ a {
   flex-wrap: wrap;
   gap: 6px;
   margin: -8px 0 18px;
+}
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
 }
 
 .stale-notice {

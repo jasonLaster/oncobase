@@ -52,4 +52,30 @@ test.describe("Page load experience", () => {
     await expect(page.locator(".metrics-panel")).toContainText("warm");
     await expect(documentArticle(page)).toContainText("Claims follow-up");
   });
+
+  test("unknown deep links render a not-found shell after manifest sync", async ({ page }) => {
+    await installWikiApiMocks(page);
+    await gotoWiki(page, "/wiki/missing/not-here");
+
+    await expect(documentArticle(page).locator("h1")).toHaveText("Page not found");
+    await expect(documentArticle(page)).toContainText("wiki/missing/not-here");
+    await expect(documentArticle(page).getByRole("link", { name: "Go home" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+  });
+
+  test("failed current-page markdown fetch exposes a retry action", async ({ page }) => {
+    const slug = "wiki/logistics/insurance";
+    const requests = await installWikiApiMocks(page, { pageFailures: { [slug]: true } });
+    await gotoWiki(page, `/${slug}`);
+
+    await expect(documentArticle(page).locator("h1")).toHaveText("Insurance");
+    await expect(documentArticle(page)).toContainText("could not be fetched");
+    requests.setPageFailure(slug, 0);
+    await page.getByTestId("retry-page-fetch").click();
+
+    await waitForPageTitle(page, "Insurance");
+    await expect(documentArticle(page)).toContainText("Prior authorization");
+  });
 });

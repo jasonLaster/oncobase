@@ -33,6 +33,7 @@ const EAGER_FETCH_BUDGET = {
 };
 
 export const WARM_CACHE_EVENT = "wiki-vite:warm-cache";
+export const RETRY_PAGE_EVENT = "wiki-vite:retry-page";
 
 function shouldFetchInBackground() {
   if (!navigator.onLine) return false;
@@ -187,14 +188,22 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
             failedBodyFetches: 1,
           });
         } else {
-          onMetrics({ failedBodyFetches: 1 });
+          onMetrics({
+            ...(slug === currentSlug
+              ? {
+                  status: "error" as const,
+                  message: `Failed to fetch markdown for ${slug}`,
+                }
+              : {}),
+            failedBodyFetches: 1,
+          });
         }
         throw error;
       } finally {
         inFlight.current.delete(cacheKey);
       }
     },
-    [client, onMetrics, scope, store],
+    [client, currentSlug, onMetrics, scope, store],
   );
 
   useEffect(() => {
@@ -232,7 +241,16 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         });
 
         if (currentPage) {
-          void fetchSlug(currentSlug, currentPage);
+          void fetchSlug(currentSlug, currentPage).catch(() => undefined);
+        } else {
+          store.commit(
+            events.pageContentMissing({
+              slug: currentSlug,
+              contentHash: null,
+              missingAt: Date.now(),
+            }),
+          );
+          onMetrics({ eventCount: 1 });
         }
 
         if (shouldFetchInBackground()) {
@@ -273,7 +291,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
     const manifest = manifestRef.current;
     if (!manifest) return;
     const page = manifest.pages.find((item) => item.slug === currentSlug);
-    if (page) void fetchSlug(currentSlug, page);
+    if (page) void fetchSlug(currentSlug, page).catch(() => undefined);
   }, [currentSlug, fetchSlug]);
 
   useEffect(() => {
@@ -294,6 +312,24 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
 
     window.addEventListener(WARM_CACHE_EVENT, onWarmCache);
     return () => window.removeEventListener(WARM_CACHE_EVENT, onWarmCache);
+  }, [currentSlug, fetchSlug, onMetrics]);
+
+  useEffect(() => {
+    const onRetryPage = () => {
+      const manifest = manifestRef.current;
+      const page = manifest?.pages.find((item) => item.slug === currentSlug);
+      if (!page) {
+        onMetrics({ status: "syncing", message: "Refreshing manifest before retry" });
+        setNetworkTick((value) => value + 1);
+        return;
+      }
+
+      onMetrics({ status: "syncing", message: `Retrying ${currentSlug}` });
+      void fetchSlug(currentSlug, page).catch(() => undefined);
+    };
+
+    window.addEventListener(RETRY_PAGE_EVENT, onRetryPage);
+    return () => window.removeEventListener(RETRY_PAGE_EVENT, onRetryPage);
   }, [currentSlug, fetchSlug, onMetrics]);
 
   useEffect(() => {

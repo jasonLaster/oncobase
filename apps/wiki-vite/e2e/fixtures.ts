@@ -19,6 +19,7 @@ type FixturePage = {
 
 type MockOptions = {
   sessionAuthenticated?: boolean;
+  pageFailures?: Partial<Record<string, number | true>>;
   pageOverrides?: Partial<Record<string, Partial<FixturePage>>>;
 };
 
@@ -284,10 +285,19 @@ const png = Buffer.from(
 );
 
 export async function installWikiApiMocks(page: Page, options: MockOptions = {}) {
+  const pageFailures = new Map(
+    Object.entries(options.pageFailures ?? {}).map(([slug, count]) => [
+      slug,
+      count === true ? Number.POSITIVE_INFINITY : count,
+    ]),
+  );
   const requests = {
     manifest: [] as string[],
     pages: [] as string[],
     files: [] as string[],
+    setPageFailure(slug: string, count: number | true) {
+      pageFailures.set(slug, count === true ? Number.POSITIVE_INFINITY : count);
+    },
   };
 
   await page.route("**/api/wiki/session**", async (route) => {
@@ -329,6 +339,14 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
       .map((slug) => slug.trim())
       .filter(Boolean);
     if (slugs.length > 0) {
+      const failedSlug = slugs.find((slug) => (pageFailures.get(slug) ?? 0) > 0);
+      if (failedSlug) {
+        const remaining = pageFailures.get(failedSlug) ?? 0;
+        pageFailures.set(failedSlug, remaining - 1);
+        await route.fulfill(json({ error: "Fixture markdown failure" }, 503));
+        return;
+      }
+
       await route.fulfill(
         json({
           siteSlug,

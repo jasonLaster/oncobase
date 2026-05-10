@@ -72,7 +72,7 @@ export function App({
             <MetricsPanel metrics={metrics} />
             <Suspense fallback={<PageFallback />}>
               <Routes>
-                <Route path="*" element={<WikiPage onMetrics={bumpMetrics} />} />
+                <Route path="*" element={<WikiPage metrics={metrics} onMetrics={bumpMetrics} />} />
               </Routes>
             </Suspense>
           </main>

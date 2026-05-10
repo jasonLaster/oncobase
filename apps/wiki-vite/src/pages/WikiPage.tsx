@@ -13,6 +13,7 @@ import {
   siteState$,
 } from "../livestore/queries";
 import type {
+  Metrics,
   MetricsPatch,
   PageContentRow,
   PageIndexRow,
@@ -25,6 +26,7 @@ import {
   storageEstimate,
 } from "../wiki-utils";
 import { useWikiScope } from "../wiki-context";
+import { RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { PageActions } from "./PageActions";
 import { PageOutline } from "./PageOutline";
 
@@ -36,7 +38,13 @@ function routeLink({ href, children, ...props }: WikiMarkdownLinkProps) {
   );
 }
 
-export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => void }) {
+export function WikiPage({
+  metrics,
+  onMetrics,
+}: {
+  metrics: Metrics;
+  onMetrics: (patch: MetricsPatch) => void;
+}) {
   const location = useLocation();
   const navigate = useNavigate();
   const scope = useWikiScope();
@@ -58,6 +66,11 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const siteState = useStore().store.useQuery(siteState$) as SiteStateRow | null;
   const stale = page?.contentStatus === "stale";
   const deleted = page?.contentStatus === "deleted";
+  const failedCurrentFetch =
+    !page?.content &&
+    Boolean(index) &&
+    metrics.status === "error" &&
+    metrics.message.includes(slug);
   const tags = parseJsonArray<string>(page?.tagsJson ?? index?.tagsJson ?? "[]");
   const description = index?.description ?? null;
   const routeAdapter = useMemo(
@@ -134,14 +147,61 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
 
   if (page?.missingAt || page?.contentStatus === "missing") {
     return (
-      <article className="page-shell" data-test-id="document-article">
+      <article className="page-shell empty-state" data-test-id="document-article">
+        <nav className="breadcrumbs" aria-label="Breadcrumbs" data-test-id="breadcrumbs">
+          <Link to="/">Home</Link>
+        </nav>
         <h1>Page not found</h1>
-        <p className="muted">No markdown body was returned for {slug}.</p>
+        <p className="muted">
+          The latest manifest does not include markdown for {slug}. This reader can
+          keep using cached pages while the backend catches up.
+        </p>
+        <div className="empty-actions">
+          <Link className="page-action" to="/">
+            Go home
+          </Link>
+          <button
+            className="page-action"
+            type="button"
+            onClick={() => window.dispatchEvent(new Event(RETRY_PAGE_EVENT))}
+          >
+            Retry
+          </button>
+        </div>
       </article>
     );
   }
 
   if (!page?.content) {
+    if (failedCurrentFetch) {
+      return (
+        <article className="page-shell empty-state" data-test-id="document-article">
+          <nav className="breadcrumbs" aria-label="Breadcrumbs" data-test-id="breadcrumbs">
+            <Link to="/">Home</Link>
+            <span>
+              <span aria-hidden="true">/</span>
+              <span>{slug.replace(/-/g, " ")}</span>
+            </span>
+          </nav>
+          <h1>{index?.title ?? "Markdown unavailable"}</h1>
+          <p className="muted">
+            The page is in the local manifest, but its markdown body could not be
+            fetched. Cached pages remain available while this request is retried.
+          </p>
+          <div className="empty-actions">
+            <button
+              className="page-action"
+              data-test-id="retry-page-fetch"
+              type="button"
+              onClick={() => window.dispatchEvent(new Event(RETRY_PAGE_EVENT))}
+            >
+              Retry
+            </button>
+          </div>
+        </article>
+      );
+    }
+
     return (
       <article className="page-shell" data-test-id="document-article">
         <div className="loading-line" data-test-id="page-loading">

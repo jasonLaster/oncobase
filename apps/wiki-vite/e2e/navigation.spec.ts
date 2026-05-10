@@ -58,7 +58,7 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(documentArticle(page).locator(".tag-row").getByRole("link", { name: "logistics" })).toBeVisible();
     await expect(documentArticle(page).locator(".tag-row").getByRole("link", { name: "insurance" })).toBeVisible();
     await expect(documentArticle(page).locator(".page-footer")).toContainText("Content hash:");
-    await expect(page.locator(".scope-pill")).toHaveText("public");
+    await expect(page.getByTestId("scope-switcher").getByRole("link", { name: "Public" })).toHaveClass(/active/);
   });
 
   test("local quick switcher opens with Ctrl+K and navigates on Enter", async ({ page }) => {
