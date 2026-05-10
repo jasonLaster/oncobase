@@ -53,6 +53,7 @@ bun --cwd apps/wiki-vite verify:standalone
 - Added Tailwind v4 compilation to the Vite app with `packages/chat/src` as a source so the shared chat UI utilities render correctly in the replacement app.
 - Added a lazy `ChatPage` bundle budget so the full chat surface is tracked separately from the reader entry bundle.
 - Added Vite Playwright coverage for chat route loading, header-to-chat navigation, and `/api/chat` backend ownership. Live send/stream remains skipped locally unless AI Gateway credentials are present.
+- Re-deployed the additive Convex backend to `https://youthful-cricket-560.convex.cloud` after extending `documents.vectorSearch` with `includeSensitive`, so the local Vite server and deployed functions agree on the chat/AI-search call shape.
 - Verification commands run for this checkpoint:
 
 ```sh
@@ -63,6 +64,7 @@ bun --cwd apps/wiki-vite test:e2e e2e/chat.spec.ts
 bun --cwd apps/wiki-vite build
 bun --cwd apps/wiki-vite check:bundle
 bun --cwd apps/wiki-vite verify:standalone
+bunx convex deploy --env-file .env.local --typecheck try
 ```
 
 ### 2026-05-09 Vite Backend Search/API Checkpoint
