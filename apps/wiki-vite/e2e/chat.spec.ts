@@ -16,9 +16,19 @@ test.describe("Chat", () => {
 
     await expect(page.getByTestId("chat-page")).toBeVisible();
     await expect(page.getByTestId("conversation-list")).toBeVisible();
+    await expect(page.getByTestId("conversation-list-archived")).toBeVisible();
     await expect(page.getByTestId("chat-interface")).toBeVisible();
     await expect(page.getByTestId("chat-composer-textarea")).toBeVisible();
     await expect(page.getByTestId("chat-suggested-prompts")).toBeVisible();
+  });
+
+  test("conversation list uses shared archived navigation", async ({ page }) => {
+    await page.goto("/chat", { waitUntil: "domcontentloaded" });
+
+    await page.getByTestId("conversation-list-archived").click();
+
+    await expect(page).toHaveURL(/\/chat\/archived$/);
+    await expect(page.getByTestId("chat-archived-placeholder")).toBeVisible();
   });
 
   test("can send a message and get a response", async ({ page }) => {

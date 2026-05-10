@@ -1,19 +1,19 @@
+import { ConversationActionsMenu } from "@diana-tnbc/chat/components/conversation-actions-core";
+import { ConversationListCore } from "@diana-tnbc/chat/components/conversation-list-core";
 import { ChatInterface } from "@diana-tnbc/chat/components/chat-interface";
-import { ChatRuntimeProvider } from "@diana-tnbc/chat/runtime";
+import { ChatRuntimeProvider, useChatRuntime } from "@diana-tnbc/chat/runtime";
 import { WikiMarkdown } from "@diana-tnbc/wiki-markdown";
 import {
-  WikiChatList,
-  WikiChatListLink,
   WikiChatMain,
-  WikiChatMuted,
   WikiChatPage,
   WikiChatSidebar,
   WikiChatState,
 } from "@diana-tnbc/wiki-shell";
-import { ConvexProvider, ConvexReactClient, useQuery } from "convex/react";
+import { ConvexProvider, ConvexReactClient, useMutation, useQuery } from "convex/react";
 import { useMemo, type ReactNode } from "react";
-import { Link, useLocation, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { api } from "../../../../web/convex/_generated/api.js";
+import type { Id } from "../../../../web/convex/_generated/dataModel.js";
 import { useWikiSession } from "../wiki-context";
 import { hrefForSlug } from "../wiki-utils";
 
@@ -145,48 +145,39 @@ function ConversationList() {
   const identity = useWikiSession();
   const siteArgs = identity?.siteSlug ? { siteSlug: identity.siteSlug } : {};
   const conversations = useQuery(api.conversations.list, siteArgs);
+  const archiveConversation = useMutation(api.conversations.archive);
+  const { copy, routes } = useChatRuntime();
   const location = useLocation();
-  const activeId = location.pathname.match(/^\/chat\/([^/?#]+)$/)?.[1] ?? null;
+  const navigate = useNavigate();
+  const activeId = routes.matchConversationId(location.pathname);
 
   return (
-    <WikiChatList data-test-id="conversation-list" aria-label="Conversations">
-      <WikiChatListLink
-        active={!activeId}
-        data-test-id="conversation-list-new-chat"
-        href="/chat"
-        renderLink={({ href, children, ...linkProps }) => (
-          <Link {...linkProps} to={href}>
-            {children}
-          </Link>
-        )}
-        variant="new"
-      >
-        New chat
-      </WikiChatListLink>
-      {conversations === undefined ? (
-        <WikiChatMuted data-test-id="conversation-list-loading">Loading...</WikiChatMuted>
-      ) : null}
-      {conversations?.length === 0 ? (
-        <WikiChatMuted data-test-id="conversation-list-empty">No conversations yet</WikiChatMuted>
-      ) : null}
-      {conversations?.map((conversation: { _id: string; title: string }) => (
-        <WikiChatListLink
-          active={conversation._id === activeId}
-          data-conversation-id={conversation._id}
-          data-test-id="conversation-list-item"
-          href={`/chat/${conversation._id}`}
-          key={conversation._id}
-          renderLink={({ href, children, ...linkProps }) => (
-            <Link {...linkProps} to={href}>
-              {children}
-            </Link>
+    <ConversationListCore
+      activeConversationId={activeId}
+      conversations={conversations}
+      copy={copy}
+      currentPathname={location.pathname}
+      renderActions={(conversation) => (
+        <ConversationActionsMenu
+          onArchive={async () => {
+            await archiveConversation({
+              id: conversation._id as Id<"conversations">,
+              ...siteArgs,
+            });
+            navigate(routes.newChatPath);
+          }}
+          onCopyUrl={() => navigator.clipboard.writeText(
+            routes.conversationUrl(conversation._id, window.location.origin),
           )}
-          title={conversation.title}
-        >
-          {conversation.title}
-        </WikiChatListLink>
-      ))}
-    </WikiChatList>
+        />
+      )}
+      renderLink={({ href, children, ...linkProps }) => (
+        <Link {...linkProps} to={href}>
+          {children}
+        </Link>
+      )}
+      routes={routes}
+    />
   );
 }
 
