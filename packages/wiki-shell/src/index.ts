@@ -76,6 +76,22 @@ export {
   type WikiSearchSubmitButtonProps,
 } from "./search";
 export {
+  WikiCommandBackdrop,
+  WikiCommandEmpty,
+  WikiCommandFooter,
+  WikiCommandList,
+  WikiCommandPanel,
+  WikiCommandSearch,
+  WikiCommandTabs,
+  type WikiCommandBackdropProps,
+  type WikiCommandEmptyProps,
+  type WikiCommandFooterProps,
+  type WikiCommandListProps,
+  type WikiCommandPanelProps,
+  type WikiCommandSearchProps,
+  type WikiCommandTabsProps,
+} from "./palette";
+export {
   WikiMobileNavigation,
   WikiSidebar,
   WikiTree,

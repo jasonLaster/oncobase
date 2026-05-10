@@ -26,6 +26,15 @@ import {
   useState,
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
+import {
+  WikiCommandBackdrop,
+  WikiCommandEmpty,
+  WikiCommandFooter,
+  WikiCommandList,
+  WikiCommandPanel,
+  WikiCommandSearch,
+  WikiCommandTabs,
+} from "@diana-tnbc/wiki-shell";
 import { readLiveStoreDevtoolsEnabled, reloadWithLiveStoreDevtools } from "../livestore/devtools";
 import { assets$, pageIndex$ } from "../livestore/queries";
 import { events } from "../livestore/schema";
@@ -350,16 +359,15 @@ export function CommandPalette({
   if (!open) return null;
 
   return (
-    <div className="command-backdrop" role="presentation" onMouseDown={() => onOpenChange(false)}>
-      <section
+    <WikiCommandBackdrop role="presentation" onMouseDown={() => onOpenChange(false)}>
+      <WikiCommandPanel
         aria-label="Command palette"
         aria-modal="true"
-        className="command-palette"
         data-test-id="command-palette"
         role="dialog"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="command-search">
+        <WikiCommandSearch>
           <SearchIcon size={16} aria-hidden="true" />
           <input
             ref={inputRef}
@@ -391,8 +399,8 @@ export function CommandPalette({
           >
             <XIcon size={16} aria-hidden="true" />
           </button>
-        </div>
-        <div className="command-tabs" role="group" aria-label="Palette mode">
+        </WikiCommandSearch>
+        <WikiCommandTabs role="group" aria-label="Palette mode">
           <button
             type="button"
             aria-pressed={mode === "pages"}
@@ -462,11 +470,11 @@ export function CommandPalette({
             <BugIcon size={14} aria-hidden="true" />
             Debug
           </button>
-        </div>
-        <div className="command-list" aria-label={`${mode} results`}>
+        </WikiCommandTabs>
+        <WikiCommandList aria-label={`${mode} results`}>
           {mode === "pages" ? (
             pageResults.length === 0 ? (
-              <div className="command-empty">No local pages found</div>
+              <WikiCommandEmpty>No local pages found</WikiCommandEmpty>
             ) : (
               pageResults.map((page, index) => (
                 <button
@@ -488,7 +496,7 @@ export function CommandPalette({
           ) : null}
           {mode === "outline" ? (
             outlineResults.length === 0 ? (
-              <div className="command-empty">No headings on this page</div>
+              <WikiCommandEmpty>No headings on this page</WikiCommandEmpty>
             ) : (
               outlineResults.map((item, index) => (
                 <button
@@ -515,7 +523,7 @@ export function CommandPalette({
           ) : null}
           {mode === "assets" ? (
             assetResults.length === 0 ? (
-              <div className="command-empty">No assets found</div>
+              <WikiCommandEmpty>No assets found</WikiCommandEmpty>
             ) : (
               assetResults.map((asset, index) => (
                 <a
@@ -542,7 +550,7 @@ export function CommandPalette({
           ) : null}
           {mode === "tags" ? (
             tagResults.length === 0 ? (
-              <div className="command-empty">No tags found</div>
+              <WikiCommandEmpty>No tags found</WikiCommandEmpty>
             ) : (
               tagResults.map((result, index) => (
                 <button
@@ -567,7 +575,7 @@ export function CommandPalette({
           ) : null}
           {mode === "recent" ? (
             recentResults.length === 0 ? (
-              <div className="command-empty">No recent pages yet</div>
+              <WikiCommandEmpty>No recent pages yet</WikiCommandEmpty>
             ) : (
               recentResults.map((page, index) => (
                 <button
@@ -589,7 +597,7 @@ export function CommandPalette({
           ) : null}
           {mode === "actions" ? (
             actionResults.length === 0 ? (
-              <div className="command-empty">No actions found</div>
+              <WikiCommandEmpty>No actions found</WikiCommandEmpty>
             ) : (
               actionResults.map((action, index) => (
                 <a
@@ -610,7 +618,7 @@ export function CommandPalette({
           ) : null}
           {mode === "debug" ? (
             debugResults.length === 0 ? (
-              <div className="command-empty">No cache tools found</div>
+              <WikiCommandEmpty>No cache tools found</WikiCommandEmpty>
             ) : (
               debugResults.map((action, index) => (
                 <button
@@ -630,12 +638,12 @@ export function CommandPalette({
               ))
             )
           ) : null}
-        </div>
-        <footer className="command-footer">
+        </WikiCommandList>
+        <WikiCommandFooter>
           <span>{commandLabel()} opens pages</span>
           <span>Enter runs the first result</span>
-        </footer>
-      </section>
-    </div>
+        </WikiCommandFooter>
+      </WikiCommandPanel>
+    </WikiCommandBackdrop>
   );
 }

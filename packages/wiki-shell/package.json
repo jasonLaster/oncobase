@@ -35,6 +35,11 @@
       "import": "./src/search.tsx",
       "default": "./src/search.tsx"
     },
+    "./palette": {
+      "types": "./src/palette.tsx",
+      "import": "./src/palette.tsx",
+      "default": "./src/palette.tsx"
+    },
     "./navigation": {
       "types": "./src/navigation.tsx",
       "import": "./src/navigation.tsx",
