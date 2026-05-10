@@ -215,6 +215,20 @@ PLAYWRIGHT_BASE_URL=http://127.0.0.1:62004 bun --cwd apps/wiki-vite test:e2e:pre
 bun --cwd apps/wiki-vite test:e2e
 ```
 
+### 2026-05-09 Bundle Budget Checkpoint
+
+- Added `bun run check:bundle` for `apps/wiki-vite` so tree-shaking regressions fail explicitly after a production build.
+- The budget check reports raw and gzip sizes for entry, React, LiveStore, Effect, markdown, page/sync chunks, workers, and SQLite wasm assets.
+- Current built asset total is `1065.8 KiB` gzip including wasm and workers; the entry script is `3.4 KiB` gzip while markdown, LiveStore, and Effect remain split behind separate chunks.
+- The current budgets are intentionally close to the known prototype shape, with room for normal hash/minifier drift but not for accidentally pulling markdown or LiveStore back into the entry path.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite check:bundle
+```
+
 ### 2026-05-09 Markdown Package Hardening Checkpoint
 
 - Added package-level server renderer tests for smart-table markup, PDF chips, image theater attributes, citations, theme-paired images, currency preservation, and math rendering.
@@ -419,7 +433,7 @@ These are the major gaps between the prototype and the current wiki experience.
 | Markdown parity | Shared package handles the main rendering path. | More package tests for smart tables, citations, PDF/image rewriting, theme-paired images, heading anchors, math, Mermaid fallback, and route-link adapters. | Required before trusting the package as the durable reader layer. |
 | Auth/session UX | Scope can be selected with `?scope=session` or the header switcher; session identity creates a distinct store id; signed-out session access shows a recovery screen; auth-expired fetches clear the session store; cache-key rotation opens a separate authenticated store; cross-origin previews use credentialed API requests only when the backend origin is explicitly configured and allowlisted; browser tests cover sensitive session content not leaking into public scope. | Login prompt polish, return-to-reader sign-in flow, and broader session-expiry invalidation tests. | Privacy-sensitive. Required before any authenticated pilot. |
 | Offline/cache controls | OPFS persistence, browser storage estimate, explicit local cache reset, manual cache warming, stale-content explanation, failed body fetch metrics, and current-page retry UI exist. | Storage pressure behavior and versioned cache invalidation. | Required before production trial. |
-| Performance instrumentation | Metrics panel tracks manifest bytes, markdown bytes, event count, OPFS estimate, sync state, route render timing, warm render timing, failed body fetch count, and screenshot-backed desktop/mobile visual baselines. | Bundle budget reporting, preview telemetry, and richer per-route network assertions. | Required before migration decision. |
+| Performance instrumentation | Metrics panel tracks manifest bytes, markdown bytes, event count, OPFS estimate, sync state, route render timing, warm render timing, failed body fetch count, screenshot-backed desktop/mobile visual baselines, and build-time bundle budgets. | Preview telemetry and richer per-route network assertions. | Required before migration decision. |
 | Deployment/ops | Local one-server dev loop exists, origin env docs exist, cross-origin API credentials are wired, backend allowlist CORS exists, and an optional preview smoke config exists. | Separate Vercel app/service decision, real preview URL, preview env values, CI wiring for the smoke test, and rollback story. | Required before reviewers can test without local setup. |
 
 ## Playwright Migration Status
@@ -480,6 +494,7 @@ The important review property is that the final framework change is small. Most 
 - Eager markdown scheduling: current route first, then visible/sidebar-linked pages, recent pages, and bounded idle batches.
 - Stale-content behavior: manifest hash reconciliation marks local content stale/deleted/missing without blocking the route shell.
 - Bundle splitting: the entry resolves only scope/session identity; LiveStore and markdown rendering are lazy-loaded behind separate chunks.
+- Bundle budget check for entry, vendor, markdown, LiveStore, worker, and SQLite assets.
 - Shared markdown runtime extraction into `packages/wiki-markdown`, with Next and Vite reduced to adapters.
 - Migrated Playwright harness in `apps/wiki-vite/e2e`, with active reader parity tests and skipped Next-owned feature inventory.
 - Optional preview smoke harness in `apps/wiki-vite/preview-e2e`, pointed at `PLAYWRIGHT_BASE_URL` and intended for deployed Vite previews.
@@ -561,6 +576,7 @@ bun --cwd packages/wiki-markdown typecheck
 bun --cwd packages/wiki-markdown test:unit
 bun --cwd apps/wiki-vite typecheck
 bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite check:bundle
 bun --cwd apps/wiki-vite test:e2e
 bun --cwd web typecheck
 bun --cwd web build

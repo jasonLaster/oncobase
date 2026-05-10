@@ -106,3 +106,5 @@ Public and session data use separate LiveStore `storeId` values. Public requests
 The entry bundle only resolves the public/session scope and asks the existing web app for `/api/wiki/session`. LiveStore startup is lazy-loaded after that identity is known, and the markdown page renderer is lazy-loaded inside the shell so the first paint does not pull in the markdown processor.
 
 Vite/Rolldown code splitting keeps React, LiveStore, Effect, markdown, and icons in separate vendor chunks. Lazy chunk preloads are intentionally suppressed for `LiveStoreRoot` and `WikiPage`; otherwise the browser eagerly requests the expensive local database and markdown renderer before the wiki shell can render.
+
+Run `bun run build && bun run check:bundle` before widening the reader surface. The bundle budget reports raw/gzip sizes for the entry, LiveStore, markdown, Effect, workers, and SQLite wasm chunks so tree-shaking regressions show up as a failing check instead of a visual review surprise.
