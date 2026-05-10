@@ -20,6 +20,10 @@ test.describe("Local page finder", () => {
     await page.getByTestId("header-search-input").fill("zzzznonexistentquery999");
 
     await expect(page.getByText("No local matches")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Search backend" })).toHaveAttribute(
+      "href",
+      /\/search\?q=zzzznonexistentquery999&returnTo=%2F$/,
+    );
   });
 
   test("public finder does not include sensitive pages", async ({ page }) => {
@@ -45,10 +49,16 @@ test.describe("Local page finder", () => {
 
   test("header exposes backend search and chat handoffs", async ({ page }) => {
     await installWikiApiMocks(page);
-    await gotoWiki(page, "/");
+    await gotoWiki(page, "/wiki/logistics/insurance");
 
-    await expect(page.getByRole("link", { name: "Search" })).toHaveAttribute("href", /\/search$/);
-    await expect(page.getByRole("link", { name: "New Chat" })).toHaveAttribute("href", /\/chat$/);
+    await expect(page.getByRole("link", { name: "Search" })).toHaveAttribute(
+      "href",
+      /\/search\?returnTo=%2Fwiki%2Flogistics%2Finsurance$/,
+    );
+    await expect(page.getByRole("link", { name: "New Chat" })).toHaveAttribute(
+      "href",
+      /\/chat\?returnTo=%2Fwiki%2Flogistics%2Finsurance$/,
+    );
   });
 
   test.skip("backend text search returns relevant results", async () => {

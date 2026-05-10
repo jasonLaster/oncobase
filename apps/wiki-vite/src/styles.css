@@ -365,6 +365,14 @@ a {
   display: block;
 }
 
+.search-empty a {
+  color: var(--brand);
+  display: inline-flex;
+  font-weight: 650;
+  min-height: 0;
+  padding: 4px 0 0;
+}
+
 .topbar-status {
   align-items: center;
   color: var(--muted);

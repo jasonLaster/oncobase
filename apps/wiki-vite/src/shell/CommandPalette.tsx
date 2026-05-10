@@ -29,6 +29,7 @@ import {
   parseJsonArray,
   readRecentSlugs,
   rememberSlug,
+  returnToHref,
   slugFromPath,
 } from "../wiki-utils";
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
@@ -88,6 +89,7 @@ export function CommandPalette({
   const navigate = useNavigate();
   const location = useLocation();
   const currentSlug = slugFromPath(location.pathname);
+  const returnTo = returnToHref(location.pathname, location.search, location.hash);
 
   useEffect(() => {
     if (!open) return;
@@ -148,13 +150,13 @@ export function CommandPalette({
       {
         label: "Search wiki",
         description: "Open the backend full-text and AI search surface",
-        href: backendHref("/search"),
+        href: backendHref("/search", { returnTo }),
         icon: <SearchIcon size={15} aria-hidden="true" />,
       },
       {
         label: "New chat",
         description: "Continue in the full-stack chat experience",
-        href: backendHref("/chat"),
+        href: backendHref("/chat", { returnTo }),
         icon: <MessageCircleIcon size={15} aria-hidden="true" />,
       },
       {
@@ -164,7 +166,7 @@ export function CommandPalette({
         icon: <DownloadIcon size={15} aria-hidden="true" />,
       },
     ],
-    [currentSlug, relatedAssets],
+    [currentSlug, relatedAssets, returnTo],
   );
 
   const actionResults = useMemo(() => {

@@ -12,14 +12,29 @@ export function hrefForSlug(slug: string) {
   return slug === "index" ? "/" : `/${slug}`;
 }
 
-export function backendHref(path: string) {
+export function backendHref(
+  path: string,
+  params?: Record<string, string | number | boolean | null | undefined>,
+) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const url = new URL(normalizedPath, "http://wiki.local");
+
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    if (value == null || value === "") return;
+    url.searchParams.set(key, String(value));
+  });
+
+  const pathWithParams = `${url.pathname}${url.search}${url.hash}`;
   const origin =
     import.meta.env.VITE_WIKI_APP_ORIGIN ?? import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
 
-  if (!origin) return normalizedPath;
+  if (!origin) return pathWithParams;
 
-  return `${origin.replace(/\/+$/, "")}${normalizedPath}`;
+  return `${origin.replace(/\/+$/, "")}${pathWithParams}`;
+}
+
+export function returnToHref(pathname: string, search = "", hash = "") {
+  return `${pathname}${search}${hash}`;
 }
 
 export function parseJsonArray<T>(raw: string, fallback: T[] = []): T[] {
