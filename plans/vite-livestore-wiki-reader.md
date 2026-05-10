@@ -156,6 +156,20 @@ bun --cwd apps/wiki-vite build
 bun --cwd apps/wiki-vite test:e2e
 ```
 
+### 2026-05-09 Convex Deployment Checkpoint
+
+- Deployed the additive Convex backend functions to `https://youthful-cricket-560.convex.cloud`.
+- Verified the single-server Vite backend path against the deployed Convex backend on local port `62002`.
+- `/api/wiki/session` returned the public Diana store identity, and `/api/wiki/manifest` returned 4,722 public pages, 10,501 assets, and manifest hash `68578c2cc12675cfa2656fca`.
+- Verification commands run for this checkpoint:
+
+```sh
+set -a; source web/.env.local; set +a; bunx convex deploy
+PORT=62002 bun --cwd apps/wiki-vite dev
+curl -sS http://127.0.0.1:62002/api/wiki/session
+curl -sS http://127.0.0.1:62002/api/wiki/manifest
+```
+
 ### 2026-05-09 Markdown Package Hardening Checkpoint
 
 - Added package-level server renderer tests for smart-table markup, PDF chips, image theater attributes, citations, theme-paired images, currency preservation, and math rendering.
