@@ -18,6 +18,11 @@ By default the Vite dev server serves the reader APIs directly from Convex:
 - `/api/wiki/session`
 - `/api/wiki/manifest`
 - `/api/wiki/pages`
+- `/api/search`
+- `/api/ai-search`
+- `/api/chat`
+- `/api/tools`
+- `/api/login`
 - `/api/file`
 - `/api/page-copy`
 
@@ -40,14 +45,14 @@ bun run build
 PORT=62003 bun run start:server
 ```
 
-`start:server` serves `dist/` and the same wiki API request handler from one Bun process. It is the current full-stack rehearsal target: the SPA, `/api/wiki/*`, `/api/file`, and `/api/page-copy` all come from the same origin while Convex remains the content database.
+`start:server` serves `dist/` and the same wiki API request handler from one Bun process. It is the current full-stack rehearsal target: the SPA, `/api/wiki/*`, `/api/search`, `/api/ai-search`, `/api/chat`, `/api/tools`, `/api/login`, `/api/file`, and `/api/page-copy` all come from the same origin while Convex remains the content database.
 
 ## Environment
 
 The prototype has two origins:
 
-- `VITE_WIKI_API_ORIGIN`: optional override for where `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/page-copy`, and `/api/file` are served from.
-- `VITE_WIKI_APP_ORIGIN`: where backend-owned UI handoffs should open, including search, chat, downloads, and sign-in.
+- `VITE_WIKI_API_ORIGIN`: optional override for where `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/search`, `/api/ai-search`, `/api/chat`, `/api/tools`, `/api/login`, `/api/page-copy`, and `/api/file` are served from.
+- `VITE_WIKI_APP_ORIGIN`: optional app-origin override for routes that should intentionally leave the Vite app. Search, AI search, chat, and sign-in are Vite-owned in the standalone path.
 
 For local dev, omit `VITE_WIKI_API_ORIGIN` to use the Vite backend. For a separate preview deployment that still calls the Next backend, set both origins to the deployed Next app origin. Cross-origin previews must also set `WIKI_VITE_ALLOWED_ORIGINS` on the Next app to the exact Vite preview origin so the additive wiki APIs can return credentialed CORS headers.
 
@@ -77,13 +82,13 @@ PORT=62004 bun run start:server
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:62004 bun run test:e2e:preview
 ```
 
-The suite mirrors the current `web/e2e/*.spec.ts` filenames. Reader-capable specs run against the Vite app; feature areas still owned by the Next app for v1 are skipped in place so the migration gap remains visible.
+The suite mirrors the current `web/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app; feature areas still outside the Vite cut, such as comments/Liveblocks and some metadata/multi-site hardening, are skipped in place so the migration gap remains visible.
 
 From the repository root, `bun run verify:wiki-vite` runs the current migration proof: shared content tests, shared markdown tests, Vite typecheck/build, bundle budget, and the migrated Vite Playwright suite.
 
 `bun run verify:wiki-vite:server` builds the Vite reader, starts the standalone Bun server, checks the built shell plus `/api/wiki/session`, runs the preview smoke against that single origin, and then stops the server.
 
-The header finder is intentionally not the canonical wiki search. It filters the local manifest/page index for instant page switching. Full-text search, AI search, and the full-stack chat experience stay on the existing backend/app surface for v1.
+The header finder is intentionally not the canonical wiki search. It filters the local manifest/page index for instant page switching. Canonical text search, AI search, and the full-stack chat experience are now served by the Vite backend/app surface for the standalone migration path.
 
 ## Scope
 

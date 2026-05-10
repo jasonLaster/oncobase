@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { loadPlaywrightEnv } from "./playwright.env";
+
+loadPlaywrightEnv();
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL;
 

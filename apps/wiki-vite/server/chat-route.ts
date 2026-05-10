@@ -243,13 +243,6 @@ export async function handleChatRequest({
   }
 
   const requestId = crypto.randomUUID().slice(0, 8);
-  if (!process.env.AI_GATEWAY_API_KEY) {
-    return Response.json(
-      { error: "AI_GATEWAY_API_KEY is not configured. Add it to the deployment environment to enable chat." },
-      { status: 500, headers: { "x-request-id": requestId } },
-    );
-  }
-
   let parsedBody: z.infer<typeof ChatRequestSchema>;
   try {
     parsedBody = ChatRequestSchema.parse(await request.json());
@@ -261,6 +254,13 @@ export async function handleChatRequest({
     return Response.json(
       { error: { code: "validation", message: issues } },
       { status: 400, headers: { "x-request-id": requestId } },
+    );
+  }
+
+  if (!process.env.AI_GATEWAY_API_KEY) {
+    return Response.json(
+      { error: "AI_GATEWAY_API_KEY is not configured. Add it to the deployment environment to enable chat." },
+      { status: 500, headers: { "x-request-id": requestId } },
     );
   }
 

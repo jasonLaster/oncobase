@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
 
+const hasAiGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
+const hasOpenAi = Boolean(process.env.OPENAI_API_KEY);
+
 test.describe("Vite backend API", () => {
   test("serves public session identity with public cache headers", async ({ request }) => {
     const response = await request.get("/api/wiki/session");
@@ -75,6 +78,32 @@ test.describe("Vite backend API", () => {
     expect(await empty.json()).toEqual({ results: [] });
   });
 
+  test("serves live AI search rankings when credentials are configured", async ({ request }) => {
+    test.skip(!hasAiGateway || !hasOpenAi, "AI search live smoke requires AI_GATEWAY_API_KEY and OPENAI_API_KEY");
+
+    const response = await request.post("/api/ai-search", {
+      data: {
+        query: "diagnosis",
+        slugs: ["wiki/diagnostics/diagnosis", "wiki/logistics/insurance"],
+      },
+      timeout: 60_000,
+    });
+    expect(response.ok(), await response.text()).toBe(true);
+    expect(response.headers()["x-wiki-cache-scope"]).toBe("public");
+
+    const body = await response.json();
+    expect(Array.isArray(body.results)).toBe(true);
+    expect(body.results.length).toBeGreaterThan(0);
+    expect(body.results[0]).toEqual(
+      expect.objectContaining({
+        slug: expect.any(String),
+        title: expect.any(String),
+        relevance: expect.any(Number),
+        summary: expect.any(String),
+      }),
+    );
+  });
+
   test("validates backend file error cases", async ({ request }) => {
     const missingPath = await request.get("/api/file");
     expect(missingPath.status()).toBe(400);
@@ -142,24 +171,35 @@ test.describe("Vite backend API", () => {
     expect(Array.isArray(await taggedPages.json())).toBe(true);
   });
 
-  test("validates full chat API route ownership", async ({ request }) => {
+  test("validates full chat API route ownership and live streaming", async ({ request }) => {
     const method = await request.get("/api/chat");
     expect(method.status()).toBe(405);
     expect(method.headers()["allow"]).toBe("POST");
 
-    const missingCredentials = await request.post("/api/chat", {
+    const invalid = await request.post("/api/chat", {
+      data: { messages: [] },
+    });
+    expect(invalid.status()).toBe(400);
+    expect(await invalid.text()).toContain("messages must not be empty");
+
+    test.skip(!hasAiGateway, "Chat live smoke requires AI_GATEWAY_API_KEY");
+
+    const live = await request.post("/api/chat", {
       data: {
         messages: [
           {
             id: "msg-test",
             role: "user",
-            parts: [{ type: "text", text: "Hello" }],
+            parts: [{ type: "text", text: "Reply with exactly: pong" }],
           },
         ],
       },
+      timeout: 60_000,
     });
-    expect(missingCredentials.status()).toBe(500);
-    expect(await missingCredentials.text()).toContain("AI_GATEWAY_API_KEY");
+    const liveText = await live.text();
+    expect(live.ok(), liveText).toBe(true);
+    expect(live.headers()["content-type"]).toContain("text/event-stream");
+    expect(liveText.toLowerCase()).toContain("pong");
   });
 
   test("validates unknown chat tools", async ({ request }) => {

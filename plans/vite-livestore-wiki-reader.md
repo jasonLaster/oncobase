@@ -19,13 +19,36 @@ The migration is far enough along to use the Vite one-server path as the primary
 | Backend API surface | Vite-owned path expanding | `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/search`, `/api/ai-search`, `/api/chat`, `/api/tools`, and `/api/login` are served by the Vite backend. The reader API implementation now lives in `@diana-tnbc/wiki-content/server` with thin adapters, while the Vite backend also owns `/api/file` and `/api/page-copy` for one-server development. Vite now resolves the active site from `Host` and ignores injected `x-site-slug` headers, which is the right boundary for replacing the old Next proxy. |
 | Convex support | Deployed additively | `documents.listManifestPage` is additive and mirrors existing document pagination without changing the publish path. Existing page and asset listing queries remain the source for markdown bodies and tree assets. The production Convex deployment now has the additive reader functions. |
 | LiveStore reader | Prototype works | The Vite app persists page index, file tree, asset index, and page bodies in OPFS-backed LiveStore tables. It renders cached markdown first, fetches the manifest in the background, marks stale/deleted/missing content, eagerly fetches markdown in bounded batches, and surfaces storage pressure when browser quota is tight. |
-| Reader UI parity | In progress | The current shell has a Diana-style layout, screenshot-backed desktop/mobile visual baselines, sidebar tree, mobile sheet, breadcrumbs, page actions, desktop/mobile outline, local title/slug/tag page finding, backend-powered text and AI search route, a Vite-owned chat route with the shared full composer UI, command palette with pages/outline/assets/tags/recents/actions/debug-cache tools, sync metrics, stale indicators, not-found recovery, failed-fetch retry, and shared markdown rendering. It is still missing several product features listed below. |
+| Reader UI parity | In progress | The current shell has a Diana-style layout, screenshot-backed desktop/mobile visual baselines, sidebar tree, mobile sheet, breadcrumbs, page actions, desktop/mobile outline, local title/slug/tag page finding, backend-powered text and AI search pages, a Vite-owned chat route with the shared full composer UI, command palette with pages/outline/assets/tags/recents/actions/debug-cache tools, sync metrics, stale indicators, not-found recovery, failed-fetch retry, and shared markdown rendering. It is still missing several product features listed below. |
 | Privacy/cache safety | Stronger guardrails landed | Public and session scopes use separate cache headers and store ids; store ids include a reader cache version for intentional OPFS invalidation; sensitive pages stay out of public APIs. Browser coverage now verifies a session-only page body does not leak after switching back to the public store. |
-| Playwright migration | Harness landed | `apps/wiki-vite/e2e` now mirrors every current `web/e2e/*.spec.ts` filename. Reader-capable tests run locally against mocked `/api/wiki/*` responses and include screenshot-backed visual assertions plus current-route-first network assertions. A new unmocked backend API spec exercises the Vite dev backend against Convex for session, manifest, text search, AI search route validation, chat tool calls, and file validation behavior; Next-owned feature specs remain skipped in place so migration gaps stay visible. |
+| Playwright migration | Strong full-stack coverage | `apps/wiki-vite/e2e` now mirrors every current `web/e2e/*.spec.ts` filename. Reader-capable tests run locally against mocked `/api/wiki/*` responses and include screenshot-backed visual assertions plus current-route-first network assertions. The unmocked backend API spec exercises the Vite dev backend against Convex for session, manifest, text search, live AI search, chat tool calls, live chat streaming, login, and file validation behavior. The chat UI test sends a live message through `/api/chat` when credentials are configured and archives the test conversation afterward. Comments, Liveblocks, some metadata hardening, and multi-site invariants remain skipped in place so migration gaps stay visible. |
 | Deployment | Standalone replacement target | The prototype has documented API/app origin env vars, cross-origin client credentials when an API origin is configured, backend allowlist CORS for preview origins, an optional Playwright preview smoke config, a Vite dev backend for reader APIs, and a standalone Bun server that serves the built app plus reader APIs from one origin. The standalone server now enforces the password gate for app routes before serving the Vite shell. The deployment target is now a standalone Vite replacement for `web`; remaining work is Vercel wiring, metadata hardening, and rollback. |
 | Migration decision | Direction set | Vite is the intended replacement. Keep `web` only until auth, multi-site, metadata, full-stack features, cache policy, UI parity, and E2E coverage are good enough to delete it. |
 
 ## Work Log
+
+### 2026-05-09 Full-Stack E2E Hardening Checkpoint
+
+- Copied the required local test credentials into the ignored `apps/wiki-vite/.env.local` and added a Playwright-only env loader so the Node test runner sees the same Convex and model credentials as the Vite app.
+- Expanded the unmocked backend API coverage to prove live AI search ranking, invalid chat body validation, and a real streamed `/api/chat` response from the Vite backend.
+- Expanded the chat UI coverage to send a live prompt through the shared full composer, wait for the streamed assistant answer, assert the `/chat/:id` route, and archive the created Convex conversation during cleanup.
+- Moved Tailwind to theme/utilities-only imports in the Vite app. This keeps the shared chat utility classes available while preventing Tailwind preflight from changing the wiki reader's established visual baseline.
+- Re-ran the high-value full-stack slice, the full migrated Vite Playwright suite, typecheck, production build, bundle budget, and standalone server verifier.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite test:e2e e2e/backend-api.spec.ts --grep "AI search rankings|chat API"
+bun --cwd apps/wiki-vite test:e2e e2e/chat.spec.ts --grep "can send"
+bun --cwd apps/wiki-vite test:e2e e2e/backend-api.spec.ts e2e/chat.spec.ts e2e/search.spec.ts
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite check:bundle
+bun --cwd apps/wiki-vite verify:standalone
+bun --cwd apps/wiki-vite test:e2e
+bun run verify:wiki-vite
+```
+
+Latest result: `80 passed, 62 skipped` for the Vite Playwright suite. The skipped tests are the explicit migration inventory for comments/Liveblocks, metadata hardening, multi-site isolation, PII redaction parity, and a few future chat resilience/performance flows.
 
 ### 2026-05-09 Password Gate and AI Search Checkpoint
 
@@ -599,6 +622,8 @@ Active Vite reader coverage:
 - Heading anchors, copied section links, same-page hash scrolling, cross-page hash navigation, and non-hash scroll reset.
 - Smart table rendering, expansion/collapse, styling preservation, mobile fallback, and a light responsiveness check.
 - Client-safe Mermaid timeline fallback rendering.
+- Backend-owned text search and AI search from the Vite `/search` route.
+- Full chat route loading, header navigation into chat, a live composer send/stream path, and Vite `/api/chat` validation.
 - Warm navigation from cached LiveStore page bodies without a priority page-body refetch.
 - Cold route priority fetching for the visible page body before eager markdown warming.
 - Unknown deep links after manifest sync and current-page markdown fetch retry.
@@ -606,9 +631,8 @@ Active Vite reader coverage:
 
 Skipped-in-place migration inventory:
 
-- Search UI polish beyond the first Vite `/search` route, plus AI search modes.
-- Chat and chat performance/resilience.
 - Comments, Liveblocks, comment APIs, and the full comments/outline rail.
+- Chat performance/resilience scenarios that need durable stream abort/resume behavior.
 - Link-preview metadata hardening and login redirect behavior.
 - Multi-site backend isolation invariants.
 - PII redaction and markdown download backend checks.
@@ -618,7 +642,7 @@ Current local result:
 
 ```txt
 bun --cwd apps/wiki-vite test:e2e --reporter=line
-71 passed, 68 skipped
+80 passed, 62 skipped
 ```
 
 The skipped specs are not a hidden success condition. They are the remaining feature inventory to either migrate into Vite, keep routed to Next for v1, or delete from the Vite migration scope explicitly.
@@ -632,7 +656,7 @@ The branch now has four layers:
 3. `packages/wiki-markdown` owns the shared markdown runtime: wikilinks, citations, math cleanup, server HTML transforms, client markdown rendering, heading anchors, image theater, and smart-table enhancement.
 4. `apps/wiki-vite` is the reader framework adapter plus local dev backend: Vite, React Router, LiveStore provider, OPFS persistence, fetch scheduling, local queries, Diana-style shell, and Vite middleware for reader APIs.
 
-The important review property is that the final framework change is small. Most wiki behavior now lives in packages; the Vite app supplies LiveStore data and React Router navigation, while the Next app supplies server caching, `next/link`, `next/navigation`, and Sonner toasts.
+The important review property is that the final framework change is small. Most wiki behavior now lives in packages; the Vite app supplies LiveStore data, React Router navigation, and the one-server API adapter, while the old Next app remains the reference implementation until parity and deployment checks are complete.
 
 ## What Landed
 
@@ -643,6 +667,7 @@ The important review property is that the final framework change is small. Most 
 - Versioned reader cache ids so future OPFS-breaking changes can intentionally invalidate local stores.
 - API surface in `web`: thin `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages` adapters, plus existing priority fetch through `/api/page-copy`.
 - Vite backend adapter for `/api/wiki/*`, `/api/search`, `/api/tools`, `/api/file`, and `/api/page-copy` so reader development can run without a second Next dev server.
+- Vite backend routes and UI surfaces for `/api/ai-search`, `/api/chat`, `/search`, `/chat`, and `/chat/:id`.
 - Standalone Bun server for full-stack rehearsal after `apps/wiki-vite` builds.
 - Eager markdown scheduling: current route first, then visible/sidebar-linked pages, recent pages, and bounded idle batches.
 - Stale-content behavior: manifest hash reconciliation marks local content stale/deleted/missing without blocking the route shell.
@@ -706,7 +731,7 @@ Only decide on production routing after the prototype has parity evidence.
 
 - If Vite is adopted, keep `web` APIs and shared packages as the production content plane and move reader routes gradually.
 - If Vite is not adopted, keep `packages/wiki-content` and `packages/wiki-markdown` and delete only the app-specific prototype.
-- Do not migrate full-text search, chat, comments, Liveblocks, downloads, or AI search into the Vite app unless they are explicitly pulled into a later phase. The Vite reader can expose entry points or thin clients for those backend/full-stack surfaces without owning their implementation.
+- Full-text search, AI search, and chat have been explicitly pulled into the Vite path. Keep comments, Liveblocks, and any remaining download/comment management flows out of the production cut unless they are intentionally scoped into a later phase.
 
 Exit criteria: the migration decision is based on measured navigation performance, cache safety, and reader parity rather than architecture preference alone.
 
@@ -753,4 +778,4 @@ http://127.0.0.1:60001/wiki/logistics/insurance
 - The Vite app currently lazy-loads the markdown renderer, but `WikiPage` still carries a large page chunk. This is acceptable for the prototype; revisit once command palette and source/PDF parity land.
 - OPFS behavior varies by browser and storage pressure. Keep cache reset and store introspection visible before any production trial.
 - Session store separation depends on server-issued cache keys. Treat any change to `/api/wiki/session` as a privacy-sensitive change.
-- The prototype still depends on the current Next app for content APIs. That is intentional for v1 and should not be treated as a blocker unless a deployment target cannot reach those APIs.
+- The old Next app still owns useful behavioral reference coverage and some skipped feature surfaces. Treat deletion of `web` as blocked until deployment wiring, metadata, multi-site isolation, and the remaining full-stack parity inventory have current green checks in the Vite path.
