@@ -1,15 +1,20 @@
 import { useStore } from "@livestore/react";
 import {
+  BugIcon,
   DownloadIcon,
   FileIcon,
   FileTextIcon,
   ListIcon,
   MessageCircleIcon,
   PaperclipIcon,
+  PowerIcon,
+  PowerOffIcon,
+  RotateCcwIcon,
   SearchIcon,
   ClockIcon,
   TagIcon,
   XIcon,
+  ZapIcon,
 } from "lucide-react";
 import {
   type CSSProperties,
@@ -21,7 +26,10 @@ import {
   useState,
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
+import { readLiveStoreDevtoolsEnabled, reloadWithLiveStoreDevtools } from "../livestore/devtools";
 import { assets$, pageIndex$ } from "../livestore/queries";
+import { events } from "../livestore/schema";
+import { WARM_CACHE_EVENT } from "../sync/WikiSync";
 import type { AssetIndexRow, PageIndexRow } from "../types";
 import {
   backendHref,
@@ -35,13 +43,20 @@ import {
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { collectOutline, scrollToOutlineItem, type OutlineItem } from "./outline";
 
-type PaletteMode = "pages" | "outline" | "assets" | "tags" | "recent" | "actions";
+export type PaletteMode = "pages" | "outline" | "assets" | "tags" | "recent" | "actions" | "debug";
 
 type ActionItem = {
   label: string;
   description: string;
   href: string;
   icon: ReactNode;
+};
+
+type DebugItem = {
+  label: string;
+  description: string;
+  icon: ReactNode;
+  run: () => void;
 };
 
 type TagResult = {
@@ -79,12 +94,14 @@ export function CommandPalette({
   initialMode?: PaletteMode;
   onOpenChange: (open: boolean) => void;
 }) {
-  const pages = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
-  const assets = useStore().store.useQuery(assets$) as AssetIndexRow[];
+  const { store } = useStore();
+  const pages = store.useQuery(pageIndex$) as PageIndexRow[];
+  const assets = store.useQuery(assets$) as AssetIndexRow[];
   const [mode, setMode] = useState<PaletteMode>(initialMode);
   const [query, setQuery] = useState("");
   const [outline, setOutline] = useState<OutlineItem[]>([]);
   const [recentSlugs, setRecentSlugs] = useState<string[]>([]);
+  const [liveStoreDevtoolsEnabled] = useState(() => readLiveStoreDevtoolsEnabled());
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -177,6 +194,52 @@ export function CommandPalette({
     );
   }, [actions, query]);
 
+  const debugActions = useMemo<DebugItem[]>(
+    () => [
+      {
+        label: "Warm local markdown cache",
+        description: "Queue eager markdown fetches for local reading",
+        icon: <ZapIcon size={15} aria-hidden="true" />,
+        run: () => {
+          window.dispatchEvent(new Event(WARM_CACHE_EVENT));
+          onOpenChange(false);
+        },
+      },
+      {
+        label: "Reset local cache",
+        description: "Clear this LiveStore cache and reload the reader",
+        icon: <RotateCcwIcon size={15} aria-hidden="true" />,
+        run: () => {
+          const confirmed = window.confirm(
+            "Clear the local LiveStore cache for this reader and reload?",
+          );
+          if (!confirmed) return;
+          store.commit(events.cacheResetRequested({ requestedAt: Date.now() }));
+          window.location.reload();
+        },
+      },
+      {
+        label: liveStoreDevtoolsEnabled ? "Disable LiveStore devtools" : "Enable LiveStore devtools",
+        description: "Reload with the optional local LiveStore inspector setting",
+        icon: liveStoreDevtoolsEnabled ? (
+          <PowerOffIcon size={15} aria-hidden="true" />
+        ) : (
+          <PowerIcon size={15} aria-hidden="true" />
+        ),
+        run: () => reloadWithLiveStoreDevtools(!liveStoreDevtoolsEnabled),
+      },
+    ],
+    [liveStoreDevtoolsEnabled, onOpenChange, store],
+  );
+
+  const debugResults = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return debugActions;
+    return debugActions.filter((action) =>
+      `${action.label} ${action.description}`.toLowerCase().includes(normalized),
+    );
+  }, [debugActions, query]);
+
   const assetResults = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     const matches = normalized
@@ -246,6 +309,9 @@ export function CommandPalette({
     if (mode === "actions" && actionResults[0]) {
       window.location.assign(actionResults[0].href);
     }
+    if (mode === "debug" && debugResults[0]) {
+      debugResults[0].run();
+    }
   };
 
   if (!open) return null;
@@ -279,7 +345,9 @@ export function CommandPalette({
                       ? "Filter local tags"
                       : mode === "recent"
                         ? "Find recent pages"
-                        : "Run an action"
+                        : mode === "actions"
+                          ? "Run an action"
+                          : "Run a cache tool"
             }
           />
           <button
@@ -344,6 +412,14 @@ export function CommandPalette({
           >
             <SearchIcon size={14} aria-hidden="true" />
             Actions
+          </button>
+          <button
+            type="button"
+            className={mode === "debug" ? "active" : ""}
+            onClick={() => setMode("debug")}
+          >
+            <BugIcon size={14} aria-hidden="true" />
+            Debug
           </button>
         </div>
         <div className="command-list">
@@ -459,6 +535,21 @@ export function CommandPalette({
                     <small>{action.description}</small>
                   </span>
                 </a>
+              ))
+            )
+          ) : null}
+          {mode === "debug" ? (
+            debugResults.length === 0 ? (
+              <div className="command-empty">No cache tools found</div>
+            ) : (
+              debugResults.map((action) => (
+                <button key={action.label} type="button" onClick={action.run}>
+                  {action.icon}
+                  <span>
+                    <strong>{action.label}</strong>
+                    <small>{action.description}</small>
+                  </span>
+                </button>
               ))
             )
           ) : null}

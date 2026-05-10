@@ -11,11 +11,11 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { pageIndex$ } from "../livestore/queries";
 import type { Metrics, PageIndexRow } from "../types";
 import { backendHref, hrefForSlug, rememberSlug, returnToHref } from "../wiki-utils";
-import { CommandPalette } from "./CommandPalette";
+import { CommandPalette, type PaletteMode } from "./CommandPalette";
 
 export function Header({ scope, metrics }: { scope: WikiScope; metrics: Metrics }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [paletteMode, setPaletteMode] = useState<"pages" | "outline" | "actions">("pages");
+  const [paletteMode, setPaletteMode] = useState<PaletteMode>("pages");
   const location = useLocation();
   const returnTo = returnToHref(location.pathname, location.search, location.hash);
 
@@ -32,6 +32,12 @@ export function Header({ scope, metrics }: { scope: WikiScope; metrics: Metrics 
       if (event.shiftKey && event.key.toLowerCase() === "o") {
         event.preventDefault();
         setPaletteMode("outline");
+        setPaletteOpen(true);
+      }
+
+      if (event.shiftKey && event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        setPaletteMode("debug");
         setPaletteOpen(true);
       }
     };

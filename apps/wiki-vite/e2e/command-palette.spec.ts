@@ -107,4 +107,26 @@ test.describe("Command palette parity", () => {
     await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
     await waitForPageTitle(page, "Insurance");
   });
+
+  test("debug palette exposes local cache tools", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+D" : "Control+Shift+D");
+    await expect(page.getByTestId("command-palette")).toBeVisible();
+    await expect(
+      page.getByTestId("command-palette").getByRole("button", { name: /Warm local markdown cache/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("command-palette").getByRole("button", { name: /Reset local cache/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("command-palette").getByRole("button", { name: /Enable LiveStore devtools/ }),
+    ).toBeVisible();
+
+    await page
+      .getByTestId("command-palette")
+      .getByRole("button", { name: /Warm local markdown cache/ })
+      .click();
+    await expect(page.getByTestId("app-header")).toContainText(/Warming|Queued/);
+  });
 });

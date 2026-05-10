@@ -916,6 +916,7 @@ a {
   border-bottom: 1px solid var(--border);
   display: flex;
   gap: 4px;
+  overflow-x: auto;
   padding: 8px;
 }
 
@@ -931,6 +932,7 @@ a {
   font-weight: 550;
   gap: 6px;
   min-height: 30px;
+  white-space: nowrap;
   padding: 0 10px;
 }
 
