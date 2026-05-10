@@ -27,6 +27,17 @@ The migration is far enough along to test the new data path against a deployed b
 
 ## Work Log
 
+### 2026-05-09 Root Verification Script Checkpoint
+
+- Added root `bun run verify:wiki-vite` as the one-command local proof for the migration branch.
+- The script runs shared content tests, shared markdown tests, Vite typecheck/build, the Vite bundle budget, and the migrated Vite Playwright suite.
+- Local result: shared content `10 passed`, shared markdown `21 passed`, and Vite Playwright `61 passed, 70 skipped`.
+- Verification command for this checkpoint:
+
+```sh
+bun run verify:wiki-vite
+```
+
 ### 2026-05-09 Client Mermaid Fallback Checkpoint
 
 - Added a client-safe Mermaid fallback in `packages/wiki-markdown` for fenced Mermaid blocks. It renders the diagram title, task rows for simple Gantt diagrams, and collapsible source without adding a heavy browser Mermaid renderer.
@@ -639,6 +650,9 @@ That shape makes the framework delta obvious. A reviewer should be able to see t
 Use the smallest focused check while iterating, then the full set before pushing:
 
 ```sh
+bun run verify:wiki-vite
+
+# Or run the pieces individually:
 bun --cwd packages/wiki-markdown typecheck
 bun --cwd packages/wiki-markdown test:unit
 bun --cwd apps/wiki-vite typecheck
