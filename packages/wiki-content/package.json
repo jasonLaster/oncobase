@@ -15,6 +15,16 @@
       "import": "./src/server.ts",
       "default": "./src/server.ts"
     },
+    "./chat-tools": {
+      "types": "./src/chat-tools.ts",
+      "import": "./src/chat-tools.ts",
+      "default": "./src/chat-tools.ts"
+    },
+    "./pii": {
+      "types": "./src/pii.ts",
+      "import": "./src/pii.ts",
+      "default": "./src/pii.ts"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {

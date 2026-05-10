@@ -9,16 +9,14 @@ import {
   createWikiSessionResponse,
   type WikiApiDocumentsGateway,
 } from "@diana-tnbc/wiki-content/server";
-import { splitWikilinkAlias } from "@diana-tnbc/wiki-markdown/paths";
+import { readChatPageFromDocuments } from "@diana-tnbc/wiki-content/chat-tools";
 import { api } from "../../../web/convex/_generated/api.js";
-import { applyPiiRedactions } from "../../../web/src/lib/pii-redaction";
 
 const DEFAULT_SITE_SLUG = "diana";
 const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
 const USER_SESSION_COOKIE = "wiki_user_session";
 const DEFAULT_SEARCH_LIMIT = 10;
 const MAX_SEARCH_LIMIT = 50;
-const CHAT_UNAVAILABLE_CONTENT = "unavailable";
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -104,20 +102,6 @@ function getMimeType(filePath: string) {
 
 function assetPathToSiblingSlug(assetPath: string) {
   return assetPath.replace(/\.[^/.]+$/, "");
-}
-
-function splitSlugAnchor(value: string) {
-  const normalized = value.replace(/^\/+/, "").replace(/\.md(?=#|$)/, "");
-  const hashIndex = normalized.indexOf("#");
-  if (hashIndex === -1) return { slug: normalized, anchor: undefined };
-  return {
-    slug: normalized.slice(0, hashIndex),
-    anchor: normalized.slice(hashIndex + 1) || undefined,
-  };
-}
-
-function hrefForSlug(slug: string, anchor?: string) {
-  return `/${slug}${anchor ? `#${anchor}` : ""}`;
 }
 
 function createClient() {
@@ -298,83 +282,18 @@ async function handleSearchRequest(
   );
 }
 
-async function resolveToolLinkedPages(
-  client: ConvexHttpClient,
-  siteSlug: string,
-  content: string,
-  slug: string,
-) {
-  const linkRegex = /\[\[([^\]]+?)\]\]/g;
-  const linkedSlugs = new Set<string>();
-  let match;
-  while ((match = linkRegex.exec(content)) !== null) {
-    const linked = splitSlugAnchor(splitWikilinkAlias(match[1]).target);
-    if (linked.slug === "about/Terminology" || linked.slug === slug) continue;
-    linkedSlugs.add(hrefForSlug(linked.slug, linked.anchor).slice(1));
-  }
-
-  const linkedPages = await Promise.all(
-    Array.from(linkedSlugs)
-      .slice(0, 10)
-      .map(async (linkedSlug) => {
-        const target = splitSlugAnchor(linkedSlug);
-        const linked = await client.query(
-          api.documents.getBySlug,
-          withSiteSlug(siteSlug, { slug: target.slug }),
-        );
-        return linked
-          ? {
-              slug: linked.slug,
-              title: applyPiiRedactions(linked.title),
-              href: hrefForSlug(linked.slug, target.anchor),
-              anchor: target.anchor,
-            }
-          : null;
-      }),
-  );
-
-  return linkedPages.filter((page): page is NonNullable<typeof page> => page !== null);
-}
-
 async function readToolPage(
   client: ConvexHttpClient,
   siteSlug: string,
   slug: string,
 ) {
-  const requested = splitSlugAnchor(slug);
-  const publicDoc = await client.query(
-    api.documents.getBySlug,
-    withSiteSlug(siteSlug, { slug: requested.slug }),
+  return readChatPageFromDocuments(
+    {
+      getBySlug: (args) =>
+        client.query(api.documents.getBySlug, withSiteSlug(siteSlug, args)),
+    },
+    slug,
   );
-  if (!publicDoc) {
-    const unavailableDoc = await client.query(
-      api.documents.getBySlug,
-      withSiteSlug(siteSlug, { slug: requested.slug, includeSensitive: true }),
-    );
-    if (!unavailableDoc) return { error: `Page not found: ${requested.slug}` };
-    return {
-      slug: unavailableDoc.slug,
-      title: applyPiiRedactions(unavailableDoc.title),
-      href: hrefForSlug(unavailableDoc.slug, requested.anchor),
-      anchor: requested.anchor,
-      tags: unavailableDoc.tags,
-      content: CHAT_UNAVAILABLE_CONTENT,
-      linked_pages: [],
-      unavailable: true,
-      sensitive: unavailableDoc.sensitive === true ? true : undefined,
-    };
-  }
-
-  const content = applyPiiRedactions(publicDoc.content);
-  return {
-    slug: publicDoc.slug,
-    title: applyPiiRedactions(publicDoc.title),
-    href: hrefForSlug(publicDoc.slug, requested.anchor),
-    anchor: requested.anchor,
-    tags: publicDoc.tags,
-    content: content.slice(0, 8000),
-    linked_pages: await resolveToolLinkedPages(client, siteSlug, content, publicDoc.slug),
-  };
 }
 
 async function handleToolsRequest(

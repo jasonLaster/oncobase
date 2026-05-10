@@ -14,7 +14,7 @@ The migration is far enough along to test the new data path against a deployed b
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Shared content contracts | Mostly productionized | `packages/wiki-content` owns manifest parsing, compact tree expansion, page batches, content-hash reconciliation, versioned reader cache ids, and public/session store ids. Edge-case coverage now includes invalid manifests, pagination cursors, deleted/missing hash reconciliation, and store-id sanitization/versioning. |
+| Shared content contracts | Mostly productionized | `packages/wiki-content` owns manifest parsing, compact tree expansion, page batches, content-hash reconciliation, versioned reader cache ids, public/session store ids, PII redaction, and chat page-reading helpers. Edge-case coverage now includes invalid manifests, pagination cursors, deleted/missing hash reconciliation, store-id sanitization/versioning, redaction behavior, and chat linked-page resolution. |
 | Shared markdown runtime | Mostly productionized | `packages/wiki-markdown` owns the reusable renderer, route-link adapter, heading anchors, image theater, citations, math cleanup, PDF chips, theme-paired images, smart-table behavior, and a client-safe Mermaid fallback. The extraction is useful even if Vite is not adopted; package-level server coverage now protects the highest-risk renderer transforms. |
 | Backend API surface | Framework-neutral core landed | `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/search`, and `/api/tools` are additive on the Vite side. The reader API implementation now lives in `@diana-tnbc/wiki-content/server` with thin Next and Vite adapters, while the Vite backend also owns `/api/file` and `/api/page-copy` for one-server development. Public/session cache behavior is covered by API tests, and Vite can serve reader/chat tool APIs directly from Convex through dev middleware or the standalone full-stack server. |
 | Convex support | Deployed additively | `documents.listManifestPage` is additive and mirrors existing document pagination without changing the publish path. Existing page and asset listing queries remain the source for markdown bodies and tree assets. The production Convex deployment now has the additive reader functions. |
@@ -32,6 +32,7 @@ The migration is far enough along to test the new data path against a deployed b
 - Added a Vite `/api/search` backend route backed by the existing Convex document search query.
 - Added a Vite `/api/tools` backend route for the existing chat tool surface: `search_wiki`, `read_page`, `list_pages`, `get_pages_by_tag`, and `list_tags`.
 - Fixed the Vite dev middleware request adapter to preserve POST request bodies, which protects current and future Vite backend routes from empty JSON payloads.
+- Moved framework-neutral PII redaction and chat page-reading logic into `@diana-tnbc/wiki-content`, leaving `web` with thin compatibility wrappers and Vite with a package import instead of reaching into `web/src`.
 - Preserved the v1 product direction: the Vite reader still treats search as a backend-owned full-stack surface, but the one-server Vite backend can now serve the underlying API for parity and future UI integration.
 - Added public/session cache-scope headers to the shared session API responses so Vite backend tests can assert the same privacy boundary as the Next adapters.
 - Added unmocked Playwright backend API coverage for `/api/wiki/session`, `/api/wiki/manifest`, `/api/search`, `/api/tools`, and `/api/file` error handling.
@@ -41,6 +42,8 @@ The migration is far enough along to test the new data path against a deployed b
 ```sh
 bun --cwd packages/wiki-content test:unit
 bun --cwd packages/wiki-content typecheck
+bun --cwd web test:unit src/lib/pii-redaction.test.ts src/lib/chat-page-reader.test.ts
+bun --cwd web typecheck
 bun --cwd apps/wiki-vite typecheck
 bun --cwd apps/wiki-vite test:e2e e2e/backend-api.spec.ts
 bun --cwd apps/wiki-vite test:e2e e2e/backend-api.spec.ts e2e/sidebar-pdfs.spec.ts
@@ -52,7 +55,7 @@ bun run verify:wiki-vite
 
 - Added root `bun run verify:wiki-vite` as the one-command local proof for the migration branch.
 - The script runs shared content tests, shared markdown tests, Vite typecheck/build, the Vite bundle budget, and the migrated Vite Playwright suite.
-- Local result after the backend API checkpoint: shared content `10 passed`, shared markdown `21 passed`, and Vite Playwright `67 passed, 68 skipped`.
+- Local result after the backend API checkpoint: shared content `16 passed`, shared markdown `21 passed`, and Vite Playwright `67 passed, 68 skipped`.
 - Added `bun run verify:wiki-vite:server` for the one-process server path. It builds `apps/wiki-vite`, starts the standalone Bun server, smokes the built shell and wiki session API, runs the preview smoke against that origin, and shuts the server down.
 - Local standalone result after the backend API checkpoint: backend session/search/file smokes passed, plus preview smoke `1 passed`.
 - Verification command for this checkpoint:
@@ -589,6 +592,7 @@ The important review property is that the final framework change is small. Most 
 ## What Landed
 
 - Root workspace support for `apps/*` and the runnable `apps/wiki-vite` prototype.
+- Shared PII redaction and chat page-reading helpers in `packages/wiki-content`, with `web` reduced to compatibility wrappers for the old import paths.
 - Local-only LiveStore cache with OPFS-backed persisted tables for site state, page index, page content, asset index, and file tree.
 - Public/session store separation via server-issued session cache keys.
 - Versioned reader cache ids so future OPFS-breaking changes can intentionally invalidate local stores.
