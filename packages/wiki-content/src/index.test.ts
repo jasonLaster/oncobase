@@ -4,6 +4,7 @@ import {
   expandCompactFileTree,
   makeWikiStoreId,
   parseWikiManifest,
+  parseWikiPageBatch,
   parseWikiSessionIdentity,
   reconcilePageContent,
 } from "./index";
@@ -67,6 +68,66 @@ describe("wiki content contracts", () => {
     expect(manifest.pages[0]?.contentHash).toBe("hash");
   });
 
+  test("rejects invalid manifest payloads before they reach LiveStore", () => {
+    expect(() =>
+      parseWikiManifest({
+        siteSlug: "diana",
+        manifestHash: "abc",
+        generatedAt: "2026-05-09T12:00:00.000Z",
+        scope: "public",
+        compactTree: [["x", "bad"]],
+        pages: [],
+        assets: [],
+      }),
+    ).toThrow("manifest.compactTree");
+
+    expect(() =>
+      parseWikiManifest({
+        siteSlug: "diana",
+        manifestHash: "abc",
+        generatedAt: "2026-05-09T12:00:00.000Z",
+        scope: "public",
+        compactTree: [],
+        pages: [
+          {
+            slug: "index",
+            title: "Index",
+            tags: ["home"],
+            description: null,
+            contentHash: null,
+            sensitive: false,
+            size: "large",
+          },
+        ],
+        assets: [],
+      }),
+    ).toThrow("page.size");
+  });
+
+  test("parses page batches and stable pagination cursors", () => {
+    const batch = parseWikiPageBatch({
+      siteSlug: "diana",
+      generatedAt: "2026-05-09T12:00:00.000Z",
+      scope: "public",
+      pages: [
+        {
+          slug: "wiki/page",
+          title: "Page",
+          content: "# Page",
+          tags: ["wiki"],
+          contentHash: null,
+          sensitive: false,
+          size: 6,
+        },
+      ],
+      isDone: false,
+      continueCursor: "cursor-2",
+    });
+
+    expect(batch.continueCursor).toBe("cursor-2");
+    expect(batch.pages[0]?.content).toBe("# Page");
+  });
+
   test("reconciles content hashes", () => {
     expect(reconcilePageContent(null, { contentHash: "a" })).toEqual({ status: "missing" });
     expect(reconcilePageContent({ contentHash: "a" }, { contentHash: "a" })).toEqual({
@@ -77,6 +138,11 @@ describe("wiki content contracts", () => {
       status: "stale",
       localHash: "a",
       remoteHash: "b",
+    });
+    expect(reconcilePageContent({ contentHash: "a" }, null)).toEqual({
+      status: "stale",
+      localHash: "a",
+      remoteHash: null,
     });
   });
 
@@ -95,6 +161,14 @@ describe("wiki content contracts", () => {
     });
     expect(publicId).not.toBe(sessionId);
     expect(sessionId).toContain("session-user-1");
+    expect(
+      makeWikiStoreId({
+        siteSlug: "diana tn/bc",
+        scope: "session",
+        origin: "https://example.test/path",
+        cacheKey: "user:1/private",
+      }),
+    ).toBe("wiki-vite-diana_tn_bc-session-https___example_test_path-user_1_private");
   });
 
   test("parses server-issued session cache identities", () => {

@@ -14,7 +14,7 @@ The migration is far enough along to test the new data path against a deployed b
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Shared content contracts | Mostly landed | `packages/wiki-content` owns manifest parsing, compact tree expansion, page batches, content-hash reconciliation, and public/session store ids. Needs broader edge-case tests before it becomes a stable package API. |
+| Shared content contracts | Mostly productionized | `packages/wiki-content` owns manifest parsing, compact tree expansion, page batches, content-hash reconciliation, and public/session store ids. Edge-case coverage now includes invalid manifests, pagination cursors, deleted/missing hash reconciliation, and store-id sanitization. |
 | Shared markdown runtime | Mostly productionized | `packages/wiki-markdown` owns the reusable renderer, route-link adapter, heading anchors, image theater, citations, math cleanup, PDF chips, theme-paired images, and smart-table behavior. The extraction is useful even if Vite is not adopted; package-level server coverage now protects the highest-risk renderer transforms. |
 | Backend API surface | Ready for additive deployment rehearsal | `/api/wiki/session`, `/api/wiki/manifest`, and `/api/wiki/pages` are additive. They do not reroute existing pages, and public/session cache behavior is covered by API tests. The manifest route can use the new Convex metadata query when deployed and can fall back to content-backed metadata while the backend rolls out. |
 | Convex support | Ready to deploy if kept additive | `documents.listManifestPage` is additive and mirrors existing document pagination without changing the publish path. Existing page and asset listing queries remain the source for markdown bodies and tree assets. Deploying this lets the manifest endpoint avoid shipping markdown just to compute metadata. |
@@ -41,6 +41,17 @@ bun --cwd packages/wiki-markdown typecheck
 bun --cwd apps/wiki-vite typecheck
 bun --cwd apps/wiki-vite test:e2e e2e/page-chrome.spec.ts
 bun --cwd web test:unit src/lib/render-markdown.test.ts
+```
+
+### 2026-05-09 Content Package Hardening Checkpoint
+
+- Broadened `packages/wiki-content` tests for invalid manifest payloads, page batch pagination cursors, deleted/missing hash reconciliation, and public/session store-id sanitization.
+- These tests keep malformed backend payloads from reaching the Vite LiveStore materializers and protect the sensitive public/session cache boundary.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd packages/wiki-content test:unit
+bun --cwd packages/wiki-content typecheck
 ```
 
 ### 2026-05-09 Session And Cache Controls Checkpoint
