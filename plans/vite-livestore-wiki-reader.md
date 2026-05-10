@@ -19,7 +19,7 @@ The migration is far enough along to use the Vite one-server path as the primary
 | Backend API surface | Vite-owned path expanding | `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/search`, `/api/tools`, and `/api/login` are served by the Vite backend. The reader API implementation now lives in `@diana-tnbc/wiki-content/server` with thin adapters, while the Vite backend also owns `/api/file` and `/api/page-copy` for one-server development. Vite now resolves the active site from `Host` and ignores injected `x-site-slug` headers, which is the right boundary for replacing the old Next proxy. |
 | Convex support | Deployed additively | `documents.listManifestPage` is additive and mirrors existing document pagination without changing the publish path. Existing page and asset listing queries remain the source for markdown bodies and tree assets. The production Convex deployment now has the additive reader functions. |
 | LiveStore reader | Prototype works | The Vite app persists page index, file tree, asset index, and page bodies in OPFS-backed LiveStore tables. It renders cached markdown first, fetches the manifest in the background, marks stale/deleted/missing content, eagerly fetches markdown in bounded batches, and surfaces storage pressure when browser quota is tight. |
-| Reader UI parity | In progress | The current shell has a Diana-style layout, screenshot-backed desktop/mobile visual baselines, sidebar tree, mobile sheet, breadcrumbs, page actions, desktop/mobile outline, local title/slug/tag page finding, command palette with pages/outline/assets/tags/recents/actions/debug-cache tools, backend search/chat handoffs, sync metrics, stale indicators, not-found recovery, failed-fetch retry, and shared markdown rendering. It is still missing several product features listed below. |
+| Reader UI parity | In progress | The current shell has a Diana-style layout, screenshot-backed desktop/mobile visual baselines, sidebar tree, mobile sheet, breadcrumbs, page actions, desktop/mobile outline, local title/slug/tag page finding, backend-powered text search route, command palette with pages/outline/assets/tags/recents/actions/debug-cache tools, chat handoffs, sync metrics, stale indicators, not-found recovery, failed-fetch retry, and shared markdown rendering. It is still missing several product features listed below. |
 | Privacy/cache safety | Stronger guardrails landed | Public and session scopes use separate cache headers and store ids; store ids include a reader cache version for intentional OPFS invalidation; sensitive pages stay out of public APIs. Browser coverage now verifies a session-only page body does not leak after switching back to the public store. |
 | Playwright migration | Harness landed | `apps/wiki-vite/e2e` now mirrors every current `web/e2e/*.spec.ts` filename. Reader-capable tests run locally against mocked `/api/wiki/*` responses and include screenshot-backed visual assertions plus current-route-first network assertions. A new unmocked backend API spec exercises the Vite dev backend against Convex for session, manifest, text search, chat tool calls, and file validation behavior; Next-owned feature specs remain skipped in place so migration gaps stay visible. |
 | Deployment | Standalone replacement target | The prototype has documented API/app origin env vars, cross-origin client credentials when an API origin is configured, backend allowlist CORS for preview origins, an optional Playwright preview smoke config, a Vite dev backend for reader APIs, and a standalone Bun server that serves the built app plus reader APIs from one origin. The deployment target is now a standalone Vite replacement for `web`; remaining work is Vercel wiring, auth gate, metadata hardening, and rollback. |
@@ -32,6 +32,7 @@ The migration is far enough along to use the Vite one-server path as the primary
 - Added a Vite `/api/search` backend route backed by the existing Convex document search query.
 - Added a Vite `/api/tools` backend route for the existing chat tool surface: `search_wiki`, `read_page`, `list_pages`, `get_pages_by_tag`, and `list_tags`.
 - Added a Vite `/api/login` route plus a minimal React `/login` page so the replacement app owns the login endpoint and UI surface instead of relying on Next.
+- Added a Vite `/search` page backed by the Vite `/api/search` route, so canonical text search is no longer only a handoff in the replacement app.
 - Added minimal standalone metadata injection: the Bun server patches built Vite HTML with public page title, description, and OG tags for route shells.
 - Fixed the Vite dev middleware request adapter to preserve POST request bodies, which protects current and future Vite backend routes from empty JSON payloads.
 - Moved framework-neutral PII redaction and chat page-reading logic into `@diana-tnbc/wiki-content`, leaving `web` with thin compatibility wrappers and Vite with a package import instead of reaching into `web/src`.
@@ -58,7 +59,7 @@ bun run verify:wiki-vite
 
 - Added root `bun run verify:wiki-vite` as the one-command local proof for the migration branch.
 - The script runs shared content tests, shared markdown tests, Vite typecheck/build, the Vite bundle budget, and the migrated Vite Playwright suite.
-- Local result after the backend API checkpoint: shared content `16 passed`, shared markdown `21 passed`, and Vite Playwright `70 passed, 68 skipped`.
+- Local result after the backend API checkpoint: shared content `16 passed`, shared markdown `21 passed`, and Vite Playwright `71 passed, 68 skipped`.
 - Added `bun run verify:wiki-vite:server` for the one-process server path. It builds `apps/wiki-vite`, starts the standalone Bun server, smokes the built shell and wiki session API, runs the preview smoke against that origin, and shuts the server down.
 - Local standalone result after the backend API checkpoint: backend session/search/tools/login/file smokes passed, plus preview smoke `1 passed`.
 - Verification command for this checkpoint:
@@ -528,7 +529,7 @@ These are the major gaps between the prototype and the current wiki experience.
 | Feature area | Current prototype | Missing work | V1 stance |
 | --- | --- | --- | --- |
 | Page finder | Header finder filters the local page index by title, slug, and tags. The command palette provides keyboard page navigation, tag slices, and recent pages from local LiveStore/localStorage state. | Better fuzzy scoring, source/PDF context actions, and richer empty states. | Keep this client-local because it is a navigation affordance backed by the manifest, not canonical search. |
-| Text search | Vite serves `/api/search` from the one-server backend path, links to the existing full-stack search surface from the header and action palette, preserves `returnTo`, and transfers the active local finder query when local matches are empty. | Snippet/result handoff polish, loading/empty/error parity in the backend app, and public/session search leak tests. | Keep canonical full-text search on the backend for v1. The Vite reader should not rebuild search from the local markdown cache. |
+| Text search | Vite serves `/api/search` from the one-server backend path and owns a `/search` page with backend results and reader navigation. The header and action palette preserve `returnTo`, and the local finder transfers the active query when local matches are empty. | Better snippets, keyboard/result polish, loading/empty/error refinement, and public/session search leak tests. | Keep canonical full-text search backend-owned. The Vite reader should not rebuild search from the local markdown cache. |
 | Chat | Vite links to the existing full-stack chat experience from the header and action palette with `returnTo` context. The Vite backend can now serve the chat tool API surface used by that experience. | Conversation resumption handoff, mobile polish, and full chat UI route ownership. | Keep chat as a full-stack backend/app experience for v1 unless the migration scope explicitly changes. Link out or route users back to the current app. |
 | AI search | Not implemented in Vite. | `/api/ai-search` route handoff or thin client adapter, citation rendering, loading states, and tenant/session scoping tests. | Needed for standalone replacement parity, but can be backend-owned instead of client-local. |
 | Outline | Local outline palette, persistent desktop outline rail, and mobile inline outline extract headings from rendered markdown and jump by hash. | Hash navigation polish and accessibility pass. | Should land before reader parity because it is a core reading affordance and can be fully local. |
@@ -565,7 +566,7 @@ Active Vite reader coverage:
 
 Skipped-in-place migration inventory:
 
-- Full search UI modes beyond the backend `/api/search` parity route, plus AI search modes.
+- Search UI polish beyond the first Vite `/search` route, plus AI search modes.
 - Chat and chat performance/resilience.
 - Comments, Liveblocks, comment APIs, and the full comments/outline rail.
 - Link-preview metadata hardening and login redirect behavior.
@@ -577,7 +578,7 @@ Current local result:
 
 ```txt
 bun --cwd apps/wiki-vite test:e2e --reporter=line
-70 passed, 68 skipped
+71 passed, 68 skipped
 ```
 
 The skipped specs are not a hidden success condition. They are the remaining feature inventory to either migrate into Vite, keep routed to Next for v1, or delete from the Vite migration scope explicitly.

@@ -61,6 +61,35 @@ test.describe("Local page finder", () => {
     );
   });
 
+  test("search route runs backend text search and opens results", async ({ page }) => {
+    await page.route("**/api/search?**", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          results: [
+            {
+              slug: "wiki/logistics/insurance",
+              title: "Insurance",
+              excerpt: "Prior authorization and coverage notes.",
+              tags: ["logistics"],
+            },
+          ],
+        }),
+      }),
+    );
+    await installWikiApiMocks(page);
+    await page.goto("/search?q=insurance&returnTo=%2Fwiki%2Flogistics%2Finsurance", {
+      waitUntil: "domcontentloaded",
+    });
+
+    await expect(page.getByTestId("search-page")).toBeVisible();
+    await expect(page.getByTestId("search-results")).toContainText("1 result");
+    await page.getByRole("link", { name: /Insurance/ }).click();
+
+    await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
+    await waitForPageTitle(page, "Insurance");
+  });
+
   test.skip("AI mode shows ranked results", async () => {
     // AI search remains a backend/full-stack feature for v1.
   });

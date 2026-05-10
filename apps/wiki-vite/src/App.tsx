@@ -30,6 +30,9 @@ const WikiPage = lazy(() =>
 const LoginPage = lazy(() =>
   import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })),
 );
+const SearchPage = lazy(() =>
+  import("./pages/SearchPage").then((module) => ({ default: module.SearchPage })),
+);
 
 function PageFallback() {
   return (
@@ -78,6 +81,7 @@ export function App({
             <Suspense fallback={<PageFallback />}>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/search" element={<SearchPage />} />
                 <Route path="*" element={<WikiPage metrics={metrics} onMetrics={bumpMetrics} />} />
               </Routes>
             </Suspense>
