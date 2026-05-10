@@ -83,3 +83,36 @@ export function PageOutline({ contentKey }: { contentKey: string }) {
     </aside>
   );
 }
+
+export function MobilePageOutline({ contentKey }: { contentKey: string }) {
+  const location = useLocation();
+  const { activeId, items } = usePageOutline(contentKey);
+
+  if (items.length === 0) return null;
+
+  return (
+    <details className="mobile-page-outline" data-test-id="mobile-page-outline">
+      <summary>
+        <span>Outline</span>
+        <span>{items.length} headings</span>
+      </summary>
+      <nav aria-label="Page outline">
+        {items.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={activeId === item.id ? "active" : ""}
+            style={
+              {
+                "--outline-depth": Math.max(0, item.level - 1),
+              } as CSSProperties
+            }
+            onClick={() => scrollToOutlineItem(item, location.pathname)}
+          >
+            {item.text}
+          </button>
+        ))}
+      </nav>
+    </details>
+  );
+}

@@ -143,6 +143,19 @@ bun --cwd apps/wiki-vite build
 bun --cwd apps/wiki-vite test:e2e
 ```
 
+### 2026-05-09 Mobile Outline Checkpoint
+
+- Added a mobile page outline control inside the Vite article chrome. It uses the same local heading collector as the desktop rail and command palette, so mobile heading jumps stay client-local.
+- Kept the desktop outline rail unchanged and hidden on small screens; mobile readers now get an inline collapsible outline instead of relying only on the global command palette.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/page-chrome.spec.ts
+bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite test:e2e
+```
+
 ### 2026-05-09 Markdown Package Hardening Checkpoint
 
 - Added package-level server renderer tests for smart-table markup, PDF chips, image theater attributes, citations, theme-paired images, currency preservation, and math rendering.
@@ -338,7 +351,7 @@ These are the major gaps between the prototype and the current wiki experience.
 | Text search | Vite links to the existing backend search surface from the header and action palette. | Snippet/result handoff polish, active query transfer from the local finder, loading/empty/error parity in the backend app, and public/session leak tests. | Keep canonical full-text search on the backend for v1. The Vite reader should not rebuild search from the local markdown cache. |
 | Chat | Vite links to the existing full-stack chat experience from the header and action palette. | Preserve return-to-reader context, conversation resumption handoff, and mobile polish. | Keep chat as a full-stack backend/app experience for v1 unless the migration scope explicitly changes. Link out or route users back to the current app. |
 | AI search | Not implemented in Vite. | `/api/ai-search` route handoff or thin client adapter, citation rendering, loading states, and tenant/session scoping tests. | Keep AI search on the backend/full-stack search surface for v1. Do not block the reader prototype on it. |
-| Outline | Local outline palette and persistent desktop outline rail extract headings from rendered markdown and jump by hash. | Mobile outline placement, hash navigation polish, and accessibility pass. | Should land before reader parity because it is a core reading affordance and can be fully local. |
+| Outline | Local outline palette, persistent desktop outline rail, and mobile inline outline extract headings from rendered markdown and jump by hash. | Hash navigation polish and accessibility pass. | Should land before reader parity because it is a core reading affordance and can be fully local. |
 | Comments and Liveblocks | Not implemented in Vite. | Comment rail, auth gating, Liveblocks tokens, thread persistence, unread/resolved states, and multi-device sync. | Keep in Next for v1. Treat as out of scope unless explicitly pulled forward. |
 | Command palette | Keyboard trigger, local page rows, outline rows, asset rows, tag slices, recent pages, current-page source/PDF actions, and backend action rows landed. | Better fuzzy ranking, richer current-page context actions, and a deeper focus/accessibility pass. | Build before production reader parity. It can be powered by the local LiveStore index, while search/chat actions delegate to backend surfaces. |
 | Other palettes | Page, outline, asset, tag, recent, and backend action palettes now exist as modes in one command surface. | Debug/cache palette for store reset and metrics. | Page palette should be first. Backend search/chat entries should delegate instead of cloning those full-stack flows. |

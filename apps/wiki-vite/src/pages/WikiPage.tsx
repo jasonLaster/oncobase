@@ -31,7 +31,7 @@ import { useWikiScope } from "../wiki-context";
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { PageActions } from "./PageActions";
-import { PageOutline } from "./PageOutline";
+import { MobilePageOutline, PageOutline } from "./PageOutline";
 
 function routeLink({ href, children, ...props }: WikiMarkdownLinkProps) {
   return (
@@ -264,6 +264,7 @@ export function WikiPage({
           slug={page.slug}
           title={page.title}
         />
+        <MobilePageOutline contentKey={`${page.slug}:${page.contentHash ?? "none"}`} />
         {relatedAssets.length > 0 ? (
           <section className="source-links" data-test-id="source-links" aria-label="Source files">
             <div className="source-links-title">Source files</div>

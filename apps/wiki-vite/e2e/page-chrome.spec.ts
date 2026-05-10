@@ -58,6 +58,19 @@ test.describe("Page chrome parity", () => {
     await expect(page).toHaveURL(/#claims-follow-up$/);
   });
 
+  test("renders a mobile outline control for page headings", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    await expect(page.getByTestId("page-outline")).toBeHidden();
+    const mobileOutline = page.getByTestId("mobile-page-outline");
+    await expect(mobileOutline).toContainText("3 headings");
+    await mobileOutline.locator("summary").click();
+    await mobileOutline.getByRole("button", { name: "Claims follow-up" }).click();
+
+    await expect(page).toHaveURL(/#claims-follow-up$/);
+  });
+
   test("surfaces source file provenance from the local asset index", async ({ page }) => {
     await gotoWiki(page, "/sources/institutions/stanford/telli");
 

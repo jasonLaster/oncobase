@@ -690,6 +690,10 @@ a {
   font-weight: 650;
 }
 
+.mobile-page-outline {
+  display: none;
+}
+
 .badge.updating {
   border-color: color-mix(in srgb, var(--amber) 35%, white);
   color: var(--amber);
@@ -1072,6 +1076,65 @@ a {
 
   .page-outline {
     display: none;
+  }
+
+  .mobile-page-outline {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    display: block;
+    margin: -4px 0 18px;
+    overflow: hidden;
+  }
+
+  .mobile-page-outline summary {
+    align-items: center;
+    background: var(--panel);
+    color: var(--foreground);
+    cursor: pointer;
+    display: flex;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    justify-content: space-between;
+    list-style: none;
+    min-height: 38px;
+    padding: 0 10px;
+  }
+
+  .mobile-page-outline summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .mobile-page-outline summary span:last-child {
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 550;
+  }
+
+  .mobile-page-outline nav {
+    border-top: 1px solid var(--border);
+    display: grid;
+    padding: 4px;
+  }
+
+  .mobile-page-outline button {
+    background: transparent;
+    border: 0;
+    border-radius: 5px;
+    color: var(--foreground);
+    cursor: pointer;
+    font-size: 0.8125rem;
+    min-height: 34px;
+    overflow: hidden;
+    padding: 6px 8px 6px calc(8px + (var(--outline-depth) * 12px));
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-page-outline button:hover,
+  .mobile-page-outline button.active {
+    background: var(--accent-light);
+    color: var(--brand);
   }
 
   .bottom-nav-trigger {
