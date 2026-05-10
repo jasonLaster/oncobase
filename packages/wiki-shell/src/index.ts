@@ -56,6 +56,26 @@ export {
   type WikiPageSkeletonProps,
 } from "./page-states";
 export {
+  WikiSearchForm,
+  WikiSearchHeader,
+  WikiSearchInput,
+  WikiSearchModeToggle,
+  WikiSearchPage,
+  WikiSearchResultLink,
+  WikiSearchResults,
+  WikiSearchSubmitButton,
+  type WikiSearchFormProps,
+  type WikiSearchHeaderProps,
+  type WikiSearchInputProps,
+  type WikiSearchModeOption,
+  type WikiSearchModeToggleProps,
+  type WikiSearchPageProps,
+  type WikiSearchResultLinkProps,
+  type WikiSearchResultLinkRenderProps,
+  type WikiSearchResultsProps,
+  type WikiSearchSubmitButtonProps,
+} from "./search";
+export {
   WikiMobileNavigation,
   WikiSidebar,
   WikiTree,

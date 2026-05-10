@@ -1,5 +1,15 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import {
+  WikiSearchForm,
+  WikiSearchHeader,
+  WikiSearchInput,
+  WikiSearchModeToggle,
+  WikiSearchPage,
+  WikiSearchResultLink,
+  WikiSearchResults,
+  WikiSearchSubmitButton,
+} from "@diana-tnbc/wiki-shell";
 import { recordSearchMetric } from "../observability";
 import { hrefForSlug } from "../wiki-utils";
 
@@ -159,74 +169,71 @@ export function SearchPage() {
   }
 
   return (
-    <article className="search-page" data-test-id="search-page">
-      <header className="search-page-header">
-        <p className="eyebrow">Backend search</p>
-        <h1>Search wiki</h1>
-        {returnTo ? <Link to={returnTo}>Back to reader</Link> : null}
-      </header>
-      <form className="search-page-form" onSubmit={onSubmit}>
-        <input
+    <WikiSearchPage data-test-id="search-page">
+      <WikiSearchHeader
+        action={returnTo ? <Link to={returnTo}>Back to reader</Link> : null}
+        eyebrow="Backend search"
+        heading="Search wiki"
+      />
+      <WikiSearchForm onSubmit={onSubmit}>
+        <WikiSearchInput
           aria-label="Search wiki"
           autoFocus
           onChange={(event) => setQuery(event.currentTarget.value)}
           placeholder="Search across wiki pages"
           value={query}
         />
-        <button disabled={!trimmedQuery || status === "loading" || status === "ranking"} type="submit">
+        <WikiSearchSubmitButton disabled={!trimmedQuery || status === "loading" || status === "ranking"}>
           Search
-        </button>
-      </form>
-      <div aria-label="Search mode" className="search-mode-toggle" role="group">
-        <button
-          aria-pressed={mode === "text"}
-          onClick={() => onModeChange("text")}
-          type="button"
-        >
-          Text
-        </button>
-        <button
-          aria-pressed={mode === "ai"}
-          onClick={() => onModeChange("ai")}
-          type="button"
-        >
-          AI
-        </button>
-      </div>
-      <section
+        </WikiSearchSubmitButton>
+      </WikiSearchForm>
+      <WikiSearchModeToggle
+        options={[
+          {
+            key: "text",
+            label: "Text",
+            onSelect: () => onModeChange("text"),
+            pressed: mode === "text",
+          },
+          {
+            key: "ai",
+            label: "AI",
+            onSelect: () => onModeChange("ai"),
+            pressed: mode === "ai",
+          },
+        ]}
+      />
+      <WikiSearchResults
         aria-activedescendant={results[activeIndex] ? `search-result-${activeIndex}` : undefined}
         aria-label="Search results"
-        className="search-page-results"
         data-test-id="search-results"
+        emptyMessage={status === "ready" && results.length === 0 ? "No results" : undefined}
+        error={error}
         onKeyDown={onResultsKeyDown}
+        statusLabel={resultLabel}
         tabIndex={results.length > 0 ? 0 : -1}
       >
-        <div className="search-page-status" role="status">{resultLabel}</div>
-        {error ? <p className="auth-error">{error}</p> : null}
-        {status === "ready" && results.length === 0 ? (
-          <p className="search-page-empty">No results</p>
-        ) : null}
         {results.map((result, index) => (
-          <Link
-            className={`search-page-result ${index === activeIndex ? "active" : ""}`}
-            data-active={index === activeIndex ? "true" : undefined}
+          <WikiSearchResultLink
+            active={index === activeIndex}
+            excerpt={result.excerpt}
+            href={hrefForSlug(result.slug)}
             id={`search-result-${index}`}
             key={result.slug}
-            to={hrefForSlug(result.slug)}
             onFocus={() => setActiveIndex(index)}
-          >
-            <strong>{result.title}</strong>
-            <span>
-              {result.slug}
-              {typeof result.relevance === "number" ? ` · ${result.relevance.toFixed(1)} relevance` : ""}
-            </span>
-            {result.tags && result.tags.length > 0 ? (
-              <small>{result.tags.slice(0, 3).join(" / ")}</small>
-            ) : null}
-            {result.summary ? <p>{result.summary}</p> : result.excerpt ? <p>{result.excerpt}</p> : null}
-          </Link>
+            relevance={result.relevance}
+            renderLink={({ href, children, ...linkProps }) => (
+              <Link {...linkProps} to={href}>
+                {children}
+              </Link>
+            )}
+            slug={result.slug}
+            summary={result.summary}
+            tags={result.tags}
+            title={result.title}
+          />
         ))}
-      </section>
-    </article>
+      </WikiSearchResults>
+    </WikiSearchPage>
   );
 }

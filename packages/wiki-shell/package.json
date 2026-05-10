@@ -30,6 +30,11 @@
       "import": "./src/page-states.tsx",
       "default": "./src/page-states.tsx"
     },
+    "./search": {
+      "types": "./src/search.tsx",
+      "import": "./src/search.tsx",
+      "default": "./src/search.tsx"
+    },
     "./navigation": {
       "types": "./src/navigation.tsx",
       "import": "./src/navigation.tsx",
