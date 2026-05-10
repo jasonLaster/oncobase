@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
+    "start:server": "bun server/standalone.ts",
     "typecheck": "tsc --noEmit",
     "test:unit": "bun test src/**/*.test.ts",
     "test:e2e": "playwright test",

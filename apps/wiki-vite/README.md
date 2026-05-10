@@ -32,6 +32,16 @@ bun run dev
 
 Then run Vite with `VITE_WIKI_API_ORIGIN=http://localhost:3000` to proxy `/api/*` to Next.
 
+Run the production-style one-process server after building:
+
+```sh
+cd apps/wiki-vite
+bun run build
+PORT=62003 bun run start:server
+```
+
+`start:server` serves `dist/` and the same wiki API request handler from one Bun process. It is the current full-stack rehearsal target: the SPA, `/api/wiki/*`, `/api/file`, and `/api/page-copy` all come from the same origin while Convex remains the content database.
+
 ## Environment
 
 The prototype has two origins:
@@ -57,6 +67,14 @@ Run the optional preview smoke against a deployed Vite reader:
 PLAYWRIGHT_BASE_URL=https://wiki-vite-preview.example \
 WIKI_VITE_SMOKE_PATH=/wiki/logistics/insurance \
 bun run test:e2e:preview
+```
+
+You can also run the preview smoke against the standalone server:
+
+```sh
+bun run build
+PORT=62004 bun run start:server
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:62004 bun run test:e2e:preview
 ```
 
 The suite mirrors the current `web/e2e/*.spec.ts` filenames. Reader-capable specs run against the Vite app; feature areas still owned by the Next app for v1 are skipped in place so the migration gap remains visible.

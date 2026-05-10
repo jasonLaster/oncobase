@@ -220,46 +220,64 @@ async function handlePageCopyRequest(
   });
 }
 
+export function createWikiApiHandler(client = createClient()) {
+  return async function handleWikiApiRequest(request: Request): Promise<Response | null> {
+    const pathname = new URL(request.url).pathname;
+    const handled =
+      pathname.startsWith("/api/wiki/") ||
+      pathname === "/api/file" ||
+      pathname === "/api/page-copy";
+    if (!handled) return null;
+
+    const siteSlug = siteSlugFromRequest(request);
+    const context = {
+      siteSlug,
+      documents: createDocumentsGateway(client, siteSlug),
+      getSessionUser: (nextRequest: Request) =>
+        getSessionUser(nextRequest, client, siteSlug),
+      logger: console,
+    };
+
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204 });
+    }
+
+    if (pathname === "/api/wiki/session") {
+      return createWikiSessionResponse(request, context);
+    }
+
+    if (pathname === "/api/wiki/manifest") {
+      return createWikiManifestResponse(request, context);
+    }
+
+    if (pathname === "/api/wiki/pages") {
+      return createWikiPagesResponse(request, context);
+    }
+
+    if (pathname === "/api/file") {
+      return handleFileRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/page-copy") {
+      return handlePageCopyRequest(request, client, siteSlug);
+    }
+
+    return null;
+  };
+}
+
 export function wikiApiPlugin(): Plugin {
-  const client = createClient();
+  const handleWikiApiRequest = createWikiApiHandler();
 
   return {
     name: "diana-wiki-api",
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
-        const handled =
-          pathname.startsWith("/api/wiki/") ||
-          pathname === "/api/file" ||
-          pathname === "/api/page-copy";
-        if (!handled) return next();
-
         try {
           const request = requestFromIncoming(req);
-          const siteSlug = siteSlugFromRequest(request);
-          const context = {
-            siteSlug,
-            documents: createDocumentsGateway(client, siteSlug),
-            getSessionUser: (nextRequest: Request) =>
-              getSessionUser(nextRequest, client, siteSlug),
-            logger: console,
-          };
-
-          if (req.method === "OPTIONS") {
-            await sendWebResponse(res, new Response(null, { status: 204 }));
-          } else if (pathname === "/api/wiki/session") {
-            await sendWebResponse(res, await createWikiSessionResponse(request, context));
-          } else if (pathname === "/api/wiki/manifest") {
-            await sendWebResponse(res, await createWikiManifestResponse(request, context));
-          } else if (pathname === "/api/wiki/pages") {
-            await sendWebResponse(res, await createWikiPagesResponse(request, context));
-          } else if (pathname === "/api/file") {
-            await sendWebResponse(res, await handleFileRequest(request, client, siteSlug));
-          } else if (pathname === "/api/page-copy") {
-            await sendWebResponse(res, await handlePageCopyRequest(request, client, siteSlug));
-          } else {
-            return next();
-          }
+          const response = await handleWikiApiRequest(request);
+          if (!response) return next();
+          await sendWebResponse(res, response);
         } catch (error) {
           server.config.logger.error(`[wiki-api] ${String(error)}`);
           await sendWebResponse(res, Response.json({ error: "Wiki API failed" }, { status: 500 }));
