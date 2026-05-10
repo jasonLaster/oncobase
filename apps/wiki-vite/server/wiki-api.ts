@@ -9,13 +9,16 @@ import {
   createWikiSessionResponse,
   type WikiApiDocumentsGateway,
 } from "@diana-tnbc/wiki-content/server";
+import { splitWikilinkAlias } from "@diana-tnbc/wiki-markdown/paths";
 import { api } from "../../../web/convex/_generated/api.js";
+import { applyPiiRedactions } from "../../../web/src/lib/pii-redaction";
 
 const DEFAULT_SITE_SLUG = "diana";
 const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
 const USER_SESSION_COOKIE = "wiki_user_session";
 const DEFAULT_SEARCH_LIMIT = 10;
 const MAX_SEARCH_LIMIT = 50;
+const CHAT_UNAVAILABLE_CONTENT = "unavailable";
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -63,12 +66,23 @@ function headersFromIncoming(headers: IncomingHttpHeaders) {
   return output;
 }
 
-function requestFromIncoming(req: IncomingMessage) {
+async function readIncomingBody(req: IncomingMessage) {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
+async function requestFromIncoming(req: IncomingMessage) {
   const host = req.headers.host ?? "localhost";
   const url = new URL(req.url ?? "/", `http://${host}`);
+  const method = req.method ?? "GET";
+  const hasBody = method !== "GET" && method !== "HEAD";
   return new Request(url, {
-    method: req.method,
+    method,
     headers: headersFromIncoming(req.headers),
+    body: hasBody ? await readIncomingBody(req) : undefined,
   });
 }
 
@@ -90,6 +104,20 @@ function getMimeType(filePath: string) {
 
 function assetPathToSiblingSlug(assetPath: string) {
   return assetPath.replace(/\.[^/.]+$/, "");
+}
+
+function splitSlugAnchor(value: string) {
+  const normalized = value.replace(/^\/+/, "").replace(/\.md(?=#|$)/, "");
+  const hashIndex = normalized.indexOf("#");
+  if (hashIndex === -1) return { slug: normalized, anchor: undefined };
+  return {
+    slug: normalized.slice(0, hashIndex),
+    anchor: normalized.slice(hashIndex + 1) || undefined,
+  };
+}
+
+function hrefForSlug(slug: string, anchor?: string) {
+  return `/${slug}${anchor ? `#${anchor}` : ""}`;
 }
 
 function createClient() {
@@ -270,12 +298,174 @@ async function handleSearchRequest(
   );
 }
 
+async function resolveToolLinkedPages(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  content: string,
+  slug: string,
+) {
+  const linkRegex = /\[\[([^\]]+?)\]\]/g;
+  const linkedSlugs = new Set<string>();
+  let match;
+  while ((match = linkRegex.exec(content)) !== null) {
+    const linked = splitSlugAnchor(splitWikilinkAlias(match[1]).target);
+    if (linked.slug === "about/Terminology" || linked.slug === slug) continue;
+    linkedSlugs.add(hrefForSlug(linked.slug, linked.anchor).slice(1));
+  }
+
+  const linkedPages = await Promise.all(
+    Array.from(linkedSlugs)
+      .slice(0, 10)
+      .map(async (linkedSlug) => {
+        const target = splitSlugAnchor(linkedSlug);
+        const linked = await client.query(
+          api.documents.getBySlug,
+          withSiteSlug(siteSlug, { slug: target.slug }),
+        );
+        return linked
+          ? {
+              slug: linked.slug,
+              title: applyPiiRedactions(linked.title),
+              href: hrefForSlug(linked.slug, target.anchor),
+              anchor: target.anchor,
+            }
+          : null;
+      }),
+  );
+
+  return linkedPages.filter((page): page is NonNullable<typeof page> => page !== null);
+}
+
+async function readToolPage(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  slug: string,
+) {
+  const requested = splitSlugAnchor(slug);
+  const publicDoc = await client.query(
+    api.documents.getBySlug,
+    withSiteSlug(siteSlug, { slug: requested.slug }),
+  );
+  if (!publicDoc) {
+    const unavailableDoc = await client.query(
+      api.documents.getBySlug,
+      withSiteSlug(siteSlug, { slug: requested.slug, includeSensitive: true }),
+    );
+    if (!unavailableDoc) return { error: `Page not found: ${requested.slug}` };
+    return {
+      slug: unavailableDoc.slug,
+      title: applyPiiRedactions(unavailableDoc.title),
+      href: hrefForSlug(unavailableDoc.slug, requested.anchor),
+      anchor: requested.anchor,
+      tags: unavailableDoc.tags,
+      content: CHAT_UNAVAILABLE_CONTENT,
+      linked_pages: [],
+      unavailable: true,
+      sensitive: unavailableDoc.sensitive === true ? true : undefined,
+    };
+  }
+
+  const content = applyPiiRedactions(publicDoc.content);
+  return {
+    slug: publicDoc.slug,
+    title: applyPiiRedactions(publicDoc.title),
+    href: hrefForSlug(publicDoc.slug, requested.anchor),
+    anchor: requested.anchor,
+    tags: publicDoc.tags,
+    content: content.slice(0, 8000),
+    linked_pages: await resolveToolLinkedPages(client, siteSlug, content, publicDoc.slug),
+  };
+}
+
+async function handleToolsRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  if (request.method !== "POST") {
+    return Response.json(
+      { error: "Method not allowed" },
+      {
+        status: 405,
+        headers: { Allow: "POST" },
+      },
+    );
+  }
+
+  const { tool, args = {} } = (await request.json()) as {
+    tool?: string;
+    args?: Record<string, unknown>;
+  };
+
+  switch (tool) {
+    case "search_wiki": {
+      const query = String(args.query ?? "");
+      return Response.json(
+        await client.query(
+          api.documents.search,
+          withSiteSlug(siteSlug, { query, limit: 8 }),
+        ),
+        {
+          headers: {
+            "Cache-Control": "private, no-store",
+            "X-Wiki-Cache-Scope": "session",
+          },
+        },
+      );
+    }
+    case "read_page": {
+      return Response.json(await readToolPage(client, siteSlug, String(args.slug ?? "")), {
+        headers: {
+          "Cache-Control": "private, no-store",
+          "X-Wiki-Cache-Scope": "session",
+        },
+      });
+    }
+    case "list_pages": {
+      return Response.json(await client.action(api.documents.list, withSiteSlug(siteSlug, {})), {
+        headers: {
+          "Cache-Control": "private, no-store",
+          "X-Wiki-Cache-Scope": "session",
+        },
+      });
+    }
+    case "get_pages_by_tag": {
+      return Response.json(
+        await client.action(
+          api.documents.getByTag,
+          withSiteSlug(siteSlug, { tag: String(args.tag ?? "") }),
+        ),
+        {
+          headers: {
+            "Cache-Control": "private, no-store",
+            "X-Wiki-Cache-Scope": "session",
+          },
+        },
+      );
+    }
+    case "list_tags": {
+      return Response.json(
+        await client.action(api.documents.listTags, withSiteSlug(siteSlug, {})),
+        {
+          headers: {
+            "Cache-Control": "private, no-store",
+            "X-Wiki-Cache-Scope": "session",
+          },
+        },
+      );
+    }
+    default:
+      return Response.json({ error: `Unknown tool: ${tool}` }, { status: 400 });
+  }
+}
+
 export function createWikiApiHandler(client = createClient()) {
   return async function handleWikiApiRequest(request: Request): Promise<Response | null> {
     const pathname = new URL(request.url).pathname;
     const handled =
       pathname.startsWith("/api/wiki/") ||
       pathname === "/api/search" ||
+      pathname === "/api/tools" ||
       pathname === "/api/file" ||
       pathname === "/api/page-copy";
     if (!handled) return null;
@@ -309,6 +499,10 @@ export function createWikiApiHandler(client = createClient()) {
       return handleSearchRequest(request, client, siteSlug);
     }
 
+    if (pathname === "/api/tools") {
+      return handleToolsRequest(request, client, siteSlug);
+    }
+
     if (pathname === "/api/file") {
       return handleFileRequest(request, client, siteSlug);
     }
@@ -329,7 +523,7 @@ export function wikiApiPlugin(): Plugin {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         try {
-          const request = requestFromIncoming(req);
+          const request = await requestFromIncoming(req);
           const response = await handleWikiApiRequest(request);
           if (!response) return next();
           await sendWebResponse(res, response);

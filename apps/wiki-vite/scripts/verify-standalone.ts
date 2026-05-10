@@ -61,6 +61,20 @@ try {
     throw new Error("Standalone search smoke returned no results");
   }
 
+  const toolResponse = await fetch(`${origin}/api/tools`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tool: "search_wiki", args: { query: "diagnosis" } }),
+  });
+  if (!toolResponse.ok) {
+    throw new Error(`Standalone tools smoke failed: ${toolResponse.status}`);
+  }
+
+  const toolBody = await toolResponse.json();
+  if (!Array.isArray(toolBody) || toolBody.length === 0) {
+    throw new Error("Standalone tools smoke returned no search results");
+  }
+
   const fileErrorResponse = await fetch(`${origin}/api/file`);
   if (fileErrorResponse.status !== 400) {
     throw new Error(`Standalone file validation smoke failed: ${fileErrorResponse.status}`);

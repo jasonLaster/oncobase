@@ -50,4 +50,54 @@ test.describe("Vite backend API", () => {
     expect(unsupported.status()).toBe(400);
     expect(await unsupported.text()).toContain("not supported");
   });
+
+  test("serves chat tool calls from the Vite API route", async ({ request }) => {
+    const search = await request.post("/api/tools", {
+      data: { tool: "search_wiki", args: { query: "diagnosis" } },
+    });
+    expect(search.ok(), await search.text()).toBe(true);
+    expect(search.headers()["x-wiki-cache-scope"]).toBe("session");
+    const searchResults = await search.json();
+    expect(Array.isArray(searchResults)).toBe(true);
+    expect(searchResults.length).toBeGreaterThan(0);
+
+    const page = await request.post("/api/tools", {
+      data: {
+        tool: "read_page",
+        args: { slug: searchResults[0].slug },
+      },
+    });
+    expect(page.ok(), await page.text()).toBe(true);
+    const pageResult = await page.json();
+    expect(pageResult).toEqual(
+      expect.objectContaining({
+        slug: searchResults[0].slug,
+        title: expect.any(String),
+        content: expect.any(String),
+        linked_pages: expect.any(Array),
+      }),
+    );
+
+    const tags = await request.post("/api/tools", {
+      data: { tool: "list_tags", args: {} },
+    });
+    expect(tags.ok(), await tags.text()).toBe(true);
+    const tagList = await tags.json();
+    expect(Array.isArray(tagList)).toBe(true);
+    expect(tagList.length).toBeGreaterThan(0);
+
+    const taggedPages = await request.post("/api/tools", {
+      data: { tool: "get_pages_by_tag", args: { tag: tagList[0] } },
+    });
+    expect(taggedPages.ok(), await taggedPages.text()).toBe(true);
+    expect(Array.isArray(await taggedPages.json())).toBe(true);
+  });
+
+  test("validates unknown chat tools", async ({ request }) => {
+    const response = await request.post("/api/tools", {
+      data: { tool: "nope", args: {} },
+    });
+    expect(response.status()).toBe(400);
+    expect(await response.text()).toContain("Unknown tool");
+  });
 });
