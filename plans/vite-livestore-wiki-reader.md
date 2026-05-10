@@ -84,6 +84,8 @@ bun --cwd apps/wiki-vite check:bundle
 bun --cwd apps/wiki-vite test:e2e e2e/chat.spec.ts e2e/chat-perf.spec.ts e2e/session-recovery.spec.ts --reporter=line
 ```
 
+Full Vite verification result after the package extraction run: `bun run verify:wiki-vite` passed with `112 passed`, `50 skipped`.
+
 ### 2026-05-10 Wiki Markdown Frame/Style Checkpoint
 
 Implementation follow-up from page-state extraction:
