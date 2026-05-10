@@ -53,6 +53,16 @@ test.describe("Page load experience", () => {
     await expect(documentArticle(page)).toContainText("Claims follow-up");
   });
 
+  test("cold route fetches the current page body before eager markdown", async ({ page }) => {
+    const requests = await installWikiApiMocks(page);
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await waitForPageTitle(page, "Insurance");
+
+    expect(requests.pages.length).toBeGreaterThan(0);
+    const firstPageRequest = new URL(requests.pages[0]);
+    expect(firstPageRequest.searchParams.get("slugs")).toBe("wiki/logistics/insurance");
+  });
+
   test("unknown deep links render a not-found shell after manifest sync", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/missing/not-here");
