@@ -108,8 +108,8 @@ bun --cwd apps/wiki-vite test:e2e e2e/livestore-devtools.spec.ts
 
 ### 2026-05-09 Local Verification Checkpoint
 
-- Ran the full migrated Vite Playwright suite after the reader parity, sidebar, and cache-control work.
-- Result: 38 passed, 72 skipped. The skipped tests are intentionally retained as the Next-owned feature inventory for chat, comments, backend search/AI search, metadata, PII, multi-site isolation, backend PDF error paths, and timeline/mermaid work.
+- Ran the full migrated Vite Playwright suite after the reader parity, sidebar, cache-control, page-chrome, performance-metrics, and asset-palette work.
+- Result: 42 passed, 72 skipped. The skipped tests are intentionally retained as the Next-owned feature inventory for chat, comments, backend search/AI search, metadata, PII, multi-site isolation, backend PDF error paths, and timeline/mermaid work.
 - Confirmed the Vite production build completes and keeps LiveStore, React, markdown, icon, and page chunks split.
 - Re-ran the backend wiki API unit tests after the Convex deploy/pagination fix.
 - Re-ran root typecheck across `web`, `apps/wiki-vite`, `packages/wiki-content`, `packages/wiki-markdown`, `@diana-tnbc/chat`, and `@diana-tnbc/smart-table`.
@@ -123,6 +123,16 @@ bun --cwd packages/wiki-content test:unit
 bun --cwd packages/wiki-markdown test:unit
 bun run typecheck
 ```
+
+Latest verification update:
+
+```sh
+bun --cwd apps/wiki-vite test:e2e
+bun --cwd apps/wiki-vite build
+bun run typecheck
+```
+
+Latest result: `42 passed, 72 skipped` for the Vite Playwright suite.
 
 ### 2026-05-09 Backend Deployment Checkpoint
 
@@ -213,7 +223,7 @@ Current local result:
 
 ```txt
 bun --cwd apps/wiki-vite test:e2e --reporter=line
-29 passed, 72 skipped
+42 passed, 72 skipped
 ```
 
 The skipped specs are not a hidden success condition. They are the remaining feature inventory to either migrate into Vite, keep routed to Next for v1, or delete from the Vite migration scope explicitly.
