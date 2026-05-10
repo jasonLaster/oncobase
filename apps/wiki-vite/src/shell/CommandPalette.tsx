@@ -7,6 +7,8 @@ import {
   MessageCircleIcon,
   PaperclipIcon,
   SearchIcon,
+  ClockIcon,
+  TagIcon,
   XIcon,
 } from "lucide-react";
 import {
@@ -21,16 +23,27 @@ import {
 import { Link, useLocation, useNavigate } from "react-router";
 import { assets$, pageIndex$ } from "../livestore/queries";
 import type { AssetIndexRow, PageIndexRow } from "../types";
-import { backendHref, hrefForSlug, rememberSlug } from "../wiki-utils";
+import {
+  backendHref,
+  hrefForSlug,
+  parseJsonArray,
+  readRecentSlugs,
+  rememberSlug,
+} from "../wiki-utils";
 import { collectOutline, scrollToOutlineItem, type OutlineItem } from "./outline";
 
-type PaletteMode = "pages" | "outline" | "assets" | "actions";
+type PaletteMode = "pages" | "outline" | "assets" | "tags" | "recent" | "actions";
 
 type ActionItem = {
   label: string;
   description: string;
   href: string;
   icon: ReactNode;
+};
+
+type TagResult = {
+  tag: string;
+  count: number;
 };
 
 function commandLabel() {
@@ -68,6 +81,7 @@ export function CommandPalette({
   const [mode, setMode] = useState<PaletteMode>(initialMode);
   const [query, setQuery] = useState("");
   const [outline, setOutline] = useState<OutlineItem[]>([]);
+  const [recentSlugs, setRecentSlugs] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -78,6 +92,7 @@ export function CommandPalette({
     setMode(initialMode);
     setQuery("");
     setOutline(collectOutline());
+    setRecentSlugs(readRecentSlugs());
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }, [initialMode, open]);
 
@@ -149,6 +164,36 @@ export function CommandPalette({
     return matches.slice(0, 14);
   }, [assets, query]);
 
+  const tagResults = useMemo<TagResult[]>(() => {
+    const counts = new Map<string, number>();
+    for (const page of pages) {
+      for (const tag of parseJsonArray<string>(page.tagsJson)) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+
+    const normalized = query.trim().toLowerCase();
+    return [...counts.entries()]
+      .map(([tag, count]) => ({ tag, count }))
+      .filter((result) => !normalized || result.tag.toLowerCase().includes(normalized))
+      .sort((left, right) => right.count - left.count || left.tag.localeCompare(right.tag))
+      .slice(0, 14);
+  }, [pages, query]);
+
+  const recentResults = useMemo(() => {
+    const pagesBySlug = new Map(pages.map((page) => [page.slug, page]));
+    const normalized = query.trim().toLowerCase();
+    return recentSlugs
+      .map((slug) => pagesBySlug.get(slug))
+      .filter((page): page is PageIndexRow => Boolean(page))
+      .filter(
+        (page) =>
+          !normalized ||
+          `${page.title} ${page.slug} ${page.tagsJson}`.toLowerCase().includes(normalized),
+      )
+      .slice(0, 12);
+  }, [pages, query, recentSlugs]);
+
   const openPage = (page: PageIndexRow) => {
     rememberSlug(page.slug);
     navigate(hrefForSlug(page.slug));
@@ -172,6 +217,11 @@ export function CommandPalette({
         "noreferrer",
       );
     }
+    if (mode === "tags" && tagResults[0]) {
+      setQuery(tagResults[0].tag);
+      setMode("pages");
+    }
+    if (mode === "recent" && recentResults[0]) openPage(recentResults[0]);
     if (mode === "actions" && actionResults[0]) {
       window.location.assign(actionResults[0].href);
     }
@@ -202,7 +252,13 @@ export function CommandPalette({
                 ? "Jump to a page"
                 : mode === "outline"
                   ? "Find a heading"
-                  : "Run an action"
+                  : mode === "assets"
+                    ? "Find a source or file"
+                    : mode === "tags"
+                      ? "Filter local tags"
+                      : mode === "recent"
+                        ? "Find recent pages"
+                        : "Run an action"
             }
           />
           <button
@@ -240,6 +296,25 @@ export function CommandPalette({
           >
             <PaperclipIcon size={14} aria-hidden="true" />
             Assets
+          </button>
+          <button
+            type="button"
+            className={mode === "tags" ? "active" : ""}
+            onClick={() => setMode("tags")}
+          >
+            <TagIcon size={14} aria-hidden="true" />
+            Tags
+          </button>
+          <button
+            type="button"
+            className={mode === "recent" ? "active" : ""}
+            onClick={() => {
+              setRecentSlugs(readRecentSlugs());
+              setMode("recent");
+            }}
+          >
+            <ClockIcon size={14} aria-hidden="true" />
+            Recent
           </button>
           <button
             type="button"
@@ -311,6 +386,43 @@ export function CommandPalette({
                     <small>{asset.path}</small>
                   </span>
                 </a>
+              ))
+            )
+          ) : null}
+          {mode === "tags" ? (
+            tagResults.length === 0 ? (
+              <div className="command-empty">No tags found</div>
+            ) : (
+              tagResults.map((result) => (
+                <button
+                  key={result.tag}
+                  type="button"
+                  onClick={() => {
+                    setQuery(result.tag);
+                    setMode("pages");
+                  }}
+                >
+                  <TagIcon size={15} aria-hidden="true" />
+                  <span>
+                    <strong>{result.tag}</strong>
+                    <small>{result.count} pages</small>
+                  </span>
+                </button>
+              ))
+            )
+          ) : null}
+          {mode === "recent" ? (
+            recentResults.length === 0 ? (
+              <div className="command-empty">No recent pages yet</div>
+            ) : (
+              recentResults.map((page) => (
+                <button key={page.slug} type="button" onClick={() => openPage(page)}>
+                  <ClockIcon size={15} aria-hidden="true" />
+                  <span>
+                    <strong>{page.title}</strong>
+                    <small>{page.slug}</small>
+                  </span>
+                </button>
               ))
             )
           ) : null}

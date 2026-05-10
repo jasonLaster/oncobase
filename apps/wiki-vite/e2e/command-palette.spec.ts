@@ -60,4 +60,32 @@ test.describe("Command palette parity", () => {
       page.getByTestId("command-palette").getByRole("link", { name: /pathology-slide.png/ }),
     ).toHaveAttribute("href", /\/api\/file\?path=sources%2Fimages%2Fpathology-slide.png/);
   });
+
+  test("tag palette filters the local page index without backend search", async ({ page }) => {
+    await gotoWiki(page, "/");
+
+    await page.getByTestId("command-palette-trigger").click();
+    await page.getByRole("button", { name: "Tags" }).click();
+    await page.getByTestId("command-palette-input").fill("logistics");
+    await page.getByTestId("command-palette").getByRole("button", { name: /logistics/ }).click();
+
+    await expect(page.getByRole("button", { name: "Pages" })).toHaveClass(/active/);
+    await expect(
+      page.getByTestId("command-palette").getByRole("button", { name: /Insurance/ }),
+    ).toBeVisible();
+  });
+
+  test("recent palette opens pages remembered by local navigation", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await waitForPageTitle(page, "Insurance");
+    await page.getByTestId("app-header").getByRole("link", { name: "Home" }).click();
+    await waitForPageTitle(page, "Diana Wiki Home");
+
+    await page.getByTestId("command-palette-trigger").click();
+    await page.getByRole("button", { name: "Recent" }).click();
+    await page.getByTestId("command-palette").getByRole("button", { name: /Insurance/ }).click();
+
+    await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
+    await waitForPageTitle(page, "Insurance");
+  });
 });
