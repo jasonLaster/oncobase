@@ -6,11 +6,33 @@ test.describe("Vite backend API", () => {
     expect(response.ok()).toBe(true);
     expect(response.headers()["x-wiki-cache-scope"]).toBe("public");
     expect(response.headers()["cache-control"]).toContain("public");
+    expect(response.headers()["vary"]).toContain("Host");
 
     const body = await response.json();
+    expect(body.siteSlug).toBe("diana");
     expect(body.scope).toBe("public");
     expect(body.authenticated).toBe(false);
     expect(body.cacheKey).toContain("public");
+  });
+
+  test("resolves sites from Host and ignores injected site headers", async ({ request }) => {
+    const response = await request.get("/api/wiki/session", {
+      headers: {
+        Host: "diana.localhost",
+        "x-site-slug": "not-diana",
+      },
+    });
+    expect(response.ok()).toBe(true);
+    const body = await response.json();
+    expect(body.siteSlug).toBe("diana");
+    expect(body.cacheKey).toContain("diana:public");
+  });
+
+  test("fails closed for unknown hosts", async ({ request }) => {
+    const response = await request.get("/api/wiki/session", {
+      headers: { Host: "unknown-vite-site.invalid" },
+    });
+    expect([403, 404]).toContain(response.status());
   });
 
   test("serves public manifest without sensitive pages", async ({ request }) => {
@@ -49,6 +71,21 @@ test.describe("Vite backend API", () => {
     const unsupported = await request.get("/api/file?path=sources/example.exe");
     expect(unsupported.status()).toBe(400);
     expect(await unsupported.text()).toContain("not supported");
+  });
+
+  test("serves the standalone login API", async ({ request }) => {
+    const invalid = await request.post("/api/login", {
+      data: { password: "wrong-password" },
+    });
+    expect(invalid.status()).toBe(401);
+    expect(await invalid.json()).toEqual({ error: "Invalid password" });
+
+    const valid = await request.post("/api/login", {
+      data: { password: "diana" },
+    });
+    expect(valid.ok(), await valid.text()).toBe(true);
+    expect(await valid.json()).toEqual({ ok: true });
+    expect(valid.headers()["set-cookie"]).toContain("authed=true");
   });
 
   test("serves chat tool calls from the Vite API route", async ({ request }) => {

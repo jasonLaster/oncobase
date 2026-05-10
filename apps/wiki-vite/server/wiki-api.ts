@@ -14,9 +14,19 @@ import { api } from "../../../web/convex/_generated/api.js";
 
 const DEFAULT_SITE_SLUG = "diana";
 const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
+const HOST_CACHE_TTL_MS = 15_000;
+const VERCEL_PROJECT_HOST_PREFIX = "diana-tnbc";
 const USER_SESSION_COOKIE = "wiki_user_session";
+const DIANA_PASSWORDS = new Set(["wallify", "diana"]);
 const DEFAULT_SEARCH_LIMIT = 10;
 const MAX_SEARCH_LIMIT = 50;
+
+type ResolvedSite = {
+  slug: string | null;
+  expires: number;
+};
+
+const hostCache = new Map<string, ResolvedSite>();
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -37,12 +47,97 @@ function resolveConvexUrl() {
   );
 }
 
-function siteSlugFromRequest(request: Request) {
-  return request.headers.get("x-site-slug") ?? process.env.WIKI_SITE_SLUG ?? DEFAULT_SITE_SLUG;
+function normalizeHost(host: string | null) {
+  return host?.trim().toLowerCase().split(":")[0] ?? null;
+}
+
+function hostFromRequest(request: Request) {
+  return normalizeHost(request.headers.get("host")) ?? normalizeHost(new URL(request.url).host);
+}
+
+function explicitSiteSlug() {
+  return process.env.WIKI_SITE_SLUG?.trim() || process.env.SITE_SLUG?.trim() || null;
+}
+
+function localSiteForHost(host: string) {
+  const override = explicitSiteSlug();
+  if (override) return override;
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
+    return DEFAULT_SITE_SLUG;
+  }
+  if (host.endsWith(".localhost")) {
+    return host.slice(0, -".localhost".length);
+  }
+  return null;
+}
+
+function previewSiteForHost(host: string) {
+  const override = explicitSiteSlug();
+  if (override) return override;
+  if (process.env.VERCEL_ENV !== "preview") return null;
+  if (!host.endsWith(".vercel.app")) return null;
+  if (
+    host === `${VERCEL_PROJECT_HOST_PREFIX}.vercel.app` ||
+    host.startsWith(`${VERCEL_PROJECT_HOST_PREFIX}-`)
+  ) {
+    return DEFAULT_SITE_SLUG;
+  }
+  return null;
+}
+
+async function resolveSiteSlug(request: Request, client: ConvexHttpClient) {
+  const host = hostFromRequest(request);
+  if (!host) return null;
+
+  const now = Date.now();
+  const cached = hostCache.get(host);
+  if (cached && cached.expires > now) {
+    return cached.slug;
+  }
+
+  const localSlug = process.env.NODE_ENV !== "production" ? localSiteForHost(host) : null;
+  if (localSlug) {
+    hostCache.set(host, { slug: localSlug, expires: now + HOST_CACHE_TTL_MS });
+    return localSlug;
+  }
+
+  const previewSlug = previewSiteForHost(host);
+  if (previewSlug) {
+    hostCache.set(host, { slug: previewSlug, expires: now + HOST_CACHE_TTL_MS });
+    return previewSlug;
+  }
+
+  const site = await client.query(api.sites.getByHost, { host });
+  const slug = site?.slug ?? null;
+  hostCache.set(host, { slug, expires: now + HOST_CACHE_TTL_MS });
+  return slug;
+}
+
+function decorateViteHeaders(headers: HeadersInit) {
+  const nextHeaders = new Headers(headers);
+  const vary = nextHeaders.get("Vary");
+  if (vary) {
+    nextHeaders.set(
+      "Vary",
+      vary
+        .split(",")
+        .map((value) => (value.trim().toLowerCase() === "x-site-slug" ? "Host" : value.trim()))
+        .join(", "),
+    );
+  }
+  return nextHeaders;
 }
 
 function hashSessionToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function hashPassword(password: string) {
+  return `sha256:${crypto.createHash("sha256").update(password).digest("hex")}`;
+}
+
+function authedCookieName(siteSlug: string) {
+  return siteSlug === DEFAULT_SITE_SLUG ? "authed" : `authed_${siteSlug}`;
 }
 
 function sessionTokenFromCookie(cookieHeader: string) {
@@ -140,6 +235,81 @@ async function getSessionUser(
   return await client.query(
     api.users.getSessionUser,
     withSiteSlug(siteSlug, { tokenHash: hashSessionToken(token) }),
+  );
+}
+
+async function isValidPassword(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  password: string,
+) {
+  if (siteSlug === DEFAULT_SITE_SLUG && DIANA_PASSWORDS.has(password)) {
+    return true;
+  }
+  const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
+  if (!site) return false;
+  const expected = site.config?.passwordHash;
+  if (!expected) {
+    return !site.config?.passwordGate;
+  }
+  return hashPassword(password) === expected;
+}
+
+function authCookieHeader(siteSlug: string) {
+  return `${authedCookieName(siteSlug)}=true; HttpOnly; SameSite=Lax; Path=/; Max-Age=${60 * 60 * 24 * 30}`;
+}
+
+async function handleLoginRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  const url = new URL(request.url);
+
+  if (request.method === "GET") {
+    const token = url.searchParams.get("token") ?? "";
+    const redirect = url.searchParams.get("redirect") || "/";
+    if (!token || !(await isValidPassword(client, siteSlug, token))) {
+      return Response.redirect(new URL("/login", request.url), 302);
+    }
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: new URL(redirect, request.url).toString(),
+        "Set-Cookie": authCookieHeader(siteSlug),
+      },
+    });
+  }
+
+  if (request.method !== "POST") {
+    return Response.json(
+      { error: "Method not allowed" },
+      {
+        status: 405,
+        headers: { Allow: "GET, POST" },
+      },
+    );
+  }
+
+  const { password } = (await request.json()) as { password?: string };
+  if (password && (await isValidPassword(client, siteSlug, password))) {
+    return Response.json(
+      { ok: true },
+      {
+        headers: {
+          "Cache-Control": "private, no-store",
+          "Set-Cookie": authCookieHeader(siteSlug),
+        },
+      },
+    );
+  }
+
+  return Response.json(
+    { error: "Invalid password" },
+    {
+      status: 401,
+      headers: { "Cache-Control": "private, no-store" },
+    },
   );
 }
 
@@ -252,6 +422,7 @@ async function handleSearchRequest(
       {
         headers: {
           "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
+          Vary: "Accept, Host",
           "X-Wiki-Cache-Scope": "public",
         },
       },
@@ -270,12 +441,12 @@ async function handleSearchRequest(
       headers: includeSensitive
         ? {
             "Cache-Control": "private, max-age=30, stale-while-revalidate=300",
-            Vary: "Accept, Cookie, x-site-slug",
+            Vary: "Accept, Cookie, Host",
             "X-Wiki-Cache-Scope": "session",
           }
         : {
             "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
-            Vary: "Accept, x-site-slug",
+            Vary: "Accept, Host",
             "X-Wiki-Cache-Scope": "public",
           },
     },
@@ -383,18 +554,32 @@ export function createWikiApiHandler(client = createClient()) {
     const pathname = new URL(request.url).pathname;
     const handled =
       pathname.startsWith("/api/wiki/") ||
+      pathname === "/api/login" ||
       pathname === "/api/search" ||
       pathname === "/api/tools" ||
       pathname === "/api/file" ||
       pathname === "/api/page-copy";
     if (!handled) return null;
 
-    const siteSlug = siteSlugFromRequest(request);
+    const siteSlug = await resolveSiteSlug(request, client);
+    if (!siteSlug) {
+      return Response.json(
+        { error: "Unknown wiki site" },
+        {
+          status: 404,
+          headers: {
+            "Cache-Control": "private, no-store",
+            Vary: "Host",
+          },
+        },
+      );
+    }
     const context = {
       siteSlug,
       documents: createDocumentsGateway(client, siteSlug),
       getSessionUser: (nextRequest: Request) =>
         getSessionUser(nextRequest, client, siteSlug),
+      decorateHeaders: decorateViteHeaders,
       logger: console,
     };
 
@@ -412,6 +597,10 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/wiki/pages") {
       return createWikiPagesResponse(request, context);
+    }
+
+    if (pathname === "/api/login") {
+      return handleLoginRequest(request, client, siteSlug);
     }
 
     if (pathname === "/api/search") {

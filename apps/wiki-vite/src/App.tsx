@@ -27,6 +27,9 @@ const initialMetrics: Metrics = {
 const WikiPage = lazy(() =>
   import("./pages/WikiPage").then((module) => ({ default: module.WikiPage })),
 );
+const LoginPage = lazy(() =>
+  import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })),
+);
 
 function PageFallback() {
   return (
@@ -74,6 +77,7 @@ export function App({
             <MetricsPanel metrics={metrics} />
             <Suspense fallback={<PageFallback />}>
               <Routes>
+                <Route path="/login" element={<LoginPage />} />
                 <Route path="*" element={<WikiPage metrics={metrics} onMetrics={bumpMetrics} />} />
               </Routes>
             </Suspense>

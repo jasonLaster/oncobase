@@ -75,6 +75,15 @@ try {
     throw new Error("Standalone tools smoke returned no search results");
   }
 
+  const loginResponse = await fetch(`${origin}/api/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: "diana" }),
+  });
+  if (!loginResponse.ok || !loginResponse.headers.get("set-cookie")?.includes("authed=true")) {
+    throw new Error(`Standalone login smoke failed: ${loginResponse.status}`);
+  }
+
   const fileErrorResponse = await fetch(`${origin}/api/file`);
   if (fileErrorResponse.status !== 400) {
     throw new Error(`Standalone file validation smoke failed: ${fileErrorResponse.status}`);

@@ -113,6 +113,81 @@ a {
   color: var(--foreground);
 }
 
+.login-shell {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: calc(100dvh - 160px);
+  padding: 24px;
+}
+
+.login-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 18px 44px rgb(17 24 39 / 0.1);
+  max-width: 420px;
+  padding: 22px;
+  width: 100%;
+}
+
+.login-panel .eyebrow {
+  color: var(--brand);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.login-panel h1 {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  margin: 0 0 18px;
+}
+
+.login-panel form {
+  display: grid;
+  gap: 14px;
+}
+
+.login-panel label {
+  color: var(--foreground);
+  display: grid;
+  font-size: 0.875rem;
+  font-weight: 650;
+  gap: 6px;
+}
+
+.login-panel input {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--foreground);
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.login-panel input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 16%, transparent);
+  outline: 0;
+}
+
+.login-panel button {
+  background: var(--foreground);
+  border: 1px solid var(--foreground);
+  border-radius: 6px;
+  color: var(--background);
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.login-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .prototype-shell {
   display: grid;
   grid-template-rows: 48px minmax(0, 1fr) auto;
