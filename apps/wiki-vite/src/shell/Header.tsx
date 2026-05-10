@@ -11,10 +11,16 @@ import {
   MessageCircleIcon,
   MoreHorizontalIcon,
 } from "lucide-react";
-import { type FormEvent, useEffect, useState } from "react";
+import { Suspense, lazy, type FormEvent, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { backendHref, returnToHref } from "../wiki-utils";
-import { CommandPalette, type PaletteMode } from "./CommandPalette";
+import type { PaletteMode } from "./CommandPalette";
+
+const CommandPalette = lazy(() =>
+  import("./CommandPalette").then((module) => ({
+    default: module.CommandPalette,
+  })),
+);
 
 export function Header() {
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -33,24 +39,34 @@ export function Header() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey)) return;
 
-      if (event.key.toLowerCase() === "k") {
+      if (!event.shiftKey && event.code === "KeyK") {
         event.preventDefault();
-        openPalette(event.shiftKey ? "actions" : "pages");
+        openPalette("pages");
       }
 
-      if (event.shiftKey && event.key.toLowerCase() === "o") {
+      if (!event.shiftKey && event.code === "KeyO") {
+        event.preventDefault();
+        openPalette("pages");
+      }
+
+      if (event.shiftKey && event.code === "KeyO") {
         event.preventDefault();
         openPalette("outline");
       }
 
-      if (event.shiftKey && event.key.toLowerCase() === "d") {
+      if (event.shiftKey && event.code === "KeyK") {
+        event.preventDefault();
+        openPalette("actions");
+      }
+
+      if (event.shiftKey && event.code === "KeyD") {
         event.preventDefault();
         openPalette("debug");
       }
     };
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    document.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => document.removeEventListener("keydown", onKeyDown, { capture: true });
   }, []);
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
@@ -115,11 +131,15 @@ export function Header() {
           </>
         }
       />
-      <CommandPalette
-        open={paletteOpen}
-        initialMode={paletteMode}
-        onOpenChange={setPaletteOpen}
-      />
+      {paletteOpen ? (
+        <Suspense fallback={null}>
+          <CommandPalette
+            open={paletteOpen}
+            initialMode={paletteMode}
+            onOpenChange={setPaletteOpen}
+          />
+        </Suspense>
+      ) : null}
     </>
   );
 }

@@ -2,7 +2,8 @@ import type { WikiManifest, WikiPageRecord } from "@diana-tnbc/wiki-content";
 import { events } from "./livestore/schema";
 import type { StoragePressure } from "./types";
 
-const RECENT_KEY = "wiki-vite-recent-slugs";
+const RECENT_KEY = "cmd-palette-recent";
+const LEGACY_RECENT_KEY = "wiki-vite-recent-slugs";
 
 export function slugFromPath(pathname: string) {
   const decoded = decodeURIComponent(pathname).replace(/^\/+/, "").replace(/\/+$/, "");
@@ -66,9 +67,14 @@ export function formatPercent(value: number | null) {
 export function readRecentSlugs() {
   try {
     const parsed = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") as unknown;
-    return Array.isArray(parsed)
+    const legacy = JSON.parse(localStorage.getItem(LEGACY_RECENT_KEY) ?? "[]") as unknown;
+    const primary = Array.isArray(parsed)
       ? parsed.filter((item): item is string => typeof item === "string")
       : [];
+    const migrated = Array.isArray(legacy)
+      ? legacy.filter((item): item is string => typeof item === "string")
+      : [];
+    return [...primary, ...migrated.filter((slug) => !primary.includes(slug))];
   } catch {
     return [];
   }

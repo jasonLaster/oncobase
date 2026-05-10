@@ -4,6 +4,7 @@ import {
   type ComponentProps,
   type CSSProperties,
   type ReactNode,
+  forwardRef,
 } from "react";
 import { cn } from "./utils";
 
@@ -36,9 +37,17 @@ export function WikiCommandTabs({ className, ...props }: WikiCommandTabsProps) {
 
 export type WikiCommandListProps = ComponentProps<"div">;
 
-export function WikiCommandList({ className, ...props }: WikiCommandListProps) {
-  return <div className={cn("wiki-shell-command-list command-list", className)} {...props} />;
-}
+export const WikiCommandList = forwardRef<HTMLDivElement, WikiCommandListProps>(
+  function WikiCommandList({ className, ...props }, ref) {
+    return (
+      <div
+        className={cn("wiki-shell-command-list command-list", className)}
+        ref={ref}
+        {...props}
+      />
+    );
+  },
+);
 
 export type WikiCommandItemContentProps = {
   active?: boolean;

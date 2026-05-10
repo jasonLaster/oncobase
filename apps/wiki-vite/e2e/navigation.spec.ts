@@ -84,8 +84,8 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(page.getByTestId("wiki-sidebar").getByRole("button", { name: /images/i })).toHaveCount(0);
     await expect(page.getByTestId("wiki-sidebar").getByRole("link", { name: /pathology-slide/ })).toHaveCount(0);
 
-    await page.getByTestId("command-palette-trigger").click();
-    await page.getByRole("button", { name: "Assets" }).click();
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+K" : "Control+Shift+K");
+    await page.getByRole("button", { name: /Browse source assets/ }).click();
     await page.getByTestId("command-palette-input").fill("pathology");
     await expect(
       page.getByTestId("command-palette").getByRole("link", { name: /pathology-slide.png/ }),
@@ -144,7 +144,7 @@ test.describe("Page viewing and sidebar navigation", () => {
     const input = page.getByTestId("command-palette-input");
     await expect(input).toBeFocused();
     await input.fill("insurance");
-    await expect(page.getByTestId("command-palette").getByRole("button", { name: /Insurance/ })).toBeVisible();
+    await expect(page.getByTestId("command-palette").getByRole("option", { name: /Insurance/ })).toBeVisible();
     await input.press("Enter");
 
     await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);

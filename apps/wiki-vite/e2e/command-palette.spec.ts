@@ -11,21 +11,19 @@ test.describe("Command palette parity", () => {
 
     await page.getByTestId("command-palette-trigger").click();
     await page.getByTestId("command-palette-input").fill("about");
-    await page.getByRole("button", { name: /About This Wiki/ }).click();
+    await page.getByRole("option", { name: /About This Wiki/ }).click();
 
     await expect(page).toHaveURL(/\/about\/About$/);
     await waitForPageTitle(page, "About This Wiki");
   });
 
-  test("palette supports keyboard selection and tab state", async ({ page }) => {
+  test("Cmd+K opens the fuzzy file palette with no top mode tabs", async ({ page }) => {
     await gotoWiki(page, "/");
 
-    await page.getByTestId("command-palette-trigger").click();
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
+    await expect(page.getByTestId("command-palette")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pages" })).toHaveCount(0);
     await page.getByTestId("command-palette-input").fill("wiki/");
-    await expect(page.getByRole("button", { name: "Pages" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
 
@@ -40,7 +38,7 @@ test.describe("Command palette parity", () => {
     const input = page.getByTestId("command-palette-input");
     await input.fill("wiki/");
     await expect(input).toHaveAttribute("role", "combobox");
-    await expect(input).toHaveAttribute("aria-controls", "command-pages-results");
+    await expect(input).toHaveAttribute("aria-controls", "page-palette-list");
     await expect(page.getByRole("listbox", { name: "pages results" })).toBeVisible();
 
     await page.keyboard.press("ArrowDown");
@@ -55,7 +53,6 @@ test.describe("Command palette parity", () => {
     await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+O" : "Control+Shift+O");
     const palette = page.getByTestId("command-palette");
     await expect(palette).toBeVisible();
-    await palette.getByRole("button", { name: "Outline", exact: true }).click();
     await palette.getByRole("button", { name: /Claims follow-up/ }).click();
 
     await expect(page).toHaveURL(/#claims-follow-up$/);
@@ -97,8 +94,8 @@ test.describe("Command palette parity", () => {
   test("asset palette opens PDF and file assets through the backend file route", async ({ page }) => {
     await gotoWiki(page, "/");
 
-    await page.getByTestId("command-palette-trigger").click();
-    await page.getByRole("button", { name: "Assets" }).click();
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+K" : "Control+Shift+K");
+    await page.getByRole("button", { name: /Browse source assets/ }).click();
     await page.getByTestId("command-palette-input").fill("telli");
 
     await expect(
@@ -114,14 +111,14 @@ test.describe("Command palette parity", () => {
   test("tag palette filters the local page index without backend search", async ({ page }) => {
     await gotoWiki(page, "/");
 
-    await page.getByTestId("command-palette-trigger").click();
-    await page.getByRole("button", { name: "Tags" }).click();
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+K" : "Control+Shift+K");
+    await page.getByRole("button", { name: /Browse tags/ }).click();
     await page.getByTestId("command-palette-input").fill("logistics");
     await page.getByTestId("command-palette").getByRole("button", { name: /logistics/ }).click();
 
-    await expect(page.getByRole("button", { name: "Pages" })).toHaveClass(/active/);
+    await expect(page.getByTestId("command-palette-input")).toHaveValue("logistics");
     await expect(
-      page.getByTestId("command-palette").getByRole("button", { name: /Insurance/ }),
+      page.getByTestId("command-palette").getByRole("option", { name: /Insurance/ }),
     ).toBeVisible();
   });
 
@@ -132,8 +129,8 @@ test.describe("Command palette parity", () => {
     await waitForPageTitle(page, "Diana Wiki Home");
 
     await page.getByTestId("command-palette-trigger").click();
-    await page.getByRole("button", { name: "Recent" }).click();
-    await page.getByTestId("command-palette").getByRole("button", { name: /Insurance/ }).click();
+    await expect(page.getByTestId("command-palette")).toContainText("Recent pages");
+    await page.getByTestId("command-palette").getByRole("option", { name: /Insurance/ }).click();
 
     await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
     await waitForPageTitle(page, "Insurance");

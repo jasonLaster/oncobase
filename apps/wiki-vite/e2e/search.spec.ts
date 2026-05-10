@@ -8,7 +8,7 @@ test.describe("Search and local page finding", () => {
 
     await page.getByTestId("command-palette-trigger").click();
     await page.getByTestId("command-palette-input").fill("diagnosis");
-    await page.getByRole("button", { name: /Diagnosis/ }).click();
+    await page.getByRole("option", { name: /Diagnosis/ }).click();
 
     await expect(page).toHaveURL(/\/wiki\/diagnostics\/diagnosis$/);
     await waitForPageTitle(page, "Diagnosis");
@@ -21,7 +21,7 @@ test.describe("Search and local page finding", () => {
     await page.getByTestId("command-palette-trigger").click();
     await page.getByTestId("command-palette-input").fill("zzzznonexistentquery999");
 
-    await expect(page.getByText("No local pages found")).toBeVisible();
+    await expect(page.getByText("No pages found.")).toBeVisible();
   });
 
   test("public local finder does not include sensitive pages", async ({ page }) => {
@@ -31,7 +31,7 @@ test.describe("Search and local page finding", () => {
     await page.getByTestId("command-palette-trigger").click();
     await page.getByTestId("command-palette-input").fill("private plan");
 
-    await expect(page.getByText("No local pages found")).toBeVisible();
+    await expect(page.getByText("No pages found.")).toBeVisible();
   });
 
   test("session finder can include sensitive pages in its separate store", async ({ page }) => {
@@ -40,7 +40,7 @@ test.describe("Search and local page finding", () => {
 
     await page.getByTestId("command-palette-trigger").click();
     await page.getByTestId("command-palette-input").fill("private plan");
-    await page.getByRole("button", { name: /Private Plan/ }).click();
+    await page.getByRole("option", { name: /Private Plan/ }).click();
 
     await expect(page).toHaveURL(/\/private\/plan$/);
     await waitForPageTitle(page, "Private Plan");

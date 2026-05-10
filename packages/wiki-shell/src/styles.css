@@ -866,6 +866,48 @@
   padding: 6px;
 }
 
+.wiki-shell-file-palette .wiki-shell-command-list {
+  max-height: min(60dvh, 18rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.wiki-shell-file-palette-virtual {
+  position: relative;
+  width: 100%;
+}
+
+.wiki-shell-file-palette-heading {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 0.75rem;
+  font-weight: 600;
+  height: 2rem;
+  left: 0;
+  padding: 0.25rem 0.5rem 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+.wiki-shell-file-palette-item {
+  left: 0;
+  min-height: 3.625rem;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+.wiki-shell-file-palette-icon {
+  align-self: flex-start;
+  color: var(--muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+  margin-top: 0.125rem;
+  opacity: 0.7;
+}
+
 .wiki-shell-command-list button,
 .wiki-shell-command-list a,
 .wiki-shell-command-item {

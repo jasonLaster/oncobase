@@ -40,6 +40,11 @@
       "import": "./src/palette.tsx",
       "default": "./src/palette.tsx"
     },
+    "./file-palette": {
+      "types": "./src/file-palette.tsx",
+      "import": "./src/file-palette.tsx",
+      "default": "./src/file-palette.tsx"
+    },
     "./chat": {
       "types": "./src/chat.tsx",
       "import": "./src/chat.tsx",
@@ -74,7 +79,9 @@
     "test:unit": "bun test src/*.test.ts"
   },
   "dependencies": {
-    "@diana-tnbc/chat": "workspace:*"
+    "@diana-tnbc/chat": "workspace:*",
+    "@tanstack/react-virtual": "3.13.24",
+    "fuzzysort": "^3.1.0"
   },
   "peerDependencies": {
     "react": "^19.0.0",

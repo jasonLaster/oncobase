@@ -11,7 +11,6 @@ import {
   PowerOffIcon,
   RotateCcwIcon,
   SearchIcon,
-  ClockIcon,
   TagIcon,
   XIcon,
   ZapIcon,
@@ -34,8 +33,11 @@ import {
   WikiCommandList,
   WikiCommandPanel,
   WikiCommandSearch,
-  WikiCommandTabs,
 } from "@diana-tnbc/wiki-shell";
+import {
+  WikiFilePalette,
+  type WikiFilePalettePage,
+} from "@diana-tnbc/wiki-shell/file-palette";
 import { readLiveStoreDevtoolsEnabled, reloadWithLiveStoreDevtools } from "../livestore/devtools";
 import { assets$, pageIndex$ } from "../livestore/queries";
 import { events } from "../livestore/schema";
@@ -54,13 +56,14 @@ import {
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { collectOutline, scrollToOutlineItem, type OutlineItem } from "./outline";
 
-export type PaletteMode = "pages" | "outline" | "assets" | "tags" | "recent" | "actions" | "debug";
+export type PaletteMode = "pages" | "outline" | "assets" | "tags" | "actions" | "debug";
 
 type ActionItem = {
   label: string;
   description: string;
-  href: string;
+  href?: string;
   icon: ReactNode;
+  run?: () => void;
 };
 
 type DebugItem = {
@@ -79,23 +82,6 @@ function commandLabel() {
   return /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? "⌘K" : "Ctrl K";
 }
 
-function pageScore(page: PageIndexRow, query: string) {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return 1;
-
-  const title = page.title.toLowerCase();
-  const slug = page.slug.toLowerCase();
-  const tags = page.tagsJson.toLowerCase();
-
-  if (title === normalized || slug === normalized) return 100;
-  if (title.startsWith(normalized)) return 80;
-  if (slug.startsWith(normalized)) return 70;
-  if (title.includes(normalized)) return 50;
-  if (slug.includes(normalized)) return 40;
-  if (tags.includes(normalized)) return 25;
-  return 0;
-}
-
 export function CommandPalette({
   open,
   initialMode = "pages",
@@ -111,6 +97,7 @@ export function CommandPalette({
   const scope = useWikiScope();
   const [mode, setMode] = useState<PaletteMode>(initialMode);
   const [query, setQuery] = useState("");
+  const [pageInitialQuery, setPageInitialQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [outline, setOutline] = useState<OutlineItem[]>([]);
   const [recentSlugs, setRecentSlugs] = useState<string[]>([]);
@@ -126,6 +113,7 @@ export function CommandPalette({
 
     setMode(initialMode);
     setQuery("");
+    setPageInitialQuery("");
     setActiveIndex(0);
     setOutline(collectOutline());
     setRecentSlugs(readRecentSlugs());
@@ -143,14 +131,18 @@ export function CommandPalette({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onOpenChange, open]);
 
-  const pageResults = useMemo(() => {
-    return pages
-      .map((page) => ({ page, score: pageScore(page, query) }))
-      .filter(({ score }) => score > 0)
-      .sort((left, right) => right.score - left.score || left.page.title.localeCompare(right.page.title))
-      .slice(0, 12)
-      .map(({ page }) => page);
-  }, [pages, query]);
+  const filePalettePages = useMemo<WikiFilePalettePage[]>(
+    () =>
+      pages.map((page) => {
+        const segments = page.slug.split("/");
+        return {
+          name: page.title,
+          path: segments.join(" / "),
+          slug: page.slug,
+        };
+      }),
+    [pages],
+  );
 
   const outlineResults = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -167,6 +159,44 @@ export function CommandPalette({
 
   const actions = useMemo<ActionItem[]>(
     () => [
+      {
+        label: "Find files",
+        description: "Open the fuzzy local file palette",
+        icon: <FileTextIcon size={15} aria-hidden="true" />,
+        run: () => {
+          setPageInitialQuery("");
+          setQuery("");
+          setMode("pages");
+        },
+      },
+      {
+        label: "Open outline",
+        description: "Jump to headings on the current page",
+        icon: <ListIcon size={15} aria-hidden="true" />,
+        run: () => {
+          setQuery("");
+          setOutline(collectOutline());
+          setMode("outline");
+        },
+      },
+      {
+        label: "Browse source assets",
+        description: "Find PDFs, images, and source files from the manifest",
+        icon: <PaperclipIcon size={15} aria-hidden="true" />,
+        run: () => {
+          setQuery("");
+          setMode("assets");
+        },
+      },
+      {
+        label: "Browse tags",
+        description: "Filter the local page index by tag",
+        icon: <TagIcon size={15} aria-hidden="true" />,
+        run: () => {
+          setQuery("");
+          setMode("tags");
+        },
+      },
       ...relatedAssets.map((asset) => ({
         label: `Open ${assetFileName(asset.path)}`,
         description: `Source file for ${currentSlug}`,
@@ -195,6 +225,15 @@ export function CommandPalette({
         description: "Download the current scoped wiki as markdown",
         href: backendHref("/api/download", { type: "full", scope }),
         icon: <DownloadIcon size={15} aria-hidden="true" />,
+      },
+      {
+        label: "Local cache tools",
+        description: "Warm, reset, or toggle the optional LiveStore inspector",
+        icon: <BugIcon size={15} aria-hidden="true" />,
+        run: () => {
+          setQuery("");
+          setMode("debug");
+        },
       },
     ],
     [currentSlug, relatedAssets, returnTo, scope],
@@ -278,34 +317,16 @@ export function CommandPalette({
       .slice(0, 14);
   }, [pages, query]);
 
-  const recentResults = useMemo(() => {
-    const pagesBySlug = new Map(pages.map((page) => [page.slug, page]));
-    const normalized = query.trim().toLowerCase();
-    return recentSlugs
-      .map((slug) => pagesBySlug.get(slug))
-      .filter((page): page is PageIndexRow => Boolean(page))
-      .filter(
-        (page) =>
-          !normalized ||
-          `${page.title} ${page.slug} ${page.tagsJson}`.toLowerCase().includes(normalized),
-      )
-      .slice(0, 12);
-  }, [pages, query, recentSlugs]);
-
   const activeCount =
-    mode === "pages"
-      ? pageResults.length
-      : mode === "outline"
+    mode === "outline"
         ? outlineResults.length
         : mode === "assets"
           ? assetResults.length
           : mode === "tags"
             ? tagResults.length
-            : mode === "recent"
-              ? recentResults.length
-              : mode === "actions"
-                ? actionResults.length
-                : debugResults.length;
+            : mode === "actions"
+              ? actionResults.length
+              : debugResults.length;
 
   useEffect(() => {
     setActiveIndex(0);
@@ -318,7 +339,7 @@ export function CommandPalette({
       ?.scrollIntoView({ block: "nearest" });
   }, [activeIndex, mode, open]);
 
-  const openPage = (page: PageIndexRow) => {
+  const openPage = (page: { slug: string }) => {
     rememberSlug(page.slug);
     navigate(hrefForSlug(page.slug));
     onOpenChange(false);
@@ -340,9 +361,14 @@ export function CommandPalette({
       setActiveIndex((index) => Math.max(0, index - 1));
       return;
     }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onOpenChange(false);
+      return;
+    }
+
     if (event.key !== "Enter") return;
 
-    if (mode === "pages" && pageResults[activeIndex]) openPage(pageResults[activeIndex]);
     if (mode === "outline" && outlineResults[activeIndex]) openOutline(outlineResults[activeIndex]);
     if (mode === "assets" && assetResults[activeIndex]) {
       window.open(
@@ -352,12 +378,13 @@ export function CommandPalette({
       );
     }
     if (mode === "tags" && tagResults[activeIndex]) {
-      setQuery(tagResults[activeIndex].tag);
+      setPageInitialQuery(tagResults[activeIndex].tag);
       setMode("pages");
     }
-    if (mode === "recent" && recentResults[activeIndex]) openPage(recentResults[activeIndex]);
     if (mode === "actions" && actionResults[activeIndex]) {
-      window.location.assign(actionResults[activeIndex].href);
+      const action = actionResults[activeIndex];
+      if (action.run) action.run();
+      if (action.href) window.location.assign(action.href);
     }
     if (mode === "debug" && debugResults[activeIndex]) {
       debugResults[activeIndex].run();
@@ -365,6 +392,27 @@ export function CommandPalette({
   };
 
   if (!open) return null;
+
+  if (mode === "pages") {
+    return (
+      <WikiFilePalette
+        footer={
+          <>
+            <span>{commandLabel()} opens files</span>
+            <span>Recents first · fuzzy search</span>
+          </>
+        }
+        initialSearch={pageInitialQuery}
+        onOpenChange={onOpenChange}
+        onSelectPage={openPage}
+        open={open}
+        pageIcon={<FileTextIcon size={15} aria-hidden="true" />}
+        pages={filePalettePages}
+        recentSlugs={recentSlugs}
+        searchIcon={<SearchIcon size={16} aria-hidden="true" />}
+      />
+    );
+  }
 
   return (
     <WikiCommandBackdrop role="presentation" onMouseDown={() => onOpenChange(false)}>
@@ -389,19 +437,15 @@ export function CommandPalette({
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onInputKeyDown}
             placeholder={
-              mode === "pages"
-                ? "Jump to a page"
-                : mode === "outline"
-                  ? "Find a heading"
-                  : mode === "assets"
-                    ? "Find a source or file"
-                    : mode === "tags"
-                      ? "Filter local tags"
-                      : mode === "recent"
-                        ? "Find recent pages"
-                        : mode === "actions"
-                          ? "Run an action"
-                          : "Run a cache tool"
+              mode === "outline"
+                ? "Find a heading"
+                : mode === "assets"
+                  ? "Find a source or file"
+                  : mode === "tags"
+                    ? "Filter local tags"
+                    : mode === "actions"
+                      ? "Search commands..."
+                      : "Run a cache tool"
             }
           />
           <button
@@ -412,77 +456,6 @@ export function CommandPalette({
             <XIcon size={16} aria-hidden="true" />
           </button>
         </WikiCommandSearch>
-        <WikiCommandTabs role="group" aria-label="Palette mode">
-          <button
-            type="button"
-            aria-pressed={mode === "pages"}
-            className={mode === "pages" ? "active" : ""}
-            onClick={() => setMode("pages")}
-          >
-            <FileTextIcon size={14} aria-hidden="true" />
-            Pages
-          </button>
-          <button
-            type="button"
-            aria-pressed={mode === "outline"}
-            className={mode === "outline" ? "active" : ""}
-            onClick={() => {
-              setOutline(collectOutline());
-              setMode("outline");
-            }}
-          >
-            <ListIcon size={14} aria-hidden="true" />
-            Outline
-          </button>
-          <button
-            type="button"
-            aria-pressed={mode === "assets"}
-            className={mode === "assets" ? "active" : ""}
-            onClick={() => setMode("assets")}
-          >
-            <PaperclipIcon size={14} aria-hidden="true" />
-            Assets
-          </button>
-          <button
-            type="button"
-            aria-pressed={mode === "tags"}
-            className={mode === "tags" ? "active" : ""}
-            onClick={() => setMode("tags")}
-          >
-            <TagIcon size={14} aria-hidden="true" />
-            Tags
-          </button>
-          <button
-            type="button"
-            aria-pressed={mode === "recent"}
-            className={mode === "recent" ? "active" : ""}
-            onClick={() => {
-              setRecentSlugs(readRecentSlugs());
-              setMode("recent");
-            }}
-          >
-            <ClockIcon size={14} aria-hidden="true" />
-            Recent
-          </button>
-          <button
-            type="button"
-            aria-pressed={mode === "actions"}
-            className={mode === "actions" ? "active" : ""}
-            onClick={() => setMode("actions")}
-          >
-            <SearchIcon size={14} aria-hidden="true" />
-            Actions
-          </button>
-          <button
-            type="button"
-            aria-pressed={mode === "debug"}
-            className={mode === "debug" ? "active" : ""}
-            onClick={() => setMode("debug")}
-          >
-            <BugIcon size={14} aria-hidden="true" />
-            Debug
-          </button>
-        </WikiCommandTabs>
         <span id="command-palette-title" className="wiki-shell-sr-only">
           Command palette
         </span>
@@ -494,23 +467,6 @@ export function CommandPalette({
           id={`command-${mode}-results`}
           role="listbox"
         >
-          {mode === "pages" ? (
-            pageResults.length === 0 ? (
-              <WikiCommandEmpty>No local pages found</WikiCommandEmpty>
-            ) : (
-              pageResults.map((page, index) => (
-                <WikiCommandItemButton
-                  active={index === activeIndex}
-                  description={page.slug}
-                  id={`command-pages-${index}`}
-                  icon={<FileTextIcon size={15} aria-hidden="true" />}
-                  key={page.slug}
-                  label={page.title}
-                  onClick={() => openPage(page)}
-                />
-              ))
-            )
-          ) : null}
           {mode === "outline" ? (
             outlineResults.length === 0 ? (
               <WikiCommandEmpty>No headings on this page</WikiCommandEmpty>
@@ -567,26 +523,9 @@ export function CommandPalette({
                   key={result.tag}
                   label={result.tag}
                   onClick={() => {
-                    setQuery(result.tag);
+                    setPageInitialQuery(result.tag);
                     setMode("pages");
                   }}
-                />
-              ))
-            )
-          ) : null}
-          {mode === "recent" ? (
-            recentResults.length === 0 ? (
-              <WikiCommandEmpty>No recent pages yet</WikiCommandEmpty>
-            ) : (
-              recentResults.map((page, index) => (
-                <WikiCommandItemButton
-                  active={index === activeIndex}
-                  description={page.slug}
-                  id={`command-recent-${index}`}
-                  icon={<ClockIcon size={15} aria-hidden="true" />}
-                  key={page.slug}
-                  label={page.title}
-                  onClick={() => openPage(page)}
                 />
               ))
             )
@@ -595,17 +534,29 @@ export function CommandPalette({
             actionResults.length === 0 ? (
               <WikiCommandEmpty>No actions found</WikiCommandEmpty>
             ) : (
-              actionResults.map((action, index) => (
-                <WikiCommandItemLink
-                  active={index === activeIndex}
-                  description={action.description}
-                  href={action.href}
-                  id={`command-actions-${index}`}
-                  icon={action.icon}
-                  key={action.label}
-                  label={action.label}
-                />
-              ))
+              actionResults.map((action, index) =>
+                action.href ? (
+                  <WikiCommandItemLink
+                    active={index === activeIndex}
+                    description={action.description}
+                    href={action.href}
+                    id={`command-actions-${index}`}
+                    icon={action.icon}
+                    key={action.label}
+                    label={action.label}
+                  />
+                ) : (
+                  <WikiCommandItemButton
+                    active={index === activeIndex}
+                    description={action.description}
+                    id={`command-actions-${index}`}
+                    icon={action.icon}
+                    key={action.label}
+                    label={action.label}
+                    onClick={action.run}
+                  />
+                ),
+              )
             )
           ) : null}
           {mode === "debug" ? (
