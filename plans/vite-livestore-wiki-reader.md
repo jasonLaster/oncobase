@@ -27,6 +27,24 @@ The migration is far enough along to use the Vite one-server path as the primary
 
 ## Work Log
 
+### 2026-05-10 Wiki Shell Extraction Checkpoint
+
+Implementation follow-up from the visual reuse audit:
+
+- Added `packages/wiki-shell` as the first reusable shell package. It now exports `DocumentOutlineShell`, the shared outline helpers, persisted right-rail pane state, the current app's `comments-pane-state-change` event contract, `ResizableLayout`, and package-owned shell CSS.
+- Replaced Vite's bespoke `PageOutline` implementation with `DocumentOutlineShell`. The Vite reader now uses the current app's collapsed-by-default desktop outline rail, expandable/resizable right rail, mobile bottom outline rail, and `comments-content-wrapper` CSS variable contract.
+- Replaced the Vite-only resizable app shell internals with the shared `ResizableLayout` export while keeping the Vite wrapper import path stable.
+- Updated the smart-table layout adapter to measure the shared `comments-content-wrapper` and listen to the shared right-rail pane event, so expanded tables stay between the left rail and right outline rail as the rail opens, collapses, or resizes.
+- Updated focused Playwright coverage for collapsed-default outline behavior, mobile outline expansion, rail-aware table expansion, and refreshed the Vite visual baselines for the new shell shape.
+
+Verification:
+
+```sh
+bun --cwd packages/wiki-shell typecheck
+bun --cwd packages/wiki-shell test:unit
+bun run verify:wiki-vite
+```
+
 ### 2026-05-10 Visual Component Reuse Audit Checkpoint
 
 Side-by-side browser review of Vite and the current Next app on `/wiki/logistics/insurance` and `/about/Terminology` showed that the Vite replacement is functionally broad but visually too independent. The most important finding is that parity should come from reusing the original shell components, not from continuing to tune Vite-only CSS.
@@ -976,7 +994,7 @@ The branch now has four layers plus the next shell boundary:
 1. `@diana-tnbc/wiki-content/server` owns the framework-neutral reader API logic, with `web` and Vite supplying adapters.
 2. `packages/wiki-content` owns the shared content contracts: manifests, compact trees, page batches, store ids, and hash reconciliation.
 3. `packages/wiki-markdown` owns the shared markdown runtime: wikilinks, citations, math cleanup, server HTML transforms, client markdown rendering, heading anchors, image theater, and smart-table enhancement.
-4. The next package boundary should be `packages/wiki-shell`, owning the reusable Diana reader shell: right rail, layout rails, header chrome, page chrome, sidebar/mobile navigation visuals, shared theme/prose CSS, loading states, and visual interaction primitives.
+4. `packages/wiki-shell` owns the first reusable Diana reader shell slice: right rail/outline, layout rail collapse/resize state, shared outline helpers, shell CSS, and the smart-table rail event contract. It should grow next to include header chrome, page chrome, sidebar/mobile navigation visuals, shared theme/prose CSS, loading states, and visual interaction primitives.
 5. `apps/wiki-vite` is the reader framework adapter plus local dev backend: Vite, React Router, LiveStore provider, OPFS persistence, fetch scheduling, local queries, Diana-style shell, and Vite middleware for reader APIs.
 
 The important review property is that the final framework change is small. Most wiki behavior now lives in packages; the Vite app supplies LiveStore data, React Router navigation, and the one-server API adapter, while the old Next app remains the reference implementation until parity and deployment checks are complete.
@@ -997,6 +1015,7 @@ The important review property is that the final framework change is small. Most 
 - Bundle splitting: the entry resolves only scope/session identity; LiveStore and markdown rendering are lazy-loaded behind separate chunks.
 - Bundle budget check for entry, vendor, markdown, LiveStore, worker, and SQLite assets.
 - Shared markdown runtime extraction into `packages/wiki-markdown`, with Next and Vite reduced to adapters.
+- Shared shell extraction into `packages/wiki-shell`, with Vite now consuming the shared right rail/outline and resizable layout primitives.
 - Migrated Playwright harness in `apps/wiki-vite/e2e`, with active reader parity tests and skipped Next-owned feature inventory.
 - Optional preview smoke harness in `apps/wiki-vite/preview-e2e`, pointed at `PLAYWRIGHT_BASE_URL` and intended for deployed Vite previews.
 

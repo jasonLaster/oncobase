@@ -26,7 +26,7 @@ const budgets: Budget[] = [
   { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 150_000 },
   { label: "page chunk", pattern: /^WikiPage-[\w-]+\.js$/, maxGzipBytes: 125_000 },
   { label: "chat chunk", pattern: /^ChatPage-[\w-]+\.js$/, maxGzipBytes: 110_000 },
-  { label: "sync/outline chunk", pattern: /^(?:WikiSync|outline)-[\w-]+\.js$/, maxGzipBytes: 45_000 },
+  { label: "sync/shared shell chunks", pattern: /^(?:WikiSync|outline|src)-[\w-]+\.js$/, maxGzipBytes: 45_000 },
   { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 15_000 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },

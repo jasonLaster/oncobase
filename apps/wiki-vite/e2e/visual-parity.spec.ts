@@ -19,7 +19,7 @@ test.describe("Visual parity", () => {
     await expect(page.locator(".brand-label")).toHaveCSS("color", "rgb(26, 26, 46)");
     await expect(page.locator(".topbar")).toHaveCSS("border-bottom-width", "1px");
     await expect(page.locator(".page-action").first()).toHaveCSS("border-radius", "5px");
-    await expect(page.locator(".page-layout")).toHaveScreenshot("desktop-reader-shell.png", {
+    await expect(page.locator(".wiki-shell-outline-root")).toHaveScreenshot("desktop-reader-shell.png", {
       animations: "disabled",
       mask: dynamicMasks(page),
       maxDiffPixelRatio: 0.02,

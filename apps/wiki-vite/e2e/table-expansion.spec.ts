@@ -54,10 +54,19 @@ test.describe("Prose table expansion", () => {
     expect(leftCollapsed.layer.left).toBeGreaterThanOrEqual(leftCollapsed.leftRail.right + 16);
     expect(leftCollapsed.layer.right).toBeLessThanOrEqual(leftCollapsed.rightRail.left - 16);
 
-    await page.getByRole("button", { name: "Collapse outline" }).click();
+    await page.getByRole("button", { name: "Open outline" }).click();
+    await expect(page.getByTestId("page-outline")).toHaveAttribute(
+      "data-outline-state",
+      "expanded",
+    );
+    const rightExpanded = await railMetrics(page);
+    expect(rightExpanded.layer.right).toBeLessThanOrEqual(rightExpanded.rightRail.left - 16);
+    expect(rightExpanded.layer.width).toBeLessThan(leftCollapsed.layer.width);
+
+    await page.getByRole("button", { name: "Collapse outline pane" }).click();
     await expect
       .poll(async () => (await railMetrics(page)).layer.width)
-      .toBeGreaterThan(leftCollapsed.layer.width);
+      .toBeGreaterThan(rightExpanded.layer.width);
   });
 
   test("preserves table styling when expanded", async ({ page }) => {

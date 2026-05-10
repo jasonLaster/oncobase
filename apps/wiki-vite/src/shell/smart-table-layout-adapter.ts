@@ -2,6 +2,7 @@ import {
   getDefaultVerticalScrollContainer,
   type SmartTableLayoutAdapter,
 } from "@diana-tnbc/smart-table";
+import { COMMENTS_PANE_EVENT } from "@diana-tnbc/wiki-shell";
 
 const OUTLINE_STATE_EVENT = "wiki-vite:outline-state-change";
 const GUTTER = 20;
@@ -29,7 +30,9 @@ function getLeftRailElement() {
 }
 
 function getRightRailElement() {
-  const outline = document.querySelector('[data-test-id="page-outline"]');
+  const outline =
+    document.querySelector("[data-wiki-shell-right-rail]") ??
+    document.querySelector('[data-test-id="page-outline"]');
   if (isVisibleElement(outline)) return outline;
   return null;
 }
@@ -37,8 +40,14 @@ function getRightRailElement() {
 function getContentBounds(shell: HTMLElement) {
   const contentShell = shell.closest(".content-shell");
   const pageLayout = shell.closest(".page-layout");
+  const contentWrapper = shell.closest(".comments-content-wrapper");
   const fallback = shell.getBoundingClientRect();
-  const element = pageLayout instanceof HTMLElement ? pageLayout : contentShell;
+  const element =
+    pageLayout instanceof HTMLElement
+      ? pageLayout
+      : contentWrapper instanceof HTMLElement
+        ? contentWrapper
+        : contentShell;
   const rect = element instanceof HTMLElement ? element.getBoundingClientRect() : fallback;
   const style = element instanceof HTMLElement ? window.getComputedStyle(element) : null;
   return {
@@ -104,11 +113,13 @@ export const wikiViteSmartTableLayoutAdapter: SmartTableLayoutAdapter = {
       const nextTargets = new Set<HTMLElement>([shell, wrapper]);
       const contentShell = shell.closest(".content-shell");
       const pageLayout = shell.closest(".page-layout");
+      const contentWrapper = shell.closest(".comments-content-wrapper");
       const leftRail = getLeftRailElement();
       const rightRail = getRightRailElement();
 
       if (contentShell instanceof HTMLElement) nextTargets.add(contentShell);
       if (pageLayout instanceof HTMLElement) nextTargets.add(pageLayout);
+      if (contentWrapper instanceof HTMLElement) nextTargets.add(contentWrapper);
       if (leftRail) nextTargets.add(leftRail);
       if (rightRail) nextTargets.add(rightRail);
 
@@ -135,6 +146,7 @@ export const wikiViteSmartTableLayoutAdapter: SmartTableLayoutAdapter = {
     window.addEventListener("resize", scheduler.schedule);
     window.addEventListener("scroll", scheduler.schedule, { passive: true });
     window.addEventListener(OUTLINE_STATE_EVENT, scheduler.schedule);
+    window.addEventListener(COMMENTS_PANE_EVENT, scheduler.schedule);
     if (
       scrollContainer !== document.documentElement &&
       scrollContainer !== document.body &&
@@ -153,6 +165,7 @@ export const wikiViteSmartTableLayoutAdapter: SmartTableLayoutAdapter = {
         scrollContainer.removeEventListener("scroll", scheduler.schedule);
       }
       window.removeEventListener(OUTLINE_STATE_EVENT, scheduler.schedule);
+      window.removeEventListener(COMMENTS_PANE_EVENT, scheduler.schedule);
       window.removeEventListener("scroll", scheduler.schedule);
       window.removeEventListener("resize", scheduler.schedule);
       resizeObserver.disconnect();

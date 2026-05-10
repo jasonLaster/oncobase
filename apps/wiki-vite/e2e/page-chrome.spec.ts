@@ -72,6 +72,9 @@ test.describe("Page chrome parity", () => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
     const outline = page.getByTestId("page-outline");
+    await expect(outline).toHaveAttribute("data-outline-state", "collapsed");
+    await outline.getByRole("button", { name: "Open outline" }).click();
+    await expect(outline).toHaveAttribute("data-outline-state", "expanded");
     await expect(outline.getByRole("button", { name: "Prior authorization" })).toBeVisible();
     await outline.getByRole("button", { name: "Claims follow-up" }).click();
 
@@ -85,7 +88,7 @@ test.describe("Page chrome parity", () => {
     await expect(page.getByTestId("page-outline")).toBeHidden();
     const mobileOutline = page.getByTestId("mobile-page-outline");
     await expect(mobileOutline).toContainText("3 headings");
-    await mobileOutline.locator("summary").click();
+    await mobileOutline.getByRole("button", { name: "Expand outline rail" }).click();
     await mobileOutline.getByRole("button", { name: "Claims follow-up" }).click();
 
     await expect(page).toHaveURL(/#claims-follow-up$/);

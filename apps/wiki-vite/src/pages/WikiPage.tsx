@@ -4,6 +4,7 @@ import {
   type WikiMarkdownLinkProps,
   type WikiMarkdownNotificationAdapter,
 } from "@diana-tnbc/wiki-markdown";
+import { DocumentOutlineShell } from "@diana-tnbc/wiki-shell";
 import { RefreshCwIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
@@ -34,7 +35,6 @@ import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
 import { PageActions } from "./PageActions";
-import { MobilePageOutline, PageOutline } from "./PageOutline";
 
 function routeLink({ href, children, ...props }: WikiMarkdownLinkProps) {
   return (
@@ -295,77 +295,79 @@ export function WikiPage({
   }
 
   return (
-    <div className="page-layout">
-      <article className="page-shell" data-test-id="document-article">
-        {toast ? (
-          <div className="toast" role="status">
-            {toast}
-          </div>
-        ) : null}
-        <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />
-        <header className="page-header">
-          <div>
-            <h1>{page.title}</h1>
-            <p>{description ?? slug}</p>
-          </div>
-          <div className="page-badges">
-            {stale ? <span className="badge updating">updating</span> : null}
-            {page.sensitive ? <span className="badge sensitive">sensitive</span> : null}
-            <span className="badge">{formatBytes(page.size)}</span>
-          </div>
-        </header>
-        {stale ? (
-          <div className="stale-notice" role="status">
-            Showing cached markdown while a newer version is fetched in the background.
-          </div>
-        ) : null}
-        <PageActions
-          content={page.content}
-          contentHash={page.contentHash}
-          scope={scope}
-          slug={page.slug}
-          title={page.title}
-        />
-        <MobilePageOutline contentKey={`${page.slug}:${page.contentHash ?? "none"}`} />
-        {relatedAssets.length > 0 ? (
-          <section className="source-links" data-test-id="source-links" aria-label="Source files">
-            <div className="source-links-title">Source files</div>
-            <div className="source-links-list">
-              {relatedAssets.map((asset) => (
-                <a key={asset.path} href={assetHref(asset.path)} target="_blank" rel="noreferrer">
-                  <span>{asset.kind === "pdf" ? "PDF" : "File"}</span>
-                  <strong>{assetFileName(asset.path)}</strong>
-                </a>
-              ))}
-            </div>
-          </section>
-        ) : null}
-        {tags.length > 0 ? (
-          <div className="tag-row">
-            {tags.map((tag) => (
-              <Link key={tag} to={`/?q=${encodeURIComponent(tag)}`}>
-                {tag}
-              </Link>
+    <DocumentOutlineShell
+      articleClassName="page-shell"
+      contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
+      documentSlug={page.slug}
+      documentTitle={page.title}
+      pathname={location.pathname}
+    >
+      {toast ? (
+        <div className="toast" role="status">
+          {toast}
+        </div>
+      ) : null}
+      <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />
+      <header className="page-header">
+        <div>
+          <h1>{page.title}</h1>
+          <p>{description ?? slug}</p>
+        </div>
+        <div className="page-badges">
+          {stale ? <span className="badge updating">updating</span> : null}
+          {page.sensitive ? <span className="badge sensitive">sensitive</span> : null}
+          <span className="badge">{formatBytes(page.size)}</span>
+        </div>
+      </header>
+      {stale ? (
+        <div className="stale-notice" role="status">
+          Showing cached markdown while a newer version is fetched in the background.
+        </div>
+      ) : null}
+      <PageActions
+        content={page.content}
+        contentHash={page.contentHash}
+        scope={scope}
+        slug={page.slug}
+        title={page.title}
+      />
+      {relatedAssets.length > 0 ? (
+        <section className="source-links" data-test-id="source-links" aria-label="Source files">
+          <div className="source-links-title">Source files</div>
+          <div className="source-links-list">
+            {relatedAssets.map((asset) => (
+              <a key={asset.path} href={assetHref(asset.path)} target="_blank" rel="noreferrer">
+                <span>{asset.kind === "pdf" ? "PDF" : "File"}</span>
+                <strong>{assetFileName(asset.path)}</strong>
+              </a>
             ))}
           </div>
+        </section>
+      ) : null}
+      {tags.length > 0 ? (
+        <div className="tag-row">
+          {tags.map((tag) => (
+            <Link key={tag} to={`/?q=${encodeURIComponent(tag)}`}>
+              {tag}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+      <WikiMarkdown
+        content={page.content}
+        currentSlug={page.slug}
+        LinkComponent={routeLink}
+        notification={notification}
+        routeAdapter={routeAdapter}
+        tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
+      />
+      <footer className="page-footer">
+        <span>Manifest: {siteState?.generatedAt ?? "pending"}</span>
+        <span>Content hash: {page.contentHash ?? "none"}</span>
+        {page.expectedContentHash && page.expectedContentHash !== page.contentHash ? (
+          <span>Expected hash: {page.expectedContentHash}</span>
         ) : null}
-        <WikiMarkdown
-          content={page.content}
-          currentSlug={page.slug}
-          LinkComponent={routeLink}
-          notification={notification}
-          routeAdapter={routeAdapter}
-          tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
-        />
-        <footer className="page-footer">
-          <span>Manifest: {siteState?.generatedAt ?? "pending"}</span>
-          <span>Content hash: {page.contentHash ?? "none"}</span>
-          {page.expectedContentHash && page.expectedContentHash !== page.contentHash ? (
-            <span>Expected hash: {page.expectedContentHash}</span>
-          ) : null}
-        </footer>
-      </article>
-      <PageOutline contentKey={`${page.slug}:${page.contentHash ?? "none"}`} />
-    </div>
+      </footer>
+    </DocumentOutlineShell>
   );
 }
