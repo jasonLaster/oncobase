@@ -43,4 +43,21 @@ test.describe("Command palette parity", () => {
       /\/api\/download\?type=full$/,
     );
   });
+
+  test("asset palette opens PDF and file assets through the backend file route", async ({ page }) => {
+    await gotoWiki(page, "/");
+
+    await page.getByTestId("command-palette-trigger").click();
+    await page.getByRole("button", { name: "Assets" }).click();
+    await page.getByTestId("command-palette-input").fill("telli");
+
+    await expect(
+      page.getByTestId("command-palette").getByRole("link", { name: /telli-2016-hrd/ }),
+    ).toHaveAttribute("href", /\/api\/file\?path=sources%2Finstitutions%2Fstanford/);
+
+    await page.getByTestId("command-palette-input").fill("pathology");
+    await expect(
+      page.getByTestId("command-palette").getByRole("link", { name: /pathology-slide.png/ }),
+    ).toHaveAttribute("href", /\/api\/file\?path=sources%2Fimages%2Fpathology-slide.png/);
+  });
 });

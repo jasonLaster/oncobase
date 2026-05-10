@@ -1,9 +1,11 @@
 import { useStore } from "@livestore/react";
 import {
   DownloadIcon,
+  FileIcon,
   FileTextIcon,
   ListIcon,
   MessageCircleIcon,
+  PaperclipIcon,
   SearchIcon,
   XIcon,
 } from "lucide-react";
@@ -17,12 +19,12 @@ import {
   useState,
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { pageIndex$ } from "../livestore/queries";
-import type { PageIndexRow } from "../types";
+import { assets$, pageIndex$ } from "../livestore/queries";
+import type { AssetIndexRow, PageIndexRow } from "../types";
 import { backendHref, hrefForSlug, rememberSlug } from "../wiki-utils";
 import { collectOutline, scrollToOutlineItem, type OutlineItem } from "./outline";
 
-type PaletteMode = "pages" | "outline" | "actions";
+type PaletteMode = "pages" | "outline" | "assets" | "actions";
 
 type ActionItem = {
   label: string;
@@ -62,6 +64,7 @@ export function CommandPalette({
   onOpenChange: (open: boolean) => void;
 }) {
   const pages = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
+  const assets = useStore().store.useQuery(assets$) as AssetIndexRow[];
   const [mode, setMode] = useState<PaletteMode>(initialMode);
   const [query, setQuery] = useState("");
   const [outline, setOutline] = useState<OutlineItem[]>([]);
@@ -138,6 +141,14 @@ export function CommandPalette({
     );
   }, [actions, query]);
 
+  const assetResults = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    const matches = normalized
+      ? assets.filter((asset) => asset.path.toLowerCase().includes(normalized))
+      : assets;
+    return matches.slice(0, 14);
+  }, [assets, query]);
+
   const openPage = (page: PageIndexRow) => {
     rememberSlug(page.slug);
     navigate(hrefForSlug(page.slug));
@@ -154,6 +165,13 @@ export function CommandPalette({
 
     if (mode === "pages" && pageResults[0]) openPage(pageResults[0]);
     if (mode === "outline" && outlineResults[0]) openOutline(outlineResults[0]);
+    if (mode === "assets" && assetResults[0]) {
+      window.open(
+        backendHref(`/api/file?path=${encodeURIComponent(assetResults[0].path)}`),
+        "_blank",
+        "noreferrer",
+      );
+    }
     if (mode === "actions" && actionResults[0]) {
       window.location.assign(actionResults[0].href);
     }
@@ -217,6 +235,14 @@ export function CommandPalette({
           </button>
           <button
             type="button"
+            className={mode === "assets" ? "active" : ""}
+            onClick={() => setMode("assets")}
+          >
+            <PaperclipIcon size={14} aria-hidden="true" />
+            Assets
+          </button>
+          <button
+            type="button"
             className={mode === "actions" ? "active" : ""}
             onClick={() => setMode("actions")}
           >
@@ -261,6 +287,30 @@ export function CommandPalette({
                     <small>Heading {item.level}</small>
                   </span>
                 </button>
+              ))
+            )
+          ) : null}
+          {mode === "assets" ? (
+            assetResults.length === 0 ? (
+              <div className="command-empty">No assets found</div>
+            ) : (
+              assetResults.map((asset) => (
+                <a
+                  key={asset.path}
+                  href={backendHref(`/api/file?path=${encodeURIComponent(asset.path)}`)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {asset.kind === "pdf" ? (
+                    <FileTextIcon size={15} aria-hidden="true" />
+                  ) : (
+                    <FileIcon size={15} aria-hidden="true" />
+                  )}
+                  <span>
+                    <strong>{asset.path.split("/").at(-1) ?? asset.path}</strong>
+                    <small>{asset.path}</small>
+                  </span>
+                </a>
               ))
             )
           ) : null}

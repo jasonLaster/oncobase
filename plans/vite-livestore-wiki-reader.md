@@ -54,6 +54,18 @@ bun --cwd apps/wiki-vite typecheck
 bun --cwd apps/wiki-vite test:e2e e2e/page-load-experience.spec.ts e2e/navigation.spec.ts
 ```
 
+### 2026-05-09 Asset Palette Checkpoint
+
+- Added an Assets mode to the Vite command palette backed by the local LiveStore `assetIndex`.
+- PDF and file assets remain served by the existing backend `/api/file` route; the Vite reader only exposes fast local discovery and handoff links.
+- Added Playwright coverage for PDF and image asset discovery through the command palette while preserving existing sidebar PDF/source coverage.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/command-palette.spec.ts e2e/sidebar-pdfs.spec.ts
+```
+
 ### 2026-05-09 Reader Parity Checkpoint
 
 - Added Diana-style header actions to the Vite reader: local palette, backend search handoff, and backend chat handoff.
@@ -162,8 +174,8 @@ These are the major gaps between the prototype and the current wiki experience.
 | Outline | Local outline palette and persistent desktop outline rail extract headings from rendered markdown and jump by hash. | Mobile outline placement, hash navigation polish, and accessibility pass. | Should land before reader parity because it is a core reading affordance and can be fully local. |
 | Comments and Liveblocks | Not implemented in Vite. | Comment rail, auth gating, Liveblocks tokens, thread persistence, unread/resolved states, and multi-device sync. | Keep in Next for v1. Treat as out of scope unless explicitly pulled forward. |
 | Command palette | Keyboard trigger, local page rows, outline rows, and backend action rows landed. | Better fuzzy ranking, current-page context actions, recents surfacing, tags, source/PDF actions, and a deeper focus/accessibility pass. | Build before production reader parity. It can be powered by the local LiveStore index, while search/chat actions delegate to backend surfaces. |
-| Other palettes | Page, outline, and backend action palettes now exist as modes in one command surface. | Dedicated tag palette, asset/source palette, recent-pages palette, and debug/cache palette for store reset and metrics. | Page palette should be first. Backend search/chat entries should delegate instead of cloning those full-stack flows. |
-| Sidebar/tree | Desktop tree and mobile sheet exist, active branches auto-expand, and manual expansion persists across reloads. | Richer file/PDF affordances, source grouping, keyboard navigation, and very large tree performance. | Needed before broad preview review, but not before additive backend deployment. |
+| Other palettes | Page, outline, asset, and backend action palettes now exist as modes in one command surface. | Dedicated tag palette, recent-pages palette, and debug/cache palette for store reset and metrics. | Page palette should be first. Backend search/chat entries should delegate instead of cloning those full-stack flows. |
+| Sidebar/tree | Desktop tree and mobile sheet exist, active branches auto-expand, manual expansion persists across reloads, and PDF/file assets are discoverable through the local asset palette. | Richer source grouping, keyboard navigation, and very large tree performance. | Needed before broad preview review, but not before additive backend deployment. |
 | Page chrome | Title, description, breadcrumbs, tags, copy/link/print/download/main-app actions, size, stale/sensitive badges, and manifest/hash footer exist. | Source/PDF provenance, edit/source provenance, not-found parity, route metadata, and richer mobile action placement. | Reader parity blocker for pages with sources/assets. |
 | Markdown parity | Shared package handles the main rendering path. | More package tests for smart tables, citations, PDF/image rewriting, theme-paired images, heading anchors, math, Mermaid fallback, and route-link adapters. | Required before trusting the package as the durable reader layer. |
 | Auth/session UX | Scope is selected with `?scope=session`; session identity creates a distinct store id. | Login/session prompts, signed-out recovery, cache reset, active-store inspector, auth-expired handling, and safe session-store invalidation. | Privacy-sensitive. Required before any authenticated pilot. |

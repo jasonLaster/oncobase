@@ -26,6 +26,13 @@ export type PageIndexRow = {
   size: number;
 };
 
+export type AssetIndexRow = {
+  path: string;
+  kind: "pdf" | "file";
+  contentHash: string | null;
+  size: number | null;
+};
+
 export type PageContentStatus = "fresh" | "stale" | "missing" | "deleted";
 
 export type PageContentRow = {
