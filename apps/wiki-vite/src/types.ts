@@ -8,6 +8,10 @@ export type Metrics = {
   eventCount: number;
   opfsBytes: number | null;
   lastSyncMs: number | null;
+  coldRouteRenderMs: number | null;
+  warmRouteRenderMs: number | null;
+  lastRouteRenderMs: number | null;
+  failedBodyFetches: number;
 };
 
 export type MetricsPatch = Partial<Metrics>;

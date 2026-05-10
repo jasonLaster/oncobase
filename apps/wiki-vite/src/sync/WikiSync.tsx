@@ -182,7 +182,10 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
             status: "error",
             message: "Session expired; local session cache cleared",
             eventCount: 1,
+            failedBodyFetches: 1,
           });
+        } else {
+          onMetrics({ failedBodyFetches: 1 });
         }
         throw error;
       } finally {

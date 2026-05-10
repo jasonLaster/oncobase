@@ -16,6 +16,8 @@ test.describe("Page load experience", () => {
     await expect(page.getByTestId("app-header")).toBeVisible();
     await expect(page.getByTestId("wiki-sidebar")).toBeVisible();
     await expect(page.locator(".metrics-panel")).toBeVisible();
+    await expect(page.locator(".metrics-panel")).toContainText("route");
+    await expect(page.locator(".metrics-panel")).toContainText("body misses");
     await waitForPageTitle(page, "Insurance");
     await expect(nextErrorOverlay(page)).toHaveCount(0);
   });
@@ -36,7 +38,7 @@ test.describe("Page load experience", () => {
     await waitForPageTitle(page, "Insurance");
 
     requests.pages.length = 0;
-    await page.getByRole("link", { name: "Home" }).click();
+    await page.getByTestId("app-header").getByRole("link", { name: "Home" }).click();
     await waitForPageTitle(page, "Diana Wiki Home");
     await openDirectory(page, "logistics");
     await page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" }).click();
@@ -47,6 +49,7 @@ test.describe("Page load experience", () => {
       url.includes("slugs=wiki/logistics/insurance"),
     );
     expect(bodyFetches).toHaveLength(0);
+    await expect(page.locator(".metrics-panel")).toContainText("warm");
     await expect(documentArticle(page)).toContainText("Claims follow-up");
   });
 });

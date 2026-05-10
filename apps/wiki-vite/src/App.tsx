@@ -16,6 +16,10 @@ const initialMetrics: Metrics = {
   eventCount: 0,
   opfsBytes: null,
   lastSyncMs: null,
+  coldRouteRenderMs: null,
+  warmRouteRenderMs: null,
+  lastRouteRenderMs: null,
+  failedBodyFetches: 0,
 };
 
 const WikiPage = lazy(() =>
@@ -46,6 +50,10 @@ export function App({
       ...patch,
       eventCount:
         patch.eventCount == null ? current.eventCount : current.eventCount + patch.eventCount,
+      failedBodyFetches:
+        patch.failedBodyFetches == null
+          ? current.failedBodyFetches
+          : current.failedBodyFetches + patch.failedBodyFetches,
       markdownBytes:
         patch.markdownBytes == null
           ? current.markdownBytes

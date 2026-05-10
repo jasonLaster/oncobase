@@ -5,7 +5,7 @@ import {
   type WikiMarkdownNotificationAdapter,
 } from "@diana-tnbc/wiki-markdown";
 import { RefreshCwIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
   pageContentBySlug$,
@@ -42,6 +42,17 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const scope = useWikiScope();
   const [toast, setToast] = useState<string | null>(null);
   const slug = slugFromPath(location.pathname);
+  const routeRenderRef = useRef<{
+    hadContent: boolean;
+    recorded: boolean;
+    slug: string;
+    start: number;
+  }>({
+    hadContent: false,
+    recorded: false,
+    slug,
+    start: performance.now(),
+  });
   const page = useStore().store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
   const index = useStore().store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;
   const siteState = useStore().store.useQuery(siteState$) as SiteStateRow | null;
@@ -79,6 +90,29 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   useEffect(() => {
     document.title = page?.title ? `${page.title} - Diana Wiki` : "Diana Wiki";
   }, [page?.title]);
+
+  useEffect(() => {
+    routeRenderRef.current = {
+      hadContent: Boolean(page?.content),
+      recorded: false,
+      slug,
+      start: performance.now(),
+    };
+  }, [slug]);
+
+  useEffect(() => {
+    const routeRender = routeRenderRef.current;
+    if (!page?.content || routeRender.recorded || routeRender.slug !== slug) return;
+
+    const elapsed = performance.now() - routeRender.start;
+    routeRender.recorded = true;
+    onMetrics({
+      lastRouteRenderMs: elapsed,
+      ...(routeRender.hadContent
+        ? { warmRouteRenderMs: elapsed }
+        : { coldRouteRenderMs: elapsed }),
+    });
+  }, [onMetrics, page?.content, slug]);
 
   if (deleted) {
     return (

@@ -41,6 +41,19 @@ bun --cwd apps/wiki-vite typecheck
 bun --cwd apps/wiki-vite test:e2e e2e/page-chrome.spec.ts e2e/command-palette.spec.ts e2e/navigation.spec.ts
 ```
 
+### 2026-05-09 Performance Metrics Checkpoint
+
+- Added route render timing to the Vite metrics panel so cold and warm page renders are visible during local/preview review.
+- Added a warm-route metric that updates when navigation renders from the local LiveStore page body cache.
+- Added a failed body-fetch counter for markdown fetch misses/errors.
+- Extended page-load Playwright coverage to keep the instrumentation visible while preserving the warm-navigation no-refetch assertion.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/page-load-experience.spec.ts e2e/navigation.spec.ts
+```
+
 ### 2026-05-09 Reader Parity Checkpoint
 
 - Added Diana-style header actions to the Vite reader: local palette, backend search handoff, and backend chat handoff.
@@ -155,7 +168,7 @@ These are the major gaps between the prototype and the current wiki experience.
 | Markdown parity | Shared package handles the main rendering path. | More package tests for smart tables, citations, PDF/image rewriting, theme-paired images, heading anchors, math, Mermaid fallback, and route-link adapters. | Required before trusting the package as the durable reader layer. |
 | Auth/session UX | Scope is selected with `?scope=session`; session identity creates a distinct store id. | Login/session prompts, signed-out recovery, cache reset, active-store inspector, auth-expired handling, and safe session-store invalidation. | Privacy-sensitive. Required before any authenticated pilot. |
 | Offline/cache controls | OPFS persistence, browser storage estimate, and explicit local cache reset exist. | Cache warming controls, stale content explanation, storage pressure behavior, versioned cache invalidation, and failed fetch retry UI. | Required before production trial. |
-| Performance instrumentation | Metrics panel tracks manifest bytes, markdown bytes, event count, OPFS estimate, and sync state. | Cold/warm navigation timings, per-route network assertions, failed body fetch count, bundle budget reporting, and preview telemetry. | Required before migration decision. |
+| Performance instrumentation | Metrics panel tracks manifest bytes, markdown bytes, event count, OPFS estimate, sync state, route render timing, warm render timing, and failed body fetch count. | Bundle budget reporting, preview telemetry, and richer per-route network assertions. | Required before migration decision. |
 | Deployment/ops | Local app runs side by side. | Separate Vercel app/service decision, API origin config, CORS/auth expectations if cross-origin, preview smoke target, environment docs, and rollback story. | Required before reviewers can test without local setup. |
 
 ## Playwright Migration Status
