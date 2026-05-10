@@ -817,7 +817,8 @@
 }
 
 .wiki-shell-command-list button,
-.wiki-shell-command-list a {
+.wiki-shell-command-list a,
+.wiki-shell-command-item {
   align-items: center;
   background: transparent;
   border: 0;
@@ -834,25 +835,32 @@
   width: 100%;
 }
 
-.wiki-shell-command-list button[style] {
+.wiki-shell-command-list button[style],
+.wiki-shell-command-item[style] {
   padding-left: calc(10px + (var(--outline-depth) * 12px));
 }
 
 .wiki-shell-command-list button:hover,
 .wiki-shell-command-list button.active,
 .wiki-shell-command-list a:hover,
-.wiki-shell-command-list a.active {
+.wiki-shell-command-list a.active,
+.wiki-shell-command-item:hover,
+.wiki-shell-command-item.active {
   background: var(--accent-light);
 }
 
 .wiki-shell-command-list button.active,
-.wiki-shell-command-list a.active {
+.wiki-shell-command-list a.active,
+.wiki-shell-command-item.active {
   box-shadow: inset 2px 0 0 var(--brand);
 }
 
 .wiki-shell-command-list span,
 .wiki-shell-command-list strong,
-.wiki-shell-command-list small {
+.wiki-shell-command-list small,
+.wiki-shell-command-item-text,
+.wiki-shell-command-item-text strong,
+.wiki-shell-command-item-text small {
   display: block;
   min-width: 0;
   overflow: hidden;

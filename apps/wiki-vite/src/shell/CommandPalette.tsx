@@ -17,7 +17,6 @@ import {
   ZapIcon,
 } from "lucide-react";
 import {
-  type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
   useEffect,
@@ -30,6 +29,8 @@ import {
   WikiCommandBackdrop,
   WikiCommandEmpty,
   WikiCommandFooter,
+  WikiCommandItemButton,
+  WikiCommandItemLink,
   WikiCommandList,
   WikiCommandPanel,
   WikiCommandSearch,
@@ -477,20 +478,15 @@ export function CommandPalette({
               <WikiCommandEmpty>No local pages found</WikiCommandEmpty>
             ) : (
               pageResults.map((page, index) => (
-                <button
-                  className={index === activeIndex ? "active" : ""}
-                  data-active={index === activeIndex ? "true" : undefined}
+                <WikiCommandItemButton
+                  active={index === activeIndex}
+                  description={page.slug}
                   id={`command-pages-${index}`}
+                  icon={<FileTextIcon size={15} aria-hidden="true" />}
                   key={page.slug}
-                  type="button"
+                  label={page.title}
                   onClick={() => openPage(page)}
-                >
-                  <FileTextIcon size={15} aria-hidden="true" />
-                  <span>
-                    <strong>{page.title}</strong>
-                    <small>{page.slug}</small>
-                  </span>
-                </button>
+                />
               ))
             )
           ) : null}
@@ -499,25 +495,16 @@ export function CommandPalette({
               <WikiCommandEmpty>No headings on this page</WikiCommandEmpty>
             ) : (
               outlineResults.map((item, index) => (
-                <button
-                  className={index === activeIndex ? "active" : ""}
-                  data-active={index === activeIndex ? "true" : undefined}
+                <WikiCommandItemButton
+                  active={index === activeIndex}
+                  depth={Math.max(0, item.level - 1)}
+                  description={`Heading ${item.level}`}
                   id={`command-outline-${index}`}
+                  icon={<ListIcon size={15} aria-hidden="true" />}
                   key={item.id}
-                  type="button"
-                  style={
-                    {
-                      "--outline-depth": Math.max(0, item.level - 1),
-                    } as CSSProperties
-                  }
+                  label={item.text}
                   onClick={() => openOutline(item)}
-                >
-                  <ListIcon size={15} aria-hidden="true" />
-                  <span>
-                    <strong>{item.text}</strong>
-                    <small>Heading {item.level}</small>
-                  </span>
-                </button>
+                />
               ))
             )
           ) : null}
@@ -526,25 +513,23 @@ export function CommandPalette({
               <WikiCommandEmpty>No assets found</WikiCommandEmpty>
             ) : (
               assetResults.map((asset, index) => (
-                <a
-                  className={index === activeIndex ? "active" : ""}
-                  data-active={index === activeIndex ? "true" : undefined}
-                  id={`command-assets-${index}`}
-                  key={asset.path}
+                <WikiCommandItemLink
+                  active={index === activeIndex}
+                  description={asset.path}
                   href={backendHref(`/api/file?path=${encodeURIComponent(asset.path)}`)}
-                  target="_blank"
+                  id={`command-assets-${index}`}
+                  icon={
+                    asset.kind === "pdf" ? (
+                      <FileTextIcon size={15} aria-hidden="true" />
+                    ) : (
+                      <FileIcon size={15} aria-hidden="true" />
+                    )
+                  }
+                  key={asset.path}
+                  label={asset.path.split("/").at(-1) ?? asset.path}
                   rel="noreferrer"
-                >
-                  {asset.kind === "pdf" ? (
-                    <FileTextIcon size={15} aria-hidden="true" />
-                  ) : (
-                    <FileIcon size={15} aria-hidden="true" />
-                  )}
-                  <span>
-                    <strong>{asset.path.split("/").at(-1) ?? asset.path}</strong>
-                    <small>{asset.path}</small>
-                  </span>
-                </a>
+                  target="_blank"
+                />
               ))
             )
           ) : null}
@@ -553,23 +538,18 @@ export function CommandPalette({
               <WikiCommandEmpty>No tags found</WikiCommandEmpty>
             ) : (
               tagResults.map((result, index) => (
-                <button
-                  className={index === activeIndex ? "active" : ""}
-                  data-active={index === activeIndex ? "true" : undefined}
+                <WikiCommandItemButton
+                  active={index === activeIndex}
+                  description={`${result.count} pages`}
                   id={`command-tags-${index}`}
+                  icon={<TagIcon size={15} aria-hidden="true" />}
                   key={result.tag}
-                  type="button"
+                  label={result.tag}
                   onClick={() => {
                     setQuery(result.tag);
                     setMode("pages");
                   }}
-                >
-                  <TagIcon size={15} aria-hidden="true" />
-                  <span>
-                    <strong>{result.tag}</strong>
-                    <small>{result.count} pages</small>
-                  </span>
-                </button>
+                />
               ))
             )
           ) : null}
@@ -578,20 +558,15 @@ export function CommandPalette({
               <WikiCommandEmpty>No recent pages yet</WikiCommandEmpty>
             ) : (
               recentResults.map((page, index) => (
-                <button
-                  className={index === activeIndex ? "active" : ""}
-                  data-active={index === activeIndex ? "true" : undefined}
+                <WikiCommandItemButton
+                  active={index === activeIndex}
+                  description={page.slug}
                   id={`command-recent-${index}`}
+                  icon={<ClockIcon size={15} aria-hidden="true" />}
                   key={page.slug}
-                  type="button"
+                  label={page.title}
                   onClick={() => openPage(page)}
-                >
-                  <ClockIcon size={15} aria-hidden="true" />
-                  <span>
-                    <strong>{page.title}</strong>
-                    <small>{page.slug}</small>
-                  </span>
-                </button>
+                />
               ))
             )
           ) : null}
@@ -600,19 +575,15 @@ export function CommandPalette({
               <WikiCommandEmpty>No actions found</WikiCommandEmpty>
             ) : (
               actionResults.map((action, index) => (
-                <a
-                  className={index === activeIndex ? "active" : ""}
-                  data-active={index === activeIndex ? "true" : undefined}
-                  id={`command-actions-${index}`}
-                  key={action.label}
+                <WikiCommandItemLink
+                  active={index === activeIndex}
+                  description={action.description}
                   href={action.href}
-                >
-                  {action.icon}
-                  <span>
-                    <strong>{action.label}</strong>
-                    <small>{action.description}</small>
-                  </span>
-                </a>
+                  id={`command-actions-${index}`}
+                  icon={action.icon}
+                  key={action.label}
+                  label={action.label}
+                />
               ))
             )
           ) : null}
@@ -621,20 +592,15 @@ export function CommandPalette({
               <WikiCommandEmpty>No cache tools found</WikiCommandEmpty>
             ) : (
               debugResults.map((action, index) => (
-                <button
-                  className={index === activeIndex ? "active" : ""}
-                  data-active={index === activeIndex ? "true" : undefined}
+                <WikiCommandItemButton
+                  active={index === activeIndex}
+                  description={action.description}
                   id={`command-debug-${index}`}
+                  icon={action.icon}
                   key={action.label}
-                  type="button"
+                  label={action.label}
                   onClick={action.run}
-                >
-                  {action.icon}
-                  <span>
-                    <strong>{action.label}</strong>
-                    <small>{action.description}</small>
-                  </span>
-                </button>
+                />
               ))
             )
           ) : null}
