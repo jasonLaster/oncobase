@@ -11,6 +11,7 @@ import {
 } from "@diana-tnbc/wiki-content/server";
 import { readChatPageFromDocuments } from "@diana-tnbc/wiki-content/chat-tools";
 import { api } from "../../../web/convex/_generated/api.js";
+import { handleAiSearchRequest } from "./ai-search";
 
 const DEFAULT_SITE_SLUG = "diana";
 const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
@@ -555,6 +556,7 @@ export function createWikiApiHandler(client = createClient()) {
     const handled =
       pathname.startsWith("/api/wiki/") ||
       pathname === "/api/login" ||
+      pathname === "/api/ai-search" ||
       pathname === "/api/search" ||
       pathname === "/api/tools" ||
       pathname === "/api/file" ||
@@ -605,6 +607,15 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/search") {
       return handleSearchRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/ai-search") {
+      return handleAiSearchRequest({
+        request,
+        client,
+        siteSlug,
+        includeSensitive: Boolean(await getSessionUser(request, client, siteSlug)),
+      });
     }
 
     if (pathname === "/api/tools") {

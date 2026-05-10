@@ -552,11 +552,12 @@ export const vectorSearch = action({
   args: {
     embedding: v.array(v.float64()),
     limit: v.optional(v.number()),
+    includeSensitive: v.optional(v.boolean()),
     siteSlug: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    { embedding, limit, siteSlug },
+    { embedding, limit, includeSensitive, siteSlug },
   ): Promise<
     Array<{ slug: string; title: string; tags: string[]; score: number }>
   > => {
@@ -578,6 +579,7 @@ export const vectorSearch = action({
       results.map(async (r) => {
         const doc = await ctx.runQuery(api.documents.getById, {
           id: r._id,
+          includeSensitive,
           siteSlug,
         });
         if (!doc) return null;

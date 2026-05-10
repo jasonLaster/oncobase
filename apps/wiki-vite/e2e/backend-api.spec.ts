@@ -63,6 +63,18 @@ test.describe("Vite backend API", () => {
     );
   });
 
+  test("validates backend AI search route without model credentials", async ({ request }) => {
+    const method = await request.get("/api/ai-search");
+    expect(method.status()).toBe(405);
+    expect(method.headers()["allow"]).toBe("POST");
+
+    const empty = await request.post("/api/ai-search", {
+      data: { query: "" },
+    });
+    expect(empty.ok(), await empty.text()).toBe(true);
+    expect(await empty.json()).toEqual({ results: [] });
+  });
+
   test("validates backend file error cases", async ({ request }) => {
     const missingPath = await request.get("/api/file");
     expect(missingPath.status()).toBe(400);

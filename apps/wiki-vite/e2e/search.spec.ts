@@ -90,15 +90,108 @@ test.describe("Local page finder", () => {
     await waitForPageTitle(page, "Insurance");
   });
 
-  test.skip("AI mode shows ranked results", async () => {
-    // AI search remains a backend/full-stack feature for v1.
+  test("AI mode shows ranked results", async ({ page }) => {
+    await page.route("**/api/search?**", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          results: [
+            {
+              slug: "wiki/logistics/insurance",
+              title: "Insurance",
+              excerpt: "Prior authorization and coverage notes.",
+              tags: ["logistics"],
+            },
+          ],
+        }),
+      }),
+    );
+    await page.route("**/api/ai-search", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          results: [
+            {
+              slug: "wiki/logistics/insurance",
+              title: "Insurance",
+              relevance: 8.5,
+              summary: "Insurance is relevant because it covers payer authorization.",
+              tags: ["logistics"],
+            },
+          ],
+        }),
+      }),
+    );
+    await installWikiApiMocks(page);
+    await page.goto("/search?q=authorization&mode=ai", {
+      waitUntil: "domcontentloaded",
+    });
+
+    await expect(page.getByRole("button", { name: "AI" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("search-results")).toContainText("8.5 relevance");
+    await expect(page.getByTestId("search-results")).toContainText("payer authorization");
   });
 
-  test.skip("AI mode results link to wiki pages", async () => {
-    // AI search remains a backend/full-stack feature for v1.
+  test("AI mode results link to wiki pages", async ({ page }) => {
+    await page.route("**/api/search?**", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ results: [] }),
+      }),
+    );
+    await page.route("**/api/ai-search", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          results: [
+            {
+              slug: "wiki/diagnostics/diagnosis",
+              title: "Diagnosis",
+              relevance: 9,
+              summary: "Diagnosis context matches the query.",
+              tags: ["diagnostics"],
+            },
+          ],
+        }),
+      }),
+    );
+    await installWikiApiMocks(page);
+    await page.goto("/search?q=diagnosis&mode=ai", { waitUntil: "domcontentloaded" });
+    await page.getByRole("link", { name: /Diagnosis/ }).click();
+
+    await expect(page).toHaveURL(/\/wiki\/diagnostics\/diagnosis$/);
+    await waitForPageTitle(page, "Diagnosis");
   });
 
-  test.skip("AI mode shows error states", async () => {
-    // AI search remains a backend/full-stack feature for v1.
+  test("AI mode shows error states", async ({ page }) => {
+    await page.route("**/api/search?**", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          results: [
+            {
+              slug: "wiki/logistics/insurance",
+              title: "Insurance",
+              excerpt: "Prior authorization and coverage notes.",
+              tags: ["logistics"],
+            },
+          ],
+        }),
+      }),
+    );
+    await page.route("**/api/ai-search", (route) =>
+      route.fulfill({
+        status: 402,
+        contentType: "application/json",
+        body: JSON.stringify({ results: [], error: "AI search quota or authorization failed." }),
+      }),
+    );
+    await installWikiApiMocks(page);
+    await page.goto("/search?q=authorization&mode=ai", {
+      waitUntil: "domcontentloaded",
+    });
+
+    await expect(page.getByText("AI search quota or authorization failed.")).toBeVisible();
+    await expect(page.getByTestId("search-results")).toContainText("Insurance");
   });
 });

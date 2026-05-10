@@ -262,6 +262,36 @@ a {
   opacity: 0.55;
 }
 
+.search-mode-toggle {
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  display: inline-grid;
+  gap: 3px;
+  grid-auto-flow: column;
+  margin: 0 0 18px;
+  padding: 3px;
+}
+
+.search-mode-toggle button {
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  min-height: 30px;
+  min-width: 62px;
+  padding: 0 10px;
+}
+
+.search-mode-toggle button[aria-pressed="true"] {
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 12%, transparent);
+}
+
 .search-page-results {
   display: grid;
   gap: 8px;
