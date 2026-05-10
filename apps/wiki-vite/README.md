@@ -6,30 +6,40 @@ The productionization plan lives in [`../../plans/vite-livestore-wiki-reader.md`
 
 ## Run
 
-Start the current Next app first:
-
-```sh
-cd web
-bun run dev
-```
-
-Then run the prototype:
+Run the prototype:
 
 ```sh
 cd apps/wiki-vite
 bun run dev
 ```
 
-The Vite dev server proxies `/api/*` to `http://localhost:3000` by default. Override with `VITE_WIKI_API_ORIGIN` if the Next app is on another port.
+By default the Vite dev server serves the reader APIs directly from Convex:
+
+- `/api/wiki/session`
+- `/api/wiki/manifest`
+- `/api/wiki/pages`
+- `/api/file`
+- `/api/page-copy`
+
+This is the normal one-server development loop for the prototype. It uses `NEXT_PUBLIC_CONVEX_URL` or `CONVEX_URL` when set, and otherwise falls back to the current Diana Convex deployment. Set `WIKI_SITE_SLUG` to test a non-default site.
+
+If you need to compare against the current Next route handlers instead, start the current Next app:
+
+```sh
+cd web
+bun run dev
+```
+
+Then run Vite with `VITE_WIKI_API_ORIGIN=http://localhost:3000` to proxy `/api/*` to Next.
 
 ## Environment
 
 The prototype has two origins:
 
-- `VITE_WIKI_API_ORIGIN`: where `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/page-copy`, and `/api/file` are served from.
+- `VITE_WIKI_API_ORIGIN`: optional override for where `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/page-copy`, and `/api/file` are served from.
 - `VITE_WIKI_APP_ORIGIN`: where backend-owned UI handoffs should open, including search, chat, downloads, and sign-in.
 
-For local dev both can be omitted when the Next app is on `http://localhost:3000`, because Vite proxies `/api/*` there. For a separate preview deployment, set both to the deployed Next app origin. Cross-origin previews must also set `WIKI_VITE_ALLOWED_ORIGINS` on the Next app to the exact Vite preview origin so the additive wiki APIs can return credentialed CORS headers.
+For local dev, omit `VITE_WIKI_API_ORIGIN` to use the Vite backend. For a separate preview deployment that still calls the Next backend, set both origins to the deployed Next app origin. Cross-origin previews must also set `WIKI_VITE_ALLOWED_ORIGINS` on the Next app to the exact Vite preview origin so the additive wiki APIs can return credentialed CORS headers.
 
 Session mode uses `credentials: include` when `VITE_WIKI_API_ORIGIN` is set. That keeps the public store usable without cookies and lets authenticated previews use the existing wiki session when the backend origin explicitly allows the Vite origin.
 
@@ -69,7 +79,7 @@ LiveStore is used as a local read cache without a remote sync backend. The schem
 - `fileTree`, `pageIndex`, and `assetIndex` for navigation, local page finding, and link rewriting.
 - `pageContent` for fetched markdown bodies plus first-class `fresh`, `stale`, `missing`, and `deleted` states.
 
-On load the app renders whatever markdown is already in LiveStore, fetches `/api/wiki/manifest` in the background, and lets the manifest materializer mark cached pages stale or deleted. Fetch priority is current route first, then sidebar-linked pages, recent pages, and a bounded idle queue. The queue respects browser offline/save-data signals and caps eager work by page count and payload bytes.
+On load the app renders whatever markdown is already in LiveStore, fetches `/api/wiki/manifest` in the background, and lets the manifest materializer mark cached pages stale or deleted. Fetch priority is current route first through an explicit page fetch, then sidebar-linked pages, recent pages, and a bounded idle queue. The idle queue skips the current route so user-visible retry state is not raced by duplicate background fetches. The queue respects browser offline/save-data signals and caps eager work by page count and payload bytes.
 
 Public and session data use separate LiveStore `storeId` values. Public requests never ask for sensitive content; session requests use private cache headers, require the existing wiki session, and clear the local session cache on auth failure. The manifest API prefers the lightweight Convex manifest query; when that is not deployed yet, it may use an explicit content-backed metadata fallback that preserves hashes, sensitivity, and sizes. If reliable metadata cannot be produced, it returns `503` with `no-store` instead of disabling invalidation.
 

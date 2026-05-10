@@ -16,13 +16,13 @@ The migration is far enough along to test the new data path against a deployed b
 | --- | --- | --- |
 | Shared content contracts | Mostly productionized | `packages/wiki-content` owns manifest parsing, compact tree expansion, page batches, content-hash reconciliation, and public/session store ids. Edge-case coverage now includes invalid manifests, pagination cursors, deleted/missing hash reconciliation, and store-id sanitization. |
 | Shared markdown runtime | Mostly productionized | `packages/wiki-markdown` owns the reusable renderer, route-link adapter, heading anchors, image theater, citations, math cleanup, PDF chips, theme-paired images, and smart-table behavior. The extraction is useful even if Vite is not adopted; package-level server coverage now protects the highest-risk renderer transforms. |
-| Backend API surface | Ready for additive deployment rehearsal | `/api/wiki/session`, `/api/wiki/manifest`, and `/api/wiki/pages` are additive. They do not reroute existing pages, and public/session cache behavior is covered by API tests. The manifest route can use the new Convex metadata query when deployed and can fall back to content-backed metadata while the backend rolls out. The routes now also support explicit credentialed CORS for allowlisted Vite preview origins. Next step: move this API core behind a framework-neutral handler so Vite can serve it directly in dev. |
+| Backend API surface | Framework-neutral core landed | `/api/wiki/session`, `/api/wiki/manifest`, and `/api/wiki/pages` are additive. The implementation now lives in `@diana-tnbc/wiki-content/server` with thin Next and Vite adapters. Public/session cache behavior is covered by API tests, and the Vite dev server can serve reader APIs directly from Convex when `VITE_WIKI_API_ORIGIN` is unset. |
 | Convex support | Ready to deploy if kept additive | `documents.listManifestPage` is additive and mirrors existing document pagination without changing the publish path. Existing page and asset listing queries remain the source for markdown bodies and tree assets. Deploying this lets the manifest endpoint avoid shipping markdown just to compute metadata. |
 | LiveStore reader | Prototype works | The Vite app persists page index, file tree, asset index, and page bodies in OPFS-backed LiveStore tables. It renders cached markdown first, fetches the manifest in the background, marks stale/deleted/missing content, and eagerly fetches markdown in bounded batches. |
 | Reader UI parity | In progress | The current shell has a Diana-style layout, sidebar tree, mobile sheet, breadcrumbs, page actions, persistent outline rail, local title/slug/tag page finding, command palette with pages/outline/assets/tags/recents/actions, backend search/chat handoffs, sync metrics, stale indicators, not-found recovery, failed-fetch retry, and shared markdown rendering. It is still missing several product features listed below. |
 | Privacy/cache safety | Stronger guardrails landed | Public and session scopes use separate cache headers and store ids; sensitive pages stay out of public APIs. Browser coverage now verifies a session-only page body does not leak after switching back to the public store. Before any real pilot, add session-expiry invalidation and storage-pressure coverage. |
 | Playwright migration | Harness landed | `apps/wiki-vite/e2e` now mirrors every current `web/e2e/*.spec.ts` filename. Reader-capable tests run locally against mocked `/api/wiki/*` responses; Next-owned feature specs are skipped in place so migration gaps stay visible. |
-| Deployment | Initial wiring landed | The prototype has documented API/app origin env vars, cross-origin client credentials when an API origin is configured, backend allowlist CORS for preview origins, and an optional Playwright preview smoke config. We should consider a Vite backend for manifest/pages/session so local dev does not require both Next and Vite servers. It still needs an actual Vercel service/app decision and a live preview URL. |
+| Deployment | One-server dev loop landed | The prototype has documented API/app origin env vars, cross-origin client credentials when an API origin is configured, backend allowlist CORS for preview origins, an optional Playwright preview smoke config, and a Vite dev backend for reader APIs. It still needs an actual Vercel service/app decision and a live preview URL. |
 | Migration decision | Not ready | The branch is ready to validate the architecture, not to replace the Next app. Keep production routes on Next until reader parity, privacy tests, and preview metrics are in hand. |
 
 ## Work Log
@@ -97,6 +97,27 @@ The two-dev-server setup is useful for proving the reader while the current Next
 - Backend-owned full-stack features: search, AI search, chat, comments, downloads, and auth pages can remain in Next for v1 and be linked to from Vite until explicitly moved.
 
 This lets `bun run dev:wiki-vite` become the normal prototype loop without requiring a second Next dev server, while preserving the current production app as the source of truth.
+
+### 2026-05-09 Vite Backend Adapter Checkpoint
+
+- Moved the manifest/pages/session implementation into `@diana-tnbc/wiki-content/server` so the backend logic is no longer tied to Next route handlers.
+- Reduced the Next `/api/wiki/*` routes to thin adapters that provide site data, session lookup, and CORS decoration.
+- Added a Vite dev middleware adapter. When `VITE_WIKI_API_ORIGIN` is unset, the Vite server now serves `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/file`, and `/api/page-copy` directly against Convex. Setting `VITE_WIKI_API_ORIGIN` still proxies `/api/*` to the current Next app for comparison.
+- Included the Vite server/config files in the app typecheck so the one-server path is covered by `bun --cwd apps/wiki-vite typecheck`.
+- Kept current-route markdown fetching on the explicit priority path and excluded it from the idle eager queue. This preserves the intended current-first behavior without racing the failed-fetch retry UI.
+- Verified the one-server Vite API path on port `62001`: `/api/wiki/session` returned the public identity and `/api/wiki/manifest` returned 4,722 public pages, 10,501 assets, and manifest hash `68578c2cc12675cfa2656fca`.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd packages/wiki-content test:unit
+bun --cwd packages/wiki-content typecheck
+bun --cwd web test:unit src/lib/wiki-api-routes.test.ts
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite test:e2e e2e/page-load-experience.spec.ts e2e/session-recovery.spec.ts
+bun --cwd apps/wiki-vite test:e2e
+bun run typecheck
+```
 
 ### 2026-05-09 Markdown Package Hardening Checkpoint
 
@@ -303,7 +324,7 @@ These are the major gaps between the prototype and the current wiki experience.
 | Auth/session UX | Scope can be selected with `?scope=session` or the header switcher; session identity creates a distinct store id; signed-out session access shows a recovery screen; auth-expired fetches clear the session store; cross-origin previews use credentialed API requests only when the backend origin is explicitly configured and allowlisted; browser tests cover sensitive session content not leaking into public scope. | Login prompt polish, return-to-reader sign-in flow, and session-expiry invalidation tests. | Privacy-sensitive. Required before any authenticated pilot. |
 | Offline/cache controls | OPFS persistence, browser storage estimate, explicit local cache reset, manual cache warming, stale-content explanation, failed body fetch metrics, and current-page retry UI exist. | Storage pressure behavior and versioned cache invalidation. | Required before production trial. |
 | Performance instrumentation | Metrics panel tracks manifest bytes, markdown bytes, event count, OPFS estimate, sync state, route render timing, warm render timing, and failed body fetch count. | Bundle budget reporting, preview telemetry, and richer per-route network assertions. | Required before migration decision. |
-| Deployment/ops | Local app runs side by side, origin env docs exist, cross-origin API credentials are wired, backend allowlist CORS exists, and an optional preview smoke config exists. | Vite backend adapter for one-server dev, separate Vercel app/service decision, real preview URL, preview env values, CI wiring for the smoke test, and rollback story. | Required before reviewers can test without local setup. |
+| Deployment/ops | Local one-server dev loop exists, origin env docs exist, cross-origin API credentials are wired, backend allowlist CORS exists, and an optional preview smoke config exists. | Separate Vercel app/service decision, real preview URL, preview env values, CI wiring for the smoke test, and rollback story. | Required before reviewers can test without local setup. |
 
 ## Playwright Migration Status
 
@@ -345,10 +366,10 @@ The skipped specs are not a hidden success condition. They are the remaining fea
 
 The branch now has four layers:
 
-1. `web` exposes the content APIs and keeps the existing Convex/publish/cache contracts.
+1. `@diana-tnbc/wiki-content/server` owns the framework-neutral reader API logic, with `web` and Vite supplying adapters.
 2. `packages/wiki-content` owns the shared content contracts: manifests, compact trees, page batches, store ids, and hash reconciliation.
 3. `packages/wiki-markdown` owns the shared markdown runtime: wikilinks, citations, math cleanup, server HTML transforms, client markdown rendering, heading anchors, image theater, and smart-table enhancement.
-4. `apps/wiki-vite` is only the framework adapter: Vite, React Router, LiveStore provider, OPFS persistence, fetch scheduling, local queries, and the Diana-style shell.
+4. `apps/wiki-vite` is the reader framework adapter plus local dev backend: Vite, React Router, LiveStore provider, OPFS persistence, fetch scheduling, local queries, Diana-style shell, and Vite middleware for reader APIs.
 
 The important review property is that the final framework change is small. Most wiki behavior now lives in packages; the Vite app supplies LiveStore data and React Router navigation, while the Next app supplies server caching, `next/link`, `next/navigation`, and Sonner toasts.
 
@@ -357,8 +378,8 @@ The important review property is that the final framework change is small. Most 
 - Root workspace support for `apps/*` and the runnable `apps/wiki-vite` prototype.
 - Local-only LiveStore cache with OPFS-backed persisted tables for site state, page index, page content, asset index, and file tree.
 - Public/session store separation via server-issued session cache keys.
-- API surface in `web`: `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, plus existing priority fetch through `/api/page-copy`.
-- Planning direction for a Vite backend adapter so the reader prototype can eventually serve manifest/pages/session from one dev server.
+- API surface in `web`: thin `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages` adapters, plus existing priority fetch through `/api/page-copy`.
+- Vite backend adapter for `/api/wiki/*`, `/api/file`, and `/api/page-copy` so reader development can run without a second Next dev server.
 - Eager markdown scheduling: current route first, then visible/sidebar-linked pages, recent pages, and bounded idle batches.
 - Stale-content behavior: manifest hash reconciliation marks local content stale/deleted/missing without blocking the route shell.
 - Bundle splitting: the entry resolves only scope/session identity; LiveStore and markdown rendering are lazy-loaded behind separate chunks.
@@ -407,7 +428,6 @@ Exit criteria: public/session data cannot leak between stores, and stale/deleted
 
 Deploy the prototype beside the Next app without changing production routes.
 
-- Extract the manifest/pages/session API implementation behind a framework-neutral handler and wire a Vite dev adapter so local prototype work can run from one server.
 - Decide whether `apps/wiki-vite` deploys as a separate Vercel app, a Vercel service, or a preview-only artifact.
 - Configure the API origin explicitly per environment instead of relying on localhost proxy defaults.
 - Capture production-like metrics: manifest bytes, markdown bytes, cold route render, warm navigation render, LiveStore event count, OPFS estimate, and failed body fetches.

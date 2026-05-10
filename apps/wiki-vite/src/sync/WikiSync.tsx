@@ -51,9 +51,9 @@ function buildEagerQueue(currentSlug: string, manifest: WikiManifest) {
     .filter((node) => node.type === "file")
     .map((node) => node.slug);
   const recent = readRecentSlugs();
-  const priority = [currentSlug, ...treeSlugs.slice(0, 20), ...recent];
+  const priority = [...treeSlugs.slice(0, 20), ...recent];
   const candidates = [...new Set([...priority, ...manifest.pages.map((page) => page.slug)])]
-    .filter((slug) => manifestBySlug.has(slug));
+    .filter((slug) => slug !== currentSlug && manifestBySlug.has(slug));
 
   let queuedBytes = 0;
   const queue: string[] = [];

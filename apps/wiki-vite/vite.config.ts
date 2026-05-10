@@ -1,11 +1,12 @@
 import { livestoreDevtoolsPlugin } from "@livestore/devtools-vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { wikiApiPlugin } from "./server/wiki-api";
 
-const apiOrigin = process.env.VITE_WIKI_API_ORIGIN ?? "http://localhost:3000";
+const apiOrigin = process.env.VITE_WIKI_API_ORIGIN ?? "";
 
 function vendorChunk(id: string): string | null {
-  const normalized = id.replaceAll("\\", "/");
+  const normalized = id.replace(/\\/g, "/");
   if (
     /node_modules\/(?:@vitejs\/plugin-react|react|react-dom|scheduler)\//.test(normalized) ||
     normalized.includes("react/jsx-runtime") ||
@@ -13,7 +14,7 @@ function vendorChunk(id: string): string | null {
   ) {
     return "vendor-react";
   }
-  if (!normalized.includes("/node_modules/")) return;
+  if (!normalized.includes("/node_modules/")) return null;
   if (normalized.includes("/node_modules/effect/") || normalized.includes("/node_modules/@effect/")) {
     return "vendor-effect";
   }
@@ -67,13 +68,21 @@ export default defineConfig({
   },
   server: {
     port: process.env.PORT ? Number(process.env.PORT) : 60001,
-    proxy: {
-      "/api": {
-        target: apiOrigin,
-        changeOrigin: true,
-      },
-    },
+    ...(apiOrigin
+      ? {
+          proxy: {
+            "/api": {
+              target: apiOrigin,
+              changeOrigin: true,
+            },
+          },
+        }
+      : {}),
   },
   worker: { format: "es" },
-  plugins: [react(), livestoreDevtoolsPlugin({ schemaPath: "./src/livestore/schema.ts" })],
+  plugins: [
+    !apiOrigin ? wikiApiPlugin() : null,
+    react(),
+    livestoreDevtoolsPlugin({ schemaPath: "./src/livestore/schema.ts" }),
+  ],
 });
