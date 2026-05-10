@@ -5,6 +5,20 @@ interface ImportMetaEnv {
   readonly VITE_WIKI_APP_ORIGIN?: string;
 }
 
+interface Window {
+  __WIKI_VITE_OBSERVABILITY__?: {
+    metrics?: import("./types").Metrics;
+    search: Array<{
+      query: string;
+      mode: "text" | "ai";
+      durationMs: number;
+      resultCount: number;
+      status: "ready" | "error";
+      at: number;
+    }>;
+  };
+}
+
 declare module "*?worker" {
   const workerConstructor: {
     new (): Worker;

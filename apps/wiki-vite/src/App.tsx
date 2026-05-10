@@ -1,5 +1,6 @@
-import { lazy, Suspense, useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Route, Routes } from "react-router";
+import { publishMetrics } from "./observability";
 import { Header } from "./shell/Header";
 import { LiveStoreDevtoolsFooter } from "./shell/LiveStoreDevtoolsFooter";
 import { MetricsPanel } from "./shell/MetricsPanel";
@@ -54,6 +55,10 @@ export function App({
 }) {
   const scope = useWikiScope();
   const [metrics, setMetrics] = useState<Metrics>(initialMetrics);
+
+  useEffect(() => {
+    publishMetrics(metrics);
+  }, [metrics]);
 
   const bumpMetrics = useCallback((patch: Partial<Metrics>) => {
     setMetrics((current) => ({

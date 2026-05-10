@@ -114,6 +114,26 @@ test.describe("Vite backend API", () => {
     expect(await unsupported.text()).toContain("not supported");
   });
 
+  test("serves scoped markdown downloads from the Vite API route", async ({ request }) => {
+    const pageCopy = await request.get(
+      "/api/page-copy?slug=wiki/logistics/insurance&scope=public",
+    );
+    expect(pageCopy.ok(), await pageCopy.text()).toBe(true);
+    expect(pageCopy.headers()["content-type"]).toContain("text/markdown");
+    expect(pageCopy.headers()["content-disposition"]).toContain("insurance.md");
+    expect(pageCopy.headers()["x-wiki-cache-scope"]).toBe("public");
+    expect(await pageCopy.text()).toContain("Insurance");
+
+    const full = await request.get("/api/download?type=full&scope=public&limit=3", {
+      timeout: 60_000,
+    });
+    expect(full.ok(), await full.text()).toBe(true);
+    expect(full.headers()["content-type"]).toContain("text/markdown");
+    expect(full.headers()["content-disposition"]).toContain("diana-wiki.md");
+    expect(full.headers()["x-wiki-cache-scope"]).toBe("public");
+    expect(await full.text()).toContain("<!--");
+  });
+
   test("serves the standalone login API", async ({ request }) => {
     const invalid = await request.post("/api/login", {
       data: { password: "wrong-password" },

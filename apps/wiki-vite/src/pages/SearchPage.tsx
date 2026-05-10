@@ -1,5 +1,6 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { recordSearchMetric } from "../observability";
 import { hrefForSlug } from "../wiki-utils";
 
 type SearchResult = {
@@ -22,6 +23,7 @@ export function SearchPage() {
   const [query, setQuery] = useState(initialQuery);
   const [mode, setMode] = useState<SearchMode>(initialMode);
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [status, setStatus] = useState<"idle" | "loading" | "ranking" | "ready" | "error">(
     initialQuery ? "loading" : "idle",
   );
@@ -42,7 +44,9 @@ export function SearchPage() {
 
   async function runSearch(nextQuery = trimmedQuery, nextMode = mode) {
     const normalized = nextQuery.trim();
+    const startedAt = performance.now();
     setQuery(normalized);
+    setActiveIndex(0);
     if (!normalized) {
       setStatus("idle");
       setResults([]);
@@ -55,6 +59,13 @@ export function SearchPage() {
     if (!textResponse.ok) {
       setStatus("error");
       setError(`Search failed with ${textResponse.status}`);
+      recordSearchMetric({
+        query: normalized,
+        mode: nextMode,
+        durationMs: performance.now() - startedAt,
+        resultCount: 0,
+        status: "error",
+      });
       return;
     }
 
@@ -63,6 +74,13 @@ export function SearchPage() {
     if (nextMode === "text") {
       setResults(textResults);
       setStatus("ready");
+      recordSearchMetric({
+        query: normalized,
+        mode: "text",
+        durationMs: performance.now() - startedAt,
+        resultCount: textResults.length,
+        status: "ready",
+      });
       return;
     }
 
@@ -80,11 +98,26 @@ export function SearchPage() {
       setStatus("error");
       setError(body?.error ?? `AI search failed with ${aiResponse.status}`);
       setResults(textResults);
+      recordSearchMetric({
+        query: normalized,
+        mode: "ai",
+        durationMs: performance.now() - startedAt,
+        resultCount: textResults.length,
+        status: "error",
+      });
       return;
     }
     const aiBody = (await aiResponse.json()) as { results?: SearchResult[] };
-    setResults(Array.isArray(aiBody.results) ? aiBody.results : []);
+    const aiResults = Array.isArray(aiBody.results) ? aiBody.results : [];
+    setResults(aiResults);
     setStatus("ready");
+    recordSearchMetric({
+      query: normalized,
+      mode: "ai",
+      durationMs: performance.now() - startedAt,
+      resultCount: aiResults.length,
+      status: "ready",
+    });
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -107,6 +140,22 @@ export function SearchPage() {
     const nextSearch = nextParams.toString();
     navigate(`/search${nextSearch ? `?${nextSearch}` : ""}`, { replace: true });
     if (trimmedQuery) void runSearch(trimmedQuery, nextMode);
+  }
+
+  function onResultsKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (results.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((index) => Math.min(results.length - 1, index + 1));
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((index) => Math.max(0, index - 1));
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      navigate(hrefForSlug(results[activeIndex]?.slug ?? results[0].slug));
+    }
   }
 
   return (
@@ -144,19 +193,36 @@ export function SearchPage() {
           AI
         </button>
       </div>
-      <section className="search-page-results" data-test-id="search-results">
-        <div className="search-page-status">{resultLabel}</div>
+      <section
+        aria-activedescendant={results[activeIndex] ? `search-result-${activeIndex}` : undefined}
+        aria-label="Search results"
+        className="search-page-results"
+        data-test-id="search-results"
+        onKeyDown={onResultsKeyDown}
+        tabIndex={results.length > 0 ? 0 : -1}
+      >
+        <div className="search-page-status" role="status">{resultLabel}</div>
         {error ? <p className="auth-error">{error}</p> : null}
         {status === "ready" && results.length === 0 ? (
           <p className="search-page-empty">No results</p>
         ) : null}
-        {results.map((result) => (
-          <Link className="search-page-result" key={result.slug} to={hrefForSlug(result.slug)}>
+        {results.map((result, index) => (
+          <Link
+            className={`search-page-result ${index === activeIndex ? "active" : ""}`}
+            data-active={index === activeIndex ? "true" : undefined}
+            id={`search-result-${index}`}
+            key={result.slug}
+            to={hrefForSlug(result.slug)}
+            onFocus={() => setActiveIndex(index)}
+          >
             <strong>{result.title}</strong>
             <span>
               {result.slug}
               {typeof result.relevance === "number" ? ` · ${result.relevance.toFixed(1)} relevance` : ""}
             </span>
+            {result.tags && result.tags.length > 0 ? (
+              <small>{result.tags.slice(0, 3).join(" / ")}</small>
+            ) : null}
             {result.summary ? <p>{result.summary}</p> : result.excerpt ? <p>{result.excerpt}</p> : null}
           </Link>
         ))}

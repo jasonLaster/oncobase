@@ -15,11 +15,17 @@ test.describe("Page load experience", () => {
 
     await expect(page.getByTestId("app-header")).toBeVisible();
     await expect(page.getByTestId("wiki-sidebar")).toBeVisible();
-    await expect(page.locator(".metrics-panel")).toBeVisible();
-    await expect(page.locator(".metrics-panel")).toContainText("route");
-    await expect(page.locator(".metrics-panel")).toContainText("body misses");
+    await expect(page.getByTestId("metrics-panel")).toBeVisible();
+    await expect(page.getByTestId("metrics-panel")).toContainText("route");
+    await expect(page.getByTestId("metrics-panel")).toContainText("body misses");
+    await expect(page.getByTestId("metrics-panel")).toContainText("sync");
     await waitForPageTitle(page, "Insurance");
     await expect(nextErrorOverlay(page)).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.__WIKI_VITE_OBSERVABILITY__?.metrics?.lastRouteRenderMs ?? -1),
+      )
+      .toBeGreaterThanOrEqual(0);
   });
 
   test("mobile initial paint keeps header and bottom page affordance", async ({ page }) => {

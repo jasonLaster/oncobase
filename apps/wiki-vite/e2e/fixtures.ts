@@ -302,6 +302,7 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
     manifest: [] as string[],
     pages: [] as string[],
     files: [] as string[],
+    downloads: [] as string[],
     setSessionAuthenticated(authenticated: boolean) {
       sessionState.authenticated = authenticated;
     },
@@ -412,6 +413,44 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
       return;
     }
     await route.fulfill(json({ error: "Unsupported fixture file" }, 400));
+  });
+
+  await page.route("**/api/page-copy**", async (route) => {
+    const url = new URL(route.request().url());
+    const slug = url.searchParams.get("slug") ?? "";
+    const scope = scopeFromUrl(url);
+    const record = visibleRecords(scope, options).find((pageRecord) => pageRecord.slug === slug);
+    if (!record) {
+      await route.fulfill({ status: 404, body: "Not found" });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "text/markdown; charset=utf-8",
+      headers: {
+        "Content-Disposition": `attachment; filename="${slug.split("/").at(-1) ?? "page"}.md"`,
+        "X-Wiki-Cache-Scope": scope,
+      },
+      body: record.content,
+    });
+  });
+
+  await page.route("**/api/download**", async (route) => {
+    const url = new URL(route.request().url());
+    requests.downloads.push(url.toString());
+    const scope = scopeFromUrl(url);
+    const body = visibleRecords(scope, options)
+      .map((record) => `<!-- ${record.slug} -->\n\n${record.content}`)
+      .join("\n---\n");
+    await route.fulfill({
+      status: 200,
+      contentType: "text/markdown; charset=utf-8",
+      headers: {
+        "Content-Disposition": `attachment; filename="${siteSlug}-wiki.md"`,
+        "X-Wiki-Cache-Scope": scope,
+      },
+      body,
+    });
   });
 
   return requests;

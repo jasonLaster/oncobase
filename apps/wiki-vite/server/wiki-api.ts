@@ -23,6 +23,12 @@ const DIANA_PASSWORDS = new Set(["wallify", "diana"]);
 const DEFAULT_SEARCH_LIMIT = 10;
 const MAX_SEARCH_LIMIT = 50;
 
+type PageDownloadResult = {
+  page: Array<{ slug: string; content: string }>;
+  isDone: boolean;
+  continueCursor: string | null;
+};
+
 type ResolvedSite = {
   slug: string | null;
   expires: number;
@@ -201,6 +207,11 @@ function assetPathToSiblingSlug(assetPath: string) {
   return assetPath.replace(/\.[^/.]+$/, "");
 }
 
+function markdownFilename(slug: string) {
+  const basename = slug.split("/").filter(Boolean).at(-1) || "index";
+  return `${basename.replace(/[^a-z0-9._-]+/gi, "-")}.md`;
+}
+
 export function createClient() {
   return new ConvexHttpClient(resolveConvexUrl());
 }
@@ -352,11 +363,16 @@ async function handleFileRequest(
   const upstream = await fetch(asset.blobUrl);
   if (!upstream.ok) return new Response("Blob fetch failed", { status: 502 });
 
+  const cacheScope = includeSensitive ? "session" : "public";
   return new Response(await upstream.arrayBuffer(), {
     headers: {
       "Content-Type": mimeType,
       "Content-Disposition": `inline; filename="${path.basename(normalized)}"`,
-      "Cache-Control": "public, max-age=86400",
+      "Cache-Control": includeSensitive
+        ? "private, max-age=300"
+        : "public, max-age=86400",
+      Vary: includeSensitive ? "Accept, Cookie, Host" : "Accept, Host",
+      "X-Wiki-Cache-Scope": cacheScope,
     },
   });
 }
@@ -380,7 +396,10 @@ async function handlePageCopyRequest(
     return new Response(publicPage.content, {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${markdownFilename(slug)}"`,
         "Cache-Control": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+        Vary: "Accept, Host",
+        "X-Wiki-Cache-Scope": "public",
       },
     });
   }
@@ -401,8 +420,70 @@ async function handlePageCopyRequest(
   return new Response(privatePage.content, {
     headers: {
       "Content-Type": "text/markdown; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${markdownFilename(slug)}"`,
       "Cache-Control": "private, max-age=60, stale-while-revalidate=3600",
+      Vary: "Accept, Cookie, Host",
+      "X-Wiki-Cache-Scope": "session",
     },
+  });
+}
+
+async function handleDownloadRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  const url = new URL(request.url);
+  if (url.searchParams.get("type") !== "full") {
+    return new Response("Unsupported download type", { status: 400 });
+  }
+
+  const includeSensitive = Boolean(await getSessionUser(request, client, siteSlug));
+  const rawLimit = Number(url.searchParams.get("limit") ?? 0);
+  const maxPages = Number.isFinite(rawLimit) && rawLimit > 0
+    ? Math.min(5000, Math.floor(rawLimit))
+    : Number.POSITIVE_INFINITY;
+  let cursor: string | null = null;
+  let isDone = false;
+  const chunks: string[] = [];
+
+  while (!isDone && chunks.length < maxPages) {
+    const numItems = Math.min(100, maxPages - chunks.length);
+    const args = includeSensitive
+      ? { cursor, numItems, includeSensitive: true as const }
+      : { cursor, numItems };
+    const result: PageDownloadResult = await client.query(
+      api.documents.listPageWithContent,
+      withSiteSlug(siteSlug, args),
+    );
+
+    for (const page of result.page) {
+      chunks.push(`<!-- ${page.slug} -->\n\n${page.content.trim()}\n`);
+    }
+
+    isDone = result.isDone;
+    cursor = result.continueCursor;
+    if (!isDone && !cursor) {
+      return new Response("Download pagination failed", { status: 502 });
+    }
+  }
+
+  return new Response(chunks.join("\n---\n\n"), {
+    headers: includeSensitive
+      ? {
+          "Content-Type": "text/markdown; charset=utf-8",
+          "Content-Disposition": `attachment; filename="${siteSlug}-wiki.md"`,
+          "Cache-Control": "private, no-store",
+          Vary: "Accept, Cookie, Host",
+          "X-Wiki-Cache-Scope": "session",
+        }
+      : {
+          "Content-Type": "text/markdown; charset=utf-8",
+          "Content-Disposition": `attachment; filename="${siteSlug}-wiki.md"`,
+          "Cache-Control": "public, max-age=300, s-maxage=3600",
+          Vary: "Accept, Host",
+          "X-Wiki-Cache-Scope": "public",
+        },
   });
 }
 
@@ -561,6 +642,7 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/chat" ||
       pathname === "/api/search" ||
       pathname === "/api/tools" ||
+      pathname === "/api/download" ||
       pathname === "/api/file" ||
       pathname === "/api/page-copy";
     if (!handled) return null;
@@ -631,6 +713,10 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/tools") {
       return handleToolsRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/download") {
+      return handleDownloadRequest(request, client, siteSlug);
     }
 
     if (pathname === "/api/file") {

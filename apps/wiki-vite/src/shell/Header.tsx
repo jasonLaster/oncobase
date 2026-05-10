@@ -81,7 +81,12 @@ export function Header({ scope, metrics }: { scope: WikiScope; metrics: Metrics 
           </a>
         </div>
         <div className="topbar-status">
-          <ScopeSwitcher scope={scope} pathname={location.pathname} />
+          <ScopeSwitcher
+            hash={location.hash}
+            pathname={location.pathname}
+            scope={scope}
+            search={location.search}
+          />
           <span className={`sync-dot ${metrics.status}`} />
           <span>{metrics.message}</span>
         </div>
@@ -95,31 +100,35 @@ export function Header({ scope, metrics }: { scope: WikiScope; metrics: Metrics 
   );
 }
 
-function scopeHref(pathname: string, scope: WikiScope) {
-  const params = new URLSearchParams(window.location.search);
+function scopeHref(pathname: string, search: string, hash: string, scope: WikiScope) {
+  const params = new URLSearchParams(search);
   params.set("scope", scope);
-  return `${pathname}?${params.toString()}`;
+  return `${pathname}?${params.toString()}${hash}`;
 }
 
 function ScopeSwitcher({
+  hash,
   pathname,
   scope,
+  search,
 }: {
+  hash: string;
   pathname: string;
   scope: WikiScope;
+  search: string;
 }) {
   return (
     <div className="scope-switcher" data-test-id="scope-switcher" aria-label="Reader cache scope">
       <a
         className={scope === "public" ? "active" : ""}
-        href={scopeHref(pathname, "public")}
+        href={scopeHref(pathname, search, hash, "public")}
         onClick={() => window.localStorage.setItem("wiki-vite-scope", "public")}
       >
         Public
       </a>
       <a
         className={scope === "session" ? "active" : ""}
-        href={scopeHref(pathname, "session")}
+        href={scopeHref(pathname, search, hash, "session")}
         onClick={() => window.localStorage.setItem("wiki-vite-scope", "session")}
       >
         Session

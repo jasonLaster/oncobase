@@ -37,6 +37,10 @@ function backendHref(path: string) {
   return origin ? `${origin.replace(/\/+$/, "")}${normalizedPath}` : normalizedPath;
 }
 
+function currentReturnTo() {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
 function apiBaseUrl() {
   return import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
 }
@@ -45,7 +49,7 @@ function switchToPublicScope() {
   window.localStorage.setItem("wiki-vite-scope", "public");
   const url = new URL(window.location.href);
   url.searchParams.set("scope", "public");
-  window.location.assign(url.toString());
+  window.location.assign(`${url.pathname}${url.search}${url.hash}`);
 }
 
 function SessionRecovery({ message }: { message: string }) {
@@ -77,7 +81,7 @@ function SessionRecovery({ message }: { message: string }) {
           "a",
           {
             key: "login",
-            href: backendHref("/login"),
+            href: backendHref(`/login?redirect=${encodeURIComponent(currentReturnTo())}`),
           },
           "Open sign in",
         ),

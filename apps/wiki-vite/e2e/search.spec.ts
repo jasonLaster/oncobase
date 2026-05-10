@@ -130,6 +130,47 @@ test.describe("Local page finder", () => {
     await expect(page.getByRole("button", { name: "AI" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("search-results")).toContainText("8.5 relevance");
     await expect(page.getByTestId("search-results")).toContainText("payer authorization");
+    await expect(page.getByTestId("search-results")).toContainText("logistics");
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.__WIKI_VITE_OBSERVABILITY__?.search.at(-1)?.mode),
+      )
+      .toBe("ai");
+  });
+
+  test("search results support keyboard selection", async ({ page }) => {
+    await page.route("**/api/search?**", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          results: [
+            {
+              slug: "wiki/logistics/insurance",
+              title: "Insurance",
+              excerpt: "Prior authorization and coverage notes.",
+              tags: ["logistics"],
+            },
+            {
+              slug: "wiki/diagnostics/diagnosis",
+              title: "Diagnosis",
+              excerpt: "Diagnosis notes.",
+              tags: ["diagnostics"],
+            },
+          ],
+        }),
+      }),
+    );
+    await installWikiApiMocks(page);
+    await page.goto("/search?q=care", { waitUntil: "domcontentloaded" });
+
+    const results = page.getByTestId("search-results");
+    await results.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(results.locator(".search-page-result.active")).toContainText("Diagnosis");
+    await page.keyboard.press("Enter");
+
+    await expect(page).toHaveURL(/\/wiki\/diagnostics\/diagnosis$/);
+    await waitForPageTitle(page, "Diagnosis");
   });
 
   test("AI mode results link to wiki pages", async ({ page }) => {

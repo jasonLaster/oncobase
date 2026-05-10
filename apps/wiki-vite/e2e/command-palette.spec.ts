@@ -17,6 +17,22 @@ test.describe("Command palette parity", () => {
     await waitForPageTitle(page, "About This Wiki");
   });
 
+  test("palette supports keyboard selection and tab state", async ({ page }) => {
+    await gotoWiki(page, "/");
+
+    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("command-palette-input").fill("wiki/");
+    await expect(page.getByRole("button", { name: "Pages" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+
+    await expect(page).not.toHaveURL(/\/$/);
+    await expect(page.getByTestId("document-article")).toBeVisible();
+  });
+
   test("outline palette jumps to headings rendered from markdown", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
@@ -46,7 +62,7 @@ test.describe("Command palette parity", () => {
     );
     await expect(page.getByRole("link", { name: /Download full wiki/ })).toHaveAttribute(
       "href",
-      /\/api\/download\?type=full$/,
+      /\/api\/download\?type=full&scope=public$/,
     );
   });
 

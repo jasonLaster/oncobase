@@ -42,6 +42,17 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(sidebar.getByRole("link", { name: "insurance" })).toHaveClass(/active/);
   });
 
+  test("sidebar exposes accessible expansion and current-page state", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    await expect(
+      page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      page.getByTestId("wiki-sidebar").getByRole("button", { name: "wiki" }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
   test("sidebar directory expansion persists across reloads", async ({ page }) => {
     await gotoWiki(page, "/");
 

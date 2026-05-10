@@ -153,12 +153,20 @@ export function MobileNav() {
         className="bottom-nav-trigger"
         data-test-id="bottom-nav-trigger"
         type="button"
+        aria-expanded={open}
+        aria-controls="mobile-page-navigation"
         onClick={() => setOpen(true)}
       >
         <span>{pageTitleFromPath(location.pathname)}</span>
         <ChevronUpIcon size={16} aria-hidden="true" />
       </button>
-      <div className={`bottom-nav-sheet ${open ? "open" : ""}`}>
+      <div
+        className={`bottom-nav-sheet ${open ? "open" : ""}`}
+        id="mobile-page-navigation"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Page navigation"
+      >
         <button
           className="bottom-nav-backdrop"
           type="button"
@@ -216,8 +224,10 @@ function TreeNode({
     return (
       <div>
         <button
+          aria-expanded={open}
           className="tree-directory"
           type="button"
+          title={`${open ? "Collapse" : "Expand"} ${node.name.replace(/-/g, " ")}`}
           onClick={() => onToggleDirectory(node.slug)}
           style={{ paddingLeft: depth * 12 + 8 }}
         >
@@ -264,6 +274,7 @@ function TreeNode({
   return (
     <Link
       className={`tree-link ${active ? "active" : ""}`}
+      aria-current={active ? "page" : undefined}
       style={{ paddingLeft: depth * 12 + 24 }}
       to={hrefForSlug(node.slug)}
       onClick={onNavigate}

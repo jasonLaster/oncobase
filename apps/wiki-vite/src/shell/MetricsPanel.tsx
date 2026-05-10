@@ -15,7 +15,11 @@ export function MetricsPanel({ metrics }: { metrics: Metrics }) {
       : null;
 
   return (
-    <div className="metrics-panel">
+    <div
+      className="metrics-panel"
+      data-test-id="metrics-panel"
+      data-status={metrics.status}
+    >
       <div>
         <DatabaseIcon size={14} aria-hidden="true" />
         <span>manifest</span>
@@ -65,6 +69,11 @@ export function MetricsPanel({ metrics }: { metrics: Metrics }) {
         <WifiOffIcon size={14} aria-hidden="true" />
         <span>body misses</span>
         <strong>{metrics.failedBodyFetches}</strong>
+      </div>
+      <div>
+        <ClockIcon size={14} aria-hidden="true" />
+        <span>sync</span>
+        <strong>{formatMs(metrics.lastSyncMs)}</strong>
       </div>
     </div>
   );

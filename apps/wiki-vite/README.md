@@ -23,6 +23,7 @@ By default the Vite dev server serves the reader APIs directly from Convex:
 - `/api/chat`
 - `/api/tools`
 - `/api/login`
+- `/api/download`
 - `/api/file`
 - `/api/page-copy`
 
@@ -45,13 +46,13 @@ bun run build
 PORT=62003 bun run start:server
 ```
 
-`start:server` serves `dist/` and the same wiki API request handler from one Bun process. It is the current full-stack rehearsal target: the SPA, `/api/wiki/*`, `/api/search`, `/api/ai-search`, `/api/chat`, `/api/tools`, `/api/login`, `/api/file`, and `/api/page-copy` all come from the same origin while Convex remains the content database.
+`start:server` serves `dist/` and the same wiki API request handler from one Bun process. It is the current full-stack rehearsal target: the SPA, `/api/wiki/*`, `/api/search`, `/api/ai-search`, `/api/chat`, `/api/tools`, `/api/login`, `/api/download`, `/api/file`, and `/api/page-copy` all come from the same origin while Convex remains the content database.
 
 ## Environment
 
 The prototype has two origins:
 
-- `VITE_WIKI_API_ORIGIN`: optional override for where `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/search`, `/api/ai-search`, `/api/chat`, `/api/tools`, `/api/login`, `/api/page-copy`, and `/api/file` are served from.
+- `VITE_WIKI_API_ORIGIN`: optional override for where `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/search`, `/api/ai-search`, `/api/chat`, `/api/tools`, `/api/login`, `/api/download`, `/api/page-copy`, and `/api/file` are served from.
 - `VITE_WIKI_APP_ORIGIN`: optional app-origin override for routes that should intentionally leave the Vite app. Search, AI search, chat, and sign-in are Vite-owned in the standalone path.
 
 For local dev, omit `VITE_WIKI_API_ORIGIN` to use the Vite backend. For a separate preview deployment that still calls the Next backend, set both origins to the deployed Next app origin. Cross-origin previews must also set `WIKI_VITE_ALLOWED_ORIGINS` on the Next app to the exact Vite preview origin so the additive wiki APIs can return credentialed CORS headers.
@@ -117,3 +118,7 @@ The entry bundle only resolves the public/session scope and asks the existing we
 Vite/Rolldown code splitting keeps React, LiveStore, Effect, markdown, and icons in separate vendor chunks. Lazy chunk preloads are intentionally suppressed for `LiveStoreRoot` and `WikiPage`; otherwise the browser eagerly requests the expensive local database and markdown renderer before the wiki shell can render.
 
 Run `bun run build && bun run check:bundle` before widening the reader surface. The bundle budget reports raw/gzip sizes for the entry, LiveStore, markdown, Effect, workers, and SQLite wasm chunks so tree-shaking regressions show up as a failing check instead of a visual review surprise.
+
+## Observability
+
+The reader keeps a small browser-local diagnostics buffer at `window.__WIKI_VITE_OBSERVABILITY__`. It exposes the latest route/cache metrics and recent search timings so Playwright and preview smoke tests can verify cold render, warm navigation, search latency, and cache pressure without relying only on visible UI text.

@@ -31,6 +31,7 @@ import { assets$, pageIndex$ } from "../livestore/queries";
 import { events } from "../livestore/schema";
 import { WARM_CACHE_EVENT } from "../sync/WikiSync";
 import type { AssetIndexRow, PageIndexRow } from "../types";
+import { useWikiScope } from "../wiki-context";
 import {
   backendHref,
   hrefForSlug,
@@ -97,8 +98,10 @@ export function CommandPalette({
   const { store } = useStore();
   const pages = store.useQuery(pageIndex$) as PageIndexRow[];
   const assets = store.useQuery(assets$) as AssetIndexRow[];
+  const scope = useWikiScope();
   const [mode, setMode] = useState<PaletteMode>(initialMode);
   const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
   const [outline, setOutline] = useState<OutlineItem[]>([]);
   const [recentSlugs, setRecentSlugs] = useState<string[]>([]);
   const [liveStoreDevtoolsEnabled] = useState(() => readLiveStoreDevtoolsEnabled());
@@ -113,6 +116,7 @@ export function CommandPalette({
 
     setMode(initialMode);
     setQuery("");
+    setActiveIndex(0);
     setOutline(collectOutline());
     setRecentSlugs(readRecentSlugs());
     window.setTimeout(() => inputRef.current?.focus(), 0);
@@ -178,12 +182,12 @@ export function CommandPalette({
       },
       {
         label: "Download full wiki",
-        description: "Use the existing backend download pipeline",
-        href: backendHref("/api/download?type=full"),
+        description: "Download the current scoped wiki as markdown",
+        href: backendHref("/api/download", { type: "full", scope }),
         icon: <DownloadIcon size={15} aria-hidden="true" />,
       },
     ],
-    [currentSlug, relatedAssets, returnTo],
+    [currentSlug, relatedAssets, returnTo, scope],
   );
 
   const actionResults = useMemo(() => {
@@ -278,6 +282,25 @@ export function CommandPalette({
       .slice(0, 12);
   }, [pages, query, recentSlugs]);
 
+  const activeCount =
+    mode === "pages"
+      ? pageResults.length
+      : mode === "outline"
+        ? outlineResults.length
+        : mode === "assets"
+          ? assetResults.length
+          : mode === "tags"
+            ? tagResults.length
+            : mode === "recent"
+              ? recentResults.length
+              : mode === "actions"
+                ? actionResults.length
+                : debugResults.length;
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [mode, query]);
+
   const openPage = (page: PageIndexRow) => {
     rememberSlug(page.slug);
     navigate(hrefForSlug(page.slug));
@@ -290,27 +313,37 @@ export function CommandPalette({
   };
 
   const onInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((index) => Math.min(Math.max(0, activeCount - 1), index + 1));
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((index) => Math.max(0, index - 1));
+      return;
+    }
     if (event.key !== "Enter") return;
 
-    if (mode === "pages" && pageResults[0]) openPage(pageResults[0]);
-    if (mode === "outline" && outlineResults[0]) openOutline(outlineResults[0]);
-    if (mode === "assets" && assetResults[0]) {
+    if (mode === "pages" && pageResults[activeIndex]) openPage(pageResults[activeIndex]);
+    if (mode === "outline" && outlineResults[activeIndex]) openOutline(outlineResults[activeIndex]);
+    if (mode === "assets" && assetResults[activeIndex]) {
       window.open(
-        backendHref(`/api/file?path=${encodeURIComponent(assetResults[0].path)}`),
+        backendHref(`/api/file?path=${encodeURIComponent(assetResults[activeIndex].path)}`),
         "_blank",
         "noreferrer",
       );
     }
-    if (mode === "tags" && tagResults[0]) {
-      setQuery(tagResults[0].tag);
+    if (mode === "tags" && tagResults[activeIndex]) {
+      setQuery(tagResults[activeIndex].tag);
       setMode("pages");
     }
-    if (mode === "recent" && recentResults[0]) openPage(recentResults[0]);
-    if (mode === "actions" && actionResults[0]) {
-      window.location.assign(actionResults[0].href);
+    if (mode === "recent" && recentResults[activeIndex]) openPage(recentResults[activeIndex]);
+    if (mode === "actions" && actionResults[activeIndex]) {
+      window.location.assign(actionResults[activeIndex].href);
     }
-    if (mode === "debug" && debugResults[0]) {
-      debugResults[0].run();
+    if (mode === "debug" && debugResults[activeIndex]) {
+      debugResults[activeIndex].run();
     }
   };
 
@@ -330,6 +363,7 @@ export function CommandPalette({
           <SearchIcon size={16} aria-hidden="true" />
           <input
             ref={inputRef}
+            aria-activedescendant={activeCount > 0 ? `command-${mode}-${activeIndex}` : undefined}
             data-test-id="command-palette-input"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -358,9 +392,10 @@ export function CommandPalette({
             <XIcon size={16} aria-hidden="true" />
           </button>
         </div>
-        <div className="command-tabs" role="tablist" aria-label="Palette mode">
+        <div className="command-tabs" role="group" aria-label="Palette mode">
           <button
             type="button"
+            aria-pressed={mode === "pages"}
             className={mode === "pages" ? "active" : ""}
             onClick={() => setMode("pages")}
           >
@@ -369,6 +404,7 @@ export function CommandPalette({
           </button>
           <button
             type="button"
+            aria-pressed={mode === "outline"}
             className={mode === "outline" ? "active" : ""}
             onClick={() => {
               setOutline(collectOutline());
@@ -380,6 +416,7 @@ export function CommandPalette({
           </button>
           <button
             type="button"
+            aria-pressed={mode === "assets"}
             className={mode === "assets" ? "active" : ""}
             onClick={() => setMode("assets")}
           >
@@ -388,6 +425,7 @@ export function CommandPalette({
           </button>
           <button
             type="button"
+            aria-pressed={mode === "tags"}
             className={mode === "tags" ? "active" : ""}
             onClick={() => setMode("tags")}
           >
@@ -396,6 +434,7 @@ export function CommandPalette({
           </button>
           <button
             type="button"
+            aria-pressed={mode === "recent"}
             className={mode === "recent" ? "active" : ""}
             onClick={() => {
               setRecentSlugs(readRecentSlugs());
@@ -407,6 +446,7 @@ export function CommandPalette({
           </button>
           <button
             type="button"
+            aria-pressed={mode === "actions"}
             className={mode === "actions" ? "active" : ""}
             onClick={() => setMode("actions")}
           >
@@ -415,6 +455,7 @@ export function CommandPalette({
           </button>
           <button
             type="button"
+            aria-pressed={mode === "debug"}
             className={mode === "debug" ? "active" : ""}
             onClick={() => setMode("debug")}
           >
@@ -422,13 +463,20 @@ export function CommandPalette({
             Debug
           </button>
         </div>
-        <div className="command-list">
+        <div className="command-list" aria-label={`${mode} results`}>
           {mode === "pages" ? (
             pageResults.length === 0 ? (
               <div className="command-empty">No local pages found</div>
             ) : (
-              pageResults.map((page) => (
-                <button key={page.slug} type="button" onClick={() => openPage(page)}>
+              pageResults.map((page, index) => (
+                <button
+                  className={index === activeIndex ? "active" : ""}
+                  data-active={index === activeIndex ? "true" : undefined}
+                  id={`command-pages-${index}`}
+                  key={page.slug}
+                  type="button"
+                  onClick={() => openPage(page)}
+                >
                   <FileTextIcon size={15} aria-hidden="true" />
                   <span>
                     <strong>{page.title}</strong>
@@ -442,8 +490,11 @@ export function CommandPalette({
             outlineResults.length === 0 ? (
               <div className="command-empty">No headings on this page</div>
             ) : (
-              outlineResults.map((item) => (
+              outlineResults.map((item, index) => (
                 <button
+                  className={index === activeIndex ? "active" : ""}
+                  data-active={index === activeIndex ? "true" : undefined}
+                  id={`command-outline-${index}`}
                   key={item.id}
                   type="button"
                   style={
@@ -466,8 +517,11 @@ export function CommandPalette({
             assetResults.length === 0 ? (
               <div className="command-empty">No assets found</div>
             ) : (
-              assetResults.map((asset) => (
+              assetResults.map((asset, index) => (
                 <a
+                  className={index === activeIndex ? "active" : ""}
+                  data-active={index === activeIndex ? "true" : undefined}
+                  id={`command-assets-${index}`}
                   key={asset.path}
                   href={backendHref(`/api/file?path=${encodeURIComponent(asset.path)}`)}
                   target="_blank"
@@ -490,8 +544,11 @@ export function CommandPalette({
             tagResults.length === 0 ? (
               <div className="command-empty">No tags found</div>
             ) : (
-              tagResults.map((result) => (
+              tagResults.map((result, index) => (
                 <button
+                  className={index === activeIndex ? "active" : ""}
+                  data-active={index === activeIndex ? "true" : undefined}
+                  id={`command-tags-${index}`}
                   key={result.tag}
                   type="button"
                   onClick={() => {
@@ -512,8 +569,15 @@ export function CommandPalette({
             recentResults.length === 0 ? (
               <div className="command-empty">No recent pages yet</div>
             ) : (
-              recentResults.map((page) => (
-                <button key={page.slug} type="button" onClick={() => openPage(page)}>
+              recentResults.map((page, index) => (
+                <button
+                  className={index === activeIndex ? "active" : ""}
+                  data-active={index === activeIndex ? "true" : undefined}
+                  id={`command-recent-${index}`}
+                  key={page.slug}
+                  type="button"
+                  onClick={() => openPage(page)}
+                >
                   <ClockIcon size={15} aria-hidden="true" />
                   <span>
                     <strong>{page.title}</strong>
@@ -527,8 +591,14 @@ export function CommandPalette({
             actionResults.length === 0 ? (
               <div className="command-empty">No actions found</div>
             ) : (
-              actionResults.map((action) => (
-                <a key={action.label} href={action.href}>
+              actionResults.map((action, index) => (
+                <a
+                  className={index === activeIndex ? "active" : ""}
+                  data-active={index === activeIndex ? "true" : undefined}
+                  id={`command-actions-${index}`}
+                  key={action.label}
+                  href={action.href}
+                >
                   {action.icon}
                   <span>
                     <strong>{action.label}</strong>
@@ -542,8 +612,15 @@ export function CommandPalette({
             debugResults.length === 0 ? (
               <div className="command-empty">No cache tools found</div>
             ) : (
-              debugResults.map((action) => (
-                <button key={action.label} type="button" onClick={action.run}>
+              debugResults.map((action, index) => (
+                <button
+                  className={index === activeIndex ? "active" : ""}
+                  data-active={index === activeIndex ? "true" : undefined}
+                  id={`command-debug-${index}`}
+                  key={action.label}
+                  type="button"
+                  onClick={action.run}
+                >
                   {action.icon}
                   <span>
                     <strong>{action.label}</strong>

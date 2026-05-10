@@ -1,3 +1,4 @@
+import { ArrowLeftIcon } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 
 export function LoginPage() {
@@ -34,6 +35,9 @@ export function LoginPage() {
       <section className="login-panel">
         <p className="eyebrow">Private wiki</p>
         <h1>Sign in</h1>
+        <p className="login-return">
+          Return to <code>{redirect}</code> after sign in.
+        </p>
         <form onSubmit={onSubmit}>
           <label>
             <span>Password</span>
@@ -51,6 +55,10 @@ export function LoginPage() {
             {submitting ? "Signing in..." : "Sign in"}
           </button>
         </form>
+        <a className="login-back-link" href={redirect}>
+          <ArrowLeftIcon size={15} aria-hidden="true" />
+          Back to reader
+        </a>
       </section>
     </article>
   );

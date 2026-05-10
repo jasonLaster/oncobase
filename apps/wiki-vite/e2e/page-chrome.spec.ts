@@ -26,12 +26,29 @@ test.describe("Page chrome parity", () => {
     await expect(actions.getByRole("button", { name: "Print page" })).toBeVisible();
     await expect(actions.getByRole("link", { name: "Markdown" })).toHaveAttribute(
       "href",
-      /\/api\/page-copy\?slug=wiki%2Flogistics%2Finsurance/,
+      /\/api\/page-copy\?slug=wiki%2Flogistics%2Finsurance&cacheKey=.*&scope=public/,
     );
     await expect(actions.getByRole("link", { name: "Main app" })).toHaveAttribute(
       "href",
       /\/wiki\/logistics\/insurance$/,
     );
+  });
+
+  test("page markdown downloads are served by the Vite API boundary", async ({ page, request }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    const href = await page
+      .getByTestId("page-actions")
+      .getByRole("link", { name: "Markdown" })
+      .getAttribute("href");
+    expect(href).toBeTruthy();
+
+    const response = await request.get(href!);
+    expect(response.ok(), await response.text()).toBe(true);
+    expect(response.headers()["content-type"]).toContain("text/markdown");
+    expect(response.headers()["content-disposition"]).toContain("insurance.md");
+    expect(response.headers()["x-wiki-cache-scope"]).toBe("public");
+    expect((await response.text()).length).toBeGreaterThan(100);
   });
 
   test("copies local markdown without a server body fetch", async ({ page, context }) => {

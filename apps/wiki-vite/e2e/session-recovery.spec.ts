@@ -4,7 +4,7 @@ import { documentArticle, gotoWiki, installWikiApiMocks, waitForPageTitle } from
 test.describe("Session scope recovery", () => {
   test("session identity failure can fall back to the public store", async ({ page }) => {
     await installWikiApiMocks(page);
-    await page.goto("/wiki/logistics/insurance?scope=session", {
+    await page.goto("/wiki/logistics/insurance?scope=session#claims-follow-up", {
       waitUntil: "domcontentloaded",
     });
 
@@ -12,25 +12,41 @@ test.describe("Session scope recovery", () => {
     await expect(page.getByText("Session access needed")).toBeVisible();
     await expect(page.getByRole("link", { name: "Open sign in" })).toHaveAttribute(
       "href",
-      /\/login$/,
+      /\/login\?redirect=%2Fwiki%2Flogistics%2Finsurance%3Fscope%3Dsession%23claims-follow-up$/,
     );
 
     await page.getByRole("button", { name: "Continue public" }).click();
 
-    await expect(page).toHaveURL(/scope=public/);
+    await expect(page).toHaveURL(/scope=public#claims-follow-up/);
     await waitForPageTitle(page, "Insurance");
     await expect(page.getByTestId("scope-switcher").getByText("Public")).toBeVisible();
   });
 
   test("header scope switcher preserves the current route", async ({ page }) => {
     await installWikiApiMocks(page, { sessionAuthenticated: true });
-    await gotoWiki(page, "/wiki/logistics/insurance?scope=session");
+    await gotoWiki(page, "/wiki/logistics/insurance?scope=session#claims-follow-up");
 
     const switcher = page.getByTestId("scope-switcher");
     await expect(switcher.getByText("Session")).toBeVisible();
     await expect(switcher.getByRole("link", { name: "Public" })).toHaveAttribute(
       "href",
-      /\/wiki\/logistics\/insurance\?scope=public$/,
+      /\/wiki\/logistics\/insurance\?scope=public#claims-follow-up$/,
+    );
+  });
+
+  test("login page describes and preserves the redirect target", async ({ page }) => {
+    await installWikiApiMocks(page);
+    await page.goto(
+      "/login?redirect=%2Fwiki%2Flogistics%2Finsurance%3Fscope%3Dsession%23claims-follow-up",
+      { waitUntil: "domcontentloaded" },
+    );
+
+    await expect(page.getByTestId("login-page")).toContainText(
+      "/wiki/logistics/insurance?scope=session#claims-follow-up",
+    );
+    await expect(page.getByRole("link", { name: "Back to reader" })).toHaveAttribute(
+      "href",
+      "/wiki/logistics/insurance?scope=session#claims-follow-up",
     );
   });
 

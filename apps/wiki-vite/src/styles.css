@@ -189,7 +189,19 @@ a {
 .login-panel h1 {
   font-size: 1.5rem;
   line-height: 1.2;
+  margin: 0 0 10px;
+}
+
+.login-return {
+  color: var(--muted);
+  font-size: 0.875rem;
   margin: 0 0 18px;
+}
+
+.login-return code {
+  color: var(--foreground);
+  font-family: inherit;
+  overflow-wrap: anywhere;
 }
 
 .login-panel form {
@@ -233,6 +245,20 @@ a {
 .login-panel button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.login-back-link {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.875rem;
+  gap: 6px;
+  margin-top: 14px;
+  text-decoration: none;
+}
+
+.login-back-link:hover {
+  color: var(--foreground);
 }
 
 .search-page {
@@ -360,8 +386,14 @@ a {
   text-decoration: none;
 }
 
-.search-page-result:hover {
+.search-page-result:hover,
+.search-page-result.active {
   background: var(--sidebar-bg);
+}
+
+.search-page-result.active {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 12%, transparent);
 }
 
 .search-page-result strong {
@@ -369,6 +401,7 @@ a {
 }
 
 .search-page-result span,
+.search-page-result small,
 .search-page-result p {
   color: var(--text-muted);
   font-size: 0.8125rem;
@@ -514,7 +547,9 @@ a {
 }
 
 .tree-directory:hover,
+.tree-directory:focus-visible,
 .tree-link:hover,
+.tree-link:focus-visible,
 .tree-link.active {
   background: var(--accent-light);
   color: var(--foreground);
@@ -1319,8 +1354,15 @@ a {
 }
 
 .command-list button:hover,
-.command-list a:hover {
+.command-list button.active,
+.command-list a:hover,
+.command-list a.active {
   background: var(--accent-light);
+}
+
+.command-list button.active,
+.command-list a.active {
+  box-shadow: inset 2px 0 0 var(--brand);
 }
 
 .command-list span,

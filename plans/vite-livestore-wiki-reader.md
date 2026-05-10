@@ -27,6 +27,26 @@ The migration is far enough along to use the Vite one-server path as the primary
 
 ## Work Log
 
+### 2026-05-09 P1 Parity And Polish Checkpoint
+
+- Polished auth/session UX: session recovery now sends users to `/login` with a hash-preserving `redirect`, the login page displays the return target, and scope switching preserves both query string and hash.
+- Made downloads/file actions more standalone in the Vite backend: `/api/page-copy` returns scoped markdown with download headers, `/api/file` reports public/session cache scope, and `/api/download?type=full` can stream the current scoped wiki as a markdown bundle for the standalone app.
+- Improved search and AI-search UX: results keep native links, support keyboard selection with arrow keys and Enter, show tag context, and record search timing/result metrics in the client observability buffer.
+- Improved palette/sidebar accessibility: palette modes remain native segmented buttons with pressed state, palette results keep keyboard highlighting, sidebar links expose `aria-current`, directories expose `aria-expanded`, and the mobile sheet has dialog semantics.
+- Added a small client observability surface at `window.__WIKI_VITE_OBSERVABILITY__` plus a metrics panel test hook so preview smoke can inspect route metrics and search timings without scraping visible text.
+- Verification command run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite test:e2e e2e/session-recovery.spec.ts e2e/page-chrome.spec.ts e2e/search.spec.ts e2e/command-palette.spec.ts e2e/navigation.spec.ts e2e/page-load-experience.spec.ts e2e/backend-api.spec.ts
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite check:bundle
+bun --cwd apps/wiki-vite verify:standalone
+bun --cwd apps/wiki-vite test:e2e
+```
+
+Focused result: `57 passed`. Full Vite suite result after this checkpoint: `86 passed, 68 skipped`.
+
 ### 2026-05-09 Migration Backlog Deepening Checkpoint
 
 - Split the remaining migration inventory into P0 replacement blockers, P1 parity/polish, and parked backlog.
@@ -626,11 +646,11 @@ These should land before a broad user-facing rollout, but they can follow the P0
 
 | Area | Work | Acceptance |
 | --- | --- | --- |
-| Auth/session UX | Polish login screen, return-to-reader flow, hash preservation, expired session recovery, and authenticated/public scope copy. | Hash-preserving login redirect tests pass; session-expiry tests prove public fallback and private store clearing. |
-| Downloads and file actions | Make page-copy/download/file actions standalone Vite-owned where still thin or inherited from old behavior. | Page markdown, source files, PDFs, and missing files are scoped and cache-safe in backend tests. |
-| Search/AI result UX | Improve snippets, citations, empty/error states, keyboard navigation, and sensitive-session result handling. | Search route tests cover keyboard selection, AI citations, and session-only result boundaries. |
-| Command palette and sidebar accessibility | Better fuzzy ranking, focus management, keyboard navigation, large tree behavior, and richer current-page actions. | Keyboard-only smoke covers palette modes, sidebar expansion, outline jumps, and asset actions. |
-| Observability | Add route/API timings, chat first-token/full-completion measurements, failed fetch counters, and OPFS footprint to preview/prod logs or telemetry. | Preview report captures cold route, warm nav, manifest bytes, markdown bytes, chat latency, and search latency. |
+| Auth/session UX | Hash-preserving session recovery, scope switching, and login return-target copy landed. Remaining: login styling polish, expired-session edge cases beyond current public fallback, and production auth copy. | Current focused tests cover hash-preserving redirect, public fallback, session store separation, and cache-key rotation. |
+| Downloads and file actions | Vite now owns scoped `/api/page-copy`, `/api/file`, and `/api/download?type=full` markdown-bundle behavior for the standalone path. Remaining: richer per-page source/download actions and production full-export format decisions. | Backend tests cover scoped markdown downloads; page chrome tests fetch page markdown through the Vite API boundary. |
+| Search/AI result UX | Result cards keep native links, support arrow/Enter keyboard selection, show tag context, preserve AI summaries/relevance, and publish search metrics to the observability buffer. Remaining: richer citations and sensitive-session result presentation. | Search route tests cover keyboard selection, AI tags/summaries, error fallback, and session-only local results. |
+| Command palette and sidebar accessibility | Palette mode buttons expose pressed state, keyboard highlighting works without losing native button/link semantics, sidebar directories expose expanded state, current page links expose `aria-current`, and the mobile sheet is a dialog. Remaining: deeper focus trapping and very large tree behavior. | Focused tests cover palette keyboard selection, tab state, sidebar expansion/current state, outline jumps, and asset actions. |
+| Observability | The metrics panel exposes a stable test hook and `window.__WIKI_VITE_OBSERVABILITY__` stores the latest route metrics plus recent search timings. Remaining: chat first-token/full-completion timings and preview/prod reporting. | Page-load tests inspect route metrics through the observability buffer; search tests inspect AI-search timing records. |
 
 #### Parked Backlog
 
@@ -695,7 +715,7 @@ Current local result:
 
 ```txt
 bun --cwd apps/wiki-vite test:e2e --reporter=line
-80 passed, 68 skipped
+86 passed, 68 skipped
 ```
 
 The skipped specs are not a hidden success condition. They are the remaining feature inventory to either migrate into Vite, keep routed to Next for v1, or delete from the Vite migration scope explicitly.
