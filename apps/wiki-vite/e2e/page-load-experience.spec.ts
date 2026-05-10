@@ -9,6 +9,57 @@ import {
 } from "./fixtures";
 
 test.describe("Page load experience", () => {
+  test("renders a Log-sized markdown body through the tail", async ({ page }) => {
+    const largeLogContent = [
+      "# Log",
+      "",
+      "## Sunday, May 10th",
+      "",
+      "LOG_TOP_SENTINEL The rendered page should include the newest log entry.",
+      "",
+      Array.from(
+        { length: 2300 },
+        (_, index) =>
+          `Audit paragraph ${index + 1}. The Vite reader must preserve complete markdown body text across manifest refreshes, LiveStore materialization, markdown rendering, and page chrome updates without silently trimming the document.`,
+      ).join("\n\n"),
+      "",
+      "## Middle checkpoint",
+      "",
+      "LOG_MIDDLE_SENTINEL This marker protects the middle of a large markdown body.",
+      "",
+      Array.from(
+        { length: 900 },
+        (_, index) =>
+          `Continuation paragraph ${index + 1}. Long wiki pages such as about/Log should remain faithful to the markdown source even when they are larger than common article pages.`,
+      ).join("\n\n"),
+      "",
+      "## Friday, March 13th",
+      "",
+      "LOG_TAIL_SENTINEL Core biopsy at outside facility.",
+      "",
+    ].join("\n");
+
+    await installWikiApiMocks(page, {
+      pageOverrides: {
+        "about/Log": {
+          title: "Log",
+          tags: ["about", "log"],
+          description: "Large log fixture",
+          content: largeLogContent,
+        },
+      },
+    });
+
+    await gotoWiki(page, "/about/Log");
+    await waitForPageTitle(page, "Log");
+
+    const article = documentArticle(page);
+    await expect(article).toContainText("LOG_TOP_SENTINEL");
+    await expect(article).toContainText("LOG_MIDDLE_SENTINEL");
+    await expect(article).toContainText("LOG_TAIL_SENTINEL");
+    await expect(article.locator(".page-footer")).toContainText("Content hash:");
+  });
+
   test("initial paint keeps header, sidebar, and article chrome without diagnostics", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/logistics/insurance");

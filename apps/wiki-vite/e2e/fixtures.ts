@@ -226,15 +226,35 @@ function hash(value: string) {
 }
 
 function pagesForOptions(options: MockOptions) {
-  return Object.fromEntries(
-    Object.entries(basePages).map(([slug, page]) => [
-      slug,
-      {
-        ...page,
-        ...(options.pageOverrides?.[slug] ?? {}),
-      },
-    ]),
-  ) as Record<string, FixturePage>;
+  const pages: Record<string, FixturePage> = { ...basePages };
+
+  for (const [slug, override] of Object.entries(options.pageOverrides ?? {})) {
+    const base = pages[slug];
+    if (base) {
+      pages[slug] = { ...base, ...override };
+      continue;
+    }
+
+    if (
+      typeof override.title !== "string" ||
+      !Array.isArray(override.tags) ||
+      typeof override.content !== "string"
+    ) {
+      throw new Error(`Fixture override for ${slug} must include title, tags, and content`);
+    }
+
+    pages[slug] = {
+      title: override.title,
+      tags: override.tags,
+      content: override.content,
+      ...(typeof override.description === "string"
+        ? { description: override.description }
+        : {}),
+      ...(override.sensitive === true ? { sensitive: true } : {}),
+    };
+  }
+
+  return pages;
 }
 
 function pageRecord(slug: string, page: FixturePage): WikiPageRecord {

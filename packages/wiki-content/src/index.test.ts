@@ -251,6 +251,30 @@ describe("wiki content contracts", () => {
     await client.fetchSessionIdentity();
 
     expect(requestInit?.credentials).toBe("include");
+    expect(requestInit?.cache).toBe("no-cache");
+  });
+
+  test("client helpers allow cache policy overrides", async () => {
+    let requestInit: RequestInit | undefined;
+    const client = createWikiContentClient({
+      cache: "reload",
+      fetch: (async (_url, init) => {
+        requestInit = init;
+        return Response.json({
+          siteSlug: "diana",
+          manifestHash: "hash",
+          generatedAt: "2026-05-10T00:00:00.000Z",
+          scope: "public",
+          compactTree: [],
+          pages: [],
+          assets: [],
+        });
+      }) as typeof fetch,
+    });
+
+    await client.fetchManifest();
+
+    expect(requestInit?.cache).toBe("reload");
   });
 
   test("client helpers time out stalled wiki requests", async () => {

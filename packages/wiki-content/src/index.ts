@@ -82,6 +82,7 @@ export type WikiContentClientOptions = {
   credentials?: RequestCredentials;
   scope?: WikiScope;
   fetch?: typeof fetch;
+  cache?: RequestCache;
   requestTimeoutMs?: number;
 };
 
@@ -545,12 +546,14 @@ async function fetchJson(
   fetchFn: typeof fetch,
   url: string,
   credentials: RequestCredentials,
+  cache: RequestCache,
   requestTimeoutMs: number,
 ) {
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), requestTimeoutMs);
   try {
     const response = await fetchFn(url, {
+      cache,
       credentials,
       headers: { Accept: "application/json" },
       signal: controller.signal,
@@ -574,16 +577,19 @@ export function createWikiContentClient({
   credentials = "same-origin",
   scope = "public",
   fetch: fetchFn = globalThis.fetch,
+  cache = "no-cache",
   requestTimeoutMs = 15_000,
 }: WikiContentClientOptions = {}) {
   return {
     async fetchManifest() {
       const url = urlWithParams(baseUrl, "/api/wiki/manifest", { scope });
-      return parseWikiManifest(await fetchJson(fetchFn, url, credentials, requestTimeoutMs));
+      return parseWikiManifest(await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs));
     },
     async fetchSessionIdentity() {
       const url = urlWithParams(baseUrl, "/api/wiki/session", { scope });
-      return parseWikiSessionIdentity(await fetchJson(fetchFn, url, credentials, requestTimeoutMs));
+      return parseWikiSessionIdentity(
+        await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs),
+      );
     },
     async fetchPages({ cursor, limit, slugs }: FetchPagesOptions = {}) {
       const params: Record<string, string> = { scope };
@@ -591,7 +597,7 @@ export function createWikiContentClient({
       if (limit) params.limit = String(limit);
       if (slugs?.length) params.slugs = slugs.join(",");
       const url = urlWithParams(baseUrl, "/api/wiki/pages", params);
-      return parseWikiPageBatch(await fetchJson(fetchFn, url, credentials, requestTimeoutMs));
+      return parseWikiPageBatch(await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs));
     },
   };
 }
