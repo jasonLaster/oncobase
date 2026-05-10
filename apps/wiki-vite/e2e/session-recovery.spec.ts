@@ -57,4 +57,28 @@ test.describe("Session scope recovery", () => {
     expect(publicStoreId).toContain("public");
     expect(publicStoreId).not.toBe(sessionStoreId);
   });
+
+  test("session cache-key changes open a separate authenticated store", async ({ page }) => {
+    const requests = await installWikiApiMocks(page, {
+      sessionAuthenticated: true,
+      sessionCacheKey: "diana:session:e2e-user:first",
+    });
+    await gotoWiki(page, "/private/plan?scope=session");
+    await waitForPageTitle(page, "Private Plan");
+
+    const firstFooter = page.getByTestId("livestore-devtools-footer");
+    await firstFooter.locator("summary").click();
+    const firstStoreId = await firstFooter.locator(".devtools-store").getAttribute("title");
+    expect(firstStoreId).toContain("session");
+
+    requests.setSessionCacheKey("diana:session:e2e-user:rotated");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForPageTitle(page, "Private Plan");
+
+    const secondFooter = page.getByTestId("livestore-devtools-footer");
+    await secondFooter.locator("summary").click();
+    const secondStoreId = await secondFooter.locator(".devtools-store").getAttribute("title");
+    expect(secondStoreId).toContain("session");
+    expect(secondStoreId).not.toBe(firstStoreId);
+  });
 });

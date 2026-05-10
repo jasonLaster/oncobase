@@ -184,6 +184,17 @@ bun --cwd apps/wiki-vite test:e2e e2e/visual-parity.spec.ts --update-snapshots
 bun --cwd apps/wiki-vite test:e2e e2e/visual-parity.spec.ts
 ```
 
+### 2026-05-09 Session Cache-Key Rotation Checkpoint
+
+- Added browser coverage for server-issued session cache-key rotation. When the session identity returns a new `cacheKey`, the reader opens a different LiveStore store id instead of reusing the previous authenticated cache.
+- Extended the Vite Playwright API fixture so tests can mutate session authentication and cache identity without rebuilding route handlers.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/session-recovery.spec.ts
+```
+
 ### 2026-05-09 Markdown Package Hardening Checkpoint
 
 - Added package-level server renderer tests for smart-table markup, PDF chips, image theater attributes, citations, theme-paired images, currency preservation, and math rendering.
@@ -386,7 +397,7 @@ These are the major gaps between the prototype and the current wiki experience.
 | Sidebar/tree | Desktop tree and mobile sheet exist, active branches auto-expand, manual expansion persists across reloads, and PDF/file assets are discoverable through the local asset palette. | Richer source grouping, keyboard navigation, and very large tree performance. | Needed before broad preview review, but not before additive backend deployment. |
 | Page chrome | Title, description, breadcrumbs, tags, copy/link/print/download/main-app actions, manifest-backed source/PDF provenance, size, stale/sensitive badges, not-found recovery, failed-fetch retry, and manifest/hash footer exist. | Edit/source provenance and richer mobile action placement. | Reader parity blocker for pages with sources/assets. |
 | Markdown parity | Shared package handles the main rendering path. | More package tests for smart tables, citations, PDF/image rewriting, theme-paired images, heading anchors, math, Mermaid fallback, and route-link adapters. | Required before trusting the package as the durable reader layer. |
-| Auth/session UX | Scope can be selected with `?scope=session` or the header switcher; session identity creates a distinct store id; signed-out session access shows a recovery screen; auth-expired fetches clear the session store; cross-origin previews use credentialed API requests only when the backend origin is explicitly configured and allowlisted; browser tests cover sensitive session content not leaking into public scope. | Login prompt polish, return-to-reader sign-in flow, and session-expiry invalidation tests. | Privacy-sensitive. Required before any authenticated pilot. |
+| Auth/session UX | Scope can be selected with `?scope=session` or the header switcher; session identity creates a distinct store id; signed-out session access shows a recovery screen; auth-expired fetches clear the session store; cache-key rotation opens a separate authenticated store; cross-origin previews use credentialed API requests only when the backend origin is explicitly configured and allowlisted; browser tests cover sensitive session content not leaking into public scope. | Login prompt polish, return-to-reader sign-in flow, and broader session-expiry invalidation tests. | Privacy-sensitive. Required before any authenticated pilot. |
 | Offline/cache controls | OPFS persistence, browser storage estimate, explicit local cache reset, manual cache warming, stale-content explanation, failed body fetch metrics, and current-page retry UI exist. | Storage pressure behavior and versioned cache invalidation. | Required before production trial. |
 | Performance instrumentation | Metrics panel tracks manifest bytes, markdown bytes, event count, OPFS estimate, sync state, route render timing, warm render timing, failed body fetch count, and screenshot-backed desktop/mobile visual baselines. | Bundle budget reporting, preview telemetry, and richer per-route network assertions. | Required before migration decision. |
 | Deployment/ops | Local one-server dev loop exists, origin env docs exist, cross-origin API credentials are wired, backend allowlist CORS exists, and an optional preview smoke config exists. | Separate Vercel app/service decision, real preview URL, preview env values, CI wiring for the smoke test, and rollback story. | Required before reviewers can test without local setup. |
@@ -422,7 +433,7 @@ Current local result:
 
 ```txt
 bun --cwd apps/wiki-vite test:e2e --reporter=line
-55 passed, 72 skipped
+56 passed, 72 skipped
 ```
 
 The skipped specs are not a hidden success condition. They are the remaining feature inventory to either migrate into Vite, keep routed to Next for v1, or delete from the Vite migration scope explicitly.

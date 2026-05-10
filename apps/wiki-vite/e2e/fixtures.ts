@@ -19,6 +19,8 @@ type FixturePage = {
 
 type MockOptions = {
   sessionAuthenticated?: boolean;
+  sessionCacheKey?: string;
+  sessionUserHash?: string;
   pageFailures?: Partial<Record<string, number | true>>;
   pageOverrides?: Partial<Record<string, Partial<FixturePage>>>;
 };
@@ -285,6 +287,11 @@ const png = Buffer.from(
 );
 
 export async function installWikiApiMocks(page: Page, options: MockOptions = {}) {
+  const sessionState = {
+    authenticated: options.sessionAuthenticated === true,
+    cacheKey: options.sessionCacheKey ?? `${siteSlug}:session:e2e-user:e2e`,
+    userHash: options.sessionUserHash ?? "e2e-user",
+  };
   const pageFailures = new Map(
     Object.entries(options.pageFailures ?? {}).map(([slug, count]) => [
       slug,
@@ -295,6 +302,13 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
     manifest: [] as string[],
     pages: [] as string[],
     files: [] as string[],
+    setSessionAuthenticated(authenticated: boolean) {
+      sessionState.authenticated = authenticated;
+    },
+    setSessionCacheKey(cacheKey: string, userHash = sessionState.userHash) {
+      sessionState.cacheKey = cacheKey;
+      sessionState.userHash = userHash;
+    },
     setPageFailure(slug: string, count: number | true) {
       pageFailures.set(slug, count === true ? Number.POSITIVE_INFINITY : count);
     },
@@ -303,7 +317,7 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
   await page.route("**/api/wiki/session**", async (route) => {
     const url = new URL(route.request().url());
     const scope = scopeFromUrl(url);
-    if (scope === "session" && options.sessionAuthenticated !== true) {
+    if (scope === "session" && !sessionState.authenticated) {
       await route.fulfill(json({ error: "Session required" }, 401));
       return;
     }
@@ -314,9 +328,8 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
         scope,
         authenticated: scope === "session",
         cacheVersion: "e2e",
-        cacheKey:
-          scope === "session" ? `${siteSlug}:session:e2e-user:e2e` : `${siteSlug}:public:e2e`,
-        userHash: scope === "session" ? "e2e-user" : null,
+        cacheKey: scope === "session" ? sessionState.cacheKey : `${siteSlug}:public:e2e`,
+        userHash: scope === "session" ? sessionState.userHash : null,
       }),
     );
   });
