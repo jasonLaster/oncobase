@@ -15,7 +15,7 @@ export type CompactFileNode =
 
 export type WikiScope = "public" | "session";
 
-export const WIKI_READER_CACHE_VERSION = "reader-v1";
+export const WIKI_READER_CACHE_VERSION = "reader-v2";
 
 export interface WikiManifestPage {
   slug: string;
@@ -82,6 +82,7 @@ export type WikiContentClientOptions = {
   credentials?: RequestCredentials;
   scope?: WikiScope;
   fetch?: typeof fetch;
+  requestTimeoutMs?: number;
 };
 
 export type FetchPagesOptions = {
@@ -103,9 +104,26 @@ function splitSlug(slug: string) {
 }
 
 const HIDDEN_FILE_TREE_DIRECTORIES = new Set(["images"]);
+const HIDDEN_FILE_TREE_FILE_EXTENSIONS = new Set([
+  ".avif",
+  ".gif",
+  ".jpeg",
+  ".jpg",
+  ".png",
+  ".svg",
+  ".webp",
+]);
 
 export function isHiddenFileTreePath(path: string): boolean {
   return splitSlug(path).some((segment) => HIDDEN_FILE_TREE_DIRECTORIES.has(segment));
+}
+
+export function isHiddenFileTreeAssetPath(path: string): boolean {
+  if (isHiddenFileTreePath(path)) return true;
+  const lower = path.toLowerCase();
+  return Array.from(HIDDEN_FILE_TREE_FILE_EXTENSIONS).some((extension) =>
+    lower.endsWith(extension),
+  );
 }
 
 function relativeSlug(fromSlug: string, toSlug: string) {
@@ -248,9 +266,12 @@ export function buildFileTreeFromManifest(
 ): FileNode[] {
   const root: FileNode[] = [];
 
-  for (const page of pages) insertFileNode(root, splitSlug(page.slug), "file");
+  for (const page of pages) {
+    if (isHiddenFileTreePath(page.slug)) continue;
+    insertFileNode(root, splitSlug(page.slug), "file");
+  }
   for (const asset of assets) {
-    if (isHiddenFileTreePath(asset.path)) continue;
+    if (isHiddenFileTreeAssetPath(asset.path)) continue;
     const segments = splitSlug(asset.path);
     if (segments.length === 0) continue;
 
@@ -524,15 +545,28 @@ async function fetchJson(
   fetchFn: typeof fetch,
   url: string,
   credentials: RequestCredentials,
+  requestTimeoutMs: number,
 ) {
-  const response = await fetchFn(url, {
-    credentials,
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok) {
-    throw new Error(`Wiki request failed: ${response.status} ${response.statusText}`);
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), requestTimeoutMs);
+  try {
+    const response = await fetchFn(url, {
+      credentials,
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`Wiki request failed: ${response.status} ${response.statusText}`);
+    }
+    return response.json() as Promise<unknown>;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`Wiki request timed out after ${requestTimeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timeout);
   }
-  return response.json() as Promise<unknown>;
 }
 
 export function createWikiContentClient({
@@ -540,15 +574,16 @@ export function createWikiContentClient({
   credentials = "same-origin",
   scope = "public",
   fetch: fetchFn = globalThis.fetch,
+  requestTimeoutMs = 15_000,
 }: WikiContentClientOptions = {}) {
   return {
     async fetchManifest() {
       const url = urlWithParams(baseUrl, "/api/wiki/manifest", { scope });
-      return parseWikiManifest(await fetchJson(fetchFn, url, credentials));
+      return parseWikiManifest(await fetchJson(fetchFn, url, credentials, requestTimeoutMs));
     },
     async fetchSessionIdentity() {
       const url = urlWithParams(baseUrl, "/api/wiki/session", { scope });
-      return parseWikiSessionIdentity(await fetchJson(fetchFn, url, credentials));
+      return parseWikiSessionIdentity(await fetchJson(fetchFn, url, credentials, requestTimeoutMs));
     },
     async fetchPages({ cursor, limit, slugs }: FetchPagesOptions = {}) {
       const params: Record<string, string> = { scope };
@@ -556,7 +591,7 @@ export function createWikiContentClient({
       if (limit) params.limit = String(limit);
       if (slugs?.length) params.slugs = slugs.join(",");
       const url = urlWithParams(baseUrl, "/api/wiki/pages", params);
-      return parseWikiPageBatch(await fetchJson(fetchFn, url, credentials));
+      return parseWikiPageBatch(await fetchJson(fetchFn, url, credentials, requestTimeoutMs));
     },
   };
 }

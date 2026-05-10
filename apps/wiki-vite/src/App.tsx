@@ -34,6 +34,11 @@ const LoginPage = lazy(() =>
 const SearchPage = lazy(() =>
   import("./pages/SearchPage").then((module) => ({ default: module.SearchPage })),
 );
+const TableExamplesPage = lazy(() =>
+  import("./pages/TableExamplesPage").then((module) => ({
+    default: module.TableExamplesPage,
+  })),
+);
 const ChatPage = lazy(() =>
   import("./chat/ChatPage").then((module) => ({ default: module.ChatPage })),
 );
@@ -90,6 +95,7 @@ export function App({
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/search" element={<SearchPage />} />
+                <Route path="/table-examples" element={<TableExamplesPage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/chat/:id" element={<ChatPage />} />
                 <Route path="*" element={<WikiPage metrics={metrics} onMetrics={bumpMetrics} />} />

@@ -163,6 +163,8 @@ describe("wiki prototype API routes", () => {
       "research/paper",
     ]);
     expect(JSON.stringify(body.compactTree)).not.toContain("private");
+    expect(JSON.stringify(body.compactTree)).not.toContain("images");
+    expect(body.assets.map((asset: { path: string }) => asset.path)).toContain("images/scan.png");
   });
 
   test("session manifest uses private cache headers and includes sensitive pages", async () => {

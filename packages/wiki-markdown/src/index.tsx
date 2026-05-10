@@ -61,6 +61,7 @@ export type WikiMarkdownProps = {
   anchorScopeKey?: string;
   routeAdapter?: WikiMarkdownRouteAdapter;
   notification?: WikiMarkdownNotificationAdapter;
+  tableLayoutAdapter?: SmartTableLayoutAdapter;
   resolveLinkHref?: (
     href: string | undefined,
     context: WikiMarkdownResolveHrefContext,
@@ -160,6 +161,7 @@ export function WikiMarkdown({
   anchorScopeKey,
   routeAdapter,
   notification,
+  tableLayoutAdapter,
   resolveLinkHref,
   isInternalHref = isInternalWikiHref,
 }: WikiMarkdownProps) {
@@ -198,7 +200,7 @@ export function WikiMarkdown({
               </a>
             );
           },
-          table: MdTable,
+          table: (props) => <MdTable {...props} layoutAdapter={tableLayoutAdapter} />,
           thead: MdThead,
           tbody: MdTbody,
           tr: MdTr,

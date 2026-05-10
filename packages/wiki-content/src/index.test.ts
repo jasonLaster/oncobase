@@ -3,6 +3,7 @@ import {
   buildCompactTreeFromManifest,
   createWikiContentClient,
   expandCompactFileTree,
+  isHiddenFileTreeAssetPath,
   isHiddenFileTreePath,
   makeWikiStoreId,
   parseWikiManifest,
@@ -49,11 +50,15 @@ describe("wiki content contracts", () => {
     expect(isHiddenFileTreePath("images/scan.png")).toBe(true);
     expect(isHiddenFileTreePath("wiki/media/images/scan.png")).toBe(true);
     expect(isHiddenFileTreePath("wiki/image-analysis/notes")).toBe(false);
+    expect(isHiddenFileTreeAssetPath("sources/paper-images/img-000.jpg")).toBe(true);
+    expect(isHiddenFileTreeAssetPath("sources/paper-images/diagram.svg")).toBe(true);
+    expect(isHiddenFileTreeAssetPath("sources/paper-images/table.csv")).toBe(false);
     expect(
       buildCompactTreeFromManifest(
-        [{ slug: "wiki/image-analysis/notes" }],
+        [{ slug: "wiki/image-analysis/notes" }, { slug: "wiki/education/images/index" }],
         [
           { kind: "file", path: "wiki/media/images/scan.png" },
+          { kind: "file", path: "sources/paper-images/img-000.jpg" },
           { kind: "pdf", path: "sources/images/pathology-slide.pdf" },
           { kind: "pdf", path: "sources/institutions/stanford/telli.pdf" },
         ],
@@ -188,7 +193,7 @@ describe("wiki content contracts", () => {
         origin: "https://example.test/path",
         cacheKey: "user:1/private",
       }),
-    ).toBe("wiki-vite-reader-v1-diana_tn_bc-session-https___example_test_path-user_1_private");
+    ).toBe("wiki-vite-reader-v2-diana_tn_bc-session-https___example_test_path-user_1_private");
   });
 
   test("includes the reader cache version in store ids", () => {
@@ -206,7 +211,7 @@ describe("wiki content contracts", () => {
       readerCacheVersion: "reader:v2",
     });
 
-    expect(currentId).toContain("reader-v1");
+    expect(currentId).toContain("reader-v2");
     expect(nextId).toBe("wiki-vite-reader_v2-diana-public-https___example_test-public-v1");
     expect(nextId).not.toBe(currentId);
   });
@@ -246,5 +251,19 @@ describe("wiki content contracts", () => {
     await client.fetchSessionIdentity();
 
     expect(requestInit?.credentials).toBe("include");
+  });
+
+  test("client helpers time out stalled wiki requests", async () => {
+    const client = createWikiContentClient({
+      requestTimeoutMs: 1,
+      fetch: (async (_url, init) => {
+        await new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        });
+        throw new Error("unreachable");
+      }) as typeof fetch,
+    });
+
+    await expect(client.fetchManifest()).rejects.toThrow("timed out");
   });
 });

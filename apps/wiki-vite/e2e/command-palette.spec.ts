@@ -37,12 +37,10 @@ test.describe("Command palette parity", () => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
     await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+O" : "Control+Shift+O");
-    await expect(page.getByTestId("command-palette")).toBeVisible();
-    await page.getByRole("button", { name: "Outline" }).click();
-    await page
-      .getByTestId("command-palette")
-      .getByRole("button", { name: /Claims follow-up/ })
-      .click();
+    const palette = page.getByTestId("command-palette");
+    await expect(palette).toBeVisible();
+    await palette.getByRole("button", { name: "Outline", exact: true }).click();
+    await palette.getByRole("button", { name: /Claims follow-up/ }).click();
 
     await expect(page).toHaveURL(/#claims-follow-up$/);
   });

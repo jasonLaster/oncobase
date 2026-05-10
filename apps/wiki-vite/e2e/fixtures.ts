@@ -23,6 +23,7 @@ type MockOptions = {
   sessionAuthenticated?: boolean;
   sessionCacheKey?: string;
   sessionUserHash?: string;
+  manifestFailure?: boolean;
   pageFailures?: Partial<Record<string, number | true>>;
   pageOverrides?: Partial<Record<string, Partial<FixturePage>>>;
 };
@@ -346,6 +347,10 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
     const url = new URL(route.request().url());
     const scope = scopeFromUrl(url);
     requests.manifest.push(url.toString());
+    if (options.manifestFailure) {
+      await route.fulfill(json({ error: "Fixture manifest failure" }, 503));
+      return;
+    }
     await route.fulfill(json(manifest(scope, options)));
   });
 

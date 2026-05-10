@@ -32,6 +32,7 @@ import {
 import { useWikiScope } from "../wiki-context";
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { RETRY_PAGE_EVENT } from "../sync/WikiSync";
+import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
 import { PageActions } from "./PageActions";
 import { MobilePageOutline, PageOutline } from "./PageOutline";
 
@@ -261,6 +262,28 @@ export function WikiPage({
       );
     }
 
+    if (metrics.status === "error") {
+      return (
+        <article className="page-shell empty-state" data-test-id="document-article">
+          <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={index?.title} />
+          <h1>{index?.title ?? "Markdown unavailable"}</h1>
+          <p className="muted">
+            {metrics.message || "The page could not be loaded from the wiki backend."}
+          </p>
+          <div className="empty-actions">
+            <button
+              className="page-action"
+              data-test-id="retry-page-fetch"
+              type="button"
+              onClick={() => window.dispatchEvent(new Event(RETRY_PAGE_EVENT))}
+            >
+              Retry
+            </button>
+          </div>
+        </article>
+      );
+    }
+
     return (
       <article className="page-shell" data-test-id="document-article">
         <div className="loading-line" data-test-id="page-loading">
@@ -332,6 +355,7 @@ export function WikiPage({
           LinkComponent={routeLink}
           notification={notification}
           routeAdapter={routeAdapter}
+          tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
         />
         <footer className="page-footer">
           <span>Manifest: {siteState?.generatedAt ?? "pending"}</span>

@@ -9,12 +9,16 @@ import type {
   WikiScope,
   WikiSessionIdentity,
 } from "./index.js";
+import { isHiddenFileTreeAssetPath, isHiddenFileTreePath } from "./index.js";
 
 const PUBLIC_CACHE_CONTROL =
   "public, max-age=60, s-maxage=300, stale-while-revalidate=3600";
 const PRIVATE_CACHE_CONTROL = "private, max-age=30, stale-while-revalidate=300";
 const SESSION_CACHE_VERSION = "v1";
-const MANIFEST_PAGE_SIZE = 1000;
+const MANIFEST_PAGE_SIZE = 100;
+const MANIFEST_FALLBACK_PAGE_SIZE = 25;
+const ASSET_PAGE_SIZE = 1000;
+const MANIFEST_TIMEOUT_MS = 20_000;
 const DEFAULT_PAGE_LIMIT = 25;
 const MAX_PAGE_LIMIT = 100;
 
@@ -227,8 +231,12 @@ function buildCompactTreeFromManifest(
   assets: Array<Pick<WikiManifestAsset, "kind" | "path">>,
 ) {
   const root: ApiFileNode[] = [];
-  for (const page of pages) insertFileNode(root, splitSlug(page.slug), "file");
+  for (const page of pages) {
+    if (isHiddenFileTreePath(page.slug)) continue;
+    insertFileNode(root, splitSlug(page.slug), "file");
+  }
   for (const asset of assets) {
+    if (isHiddenFileTreeAssetPath(asset.path)) continue;
     const segments = splitSlug(asset.path);
     if (segments.length === 0) continue;
     if (asset.kind === "pdf" || asset.path.toLowerCase().endsWith(".pdf")) {
@@ -267,7 +275,7 @@ async function listManifestPages(
       includeSensitive?: boolean;
     } = {
       cursor,
-      numItems: MANIFEST_PAGE_SIZE,
+      numItems: useContentFallback ? MANIFEST_FALLBACK_PAGE_SIZE : MANIFEST_PAGE_SIZE,
       ...(includeSensitive ? { includeSensitive: true } : {}),
     };
     const result: ManifestPageResult = useContentFallback
@@ -319,7 +327,7 @@ async function listAssets(
     while (!isDone) {
       const result = await fetchPage({
         cursor,
-        numItems: MANIFEST_PAGE_SIZE,
+        numItems: ASSET_PAGE_SIZE,
         ...(includeSensitive ? { includeSensitive: true } : {}),
       });
       assets.push(
@@ -355,6 +363,19 @@ function parseSlugs(url: URL) {
     .map((slug) => slug.trim())
     .filter(Boolean)
     .slice(0, MAX_PAGE_LIMIT);
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeout) clearTimeout(timeout);
+  });
 }
 
 export async function createWikiSessionResponse(
@@ -435,10 +456,14 @@ export async function createWikiManifestResponse(
   let pageResult: Awaited<ReturnType<typeof listManifestPages>>;
   let assets: WikiManifestAsset[];
   try {
-    [pageResult, assets] = await Promise.all([
-      listManifestPages(context, includeSensitive),
-      listAssets(context, includeSensitive),
-    ]);
+    [pageResult, assets] = await withTimeout(
+      Promise.all([
+        listManifestPages(context, includeSensitive),
+        listAssets(context, includeSensitive),
+      ]),
+      MANIFEST_TIMEOUT_MS,
+      "Wiki manifest generation",
+    );
   } catch (error) {
     context.logger?.error("[wiki manifest] Reliable manifest metadata unavailable", error);
     return Response.json(

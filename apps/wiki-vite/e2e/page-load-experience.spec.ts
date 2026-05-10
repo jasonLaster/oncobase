@@ -79,6 +79,16 @@ test.describe("Page load experience", () => {
     );
   });
 
+  test("manifest failures show a bounded retry state instead of an infinite loader", async ({ page }) => {
+    await installWikiApiMocks(page, { manifestFailure: true });
+    await page.goto("/wiki/logistics/insurance", { waitUntil: "domcontentloaded" });
+
+    await expect(documentArticle(page).locator("h1")).toHaveText("Markdown unavailable");
+    await expect(documentArticle(page)).toContainText("Wiki request failed: 503");
+    await expect(page.getByTestId("page-loading")).toHaveCount(0);
+    await expect(page.getByTestId("retry-page-fetch")).toBeVisible();
+  });
+
   test("failed current-page markdown fetch exposes a retry action", async ({ page }) => {
     const slug = "wiki/logistics/insurance";
     const requests = await installWikiApiMocks(page, { pageFailures: { [slug]: true } });

@@ -282,14 +282,14 @@ export const listManifestPage = query({
     return {
       page: result.page
         .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
-        .map(({ slug, title, tags, description, content, contentHash, sensitive }) => ({
+        .map(({ slug, title, tags, description, content, contentHash, sensitive, sizeBytes }) => ({
           slug,
           title,
           tags,
           description: description ?? null,
           contentHash: contentHash ?? null,
           sensitive: sensitive === true,
-          size: content.length,
+          size: sizeBytes ?? content.length,
         })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
@@ -383,10 +383,12 @@ export const upsert = mutation({
   ) => {
     const site = await requireSite(ctx, siteSlug);
     const existing = await findDocBySlug(ctx, site, slug);
+    const sizeBytes = content.length;
     if (existing) {
       if (
         existing.contentHash === contentHash &&
         existing.hashFunctionVersion === hashFunctionVersion &&
+        existing.sizeBytes === sizeBytes &&
         existing.sensitive === sensitive &&
         !existing.deletedAt
       ) {
@@ -397,6 +399,7 @@ export const upsert = mutation({
         content,
         tags,
         contentHash,
+        sizeBytes,
         hashFunctionVersion,
         sensitive,
         siteId: site.siteId ?? existing.siteId,
@@ -412,6 +415,7 @@ export const upsert = mutation({
       content,
       tags,
       contentHash,
+      sizeBytes,
       hashFunctionVersion,
       sensitive,
       updatedAt: Date.now(),

@@ -955,6 +955,10 @@ a {
   padding: 0 24px 72px;
 }
 
+.page-layout:has(.page-outline.collapsed) {
+  grid-template-columns: minmax(0, 1fr) 44px;
+}
+
 .page-shell {
   overflow: visible;
   padding: 28px 0 0;
@@ -1148,11 +1152,51 @@ a {
   top: 0;
 }
 
+.page-outline.collapsed {
+  overflow: visible;
+  width: 44px;
+}
+
+.page-outline-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
 .page-outline-title {
   color: var(--foreground);
   font-size: 0.75rem;
   font-weight: 650;
-  margin-bottom: 8px;
+}
+
+.page-outline-toggle {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  min-height: 26px;
+  padding: 0 7px;
+}
+
+.page-outline-toggle:hover,
+.page-outline-toggle:focus-visible {
+  background: var(--accent-light);
+  border-color: color-mix(in srgb, var(--brand) 28%, var(--border));
+  color: var(--brand);
+}
+
+.page-outline.collapsed .page-outline-header {
+  justify-content: center;
+  margin-bottom: 0;
+}
+
+.page-outline.collapsed .page-outline-toggle {
+  writing-mode: vertical-rl;
 }
 
 .page-outline nav {

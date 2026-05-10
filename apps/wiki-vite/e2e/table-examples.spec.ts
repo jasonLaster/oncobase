@@ -25,6 +25,21 @@ test.describe("Smart table examples", () => {
     const shell = firstSmartTableShell(page);
     await expect(shell.locator("[data-smart-table-wrapper]").first()).toBeVisible();
     await expect(shell.locator("table.smart-table").first()).toBeVisible();
+    await expect
+      .poll(() =>
+        shell.evaluate((element) =>
+          getComputedStyle(element).getPropertyValue("--smart-table-css-loaded").trim(),
+        ),
+      )
+      .toBe("1");
+    await expect
+      .poll(() =>
+        shell
+          .locator("table.smart-table th")
+          .first()
+          .evaluate((cell) => getComputedStyle(cell).textTransform),
+      )
+      .toBe("uppercase");
 
     const snapshot = await shell.locator("table.smart-table").first().evaluate((table) => {
       const th = table.querySelector("th");
