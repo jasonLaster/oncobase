@@ -1,11 +1,18 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createWikiApiHandler } from "./wiki-api";
+import { api } from "../../../web/convex/_generated/api.js";
+import {
+  createClient,
+  createWikiApiHandler,
+  resolveSiteSlug,
+  withSiteSlug,
+} from "./wiki-api";
 
 const distDir = fileURLToPath(new URL("../dist", import.meta.url));
 const port = Number(process.env.PORT ?? 62003);
-const handleWikiApiRequest = createWikiApiHandler();
+const client = createClient();
+const handleWikiApiRequest = createWikiApiHandler(client);
 
 const STATIC_MIME_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -33,6 +40,57 @@ function safeStaticPath(pathname: string) {
   return path.join(distDir, normalized);
 }
 
+function slugFromPathname(pathname: string) {
+  if (pathname === "/login") return null;
+  const decoded = decodeURIComponent(pathname).replace(/^\/+/, "").replace(/\.md$/, "");
+  return decoded || "index";
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function injectHeadMetadata(
+  html: string,
+  metadata: { title: string; description?: string | null },
+) {
+  const title = escapeHtml(metadata.title);
+  const description = escapeHtml(metadata.description || metadata.title);
+  const tags = [
+    `<meta name="description" content="${description}" />`,
+    `<meta property="og:title" content="${title}" />`,
+    `<meta property="og:description" content="${description}" />`,
+  ].join("\n    ");
+
+  return html
+    .replace(/<title>.*?<\/title>/, `<title>${title}</title>`)
+    .replace("</head>", `    ${tags}\n  </head>`);
+}
+
+async function staticIndexHtml(request: Request, filePath: string) {
+  const html = await Bun.file(filePath).text();
+  const slug = slugFromPathname(new URL(request.url).pathname);
+  if (!slug) return html;
+
+  const siteSlug = await resolveSiteSlug(request, client);
+  if (!siteSlug) return html;
+
+  const page = await client.query(
+    api.documents.getBySlug,
+    withSiteSlug(siteSlug, { slug }),
+  );
+  if (!page) return html;
+
+  return injectHeadMetadata(html, {
+    title: page.title,
+    description: page.description,
+  });
+}
+
 async function serveStatic(request: Request) {
   const url = new URL(request.url);
   const directPath = safeStaticPath(url.pathname === "/" ? "/index.html" : url.pathname);
@@ -51,6 +109,12 @@ async function serveStatic(request: Request) {
     return new Response("Not found", {
       status: 404,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  if (path.basename(filePath) === "index.html") {
+    return new Response(await staticIndexHtml(request, filePath), {
+      headers: staticHeaders(filePath),
     });
   }
 

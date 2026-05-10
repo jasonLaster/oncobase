@@ -85,7 +85,7 @@ function previewSiteForHost(host: string) {
   return null;
 }
 
-async function resolveSiteSlug(request: Request, client: ConvexHttpClient) {
+export async function resolveSiteSlug(request: Request, client: ConvexHttpClient) {
   const host = hostFromRequest(request);
   if (!host) return null;
 
@@ -199,11 +199,11 @@ function assetPathToSiblingSlug(assetPath: string) {
   return assetPath.replace(/\.[^/.]+$/, "");
 }
 
-function createClient() {
+export function createClient() {
   return new ConvexHttpClient(resolveConvexUrl());
 }
 
-function withSiteSlug<TArgs extends object>(siteSlug: string, args: TArgs): TArgs & { siteSlug: string } {
+export function withSiteSlug<TArgs extends object>(siteSlug: string, args: TArgs): TArgs & { siteSlug: string } {
   return { ...args, siteSlug };
 }
 

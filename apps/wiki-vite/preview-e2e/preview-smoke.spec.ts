@@ -6,6 +6,7 @@ test("preview loads a public wiki page from the configured backend", async ({ pa
   await page.goto(smokePath, { waitUntil: "domcontentloaded" });
 
   const article = page.getByTestId("document-article").first();
+  await expect(page).toHaveTitle(/Insurance|Diana Wiki/i);
   await expect(page.getByTestId("app-header")).toBeVisible();
   await expect(page.getByTestId("wiki-sidebar")).toBeVisible();
   await expect(article).toBeVisible();
