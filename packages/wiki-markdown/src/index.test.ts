@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   preprocessCitations,
   resolveAssetPath,
   resolveHref,
   resolveWikilinks,
   splitWikilinkAlias,
+  WikiMarkdown,
 } from "./index";
 
 describe("wiki markdown helpers", () => {
@@ -38,5 +41,27 @@ describe("wiki markdown helpers", () => {
     expect(preprocessCitations("Finding [1] and gene^{2-3}")).toContain(
       "[[1]](#references)",
     );
+  });
+
+  test("renders Mermaid fences with a client-safe fallback", () => {
+    const html = renderToStaticMarkup(
+      createElement(WikiMarkdown, {
+        content: `# Timeline
+
+\`\`\`mermaid
+gantt
+  title Care Timeline
+  dateFormat  YYYY-MM-DD
+  section Treatment
+  Chemo :done, 2026-04-01, 7d
+\`\`\`
+`,
+      }),
+    );
+
+    expect(html).toContain('data-test-id="mermaid-diagram"');
+    expect(html).toContain("Care Timeline");
+    expect(html).toContain("Chemo");
+    expect(html).toContain("gantt");
   });
 });

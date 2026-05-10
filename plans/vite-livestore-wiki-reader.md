@@ -30,6 +30,7 @@ The migration is far enough along to test the new data path against a deployed b
 ### 2026-05-09 Client Mermaid Fallback Checkpoint
 
 - Added a client-safe Mermaid fallback in `packages/wiki-markdown` for fenced Mermaid blocks. It renders the diagram title, task rows for simple Gantt diagrams, and collapsible source without adding a heavy browser Mermaid renderer.
+- Added package-level client renderer coverage for the Mermaid fallback so the behavior is protected below the Vite adapter.
 - Activated the Vite timeline Gantt Playwright test that had been skipped as a markdown parity gap.
 - Re-ran package markdown checks, the Vite production build, bundle budget, focused timeline coverage, and the full Vite Playwright migration suite: `60 passed, 71 skipped`.
 - Verification commands run for this checkpoint:
