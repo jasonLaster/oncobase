@@ -64,7 +64,7 @@ test.describe("Page viewing and sidebar navigation", () => {
   });
 
   test("page shows tags, sensitive scope, and cache metadata", async ({ page }) => {
-    await gotoWiki(page, "/wiki/logistics/insurance");
+    await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
 
     await expect(documentArticle(page).locator(".tag-row").getByRole("link", { name: "logistics" })).toBeVisible();
     await expect(documentArticle(page).locator(".tag-row").getByRole("link", { name: "insurance" })).toBeVisible();

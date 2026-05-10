@@ -6,29 +6,31 @@ test.describe("LiveStore devtools footer", () => {
     await installWikiApiMocks(page);
   });
 
-  test("keeps devtools collapsed and disabled by default", async ({ page }) => {
+  test("keeps diagnostics footer hidden by default", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
-    const footer = page.getByTestId("livestore-devtools-footer");
-    await expect(footer).toContainText("devtools off");
-    await expect(footer.getByRole("button", { name: "Enable" })).toHaveCount(0);
-
-    await footer.locator("summary").click();
-
-    await expect(footer.getByText("Enable to attach the local cache session.")).toBeVisible();
-    await expect(footer.getByRole("button", { name: "Enable" })).toBeVisible();
-    await expect(footer.getByRole("button", { name: "Reset cache" })).toBeVisible();
-    await expect(footer.getByRole("button", { name: "Warm cache" })).toBeVisible();
-    await expect(footer.getByRole("link", { name: "Open devtools" })).toHaveCount(0);
+    await expect(page.getByTestId("livestore-devtools-footer")).toHaveCount(0);
+    await expect(page.getByTestId("metrics-panel")).toHaveCount(0);
   });
 
-  test("exposes the devtools route only after opt-in", async ({ page }) => {
-    await gotoWiki(page, "/wiki/logistics/insurance?livestoreDevtools=1");
+  test("shows diagnostics footer only with the devtools query param", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
 
     const footer = page.getByTestId("livestore-devtools-footer");
     await expect(footer).toContainText("devtools on");
+    await expect(footer).toContainText("manifest");
+    await expect(footer).toContainText("sync");
 
-    await footer.locator("summary").click();
+    await expect(footer.getByRole("button", { name: "Reset cache" })).toBeVisible();
+    await expect(footer.getByRole("button", { name: "Warm cache" })).toBeVisible();
+    await expect(footer.getByRole("link", { name: "Open devtools" })).toBeVisible();
+  });
+
+  test("exposes the devtools route only after opt-in", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
+
+    const footer = page.getByTestId("livestore-devtools-footer");
+    await expect(footer).toContainText("devtools on");
 
     await expect(footer.getByRole("link", { name: "Open devtools" })).toHaveAttribute(
       "href",
@@ -38,10 +40,9 @@ test.describe("LiveStore devtools footer", () => {
   });
 
   test("reset cache clears local state and reloads the reader", async ({ page }) => {
-    await gotoWiki(page, "/wiki/logistics/insurance");
+    await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
 
     const footer = page.getByTestId("livestore-devtools-footer");
-    await footer.locator("summary").click();
     page.once("dialog", async (dialog) => {
       expect(dialog.message()).toContain("Clear the local LiveStore cache");
       await dialog.accept();
@@ -54,12 +55,11 @@ test.describe("LiveStore devtools footer", () => {
   });
 
   test("warm cache control can queue eager markdown fetches", async ({ page }) => {
-    await gotoWiki(page, "/wiki/logistics/insurance");
+    await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
 
     const footer = page.getByTestId("livestore-devtools-footer");
-    await footer.locator("summary").click();
     await footer.getByRole("button", { name: "Warm cache" }).click();
 
-    await expect(page.getByTestId("app-header")).toContainText(/Warming|Queued/);
+    await expect(footer).toContainText(/Warming|Queued/);
   });
 });

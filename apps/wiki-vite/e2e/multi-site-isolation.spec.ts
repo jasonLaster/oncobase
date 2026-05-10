@@ -13,7 +13,7 @@ test.describe("P0 multi-site isolation", () => {
       },
     });
 
-    await gotoWiki(page, "/wiki/logistics/insurance");
+    await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
     await expect(documentArticle(page)).toContainText("Friend-only payer notes.");
     await expect(page.getByTestId("livestore-devtools-footer")).toHaveAttribute("data-store-id", /friend/);
 
@@ -29,7 +29,7 @@ test.describe("P0 multi-site isolation", () => {
         },
       },
     });
-    await gotoWiki(page, "/wiki/logistics/insurance");
+    await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
 
     await expect(documentArticle(page)).toContainText("Public payer notes.");
     await expect(documentArticle(page)).not.toContainText("Friend-only payer notes.");
@@ -124,12 +124,12 @@ test.describe("P0 multi-site isolation", () => {
 
   test("invariant 8: LiveStore store ids and cached bodies are site-scoped", async ({ page }) => {
     await installWikiApiMocks(page, { siteSlug: "friend" });
-    await gotoWiki(page, "/wiki/logistics/insurance");
+    await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
     const friendStoreId = await page.getByTestId("livestore-devtools-footer").getAttribute("data-store-id");
 
     await page.unrouteAll({ behavior: "ignoreErrors" });
     await installWikiApiMocks(page, { siteSlug: "diana" });
-    await gotoWiki(page, "/wiki/logistics/insurance");
+    await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
 
     const dianaStoreId = await page.getByTestId("livestore-devtools-footer").getAttribute("data-store-id");
     expect(dianaStoreId).not.toBe(friendStoreId);

@@ -7,7 +7,7 @@ import { unstable_batchedUpdates as batchUpdates } from "react-dom";
 import { BrowserRouter } from "react-router";
 import { App } from "../App";
 import { WikiScopeProvider, WikiSessionProvider } from "../wiki-context";
-import { readLiveStoreDevtoolsEnabled } from "./devtools";
+import { readDevtoolsFooterVisible, readLiveStoreDevtoolsEnabled } from "./devtools";
 import LiveStoreWorker from "./livestore.worker?worker";
 import { schema } from "./schema";
 
@@ -35,6 +35,7 @@ export function LiveStoreRoot({
     [identity.cacheKey, identity.siteSlug, scope],
   );
   const liveStoreDevtoolsEnabled = useMemo(() => readLiveStoreDevtoolsEnabled(), []);
+  const devtoolsFooterVisible = useMemo(() => readDevtoolsFooterVisible(), []);
 
   return (
     <LiveStoreProvider
@@ -54,6 +55,7 @@ export function LiveStoreRoot({
         <WikiScopeProvider scope={scope}>
           <BrowserRouter>
             <App
+              devtoolsFooterVisible={devtoolsFooterVisible}
               liveStoreDevtoolsEnabled={liveStoreDevtoolsEnabled}
               storeId={storeId}
             />

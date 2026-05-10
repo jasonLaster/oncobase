@@ -11,6 +11,10 @@ function readQueryPreference(url: URL): boolean | null {
   return null;
 }
 
+export function readDevtoolsFooterVisible(url = new URL(window.location.href)): boolean {
+  return readQueryPreference(url) === true;
+}
+
 export function readLiveStoreDevtoolsEnabled(): boolean {
   const queryPreference = readQueryPreference(new URL(window.location.href));
   if (queryPreference != null) {
@@ -35,9 +39,10 @@ export function reloadWithLiveStoreDevtools(enabled: boolean) {
   const nextUrl = new URL(window.location.href);
   if (enabled) {
     nextUrl.searchParams.set(QUERY_PARAM, "1");
+    nextUrl.searchParams.set("devtools", "1");
   } else {
     nextUrl.searchParams.delete(QUERY_PARAM);
+    nextUrl.searchParams.delete("devtools");
   }
-  nextUrl.searchParams.delete("devtools");
   window.location.assign(nextUrl.toString());
 }

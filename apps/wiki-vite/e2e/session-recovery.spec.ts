@@ -4,7 +4,7 @@ import { documentArticle, gotoWiki, installWikiApiMocks, waitForPageTitle } from
 test.describe("Session scope recovery", () => {
   test("session identity failure can fall back to the public store", async ({ page }) => {
     await installWikiApiMocks(page);
-    await page.goto("/wiki/logistics/insurance?scope=session#claims-follow-up", {
+    await page.goto("/wiki/logistics/insurance?scope=session&devtools=1#claims-follow-up", {
       waitUntil: "domcontentloaded",
     });
 
@@ -12,25 +12,25 @@ test.describe("Session scope recovery", () => {
     await expect(page.getByText("Session access needed")).toBeVisible();
     await expect(page.getByRole("link", { name: "Open sign in" })).toHaveAttribute(
       "href",
-      /\/login\?redirect=%2Fwiki%2Flogistics%2Finsurance%3Fscope%3Dsession%23claims-follow-up$/,
+      /\/login\?redirect=%2Fwiki%2Flogistics%2Finsurance%3Fscope%3Dsession%26devtools%3D1%23claims-follow-up$/,
     );
 
     await page.getByRole("button", { name: "Continue public" }).click();
 
-    await expect(page).toHaveURL(/scope=public#claims-follow-up/);
+    await expect(page).toHaveURL(/scope=public.*#claims-follow-up/);
     await waitForPageTitle(page, "Insurance");
     await expect(page.getByTestId("scope-switcher").getByText("Public")).toBeVisible();
   });
 
   test("header scope switcher preserves the current route", async ({ page }) => {
     await installWikiApiMocks(page, { sessionAuthenticated: true });
-    await gotoWiki(page, "/wiki/logistics/insurance?scope=session#claims-follow-up");
+    await gotoWiki(page, "/wiki/logistics/insurance?scope=session&devtools=1#claims-follow-up");
 
     const switcher = page.getByTestId("scope-switcher");
     await expect(switcher.getByText("Session")).toBeVisible();
     await expect(switcher.getByRole("link", { name: "Public" })).toHaveAttribute(
       "href",
-      /\/wiki\/logistics\/insurance\?scope=public#claims-follow-up$/,
+      /\/wiki\/logistics\/insurance\?scope=public&devtools=1#claims-follow-up$/,
     );
   });
 
@@ -52,7 +52,7 @@ test.describe("Session scope recovery", () => {
 
   test("public and session scopes use different stores and do not leak sensitive pages", async ({ page }) => {
     await installWikiApiMocks(page, { sessionAuthenticated: true });
-    await gotoWiki(page, "/private/plan?scope=session");
+    await gotoWiki(page, "/private/plan?scope=session&devtools=1");
     await waitForPageTitle(page, "Private Plan");
     await expect(documentArticle(page)).toContainText("Sensitive session-only planning note");
 
@@ -61,7 +61,7 @@ test.describe("Session scope recovery", () => {
     const sessionStoreId = await sessionFooter.locator(".devtools-store").getAttribute("title");
     expect(sessionStoreId).toContain("session");
 
-    await gotoWiki(page, "/private/plan?scope=public");
+    await gotoWiki(page, "/private/plan?scope=public&devtools=1");
     await expect(documentArticle(page).locator("h1")).toHaveText("Page not found");
     await expect(documentArticle(page)).not.toContainText("Sensitive session-only planning note");
     await page.getByTestId("header-search-input").fill("private plan");
@@ -79,7 +79,7 @@ test.describe("Session scope recovery", () => {
       sessionAuthenticated: true,
       sessionCacheKey: "diana:session:e2e-user:first",
     });
-    await gotoWiki(page, "/private/plan?scope=session");
+    await gotoWiki(page, "/private/plan?scope=session&devtools=1");
     await waitForPageTitle(page, "Private Plan");
 
     const firstFooter = page.getByTestId("livestore-devtools-footer");

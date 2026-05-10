@@ -52,6 +52,23 @@ PLAYWRIGHT_BASE_URL=https://wiki-vite-zeta.vercel.app WIKI_VITE_SMOKE_PATH=/wiki
 
 Production smoke result: `/api/wiki/session` returns `diana:public`, `/wiki/logistics/insurance` redirects unauthenticated users to `/login`, link-preview bot requests receive page-specific canonical/OG metadata, and Playwright preview smoke passed.
 
+### 2026-05-10 Production Chrome Parity Checkpoint
+
+- Removed prototype diagnostics from the default reader chrome. Metrics, sync queue status, scope switching, LiveStore cache controls, and the LiveStore inspector link no longer render in the header, article column, or footer by default.
+- Moved those diagnostics into the optional LiveStore footer, visible only when the route includes `?devtools=1` or `?livestoreDevtools=1`.
+- Kept the browser observability buffer active while hiding the visual metrics panel, so Playwright and performance checks can still read `window.__WIKI_VITE_OBSERVABILITY__` without exposing prototype UI in production.
+- Updated Playwright coverage so production-like pages assert that diagnostics are hidden by default, while `?devtools=1` still exposes scope/store-id isolation, storage pressure, warm-cache, reset-cache, and LiveStore inspector controls.
+- Raised the standalone Bun server `idleTimeout` to 60 seconds after the preview smoke exposed cold manifest fallback requests exceeding Bun's default 10 second timeout.
+- Made the live AI-ranking smoke explicitly opt-in with `WIKI_VITE_RUN_LIVE_AI_SEARCH=1`; normal local verification still covers the AI route contract, mocked ranked results, search/chat PII redaction, and host/site isolation without depending on the external Convex vector-ranking path.
+- Verification command run for this checkpoint:
+
+```sh
+bun run verify:wiki-vite
+bun run verify:wiki-vite:server
+```
+
+Result: `verify:wiki-vite` passed with `105 passed, 50 skipped`; `verify:wiki-vite:server` passed with the standalone route gate, metadata, API, and preview smoke checks.
+
 ### 2026-05-09 P0 Replacement Blockers Checkpoint
 
 - Hardened site isolation for the Vite replacement path. Chat now passes the active `siteSlug` through the shared chat runtime into client-side Convex list/get/create/send/archive/streaming mutations, and the Vite backend keeps resolving sites from `Host` instead of request-injected headers.

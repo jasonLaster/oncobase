@@ -17,6 +17,7 @@ test("preview loads a public wiki page from the configured backend", async ({ pa
   await expect(article).toBeVisible();
   await expect(page.getByTestId("page-loading")).toHaveCount(0);
   await expect(article.locator("h1")).toBeVisible();
-  await expect(page.locator(".metrics-panel")).toContainText("manifest");
+  await expect(page.getByTestId("metrics-panel")).toHaveCount(0);
+  await expect(page.getByTestId("livestore-devtools-footer")).toHaveCount(0);
   await expect(page.locator(".vite-error-overlay")).toHaveCount(0);
 });

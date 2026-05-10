@@ -9,16 +9,14 @@ import {
 } from "./fixtures";
 
 test.describe("Page load experience", () => {
-  test("initial paint keeps header, sidebar, metrics, and article chrome", async ({ page }) => {
+  test("initial paint keeps header, sidebar, and article chrome without diagnostics", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/logistics/insurance");
 
     await expect(page.getByTestId("app-header")).toBeVisible();
     await expect(page.getByTestId("wiki-sidebar")).toBeVisible();
-    await expect(page.getByTestId("metrics-panel")).toBeVisible();
-    await expect(page.getByTestId("metrics-panel")).toContainText("route");
-    await expect(page.getByTestId("metrics-panel")).toContainText("body misses");
-    await expect(page.getByTestId("metrics-panel")).toContainText("sync");
+    await expect(page.getByTestId("metrics-panel")).toHaveCount(0);
+    await expect(page.getByTestId("livestore-devtools-footer")).toHaveCount(0);
     await waitForPageTitle(page, "Insurance");
     await expect(nextErrorOverlay(page)).toHaveCount(0);
     await expect
@@ -40,7 +38,7 @@ test.describe("Page load experience", () => {
 
   test("warm navigation reuses the local page body cache", async ({ page }) => {
     const requests = await installWikiApiMocks(page);
-    await gotoWiki(page, "/wiki/logistics/insurance");
+    await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
     await waitForPageTitle(page, "Insurance");
 
     requests.pages.length = 0;
@@ -55,7 +53,7 @@ test.describe("Page load experience", () => {
       url.includes("slugs=wiki/logistics/insurance"),
     );
     expect(bodyFetches).toHaveLength(0);
-    await expect(page.locator(".metrics-panel")).toContainText("warm");
+    await expect(page.getByTestId("metrics-panel")).toContainText("warm");
     await expect(documentArticle(page)).toContainText("Claims follow-up");
   });
 
@@ -109,9 +107,9 @@ test.describe("Page load experience", () => {
       });
     });
     await installWikiApiMocks(page);
-    await gotoWiki(page, "/wiki/logistics/insurance");
+    await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
 
-    const metrics = page.locator(".metrics-panel");
+    const metrics = page.getByTestId("metrics-panel");
     await expect(metrics).toContainText("cache pressure");
     await expect(metrics).toContainText("96%");
   });

@@ -7,6 +7,7 @@ const handleRequest = createWikiViteHandler({ distDir });
 
 Bun.serve({
   port,
+  idleTimeout: 60,
   async fetch(request) {
     try {
       return await handleRequest(request);

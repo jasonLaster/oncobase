@@ -576,7 +576,7 @@ a {
   border-bottom: 1px solid var(--sidebar-border);
   display: grid;
   gap: 12px;
-  grid-template-columns: 180px minmax(220px, 1fr) auto minmax(150px, auto);
+  grid-template-columns: 180px minmax(220px, 1fr) auto;
   min-height: 48px;
   padding: 8px 16px;
   z-index: 30;
@@ -1182,7 +1182,21 @@ a {
   padding: 2px 0 4px;
 }
 
+.devtools-footer-panel .metrics-panel {
+  flex: 1 1 520px;
+  justify-content: flex-end;
+  margin: 0;
+  max-width: none;
+  padding: 0;
+}
+
 .devtools-store {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devtools-status {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

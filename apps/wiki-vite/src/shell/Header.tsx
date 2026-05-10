@@ -9,11 +9,11 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { pageIndex$ } from "../livestore/queries";
-import type { Metrics, PageIndexRow } from "../types";
+import type { PageIndexRow } from "../types";
 import { backendHref, hrefForSlug, rememberSlug, returnToHref } from "../wiki-utils";
 import { CommandPalette, type PaletteMode } from "./CommandPalette";
 
-export function Header({ scope, metrics }: { scope: WikiScope; metrics: Metrics }) {
+export function Header() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteMode, setPaletteMode] = useState<PaletteMode>("pages");
   const location = useLocation();
@@ -80,16 +80,6 @@ export function Header({ scope, metrics }: { scope: WikiScope; metrics: Metrics 
             <span>New Chat</span>
           </a>
         </div>
-        <div className="topbar-status">
-          <ScopeSwitcher
-            hash={location.hash}
-            pathname={location.pathname}
-            scope={scope}
-            search={location.search}
-          />
-          <span className={`sync-dot ${metrics.status}`} />
-          <span>{metrics.message}</span>
-        </div>
       </header>
       <CommandPalette
         open={paletteOpen}
@@ -106,7 +96,7 @@ function scopeHref(pathname: string, search: string, hash: string, scope: WikiSc
   return `${pathname}?${params.toString()}${hash}`;
 }
 
-function ScopeSwitcher({
+export function ScopeSwitcher({
   hash,
   pathname,
   scope,

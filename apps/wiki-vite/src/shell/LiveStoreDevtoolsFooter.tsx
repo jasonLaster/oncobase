@@ -7,9 +7,13 @@ import {
   ZapIcon,
 } from "lucide-react";
 import { useStore } from "@livestore/react";
+import type { WikiScope } from "@diana-tnbc/wiki-content";
 import { reloadWithLiveStoreDevtools } from "../livestore/devtools";
 import { events } from "../livestore/schema";
 import { WARM_CACHE_EVENT } from "../sync/WikiSync";
+import type { Metrics } from "../types";
+import { MetricsPanel } from "./MetricsPanel";
+import { ScopeSwitcher } from "./Header";
 
 function shortenStoreId(storeId: string) {
   if (storeId.length <= 34) return storeId;
@@ -18,12 +22,20 @@ function shortenStoreId(storeId: string) {
 
 export function LiveStoreDevtoolsFooter({
   enabled,
+  metrics,
+  scope,
   storeId,
+  visible,
 }: {
   enabled: boolean;
+  metrics: Metrics;
+  scope: WikiScope;
   storeId: string;
+  visible: boolean;
 }) {
   const { store } = useStore();
+  if (!visible) return null;
+
   const resetCache = () => {
     const confirmed = window.confirm(
       "Clear the local LiveStore cache for this reader and reload?",
@@ -41,15 +53,24 @@ export function LiveStoreDevtoolsFooter({
       data-store-id={storeId}
       data-test-id="livestore-devtools-footer"
     >
-      <details>
+      <details open>
         <summary>
           <BugIcon size={14} aria-hidden="true" />
           <span>LiveStore</span>
           <span className={`devtools-state ${enabled ? "enabled" : ""}`}>
             {enabled ? "devtools on" : "devtools off"}
           </span>
+          <span className={`sync-dot ${metrics.status}`} />
+          <span className="devtools-status">{metrics.message}</span>
         </summary>
         <div className="devtools-footer-panel">
+          <ScopeSwitcher
+            hash={window.location.hash}
+            pathname={window.location.pathname}
+            scope={scope}
+            search={window.location.search}
+          />
+          <MetricsPanel metrics={metrics} />
           <span className="devtools-store" title={storeId}>
             Store {shortenStoreId(storeId)}
           </span>

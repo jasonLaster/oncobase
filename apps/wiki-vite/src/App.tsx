@@ -3,7 +3,6 @@ import { Route, Routes } from "react-router";
 import { publishMetrics } from "./observability";
 import { Header } from "./shell/Header";
 import { LiveStoreDevtoolsFooter } from "./shell/LiveStoreDevtoolsFooter";
-import { MetricsPanel } from "./shell/MetricsPanel";
 import { MobileNav, Sidebar } from "./shell/Navigation";
 import { WikiSync } from "./sync/WikiSync";
 import type { Metrics } from "./types";
@@ -47,9 +46,11 @@ function PageFallback() {
 }
 
 export function App({
+  devtoolsFooterVisible,
   liveStoreDevtoolsEnabled,
   storeId,
 }: {
+  devtoolsFooterVisible: boolean;
   liveStoreDevtoolsEnabled: boolean;
   storeId: string;
 }) {
@@ -81,11 +82,10 @@ export function App({
     <>
       <WikiSync onMetrics={bumpMetrics} />
       <div className="prototype-shell">
-        <Header scope={scope} metrics={metrics} />
+        <Header />
         <div className="app-shell">
           <Sidebar />
           <main className="content-shell">
-            <MetricsPanel metrics={metrics} />
             <Suspense fallback={<PageFallback />}>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
@@ -97,7 +97,13 @@ export function App({
             </Suspense>
           </main>
         </div>
-        <LiveStoreDevtoolsFooter enabled={liveStoreDevtoolsEnabled} storeId={storeId} />
+        <LiveStoreDevtoolsFooter
+          enabled={liveStoreDevtoolsEnabled}
+          metrics={metrics}
+          scope={scope}
+          storeId={storeId}
+          visible={devtoolsFooterVisible}
+        />
         <MobileNav />
       </div>
     </>

@@ -125,7 +125,7 @@ test.describe("Command palette parity", () => {
   });
 
   test("debug palette exposes local cache tools", async ({ page }) => {
-    await gotoWiki(page, "/wiki/logistics/insurance");
+    await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
 
     await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+D" : "Control+Shift+D");
     await expect(page.getByTestId("command-palette")).toBeVisible();
@@ -136,13 +136,13 @@ test.describe("Command palette parity", () => {
       page.getByTestId("command-palette").getByRole("button", { name: /Reset local cache/ }),
     ).toBeVisible();
     await expect(
-      page.getByTestId("command-palette").getByRole("button", { name: /Enable LiveStore devtools/ }),
+      page.getByTestId("command-palette").getByRole("button", { name: /Disable LiveStore devtools/ }),
     ).toBeVisible();
 
     await page
       .getByTestId("command-palette")
       .getByRole("button", { name: /Warm local markdown cache/ })
       .click();
-    await expect(page.getByTestId("app-header")).toContainText(/Warming|Queued/);
+    await expect(page.getByTestId("livestore-devtools-footer")).toContainText(/Warming|Queued/);
   });
 });
