@@ -1,186 +1,19 @@
 import { ArchivedChatsCore } from "@diana-tnbc/chat/components/archived-chats-core";
-import { ConversationActionsMenu } from "@diana-tnbc/chat/components/conversation-actions-core";
-import { ConversationListCore } from "@diana-tnbc/chat/components/conversation-list-core";
 import { ChatInterface } from "@diana-tnbc/chat/components/chat-interface";
-import { ChatRuntimeProvider, useChatRuntime } from "@diana-tnbc/chat/runtime";
-import { WikiMarkdown } from "@diana-tnbc/wiki-markdown";
+import { useChatRuntime } from "@diana-tnbc/chat/runtime";
 import {
   WikiChatMain,
   WikiChatPage,
   WikiChatSidebar,
   WikiChatState,
 } from "@diana-tnbc/wiki-shell";
-import { ConvexProvider, ConvexReactClient, useMutation, useQuery } from "convex/react";
-import { useMemo, type ReactNode } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router";
+import { useMutation, useQuery } from "convex/react";
+import { Link, useParams } from "react-router";
 import { api } from "../../../../web/convex/_generated/api.js";
 import type { Id } from "../../../../web/convex/_generated/dataModel.js";
 import { useWikiSession } from "../wiki-context";
-import { hrefForSlug } from "../wiki-utils";
-
-const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
-
-let convexClient: ConvexReactClient | null = null;
-
-const chatCopy = {
-  emptyStateTitle: "What questions do you have?",
-  emptyStateDescription: "",
-  suggestedPrompts: [
-    {
-      badge: "Rx",
-      label: "When does AC chemo start, and how long is the immune-suppression window after the last cycle?",
-    },
-    {
-      badge: "DNA",
-      label: "What's the optimal timing to start a personalized mRNA neoantigen vaccine relative to AC and pembrolizumab?",
-    },
-    {
-      badge: "Trial",
-      label: "Which mRNA vaccine trials are currently enrolling for TNBC, and when would Diana be eligible?",
-    },
-    {
-      badge: "MRD",
-      label: "How does ctDNA clearance timing during NACT predict pCR and inform vaccine sequencing?",
-    },
-  ],
-  promptPlaceholder: "Ask a question...",
-};
-
-function convexUrl() {
-  return (
-    import.meta.env.VITE_CONVEX_URL ??
-    import.meta.env.VITE_NEXT_PUBLIC_CONVEX_URL ??
-    PROD_CONVEX_FALLBACK_URL
-  );
-}
-
-function getConvexClient() {
-  const url = convexUrl();
-  if (!convexClient || convexClient.url !== url) {
-    convexClient = new ConvexReactClient(url);
-  }
-  return convexClient;
-}
-
-function ChatLink({
-  children,
-  className,
-  href,
-  title,
-}: {
-  children: ReactNode;
-  className?: string;
-  href: string;
-  title?: string;
-}) {
-  return (
-    <Link className={className} title={title} to={href}>
-      {children}
-    </Link>
-  );
-}
-
-function ChatMarkdownRenderer({
-  content,
-  disableAnchors,
-}: {
-  content: string;
-  disableAnchors?: boolean;
-  isStreaming?: boolean;
-}) {
-  return (
-    <WikiMarkdown
-      content={content}
-      disableAnchors={disableAnchors}
-      LinkComponent={({ href = "", children, ...props }) => (
-        <Link to={hrefForSlug(href.replace(/^\/+/, ""))} {...props}>
-          {children}
-        </Link>
-      )}
-      resolveLinkHref={(href) => {
-        if (!href) return href;
-        if (href.startsWith("/wiki/") || href.startsWith("/sources/") || href.startsWith("/about/")) {
-          return href;
-        }
-        return href;
-      }}
-    />
-  );
-}
-
-function ChatRuntime({ children }: { children: ReactNode }) {
-  const identity = useWikiSession();
-  const routes = useMemo(
-    () => ({
-      newChatPath: "/chat",
-      archivedPath: "/chat/archived",
-      conversationPath: (conversationId: string) => `/chat/${conversationId}`,
-      conversationUrl: (conversationId: string, origin: string) =>
-        `${origin}/chat/${conversationId}`,
-      matchConversationId: (pathname: string) => {
-        const match = pathname.match(/^\/chat\/([^/?#]+)$/);
-        const id = match?.[1] ?? null;
-        return id && id !== "archived" ? id : null;
-      },
-    }),
-    [],
-  );
-
-  return (
-    <ChatRuntimeProvider
-      apiPath="/api/chat"
-      convexApi={{ conversations: api.conversations }}
-      copy={chatCopy}
-      LinkComponent={ChatLink}
-      MarkdownRenderer={ChatMarkdownRenderer}
-      routes={routes}
-      siteSlug={identity?.siteSlug}
-      storageKeyPrefix="wiki-vite-chat"
-    >
-      {children}
-    </ChatRuntimeProvider>
-  );
-}
-
-function ConversationList() {
-  const identity = useWikiSession();
-  const siteArgs = identity?.siteSlug ? { siteSlug: identity.siteSlug } : {};
-  const conversations = useQuery(api.conversations.list, siteArgs);
-  const archiveConversation = useMutation(api.conversations.archive);
-  const { copy, routes } = useChatRuntime();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const activeId = routes.matchConversationId(location.pathname);
-
-  return (
-    <ConversationListCore
-      activeConversationId={activeId}
-      conversations={conversations}
-      copy={copy}
-      currentPathname={location.pathname}
-      renderActions={(conversation) => (
-        <ConversationActionsMenu
-          onArchive={async () => {
-            await archiveConversation({
-              id: conversation._id as Id<"conversations">,
-              ...siteArgs,
-            });
-            navigate(routes.newChatPath);
-          }}
-          onCopyUrl={() => navigator.clipboard.writeText(
-            routes.conversationUrl(conversation._id, window.location.origin),
-          )}
-        />
-      )}
-      renderLink={({ href, children, ...linkProps }) => (
-        <Link {...linkProps} to={href}>
-          {children}
-        </Link>
-      )}
-      routes={routes}
-    />
-  );
-}
+import { ChatConversationList } from "./ChatConversationList";
+import { ChatProviders } from "./ChatProviders";
 
 function ArchivedChatsRoute() {
   const identity = useWikiSession();
@@ -251,17 +84,15 @@ function ChatRouteContent() {
 
 export function ChatPage() {
   return (
-    <ConvexProvider client={getConvexClient()}>
-      <ChatRuntime>
-        <WikiChatPage data-test-id="chat-page">
-          <WikiChatSidebar>
-            <ConversationList />
-          </WikiChatSidebar>
-          <WikiChatMain>
-            <ChatRouteContent />
-          </WikiChatMain>
-        </WikiChatPage>
-      </ChatRuntime>
-    </ConvexProvider>
+    <ChatProviders>
+      <WikiChatPage data-test-id="chat-page">
+        <WikiChatSidebar>
+          <ChatConversationList />
+        </WikiChatSidebar>
+        <WikiChatMain>
+          <ChatRouteContent />
+        </WikiChatMain>
+      </WikiChatPage>
+    </ChatProviders>
   );
 }

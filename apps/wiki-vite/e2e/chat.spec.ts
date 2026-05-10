@@ -13,10 +13,11 @@ const archiveConversation = makeFunctionReference<
 test.describe("Chat", () => {
   test("chat page loads the full composer UI", async ({ page }) => {
     await page.goto("/chat", { waitUntil: "domcontentloaded" });
+    const desktopChat = page.getByTestId("chat-page");
 
-    await expect(page.getByTestId("chat-page")).toBeVisible();
-    await expect(page.getByTestId("conversation-list")).toBeVisible();
-    await expect(page.getByTestId("conversation-list-archived")).toBeVisible();
+    await expect(desktopChat).toBeVisible();
+    await expect(desktopChat.getByTestId("conversation-list")).toBeVisible();
+    await expect(desktopChat.getByTestId("conversation-list-archived")).toBeVisible();
     await expect(page.getByTestId("chat-interface")).toBeVisible();
     await expect(page.getByTestId("chat-composer-textarea")).toBeVisible();
     await expect(page.getByTestId("chat-suggested-prompts")).toBeVisible();
@@ -25,7 +26,7 @@ test.describe("Chat", () => {
   test("conversation list uses shared archived navigation", async ({ page }) => {
     await page.goto("/chat", { waitUntil: "domcontentloaded" });
 
-    await page.getByTestId("conversation-list-archived").click();
+    await page.getByTestId("chat-page").getByTestId("conversation-list-archived").click();
 
     await expect(page).toHaveURL(/\/chat\/archived$/);
     await expect(page.getByTestId("chat-archived-page")).toBeVisible();
@@ -66,7 +67,17 @@ test.describe("Chat", () => {
     await expect(page.getByTestId("chat-interface")).toBeVisible();
   });
 
-  test.skip("mobile bottom sheet shows chat history navigation", async () => {
-    // Mobile conversation navigation needs a dedicated layout pass once archived chat parity lands.
+  test("mobile bottom sheet shows chat history navigation", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/chat", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByTestId("bottom-nav-trigger")).toContainText("Chat with wiki");
+    await page.getByTestId("bottom-nav-trigger").click();
+
+    await expect(page.getByTestId("bottom-nav-sheet")).toHaveClass(/open/);
+    const mobileChatList = page.getByTestId("bottom-nav-chat-list");
+    await expect(mobileChatList).toBeVisible();
+    await expect(mobileChatList.getByTestId("conversation-list-new-chat")).toBeVisible();
+    await expect(mobileChatList.getByTestId("conversation-list-archived")).toBeVisible();
   });
 });

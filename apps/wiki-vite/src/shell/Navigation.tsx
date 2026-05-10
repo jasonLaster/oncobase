@@ -5,6 +5,7 @@ import {
 } from "@diana-tnbc/wiki-content";
 import {
   WikiMobileNavigation,
+  WikiMobileNavigationSheet,
   WikiSidebar,
   collectActiveAncestors,
   formatTreeNodeName,
@@ -13,6 +14,8 @@ import {
 } from "@diana-tnbc/wiki-shell";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
+import { ChatConversationList } from "../chat/ChatConversationList";
+import { ChatProviders } from "../chat/ChatProviders";
 import { fileTree$, pageIndex$ } from "../livestore/queries";
 import type { PageIndexRow } from "../types";
 import { hrefForSlug, parseJsonArray, slugFromPath } from "../wiki-utils";
@@ -139,12 +142,32 @@ export function MobileNav() {
   const tree = useWikiTree();
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const isChatRoute = location.pathname.startsWith("/chat");
   const activeSlug = slugFromPath(location.pathname);
   const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
 
   useEffect(() => {
     setOpen(false);
   }, [location.pathname]);
+
+  if (isChatRoute) {
+    return (
+      <ChatProviders>
+        <WikiMobileNavigationSheet
+          heading="Chats"
+          onOpenChange={setOpen}
+          open={open}
+          sheetAriaLabel="Chat navigation"
+          sheetId="mobile-chat-navigation"
+          title="Chat with wiki"
+        >
+          <nav data-test-id="bottom-nav-chat-list">
+            <ChatConversationList />
+          </nav>
+        </WikiMobileNavigationSheet>
+      </ChatProviders>
+    );
+  }
 
   return (
     <WikiMobileNavigation

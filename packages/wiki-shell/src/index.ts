@@ -117,12 +117,14 @@ export {
 } from "./chat";
 export {
   WikiMobileNavigation,
+  WikiMobileNavigationSheet,
   WikiSidebar,
   WikiTree,
   collectActiveAncestors,
   formatTreeNodeName,
   treeNodeKey,
   type WikiMobileNavigationProps,
+  type WikiMobileNavigationSheetProps,
   type WikiNavigationNode,
   type WikiSidebarProps,
   type WikiTreePageLinkRenderArgs,

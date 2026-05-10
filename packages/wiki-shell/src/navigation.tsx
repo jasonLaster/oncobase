@@ -242,21 +242,28 @@ export type WikiMobileNavigationProps = Omit<ComponentProps<"div">, "children"> 
     title: ReactNode;
   };
 
-export function WikiMobileNavigation({
-  activeAncestorSlugs,
-  activeSlug,
+export type WikiMobileNavigationSheetProps = ComponentProps<"div"> & {
+  heading?: ReactNode;
+  onNavigate?: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  sheetAriaLabel?: string;
+  sheetId?: string;
+  title: ReactNode;
+};
+
+export function WikiMobileNavigationSheet({
+  children,
   className,
-  expandedSlugs,
-  getFileHref,
+  heading = "Pages",
   onNavigate,
   onOpenChange,
-  onToggleDirectory,
   open,
-  renderPageLink,
+  sheetAriaLabel = "Page navigation",
+  sheetId = "mobile-page-navigation",
   title,
-  tree,
   ...props
-}: WikiMobileNavigationProps) {
+}: WikiMobileNavigationSheetProps) {
   useEffect(() => {
     if (!open) return;
     const previous = document.body.style.overflow;
@@ -278,7 +285,7 @@ export function WikiMobileNavigation({
         data-test-id="bottom-nav-trigger"
         type="button"
         aria-expanded={open}
-        aria-controls="mobile-page-navigation"
+        aria-controls={sheetId}
         onClick={() => onOpenChange(true)}
       >
         <span>{title}</span>
@@ -288,10 +295,11 @@ export function WikiMobileNavigation({
       </button>
       <div
         className={cn("wiki-shell-bottom-nav-sheet bottom-nav-sheet", open && "open", className)}
-        id="mobile-page-navigation"
+        data-test-id="bottom-nav-sheet"
+        id={sheetId}
         role="dialog"
         aria-modal="true"
-        aria-label="Page navigation"
+        aria-label={sheetAriaLabel}
         {...props}
       >
         <button
@@ -303,13 +311,49 @@ export function WikiMobileNavigation({
         <div className="wiki-shell-bottom-nav-panel bottom-nav-panel">
           <div className="wiki-shell-bottom-nav-handle bottom-nav-handle" aria-hidden="true" />
           <div className="wiki-shell-bottom-nav-header bottom-nav-header">
-            <strong>Pages</strong>
+            <strong>{heading}</strong>
             <button type="button" onClick={close} aria-label="Close navigation">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
                 <path d="M4 4l8 8M12 4l-8 8" />
               </svg>
             </button>
           </div>
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function WikiMobileNavigation({
+  activeAncestorSlugs,
+  activeSlug,
+  className,
+  expandedSlugs,
+  getFileHref,
+  onNavigate,
+  onOpenChange,
+  onToggleDirectory,
+  open,
+  renderPageLink,
+  title,
+  tree,
+  ...props
+}: WikiMobileNavigationProps) {
+  const close = () => {
+    onNavigate?.();
+    onOpenChange(false);
+  };
+
+  return (
+    <WikiMobileNavigationSheet
+      className={className}
+      onNavigate={onNavigate}
+      onOpenChange={onOpenChange}
+      open={open}
+      title={title}
+      {...props}
+    >
           <nav>
             <WikiTree
               activeAncestorSlugs={activeAncestorSlugs}
@@ -322,8 +366,6 @@ export function WikiMobileNavigation({
               tree={tree}
             />
           </nav>
-        </div>
-      </div>
-    </>
+    </WikiMobileNavigationSheet>
   );
 }
