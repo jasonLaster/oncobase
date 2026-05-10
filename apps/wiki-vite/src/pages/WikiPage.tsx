@@ -4,7 +4,18 @@ import {
   type WikiMarkdownLinkProps,
   type WikiMarkdownNotificationAdapter,
 } from "@diana-tnbc/wiki-markdown";
-import { DocumentOutlineShell } from "@diana-tnbc/wiki-shell";
+import {
+  DocumentOutlineShell,
+  WikiBadge,
+  WikiBreadcrumbs,
+  WikiPageFooter,
+  WikiPageHeader,
+  WikiSourceLinks,
+  WikiStatusNotice,
+  WikiTagList,
+  WikiToast,
+  type WikiBreadcrumbItem,
+} from "@diana-tnbc/wiki-shell";
 import { RefreshCwIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
@@ -48,7 +59,7 @@ function formatBreadcrumbLabel(part: string) {
   return part.replace(/-/g, " ");
 }
 
-function Breadcrumbs({
+function buildBreadcrumbItems({
   pageSlugs,
   slug,
   title,
@@ -56,37 +67,36 @@ function Breadcrumbs({
   pageSlugs?: Set<string>;
   slug?: string;
   title?: string;
-}) {
+}): WikiBreadcrumbItem[] {
   const parts = slug?.split("/").filter(Boolean) ?? [];
+  const items: WikiBreadcrumbItem[] = [{ href: "/", key: "home", label: "Home" }];
 
+  parts.forEach((part, index) => {
+    const path = parts.slice(0, index + 1).join("/");
+    const isCurrent = index === parts.length - 1;
+    const label = isCurrent && title ? title : formatBreadcrumbLabel(part);
+    items.push({
+      current: isCurrent,
+      href: !isCurrent && pageSlugs?.has(path) ? hrefForSlug(path) : undefined,
+      key: path,
+      label,
+    });
+  });
+
+  return items;
+}
+
+function Breadcrumbs(props: {
+  pageSlugs?: Set<string>;
+  slug?: string;
+  title?: string;
+}) {
   return (
-    <nav className="breadcrumbs" aria-label="Breadcrumbs" data-test-id="breadcrumbs">
-      <ol>
-        <li>
-          <Link to="/">Home</Link>
-        </li>
-        {parts.map((part, index) => {
-          const path = parts.slice(0, index + 1).join("/");
-          const isCurrent = index === parts.length - 1;
-          const label = isCurrent && title ? title : formatBreadcrumbLabel(part);
-
-          return (
-            <li key={path}>
-              <span className="breadcrumb-separator" aria-hidden="true">
-                /
-              </span>
-              {isCurrent ? (
-                <span aria-current="page">{label}</span>
-              ) : pageSlugs?.has(path) ? (
-                <Link to={hrefForSlug(path)}>{label}</Link>
-              ) : (
-                <span>{label}</span>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-    </nav>
+    <WikiBreadcrumbs
+      data-test-id="breadcrumbs"
+      items={buildBreadcrumbItems(props)}
+      renderLink={(item) => <Link to={item.href ?? "#"}>{item.label}</Link>}
+    />
   );
 }
 
@@ -303,26 +313,24 @@ export function WikiPage({
       pathname={location.pathname}
     >
       {toast ? (
-        <div className="toast" role="status">
-          {toast}
-        </div>
+        <WikiToast>{toast}</WikiToast>
       ) : null}
       <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />
-      <header className="page-header">
-        <div>
-          <h1>{page.title}</h1>
-          <p>{description ?? slug}</p>
-        </div>
-        <div className="page-badges">
-          {stale ? <span className="badge updating">updating</span> : null}
-          {page.sensitive ? <span className="badge sensitive">sensitive</span> : null}
-          <span className="badge">{formatBytes(page.size)}</span>
-        </div>
-      </header>
+      <WikiPageHeader
+        title={page.title}
+        description={description ?? slug}
+        badges={
+          <>
+            {stale ? <WikiBadge variant="updating">updating</WikiBadge> : null}
+            {page.sensitive ? <WikiBadge variant="sensitive">sensitive</WikiBadge> : null}
+            <WikiBadge>{formatBytes(page.size)}</WikiBadge>
+          </>
+        }
+      />
       {stale ? (
-        <div className="stale-notice" role="status">
+        <WikiStatusNotice>
           Showing cached markdown while a newer version is fetched in the background.
-        </div>
+        </WikiStatusNotice>
       ) : null}
       <PageActions
         content={page.content}
@@ -331,28 +339,28 @@ export function WikiPage({
         slug={page.slug}
         title={page.title}
       />
-      {relatedAssets.length > 0 ? (
-        <section className="source-links" data-test-id="source-links" aria-label="Source files">
-          <div className="source-links-title">Source files</div>
-          <div className="source-links-list">
-            {relatedAssets.map((asset) => (
-              <a key={asset.path} href={assetHref(asset.path)} target="_blank" rel="noreferrer">
-                <span>{asset.kind === "pdf" ? "PDF" : "File"}</span>
-                <strong>{assetFileName(asset.path)}</strong>
-              </a>
-            ))}
-          </div>
-        </section>
-      ) : null}
-      {tags.length > 0 ? (
-        <div className="tag-row">
-          {tags.map((tag) => (
-            <Link key={tag} to={`/?q=${encodeURIComponent(tag)}`}>
-              {tag}
-            </Link>
-          ))}
-        </div>
-      ) : null}
+      <WikiSourceLinks
+        data-test-id="source-links"
+        items={relatedAssets.map((asset) => ({
+          href: assetHref(asset.path),
+          key: asset.path,
+          kind: asset.kind === "pdf" ? "PDF" : "File",
+          label: assetFileName(asset.path),
+        }))}
+        renderLink={(asset, children) => (
+          <a href={asset.href} target="_blank" rel="noreferrer">
+            {children}
+          </a>
+        )}
+      />
+      <WikiTagList
+        tags={tags}
+        renderTag={(tag) => (
+          <Link key={tag} to={`/?q=${encodeURIComponent(tag)}`}>
+            {tag}
+          </Link>
+        )}
+      />
       <WikiMarkdown
         content={page.content}
         currentSlug={page.slug}
@@ -361,13 +369,15 @@ export function WikiPage({
         routeAdapter={routeAdapter}
         tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
       />
-      <footer className="page-footer">
-        <span>Manifest: {siteState?.generatedAt ?? "pending"}</span>
-        <span>Content hash: {page.contentHash ?? "none"}</span>
-        {page.expectedContentHash && page.expectedContentHash !== page.contentHash ? (
-          <span>Expected hash: {page.expectedContentHash}</span>
-        ) : null}
-      </footer>
+      <WikiPageFooter
+        items={[
+          `Manifest: ${siteState?.generatedAt ?? "pending"}`,
+          `Content hash: ${page.contentHash ?? "none"}`,
+          page.expectedContentHash && page.expectedContentHash !== page.contentHash
+            ? `Expected hash: ${page.expectedContentHash}`
+            : null,
+        ].filter(Boolean)}
+      />
     </DocumentOutlineShell>
   );
 }

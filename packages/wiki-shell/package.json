@@ -20,6 +20,11 @@
       "import": "./src/header.tsx",
       "default": "./src/header.tsx"
     },
+    "./page-chrome": {
+      "types": "./src/page-chrome.tsx",
+      "import": "./src/page-chrome.tsx",
+      "default": "./src/page-chrome.tsx"
+    },
     "./right-rail": {
       "types": "./src/right-rail.tsx",
       "import": "./src/right-rail.tsx",

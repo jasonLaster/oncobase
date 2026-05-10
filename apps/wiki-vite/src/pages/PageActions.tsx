@@ -1,5 +1,11 @@
 import type { WikiScope } from "@diana-tnbc/wiki-content";
 import {
+  WikiPageActionButton,
+  WikiPageActionLink,
+  WikiPageActions,
+  copyTextToClipboard,
+} from "@diana-tnbc/wiki-shell";
+import {
   CheckIcon,
   ClipboardIcon,
   DownloadIcon,
@@ -9,23 +15,6 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { backendHref, hrefForSlug } from "../wiki-utils";
-
-async function writeClipboardText(text: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand("copy");
-  document.body.removeChild(textarea);
-}
 
 function pageCopyHref(slug: string, contentHash: string | null, scope: WikiScope) {
   const params = new URLSearchParams({
@@ -46,9 +35,9 @@ function ActionButton({
   onClick: () => void;
 }) {
   return (
-    <button className="page-action" type="button" aria-label={label} title={label} onClick={onClick}>
+    <WikiPageActionButton aria-label={label} title={label} onClick={onClick}>
       {children}
-    </button>
+    </WikiPageActionButton>
   );
 }
 
@@ -83,17 +72,17 @@ export function PageActions({
   };
 
   const copyMarkdown = async () => {
-    await writeClipboardText(`# ${title}\n\n${content}`);
+    await copyTextToClipboard(`# ${title}\n\n${content}`);
     markCopied("markdown");
   };
 
   const copyLink = async () => {
-    await writeClipboardText(window.location.href);
+    await copyTextToClipboard(window.location.href);
     markCopied("link");
   };
 
   return (
-    <div className="page-actions" data-test-id="page-actions">
+    <WikiPageActions data-test-id="page-actions">
       <ActionButton label="Copy page as markdown" onClick={copyMarkdown}>
         {copied === "markdown" ? <CheckIcon size={15} /> : <ClipboardIcon size={15} />}
         <span>{copied === "markdown" ? "Copied" : "Copy"}</span>
@@ -106,14 +95,14 @@ export function PageActions({
         <PrinterIcon size={15} />
         <span>Print</span>
       </ActionButton>
-      <a className="page-action" href={copyHref} download={`${slug.split("/").at(-1) ?? slug}.md`}>
+      <WikiPageActionLink href={copyHref} download={`${slug.split("/").at(-1) ?? slug}.md`}>
         <DownloadIcon size={15} />
         <span>Markdown</span>
-      </a>
-      <a className="page-action" href={mainAppHref}>
+      </WikiPageActionLink>
+      <WikiPageActionLink href={mainAppHref}>
         <ExternalLinkIcon size={15} />
         <span>Main app</span>
-      </a>
-    </div>
+      </WikiPageActionLink>
+    </WikiPageActions>
   );
 }

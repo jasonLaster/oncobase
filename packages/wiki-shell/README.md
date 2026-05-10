@@ -9,6 +9,7 @@ Current exports:
 - `DocumentOutlineShell`: outline-only right rail with the current app's collapsed desktop rail, mobile bottom rail, persisted pane state, resize behavior, heading collection, hash navigation, and `comments-content-wrapper` layout variables.
 - `ResizableLayout`: shared left navigation rail collapse/resize primitive.
 - `WikiHeader`, `WikiHeaderSearchForm`, `WikiHeaderButton`, `WikiHeaderLink`, and `WikiLogo`: header chrome primitives with host-owned routing/search/action behavior.
+- `WikiBreadcrumbs`, `WikiPageHeader`, `WikiPageActions`, `WikiSourceLinks`, `WikiTagList`, `WikiPageFooter`, and related action/badge primitives: page chrome components with host-owned routing, copy, and download behavior.
 - `collectOutline`, `scrollToOutlineItem`, and related helpers for command palette and outline adapters.
 - `styles.css`: shell styles that do not depend on Next, Vite, LiveStore, or Convex.
 
