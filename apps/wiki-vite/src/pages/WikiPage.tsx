@@ -8,15 +8,17 @@ import {
   DocumentOutlineShell,
   WikiBadge,
   WikiBreadcrumbs,
+  WikiEmptyState,
+  WikiPageActionButton,
   WikiPageFooter,
   WikiPageHeader,
+  WikiPageLoading,
   WikiSourceLinks,
   WikiStatusNotice,
   WikiTagList,
   WikiToast,
   type WikiBreadcrumbItem,
 } from "@diana-tnbc/wiki-shell";
-import { RefreshCwIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
@@ -213,93 +215,82 @@ export function WikiPage({
 
   if (deleted) {
     return (
-      <article className="page-shell" data-test-id="document-article">
-        <h1>Page no longer available</h1>
-        <p className="muted">
-          The latest manifest no longer includes {slug}. The local body is kept
-          only as deleted cache state and will not be rendered.
-        </p>
-      </article>
+      <WikiEmptyState
+        data-test-id="document-article"
+        title="Page no longer available"
+        description={`The latest manifest no longer includes ${slug}. The local body is kept only as deleted cache state and will not be rendered.`}
+      />
     );
   }
 
   if (page?.missingAt || page?.contentStatus === "missing") {
     return (
-      <article className="page-shell empty-state" data-test-id="document-article">
-        <Breadcrumbs />
-        <h1>Page not found</h1>
-        <p className="muted">
-          The latest manifest does not include markdown for {slug}. This reader can
-          keep using cached pages while the backend catches up.
-        </p>
-        <div className="empty-actions">
-          <Link className="page-action" to="/">
-            Go home
-          </Link>
-          <button
-            className="page-action"
-            type="button"
-            onClick={() => window.dispatchEvent(new Event(RETRY_PAGE_EVENT))}
-          >
-            Retry
-          </button>
-        </div>
-      </article>
+      <WikiEmptyState
+        before={<Breadcrumbs />}
+        data-test-id="document-article"
+        title="Page not found"
+        description={`The latest manifest does not include markdown for ${slug}. This reader can keep using cached pages while the backend catches up.`}
+        actions={
+          <>
+            <Link className="wiki-shell-page-action page-action" to="/">
+              Go home
+            </Link>
+            <WikiPageActionButton
+              onClick={() => window.dispatchEvent(new Event(RETRY_PAGE_EVENT))}
+            >
+              Retry
+            </WikiPageActionButton>
+          </>
+        }
+      />
     );
   }
 
   if (!page?.content) {
     if (failedCurrentFetch) {
       return (
-        <article className="page-shell empty-state" data-test-id="document-article">
-          <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={index?.title} />
-          <h1>{index?.title ?? "Markdown unavailable"}</h1>
-          <p className="muted">
-            The page is in the local manifest, but its markdown body could not be
-            fetched. Cached pages remain available while this request is retried.
-          </p>
-          <div className="empty-actions">
-            <button
-              className="page-action"
+        <WikiEmptyState
+          before={<Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={index?.title} />}
+          data-test-id="document-article"
+          title={index?.title ?? "Markdown unavailable"}
+          description="The page is in the local manifest, but its markdown body could not be fetched. Cached pages remain available while this request is retried."
+          actions={
+            <WikiPageActionButton
               data-test-id="retry-page-fetch"
-              type="button"
               onClick={() => window.dispatchEvent(new Event(RETRY_PAGE_EVENT))}
             >
               Retry
-            </button>
-          </div>
-        </article>
+            </WikiPageActionButton>
+          }
+        />
       );
     }
 
     if (metrics.status === "error") {
       return (
-        <article className="page-shell empty-state" data-test-id="document-article">
-          <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={index?.title} />
-          <h1>{index?.title ?? "Markdown unavailable"}</h1>
-          <p className="muted">
-            {metrics.message || "The page could not be loaded from the wiki backend."}
-          </p>
-          <div className="empty-actions">
-            <button
-              className="page-action"
+        <WikiEmptyState
+          before={<Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={index?.title} />}
+          data-test-id="document-article"
+          title={index?.title ?? "Markdown unavailable"}
+          description={metrics.message || "The page could not be loaded from the wiki backend."}
+          actions={
+            <WikiPageActionButton
               data-test-id="retry-page-fetch"
-              type="button"
               onClick={() => window.dispatchEvent(new Event(RETRY_PAGE_EVENT))}
             >
               Retry
-            </button>
-          </div>
-        </article>
+            </WikiPageActionButton>
+          }
+        />
       );
     }
 
     return (
       <article className="page-shell" data-test-id="document-article">
-        <div className="loading-line" data-test-id="page-loading">
-          <RefreshCwIcon size={16} aria-hidden="true" />
-          Loading markdown for {index?.title ?? slug}
-        </div>
+        <WikiPageLoading
+          data-test-id="page-loading"
+          label={`Loading markdown for ${index?.title ?? slug}`}
+        />
       </article>
     );
   }

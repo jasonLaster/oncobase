@@ -704,20 +704,9 @@ a {
   position: relative;
 }
 
-.page-shell.empty-state {
-  max-width: 720px;
-}
-
 .muted {
   color: var(--muted);
   margin: 0;
-}
-
-.empty-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 18px;
 }
 
 .page-outline {
@@ -811,13 +800,6 @@ a {
 
 .mobile-page-outline {
   display: none;
-}
-
-.loading-line {
-  align-items: center;
-  color: var(--muted);
-  display: inline-flex;
-  gap: 8px;
 }
 
 .livestore-devtools-footer {

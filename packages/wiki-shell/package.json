@@ -25,6 +25,11 @@
       "import": "./src/page-chrome.tsx",
       "default": "./src/page-chrome.tsx"
     },
+    "./page-states": {
+      "types": "./src/page-states.tsx",
+      "import": "./src/page-states.tsx",
+      "default": "./src/page-states.tsx"
+    },
     "./navigation": {
       "types": "./src/navigation.tsx",
       "import": "./src/navigation.tsx",
