@@ -1,4 +1,4 @@
-import { applyPiiRedactions, type PiiPattern } from "@diana-tnbc/wiki-content/pii";
+import { applyPiiRedactions, type PiiPattern } from "./pii.js";
 
 export const CHAT_UNAVAILABLE_CONTENT = "unavailable";
 

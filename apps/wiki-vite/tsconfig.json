@@ -15,6 +15,6 @@
     "jsx": "react-jsx",
     "types": ["vite/client", "bun-types"]
   },
-  "include": ["src", "server", "scripts", "vite.config.ts", "playwright*.config.ts"],
+  "include": ["api", "src", "server", "scripts", "vite.config.ts", "playwright*.config.ts"],
   "references": []
 }

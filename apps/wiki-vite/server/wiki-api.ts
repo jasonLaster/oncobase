@@ -9,12 +9,12 @@ import {
   createWikiSessionResponse,
   type PageWithContent,
   type WikiApiDocumentsGateway,
-} from "@diana-tnbc/wiki-content/server";
-import { readChatPageFromDocuments } from "@diana-tnbc/wiki-content/chat-tools";
-import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@diana-tnbc/wiki-content/pii";
+} from "../../../packages/wiki-content/src/server.js";
+import { readChatPageFromDocuments } from "../../../packages/wiki-content/src/chat-tools.js";
+import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "../../../packages/wiki-content/src/pii.js";
 import { api } from "../../../web/convex/_generated/api.js";
-import { handleAiSearchRequest } from "./ai-search";
-import { handleChatRequest } from "./chat-route";
+import { handleAiSearchRequest } from "./ai-search.js";
+import { handleChatRequest } from "./chat-route.js";
 
 const DEFAULT_SITE_SLUG = "diana";
 const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
@@ -137,7 +137,7 @@ function decorateViteHeaders(headers: HeadersInit) {
       "Vary",
       vary
         .split(",")
-        .map((value) => (value.trim().toLowerCase() === "x-site-slug" ? "Host" : value.trim()))
+        .map((value: string) => (value.trim().toLowerCase() === "x-site-slug" ? "Host" : value.trim()))
         .join(", "),
     );
   }
@@ -183,9 +183,13 @@ async function readIncomingBody(req: IncomingMessage) {
   return Buffer.concat(chunks);
 }
 
-async function requestFromIncoming(req: IncomingMessage) {
+export async function requestFromIncoming(req: IncomingMessage) {
   const host = req.headers.host ?? "localhost";
-  const url = new URL(req.url ?? "/", `http://${host}`);
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const protocol = Array.isArray(forwardedProto)
+    ? forwardedProto[0]
+    : forwardedProto || "http";
+  const url = new URL(req.url ?? "/", `${protocol}://${host}`);
   const method = req.method ?? "GET";
   const hasBody = method !== "GET" && method !== "HEAD";
   return new Request(url, {
@@ -195,12 +199,25 @@ async function requestFromIncoming(req: IncomingMessage) {
   });
 }
 
-async function sendWebResponse(res: ServerResponse, response: Response) {
+export async function sendWebResponse(res: ServerResponse, response: Response) {
   res.statusCode = response.status;
   response.headers.forEach((value, key) => {
     res.setHeader(key, value);
   });
-  res.end(Buffer.from(await response.arrayBuffer()));
+
+  if (response.body && response.status !== 204 && response.status !== 304) {
+    const reader = response.body.getReader();
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(Buffer.from(value));
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+  res.end();
 }
 
 function normalizeFilePath(value: string) {
@@ -443,7 +460,7 @@ async function handlePageCopyRequest(
 ) {
   const url = new URL(request.url);
   const slug = url.searchParams.get("slug") ?? "";
-  if (!slug || slug.startsWith("/") || slug.split("/").some((part) => part === "..")) {
+  if (!slug || slug.startsWith("/") || slug.split("/").some((part: string) => part === "..")) {
     return new Response("Invalid slug", { status: 400 });
   }
 

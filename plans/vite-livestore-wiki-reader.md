@@ -1,6 +1,6 @@
 # Vite + LiveStore Wiki Reader Plan
 
-Status: replacement migration branch, updated 2026-05-09. Audience: reviewer, operator, and future migration owner.
+Status: replacement migration branch, updated 2026-05-10. Audience: reviewer, operator, and future migration owner.
 
 ## Goal
 
@@ -22,10 +22,35 @@ The migration is far enough along to use the Vite one-server path as the primary
 | Reader UI parity | In progress | The current shell has a Diana-style layout, screenshot-backed desktop/mobile visual baselines, sidebar tree, mobile sheet, breadcrumbs, page actions, desktop/mobile outline, local title/slug/tag page finding, backend-powered text and AI search pages, a Vite-owned chat route with the shared full composer UI, command palette with pages/outline/assets/tags/recents/actions/debug-cache tools, sync metrics, stale indicators, not-found recovery, failed-fetch retry, and shared markdown rendering. It is still missing several product features listed below. |
 | Privacy/cache safety | P0 guardrails covered | Public and session scopes use separate cache headers and store ids; store ids include the site slug, request origin, reader cache version, and session cache key for intentional OPFS separation. Sensitive pages stay out of public APIs, PII redaction is asserted across rendered pages/search/AI/tool/download surfaces, and browser coverage now verifies same-slug multi-site cache isolation. |
 | Playwright migration | Strong full-stack coverage | `apps/wiki-vite/e2e` now mirrors every current `web/e2e/*.spec.ts` filename. Reader-capable tests run locally against mocked `/api/wiki/*` responses and include screenshot-backed visual assertions plus current-route-first network assertions. The unmocked backend API spec exercises the Vite dev backend against Convex for session, manifest, text search, live AI search, chat tool calls, live chat streaming, login, file validation, and PII-safe downloads. P0 multi-site, PII, and chat-perf specs are now active. Comments, Liveblocks, metadata browser placeholders, and some deeper chat navigation-resilience cases remain skipped in place so the remaining migration inventory stays visible. |
-| Deployment | Standalone replacement target | The prototype has documented API/app origin env vars, cross-origin client credentials when an API origin is configured, backend allowlist CORS for preview origins, an optional Playwright preview smoke config, a Vite dev backend for reader APIs, and a standalone Bun server that serves the built app plus reader APIs from one origin. The standalone server enforces the password gate for app routes, allows link-preview bots to receive metadata-only HTML, injects canonical/OG metadata, and verifies public bot cache headers plus authenticated private no-store headers. Remaining work is Vercel wiring, preview/prod smoke automation, and rollback. |
+| Deployment | Isolated Vercel project live | `diana-tnbc-wiki-vite` is a separate Vercel project connected to the same Git repo, with SSO deployment protection disabled for smoke testing and env scoped to the new project. Root `vercel.json` builds `apps/wiki-vite`, serves `apps/wiki-vite/dist`, and routes `/api/*` plus app shells through Vercel Functions that share the same request handler as the standalone Bun server. The stable production URL is `https://wiki-vite-zeta.vercel.app`; preview and production smokes now verify session API, route password gate, bot metadata, and browser render. Remaining work is custom-domain cutover, rollback runbook, and CI automation for the preview smoke. |
 | Migration decision | Direction set | Vite is the intended replacement. Keep `web` only until auth, multi-site, metadata, full-stack features, cache policy, UI parity, and E2E coverage are good enough to delete it. |
 
 ## Work Log
+
+### 2026-05-10 Isolated Vercel Project Checkpoint
+
+- Created and connected a separate Vercel project, `diana-tnbc-wiki-vite`, so the Vite replacement can be deployed and tested independently of the existing `diana-tnbc` Next project.
+- Added root Vercel deployment config for the standalone replacement path. The existing Next project has Vercel root directory `web`, so the root config is for the isolated Vite project and does not reroute the current production app.
+- Added Vercel Functions for `/api/*` and route-shell HTML. They call the same shared Vite request handler used by the Bun standalone server, preserving password-gate enforcement, bot metadata rendering, full-stack API routes, and private/public cache behavior.
+- Kept the app-local Vercel config in `apps/wiki-vite/vercel.json` for subdirectory CLI builds, but the connected Git project uses the root config so workspace packages and `web/convex` generated APIs are available.
+- Copied the required Convex and AI env vars from the local Vite env into the isolated project for production, development, and the current preview branch. `WIKI_SITE_SLUG=diana` pins the new `vercel.app` host to the Diana site until the host is added to site records.
+- Disabled Vercel SSO deployment protection on the isolated project so unauthenticated smoke tests reach the app's own password gate instead of Vercel's auth wall.
+- Deployed production to `https://wiki-vite-zeta.vercel.app`.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd packages/wiki-content typecheck
+bun --cwd packages/chat typecheck
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite verify:standalone
+vercel build --yes
+vercel deploy --prebuilt --yes
+vercel build --prod --yes
+vercel deploy --prebuilt --prod --yes
+PLAYWRIGHT_BASE_URL=https://wiki-vite-zeta.vercel.app WIKI_VITE_SMOKE_PATH=/wiki/logistics/insurance WIKI_VITE_SMOKE_COOKIE=<auth-cookie> bun --cwd apps/wiki-vite test:e2e:preview
+```
+
+Production smoke result: `/api/wiki/session` returns `diana:public`, `/wiki/logistics/insurance` redirects unauthenticated users to `/login`, link-preview bot requests receive page-specific canonical/OG metadata, and Playwright preview smoke passed.
 
 ### 2026-05-09 P0 Replacement Blockers Checkpoint
 

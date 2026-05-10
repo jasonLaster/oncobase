@@ -48,6 +48,30 @@ PORT=62003 bun run start:server
 
 `start:server` serves `dist/` and the same wiki API request handler from one Bun process. It is the current full-stack rehearsal target: the SPA, `/api/wiki/*`, `/api/search`, `/api/ai-search`, `/api/chat`, `/api/tools`, `/api/login`, `/api/download`, `/api/file`, and `/api/page-copy` all come from the same origin while Convex remains the content database.
 
+## Vercel
+
+The standalone replacement has an isolated Vercel project named `diana-tnbc-wiki-vite`. The existing Next project remains `diana-tnbc` with Vercel root directory `web`; the isolated Vite project is connected to the repo root and uses the root `vercel.json`.
+
+The root Vercel config builds `apps/wiki-vite`, serves `apps/wiki-vite/dist`, and routes app HTML plus `/api/*` through Vercel Functions that call the same request handler as `server/standalone.ts`. That keeps local standalone behavior and Vercel behavior aligned for password gate enforcement, route metadata, search, AI search, chat, downloads, files, and page-copy.
+
+Current production smoke URL:
+
+```sh
+https://wiki-vite-zeta.vercel.app
+```
+
+Required project env vars:
+
+- `NEXT_PUBLIC_CONVEX_URL`
+- `CONVEX_URL`
+- `VITE_CONVEX_URL`
+- `VITE_NEXT_PUBLIC_CONVEX_URL`
+- `WIKI_SITE_SLUG`
+- `AI_GATEWAY_API_KEY`
+- `OPENAI_API_KEY`
+
+`WIKI_SITE_SLUG=diana` is currently required for the new `vercel.app` host because that host is not yet a site-domain record in Convex.
+
 ## Environment
 
 The prototype has two origins:
@@ -74,6 +98,8 @@ PLAYWRIGHT_BASE_URL=https://wiki-vite-preview.example \
 WIKI_VITE_SMOKE_PATH=/wiki/logistics/insurance \
 bun run test:e2e:preview
 ```
+
+For password-gated deployments, set `WIKI_VITE_SMOKE_COOKIE` to an `authed=true` cookie from `/api/login` before running the preview smoke.
 
 You can also run the preview smoke against the standalone server:
 

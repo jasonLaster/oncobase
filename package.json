@@ -1,6 +1,7 @@
 {
   "name": "diana-breast-cancer",
   "private": true,
+  "type": "module",
   "workspaces": ["web", "apps/*", "packages/*"],
   "scripts": {
     "dev": "turbo run dev:app",
