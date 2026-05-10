@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createElement } from "react";
+import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   preprocessCitations,
@@ -63,5 +63,25 @@ gantt
     expect(html).toContain("Care Timeline");
     expect(html).toContain("Chemo");
     expect(html).toContain("gantt");
+  });
+
+  test("uses the route-link adapter for internal wiki links only", () => {
+    const LinkComponent = ({
+      children,
+      href,
+    }: {
+      children?: ReactNode;
+      href?: string;
+    }) => createElement("router-link", { href }, children);
+    const html = renderToStaticMarkup(
+      createElement(WikiMarkdown, {
+        content: "[Diagnosis](/wiki/diagnostics/diagnosis) and [PDF](paper.pdf)",
+        currentSlug: "wiki/research/index",
+        LinkComponent,
+      }),
+    );
+
+    expect(html).toContain('<router-link href="/wiki/diagnostics/diagnosis">Diagnosis</router-link>');
+    expect(html).toContain('href="/api/file?path=wiki%2Fresearch%2Fpaper.pdf"');
   });
 });
