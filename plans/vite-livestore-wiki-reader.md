@@ -15,7 +15,7 @@ The migration is far enough along to test the new data path against a deployed b
 | Area | Status | Notes |
 | --- | --- | --- |
 | Shared content contracts | Mostly landed | `packages/wiki-content` owns manifest parsing, compact tree expansion, page batches, content-hash reconciliation, and public/session store ids. Needs broader edge-case tests before it becomes a stable package API. |
-| Shared markdown runtime | Partly productionized | `packages/wiki-markdown` owns the reusable renderer, route-link adapter, heading anchors, image theater, citations, math cleanup, and smart-table behavior. The extraction is useful even if Vite is not adopted, but package-level regression coverage still needs to catch up. |
+| Shared markdown runtime | Mostly productionized | `packages/wiki-markdown` owns the reusable renderer, route-link adapter, heading anchors, image theater, citations, math cleanup, PDF chips, theme-paired images, and smart-table behavior. The extraction is useful even if Vite is not adopted; package-level server coverage now protects the highest-risk renderer transforms. |
 | Backend API surface | Ready for additive deployment rehearsal | `/api/wiki/session`, `/api/wiki/manifest`, and `/api/wiki/pages` are additive. They do not reroute existing pages, and public/session cache behavior is covered by API tests. The manifest route can use the new Convex metadata query when deployed and can fall back to content-backed metadata while the backend rolls out. |
 | Convex support | Ready to deploy if kept additive | `documents.listManifestPage` is additive and mirrors existing document pagination without changing the publish path. Existing page and asset listing queries remain the source for markdown bodies and tree assets. Deploying this lets the manifest endpoint avoid shipping markdown just to compute metadata. |
 | LiveStore reader | Prototype works | The Vite app persists page index, file tree, asset index, and page bodies in OPFS-backed LiveStore tables. It renders cached markdown first, fetches the manifest in the background, marks stale/deleted/missing content, and eagerly fetches markdown in bounded batches. |
@@ -26,6 +26,22 @@ The migration is far enough along to test the new data path against a deployed b
 | Migration decision | Not ready | The branch is ready to validate the architecture, not to replace the Next app. Keep production routes on Next until reader parity, privacy tests, and preview metrics are in hand. |
 
 ## Work Log
+
+### 2026-05-09 Markdown Package Hardening Checkpoint
+
+- Added package-level server renderer tests for smart-table markup, PDF chips, image theater attributes, citations, theme-paired images, currency preservation, and math rendering.
+- Fixed `renderWikiMarkdownHtml` so ordinary markdown links to proxied file types, including `paper.pdf`, are rewritten through `/api/file` before PDF chip decoration.
+- Added Vite route metadata polish by updating the document title and description meta tag from the local page index.
+- Re-ran the existing `web` render-markdown unit tests to confirm the shared package behavior still matches the current app.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd packages/wiki-markdown test:unit
+bun --cwd packages/wiki-markdown typecheck
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/page-chrome.spec.ts
+bun --cwd web test:unit src/lib/render-markdown.test.ts
+```
 
 ### 2026-05-09 Session And Cache Controls Checkpoint
 

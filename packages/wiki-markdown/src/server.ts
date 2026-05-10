@@ -197,12 +197,43 @@ function decorateRenderedImages(html: string): string {
   });
 }
 
-function fixMarkdownLinks(html: string): string {
+function fixMarkdownLinks(html: string, currentSlug?: string): string {
   return html.replace(/href="([^"]+\.md(?:#[^"]*)?)"/g, (_match, href) => {
     if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//")) {
       return `href="${href}"`;
     }
     return `href="${href.replace(/\.md(#|$)/, "$1")}"`;
+  }).replace(/href="([^"]+)"/g, (_match, href) => {
+    if (
+      href.startsWith("http://") ||
+      href.startsWith("https://") ||
+      href.startsWith("//") ||
+      href.startsWith("#") ||
+      href.startsWith("/api/")
+    ) {
+      return `href="${href}"`;
+    }
+
+    const [rawPath, hash] = href.split("#");
+    const ext = rawPath.includes(".")
+      ? rawPath.slice(rawPath.lastIndexOf(".")).toLowerCase()
+      : "";
+    if (!PROXIED_EXTENSIONS.has(ext)) {
+      return `href="${href}"`;
+    }
+
+    let resolvedPath = rawPath;
+    if (currentSlug && !rawPath.startsWith("/")) {
+      const dir = currentSlug.includes("/")
+        ? currentSlug.slice(0, currentSlug.lastIndexOf("/"))
+        : currentSlug;
+      resolvedPath = `${dir}/${rawPath}`;
+    }
+    resolvedPath = normalizePosixPath(resolvedPath);
+    const nextHref = `/api/file?path=${encodeURIComponent(resolvedPath)}${
+      hash ? `#${hash}` : ""
+    }`;
+    return `href="${nextHref}"`;
   });
 }
 
@@ -232,17 +263,6 @@ function normalizePosixPath(value: string) {
   return output.join("/");
 }
 
-function resolveVaultAssetPath(assetPath: string, currentSlug?: string): string {
-  let resolvedPath = assetPath;
-  if (currentSlug && !assetPath.startsWith("/")) {
-    const dir = currentSlug.includes("/")
-      ? currentSlug.slice(0, currentSlug.lastIndexOf("/"))
-      : currentSlug;
-    resolvedPath = `${dir}/${assetPath}`;
-  }
-  return normalizePosixPath(resolvedPath);
-}
-
 function fixImageSrcs(html: string, currentSlug?: string): string {
   return html.replace(/(<img\b[^>]*?\s)src="([^"]*)"([^>]*>)/g, (_match, before, src, after) => {
     if (
@@ -260,39 +280,16 @@ function fixImageSrcs(html: string, currentSlug?: string): string {
       return `${before}src="${src}"${after}`;
     }
 
-    const resolvedPath = resolveVaultAssetPath(src, currentSlug);
+    let resolvedPath = src;
+    if (currentSlug && !src.startsWith("/")) {
+      const dir = currentSlug.includes("/")
+        ? currentSlug.slice(0, currentSlug.lastIndexOf("/"))
+        : currentSlug;
+      resolvedPath = `${dir}/${src}`;
+    }
+    resolvedPath = normalizePosixPath(resolvedPath);
 
     return `${before}src="/api/file?path=${encodeURIComponent(resolvedPath)}"${after}`;
-  });
-}
-
-/**
- * Rewrite ordinary Markdown links to published assets through /api/file.
- * Obsidian wikilinks already do this earlier, but authored Markdown such as
- * `[report.pdf](report.pdf)` should work the same way.
- */
-function fixAssetLinks(html: string, currentSlug?: string): string {
-  return html.replace(/(<a\b[^>]*?\s)href="([^"]*)"([^>]*>)/g, (_match, before, href, after) => {
-    if (
-      href.startsWith("http://") ||
-      href.startsWith("https://") ||
-      href.startsWith("//") ||
-      href.startsWith("mailto:") ||
-      href.startsWith("#") ||
-      href.startsWith("data:") ||
-      href.startsWith("/api/")
-    ) {
-      return `${before}href="${href}"${after}`;
-    }
-
-    const [rawPath, suffix = ""] = href.split(/([?#].*)/, 2);
-    const ext = rawPath.includes(".") ? rawPath.slice(rawPath.lastIndexOf(".")).toLowerCase() : "";
-    if (!PROXIED_EXTENSIONS.has(ext)) {
-      return `${before}href="${href}"${after}`;
-    }
-
-    const resolvedPath = resolveVaultAssetPath(rawPath, currentSlug);
-    return `${before}href="/api/file?path=${encodeURIComponent(resolvedPath)}${suffix}"${after}`;
   });
 }
 
@@ -357,12 +354,7 @@ export function renderWikiMarkdownHtml(md: string, currentSlug?: string): string
   const raw = processor.processSync(cleanMd).toString();
   const wrapped = decorateRenderedTables(raw);
   return decorateRenderedImages(
-    fixPdfLinks(
-      fixAssetLinks(
-        fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped)), currentSlug),
-        currentSlug,
-      ),
-    ),
+    fixPdfLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped, currentSlug)), currentSlug)),
   );
 }
 
@@ -378,11 +370,6 @@ export async function renderWikiMarkdownHtmlAsync(
   const raw = (await processor.process(cleanMd)).toString();
   const wrapped = decorateRenderedTables(raw);
   return decorateRenderedImages(
-    fixPdfLinks(
-      fixAssetLinks(
-        fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped)), currentSlug),
-        currentSlug,
-      ),
-    ),
+    fixPdfLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped, currentSlug)), currentSlug)),
   );
 }

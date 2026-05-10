@@ -13,6 +13,12 @@ test.describe("Page chrome parity", () => {
     await expect(documentArticle(page).locator(".page-header")).toContainText(
       "Insurance planning notes.",
     );
+    await expect(page).toHaveTitle("Insurance - Diana Wiki");
+    await expect
+      .poll(() =>
+        page.locator('meta[name="description"]').getAttribute("content"),
+      )
+      .toBe("Insurance planning notes.");
 
     const actions = page.getByTestId("page-actions");
     await expect(actions.getByRole("button", { name: "Copy page as markdown" })).toBeVisible();

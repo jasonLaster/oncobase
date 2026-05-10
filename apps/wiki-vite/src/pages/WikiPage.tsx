@@ -89,7 +89,13 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
 
   useEffect(() => {
     document.title = page?.title ? `${page.title} - Diana Wiki` : "Diana Wiki";
-  }, [page?.title]);
+    const descriptionMeta =
+      document.querySelector<HTMLMetaElement>('meta[name="description"]') ??
+      document.head.appendChild(document.createElement("meta"));
+    descriptionMeta.name = "description";
+    descriptionMeta.content =
+      description ?? page?.title ?? "Diana TNBC wiki reader";
+  }, [description, page?.title]);
 
   useEffect(() => {
     routeRenderRef.current = {
