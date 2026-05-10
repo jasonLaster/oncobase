@@ -13,6 +13,7 @@ Current exports:
 - `WikiPageLoading`, `WikiPageSkeleton`, and `WikiEmptyState`: shared loading, skeleton, missing, and retry state shells with host-owned actions.
 - `WikiSearchPage`, `WikiSearchHeader`, `WikiSearchForm`, `WikiSearchModeToggle`, `WikiSearchResults`, and `WikiSearchResultLink`: search route chrome with host-owned backend calls, routing, and keyboard state.
 - `WikiCommandBackdrop`, `WikiCommandPanel`, `WikiCommandSearch`, `WikiCommandTabs`, `WikiCommandList`, `WikiCommandEmpty`, and `WikiCommandFooter`: command-palette shell chrome with host-owned data and action handling.
+- `WikiChatPage`, `WikiChatSidebar`, `WikiChatList`, `WikiChatListLink`, `WikiChatMain`, and `WikiChatState`: chat route shell chrome with host-owned Convex/runtime wiring.
 - `WikiSidebar`, `WikiTree`, `WikiMobileNavigation`, and tree helpers: navigation chrome with host-owned tree data, route links, file URLs, and persisted expansion state.
 - `collectOutline`, `scrollToOutlineItem`, and related helpers for command palette and outline adapters.
 - `styles.css`: shell styles that do not depend on Next, Vite, LiveStore, or Convex.

@@ -1,6 +1,15 @@
 import { ChatInterface } from "@diana-tnbc/chat/components/chat-interface";
 import { ChatRuntimeProvider } from "@diana-tnbc/chat/runtime";
 import { WikiMarkdown } from "@diana-tnbc/wiki-markdown";
+import {
+  WikiChatList,
+  WikiChatListLink,
+  WikiChatMain,
+  WikiChatMuted,
+  WikiChatPage,
+  WikiChatSidebar,
+  WikiChatState,
+} from "@diana-tnbc/wiki-shell";
 import { ConvexProvider, ConvexReactClient, useQuery } from "convex/react";
 import { useMemo, type ReactNode } from "react";
 import { Link, useLocation, useParams } from "react-router";
@@ -140,33 +149,44 @@ function ConversationList() {
   const activeId = location.pathname.match(/^\/chat\/([^/?#]+)$/)?.[1] ?? null;
 
   return (
-    <nav className="vite-chat-list" data-test-id="conversation-list" aria-label="Conversations">
-      <Link
-        className={activeId ? "vite-chat-list-new" : "vite-chat-list-new active"}
+    <WikiChatList data-test-id="conversation-list" aria-label="Conversations">
+      <WikiChatListLink
+        active={!activeId}
         data-test-id="conversation-list-new-chat"
-        to="/chat"
+        href="/chat"
+        renderLink={({ href, children, ...linkProps }) => (
+          <Link {...linkProps} to={href}>
+            {children}
+          </Link>
+        )}
+        variant="new"
       >
         New chat
-      </Link>
+      </WikiChatListLink>
       {conversations === undefined ? (
-        <p className="vite-chat-muted" data-test-id="conversation-list-loading">Loading...</p>
+        <WikiChatMuted data-test-id="conversation-list-loading">Loading...</WikiChatMuted>
       ) : null}
       {conversations?.length === 0 ? (
-        <p className="vite-chat-muted" data-test-id="conversation-list-empty">No conversations yet</p>
+        <WikiChatMuted data-test-id="conversation-list-empty">No conversations yet</WikiChatMuted>
       ) : null}
       {conversations?.map((conversation: { _id: string; title: string }) => (
-        <Link
-          className={conversation._id === activeId ? "vite-chat-list-item active" : "vite-chat-list-item"}
+        <WikiChatListLink
+          active={conversation._id === activeId}
           data-conversation-id={conversation._id}
           data-test-id="conversation-list-item"
+          href={`/chat/${conversation._id}`}
           key={conversation._id}
+          renderLink={({ href, children, ...linkProps }) => (
+            <Link {...linkProps} to={href}>
+              {children}
+            </Link>
+          )}
           title={conversation.title}
-          to={`/chat/${conversation._id}`}
         >
           {conversation.title}
-        </Link>
+        </WikiChatListLink>
       ))}
-    </nav>
+    </WikiChatList>
   );
 }
 
@@ -180,25 +200,28 @@ function ChatRouteContent() {
   );
   if (id === "archived") {
     return (
-      <section className="vite-chat-placeholder" data-test-id="chat-archived-placeholder">
-        <h1>Archived chats</h1>
+      <WikiChatState
+        data-test-id="chat-archived-placeholder"
+        heading="Archived chats"
+        kind="placeholder"
+      >
         <p>Archived conversation management is still owned by the current app during this migration pass.</p>
-      </section>
+      </WikiChatState>
     );
   }
   if (!id) return <ChatInterface conversationId={null} />;
   if (conversation === undefined) {
     return (
-      <div className="vite-chat-loading" data-test-id="chat-conversation-loading">
+      <WikiChatState data-test-id="chat-conversation-loading">
         Loading conversation...
-      </div>
+      </WikiChatState>
     );
   }
   if (conversation === null) {
     return (
-      <div className="vite-chat-loading" data-test-id="chat-conversation-not-found">
+      <WikiChatState data-test-id="chat-conversation-not-found">
         Conversation not found
-      </div>
+      </WikiChatState>
     );
   }
   return (
@@ -219,14 +242,14 @@ export function ChatPage() {
   return (
     <ConvexProvider client={getConvexClient()}>
       <ChatRuntime>
-        <section className="vite-chat-page" data-test-id="chat-page">
-          <aside className="vite-chat-sidebar">
+        <WikiChatPage data-test-id="chat-page">
+          <WikiChatSidebar>
             <ConversationList />
-          </aside>
-          <div className="vite-chat-main">
+          </WikiChatSidebar>
+          <WikiChatMain>
             <ChatRouteContent />
-          </div>
-        </section>
+          </WikiChatMain>
+        </WikiChatPage>
       </ChatRuntime>
     </ConvexProvider>
   );

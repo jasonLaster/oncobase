@@ -92,6 +92,23 @@ export {
   type WikiCommandTabsProps,
 } from "./palette";
 export {
+  WikiChatList,
+  WikiChatListLink,
+  WikiChatMain,
+  WikiChatMuted,
+  WikiChatPage,
+  WikiChatSidebar,
+  WikiChatState,
+  type WikiChatListLinkProps,
+  type WikiChatListLinkRenderProps,
+  type WikiChatListProps,
+  type WikiChatMainProps,
+  type WikiChatMutedProps,
+  type WikiChatPageProps,
+  type WikiChatSidebarProps,
+  type WikiChatStateProps,
+} from "./chat";
+export {
   WikiMobileNavigation,
   WikiSidebar,
   WikiTree,

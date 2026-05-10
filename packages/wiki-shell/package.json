@@ -40,6 +40,11 @@
       "import": "./src/palette.tsx",
       "default": "./src/palette.tsx"
     },
+    "./chat": {
+      "types": "./src/chat.tsx",
+      "import": "./src/chat.tsx",
+      "default": "./src/chat.tsx"
+    },
     "./navigation": {
       "types": "./src/navigation.tsx",
       "import": "./src/navigation.tsx",
