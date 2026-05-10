@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { gotoWiki, installWikiApiMocks, waitForPageTitle } from "./fixtures";
+import { documentArticle, gotoWiki, installWikiApiMocks, waitForPageTitle } from "./fixtures";
 
 test.describe("Session scope recovery", () => {
   test("session identity failure can fall back to the public store", async ({ page }) => {
@@ -32,5 +32,29 @@ test.describe("Session scope recovery", () => {
       "href",
       /\/wiki\/logistics\/insurance\?scope=public$/,
     );
+  });
+
+  test("public and session scopes use different stores and do not leak sensitive pages", async ({ page }) => {
+    await installWikiApiMocks(page, { sessionAuthenticated: true });
+    await gotoWiki(page, "/private/plan?scope=session");
+    await waitForPageTitle(page, "Private Plan");
+    await expect(documentArticle(page)).toContainText("Sensitive session-only planning note");
+
+    const sessionFooter = page.getByTestId("livestore-devtools-footer");
+    await sessionFooter.locator("summary").click();
+    const sessionStoreId = await sessionFooter.locator(".devtools-store").getAttribute("title");
+    expect(sessionStoreId).toContain("session");
+
+    await gotoWiki(page, "/private/plan?scope=public");
+    await expect(documentArticle(page).locator("h1")).toHaveText("Page not found");
+    await expect(documentArticle(page)).not.toContainText("Sensitive session-only planning note");
+    await page.getByTestId("header-search-input").fill("private plan");
+    await expect(page.getByText("No local matches")).toBeVisible();
+
+    const publicFooter = page.getByTestId("livestore-devtools-footer");
+    await publicFooter.locator("summary").click();
+    const publicStoreId = await publicFooter.locator(".devtools-store").getAttribute("title");
+    expect(publicStoreId).toContain("public");
+    expect(publicStoreId).not.toBe(sessionStoreId);
   });
 });
