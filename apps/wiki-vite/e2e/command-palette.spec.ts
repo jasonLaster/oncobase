@@ -44,6 +44,19 @@ test.describe("Command palette parity", () => {
     );
   });
 
+  test("action palette includes current-page source file actions", async ({ page }) => {
+    await gotoWiki(page, "/sources/institutions/stanford/telli");
+
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+K" : "Control+Shift+K");
+    await expect(page.getByTestId("command-palette")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /Open telli-2016-hrd-platinum-tnbc\.pdf/ }),
+    ).toHaveAttribute(
+      "href",
+      /\/api\/file\?path=sources%2Finstitutions%2Fstanford%2Ftelli%2Ftelli-2016-hrd-platinum-tnbc\.pdf/,
+    );
+  });
+
   test("asset palette opens PDF and file assets through the backend file route", async ({ page }) => {
     await gotoWiki(page, "/");
 

@@ -130,6 +130,19 @@ bun --cwd packages/wiki-markdown test:unit
 bun --cwd packages/wiki-markdown typecheck
 ```
 
+### 2026-05-09 Source Provenance Checkpoint
+
+- Added local source-file provenance to the Vite page chrome. Pages with related asset paths now show manifest-backed PDF/file links without waiting on server-rendered HTML.
+- Added current-page source-file actions to the command palette while keeping canonical search, chat, downloads, and AI surfaces as backend handoffs.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/page-chrome.spec.ts e2e/command-palette.spec.ts
+bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite test:e2e
+```
+
 ### 2026-05-09 Markdown Package Hardening Checkpoint
 
 - Added package-level server renderer tests for smart-table markup, PDF chips, image theater attributes, citations, theme-paired images, currency preservation, and math rendering.
@@ -327,10 +340,10 @@ These are the major gaps between the prototype and the current wiki experience.
 | AI search | Not implemented in Vite. | `/api/ai-search` route handoff or thin client adapter, citation rendering, loading states, and tenant/session scoping tests. | Keep AI search on the backend/full-stack search surface for v1. Do not block the reader prototype on it. |
 | Outline | Local outline palette and persistent desktop outline rail extract headings from rendered markdown and jump by hash. | Mobile outline placement, hash navigation polish, and accessibility pass. | Should land before reader parity because it is a core reading affordance and can be fully local. |
 | Comments and Liveblocks | Not implemented in Vite. | Comment rail, auth gating, Liveblocks tokens, thread persistence, unread/resolved states, and multi-device sync. | Keep in Next for v1. Treat as out of scope unless explicitly pulled forward. |
-| Command palette | Keyboard trigger, local page rows, outline rows, asset rows, tag slices, recent pages, and backend action rows landed. | Better fuzzy ranking, current-page context actions, source/PDF context actions, and a deeper focus/accessibility pass. | Build before production reader parity. It can be powered by the local LiveStore index, while search/chat actions delegate to backend surfaces. |
+| Command palette | Keyboard trigger, local page rows, outline rows, asset rows, tag slices, recent pages, current-page source/PDF actions, and backend action rows landed. | Better fuzzy ranking, richer current-page context actions, and a deeper focus/accessibility pass. | Build before production reader parity. It can be powered by the local LiveStore index, while search/chat actions delegate to backend surfaces. |
 | Other palettes | Page, outline, asset, tag, recent, and backend action palettes now exist as modes in one command surface. | Debug/cache palette for store reset and metrics. | Page palette should be first. Backend search/chat entries should delegate instead of cloning those full-stack flows. |
 | Sidebar/tree | Desktop tree and mobile sheet exist, active branches auto-expand, manual expansion persists across reloads, and PDF/file assets are discoverable through the local asset palette. | Richer source grouping, keyboard navigation, and very large tree performance. | Needed before broad preview review, but not before additive backend deployment. |
-| Page chrome | Title, description, breadcrumbs, tags, copy/link/print/download/main-app actions, size, stale/sensitive badges, not-found recovery, failed-fetch retry, and manifest/hash footer exist. | Source/PDF provenance, edit/source provenance, and richer mobile action placement. | Reader parity blocker for pages with sources/assets. |
+| Page chrome | Title, description, breadcrumbs, tags, copy/link/print/download/main-app actions, manifest-backed source/PDF provenance, size, stale/sensitive badges, not-found recovery, failed-fetch retry, and manifest/hash footer exist. | Edit/source provenance and richer mobile action placement. | Reader parity blocker for pages with sources/assets. |
 | Markdown parity | Shared package handles the main rendering path. | More package tests for smart tables, citations, PDF/image rewriting, theme-paired images, heading anchors, math, Mermaid fallback, and route-link adapters. | Required before trusting the package as the durable reader layer. |
 | Auth/session UX | Scope can be selected with `?scope=session` or the header switcher; session identity creates a distinct store id; signed-out session access shows a recovery screen; auth-expired fetches clear the session store; cross-origin previews use credentialed API requests only when the backend origin is explicitly configured and allowlisted; browser tests cover sensitive session content not leaking into public scope. | Login prompt polish, return-to-reader sign-in flow, and session-expiry invalidation tests. | Privacy-sensitive. Required before any authenticated pilot. |
 | Offline/cache controls | OPFS persistence, browser storage estimate, explicit local cache reset, manual cache warming, stale-content explanation, failed body fetch metrics, and current-page retry UI exist. | Storage pressure behavior and versioned cache invalidation. | Required before production trial. |

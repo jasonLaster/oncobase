@@ -587,6 +587,60 @@ a {
   color: var(--brand);
 }
 
+.source-links {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: -4px 0 18px;
+  padding: 10px;
+}
+
+.source-links-title {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  margin-bottom: 8px;
+}
+
+.source-links-list {
+  display: grid;
+  gap: 6px;
+}
+
+.source-links-list a {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--foreground);
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 34px;
+  padding: 6px 8px;
+  text-decoration: none;
+}
+
+.source-links-list a:hover {
+  background: var(--accent-light);
+  border-color: color-mix(in srgb, var(--brand) 28%, var(--border));
+}
+
+.source-links-list span {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.source-links-list strong {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .page-outline {
   align-self: start;
   color: var(--muted);

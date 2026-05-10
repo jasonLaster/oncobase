@@ -8,11 +8,13 @@ import { RefreshCwIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
+  assets$,
   pageContentBySlug$,
   pageIndexBySlug$,
   siteState$,
 } from "../livestore/queries";
 import type {
+  AssetIndexRow,
   Metrics,
   MetricsPatch,
   PageContentRow,
@@ -26,6 +28,7 @@ import {
   storageEstimate,
 } from "../wiki-utils";
 import { useWikiScope } from "../wiki-context";
+import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { PageActions } from "./PageActions";
 import { PageOutline } from "./PageOutline";
@@ -63,6 +66,7 @@ export function WikiPage({
   });
   const page = useStore().store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
   const index = useStore().store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;
+  const assets = useStore().store.useQuery(assets$) as AssetIndexRow[];
   const siteState = useStore().store.useQuery(siteState$) as SiteStateRow | null;
   const stale = page?.contentStatus === "stale";
   const deleted = page?.contentStatus === "deleted";
@@ -72,6 +76,10 @@ export function WikiPage({
     metrics.status === "error" &&
     metrics.message.includes(slug);
   const tags = parseJsonArray<string>(page?.tagsJson ?? index?.tagsJson ?? "[]");
+  const relatedAssets = useMemo(
+    () => relatedAssetsForSlug(slug, assets).slice(0, 6),
+    [assets, slug],
+  );
   const description = index?.description ?? null;
   const routeAdapter = useMemo(
     () => ({
@@ -256,6 +264,19 @@ export function WikiPage({
           slug={page.slug}
           title={page.title}
         />
+        {relatedAssets.length > 0 ? (
+          <section className="source-links" data-test-id="source-links" aria-label="Source files">
+            <div className="source-links-title">Source files</div>
+            <div className="source-links-list">
+              {relatedAssets.map((asset) => (
+                <a key={asset.path} href={assetHref(asset.path)} target="_blank" rel="noreferrer">
+                  <span>{asset.kind === "pdf" ? "PDF" : "File"}</span>
+                  <strong>{assetFileName(asset.path)}</strong>
+                </a>
+              ))}
+            </div>
+          </section>
+        ) : null}
         {tags.length > 0 ? (
           <div className="tag-row">
             {tags.map((tag) => (

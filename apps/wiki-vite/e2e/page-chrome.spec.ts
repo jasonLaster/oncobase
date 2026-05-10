@@ -57,4 +57,17 @@ test.describe("Page chrome parity", () => {
 
     await expect(page).toHaveURL(/#claims-follow-up$/);
   });
+
+  test("surfaces source file provenance from the local asset index", async ({ page }) => {
+    await gotoWiki(page, "/sources/institutions/stanford/telli");
+
+    const sources = page.getByTestId("source-links");
+    await expect(sources).toContainText("Source files");
+    await expect(
+      sources.getByRole("link", { name: /telli-2016-hrd-platinum-tnbc\.pdf/ }),
+    ).toHaveAttribute(
+      "href",
+      /\/api\/file\?path=sources%2Finstitutions%2Fstanford%2Ftelli%2Ftelli-2016-hrd-platinum-tnbc\.pdf/,
+    );
+  });
 });

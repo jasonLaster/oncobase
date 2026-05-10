@@ -29,7 +29,9 @@ import {
   parseJsonArray,
   readRecentSlugs,
   rememberSlug,
+  slugFromPath,
 } from "../wiki-utils";
+import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { collectOutline, scrollToOutlineItem, type OutlineItem } from "./outline";
 
 type PaletteMode = "pages" | "outline" | "assets" | "tags" | "recent" | "actions";
@@ -85,6 +87,7 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const currentSlug = slugFromPath(location.pathname);
 
   useEffect(() => {
     if (!open) return;
@@ -124,8 +127,24 @@ export function CommandPalette({
       .slice(0, 14);
   }, [outline, query]);
 
+  const relatedAssets = useMemo(
+    () => relatedAssetsForSlug(currentSlug, assets).slice(0, 3),
+    [assets, currentSlug],
+  );
+
   const actions = useMemo<ActionItem[]>(
     () => [
+      ...relatedAssets.map((asset) => ({
+        label: `Open ${assetFileName(asset.path)}`,
+        description: `Source file for ${currentSlug}`,
+        href: assetHref(asset.path),
+        icon:
+          asset.kind === "pdf" ? (
+            <FileTextIcon size={15} aria-hidden="true" />
+          ) : (
+            <FileIcon size={15} aria-hidden="true" />
+          ),
+      })),
       {
         label: "Search wiki",
         description: "Open the backend full-text and AI search surface",
@@ -145,7 +164,7 @@ export function CommandPalette({
         icon: <DownloadIcon size={15} aria-hidden="true" />,
       },
     ],
-    [],
+    [currentSlug, relatedAssets],
   );
 
   const actionResults = useMemo(() => {
