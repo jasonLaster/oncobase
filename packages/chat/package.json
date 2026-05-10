@@ -74,6 +74,11 @@
       "import": "./src/components/chat-actions.tsx",
       "default": "./src/components/chat-actions.tsx"
     },
+    "./components/archived-chats-core": {
+      "types": "./src/components/archived-chats-core.tsx",
+      "import": "./src/components/archived-chats-core.tsx",
+      "default": "./src/components/archived-chats-core.tsx"
+    },
     "./components/conversation-actions-core": {
       "types": "./src/components/conversation-actions-core.tsx",
       "import": "./src/components/conversation-actions-core.tsx",

@@ -28,7 +28,8 @@ test.describe("Chat", () => {
     await page.getByTestId("conversation-list-archived").click();
 
     await expect(page).toHaveURL(/\/chat\/archived$/);
-    await expect(page.getByTestId("chat-archived-placeholder")).toBeVisible();
+    await expect(page.getByTestId("chat-archived-page")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Archived Chats" })).toBeVisible();
   });
 
   test("can send a message and get a response", async ({ page }) => {

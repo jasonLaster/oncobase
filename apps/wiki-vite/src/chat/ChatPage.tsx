@@ -1,3 +1,4 @@
+import { ArchivedChatsCore } from "@diana-tnbc/chat/components/archived-chats-core";
 import { ConversationActionsMenu } from "@diana-tnbc/chat/components/conversation-actions-core";
 import { ConversationListCore } from "@diana-tnbc/chat/components/conversation-list-core";
 import { ChatInterface } from "@diana-tnbc/chat/components/chat-interface";
@@ -181,6 +182,33 @@ function ConversationList() {
   );
 }
 
+function ArchivedChatsRoute() {
+  const identity = useWikiSession();
+  const siteArgs = identity?.siteSlug ? { siteSlug: identity.siteSlug } : {};
+  const archived = useQuery(api.conversations.listArchived, siteArgs);
+  const restoreConversation = useMutation(api.conversations.restore);
+  const { copy, routes } = useChatRuntime();
+
+  return (
+    <ArchivedChatsCore
+      archived={archived}
+      copy={copy}
+      onRestore={async (conversation) => {
+        await restoreConversation({
+          id: conversation._id as Id<"conversations">,
+          ...siteArgs,
+        });
+      }}
+      renderLink={({ href, children, ...linkProps }) => (
+        <Link {...linkProps} to={href}>
+          {children}
+        </Link>
+      )}
+      routes={routes}
+    />
+  );
+}
+
 function ChatRouteContent() {
   const { id } = useParams();
   const identity = useWikiSession();
@@ -190,15 +218,7 @@ function ChatRouteContent() {
     id && id !== "archived" ? { id, ...siteArgs } : "skip",
   );
   if (id === "archived") {
-    return (
-      <WikiChatState
-        data-test-id="chat-archived-placeholder"
-        heading="Archived chats"
-        kind="placeholder"
-      >
-        <p>Archived conversation management is still owned by the current app during this migration pass.</p>
-      </WikiChatState>
-    );
+    return <ArchivedChatsRoute />;
   }
   if (!id) return <ChatInterface conversationId={null} />;
   if (conversation === undefined) {

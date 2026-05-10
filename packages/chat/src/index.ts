@@ -1,5 +1,10 @@
 export { ChatBottomActions, ConversationDropdown } from "./components/chat-actions";
 export {
+  ArchivedChatsCore,
+  type ArchivedChatsCoreProps,
+  type ArchivedConversation,
+} from "./components/archived-chats-core";
+export {
   ConversationActionsMenu,
   type ConversationActionsMenuProps,
 } from "./components/conversation-actions-core";
