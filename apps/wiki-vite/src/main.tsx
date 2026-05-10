@@ -30,6 +30,58 @@ type BootstrapState =
   | { status: "ready"; scope: WikiScope; identity: WikiSessionIdentity }
   | { status: "error"; scope: WikiScope; message: string };
 
+function backendHref(path: string) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const origin =
+    import.meta.env.VITE_WIKI_APP_ORIGIN ?? import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
+  return origin ? `${origin.replace(/\/+$/, "")}${normalizedPath}` : normalizedPath;
+}
+
+function switchToPublicScope() {
+  window.localStorage.setItem("wiki-vite-scope", "public");
+  const url = new URL(window.location.href);
+  url.searchParams.set("scope", "public");
+  window.location.assign(url.toString());
+}
+
+function SessionRecovery({ message }: { message: string }) {
+  return createElement(
+    "main",
+    {
+      className: "app-loading app-auth-shell",
+      "data-test-id": "session-recovery",
+    },
+    createElement("section", null, [
+      createElement("h1", { key: "title" }, "Session access needed"),
+      createElement(
+        "p",
+        { key: "body" },
+        "This reader keeps public and session caches separate. Sign in through the main app to use the session store, or continue with the public cache.",
+      ),
+      createElement("p", { key: "error", className: "auth-error" }, message),
+      createElement("div", { key: "actions", className: "auth-actions" }, [
+        createElement(
+          "button",
+          {
+            key: "public",
+            type: "button",
+            onClick: switchToPublicScope,
+          },
+          "Continue public",
+        ),
+        createElement(
+          "a",
+          {
+            key: "login",
+            href: backendHref("/login"),
+          },
+          "Open sign in",
+        ),
+      ]),
+    ]),
+  );
+}
+
 function WikiViteRoot() {
   const [state, setState] = useState<BootstrapState>(() => ({
     status: "loading",
@@ -66,6 +118,10 @@ function WikiViteRoot() {
   }
 
   if (state.status === "error") {
+    if (state.scope === "session") {
+      return createElement(SessionRecovery, { message: state.message });
+    }
+
     return createElement(
       "div",
       { className: "app-loading app-error" },

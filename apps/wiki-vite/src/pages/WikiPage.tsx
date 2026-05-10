@@ -178,6 +178,11 @@ export function WikiPage({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
             <span className="badge">{formatBytes(page.size)}</span>
           </div>
         </header>
+        {stale ? (
+          <div className="stale-notice" role="status">
+            Showing cached markdown while a newer version is fetched in the background.
+          </div>
+        ) : null}
         <PageActions
           content={page.content}
           contentHash={page.contentHash}

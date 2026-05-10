@@ -27,6 +27,20 @@ The migration is far enough along to test the new data path against a deployed b
 
 ## Work Log
 
+### 2026-05-09 Session And Cache Controls Checkpoint
+
+- Added a recoverable session-scope failure screen so `?scope=session` no longer dead-ends when the user is not signed in.
+- Added a header scope switcher that preserves the current route while moving between public and session LiveStore stores.
+- Added a manual cache-warming control to the optional footer. It reuses the Vite eager markdown queue and keeps markdown fetching client-local while the backend remains the content source.
+- Added a stale-content notice when cached markdown is being shown while a newer hash is fetched in the background.
+- Added Playwright coverage for session fallback, route-preserving scope links, footer cache warming, and the existing cache reset flow.
+- Verification commands run for this checkpoint:
+
+```sh
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/session-recovery.spec.ts e2e/livestore-devtools.spec.ts e2e/page-chrome.spec.ts
+```
+
 ### 2026-05-09 Page Chrome Checkpoint
 
 - Added reader breadcrumbs, page descriptions, and a compact page-action row to the Vite reader.
@@ -188,8 +202,8 @@ These are the major gaps between the prototype and the current wiki experience.
 | Sidebar/tree | Desktop tree and mobile sheet exist, active branches auto-expand, manual expansion persists across reloads, and PDF/file assets are discoverable through the local asset palette. | Richer source grouping, keyboard navigation, and very large tree performance. | Needed before broad preview review, but not before additive backend deployment. |
 | Page chrome | Title, description, breadcrumbs, tags, copy/link/print/download/main-app actions, size, stale/sensitive badges, and manifest/hash footer exist. | Source/PDF provenance, edit/source provenance, not-found parity, route metadata, and richer mobile action placement. | Reader parity blocker for pages with sources/assets. |
 | Markdown parity | Shared package handles the main rendering path. | More package tests for smart tables, citations, PDF/image rewriting, theme-paired images, heading anchors, math, Mermaid fallback, and route-link adapters. | Required before trusting the package as the durable reader layer. |
-| Auth/session UX | Scope is selected with `?scope=session`; session identity creates a distinct store id. | Login/session prompts, signed-out recovery, cache reset, active-store inspector, auth-expired handling, and safe session-store invalidation. | Privacy-sensitive. Required before any authenticated pilot. |
-| Offline/cache controls | OPFS persistence, browser storage estimate, and explicit local cache reset exist. | Cache warming controls, stale content explanation, storage pressure behavior, versioned cache invalidation, and failed fetch retry UI. | Required before production trial. |
+| Auth/session UX | Scope can be selected with `?scope=session` or the header switcher; session identity creates a distinct store id; signed-out session access shows a recovery screen; auth-expired fetches clear the session store. | Login prompt polish, return-to-reader sign-in flow, and deeper safe session-store invalidation tests. | Privacy-sensitive. Required before any authenticated pilot. |
+| Offline/cache controls | OPFS persistence, browser storage estimate, explicit local cache reset, manual cache warming, stale-content explanation, and failed body fetch metrics exist. | Storage pressure behavior, versioned cache invalidation, and failed fetch retry UI. | Required before production trial. |
 | Performance instrumentation | Metrics panel tracks manifest bytes, markdown bytes, event count, OPFS estimate, sync state, route render timing, warm render timing, and failed body fetch count. | Bundle budget reporting, preview telemetry, and richer per-route network assertions. | Required before migration decision. |
 | Deployment/ops | Local app runs side by side. | Separate Vercel app/service decision, API origin config, CORS/auth expectations if cross-origin, preview smoke target, environment docs, and rollback story. | Required before reviewers can test without local setup. |
 

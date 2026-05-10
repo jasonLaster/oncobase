@@ -32,6 +32,8 @@ const EAGER_FETCH_BUDGET = {
   maxRetries: 2,
 };
 
+export const WARM_CACHE_EVENT = "wiki-vite:warm-cache";
+
 function shouldFetchInBackground() {
   if (!navigator.onLine) return false;
   const connection = (
@@ -273,6 +275,26 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
     const page = manifest.pages.find((item) => item.slug === currentSlug);
     if (page) void fetchSlug(currentSlug, page);
   }, [currentSlug, fetchSlug]);
+
+  useEffect(() => {
+    const onWarmCache = () => {
+      const manifest = manifestRef.current;
+      if (!manifest) {
+        onMetrics({ status: "syncing", message: "Waiting for manifest before warming" });
+        return;
+      }
+
+      const { manifestBySlug, queue, queuedBytes } = buildEagerQueue(currentSlug, manifest);
+      onMetrics({
+        status: "ready",
+        message: `Warming ${queue.length} pages (${Math.round(queuedBytes / 1024)} KB)`,
+      });
+      scheduleEagerFetch({ queue, manifestBySlug, fetchSlug, onMetrics });
+    };
+
+    window.addEventListener(WARM_CACHE_EVENT, onWarmCache);
+    return () => window.removeEventListener(WARM_CACHE_EVENT, onWarmCache);
+  }, [currentSlug, fetchSlug, onMetrics]);
 
   useEffect(() => {
     if (currentSlug !== "index") rememberSlug(currentSlug);

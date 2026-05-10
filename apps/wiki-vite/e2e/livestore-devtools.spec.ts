@@ -18,6 +18,7 @@ test.describe("LiveStore devtools footer", () => {
     await expect(footer.getByText("Enable to attach the local cache session.")).toBeVisible();
     await expect(footer.getByRole("button", { name: "Enable" })).toBeVisible();
     await expect(footer.getByRole("button", { name: "Reset cache" })).toBeVisible();
+    await expect(footer.getByRole("button", { name: "Warm cache" })).toBeVisible();
     await expect(footer.getByRole("link", { name: "Open devtools" })).toHaveCount(0);
   });
 
@@ -50,5 +51,15 @@ test.describe("LiveStore devtools footer", () => {
     await expect(page.getByTestId("document-article").locator(".page-header h1")).toHaveText(
       "Insurance",
     );
+  });
+
+  test("warm cache control can queue eager markdown fetches", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    const footer = page.getByTestId("livestore-devtools-footer");
+    await footer.locator("summary").click();
+    await footer.getByRole("button", { name: "Warm cache" }).click();
+
+    await expect(page.getByTestId("app-header")).toContainText(/Warming|Queued/);
   });
 });

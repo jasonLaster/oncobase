@@ -4,10 +4,12 @@ import {
   PowerIcon,
   PowerOffIcon,
   Trash2Icon,
+  ZapIcon,
 } from "lucide-react";
 import { useStore } from "@livestore/react";
 import { reloadWithLiveStoreDevtools } from "../livestore/devtools";
 import { events } from "../livestore/schema";
+import { WARM_CACHE_EVENT } from "../sync/WikiSync";
 
 function shortenStoreId(storeId: string) {
   if (storeId.length <= 34) return storeId;
@@ -31,6 +33,7 @@ export function LiveStoreDevtoolsFooter({
     store.commit(events.cacheResetRequested({ requestedAt: Date.now() }));
     window.location.reload();
   };
+  const warmCache = () => window.dispatchEvent(new Event(WARM_CACHE_EVENT));
 
   return (
     <footer className="livestore-devtools-footer" data-test-id="livestore-devtools-footer">
@@ -53,6 +56,15 @@ export function LiveStoreDevtoolsFooter({
           >
             <Trash2Icon size={14} aria-hidden="true" />
             <span>Reset cache</span>
+          </button>
+          <button
+            className="devtools-action"
+            data-test-id="warm-cache"
+            type="button"
+            onClick={warmCache}
+          >
+            <ZapIcon size={14} aria-hidden="true" />
+            <span>Warm cache</span>
           </button>
           {enabled ? (
             <a

@@ -7,7 +7,7 @@ import {
   SearchIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { pageIndex$ } from "../livestore/queries";
 import type { Metrics, PageIndexRow } from "../types";
 import { backendHref, hrefForSlug, rememberSlug } from "../wiki-utils";
@@ -16,6 +16,7 @@ import { CommandPalette } from "./CommandPalette";
 export function Header({ scope, metrics }: { scope: WikiScope; metrics: Metrics }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteMode, setPaletteMode] = useState<"pages" | "outline" | "actions">("pages");
+  const location = useLocation();
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -73,9 +74,7 @@ export function Header({ scope, metrics }: { scope: WikiScope; metrics: Metrics 
           </a>
         </div>
         <div className="topbar-status">
-          <span className={`scope-pill ${scope === "session" ? "session" : ""}`}>
-            {scope}
-          </span>
+          <ScopeSwitcher scope={scope} pathname={location.pathname} />
           <span className={`sync-dot ${metrics.status}`} />
           <span>{metrics.message}</span>
         </div>
@@ -86,6 +85,39 @@ export function Header({ scope, metrics }: { scope: WikiScope; metrics: Metrics 
         onOpenChange={setPaletteOpen}
       />
     </>
+  );
+}
+
+function scopeHref(pathname: string, scope: WikiScope) {
+  const params = new URLSearchParams(window.location.search);
+  params.set("scope", scope);
+  return `${pathname}?${params.toString()}`;
+}
+
+function ScopeSwitcher({
+  pathname,
+  scope,
+}: {
+  pathname: string;
+  scope: WikiScope;
+}) {
+  return (
+    <div className="scope-switcher" data-test-id="scope-switcher" aria-label="Reader cache scope">
+      <a
+        className={scope === "public" ? "active" : ""}
+        href={scopeHref(pathname, "public")}
+        onClick={() => window.localStorage.setItem("wiki-vite-scope", "public")}
+      >
+        Public
+      </a>
+      <a
+        className={scope === "session" ? "active" : ""}
+        href={scopeHref(pathname, "session")}
+        onClick={() => window.localStorage.setItem("wiki-vite-scope", "session")}
+      >
+        Session
+      </a>
+    </div>
   );
 }
 
