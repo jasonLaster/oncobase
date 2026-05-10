@@ -51,6 +51,21 @@ try {
     throw new Error(`Standalone session smoke failed: ${sessionResponse.status}`);
   }
 
+  const searchResponse = await fetch(`${origin}/api/search?q=diagnosis&limit=3`);
+  if (!searchResponse.ok) {
+    throw new Error(`Standalone search smoke failed: ${searchResponse.status}`);
+  }
+
+  const searchBody = await searchResponse.json();
+  if (!Array.isArray(searchBody.results) || searchBody.results.length === 0) {
+    throw new Error("Standalone search smoke returned no results");
+  }
+
+  const fileErrorResponse = await fetch(`${origin}/api/file`);
+  if (fileErrorResponse.status !== 400) {
+    throw new Error(`Standalone file validation smoke failed: ${fileErrorResponse.status}`);
+  }
+
   await runCommand(["bun", "run", "test:e2e:preview"], {
     PLAYWRIGHT_BASE_URL: origin,
     WIKI_VITE_SMOKE_PATH: "/wiki/logistics/insurance",

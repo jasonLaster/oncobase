@@ -376,6 +376,7 @@ export async function createWikiSessionResponse(
       headers: decorate(context, {
         "Cache-Control": "public, max-age=300",
         Vary: "Accept, x-site-slug",
+        "X-Wiki-Cache-Scope": "public",
       }),
     });
   }
@@ -386,7 +387,10 @@ export async function createWikiSessionResponse(
       { error: "Session scope requires a signed-in wiki session" },
       {
         status: 401,
-        headers: decorate(context, { "Cache-Control": "private, no-store" }),
+        headers: decorate(context, {
+          "Cache-Control": "private, no-store",
+          "X-Wiki-Cache-Scope": "session",
+        }),
       },
     );
   }
@@ -405,6 +409,7 @@ export async function createWikiSessionResponse(
     headers: decorate(context, {
       "Cache-Control": "private, no-store",
       Vary: "Accept, Cookie, x-site-slug",
+      "X-Wiki-Cache-Scope": "session",
     }),
   });
 }

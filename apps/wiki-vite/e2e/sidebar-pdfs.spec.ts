@@ -48,9 +48,4 @@ test.describe("Sidebar PDF files", () => {
     await expect(pdfLink).toHaveAttribute("target", "_blank");
     await expect(pdfLink.locator("svg")).toHaveCount(1);
   });
-
-  test.skip("PDF serving via /api/file validates backend error cases", async () => {
-    // `/api/file` is still served by the Next content API. The Vite migration
-    // verifies PDF links and leaves backend path validation in the web suite.
-  });
 });

@@ -61,12 +61,6 @@ test.describe("Local page finder", () => {
     );
   });
 
-  test.skip("backend text search returns relevant results", async () => {
-    // Canonical text search remains a backend/full-stack feature for v1.
-    // The Vite reader may link to or call that backend route later, but it
-    // should not rebuild full-text search from the local markdown cache.
-  });
-
   test.skip("AI mode shows ranked results", async () => {
     // AI search remains a backend/full-stack feature for v1.
   });

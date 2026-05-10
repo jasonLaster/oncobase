@@ -14,6 +14,8 @@ import { api } from "../../../web/convex/_generated/api.js";
 const DEFAULT_SITE_SLUG = "diana";
 const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
 const USER_SESSION_COOKIE = "wiki_user_session";
+const DEFAULT_SEARCH_LIMIT = 10;
+const MAX_SEARCH_LIMIT = 50;
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -220,11 +222,60 @@ async function handlePageCopyRequest(
   });
 }
 
+async function handleSearchRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  const url = new URL(request.url);
+  const query = url.searchParams.get("q") ?? "";
+  const rawLimit = Number(url.searchParams.get("limit") ?? DEFAULT_SEARCH_LIMIT);
+  const limit = Number.isFinite(rawLimit)
+    ? Math.min(MAX_SEARCH_LIMIT, Math.max(1, rawLimit))
+    : DEFAULT_SEARCH_LIMIT;
+
+  if (!query.trim()) {
+    return Response.json(
+      { results: [] },
+      {
+        headers: {
+          "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
+          "X-Wiki-Cache-Scope": "public",
+        },
+      },
+    );
+  }
+
+  const includeSensitive = Boolean(await getSessionUser(request, client, siteSlug));
+  const results = await client.query(
+    api.documents.search,
+    withSiteSlug(siteSlug, { query, limit, includeSensitive }),
+  );
+
+  return Response.json(
+    { results },
+    {
+      headers: includeSensitive
+        ? {
+            "Cache-Control": "private, max-age=30, stale-while-revalidate=300",
+            Vary: "Accept, Cookie, x-site-slug",
+            "X-Wiki-Cache-Scope": "session",
+          }
+        : {
+            "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
+            Vary: "Accept, x-site-slug",
+            "X-Wiki-Cache-Scope": "public",
+          },
+    },
+  );
+}
+
 export function createWikiApiHandler(client = createClient()) {
   return async function handleWikiApiRequest(request: Request): Promise<Response | null> {
     const pathname = new URL(request.url).pathname;
     const handled =
       pathname.startsWith("/api/wiki/") ||
+      pathname === "/api/search" ||
       pathname === "/api/file" ||
       pathname === "/api/page-copy";
     if (!handled) return null;
@@ -252,6 +303,10 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/wiki/pages") {
       return createWikiPagesResponse(request, context);
+    }
+
+    if (pathname === "/api/search") {
+      return handleSearchRequest(request, client, siteSlug);
     }
 
     if (pathname === "/api/file") {
