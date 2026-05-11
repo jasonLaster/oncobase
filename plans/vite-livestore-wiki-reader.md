@@ -27,6 +27,41 @@ The migration has closed every P0 item that can be verified locally. `verify:wik
 
 ## Work Log
 
+### 2026-05-11 Comments Package + Shared Chat Prompt + Mermaid-in-Chat Checkpoint
+
+Pushing past PR #198 with the next round of "thin web shell" work:
+
+- **`packages/wiki-comments` package**: extracted the entire Liveblocks-backed document-comments surface from `web/` into a new package. Moved `document-comments.tsx` (1707 LOC), `document-comments-wrapper.tsx`, `comments-page-client.tsx` (411 LOC), `liveblocks-room.tsx`, `liveblocks-provider-shell.tsx`, plus the supporting `liveblocks-comments.ts`, `liveblocks-site.ts`, `liveblocks-user-resolution.ts`, and `liveblocks-user-format.ts`. The package has its own subpath exports (`./room`, `./provider`, `./threads`, `./site`, `./user-resolution`, `./user-format`, `./page-client`) and an `@diana-tnbc/wiki-comments` barrel. Web's nine files collapse to thin `export …` shims totalling ~23 LOC. Package tsconfig adds `@/*` and `@convex/*` path aliases pointing at `web/` so the existing Next-specific imports (Convex API, shadcn UI primitives, `siteSlugFromRequest`) keep working without duplication. Vite intentionally does not consume this package — comments remain off the standalone Vite reader scope.
+- **Shared Diana chat system prompt**: the prompt had drifted between `web/src/lib/diana-chat-route.ts` and `apps/wiki-vite/server/chat-route.ts`. Lifted the canonical (more detailed, web-side) version into `packages/wiki-content/src/chat-route.ts` as `DIANA_CHAT_SYSTEM_PROMPT_BASE`. Both apps now import the constant — no more drift on citation rules, search strategy, or examples.
+- **Mermaid in chat**: `web/src/components/chat-markdown-renderer.tsx` (the Streamdown-based chat renderer) now wires the package's `MarkdownPre` as the `pre` component slot so mermaid fences emit the `MermaidFallback` figure with a `data-graph` payload. A `ChatMermaidRendererSlot` mounts `WikiMermaidRenderer` via `React.lazy` after the stream completes (skipped while `isStreaming` so partial blocks stay in fallback). Same Diana Gantt markers + 2026 reference year the reader uses. Mermaid bytes stay lazy: Streamdown chat routes still ship the same eager bundle they did before this turn.
+- **`MarkdownPre` and `MermaidFallback` now exported** from `@diana-tnbc/wiki-markdown` so any host can plug them into a custom React-markdown components map (chat, search, etc.) and stay on the same fallback + upgrade contract.
+- **Dead code removal**: deleted `web/src/components/growing-textarea.tsx` (46 LOC) — no consumers in src, `.next`, or any package.
+
+Web reduction this checkpoint: **-2664 LOC** (124 inserted, 2788 deleted across the comments shim + dead code).
+
+Focused verification:
+
+```sh
+bun --cwd packages/wiki-shell typecheck
+bun --cwd packages/wiki-content typecheck
+bun --cwd packages/wiki-markdown typecheck
+bun --cwd packages/wiki-comments typecheck
+bun --cwd packages/wiki-shell test:unit
+bun --cwd packages/wiki-content test:unit
+bun --cwd packages/wiki-markdown test:unit
+bun --cwd packages/smart-table test:unit
+bun --cwd web typecheck
+bun --cwd web test:unit
+bun --cwd web build
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite check:bundle
+PLAYWRIGHT_PORT=61101 bun --cwd apps/wiki-vite test:e2e --reporter=line
+bun --cwd apps/wiki-vite verify:standalone
+```
+
+Focused result: all package + web typechecks/unit tests green. Web build green. Vite typecheck + build + bundle budget green (eager 1220.9 KiB / lazy 800.1 KiB). Full Vite Playwright `142 passed, 47 skipped`. Standalone preview smoke green.
+
 ### 2026-05-10 Lazy Interactive Mermaid + Shared Embeddings Checkpoint
 
 Implementation follow-up after the parity audit, focused on closing the last visible markdown-rendering gap and lifting more web library logic into shared packages:

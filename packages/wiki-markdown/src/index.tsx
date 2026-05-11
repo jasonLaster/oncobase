@@ -245,6 +245,8 @@ export {
   MdThead,
   MdTr,
   MarkdownHeadingAnchors,
+  MarkdownPre,
+  MermaidFallback,
   RoutedAnchorLinks,
   TheaterImage,
   WikiMarkdownFrame,
