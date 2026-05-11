@@ -16,6 +16,7 @@ import {
   ZapIcon,
 } from "lucide-react";
 import {
+  Fragment,
   type KeyboardEvent,
   type ReactNode,
   useEffect,
@@ -28,6 +29,7 @@ import {
   WikiCommandBackdrop,
   WikiCommandEmpty,
   WikiCommandFooter,
+  WikiCommandGroupHeading,
   WikiCommandItemButton,
   WikiCommandItemLink,
   WikiCommandList,
@@ -64,6 +66,7 @@ type ActionItem = {
   href?: string;
   icon: ReactNode;
   run?: () => void;
+  group: "Navigate" | "Source" | "Search" | "Downloads" | "Tools";
 };
 
 type DebugItem = {
@@ -160,6 +163,7 @@ export function CommandPalette({
   const actions = useMemo<ActionItem[]>(
     () => [
       {
+        group: "Navigate",
         label: "Find files",
         description: "Open the fuzzy local file palette",
         icon: <FileTextIcon size={15} aria-hidden="true" />,
@@ -170,6 +174,7 @@ export function CommandPalette({
         },
       },
       {
+        group: "Navigate",
         label: "Open outline",
         description: "Jump to headings on the current page",
         icon: <ListIcon size={15} aria-hidden="true" />,
@@ -180,6 +185,7 @@ export function CommandPalette({
         },
       },
       {
+        group: "Navigate",
         label: "Browse source assets",
         description: "Find PDFs, images, and source files from the manifest",
         icon: <PaperclipIcon size={15} aria-hidden="true" />,
@@ -189,6 +195,7 @@ export function CommandPalette({
         },
       },
       {
+        group: "Navigate",
         label: "Browse tags",
         description: "Filter the local page index by tag",
         icon: <TagIcon size={15} aria-hidden="true" />,
@@ -197,7 +204,8 @@ export function CommandPalette({
           setMode("tags");
         },
       },
-      ...relatedAssets.map((asset) => ({
+      ...relatedAssets.map<ActionItem>((asset) => ({
+        group: "Source",
         label: `Open ${assetFileName(asset.path)}`,
         description: `Source file for ${currentSlug}`,
         href: assetHref(asset.path),
@@ -209,30 +217,35 @@ export function CommandPalette({
           ),
       })),
       {
+        group: "Search",
         label: "Search wiki",
         description: "Open the backend full-text and AI search surface",
         href: backendHref("/search", { returnTo }),
         icon: <SearchIcon size={15} aria-hidden="true" />,
       },
       {
+        group: "Search",
         label: "New chat",
         description: "Continue in the full-stack chat experience",
         href: backendHref("/chat", { returnTo }),
         icon: <MessageCircleIcon size={15} aria-hidden="true" />,
       },
       {
+        group: "Downloads",
         label: "Download full wiki",
         description: "Download PDFs and markdown as a zip archive",
         href: backendHref("/api/download", { type: "full", scope }),
         icon: <DownloadIcon size={15} aria-hidden="true" />,
       },
       {
+        group: "Downloads",
         label: "Download markdown archive",
         description: "Download the current scoped markdown as a zip archive",
         href: backendHref("/api/download", { type: "markdown", scope }),
         icon: <DownloadIcon size={15} aria-hidden="true" />,
       },
       {
+        group: "Tools",
         label: "Local cache tools",
         description: "Warm, reset, or toggle the optional LiveStore inspector",
         icon: <BugIcon size={15} aria-hidden="true" />,
@@ -540,8 +553,16 @@ export function CommandPalette({
             actionResults.length === 0 ? (
               <WikiCommandEmpty>No actions found</WikiCommandEmpty>
             ) : (
-              actionResults.map((action, index) =>
-                action.href ? (
+              actionResults.map((action, index) => {
+                const prev = index > 0 ? actionResults[index - 1] : null;
+                const groupChanged = !prev || prev.group !== action.group;
+                const heading = groupChanged ? (
+                  <WikiCommandGroupHeading
+                    heading={action.group}
+                    key={`heading-${action.group}-${index}`}
+                  />
+                ) : null;
+                const row = action.href ? (
                   <WikiCommandItemLink
                     active={index === activeIndex}
                     description={action.description}
@@ -561,8 +582,14 @@ export function CommandPalette({
                     label={action.label}
                     onClick={action.run}
                   />
-                ),
-              )
+                );
+                return (
+                  <Fragment key={`${action.group}-${action.label}`}>
+                    {heading}
+                    {row}
+                  </Fragment>
+                );
+              })
             )
           ) : null}
           {mode === "debug" ? (

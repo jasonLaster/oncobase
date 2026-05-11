@@ -335,18 +335,36 @@
 
 .wiki-shell-sidebar {
   background: var(--sidebar-bg);
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  overflow: auto;
-  padding: 0.5rem;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .wiki-shell-sidebar-heading {
+  flex: 0 0 auto;
+}
+
+.wiki-shell-sidebar-heading.is-label {
   color: var(--muted);
   font-size: 0.6875rem;
   font-weight: 650;
   letter-spacing: 0;
-  margin: 0.1875rem 0.5rem 0.5rem;
+  margin: 0;
+  padding: 0.5rem 0.5rem 0;
   text-transform: uppercase;
+}
+
+.wiki-shell-sidebar-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.wiki-shell-sidebar-footer {
+  flex: 0 0 auto;
 }
 
 .wiki-shell-tree-directory,
@@ -1177,6 +1195,19 @@
   text-align: center;
 }
 
+.wiki-shell-command-group-heading {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 10px 12px 4px;
+  text-transform: uppercase;
+}
+
+.wiki-shell-command-group-heading:not(:first-child) {
+  margin-top: 4px;
+}
+
 .wiki-shell-command-footer {
   align-items: center;
   border-top: 1px solid var(--border);
@@ -1710,6 +1741,24 @@
     min-height: 0;
     overflow: auto;
     padding: 0.25rem 0.5rem 0.75rem;
+  }
+
+  .wiki-shell-chat-page {
+    display: block;
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .wiki-shell-chat-sidebar {
+    display: none;
+  }
+
+  .wiki-shell-chat-main {
+    background: var(--background);
+    min-height: 100%;
+    overflow: visible;
+    padding-bottom: calc(3rem + env(safe-area-inset-bottom));
   }
 }
 

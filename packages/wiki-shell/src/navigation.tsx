@@ -38,6 +38,7 @@ export type WikiTreeProps = {
 
 export type WikiSidebarProps = Omit<ComponentProps<"aside">, "children"> &
   WikiTreeProps & {
+    footer?: ReactNode;
     heading?: ReactNode;
   };
 
@@ -94,6 +95,7 @@ export function WikiSidebar({
   activeSlug,
   className,
   expandedSlugs,
+  footer,
   getFileHref,
   heading = "File tree",
   onNavigate,
@@ -104,8 +106,17 @@ export function WikiSidebar({
 }: WikiSidebarProps) {
   return (
     <aside className={cn("wiki-shell-sidebar sidebar", className)} {...props}>
-      {heading ? <div className="wiki-shell-sidebar-heading sidebar-heading">{heading}</div> : null}
-      <nav>
+      {heading ? (
+        <div
+          className={cn(
+            "wiki-shell-sidebar-heading sidebar-heading",
+            typeof heading === "string" && "is-label",
+          )}
+        >
+          {heading}
+        </div>
+      ) : null}
+      <nav className="wiki-shell-sidebar-nav">
         <WikiTree
           activeAncestorSlugs={activeAncestorSlugs}
           activeSlug={activeSlug}
@@ -117,6 +128,7 @@ export function WikiSidebar({
           tree={tree}
         />
       </nav>
+      {footer ? <div className="wiki-shell-sidebar-footer">{footer}</div> : null}
     </aside>
   );
 }

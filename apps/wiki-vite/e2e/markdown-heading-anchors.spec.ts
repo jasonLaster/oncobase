@@ -94,13 +94,51 @@ test.describe("Markdown heading anchors", () => {
     expect(scrollTop).toBeLessThan(120);
   });
 
-  test.skip("login redirects preserve the original URL hash", async () => {
-    // Auth redirects still belong to the current Next app. The Vite prototype
-    // only switches public/session LiveStore stores after `/api/wiki/session`.
+  test("login page preserves the hash so anchors resolve after sign-in", async ({ page }) => {
+    // The web counterpart drives the password gate end-to-end (gate → /login →
+    // password submit → redirect with hash → scroll-to-anchor). In Vite the
+    // password gate lives in the standalone Bun server and is exercised by
+    // `verify:wiki-vite:server`, which boots the gate and proves the redirect
+    // round-trip. At the dev-server layer we verify only the contract: the
+    // login page surfaces the redirect target including the hash so the
+    // post-login navigation can restore it.
+    await installWikiApiMocks(page);
+    const target = "/wiki/updates/week-5-april-12-to-18#saturday-april-12";
+    await page.goto(`/login?redirect=${encodeURIComponent(target)}`, {
+      waitUntil: "domcontentloaded",
+    });
+
+    await expect(page.getByTestId("login-page")).toContainText(target);
+    await expect(page.getByRole("link", { name: "Back to reader" })).toHaveAttribute(
+      "href",
+      target,
+    );
   });
 
-  test.skip("command palette navigation wires anchors on the destination page", async () => {
-    // The migrated reader has a local quick switcher. Full command-palette
-    // parity is tracked in the migration plan before production reader parity.
+  test("command palette navigation wires anchors on the destination page", async ({ page }) => {
+    await gotoWiki(page, "/about/About");
+    await expect(documentArticle(page).locator("h1").first()).toHaveText(
+      "About This Wiki",
+    );
+
+    await page.keyboard.press("ControlOrMeta+K");
+    const palette = page.getByTestId("command-palette");
+    await expect(palette).toBeVisible({ timeout: 5000 });
+
+    const input = page.getByTestId("command-palette-input");
+    await input.fill("terminology");
+    const terminologyRow = palette
+      .getByRole("option", { name: /terminology/i })
+      .first();
+    await expect(terminologyRow).toBeVisible({ timeout: 5000 });
+    await input.press("Enter");
+
+    await expect(page).toHaveURL(/\/about\/Terminology$/);
+    await waitForPageTitle(page, "Terminology");
+
+    const survival = documentArticle(page).locator("h2#survival-endpoints");
+    await expect(survival).toHaveClass(/wiki-heading-linked/);
+    await survival.click();
+    await expect(page).toHaveURL(/\/about\/Terminology#survival-endpoints$/);
   });
 });

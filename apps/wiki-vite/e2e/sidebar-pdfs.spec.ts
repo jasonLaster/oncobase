@@ -1,13 +1,42 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { gotoWiki, installWikiApiMocks, openDirectory, waitForPageTitle } from "./fixtures";
 
-async function openSourcePath(page: import("@playwright/test").Page) {
+async function openSourcePath(page: Page) {
   await openDirectory(page, "institutions");
   await openDirectory(page, "stanford");
   await openDirectory(page, "telli");
 }
 
 test.describe("Sidebar source files", () => {
+  test("/api/wiki/manifest returns the full tree shape while the route shell stays lean", async ({
+    request,
+  }) => {
+    const manifestResponse = await request.get("/api/wiki/manifest?scope=public", {
+      timeout: 45_000,
+    });
+    expect(manifestResponse.ok()).toBeTruthy();
+
+    const manifest = await manifestResponse.json();
+    const slugs = (manifest.pages as Array<{ slug: string }>).map((entry) => entry.slug);
+    expect(slugs.length).toBeGreaterThan(0);
+    expect(slugs.some((slug) => slug.startsWith("wiki/"))).toBe(true);
+    expect(slugs.some((slug) => slug.startsWith("sources/"))).toBe(true);
+
+    expect(Array.isArray(manifest.assets)).toBe(true);
+    const assets = manifest.assets as Array<{ kind: string; path: string }>;
+    expect(assets.some((asset) => asset.kind === "pdf" && asset.path.endsWith(".pdf"))).toBe(true);
+  });
+
+  test("runtime wiki pages render instead of returning a not-found shell", async ({ page }) => {
+    await installWikiApiMocks(page);
+    await gotoWiki(page, "/wiki/updates/week-5-april-12-to-18");
+
+    await waitForPageTitle(page, "Week 5: April 12 to 18");
+    await expect(
+      page.getByTestId("document-article").locator("h1").first(),
+    ).toContainText("Week 5");
+  });
+
   test("sources directory contains markdown source links after drilling into stanford/telli", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/");
@@ -33,6 +62,11 @@ test.describe("Sidebar source files", () => {
       .getByRole("link", { name: "smart table" });
     await expect(tablePage).toBeVisible();
     await expect(tablePage).not.toHaveAttribute("href", /\/api\/file/);
+
+    const pdfInWiki = page
+      .getByTestId("wiki-sidebar")
+      .locator('a[href^="/wiki/"][href*="/api/file"]');
+    await expect(pdfInWiki).toHaveCount(0);
   });
 });
 
@@ -44,8 +78,64 @@ test.describe("Sidebar PDF files", () => {
     await openSourcePath(page);
     const pdfLink = page.getByTestId("wiki-sidebar").locator('a[href*="/api/file?path="]').first();
     await expect(pdfLink).toBeVisible();
-    await expect(pdfLink).toHaveAttribute("href", /\/api\/file\?path=.*\.pdf/);
-    await expect(pdfLink).toHaveAttribute("target", "_blank");
-    await expect(pdfLink.locator("svg")).toHaveCount(1);
+  });
+
+  test("PDF links point to /api/file?path= with .pdf path", async ({ page }) => {
+    await installWikiApiMocks(page);
+    await gotoWiki(page, "/");
+
+    await openSourcePath(page);
+    const firstPdf = page
+      .getByTestId("wiki-sidebar")
+      .locator('a[href*="/api/file?path="]')
+      .first();
+    const href = await firstPdf.getAttribute("href");
+    expect(href).toMatch(/\/api\/file\?path=.*\.pdf/);
+  });
+
+  test("PDF links open in a new tab", async ({ page }) => {
+    await installWikiApiMocks(page);
+    await gotoWiki(page, "/");
+
+    await openSourcePath(page);
+    const firstPdf = page
+      .getByTestId("wiki-sidebar")
+      .locator('a[href*="/api/file?path="]')
+      .first();
+    await expect(firstPdf).toHaveAttribute("target", "_blank");
+  });
+
+  test("PDF entries render with a document icon SVG", async ({ page }) => {
+    await installWikiApiMocks(page);
+    await gotoWiki(page, "/");
+
+    await openSourcePath(page);
+    const firstPdf = page
+      .getByTestId("wiki-sidebar")
+      .locator('a[href*="/api/file?path="]')
+      .first();
+    await expect(firstPdf.locator("svg")).toHaveCount(1);
+  });
+});
+
+test.describe("PDF serving via /api/file", () => {
+  test("returns 400 when path param is missing", async ({ request }) => {
+    const response = await request.get("/api/file");
+    expect(response.status()).toBe(400);
+  });
+
+  test("returns 400 for non-PDF / non-asset paths", async ({ request }) => {
+    const response = await request.get("/api/file?path=wiki/diagnostics/diagnosis.md");
+    expect(response.status()).toBe(400);
+  });
+
+  test("returns 400 for unsupported file extensions", async ({ request }) => {
+    const response = await request.get("/api/file?path=sources/example.exe");
+    expect(response.status()).toBe(400);
+  });
+
+  test("prevents path traversal", async ({ request }) => {
+    const response = await request.get("/api/file?path=../../etc/passwd");
+    expect([400, 404]).toContain(response.status());
   });
 });

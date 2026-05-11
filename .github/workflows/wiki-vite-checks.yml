@@ -1,0 +1,142 @@
+name: Wiki Vite Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "apps/wiki-vite/**"
+      - "packages/wiki-content/**"
+      - "packages/wiki-markdown/**"
+      - "packages/wiki-shell/**"
+      - "packages/smart-table/**"
+      - "packages/chat/**"
+      - "web/convex/**"
+      - ".github/workflows/wiki-vite-checks.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: wiki-vite-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  deployments: read
+  pull-requests: read
+  statuses: read
+
+jobs:
+  vite-local:
+    name: Vite Local
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: apps/wiki-vite
+        run: bunx playwright install --with-deps chromium
+
+      - name: Verify wiki-vite (typecheck, build, bundle budget, unit tests, e2e)
+        run: bun run verify:wiki-vite
+
+      - name: Verify standalone server (metadata, gate, backend smoke)
+        run: bun run verify:wiki-vite:server
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiki-vite-playwright-report
+          path: apps/wiki-vite/playwright-report
+          retention-days: 7
+
+  vite-preview-smoke:
+    name: Vite Preview Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: ${{ vars.WIKI_VITE_PREVIEW_ENABLED == 'true' }}
+    needs: vite-local
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: apps/wiki-vite
+        run: bunx playwright install --with-deps chromium
+
+      - name: Resolve Vite preview URL
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          VERCEL_PROJECT: ${{ vars.WIKI_VITE_VERCEL_PROJECT || 'diana-tnbc-wiki-vite' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for attempt in $(seq 1 40); do
+            deployment_id="$(
+              gh api "repos/${REPOSITORY}/deployments?sha=${HEAD_SHA}&per_page=40" \
+                | jq -r --arg project "${VERCEL_PROJECT}" \
+                    '[.[] | select(.environment == "Preview") | select(.payload.project == $project // true)] | first | .id // empty'
+            )"
+
+            if [[ -z "${deployment_id}" ]]; then
+              echo "Vite preview deployment not created yet (attempt ${attempt}/40)."
+              sleep 15
+              continue
+            fi
+
+            status_json="$(gh api "repos/${REPOSITORY}/deployments/${deployment_id}/statuses" | jq 'first')"
+            state="$(jq -r '.state // empty' <<<"${status_json}")"
+            preview_url="$(jq -r '.environment_url // .target_url // empty' <<<"${status_json}")"
+
+            case "${state}" in
+              success)
+                if [[ -n "${preview_url}" ]]; then
+                  echo "url=${preview_url}" >> "${GITHUB_OUTPUT}"
+                  exit 0
+                fi
+                ;;
+              failure|error)
+                echo "Vite preview deployment failed." >&2
+                exit 1
+                ;;
+            esac
+
+            echo "Vite preview state: ${state:-unknown} (attempt ${attempt}/40)."
+            sleep 15
+          done
+
+          echo "Timed out waiting for the Vite preview deployment." >&2
+          exit 1
+
+      - name: Run preview smoke against deployed Vite URL
+        working-directory: apps/wiki-vite
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ steps.resolve.outputs.url }}
+          WIKI_VITE_SMOKE_PATH: /wiki/logistics/insurance
+          WIKI_VITE_SMOKE_COOKIE: ${{ secrets.WIKI_VITE_SMOKE_COOKIE }}
+        run: bun run test:e2e:preview
+
+      - name: Upload preview Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiki-vite-preview-report
+          path: apps/wiki-vite/playwright-report
+          retention-days: 7

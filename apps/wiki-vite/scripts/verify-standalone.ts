@@ -70,6 +70,17 @@ try {
   ) {
     throw new Error("Standalone bot metadata smoke did not inject page-specific canonical/OG tags");
   }
+  if (
+    !/name="twitter:card" content="summary"/.test(botMetadataHtml) ||
+    !/name="twitter:title" content="[^"]*Insurance/i.test(botMetadataHtml)
+  ) {
+    throw new Error("Standalone bot metadata smoke did not inject Twitter card tags");
+  }
+  if (!/name="robots" content="index, follow"/.test(botMetadataHtml)) {
+    throw new Error(
+      "Standalone bot metadata smoke did not include a robots tag for a public page",
+    );
+  }
   if (!botMetadataResponse.headers.get("cache-control")?.includes("s-maxage")) {
     throw new Error("Standalone bot metadata smoke did not use production cache headers");
   }

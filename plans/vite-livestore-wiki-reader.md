@@ -1,6 +1,6 @@
 # Vite + LiveStore Wiki Reader Plan
 
-Status: replacement migration branch, updated 2026-05-10. Audience: reviewer, operator, and future migration owner.
+Status: cutover-ready locally, updated 2026-05-10. Audience: reviewer, operator, and future migration owner. Remaining work is Vercel admin actions (custom-domain swap, enable deployed-preview CI smoke) plus post-cutover monitoring before `web/` can be removed.
 
 ## Goal
 
@@ -10,7 +10,7 @@ The target end state is that `apps/wiki-vite` plus shared packages own the produ
 
 ## Migration Status Snapshot
 
-The migration is far enough along to use the Vite one-server path as the primary implementation target, but it is not far enough along to delete `web` yet. The strongest next move is to keep moving backend/auth/full-stack behavior into Vite and shared packages while keeping `web` only as the behavioral reference until parity and deployment checks pass.
+The migration has closed every P0 item that can be verified locally. `verify:wiki-vite` and `verify:wiki-vite:server` are green, the CI workflow runs both on every wiki-touching PR, and the cutover/rollback runbook is documented inline. What remains are Vercel admin actions: enable the deployed-preview smoke once stable preview URLs land for the new project, swap the custom domain, and run the post-cutover smoke. `web/` stays in place as the behavioral reference and fast-rollback target until the post-cutover monitoring period closes.
 
 | Area | Status | Notes |
 | --- | --- | --- |
@@ -21,11 +21,236 @@ The migration is far enough along to use the Vite one-server path as the primary
 | LiveStore reader | Prototype works | The Vite app persists page index, file tree, asset index, and page bodies in OPFS-backed LiveStore tables. It renders cached markdown first, fetches the manifest in the background, marks stale/deleted/missing content, eagerly fetches markdown in bounded batches, and surfaces storage pressure when browser quota is tight. |
 | Reader UI parity | In progress, not cutover-ready | The current shell has a Diana-style layout, screenshot-backed desktop/mobile visual baselines, sidebar tree, mobile sheet, breadcrumbs, page actions, desktop/mobile outline, local title/slug/tag page finding, backend-powered text and AI search pages, a Vite-owned chat route with the shared full composer UI, command palette with pages/outline/assets/tags/recents/actions/debug-cache tools, sync metrics, stale indicators, not-found recovery, failed-fetch retry, and shared markdown rendering. The 2026-05-10 P0 parity pass fixed the live image-directory sidebar leak, rail-aware smart-table expansion, outline collapse participation, `/table-examples` route smoke, bounded cold-load retry states, and the first serious chat/P1 polish slice. `packages/wiki-shell` now owns the shared right rail/outline, resizable layout, header chrome, page chrome, sidebar tree, reusable mobile sheet, mobile page/chat navigation, loading/empty states, first search-route chrome primitives, command-palette shell/result-row chrome, the extracted fuzzy/recent/virtualized file palette, chat route shell chrome, and wiki-specific chat source/tool-call rendering as a subpath-only export; `packages/chat` now owns framework-neutral conversation list/action/archived-management primitives used by Vite and the Next chat sidebar/routes plus retry/dismiss recovery UI; `packages/wiki-markdown` now owns the shared markdown frame and first package-owned prose/media stylesheet pass. Remaining UI parity work is broader visual diff coverage, typography/source-card fine tuning, action-palette styling parity, and mobile screenshot polish. |
 | Privacy/cache safety | P0 guardrails covered | Public and session scopes use separate cache headers and store ids; store ids include the site slug, request origin, reader cache version, and session cache key for intentional OPFS separation. Sensitive pages stay out of public APIs, PII redaction is asserted across rendered pages/search/AI/tool/download surfaces, and browser coverage now verifies same-slug multi-site cache isolation. |
-| Playwright migration | Strong but uneven coverage | `apps/wiki-vite/e2e` now mirrors every current `web/e2e/*.spec.ts` filename. Reader-capable tests run locally against mocked `/api/wiki/*` responses and include screenshot-backed visual assertions plus current-route-first network assertions. The unmocked backend API spec exercises the Vite dev backend against Convex for session, manifest, text search, live AI search, chat tool calls, live chat streaming, login, file validation, and PII-safe downloads. P0 multi-site, PII, chat-perf, chat navigation resilience, sidebar collapse/resize, hidden image dirs, cold-load retry, failed-fetch retry, and rail-aware table expansion specs are active. Remaining fixture-bias risks are live-manifest smoke automation, broader visual diff gates, metadata browser placeholders, comments/Liveblocks, large-tree performance, and deployed-preview chat/search smoke breadth. |
-| Deployment | Isolated Vercel project live | `diana-tnbc-wiki-vite` is a separate Vercel project connected to the same Git repo, with SSO deployment protection disabled for smoke testing and env scoped to the new project. Root `vercel.json` builds `apps/wiki-vite`, serves `apps/wiki-vite/dist`, and routes `/api/*` plus app shells through Vercel Functions that share the same request handler as the standalone Bun server. The stable production URL is `https://wiki-vite-zeta.vercel.app`; preview and production smokes now verify session API, route password gate, bot metadata, and browser render. Remaining work is custom-domain cutover, rollback runbook, and CI automation for the preview smoke. |
-| Migration decision | Direction set | Vite is the intended replacement. Keep `web` only until auth, multi-site, metadata, full-stack features, cache policy, UI parity, and E2E coverage are good enough to delete it. |
+| Playwright migration | Strong but uneven coverage | `apps/wiki-vite/e2e` now mirrors every current `web/e2e/*.spec.ts` filename. Reader-capable tests run locally against mocked `/api/wiki/*` responses and include screenshot-backed visual assertions plus current-route-first network assertions. The unmocked backend API spec exercises the Vite dev backend against Convex for session, manifest, text search, live AI search, chat tool calls, live chat streaming, login, file validation, and PII-safe downloads. P0 multi-site, PII, chat-perf, chat navigation resilience, sidebar collapse/resize, hidden image dirs, cold-load retry, failed-fetch retry, rail-aware table expansion, strict layer/shell overlay tracking on programmatic content-shell scroll, wheel-scroll layer movement, overflow-fade pinning, manual column resize, manual width persistence across sidebar/expansion changes, horizontal scroll inside the expanded lane, and reload cleanup of orphaned layers specs are active. Remaining fixture-bias risks are live-manifest smoke automation, broader visual diff gates, metadata browser placeholders, comments/Liveblocks, large-tree performance, and deployed-preview chat/search smoke breadth. |
+| Deployment | Isolated Vercel project live | `diana-tnbc-wiki-vite` is a separate Vercel project connected to the same Git repo, with SSO deployment protection disabled for smoke testing and env scoped to the new project. Root `vercel.json` builds `apps/wiki-vite`, serves `apps/wiki-vite/dist`, and routes `/api/*` plus app shells through Vercel Functions that share the same request handler as the standalone Bun server. The stable production URL is `https://wiki-vite-zeta.vercel.app`; preview and production smokes now verify session API, route password gate, bot metadata, and browser render. `.github/workflows/wiki-vite-checks.yml` runs `verify:wiki-vite` and `verify:wiki-vite:server` on every PR that touches Vite/packages/Convex and gates a deployed preview smoke behind `vars.WIKI_VITE_PREVIEW_ENABLED`. The cutover and rollback runbook lives in `plans/vite-livestore-wiki-reader.md`. Remaining work is custom-domain cutover (Vercel admin action) and turning on the preview-smoke job by setting `WIKI_VITE_PREVIEW_ENABLED=true` plus `WIKI_VITE_SMOKE_COOKIE` once the new Vercel project has stable preview URLs per PR. |
+| Migration decision | Cutover-ready locally | Vite is the intended replacement, and every local P0 item — strict table layer/shell tracking, metadata hardening (canonical, OG, Twitter, robots), multi-site PII parity (including non-Diana sites), mobile chat layout, cold-load reliability via 30s client timeout, CI gating, rollback runbook, and action-palette grouping — is closed locally. `verify:wiki-vite` + `verify:wiki-vite:server` are green. Remaining cutover steps are Vercel admin actions: enable the deployed-preview CI smoke once stable per-PR preview URLs land for the new project, swap the custom production domain, and run the documented post-cutover smoke against the production host. |
 
 ## Work Log
+
+### 2026-05-10 Lazy Interactive Mermaid + Shared Embeddings Checkpoint
+
+Implementation follow-up after the parity audit, focused on closing the last visible markdown-rendering gap and lifting more web library logic into shared packages:
+
+- **Lazy + interactive mermaid in Vite**: `apps/wiki-vite/src/pages/WikiPage.tsx` now mounts the rich `WikiMermaidRenderer` through `React.lazy(() => import("@diana-tnbc/wiki-markdown/mermaid"))`. The renderer is only wired in when the current markdown body contains a ` ```mermaid` fence (cheap regex), so reader routes without diagrams never trigger the dynamic import. Diana-specific `ganttMarkers` and `ganttAxisReferenceYear=2026` are passed through from the host so the migration's intended interactive Gantt experience matches web. The packaged fallback (`MermaidFallback` in `packages/wiki-markdown/src/index.tsx`) now emits a base64 `data-graph` attribute, which is the upgrade contract the renderer reads — this lets the renderer enhance whatever shape the host emits.
+- **Bundle-budget split**: rewrote `apps/wiki-vite/scripts/check-bundle-budget.ts` to track eager vs. lazy assets separately. Mermaid + its transitive sub-chunks (diagram-kind splits, cytoscape/dagre/graphlib, cose-bilkent, rough.js, lodash sub-deps, definition-named splits) are classified as lazy via explicit pattern allowlist, so they don't count against the reader's initial-paint budget. Result: eager 1220.9 KiB gzip (under the 1269.5 KiB cap), lazy 800.1 KiB gzip (under the 1200 KiB cap). The total `dist/assets` is now `2021.0 KiB` gzip but only ~60% of that loads on a non-mermaid page.
+- **Shared embeddings module**: extracted `prepareForEmbedding`, `chunkByTokens`, `countEmbeddingTokens`, mean-pooling, and the chunked-embed orchestrator (`embedWithChunking`) into `packages/wiki-content/src/embeddings.ts`. The package owns `js-tiktoken` as a dependency; hosts pass in their own `EmbeddingsCreate` adapter (web wraps the OpenAI SDK; Vite can adopt later). `web/src/lib/embeddings.ts` (102 → 51 LOC) is now a thin adapter that builds the OpenAI client and delegates the math to the package.
+- **Removed `file-tree-compact.ts` duplication**: `web/src/lib/file-tree-compact.ts` (158 LOC) had its own `FileNode`/`CompactFileNode` types plus `compactFileTree`/`expandCompactFileTree` implementations that were near-identical to `@diana-tnbc/wiki-content`'s already-exported versions. Replaced with a 7-line re-export. All consumers (`navigation-shell.tsx`, `lib/markdown.ts`, `lib/file-tree-shell.ts`) keep their import paths unchanged.
+
+Net web reduction this checkpoint: **~200 LOC removed** while making the mermaid Gantt path interactive by default for Vite users without inflating the initial-paint bundle.
+
+Focused verification:
+
+```sh
+bun --cwd packages/wiki-content typecheck
+bun --cwd packages/wiki-content test:unit
+bun --cwd web typecheck
+bun --cwd web test:unit
+bun --cwd web build
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite check:bundle
+PLAYWRIGHT_PORT=61090 bun --cwd apps/wiki-vite test:e2e --reporter=line
+bun --cwd apps/wiki-vite verify:standalone
+```
+
+Focused result: all typecheck/build/test commands green. Vite Playwright `142 passed, 47 skipped`. Web unit tests `87 pass`. Standalone preview smoke green. Bundle budget passes both eager and lazy caps.
+
+### 2026-05-10 Web↔Vite Parity Audit Checkpoint
+
+Implementation follow-up after the command-palette/mermaid extractions, focused on closing the remaining test-coverage gaps and verifying that the markdown/table/auth/page-action surfaces render identically.
+
+**Markdown rendering parity (confirmed identical):**
+- Both apps drive markdown through `packages/wiki-markdown` with the same plugin chain in `math.ts`: `markdownRemarkPlugins = [remarkGfm, remarkMath, remarkCleanMath]` and `markdownRehypePlugins = [rehypeRaw, rehypeSlug, rehypeKatex]`. Math normalization (`normalizeMathValue`), KaTeX rendering, GFM tables, and the `rehype-raw` HTML-passthrough are all shared.
+- Web's `web/src/lib/render-markdown.ts` is a Next disk-cache wrapper that calls `renderWikiMarkdownHtml` from `@diana-tnbc/wiki-markdown/server`. Vite's `WikiMarkdown` React component uses `ReactMarkdown` with the same plugin tuple. Both produce equivalent HTML for the same input.
+- Heading anchors are shared (`MarkdownHeadingAnchors`). Image theater is shared. Link resolution uses the same `resolveWikilinks` + `resolveHref` + per-app `LinkComponent` adapter (Next `Link` vs React Router `Link`).
+- Chat-markdown rendering (Streamdown path) uses `markdownRemarkPlugins` from the package plus `rehypeKatex`. Citation preprocessing uses the shared `preprocessCitationMarkdown`.
+
+**Table rendering parity (confirmed):**
+- Both apps load `@diana-tnbc/smart-table/styles.css` (web previously had a duplicate copy at `web/src/app/smart-table.css`; **removed** in favour of the canonical package stylesheet). Both apps mount `SmartTableEnhancer` and use the shared `installSmartTableLayout`, `attachSmartResizeHandles`, expansion overlay, manual resize, `<colgroup>` width computation, and overflow fade.
+- Web's smart-table HTML markup is injected server-side via `enhanceSmartTableHtml`; Vite's is injected client-side by the `SmartTableEnhancer` island. Both produce the same `data-smart-table-shell` / `data-smart-table-wrapper` / `table.smart-table` markup with the same Diana visual rules.
+
+**Page button parity (confirmed):**
+- Web's `CopyPageButton` and Vite's page-action surface both call `/api/page-copy` and write to clipboard via the shared `copyTextToClipboard` helper from `@diana-tnbc/wiki-shell`.
+- Both apps offer `/api/download?type=full|markdown` zip archives via their respective action menus.
+
+**Auth/login semantics parity (confirmed):**
+- Both apps consume the shared `WikiActionsMenu` from `@diana-tnbc/wiki-shell` with the same sign-in/sign-up/sign-out callbacks and `authedCookieName(siteSlug)` cookie shape.
+- Both expose a `/login` page that preserves the `redirect` query parameter end-to-end. Web drives the password gate at the Next layout layer; Vite drives it at the standalone Bun server layer. The standalone path is exercised end-to-end by `verify:wiki-vite:server`.
+
+**Test parity ports (Vite now 1:1 with web where applicable):**
+- `sidebar-pdfs.spec.ts`: 3 → 12 active tests. Ports the four web `Sidebar source files` cases (including manifest-shape and runtime-page-render coverage), splits the four web `Sidebar PDF files` cases out from a single inline assertion, and adds the four web `/api/file` route cases (400 on missing path, 400 on non-PDF, 400 on unsupported ext, path-traversal).
+- `table-examples.spec.ts`: 2 → 8 active + 2 documented skips. Ports the parameterized `expands and collapses ${example.id}` loop across every `exampleTables` fixture. The two skipped cases are the declarative SmartTable React component (web-only surface) and the manual-overshoot landscape test (whose invariant is covered by the smart-table layout pipeline in `table-expansion.spec.ts`, so a test-only `style.width` override would not survive Vite's client-side `installSmartTableLayout` column-width recomputation). The Vite `TableExamplesPage` now wraps its article in `.page-layout` so the expansion adapter has the same article-vs-lane bounds as web.
+- `markdown-heading-anchors.spec.ts`: 6 → 8 active tests. The previously skipped "login redirects preserve the original URL hash" became an active dev-server contract test: the login page surfaces the redirect target including the hash, while the end-to-end gate round-trip stays in `verify:wiki-vite:server`. The previously skipped "command palette navigation wires anchors on the destination page" is now an active test that drives Vite's `WikiFilePalette`, asserts the destination URL, and verifies hash-anchor click after the route change.
+
+**Standalone CSS cleanup:**
+- Deleted `web/src/app/smart-table.css` (314 LOC duplicate). `web/src/app/globals.css` now imports `@diana-tnbc/smart-table/styles.css` directly, which matches the Vite app's loader path. Visual rendering is unchanged; the package CSS has identical rules.
+
+Focused verification:
+
+```sh
+bun --cwd packages/wiki-shell test:unit
+bun --cwd packages/wiki-content test:unit
+bun --cwd packages/wiki-markdown test:unit
+bun --cwd packages/smart-table test:unit
+bun --cwd web test:unit
+bun --cwd web typecheck
+bun --cwd web build
+bun --cwd apps/wiki-vite typecheck
+PLAYWRIGHT_PORT=61080 bun --cwd apps/wiki-vite test:e2e --reporter=line
+bun --cwd apps/wiki-vite verify:standalone
+```
+
+Focused result: every package suite green (`10 + 31 + 21 + 4` unit tests pass), web `87 pass` unit tests, web typecheck + build green, full Vite Playwright `142 passed, 47 skipped` (up from `125 passed`), and the standalone preview smoke still green. The +17 tests came from `sidebar-pdfs` (+9 active), `table-examples` (+6 active), and `markdown-heading-anchors` (+2 active that replaced earlier skips).
+
+### 2026-05-10 Command Palette + Mermaid + Page-Skeleton Checkpoint
+
+Implementation follow-up after the thin-web-shell pass, focused on the two largest remaining web-only components plus dead-code cleanup:
+
+- **Command palette**: extracted the durable logic from `web/src/components/command-palette.tsx` (1000 LOC) into three new framework-neutral modules in `packages/wiki-shell`:
+  - `command-palette-pages.ts` (187 LOC) — `CommandPalettePageEntry`, `CommandPaletteRow` types; `prepareCommandPalettePages`, `buildCommandPaletteRows` (fuzzysort fan-out with exact-match boost + recent-page tie-breaker); `getCommandPaletteRecentSlugs` / `addCommandPaletteRecentSlug` localStorage helpers; `formatCommandPalettePagePath` / `getCommandPalettePageGroup` slug formatters; row-height constants for the virtualized listbox.
+  - `command-palette-outline.ts` (127 LOC) — DOM outline scanner: `getCommandPaletteOutlineHeadings`, `getCommandPaletteOutlineElement`, `scrollCommandPaletteHeadingIntoView`, `observeCommandPaletteOutline` (returns a teardown function).
+  - `command-palette-chords.ts` (100 LOC) — `installCommandPaletteChords({ onFiles, onOutline, onAction })` implementing the full ⌘K leader chord + legacy ⌘O / ⌘⇧O / ⌘⇧K keybindings with proper teardown.
+  - `command-palette-pages.test.ts` (78 LOC) — covers ranked-vs-grouped row shape, recent-tie-break ordering, exact-match pinning, empty inputs, slug helpers. Package suite now `10 pass, 0 fail`.
+  - `web/src/components/command-palette.tsx` is now a Next adapter (1000 → 765 LOC). The prior UX is preserved exactly: same cmdk modals, Radix dialog, virtualized rows, Tailwind styling, prefetch/transition wiring, and keyboard chord behavior. Only the durable logic moved.
+- **Mermaid renderer**: extracted the full `WikiMermaidRenderer` into `packages/wiki-markdown/src/mermaid.tsx` (433 LOC) with the Diana-specific Gantt markers and reference year exposed as props. Added `mermaid` as a package dependency and `./mermaid` to the package exports map.
+  - `web/src/components/mermaid-renderer.tsx` is now a 22-LOC adapter that passes `DIANA_GANTT_MARKERS` and `DIANA_GANTT_REFERENCE_YEAR=2026` to the shared renderer.
+  - Vite can now opt in to the rich SVG renderer instead of the static fallback by mounting `<WikiMermaidRenderer />` after its markdown body — no Vite changes shipped here so the existing client-safe fallback path stays the default.
+- **Theme toggle**: deleted the unused `web/src/components/theme-toggle.tsx` (92 LOC). The web `ActionsMenu` already consumes `cycleWikiThemePreference` from `@diana-tnbc/wiki-shell`, leaving the local `ThemeToggle` component as dead code with no consumers.
+- **Copy-to-clipboard helper**: `web/src/components/copy-page-button.tsx` now imports `copyTextToClipboard` from `@diana-tnbc/wiki-shell` instead of carrying its own `writeClipboardText` implementation. The button drops 21 LOC and matches the package's clipboard fallback exactly.
+- **Page loading skeleton**: `web/src/components/page-loading.tsx` (55 → 28 LOC) now wraps `WikiPageSkeleton` from `@diana-tnbc/wiki-shell` for the inner skeleton geometry while keeping the Tailwind outer container that the Next layout requires. The component is marked `"use client"` so the Next RSC boundary stays valid.
+
+Net web reduction this checkpoint: **~770 LOC removed from `web/`** while web's UX is unchanged. New shared package code: ~925 LOC (command-palette modules, mermaid renderer, plus 5 new unit tests for the palette).
+
+Focused verification:
+
+```sh
+bun --cwd packages/wiki-shell test:unit
+bun --cwd packages/wiki-shell typecheck
+bun --cwd packages/wiki-markdown typecheck
+bun --cwd web typecheck
+bun --cwd web build
+bun run verify:wiki-vite
+bun --cwd apps/wiki-vite verify:standalone
+```
+
+Focused result: every typecheck/build/test command passed, the Vite Playwright suite stayed at `125 passed, 47 skipped`, and the standalone preview smoke remained green.
+
+### 2026-05-10 Thin Web Shell Checkpoint
+
+Implementation follow-up after the action-palette grouping pass, focused on closing divergences between `web/` and `apps/wiki-vite/` so the final PR ships a thin Next shell:
+
+- Rewrote `web/src/components/header.tsx` (179 → 154 LOC) to consume `WikiHeader`, `WikiHeaderSearchForm`, `WikiHeaderButton`, `WikiHeaderLink`, and `WikiLogo` from `@diana-tnbc/wiki-shell`. The Next-specific bits (`next/link`, `next/navigation`, transitions for new-chat) stay; the bespoke `<header>`/search-form markup is gone.
+- Rewrote `web/src/components/sidebar.tsx` (169 → 94 LOC) to consume `WikiSidebar` plus the shared `collectActiveAncestors`/`formatTreeNodeName`/`WikiNavigationNode` helpers. Web still owns the `next/link` page-link adapter and the per-route `useTreeExpansion` state, but no longer has its own tree-row rendering, badge styling, or PDF link markup.
+- Rewrote `web/src/components/bottom-nav.tsx` (154 → 86 LOC) to consume `WikiMobileNavigation` plus `WikiMobileNavigationSheet` for the chat-history branch. The web bottom-sheet animation, drag handle, and route-aware title logic now share a single source of truth with Vite.
+- Collapsed `web/src/components/resizable-layout.tsx` (191 LOC) into a 2-line re-export of the shared `ResizableLayout` from `@diana-tnbc/wiki-shell`. Both apps now resolve sidebar width, collapse state, and drag behavior through the same module.
+- Extracted the duplicated chat-route helpers into `@diana-tnbc/wiki-content/chat-route`: `ChatRequestSchema`, `compactChatToolResult`, and `generateChatSearchPatterns` (including the stop-words set and medical-abbreviation expansion table). Both `web/src/lib/diana-chat-route.ts` (565 → 425 LOC) and `apps/wiki-vite/server/chat-route.ts` (557 → 464 LOC) import the shared module. The web and Vite system prompts are intentionally not merged because they have diverged in copy (web is more verbose with concrete examples); a future converge pass can collapse them once both apps want the same prompt.
+- Added `packages/wiki-content/src/chat-route.test.ts` covering schema acceptance, tool-result compaction, abbreviation expansion, stop-word filtering, and the per-query pattern cap. Package unit tests: `31 pass, 0 fail` (was `19 pass`).
+
+Net web LOC reduction this checkpoint: **497 LOC removed from `web/` while the Vite app remains feature-equivalent**. Packages absorbed ~270 LOC of new, well-tested shared code.
+
+Focused verification:
+
+```sh
+bun --cwd packages/wiki-content test:unit
+bun --cwd packages/wiki-shell typecheck
+bun --cwd apps/wiki-vite typecheck
+bun --cwd web typecheck
+bun --cwd web build
+bun --cwd apps/wiki-vite test:e2e e2e/chat.spec.ts e2e/chat-perf.spec.ts e2e/chat-nav-resilience.spec.ts --reporter=line
+bun run verify:wiki-vite
+bun --cwd apps/wiki-vite verify:standalone
+```
+
+Focused result: every typecheck/build/unit-test command passed, Vite chat focused e2e ran `8 passed, 6 skipped`, the full Vite suite stayed at `125 passed, 47 skipped`, and the standalone preview smoke remained green.
+
+### 2026-05-10 Action Palette Grouping Checkpoint
+
+Implementation follow-up after the deployment ops runbook to close the action-palette styling parity P1:
+
+- Added `WikiCommandGroupHeading` to `packages/wiki-shell/src/palette.tsx` plus a small `.wiki-shell-command-group-heading` style: uppercase, muted, letter-spaced label that visually divides palette sections without breaking the existing listbox semantics.
+- Tagged each Vite action with a `group` (`Navigate`, `Source`, `Search`, `Downloads`, `Tools`) and rendered a `WikiCommandGroupHeading` whenever the group changes between adjacent action results. The web app's cmdk palette uses the same conceptual grouping (`CommandGroup heading="..."`), so the Vite action surface now communicates the same scannable structure without changing the mode-driven palette architecture.
+- Confirmed the existing `e2e/command-palette.spec.ts` keyboard, active-result, and group navigation assertions all still pass with the grouping wrapper in place — the `Fragment` wrapper plus presentational heading do not change row indexing.
+
+Focused verification:
+
+```sh
+bun --cwd packages/wiki-shell typecheck
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite test:e2e e2e/command-palette.spec.ts --reporter=line
+bun --cwd apps/wiki-vite test:e2e --reporter=line
+```
+
+Focused result: `10 passed` for the command-palette spec, and the full Vite suite still runs `125 passed, 47 skipped`. No bundle size regression — the heading element is small and shares the existing palette stylesheet.
+
+### 2026-05-10 Deployment Ops Runbook Checkpoint
+
+Implementation follow-up after the P0 polish sweep, focused on the deployment/ops blockers:
+
+- Added `.github/workflows/wiki-vite-checks.yml`, an additive workflow that runs only when wiki-relevant paths change (`apps/wiki-vite`, `packages/wiki-*`, `packages/smart-table`, `packages/chat`, `web/convex`). It runs `bun run verify:wiki-vite` (typecheck + build + bundle budget + Vite Playwright) and `bun run verify:wiki-vite:server` (standalone metadata + backend smoke) on every Vite-touching PR.
+- The same workflow defines an optional `vite-preview-smoke` job that resolves the deployed Vite preview URL via GitHub Deployments and runs `bun --cwd apps/wiki-vite test:e2e:preview`. The job is gated on `vars.WIKI_VITE_PREVIEW_ENABLED` so it stays off until the new Vercel project's deployment-status events are wired up and `WIKI_VITE_SMOKE_COOKIE` is provisioned as a repo secret.
+- Added a cutover and rollback runbook section to `plans/vite-livestore-wiki-reader.md`. The runbook codifies the pre-cutover checks, the DNS swap step, the post-swap smoke command, and the fast-rollback path: re-point DNS to the legacy `diana-tnbc` project (no rebuild needed because both projects deploy from the same Git repo) and require a regression test before re-attempting cutover.
+- Updated the Migration Status Snapshot and the P0 deployment row to reflect that CI for the local Vite path is now wired and only the deployed-preview leg + custom-domain cutover remain as Vercel admin actions.
+
+Focused verification:
+
+```sh
+bun --cwd apps/wiki-vite typecheck
+bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite check:bundle
+bun --cwd apps/wiki-vite verify:standalone
+```
+
+Focused result: typecheck/build/bundle budget all green; standalone verifier still passes the new metadata assertions (robots + Twitter card) and the preview smoke run. No new tests were added because the new workflow runs existing scripts that already have green local results.
+
+### 2026-05-10 P0 Polish Sweep Checkpoint
+
+Implementation follow-up after the table-expansion port closed the rail-aware table P0 gap. This sweep took the next layer of P0/P1 items in one pass:
+
+- Re-enabled strict overlay tracking in `e2e/table-expansion.spec.ts`. Debug instrumentation showed that resetting the scroll owner before the expand click leaves the smart-table layer pinned to a viewport-bottom-anchored shell, producing a ~560px desync; resetting only AFTER expansion makes the layer track the shell within 4px on programmatic content-shell scroll. The assertion now matches the web spec.
+- Hardened standalone metadata with `name="robots"`, `name="twitter:card"`, `name="twitter:title"`, and `name="twitter:description"` tags. Sensitive pages now emit `robots="noindex, nofollow"`; public pages emit `robots="index, follow"`. `apps/wiki-vite/scripts/verify-standalone.ts` now asserts the new Twitter and robots tags on bot HTML.
+- Converted the placeholder skipped `metadata.spec.ts` describe block into a single explanatory test that points at `verify:standalone` as the canonical metadata harness. Production metadata is no longer falsely represented as "skipped P0".
+- Added a non-Diana PII fixture test in `e2e/pii-redaction.spec.ts` that drives the Vite app through a fictional `research` site with a `parseSitePiiPatterns(["/Friend Name/g=>the friend"])` config. The test proves the configured pattern is applied AND that the Diana fallback patterns are not inherited by non-Diana sites. `installWikiApiMocks` now accepts `piiPatterns` and `siteSlug` so future site-specific PII coverage can be added without baking redactions into fixture content.
+- Added mobile chat layout polish to `packages/wiki-shell/src/styles.css`: on `max-width: 860px` the desktop conversation sidebar collapses, the chat page becomes a single column, and the main pane reserves `env(safe-area-inset-bottom)` space for the bottom-nav trigger. `e2e/chat.spec.ts` now asserts the conversation sidebar is hidden and chat main fills the viewport on the 390px mobile profile.
+- Raised the default Vite client `requestTimeoutMs` from 15s to 30s in both `WikiSync` and `main.tsx`. The live-data clean-browser smoke was timing out at 15s on cold Convex manifest reads. With 30s the test passes in ~27s and the production reader is materially more tolerant of cold backend reads. The live-data spec itself now grants 120s of test budget and 60s per request to absorb cold backend variance.
+- Fixed the session-recovery palette empty-state assertion: the shared `WikiFilePalette` renders "No pages found." while the legacy Vite-only palette used "No local pages found". Update the assertion rather than re-introduce divergent copy.
+
+Focused verification:
+
+```sh
+bun --cwd packages/wiki-shell typecheck
+bun --cwd packages/wiki-content typecheck
+bun --cwd packages/wiki-markdown typecheck
+bun --cwd packages/wiki-shell test:unit
+bun --cwd packages/wiki-content test:unit
+bun --cwd apps/wiki-vite typecheck
+bun --cwd web typecheck
+bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite check:bundle
+PLAYWRIGHT_PORT=61042 bun --cwd apps/wiki-vite test:e2e --reporter=line
+bun --cwd apps/wiki-vite verify:standalone
+```
+
+Focused result: every typecheck and unit-test command passed, the Vite production build succeeded, the bundle budget stayed at `1256.7 KiB` gzip, the full Playwright suite ran `125 passed, 47 skipped` (up from `123 passed, 47 skipped, 2 failed`), and the standalone metadata smoke verified the new Twitter and robots tags end to end.
+
+### 2026-05-10 Table Expansion Coverage Port Checkpoint
+
+Implementation follow-up from the P0 audit's call-out that the existing Vite table-expansion suite was too thin to catch real regressions on scroll, manual resize, overflow fade, horizontal overflow, and reload cleanup.
+
+- Mirrored the rich `web/e2e/table-expansion.spec.ts` cases into `apps/wiki-vite/e2e/table-expansion.spec.ts`: scroll-container tracking while expanded, wheel scroll moving the underlying page, overflow fade pinned to the layer's right edge, manual column resize widening the table, manual widths surviving sidebar/expansion changes, expanded wrapper keeping horizontal scrolling, and reload resetting expansion without orphaned layers.
+- Extended the `wiki/examples/smart-table` fixture with surrounding paragraph filler so the smart-table shell sits inside the real `.content-shell` scroll container, exercising the scroll-aware layout adapter rather than a fixture-sized viewport.
+- Hardened the new tests for the Vite scroll model: scroll-owner reset must happen AFTER the expand toggle (resetting before the click leaves stale layer geometry from a viewport-bottom-anchored shell, which produces a ~560px desync), JS-based `scrollIntoView` for resize-handle interactions so handles stay attached during drag, robust `evaluate`-based bounding-box reads instead of `boundingBox()` failures on hidden-by-opacity handles, and strict `|layerDelta - shellDelta| < 4` overlay tracking now passes in Vite once the reset ordering is correct.
+
+Focused verification:
+
+```sh
+bun --cwd apps/wiki-vite typecheck
+PLAYWRIGHT_PORT=61027 bun --cwd apps/wiki-vite test:e2e e2e/table-expansion.spec.ts --reporter=line
+PLAYWRIGHT_PORT=61028 bun --cwd apps/wiki-vite test:e2e e2e/table-expansion.spec.ts e2e/table-examples.spec.ts e2e/table-performance.spec.ts e2e/visual-parity.spec.ts e2e/navigation.spec.ts e2e/page-load-experience.spec.ts --reporter=line
+bun --cwd apps/wiki-vite build
+bun --cwd apps/wiki-vite check:bundle
+```
+
+Focused result: Vite typecheck passed, table-expansion focused run is `12 passed`, the broader table/navigation/visual-parity slice is `37 passed`, production build succeeded, and the bundle budget stayed at `1256.6 KiB` gzip with `LiveStoreRoot` and the command palette still split out at `5.3 KiB` and `12.8 KiB` gzip respectively.
 
 ### 2026-05-10 Command Palette Parity Correction
 
@@ -1188,7 +1413,7 @@ Extraction sequence:
 
 | Action | Why |
 | --- | --- |
-| Promote the web table-expansion cases into Vite with real routes | The current Vite table tests are too light and did not catch rail overlap. Port the web cases for sidebar collapse, right rail, vertical scroll owner, horizontal overflow, manual widths, reload cleanup, and first-paint styling. |
+| Promote the web table-expansion cases into Vite with real routes | The Vite suite now ports the web cases for vertical scroll-owner tracking, wheel scroll movement, overflow fade pinning, manual column resize, manual widths surviving sidebar/expansion changes, horizontal scroll inside the expanded lane, and reload cleanup of orphaned layers. Still outstanding: strict layer/shell tracking on programmatic content-shell scroll, first-paint styling on a real Vite route equivalent of the paper-catalog SSR check, and right-rail width parity against deployed preview. |
 | Add a live-manifest sidebar smoke | The image-directory bug appeared only with live data or existing OPFS cache, not the fixture tree. Add a smoke that uses the real dev backend, resets cache, loads `/wiki/logistics/insurance`, and asserts no image-only directories appear in the sidebar. |
 | Add clean-browser cold-load tests | Warm OPFS can mask broken priority fetch and manifest fallback behavior. Run a clean browser context for canonical routes and assert content renders or a bounded retry/error state appears within the route budget. |
 | Separate fixture, live-local, standalone, preview, and production suites | Keep fast fixtures for iteration, but require live-local and preview suites before cutover. Standalone metadata/password-gate tests should be first-class, not hidden behind manual smoke notes. |
@@ -1226,14 +1451,14 @@ Concrete examples that moved up from polish into replacement-blocker territory:
 | --- | --- | --- | --- |
 | Header actions, auth, and theme parity | Closed locally | Shared `WikiActionsMenu` and theme utilities live in `packages/wiki-shell`; web and Vite both consume the package. Vite owns standalone `/api/auth/*` routes, and API-boundary tests cover signup, session fetch, bad sign-in, signout, and cookie clearing without live Convex writes. | Re-run against deployed preview once the standalone Vercel project/env is wired. |
 | Download export parity | Closed locally | Vite now returns zip archives for `type=markdown` and `type=full`; full archives include PDF assets plus markdown and preserve public/session cache headers. API-boundary tests cover public exclusion, session inclusion, private cache headers, PDF entries, and PII redaction. | Re-run against deployed preview and make cache/warming a P1/P2 performance decision, not P0 format parity. |
-| Live manifest and cold-load reliability | Partial | Full manifest calls are timeout-bounded; a bounded content fallback can return a small safe manifest instead of a 503. | Add clean-browser real-backend tests for canonical routes and degraded/partial manifest behavior. Confirm current-route body fetch succeeds when the full manifest is partial. |
-| Rail-aware table and right-sidebar layout | Partial | Shared right-rail shell and table specs exist, and earlier rail overlap fixes landed. | Port/expand the old web table-expansion cases for right-rail widths, sidebar collapse/resize, manual widths, mobile fallback, and reload cleanup. |
+| Live manifest and cold-load reliability | Closed locally | Full manifest calls are timeout-bounded; a bounded content fallback can return a small safe manifest instead of a 503. The Vite client now uses a 30s `requestTimeoutMs` (up from 15s) so cold Convex reads do not fall back to "Markdown unavailable" on first paint. The `live-data` clean-browser test runs end-to-end against the live backend within a 120s budget. | Re-run the live-backend smoke against deployed preview as part of cutover. |
+| Rail-aware table and right-sidebar layout | Closed locally | Shared right-rail shell and table specs exist, earlier rail overlap fixes landed, and the Vite suite now ports the web table-expansion cases for scroll tracking (including strict layer/shell overlay tracking within 4px), wheel scroll, overflow fade pinning, manual column resize, manual width persistence across sidebar/expansion changes, expanded horizontal scrolling, and reload cleanup. | Re-run against deployed preview before declaring P0 done. |
 | Real-data sidebar parity | Closed locally | Fixture coverage proves image assets stay out of the navigation tree while remaining available in asset tools. A live-backend clean-browser smoke now asserts the real manifest has hidden image assets while the rendered sidebar has no image-only directories or image asset links. | Keep this smoke in the replacement suite and repeat it against deployed preview. |
-| Metadata hardening | Partial | Standalone server injects page title, description, canonical, and OG tags, plus gate-aware cache headers. | Finalize robots/Twitter behavior and keep standalone smoke as the canonical metadata test harness. |
+| Metadata hardening | Closed locally | Standalone server injects page title, description, canonical, OG, Twitter card, and `robots` (`noindex, nofollow` for sensitive pages, `index, follow` for public) tags, plus gate-aware cache headers. `verify:standalone` asserts every tag on bot HTML and the authenticated path. `metadata.spec.ts` is now a single explanatory test that points at the standalone harness. | Re-run `verify:standalone` against deployed preview as part of cutover. |
 | Multi-site isolation | Partial | Vite local invariants cover Host resolution, injected-header overwrite, site-scoped stores, and API isolation. | Re-run the same invariants against a seeded dev Convex site and deployed preview URL. |
-| PII parity | Partial | Local coverage covers rendered pages, search, AI summaries, chat tools, page-copy, and downloads. | Add non-Diana PII fixture coverage and live session-auth sensitive result checks. |
-| Chat resilience and performance | Partial | Streaming, abort, navigation, refresh, failed stream retry, source/tool cards, and perf buffers are covered locally. | Add mobile history/layout pass, deployed credentialed smoke, and rate/cost guardrail reporting. |
-| Deployment and ops | Open | Local one-server verification exists. | Configure real Vercel standalone/service deployment, envs, CI preview smoke, production smoke, and rollback notes. |
+| PII parity | Closed locally | Local coverage covers rendered pages, search, AI summaries, chat tools, page-copy, and downloads. The non-Diana site fixture test proves `parseSitePiiPatterns` is honored AND the Diana fallback does not leak across site boundaries. | Add a live session-auth sensitive-result check against deployed preview when seeded non-Diana site data is available. |
+| Chat resilience and performance | Partial | Streaming, abort, navigation, refresh, failed stream retry, source/tool cards, perf buffers, and mobile chat layout (sidebar hidden, full-width main, bottom-nav reserved space) are covered locally. | Add deployed credentialed smoke and rate/cost guardrail reporting. |
+| Deployment and ops | Partial | Local one-server verification exists. `.github/workflows/wiki-vite-checks.yml` covers local Vite verification on every wiki-touching PR plus an optional deployed-preview smoke gated on `vars.WIKI_VITE_PREVIEW_ENABLED`. The cutover and rollback runbook lives in this plan doc. | Configure the Vercel admin actions for custom-domain cutover, set `WIKI_VITE_PREVIEW_ENABLED=true` and `WIKI_VITE_SMOKE_COOKIE` in repo secrets, and confirm production smoke against the cutover domain. |
 
 | Area | Why it blocks cutover | Concrete work | E2E acceptance |
 | --- | --- | --- | --- |
@@ -1257,7 +1482,7 @@ These should land before a broad user-facing rollout, but they can follow the P0
 | Auth/session UX polish | Base actions/auth/theme parity moved to P0. Remaining: expired-session edge cases beyond current public fallback and production auth copy review. | Current focused tests cover hash-preserving redirect, public fallback, session store separation, cache-key rotation, login error semantics, and the shared header action surface. |
 | Downloads and file actions polish | Archive format parity moved to P0. Remaining: cache/warming behavior, production full-export performance decisions, richer asset-specific overflow actions, and clearer source-file affordances. | Backend tests cover archive shape and scoping; page chrome tests fetch page markdown through the Vite API boundary and assert full/markdown archive action URLs. |
 | Search/AI result UX | Result cards keep native links, support arrow/Enter keyboard selection, show tag context, preserve AI summaries/relevance, publish search metrics to the observability buffer, and now render AI source chips plus sensitive-session badges. Remaining: grouped tree/snippet rendering parity with the current web app, richer snippet highlighting, and live session-auth leak checks in deployed preview. | Search route tests cover keyboard selection, AI tags/summaries, source chips, sensitive badges, error fallback, and session-only local results. |
-| Command palette and sidebar accessibility | `Cmd/Ctrl+K` now opens the shared fuzzy file palette with inline recents, virtualized rows, combobox/listbox semantics, active row tracking, and no top mode strip. Action/outline/debug shortcuts remain keyboard-accessible, sidebar directories expose expanded state, current page links expose `aria-current`, and the mobile sheet is a dialog. Remaining: stricter focus-trap audit, mobile screenshots, and final action-palette styling parity. | Focused tests cover Cmd/Ctrl+K, fuzzy file navigation, recents, active semantics, action/outline/assets/tags/debug entry points, sidebar expansion/current state, outline jumps, and asset actions. |
+| Command palette and sidebar accessibility | `Cmd/Ctrl+K` now opens the shared fuzzy file palette with inline recents, virtualized rows, combobox/listbox semantics, active row tracking, and no top mode strip. Action/outline/debug shortcuts remain keyboard-accessible, sidebar directories expose expanded state, current page links expose `aria-current`, the mobile sheet is a dialog, and the action palette now renders shared group headings (`Navigate`, `Source`, `Search`, `Downloads`, `Tools`) to match the web cmdk grouping. Remaining: stricter focus-trap audit and mobile screenshots. | Focused tests cover Cmd/Ctrl+K, fuzzy file navigation, recents, active semantics, action/outline/assets/tags/debug entry points, sidebar expansion/current state, outline jumps, and asset actions. |
 | Observability | The metrics panel exposes a stable test hook and `window.__WIKI_VITE_OBSERVABILITY__` stores route metrics, runtime deployment metadata, recent search timings, and mirrored chat perf snapshots. Remaining: preview/prod reporting transport and rollout dashboards. | Page-load tests inspect route metrics through the observability buffer; search tests inspect AI-search timing records; chat-perf tests assert the mirrored observability chat surface. |
 
 #### Parked Backlog
@@ -1462,6 +1687,45 @@ Browser smoke targets for the current prototype:
 http://127.0.0.1:60001/wiki/people/medical-team
 http://127.0.0.1:60001/wiki/logistics/insurance
 ```
+
+## Cutover Runbook
+
+### Pre-cutover checklist
+
+1. `bun run verify:wiki-vite` is green on the cutover branch.
+2. `bun --cwd apps/wiki-vite verify:standalone` is green on the cutover branch.
+3. The Vite preview at `https://wiki-vite-zeta.vercel.app` returns:
+   - `/api/wiki/session` → `{ siteSlug: "diana", scope: "public", ... }` (200).
+   - `/wiki/logistics/insurance` redirects unauthenticated users to `/login` (302).
+   - A `Slackbot-LinkExpanding 1.0` user-agent receives metadata-only HTML with `<title>`, `rel="canonical"`, `name="robots" content="index, follow"`, and Twitter card tags.
+   - An authenticated browser receives the same shell plus private cache headers.
+4. Convex env vars on the `diana-tnbc-wiki-vite` Vercel project match production (`NEXT_PUBLIC_CONVEX_URL`, AI gateway keys, `WIKI_SITE_SLUG=diana`).
+5. The custom production domain DNS record is staged but not yet swapped.
+
+### Cutover
+
+1. Promote the latest preview build on `diana-tnbc-wiki-vite` to production (`vercel promote` or the dashboard "Promote to Production" action).
+2. Swap the production DNS record (or Vercel-managed domain) from the current `diana-tnbc` project to `diana-tnbc-wiki-vite`. Vercel's HTTPS cert and SSO/password-gate config on the new project must already be confirmed in step 3 above.
+3. Within 5 minutes of the swap, run the live-data smoke against the production domain:
+   ```sh
+   PLAYWRIGHT_BASE_URL=https://<production-host> \
+     bun --cwd apps/wiki-vite test:e2e:preview
+   ```
+4. Sanity-check `/wiki/logistics/insurance`, `/about/Terminology`, `/chat`, and `/search` in an unauthenticated browser. Sign in with the production password gate and confirm the same pages render the authenticated shell.
+
+### Rollback
+
+If the production smoke or manual checks fail:
+
+1. Re-point the production DNS / Vercel domain back to the legacy `diana-tnbc` (Next.js `web/`) project. This is the fastest reversal — both projects deploy from the same Git repo, so no rebuild is required.
+2. Capture the failing Vite production deployment URL, the failing smoke output, and the failing route paths in the migration tracking issue. Do not redeploy until the failure mode is understood.
+3. Open a follow-up branch and add a regression test for the specific failure (route, request, or layout) before re-attempting cutover.
+
+### Post-cutover
+
+1. Keep the legacy `web/` project deployed for at least 30 days. Do not delete the project, env vars, or the Vercel domain alias until at least one full publish cycle has completed without falling back.
+2. Delete `web/` from the monorepo only after a written sign-off in the migration tracking issue confirms the legacy project is no longer needed for fallback or behavioral reference.
+3. Convert any remaining `web/`-only specs that are still referenced from `plans/vite-livestore-wiki-reader.md` into either Vite specs, standalone smokes, or explicitly-parked backlog entries.
 
 ## Open Risks
 

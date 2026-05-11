@@ -118,6 +118,31 @@ test.describe("P0 PII parity", () => {
     expect(toolResponse).not.toMatch(RAW_IDENTIFIERS);
   });
 
+  test("non-Diana site uses its own PII patterns and skips Diana fallbacks", async ({ page }) => {
+    await installWikiApiMocks(page, {
+      siteSlug: "research",
+      piiPatterns: ["/Friend Name/g=>the friend"],
+      pageOverrides: {
+        "wiki/diagnostics/diagnosis": {
+          title: "Diagnosis",
+          tags: ["diagnostics"],
+          content: `# Diagnosis
+
+Friend Name met Diana Laster at the clinic. MRN 88855655 stays untouched on non-Diana sites unless the site configures it.
+`,
+        },
+      },
+    });
+    await gotoWiki(page, "/wiki/diagnostics/diagnosis");
+
+    const article = documentArticle(page);
+    await expect(article).toContainText("the friend");
+    await expect(article).not.toContainText("Friend Name");
+    // Diana fallback should NOT trigger for non-Diana sites
+    await expect(article).toContainText("Diana Laster");
+    await expect(article).toContainText("88855655");
+  });
+
   test("markdown downloads stay redacted even when showPII is requested", async ({ page }) => {
     await installWikiApiMocks(page);
     await page.goto("/", { waitUntil: "domcontentloaded" });

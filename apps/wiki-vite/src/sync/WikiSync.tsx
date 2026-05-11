@@ -147,6 +147,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
       scope,
       baseUrl,
       credentials: baseUrl ? "include" : "same-origin",
+      requestTimeoutMs: 30_000,
     });
   }, [scope]);
 

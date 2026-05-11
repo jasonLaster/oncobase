@@ -23,20 +23,22 @@ export function TableExamplesPage() {
   );
 
   return (
-    <article className="page-shell" data-test-id="document-article">
-      <header className="page-header">
-        <div>
-          <h1>Table Examples</h1>
-          <p>Smart table layout fixtures for reader parity checks.</p>
-        </div>
-      </header>
-      <WikiMarkdown
-        content={content}
-        currentSlug="table-examples"
-        LinkComponent={routeLink}
-        routeAdapter={routeAdapter}
-        tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
-      />
-    </article>
+    <div className="page-layout">
+      <article className="page-shell" data-test-id="document-article">
+        <header className="page-header">
+          <div>
+            <h1>Table Examples</h1>
+            <p>Smart table layout fixtures for reader parity checks.</p>
+          </div>
+        </header>
+        <WikiMarkdown
+          content={content}
+          currentSlug="table-examples"
+          LinkComponent={routeLink}
+          routeAdapter={routeAdapter}
+          tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
+        />
+      </article>
+    </div>
   );
 }

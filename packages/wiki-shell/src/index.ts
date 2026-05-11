@@ -8,6 +8,35 @@ export {
   type UseDocumentOutlineOptions,
 } from "./outline";
 export {
+  COMMAND_PALETTE_HEADING_HEIGHT,
+  COMMAND_PALETTE_MAX_RECENT,
+  COMMAND_PALETTE_MAX_SEARCH_RESULTS,
+  COMMAND_PALETTE_RECENT_KEY,
+  COMMAND_PALETTE_ROW_HEIGHT,
+  addCommandPaletteRecentSlug,
+  buildCommandPaletteRows,
+  formatCommandPalettePagePath,
+  getCommandPalettePageGroup,
+  getCommandPaletteRecentSlugs,
+  prepareCommandPalettePages,
+  type CommandPalettePageEntry,
+  type CommandPalettePreparedPage,
+  type CommandPaletteRow,
+  type CommandPaletteRowSet,
+} from "./command-palette-pages";
+export {
+  getCommandPaletteOutlineElement,
+  getCommandPaletteOutlineHeadings,
+  getCommandPaletteOutlineRoot,
+  observeCommandPaletteOutline,
+  scrollCommandPaletteHeadingIntoView,
+  type CommandPaletteOutlineHeading,
+} from "./command-palette-outline";
+export {
+  installCommandPaletteChords,
+  type CommandPaletteChordHandlers,
+} from "./command-palette-chords";
+export {
   WikiHeader,
   WikiHeaderButton,
   WikiHeaderLink,
@@ -97,6 +126,7 @@ export {
   WikiCommandBackdrop,
   WikiCommandEmpty,
   WikiCommandFooter,
+  WikiCommandGroupHeading,
   WikiCommandItemButton,
   WikiCommandItemLink,
   WikiCommandItemText,
@@ -107,6 +137,7 @@ export {
   type WikiCommandBackdropProps,
   type WikiCommandEmptyProps,
   type WikiCommandFooterProps,
+  type WikiCommandGroupHeadingProps,
   type WikiCommandItemButtonProps,
   type WikiCommandItemContentProps,
   type WikiCommandItemLinkProps,

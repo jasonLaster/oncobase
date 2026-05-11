@@ -66,7 +66,7 @@ test.describe("Session scope recovery", () => {
     await expect(documentArticle(page)).not.toContainText("Sensitive session-only planning note");
     await page.getByTestId("command-palette-trigger").click();
     await page.getByTestId("command-palette-input").fill("private plan");
-    await expect(page.getByText("No local pages found")).toBeVisible();
+    await expect(page.getByText("No pages found")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("command-palette")).toBeHidden();
 

@@ -87,13 +87,25 @@ function mermaidTasks(source: string) {
     .filter((line): line is string => Boolean(line));
 }
 
+function encodeMermaidSource(source: string): string {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(source, "utf-8").toString("base64");
+  }
+  if (typeof btoa !== "undefined") {
+    return btoa(unescape(encodeURIComponent(source)));
+  }
+  return source;
+}
+
 function MermaidFallback({ source }: { source: string }) {
   const title = mermaidTitle(source);
   const tasks = mermaidTasks(source);
+  const encoded = encodeMermaidSource(source);
 
   return (
     <figure
       className="mermaid-diagram mermaid-fallback"
+      data-graph={encoded}
       data-mermaid-kind={mermaidKind(source)}
       data-test-id="mermaid-diagram"
     >

@@ -35,6 +35,40 @@ const budgets: Budget[] = [
 
 const totalGzipBudget = 1_300_000;
 
+/**
+ * Lazy on-demand chunks that should not count against the initial-load budget.
+ *
+ * The reader entry never references these directly: they are pulled in via
+ * `lazy(() => import("@diana-tnbc/wiki-markdown/mermaid"))` (and through
+ * mermaid's own dynamic `import("./diagrams/...")` splits) only when the
+ * current markdown contains a mermaid fence. We allowlist the mermaid-related
+ * sub-chunk names produced by Vite's bundler so the eager-asset budget tracks
+ * the bytes a reader actually downloads before paint.
+ */
+const lazyChunkPatterns: RegExp[] = [
+  /^mermaid[\w.-]*\.js$/,
+  /^mermaid-parser\.core-[\w-]+\.js$/,
+  // Mermaid diagram-kind splits, including ones whose prefix mixes digits
+  // (e.g. `c4Diagram`).
+  /^[A-Za-z0-9]+Diagram-[\w-]+\.js$/,
+  /^(?:diagram|architecture|gitGraph|treemap|treeView|wardley|radar|info|pie|packet)-[\w-]+\.js$/,
+  // Mermaid diagram definitions split by kind.
+  /^(?:timeline|mindmap|kanban|class|state|sequence|flow|gantt|requirement|block|venn|xychart|er|usecase|journey|quadrant|sankey|c4)-(?:definition|diagram)-[\w-]+\.js$/i,
+  // Mermaid graph engines (transitively imported by diagram chunks, not the
+  // reader entry).
+  /^cytoscape[\w.-]*\.js$/,
+  /^cose-bilkent-[\w-]+\.js$/,
+  /^dagre[\w-]*-[\w-]+\.js$/,
+  /^graphlib-[\w-]+\.js$/,
+  /^rough\.esm-[\w-]+\.js$/,
+  // Hash-only chunks (lodash sub-deps and mermaid internals) — none of these
+  // are statically referenced from the entry or page chunks; verified via
+  // `import` grep against the dist tree.
+  /^chunk-[\w-]+\.js$/,
+  /^(?:dist|isEmpty|reduce|highlighted-body|_baseFor|development|c4Diagram)-[\w-]+\.js$/,
+];
+const lazyChunkGzipBudget = 1_200_000;
+
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
 }
@@ -82,13 +116,32 @@ for (const budget of budgets) {
   }
 }
 
-const totalGzipBytes = assets.reduce((sum, asset) => sum + asset.gzipBytes, 0);
-if (totalGzipBytes > totalGzipBudget) {
-  failures.push(`total assets: ${formatBytes(totalGzipBytes)} gzip > ${formatBytes(totalGzipBudget)}`);
+function isLazyChunk(asset: AssetSize) {
+  return lazyChunkPatterns.some((pattern) => pattern.test(asset.name));
+}
+
+const eagerAssets = assets.filter((asset) => !isLazyChunk(asset));
+const lazyAssets = assets.filter(isLazyChunk);
+const eagerGzipBytes = eagerAssets.reduce((sum, asset) => sum + asset.gzipBytes, 0);
+const lazyGzipBytes = lazyAssets.reduce((sum, asset) => sum + asset.gzipBytes, 0);
+const totalGzipBytes = eagerGzipBytes + lazyGzipBytes;
+
+if (eagerGzipBytes > totalGzipBudget) {
+  failures.push(
+    `eager assets: ${formatBytes(eagerGzipBytes)} gzip > ${formatBytes(totalGzipBudget)}`,
+  );
+}
+if (lazyGzipBytes > lazyChunkGzipBudget) {
+  failures.push(
+    `lazy assets: ${formatBytes(lazyGzipBytes)} gzip > ${formatBytes(lazyChunkGzipBudget)}`,
+  );
 }
 
 console.log("Wiki Vite bundle budget");
-console.log(`dist assets gzip total: ${formatBytes(totalGzipBytes)}`);
+console.log(
+  `dist assets gzip total: ${formatBytes(totalGzipBytes)} ` +
+    `(eager ${formatBytes(eagerGzipBytes)} / lazy ${formatBytes(lazyGzipBytes)})`,
+);
 for (const asset of assets) {
   console.log(`${asset.name.padEnd(38)} raw ${formatBytes(asset.bytes).padStart(10)} gzip ${formatBytes(asset.gzipBytes).padStart(10)}`);
 }

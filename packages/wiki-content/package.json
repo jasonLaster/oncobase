@@ -20,10 +20,20 @@
       "import": "./src/chat-tools.ts",
       "default": "./src/chat-tools.ts"
     },
+    "./chat-route": {
+      "types": "./src/chat-route.ts",
+      "import": "./src/chat-route.ts",
+      "default": "./src/chat-route.ts"
+    },
     "./pii": {
       "types": "./src/pii.ts",
       "import": "./src/pii.ts",
       "default": "./src/pii.ts"
+    },
+    "./embeddings": {
+      "types": "./src/embeddings.ts",
+      "import": "./src/embeddings.ts",
+      "default": "./src/embeddings.ts"
     },
     "./package.json": "./package.json"
   },
@@ -31,6 +41,9 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test:unit": "bun test src/*.test.ts"
+  },
+  "dependencies": {
+    "js-tiktoken": "^1.0.21"
   },
   "devDependencies": {
     "bun-types": "^1.3.12",

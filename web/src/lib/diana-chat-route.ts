@@ -19,64 +19,17 @@ import {
   createConvexFlusher,
   getCachedSystemPrompt,
 } from "@diana-tnbc/chat/route";
+import {
+  ChatRequestSchema,
+  compactChatToolResult,
+  generateChatSearchPatterns,
+} from "@diana-tnbc/wiki-content/chat-route";
 import { siteSlugFromRequest } from "@/lib/site";
 import { siteDataFromSlug } from "@/lib/site-data";
 import { readChatPage } from "@/lib/chat-page-reader";
 
 const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 });
 const generateRunId = createIdGenerator({ prefix: "run", size: 16 });
-
-/**
- * Per-request body schema. Validated before any AI SDK conversion so
- * malformed clients get a 400 instead of a 500 deep in convertToModelMessages.
- * Spec acceptance criterion: "/api/chat validates its request body before
- * converting UI messages to model messages."
- */
-const ChatRequestSchema = z.object({
-  messages: z
-    .array(
-      z.object({
-        id: z.string().optional(),
-        role: z.enum(["user", "assistant", "system"]),
-        // The full UIMessage parts shape is intentionally unconstrained here —
-        // AI SDK validates internally via convertToModelMessages. We just need
-        // the array to exist with non-null entries.
-        parts: z.array(z.unknown()).optional(),
-        content: z.string().optional(),
-      })
-    )
-    .min(1, "messages must not be empty"),
-  conversationId: z.string().optional(),
-});
-
-/**
- * Strip the large `content` field from `read_page` tool outputs (and
- * structurally-similar shapes) so persisted message parts don't carry 8KB
- * of page text per call. Used by both the streaming flush path AND the
- * final onFinish save so a completed assistant row matches the in-flight
- * shape. Spec acceptance criterion: "Stored assistant message parts
- * exclude large `content` fields from `read_page` tool results."
- */
-function compactToolResult(result: unknown): unknown {
-  if (
-    typeof result === "object" &&
-    result !== null &&
-    "content" in (result as Record<string, unknown>)
-  ) {
-    const r = result as Record<string, unknown>;
-    return Object.fromEntries(Object.entries(r).filter(([k]) => k !== "content"));
-  }
-  if (Array.isArray(result)) {
-    // Search results: keep just the navigable citation fields.
-    return (result as Array<Record<string, unknown>>).map((r) => ({
-      slug: r.slug,
-      title: r.title,
-      href: r.href,
-      anchor: r.anchor,
-    }));
-  }
-  return result;
-}
 
 function getConvex() {
   const url = resolveServerConvexUrl();
@@ -133,99 +86,6 @@ function buildSystemPrompt(siteSlug: string): Promise<string> {
   // The cache key is the slug so each site keeps its own cached
   // prompt instead of clobbering each other.
   return getCachedSystemPrompt(siteSlug, () => loadSystemPrompt(siteSlug));
-}
-
-/**
- * Generate search patterns from a query for parallel fan-out.
- *
- * Convex uses Tantivy (BM25) which already handles multi-term queries well —
- * it tokenizes, ranks by term frequency and proximity. So we don't need
- * bigram fan-out for phrase matching. The real value of fan-out is:
- *
- * 1. Cleaned query (domain stop words removed) — the primary search
- * 2. Abbreviation expansions — "ctdna" and "circulating tumor DNA" are
- *    different tokens so BM25 can't match across them
- * 3. Individual specific terms — when the cleaned query is long, a single
- *    precise term like "pembrolizumab" can surface docs the full query misses
- *
- * Example: "peptide vaccines for TNBC" →
- *   ["peptide vaccines", "triple-negative breast cancer", "vaccines", "peptide"]
- */
-function generateSearchPatterns(query: string): string[] {
-  const patterns = new Set<string>();
-  const clean = query.trim();
-  if (!clean) return [];
-
-  const stopWords = new Set([
-    // English stop words
-    "a", "an", "the", "is", "are", "was", "were", "in", "on", "at", "to",
-    "for", "of", "with", "and", "or", "but", "not", "from", "by", "about",
-    "what", "how", "does", "do", "can", "will", "should", "would", "could",
-    "her", "his", "my", "our", "their", "this", "that", "these", "those",
-    "it", "they", "we", "you", "i", "me", "she", "he",
-    "before", "after", "during", "between", "through", "into", "like",
-    // Domain-generic terms — too broad, would match nearly every document
-    // NOTE: "treatment", "diagnosis", "test" were removed from this list —
-    // they appear in key page titles/slugs and stripping them breaks
-    // common queries like "What is the treatment plan?"
-    "diana", "diana's", "tnbc", "breast", "cancer", "tumor",
-    "patient", "doctor", "medical", "clinical", "results",
-    "ucsf", "stanford",
-  ]);
-
-  // 1. Cleaned query — strip stop words, keep the meaningful terms together
-  //    BM25 proximity ranking works best with all terms in one query
-  const significantWords = clean
-    .split(/\s+/)
-    .filter((w) => w.length >= 2 && !stopWords.has(w.toLowerCase()));
-  const cleaned = significantWords.join(" ");
-  if (cleaned) patterns.add(cleaned);
-
-  // 2. Medical abbreviation expansions — these use completely different tokens
-  //    so BM25 can't bridge them; we need separate queries
-  const expansions: Record<string, string[]> = {
-    tnbc: ["triple-negative breast cancer"],
-    pcr: ["pathologic complete response"],
-    ctdna: ["circulating tumor DNA", "ctDNA"],
-    mrd: ["minimal residual disease"],
-    rcb: ["residual cancer burden"],
-    hrd: ["homologous recombination deficiency"],
-    stils: ["stromal tumor-infiltrating lymphocytes", "sTILs"],
-    tmb: ["tumor mutational burden"],
-    "keynote-522": ["pembrolizumab chemotherapy neoadjuvant"],
-    "k-522": ["KEYNOTE-522"],
-    ac: ["doxorubicin cyclophosphamide"],
-    pembro: ["pembrolizumab"],
-    idc: ["invasive ductal carcinoma"],
-    nact: ["neoadjuvant chemotherapy"],
-    hbo2t: ["hyperbaric oxygen therapy"],
-    pd: ["programmed death ligand"],
-    brca: ["BRCA1 BRCA2 germline mutation"],
-    her2: ["HER2 erbb2"],
-  };
-
-  const lower = clean.toLowerCase();
-  for (const [abbrev, alts] of Object.entries(expansions)) {
-    if (patterns.size >= 5) break;
-    if (lower.includes(abbrev)) {
-      for (const alt of alts) {
-        if (patterns.size >= 5) break;
-        patterns.add(alt);
-      }
-    }
-  }
-
-  // 3. Individual specific terms — only when query has 3+ significant words,
-  //    search the top 2 most specific (longest) terms individually
-  if (significantWords.length >= 3) {
-    const byLength = [...significantWords].sort((a, b) => b.length - a.length);
-    for (const w of byLength.slice(0, 2)) {
-      if (patterns.size >= 5) break;
-      patterns.add(w);
-    }
-  }
-
-  return Array.from(patterns).slice(0, 5);
 }
 
 export async function POST(request: Request) {
@@ -343,7 +203,7 @@ export async function POST(request: Request) {
         }),
         execute: async ({ query }: { query: string }) => {
           // Generate multiple search patterns from the query
-          const patterns = generateSearchPatterns(query);
+          const patterns = generateChatSearchPatterns(query);
 
           const textSearchPromise = Promise.all(
             patterns.map((p) =>
@@ -467,7 +327,7 @@ export async function POST(request: Request) {
         });
       } else if (chunk.type === "tool-result") {
         const tr = chunk as unknown as { toolCallId: string; result: unknown };
-        flusher.updateToolResult(tr.toolCallId, compactToolResult(tr.result));
+        flusher.updateToolResult(tr.toolCallId, compactChatToolResult(tr.result));
       }
     },
     onError: async (event) => {
@@ -509,7 +369,7 @@ export async function POST(request: Request) {
               (tc as unknown as Record<string, unknown>).input,
             // PR 28 review: same compaction as the streaming path so completed
             // assistant rows don't carry the 8KB read_page page content.
-            output: tr ? compactToolResult(tr.result) : null,
+            output: tr ? compactChatToolResult(tr.result) : null,
             state: "output-available",
           });
         }

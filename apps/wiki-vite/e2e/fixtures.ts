@@ -8,7 +8,11 @@ import {
   type WikiPageRecord,
   type WikiScope,
 } from "@diana-tnbc/wiki-content";
-import { applyPiiRedactions } from "@diana-tnbc/wiki-content/pii";
+import {
+  applyPiiRedactions,
+  parseSitePiiPatterns,
+  type PiiPattern,
+} from "@diana-tnbc/wiki-content/pii";
 
 type FixturePage = {
   title: string;
@@ -26,6 +30,7 @@ type MockOptions = {
   manifestFailure?: boolean;
   pageFailures?: Partial<Record<string, number | true>>;
   pageOverrides?: Partial<Record<string, Partial<FixturePage>>>;
+  piiPatterns?: string[] | null;
 };
 
 const generatedAt = "2026-05-09T12:00:00.000Z";
@@ -139,6 +144,8 @@ Survival endpoint definitions belong here.
     tags: ["tables", "examples"],
     content: `# Smart Table Examples
 
+${repeatParagraph("Overview", 12)}
+
 ## Component API Scenarios
 
 | Scenario | Column One | Column Two | Column Three | Column Four | Column Five | Column Six |
@@ -146,12 +153,16 @@ Survival endpoint definitions belong here.
 | Compact row | A short value | Another value | Follow up | Owner | Status | Notes |
 | Landscape row | This row is intentionally long enough to create horizontal overflow in the table wrapper | Wide value | Additional information | Care team | Open | Resize target |
 
+${repeatParagraph("Trailing", 16)}
+
 ## Resize Performance Audit
 
 | Target | Expected | Actual |
 | --- | --- | --- |
 | Resize handle | Responsive | Responsive |
 | Expansion lane | Stable | Stable |
+
+${repeatParagraph("Audit footnotes", 8)}
 `,
   },
   "wiki/media/image-theater": {
@@ -257,8 +268,18 @@ function pagesForOptions(options: MockOptions) {
   return pages;
 }
 
-function pageRecord(slug: string, page: FixturePage): WikiPageRecord {
-  const content = applyPiiRedactions(page.content);
+function resolvePatterns(options: MockOptions): PiiPattern[] | undefined {
+  if (options.piiPatterns === null) return [];
+  if (Array.isArray(options.piiPatterns)) {
+    return parseSitePiiPatterns(options.piiPatterns);
+  }
+  const siteSlug = options.siteSlug ?? defaultSiteSlug;
+  return siteSlug === defaultSiteSlug ? undefined : [];
+}
+
+function pageRecord(slug: string, page: FixturePage, options: MockOptions): WikiPageRecord {
+  const patterns = resolvePatterns(options);
+  const content = applyPiiRedactions(page.content, { patterns });
   return {
     slug,
     title: page.title,
@@ -272,7 +293,7 @@ function pageRecord(slug: string, page: FixturePage): WikiPageRecord {
 
 function visibleRecords(scope: WikiScope, options: MockOptions) {
   return Object.entries(pagesForOptions(options))
-    .map(([slug, page]) => pageRecord(slug, page))
+    .map(([slug, page]) => pageRecord(slug, page, options))
     .filter((page) => scope === "session" || !page.sensitive);
 }
 

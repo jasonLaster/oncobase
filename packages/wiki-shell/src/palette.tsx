@@ -49,6 +49,26 @@ export const WikiCommandList = forwardRef<HTMLDivElement, WikiCommandListProps>(
   },
 );
 
+export type WikiCommandGroupHeadingProps = ComponentProps<"div"> & {
+  heading: ReactNode;
+};
+
+export function WikiCommandGroupHeading({
+  heading,
+  className,
+  ...props
+}: WikiCommandGroupHeadingProps) {
+  return (
+    <div
+      className={cn("wiki-shell-command-group-heading", className)}
+      role="presentation"
+      {...props}
+    >
+      {heading}
+    </div>
+  );
+}
+
 export type WikiCommandItemContentProps = {
   active?: boolean;
   depth?: number;

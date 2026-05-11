@@ -146,18 +146,28 @@ function escapeHtml(value: string) {
 
 function injectHeadMetadata(
   html: string,
-  metadata: { title: string; description?: string | null; canonicalUrl: string },
+  metadata: {
+    title: string;
+    description?: string | null;
+    canonicalUrl: string;
+    sensitive?: boolean;
+  },
 ) {
   const title = escapeHtml(metadata.title);
   const description = escapeHtml(metadata.description || metadata.title);
   const canonicalUrl = escapeHtml(metadata.canonicalUrl);
+  const robotsContent = metadata.sensitive ? "noindex, nofollow" : "index, follow";
   const tags = [
     `<link rel="canonical" href="${canonicalUrl}" />`,
     `<meta name="description" content="${description}" />`,
+    `<meta name="robots" content="${robotsContent}" />`,
     `<meta property="og:title" content="${title}" />`,
     `<meta property="og:description" content="${description}" />`,
     `<meta property="og:url" content="${canonicalUrl}" />`,
     `<meta property="og:type" content="article" />`,
+    `<meta name="twitter:card" content="summary" />`,
+    `<meta name="twitter:title" content="${title}" />`,
+    `<meta name="twitter:description" content="${description}" />`,
   ].join("\n    ");
 
   return html
@@ -188,6 +198,7 @@ async function staticIndexHtml(
     title: page.title,
     description: page.description,
     canonicalUrl: new URL(url.pathname, request.url).toString(),
+    sensitive: page.sensitive === true,
   });
 }
 

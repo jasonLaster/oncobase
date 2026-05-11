@@ -19,7 +19,16 @@ import {
   WikiToast,
   type WikiBreadcrumbItem,
 } from "@diana-tnbc/wiki-shell";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { WikiMermaidGanttMarker } from "@diana-tnbc/wiki-markdown/mermaid";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
   assets$,
@@ -48,6 +57,33 @@ import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
 import { PageActions } from "./PageActions";
+
+const DIANA_GANTT_MARKERS: WikiMermaidGanttMarker[] = [
+  { date: "2026-07-14", label: "Phase 2 (12 weeks)" },
+  { date: "2026-09-10", label: "Surgery" },
+];
+
+const DIANA_GANTT_REFERENCE_YEAR = 2026;
+
+const MERMAID_FENCE_PATTERN = /^\s*```mermaid\s*$/m;
+
+const LazyMermaidRenderer = lazy(() =>
+  import("@diana-tnbc/wiki-markdown/mermaid").then((module) => ({
+    default: module.WikiMermaidRenderer,
+  })),
+);
+
+function MermaidRendererSlot({ content }: { content: string }) {
+  if (!MERMAID_FENCE_PATTERN.test(content)) return null;
+  return (
+    <Suspense fallback={null}>
+      <LazyMermaidRenderer
+        ganttAxisReferenceYear={DIANA_GANTT_REFERENCE_YEAR}
+        ganttMarkers={DIANA_GANTT_MARKERS}
+      />
+    </Suspense>
+  );
+}
 
 function routeLink({ href, children, ...props }: WikiMarkdownLinkProps) {
   return (
@@ -360,6 +396,7 @@ export function WikiPage({
         routeAdapter={routeAdapter}
         tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
       />
+      <MermaidRendererSlot content={page.content} />
       <WikiPageFooter
         items={[
           `Manifest: ${siteState?.generatedAt ?? "pending"}`,

@@ -112,6 +112,7 @@ function WikiViteRoot() {
       scope,
       baseUrl,
       credentials: baseUrl ? "include" : "same-origin",
+      requestTimeoutMs: 30_000,
     });
 
     void client.fetchSessionIdentity()

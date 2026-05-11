@@ -1,16 +1,24 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo, useSyncExternalStore, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  CommandDialog,
   Command,
-  CommandInput,
-  CommandList,
+  CommandDialog,
   CommandEmpty,
   CommandGroup,
+  CommandInput,
   CommandItem,
+  CommandList,
   CommandShortcut,
 } from "@/components/ui/command";
 import {
@@ -20,43 +28,52 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileTextIcon, Loader2Icon, HeadingIcon, ListTreeIcon, CalculatorIcon } from "lucide-react";
-import fuzzysort from "fuzzysort";
+import {
+  CalculatorIcon,
+  FileTextIcon,
+  HeadingIcon,
+  ListTreeIcon,
+  Loader2Icon,
+} from "lucide-react";
+import {
+  COMMAND_PALETTE_HEADING_HEIGHT,
+  COMMAND_PALETTE_ROW_HEIGHT,
+  addCommandPaletteRecentSlug,
+  buildCommandPaletteRows,
+  formatCommandPalettePagePath,
+  getCommandPaletteOutlineElement,
+  getCommandPaletteOutlineHeadings,
+  getCommandPaletteRecentSlugs,
+  installCommandPaletteChords,
+  observeCommandPaletteOutline,
+  prepareCommandPalettePages,
+  scrollCommandPaletteHeadingIntoView,
+  type CommandPaletteOutlineHeading,
+  type CommandPalettePageEntry,
+  type CommandPaletteRow,
+} from "@diana-tnbc/wiki-shell";
 import { themeEffect } from "@/lib/theme-effect";
 import { cn } from "@/lib/utils";
-import { formatFileLabel } from "@/lib/file-labels";
 import { setNavigationIntent } from "@/lib/navigation-intent";
-
-interface PageEntry {
-  name: string;
-  slug: string;
-  path: string;
-}
-
-type PaletteRow =
-  | { type: "heading"; label: string }
-  | { type: "page"; page: PageEntry; pageIndex: number };
-
-type OutlineHeading = {
-  key: string;
-  id: string | null;
-  index: number;
-  level: number;
-  text: string;
-};
 
 // ─── Theme store ──────────────────────────────────────────────────────────────
 
 let themeListeners: Array<() => void> = [];
 function subscribeTheme(cb: () => void) {
   themeListeners.push(cb);
-  return () => { themeListeners = themeListeners.filter((l) => l !== cb); };
+  return () => {
+    themeListeners = themeListeners.filter((listener) => listener !== cb);
+  };
 }
-function notifyTheme() { themeListeners.forEach((l) => l()); }
-function getThemePref() { return localStorage.getItem("theme"); }
-function getThemePrefServer() { return null; }
-
-// ─── Icons ────────────────────────────────────────────────────────────────────
+function notifyTheme() {
+  themeListeners.forEach((listener) => listener());
+}
+function getThemePref() {
+  return localStorage.getItem("theme");
+}
+function getThemePrefServer() {
+  return null;
+}
 
 const SunIcon = () => (
   <svg width="14" height="14" viewBox="0 0 56 56" fill="currentColor" className="shrink-0">
@@ -87,33 +104,7 @@ const SearchIcon = () => (
   </svg>
 );
 
-// ─── Recent files (localStorage) ─────────────────────────────────────────────
-
-const RECENT_KEY = "cmd-palette-recent";
-const MAX_RECENT = 8;
-const MAX_SEARCH_RESULTS = 50;
-const PALETTE_ROW_HEIGHT = 56;
-const PALETTE_HEADING_HEIGHT = 28;
-
-function getRecentSlugs(): string[] {
-  try {
-    const raw = localStorage.getItem(RECENT_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function addRecentSlug(slug: string) {
-  const recent = getRecentSlugs().filter((s) => s !== slug);
-  recent.unshift(slug);
-  if (recent.length > MAX_RECENT) recent.length = MAX_RECENT;
-  try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
-  } catch { /* quota exceeded — ignore */ }
-}
-
-// ─── Palette globals + chord state ───────────────────────────────────────────
+// ─── Palette globals ─────────────────────────────────────────────────────────
 
 let globalOpenFiles: (() => void) | null = null;
 let globalOpenOutline: (() => void) | null = null;
@@ -125,21 +116,8 @@ export function openCommandPalette() {
 export function openActionPalette() {
   globalOpenAction?.();
 }
-
-const CHORD_WINDOW_MS = 600;
-let chordTimer: ReturnType<typeof setTimeout> | null = null;
-
-function startChord() {
-  if (chordTimer) clearTimeout(chordTimer);
-  chordTimer = setTimeout(() => {
-    chordTimer = null;
-    globalOpenFiles?.();
-  }, CHORD_WINDOW_MS);
-}
-
-function endChord() {
-  if (chordTimer) clearTimeout(chordTimer);
-  chordTimer = null;
+export function openOutlinePalette() {
+  globalOpenOutline?.();
 }
 
 // ─── File palette (Cmd+K) ─────────────────────────────────────────────────────
@@ -154,37 +132,30 @@ type IdleSchedulerWindow = Window & {
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
-  const [pages, setPages] = useState<PageEntry[]>([]);
+  const [pages, setPages] = useState<CommandPalettePageEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
-  const [listElement, setListElement] = useState<HTMLDivElement | null>(null);
   const query = search.trim();
   const [isNavigating, startNavigation] = useTransition();
   const router = useRouter();
   const pathname = usePathname();
+  const [listElement, setListElement] = useState<HTMLDivElement | null>(null);
   const pagesLoadedRef = useRef(false);
   const pagesRequestRef = useRef<Promise<void> | null>(null);
   const didResetScrollForOpenRef = useRef(false);
 
   const loadPages = useCallback((showLoading = false) => {
     if (pagesLoadedRef.current) return;
-
-    if (showLoading) {
-      setLoading(true);
-    }
-
-    if (pagesRequestRef.current) {
-      // The in-flight request owns clearing the loading spinner in finally.
-      return;
-    }
+    if (showLoading) setLoading(true);
+    if (pagesRequestRef.current) return;
 
     pagesRequestRef.current = fetch("/api/pages")
-      .then((r) => {
-        if (!r.ok) throw new Error(`pages request failed: ${r.status}`);
-        return r.json();
+      .then((response) => {
+        if (!response.ok) throw new Error(`pages request failed: ${response.status}`);
+        return response.json();
       })
-      .then((nextPages: PageEntry[]) => {
+      .then((nextPages: CommandPalettePageEntry[]) => {
         pagesLoadedRef.current = true;
         setPages(nextPages);
       })
@@ -197,7 +168,9 @@ export function CommandPalette() {
 
   useEffect(() => {
     globalOpenFiles = () => setOpen(true);
-    return () => { globalOpenFiles = null; };
+    return () => {
+      globalOpenFiles = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -219,72 +192,15 @@ export function CommandPalette() {
     };
   }, [loadPages]);
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      const mod = e.metaKey || e.ctrlKey;
-
-      // Chord follow-up — plain F/O/A within the chord window
-      if (chordTimer && !mod && !e.shiftKey && !e.altKey) {
-        if (e.code === "KeyF") {
-          e.preventDefault();
-          e.stopPropagation();
-          endChord();
-          globalOpenFiles?.();
-          return;
-        }
-        if (e.code === "KeyO") {
-          e.preventDefault();
-          e.stopPropagation();
-          endChord();
-          globalOpenOutline?.();
-          return;
-        }
-        if (e.code === "KeyA") {
-          e.preventDefault();
-          e.stopPropagation();
-          endChord();
-          globalOpenAction?.();
-          return;
-        }
-        endChord();
-      }
-
-      if (!mod) return;
-
-      // ⌘K — chord leader (opens files after CHORD_WINDOW_MS unless overridden)
-      if (!e.shiftKey && e.code === "KeyK") {
-        e.preventDefault();
-        startChord();
-        return;
-      }
-
-      // ⌘O — files (legacy)
-      if (!e.shiftKey && e.code === "KeyO") {
-        e.preventDefault();
-        globalOpenFiles?.();
-        return;
-      }
-
-      // ⌘⇧O — outline (legacy)
-      if (e.shiftKey && e.code === "KeyO") {
-        e.preventDefault();
-        globalOpenOutline?.();
-        return;
-      }
-
-      // ⌘⇧K — actions (legacy)
-      if (e.shiftKey && e.code === "KeyK") {
-        e.preventDefault();
-        globalOpenAction?.();
-        return;
-      }
-    }
-    document.addEventListener("keydown", onKeyDown, { capture: true });
-    return () => {
-      document.removeEventListener("keydown", onKeyDown, { capture: true });
-      endChord();
-    };
-  }, []);
+  useEffect(
+    () =>
+      installCommandPaletteChords({
+        onFiles: () => globalOpenFiles?.(),
+        onOutline: () => globalOpenOutline?.(),
+        onAction: () => globalOpenAction?.(),
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (open && pages.length === 0) {
@@ -295,10 +211,9 @@ export function CommandPalette() {
 
   useEffect(() => {
     if (!pages.length || pathname === "/") return;
-
     const slug = decodeURIComponent(pathname.replace(/^\/+/, ""));
     if (pages.some((page) => page.slug === slug)) {
-      addRecentSlug(slug);
+      addCommandPaletteRecentSlug(slug);
     }
   }, [pages, pathname]);
 
@@ -311,117 +226,35 @@ export function CommandPalette() {
   const handleSelect = useCallback(
     (slug: string) => {
       const href = `/${slug}`;
-      addRecentSlug(slug);
+      addCommandPaletteRecentSlug(slug);
       setNavigationIntent(href);
       closePalette();
       startNavigation(() => {
         router.push(href);
       });
     },
-    [closePalette, router, startNavigation]
+    [closePalette, router, startNavigation],
   );
 
-  const recentSlugs = useMemo(() => (open ? getRecentSlugs() : []), [open]);
-
-  // Prepare fuzzysort targets (stable across renders for same pages)
-  const prepared = useMemo(() =>
-    pages.map((page) => ({
-      page,
-      prepName: fuzzysort.prepare(formatFileLabel(page.name)),
-      prepPath: fuzzysort.prepare(page.path),
-    })),
-    [pages]
+  const recentSlugs = useMemo(
+    () => (open ? getCommandPaletteRecentSlugs() : []),
+    [open],
   );
 
-  // Build display: when searching → flat ranked list via fuzzysort; otherwise → all pages in a virtualized browser.
-  const { recentEntries, searchResults, visibleEntries, visibleRows } = useMemo(() => {
-    const empty = {
-      recentEntries: [] as PageEntry[],
-      searchResults: null as PageEntry[] | null,
-      visibleEntries: [] as PageEntry[],
-      visibleRows: [] as PaletteRow[],
-    };
-    if (!pages.length) return empty;
+  const prepared = useMemo(() => prepareCommandPalettePages(pages), [pages]);
 
-    const recentSet = new Set(recentSlugs);
-    const toPageRows = (entries: PageEntry[]): PaletteRow[] =>
-      entries.map((page, pageIndex) => ({ type: "page", page, pageIndex }));
-
-    if (query) {
-      const normalizedSearch = query.toLowerCase();
-      const results = fuzzysort.go(query, prepared, {
-        keys: ["prepName", "prepPath"],
-        limit: MAX_SEARCH_RESULTS,
-        threshold: -1000,
-      });
-
-      // Sort: fuzzysort score first, then boost recents within similar scores
-      const ranked = results
-        .map((r) => ({ page: r.obj.page, score: r.score }))
-        .sort((a, b) => {
-          const aExact =
-            a.page.slug.toLowerCase() === normalizedSearch ||
-            formatFileLabel(a.page.name).toLowerCase() === normalizedSearch;
-          const bExact =
-            b.page.slug.toLowerCase() === normalizedSearch ||
-            formatFileLabel(b.page.name).toLowerCase() === normalizedSearch;
-          if (aExact !== bExact) return aExact ? -1 : 1;
-
-          const diff = b.score - a.score;
-          // Within a tight score band, prefer recents
-          if (Math.abs(diff) < 50) {
-            const aRecent = recentSet.has(a.page.slug) ? 1 : 0;
-            const bRecent = recentSet.has(b.page.slug) ? 1 : 0;
-            if (aRecent !== bRecent) return bRecent - aRecent;
-          }
-          return diff;
-        })
-        .map((r) => r.page);
-
-      return {
-        recentEntries: [],
-        searchResults: ranked,
-        visibleEntries: ranked,
-        visibleRows: toPageRows(ranked),
-      };
-    }
-
-    const recent = recentSlugs
-      .map((slug) => pages.find((p) => p.slug === slug))
-      .filter((p): p is PageEntry => !!p);
-
-    const recentSetForDisplay = new Set(recent.map((page) => page.slug));
-    const remainingPages = pages.filter((page) => !recentSetForDisplay.has(page.slug));
-    const groupedEntries = [...recent, ...remainingPages];
-    const rows: PaletteRow[] = [];
-
-    if (recent.length > 0) {
-      rows.push({ type: "heading", label: "Recent pages" });
-      rows.push(...recent.map((page, pageIndex) => ({ type: "page" as const, page, pageIndex })));
-      if (remainingPages.length > 0) {
-        rows.push({ type: "heading", label: "All pages" });
-        rows.push(...remainingPages.map((page, index) => ({
-          type: "page" as const,
-          page,
-          pageIndex: recent.length + index,
-        })));
-      }
-    } else {
-      rows.push(...toPageRows(pages));
-    }
-
-    return {
-      recentEntries: recent,
-      searchResults: null,
-      visibleEntries: groupedEntries,
-      visibleRows: rows,
-    };
-  }, [pages, prepared, query, recentSlugs]);
+  const { recentEntries, searchResults, visibleEntries, visibleRows } = useMemo(
+    () => buildCommandPaletteRows({ pages, prepared, query, recentSlugs }),
+    [pages, prepared, query, recentSlugs],
+  );
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual owns measurement callbacks for this isolated listbox.
   const rowVirtualizer = useVirtualizer({
     count: visibleRows.length,
-    estimateSize: (index) => visibleRows[index]?.type === "heading" ? PALETTE_HEADING_HEIGHT : PALETTE_ROW_HEIGHT,
+    estimateSize: (index) =>
+      visibleRows[index]?.type === "heading"
+        ? COMMAND_PALETTE_HEADING_HEIGHT
+        : COMMAND_PALETTE_ROW_HEIGHT,
     getScrollElement: () => listElement,
     overscan: 8,
   });
@@ -445,76 +278,93 @@ export function CommandPalette() {
   }, [listElement, open, rowVirtualizer, visibleRows.length]);
 
   const activeRowIndex = useMemo(
-    () => visibleRows.findIndex((row) => row.type === "page" && row.pageIndex === activeIndex),
-    [activeIndex, visibleRows]
+    () =>
+      visibleRows.findIndex(
+        (row) => row.type === "page" && row.pageIndex === activeIndex,
+      ),
+    [activeIndex, visibleRows],
   );
 
   useEffect(() => {
     if (!open || loading) return;
-
     const timeoutId = setTimeout(() => {
       const page = searchResults?.[0] ?? recentEntries[0];
-      if (page) {
-        router.prefetch(`/${page.slug}`);
-      }
+      if (page) router.prefetch(`/${page.slug}`);
     }, 200);
-
     return () => clearTimeout(timeoutId);
   }, [loading, open, recentEntries, router, searchResults]);
 
-  const moveActive = useCallback((delta: number) => {
-    setActiveIndex((current) => {
-      if (visibleEntries.length === 0) return 0;
-      const next = Math.min(Math.max(current + delta, 0), visibleEntries.length - 1);
-      const nextRowIndex = visibleRows.findIndex((row) => row.type === "page" && row.pageIndex === next);
-      rowVirtualizer.scrollToIndex(nextRowIndex === -1 ? next : nextRowIndex, { align: "auto" });
-      return next;
-    });
-  }, [rowVirtualizer, visibleEntries.length, visibleRows]);
+  const moveActive = useCallback(
+    (delta: number) => {
+      setActiveIndex((current) => {
+        if (visibleEntries.length === 0) return 0;
+        const next = Math.min(
+          Math.max(current + delta, 0),
+          visibleEntries.length - 1,
+        );
+        const nextRowIndex = visibleRows.findIndex(
+          (row) => row.type === "page" && row.pageIndex === next,
+        );
+        rowVirtualizer.scrollToIndex(
+          nextRowIndex === -1 ? next : nextRowIndex,
+          { align: "auto" },
+        );
+        return next;
+      });
+    },
+    [rowVirtualizer, visibleEntries.length, visibleRows],
+  );
 
   const selectActive = useCallback(() => {
     const page = visibleEntries[activeIndex];
-    if (page) {
-      handleSelect(page.slug);
-    }
+    if (page) handleSelect(page.slug);
   }, [activeIndex, handleSelect, visibleEntries]);
 
-  const onInputKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      moveActive(1);
-      return;
-    }
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      moveActive(-1);
-      return;
-    }
-    if (event.key === "Home") {
-      event.preventDefault();
-      setActiveIndex(0);
-      const firstRowIndex = visibleRows.findIndex((row) => row.type === "page");
-      rowVirtualizer.scrollToIndex(firstRowIndex === -1 ? 0 : firstRowIndex, { align: "start" });
-      return;
-    }
-    if (event.key === "End") {
-      event.preventDefault();
-      const last = Math.max(0, visibleEntries.length - 1);
-      setActiveIndex(last);
-      const lastRowIndex = visibleRows.findIndex((row) => row.type === "page" && row.pageIndex === last);
-      rowVirtualizer.scrollToIndex(lastRowIndex === -1 ? last : lastRowIndex, { align: "end" });
-      return;
-    }
-    if (event.key === "Enter") {
-      event.preventDefault();
-      selectActive();
-      return;
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      closePalette();
-    }
-  }, [closePalette, moveActive, rowVirtualizer, selectActive, visibleEntries.length, visibleRows]);
+  const onInputKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        moveActive(1);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        moveActive(-1);
+        return;
+      }
+      if (event.key === "Home") {
+        event.preventDefault();
+        setActiveIndex(0);
+        const firstRowIndex = visibleRows.findIndex((row) => row.type === "page");
+        rowVirtualizer.scrollToIndex(firstRowIndex === -1 ? 0 : firstRowIndex, {
+          align: "start",
+        });
+        return;
+      }
+      if (event.key === "End") {
+        event.preventDefault();
+        const last = Math.max(0, visibleEntries.length - 1);
+        setActiveIndex(last);
+        const lastRowIndex = visibleRows.findIndex(
+          (row) => row.type === "page" && row.pageIndex === last,
+        );
+        rowVirtualizer.scrollToIndex(lastRowIndex === -1 ? last : lastRowIndex, {
+          align: "end",
+        });
+        return;
+      }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        selectActive();
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closePalette();
+      }
+    },
+    [closePalette, moveActive, rowVirtualizer, selectActive, visibleEntries.length, visibleRows],
+  );
 
   return (
     <>
@@ -531,11 +381,8 @@ export function CommandPalette() {
       <Dialog
         open={open}
         onOpenChange={(nextOpen) => {
-          if (nextOpen) {
-            setOpen(true);
-          } else {
-            closePalette();
-          }
+          if (nextOpen) setOpen(true);
+          else closePalette();
         }}
       >
         {open ? (
@@ -551,7 +398,11 @@ export function CommandPalette() {
               <div className="p-1 pb-2">
                 <div className="relative flex h-8! w-full min-w-0 items-center rounded-lg! border border-input/30 bg-input/30 shadow-none!">
                   <input
-                    aria-activedescendant={visibleEntries[activeIndex] ? `page-palette-${activeIndex}` : undefined}
+                    aria-activedescendant={
+                      visibleEntries[activeIndex]
+                        ? `page-palette-${activeIndex}`
+                        : undefined
+                    }
                     aria-controls="page-palette-list"
                     aria-expanded={open}
                     aria-label="Search pages"
@@ -582,22 +433,18 @@ export function CommandPalette() {
                     <Loader2Icon className="size-4 animate-spin mr-2" />
                     <span className="text-sm">Loading pages…</span>
                   </div>
+                ) : visibleEntries.length === 0 ? (
+                  <div className="py-6 text-center text-sm">No pages found.</div>
                 ) : (
-                  <>
-                    {visibleEntries.length === 0 ? (
-                      <div className="py-6 text-center text-sm">No pages found.</div>
-                    ) : (
-                      <VirtualizedPageEntries
-                        activeIndex={activeIndex}
-                        activeRowIndex={activeRowIndex}
-                        onActiveIndexChange={setActiveIndex}
-                        onSelect={handleSelect}
-                        rows={visibleRows}
-                        rowVirtualizer={rowVirtualizer}
-                        valueMode={query ? "slug" : "label"}
-                      />
-                    )}
-                  </>
+                  <VirtualizedPageEntries
+                    activeIndex={activeIndex}
+                    activeRowIndex={activeRowIndex}
+                    onActiveIndexChange={setActiveIndex}
+                    onSelect={handleSelect}
+                    rows={visibleRows}
+                    rowVirtualizer={rowVirtualizer}
+                    valueMode={query ? "slug" : "label"}
+                  />
                 )}
               </div>
             </div>
@@ -621,7 +468,7 @@ function VirtualizedPageEntries({
   activeRowIndex: number;
   onActiveIndexChange: (index: number) => void;
   onSelect: (slug: string) => void;
-  rows: PaletteRow[];
+  rows: CommandPaletteRow[];
   rowVirtualizer: ReturnType<typeof useVirtualizer<HTMLDivElement, Element>>;
   valueMode: "label" | "slug";
 }) {
@@ -652,11 +499,9 @@ function VirtualizedPageEntries({
           }
 
           const page = row.page;
-          const group = getGroup(page.slug);
           const selected = row.pageIndex === activeIndex;
-          const value = valueMode === "slug"
-            ? page.slug
-            : `${page.name} ${page.path} ${group}`;
+          const value =
+            valueMode === "slug" ? page.slug : `${page.name} ${page.path}`;
 
           return (
             <button
@@ -676,14 +521,16 @@ function VirtualizedPageEntries({
               className={cn(
                 "absolute left-0 top-0 flex h-14 w-full cursor-default items-center gap-2 rounded-lg px-2 py-2 text-left text-sm outline-hidden select-none",
                 selected && "bg-muted text-foreground",
-                virtualItem.index === activeRowIndex && "z-10"
+                virtualItem.index === activeRowIndex && "z-10",
               )}
               style={{ transform: `translateY(${virtualItem.start}px)` }}
             >
               <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
               <div className="flex flex-col min-w-0">
-                <span className="truncate">{formatFileLabel(page.name)}</span>
-                <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
+                <span className="truncate">{page.name.replace(/-/g, " ")}</span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {formatCommandPalettePagePath(page.slug)}
+                </span>
               </div>
             </button>
           );
@@ -693,127 +540,17 @@ function VirtualizedPageEntries({
   );
 }
 
-function getGroup(slug: string): string {
-  const parts = slug.split("/");
-  return parts.length >= 3 ? parts[1] : parts.length === 2 ? parts[0] : "";
-}
-
-function formatPath(slug: string): string {
-  const parts = slug.split("/");
-  return parts.length > 1 ? parts.slice(0, -1).join("/") : "/";
-}
-
 // ─── Outline palette (Cmd+Shift+O) ───────────────────────────────────────────
-
-export function openOutlinePalette() {
-  globalOpenOutline?.();
-}
-
-function isVisible(element: HTMLElement) {
-  return element.offsetParent !== null || element.getClientRects().length > 0;
-}
-
-function getOutlineRoot() {
-  const articles = Array.from(document.querySelectorAll<HTMLElement>("article"));
-  return articles.find(isVisible) ?? null;
-}
-
-function getOutlineHeadingText(heading: HTMLHeadingElement) {
-  const clone = heading.cloneNode(true) as HTMLHeadingElement;
-  clone
-    .querySelectorAll('a[href^="#"], a[aria-hidden="true"], .anchor, .header-anchor, .hash-link, .heading-anchor')
-    .forEach((anchor) => anchor.remove());
-
-  const text = clone.textContent ?? heading.textContent ?? "";
-  return text
-    .replace(/^#{1,6}\s*/, "")
-    .replace(/(?:\s*#\s*)+$/, "")
-    .trim();
-}
-
-function getOutlineHeadingElements(root = getOutlineRoot()) {
-  if (!root) return [];
-
-  return Array.from(
-    root.querySelectorAll<HTMLHeadingElement>("h1, h2, h3, h4, h5, h6")
-  ).filter((heading) => getOutlineHeadingText(heading).length > 0);
-}
-
-function getOutlineHeadings(): OutlineHeading[] {
-  return getOutlineHeadingElements().map((heading, index) => {
-    const id = heading.id || null;
-    return {
-      key: id ? `id:${id}` : `index:${index}`,
-      id,
-      index,
-      level: Number.parseInt(heading.tagName.slice(1), 10),
-      text: getOutlineHeadingText(heading),
-    };
-  });
-}
-
-function getScrollContainer(element: HTMLElement | null) {
-  if (!element) return null;
-
-  let current = element.parentElement;
-  while (current) {
-    const style = window.getComputedStyle(current);
-    const overflowY = style.overflowY;
-    if ((overflowY === "auto" || overflowY === "scroll") && current.scrollHeight > current.clientHeight) {
-      return current;
-    }
-    current = current.parentElement;
-  }
-
-  return document.scrollingElement instanceof HTMLElement
-    ? document.scrollingElement
-    : document.documentElement;
-}
-
-function scrollElementIntoContainerView(target: HTMLElement) {
-  const scrollContainer = getScrollContainer(target);
-  if (!scrollContainer) return;
-
-  const offset = 24;
-  const targetRect = target.getBoundingClientRect();
-
-  if (
-    scrollContainer === document.documentElement ||
-    scrollContainer === document.body ||
-    scrollContainer === document.scrollingElement
-  ) {
-    window.scrollTo({
-      top: Math.max(0, window.scrollY + targetRect.top - offset),
-      behavior: "smooth",
-    });
-    return;
-  }
-
-  const containerRect = scrollContainer.getBoundingClientRect();
-  const nextTop = scrollContainer.scrollTop + targetRect.top - containerRect.top - offset;
-  scrollContainer.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
-}
-
-function getElementForHeading(item: OutlineHeading) {
-  const root = getOutlineRoot();
-  if (!root) return null;
-
-  if (item.id) {
-    return root.querySelector<HTMLElement>(`#${CSS.escape(item.id)}`) ?? document.getElementById(item.id);
-  }
-
-  return getOutlineHeadingElements(root)[item.index] ?? null;
-}
 
 export function OutlinePalette() {
   const [open, setOpen] = useState(false);
-  const [headings, setHeadings] = useState<OutlineHeading[]>([]);
+  const [headings, setHeadings] = useState<CommandPaletteOutlineHeading[]>([]);
   const [search, setSearch] = useState("");
   const pathname = usePathname();
   const listRef = useRef<HTMLDivElement>(null);
 
   const refreshHeadings = useCallback(() => {
-    setHeadings(getOutlineHeadings());
+    setHeadings(getCommandPaletteOutlineHeadings());
   }, []);
 
   useEffect(() => {
@@ -821,7 +558,9 @@ export function OutlinePalette() {
       refreshHeadings();
       setOpen(true);
     };
-    return () => { globalOpenOutline = null; };
+    return () => {
+      globalOpenOutline = null;
+    };
   }, [refreshHeadings]);
 
   useEffect(() => {
@@ -830,36 +569,28 @@ export function OutlinePalette() {
       setSearch("");
       return;
     }
-
     refreshHeadings();
-    const root = getOutlineRoot();
-    if (!root) return;
-
-    const observer = new MutationObserver(refreshHeadings);
-    observer.observe(root, { childList: true, subtree: true, characterData: true });
-    return () => observer.disconnect();
+    return observeCommandPaletteOutline(refreshHeadings);
   }, [open, pathname, refreshHeadings]);
 
-  const handleSelect = useCallback((item: OutlineHeading) => {
-    const target = getElementForHeading(item);
+  const handleSelect = useCallback((item: CommandPaletteOutlineHeading) => {
+    const target = getCommandPaletteOutlineElement(item);
     if (!target) return;
 
     if (item.id) {
       window.history.pushState(
         null,
         "",
-        `${window.location.pathname}${window.location.search}#${encodeURIComponent(item.id)}`
+        `${window.location.pathname}${window.location.search}#${encodeURIComponent(item.id)}`,
       );
     }
 
-    if (!target.hasAttribute("tabindex")) {
-      target.tabIndex = -1;
-    }
+    if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
 
     setOpen(false);
     requestAnimationFrame(() => {
       target.focus({ preventScroll: true });
-      scrollElementIntoContainerView(target);
+      scrollCommandPaletteHeadingIntoView(target);
     });
   }, []);
 
@@ -869,14 +600,16 @@ export function OutlinePalette() {
         <CommandInput
           placeholder="Search headings…"
           value={search}
-          onValueChange={(v) => {
-            setSearch(v);
+          onValueChange={(value) => {
+            setSearch(value);
             requestAnimationFrame(() => listRef.current?.scrollTo(0, 0));
           }}
         />
         <CommandList ref={listRef}>
           <CommandEmpty>
-            {headings.length === 0 ? "No headings found on this page." : "No matching headings."}
+            {headings.length === 0
+              ? "No headings found on this page."
+              : "No matching headings."}
           </CommandEmpty>
           {headings.length > 0 ? (
             <CommandGroup heading="Headings">
@@ -894,10 +627,14 @@ export function OutlinePalette() {
                   >
                     <span className="truncate">{heading.text}</span>
                     {heading.id ? (
-                      <span className="truncate text-xs text-muted-foreground">#{heading.id}</span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        #{heading.id}
+                      </span>
                     ) : null}
                   </div>
-                  <CommandShortcut className="tracking-normal">H{heading.level}</CommandShortcut>
+                  <CommandShortcut className="tracking-normal">
+                    H{heading.level}
+                  </CommandShortcut>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -917,36 +654,38 @@ export function ActionPalette() {
   const preference = useSyncExternalStore(subscribeTheme, getThemePref, getThemePrefServer);
   const currentTheme = useSyncExternalStore(
     useCallback((cb: () => void) => {
-      const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      mq.addEventListener("change", cb);
-      return () => mq.removeEventListener("change", cb);
+      const media = window.matchMedia("(prefers-color-scheme: dark)");
+      media.addEventListener("change", cb);
+      return () => media.removeEventListener("change", cb);
     }, []),
     () => themeEffect(),
     () => "light",
   );
 
-  const themeLabel = preference === null ? "System" : preference === "dark" ? "Dark" : "Light";
+  const themeLabel =
+    preference === null ? "System" : preference === "dark" ? "Dark" : "Light";
 
   useEffect(() => {
     globalOpenAction = () => setOpen(true);
-    return () => { globalOpenAction = null; };
+    return () => {
+      globalOpenAction = null;
+    };
   }, []);
 
   function cycleTheme() {
-    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    let newPref: string | null;
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+    let nextPref: string | null;
     if (preference === null) {
-      newPref = systemTheme === "dark" ? "light" : "dark";
+      nextPref = systemTheme === "dark" ? "light" : "dark";
     } else if (preference === "dark") {
-      newPref = "light";
+      nextPref = "light";
     } else {
-      newPref = null;
+      nextPref = null;
     }
-    if (newPref === null) {
-      localStorage.removeItem("theme");
-    } else {
-      localStorage.setItem("theme", newPref);
-    }
+    if (nextPref === null) localStorage.removeItem("theme");
+    else localStorage.setItem("theme", nextPref);
     themeEffect();
     notifyTheme();
     setOpen(false);
@@ -979,7 +718,9 @@ export function ActionPalette() {
               <span className="ml-2">
                 Switch to {currentTheme === "dark" ? "Light" : "Dark"} theme
               </span>
-              <span className="ml-auto text-xs text-muted-foreground">Current: {themeLabel}</span>
+              <span className="ml-auto text-xs text-muted-foreground">
+                Current: {themeLabel}
+              </span>
             </CommandItem>
             <CommandItem value="theme system auto" onSelect={useSystemTheme}>
               <MonitorIcon />
@@ -997,23 +738,47 @@ export function ActionPalette() {
             </CommandItem>
           </CommandGroup>
           <CommandGroup heading="Navigate">
-            <CommandItem value="files pages palette" onSelect={() => { setOpen(false); openCommandPalette(); }}>
+            <CommandItem
+              value="files pages palette"
+              onSelect={() => {
+                setOpen(false);
+                openCommandPalette();
+              }}
+            >
               <FileTextIcon />
               <span className="ml-2">Find files</span>
               <CommandShortcut>⌘K F</CommandShortcut>
             </CommandItem>
-            <CommandItem value="outline headings headers current page" onSelect={() => { setOpen(false); openOutlinePalette(); }}>
+            <CommandItem
+              value="outline headings headers current page"
+              onSelect={() => {
+                setOpen(false);
+                openOutlinePalette();
+              }}
+            >
               <ListTreeIcon />
               <span className="ml-2">Open outline</span>
               <CommandShortcut>⌘K O</CommandShortcut>
             </CommandItem>
-            <CommandItem value="search full text" onSelect={() => { setOpen(false); router.push("/search"); }}>
+            <CommandItem
+              value="search full text"
+              onSelect={() => {
+                setOpen(false);
+                router.push("/search");
+              }}
+            >
               <SearchIcon />
               <span className="ml-2">Open search</span>
             </CommandItem>
           </CommandGroup>
           <CommandGroup heading="Tools">
-            <CommandItem value="medical deduction calculator tax planner" onSelect={() => { setOpen(false); router.push("/tools/medical-deduction"); }}>
+            <CommandItem
+              value="medical deduction calculator tax planner"
+              onSelect={() => {
+                setOpen(false);
+                router.push("/tools/medical-deduction");
+              }}
+            >
               <CalculatorIcon className="size-4 shrink-0 opacity-70" />
               <span className="ml-2">Medical deduction calculator</span>
             </CommandItem>

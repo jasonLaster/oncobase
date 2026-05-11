@@ -14,6 +14,11 @@ import { createConvexFlusher } from "../../../packages/chat/src/flusher.js";
 import { getCachedSystemPrompt } from "../../../packages/chat/src/system-prompt-cache.js";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "../../../packages/wiki-content/src/pii.js";
 import { readChatPageFromDocuments } from "../../../packages/wiki-content/src/chat-tools.js";
+import {
+  ChatRequestSchema,
+  compactChatToolResult,
+  generateChatSearchPatterns,
+} from "../../../packages/wiki-content/src/chat-route.js";
 import { api } from "../../../web/convex/_generated/api.js";
 import type { Id } from "../../../web/convex/_generated/dataModel.js";
 
@@ -56,20 +61,6 @@ type PiiPatternEntry = {
 
 const piiPatternCache = new Map<string, PiiPatternEntry>();
 
-const ChatRequestSchema = z.object({
-  messages: z
-    .array(
-      z.object({
-        id: z.string().optional(),
-        role: z.enum(["user", "assistant", "system"]),
-        parts: z.array(z.unknown()).optional(),
-        content: z.string().optional(),
-      }),
-    )
-    .min(1, "messages must not be empty"),
-  conversationId: z.string().optional(),
-});
-
 const SYSTEM_PROMPT_BASE = `You are a research assistant for a triple-negative breast cancer (TNBC) knowledge base. You help answer questions about the patient's diagnosis, treatment plan, research, and related medical topics.
 
 You have access to tools that let you search and read wiki pages. Use them to find relevant information before answering. Always ground your answers in the wiki content when possible.
@@ -111,90 +102,6 @@ async function embedQuery(query: string) {
     input: query,
   });
   return response.data[0]?.embedding ?? null;
-}
-
-function compactToolResult(result: unknown): unknown {
-  if (
-    typeof result === "object" &&
-    result !== null &&
-    "content" in (result as Record<string, unknown>)
-  ) {
-    const record = result as Record<string, unknown>;
-    return Object.fromEntries(Object.entries(record).filter(([key]) => key !== "content"));
-  }
-  if (Array.isArray(result)) {
-    return (result as Array<Record<string, unknown>>).map((record) => ({
-      slug: record.slug,
-      title: record.title,
-      href: record.href,
-      anchor: record.anchor,
-    }));
-  }
-  return result;
-}
-
-function generateSearchPatterns(query: string): string[] {
-  const patterns = new Set<string>();
-  const clean = query.trim();
-  if (!clean) return [];
-
-  const stopWords = new Set([
-    "a", "an", "the", "is", "are", "was", "were", "in", "on", "at", "to",
-    "for", "of", "with", "and", "or", "but", "not", "from", "by", "about",
-    "what", "how", "does", "do", "can", "will", "should", "would", "could",
-    "her", "his", "my", "our", "their", "this", "that", "these", "those",
-    "it", "they", "we", "you", "i", "me", "she", "he",
-    "before", "after", "during", "between", "through", "into", "like",
-    "diana", "diana's", "tnbc", "breast", "cancer", "tumor",
-    "patient", "doctor", "medical", "clinical", "results",
-    "ucsf", "stanford",
-  ]);
-
-  const significantWords = clean
-    .split(/\s+/)
-    .filter((word) => word.length >= 2 && !stopWords.has(word.toLowerCase()));
-  const cleaned = significantWords.join(" ");
-  if (cleaned) patterns.add(cleaned);
-
-  const expansions: Record<string, string[]> = {
-    tnbc: ["triple-negative breast cancer"],
-    pcr: ["pathologic complete response"],
-    ctdna: ["circulating tumor DNA", "ctDNA"],
-    mrd: ["minimal residual disease"],
-    rcb: ["residual cancer burden"],
-    hrd: ["homologous recombination deficiency"],
-    stils: ["stromal tumor-infiltrating lymphocytes", "sTILs"],
-    tmb: ["tumor mutational burden"],
-    "keynote-522": ["pembrolizumab chemotherapy neoadjuvant"],
-    "k-522": ["KEYNOTE-522"],
-    ac: ["doxorubicin cyclophosphamide"],
-    pembro: ["pembrolizumab"],
-    idc: ["invasive ductal carcinoma"],
-    nact: ["neoadjuvant chemotherapy"],
-    hbo2t: ["hyperbaric oxygen therapy"],
-    pd: ["programmed death ligand"],
-    brca: ["BRCA1 BRCA2 germline mutation"],
-    her2: ["HER2 erbb2"],
-  };
-
-  const lower = clean.toLowerCase();
-  for (const [abbreviation, alternatives] of Object.entries(expansions)) {
-    if (patterns.size >= 5) break;
-    if (!lower.includes(abbreviation)) continue;
-    for (const alternative of alternatives) {
-      if (patterns.size >= 5) break;
-      patterns.add(alternative);
-    }
-  }
-
-  if (significantWords.length >= 3) {
-    for (const word of [...significantWords].sort((a, b) => b.length - a.length).slice(0, 2)) {
-      if (patterns.size >= 5) break;
-      patterns.add(word);
-    }
-  }
-
-  return Array.from(patterns).slice(0, 5);
 }
 
 function documentsGateway(
@@ -384,7 +291,7 @@ export async function handleChatRequest({
           query: z.string().describe("What you're looking for"),
         }),
         execute: async ({ query }: { query: string }) => {
-          const patterns = generateSearchPatterns(query);
+          const patterns = generateChatSearchPatterns(query);
           const textSearchPromise = Promise.all(
             patterns.map((pattern) => documents.search({ query: pattern, limit: 6 })),
           );
@@ -476,7 +383,7 @@ export async function handleChatRequest({
         });
       } else if (chunk.type === "tool-result") {
         const toolResult = chunk as unknown as { toolCallId: string; result: unknown };
-        flusher.updateToolResult(toolResult.toolCallId, compactToolResult(toolResult.result));
+        flusher.updateToolResult(toolResult.toolCallId, compactChatToolResult(toolResult.result));
       }
     },
     onError: async (event) => {
@@ -510,7 +417,7 @@ export async function handleChatRequest({
             input:
               (toolCall as unknown as Record<string, unknown>).args ??
               (toolCall as unknown as Record<string, unknown>).input,
-            output: toolResult ? compactToolResult(toolResult.result) : null,
+            output: toolResult ? compactChatToolResult(toolResult.result) : null,
             state: "output-available",
           });
         }

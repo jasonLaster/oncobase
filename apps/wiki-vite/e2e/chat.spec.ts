@@ -80,4 +80,20 @@ test.describe("Chat", () => {
     await expect(mobileChatList.getByTestId("conversation-list-new-chat")).toBeVisible();
     await expect(mobileChatList.getByTestId("conversation-list-archived")).toBeVisible();
   });
+
+  test("mobile chat layout hides the desktop conversation sidebar and gives main full width", async ({ page }) => {
+    const viewport = { width: 390, height: 844 };
+    await page.setViewportSize(viewport);
+    await page.goto("/chat", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("chat-interface")).toBeVisible();
+
+    const sidebar = page.locator(".wiki-shell-chat-sidebar").first();
+    await expect(sidebar).toBeHidden();
+
+    const main = page.locator(".wiki-shell-chat-main").first();
+    const mainWidth = await main.evaluate((element) => element.getBoundingClientRect().width);
+    expect(mainWidth).toBeGreaterThan(viewport.width - 24);
+
+    await expect(page.getByTestId("bottom-nav-trigger")).toBeVisible();
+  });
 });
