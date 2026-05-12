@@ -193,6 +193,35 @@ export default defineSchema({
     .index("by_room_id", ["roomId"])
     .index("by_site_room", ["siteId", "roomId"]),
 
+  roles: defineTable({
+    siteId: v.optional(v.id("sites")),
+    name: v.string(),
+    description: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_name", ["name"])
+    .index("by_site_name", ["siteId", "name"]),
+
+  rolePermissions: defineTable({
+    siteId: v.optional(v.id("sites")),
+    roleId: v.id("roles"),
+    pathPattern: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_role", ["roleId"])
+    .index("by_site_role", ["siteId", "roleId"]),
+
+  userRoles: defineTable({
+    siteId: v.optional(v.id("sites")),
+    userId: v.id("users"),
+    roleId: v.id("roles"),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_role", ["userId", "roleId"])
+    .index("by_site_user", ["siteId", "userId"]),
+
   userSessions: defineTable({
     siteId: v.optional(v.id("sites")),
     userId: v.id("users"),

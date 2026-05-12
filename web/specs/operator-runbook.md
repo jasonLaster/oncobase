@@ -175,7 +175,8 @@ this on purpose — operator attention is the safety mechanism.
    manual via the Convex dashboard or a one-shot script. Tables
    with `siteId`: `documents`, `pdfAssets`, `fileAssets`, `meta`,
    `conversations`, `messages`, `commentRooms`, `users`,
-   `userSessions`, `guestNames`.
+   `userSessions`, `guestNames`, `roles`, `rolePermissions`,
+   `userRoles`.
 5. Delete Blob keys under `sites/<siteSlug>/`.
 6. Delete the Liveblocks workspace (when v1 ships per-site
    workspaces; today the deployment-level fallback is shared).

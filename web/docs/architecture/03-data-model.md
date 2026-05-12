@@ -13,6 +13,10 @@ erDiagram
   sites ||--o{ users           : owns
   sites ||--o{ guestNames      : owns
   sites ||--o{ commentRooms    : owns
+  sites ||--o{ roles           : owns
+  roles ||--o{ rolePermissions : grants
+  users ||--o{ userRoles       : assigned
+  roles ||--o{ userRoles       : assigned
   conversations ||--o{ messages : has
   users ||--o{ userSessions    : has
 
@@ -46,6 +50,21 @@ erDiagram
     id siteId FK
     string role
     array parts
+  }
+  roles {
+    id siteId FK
+    string name
+    string description
+  }
+  rolePermissions {
+    id siteId FK
+    id roleId FK
+    string pathPattern
+  }
+  userRoles {
+    id siteId FK
+    id userId FK
+    id roleId FK
   }
 ```
 
@@ -84,8 +103,21 @@ flowchart TB
 - **Reads** must include `siteId` in the index range.
 - **Writes** must include `siteId` in the row.
 - **Search/vector** must include `siteId` in the filter.
+- **RBAC joins** must keep `roles`, `rolePermissions`, and `userRoles` scoped to the same `siteId`.
 
 Cross-site leak tests in CI run a fixture with two sites and assert that reads/searches/embeddings against site A never surface site B rows ([`web/specs/multi-site.md`](../../specs/multi-site.md)).
+
+## Role permissions
+
+Role-based access control lives in three Convex tables:
+
+| Table | Purpose |
+|---|---|
+| `roles` | Named role within one site, such as `Research reviewer`. |
+| `rolePermissions` | Path-prefix permissions for a role, such as `sources/private/*`. |
+| `userRoles` | Assignment join from a site user to a site role. |
+
+The access query builds the set of protected path patterns from `rolePermissions`. If a source slug does not match any protected pattern, it stays public. If it does match, the user needs a role assignment whose own permissions also match that slug. This model is intentionally additive: assigning a role grants access; absence of a role never hides otherwise public pages.
 
 ## Storage: where does each kind of asset live?
 

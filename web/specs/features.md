@@ -217,6 +217,11 @@ The app is a multi-site wiki publishing platform. Diana is site #1; additional s
   - sign up with name, email, and password
   - sign in and sign out from the actions menu
   - persistent session cookies
+- Role-based access permissions are account-based and site-scoped:
+  - `/admin/access` creates roles and assigns them to site users
+  - each role grants path-prefix permissions such as `sources/private/*`
+  - public source pages render before RBAC is consulted
+  - protected source pages return 404 unless the signed-in user has a matching role
 - Liveblocks comments use either:
   - authenticated users resolved through Convex
   - a persistent guest identity stored in a cookie, local storage, and Convex so other users can resolve the display name

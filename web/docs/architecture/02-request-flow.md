@@ -30,7 +30,14 @@ sequenceDiagram
   H->>L: siteScopeFromRequest(request)
   L->>CX: documents.bySlug({ siteSlug, slug })
   CX-->>L: document row
-  L-->>H: page data
+  alt public document
+    L-->>H: page data
+  else protected source document
+    H->>L: access.canUserAccessSlug({ userId, slug })
+    L->>CX: userRoles + rolePermissions for site
+    CX-->>L: allowed?
+    L-->>H: page data or 404
+  end
   H-->>B: streamed HTML
 ```
 
@@ -65,6 +72,16 @@ Three rules keep the boundary tight:
 - **Never read `x-site-slug` ad-hoc.** Always go through `getRequestSiteSlug()` (RSC) or `siteSlugFromRequest()` (handlers). Both return a branded `SiteSlug` so a raw string can't sneak through.
 - **Every Convex query takes `siteSlug`.** `site-data.ts` provides typed wrappers (`querySite`, `mutateSite`) that inject it; you can't accidentally call a tenant query without one.
 - **Convex enforces it.** Inside Convex, `requireSite(ctx, slug)` resolves `siteId`, throws on mismatch, and is the only sanctioned way to land on the table. Indexes are `by_site_*` so cross-tenant scans are impossible by construction.
+
+## Role-based source access
+
+The site password gate and account session are separate from role-based access. The password gate decides whether a browser may enter a site at all. Account auth identifies a user through the `wiki_user_session` cookie. Role permissions then decide whether that account may read a protected source page.
+
+Today the RBAC gate is route-scoped to source documents. Public `sources/*` documents render first through the normal document lookup. If the public lookup returns no row because the source is sensitive/protected, `src/app/(main)/sources/[...slug]/page.tsx` resolves the account session and asks `access.canUserAccessSlug` for the exact source slug.
+
+Role permissions are path-prefix patterns stored in Convex. `sources/private/*` protects that subtree, `sources/private/report` protects that exact prefix, and `*` grants the whole site. A slug is considered protected only when it matches at least one role permission for the current site. If it is protected, the signed-in user must have an assigned role whose permissions also match the slug. A user who is merely signed in but lacks a matching role receives the same 404 as an anonymous user.
+
+Keep public source behavior intact when changing this flow: RBAC must only gate protected content, not broaden into a second login requirement for ordinary public source pages.
 
 ## Routes that bypass the proxy
 

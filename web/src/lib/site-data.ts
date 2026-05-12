@@ -1,4 +1,5 @@
 import type { ConvexHttpClient } from "convex/browser";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
   FunctionArgs,
   FunctionReference,
@@ -256,6 +257,19 @@ export function createSiteData(
       getCancelState: (
         args: SiteScopedArgs<typeof api.conversations.getCancelState>,
       ) => convex.query(api.conversations.getCancelState, args),
+    },
+    access: {
+      listUsersWithRoles: () =>
+        convex.query((api as any).access.listUsersWithRoles, {} as any),
+      listRoles: () => convex.query((api as any).access.listRoles, {} as any),
+      createRole: (args: { name: string; description?: string; pathPatterns: string[] }) =>
+        convex.mutation((api as any).access.createRole, args as any),
+      assignRoleToUser: (args: { userId: string; roleId: string }) =>
+        convex.mutation((api as any).access.assignRoleToUser, args as any),
+      setRoleForUser: (args: { userId: string; roleId?: string }) =>
+        convex.mutation((api as any).access.setRoleForUser, args as any),
+      canUserAccessSlug: (args: { userId: string; slug: string }) =>
+        convex.query((api as any).access.canUserAccessSlug, args as any),
     },
   };
 }
