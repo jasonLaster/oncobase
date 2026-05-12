@@ -59,6 +59,57 @@ export const create = mutation({
   },
 });
 
+export const resetPassword = mutation({
+  args: {
+    email: v.string(),
+    passwordHash: v.string(),
+    passwordSalt: v.string(),
+    siteSlug: v.optional(v.string()),
+    revokeSessions: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { email, passwordHash, passwordSalt, siteSlug, revokeSessions }) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const site = await requireSite(ctx, siteSlug);
+    const siteId = site.siteId;
+    const user = siteId
+      ? await ctx.db
+          .query("users")
+          .withIndex("by_site_email", (q) => q.eq("siteId", siteId).eq("email", normalizedEmail))
+          .first()
+      : await ctx.db
+          .query("users")
+          .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+          .first();
+
+    if (!user || !rowBelongsToSite(user, site)) {
+      throw new Error(`No user found for ${normalizedEmail}`);
+    }
+
+    await ctx.db.patch(user._id, {
+      passwordHash,
+      passwordSalt,
+      updatedAt: Date.now(),
+    });
+
+    let revokedSessions = 0;
+    if (revokeSessions ?? true) {
+      const sessions = await ctx.db.query("userSessions").collect();
+      for (const session of sessions) {
+        if (session.userId === user._id && rowBelongsToSite(session, site)) {
+          await ctx.db.delete(session._id);
+          revokedSessions += 1;
+        }
+      }
+    }
+
+    return {
+      userId: user._id,
+      email: normalizedEmail,
+      revokedSessions,
+    };
+  },
+});
+
 export const createSession = mutation({
   args: {
     userId: v.id("users"),

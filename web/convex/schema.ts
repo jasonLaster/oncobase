@@ -81,6 +81,7 @@ export default defineSchema({
     embeddingHash: v.optional(v.string()),
     description: v.optional(v.string()),
     sensitive: v.optional(v.boolean()),
+    sizeBytes: v.optional(v.number()),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
   })
