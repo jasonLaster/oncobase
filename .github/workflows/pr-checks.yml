@@ -76,10 +76,15 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Vercel labels each project's preview environment "Preview – <project-name>".
+          # We only gate on the main app's preview ("diana-tnbc"). Other Vercel projects
+          # in this repo (e.g. diana-tnbc-wiki-vite) are separately monitored — their
+          # success or failure is reported as its own PR check and must not also block
+          # this gate by being matched against here.
           for attempt in $(seq 1 40); do
             deployment_id="$(
               gh api "repos/${REPOSITORY}/deployments?sha=${HEAD_SHA}&per_page=20" \
-                | jq -r '[.[] | select(.environment == "Preview")] | first | .id // empty'
+                | jq -r '[.[] | select(.environment == "Preview" or .environment == "Preview – diana-tnbc")] | first | .id // empty'
             )"
 
             if [[ -z "${deployment_id}" ]]; then
