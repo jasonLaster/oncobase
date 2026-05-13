@@ -14,7 +14,6 @@ import { CommandIcon, MessageCircleIcon } from "lucide-react";
 import {
   WikiHeader,
   WikiHeaderButton,
-  WikiHeaderLink,
   WikiHeaderSearchForm,
   WikiLogo,
 } from "@diana-tnbc/wiki-shell";
@@ -26,8 +25,7 @@ function NewChatButton() {
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
 
-  function handleClick(event: React.MouseEvent<HTMLAnchorElement>) {
-    event.preventDefault();
+  function handleClick() {
     if (pathname.startsWith("/chat")) {
       window.dispatchEvent(new CustomEvent("chat:new"));
     }
@@ -37,18 +35,17 @@ function NewChatButton() {
   }
 
   return (
-    <WikiHeaderLink
+    <WikiHeaderButton
       aria-label="New chat"
       data-test-id="header-new-chat"
       data-pending={pending ? "" : undefined}
-      href="/chat"
       onClick={handleClick}
       title="New chat"
       variant="primary"
     >
       <MessageCircleIcon size={14} aria-hidden="true" />
       <span>New chat</span>
-    </WikiHeaderLink>
+    </WikiHeaderButton>
   );
 }
 

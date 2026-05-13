@@ -211,6 +211,9 @@ function WikiTreeNode({
           onClick={() => onToggleDirectory(node.slug, open)}
           style={{ paddingLeft: indent + 8 }}
         >
+          <span className="wiki-shell-tree-disclosure-text" aria-hidden="true">
+            {open ? "▼" : "▶"}
+          </span>
           <ChevronIcon open={open} />
           <span>{formattedName}</span>
           {node.badge ? <span className="wiki-shell-tree-badge tree-badge">{node.badge}</span> : null}

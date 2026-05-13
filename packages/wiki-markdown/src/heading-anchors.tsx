@@ -350,7 +350,7 @@ export function MarkdownHeadingAnchors({
         }
 
         wiredHeadings.add(heading);
-        heading.classList.add("wiki-heading-linked");
+        heading.classList.add("wiki-heading-linked", "cursor-pointer");
 
         const onClick = (event: MouseEvent) => {
           const target = event.target as HTMLElement | null;
@@ -374,11 +374,12 @@ export function MarkdownHeadingAnchors({
           return;
         }
 
-        heading.classList.add("wiki-heading-group");
+        heading.classList.add("wiki-heading-group", "group", "relative");
 
         const anchor = document.createElement("a");
         anchor.href = `#${id}`;
-        anchor.className = "heading-anchor";
+        anchor.className =
+          "heading-anchor opacity-0 group-hover:opacity-100 text-[var(--text-muted)] no-underline hover:no-underline hover:text-[var(--brand)] transition-opacity cursor-pointer";
         anchor.setAttribute("aria-label", `Link to \"${heading.textContent}\"`);
         anchor.textContent = "#";
 
