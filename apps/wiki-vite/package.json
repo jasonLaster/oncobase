@@ -19,6 +19,7 @@
     "@diana-tnbc/wiki-markdown": "workspace:*",
     "@diana-tnbc/wiki-shell": "workspace:*",
     "@diana-tnbc/chat": "workspace:*",
+    "@diana-tnbc/smart-table": "workspace:*",
     "@livestore/adapter-web": "0.3.1",
     "@livestore/livestore": "0.3.1",
     "@livestore/peer-deps": "0.3.1",
