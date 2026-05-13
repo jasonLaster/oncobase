@@ -924,12 +924,14 @@ export function ActionPalette() {
     } else {
       localStorage.setItem("theme", newPref);
     }
+    themeEffect();
     notifyTheme();
     setOpen(false);
   }
 
   function useSystemTheme() {
     localStorage.removeItem("theme");
+    themeEffect();
     notifyTheme();
     setOpen(false);
   }

@@ -64,7 +64,11 @@ export function ThemeToggle() {
           localStorage.setItem("theme", newPreference);
         }
 
+        // Apply the .dark class synchronously so content styling updates
+        // on click rather than after the post-render useEffect.
+        const applied = themeEffect();
         setPreference(newPreference);
+        setCurrentTheme(applied);
       }}
     >
       {/* Sun icon - shown in dark mode */}

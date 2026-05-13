@@ -10,7 +10,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
@@ -106,38 +105,15 @@ function AuthDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{activeMode === "signup" ? "Create account" : "Sign in"}</DialogTitle>
-          <DialogDescription>
-            Wiki viewing still uses the shared password. This account is for saved access and future user features.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex gap-2 rounded-lg bg-muted p-1">
-          <Button
-            type="button"
-            variant={activeMode === "signin" ? "secondary" : "ghost"}
-            className="flex-1"
-            onClick={() => {
-              setActiveMode("signin");
-              setError("");
-            }}
-          >
-            Sign in
-          </Button>
-          <Button
-            type="button"
-            variant={activeMode === "signup" ? "secondary" : "ghost"}
-            className="flex-1"
-            onClick={() => {
-              setActiveMode("signup");
-              setError("");
-            }}
-          >
-            Sign up
-          </Button>
-        </div>
+      <DialogContent className="sm:max-w-sm">
+        <DialogTitle className="sr-only">
+          {activeMode === "signup" ? "Create account" : "Sign in"}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          {activeMode === "signup"
+            ? "Create an account for saved access and future user features."
+            : "Sign in to your account."}
+        </DialogDescription>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           {activeMode === "signup" && (
@@ -192,6 +168,19 @@ function AuthDialog({
                 ? "Create account"
                 : "Sign in"}
           </Button>
+          <p className="text-center text-sm text-muted-foreground">
+            {activeMode === "signup" ? "Already have an account? " : "Don't have an account? "}
+            <button
+              type="button"
+              className="font-medium text-foreground underline-offset-4 hover:underline"
+              onClick={() => {
+                setActiveMode(activeMode === "signup" ? "signin" : "signup");
+                setError("");
+              }}
+            >
+              {activeMode === "signup" ? "Sign in" : "Sign up"}
+            </button>
+          </p>
         </form>
       </DialogContent>
     </Dialog>
@@ -261,6 +250,7 @@ export function ActionsMenu() {
     } else {
       localStorage.setItem("theme", newPref);
     }
+    themeEffect();
     notify();
   }
 
