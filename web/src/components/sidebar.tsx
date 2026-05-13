@@ -138,17 +138,30 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
   const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const selectedItem = navRef.current?.querySelector<HTMLElement>(
-      '[data-selected-file-tree-item="true"]',
-    );
-    if (!selectedItem) return;
+    const frame = requestAnimationFrame(() => {
+      const nav = navRef.current;
+      const selectedItem = nav?.querySelector<HTMLElement>(
+        '[data-selected-file-tree-item="true"]',
+      );
+      if (!nav || !selectedItem) return;
 
-    selectedItem.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-      inline: "nearest",
+      const navRect = nav.getBoundingClientRect();
+      const selectedRect = selectedItem.getBoundingClientRect();
+      const isVisible =
+        selectedRect.top >= navRect.top &&
+        selectedRect.bottom <= navRect.bottom;
+
+      if (!isVisible) {
+        selectedItem.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "nearest",
+        });
+      }
     });
-  }, [pathname, tree]);
+
+    return () => cancelAnimationFrame(frame);
+  }, [pathname]);
 
   return (
     <aside
@@ -157,7 +170,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
     >
       <nav
         ref={navRef}
-        className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2"
+        className="min-h-0 flex-1 select-none space-y-0.5 overflow-y-auto p-2"
         data-test-id="sidebar-tree"
       >
         {tree.map((node) => (
