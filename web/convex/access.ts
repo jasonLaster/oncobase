@@ -1,13 +1,177 @@
 /* eslint-disable no-restricted-syntax */
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { requireSite, rowBelongsToSite } from "./lib/site";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
+import type { Doc, Id } from "./_generated/dataModel";
 
 function pathAllowed(path: string, patterns: string[]) {
   return patterns.some((pattern) => {
     if (pattern === "*") return true;
     const normalized = pattern.endsWith("*") ? pattern.slice(0, -1) : pattern;
     return path.startsWith(normalized);
+  });
+}
+
+function cleanList(values: string[] | undefined) {
+  return Array.from(
+    new Set(
+      (values ?? [])
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function cleanTags(values: string[] | undefined) {
+  return cleanList(values).map((tag) => tag.toLowerCase());
+}
+
+type PermissionRule = Pick<
+  Doc<"rolePermissions">,
+  | "pathPattern"
+  | "includePathPatterns"
+  | "excludePathPatterns"
+  | "includeTags"
+  | "excludeTags"
+>;
+
+function ruleMatchesSlug(
+  rule: PermissionRule,
+  slug: string,
+  documentTags: string[],
+) {
+  const includePathPatterns = cleanList([
+    ...(rule.pathPattern ? [rule.pathPattern] : []),
+    ...(rule.includePathPatterns ?? []),
+  ]);
+  const excludePathPatterns = cleanList(rule.excludePathPatterns);
+  const includeTags = cleanTags(rule.includeTags);
+  const excludeTags = cleanTags(rule.excludeTags);
+  const tagSet = new Set(documentTags.map((tag) => tag.trim().toLowerCase()));
+  const pathMatches =
+    includePathPatterns.length === 0 || pathAllowed(slug, includePathPatterns);
+  const pathExcluded =
+    excludePathPatterns.length > 0 && pathAllowed(slug, excludePathPatterns);
+  const includeMatches =
+    includeTags.length === 0 || includeTags.some((tag) => tagSet.has(tag));
+  const excludeMatches = excludeTags.some((tag) => tagSet.has(tag));
+
+  return pathMatches && includeMatches && !pathExcluded && !excludeMatches;
+}
+
+async function findDocumentBySlug(ctx: QueryCtx, site: SiteCtx, slug: string) {
+  if (site.siteId) {
+    const scoped = await ctx.db
+      .query("documents")
+      .withIndex("by_site_slug", (q) =>
+        q.eq("siteId", site.siteId!).eq("slug", slug),
+      )
+      .first();
+    if (scoped) return scoped;
+  }
+
+  const legacy = await ctx.db
+    .query("documents")
+    .withIndex("by_slug", (q) => q.eq("slug", slug))
+    .first();
+  if (legacy && rowBelongsToSite(legacy, site)) return legacy;
+  return null;
+}
+
+function summarizePermissions(permissions: Doc<"rolePermissions">[]) {
+  const includePathPatterns = cleanList(
+    permissions.flatMap((permission) => [
+      ...(permission.pathPattern ? [permission.pathPattern] : []),
+      ...(permission.includePathPatterns ?? []),
+    ]),
+  );
+  const excludePathPatterns = cleanList(
+    permissions.flatMap((permission) => permission.excludePathPatterns ?? []),
+  );
+  return {
+    rules: permissions.map((permission) => ({
+      pathPattern: permission.pathPattern ?? "",
+      includePathPatterns: cleanList([
+        ...(permission.pathPattern ? [permission.pathPattern] : []),
+        ...(permission.includePathPatterns ?? []),
+      ]),
+      excludePathPatterns: cleanList(permission.excludePathPatterns),
+      includeTags: cleanTags(permission.includeTags),
+      excludeTags: cleanTags(permission.excludeTags),
+    })),
+    permissions: includePathPatterns,
+    pathPatterns: includePathPatterns,
+    includePathPatterns,
+    excludePathPatterns,
+    includeTags: cleanTags(permissions.flatMap((permission) => permission.includeTags ?? [])),
+    excludeTags: cleanTags(permissions.flatMap((permission) => permission.excludeTags ?? [])),
+  };
+}
+
+async function replaceRolePermissions(
+  ctx: MutationCtx,
+  site: SiteCtx,
+  roleId: Id<"roles">,
+  {
+    pathPatterns,
+    includePathPatterns,
+    excludePathPatterns,
+    includeTags,
+    excludeTags,
+  }: {
+    pathPatterns?: string[];
+    includePathPatterns?: string[];
+    excludePathPatterns?: string[];
+    includeTags?: string[];
+    excludeTags?: string[];
+  },
+) {
+  const existing = site.siteId
+    ? await ctx.db
+        .query("rolePermissions")
+        .withIndex("by_site_role", (q) =>
+          q.eq("siteId", site.siteId!).eq("roleId", roleId),
+        )
+        .collect()
+    : await ctx.db
+        .query("rolePermissions")
+        .withIndex("by_role", (q) => q.eq("roleId", roleId))
+        .collect();
+
+  for (const permission of existing) {
+    if (rowBelongsToSite(permission, site)) {
+      await ctx.db.delete(permission._id);
+    }
+  }
+
+  const cleanedIncludePaths = cleanList([
+    ...(pathPatterns ?? []),
+    ...(includePathPatterns ?? []),
+  ]);
+  const cleanedExcludePaths = cleanList(excludePathPatterns);
+  const cleanedIncludeTags = cleanTags(includeTags);
+  const cleanedExcludeTags = cleanTags(excludeTags);
+  const now = Date.now();
+
+  if (
+    cleanedIncludePaths.length === 0 &&
+    cleanedIncludeTags.length === 0
+  ) {
+    return;
+  }
+
+  await ctx.db.insert("rolePermissions", {
+    ...(site.siteId ? { siteId: site.siteId } : {}),
+    roleId,
+    ...(cleanedIncludePaths.length
+      ? { includePathPatterns: cleanedIncludePaths }
+      : {}),
+    ...(cleanedExcludePaths.length
+      ? { excludePathPatterns: cleanedExcludePaths }
+      : {}),
+    ...(cleanedIncludeTags.length ? { includeTags: cleanedIncludeTags } : {}),
+    ...(cleanedExcludeTags.length ? { excludeTags: cleanedExcludeTags } : {}),
+    createdAt: now,
   });
 }
 
@@ -62,18 +226,42 @@ export const listRoles = query({
     const permissions = await ctx.db.query("rolePermissions").collect();
     return roles
       .filter((r) => rowBelongsToSite(r, site))
-      .map((role) => ({
-        ...role,
-        permissions: permissions
-          .filter((p) => p.roleId === role._id && rowBelongsToSite(p, site))
-          .map((p) => p.pathPattern),
-      }));
+      .map((role) => {
+        const rolePermissions = permissions.filter(
+          (p) => p.roleId === role._id && rowBelongsToSite(p, site),
+        );
+        return {
+          ...role,
+          ...summarizePermissions(rolePermissions),
+        };
+      });
   },
 });
 
 export const createRole = mutation({
-  args: { name: v.string(), description: v.optional(v.string()), pathPatterns: v.array(v.string()), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { name, description, pathPatterns, siteSlug }) => {
+  args: {
+    name: v.string(),
+    description: v.optional(v.string()),
+    pathPatterns: v.optional(v.array(v.string())),
+    includePathPatterns: v.optional(v.array(v.string())),
+    excludePathPatterns: v.optional(v.array(v.string())),
+    includeTags: v.optional(v.array(v.string())),
+    excludeTags: v.optional(v.array(v.string())),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    {
+      name,
+      description,
+      pathPatterns,
+      includePathPatterns,
+      excludePathPatterns,
+      includeTags,
+      excludeTags,
+      siteSlug,
+    },
+  ) => {
     const site = await requireSite(ctx, siteSlug);
     const roleId = await ctx.db.insert("roles", {
       ...(site.siteId ? { siteId: site.siteId } : {}),
@@ -82,14 +270,97 @@ export const createRole = mutation({
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
-    for (const pathPattern of pathPatterns) {
-      await ctx.db.insert("rolePermissions", {
-        ...(site.siteId ? { siteId: site.siteId } : {}),
-        roleId,
-        pathPattern,
-        createdAt: Date.now(),
-      });
+    await replaceRolePermissions(ctx, site, roleId, {
+      pathPatterns,
+      includePathPatterns,
+      excludePathPatterns,
+      includeTags,
+      excludeTags,
+    });
+    return roleId;
+  },
+});
+
+export const updateRole = mutation({
+  args: {
+    roleId: v.id("roles"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    pathPatterns: v.optional(v.array(v.string())),
+    includePathPatterns: v.optional(v.array(v.string())),
+    excludePathPatterns: v.optional(v.array(v.string())),
+    includeTags: v.optional(v.array(v.string())),
+    excludeTags: v.optional(v.array(v.string())),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    {
+      roleId,
+      name,
+      description,
+      pathPatterns,
+      includePathPatterns,
+      excludePathPatterns,
+      includeTags,
+      excludeTags,
+      siteSlug,
+    },
+  ) => {
+    const site = await requireSite(ctx, siteSlug);
+    const role = await ctx.db.get(roleId);
+    if (!role || !rowBelongsToSite(role, site)) {
+      throw new Error("role does not belong to this site");
     }
+
+    await ctx.db.patch(roleId, {
+      name: name.trim(),
+      description: description?.trim() || undefined,
+      updatedAt: Date.now(),
+    });
+    await replaceRolePermissions(ctx, site, roleId, {
+      pathPatterns,
+      includePathPatterns,
+      excludePathPatterns,
+      includeTags,
+      excludeTags,
+    });
+    return roleId;
+  },
+});
+
+export const deleteRole = mutation({
+  args: { roleId: v.id("roles"), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { roleId, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const role = await ctx.db.get(roleId);
+    if (!role || !rowBelongsToSite(role, site)) {
+      throw new Error("role does not belong to this site");
+    }
+
+    const permissions = site.siteId
+      ? await ctx.db
+          .query("rolePermissions")
+          .withIndex("by_site_role", (q) =>
+            q.eq("siteId", site.siteId!).eq("roleId", roleId),
+          )
+          .collect()
+      : await ctx.db
+          .query("rolePermissions")
+          .withIndex("by_role", (q) => q.eq("roleId", roleId))
+          .collect();
+    for (const permission of permissions) {
+      if (rowBelongsToSite(permission, site)) await ctx.db.delete(permission._id);
+    }
+
+    const assignments = await ctx.db.query("userRoles").collect();
+    for (const assignment of assignments) {
+      if (assignment.roleId === roleId && rowBelongsToSite(assignment, site)) {
+        await ctx.db.delete(assignment._id);
+      }
+    }
+
+    await ctx.db.delete(roleId);
     return roleId;
   },
 });
@@ -169,7 +440,11 @@ export const getUserAllowedPaths = query({
         .query("rolePermissions")
         .withIndex("by_site_role", (q) => q.eq("siteId", site.siteId!).eq("roleId", a.roleId))
         .collect();
-      patterns.push(...perms.map((p) => p.pathPattern));
+      patterns.push(
+        ...perms
+          .map((p) => p.pathPattern)
+          .filter((pattern): pattern is string => Boolean(pattern)),
+      );
     }
     return Array.from(new Set(patterns));
   },
@@ -184,26 +459,28 @@ export const canUserAccessSlug = query({
     for (const role of roles) {
       if (rowBelongsToSite(role, site)) rolesById.set(role._id, role);
     }
-    const protectedPatterns: string[] = [];
-    for (const permission of await ctx.db.query("rolePermissions").collect()) {
-      if (!rowBelongsToSite(permission, site)) continue;
-      if (!rolesById.has(permission.roleId)) continue;
-      protectedPatterns.push(permission.pathPattern);
+    const doc = await findDocumentBySlug(ctx, site, slug);
+    const documentTags = doc?.tags ?? [];
+    const protectedRules = (await ctx.db.query("rolePermissions").collect()).filter(
+      (permission) =>
+        rowBelongsToSite(permission, site) && rolesById.has(permission.roleId),
+    );
+    if (!protectedRules.some((rule) => ruleMatchesSlug(rule, slug, documentTags))) {
+      return true;
     }
-    if (!pathAllowed(slug, protectedPatterns)) return true;
 
     const assignments = site.siteId
       ? await ctx.db.query("userRoles").withIndex("by_site_user", (q) => q.eq("siteId", site.siteId!).eq("userId", userId)).collect()
       : await ctx.db.query("userRoles").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
-    const patterns: string[] = [];
+    const rules: PermissionRule[] = [];
     for (const a of assignments) {
       if (!rowBelongsToSite(a, site)) continue;
       if (!rolesById.has(a.roleId)) continue;
       const perms = site.siteId
         ? await ctx.db.query("rolePermissions").withIndex("by_site_role", (q) => q.eq("siteId", site.siteId!).eq("roleId", a.roleId)).collect()
         : await ctx.db.query("rolePermissions").withIndex("by_role", (q) => q.eq("roleId", a.roleId)).collect();
-      for (const p of perms) if (rowBelongsToSite(p, site)) patterns.push(p.pathPattern);
+      for (const p of perms) if (rowBelongsToSite(p, site)) rules.push(p);
     }
-    return pathAllowed(slug, patterns);
+    return rules.some((rule) => ruleMatchesSlug(rule, slug, documentTags));
   },
 });

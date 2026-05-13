@@ -262,8 +262,29 @@ export function createSiteData(
       listUsersWithRoles: () =>
         convex.query((api as any).access.listUsersWithRoles, {} as any),
       listRoles: () => convex.query((api as any).access.listRoles, {} as any),
-      createRole: (args: { name: string; description?: string; pathPatterns: string[] }) =>
+      createRole: (args: {
+        name: string;
+        description?: string;
+        pathPatterns?: string[];
+        includePathPatterns?: string[];
+        excludePathPatterns?: string[];
+        includeTags?: string[];
+        excludeTags?: string[];
+      }) =>
         convex.mutation((api as any).access.createRole, args as any),
+      updateRole: (args: {
+        roleId: string;
+        name: string;
+        description?: string;
+        pathPatterns?: string[];
+        includePathPatterns?: string[];
+        excludePathPatterns?: string[];
+        includeTags?: string[];
+        excludeTags?: string[];
+      }) =>
+        convex.mutation((api as any).access.updateRole, args as any),
+      deleteRole: (args: { roleId: string }) =>
+        convex.mutation((api as any).access.deleteRole, args as any),
       assignRoleToUser: (args: { userId: string; roleId: string }) =>
         convex.mutation((api as any).access.assignRoleToUser, args as any),
       setRoleForUser: (args: { userId: string; roleId?: string }) =>

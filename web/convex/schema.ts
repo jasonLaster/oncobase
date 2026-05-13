@@ -206,7 +206,11 @@ export default defineSchema({
   rolePermissions: defineTable({
     siteId: v.optional(v.id("sites")),
     roleId: v.id("roles"),
-    pathPattern: v.string(),
+    pathPattern: v.optional(v.string()),
+    includePathPatterns: v.optional(v.array(v.string())),
+    excludePathPatterns: v.optional(v.array(v.string())),
+    includeTags: v.optional(v.array(v.string())),
+    excludeTags: v.optional(v.array(v.string())),
     createdAt: v.number(),
   })
     .index("by_role", ["roleId"])

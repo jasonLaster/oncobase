@@ -60,6 +60,10 @@ erDiagram
     id siteId FK
     id roleId FK
     string pathPattern
+    string[] includePathPatterns
+    string[] excludePathPatterns
+    string[] includeTags
+    string[] excludeTags
   }
   userRoles {
     id siteId FK
@@ -114,10 +118,10 @@ Role-based access control lives in three Convex tables:
 | Table | Purpose |
 |---|---|
 | `roles` | Named role within one site, such as `Research reviewer`. |
-| `rolePermissions` | Path-prefix permissions for a role, such as `sources/private/*`. |
+| `rolePermissions` | Include/exclude path-prefix and tag rules for a role, such as including `sources/private/*` while excluding `sources/private/public-summary`. |
 | `userRoles` | Assignment join from a site user to a site role. |
 
-The access query builds the set of protected path patterns from `rolePermissions`. If a source slug does not match any protected pattern, it stays public. If it does match, the user needs a role assignment whose own permissions also match that slug. This model is intentionally additive: assigning a role grants access; absence of a role never hides otherwise public pages.
+The access query evaluates protected source rules from `rolePermissions`. A rule may match by included path prefix, required tags, or both; excluded paths and excluded tags remove a source from that rule. If a source slug and tags do not match any protected rule, it stays public. If it does match, the user needs a role assignment whose own rules also match that slug and tags. This model is intentionally additive: assigning a role grants access; absence of a role never hides otherwise public pages.
 
 ## Storage: where does each kind of asset live?
 

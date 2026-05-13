@@ -196,6 +196,10 @@ export function NavigationShell({
     <Suspense fallback={<PageLoadingSkeleton />}>{children}</Suspense>
   );
 
+  if (pathname.startsWith("/admin")) {
+    return <div className="h-full min-h-0 overflow-hidden">{content}</div>;
+  }
+
   const sidebar = pathname.startsWith("/chat") ? (
     <aside
       className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"

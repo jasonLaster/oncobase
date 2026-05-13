@@ -16,6 +16,9 @@ const SITE_SLUG = `rbac-${RUN_NONCE}`;
 const SITE_HOST = `${SITE_SLUG}.localhost`;
 const PUBLIC_SLUG = "sources/rbac-public";
 const PROTECTED_SLUG = "sources/rbac-private";
+const TAG_PROTECTED_SLUG = "sources/rbac-tag-private";
+const TAG_EXCLUDED_SLUG = "sources/rbac-tag-excluded";
+const PATH_EXCLUDED_SLUG = "sources/rbac-private/excluded";
 const PASSWORD = "correct horse battery";
 
 function tokenHash() {
@@ -102,6 +105,33 @@ test.describe("role-based access permissions", () => {
       contentHash: `${RUN_NONCE}-protected`,
       sensitive: true,
     });
+    await convex.mutation(api.documents.upsert, {
+      siteSlug: SITE_SLUG,
+      slug: TAG_PROTECTED_SLUG,
+      title: "RBAC Tag Protected Source",
+      content: "Tag protected marker only matching tag roles should see.",
+      tags: ["rbac-tag"],
+      contentHash: `${RUN_NONCE}-tag-protected`,
+      sensitive: true,
+    });
+    await convex.mutation(api.documents.upsert, {
+      siteSlug: SITE_SLUG,
+      slug: TAG_EXCLUDED_SLUG,
+      title: "RBAC Tag Excluded Source",
+      content: "Excluded tag marker assigned users should not see.",
+      tags: ["rbac-tag", "rbac-excluded"],
+      contentHash: `${RUN_NONCE}-tag-excluded`,
+      sensitive: true,
+    });
+    await convex.mutation(api.documents.upsert, {
+      siteSlug: SITE_SLUG,
+      slug: PATH_EXCLUDED_SLUG,
+      title: "RBAC Path Excluded Source",
+      content: "Path excluded marker assigned users should not see.",
+      tags: ["rbac-test"],
+      contentHash: `${RUN_NONCE}-path-excluded`,
+      sensitive: true,
+    });
 
     anonymous = await playwrightRequest.newContext({
       baseURL: url,
@@ -126,12 +156,26 @@ test.describe("role-based access permissions", () => {
     const roleId = await convex.mutation(api.access.createRole, {
       siteSlug: SITE_SLUG,
       name: "Protected source reader",
-      pathPatterns: [PROTECTED_SLUG],
+      includePathPatterns: ["sources/rbac-private*"],
+      excludePathPatterns: [PATH_EXCLUDED_SLUG],
     });
     await convex.mutation(api.access.assignRoleToUser, {
       siteSlug: SITE_SLUG,
       userId: assignedAccount!._id,
       roleId,
+    });
+
+    const tagRoleId = await convex.mutation(api.access.createRole, {
+      siteSlug: SITE_SLUG,
+      name: "Tag source reader",
+      includePathPatterns: ["sources/*"],
+      includeTags: ["rbac-tag"],
+      excludeTags: ["rbac-excluded"],
+    });
+    await convex.mutation(api.access.assignRoleToUser, {
+      siteSlug: SITE_SLUG,
+      userId: assignedAccount!._id,
+      roleId: tagRoleId,
     });
   });
 
@@ -150,6 +194,18 @@ test.describe("role-based access permissions", () => {
       await convex.mutation(api.documents.deleteBySlug, {
         siteSlug: SITE_SLUG,
         slug: PROTECTED_SLUG,
+      });
+      await convex.mutation(api.documents.deleteBySlug, {
+        siteSlug: SITE_SLUG,
+        slug: TAG_PROTECTED_SLUG,
+      });
+      await convex.mutation(api.documents.deleteBySlug, {
+        siteSlug: SITE_SLUG,
+        slug: TAG_EXCLUDED_SLUG,
+      });
+      await convex.mutation(api.documents.deleteBySlug, {
+        siteSlug: SITE_SLUG,
+        slug: PATH_EXCLUDED_SLUG,
       });
       await convex.mutation(api.sites.archive, { slug: SITE_SLUG });
     } catch {
@@ -175,5 +231,18 @@ test.describe("role-based access permissions", () => {
     const html = await response.text();
     expect(html).toContain("RBAC Protected Source");
     expect(html).toContain("Protected source marker only assigned users should see.");
+  });
+
+  test("applies include and exclude path rules", async () => {
+    await expectSourceNotFound(assignedUser, PATH_EXCLUDED_SLUG);
+  });
+
+  test("applies include and exclude tag rules", async () => {
+    await expectSourceNotFound(unassignedUser, TAG_PROTECTED_SLUG);
+
+    const allowed = await expectSourceStatus(assignedUser, TAG_PROTECTED_SLUG, 200);
+    expect(await allowed.text()).toContain("RBAC Tag Protected Source");
+
+    await expectSourceNotFound(assignedUser, TAG_EXCLUDED_SLUG);
   });
 });

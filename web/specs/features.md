@@ -219,7 +219,7 @@ The app is a multi-site wiki publishing platform. Diana is site #1; additional s
   - persistent session cookies
 - Role-based access permissions are account-based and site-scoped:
   - `/admin/access` creates roles and assigns them to site users
-  - each role grants path-prefix permissions such as `sources/private/*`
+  - each role grants include/exclude path-prefix and tag-filtered permissions such as including `sources/private/*` while excluding a public-summary path or tag
   - public source pages render before RBAC is consulted
   - protected source pages return 404 unless the signed-in user has a matching role
 - Liveblocks comments use either:
