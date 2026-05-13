@@ -26,3 +26,4 @@ web/.agents/worktrees/
 web/.swc/
 .codex/
 .claude
+.playwright-mcp/
