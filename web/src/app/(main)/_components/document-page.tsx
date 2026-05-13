@@ -68,7 +68,9 @@ export async function generateDocumentMetadata(
 ): Promise<Metadata> {
   const { slug } = await params;
   const routePath = slug.join("/");
-  const page = await getMarkdownPageMetadata(routePath);
+  const routeAliasKey = routePath.toLowerCase();
+  const contentPath = ROUTE_SLUG_ALIASES.get(routeAliasKey) ?? routePath;
+  const page = await getMarkdownPageMetadata(contentPath);
   if (page) return toNextMetadata(page);
 
   if (!(await canViewSensitivePages())) {

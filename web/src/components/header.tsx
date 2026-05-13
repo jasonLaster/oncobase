@@ -38,10 +38,12 @@ function NewChatButton() {
 
   return (
     <WikiHeaderLink
+      aria-label="New chat"
       data-test-id="header-new-chat"
       data-pending={pending ? "" : undefined}
       href="/chat"
       onClick={handleClick}
+      title="New chat"
       variant="primary"
     >
       <MessageCircleIcon size={14} aria-hidden="true" />

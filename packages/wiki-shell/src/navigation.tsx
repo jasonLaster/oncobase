@@ -28,6 +28,11 @@ export type WikiTreePageLinkRenderArgs = {
 export type WikiTreeProps = {
   activeAncestorSlugs: Set<string>;
   activeSlug: string;
+  directoryAriaLabel?: (args: {
+    formattedName: string;
+    node: WikiNavigationNode;
+    open: boolean;
+  }) => string;
   expandedSlugs: Map<string, boolean>;
   getFileHref?: (node: WikiNavigationNode) => string;
   onNavigate?: () => void;
@@ -40,6 +45,7 @@ export type WikiSidebarProps = Omit<ComponentProps<"aside">, "children"> &
   WikiTreeProps & {
     footer?: ReactNode;
     heading?: ReactNode;
+    treeTestId?: string;
   };
 
 export function formatTreeNodeName(name: string) {
@@ -94,6 +100,7 @@ export function WikiSidebar({
   activeAncestorSlugs,
   activeSlug,
   className,
+  directoryAriaLabel,
   expandedSlugs,
   footer,
   getFileHref,
@@ -102,6 +109,7 @@ export function WikiSidebar({
   onToggleDirectory,
   renderPageLink,
   tree,
+  treeTestId,
   ...props
 }: WikiSidebarProps) {
   return (
@@ -116,10 +124,11 @@ export function WikiSidebar({
           {heading}
         </div>
       ) : null}
-      <nav className="wiki-shell-sidebar-nav">
+      <nav className="wiki-shell-sidebar-nav" data-test-id={treeTestId}>
         <WikiTree
           activeAncestorSlugs={activeAncestorSlugs}
           activeSlug={activeSlug}
+          directoryAriaLabel={directoryAriaLabel}
           expandedSlugs={expandedSlugs}
           getFileHref={getFileHref}
           onNavigate={onNavigate}
@@ -136,6 +145,7 @@ export function WikiSidebar({
 export function WikiTree({
   activeAncestorSlugs,
   activeSlug,
+  directoryAriaLabel,
   expandedSlugs,
   getFileHref,
   onNavigate,
@@ -150,6 +160,7 @@ export function WikiTree({
           key={treeNodeKey(node)}
           activeAncestorSlugs={activeAncestorSlugs}
           activeSlug={activeSlug}
+          directoryAriaLabel={directoryAriaLabel}
           expandedSlugs={expandedSlugs}
           getFileHref={getFileHref}
           node={node}
@@ -171,6 +182,7 @@ function WikiTreeNode({
   activeAncestorSlugs,
   activeSlug,
   depth = 0,
+  directoryAriaLabel,
   expandedSlugs,
   getFileHref,
   node,
@@ -188,7 +200,10 @@ function WikiTreeNode({
     return (
       <div>
         <button
-          aria-label={`${open ? "Collapse" : "Expand"} ${formattedName}`}
+          aria-label={
+            directoryAriaLabel?.({ formattedName, node, open }) ??
+            `${open ? "Collapse" : "Expand"} ${formattedName}`
+          }
           aria-expanded={open}
           className="wiki-shell-tree-directory tree-directory"
           type="button"
@@ -206,6 +221,7 @@ function WikiTreeNode({
                 key={treeNodeKey(child)}
                 activeAncestorSlugs={activeAncestorSlugs}
                 activeSlug={activeSlug}
+                directoryAriaLabel={directoryAriaLabel}
                 depth={depth + 1}
                 expandedSlugs={expandedSlugs}
                 getFileHref={getFileHref}
