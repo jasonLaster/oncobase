@@ -67,7 +67,12 @@ mock.module("@/lib/session-user", () => ({
 }));
 
 mock.module("@/lib/site-data", () => ({
-  siteDataFromRequest: () => ({
+  siteDataFromRequest: () => mockSiteData(),
+  siteDataFromSlug: () => mockSiteData(),
+}));
+
+function mockSiteData() {
+  return {
     siteSlug: "diana",
     documents: {
       listManifestPage: async ({
@@ -131,8 +136,8 @@ mock.module("@/lib/site-data", () => ({
         };
       },
     },
-  }),
-}));
+  };
+}
 
 const manifestRoute = await import("../app/api/wiki/manifest/route");
 const pagesRoute = await import("../app/api/wiki/pages/route");
