@@ -187,25 +187,22 @@ export function Header() {
           </Link>
         }
         search={
-          <WikiHeaderSearchForm
-            action={backendHref("/search")}
-            method="get"
-            onSubmit={submitSearch}
-            inputProps={{
-              value: searchQuery,
-              onChange: (event) => setSearchQuery(event.currentTarget.value),
-              onKeyDown: (event) => event.stopPropagation(),
-            }}
-          >
-            <input type="hidden" name="returnTo" value={returnTo} />
-          </WikiHeaderSearchForm>
-        }
-        actions={
-          <>
+          <div className="wiki-shell-header-primary-controls">
+            <WikiHeaderSearchForm
+              action={backendHref("/search")}
+              method="get"
+              onSubmit={submitSearch}
+              inputProps={{
+                value: searchQuery,
+                onChange: (event) => setSearchQuery(event.currentTarget.value),
+                onKeyDown: (event) => event.stopPropagation(),
+              }}
+            >
+              <input type="hidden" name="returnTo" value={returnTo} />
+            </WikiHeaderSearchForm>
             <WikiHeaderLink
               data-test-id="header-new-chat"
               href={backendHref("/chat", { returnTo })}
-              variant="primary"
             >
               <MessageCircleIcon size={14} aria-hidden="true" />
               <span>New chat</span>
@@ -219,22 +216,24 @@ export function Header() {
               <CommandIcon size={14} aria-hidden="true" />
               <span>Find files</span>
             </WikiHeaderButton>
-            <WikiActionsMenu
-              currentTheme={currentTheme}
-              downloadFullHref={backendHref("/api/download", { type: "full", scope })}
-              downloadMarkdownHref={backendHref("/api/download", { type: "markdown", scope })}
-              onAuthSubmit={submitAuth}
-              onOpenCommandPalette={() => openPalette("actions")}
-              onSessionChange={setSessionUser}
-              onSignOut={signOut}
-              onThemeToggle={cycleWikiThemePreference}
-              searchHref={backendHref("/search", { returnTo })}
-              sessionLoading={sessionLoading}
-              sessionUser={sessionUser}
-              textSearchHref={backendHref("/search", { returnTo, tab: "text" })}
-              themeLabel={wikiThemeLabel(preference)}
-            />
-          </>
+          </div>
+        }
+        actions={
+          <WikiActionsMenu
+            currentTheme={currentTheme}
+            downloadFullHref={backendHref("/api/download", { type: "full", scope })}
+            downloadMarkdownHref={backendHref("/api/download", { type: "markdown", scope })}
+            onAuthSubmit={submitAuth}
+            onOpenCommandPalette={() => openPalette("actions")}
+            onSessionChange={setSessionUser}
+            onSignOut={signOut}
+            onThemeToggle={cycleWikiThemePreference}
+            searchHref={backendHref("/search", { returnTo })}
+            sessionLoading={sessionLoading}
+            sessionUser={sessionUser}
+            textSearchHref={backendHref("/search", { returnTo, tab: "text" })}
+            themeLabel={wikiThemeLabel(preference)}
+          />
         }
       />
       {paletteOpen ? (

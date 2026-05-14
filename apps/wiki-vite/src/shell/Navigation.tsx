@@ -100,6 +100,7 @@ export function Sidebar() {
       data-test-id="wiki-sidebar"
       expandedSlugs={expandedSlugs}
       getFileHref={fileHrefForNode}
+      heading={null}
       onToggleDirectory={toggleDirectory}
       renderPageLink={renderPageLink}
       tree={tree}

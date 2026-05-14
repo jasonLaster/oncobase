@@ -41,7 +41,6 @@ function NewChatButton() {
       data-pending={pending ? "" : undefined}
       onClick={handleClick}
       title="New chat"
-      variant="primary"
     >
       <MessageCircleIcon size={14} aria-hidden="true" />
       <span>New chat</span>
@@ -62,12 +61,10 @@ export function Header() {
         </Link>
       }
       search={
-        <Suspense fallback={<HeaderSearchFallback />}>
-          <HeaderSearch />
-        </Suspense>
-      }
-      actions={
-        <>
+        <div className="wiki-shell-header-primary-controls">
+          <Suspense fallback={<HeaderSearchFallback />}>
+            <HeaderSearch />
+          </Suspense>
           <NewChatButton />
           <WikiHeaderButton
             aria-label="Find files (⌘P)"
@@ -78,8 +75,10 @@ export function Header() {
             <CommandIcon size={14} aria-hidden="true" />
             <span>Find files</span>
           </WikiHeaderButton>
-          <ActionsMenu />
-        </>
+        </div>
+      }
+      actions={
+        <ActionsMenu />
       }
     />
   );

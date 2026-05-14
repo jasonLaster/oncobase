@@ -120,6 +120,7 @@ async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
   await expect(page.getByTestId("sidebar-workspace-trigger")).toBeVisible();
   await expect(page.getByTestId("sidebar-search")).toBeVisible();
   await expect(page.getByTestId("sidebar-ask-wiki")).toBeVisible();
+  await expect(page.getByTestId("sidebar")).not.toContainText("File tree");
 
   const sidebarBox = await sb.boundingBox();
   expect(sidebarBox).not.toBeNull();
