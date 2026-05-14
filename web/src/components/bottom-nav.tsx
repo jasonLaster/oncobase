@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
-import { TreeNode, formatName } from "@/components/sidebar";
+import { TreeNode, fileTreeNodeKey, formatName } from "@/components/sidebar";
+import { useNavigationPathname } from "@/lib/navigation-intent";
 import { ConversationList } from "@diana-tnbc/chat";
 
 function getPageTitle(pathname: string): string {
@@ -27,6 +28,7 @@ function subscribePathnameSnapshot() {
 export function BottomNav({ tree }: { tree: FileNode[] }) {
   const [open, setOpen] = useState(false);
   const routerPathname = usePathname();
+  const activePathname = useNavigationPathname();
   const pathname = useSyncExternalStore(
     subscribePathnameSnapshot,
     () => routerPathname,
@@ -140,7 +142,8 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
             ) : (
               tree.map((node) => (
                 <TreeNode
-                  key={node.slug}
+                  activePathname={activePathname}
+                  key={fileTreeNodeKey(node)}
                   node={node}
                   onNavigate={close}
                 />

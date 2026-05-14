@@ -24,6 +24,7 @@ import { FileTextIcon, Loader2Icon, HeadingIcon, ListTreeIcon, CalculatorIcon } 
 import fuzzysort from "fuzzysort";
 import { themeEffect } from "@/lib/theme-effect";
 import { cn } from "@/lib/utils";
+import { setNavigationIntent } from "@/lib/navigation-intent";
 
 interface PageEntry {
   name: string;
@@ -309,6 +310,7 @@ export function CommandPalette() {
     (slug: string) => {
       const href = `/${slug}`;
       addRecentSlug(slug);
+      setNavigationIntent(href);
       closePalette();
       startNavigation(() => {
         router.push(href);

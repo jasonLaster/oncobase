@@ -1,8 +1,38 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { documentArticle, openCommandPalette } from "./helpers";
 
 // Desktop sidebar locator
 const sidebar = "[data-test-id='sidebar-tree']";
+
+async function holdRouteUntilReleased(page: Page, url: string) {
+  let releaseRoute = () => {};
+  const routeSeen = new Promise<void>((resolve) => {
+    void page.route(url, async (route) => {
+      resolve();
+      await new Promise<void>((release) => {
+        releaseRoute = release;
+      });
+      await route.continue();
+    });
+  });
+
+  return {
+    routeSeen,
+    releaseRoute: () => releaseRoute(),
+  };
+}
+
+async function expectSingleSelectedSidebarItem(
+  page: Page,
+  { href, text }: { href: string; text: string },
+) {
+  const nav = page.locator(sidebar);
+  const selectedItem = nav.locator('[data-selected-file-tree-item="true"]');
+
+  await expect(selectedItem).toHaveCount(1);
+  await expect(selectedItem).toHaveText(text);
+  await expect(selectedItem).toHaveAttribute("href", href);
+}
 
 test.describe("Page viewing & sidebar navigation", () => {
   test("serves the about index canonical redirect before rendering", async ({ request }) => {
@@ -36,6 +66,64 @@ test.describe("Page viewing & sidebar navigation", () => {
     await journalLink.click();
     await expect(page).toHaveURL(/\/about\/Journal$/);
     await expect(page.locator("h1").first()).toBeVisible();
+  });
+
+  test("sidebar selection follows the clicked file before navigation settles", async ({ page }) => {
+    await page.goto("/wiki/treatment/plan/index");
+    const nav = page.locator(sidebar);
+    await expectSingleSelectedSidebarItem(page, {
+      href: "/wiki/treatment/plan/index",
+      text: "index",
+    });
+
+    const { releaseRoute, routeSeen } = await holdRouteUntilReleased(
+      page,
+      "**/wiki/treatment/plan/ctdna-schedule**",
+    );
+
+    await nav.getByRole("link", { name: "ctdna schedule" }).click({
+      noWaitAfter: true,
+    });
+    await routeSeen;
+
+    await expectSingleSelectedSidebarItem(page, {
+      href: "/wiki/treatment/plan/ctdna-schedule",
+      text: "ctdna schedule",
+    });
+
+    releaseRoute();
+    await expect(page).toHaveURL(/\/wiki\/treatment\/plan\/ctdna-schedule$/);
+  });
+
+  test("file palette selection follows the chosen file before navigation settles", async ({ page }) => {
+    await page.goto("/wiki/treatment/plan/index");
+    await expectSingleSelectedSidebarItem(page, {
+      href: "/wiki/treatment/plan/index",
+      text: "index",
+    });
+
+    const { releaseRoute, routeSeen } = await holdRouteUntilReleased(
+      page,
+      "**/wiki/treatment/chemo-day**",
+    );
+
+    const input = await openCommandPalette(page);
+    await input.fill("chemo day");
+    const result = page
+      .locator('[cmdk-item][data-value="wiki/treatment/chemo-day"]')
+      .first();
+    await expect(result).toBeVisible();
+    await result.click({ noWaitAfter: true });
+    await routeSeen;
+
+    await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+    await expectSingleSelectedSidebarItem(page, {
+      href: "/wiki/treatment/chemo-day",
+      text: "chemo day",
+    });
+
+    releaseRoute();
+    await expect(page).toHaveURL(/\/wiki\/treatment\/chemo-day$/);
   });
 
   test("redirects mixed-case wiki paths to canonical casing", async ({ page }) => {

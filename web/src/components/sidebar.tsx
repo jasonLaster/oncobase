@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import type { FileNode } from "@/lib/markdown";
+import {
+  setNavigationIntent,
+  useNavigationPathname,
+} from "@/lib/navigation-intent";
 
 export function formatName(name: string): string {
   return name.replace(/-/g, " ");
@@ -12,6 +15,10 @@ export function formatName(name: string): string {
 export function hasActiveDescendant(node: FileNode, decodedPathname: string): boolean {
   if (node.type === "file") return decodedPathname === `/${node.slug}`;
   return node.children?.some((child) => hasActiveDescendant(child, decodedPathname)) ?? false;
+}
+
+export function fileTreeNodeKey(node: FileNode) {
+  return `${node.type}:${node.slug}:${node.type === "pdf" ? node.pdfPath ?? "" : ""}`;
 }
 
 function PdfIcon() {
@@ -25,10 +32,29 @@ function PdfIcon() {
   );
 }
 
+function shouldSetNavigationIntent(event: MouseEvent<HTMLAnchorElement>) {
+  return (
+    event.button === 0 &&
+    !event.defaultPrevented &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey
+  );
+}
 
-export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; depth?: number; onNavigate?: () => void }) {
-  const rawPathname = usePathname();
-  const pathname = decodeURIComponent(rawPathname);
+export function TreeNode({
+  activePathname,
+  node,
+  depth = 0,
+  onNavigate,
+}: {
+  activePathname: string;
+  node: FileNode;
+  depth?: number;
+  onNavigate?: () => void;
+}) {
+  const pathname = activePathname;
   const hasActive = hasActiveDescendant(node, pathname);
   const shouldOpen = depth === 0 || hasActive;
   const [userToggle, setUserToggle] = useState<boolean | null>(null);
@@ -89,7 +115,13 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
         {open && (
           <div>
             {node.children?.map((child) => (
-              <TreeNode key={child.slug} node={child} depth={depth + 1} onNavigate={onNavigate} />
+              <TreeNode
+                activePathname={activePathname}
+                key={fileTreeNodeKey(child)}
+                node={child}
+                depth={depth + 1}
+                onNavigate={onNavigate}
+              />
             ))}
           </div>
         )}
@@ -117,7 +149,12 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
   return (
     <Link
       href={`/${node.slug}`}
-      onClick={onNavigate}
+      onClick={(event) => {
+        if (shouldSetNavigationIntent(event)) {
+          setNavigationIntent(`/${node.slug}`);
+        }
+        onNavigate?.();
+      }}
       data-selected-file-tree-item={isActive ? "true" : undefined}
       className={`block px-2 py-1 text-sm rounded truncate transition-colors ${
         isActive
@@ -133,8 +170,7 @@ export function TreeNode({ node, depth = 0, onNavigate }: { node: FileNode; dept
 }
 
 export function Sidebar({ tree }: { tree: FileNode[] }) {
-  const rawPathname = usePathname();
-  const pathname = decodeURIComponent(rawPathname);
+  const pathname = useNavigationPathname();
   const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -174,7 +210,11 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
         data-test-id="sidebar-tree"
       >
         {tree.map((node) => (
-          <TreeNode key={node.slug} node={node} />
+          <TreeNode
+            activePathname={pathname}
+            key={fileTreeNodeKey(node)}
+            node={node}
+          />
         ))}
       </nav>
     </aside>
