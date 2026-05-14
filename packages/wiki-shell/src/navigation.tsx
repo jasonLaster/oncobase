@@ -196,13 +196,16 @@ function WikiTreeNode({
   if (node.type === "directory") {
     const userOpen = expandedSlugs.get(node.slug);
     const open = userOpen ?? (depth < 1 || activeAncestorSlugs.has(node.slug));
+    const accessibleName = node.badge
+      ? `${open ? "Collapse" : "Expand"} ${formattedName} ${node.badge}`
+      : `${open ? "Collapse" : "Expand"} ${formattedName}`;
 
     return (
       <div>
         <button
           aria-label={
             directoryAriaLabel?.({ formattedName, node, open }) ??
-            `${open ? "Collapse" : "Expand"} ${formattedName}`
+            accessibleName
           }
           aria-expanded={open}
           className="wiki-shell-tree-directory tree-directory"
@@ -328,8 +331,9 @@ export function WikiMobileNavigationSheet({
         className={cn("wiki-shell-bottom-nav-sheet bottom-nav-sheet", open && "open", className)}
         data-test-id="bottom-nav-sheet"
         id={sheetId}
-        role="dialog"
-        aria-modal="true"
+        role={open ? "dialog" : undefined}
+        aria-hidden={open ? undefined : true}
+        aria-modal={open ? true : undefined}
         aria-label={sheetAriaLabel}
         {...props}
       >

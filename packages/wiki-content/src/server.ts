@@ -8,8 +8,8 @@ import type {
   WikiPageRecord,
   WikiScope,
   WikiSessionIdentity,
-} from "./index";
-import { isHiddenFileTreeAssetPath, isHiddenFileTreePath } from "./index";
+} from "./index.ts";
+import { isHiddenFileTreeAssetPath, isHiddenFileTreePath } from "./index.ts";
 
 const PUBLIC_CACHE_CONTROL =
   "public, max-age=60, s-maxage=300, stale-while-revalidate=3600";

@@ -144,6 +144,7 @@ export function CommandPalette() {
   const pagesLoadedRef = useRef(false);
   const pagesRequestRef = useRef<Promise<void> | null>(null);
   const didResetScrollForOpenRef = useRef(false);
+  const palettePathnameRef = useRef(pathname);
 
   const loadPages = useCallback((showLoading = false) => {
     if (pagesLoadedRef.current) return;
@@ -222,6 +223,12 @@ export function CommandPalette() {
     setSearch("");
     setActiveIndex(0);
   }, []);
+
+  useEffect(() => {
+    if (pathname === palettePathnameRef.current) return;
+    palettePathnameRef.current = pathname;
+    if (open) closePalette();
+  }, [closePalette, open, pathname]);
 
   const handleSelect = useCallback(
     (slug: string) => {
