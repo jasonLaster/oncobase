@@ -11,6 +11,8 @@ on:
       - "packages/smart-table/**"
       - "packages/chat/**"
       - "web/convex/**"
+      - "package.json"
+      - "bun.lock"
       - ".github/workflows/wiki-vite-checks.yml"
   workflow_dispatch:
 
@@ -25,10 +27,10 @@ permissions:
   statuses: read
 
 jobs:
-  vite-local:
-    name: Vite Local
+  static:
+    name: Vite Static
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
 
@@ -36,90 +38,59 @@ jobs:
         with:
           bun-version: 1.3.12
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          package-manager-cache: false
-
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Install Playwright browsers
-        working-directory: apps/wiki-vite
-        run: bunx playwright install --with-deps chromium
-
-      - name: Verify wiki-vite static checks
+      - name: Run static, lint, typecheck, and bundle checks
         run: bun run verify:wiki-vite:static
 
-      - name: Verify standalone server (metadata, gate, backend smoke)
+  unit:
+    name: Vite Unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run Vite unit tests
+        run: bun run verify:wiki-vite:unit
+
+  server:
+    name: Vite Server
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: apps/wiki-vite
+        run: bunx playwright install --with-deps chromium
+
+      - name: Verify standalone server
         run: bun run verify:wiki-vite:server
 
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: wiki-vite-playwright-report
-          path: apps/wiki-vite/playwright-report
-          retention-days: 7
-
-  vite-browser:
-    name: Vite Browser (${{ matrix.shard }}/4)
+  preview-url:
+    name: Resolve Vite Preview URL
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4]
+    outputs:
+      url: ${{ steps.resolve.outputs.url }}
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.12
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        working-directory: apps/wiki-vite
-        run: bunx playwright install --with-deps chromium
-
-      - name: Run Vite browser shard
-        working-directory: apps/wiki-vite
-        env:
-          PLAYWRIGHT_PORT: 6100${{ matrix.shard }}
-        run: bun run test:e2e -- --shard=${{ matrix.shard }}/4
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: wiki-vite-playwright-report-${{ matrix.shard }}
-          path: apps/wiki-vite/playwright-report
-          retention-days: 7
-
-  vite-preview-smoke:
-    name: Vite Preview Smoke
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    if: ${{ vars.WIKI_VITE_PREVIEW_ENABLED == 'true' }}
-    needs: vite-local
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.12
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        working-directory: apps/wiki-vite
-        run: bunx playwright install --with-deps chromium
-
-      - name: Resolve Vite preview URL
+      - name: Wait for Vite Vercel preview deployment
         id: resolve
         env:
           GH_TOKEN: ${{ github.token }}
@@ -146,6 +117,7 @@ jobs:
             status_json="$(gh api "repos/${REPOSITORY}/deployments/${deployment_id}/statuses" | jq 'first')"
             state="$(jq -r '.state // empty' <<<"${status_json}")"
             preview_url="$(jq -r '.environment_url // .target_url // empty' <<<"${status_json}")"
+            description="$(jq -r '.description // empty' <<<"${status_json}")"
 
             case "${state}" in
               success)
@@ -155,7 +127,10 @@ jobs:
                 fi
                 ;;
               failure|error)
-                echo "Vite preview deployment failed." >&2
+                echo "Vite preview deployment failed: ${description}" >&2
+                if [[ -n "${preview_url}" ]]; then
+                  echo "Failed Vite preview URL: ${preview_url}" >&2
+                fi
                 exit 1
                 ;;
             esac
@@ -167,18 +142,40 @@ jobs:
           echo "Timed out waiting for the Vite preview deployment." >&2
           exit 1
 
-      - name: Run preview smoke against deployed Vite URL
+  e2e-preview:
+    name: Vite E2E (Preview ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: preview-url
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: apps/wiki-vite
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run Vite e2e shard against preview
         working-directory: apps/wiki-vite
         env:
-          PLAYWRIGHT_BASE_URL: ${{ steps.resolve.outputs.url }}
-          WIKI_VITE_SMOKE_PATH: /wiki/logistics/insurance
-          WIKI_VITE_SMOKE_COOKIE: ${{ secrets.WIKI_VITE_SMOKE_COOKIE }}
-        run: bun run test:e2e:preview
+          PLAYWRIGHT_BASE_URL: ${{ needs.preview-url.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: bun run test:e2e -- --shard=${{ matrix.shard }}/4
 
-      - name: Upload preview Playwright report
+      - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: wiki-vite-preview-report
+          name: wiki-vite-preview-playwright-report-${{ matrix.shard }}
           path: apps/wiki-vite/playwright-report
           retention-days: 7

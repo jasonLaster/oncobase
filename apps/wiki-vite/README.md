@@ -98,7 +98,16 @@ bun x endform login
 bun run test:e2e:endform
 ```
 
-Endform currently requires Node 22+. The PR workflow keeps the required browser suite on local Playwright shards because the full Endform fan-out can overwhelm the Vite dev-server path; use the Endform script for targeted experiments before widening it back to the whole suite.
+Endform currently requires Node 22+. The script remains useful for targeted experiments, while the required PR browser suite runs as sharded Playwright jobs against the Vercel preview deployment.
+
+Run the migrated Playwright suite against a deployed Vite reader:
+
+```sh
+PLAYWRIGHT_BASE_URL=https://wiki-vite-preview.example \
+bun run test:e2e
+```
+
+When `PLAYWRIGHT_BASE_URL` is set, Playwright skips the local dev-server bootstrap and treats the URL as the app origin. For Vercel-protected previews, set `VERCEL_AUTOMATION_BYPASS_SECRET` so Playwright sends the Vercel bypass header and the Diana preview test-auth header with every request.
 
 Run the optional preview smoke against a deployed Vite reader:
 
@@ -120,7 +129,14 @@ PLAYWRIGHT_BASE_URL=http://127.0.0.1:62004 bun run test:e2e:preview
 
 The suite mirrors the current `web/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app. P0 multi-site isolation, PII parity, and chat perf specs are active; standalone metadata hardening is covered by `verify:standalone` because production HTML patching is owned by the Bun server rather than the Vite dev server. Comments, Liveblocks, and deeper chat navigation resilience are labeled as backlog so they remain visible without blocking the standalone replacement path.
 
-From the repository root, `bun run verify:wiki-vite` runs the current migration proof: shared content tests, shared markdown tests, Vite typecheck/build, bundle budget, and the migrated Vite Playwright suite. `bun run verify:wiki-vite:static` runs the non-browser portion only, which lets CI shard the browser suite separately.
+From the repository root, `bun run verify:wiki-vite` runs the current migration proof: static checks, unit checks, and the migrated Vite Playwright suite. `bun run verify:wiki-vite:static` runs lint, package/app typechecks, the Vite build, and the bundle budget. `bun run verify:wiki-vite:unit` runs the shared package and Vite app unit tests.
+
+The PR workflow keeps those phases independent:
+
+- `Vite Static` runs the static/lint/build/bundle phase.
+- `Vite Unit` runs the shared package and Vite app unit tests.
+- `Vite Server` runs the standalone Bun server smoke so metadata, gates, backend APIs, and single-origin preview behavior keep their existing coverage.
+- `Vite E2E (Preview n/4)` resolves the branch's Vercel preview URL and runs the migrated Playwright suite in four preview shards.
 
 `bun run verify:wiki-vite:server` builds the Vite reader, starts the standalone Bun server, checks the password gate, page-specific metadata, bot-safe canonical/OG tags, private/public cache headers, key backend APIs, and the preview smoke against that single origin, then stops the server.
 

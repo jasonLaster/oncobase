@@ -12,6 +12,7 @@ import {
 } from "./wiki-api.js";
 
 const DEFAULT_SITE_SLUG = "diana";
+const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
 const PASSWORD_GATE_CACHE_TTL_MS = 15_000;
 const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml|map)$/i;
 const LINK_PREVIEW_BOT_RE =
@@ -63,6 +64,16 @@ function hasAuthCookie(request: Request, siteSlug: string) {
     .some((part) => part === `${cookieName}=true`);
 }
 
+function isDianaPreviewTestAuth(request: Request, siteSlug: string) {
+  const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  return (
+    process.env.VERCEL_ENV === "preview" &&
+    siteSlug === DEFAULT_SITE_SLUG &&
+    Boolean(secret) &&
+    request.headers.get(DIANA_TEST_AUTH_HEADER) === secret
+  );
+}
+
 function isAppAssetRequest(pathname: string) {
   return pathname.startsWith("/assets/") || pathname === "/favicon.ico" || ASSET_PATH_RE.test(pathname);
 }
@@ -109,7 +120,7 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
   }
 
   const gateEnabled = await isPasswordGateEnabled(client, siteSlug);
-  const isAuthed = hasAuthCookie(request, siteSlug);
+  const isAuthed = hasAuthCookie(request, siteSlug) || isDianaPreviewTestAuth(request, siteSlug);
   const isLoginPage = url.pathname === "/login";
 
   if (isLoginPage && (isAuthed || !gateEnabled)) {
@@ -204,7 +215,7 @@ async function staticIndexHtml(
 
 async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath: string) {
   const siteSlug = (await resolveSiteSlug(request, client)) ?? DEFAULT_SITE_SLUG;
-  const authed = hasAuthCookie(request, siteSlug);
+  const authed = hasAuthCookie(request, siteSlug) || isDianaPreviewTestAuth(request, siteSlug);
   return {
     ...staticHeaders(filePath),
     "Cache-Control": authed
