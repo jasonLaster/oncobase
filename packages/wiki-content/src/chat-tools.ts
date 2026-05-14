@@ -1,4 +1,4 @@
-import { applyPiiRedactions, type PiiPattern } from "./pii.ts";
+import { applyPiiRedactions, type PiiPattern } from "./pii";
 
 export const CHAT_UNAVAILABLE_CONTENT = "unavailable";
 
