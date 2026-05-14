@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "bunVersion": "1.x",
   "framework": "vite",
   "installCommand": "bun install --frozen-lockfile",
   "buildCommand": "bun --cwd apps/wiki-vite build",
