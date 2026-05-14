@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { loadPlaywrightEnv } from "./playwright.env";
+import { previewAuthStatePath } from "./playwright.global-setup";
 
 loadPlaywrightEnv();
 
@@ -21,9 +22,13 @@ const webServer = process.env.PLAYWRIGHT_BASE_URL
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     };
+const previewAuthState = process.env.PLAYWRIGHT_BASE_URL && process.env.WIKI_VITE_PREVIEW_LOGIN_PASSWORD
+  ? previewAuthStatePath
+  : undefined;
 
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: previewAuthState ? "./playwright.global-setup.ts" : undefined,
   timeout: 45_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
@@ -33,6 +38,7 @@ export default defineConfig({
   use: {
     baseURL,
     extraHTTPHeaders,
+    storageState: previewAuthState,
     permissions: ["clipboard-read", "clipboard-write"],
     screenshot: "only-on-failure",
     testIdAttribute: "data-test-id",

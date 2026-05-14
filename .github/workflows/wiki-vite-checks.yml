@@ -169,6 +169,7 @@ jobs:
         working-directory: apps/wiki-vite
         env:
           PLAYWRIGHT_BASE_URL: ${{ needs.preview-url.outputs.url }}
+          WIKI_VITE_PREVIEW_LOGIN_PASSWORD: diana
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: bun run test:e2e -- --shard=${{ matrix.shard }}/4
 
