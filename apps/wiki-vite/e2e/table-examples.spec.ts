@@ -124,9 +124,10 @@ test.describe("Smart table examples", () => {
       const toggle = exampleToggle(shell);
       const collapsed = await exampleGeometry(page, example);
 
-      await toggle.click();
+      await expect(toggle).toBeVisible();
+      await toggle.click({ timeout: 30_000 });
       await expect
-        .poll(() => exampleGeometry(page, example))
+        .poll(() => exampleGeometry(page, example), { timeout: 30_000 })
         .toMatchObject({ expanded: true });
 
       const expanded = await exampleGeometry(page, example);

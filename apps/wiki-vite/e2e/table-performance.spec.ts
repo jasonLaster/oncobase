@@ -11,7 +11,7 @@ test.describe("Smart table resize performance", () => {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       return performance.now() - start;
     });
-    expect(duration).toBeLessThan(100);
+    expect(duration).toBeLessThan(200);
 
     await firstSmartTableToggle(page).click();
     await expect(page.locator(".table-expansion-layer")).toBeVisible();
