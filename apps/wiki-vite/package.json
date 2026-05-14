@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "build": "bun --cwd ../../packages/smart-table build && tsc --noEmit && vite build",
+    "build": "bun --cwd ../../packages/smart-table build && tsc --noEmit && vite build && bun scripts/build-vercel-functions.ts",
     "check:bundle": "bun scripts/check-bundle-budget.ts",
     "verify:standalone": "bun scripts/verify-standalone.ts",
     "start:server": "bun server/standalone.ts",
