@@ -12,14 +12,14 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { createConvexFlusher } from "../../../packages/chat/src/flusher.js";
 import { getCachedSystemPrompt } from "../../../packages/chat/src/system-prompt-cache.js";
-import { readChatPageFromDocuments } from "../../../packages/wiki-content/src/chat-tools";
+import { readChatPageFromDocuments } from "../../../packages/wiki-content/src/chat-tools.js";
 import {
   ChatRequestSchema,
   DIANA_CHAT_SYSTEM_PROMPT_BASE,
   compactChatToolResult,
   generateChatSearchPatterns,
-} from "../../../packages/wiki-content/src/chat-route";
-import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "../../../packages/wiki-content/src/pii";
+} from "../../../packages/wiki-content/src/chat-route.js";
+import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "../../../packages/wiki-content/src/pii.js";
 import { api } from "../../../web/convex/_generated/api.js";
 import type { Id } from "../../../web/convex/_generated/dataModel.js";
 
