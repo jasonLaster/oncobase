@@ -52,7 +52,7 @@ PORT=62003 bun run start:server
 
 The standalone replacement has an isolated Vercel project named `diana-tnbc-wiki-vite`. The existing Next project remains `diana-tnbc` with Vercel root directory `web`; the isolated Vite project is connected to the repo root and uses the root `vercel.json`.
 
-The root Vercel config builds `apps/wiki-vite`, serves `apps/wiki-vite/dist`, and routes app HTML plus `/api/*` through Bun-backed Vercel Functions that call bundled versions of the same request handlers as `server/standalone.ts`. That keeps local standalone behavior and Vercel behavior aligned for password gate enforcement, route metadata, search, AI search, chat, downloads, files, and page-copy.
+The root Vercel config builds `apps/wiki-vite`, serves `apps/wiki-vite/dist`, and routes app HTML plus `/api/*` through Vercel Functions that call bundled versions of the same request handlers as `server/standalone.ts`. That keeps local standalone behavior and Vercel behavior aligned for password gate enforcement, route metadata, search, AI search, chat, downloads, files, and page-copy.
 
 Current production smoke URL:
 
