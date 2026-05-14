@@ -7,7 +7,7 @@ const result = await Bun.build({
     `${appDir}/api-runtime/app-shell.ts`,
   ],
   outdir,
-  target: "bun",
+  target: "node",
   format: "esm",
   sourcemap: "external",
 });
