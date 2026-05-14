@@ -86,6 +86,7 @@ export type WikiApiContext = {
   siteSlug: string;
   documents: WikiApiDocumentsGateway;
   getSessionUser(request: Request): Promise<WikiApiSessionUser | null>;
+  manifestPrioritySlugs?: string[];
   decorateHeaders?: (headers: HeadersInit) => HeadersInit;
   logger?: Pick<Console, "error" | "warn">;
 };
@@ -285,6 +286,9 @@ async function listManifestPages(
       ? await listManifestPageFromContent(context, args)
       : await context.documents.listManifestPage(args).catch(async (error) => {
           context.logger?.warn("[wiki manifest] Falling back to content metadata", error);
+          if ((context.manifestPrioritySlugs?.length ?? 0) > 0) {
+            throw error;
+          }
           source = "content-fallback";
           useContentFallback = true;
           return listManifestPageFromContent(context, args);
@@ -309,6 +313,11 @@ async function boundedManifestFallback(
     listManifestPageFromContent(context, args),
     MANIFEST_BOUNDED_FALLBACK_TIMEOUT_MS,
     "Wiki bounded manifest page fallback",
+  );
+  const priorityPages = await priorityManifestPages(
+    context,
+    includeSensitive,
+    pageResult.page.map((page) => page.slug),
   );
   const assetArgs = {
     cursor: null,
@@ -351,10 +360,52 @@ async function boundedManifestFallback(
     });
 
   return {
-    pages: pageResult.page,
+    pages: [...pageResult.page, ...priorityPages],
     assets,
     source: "bounded-content-fallback" as const,
   };
+}
+
+async function priorityManifestPages(
+  context: WikiApiContext,
+  includeSensitive: boolean,
+  existingSlugs: string[],
+) {
+  const seen = new Set(existingSlugs);
+  const slugs = [
+    ...new Set(
+      (context.manifestPrioritySlugs ?? [])
+        .map((slug) => slug.trim().replace(/^\/+/, ""))
+        .filter((slug) => slug.length > 0 && !seen.has(slug)),
+    ),
+  ];
+  if (slugs.length === 0) return [];
+
+  const argsForSlug = (slug: string) =>
+    includeSensitive ? { slug, includeSensitive: true as const } : { slug };
+  const records = await withTimeout(
+    Promise.allSettled(
+      slugs.map(async (slug) => {
+        const exact = await context.documents.getBySlug(argsForSlug(slug));
+        if (exact || slug.endsWith("/index")) return exact;
+        return context.documents.getBySlug(argsForSlug(`${slug}/index`));
+      }),
+    ),
+    MANIFEST_BOUNDED_FALLBACK_TIMEOUT_MS,
+    "Wiki bounded manifest priority fallback",
+  ).catch((error) => {
+    context.logger?.warn("[wiki manifest] Bounded priority fallback unavailable", error);
+    return [] as PromiseSettledResult<PageWithContent | null>[];
+  });
+
+  const pages: WikiManifestPage[] = [];
+  for (const result of records) {
+    if (result.status !== "fulfilled" || !result.value) continue;
+    if (seen.has(result.value.slug)) continue;
+    seen.add(result.value.slug);
+    pages.push(manifestPageFromContent(result.value));
+  }
+  return pages;
 }
 
 async function listManifestPageFromContent(

@@ -27,6 +27,12 @@ const USER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const DIANA_PASSWORDS = new Set(["wallify", "diana"]);
 const DEFAULT_SEARCH_LIMIT = 10;
 const MAX_SEARCH_LIMIT = 50;
+const MANIFEST_PRIORITY_SLUGS = [
+  "index",
+  "wiki/logistics/insurance",
+  "wiki/examples/smart-table",
+  "sources/institutions/stanford/telli",
+];
 
 type PageDownloadResult = {
   page: Array<{ slug: string; content: string }>;
@@ -1059,6 +1065,7 @@ export function createWikiApiHandler(client = createClient()) {
       documents: createDocumentsGateway(client, siteSlug),
       getSessionUser: (nextRequest: Request) =>
         getSessionUser(nextRequest, client, siteSlug),
+      manifestPrioritySlugs: MANIFEST_PRIORITY_SLUGS,
       decorateHeaders: decorateViteHeaders,
       logger: console,
     };

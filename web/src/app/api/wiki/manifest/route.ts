@@ -5,10 +5,14 @@ import { createWikiManifestResponse } from "@diana-tnbc/wiki-content/server";
 
 export async function GET(request: Request) {
   const siteData = siteDataFromRequest(request);
+  const prioritySiteData = siteData as typeof siteData & {
+    manifestPrioritySlugs?: string[];
+  };
   return createWikiManifestResponse(request, {
     siteSlug: siteData.siteSlug,
     documents: siteData.documents,
     getSessionUser: getSessionUserFromRequest,
+    manifestPrioritySlugs: prioritySiteData.manifestPrioritySlugs,
     decorateHeaders: (headers) => wikiApiHeaders(request, headers),
     logger: console,
   });

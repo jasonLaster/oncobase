@@ -44,10 +44,16 @@ let mockSessionUser: { _id: string } | null = null;
 let manifestFails = false;
 let contentFallbackFails = false;
 let filterPageBatchesAfterPagination = false;
+let manifestPrioritySlugs: string[] | undefined;
+let extraMockPages: MockPage[] = [];
 const originalWikiViteAllowedOrigins = process.env.WIKI_VITE_ALLOWED_ORIGINS;
 
+function allPages() {
+  return [...mockPages, ...extraMockPages];
+}
+
 function visiblePages(includeSensitive?: boolean) {
-  return mockPages.filter((page) => includeSensitive || !page.sensitive);
+  return allPages().filter((page) => includeSensitive || !page.sensitive);
 }
 
 function paginate<T>(items: T[], cursor: string | null, numItems: number) {
@@ -74,6 +80,7 @@ mock.module("@/lib/site-data", () => ({
 function mockSiteData() {
   return {
     siteSlug: "diana",
+    manifestPrioritySlugs,
     documents: {
       listManifestPage: async ({
         cursor,
@@ -129,7 +136,7 @@ function mockSiteData() {
         if (!filterPageBatchesAfterPagination) {
           return paginate(visiblePages(includeSensitive), cursor, numItems);
         }
-        const result = paginate(mockPages, cursor, numItems);
+        const result = paginate(allPages(), cursor, numItems);
         return {
           ...result,
           page: result.page.filter((page) => includeSensitive || !page.sensitive),
@@ -149,6 +156,8 @@ describe("wiki prototype API routes", () => {
     manifestFails = false;
     contentFallbackFails = false;
     filterPageBatchesAfterPagination = false;
+    manifestPrioritySlugs = undefined;
+    extraMockPages = [];
     if (originalWikiViteAllowedOrigins == null) {
       delete process.env.WIKI_VITE_ALLOWED_ORIGINS;
     } else {
@@ -217,6 +226,39 @@ describe("wiki prototype API routes", () => {
     expect(body.pages[0].contentHash).toBe("hash-public-index");
     expect(body.pages[0].sensitive).toBe(false);
     expect(body.pages[0].size).toBe("# Home".length);
+  });
+
+  test("bounded manifest fallback can include route-critical priority pages", async () => {
+    manifestFails = true;
+    filterPageBatchesAfterPagination = true;
+    manifestPrioritySlugs = ["wiki/logistics/insurance"];
+    extraMockPages = [
+      {
+        slug: "wiki/logistics/insurance",
+        title: "Insurance",
+        tags: ["wiki", "logistics"],
+        description: null,
+        content: "# Insurance",
+        contentHash: "hash-insurance",
+        sensitive: false,
+      },
+    ];
+    const originalConsoleWarn = console.warn;
+    console.warn = () => {};
+    const response = await manifestRoute.GET(
+      new Request("https://example.test/api/wiki/manifest"),
+    ).finally(() => {
+      console.warn = originalConsoleWarn;
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-wiki-manifest-source")).toBe(
+      "bounded-content-fallback",
+    );
+    expect(body.pages.map((page: { slug: string }) => page.slug)).toContain(
+      "wiki/logistics/insurance",
+    );
   });
 
   test("manifest fails closed when reliable metadata is unavailable", async () => {
