@@ -1,0 +1,91 @@
+import { expect, test, type Page } from "@playwright/test";
+
+type CompactFileNode =
+  | ["d", string, CompactFileNode[], (string | null)?, string?]
+  | ["f", string, string?]
+  | ["p", string, string?];
+
+const cacheVersion = "v1";
+const sidebar = "[data-test-id='sidebar-tree']";
+const staleTree: CompactFileNode[] = [
+  ["d", "cached", [["f", "stale-page"]]],
+];
+const freshTree: CompactFileNode[] = [
+  ["d", "fresh", [["f", "updated-page"]]],
+];
+
+function fileTreeStorageKey(origin: string) {
+  return `${origin}:file-tree:${cacheVersion}:public`;
+}
+
+async function mockFileTreeApi(page: Page) {
+  const requests: string[] = [];
+  let releaseFreshTree = () => {};
+  const freshTreeRelease = new Promise<void>((resolve) => {
+    releaseFreshTree = resolve;
+  });
+
+  await page.route("**/api/file-tree?**", async (route) => {
+    const url = new URL(route.request().url());
+    requests.push(url.search);
+
+    if (url.searchParams.get("scope") === "session") {
+      await route.fulfill({ status: 204 });
+      return;
+    }
+
+    await freshTreeRelease;
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(freshTree),
+    });
+  });
+
+  return { releaseFreshTree, requests };
+}
+
+test.describe("Navigation file tree SWR", () => {
+  test("shows cached full tree after hydration, then replaces it with the fresh tree", async ({
+    page,
+  }) => {
+    const fileTreeApi = await mockFileTreeApi(page);
+
+    await page.addInitScript(
+      ({ treeJson }) => {
+        sessionStorage.setItem(
+          `${window.location.origin}:file-tree:v1:public`,
+          JSON.stringify({ version: "v1", tree: JSON.parse(treeJson) }),
+        );
+      },
+      { treeJson: JSON.stringify(staleTree) },
+    );
+
+    await page.goto("/");
+    const nav = page.locator(sidebar);
+
+    await expect(nav.getByRole("button", { name: "▼ cached" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "stale page" })).toHaveAttribute(
+      "href",
+      "/cached/stale-page",
+    );
+
+    fileTreeApi.releaseFreshTree();
+
+    await expect(nav.getByRole("button", { name: "▼ fresh" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "updated page" })).toHaveAttribute(
+      "href",
+      "/fresh/updated-page",
+    );
+    await expect(nav.getByRole("button", { name: "▼ cached" })).toHaveCount(0);
+
+    expect(fileTreeApi.requests).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("scope=public"),
+        expect.stringContaining("scope=session"),
+      ]),
+    );
+    expect(
+      fileTreeApi.requests.find((request) => request.includes("scope=public")),
+    ).toContain(encodeURIComponent(fileTreeStorageKey(page.url().replace(/\/$/, ""))));
+  });
+});
