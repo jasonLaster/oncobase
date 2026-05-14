@@ -73,6 +73,6 @@ describe("page slug helpers", () => {
       "wiki/logistics",
     );
     expect(formatCommandPalettePagePath("about/About")).toBe("about");
-    expect(formatCommandPalettePagePath("index")).toBe("");
+    expect(formatCommandPalettePagePath("index")).toBe("/");
   });
 });

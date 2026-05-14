@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { buildWikiFilePaletteState } from "./file-palette";
+import {
+  buildWikiFilePaletteState,
+  formatWikiFilePalettePath,
+} from "./file-palette";
 
 const pages = [
   {
@@ -43,6 +46,17 @@ describe("wiki file palette model", () => {
     ]);
   });
 
+  test("shows all pages when there are no recents", () => {
+    const state = buildWikiFilePaletteState(pages, "", []);
+
+    expect(state.visibleEntries.map((page) => page.slug)).toEqual(
+      pages.map((page) => page.slug),
+    );
+    expect(state.visibleRows).toEqual(
+      pages.map((page, pageIndex) => ({ type: "page", page, pageIndex })),
+    );
+  });
+
   test("uses fuzzy search with exact matches before broad fuzzy matches", () => {
     const state = buildWikiFilePaletteState(pages, "search", [
       "wiki/research/research-review",
@@ -65,5 +79,9 @@ describe("wiki file palette model", () => {
     ]);
 
     expect(state.searchResults?.at(0)?.slug).toBe("wiki/people/medical-team");
+  });
+
+  test("formats root-level page paths as root", () => {
+    expect(formatWikiFilePalettePath("search")).toBe("/");
   });
 });

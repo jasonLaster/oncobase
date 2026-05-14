@@ -39,8 +39,8 @@ export type WikiFilePaletteState = {
 export const WIKI_FILE_PALETTE_RECENT_KEY = "cmd-palette-recent";
 export const WIKI_FILE_PALETTE_MAX_RECENT = 8;
 const MAX_SEARCH_RESULTS = 50;
-const PALETTE_ROW_HEIGHT = 58;
-const PALETTE_HEADING_HEIGHT = 32;
+const PALETTE_ROW_HEIGHT = 56;
+const PALETTE_HEADING_HEIGHT = 28;
 
 function displayName(page: WikiFilePalettePage) {
   return page.name.replace(/-/g, " ");
@@ -48,7 +48,7 @@ function displayName(page: WikiFilePalettePage) {
 
 export function formatWikiFilePalettePath(slug: string) {
   const parts = slug.split("/");
-  return parts.length > 1 ? parts.slice(0, -1).join("/") : "";
+  return parts.length > 1 ? parts.slice(0, -1).join("/") : "/";
 }
 
 export function buildWikiFilePaletteState(
@@ -212,7 +212,8 @@ function WikiFilePaletteEntries({
                 virtualItem.index === activeRowIndex && "is-measured",
               )}
               data-active={selected ? "true" : undefined}
-              data-index={row.pageIndex}
+              data-index={virtualItem.index}
+              data-page-index={row.pageIndex}
               data-value={value}
               id={`page-palette-${row.pageIndex}`}
               key={page.slug}
@@ -270,7 +271,8 @@ export function WikiFilePalette({
   const [search, setSearch] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+  const [listElement, setListElement] = useState<HTMLDivElement | null>(null);
+  const didResetScrollForOpenRef = useRef(false);
   const query = search.trim();
 
   const { recentEntries, searchResults, visibleEntries, visibleRows } = useMemo(
@@ -284,7 +286,7 @@ export function WikiFilePalette({
       visibleRows[index]?.type === "heading"
         ? PALETTE_HEADING_HEIGHT
         : PALETTE_ROW_HEIGHT,
-    getScrollElement: () => listRef.current,
+    getScrollElement: () => listElement,
     overscan: 8,
   });
 
@@ -302,6 +304,24 @@ export function WikiFilePalette({
     setActiveIndex(0);
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }, [initialSearch, open]);
+
+  useEffect(() => {
+    if (!open || !listElement || visibleRows.length === 0) return;
+    rowVirtualizer.measure();
+  }, [listElement, open, rowVirtualizer, visibleRows.length]);
+
+  useEffect(() => {
+    if (!open) {
+      didResetScrollForOpenRef.current = false;
+      return;
+    }
+
+    if (!listElement || visibleRows.length === 0 || didResetScrollForOpenRef.current) return;
+
+    didResetScrollForOpenRef.current = true;
+    listElement.scrollTo({ top: 0 });
+    rowVirtualizer.scrollToIndex(0, { align: "start" });
+  }, [listElement, open, rowVirtualizer, visibleRows.length]);
 
   const closePalette = useCallback(() => {
     onOpenChange(false);
@@ -426,7 +446,7 @@ export function WikiFilePalette({
           aria-label="pages results"
           className="wiki-shell-file-palette-list"
           id="page-palette-list"
-          ref={listRef}
+          ref={setListElement}
           role="listbox"
         >
           {loading ? (

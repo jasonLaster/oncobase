@@ -56,6 +56,7 @@ import {
   slugFromPath,
 } from "../wiki-utils";
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
+import { setNavigationIntentForSlug } from "./navigation-intent";
 import { collectOutline, scrollToOutlineItem, type OutlineItem } from "./outline";
 
 export type PaletteMode = "pages" | "outline" | "assets" | "tags" | "actions" | "debug";
@@ -360,6 +361,7 @@ export function CommandPalette({
 
   const openPage = (page: { slug: string }) => {
     rememberSlug(page.slug);
+    setNavigationIntentForSlug(page.slug);
     navigate(hrefForSlug(page.slug));
     onOpenChange(false);
   };

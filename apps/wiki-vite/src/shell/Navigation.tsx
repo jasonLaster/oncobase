@@ -12,13 +12,23 @@ import {
   type WikiNavigationNode,
   type WikiTreePageLinkRenderArgs,
 } from "@diana-tnbc/wiki-shell";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent,
+} from "react";
 import { Link, useLocation } from "react-router";
 import { ChatConversationList } from "../chat/ChatConversationList";
 import { ChatProviders } from "../chat/ChatProviders";
 import { fileTree$, pageIndex$ } from "../livestore/queries";
 import type { PageIndexRow } from "../types";
 import { hrefForSlug, parseJsonArray, slugFromPath } from "../wiki-utils";
+import {
+  setNavigationIntentForSlug,
+  useNavigationSlug,
+} from "./navigation-intent";
 
 const TREE_EXPANSION_KEY = "wiki-vite-expanded-directories";
 
@@ -69,7 +79,8 @@ function writeExpandedDirectories(slugs: Map<string, boolean>) {
 
 function useTreeExpansion(tree: WikiNavigationNode[]) {
   const location = useLocation();
-  const activeSlug = slugFromPath(location.pathname);
+  const locationSlug = slugFromPath(location.pathname);
+  const activeSlug = useNavigationSlug(locationSlug);
   const [expandedSlugs, setExpandedSlugs] = useState(readExpandedDirectories);
   const activeAncestorSlugs = useMemo(
     () => collectActiveAncestors(tree, activeSlug),
@@ -118,6 +129,17 @@ function fileHrefForNode(node: WikiNavigationNode) {
   return `/api/file?path=${encodeURIComponent(node.pdfPath ?? node.slug)}`;
 }
 
+function shouldSetNavigationIntent(event: MouseEvent<HTMLAnchorElement>) {
+  return (
+    event.button === 0 &&
+    !event.defaultPrevented &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey
+  );
+}
+
 function renderPageLink({
   active,
   children,
@@ -132,7 +154,12 @@ function renderPageLink({
       aria-current={active ? "page" : undefined}
       style={style}
       to={hrefForSlug(node.slug)}
-      onClick={onNavigate}
+      onClick={(event) => {
+        if (shouldSetNavigationIntent(event)) {
+          setNavigationIntentForSlug(node.slug);
+        }
+        onNavigate?.(event);
+      }}
     >
       {children}
     </Link>

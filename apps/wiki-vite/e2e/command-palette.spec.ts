@@ -47,6 +47,73 @@ test.describe("Command palette parity", () => {
     await expect(page.locator(`#${activeId}`)).toHaveAttribute("aria-selected", "true");
   });
 
+  test("file palette shows pages before typing when there are no recents", async ({ page }) => {
+    await gotoWiki(page, "/");
+    await page.evaluate(() => {
+      localStorage.removeItem("cmd-palette-recent");
+    });
+
+    await page.getByTestId("command-palette-trigger").click();
+
+    const palette = page.getByTestId("command-palette");
+    await expect(palette.getByText("No pages found.")).toHaveCount(0);
+    const firstOption = palette.getByRole("option").first();
+    await expect(firstOption).toBeVisible();
+    await expect(palette.getByRole("option", { name: /Diana Wiki Home/ }).locator("small")).toHaveText(
+      "/",
+    );
+  });
+
+  test("file palette groups recent pages and all pages before typing", async ({ page }) => {
+    await gotoWiki(page, "/");
+    await page.evaluate(() => {
+      localStorage.setItem("cmd-palette-recent", JSON.stringify(["wiki/logistics/insurance"]));
+    });
+
+    await page.getByTestId("command-palette-trigger").click();
+
+    const palette = page.getByTestId("command-palette");
+    await expect(palette.getByText("Recent pages")).toBeVisible();
+    await expect(palette.getByText("All pages")).toBeVisible();
+    await expect(palette.getByRole("option").first()).toHaveAttribute("data-value", /Insurance/);
+    await expect(palette.getByRole("option").nth(1)).toBeVisible();
+  });
+
+  test("file palette resets scroll position when reopened", async ({ page }) => {
+    await gotoWiki(page, "/");
+    await page.evaluate(() => {
+      localStorage.removeItem("cmd-palette-recent");
+    });
+
+    await page.getByTestId("command-palette-trigger").click();
+    const listbox = page.locator("#page-palette-list");
+    await expect(listbox).toBeVisible();
+    await expect(listbox.getByRole("option").first()).toBeVisible();
+    await expect
+      .poll(() => listbox.evaluate((element) => element.scrollHeight > element.clientHeight))
+      .toBe(true);
+
+    await listbox.evaluate((element) => {
+      element.scrollTop = 600;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect
+      .poll(() => listbox.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("command-palette")).toHaveCount(0);
+    await page.getByTestId("command-palette-trigger").click();
+
+    await expect
+      .poll(() => page.locator("#page-palette-list").evaluate((element) => element.scrollTop))
+      .toBe(0);
+    await expect(page.locator("#page-palette-list").getByRole("option").first()).toHaveAttribute(
+      "data-index",
+      "0",
+    );
+  });
+
   test("outline palette jumps to headings rendered from markdown", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
