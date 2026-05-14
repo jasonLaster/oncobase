@@ -105,7 +105,7 @@ jobs:
             deployment_id="$(
               gh api "repos/${REPOSITORY}/deployments?sha=${HEAD_SHA}&per_page=40" \
                 | jq -r --arg project "${VERCEL_PROJECT}" \
-                    '[.[] | select(.environment == "Preview") | select(.payload.project == $project // true)] | first | .id // empty'
+                    '[.[] | select(.environment | startswith("Preview")) | select((.payload.project // "") == $project or (.environment | endswith($project)))] | first | .id // empty'
             )"
 
             if [[ -z "${deployment_id}" ]]; then
