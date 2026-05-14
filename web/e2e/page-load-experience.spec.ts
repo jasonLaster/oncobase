@@ -112,7 +112,7 @@ function sidebar(page: Page) {
 async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
   await page.setViewportSize(desktopViewport);
   await blockAppScripts(page);
-  await page.goto(withMagicLink(pageCase.route), { waitUntil: "commit" });
+  await page.goto(withMagicLink(pageCase.route), { waitUntil: "domcontentloaded" });
 
   const sb = sidebar(page);
 
@@ -149,7 +149,7 @@ test.describe("Page load experience", () => {
       localStorage.setItem("sidebar-width", "0");
     });
     await blockAppScripts(page);
-    await page.goto(withMagicLink("/about/Index"), { waitUntil: "commit" });
+    await page.goto(withMagicLink("/about/Index"), { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeHidden();
@@ -158,7 +158,7 @@ test.describe("Page load experience", () => {
   test("mobile initial paint keeps the header nav affordance", async ({ page }) => {
     await page.setViewportSize(mobileViewport);
     await blockAppScripts(page);
-    await page.goto(withMagicLink("/about/Index"), { waitUntil: "commit" });
+    await page.goto(withMagicLink("/about/Index"), { waitUntil: "domcontentloaded" });
 
     const mobileHeader = page.getByTestId("mobile-page-header");
     const navButton = page.getByTestId("bottom-nav-trigger");
