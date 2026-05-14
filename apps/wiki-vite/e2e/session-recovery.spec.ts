@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { documentArticle, gotoWiki, installWikiApiMocks, waitForPageTitle } from "./fixtures";
 
+const runsWithPreviewAuth = Boolean(
+  process.env.PLAYWRIGHT_BASE_URL && process.env.WIKI_VITE_PREVIEW_LOGIN_PASSWORD,
+);
+
 test.describe("Session scope recovery", () => {
   test("session identity failure can fall back to the public store", async ({ page }) => {
     await installWikiApiMocks(page);
@@ -35,6 +39,8 @@ test.describe("Session scope recovery", () => {
   });
 
   test("login page describes and preserves the redirect target", async ({ page }) => {
+    test.skip(runsWithPreviewAuth, "Preview e2e starts authenticated to exercise protected wiki pages.");
+
     await installWikiApiMocks(page);
     await page.goto(
       "/login?redirect=%2Fwiki%2Flogistics%2Finsurance%3Fscope%3Dsession%23claims-follow-up",

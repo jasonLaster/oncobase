@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { documentArticle, gotoWiki, installWikiApiMocks } from "./fixtures";
 
+const runsAgainstPreview = Boolean(process.env.PLAYWRIGHT_BASE_URL);
+
 test.describe("P0 multi-site isolation", () => {
   test("invariant 1: same-slug isolation cold and warm", async ({ page }) => {
     await installWikiApiMocks(page, {
@@ -38,6 +40,8 @@ test.describe("P0 multi-site isolation", () => {
   });
 
   test("invariant 2: header injection is overwritten", async ({ request }) => {
+    test.skip(runsAgainstPreview, "Vercel previews do not accept synthetic Host headers.");
+
     const response = await request.get("/api/wiki/session", {
       headers: {
         Host: "diana.localhost",
@@ -76,6 +80,8 @@ test.describe("P0 multi-site isolation", () => {
   });
 
   test("invariant 4: unknown non-Diana site APIs fail closed or return empty", async ({ request }) => {
+    test.skip(runsAgainstPreview, "Vercel previews do not accept synthetic Host headers.");
+
     const manifest = await request.get("/api/wiki/manifest", {
       headers: { Host: "unknownsite.localhost" },
     });
@@ -88,6 +94,8 @@ test.describe("P0 multi-site isolation", () => {
   });
 
   test("invariant 5: /api/tools chat tool calls are host-scoped", async ({ request }) => {
+    test.skip(runsAgainstPreview, "Vercel previews do not accept synthetic Host headers.");
+
     const response = await request.post("/api/tools", {
       headers: { Host: "friend.localhost" },
       data: { tool: "search_wiki", args: { query: "diagnosis" } },
@@ -102,6 +110,8 @@ test.describe("P0 multi-site isolation", () => {
   });
 
   test("invariant 6: markdown downloads are site-scoped", async ({ request }) => {
+    test.skip(runsAgainstPreview, "Vercel previews do not accept synthetic Host headers.");
+
     const response = await request.get("/api/page-copy?slug=wiki/logistics/insurance", {
       headers: { Host: "friend.localhost" },
       timeout: 15_000,
@@ -115,6 +125,8 @@ test.describe("P0 multi-site isolation", () => {
   });
 
   test("invariant 7: share-preview falls back to the Vite shell without cross-site data", async ({ request }) => {
+    test.skip(runsAgainstPreview, "Vercel previews do not accept synthetic Host headers.");
+
     const response = await request.get("/api/share-preview", {
       headers: { Host: "friend.localhost" },
     });
@@ -136,6 +148,8 @@ test.describe("P0 multi-site isolation", () => {
   });
 
   test("invariant 9: /api/file returns 404 or empty for paths the active site does not own", async ({ request }) => {
+    test.skip(runsAgainstPreview, "Vercel previews do not accept synthetic Host headers.");
+
     const response = await request.get("/api/file?path=sources/images/pathology-slide.png", {
       headers: { Host: "friend.localhost" },
     });

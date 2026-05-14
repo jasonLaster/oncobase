@@ -4,6 +4,7 @@ import JSZip from "jszip";
 const hasAiGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
 const hasOpenAi = Boolean(process.env.OPENAI_API_KEY);
 const runsLiveAiSearchSmoke = process.env.WIKI_VITE_RUN_LIVE_AI_SEARCH === "1";
+const runsAgainstPreview = Boolean(process.env.PLAYWRIGHT_BASE_URL);
 const rawPiiPattern = /Diana Laster|88855655|jason\.laster\.11@gmail\.com/i;
 
 test.describe("Vite backend API", () => {
@@ -22,6 +23,8 @@ test.describe("Vite backend API", () => {
   });
 
   test("resolves sites from Host and ignores injected site headers", async ({ request }) => {
+    test.skip(runsAgainstPreview, "Vercel previews do not accept synthetic Host headers.");
+
     const response = await request.get("/api/wiki/session", {
       headers: {
         Host: "diana.localhost",

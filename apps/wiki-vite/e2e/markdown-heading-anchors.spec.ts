@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { documentArticle, gotoWiki, installWikiApiMocks, waitForPageTitle } from "./fixtures";
 
+const runsWithPreviewAuth = Boolean(
+  process.env.PLAYWRIGHT_BASE_URL && process.env.WIKI_VITE_PREVIEW_LOGIN_PASSWORD,
+);
+
 function targetScrollState(id: string) {
   return {
     scrollTop: document.querySelector<HTMLElement>(".content-shell")?.scrollTop ?? window.scrollY,
@@ -95,6 +99,8 @@ test.describe("Markdown heading anchors", () => {
   });
 
   test("login page preserves the hash so anchors resolve after sign-in", async ({ page }) => {
+    test.skip(runsWithPreviewAuth, "Preview e2e starts authenticated to exercise protected wiki pages.");
+
     // The web counterpart drives the password gate end-to-end (gate → /login →
     // password submit → redirect with hash → scroll-to-anchor). In Vite the
     // password gate lives in the standalone Bun server and is exercised by
