@@ -39,7 +39,7 @@ jobs:
           bun-version: 1.3.12
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
 
       - name: Run static, lint, typecheck, and bundle checks
         run: bun run verify:wiki-vite:static
@@ -56,7 +56,7 @@ jobs:
           bun-version: 1.3.12
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
 
       - name: Run Vite unit tests
         run: bun run verify:wiki-vite:unit
@@ -73,7 +73,7 @@ jobs:
           bun-version: 1.3.12
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
 
       - name: Install Playwright browsers
         working-directory: apps/wiki-vite
@@ -159,7 +159,7 @@ jobs:
           bun-version: 1.3.12
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
 
       - name: Install Playwright browsers
         working-directory: apps/wiki-vite
