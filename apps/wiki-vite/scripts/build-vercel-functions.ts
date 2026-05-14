@@ -1,6 +1,6 @@
 const appDir = new URL("..", import.meta.url).pathname;
 
-const outdir = `${appDir}/.vercel-functions`;
+const outdir = `${appDir}/dist/.vercel-functions`;
 const result = await Bun.build({
   entrypoints: [
     `${appDir}/api-runtime/index.ts`,

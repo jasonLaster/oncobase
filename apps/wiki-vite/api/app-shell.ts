@@ -6,7 +6,7 @@ export const config = {
 
 type VercelHandler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 let runtimeHandler: Promise<VercelHandler> | null = null;
-const runtimeHandlerPath = "../.vercel-functions/app-shell.mjs";
+const runtimeHandlerPath = "../dist/.vercel-functions/app-shell.mjs";
 
 async function loadRuntimeHandler() {
   runtimeHandler ??= import(runtimeHandlerPath).then(

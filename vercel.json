@@ -7,14 +7,11 @@
   "outputDirectory": "apps/wiki-vite/dist",
   "functions": {
     "api/app-shell.ts": {
-      "includeFiles": [
-        "apps/wiki-vite/.vercel-functions/**",
-        "apps/wiki-vite/dist/**"
-      ],
+      "includeFiles": "apps/wiki-vite/dist/**",
       "maxDuration": 60
     },
     "api/index.ts": {
-      "includeFiles": "apps/wiki-vite/.vercel-functions/**",
+      "includeFiles": "apps/wiki-vite/dist/.vercel-functions/**",
       "maxDuration": 60
     }
   },
