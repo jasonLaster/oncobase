@@ -91,6 +91,15 @@ Run the migrated Playwright suite with mocked wiki APIs:
 bun run test:e2e
 ```
 
+Run the same suite on Endform's remote browser runners:
+
+```sh
+bun x endform login
+bun run test:e2e:endform
+```
+
+Endform currently requires Node 22+. The PR workflow keeps the required browser suite on local Playwright shards because the full Endform fan-out can overwhelm the Vite dev-server path; use the Endform script for targeted experiments before widening it back to the whole suite.
+
 Run the optional preview smoke against a deployed Vite reader:
 
 ```sh
@@ -111,7 +120,7 @@ PLAYWRIGHT_BASE_URL=http://127.0.0.1:62004 bun run test:e2e:preview
 
 The suite mirrors the current `web/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app. P0 multi-site isolation, PII parity, and chat perf specs are active; standalone metadata hardening is covered by `verify:standalone` because production HTML patching is owned by the Bun server rather than the Vite dev server. Comments, Liveblocks, and deeper chat navigation resilience are labeled as backlog so they remain visible without blocking the standalone replacement path.
 
-From the repository root, `bun run verify:wiki-vite` runs the current migration proof: shared content tests, shared markdown tests, Vite typecheck/build, bundle budget, and the migrated Vite Playwright suite.
+From the repository root, `bun run verify:wiki-vite` runs the current migration proof: shared content tests, shared markdown tests, Vite typecheck/build, bundle budget, and the migrated Vite Playwright suite. `bun run verify:wiki-vite:static` runs the non-browser portion only, which lets CI shard the browser suite separately.
 
 `bun run verify:wiki-vite:server` builds the Vite reader, starts the standalone Bun server, checks the password gate, page-specific metadata, bot-safe canonical/OG tags, private/public cache headers, key backend APIs, and the preview smoke against that single origin, then stops the server.
 
