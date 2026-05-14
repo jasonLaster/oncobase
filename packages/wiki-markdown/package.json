@@ -46,7 +46,7 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test:unit": "bun test src/*.test.ts"
+    "test:unit": "bun --cwd ../smart-table build && bun test src/*.test.ts"
   },
   "dependencies": {
     "@diana-tnbc/smart-table": "workspace:*",

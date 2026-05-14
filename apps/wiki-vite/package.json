@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "build": "tsc --noEmit && vite build",
+    "build": "bun --cwd ../../packages/smart-table build && tsc --noEmit && vite build",
     "check:bundle": "bun scripts/check-bundle-budget.ts",
     "verify:standalone": "bun scripts/verify-standalone.ts",
     "start:server": "bun server/standalone.ts",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "bun test src server",
+    "typecheck": "bun --cwd ../../packages/smart-table build && tsc --noEmit",
+    "test:unit": "bun --cwd ../../packages/smart-table build && bun test src server",
     "test:e2e": "playwright test",
     "test:e2e:preview": "playwright test --config playwright.preview.config.ts"
   },
