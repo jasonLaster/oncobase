@@ -6,17 +6,74 @@ on:
 permissions:
   actions: read
   contents: read
+  pull-requests: read
 
 concurrency:
   group: deployment-checks-${{ github.event.deployment.ref || github.event.deployment.sha }}
   cancel-in-progress: true
 
 jobs:
-  preview-e2e:
+  changes:
     if: >
       github.event.deployment_status.state == 'success' &&
       github.event.deployment.environment == 'Preview' &&
       github.event.deployment_status.target_url != ''
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.changed-files.outputs.should_run }}
+    steps:
+      - name: Check changed files
+        id: changed-files
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const sha = context.payload.deployment.sha;
+
+            const associatedPulls = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: sha,
+            });
+
+            let files;
+            if (associatedPulls.data.length > 0) {
+              const pull_number = associatedPulls.data[0].number;
+              files = await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number,
+                per_page: 100,
+              });
+            } else {
+              const commit = await github.rest.repos.getCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: sha,
+              });
+              const parent = commit.data.parents?.[0]?.sha;
+              if (!parent) {
+                core.info("Commit has no parent; running preview E2E.");
+                core.setOutput("should_run", "true");
+                return;
+              }
+
+              const comparison = await github.rest.repos.compareCommitsWithBasehead({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                basehead: `${parent}...${sha}`,
+              });
+              files = comparison.data.files ?? [];
+            }
+
+            const paths = files.map((file) => file.filename);
+            const obsidianOnly = paths.length > 0 && paths.every((path) => path.startsWith("obsidian/"));
+            core.info(`Changed files: ${paths.join(", ") || "(none)"}`);
+            core.info(obsidianOnly ? "Skipping preview E2E for obsidian-only changes." : "Running preview E2E.");
+            core.setOutput("should_run", obsidianOnly ? "false" : "true");
+
+  preview-e2e:
+    needs: changes
+    if: needs.changes.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
