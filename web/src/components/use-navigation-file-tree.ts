@@ -19,9 +19,9 @@ type FileTreeSWRKey = readonly [
 const FILE_TREE_CACHE_VERSION = "v1";
 const fileTreeMemoryCache = new Map<string, CompactFileNode[]>();
 
-function fileTreeCacheKey(scope: FileTreeScope) {
+function fileTreeCacheKey(scope: FileTreeScope, version: string) {
   const origin = typeof window === "undefined" ? "" : window.location.origin;
-  return `${origin}:file-tree:${FILE_TREE_CACHE_VERSION}:${scope}`;
+  return `${origin}:file-tree:${FILE_TREE_CACHE_VERSION}:${version}:${scope}`;
 }
 
 function readCachedCompactTree(cacheKey: string) {
@@ -91,14 +91,16 @@ async function fetchCompactFileTree([
 export function useNavigationFileTree({
   enabled,
   initialTree,
+  treeVersion,
 }: {
   enabled: boolean;
   initialTree: FileNode[];
+  treeVersion: string;
 }) {
   const hasHydrated = useHasHydrated();
   const shouldLoadFileTree = hasHydrated && enabled;
-  const publicStorageKey = fileTreeCacheKey("public");
-  const sessionStorageKey = fileTreeCacheKey("session");
+  const publicStorageKey = fileTreeCacheKey("public", treeVersion);
+  const sessionStorageKey = fileTreeCacheKey("session", treeVersion);
   const publicKey = useMemo(
     () =>
       shouldLoadFileTree

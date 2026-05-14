@@ -70,6 +70,10 @@ test.describe("Sidebar source files", () => {
     expect(compactTreeResponse.ok()).toBeTruthy();
     expect(pagesResponse.ok()).toBeTruthy();
     expect(htmlResponse.ok()).toBeTruthy();
+    expect(treeResponse.headers()["cache-control"]).toContain("s-maxage=3600");
+    expect(treeResponse.headers()["cache-control"]).toContain("stale-while-revalidate");
+    expect(compactTreeResponse.headers()["cache-control"]).toContain("s-maxage=3600");
+    expect(compactTreeResponse.headers()["cache-control"]).toContain("stale-while-revalidate");
 
     const tree = (await treeResponse.json()) as FileNode[];
     const topLevelSlugs = tree.map((node) => node.slug);

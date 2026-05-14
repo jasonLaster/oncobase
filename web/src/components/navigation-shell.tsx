@@ -24,14 +24,17 @@ function SidebarFallback() {
 export function NavigationShell({
   children,
   initialTree,
+  treeVersion,
 }: {
   children: ReactNode;
   initialTree: FileNode[];
+  treeVersion: string;
 }) {
   const pathname = usePathname();
   const tree = useNavigationFileTree({
     enabled: !pathname.startsWith("/chat"),
     initialTree,
+    treeVersion,
   });
 
   const shouldRenderStaticContent =

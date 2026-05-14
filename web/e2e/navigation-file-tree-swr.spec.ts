@@ -5,7 +5,6 @@ type CompactFileNode =
   | ["f", string, string?]
   | ["p", string, string?];
 
-const cacheVersion = "v1";
 const sidebar = "[data-test-id='sidebar-tree']";
 const staleTree: CompactFileNode[] = [
   ["d", "cached", [["f", "stale-page"]]],
@@ -13,10 +12,6 @@ const staleTree: CompactFileNode[] = [
 const freshTree: CompactFileNode[] = [
   ["d", "fresh", [["f", "updated-page"]]],
 ];
-
-function fileTreeStorageKey(origin: string) {
-  return `${origin}:file-tree:${cacheVersion}:public`;
-}
 
 async function mockFileTreeApi(page: Page) {
   const requests: string[] = [];
@@ -52,10 +47,16 @@ test.describe("Navigation file tree SWR", () => {
 
     await page.addInitScript(
       ({ treeJson }) => {
-        sessionStorage.setItem(
-          `${window.location.origin}:file-tree:v1:public`,
-          JSON.stringify({ version: "v1", tree: JSON.parse(treeJson) }),
-        );
+        const originalGetItem = sessionStorage.getItem.bind(sessionStorage);
+        sessionStorage.getItem = (key: string) => {
+          if (
+            key.startsWith(`${window.location.origin}:file-tree:v1:`) &&
+            key.endsWith(":public")
+          ) {
+            return JSON.stringify({ version: "v1", tree: JSON.parse(treeJson) });
+          }
+          return originalGetItem(key);
+        };
       },
       { treeJson: JSON.stringify(staleTree) },
     );
@@ -86,6 +87,6 @@ test.describe("Navigation file tree SWR", () => {
     );
     expect(
       fileTreeApi.requests.find((request) => request.includes("scope=public")),
-    ).toContain(encodeURIComponent(fileTreeStorageKey(page.url().replace(/\/$/, ""))));
+    ).toEqual(expect.stringMatching(/cacheKey=.*%3Afile-tree%3Av1%3A.*%3Apublic/));
   });
 });

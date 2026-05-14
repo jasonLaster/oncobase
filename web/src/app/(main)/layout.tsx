@@ -4,6 +4,7 @@ import { NavigationShell } from "@/components/navigation-shell";
 import { WebChatRuntimeProvider } from "@/components/chat-runtime-provider";
 import { PageLoadingSkeleton } from "@/components/page-loading";
 import { getShellFileTreeForSite, type FileNode } from "@/lib/markdown";
+import { getSitePublishVersion } from "@/lib/site-publish-version";
 import { DEFAULT_SITE_SLUG, toSiteSlug } from "@/lib/site";
 
 function treeLabel(name: string) {
@@ -105,10 +106,11 @@ export default async function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const shellTree = await getShellFileTreeForSite(
-    toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG),
-    { maxDepth: 2 },
-  );
+  const siteSlug = toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG);
+  const [shellTree, treeVersion] = await Promise.all([
+    getShellFileTreeForSite(siteSlug, { maxDepth: 2 }),
+    getSitePublishVersion(siteSlug),
+  ]);
   const shellFallback = <ShellFallback tree={shellTree} />;
 
   return (
@@ -130,7 +132,9 @@ export default async function MainLayout({
           <Header />
         </Suspense>
         <Suspense fallback={shellFallback}>
-          <NavigationShell initialTree={shellTree}>{children}</NavigationShell>
+          <NavigationShell initialTree={shellTree} treeVersion={treeVersion}>
+            {children}
+          </NavigationShell>
         </Suspense>
       </div>
     </WebChatRuntimeProvider>
