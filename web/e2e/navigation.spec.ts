@@ -175,6 +175,77 @@ test.describe("Page viewing & sidebar navigation", () => {
       .toBe(true);
   });
 
+  test("command palette shows pages before typing when there are no recents", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => {
+      localStorage.removeItem("cmd-palette-recent");
+    });
+
+    await openCommandPalette(page);
+
+    const dialog = page.locator('[role="dialog"]').first();
+    await expect(dialog.getByText("No pages found.")).toHaveCount(0);
+    await expect(dialog.locator('[cmdk-item]').first()).toBeVisible();
+    await expect(dialog.locator('[cmdk-item]').first().locator(".text-xs")).toHaveText("/");
+    await expect(dialog.locator('[cmdk-item][data-value*="Journal"]').first()).toBeVisible();
+  });
+
+  test("command palette shows recent pages and all pages before typing", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => {
+      localStorage.setItem("cmd-palette-recent", JSON.stringify(["about/Journal"]));
+    });
+
+    await openCommandPalette(page);
+
+    const dialog = page.locator('[role="dialog"]').first();
+    await expect(dialog.getByText("Recent pages")).toBeVisible();
+    await expect(dialog.getByText("All pages")).toBeVisible();
+    await expect(dialog.locator('[cmdk-item]').first()).toHaveAttribute("data-value", /Journal/);
+    await expect(dialog.locator('[cmdk-item]').nth(1)).toBeVisible();
+
+    const recentHeader = await dialog.getByText("Recent pages").boundingBox();
+    const recentItem = await dialog.locator('[cmdk-item]').first().boundingBox();
+    const allPagesHeader = await dialog.getByText("All pages").boundingBox();
+    const allPagesItem = await dialog.locator('[cmdk-item]').nth(1).boundingBox();
+
+    expect(recentHeader).not.toBeNull();
+    expect(recentItem).not.toBeNull();
+    expect(allPagesHeader).not.toBeNull();
+    expect(allPagesItem).not.toBeNull();
+
+    expect(recentItem!.y - (recentHeader!.y + recentHeader!.height)).toBeLessThan(12);
+    expect(allPagesItem!.y - (allPagesHeader!.y + allPagesHeader!.height)).toBeLessThan(12);
+  });
+
+  test("command palette resets scroll position when reopened", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => {
+      localStorage.removeItem("cmd-palette-recent");
+    });
+
+    await openCommandPalette(page);
+    const listbox = page.locator("#page-palette-list");
+    await expect(listbox).toBeVisible();
+    await expect(page.locator('[cmdk-item]').first()).toBeVisible();
+    await expect.poll(
+      () => listbox.evaluate((element) => element.scrollHeight > element.clientHeight)
+    ).toBe(true);
+
+    await listbox.evaluate((element) => {
+      element.scrollTop = 600;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect.poll(() => listbox.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+    await openCommandPalette(page);
+
+    await expect.poll(() => page.locator("#page-palette-list").evaluate((element) => element.scrollTop)).toBe(0);
+    await expect(page.locator('[cmdk-item]').first()).toHaveText(/README/);
+  });
+
   test("command palette Enter navigation does not flash the outline palette", async ({ page }) => {
     await page.goto("/");
     const input = await openCommandPalette(page);

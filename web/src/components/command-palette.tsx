@@ -91,8 +91,8 @@ const SearchIcon = () => (
 const RECENT_KEY = "cmd-palette-recent";
 const MAX_RECENT = 8;
 const MAX_SEARCH_RESULTS = 50;
-const PALETTE_ROW_HEIGHT = 58;
-const PALETTE_HEADING_HEIGHT = 32;
+const PALETTE_ROW_HEIGHT = 56;
+const PALETTE_HEADING_HEIGHT = 28;
 
 function getRecentSlugs(): string[] {
   try {
@@ -157,13 +157,14 @@ export function CommandPalette() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const [listElement, setListElement] = useState<HTMLDivElement | null>(null);
   const query = search.trim();
   const [isNavigating, startNavigation] = useTransition();
   const router = useRouter();
   const pathname = usePathname();
-  const listRef = useRef<HTMLDivElement>(null);
   const pagesLoadedRef = useRef(false);
   const pagesRequestRef = useRef<Promise<void> | null>(null);
+  const didResetScrollForOpenRef = useRef(false);
 
   const loadPages = useCallback((showLoading = false) => {
     if (pagesLoadedRef.current) return;
@@ -420,9 +421,27 @@ export function CommandPalette() {
   const rowVirtualizer = useVirtualizer({
     count: visibleRows.length,
     estimateSize: (index) => visibleRows[index]?.type === "heading" ? PALETTE_HEADING_HEIGHT : PALETTE_ROW_HEIGHT,
-    getScrollElement: () => listRef.current,
+    getScrollElement: () => listElement,
     overscan: 8,
   });
+
+  useEffect(() => {
+    if (!open || !listElement || visibleRows.length === 0) return;
+    rowVirtualizer.measure();
+  }, [listElement, open, rowVirtualizer, visibleRows.length]);
+
+  useEffect(() => {
+    if (!open) {
+      didResetScrollForOpenRef.current = false;
+      return;
+    }
+
+    if (!listElement || visibleRows.length === 0 || didResetScrollForOpenRef.current) return;
+
+    didResetScrollForOpenRef.current = true;
+    listElement.scrollTo({ top: 0 });
+    rowVirtualizer.scrollToIndex(0, { align: "start" });
+  }, [listElement, open, rowVirtualizer, visibleRows.length]);
 
   const activeRowIndex = useMemo(
     () => visibleRows.findIndex((row) => row.type === "page" && row.pageIndex === activeIndex),
@@ -554,7 +573,7 @@ export function CommandPalette() {
               <div
                 className="no-scrollbar max-h-[60dvh] sm:max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none"
                 id="page-palette-list"
-                ref={listRef}
+                ref={setListElement}
                 role="listbox"
               >
                 {loading ? (
@@ -623,7 +642,7 @@ function VirtualizedPageEntries({
             return (
               <div
                 key={`${row.label}-${virtualItem.index}`}
-                className="absolute left-0 top-0 flex h-8 w-full items-center px-2 pt-1 text-xs font-medium text-muted-foreground"
+                className="absolute left-0 top-0 flex h-7 w-full items-end px-2 pb-1 text-xs font-medium text-muted-foreground"
                 style={{ transform: `translateY(${virtualItem.start}px)` }}
               >
                 {row.label}
@@ -644,7 +663,8 @@ function VirtualizedPageEntries({
               ref={rowVirtualizer.measureElement}
               {...{ "cmdk-item": "" }}
               aria-selected={selected}
-              data-index={row.pageIndex}
+              data-index={virtualItem.index}
+              data-page-index={row.pageIndex}
               data-selected={selected ? "true" : undefined}
               data-value={value}
               id={`page-palette-${row.pageIndex}`}
@@ -653,7 +673,7 @@ function VirtualizedPageEntries({
               role="option"
               type="button"
               className={cn(
-                "absolute left-0 top-0 flex w-full cursor-default items-center gap-2 rounded-lg px-2 py-2.5 text-left text-sm outline-hidden select-none",
+                "absolute left-0 top-0 flex h-14 w-full cursor-default items-center gap-2 rounded-lg px-2 py-2 text-left text-sm outline-hidden select-none",
                 selected && "bg-muted text-foreground",
                 virtualItem.index === activeRowIndex && "z-10"
               )}
@@ -679,7 +699,7 @@ function getGroup(slug: string): string {
 
 function formatPath(slug: string): string {
   const parts = slug.split("/");
-  return parts.length > 1 ? parts.slice(0, -1).join("/") : "";
+  return parts.length > 1 ? parts.slice(0, -1).join("/") : "/";
 }
 
 // ─── Outline palette (Cmd+Shift+O) ───────────────────────────────────────────
