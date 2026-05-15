@@ -71,6 +71,105 @@ const nextConfig: NextConfig = {
         source: "/wiki/prognosis/Prognosis%20Indicators",
         destination: "/wiki/prognosis/Prognostic%20Indicators",
       },
+      // Question pages moved out of diagnostics / treatment / education
+      {
+        source: "/wiki/diagnostics/pembro-efficacy",
+        destination: "/wiki/questions/is-pembro-working",
+      },
+      {
+        source: "/wiki/diagnostics/hla-b2m-loss-testing",
+        destination: "/wiki/questions/hla-b2m-loss",
+      },
+      {
+        source: "/wiki/education/reading-a-tumor/immune-hot-vs-cold",
+        destination: "/wiki/questions/is-tumor-hot",
+      },
+      {
+        source: "/wiki/treatment/in-vivo-vaccination",
+        destination: "/wiki/questions/in-vivo-vaccination",
+      },
+      {
+        source: "/wiki/treatment/in-vivo-vaccination/index",
+        destination: "/wiki/questions/in-vivo-vaccination/index",
+      },
+      {
+        source: "/wiki/treatment/in-vivo-vaccination/current-thinking",
+        destination: "/wiki/questions/in-vivo-vaccination/current-thinking",
+      },
+      {
+        source: "/wiki/treatment/in-vivo-vaccination/decision-framework",
+        destination:
+          "/wiki/questions/in-vivo-vaccination/decision-framework",
+      },
+      {
+        source: "/wiki/education/designing-a-vaccine/06-leukapheresis-and-tcr-t",
+        destination: "/wiki/questions/should-we-bank-leukopak",
+      },
+      {
+        source: "/wiki/diagnostics/biobanking-paths",
+        destination: "/wiki/questions/tissue-and-data-routing",
+      },
+      {
+        source: "/wiki/treatment/add-ons-evaluation",
+        destination: "/wiki/questions/k522-add-ons",
+      },
+      {
+        source: "/wiki/treatment/pcr-drug-interactions-deep-dive",
+        destination: "/wiki/questions/pembro-drug-interactions",
+      },
+      // active-questions was the short-lived name for the questions layer
+      {
+        source: "/wiki/active-questions",
+        destination: "/wiki/questions",
+      },
+      {
+        source: "/wiki/active-questions/index",
+        destination: "/wiki/questions/index",
+      },
+      {
+        source: "/wiki/active-questions/is-pembro-working",
+        destination: "/wiki/questions/is-pembro-working",
+      },
+      {
+        source: "/wiki/active-questions/hla-b2m-loss",
+        destination: "/wiki/questions/hla-b2m-loss",
+      },
+      {
+        source: "/wiki/active-questions/is-tumor-hot",
+        destination: "/wiki/questions/is-tumor-hot",
+      },
+      {
+        source: "/wiki/active-questions/in-vivo-vaccination",
+        destination: "/wiki/questions/in-vivo-vaccination",
+      },
+      {
+        source: "/wiki/active-questions/in-vivo-vaccination/index",
+        destination: "/wiki/questions/in-vivo-vaccination/index",
+      },
+      {
+        source: "/wiki/active-questions/in-vivo-vaccination/current-thinking",
+        destination: "/wiki/questions/in-vivo-vaccination/current-thinking",
+      },
+      {
+        source: "/wiki/active-questions/in-vivo-vaccination/decision-framework",
+        destination: "/wiki/questions/in-vivo-vaccination/decision-framework",
+      },
+      {
+        source: "/wiki/active-questions/should-we-bank-leukopak",
+        destination: "/wiki/questions/should-we-bank-leukopak",
+      },
+      {
+        source: "/wiki/active-questions/tissue-and-data-routing",
+        destination: "/wiki/questions/tissue-and-data-routing",
+      },
+      {
+        source: "/wiki/active-questions/k522-add-ons",
+        destination: "/wiki/questions/k522-add-ons",
+      },
+      {
+        source: "/wiki/active-questions/pembro-drug-interactions",
+        destination: "/wiki/questions/pembro-drug-interactions",
+      },
     ];
 
     return [
