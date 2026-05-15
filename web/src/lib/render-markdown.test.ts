@@ -236,6 +236,21 @@ describe("renderMarkdown theme-paired images", () => {
     expect(html).toContain("/api/file?path=");
   });
 
+  test("proxies vault-root theme-paired image paths without a leading slash", () => {
+    const html = renderMarkdown(
+      `<img src="/wiki/education/reading-a-tumor/images/t-cell-exclusion-mechanisms-light.png" alt="t cell exclusion cartoon" data-theme-pair>`,
+      "wiki/questions/is-tumor-hot",
+    );
+
+    expect(html).toContain(
+      `/api/file?path=${encodeURIComponent("wiki/education/reading-a-tumor/images/t-cell-exclusion-mechanisms-light.png")}`,
+    );
+    expect(html).toContain(
+      `/api/file?path=${encodeURIComponent("wiki/education/reading-a-tumor/images/t-cell-exclusion-mechanisms-dark.png")}`,
+    );
+    expect(html).not.toContain(encodeURIComponent("/wiki/education"));
+  });
+
   test("leaves the tag alone when src is not a -light variant", () => {
     const html = renderMarkdown(
       `<img src="./images/foo.png" alt="x" data-theme-pair>`,

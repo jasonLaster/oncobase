@@ -298,7 +298,9 @@ function fixImageSrcs(html: string, currentSlug?: string): string {
       return `${before}src="${src}"${after}`;
     }
 
-    // Resolve relative path against the current page's directory
+    // Resolve relative path against the current page's directory. Vault-root
+    // paths like /wiki/foo.png should still match asset keys stored without
+    // a leading slash.
     let resolvedPath = src;
     if (currentSlug && !src.startsWith("/")) {
       const dir = currentSlug.includes("/")
@@ -307,6 +309,7 @@ function fixImageSrcs(html: string, currentSlug?: string): string {
       resolvedPath = `${dir}/${src}`;
     }
     resolvedPath = path.posix.normalize(resolvedPath);
+    resolvedPath = resolvedPath.replace(/^\/+/, "");
 
     return `${before}src="/api/file?path=${encodeURIComponent(resolvedPath)}"${after}`;
   });
