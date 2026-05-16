@@ -57,7 +57,7 @@ Welcome to the local Vite reader fixture.
 - [[wiki/updates/week-5-april-12-to-18|Week 5 update]]
 - [[wiki/examples/smart-table|Smart Table Examples]]
 - [[wiki/media/image-theater|Image Theater Fixture]]
-- [[sources/institutions/stanford/telli|Telli source]]
+- [[sources/people/providers/stanford/telli|Telli source]]
 `,
   },
   "wiki/logistics/insurance": {
@@ -182,14 +182,14 @@ Diagnosis content should render through the Vite shell without a source loading 
 Diana Laster has MRN 88855655 in raw source fixtures, which must not appear in the Vite reader.
 `,
   },
-  "sources/institutions/stanford/telli": {
+  "sources/people/providers/stanford/telli": {
     title: "Telli 2016 HRD Platinum TNBC",
     tags: ["source", "stanford"],
     content: `# Telli 2016 HRD Platinum TNBC
 
 This source page proves source routes render as markdown links in the same reader.
 
-[[sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf|Open PDF]]
+[[sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf|Open PDF]]
 `,
   },
   "wiki/timeline/gantt": {
@@ -220,7 +220,7 @@ Sensitive session-only planning note.
 const assets: WikiManifestAsset[] = [
   {
     kind: "pdf",
-    path: "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
+    path: "sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
     contentHash: "pdf-hash",
     size: 256,
   },

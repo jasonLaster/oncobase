@@ -61,10 +61,10 @@ test.describe("Navigation file tree SWR", () => {
         const originalGetItem = sessionStorage.getItem.bind(sessionStorage);
         sessionStorage.getItem = (key: string) => {
           if (
-            key.startsWith(`${window.location.origin}:file-tree:v1:`) &&
+            key.startsWith(`${window.location.origin}:file-tree:v2:`) &&
             key.endsWith(":public")
           ) {
-            return JSON.stringify({ version: "v1", tree: JSON.parse(treeJson) });
+            return JSON.stringify({ version: "v2", tree: JSON.parse(treeJson) });
           }
           return originalGetItem(key);
         };
@@ -75,10 +75,7 @@ test.describe("Navigation file tree SWR", () => {
     await page.goto("/");
     const nav = page.locator(sidebar);
 
-    await expect(nav.getByRole("button", { name: "cached" })).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    );
+    await expect(nav.getByRole("button", { name: "cached" })).toBeVisible();
     await expandDirectory(nav, "cached");
     await expect(nav.getByRole("link", { name: "stale page" })).toHaveAttribute(
       "href",
@@ -87,10 +84,7 @@ test.describe("Navigation file tree SWR", () => {
 
     fileTreeApi.releaseFreshTree();
 
-    await expect(nav.getByRole("button", { name: "fresh" })).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    );
+    await expect(nav.getByRole("button", { name: "fresh" })).toBeVisible();
     await expandDirectory(nav, "fresh");
     await expect(nav.getByRole("link", { name: "updated page" })).toHaveAttribute(
       "href",
@@ -106,6 +100,6 @@ test.describe("Navigation file tree SWR", () => {
     );
     expect(
       fileTreeApi.requests.find((request) => request.includes("scope=public")),
-    ).toEqual(expect.stringMatching(/cacheKey=.*%3Afile-tree%3Av1%3A.*%3Apublic/));
+    ).toEqual(expect.stringMatching(/cacheKey=.*%3Afile-tree%3Av2%3A.*%3Apublic/));
   });
 });

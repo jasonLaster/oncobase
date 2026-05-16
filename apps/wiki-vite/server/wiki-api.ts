@@ -31,7 +31,7 @@ const MANIFEST_PRIORITY_SLUGS = [
   "index",
   "wiki/logistics/insurance",
   "wiki/examples/smart-table",
-  "sources/institutions/stanford/telli",
+  "sources/people/providers/stanford/telli",
 ];
 
 type PageDownloadResult = {

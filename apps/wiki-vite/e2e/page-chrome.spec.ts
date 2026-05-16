@@ -103,7 +103,7 @@ test.describe("Page chrome parity", () => {
   });
 
   test("surfaces source file provenance from the local asset index", async ({ page }) => {
-    await gotoWiki(page, "/sources/institutions/stanford/telli");
+    await gotoWiki(page, "/sources/people/providers/stanford/telli");
 
     const sources = page.getByTestId("source-links");
     await expect(sources).toContainText("Source files");
@@ -111,7 +111,7 @@ test.describe("Page chrome parity", () => {
       sources.getByRole("link", { name: /telli-2016-hrd-platinum-tnbc\.pdf/ }),
     ).toHaveAttribute(
       "href",
-      /\/api\/file\?path=sources%2Finstitutions%2Fstanford%2Ftelli%2Ftelli-2016-hrd-platinum-tnbc\.pdf/,
+      /\/api\/file\?path=sources%2Fpeople%2Fproviders%2Fstanford%2Ftelli%2Ftelli-2016-hrd-platinum-tnbc\.pdf/,
     );
   });
 });

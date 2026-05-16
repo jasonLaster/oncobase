@@ -150,7 +150,7 @@ test.describe("Command palette parity", () => {
   });
 
   test("action palette includes current-page source file actions", async ({ page }) => {
-    await gotoWiki(page, "/sources/institutions/stanford/telli");
+    await gotoWiki(page, "/sources/people/providers/stanford/telli");
 
     await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+K" : "Control+Shift+K");
     await expect(page.getByTestId("command-palette")).toBeVisible();
@@ -158,7 +158,7 @@ test.describe("Command palette parity", () => {
       page.getByRole("link", { name: /Open telli-2016-hrd-platinum-tnbc\.pdf/ }),
     ).toHaveAttribute(
       "href",
-      /\/api\/file\?path=sources%2Finstitutions%2Fstanford%2Ftelli%2Ftelli-2016-hrd-platinum-tnbc\.pdf/,
+      /\/api\/file\?path=sources%2Fpeople%2Fproviders%2Fstanford%2Ftelli%2Ftelli-2016-hrd-platinum-tnbc\.pdf/,
     );
   });
 
@@ -171,7 +171,7 @@ test.describe("Command palette parity", () => {
 
     await expect(
       page.getByTestId("command-palette").getByRole("link", { name: /telli-2016-hrd/ }),
-    ).toHaveAttribute("href", /\/api\/file\?path=sources%2Finstitutions%2Fstanford/);
+    ).toHaveAttribute("href", /\/api\/file\?path=sources%2Fpeople%2Fproviders%2Fstanford/);
 
     await page.getByTestId("command-palette-input").fill("pathology");
     await expect(

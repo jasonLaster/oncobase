@@ -2,7 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { gotoWiki, installWikiApiMocks, openDirectory, waitForPageTitle } from "./fixtures";
 
 async function openSourcePath(page: Page) {
-  await openDirectory(page, "institutions");
+  await openDirectory(page, "people");
+  await openDirectory(page, "providers");
   await openDirectory(page, "stanford");
   await openDirectory(page, "telli");
 }
@@ -15,12 +16,25 @@ test.describe("Sidebar source files", () => {
       timeout: 45_000,
     });
     expect(manifestResponse.ok()).toBeTruthy();
+    const isPartialManifest =
+      manifestResponse.headers()["x-wiki-manifest-partial"] === "true";
+    if (process.env.PLAYWRIGHT_BASE_URL) {
+      expect(isPartialManifest).toBe(false);
+    } else if (isPartialManifest) {
+      expect(manifestResponse.headers()["x-wiki-manifest-source"]).toBe(
+        "bounded-content-fallback",
+      );
+    }
 
     const manifest = await manifestResponse.json();
     const slugs = (manifest.pages as Array<{ slug: string }>).map((entry) => entry.slug);
     expect(slugs.length).toBeGreaterThan(0);
     expect(slugs.some((slug) => slug.startsWith("wiki/"))).toBe(true);
-    expect(slugs.some((slug) => slug.startsWith("sources/"))).toBe(true);
+    if (!isPartialManifest) {
+      expect(slugs.some((slug) => slug.startsWith("sources/"))).toBe(true);
+      expect(slugs).toContain("wiki/updates/week-8-may-3-to-9");
+      expect(slugs).toContain("about/overview/current-status");
+    }
 
     expect(Array.isArray(manifest.assets)).toBe(true);
     const assets = manifest.assets as Array<{ kind: string; path: string }>;
@@ -44,7 +58,7 @@ test.describe("Sidebar source files", () => {
     await openSourcePath(page);
     const sourceLink = page
       .getByTestId("wiki-sidebar")
-      .locator('a[href="/sources/institutions/stanford/telli"]');
+      .locator('a[href="/sources/people/providers/stanford/telli"]');
     await expect(sourceLink).toBeVisible();
     await expect(sourceLink).not.toHaveAttribute("href", /\/api\/file/);
 

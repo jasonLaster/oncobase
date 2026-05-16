@@ -65,12 +65,12 @@ async function clickHeadingUntilHash(page: Page, selector: string, expectedHash:
 }
 
 async function openFilePalette(page: Page) {
-  const input = page.getByPlaceholder("Search pages");
+  const input = page.locator("[data-slot=command-input]");
 
   await expect
     .poll(
       async () => {
-        await page.getByRole("button", { name: /Find files/ }).click().catch(() => {});
+        await page.getByTestId("sidebar-search").click().catch(() => {});
         return input.isVisible().catch(() => false);
       },
       { timeout: 15_000 }

@@ -60,11 +60,11 @@ describe("wiki content contracts", () => {
           { kind: "file", path: "wiki/media/images/scan.png" },
           { kind: "file", path: "sources/paper-images/img-000.jpg" },
           { kind: "pdf", path: "sources/images/pathology-slide.pdf" },
-          { kind: "pdf", path: "sources/institutions/stanford/telli.pdf" },
+          { kind: "pdf", path: "sources/people/providers/stanford/telli.pdf" },
         ],
       ),
     ).toEqual([
-      ["d", "sources", [["d", "institutions", [["d", "stanford", [["p", "telli"]]]]]]],
+      ["d", "sources", [["d", "people", [["d", "providers", [["d", "stanford", [["p", "telli"]]]]]]]]],
       ["d", "wiki", [["d", "image-analysis", [["f", "notes"]]]]],
     ]);
   });
