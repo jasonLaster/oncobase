@@ -39,6 +39,48 @@ const nextConfig: NextConfig = {
     };
 
     const sourceRedirects: { source: string; destination: string }[] = [
+      // For-Patients page folded into About
+      {
+        source: "/about/For-Patients",
+        destination: "/about/About",
+      },
+      // wiki/summary/ moved to about/overview/
+      {
+        source: "/wiki/summary",
+        destination: "/about/overview",
+      },
+      {
+        source: "/wiki/summary/index",
+        destination: "/about/overview/index",
+      },
+      {
+        source: "/wiki/summary/current-status",
+        destination: "/about/overview/current-status",
+      },
+      {
+        source: "/wiki/summary/active-workstreams",
+        destination: "/about/overview/active-workstreams",
+      },
+      {
+        source: "/wiki/summary/key-context",
+        destination: "/about/overview/key-context",
+      },
+      {
+        source: "/wiki/summary/for-experts",
+        destination: "/about/overview/for-experts",
+      },
+      {
+        source: "/wiki/summary/for-peers",
+        destination: "/about/overview/for-peers",
+      },
+      {
+        source: "/wiki/summary/for-friends-and-family",
+        destination: "/about/overview/for-friends-and-family",
+      },
+      {
+        source: "/wiki/summary/test-tracker",
+        destination: "/about/overview/test-tracker",
+      },
       // 408 → 409: Dirbas biopsy planning call was on 4/9, not 4/8
       {
         source: "/sources/meeting-notes/408---dirbas-biopsy-planning",
