@@ -24,33 +24,25 @@ function findNode(nodes: FileNode[], slug: string): FileNode | null {
   return null;
 }
 
-/** Open a directory button only if it is currently collapsed (shows "▶"). */
+/** Open a directory button only if it is currently collapsed. */
 async function expandIfCollapsed(nav: ReturnType<import("@playwright/test").Page["locator"]>, name: string) {
-  const btn = nav.getByRole("button", { name: new RegExp(`^[▶▼]\\s*${escapeRegExp(name)}$`) }).first();
+  const btn = nav.getByRole("button", { name: new RegExp(`^${escapeRegExp(name)}$`) }).first();
   if ((await btn.count()) === 0) return;
-  const text = await btn.textContent();
-  if (text?.includes("▶")) {
+  if ((await btn.getAttribute("aria-expanded")) === "false") {
     await btn.click();
   }
 }
 
 async function waitForSidebarTree(nav: ReturnType<import("@playwright/test").Page["locator"]>) {
   await expect(
-    nav.getByRole("button", { name: /^[▶▼]\s*sources$/ }).first()
-  ).toBeVisible({ timeout: 30_000 });
-}
-
-async function waitForFullSidebarTree(nav: ReturnType<import("@playwright/test").Page["locator"]>) {
-  await expect(
-    nav.getByRole("button", { name: /^[▶▼]\s*institutions$/ }).first()
+    nav.getByRole("button", { name: "sources" }).first()
   ).toBeVisible({ timeout: 30_000 });
 }
 
 async function expandFirstPdfSet(nav: ReturnType<import("@playwright/test").Page["locator"]>) {
   const pdfSet = nav.getByRole("button", { name: /PDF set$/ }).first();
   await expect(pdfSet).toBeVisible();
-  const text = await pdfSet.textContent();
-  if (text?.includes("▶")) {
+  if ((await pdfSet.getAttribute("aria-expanded")) === "false") {
     await pdfSet.click();
   }
 }
@@ -139,15 +131,32 @@ test.describe("Sidebar source files", () => {
     expect(week6Html).not.toContain("$RX(");
   });
 
+  test("new sidebar sessions only open the wiki top-level section", async ({ page }) => {
+    await page.goto("/");
+    const nav = page.locator(sidebar);
+
+    await waitForSidebarTree(nav);
+    await expect(nav.getByRole("button", { name: "wiki" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    await expect(nav.getByRole("button", { name: "sources" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await expect(
+      nav.getByRole("button", { name: "institutions" }),
+    ).toHaveCount(0);
+  });
+
   test("sources directory contains markdown source links after drilling into stanford/telli", async ({ page }) => {
     await page.goto("/");
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
-    await waitForFullSidebarTree(nav);
-    // sources is open at depth=0 by default — no click needed
     await expandIfCollapsed(nav, "sources");
-    await expandIfCollapsed(nav, "institutions");
+    await expandIfCollapsed(nav, "people");
+    await expandIfCollapsed(nav, "providers");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");
     await expandFirstPdfSet(nav);
@@ -162,7 +171,6 @@ test.describe("Sidebar source files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
-    await waitForFullSidebarTree(nav);
     await expandIfCollapsed(nav, "sources");
     await expandIfCollapsed(nav, "wiki");
     await expandIfCollapsed(nav, "research");
@@ -185,10 +193,9 @@ test.describe("Sidebar PDF files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
-    await waitForFullSidebarTree(nav);
-    // sources is open at depth=0 by default — no click needed
     await expandIfCollapsed(nav, "sources");
-    await expandIfCollapsed(nav, "institutions");
+    await expandIfCollapsed(nav, "people");
+    await expandIfCollapsed(nav, "providers");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");
     await expandFirstPdfSet(nav);
@@ -202,9 +209,9 @@ test.describe("Sidebar PDF files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
-    await waitForFullSidebarTree(nav);
     await expandIfCollapsed(nav, "sources");
-    await expandIfCollapsed(nav, "institutions");
+    await expandIfCollapsed(nav, "people");
+    await expandIfCollapsed(nav, "providers");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");
     await expandFirstPdfSet(nav);
@@ -219,9 +226,9 @@ test.describe("Sidebar PDF files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
-    await waitForFullSidebarTree(nav);
     await expandIfCollapsed(nav, "sources");
-    await expandIfCollapsed(nav, "institutions");
+    await expandIfCollapsed(nav, "people");
+    await expandIfCollapsed(nav, "providers");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");
     await expandFirstPdfSet(nav);
@@ -235,9 +242,9 @@ test.describe("Sidebar PDF files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
-    await waitForFullSidebarTree(nav);
     await expandIfCollapsed(nav, "sources");
-    await expandIfCollapsed(nav, "institutions");
+    await expandIfCollapsed(nav, "people");
+    await expandIfCollapsed(nav, "providers");
     await expandIfCollapsed(nav, "stanford");
     await expandIfCollapsed(nav, "telli");
     await expandFirstPdfSet(nav);

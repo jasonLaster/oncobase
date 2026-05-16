@@ -145,7 +145,7 @@ export function TreeNode({
 }) {
   const pathname = activePathname;
   const hasActive = hasActiveDescendant(node, pathname);
-  const shouldOpen = depth === 0 || hasActive;
+  const shouldOpen = hasActive || (depth === 0 && node.slug === "wiki");
   const [userToggle, setUserToggle] = useState<boolean | null>(null);
   const [prevPathname, setPrevPathname] = useState(pathname);
   if (pathname !== prevPathname) {
@@ -208,6 +208,7 @@ export function TreeNode({
       <div className={topLevelSpacing}>
         <button
           type="button"
+          aria-expanded={open}
           onClick={() => setUserToggle(!open)}
           className="group flex w-full items-center rounded-md text-left text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
           style={{

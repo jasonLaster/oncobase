@@ -13,6 +13,17 @@ const freshTree: CompactFileNode[] = [
   ["d", "fresh", [["f", "updated-page"]]],
 ];
 
+async function expandDirectory(
+  nav: ReturnType<import("@playwright/test").Page["locator"]>,
+  name: string,
+) {
+  const button = nav.getByRole("button", { name }).first();
+  await expect(button).toBeVisible();
+  if ((await button.getAttribute("aria-expanded")) === "false") {
+    await button.click();
+  }
+}
+
 async function mockFileTreeApi(page: Page) {
   const requests: string[] = [];
   let releaseFreshTree = () => {};
@@ -64,7 +75,11 @@ test.describe("Navigation file tree SWR", () => {
     await page.goto("/");
     const nav = page.locator(sidebar);
 
-    await expect(nav.getByRole("button", { name: "▼ cached" })).toBeVisible();
+    await expect(nav.getByRole("button", { name: "cached" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await expandDirectory(nav, "cached");
     await expect(nav.getByRole("link", { name: "stale page" })).toHaveAttribute(
       "href",
       "/cached/stale-page",
@@ -72,12 +87,16 @@ test.describe("Navigation file tree SWR", () => {
 
     fileTreeApi.releaseFreshTree();
 
-    await expect(nav.getByRole("button", { name: "▼ fresh" })).toBeVisible();
+    await expect(nav.getByRole("button", { name: "fresh" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await expandDirectory(nav, "fresh");
     await expect(nav.getByRole("link", { name: "updated page" })).toHaveAttribute(
       "href",
       "/fresh/updated-page",
     );
-    await expect(nav.getByRole("button", { name: "▼ cached" })).toHaveCount(0);
+    await expect(nav.getByRole("button", { name: "cached" })).toHaveCount(0);
 
     expect(fileTreeApi.requests).toEqual(
       expect.arrayContaining([
