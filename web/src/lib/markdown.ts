@@ -70,6 +70,29 @@ interface MarkdownDiscoveryOptions {
   includeSensitive?: boolean;
 }
 
+const PROJECT_MANAGEMENT_VIEW_FILES = new Set([
+  "1-inbox",
+  "2-urgent",
+  "3-completed",
+  "4-backlog",
+]);
+
+export function canonicalizePublishedSlug(slug: string): string {
+  const prefix = "project-management/";
+  if (!slug.startsWith(prefix)) return slug;
+  const rest = slug.slice(prefix.length);
+  if (!PROJECT_MANAGEMENT_VIEW_FILES.has(rest)) return slug;
+  return `${prefix}views/${rest}`;
+}
+
+function legacyPublishedSlug(slug: string): string | null {
+  const prefix = "project-management/views/";
+  if (!slug.startsWith(prefix)) return null;
+  const rest = slug.slice(prefix.length);
+  if (!PROJECT_MANAGEMENT_VIEW_FILES.has(rest)) return null;
+  return `project-management/${rest}`;
+}
+
 // ── Convex fetchers (tagged Cache Components entries) ────────────────────────
 // Publish invalidates these tags so the PPR shell, document body, and sidebar
 // tree all observe Convex updates without falling back to uncached rendering.
@@ -183,9 +206,10 @@ async function fetchCanonicalSlugEntriesForSite(
   const entries: Array<[string, string]> = [];
   const seen = new Set<string>();
   for (const doc of docs) {
-    const lower = doc.slug.toLowerCase();
+    const canonicalSlug = canonicalizePublishedSlug(doc.slug);
+    const lower = canonicalSlug.toLowerCase();
     if (!seen.has(lower)) {
-      entries.push([lower, doc.slug]);
+      entries.push([lower, canonicalSlug]);
       seen.add(lower);
     }
   }
@@ -241,7 +265,16 @@ export async function readMarkdownFileForSite(
         : { slug: indexSlug },
     );
   }
+  const legacySlug = legacyPublishedSlug(slug);
+  if (!doc && legacySlug) {
+    doc = await siteData.documents.getBySlug(
+      includeSensitive
+        ? { slug: legacySlug, includeSensitive: true }
+        : { slug: legacySlug },
+    );
+  }
   if (!doc) return null;
+  const resolvedSlug = legacySlug && doc.slug === legacySlug ? slug : doc.slug;
 
   const tags = Array.isArray(doc.tags) ? doc.tags : [];
   const frontmatter: Record<string, unknown> = { tags };
@@ -249,7 +282,7 @@ export async function readMarkdownFileForSite(
   if (doc.sensitive) frontmatter.sensitive = true;
 
   return {
-    slug: doc.slug,
+    slug: canonicalizePublishedSlug(resolvedSlug),
     title: doc.title,
     content: doc.content,
     contentHash: doc.contentHash,
@@ -292,7 +325,8 @@ export async function getCompactFileTreeForSite(
   const root: FileNode[] = [];
 
   for (const doc of docs) {
-    insertSlug(root, doc.slug, "file");
+    if (isHiddenFileTreePath(doc.slug)) continue;
+    insertSlug(root, canonicalizePublishedSlug(doc.slug), "file");
   }
   for (const pdfPath of pdfPaths) {
     if (isHiddenFileTreePath(pdfPath)) continue;
@@ -300,10 +334,10 @@ export async function getCompactFileTreeForSite(
   }
   for (const filePath of filePaths) {
     if (isHiddenFileTreePath(filePath)) continue;
-    insertSlug(root, filePath, "file");
+    insertSlug(root, canonicalizePublishedSlug(filePath), "file");
   }
 
-  const grouped = groupPaperCollectionsDeep(root);
+  const grouped = groupFileTreeCollectionsDeep(root);
   sortTree(grouped);
   return compactFileTree(grouped);
 }
@@ -556,8 +590,121 @@ function groupPaperCollectionsDeep(nodes: FileNode[]): FileNode[] {
   return groupPaperCollections(withGroupedChildren);
 }
 
-function sortTree(nodes: FileNode[]) {
-  nodes.sort((a, b) => a.name.localeCompare(b.name));
+// ── Meeting-note grouping ────────────────────────────────────────────────────
+
+type MeetingNotePart = "overview" | "formatted" | "raw";
+
+function getMeetingNotePart(
+  node: FileNode,
+): { baseName: string; part: MeetingNotePart } | null {
+  if (node.type !== "file") return null;
+
+  if (node.name.endsWith("-transcript-formatted")) {
+    return {
+      baseName: node.name.replace(/-transcript-formatted$/, ""),
+      part: "formatted",
+    };
+  }
+  if (node.name.endsWith("-overview")) {
+    return { baseName: node.name.replace(/-overview$/, ""), part: "overview" };
+  }
+  if (node.name.endsWith("-formatted")) {
+    return { baseName: node.name.replace(/-formatted$/, ""), part: "formatted" };
+  }
+  if (node.name.endsWith("-raw")) {
+    return { baseName: node.name.replace(/-raw$/, ""), part: "raw" };
+  }
+
+  return null;
+}
+
+function getMeetingNoteChildName(part: MeetingNotePart): string {
+  if (part === "overview") return "Overview";
+  if (part === "formatted") return "Formatted";
+  return "Raw";
+}
+
+function groupMeetingNoteSets(nodes: FileNode[]): FileNode[] {
+  const groups = new Map<string, Partial<Record<MeetingNotePart, FileNode[]>>>();
+
+  for (const node of nodes) {
+    const meetingNotePart = getMeetingNotePart(node);
+    if (!meetingNotePart) continue;
+
+    const group = groups.get(meetingNotePart.baseName) ?? {};
+    const partNodes = group[meetingNotePart.part] ?? [];
+    partNodes.push(node);
+    group[meetingNotePart.part] = partNodes;
+    groups.set(meetingNotePart.baseName, group);
+  }
+
+  const groupedNodes = new Set<FileNode>();
+  const collectionNodes: FileNode[] = [];
+
+  for (const [baseName, group] of groups) {
+    if (!group.overview?.length || !group.formatted?.length || !group.raw?.length) {
+      continue;
+    }
+
+    const children = [
+      ...group.overview.map((node) => ({ node, part: "overview" as const })),
+      ...group.formatted.map((node) => ({ node, part: "formatted" as const })),
+      ...group.raw.map((node) => ({ node, part: "raw" as const })),
+    ].map(({ node, part }) => {
+      groupedNodes.add(node);
+      return {
+        ...node,
+        name: getMeetingNoteChildName(part),
+      };
+    });
+    const firstChild = children[0];
+    const parentSlug = firstChild.slug.includes("/")
+      ? firstChild.slug.split("/").slice(0, -1).join("/")
+      : "";
+
+    collectionNodes.push({
+      name: baseName,
+      slug: parentSlug
+        ? `${parentSlug}/${baseName}__meeting-set`
+        : `${baseName}__meeting-set`,
+      type: "directory",
+      badge: "Notes set",
+      children,
+    });
+  }
+
+  if (collectionNodes.length === 0) return nodes;
+  return [...nodes.filter((node) => !groupedNodes.has(node)), ...collectionNodes];
+}
+
+function groupMeetingNoteSetsDeep(nodes: FileNode[]): FileNode[] {
+  const withGroupedChildren = nodes.map((node) => {
+    if (!node.children) return node;
+    return {
+      ...node,
+      children: groupMeetingNoteSetsDeep(node.children),
+    };
+  });
+
+  return groupMeetingNoteSets(withGroupedChildren);
+}
+
+export function groupFileTreeCollectionsDeep(nodes: FileNode[]): FileNode[] {
+  return groupPaperCollectionsDeep(groupMeetingNoteSetsDeep(nodes));
+}
+
+function isArchivedDirectory(node: FileNode) {
+  return node.type === "directory" && node.name === "archived";
+}
+
+export function sortTree(nodes: FileNode[]) {
+  nodes.sort((a, b) => {
+    if (a.name === "index" && b.name !== "index") return -1;
+    if (b.name === "index" && a.name !== "index") return 1;
+    if (isArchivedDirectory(a) && !isArchivedDirectory(b)) return 1;
+    if (isArchivedDirectory(b) && !isArchivedDirectory(a)) return -1;
+    return a.name.localeCompare(b.name);
+  });
   for (const node of nodes) {
     if (node.children) sortTree(node.children);
   }

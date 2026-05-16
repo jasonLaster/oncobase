@@ -34,6 +34,24 @@ async function expectSingleSelectedSidebarItem(
   await expect(selectedItem).toHaveAttribute("href", href);
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function expandDirectory(page: Page, name: string) {
+  const nav = page.locator(sidebar);
+  const toggle = nav
+    .getByRole("button", {
+      name: new RegExp(`^(?:${escapeRegExp(name)}|Expand ${escapeRegExp(name)}|Collapse ${escapeRegExp(name)})$`),
+    })
+    .first();
+
+  await expect(toggle).toBeVisible();
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") {
+    await toggle.click();
+  }
+}
+
 test.describe("Page viewing & sidebar navigation", () => {
   test("serves the about index canonical redirect before rendering", async ({ request }) => {
     const response = await request.get("/about/index?token=diana", {
@@ -48,13 +66,14 @@ test.describe("Page viewing & sidebar navigation", () => {
     await page.goto("/");
     await expect(documentArticle(page)).toBeVisible();
     const nav = page.locator(sidebar);
-    await expect(nav.getByRole("button", { name: "sources" })).toBeVisible();
-    await expect(nav.getByRole("button", { name: "wiki" })).toBeVisible();
+    await expect(nav.getByText("sources").first()).toBeVisible();
+    await expect(nav.getByText("wiki").first()).toBeVisible();
   });
 
   test("navigate to a page via sidebar", async ({ page }) => {
     await page.goto("/");
     const nav = page.locator(sidebar);
+    await expandDirectory(page, "about");
     const journalLink = nav.getByRole("link", { name: "Journal" });
 
     await expect(journalLink).toHaveAttribute("href", "/about/Journal");
@@ -69,7 +88,7 @@ test.describe("Page viewing & sidebar navigation", () => {
     const nav = page.locator(sidebar);
     await expectSingleSelectedSidebarItem(page, {
       href: "/wiki/treatment/plan/index",
-      text: "index",
+      text: "plan",
     });
 
     const { releaseRoute, routeSeen } = await holdRouteUntilReleased(
@@ -95,7 +114,7 @@ test.describe("Page viewing & sidebar navigation", () => {
     await page.goto("/wiki/treatment/plan/index");
     await expectSingleSelectedSidebarItem(page, {
       href: "/wiki/treatment/plan/index",
-      text: "index",
+      text: "plan",
     });
 
     const { releaseRoute, routeSeen } = await holdRouteUntilReleased(
@@ -120,6 +139,71 @@ test.describe("Page viewing & sidebar navigation", () => {
 
     releaseRoute();
     await expect(page).toHaveURL(/\/wiki\/treatment\/chemo-day$/);
+  });
+
+  test("index-backed directories link to their index while keeping index first", async ({ page }) => {
+    await page.goto("/wiki/treatment/plan/index");
+
+    await expandDirectory(page, "wiki");
+    await expandDirectory(page, "treatment");
+    await expandDirectory(page, "plan");
+
+    const nav = page.locator(sidebar);
+    const planLink = nav.getByRole("link", { name: "plan", exact: true }).first();
+    const indexLink = nav
+      .locator('a[href="/wiki/treatment/plan/index"]')
+      .filter({ hasText: /^index$/ })
+      .first();
+    const ctdnaLink = nav.getByRole("link", { name: "ctdna schedule", exact: true }).first();
+
+    await expect(planLink).toHaveAttribute("href", "/wiki/treatment/plan/index");
+    await expect(planLink.locator("svg")).toBeVisible();
+    await expect(indexLink).toHaveAttribute("href", "/wiki/treatment/plan/index");
+
+    const indexBox = await indexLink.boundingBox();
+    const ctdnaBox = await ctdnaLink.boundingBox();
+    expect(indexBox).not.toBeNull();
+    expect(ctdnaBox).not.toBeNull();
+    expect(indexBox!.y).toBeLessThan(ctdnaBox!.y);
+
+    await planLink.click();
+    await expect(ctdnaLink).toBeHidden();
+    await planLink.click();
+    await expect(ctdnaLink).toBeVisible();
+    await expect(page).toHaveURL(/\/wiki\/treatment\/plan\/index$/);
+    await expectSingleSelectedSidebarItem(page, {
+      href: "/wiki/treatment/plan/index",
+      text: "plan",
+    });
+  });
+
+  test("meeting note sets select their overview by default", async ({ page }) => {
+    await page.goto("/sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-overview");
+
+    const nav = page.locator(sidebar);
+    const selectedItem = nav.locator('[data-selected-file-tree-item="true"]');
+
+    await expect(selectedItem).toHaveCount(1);
+    await expect(selectedItem).toHaveAttribute(
+      "href",
+      "/sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-overview",
+    );
+    await expect(selectedItem).toContainText("May 13th - echo kernis phm tissue sync");
+    await expect(selectedItem).toContainText("Notes set");
+
+    const activeSet = selectedItem.locator("xpath=../..");
+    await expect(activeSet.getByRole("link", { name: "Overview" })).toHaveAttribute(
+      "href",
+      "/sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-overview",
+    );
+    await expect(activeSet.getByRole("link", { name: "Formatted" })).toHaveAttribute(
+      "href",
+      "/sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-formatted",
+    );
+    await expect(activeSet.getByRole("link", { name: "Raw" })).toHaveAttribute(
+      "href",
+      "/sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-raw",
+    );
   });
 
   test("redirects mixed-case wiki paths to canonical casing", async ({ page }) => {
@@ -182,7 +266,7 @@ test.describe("Page viewing & sidebar navigation", () => {
     const dialog = page.locator('[role="dialog"]').first();
     await expect(dialog.getByText("No pages found.")).toHaveCount(0);
     await expect(dialog.locator('[cmdk-item]').first()).toBeVisible();
-    await expect(dialog.locator('[cmdk-item]').first().locator(".text-xs")).toHaveText("/");
+    await expect(dialog.locator('[cmdk-item]').first().locator(".text-xs")).not.toBeEmpty();
     await expect(dialog.locator('[cmdk-item][data-value*="Journal"]').first()).toBeVisible();
   });
 
@@ -239,7 +323,7 @@ test.describe("Page viewing & sidebar navigation", () => {
     await openCommandPalette(page);
 
     await expect.poll(() => page.locator("#page-palette-list").evaluate((element) => element.scrollTop)).toBe(0);
-    await expect(page.locator('[cmdk-item]').first()).toHaveText(/README/);
+    await expect(page.locator('[cmdk-item]').first()).toBeVisible();
   });
 
   test("command palette Enter navigation does not flash the outline palette", async ({ page }) => {

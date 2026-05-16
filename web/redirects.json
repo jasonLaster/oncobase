@@ -6,7 +6,7 @@
   },
   {
     "source": "/wiki/diagnostic-suggestions",
-    "destination": "/about/overview/test-tracker",
+    "destination": "/wiki/diagnostics/diagnostic-suggestions",
     "permanent": true
   },
   {
@@ -16,17 +16,17 @@
   },
   {
     "source": "/wiki/molecular-workup",
-    "destination": "/wiki/diagnostics/archived/molecular-workup",
+    "destination": "/wiki/diagnostics/molecular-workup",
     "permanent": true
   },
   {
     "source": "/wiki/day4-biopsy",
-    "destination": "/wiki/diagnostics/archived/biopsy/day4-biopsy",
+    "destination": "/wiki/diagnostics/day4-biopsy",
     "permanent": true
   },
   {
     "source": "/wiki/sox10",
-    "destination": "/about/Terminology#sox10",
+    "destination": "/wiki/diagnostics/sox10",
     "permanent": true
   },
   {
@@ -36,7 +36,7 @@
   },
   {
     "source": "/wiki/ctdna-companies",
-    "destination": "/wiki/diagnostics/ctdna-mrd",
+    "destination": "/wiki/diagnostics/ctdna-companies",
     "permanent": true
   },
   {
@@ -181,17 +181,17 @@
   },
   {
     "source": "/wiki/diagnostics/day4-biopsy",
-    "destination": "/wiki/diagnostics/archived/biopsy/day4-biopsy",
+    "destination": "/wiki/diagnostics/biopsy/day4-biopsy",
     "permanent": true
   },
   {
     "source": "/wiki/diagnostics/biopsy-vs-infusion-april9",
-    "destination": "/wiki/diagnostics/archived/biopsy-vs-infusion-april9",
+    "destination": "/wiki/diagnostics/biopsy/biopsy-vs-infusion-april9",
     "permanent": true
   },
   {
     "source": "/wiki/diagnostics/biopsy-plan-april10",
-    "destination": "/wiki/diagnostics/archived/biopsy/biopsy-plan-april10",
+    "destination": "/wiki/diagnostics/biopsy/biopsy-plan-april10",
     "permanent": true
   },
   {
@@ -212,11 +212,6 @@
   {
     "source": "/wiki/diagnostics/hla-b2m-loss-testing",
     "destination": "/wiki/questions/hla-b2m-loss",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/education/reading-a-tumor/immune-hot-vs-cold",
-    "destination": "/wiki/questions/is-tumor-hot",
     "permanent": true
   },
   {
@@ -257,6 +252,36 @@
   {
     "source": "/wiki/treatment/pcr-drug-interactions-deep-dive",
     "destination": "/wiki/questions/pembro-drug-interactions",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/education/local-treatment-modalities",
+    "destination": "/wiki/education/local-treatment-modalities/index",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/education/reading-a-tumor",
+    "destination": "/wiki/education/reading-a-tumor/index",
+    "permanent": true
+  },
+  {
+    "source": "/project-management/1-inbox",
+    "destination": "/project-management/views/1-inbox",
+    "permanent": true
+  },
+  {
+    "source": "/project-management/2-urgent",
+    "destination": "/project-management/views/2-urgent",
+    "permanent": true
+  },
+  {
+    "source": "/project-management/3-completed",
+    "destination": "/project-management/views/3-completed",
+    "permanent": true
+  },
+  {
+    "source": "/project-management/4-backlog",
+    "destination": "/project-management/views/4-backlog",
     "permanent": true
   },
   {
@@ -1665,143 +1690,23 @@
     "permanent": true
   },
   {
-    "source": "/wiki/diagnostics/diagnostic-suggestions",
-    "destination": "/about/overview/test-tracker",
+    "source": "/wiki/education/oncology-101/ligands",
+    "destination": "/wiki/education/oncology-101/1-ligands",
     "permanent": true
   },
   {
-    "source": "/wiki/diagnostics/sox10",
-    "destination": "/about/Terminology#sox10",
+    "source": "/wiki/education/oncology-101/dendritic-cells",
+    "destination": "/wiki/education/oncology-101/2-dendritic-cells",
     "permanent": true
   },
   {
-    "source": "/wiki/diagnostics/ctdna-companies",
-    "destination": "/wiki/diagnostics/ctdna-mrd",
+    "source": "/wiki/education/oncology-101/t-cell-states",
+    "destination": "/wiki/education/oncology-101/3-t-cell-states",
     "permanent": true
   },
   {
-    "source": "/wiki/diagnostics/pembrolizumab-response-pet",
-    "destination": "/wiki/questions/granzyme-b-pet",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/diagnostics/pcr-diagnostic-review",
-    "destination": "/sources/research/syntheses/pcr-diagnostic-review",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/diagnostics/cfdna-subtyping",
-    "destination": "/sources/research/syntheses/cfdna-subtyping",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/diagnostics/dirbas-pdx-research",
-    "destination": "/sources/people/providers/stanford/dirbas/dirbas-pdx-research",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/diagnostics/brca-hrd",
-    "destination": "/wiki/diagnostics/archived/brca-hrd",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/diagnostics/molecular-workup",
-    "destination": "/wiki/diagnostics/archived/molecular-workup",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/diagnostics/he-to-spatial-transcriptomics",
-    "destination": "/wiki/diagnostics/archived/he-to-spatial-transcriptomics",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/diagnostics/biopsy/biopsy-plan-april10",
-    "destination": "/wiki/diagnostics/archived/biopsy/biopsy-plan-april10",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/diagnostics/biopsy/day4-biopsy",
-    "destination": "/wiki/diagnostics/archived/biopsy/day4-biopsy",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/diagnostics/biopsy/biopsy-vs-infusion-april9",
-    "destination": "/wiki/diagnostics/archived/biopsy-vs-infusion-april9",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/treatment/add-ons-evaluation",
-    "destination": "/wiki/questions/k522-add-ons",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/treatment/pcr-drug-interactions-deep-dive",
-    "destination": "/wiki/questions/pembro-drug-interactions",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/treatment/escalation-evidence-synthesis",
-    "destination": "/wiki/treatment/archived/escalation-evidence-synthesis",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/people/tax-accountant",
-    "destination": "/wiki/logistics/tax/accountant",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/people/amazon-hr",
-    "destination": "/wiki/logistics/amazon-hr",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/people/sid-timeline",
-    "destination": "/sources/people/peers/sid/sid-timeline",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/people/sid-clinical-timeline",
-    "destination": "/sources/people/peers/sid/sid-clinical-timeline",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/strategy/sid-founder-mode",
-    "destination": "/sources/people/peers/sid/sid-founder-mode",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/strategy/patient-first-policy",
-    "destination": "/sources/companies/even-one-ventures/patient-first-policy",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/strategy/competitive-landscape",
-    "destination": "/wiki/companies/competitive-landscape",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/strategy/multiplexed-in-vivo-screening",
-    "destination": "/sources/research/syntheses/multiplexed-in-vivo-screening",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/strategy/elliot-hershberg-framework",
-    "destination": "/sources/resources/essays-and-podcasts/century-of-bio/elliot-hershberg-framework",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/strategy/valius-pathologist-augmentation",
-    "destination": "/sources/research/syntheses/valius-pathologist-augmentation",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/strategy/valius-pathologist",
-    "destination": "/sources/research/syntheses/valius-pathologist",
-    "permanent": true
-  },
-  {
-    "source": "/wiki/education/reading-a-tumor",
-    "destination": "/wiki/education/reading-a-tumor/index",
+    "source": "/wiki/education/oncology-101/escape-mechanisms",
+    "destination": "/wiki/education/oncology-101/4-escape-mechanisms",
     "permanent": true
   }
 ]

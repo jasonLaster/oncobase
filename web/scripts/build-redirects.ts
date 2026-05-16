@@ -115,7 +115,6 @@ const sourceRedirects: Redirect[] = [
   { source: "/wiki/prognosis/Prognosis%20Indicators", destination: "/wiki/prognosis/Prognostic%20Indicators" },
   { source: "/wiki/diagnostics/pembro-efficacy", destination: "/wiki/questions/is-pembro-working" },
   { source: "/wiki/diagnostics/hla-b2m-loss-testing", destination: "/wiki/questions/hla-b2m-loss" },
-  { source: "/wiki/education/reading-a-tumor/immune-hot-vs-cold", destination: "/wiki/questions/is-tumor-hot" },
   { source: "/wiki/treatment/in-vivo-vaccination", destination: "/wiki/questions/in-vivo-vaccination" },
   { source: "/wiki/treatment/in-vivo-vaccination/index", destination: "/wiki/questions/in-vivo-vaccination/index" },
   { source: "/wiki/treatment/in-vivo-vaccination/current-thinking", destination: "/wiki/questions/in-vivo-vaccination/current-thinking" },
@@ -124,6 +123,14 @@ const sourceRedirects: Redirect[] = [
   { source: "/wiki/diagnostics/biobanking-paths", destination: "/wiki/questions/tissue-and-data-routing" },
   { source: "/wiki/treatment/add-ons-evaluation", destination: "/wiki/questions/k522-add-ons" },
   { source: "/wiki/treatment/pcr-drug-interactions-deep-dive", destination: "/wiki/questions/pembro-drug-interactions" },
+
+  { source: "/wiki/education/local-treatment-modalities", destination: "/wiki/education/local-treatment-modalities/index" },
+  { source: "/wiki/education/reading-a-tumor", destination: "/wiki/education/reading-a-tumor/index" },
+
+  ...["1-inbox", "2-urgent", "3-completed", "4-backlog"].map((slug) => ({
+    source: `/project-management/${slug}`,
+    destination: `/project-management/views/${slug}`,
+  })),
 
   // Source reorg 2026-05-15 — final destinations
   { source: "/wiki/research/:path*", destination: "/sources/research/:path*" },
@@ -262,6 +269,10 @@ const sourceRedirects: Redirect[] = [
   { source: "/wiki/active-questions/tissue-and-data-routing", destination: "/wiki/questions/tissue-and-data-routing" },
   { source: "/wiki/active-questions/k522-add-ons", destination: "/wiki/questions/k522-add-ons" },
   { source: "/wiki/active-questions/pembro-drug-interactions", destination: "/wiki/questions/pembro-drug-interactions" },
+  { source: "/wiki/education/oncology-101/ligands", destination: "/wiki/education/oncology-101/1-ligands" },
+  { source: "/wiki/education/oncology-101/dendritic-cells", destination: "/wiki/education/oncology-101/2-dendritic-cells" },
+  { source: "/wiki/education/oncology-101/t-cell-states", destination: "/wiki/education/oncology-101/3-t-cell-states" },
+  { source: "/wiki/education/oncology-101/escape-mechanisms", destination: "/wiki/education/oncology-101/4-escape-mechanisms" },
 ];
 
 const all = [

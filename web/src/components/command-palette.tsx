@@ -24,6 +24,7 @@ import { FileTextIcon, Loader2Icon, HeadingIcon, ListTreeIcon, CalculatorIcon } 
 import fuzzysort from "fuzzysort";
 import { themeEffect } from "@/lib/theme-effect";
 import { cn } from "@/lib/utils";
+import { formatFileLabel } from "@/lib/file-labels";
 import { setNavigationIntent } from "@/lib/navigation-intent";
 
 interface PageEntry {
@@ -326,7 +327,7 @@ export function CommandPalette() {
   const prepared = useMemo(() =>
     pages.map((page) => ({
       page,
-      prepName: fuzzysort.prepare(page.name.replace(/-/g, " ")),
+      prepName: fuzzysort.prepare(formatFileLabel(page.name)),
       prepPath: fuzzysort.prepare(page.path),
     })),
     [pages]
@@ -360,10 +361,10 @@ export function CommandPalette() {
         .sort((a, b) => {
           const aExact =
             a.page.slug.toLowerCase() === normalizedSearch ||
-            a.page.name.replace(/-/g, " ").toLowerCase() === normalizedSearch;
+            formatFileLabel(a.page.name).toLowerCase() === normalizedSearch;
           const bExact =
             b.page.slug.toLowerCase() === normalizedSearch ||
-            b.page.name.replace(/-/g, " ").toLowerCase() === normalizedSearch;
+            formatFileLabel(b.page.name).toLowerCase() === normalizedSearch;
           if (aExact !== bExact) return aExact ? -1 : 1;
 
           const diff = b.score - a.score;
@@ -681,7 +682,7 @@ function VirtualizedPageEntries({
             >
               <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
               <div className="flex flex-col min-w-0">
-                <span className="truncate">{page.name.replace(/-/g, " ")}</span>
+                <span className="truncate">{formatFileLabel(page.name)}</span>
                 <span className="text-xs text-muted-foreground truncate">{formatPath(page.slug)}</span>
               </div>
             </button>

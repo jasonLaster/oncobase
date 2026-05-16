@@ -26,17 +26,20 @@ function findNode(nodes: FileNode[], slug: string): FileNode | null {
 
 /** Open a directory button only if it is currently collapsed. */
 async function expandIfCollapsed(nav: ReturnType<import("@playwright/test").Page["locator"]>, name: string) {
-  const btn = nav.getByRole("button", { name: new RegExp(`^${escapeRegExp(name)}$`) }).first();
+  const btn = nav
+    .getByRole("button", {
+      name: new RegExp(`^(?:${escapeRegExp(name)}|Expand ${escapeRegExp(name)}|Collapse ${escapeRegExp(name)})$`),
+    })
+    .first();
   if ((await btn.count()) === 0) return;
-  if ((await btn.getAttribute("aria-expanded")) === "false") {
+  await expect(btn).toHaveAttribute("aria-expanded", /^(true|false)$/);
+  if ((await btn.getAttribute("aria-expanded")) !== "true") {
     await btn.click();
   }
 }
 
 async function waitForSidebarTree(nav: ReturnType<import("@playwright/test").Page["locator"]>) {
-  await expect(
-    nav.getByRole("button", { name: "sources" }).first()
-  ).toBeVisible({ timeout: 30_000 });
+  await expect(nav.getByText("sources").first()).toBeVisible({ timeout: 30_000 });
 }
 
 async function expandFirstPdfSet(nav: ReturnType<import("@playwright/test").Page["locator"]>) {
@@ -136,11 +139,15 @@ test.describe("Sidebar source files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
-    await expect(nav.getByRole("button", { name: "wiki" })).toHaveAttribute(
+    await expect(
+      nav.getByRole("button", { name: /^(wiki|Expand wiki|Collapse wiki)$/ }),
+    ).toHaveAttribute(
       "aria-expanded",
       "true",
     );
-    await expect(nav.getByRole("button", { name: "sources" })).toHaveAttribute(
+    await expect(
+      nav.getByRole("button", { name: /^(sources|Expand sources|Collapse sources)$/ }),
+    ).toHaveAttribute(
       "aria-expanded",
       "false",
     );

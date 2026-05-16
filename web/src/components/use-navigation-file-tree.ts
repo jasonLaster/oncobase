@@ -16,7 +16,7 @@ type FileTreeSWRKey = readonly [
   storageKey: string,
 ];
 
-const FILE_TREE_CACHE_VERSION = "v1";
+const FILE_TREE_CACHE_VERSION = "v2";
 const fileTreeMemoryCache = new Map<string, CompactFileNode[]>();
 
 function fileTreeCacheKey(scope: FileTreeScope, version: string) {

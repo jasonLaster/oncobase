@@ -5,10 +5,7 @@ import { PageLoadingSkeleton } from "@/components/page-loading";
 import { getShellFileTreeForSite, type FileNode } from "@/lib/markdown";
 import { getSitePublishVersion } from "@/lib/site-publish-version";
 import { DEFAULT_SITE_SLUG, toSiteSlug } from "@/lib/site";
-
-function treeLabel(name: string) {
-  return name.replace(/-/g, " ");
-}
+import { formatFileLabel } from "@/lib/file-labels";
 
 function fallbackHref(node: FileNode) {
   if (node.type === "pdf") {
@@ -34,7 +31,7 @@ function FallbackTree({
             <div key={node.slug}>
               <button className="flex w-full items-center gap-1 px-2 py-1 text-left text-sm">
                 <span aria-hidden="true">▼</span>
-                <span>{treeLabel(node.name)}</span>
+                <span>{formatFileLabel(node.name)}</span>
               </button>
               {shouldRenderChildren ? (
                 <div className="pl-3">
@@ -53,7 +50,7 @@ function FallbackTree({
             target={node.type === "pdf" ? "_blank" : undefined}
             rel={node.type === "pdf" ? "noopener noreferrer" : undefined}
           >
-            {treeLabel(node.name)}
+            {formatFileLabel(node.name)}
           </a>
         );
       })}
