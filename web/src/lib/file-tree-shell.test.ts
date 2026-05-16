@@ -14,24 +14,24 @@ const fullTree: FileNode[] = [
     children: [
       {
         name: "institutions",
-        slug: "sources/institutions",
+        slug: "sources/people/providers",
         type: "directory",
         children: [
           {
             name: "stanford",
-            slug: "sources/institutions/stanford",
+            slug: "sources/people/providers/stanford",
             type: "directory",
             children: [
               {
                 name: "telli",
-                slug: "sources/institutions/stanford/telli",
+                slug: "sources/people/providers/stanford/telli",
                 type: "directory",
                 children: [
                   {
                     name: "telli-2016-hrd-platinum-tnbc",
-                    slug: "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
+                    slug: "sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
                     type: "pdf",
-                    pdfPath: "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
+                    pdfPath: "sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
                   },
                 ],
               },
@@ -80,7 +80,7 @@ describe("pruneFileTreeForShell", () => {
 
     expect(shell.map((node) => node.slug)).toEqual(["sources", "wiki"]);
     expect(shell[0].children?.map((node) => node.slug)).toEqual([
-      "sources/institutions",
+      "sources/people/providers",
     ]);
     expect(shell[1].children?.map((node) => node.slug)).toEqual([
       "wiki/education",
@@ -94,7 +94,7 @@ describe("pruneFileTreeForShell", () => {
     const education = shell[1].children?.[0];
 
     expect(institutions).toMatchObject({
-      slug: "sources/institutions",
+      slug: "sources/people/providers",
       truncated: true,
       children: [],
     });
@@ -110,8 +110,8 @@ describe("pruneFileTreeForShell", () => {
     const shell = pruneFileTreeForShell(fullTree, { maxDepth: 2 });
     const json = JSON.stringify(shell);
 
-    expect(json).not.toContain("sources/institutions/stanford");
-    expect(json).not.toContain("sources/institutions/stanford/telli");
+    expect(json).not.toContain("sources/people/providers/stanford");
+    expect(json).not.toContain("sources/people/providers/stanford/telli");
     expect(json).not.toContain("telli-2016-hrd-platinum-tnbc.pdf");
   });
 

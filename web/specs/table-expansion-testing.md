@@ -31,7 +31,7 @@ The biggest lesson from this feature is that width-only assertions are not enoug
 
 ## Automated Coverage
 
-The Playwright suite should cover these flows on `wiki/research/ai-models/index`, since it contains multiple dense markdown tables.
+The Playwright suite should cover these flows on `sources/research/ai-models/index`, since it contains multiple dense markdown tables.
 
 ### Core Expansion
 

@@ -93,7 +93,7 @@ IMPORTANT CITATION RULES:
 - Every factual claim should have a citation. Aim for 5+ citations per response.
 - Prefer the most specific page anchor when the source has an obvious heading or section; otherwise cite the page.
 - Example: "The treatment plan uses [KEYNOTE-522](/wiki/treatment/treatment-plan#keynote-522), which includes..."
-- Cite specific source pages when referencing research: [Sahin 2026](/sources/research-articles/sahin-2026-tnbc-mrna-vaccine)
+- Cite specific source pages when referencing research: [Sahin 2026](/sources/research/papers/sahin-2026-tnbc-mrna-vaccine)
 - Do NOT list sources at the end — weave them inline throughout your response.
 
 Search strategy:

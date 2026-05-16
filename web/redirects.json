@@ -1,0 +1,1667 @@
+[
+  {
+    "source": "/wiki/diagnosis",
+    "destination": "/wiki/diagnostics/diagnosis",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostic-suggestions",
+    "destination": "/wiki/diagnostics/diagnostic-suggestions",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/predictive-biomarkers",
+    "destination": "/wiki/diagnostics/predictive-biomarkers",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/molecular-workup",
+    "destination": "/wiki/diagnostics/molecular-workup",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/day4-biopsy",
+    "destination": "/wiki/diagnostics/day4-biopsy",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/sox10",
+    "destination": "/wiki/diagnostics/sox10",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/ctdna-mrd",
+    "destination": "/wiki/diagnostics/ctdna-mrd",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/ctdna-companies",
+    "destination": "/wiki/diagnostics/ctdna-companies",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment-plan",
+    "destination": "/wiki/treatment/treatment-plan",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/medications",
+    "destination": "/wiki/treatment/medications",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/Cancer%20Vaccines",
+    "destination": "/wiki/treatment/Cancer%20Vaccines",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/vaccines-technical",
+    "destination": "/wiki/treatment/vaccines-technical",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/clinical-trials",
+    "destination": "/wiki/treatment/clinical-trials",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/metabolic-therapy",
+    "destination": "/wiki/treatment/metabolic-therapy",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/scalp-cooling",
+    "destination": "/wiki/treatment/scalp-cooling",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/prognosis",
+    "destination": "/wiki/prognosis/Prognostic%20Indicators",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/survival-statistics",
+    "destination": "/wiki/prognosis/survival-statistics",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/medical-team",
+    "destination": "/wiki/people/medical-team",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/peer-journeys",
+    "destination": "/wiki/people/peer-journeys",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/support",
+    "destination": "/wiki/people/support",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/research-review",
+    "destination": "/wiki/research/research-review",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/research-articles",
+    "destination": "/wiki/research/research-articles",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/missing-papers",
+    "destination": "/wiki/research/missing-papers",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/pregnancy",
+    "destination": "/wiki/archived/pregnancy",
+    "permanent": true
+  },
+  {
+    "source": "/about/For-Patients",
+    "destination": "/about/About",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/summary",
+    "destination": "/about/overview",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/summary/index",
+    "destination": "/about/overview/index",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/summary/current-status",
+    "destination": "/about/overview/current-status",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/summary/active-workstreams",
+    "destination": "/about/overview/active-workstreams",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/summary/key-context",
+    "destination": "/about/overview/key-context",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/summary/for-experts",
+    "destination": "/about/overview/for-experts",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/summary/for-peers",
+    "destination": "/about/overview/for-peers",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/summary/for-friends-and-family",
+    "destination": "/about/overview/for-friends-and-family",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/summary/test-tracker",
+    "destination": "/about/overview/test-tracker",
+    "permanent": true
+  },
+  {
+    "source": "/sources/meeting-notes/408---dirbas-biopsy-planning",
+    "destination": "/sources/meeting-notes/409---dirbas-biopsy-planning",
+    "permanent": true
+  },
+  {
+    "source": "/sources/meeting-notes/408---dirbas-biopsy-planning-overview",
+    "destination": "/sources/meeting-notes/409---dirbas-biopsy-planning-overview",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/day4-biopsy",
+    "destination": "/wiki/diagnostics/biopsy/day4-biopsy",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/biopsy-vs-infusion-april9",
+    "destination": "/wiki/diagnostics/biopsy/biopsy-vs-infusion-april9",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/biopsy-plan-april10",
+    "destination": "/wiki/diagnostics/biopsy/biopsy-plan-april10",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/prognosis/prognosis",
+    "destination": "/wiki/prognosis/Prognostic%20Indicators",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/prognosis/Prognosis%20Indicators",
+    "destination": "/wiki/prognosis/Prognostic%20Indicators",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/pembro-efficacy",
+    "destination": "/wiki/questions/is-pembro-working",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/hla-b2m-loss-testing",
+    "destination": "/wiki/questions/hla-b2m-loss",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/education/reading-a-tumor/immune-hot-vs-cold",
+    "destination": "/wiki/questions/is-tumor-hot",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/in-vivo-vaccination",
+    "destination": "/wiki/questions/in-vivo-vaccination",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/in-vivo-vaccination/index",
+    "destination": "/wiki/questions/in-vivo-vaccination/index",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/in-vivo-vaccination/current-thinking",
+    "destination": "/wiki/questions/in-vivo-vaccination/current-thinking",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/in-vivo-vaccination/decision-framework",
+    "destination": "/wiki/questions/in-vivo-vaccination/decision-framework",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/education/designing-a-vaccine/06-leukapheresis-and-tcr-t",
+    "destination": "/wiki/questions/should-we-bank-leukopak",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/biobanking-paths",
+    "destination": "/wiki/questions/tissue-and-data-routing",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/add-ons-evaluation",
+    "destination": "/wiki/questions/k522-add-ons",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/pcr-drug-interactions-deep-dive",
+    "destination": "/wiki/questions/pembro-drug-interactions",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/research/:path*",
+    "destination": "/sources/research/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research/claude-deep-research/:path*",
+    "destination": "/sources/research/claude/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/claude/research/:path*",
+    "destination": "/sources/research/claude/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/claudes-research/:path*",
+    "destination": "/sources/research/claude/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/echo-immune/:path*",
+    "destination": "/sources/companies/echo-immune/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/institutions/:path*",
+    "destination": "/sources/people/providers/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/researchers/:path*",
+    "destination": "/sources/people/researchers/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/trials/aspria-nct04434040",
+    "destination": "/sources/clinical-trials/trials/aspria-nct04434040",
+    "permanent": true
+  },
+  {
+    "source": "/sources/trials/car-nk-followup",
+    "destination": "/sources/clinical-trials/trials/car-nk-followup",
+    "permanent": true
+  },
+  {
+    "source": "/sources/trials/car-nk-trials",
+    "destination": "/sources/clinical-trials/trials/car-nk-trials",
+    "permanent": true
+  },
+  {
+    "source": "/sources/trials/sascia-nct04595565",
+    "destination": "/sources/clinical-trials/trials/sascia-nct04595565",
+    "permanent": true
+  },
+  {
+    "source": "/sources/trials/zest-nct05306330",
+    "destination": "/sources/clinical-trials/trials/zest-nct05306330",
+    "permanent": true
+  },
+  {
+    "source": "/sources/trials/:path*",
+    "destination": "/sources/clinical-trials/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/clinical-trials/car-nk-cell-therapy",
+    "destination": "/sources/clinical-trials/topics/car-nk-cell-therapy",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/clinical-trials/car-t-cell-therapy",
+    "destination": "/sources/clinical-trials/topics/car-t-cell-therapy",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/clinical-trials/i-spy2",
+    "destination": "/sources/clinical-trials/topics/i-spy2",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/clinical-trials/immunotherapy-vaccine-trials",
+    "destination": "/sources/clinical-trials/topics/immunotherapy-vaccine-trials",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/clinical-trials/in-vivo-nac-vaccine-trials",
+    "destination": "/sources/clinical-trials/topics/in-vivo-nac-vaccine-trials",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/clinical-trials/registry-2026-05/:path*",
+    "destination": "/sources/clinical-trials/catalog/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/clinical-trials/registry-2026-05/:path*",
+    "destination": "/sources/clinical-trials/catalog/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/clinical-trials/ctg-snapshot-2026-05-11/:path*",
+    "destination": "/sources/clinical-trials/catalog/resources/ctg-snapshot-2026-05-11/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/kernis/:path*",
+    "destination": "/sources/companies/kernis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/kernis/:path*",
+    "destination": "/sources/companies/kernis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-articles/:path*",
+    "destination": "/sources/research/papers/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-guidelines/:path*",
+    "destination": "/sources/research/open-evidence/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-catalog/:path*",
+    "destination": "/sources/people/researchers/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/oe---dana-farber-tnbc-literature-review",
+    "destination": "/sources/research/open-evidence/oe---dana-farber-tnbc-literature-review",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/oe---mdanderson-tnbc-literature-review",
+    "destination": "/sources/research/open-evidence/oe---mdanderson-tnbc-literature-review",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/oe---mskcc-tnbc-research-papers",
+    "destination": "/sources/research/open-evidence/oe---mskcc-tnbc-research-papers",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/oe---stanford-ai-precision-oncology-raw",
+    "destination": "/sources/research/open-evidence/oe---stanford-ai-precision-oncology-raw",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/oe---stanford-ai-precision-oncology",
+    "destination": "/sources/research/open-evidence/oe---stanford-ai-precision-oncology",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/oe---stanford-tnbc-literature-review",
+    "destination": "/sources/research/open-evidence/oe---stanford-tnbc-literature-review",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/oe---ucsf-keynote522-research",
+    "destination": "/sources/research/open-evidence/oe---ucsf-keynote522-research",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit---dana-farber-tnbc-research",
+    "destination": "/sources/research/elicit/elicit---dana-farber-tnbc-research",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit---dana-farber-tnbc-research/:path*",
+    "destination": "/sources/research/elicit/elicit---dana-farber-tnbc-research/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-2026-05-08-sweep",
+    "destination": "/sources/research/elicit/elicit-2026-05-08-sweep",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-2026-05-08-sweep/:path*",
+    "destination": "/sources/research/elicit/elicit-2026-05-08-sweep/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-2026-05-08-sweep-pt2",
+    "destination": "/sources/research/elicit/elicit-2026-05-08-sweep-pt2",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-2026-05-08-sweep-pt2/:path*",
+    "destination": "/sources/research/elicit/elicit-2026-05-08-sweep-pt2/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-2026-05-11-leukopak-timing",
+    "destination": "/sources/research/elicit/elicit-2026-05-11-leukopak-timing",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-2026-05-11-leukopak-timing/:path*",
+    "destination": "/sources/research/elicit/elicit-2026-05-11-leukopak-timing/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-ablation-checkpoint-insitu-vaccination-2026-04-13",
+    "destination": "/sources/research/elicit/elicit-ablation-checkpoint-insitu-vaccination-2026-04-13",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-ablation-checkpoint-insitu-vaccination-2026-04-13/:path*",
+    "destination": "/sources/research/elicit/elicit-ablation-checkpoint-insitu-vaccination-2026-04-13/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-adjuvant-decision-tree-2x2-analysis",
+    "destination": "/sources/research/elicit/elicit-adjuvant-decision-tree-2x2-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-adjuvant-decision-tree-2x2-analysis/:path*",
+    "destination": "/sources/research/elicit/elicit-adjuvant-decision-tree-2x2-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-adjuvant-decision-tree-2x2",
+    "destination": "/sources/research/elicit/elicit-adjuvant-decision-tree-2x2",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-adjuvant-decision-tree-2x2/:path*",
+    "destination": "/sources/research/elicit/elicit-adjuvant-decision-tree-2x2/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-biopsy-timing-day7-11-analysis",
+    "destination": "/sources/research/elicit/elicit-biopsy-timing-day7-11-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-biopsy-timing-day7-11-analysis/:path*",
+    "destination": "/sources/research/elicit/elicit-biopsy-timing-day7-11-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-biopsy-timing-day7-11",
+    "destination": "/sources/research/elicit/elicit-biopsy-timing-day7-11",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-biopsy-timing-day7-11/:path*",
+    "destination": "/sources/research/elicit/elicit-biopsy-timing-day7-11/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-in-vivo-vaccination",
+    "destination": "/sources/research/elicit/elicit-in-vivo-vaccination",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-in-vivo-vaccination/:path*",
+    "destination": "/sources/research/elicit/elicit-in-vivo-vaccination/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-tnbc-vaccine",
+    "destination": "/sources/research/elicit/elicit-tnbc-vaccine",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/elicit-tnbc-vaccine/:path*",
+    "destination": "/sources/research/elicit/elicit-tnbc-vaccine/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/md-anderson-faculty",
+    "destination": "/sources/research/faculty/md-anderson-faculty",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/msk-faculty",
+    "destination": "/sources/research/faculty/msk-faculty",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research-analyses/:path*",
+    "destination": "/sources/research/syntheses/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/10x-atera",
+    "destination": "/sources/resources/companies/10x-atera",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/10x-atera/:path*",
+    "destination": "/sources/resources/companies/10x-atera/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/10x-atera",
+    "destination": "/sources/resources/companies/10x-atera",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/10x-atera/:path*",
+    "destination": "/sources/resources/companies/10x-atera/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/10x-atera",
+    "destination": "/sources/resources/companies/10x-atera",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/10x-atera/:path*",
+    "destination": "/sources/resources/companies/10x-atera/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/arden-bio",
+    "destination": "/sources/resources/companies/arden-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/arden-bio/:path*",
+    "destination": "/sources/resources/companies/arden-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/arden-bio",
+    "destination": "/sources/resources/companies/arden-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/arden-bio/:path*",
+    "destination": "/sources/resources/companies/arden-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/arden-bio",
+    "destination": "/sources/resources/companies/arden-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/arden-bio/:path*",
+    "destination": "/sources/resources/companies/arden-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/bulsara-bioworks",
+    "destination": "/sources/resources/companies/bulsara-bioworks",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/bulsara-bioworks/:path*",
+    "destination": "/sources/resources/companies/bulsara-bioworks/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/bulsara-bioworks",
+    "destination": "/sources/resources/companies/bulsara-bioworks",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/bulsara-bioworks/:path*",
+    "destination": "/sources/resources/companies/bulsara-bioworks/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/bulsara-bioworks",
+    "destination": "/sources/resources/companies/bulsara-bioworks",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/bulsara-bioworks/:path*",
+    "destination": "/sources/resources/companies/bulsara-bioworks/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/eve-bio-drug-target-activity-analysis",
+    "destination": "/sources/resources/companies/eve-bio-drug-target-activity-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/eve-bio-drug-target-activity-analysis/:path*",
+    "destination": "/sources/resources/companies/eve-bio-drug-target-activity-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/eve-bio-drug-target-activity-analysis",
+    "destination": "/sources/resources/companies/eve-bio-drug-target-activity-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/eve-bio-drug-target-activity-analysis/:path*",
+    "destination": "/sources/resources/companies/eve-bio-drug-target-activity-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/eve-bio-drug-target-activity-analysis",
+    "destination": "/sources/resources/companies/eve-bio-drug-target-activity-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/eve-bio-drug-target-activity-analysis/:path*",
+    "destination": "/sources/resources/companies/eve-bio-drug-target-activity-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/eve-bio-drug-target-activity",
+    "destination": "/sources/resources/companies/eve-bio-drug-target-activity",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/eve-bio-drug-target-activity/:path*",
+    "destination": "/sources/resources/companies/eve-bio-drug-target-activity/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/eve-bio-drug-target-activity",
+    "destination": "/sources/resources/companies/eve-bio-drug-target-activity",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/eve-bio-drug-target-activity/:path*",
+    "destination": "/sources/resources/companies/eve-bio-drug-target-activity/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/eve-bio-drug-target-activity",
+    "destination": "/sources/resources/companies/eve-bio-drug-target-activity",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/eve-bio-drug-target-activity/:path*",
+    "destination": "/sources/resources/companies/eve-bio-drug-target-activity/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/gigatime",
+    "destination": "/sources/resources/companies/gigatime",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/gigatime/:path*",
+    "destination": "/sources/resources/companies/gigatime/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/gigatime",
+    "destination": "/sources/resources/companies/gigatime",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/gigatime/:path*",
+    "destination": "/sources/resources/companies/gigatime/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/gigatime",
+    "destination": "/sources/resources/companies/gigatime",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/gigatime/:path*",
+    "destination": "/sources/resources/companies/gigatime/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/gordian-bio",
+    "destination": "/sources/resources/companies/gordian-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/gordian-bio/:path*",
+    "destination": "/sources/resources/companies/gordian-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/gordian-bio",
+    "destination": "/sources/resources/companies/gordian-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/gordian-bio/:path*",
+    "destination": "/sources/resources/companies/gordian-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/gordian-bio",
+    "destination": "/sources/resources/companies/gordian-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/gordian-bio/:path*",
+    "destination": "/sources/resources/companies/gordian-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/gt-bio",
+    "destination": "/sources/resources/companies/gt-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/gt-bio/:path*",
+    "destination": "/sources/resources/companies/gt-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/gt-bio",
+    "destination": "/sources/resources/companies/gt-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/gt-bio/:path*",
+    "destination": "/sources/resources/companies/gt-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/gt-bio",
+    "destination": "/sources/resources/companies/gt-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/gt-bio/:path*",
+    "destination": "/sources/resources/companies/gt-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/histowiz",
+    "destination": "/sources/resources/companies/histowiz",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/histowiz/:path*",
+    "destination": "/sources/resources/companies/histowiz/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/histowiz",
+    "destination": "/sources/resources/companies/histowiz",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/histowiz/:path*",
+    "destination": "/sources/resources/companies/histowiz/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/histowiz",
+    "destination": "/sources/resources/companies/histowiz",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/histowiz/:path*",
+    "destination": "/sources/resources/companies/histowiz/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/inocras-cancervision",
+    "destination": "/sources/resources/companies/inocras-cancervision",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/inocras-cancervision/:path*",
+    "destination": "/sources/resources/companies/inocras-cancervision/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/inocras-cancervision",
+    "destination": "/sources/resources/companies/inocras-cancervision",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/inocras-cancervision/:path*",
+    "destination": "/sources/resources/companies/inocras-cancervision/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/inocras-cancervision",
+    "destination": "/sources/resources/companies/inocras-cancervision",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/inocras-cancervision/:path*",
+    "destination": "/sources/resources/companies/inocras-cancervision/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/manifold-bio",
+    "destination": "/sources/resources/companies/manifold-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/manifold-bio/:path*",
+    "destination": "/sources/resources/companies/manifold-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/manifold-bio",
+    "destination": "/sources/resources/companies/manifold-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/manifold-bio/:path*",
+    "destination": "/sources/resources/companies/manifold-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/manifold-bio",
+    "destination": "/sources/resources/companies/manifold-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/manifold-bio/:path*",
+    "destination": "/sources/resources/companies/manifold-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/noetik",
+    "destination": "/sources/resources/companies/noetik",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/noetik/:path*",
+    "destination": "/sources/resources/companies/noetik/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/noetik",
+    "destination": "/sources/resources/companies/noetik",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/noetik/:path*",
+    "destination": "/sources/resources/companies/noetik/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/noetik",
+    "destination": "/sources/resources/companies/noetik",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/noetik/:path*",
+    "destination": "/sources/resources/companies/noetik/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/ranata-therapeutics",
+    "destination": "/sources/resources/companies/ranata-therapeutics",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/ranata-therapeutics/:path*",
+    "destination": "/sources/resources/companies/ranata-therapeutics/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/ranata-therapeutics",
+    "destination": "/sources/resources/companies/ranata-therapeutics",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/ranata-therapeutics/:path*",
+    "destination": "/sources/resources/companies/ranata-therapeutics/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/ranata-therapeutics",
+    "destination": "/sources/resources/companies/ranata-therapeutics",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/ranata-therapeutics/:path*",
+    "destination": "/sources/resources/companies/ranata-therapeutics/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/senti-bio-pipeline",
+    "destination": "/sources/resources/companies/senti-bio-pipeline",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/senti-bio-pipeline/:path*",
+    "destination": "/sources/resources/companies/senti-bio-pipeline/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/senti-bio-pipeline",
+    "destination": "/sources/resources/companies/senti-bio-pipeline",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/senti-bio-pipeline/:path*",
+    "destination": "/sources/resources/companies/senti-bio-pipeline/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/senti-bio-pipeline",
+    "destination": "/sources/resources/companies/senti-bio-pipeline",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/senti-bio-pipeline/:path*",
+    "destination": "/sources/resources/companies/senti-bio-pipeline/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/serova-bio",
+    "destination": "/sources/resources/companies/serova-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/serova-bio/:path*",
+    "destination": "/sources/resources/companies/serova-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/serova-bio",
+    "destination": "/sources/resources/companies/serova-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/serova-bio/:path*",
+    "destination": "/sources/resources/companies/serova-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/serova-bio",
+    "destination": "/sources/resources/companies/serova-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/serova-bio/:path*",
+    "destination": "/sources/resources/companies/serova-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/tempus-predicta-genopredicta-mrd",
+    "destination": "/sources/resources/companies/tempus-predicta-genopredicta-mrd",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/tempus-predicta-genopredicta-mrd/:path*",
+    "destination": "/sources/resources/companies/tempus-predicta-genopredicta-mrd/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/tempus-predicta-genopredicta-mrd",
+    "destination": "/sources/resources/companies/tempus-predicta-genopredicta-mrd",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/tempus-predicta-genopredicta-mrd/:path*",
+    "destination": "/sources/resources/companies/tempus-predicta-genopredicta-mrd/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/tempus-predicta-genopredicta-mrd",
+    "destination": "/sources/resources/companies/tempus-predicta-genopredicta-mrd",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/tempus-predicta-genopredicta-mrd/:path*",
+    "destination": "/sources/resources/companies/tempus-predicta-genopredicta-mrd/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/valius",
+    "destination": "/sources/resources/companies/valius",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/valius/:path*",
+    "destination": "/sources/resources/companies/valius/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/valius",
+    "destination": "/sources/resources/companies/valius",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/valius/:path*",
+    "destination": "/sources/resources/companies/valius/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/valius",
+    "destination": "/sources/resources/companies/valius",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/valius/:path*",
+    "destination": "/sources/resources/companies/valius/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/waypoint-bio",
+    "destination": "/sources/resources/companies/waypoint-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/waypoint-bio/:path*",
+    "destination": "/sources/resources/companies/waypoint-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/waypoint-bio",
+    "destination": "/sources/resources/companies/waypoint-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/waypoint-bio/:path*",
+    "destination": "/sources/resources/companies/waypoint-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/waypoint-bio",
+    "destination": "/sources/resources/companies/waypoint-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/companies/waypoint-bio/:path*",
+    "destination": "/sources/resources/companies/waypoint-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/sid",
+    "destination": "/sources/people/peers/sid/sid",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/sid/:path*",
+    "destination": "/sources/people/peers/sid/sid/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/sid",
+    "destination": "/sources/people/peers/sid/sid",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/sid/:path*",
+    "destination": "/sources/people/peers/sid/sid/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/sid-data",
+    "destination": "/sources/people/peers/sid/sid-data",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/sid-data/:path*",
+    "destination": "/sources/people/peers/sid/sid-data/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/sid-data",
+    "destination": "/sources/people/peers/sid/sid-data",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/sid-data/:path*",
+    "destination": "/sources/people/peers/sid/sid-data/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/sid-presentation",
+    "destination": "/sources/people/peers/sid/sid-presentation",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/sid-presentation/:path*",
+    "destination": "/sources/people/peers/sid/sid-presentation/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/sid-presentation",
+    "destination": "/sources/people/peers/sid/sid-presentation",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/sid-presentation/:path*",
+    "destination": "/sources/people/peers/sid/sid-presentation/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/joanie",
+    "destination": "/sources/people/peers/joanie/joanie",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/joanie/:path*",
+    "destination": "/sources/people/peers/joanie/joanie/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/joanie",
+    "destination": "/sources/people/peers/joanie/joanie",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/joanie/:path*",
+    "destination": "/sources/people/peers/joanie/joanie/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/joanie-1440",
+    "destination": "/sources/people/peers/joanie/joanie-1440",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/joanie-1440/:path*",
+    "destination": "/sources/people/peers/joanie/joanie-1440/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/joanie-1440",
+    "destination": "/sources/people/peers/joanie/joanie-1440",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/joanie-1440/:path*",
+    "destination": "/sources/people/peers/joanie/joanie-1440/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/century-of-bio",
+    "destination": "/sources/resources/essays-and-podcasts/century-of-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/century-of-bio/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/century-of-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/century-of-bio",
+    "destination": "/sources/resources/essays-and-podcasts/century-of-bio",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/companies/century-of-bio/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/century-of-bio/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/ark---multiomics",
+    "destination": "/sources/resources/essays-and-podcasts/ark---multiomics",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/ark---multiomics/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/ark---multiomics/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/ark---multiomics",
+    "destination": "/sources/resources/essays-and-podcasts/ark---multiomics",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/ark---multiomics/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/ark---multiomics/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/bessemer-biology-native-data-infrastructure-analysis",
+    "destination": "/sources/resources/essays-and-podcasts/bessemer-biology-native-data-infrastructure-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/bessemer-biology-native-data-infrastructure-analysis/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/bessemer-biology-native-data-infrastructure-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/bessemer-biology-native-data-infrastructure-analysis",
+    "destination": "/sources/resources/essays-and-podcasts/bessemer-biology-native-data-infrastructure-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/bessemer-biology-native-data-infrastructure-analysis/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/bessemer-biology-native-data-infrastructure-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/bessemer-biology-native-data-infrastructure",
+    "destination": "/sources/resources/essays-and-podcasts/bessemer-biology-native-data-infrastructure",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/bessemer-biology-native-data-infrastructure/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/bessemer-biology-native-data-infrastructure/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/bessemer-biology-native-data-infrastructure",
+    "destination": "/sources/resources/essays-and-podcasts/bessemer-biology-native-data-infrastructure",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/bessemer-biology-native-data-infrastructure/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/bessemer-biology-native-data-infrastructure/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/drugantibody-design",
+    "destination": "/sources/resources/essays-and-podcasts/drugantibody-design",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/drugantibody-design/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/drugantibody-design/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/drugantibody-design",
+    "destination": "/sources/resources/essays-and-podcasts/drugantibody-design",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/drugantibody-design/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/drugantibody-design/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/precision-oncology-matching",
+    "destination": "/sources/resources/essays-and-podcasts/precision-oncology-matching",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/precision-oncology-matching/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/precision-oncology-matching/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/precision-oncology-matching",
+    "destination": "/sources/resources/essays-and-podcasts/precision-oncology-matching",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/precision-oncology-matching/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/precision-oncology-matching/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/sutton-bitter-footnote-small-molecules",
+    "destination": "/sources/resources/essays-and-podcasts/sutton-bitter-footnote-small-molecules",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/sutton-bitter-footnote-small-molecules/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/sutton-bitter-footnote-small-molecules/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/sutton-bitter-footnote-small-molecules",
+    "destination": "/sources/resources/essays-and-podcasts/sutton-bitter-footnote-small-molecules",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/sutton-bitter-footnote-small-molecules/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/sutton-bitter-footnote-small-molecules/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/teslo-2026-bureaucracy-blocking-cure-analysis",
+    "destination": "/sources/resources/essays-and-podcasts/teslo-2026-bureaucracy-blocking-cure-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/teslo-2026-bureaucracy-blocking-cure-analysis/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/teslo-2026-bureaucracy-blocking-cure-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/teslo-2026-bureaucracy-blocking-cure-analysis",
+    "destination": "/sources/resources/essays-and-podcasts/teslo-2026-bureaucracy-blocking-cure-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/teslo-2026-bureaucracy-blocking-cure-analysis/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/teslo-2026-bureaucracy-blocking-cure-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/teslo-2026-bureaucracy-blocking-cure",
+    "destination": "/sources/resources/essays-and-podcasts/teslo-2026-bureaucracy-blocking-cure",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/teslo-2026-bureaucracy-blocking-cure/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/teslo-2026-bureaucracy-blocking-cure/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/teslo-2026-bureaucracy-blocking-cure",
+    "destination": "/sources/resources/essays-and-podcasts/teslo-2026-bureaucracy-blocking-cure",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/teslo-2026-bureaucracy-blocking-cure/:path*",
+    "destination": "/sources/resources/essays-and-podcasts/teslo-2026-bureaucracy-blocking-cure/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/03-28-sid-stranded-technologies-pod-analysis",
+    "destination": "/sources/people/peers/sid/03-28-sid-stranded-technologies-pod-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/03-28-sid-stranded-technologies-pod-analysis/:path*",
+    "destination": "/sources/people/peers/sid/03-28-sid-stranded-technologies-pod-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/03-28-sid-stranded-technologies-pod-analysis",
+    "destination": "/sources/people/peers/sid/03-28-sid-stranded-technologies-pod-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/03-28-sid-stranded-technologies-pod-analysis/:path*",
+    "destination": "/sources/people/peers/sid/03-28-sid-stranded-technologies-pod-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/03-28-sid-stranded-technologies-pod",
+    "destination": "/sources/people/peers/sid/03-28-sid-stranded-technologies-pod",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/03-28-sid-stranded-technologies-pod/:path*",
+    "destination": "/sources/people/peers/sid/03-28-sid-stranded-technologies-pod/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/03-28-sid-stranded-technologies-pod",
+    "destination": "/sources/people/peers/sid/03-28-sid-stranded-technologies-pod",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/essays-and-podcasts/03-28-sid-stranded-technologies-pod/:path*",
+    "destination": "/sources/people/peers/sid/03-28-sid-stranded-technologies-pod/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/04-20-ai-mrna-vaccine-systems-design",
+    "destination": "/sources/resources/ai-and-platforms/04-20-ai-mrna-vaccine-systems-design",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/04-20-ai-mrna-vaccine-systems-design/:path*",
+    "destination": "/sources/resources/ai-and-platforms/04-20-ai-mrna-vaccine-systems-design/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/ai-and-platforms/04-20-ai-mrna-vaccine-systems-design",
+    "destination": "/sources/resources/ai-and-platforms/04-20-ai-mrna-vaccine-systems-design",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/ai-and-platforms/04-20-ai-mrna-vaccine-systems-design/:path*",
+    "destination": "/sources/resources/ai-and-platforms/04-20-ai-mrna-vaccine-systems-design/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/04-20-lilly-kelonia-in-vivo-car-t",
+    "destination": "/sources/resources/ai-and-platforms/04-20-lilly-kelonia-in-vivo-car-t",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/04-20-lilly-kelonia-in-vivo-car-t/:path*",
+    "destination": "/sources/resources/ai-and-platforms/04-20-lilly-kelonia-in-vivo-car-t/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/ai-and-platforms/04-20-lilly-kelonia-in-vivo-car-t",
+    "destination": "/sources/resources/ai-and-platforms/04-20-lilly-kelonia-in-vivo-car-t",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/ai-and-platforms/04-20-lilly-kelonia-in-vivo-car-t/:path*",
+    "destination": "/sources/resources/ai-and-platforms/04-20-lilly-kelonia-in-vivo-car-t/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/04-20-pancreatic-vaccine-kras-access-timeline",
+    "destination": "/sources/resources/ai-and-platforms/04-20-pancreatic-vaccine-kras-access-timeline",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/04-20-pancreatic-vaccine-kras-access-timeline/:path*",
+    "destination": "/sources/resources/ai-and-platforms/04-20-pancreatic-vaccine-kras-access-timeline/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/ai-and-platforms/04-20-pancreatic-vaccine-kras-access-timeline",
+    "destination": "/sources/resources/ai-and-platforms/04-20-pancreatic-vaccine-kras-access-timeline",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/ai-and-platforms/04-20-pancreatic-vaccine-kras-access-timeline/:path*",
+    "destination": "/sources/resources/ai-and-platforms/04-20-pancreatic-vaccine-kras-access-timeline/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/05-10-lilly-roche-ai-supercomputers",
+    "destination": "/sources/resources/ai-and-platforms/05-10-lilly-roche-ai-supercomputers",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/05-10-lilly-roche-ai-supercomputers/:path*",
+    "destination": "/sources/resources/ai-and-platforms/05-10-lilly-roche-ai-supercomputers/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/ai-and-platforms/05-10-lilly-roche-ai-supercomputers",
+    "destination": "/sources/resources/ai-and-platforms/05-10-lilly-roche-ai-supercomputers",
+    "permanent": true
+  },
+  {
+    "source": "/sources/treatment-advances/ai-and-platforms/05-10-lilly-roche-ai-supercomputers/:path*",
+    "destination": "/sources/resources/ai-and-platforms/05-10-lilly-roche-ai-supercomputers/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/04-16-phm-neoadjuvant-addons-analysis",
+    "destination": "/sources/companies/private-health-management/04-16-phm-neoadjuvant-addons-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/04-16-phm-neoadjuvant-addons-analysis/:path*",
+    "destination": "/sources/companies/private-health-management/04-16-phm-neoadjuvant-addons-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/04-16-phm-neoadjuvant-addons-images",
+    "destination": "/sources/companies/private-health-management/04-16-phm-neoadjuvant-addons-images",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/04-16-phm-neoadjuvant-addons-images/:path*",
+    "destination": "/sources/companies/private-health-management/04-16-phm-neoadjuvant-addons-images/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/04-16-phm-neoadjuvant-addons-summary",
+    "destination": "/sources/companies/private-health-management/04-16-phm-neoadjuvant-addons-summary",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/04-16-phm-neoadjuvant-addons-summary/:path*",
+    "destination": "/sources/companies/private-health-management/04-16-phm-neoadjuvant-addons-summary/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/04-16-phm-neoadjuvant-addons",
+    "destination": "/sources/companies/private-health-management/04-16-phm-neoadjuvant-addons",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/04-16-phm-neoadjuvant-addons/:path*",
+    "destination": "/sources/companies/private-health-management/04-16-phm-neoadjuvant-addons/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/04-20-phm-mopro-wishlist-analysis",
+    "destination": "/sources/companies/private-health-management/04-20-phm-mopro-wishlist-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/04-20-phm-mopro-wishlist-analysis/:path*",
+    "destination": "/sources/companies/private-health-management/04-20-phm-mopro-wishlist-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/04-20-phm-mopro-wishlist",
+    "destination": "/sources/companies/private-health-management/04-20-phm-mopro-wishlist",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/04-20-phm-mopro-wishlist/:path*",
+    "destination": "/sources/companies/private-health-management/04-20-phm-mopro-wishlist/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/0416-phm-neoadjuvant-addons-summary",
+    "destination": "/sources/companies/private-health-management/0416-phm-neoadjuvant-addons-summary",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/0416-phm-neoadjuvant-addons-summary/:path*",
+    "destination": "/sources/companies/private-health-management/0416-phm-neoadjuvant-addons-summary/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/0416-phm-neoadjuvant-addons",
+    "destination": "/sources/companies/private-health-management/0416-phm-neoadjuvant-addons",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/0416-phm-neoadjuvant-addons/:path*",
+    "destination": "/sources/companies/private-health-management/0416-phm-neoadjuvant-addons/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/0420-phm-mopro-wishlist",
+    "destination": "/sources/companies/private-health-management/0420-phm-mopro-wishlist",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/0420-phm-mopro-wishlist/:path*",
+    "destination": "/sources/companies/private-health-management/0420-phm-mopro-wishlist/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/phm-cancer-care-brochure-analysis",
+    "destination": "/sources/companies/private-health-management/phm-cancer-care-brochure-analysis",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/phm-cancer-care-brochure-analysis/:path*",
+    "destination": "/sources/companies/private-health-management/phm-cancer-care-brochure-analysis/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/phm-cancer-care-brochure",
+    "destination": "/sources/companies/private-health-management/phm-cancer-care-brochure",
+    "permanent": true
+  },
+  {
+    "source": "/sources/resources/phm-cancer-care-brochure/:path*",
+    "destination": "/sources/companies/private-health-management/phm-cancer-care-brochure/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/active-questions",
+    "destination": "/wiki/questions",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/active-questions/index",
+    "destination": "/wiki/questions/index",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/active-questions/is-pembro-working",
+    "destination": "/wiki/questions/is-pembro-working",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/active-questions/hla-b2m-loss",
+    "destination": "/wiki/questions/hla-b2m-loss",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/active-questions/is-tumor-hot",
+    "destination": "/wiki/questions/is-tumor-hot",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/active-questions/in-vivo-vaccination",
+    "destination": "/wiki/questions/in-vivo-vaccination",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/active-questions/in-vivo-vaccination/index",
+    "destination": "/wiki/questions/in-vivo-vaccination/index",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/active-questions/in-vivo-vaccination/current-thinking",
+    "destination": "/wiki/questions/in-vivo-vaccination/current-thinking",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/active-questions/in-vivo-vaccination/decision-framework",
+    "destination": "/wiki/questions/in-vivo-vaccination/decision-framework",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/active-questions/should-we-bank-leukopak",
+    "destination": "/wiki/questions/should-we-bank-leukopak",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/active-questions/tissue-and-data-routing",
+    "destination": "/wiki/questions/tissue-and-data-routing",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/active-questions/k522-add-ons",
+    "destination": "/wiki/questions/k522-add-ons",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/active-questions/pembro-drug-interactions",
+    "destination": "/wiki/questions/pembro-drug-interactions",
+    "permanent": true
+  }
+]

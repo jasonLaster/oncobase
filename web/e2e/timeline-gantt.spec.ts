@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const TIMELINE_ROUTE = "/sources/resources/04-20-phm-mopro-wishlist-analysis";
+const TIMELINE_ROUTE = "/sources/companies/private-health-management/04-20-phm-mopro-wishlist-analysis";
 
 test.describe("timeline gantt rendering", () => {
   test("renders the timeline gantt mermaid diagram", async ({ page }) => {

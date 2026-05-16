@@ -38,7 +38,7 @@ export function NavigationShell({
   });
 
   const shouldRenderStaticContent =
-    pathname === "/table-examples" || pathname === "/wiki/research/paper-catalog";
+    pathname === "/table-examples" || pathname === "/sources/research/paper-catalog";
   const content = shouldRenderStaticContent ? (
     children
   ) : (

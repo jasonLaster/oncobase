@@ -23,12 +23,12 @@ describe("slugsFromGitOutput", () => {
   it("handles deeply nested paths", () => {
     const raw = [
       "obsidian/wiki/education/designing-a-vaccine/02-hla-and-antigen-presentation.md",
-      "obsidian/sources/research-articles/ablation-immunotherapy/tselikas-2026.md",
+      "obsidian/sources/research/papers/ablation-immunotherapy/tselikas-2026.md",
     ].join("\n");
     const slugs = slugsFromGitOutput(raw, "obsidian");
     expect(slugs.size).toBe(2);
     expect(slugs.has("wiki/education/designing-a-vaccine/02-hla-and-antigen-presentation")).toBe(true);
-    expect(slugs.has("sources/research-articles/ablation-immunotherapy/tselikas-2026")).toBe(true);
+    expect(slugs.has("sources/research/papers/ablation-immunotherapy/tselikas-2026")).toBe(true);
   });
 
   it("ignores non-.md files and blank pretty-format separators", () => {

@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const TABLE_PAGE = "/wiki/research/ai-models/index";
+const TABLE_PAGE = "/sources/research/ai-models/index";
 const TABLE_PAGE_HEADING = "AI Models for the patient's Case — Canonical Index";
-const PAPER_CATALOG_PAGE = "/wiki/research/paper-catalog";
+const PAPER_CATALOG_PAGE = "/sources/research/paper-catalog";
 const AUTH_STATE_PATH = "e2e/.auth/state.json";
 
 test.describe("Prose table expansion", () => {

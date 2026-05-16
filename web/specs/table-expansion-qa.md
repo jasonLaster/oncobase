@@ -60,7 +60,7 @@ Viewport: `1440x900`
 
 Measured on:
 
-- `http://localhost:3000/wiki/research/ai-models/index?token=diana`
+- `http://localhost:3000/sources/research/ai-models/index?token=diana`
 
 ### 1. Left Open, Right Collapsed
 

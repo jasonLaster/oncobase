@@ -83,28 +83,28 @@ test.describe("Sidebar source files", () => {
     expect(findNode(tree, "wiki/updates/week-6-april-19-to-25")).toMatchObject({
       type: "file",
     });
-    expect(findNode(tree, "sources/institutions/stanford/telli")).toMatchObject({
+    expect(findNode(tree, "sources/people/providers/stanford/telli")).toMatchObject({
       type: "directory",
     });
     expect(
       findNode(
         tree,
-        "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
+        "sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
       ),
     ).toMatchObject({ type: "pdf" });
 
     const pages = (await pagesResponse.json()) as Array<{ slug: string }>;
     expect(pages.some((page) => page.slug === "wiki/updates/week-6-april-19-to-25")).toBe(true);
-    expect(pages.some((page) => page.slug.startsWith("sources/institutions/stanford/telli/"))).toBe(true);
+    expect(pages.some((page) => page.slug.startsWith("sources/people/providers/stanford/telli/"))).toBe(true);
 
     const expandedTreeJson = JSON.stringify(tree);
     const compactTreeJson = await compactTreeResponse.text();
     expect(compactTreeJson.length).toBeLessThan(expandedTreeJson.length);
     expect(compactTreeJson).not.toContain(
-      "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc__paper-set",
+      "sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc__paper-set",
     );
     expect(compactTreeJson).not.toContain(
-      "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
+      "sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
     );
 
     const html = await htmlResponse.text();
@@ -112,7 +112,7 @@ test.describe("Sidebar source files", () => {
     expect(html).toContain("wiki/updates");
     expect(html).not.toContain('"initialTree":[{"name":"about"');
     expect(html).not.toContain("initialPages");
-    expect(html).not.toContain("sources/institutions/stanford/telli");
+    expect(html).not.toContain("sources/people/providers/stanford/telli");
     expect(html).not.toContain('E{"digest"');
     expect(html).not.toContain("$RX(");
   });
@@ -152,12 +152,12 @@ test.describe("Sidebar source files", () => {
     await expandIfCollapsed(nav, "telli");
     await expandFirstPdfSet(nav);
 
-    const sourceLinks = nav.locator('a[href^="/sources/institutions/stanford/telli/"]');
+    const sourceLinks = nav.locator('a[href^="/sources/people/providers/stanford/telli/"]');
     await expect(sourceLinks.first()).toBeVisible();
     await expect(sourceLinks.first()).not.toHaveAttribute("href", /\/api\/file/);
   });
 
-  test("wiki/research pages are markdown links, not PDF links", async ({ page }) => {
+  test("sources/research pages are markdown links, not PDF links", async ({ page }) => {
     await page.goto("/");
     const nav = page.locator(sidebar);
 
@@ -167,10 +167,10 @@ test.describe("Sidebar source files", () => {
     await expandIfCollapsed(nav, "wiki");
     await expandIfCollapsed(nav, "research");
 
-    const mdLinks = nav.locator('a[href^="/wiki/research/"]');
+    const mdLinks = nav.locator('a[href^="/sources/research/"]');
     await expect(mdLinks.first()).toBeVisible();
 
-    const pdfInWiki = nav.locator('a[href^="/wiki/research/"][href*="api/file"]');
+    const pdfInWiki = nav.locator('a[href^="/sources/research/"][href*="api/file"]');
     await expect(pdfInWiki).toHaveCount(0);
   });
 });
@@ -253,7 +253,7 @@ test.describe("PDF serving via /api/file", () => {
     if (process.env.TEST_ENV === "prod") return;
 
     const res = await request.get(
-      `${baseURL}/api/file?path=sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf`
+      `${baseURL}/api/file?path=sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf`
     );
     expect(res.status()).toBe(200);
     expect(res.headers()["content-type"]).toContain("application/pdf");

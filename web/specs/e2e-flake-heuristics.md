@@ -145,7 +145,7 @@ Observed as a deterministic preview failure before `origin/main` moved past `3e1
 
 Symptoms:
 
-- Page HTML contains paths such as `sources/institutions/stanford/telli`.
+- Page HTML contains paths such as `sources/people/providers/stanford/telli`.
 - `/api/file-tree?format=compact` is the same size as `/api/file-tree`.
 - A whole-document `not.toContain("sources/...")` assertion can fail deterministically when streamed page content or Flight payloads legitimately mention source paths.
 

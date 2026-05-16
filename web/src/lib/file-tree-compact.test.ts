@@ -15,35 +15,35 @@ describe("compact file tree", () => {
         children: [
           {
             name: "institutions",
-            slug: "sources/institutions",
+            slug: "sources/people/providers",
             type: "directory",
             children: [
               {
                 name: "stanford",
-                slug: "sources/institutions/stanford",
+                slug: "sources/people/providers/stanford",
                 type: "directory",
                 children: [
                   {
                     name: "telli",
-                    slug: "sources/institutions/stanford/telli",
+                    slug: "sources/people/providers/stanford/telli",
                     type: "directory",
                     children: [
                       {
                         name: "telli-2016-hrd-platinum-tnbc",
-                        slug: "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc__paper-set",
+                        slug: "sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc__paper-set",
                         type: "directory",
                         badge: "PDF set",
                         children: [
                           {
                             name: "Markdown",
-                            slug: "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc",
+                            slug: "sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc",
                             type: "file",
                           },
                           {
                             name: "PDF",
-                            slug: "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
+                            slug: "sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
                             type: "pdf",
-                            pdfPath: "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
+                            pdfPath: "sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
                           },
                         ],
                       },
@@ -61,10 +61,10 @@ describe("compact file tree", () => {
     const compactJson = JSON.stringify(compact);
 
     expect(compactJson).not.toContain(
-      "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc__paper-set",
+      "sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc__paper-set",
     );
     expect(compactJson).not.toContain(
-      "sources/institutions/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
+      "sources/people/providers/stanford/telli/telli-2016-hrd-platinum-tnbc.pdf",
     );
     expect(compactJson).toContain("../telli-2016-hrd-platinum-tnbc");
     expect(compactJson).toContain("../telli-2016-hrd-platinum-tnbc.pdf");

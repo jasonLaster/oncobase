@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { documentArticle, nextErrorOverlay, openCommandPalette } from "./helpers";
 
 const WIKI_ROUTE = "/wiki/diagnostics/diagnosis";
-const SOURCE_ROUTE = "/sources/trials/zest-nct05306330";
+const SOURCE_ROUTE = "/sources/clinical-trials/trials/zest-nct05306330";
 
 async function delayRoutePayload(page: Page, routePath: string) {
   await page.route("**/*", async (route) => {

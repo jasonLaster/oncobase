@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const IMAGE_PAGE =
-  "/sources/research-articles/cancer-vaccines/cleveland-clinic-2025-alpha-lactalbumin-phase1-final";
+  "/sources/research/papers/cancer-vaccines/cleveland-clinic-2025-alpha-lactalbumin-phase1-final";
 
 async function openFirstTheaterImage(page: Page) {
   const image = page.locator(".prose img[data-theater-image]").first();

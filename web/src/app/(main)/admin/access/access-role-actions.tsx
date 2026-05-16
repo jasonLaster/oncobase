@@ -171,7 +171,7 @@ function RoleRulesFields({
         <Textarea
           value={includePathPatterns}
           onChange={(event) => setIncludePathPatterns(event.currentTarget.value)}
-          placeholder="sources/private/*, wiki/research/*"
+          placeholder="sources/private/*, sources/research/*"
         />
       </label>
       <label className="grid gap-1.5 text-sm font-medium">
