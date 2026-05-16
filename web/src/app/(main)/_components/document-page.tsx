@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { LockIcon } from "lucide-react";
 import {
   getAllSlugs,
   getCanonicalSlug,
@@ -105,6 +106,7 @@ function DocHeader({
     slug: string;
     title: string;
     contentHash?: string;
+    sensitive?: boolean;
     frontmatter: Record<string, unknown>;
   };
 }) {
@@ -112,11 +114,22 @@ function DocHeader({
     <header className="mb-6">
       <div className="flex items-start justify-between gap-2">
         <h1 className="text-3xl font-bold">{file.title}</h1>
-        <CopyPageButton
-          slug={file.slug}
-          title={file.title}
-          contentHash={file.contentHash}
-        />
+        <div className="flex shrink-0 items-center gap-1">
+          {file.sensitive === true && (
+            <span
+              aria-label="Sensitive page"
+              title="Sensitive page"
+              className="inline-flex size-7 items-center justify-center rounded-md text-[var(--text-muted)]"
+            >
+              <LockIcon aria-hidden="true" size={16} strokeWidth={1.8} />
+            </span>
+          )}
+          <CopyPageButton
+            slug={file.slug}
+            title={file.title}
+            contentHash={file.contentHash}
+          />
+        </div>
       </div>
       {Array.isArray(file.frontmatter.tags) && (
         <div className="mt-3 flex flex-wrap gap-1.5">
