@@ -1798,5 +1798,10 @@
     "source": "/wiki/strategy/valius-pathologist",
     "destination": "/sources/research/syntheses/valius-pathologist",
     "permanent": true
+  },
+  {
+    "source": "/wiki/education/reading-a-tumor",
+    "destination": "/wiki/education/reading-a-tumor/index",
+    "permanent": true
   }
 ]
