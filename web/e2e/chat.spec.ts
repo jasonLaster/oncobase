@@ -35,11 +35,11 @@ test.describe("Chat", () => {
     await expect(chatSubmitButton(page)).toHaveAccessibleName("Submit");
   });
 
-  test("new chat button in header navigates to chat", async ({ page }) => {
+  test("Ask wiki footer button navigates to chat", async ({ page }) => {
     await page.goto("/");
-    const newChat = page.getByTestId("header-new-chat");
-    await expect(newChat).toBeVisible();
-    await newChat.click();
+    const askWiki = page.getByTestId("sidebar-ask-wiki");
+    await expect(askWiki).toBeVisible();
+    await askWiki.click();
     await expect(page).toHaveURL(/\/chat/, { timeout: 15_000 });
   });
 

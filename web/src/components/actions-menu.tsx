@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { Command, Download, EllipsisVertical, LogIn, LogOut, Moon, Sun, UserPlus } from "lucide-react";
+import { type ReactElement, useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { Command, Download, EllipsisVertical, FileText, LogIn, LogOut, Moon, Sparkles, Sun, UserPlus } from "lucide-react";
 import { themeEffect } from "@/lib/theme-effect";
 import { openActionPalette } from "@/components/command-palette";
 import { Button } from "@/components/ui/button";
@@ -187,7 +188,8 @@ function AuthDialog({
   );
 }
 
-export function ActionsMenu() {
+export function ActionsMenu({ trigger }: { trigger?: ReactElement } = {}) {
+  const router = useRouter();
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -268,23 +270,35 @@ export function ActionsMenu() {
   const themeLabel =
     preference === null ? "System" : preference === "dark" ? "Dark" : "Light";
 
+  const defaultTrigger = (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label="Actions"
+      data-test-id="header-actions-menu"
+      className="text-[var(--text-muted)]"
+    />
+  );
+
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Actions"
-              data-test-id="header-actions-menu"
-              className="text-[var(--text-muted)]"
-            />
-          }
-        >
-          <EllipsisVertical />
+        <DropdownMenuTrigger render={trigger ?? defaultTrigger}>
+          {trigger ? null : <EllipsisVertical />}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Search</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => router.push("/search")}>
+              <Sparkles />
+              AI Search
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/search?tab=text")}>
+              <FileText />
+              Text Search
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => openActionPalette()}>
             <Command />
             Command palette

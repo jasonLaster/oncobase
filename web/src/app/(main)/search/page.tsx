@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import { searchMarkdown, type SearchResult } from "@/lib/search";
@@ -216,10 +216,56 @@ function SearchPageFallback() {
   );
 }
 
+function SearchInput({ query }: { query: string }) {
+  const router = useRouter();
+  const [draft, setDraft] = useState(query);
+
+  useEffect(() => {
+    setDraft(query);
+  }, [query]);
+
+  return (
+    <form
+      role="search"
+      data-test-id="search-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const trimmed = draft.trim();
+        if (!trimmed) return;
+        router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+      }}
+      className="relative mb-6 px-2"
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="currentColor"
+        aria-hidden="true"
+        className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 opacity-40"
+      >
+        <path d="M15.25 14.19l-4.06-4.06a5.5 5.5 0 1 0-1.06 1.06l4.06 4.06a.75.75 0 1 0 1.06-1.06zM2 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0z" />
+      </svg>
+      <input
+        name="q"
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        autoFocus={!query}
+        placeholder="Search the wiki…"
+        aria-label="Search the wiki"
+        data-test-id="search-form-input"
+        className="w-full rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] py-2 pl-10 pr-3 text-sm text-[var(--foreground)] placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)]"
+      />
+    </form>
+  );
+}
+
 function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q") || "";
-  const [tab, setTab] = useState<"text" | "ai">("ai");
+  const initialTab = searchParams.get("tab") === "text" ? "text" : "ai";
+  const [tab, setTab] = useState<"text" | "ai">(initialTab);
   const [textResults, setTextResults] = useState<SearchResult[]>([]);
   const [textResultsQuery, setTextResultsQuery] = useState("");
   const [textLoading, setTextLoading] = useState(false);
@@ -268,6 +314,7 @@ function SearchContent() {
       data-search-query={query}
     >
       <div className="px-2 py-4 md:px-4 md:py-6">
+        <SearchInput query={query} />
         {query && (
           <div className="flex items-center gap-1 mb-4 px-2">
             <div className="inline-flex rounded-md border border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] p-0.5">

@@ -31,15 +31,11 @@ async function waitForTextSearchState(page: Page) {
 test.describe("Search", () => {
   test.describe.configure({ timeout: 60_000 });
 
-  test("search from header bar navigates to results", async ({ page }) => {
+  test("search input on /search navigates to results", async ({ page }) => {
     await mockAISearch(page);
-    await page.goto("/");
-    const searchInput = page.getByTestId("header-search-form-input");
+    await page.goto("/search");
+    const searchInput = page.getByTestId("search-form-input");
     await expect(searchInput).toBeEditable({ timeout: 10_000 });
-    await expect(page.getByTestId("header-search-form")).toHaveAttribute(
-      "data-hydrated",
-      "true"
-    );
     await searchInput.fill(SEARCH_QUERY);
     await searchInput.press("Enter");
 

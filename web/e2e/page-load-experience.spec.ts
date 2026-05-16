@@ -89,11 +89,10 @@ async function assertServerShellHtml(
 
   const html = await response.text();
 
-  expect(html).toContain('aria-label="Home"');
-  expect(html).toContain('placeholder="Search wiki..."');
-  expect(html).toContain('aria-label="New chat"');
-  expect(html).toContain('aria-label="Find files (⌘P)"');
-  expect(html).toContain('aria-label="Actions"');
+  // Sidebar workspace header + footer (the new chrome — no top header).
+  expect(html).toContain('aria-label="Workspace menu"');
+  expect(html).toContain("Diana TNBC");
+  expect(html).toContain("Ask wiki");
   expect(html).toContain('aria-label="Collapse sidebar"');
   expect(html).toContain(pageCase.heading);
 
@@ -106,12 +105,8 @@ async function blockAppScripts(page: Page) {
   await page.route(/.*\.js(\?.*)?$/, (route) => route.abort());
 }
 
-function appHeader(page: Page) {
-  return page.getByTestId("app-header");
-}
-
-function headerSearchInput(page: Page) {
-  return appHeader(page).getByTestId("header-search-form-input");
+function sidebar(page: Page) {
+  return page.getByTestId("sidebar");
 }
 
 async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
@@ -119,24 +114,22 @@ async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
   await blockAppScripts(page);
   await page.goto(withMagicLink(pageCase.route), { waitUntil: "commit" });
 
-  const searchInput = headerSearchInput(page);
-  const header = appHeader(page);
+  const sb = sidebar(page);
 
-  await expect(header).toBeVisible();
-  await expect(searchInput).toBeVisible();
-  await expect(page.getByRole("button", { name: "New chat" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Find files (⌘P)" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Actions" })).toBeVisible();
+  await expect(sb).toBeVisible();
+  await expect(page.getByTestId("sidebar-workspace-trigger")).toBeVisible();
+  await expect(page.getByTestId("sidebar-search")).toBeVisible();
+  await expect(page.getByTestId("sidebar-ask-wiki")).toBeVisible();
 
-  const headerBox = await header.boundingBox();
-  expect(headerBox).not.toBeNull();
-  expect(headerBox!.height).toBeGreaterThan(40);
+  const sidebarBox = await sb.boundingBox();
+  expect(sidebarBox).not.toBeNull();
+  expect(sidebarBox!.width).toBeGreaterThan(120);
 }
 
 test.describe("Page load experience", () => {
   test.describe.configure({ timeout: 90_000 });
 
-  test("server-rendered shell keeps header and layout chrome across key routes", async ({ request }) => {
+  test("server-rendered shell keeps sidebar chrome across key routes", async ({ request }) => {
     for (const pageCase of pageCases) {
       await test.step(pageCase.route, async () => {
         await assertServerShellHtml(request, pageCase);
@@ -162,26 +155,17 @@ test.describe("Page load experience", () => {
     await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeHidden();
   });
 
-  test("mobile initial paint keeps header and bottom page affordance", async ({ page }) => {
+  test("mobile initial paint keeps the bottom-nav affordance", async ({ page }) => {
     await page.setViewportSize(mobileViewport);
     await blockAppScripts(page);
     await page.goto(withMagicLink("/about/Index"), { waitUntil: "commit" });
 
-    const header = appHeader(page);
     const bottomBar = page.getByTestId("bottom-nav-trigger");
 
-    await expect(header).toBeVisible();
-    await expect(headerSearchInput(page)).toBeVisible();
     await expect(bottomBar).toBeVisible();
 
-    const [headerBox, bottomBarBox] = await Promise.all([
-      header.boundingBox(),
-      bottomBar.boundingBox(),
-    ]);
-
-    expect(headerBox).not.toBeNull();
+    const bottomBarBox = await bottomBar.boundingBox();
     expect(bottomBarBox).not.toBeNull();
-
     expect(bottomBarBox!.y).toBeGreaterThan(mobileViewport.height - 120);
     expect(bottomBarBox!.y + bottomBarBox!.height).toBeLessThanOrEqual(
       mobileViewport.height + 1

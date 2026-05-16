@@ -6,8 +6,8 @@ export function nextErrorOverlay(page: Page) {
   );
 }
 
-export function appHeader(page: Page) {
-  return page.getByTestId("app-header");
+export function sidebar(page: Page) {
+  return page.getByTestId("sidebar");
 }
 
 export function documentArticle(page: Page) {
@@ -32,7 +32,7 @@ export async function openCommandPalette(page: Page) {
   await expect
     .poll(
       async () => {
-        await page.getByTestId("header-command-palette").click();
+        await page.getByTestId("sidebar-search").click();
         return input.isVisible().catch(() => false);
       },
       { timeout: 15_000 }

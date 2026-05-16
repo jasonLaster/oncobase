@@ -48,12 +48,8 @@ test.describe("Page viewing & sidebar navigation", () => {
     await page.goto("/");
     await expect(documentArticle(page)).toBeVisible();
     const nav = page.locator(sidebar);
-    await expect(
-      nav.getByRole("button", { name: /^(▼|▶) sources$/ })
-    ).toBeVisible();
-    await expect(
-      nav.getByRole("button", { name: /^(▼|▶) wiki$/ })
-    ).toBeVisible();
+    await expect(nav.getByRole("button", { name: "sources" })).toBeVisible();
+    await expect(nav.getByRole("button", { name: "wiki" })).toBeVisible();
   });
 
   test("navigate to a page via sidebar", async ({ page }) => {
@@ -143,7 +139,7 @@ test.describe("Page viewing & sidebar navigation", () => {
 
   test("actions menu opens with theme and download", async ({ page }) => {
     await page.goto("/");
-    const actions = page.getByRole("button", { name: "Actions" });
+    const actions = page.getByTestId("sidebar-workspace-trigger");
     const themeItem = page.getByRole("menuitem", {
       name: /Theme: (System|Dark|Light)/,
     });
@@ -161,7 +157,7 @@ test.describe("Page viewing & sidebar navigation", () => {
 
   test("command palette opens with Ctrl+K", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByTestId("header-command-palette")).toBeVisible();
+    await expect(page.getByTestId("sidebar-search")).toBeVisible();
     const commandInput = page.locator('[role="dialog"] [role="combobox"]').first();
 
     await expect

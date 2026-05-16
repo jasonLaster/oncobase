@@ -1278,8 +1278,8 @@ function CommentsShell({
 
       <aside
         className={cn(
-          "hidden lg:flex fixed right-0 top-12 bottom-0 z-30 bg-[var(--sidebar-bg)]",
-          commentsOpen ? "flex-col" : "w-16 flex-col items-center py-3 border-l border-[var(--sidebar-border)]"
+          "hidden lg:flex fixed right-0 top-0 bottom-0 z-30 bg-[var(--background)]",
+          commentsOpen ? "flex-col shadow-[-4px_0_12px_rgba(0,0,0,0.12)]" : "w-16 flex-col items-center py-3"
         )}
         style={commentsOpen ? { width: commentsWidth } : undefined}
       >
@@ -1292,7 +1292,7 @@ function CommentsShell({
               role="separator"
               aria-label="Resize comments pane"
               aria-orientation="vertical"
-              className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-[var(--sidebar-border)] hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
+              className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-transparent hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
             />
             {sidebarHeader}
             <div className="min-h-0 flex-1 overflow-y-auto">{sidebarContent}</div>
@@ -1565,8 +1565,8 @@ export function OutlineShell({
 
       <aside
         className={cn(
-          "hidden lg:flex fixed right-0 top-12 bottom-0 z-30 bg-[var(--sidebar-bg)]",
-          sidebarOpen ? "flex-col" : "w-16 flex-col items-center py-3 border-l border-[var(--sidebar-border)]"
+          "hidden lg:flex fixed right-0 top-0 bottom-0 z-30 bg-[var(--background)]",
+          sidebarOpen ? "flex-col shadow-[-4px_0_12px_rgba(0,0,0,0.12)]" : "w-16 flex-col items-center py-3"
         )}
         style={sidebarOpen ? { width: sidebarWidth } : undefined}
       >
@@ -1579,7 +1579,7 @@ export function OutlineShell({
               role="separator"
               aria-label="Resize outline pane"
               aria-orientation="vertical"
-              className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-[var(--sidebar-border)] hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
+              className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-transparent hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
             />
             <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] px-3 py-2">
               {onActivate ? (

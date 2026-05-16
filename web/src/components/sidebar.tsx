@@ -2,7 +2,40 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
+import {
+  Activity,
+  Archive,
+  Beaker,
+  BookOpen,
+  Briefcase,
+  Building2,
+  Calendar,
+  ChevronDown,
+  ChevronRight,
+  ClipboardCheck,
+  FileText,
+  Folder,
+  FolderOpen,
+  GraduationCap,
+  HelpCircle,
+  Info,
+  ListTodo,
+  Mail,
+  NotebookPen,
+  Package,
+  Pill,
+  ScrollText,
+  Search,
+  ShieldCheck,
+  Target,
+  TrendingUp,
+  Users,
+  WandSparkles,
+  type LucideIcon,
+} from "lucide-react";
 import type { FileNode } from "@/lib/markdown";
+import { ActionsMenu } from "@/components/actions-menu";
+import { openCommandPalette } from "@/components/command-palette";
 import {
   setNavigationIntent,
   useNavigationPathname,
@@ -19,6 +52,49 @@ export function hasActiveDescendant(node: FileNode, decodedPathname: string): bo
 
 export function fileTreeNodeKey(node: FileNode) {
   return `${node.type}:${node.slug}:${node.type === "pdf" ? node.pdfPath ?? "" : ""}`;
+}
+
+// Semantic icon mapping for folders. Keys are the final path segment so the
+// same icon applies whether a folder lives at the top level or nested (e.g.
+// "research" matches both /research and /wiki/research). Anything not in the
+// map falls back to a generic folder icon.
+const SECTION_ICONS: Record<string, LucideIcon> = {
+  // top-level
+  about: Info,
+  "project-management": ListTodo,
+  sources: BookOpen,
+  wiki: BookOpen,
+
+  // sources/*
+  "claudes-research": Beaker,
+  "echo-immune": Activity,
+  emails: Mail,
+  institutions: Building2,
+  insurance: ShieldCheck,
+  kernis: Users,
+  "meeting-notes": NotebookPen,
+  "research-analyses": Beaker,
+  "research-articles": BookOpen,
+
+  // wiki/*
+  archived: Archive,
+  companies: Briefcase,
+  diagnostics: ClipboardCheck,
+  education: GraduationCap,
+  logistics: Package,
+  people: Users,
+  prognosis: TrendingUp,
+  questions: HelpCircle,
+  research: Beaker,
+  strategy: Target,
+  summary: ScrollText,
+  treatment: Pill,
+  updates: Calendar,
+};
+
+function lastPathSegment(slug: string) {
+  const i = slug.lastIndexOf("/");
+  return i === -1 ? slug : slug.slice(i + 1);
 }
 
 function PdfIcon() {
@@ -43,6 +119,19 @@ function shouldSetNavigationIntent(event: MouseEvent<HTMLAnchorElement>) {
   );
 }
 
+const ROW_HEIGHT = 30;
+const ICON_SIZE = 16;
+const ICON_GAP = 10;
+const SECTION_INDENT = 12;
+const INDENT_PX = 18;
+
+function rowPadding(depth: number, hasSectionIcon: boolean) {
+  if (depth === 0) return SECTION_INDENT;
+  // Children align under the parent label, past the icon column at depth 0.
+  const base = hasSectionIcon ? SECTION_INDENT + ICON_SIZE + ICON_GAP : SECTION_INDENT;
+  return base + (depth - 1) * INDENT_PX;
+}
+
 export function TreeNode({
   activePathname,
   node,
@@ -65,30 +154,48 @@ export function TreeNode({
   }
   const open = userToggle !== null ? userToggle : shouldOpen;
   const isActive = pathname === `/${node.slug}`;
+  const isTopLevel = depth === 0;
+  const SectionIcon =
+    node.type === "directory"
+      ? SECTION_ICONS[lastPathSegment(node.slug)] ?? null
+      : null;
+  // Add breathing room above top-level sections to separate groups.
+  const topLevelSpacing = isTopLevel ? "mt-1" : "";
 
   if (node.type === "directory") {
     const hasChildren = (node.children?.length ?? 0) > 0;
     const isTruncated = Boolean(node.truncated);
+    const FolderGlyph = SectionIcon ?? (open ? FolderOpen : Folder);
 
     if (!hasChildren) {
       return (
-        <div>
+        <div className={topLevelSpacing}>
           <div
-            className="flex items-center gap-1.5 w-full px-2 py-1 text-left text-sm rounded text-[var(--text-muted)]"
-            style={{ paddingLeft: `${depth * 12 + 8}px` }}
+            className="group flex items-center rounded-md text-sm text-[var(--text-muted)]"
+            style={{
+              height: `${ROW_HEIGHT}px`,
+              paddingLeft: `${rowPadding(depth, true)}px`,
+              paddingRight: "8px",
+              gap: `${ICON_GAP}px`,
+            }}
             title={isTruncated ? "Loading children" : formatName(node.name)}
           >
-            {isTruncated ? (
+            <FolderGlyph
+              size={ICON_SIZE}
+              className="shrink-0 opacity-60"
+              aria-hidden="true"
+            />
+            <span className={`min-w-0 flex-1 truncate ${isTopLevel ? "font-medium text-[var(--foreground)]/85" : ""}`}>
+              {formatName(node.name)}
+            </span>
+            {isTruncated && (
               <span
                 aria-hidden="true"
-                className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-current opacity-50"
+                className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-current opacity-50"
               />
-            ) : (
-              <span aria-hidden="true" className="w-2 shrink-0" />
             )}
-            <span className="min-w-0 flex-1 truncate font-medium">{formatName(node.name)}</span>
             {node.badge && (
-              <span className="ml-auto shrink-0 rounded border border-[var(--brand)]/20 bg-[var(--accent-light)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--brand)]">
+              <span className="shrink-0 rounded border border-[var(--brand)]/20 bg-[var(--accent-light)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--brand)]">
                 {node.badge}
               </span>
             )}
@@ -98,22 +205,39 @@ export function TreeNode({
     }
 
     return (
-      <div>
+      <div className={topLevelSpacing}>
         <button
+          type="button"
           onClick={() => setUserToggle(!open)}
-          className="flex items-center gap-1.5 w-full text-left px-2 py-1 text-sm rounded hover:bg-[var(--accent-light)] transition-colors"
-          style={{ paddingLeft: `${depth * 12 + 8}px` }}
+          className="group flex w-full items-center rounded-md text-left text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+          style={{
+            height: `${ROW_HEIGHT}px`,
+            paddingLeft: `${rowPadding(depth, true)}px`,
+            paddingRight: "6px",
+            gap: `${ICON_GAP}px`,
+          }}
         >
-          <span className="text-xs opacity-60">{open ? "▼" : "▶"}</span>
-          <span className="min-w-0 flex-1 truncate font-medium">{formatName(node.name)}</span>
+          <FolderGlyph
+            size={ICON_SIZE}
+            className="shrink-0 opacity-60 transition-opacity group-hover:opacity-90"
+            aria-hidden="true"
+          />
+          <span className={`min-w-0 flex-1 truncate ${isTopLevel ? "font-medium text-[var(--foreground)]/85" : ""}`}>
+            {formatName(node.name)}
+          </span>
           {node.badge && (
-            <span className="ml-auto shrink-0 rounded border border-[var(--brand)]/20 bg-[var(--accent-light)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--brand)]">
+            <span className="shrink-0 rounded border border-[var(--brand)]/20 bg-[var(--accent-light)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--brand)]">
               {node.badge}
             </span>
           )}
+          <ChevronRight
+            size={12}
+            className={`shrink-0 opacity-0 transition-all group-hover:opacity-60 ${open ? "rotate-90" : ""}`}
+            aria-hidden="true"
+          />
         </button>
         {open && (
-          <div>
+          <div className="pt-0.5">
             {node.children?.map((child) => (
               <TreeNode
                 activePathname={activePathname}
@@ -136,12 +260,17 @@ export function TreeNode({
         target="_blank"
         rel="noopener noreferrer"
         onClick={onNavigate}
-        className="flex items-center gap-1.5 px-2 py-1 text-sm rounded truncate transition-colors text-[var(--brand)] hover:bg-[var(--accent-light)] hover:text-[var(--brand)]"
-        style={{ paddingLeft: `${depth * 12 + 20}px` }}
+        className={`group flex items-center rounded-md text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] ${topLevelSpacing}`}
+        style={{
+          height: `${ROW_HEIGHT}px`,
+          paddingLeft: `${rowPadding(depth, true)}px`,
+          paddingRight: "8px",
+          gap: `${ICON_GAP}px`,
+        }}
         title={`${formatName(node.name)}.pdf`}
       >
         <PdfIcon />
-        <span className="truncate">{formatName(node.name)}.pdf</span>
+        <span className="min-w-0 flex-1 truncate">{formatName(node.name)}.pdf</span>
       </a>
     );
   }
@@ -156,16 +285,139 @@ export function TreeNode({
         onNavigate?.();
       }}
       data-selected-file-tree-item={isActive ? "true" : undefined}
-      className={`block px-2 py-1 text-sm rounded truncate transition-colors ${
+      className={`group flex items-center rounded-md text-sm transition-colors ${
         isActive
-          ? "bg-[var(--accent-light)] text-[var(--brand)] font-medium"
+          ? "bg-[var(--accent-light)] text-[var(--foreground)] font-medium"
           : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
-      }`}
-      style={{ paddingLeft: `${depth * 12 + 20}px` }}
+      } ${topLevelSpacing}`}
+      style={{
+        height: `${ROW_HEIGHT}px`,
+        paddingLeft: `${rowPadding(depth, true)}px`,
+        paddingRight: "8px",
+        gap: `${ICON_GAP}px`,
+      }}
       title={formatName(node.name)}
     >
-      {formatName(node.name)}
+      <FileText
+        size={ICON_SIZE}
+        className={`shrink-0 transition-opacity ${
+          isActive ? "opacity-100" : "opacity-50 group-hover:opacity-90"
+        }`}
+        aria-hidden="true"
+      />
+      <span className="min-w-0 flex-1 truncate">{formatName(node.name)}</span>
     </Link>
+  );
+}
+
+function WorkspaceHeader() {
+  const isDev = process.env.NODE_ENV === "development";
+  // The trigger spans most of the header but leaves room on the right
+  // for the collapse-sidebar button (rendered absolutely by ResizableLayout
+  // at right-2 top-2) to surface on hover without overlapping the click area.
+  const trigger = (
+    <button
+      type="button"
+      aria-label="Workspace menu"
+      data-test-id="sidebar-workspace-trigger"
+      className="group flex h-9 max-w-[calc(100%-2.5rem)] items-center gap-2 rounded-md px-2 text-left text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent-light)]"
+    >
+      <svg width="22" height="22" viewBox="0 0 32 32" className="shrink-0 rounded-md" aria-hidden="true">
+        <rect width="32" height="32" rx="6" fill={isDev ? "#22c55e" : "#4f46e5"} />
+        <text x="16" y="23" fontFamily="system-ui, -apple-system, sans-serif" fontSize="22" fontWeight="700" fill="white" textAnchor="middle">D</text>
+      </svg>
+      <span className="min-w-0 flex-1 truncate">Diana TNBC</span>
+      <ChevronDown size={14} className="shrink-0 opacity-50 transition-opacity group-hover:opacity-80" aria-hidden="true" />
+    </button>
+  );
+  return (
+    <div className="flex h-12 shrink-0 items-center gap-1 px-2">
+      <ActionsMenu trigger={trigger} />
+    </div>
+  );
+}
+
+/**
+ * One half of the split footer pill. Centered icon + label, subtle hover.
+ */
+function FooterPillButton({
+  icon: Icon,
+  label,
+  href,
+  onClick,
+  active,
+  shortcut,
+  testId,
+}: {
+  icon: LucideIcon;
+  label: string;
+  href?: string;
+  onClick?: () => void;
+  active?: boolean;
+  shortcut?: string;
+  testId: string;
+}) {
+  const className = `group flex flex-1 items-center justify-center gap-2 px-3 py-2 text-[13px] transition-colors ${
+    active
+      ? "bg-[var(--accent-light)] text-[var(--foreground)] font-medium"
+      : "text-[var(--text-muted)] hover:bg-[var(--accent-light)]/60 hover:text-[var(--foreground)]"
+  }`;
+
+  const inner = (
+    <>
+      <Icon
+        size={ICON_SIZE}
+        className={`shrink-0 transition-opacity ${
+          active ? "opacity-100" : "opacity-60 group-hover:opacity-90"
+        }`}
+        aria-hidden="true"
+      />
+      <span className="truncate">{label}</span>
+      {shortcut ? (
+        <kbd className="hidden shrink-0 items-center gap-0.5 rounded border border-[var(--sidebar-border)] bg-[var(--background)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)] sm:inline-flex">
+          {shortcut}
+        </kbd>
+      ) : null}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} data-test-id={testId} className={className}>
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} data-test-id={testId} className={className}>
+      {inner}
+    </button>
+  );
+}
+
+function SidebarFooter() {
+  const pathname = useNavigationPathname();
+  return (
+    <div className="shrink-0 px-3 pb-3 pt-1">
+      <div className="flex items-stretch overflow-hidden rounded-lg border border-[var(--sidebar-border)] bg-[var(--popover)] shadow-sm">
+        <FooterPillButton
+          icon={WandSparkles}
+          label="Ask wiki"
+          href="/chat"
+          active={pathname.startsWith("/chat")}
+          testId="sidebar-ask-wiki"
+        />
+        <div aria-hidden="true" className="w-px shrink-0 self-stretch bg-[var(--sidebar-border)]" />
+        <FooterPillButton
+          icon={Search}
+          label="Search"
+          onClick={openCommandPalette}
+          shortcut="⌘K"
+          testId="sidebar-search"
+        />
+      </div>
+    </div>
   );
 }
 
@@ -204,9 +456,10 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
       className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
       data-test-id="sidebar"
     >
+      <WorkspaceHeader />
       <nav
         ref={navRef}
-        className="min-h-0 flex-1 select-none space-y-0.5 overflow-y-auto p-2"
+        className="min-h-0 flex-1 select-none overflow-y-auto px-1.5 py-2"
         data-test-id="sidebar-tree"
       >
         {tree.map((node) => (
@@ -217,6 +470,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
           />
         ))}
       </nav>
+      <SidebarFooter />
     </aside>
   );
 }

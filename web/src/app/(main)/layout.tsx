@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { Header } from "@/components/header";
 import { NavigationShell } from "@/components/navigation-shell";
 import { WebChatRuntimeProvider } from "@/components/chat-runtime-provider";
 import { PageLoadingSkeleton } from "@/components/page-loading";
@@ -84,9 +83,11 @@ function ShellFallback({ tree }: { tree: FileNode[] }) {
             </svg>
           </button>
           <aside className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex">
-            <nav className="min-h-0 flex-1 overflow-y-auto p-2">
+            <div className="h-12 shrink-0 px-3" />
+            <nav className="min-h-0 flex-1 overflow-y-auto px-1 py-2">
               <FallbackTree nodes={tree} />
             </nav>
+            <div className="h-16 shrink-0" />
           </aside>
         </div>
         <div data-sidebar-expanded-rail className="w-[3px] shrink-0 bg-[var(--sidebar-border)]" />
@@ -116,21 +117,9 @@ export default async function MainLayout({
   return (
     <WebChatRuntimeProvider>
       <div
-        className="grid h-dvh grid-rows-[auto_1fr] overflow-hidden"
+        className="grid h-dvh grid-rows-[1fr] overflow-hidden"
         data-test-id="app-shell"
       >
-        <Suspense
-          fallback={
-            <div
-              className="h-12 shrink-0 border-b border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]"
-              role="status"
-              aria-label="Loading header"
-              data-test-id="header-loading"
-            />
-          }
-        >
-          <Header />
-        </Suspense>
         <Suspense fallback={shellFallback}>
           <NavigationShell initialTree={shellTree} treeVersion={treeVersion}>
             {children}
