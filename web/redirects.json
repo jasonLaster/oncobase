@@ -6,7 +6,7 @@
   },
   {
     "source": "/wiki/diagnostic-suggestions",
-    "destination": "/wiki/diagnostics/diagnostic-suggestions",
+    "destination": "/about/overview/test-tracker",
     "permanent": true
   },
   {
@@ -16,17 +16,17 @@
   },
   {
     "source": "/wiki/molecular-workup",
-    "destination": "/wiki/diagnostics/molecular-workup",
+    "destination": "/wiki/diagnostics/archived/molecular-workup",
     "permanent": true
   },
   {
     "source": "/wiki/day4-biopsy",
-    "destination": "/wiki/diagnostics/day4-biopsy",
+    "destination": "/wiki/diagnostics/archived/biopsy/day4-biopsy",
     "permanent": true
   },
   {
     "source": "/wiki/sox10",
-    "destination": "/wiki/diagnostics/sox10",
+    "destination": "/about/Terminology#sox10",
     "permanent": true
   },
   {
@@ -36,7 +36,7 @@
   },
   {
     "source": "/wiki/ctdna-companies",
-    "destination": "/wiki/diagnostics/ctdna-companies",
+    "destination": "/wiki/diagnostics/ctdna-mrd",
     "permanent": true
   },
   {
@@ -181,17 +181,17 @@
   },
   {
     "source": "/wiki/diagnostics/day4-biopsy",
-    "destination": "/wiki/diagnostics/biopsy/day4-biopsy",
+    "destination": "/wiki/diagnostics/archived/biopsy/day4-biopsy",
     "permanent": true
   },
   {
     "source": "/wiki/diagnostics/biopsy-vs-infusion-april9",
-    "destination": "/wiki/diagnostics/biopsy/biopsy-vs-infusion-april9",
+    "destination": "/wiki/diagnostics/archived/biopsy-vs-infusion-april9",
     "permanent": true
   },
   {
     "source": "/wiki/diagnostics/biopsy-plan-april10",
-    "destination": "/wiki/diagnostics/biopsy/biopsy-plan-april10",
+    "destination": "/wiki/diagnostics/archived/biopsy/biopsy-plan-april10",
     "permanent": true
   },
   {
@@ -1662,6 +1662,141 @@
   {
     "source": "/wiki/active-questions/pembro-drug-interactions",
     "destination": "/wiki/questions/pembro-drug-interactions",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/diagnostic-suggestions",
+    "destination": "/about/overview/test-tracker",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/sox10",
+    "destination": "/about/Terminology#sox10",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/ctdna-companies",
+    "destination": "/wiki/diagnostics/ctdna-mrd",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/pembrolizumab-response-pet",
+    "destination": "/wiki/questions/granzyme-b-pet",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/pcr-diagnostic-review",
+    "destination": "/sources/research/syntheses/pcr-diagnostic-review",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/cfdna-subtyping",
+    "destination": "/sources/research/syntheses/cfdna-subtyping",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/dirbas-pdx-research",
+    "destination": "/sources/people/providers/stanford/dirbas/dirbas-pdx-research",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/brca-hrd",
+    "destination": "/wiki/diagnostics/archived/brca-hrd",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/molecular-workup",
+    "destination": "/wiki/diagnostics/archived/molecular-workup",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/he-to-spatial-transcriptomics",
+    "destination": "/wiki/diagnostics/archived/he-to-spatial-transcriptomics",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/biopsy/biopsy-plan-april10",
+    "destination": "/wiki/diagnostics/archived/biopsy/biopsy-plan-april10",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/biopsy/day4-biopsy",
+    "destination": "/wiki/diagnostics/archived/biopsy/day4-biopsy",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/diagnostics/biopsy/biopsy-vs-infusion-april9",
+    "destination": "/wiki/diagnostics/archived/biopsy-vs-infusion-april9",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/add-ons-evaluation",
+    "destination": "/wiki/questions/k522-add-ons",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/pcr-drug-interactions-deep-dive",
+    "destination": "/wiki/questions/pembro-drug-interactions",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/treatment/escalation-evidence-synthesis",
+    "destination": "/wiki/treatment/archived/escalation-evidence-synthesis",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/people/tax-accountant",
+    "destination": "/wiki/logistics/tax/accountant",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/people/amazon-hr",
+    "destination": "/wiki/logistics/amazon-hr",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/people/sid-timeline",
+    "destination": "/sources/people/peers/sid/sid-timeline",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/people/sid-clinical-timeline",
+    "destination": "/sources/people/peers/sid/sid-clinical-timeline",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/strategy/sid-founder-mode",
+    "destination": "/sources/people/peers/sid/sid-founder-mode",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/strategy/patient-first-policy",
+    "destination": "/sources/companies/even-one-ventures/patient-first-policy",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/strategy/competitive-landscape",
+    "destination": "/wiki/companies/competitive-landscape",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/strategy/multiplexed-in-vivo-screening",
+    "destination": "/sources/research/syntheses/multiplexed-in-vivo-screening",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/strategy/elliot-hershberg-framework",
+    "destination": "/sources/resources/essays-and-podcasts/century-of-bio/elliot-hershberg-framework",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/strategy/valius-pathologist-augmentation",
+    "destination": "/sources/research/syntheses/valius-pathologist-augmentation",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/strategy/valius-pathologist",
+    "destination": "/sources/research/syntheses/valius-pathologist",
     "permanent": true
   }
 ]
