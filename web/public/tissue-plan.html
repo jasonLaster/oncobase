@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Tissue plan · Diana TNBC</title>
+  <style>
+    :root {
+      --bg: #0b0f1a;
+      --bg-card: #131a2b;
+      --bg-elev: #1c2540;
+      --fg: #e8edf5;
+      --fg-dim: #8b96b0;
+      --fg-mute: #5a6680;
+      --line: #243049;
+      --accent: #7dd3fc;
+
+      --ff: #60a5fa;        /* fresh-frozen blue */
+      --ff-bg: #0f1e3a;
+      --ffpe: #fbbf24;      /* FFPE amber */
+      --ffpe-bg: #2b2310;
+
+      --tier1: #34d399;     /* committed green */
+      --tier1-bg: #0f2a1f;
+      --tier2: #c084fc;     /* exploratory purple */
+      --tier2-bg: #221537;
+      --reserve: #475569;   /* slate */
+      --reserve-bg: #1a2030;
+      --in-flight: #f472b6; /* pink for Natera/Echo in flight */
+      --in-flight-bg: #2c1626;
+
+      --shadow: 0 8px 32px rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.3);
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f6f7fb;
+        --bg-card: #ffffff;
+        --bg-elev: #eef1f8;
+        --fg: #0f172a;
+        --fg-dim: #475569;
+        --fg-mute: #94a3b8;
+        --line: #e2e8f0;
+        --ff-bg: #dbeafe;
+        --ffpe-bg: #fef3c7;
+        --tier1-bg: #dcfce7;
+        --tier2-bg: #f3e8ff;
+        --reserve-bg: #e2e8f0;
+        --in-flight-bg: #fce7f3;
+        --shadow: 0 1px 3px rgba(15,23,42,.06), 0 8px 32px rgba(15,23,42,.08);
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 48px 24px 96px; }
+    header.top {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      gap: 24px; margin-bottom: 8px; flex-wrap: wrap;
+    }
+    h1 {
+      font-size: 32px; font-weight: 700; margin: 0;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--accent), var(--tier2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .sub { color: var(--fg-dim); font-size: 14px; }
+    .meta { color: var(--fg-mute); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .crumbs { color: var(--fg-mute); font-size: 12px; margin-bottom: 24px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .crumbs a { color: var(--fg-dim); text-decoration: none; border-bottom: 1px dotted var(--fg-mute); }
+    .crumbs a:hover { color: var(--accent); }
+
+    /* Stat strip */
+    .stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+      margin: 24px 0 40px;
+    }
+    .stat {
+      background: var(--bg-card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+    .stat .n { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+    .stat .l { font-size: 11px; color: var(--fg-mute); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+    .stat.ff .n { color: var(--ff); }
+    .stat.ffpe .n { color: var(--ffpe); }
+    .stat.cmt .n { color: var(--tier1); }
+    .stat.res .n { color: var(--reserve); }
+    @media (prefers-color-scheme: light) { .stat.res .n { color: #64748b; } }
+
+    section { margin: 48px 0; }
+    h2 {
+      font-size: 18px; font-weight: 600; margin: 0 0 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    h2 .hint { font-size: 12px; color: var(--fg-mute); font-weight: 400; letter-spacing: 0; }
+
+    /* Block cards */
+    .cores { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 760px) { .cores { grid-template-columns: 1fr; } }
+    .core {
+      background: var(--bg-card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+      position: relative;
+    }
+    .core.highlight { border-color: var(--accent); transform: translateY(-2px); }
+    .core .row1 { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+    .core h3 { margin: 0; font-size: 15px; font-weight: 600; }
+    .core .holder { font-size: 11px; color: var(--fg-mute); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .badge.ff { background: var(--ff-bg); color: var(--ff); }
+    .badge.ffpe { background: var(--ffpe-bg); color: var(--ffpe); }
+
+    /* Allocation bar */
+    .bar {
+      display: flex; height: 28px; border-radius: 8px; overflow: hidden;
+      background: var(--reserve-bg);
+      margin: 8px 0 14px;
+      border: 1px solid var(--line);
+    }
+    .seg {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 600; color: var(--bg);
+      transition: filter .15s ease, transform .15s ease;
+      cursor: default; min-width: 2px;
+      overflow: hidden; white-space: nowrap;
+    }
+    .seg.tier1 { background: var(--tier1); }
+    .seg.tier2 { background: var(--tier2); }
+    .seg.in-flight { background: var(--in-flight); }
+    .seg.reserve { background: transparent; color: var(--fg-mute); border-left: 1px dashed var(--line); }
+    .seg:hover { filter: brightness(1.15); }
+    .seg[data-test].active { filter: brightness(1.3); transform: scaleY(1.15); }
+    @media (prefers-color-scheme: light) { .seg { color: #fff; } .seg.reserve { color: var(--fg-mute); } }
+
+    .allocs { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+    .allocs li {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 0;
+      border-top: 1px dashed var(--line);
+    }
+    .allocs li:first-child { border-top: none; }
+    .allocs li.r .name { color: var(--fg-mute); font-style: italic; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+    .dot.tier1 { background: var(--tier1); }
+    .dot.tier2 { background: var(--tier2); }
+    .dot.in-flight { background: var(--in-flight); }
+    .dot.reserve { background: var(--reserve); }
+    .allocs .name { flex: 1; }
+    .allocs .qty { color: var(--fg-dim); font-variant-numeric: tabular-nums; font-size: 12px; }
+
+    /* Test pills */
+    .tests { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px;
+      background: var(--bg-card); border: 1px solid var(--line);
+      font-size: 12px; color: var(--fg); cursor: pointer;
+      transition: all .15s ease;
+      user-select: none;
+    }
+    .pill:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .pill.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+    .pill .swatch { width: 8px; height: 8px; border-radius: 50%; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--fg-dim); margin-bottom: 24px; }
+    .legend .item { display: inline-flex; align-items: center; gap: 6px; }
+
+    footer {
+      margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--line);
+      font-size: 12px; color: var(--fg-mute);
+    }
+    footer a { color: var(--fg-dim); }
+
+    /* Editing controls */
+    .controls { display: flex; gap: 8px; align-items: center; margin-bottom: 24px; flex-wrap: wrap; }
+    .btn {
+      background: var(--bg-card); border: 1px solid var(--line); color: var(--fg);
+      padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer;
+      font-family: inherit; transition: all .15s ease;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+    .btn.danger:hover { border-color: #ef4444; color: #ef4444; }
+    .mode-tag { font-size: 11px; color: var(--fg-mute); text-transform: uppercase; letter-spacing: 0.08em; margin-right: auto; }
+    .mode-tag.dirty { color: var(--ffpe); }
+
+    .num-input {
+      background: var(--bg-elev); border: 1px solid var(--line); color: var(--fg);
+      padding: 2px 6px; border-radius: 4px; font-size: 12px; font-variant-numeric: tabular-nums;
+      width: 64px; font-family: inherit; text-align: right;
+    }
+    .num-input:focus { outline: none; border-color: var(--accent); }
+    .num-input.head { width: 72px; font-size: 13px; font-weight: 600; }
+    .test-select {
+      background: var(--bg-elev); border: 1px solid var(--line); color: var(--fg);
+      padding: 2px 6px; border-radius: 4px; font-size: 12px;
+      font-family: inherit; max-width: 100%;
+    }
+    .test-select:focus { outline: none; border-color: var(--accent); }
+    .row-del {
+      background: transparent; border: none; color: var(--fg-mute); cursor: pointer;
+      font-size: 14px; padding: 0 4px; transition: color .15s ease;
+    }
+    .row-del:hover { color: #ef4444; }
+    .add-row {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: transparent; border: 1px dashed var(--line); color: var(--fg-dim);
+      padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer;
+      font-family: inherit; margin-top: 8px; transition: all .15s ease;
+    }
+    .add-row:hover { border-color: var(--accent); color: var(--accent); border-style: solid; }
+    .head-edit { display: inline-flex; align-items: center; gap: 6px; }
+    .head-edit .unit { font-size: 12px; color: var(--fg-mute); }
+    .over-budget { color: #ef4444; font-weight: 600; }
+
+    /* Open questions */
+    .qs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    @media (max-width: 760px) { .qs { grid-template-columns: 1fr; } }
+    .q { background: var(--bg-card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 13px; }
+    .q .k { color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+
+    /* Subtle "lab" header flourish */
+    .vial {
+      display: inline-block; width: 16px; height: 18px; margin-right: 8px;
+      vertical-align: -3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="crumbs">
+      <a href="/wiki/diagnostics/tissue-plan">wiki · diagnostics · tissue-plan</a> → standalone report
+    </div>
+
+    <header class="top">
+      <div>
+        <h1>
+          <svg class="vial" viewBox="0 0 16 18" fill="none">
+            <rect x="5" y="1" width="6" height="3" rx="0.5" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M5 4 V14 a3 3 0 0 0 6 0 V4" stroke="currentColor" stroke-width="1.2" fill="none"/>
+            <rect x="5.5" y="10" width="5" height="4" rx="0.5" fill="#7dd3fc" opacity="0.7"/>
+          </svg>
+          Tissue plan
+        </h1>
+        <div class="sub">9 blocks · ~380 mg flash-frozen · 4 FFPE blocks · routed against 11 assays</div>
+      </div>
+      <div class="meta">May 15 draft · synthesized May 17, 2026</div>
+    </header>
+
+    <div class="stats">
+      <div class="stat ff"><div class="n" id="s-ff"></div><div class="l">mg flash-frozen total</div></div>
+      <div class="stat ffpe"><div class="n">4</div><div class="l">FFPE blocks</div></div>
+      <div class="stat cmt"><div class="n" id="s-cmt"></div><div class="l">mg committed to assays</div></div>
+      <div class="stat res"><div class="n" id="s-res"></div><div class="l">mg in reserve</div></div>
+    </div>
+
+    <div class="legend">
+      <span class="item"><span class="dot tier1"></span> Tier 1 — committed</span>
+      <span class="item"><span class="dot tier2"></span> Tier 2 — exploratory</span>
+      <span class="item"><span class="dot in-flight"></span> Already in flight (Echo / Natera)</span>
+      <span class="item"><span class="dot reserve"></span> Reserve</span>
+      <span class="item"><span class="badge ff">FF</span> flash-frozen</span>
+      <span class="item"><span class="badge ffpe">FFPE</span> formalin-fixed</span>
+    </div>
+
+    <section>
+      <h2>Cores <span class="hint">edit totals · adjust quantities · add/remove allocations · everything recomputes live</span></h2>
+      <div class="controls">
+        <span class="mode-tag" id="mode-tag">stored locally · resets on Reset</span>
+        <button class="btn" id="add-block">+ add block</button>
+        <button class="btn danger" id="reset">Reset to defaults</button>
+      </div>
+      <div class="cores" id="cores"></div>
+    </section>
+
+    <section>
+      <h2>Tests <span class="hint">grouped by tier · click to find source</span></h2>
+      <div class="tests" id="tests"></div>
+    </section>
+
+    <section>
+      <h2>Open questions back to PHM</h2>
+      <div class="qs">
+        <div class="q"><div class="k">A1 slide budget</div>Confirm Reveal TNBC-Dx slide count before locking NeXT Personal to A1 vs. A2.</div>
+        <div class="q"><div class="k">Core B yield</div>Confirm Core B yields 25 mg for Inocras, with residual ~115 mg available for tier-2 Inocras work.</div>
+        <div class="q"><div class="k">Inocras sample flow</div>Single extraction with multiple analytic outputs, or separate carve for tier-2 add-ons?</div>
+        <div class="q"><div class="k">scRNA vs snRNA</div>Inocras single-cell from FFPE = snRNA-seq; true scRNA-seq needs fresh-frozen. Which assay is it?</div>
+        <div class="q"><div class="k">Multiplex IF</div>If Inocras spatial covers the question, formally drop Vicinity / Elucidate.</div>
+        <div class="q"><div class="k">Clinical HER2-low</div>Reveal + mProbe cover HER2 research-grade only. Add IHC/FISH if T-DXd eligibility is the goal.</div>
+      </div>
+    </section>
+
+    <footer>
+      Source: PHM tissue inventory draft, May 15, 2026 (Stephen Coscia) ·
+      Companion wiki: <a href="/wiki/diagnostics/tissue-plan">/wiki/diagnostics/tissue-plan</a> ·
+      Wishlist: <a href="/sources/companies/private-health-management/04-20-phm-mopro-wishlist">04-20 PHM mopro wishlist</a>
+    </footer>
+  </div>
+
+  <script>
+    // Data model — defaults; live state can be edited and is persisted to localStorage
+    const DEFAULT_CORES = [
+      { id: 'b-a-100', name: '4/26 breast core A',  type: 'ff',   holder: 'Kernis',         total: 100, unit: 'mg',
+        allocs: [{ test: 'personalis-echo', qty: 100, tier: 'in-flight', label: 'Personalis WES+WTS · Echo' }] },
+      { id: 'ln-100',  name: '4/26 LN core',         type: 'ff',   holder: 'Kernis',         total: 100, unit: 'mg',
+        allocs: [{ test: 'personalis-echo', qty: 100, tier: 'in-flight', label: 'Personalis WES+WTS · Echo' }] },
+      { id: 'b-a-40',  name: '4/26 breast core A',  type: 'ff',   holder: 'Kernis',         total: 40,  unit: 'mg',
+        allocs: [] },
+      { id: 'b-b',     name: '4/26 breast core B',  type: 'ff',   holder: 'Kernis',         total: 140, unit: 'mg',
+        allocs: [
+          { test: 'inocras-cv', qty: 25,  tier: 'tier1', label: 'Inocras CancerVision + RUO' },
+          { test: 'inocras-t2', qty: 25,  tier: 'tier2', label: 'Inocras spatial / scTx / methylation → Valius', pending: true },
+        ] },
+      { id: 'b-c',     name: '4/26 breast core C',  type: 'ffpe', holder: 'Stanford path',  total: null, unit: 'slides',
+        dims: '1.8 × 0.2 cm · 90% tumor',
+        allocs: [
+          { test: 'mprobe',  qty: 3, tier: 'tier1', label: 'mProbe OncoOmics', qtyLabel: '3 slides' },
+          { test: 'ignite',  qty: 6, tier: 'tier1', label: 'Ignite RPPA',      qtyLabel: '5 unstained + H&E' },
+        ] },
+      { id: 'a1',      name: '3/26 breast core A1', type: 'ffpe', holder: 'Sutter path',    total: null, unit: 'slides',
+        dims: 'part of 2.5 × 1.6 × 0.2 cm',
+        allocs: [
+          { test: 'reveal',     qty: 5, tier: 'tier1', label: 'Reveal Genomics TNBC-Dx', qtyLabel: 'several slides' },
+          { test: 'histowiz',   qty: 1, tier: 'tier1', label: 'Histowiz sTILs',           qtyLabel: '1 H&E slide' },
+          { test: 'next',       qty: 2, tier: 'tier2', label: 'NeXT Personal (fallback)', qtyLabel: 'TBD', pending: true },
+        ] },
+      { id: 'a2',      name: '3/26 breast core A2', type: 'ffpe', holder: 'Sutter path',    total: null, unit: 'slides',
+        dims: 'part of 2.5 × 1.6 × 0.2 cm',
+        allocs: [
+          { test: 'altera',     qty: 3, tier: 'in-flight', label: 'Natera Altera WES',     qtyLabel: 'actioned' },
+          { test: 'signatera',  qty: 3, tier: 'in-flight', label: 'Natera Signatera MRD',  qtyLabel: 'panel build' },
+          { test: 'next',       qty: 4, tier: 'tier1',     label: 'NeXT Personal MRD (primary)', qtyLabel: 'TBD' },
+        ] },
+      { id: 'ln-40',   name: '4/26 LN core',         type: 'ff',   holder: 'Kernis',         total: 40,  unit: 'mg',
+        allocs: [] },
+      { id: 'ln-ffpe', name: '3/26 LN core',         type: 'ffpe', holder: 'Stanford path',  total: null, unit: 'slides',
+        dims: '1.3 × 1 × 0.2 cm · 30% tumor',
+        allocs: [],
+        reserveNote: 'candidate for multiplex IF (low tumor %, OK for spatial)' },
+    ];
+
+    const tests = [
+      { id: 'personalis-echo', label: 'Personalis WES+WTS (Echo Immune)',     tier: 'in-flight', purpose: 'Neoantigen prediction for personalized mRNA vaccine' },
+      { id: 'altera',          label: 'Natera Altera WES',                     tier: 'in-flight', purpose: 'Somatic variants — upstream of Signatera panel' },
+      { id: 'signatera',       label: 'Natera Signatera MRD',                  tier: 'in-flight', purpose: 'Personalized tumor-informed ctDNA — recurrence surveillance' },
+      { id: 'inocras-cv',      label: 'Inocras CancerVision + RUO',            tier: 'tier1',     purpose: 'WGS HRD score, structural variants, fusions, ENiClust subtype, ecDNA' },
+      { id: 'reveal',          label: 'Reveal Genomics TNBC-Dx',               tier: 'tier1',     purpose: 'pCR probability + recurrence risk; HER2-low mRNA' },
+      { id: 'mprobe',          label: 'mProbe OncoOmics',                       tier: 'tier1',     purpose: 'Protein expression of druggable targets (HER2, TROP2, PD-L1)' },
+      { id: 'ignite',          label: 'Ignite RPPA',                            tier: 'tier1',     purpose: 'Phospho-signaling activity — only direct pathway-activity readout' },
+      { id: 'next',            label: 'NeXT Personal MRD (Personalis)',         tier: 'tier1',     purpose: 'Ultra-sensitive personalized ctDNA, parts-per-million' },
+      { id: 'histowiz',        label: 'Histowiz sTILs',                         tier: 'tier1',     purpose: 'Digital stromal-TIL scoring — strong pCR predictor' },
+      { id: 'inocras-t2',      label: 'Inocras spatial / scTx / methylation → Valius', tier: 'tier2', purpose: 'Single-cell heterogeneity + spatial + epigenetics; Valius does analysis' },
+      { id: 'multiplex-if',    label: 'Elucidate / Vicinity multiplex IF',      tier: 'tier2',     purpose: 'Spatial protein (CD8/FOXP3/macrophage positioning)' },
+    ];
+
+    const tierColor = { 'tier1': 'tier1', 'tier2': 'tier2', 'in-flight': 'in-flight' };
+    const TIER_ORDER = ['in-flight', 'tier1', 'tier2'];
+    const STORAGE_KEY = 'diana.tissue-plan.v1';
+    const testById = Object.fromEntries(tests.map(t => [t.id, t]));
+
+    // Live state — restore from localStorage if present, otherwise deep-clone defaults
+    let state = loadState();
+    let active = null;
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length) { setDirty(true); return parsed; }
+        }
+      } catch (e) {}
+      setDirty(false);
+      return structuredClone(DEFAULT_CORES);
+    }
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        setDirty(true);
+      } catch (e) {}
+    }
+    function setDirty(d) {
+      const tag = document.getElementById('mode-tag');
+      if (!tag) return;
+      if (d) { tag.textContent = 'edited · stored locally'; tag.classList.add('dirty'); }
+      else { tag.textContent = 'defaults · stored locally on first edit'; tag.classList.remove('dirty'); }
+    }
+    function resetState() {
+      localStorage.removeItem(STORAGE_KEY);
+      state = structuredClone(DEFAULT_CORES);
+      setDirty(false);
+      render();
+    }
+
+    function totalFor(core) {
+      return core.total != null ? core.total : 10; // FFPE scale: arbitrary slide budget
+    }
+    function committedFor(core) {
+      return core.allocs.reduce((a, x) => a + (Number(x.qty) || 0), 0);
+    }
+
+    // Render — full re-render on any change. Tiny app, easy to reason about.
+    function render() {
+      renderCores();
+      renderTests();
+      renderStats();
+      if (active) applyHighlight(active);
+    }
+
+    function renderCores() {
+      const root = document.getElementById('cores');
+      root.innerHTML = '';
+      state.forEach((c, idx) => {
+        const card = document.createElement('div');
+        card.className = 'core';
+        card.id = 'core-' + c.id;
+        const total = totalFor(c);
+        const committed = committedFor(c);
+        const reserve = Math.max(0, total - committed);
+        const over = committed > total;
+
+        // Bar
+        const segs = c.allocs.map((a, i) => {
+          const w = Math.max(0, (Number(a.qty) || 0) / total) * 100;
+          const t = testById[a.test];
+          const label = t ? t.label : '(unknown)';
+          return `<div class="seg ${tierColor[a.tier] || 'tier1'}" data-test="${a.test}" title="${label}${a.pending ? ' · pending' : ''}" style="width:${w}%">${a.qtyLabel || (a.qty + ' ' + c.unit)}</div>`;
+        }).join('');
+        const reserveSeg = reserve > 0
+          ? `<div class="seg reserve" style="width:${(reserve / total) * 100}%">${c.unit === 'mg' ? reserve + ' mg reserve' : 'reserve'}</div>`
+          : '';
+
+        // Editable header — totals only meaningful for mg blocks
+        const headEdit = c.unit === 'mg'
+          ? `<span class="head-edit"><input class="num-input head" data-act="total" data-i="${idx}" type="number" min="0" step="1" value="${c.total}"/><span class="unit">mg</span></span>`
+          : `<span class="head-edit"><span class="unit">${c.dims || 'FFPE block'}</span></span>`;
+
+        // Allocation rows (editable)
+        const allocRows = c.allocs.map((a, i) => {
+          const opts = tests.map(t => `<option value="${t.id}" ${t.id === a.test ? 'selected' : ''}>${t.label}</option>`).join('');
+          const qtyLabel = c.unit === 'mg' ? 'mg' : 'slides';
+          return `
+            <li>
+              <span class="dot ${tierColor[a.tier] || 'tier1'}"></span>
+              <select class="test-select" data-act="test" data-i="${idx}" data-j="${i}">${opts}</select>
+              <input class="num-input" data-act="qty" data-i="${idx}" data-j="${i}" type="number" min="0" step="1" value="${a.qty}" />
+              <span class="qty" style="min-width:38px">${qtyLabel}</span>
+              <button class="row-del" data-act="del" data-i="${idx}" data-j="${i}" title="Remove">✕</button>
+            </li>`;
+        }).join('');
+
+        const reserveItem = reserve > 0
+          ? `<li class="r"><span class="dot reserve"></span><span class="name">${c.reserveNote || 'Reserve'}</span><span class="qty">${c.unit === 'mg' ? reserve + ' mg' : '—'}</span></li>`
+          : (c.allocs.length === 0
+              ? `<li class="r"><span class="dot reserve"></span><span class="name">${c.reserveNote || 'Reserve · unassigned'}</span><span class="qty">${c.unit === 'mg' ? c.total + ' mg' : '—'}</span></li>`
+              : '');
+        const overWarn = over
+          ? `<li class="r"><span class="dot" style="background:#ef4444"></span><span class="name over-budget">Over budget by ${committed - total} ${c.unit}</span><span class="qty">—</span></li>`
+          : '';
+
+        card.innerHTML = `
+          <div class="row1">
+            <h3>${c.name}</h3>
+            <span class="badge ${c.type}">${c.type.toUpperCase()}</span>
+          </div>
+          <div class="holder">${c.holder} · ${headEdit}</div>
+          <div class="bar">${segs}${reserveSeg}</div>
+          <ul class="allocs">${allocRows}${reserveItem}${overWarn}</ul>
+          <button class="add-row" data-act="add" data-i="${idx}">+ add allocation</button>
+        `;
+        root.appendChild(card);
+      });
+
+      // Wire events (event delegation on the container)
+      root.onchange = root.oninput = (e) => {
+        const t = e.target;
+        const act = t.dataset?.act;
+        if (!act) return;
+        const i = +t.dataset.i;
+        const j = t.dataset.j != null ? +t.dataset.j : null;
+        if (act === 'total') {
+          state[i].total = Math.max(0, +t.value || 0);
+          saveState(); render();
+        } else if (act === 'qty') {
+          state[i].allocs[j].qty = Math.max(0, +t.value || 0);
+          state[i].allocs[j].qtyLabel = null; // user-edited overrides any label
+          saveState(); render();
+        } else if (act === 'test') {
+          state[i].allocs[j].test = t.value;
+          const tier = testById[t.value]?.tier || 'tier1';
+          state[i].allocs[j].tier = tier;
+          saveState(); render();
+        }
+      };
+      root.onclick = (e) => {
+        const t = e.target;
+        const act = t.dataset?.act;
+        if (!act) return;
+        const i = +t.dataset.i;
+        const j = t.dataset.j != null ? +t.dataset.j : null;
+        if (act === 'del') {
+          state[i].allocs.splice(j, 1);
+          saveState(); render();
+        } else if (act === 'add') {
+          // pick first test not already allocated to this block, fallback to first
+          const used = new Set(state[i].allocs.map(a => a.test));
+          const next = tests.find(x => !used.has(x.id)) || tests[0];
+          const qty = state[i].unit === 'mg' ? 10 : 1;
+          state[i].allocs.push({ test: next.id, tier: next.tier, qty, label: next.label });
+          saveState(); render();
+        }
+      };
+    }
+
+    function renderTests() {
+      const testRoot = document.getElementById('tests');
+      testRoot.innerHTML = '';
+      TIER_ORDER.forEach(t => {
+        tests.filter(x => x.tier === t).forEach(x => {
+          const pill = document.createElement('button');
+          pill.className = 'pill' + (active === x.id ? ' active' : '');
+          pill.dataset.test = x.id;
+          pill.title = x.purpose;
+          pill.innerHTML = `<span class="swatch dot ${tierColor[x.tier]}"></span> ${x.label}`;
+          pill.addEventListener('click', () => toggleTest(x.id, pill));
+          testRoot.appendChild(pill);
+        });
+      });
+    }
+
+    function renderStats() {
+      const ffTotal = state.filter(c => c.type === 'ff').reduce((a, c) => a + (c.total || 0), 0);
+      const ffCommitted = state
+        .filter(c => c.type === 'ff')
+        .reduce((a, c) => a + c.allocs.reduce((b, x) => b + (x.pending ? 0 : (Number(x.qty) || 0)), 0), 0);
+      const ffReserve = ffTotal - ffCommitted;
+      const ffpeCount = state.filter(c => c.type === 'ffpe').length;
+      document.getElementById('s-ff').textContent = ffTotal;
+      document.getElementById('s-cmt').textContent = ffCommitted;
+      document.getElementById('s-res').textContent = ffReserve;
+      const ffpeStat = document.querySelector('.stat.ffpe .n');
+      if (ffpeStat) ffpeStat.textContent = ffpeCount;
+    }
+
+    function toggleTest(id, pillEl) {
+      document.querySelectorAll('.pill.active').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.core.highlight').forEach(c => c.classList.remove('highlight'));
+      document.querySelectorAll('.seg.active').forEach(s => s.classList.remove('active'));
+      if (active === id) { active = null; return; }
+      active = id;
+      pillEl.classList.add('active');
+      applyHighlight(id);
+    }
+    function applyHighlight(id) {
+      state.forEach(c => {
+        if (c.allocs.some(a => a.test === id)) {
+          const el = document.getElementById('core-' + c.id);
+          if (el) el.classList.add('highlight');
+        }
+      });
+      document.querySelectorAll(`.seg[data-test="${id}"]`).forEach(s => s.classList.add('active'));
+    }
+
+    document.getElementById('reset').addEventListener('click', () => {
+      if (confirm('Reset all edits back to the May-15 draft defaults?')) resetState();
+    });
+    document.getElementById('add-block').addEventListener('click', () => {
+      const id = 'block-' + Date.now();
+      state.push({ id, name: 'New block', type: 'ff', holder: 'TBD', total: 50, unit: 'mg', allocs: [] });
+      saveState(); render();
+    });
+
+    render();
+  </script>
+</body>
+</html>
