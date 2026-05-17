@@ -180,6 +180,21 @@
     "permanent": true
   },
   {
+    "source": "/sources/meeting-notes/05-12---bernardo-personalis-leukopak-call-overview-public",
+    "destination": "/sources/meeting-notes/05-12---bernardo-personalis-leukopak-call-overview",
+    "permanent": true
+  },
+  {
+    "source": "/sources/meeting-notes/05-12---bernardo-personalis-leukopak-call-formatted-public",
+    "destination": "/sources/meeting-notes/05-12---bernardo-personalis-leukopak-call-formatted",
+    "permanent": true
+  },
+  {
+    "source": "/sources/meeting-notes/05-12---bernardo-personalis-leukopak-call-raw-public",
+    "destination": "/sources/meeting-notes/05-12---bernardo-personalis-leukopak-call-raw",
+    "permanent": true
+  },
+  {
     "source": "/wiki/diagnostics/day4-biopsy",
     "destination": "/wiki/diagnostics/biopsy/day4-biopsy",
     "permanent": true

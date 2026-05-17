@@ -12,6 +12,30 @@ function countMatches(source: string, pattern: RegExp) {
 }
 
 describe("renderMarkdown example tables", () => {
+  test("applies redaction tags before rendering", () => {
+    const html = renderMarkdown(
+      `Before
+
+:::redact[Private discussion redacted.]
+Secret section that should not render.
+:::
+
+After
+
+Inline <redact label="someone">Diana Laster</redact> text.`,
+      "redaction-example",
+    );
+
+    expect(html).toContain("Before");
+    expect(html).toContain("Private discussion redacted.");
+    expect(html).toContain("After");
+    expect(html).toContain("Inline someone text.");
+    expect(html).not.toContain("Secret section that should not render.");
+    expect(html).not.toContain("Diana Laster");
+    expect(html).not.toContain(":::redact");
+    expect(html).not.toContain("<redact");
+  });
+
   test("renders one wrapped table per example fixture", () => {
     const html = renderMarkdown(buildExampleTablesDocument(), "table-examples");
 
