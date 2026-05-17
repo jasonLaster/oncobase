@@ -216,22 +216,47 @@
   },
   {
     "source": "/wiki/treatment/in-vivo-vaccination",
-    "destination": "/wiki/questions/in-vivo-vaccination",
+    "destination": "/wiki/questions/abscopal-effect",
     "permanent": true
   },
   {
     "source": "/wiki/treatment/in-vivo-vaccination/index",
-    "destination": "/wiki/questions/in-vivo-vaccination/index",
+    "destination": "/wiki/questions/abscopal-effect/index",
     "permanent": true
   },
   {
     "source": "/wiki/treatment/in-vivo-vaccination/current-thinking",
-    "destination": "/wiki/questions/in-vivo-vaccination/current-thinking",
+    "destination": "/wiki/questions/abscopal-effect/current-thinking",
     "permanent": true
   },
   {
     "source": "/wiki/treatment/in-vivo-vaccination/decision-framework",
-    "destination": "/wiki/questions/in-vivo-vaccination/decision-framework",
+    "destination": "/wiki/questions/abscopal-effect/decision-framework",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/questions/in-vivo-vaccination",
+    "destination": "/wiki/questions/abscopal-effect",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/questions/in-vivo-vaccination/index",
+    "destination": "/wiki/questions/abscopal-effect/index",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/questions/in-vivo-vaccination/current-thinking",
+    "destination": "/wiki/questions/abscopal-effect/current-thinking",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/questions/in-vivo-vaccination/decision-framework",
+    "destination": "/wiki/questions/abscopal-effect/decision-framework",
+    "permanent": true
+  },
+  {
+    "source": "/project-management/projects/clinical/local-treatment-modalities-research",
+    "destination": "/project-management/projects/clinical/abscopal-effect",
     "permanent": true
   },
   {
@@ -1651,22 +1676,22 @@
   },
   {
     "source": "/wiki/active-questions/in-vivo-vaccination",
-    "destination": "/wiki/questions/in-vivo-vaccination",
+    "destination": "/wiki/questions/abscopal-effect",
     "permanent": true
   },
   {
     "source": "/wiki/active-questions/in-vivo-vaccination/index",
-    "destination": "/wiki/questions/in-vivo-vaccination/index",
+    "destination": "/wiki/questions/abscopal-effect/index",
     "permanent": true
   },
   {
     "source": "/wiki/active-questions/in-vivo-vaccination/current-thinking",
-    "destination": "/wiki/questions/in-vivo-vaccination/current-thinking",
+    "destination": "/wiki/questions/abscopal-effect/current-thinking",
     "permanent": true
   },
   {
     "source": "/wiki/active-questions/in-vivo-vaccination/decision-framework",
-    "destination": "/wiki/questions/in-vivo-vaccination/decision-framework",
+    "destination": "/wiki/questions/abscopal-effect/decision-framework",
     "permanent": true
   },
   {
