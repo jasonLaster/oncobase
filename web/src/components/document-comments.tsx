@@ -53,6 +53,8 @@ type OutlineItem = {
   id: string;
   text: string;
   level: number;
+  key: string;
+  parentIds: string[];
 };
 
 type SidebarButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -83,6 +85,39 @@ function SidebarButton({
       )}
       {...props}
     />
+  );
+}
+
+function OutlineButton({
+  active,
+  ancestor,
+  item,
+  onClick,
+}: {
+  active: boolean;
+  ancestor: boolean;
+  item: OutlineItem;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-current={active ? "location" : undefined}
+      data-active-outline-heading={active ? "true" : undefined}
+      onClick={onClick}
+      style={{ paddingLeft: `${Math.max(0, item.level - 1) * 14 + 12}px` }}
+      title={item.text}
+      className={cn(
+        "relative block w-full cursor-pointer rounded-md py-1.5 pr-2 text-left text-sm transition-colors",
+        active
+          ? "bg-[var(--brand)]/10 font-medium text-[var(--brand)]"
+          : ancestor
+            ? "text-[var(--foreground)]"
+            : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+      )}
+    >
+      <span className="line-clamp-2">{item.text}</span>
+    </button>
   );
 }
 
@@ -124,6 +159,106 @@ function getOutlineHeadingText(heading: HTMLHeadingElement): string {
     .replace(/^#{1,6}\s*/, "")
     .replace(/(?:\s*#\s*)+$/, "")
     .trim();
+}
+
+function getOutlineHeadings(root: HTMLElement): OutlineItem[] {
+  const headings = Array.from(
+    root.querySelectorAll<HTMLHeadingElement>("h1[id], h2[id], h3[id], h4[id]")
+  );
+  const parentStack: Array<{ id: string; level: number }> = [];
+
+  return headings.map((heading, index) => {
+    const level = Number.parseInt(heading.tagName.slice(1), 10);
+    while (
+      parentStack.length > 0 &&
+      parentStack[parentStack.length - 1]!.level >= level
+    ) {
+      parentStack.pop();
+    }
+
+    const item = {
+      id: heading.id,
+      text: getOutlineHeadingText(heading) || heading.id,
+      level,
+      key: `${heading.id}:${index}`,
+      parentIds: parentStack.map((parent) => parent.id),
+    };
+    parentStack.push({ id: heading.id, level });
+    return item;
+  });
+}
+
+function getActiveHeadingId(root: HTMLElement, scrollRoot: HTMLElement | null) {
+  const headings = Array.from(
+    root.querySelectorAll<HTMLHeadingElement>("h1[id], h2[id], h3[id], h4[id]")
+  );
+  if (headings.length === 0) return null;
+
+  const scrollRootTop = scrollRoot?.getBoundingClientRect().top ?? 0;
+  const activationLine = scrollRootTop + 112;
+  let activeHeading = headings[0]!;
+
+  for (const heading of headings) {
+    const rect = heading.getBoundingClientRect();
+    if (rect.top <= activationLine) {
+      activeHeading = heading;
+      continue;
+    }
+    break;
+  }
+
+  return activeHeading.id;
+}
+
+function useDocumentOutline(
+  articleRef: React.RefObject<HTMLElement | null>,
+  scrollRootRef: React.RefObject<HTMLElement | null>,
+  children: ReactNode
+) {
+  const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const root = articleRef.current;
+    if (!root) return;
+
+    let frameId: number | null = null;
+
+    const updateActiveHeading = () => {
+      frameId = null;
+      if (!root.isConnected) return;
+      setActiveHeadingId(getActiveHeadingId(root, scrollRootRef.current));
+    };
+
+    const scheduleActiveHeadingUpdate = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(updateActiveHeading);
+    };
+
+    const updateOutline = () => {
+      setOutlineItems(getOutlineHeadings(root));
+      scheduleActiveHeadingUpdate();
+    };
+
+    updateOutline();
+    const observer = new MutationObserver(updateOutline);
+    observer.observe(root, { childList: true, subtree: true });
+
+    const scrollRoot = scrollRootRef.current;
+    scrollRoot?.addEventListener("scroll", scheduleActiveHeadingUpdate, {
+      passive: true,
+    });
+    window.addEventListener("resize", scheduleActiveHeadingUpdate);
+
+    return () => {
+      observer.disconnect();
+      scrollRoot?.removeEventListener("scroll", scheduleActiveHeadingUpdate);
+      window.removeEventListener("resize", scheduleActiveHeadingUpdate);
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+    };
+  }, [articleRef, children, scrollRootRef]);
+
+  return { activeHeadingId, outlineItems };
 }
 
 const COMMENTS_PANE_STORAGE_KEY = "comments-pane-open";
@@ -519,6 +654,7 @@ function CommentsShell({
     [threadsResult.isLoading, threadsResult.error, threadsResult.threads]
   );
   const articleRef = useRef<HTMLElement | null>(null);
+  const scrollRootRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const pendingSelectionId = useId();
   const [pendingSelection, setPendingSelection] = useState<SelectionAnchor | null>(null);
@@ -527,7 +663,11 @@ function CommentsShell({
   const [highlightRects, setHighlightRects] = useState<HighlightRect[]>([]);
   const [selectionTooltip, setSelectionTooltip] = useState<SelectionTooltipPosition | null>(null);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("comments");
-  const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
+  const { activeHeadingId, outlineItems } = useDocumentOutline(
+    articleRef,
+    scrollRootRef,
+    children
+  );
   const [showResolvedThreads, setShowResolvedThreads] = useState(false);
   const {
     open: commentsOpen,
@@ -595,6 +735,11 @@ function CommentsShell({
   )
     ? activeThreadId
     : null;
+  const activeHeadingParentIds = useMemo(() => {
+    return new Set(
+      outlineItems.find((item) => item.id === activeHeadingId)?.parentIds ?? []
+    );
+  }, [activeHeadingId, outlineItems]);
 
   const toggleCommentsPane = () => {
     setCommentsOpen((current) => !current);
@@ -701,30 +846,6 @@ function CommentsShell({
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
   }, [effectiveActiveThreadId, numberedThreads, pendingSelection, pendingSelectionId]);
-
-  useEffect(() => {
-    const root = articleRef.current;
-    if (!root) return;
-
-    const updateOutline = () => {
-      const headings = Array.from(
-        root.querySelectorAll<HTMLHeadingElement>("h1[id], h2[id], h3[id], h4[id]")
-      );
-
-      setOutlineItems(
-        headings.map((heading) => ({
-          id: heading.id,
-          text: getOutlineHeadingText(heading) || heading.id,
-          level: Number.parseInt(heading.tagName.slice(1), 10),
-        }))
-      );
-    };
-
-    updateOutline();
-    const observer = new MutationObserver(updateOutline);
-    observer.observe(root, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [children]);
 
   const handlePointerUp = () => {
     window.setTimeout(() => {
@@ -938,15 +1059,13 @@ function CommentsShell({
           ) : (
             <div className="space-y-0.5">
               {outlineItems.map((item) => (
-                <SidebarButton
-                  key={item.id}
-                  variant="list"
+                <OutlineButton
+                  key={item.key}
+                  item={item}
+                  active={item.id === activeHeadingId}
+                  ancestor={activeHeadingParentIds.has(item.id)}
                   onClick={() => jumpToHeading(item.id)}
-                  style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
-                  title={item.text}
-                >
-                  <span className="line-clamp-2">{item.text}</span>
-                </SidebarButton>
+                />
               ))}
             </div>
           )
@@ -1131,7 +1250,7 @@ function CommentsShell({
   );
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div ref={scrollRootRef} className="h-full overflow-y-auto">
       <div
         className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-4 md:px-8 md:py-8 comments-content-wrapper"
         style={{
@@ -1345,7 +1464,17 @@ export function OutlineShell({
   onActivate?: () => void;
 }) {
   const articleRef = useRef<HTMLElement | null>(null);
-  const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
+  const scrollRootRef = useRef<HTMLDivElement | null>(null);
+  const { activeHeadingId, outlineItems } = useDocumentOutline(
+    articleRef,
+    scrollRootRef,
+    children
+  );
+  const activeHeadingParentIds = useMemo(() => {
+    return new Set(
+      outlineItems.find((item) => item.id === activeHeadingId)?.parentIds ?? []
+    );
+  }, [activeHeadingId, outlineItems]);
   const {
     open: sidebarOpen,
     setOpen: setSidebarOpen,
@@ -1401,31 +1530,9 @@ export function OutlineShell({
     scrollElementIntoContainerView(target, 24);
   };
 
-  useEffect(() => {
-    const root = articleRef.current;
-    if (!root) return;
-
-    const updateOutline = () => {
-      const headings = Array.from(
-        root.querySelectorAll<HTMLHeadingElement>("h1[id], h2[id], h3[id], h4[id]")
-      );
-      setOutlineItems(
-        headings.map((heading) => ({
-          id: heading.id,
-          text: getOutlineHeadingText(heading) || heading.id,
-          level: Number.parseInt(heading.tagName.slice(1), 10),
-        }))
-      );
-    };
-
-    updateOutline();
-    const observer = new MutationObserver(updateOutline);
-    observer.observe(root, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [children]);
-
   return (
     <div
+      ref={scrollRootRef}
       className="h-full overflow-y-auto"
       style={
         {
@@ -1515,15 +1622,13 @@ export function OutlineShell({
               ) : (
                 <div className="space-y-0.5">
                   {outlineItems.map((item) => (
-                    <SidebarButton
-                      key={item.id}
-                      variant="list"
+                    <OutlineButton
+                      key={item.key}
+                      item={item}
+                      active={item.id === activeHeadingId}
+                      ancestor={activeHeadingParentIds.has(item.id)}
                       onClick={() => jumpToHeading(item.id)}
-                      style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
-                      title={item.text}
-                    >
-                      <span className="line-clamp-2">{item.text}</span>
-                    </SidebarButton>
+                    />
                   ))}
                 </div>
               )}
@@ -1638,15 +1743,13 @@ export function OutlineShell({
                 ) : (
                   <div className="space-y-0.5">
                     {outlineItems.map((item) => (
-                      <SidebarButton
-                        key={item.id}
-                        variant="list"
+                      <OutlineButton
+                        key={item.key}
+                        item={item}
+                        active={item.id === activeHeadingId}
+                        ancestor={activeHeadingParentIds.has(item.id)}
                         onClick={() => jumpToHeading(item.id)}
-                        style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
-                        title={item.text}
-                      >
-                        <span className="line-clamp-2">{item.text}</span>
-                      </SidebarButton>
+                      />
                     ))}
                   </div>
                 )}
