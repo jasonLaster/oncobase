@@ -12,6 +12,7 @@ import {
   markdownRemarkPlugins,
 } from "@/lib/markdown-math";
 import { preprocessCitationMarkdown } from "@/lib/citation-links";
+import { applyPiiRedactions } from "@/lib/pii-redaction";
 import { MARKDOWN_RENDER_CACHE_VERSION } from "@/lib/wiki-cache-tags";
 
 const processor = unified()
@@ -377,7 +378,8 @@ function hashKey(md: string): string {
 }
 
 export function renderMarkdown(md: string, currentSlug?: string): string {
-  const key = hashKey(`${currentSlug ?? ""}:${md}`);
+  const redactedMd = applyPiiRedactions(md);
+  const key = hashKey(`${currentSlug ?? ""}:${redactedMd}`);
   const cachePath = path.join(CACHE_DIR, `${key}.html`);
 
   try {
@@ -386,7 +388,7 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
     // Cache miss — render and store
   }
 
-  const citationLinked = preprocessCitationMarkdown(md);
+  const citationLinked = preprocessCitationMarkdown(redactedMd);
   const mermaidExtracted = extractMermaidBlocks(citationLinked);
   const cleanMd = escapeCurrencyDollars(
     normalizeCurrencyTypos(stripLegacyTableDirectives(mermaidExtracted))
@@ -410,7 +412,8 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
 /** Async version — uses async unified pipeline and non-blocking I/O */
 export async function renderMarkdownAsync(md: string, currentSlug?: string): Promise<string> {
   const t0 = performance.now();
-  const key = hashKey(`${currentSlug ?? ""}:${md}`);
+  const redactedMd = applyPiiRedactions(md);
+  const key = hashKey(`${currentSlug ?? ""}:${redactedMd}`);
   const cachePath = path.join(CACHE_DIR, `${key}.html`);
 
   try {
@@ -422,7 +425,7 @@ export async function renderMarkdownAsync(md: string, currentSlug?: string): Pro
   }
 
   const t1 = performance.now();
-  const citationLinked = preprocessCitationMarkdown(md);
+  const citationLinked = preprocessCitationMarkdown(redactedMd);
   const mermaidExtracted = extractMermaidBlocks(citationLinked);
   const tMermaid = performance.now();
 

@@ -682,6 +682,44 @@ test.describe("Document comments sidebar", () => {
     expect(hasOutline).toBe(true);
   });
 
+  test("outline highlights the current section while scrolling", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("comments-pane-open", "1");
+    });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/table-examples");
+    await expect(page.locator("article").first()).toBeVisible({ timeout: 10_000 });
+    const activeOutlineHeading = page.locator('[data-active-outline-heading="true"]').last();
+    await expect(activeOutlineHeading).toBeVisible({ timeout: 5_000 });
+    const initialActiveText = await activeOutlineHeading.textContent();
+
+    await page.evaluate(() => {
+      const headings = Array.from(
+        document.querySelectorAll<HTMLElement>("article h2[id], article h3[id]")
+      );
+      const target = headings[Math.max(0, headings.length - 3)];
+      let scrollRoot = target?.parentElement;
+      while (
+        scrollRoot &&
+        !(
+          scrollRoot.scrollHeight > scrollRoot.clientHeight + 100 &&
+          ["auto", "scroll"].includes(getComputedStyle(scrollRoot).overflowY)
+        )
+      ) {
+        scrollRoot = scrollRoot.parentElement;
+      }
+      if (target && scrollRoot) {
+        const targetTop = target.getBoundingClientRect().top;
+        const scrollRootTop = scrollRoot.getBoundingClientRect().top;
+        scrollRoot.scrollTop += targetTop - scrollRootTop - 80;
+      }
+    });
+
+    await expect
+      .poll(async () => activeOutlineHeading.textContent(), { timeout: 5_000 })
+      .not.toBe(initialActiveText);
+  });
+
   test("open outline rail still exposes comments activation", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem("comments-pane-open", "1");
