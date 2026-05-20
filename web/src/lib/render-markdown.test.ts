@@ -245,6 +245,20 @@ Inline <redact label="someone">Diana Laster</redact> text.`,
 });
 
 describe("renderMarkdown theme-paired images", () => {
+  test("proxies relative markdown PDF links through the file API", () => {
+    const html = renderMarkdown(
+      `**Original report:** [418-signatera.pdf](418-signatera.pdf)`,
+      "sources/diagnostics/04-18-signatera-ctdna",
+    );
+
+    expect(html).toContain(
+      `/api/file?path=${encodeURIComponent("sources/diagnostics/418-signatera.pdf")}`,
+    );
+    expect(html).toContain('class="pdf-chip"');
+    expect(html).toContain("418-signatera.pdf");
+    expect(html).not.toContain('href="418-signatera.pdf"');
+  });
+
   test("expands data-theme-pair img into a light/dark sibling pair", () => {
     const html = renderMarkdown(
       `# Page\n\n<img src="./images/foo-light.png" alt="foo cartoon" data-theme-pair>\n`,

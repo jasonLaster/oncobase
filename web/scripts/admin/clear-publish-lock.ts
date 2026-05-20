@@ -10,7 +10,10 @@ import { ConvexHttpClient } from "convex/browser";
 import dotenv from "dotenv";
 import { api } from "../../convex/_generated/api";
 
-dotenv.config({ path: path.join(__dirname, "..", "..", ".env.local"), quiet: true });
+const webRoot = path.join(__dirname, "..", "..");
+const repoRoot = path.join(webRoot, "..");
+dotenv.config({ path: path.join(webRoot, ".env.local"), quiet: true });
+dotenv.config({ path: path.join(repoRoot, ".env.local"), override: false, quiet: true });
 
 function readFlag(args: string[], name: string) {
   const i = args.indexOf(name);

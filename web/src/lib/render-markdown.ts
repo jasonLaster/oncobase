@@ -247,6 +247,18 @@ function fixMarkdownLinks(html: string): string {
 
 const PROXIED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".csv", ".pdf"]);
 
+function resolveVaultAssetPath(assetPath: string, currentSlug?: string): string {
+  let resolvedPath = assetPath;
+  if (currentSlug && !assetPath.startsWith("/")) {
+    const dir = currentSlug.includes("/")
+      ? currentSlug.slice(0, currentSlug.lastIndexOf("/"))
+      : currentSlug;
+    resolvedPath = `${dir}/${assetPath}`;
+  }
+  resolvedPath = path.posix.normalize(resolvedPath);
+  return resolvedPath.replace(/^\/+/, "");
+}
+
 /**
  * Expand `<img data-theme-pair src="…-light.png">` into a paired light/dark
  * `<img>` that swaps with the `dark` class on `<html>` (same Tailwind pattern
@@ -302,17 +314,39 @@ function fixImageSrcs(html: string, currentSlug?: string): string {
     // Resolve relative path against the current page's directory. Vault-root
     // paths like /wiki/foo.png should still match asset keys stored without
     // a leading slash.
-    let resolvedPath = src;
-    if (currentSlug && !src.startsWith("/")) {
-      const dir = currentSlug.includes("/")
-        ? currentSlug.slice(0, currentSlug.lastIndexOf("/"))
-        : currentSlug;
-      resolvedPath = `${dir}/${src}`;
-    }
-    resolvedPath = path.posix.normalize(resolvedPath);
-    resolvedPath = resolvedPath.replace(/^\/+/, "");
+    const resolvedPath = resolveVaultAssetPath(src, currentSlug);
 
     return `${before}src="/api/file?path=${encodeURIComponent(resolvedPath)}"${after}`;
+  });
+}
+
+/**
+ * Rewrite ordinary Markdown links to published assets through /api/file.
+ * Obsidian wikilinks already do this earlier, but authored Markdown such as
+ * `[report.pdf](report.pdf)` should work the same way.
+ */
+function fixAssetLinks(html: string, currentSlug?: string): string {
+  return html.replace(/(<a\b[^>]*?\s)href="([^"]*)"([^>]*>)/g, (_match, before, href, after) => {
+    if (
+      href.startsWith("http://") ||
+      href.startsWith("https://") ||
+      href.startsWith("//") ||
+      href.startsWith("mailto:") ||
+      href.startsWith("#") ||
+      href.startsWith("data:") ||
+      href.startsWith("/api/")
+    ) {
+      return `${before}href="${href}"${after}`;
+    }
+
+    const [rawPath, suffix = ""] = href.split(/([?#].*)/, 2);
+    const ext = rawPath.includes(".") ? rawPath.slice(rawPath.lastIndexOf(".")).toLowerCase() : "";
+    if (!PROXIED_EXTENSIONS.has(ext)) {
+      return `${before}href="${href}"${after}`;
+    }
+
+    const resolvedPath = resolveVaultAssetPath(rawPath, currentSlug);
+    return `${before}href="/api/file?path=${encodeURIComponent(resolvedPath)}${suffix}"${after}`;
   });
 }
 
@@ -396,7 +430,7 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
   const raw = processor.processSync(cleanMd).toString();
   const wrapped = decorateRenderedTables(raw);
   const html = decorateRenderedImages(
-    fixPdfLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped)), currentSlug))
+    fixPdfLinks(fixAssetLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped)), currentSlug), currentSlug))
   );
 
   try {
@@ -437,7 +471,7 @@ export async function renderMarkdownAsync(md: string, currentSlug?: string): Pro
 
   const wrapped = decorateRenderedTables(raw);
   const html = decorateRenderedImages(
-    fixPdfLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped)), currentSlug))
+    fixPdfLinks(fixAssetLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(wrapped)), currentSlug), currentSlug))
   );
 
   console.log(
