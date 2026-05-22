@@ -5,6 +5,7 @@ import { cookies, headers } from "next/headers";
 import {
   DocumentPage,
   DocumentPageLoading,
+  SensitivePageUnavailable,
 } from "../../_components/document-page";
 import { getSessionUserFromCookieHeader } from "@/lib/session-user";
 import { siteDataFromRequest } from "@/lib/site-data";
@@ -37,26 +38,33 @@ async function sourceRequestContext(slug: string[]) {
   return { cookieHeader, request, siteData, sourceSlug };
 }
 
-async function canViewSourceSlug({
+async function getSourceAccessState({
   cookieHeader,
   request,
   siteData,
   sourceSlug,
 }: Awaited<ReturnType<typeof sourceRequestContext>>) {
   const publicDoc = await siteData.documents.getBySlug({ slug: sourceSlug });
-  if (publicDoc) return true;
+  if (publicDoc) return "public";
+
+  const sensitiveDoc = await siteData.documents.getBySlug({
+    slug: sourceSlug,
+    includeSensitive: true,
+  });
+  if (!sensitiveDoc) return "not-found";
 
   const user = await getSessionUserFromCookieHeader(
     cookieHeader,
     request.headers,
   );
-  return Boolean(
+  const canAccess = Boolean(
     user &&
       (await siteData.access.canUserAccessSlug({
         userId: user._id,
         slug: sourceSlug,
       })),
   );
+  return canAccess ? "authorized" : "sensitive-unavailable";
 }
 
 export async function generateMetadata({
@@ -66,9 +74,16 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const context = await sourceRequestContext(slug);
-  if (!(await canViewSourceSlug(context))) {
+  const accessState = await getSourceAccessState(context);
+  if (accessState === "not-found") {
     return {
       title: "Not found",
+      robots: { index: false, follow: false },
+    };
+  }
+  if (accessState === "sensitive-unavailable") {
+    return {
+      title: "Private page",
       robots: { index: false, follow: false },
     };
   }
@@ -86,7 +101,11 @@ export default async function SourcePage({
 }) {
   const { slug } = await params;
   const context = await sourceRequestContext(slug);
-  if (!(await canViewSourceSlug(context))) notFound();
+  const accessState = await getSourceAccessState(context);
+  if (accessState === "not-found") notFound();
+  if (accessState === "sensitive-unavailable") {
+    return <SensitivePageUnavailable slug={context.sourceSlug} />;
+  }
 
   return (
     <Suspense fallback={<DocumentPageLoading />}>

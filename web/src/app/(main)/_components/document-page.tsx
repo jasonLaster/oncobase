@@ -148,6 +148,40 @@ function DocHeader({
   );
 }
 
+export function SensitivePageUnavailable({
+  slug,
+}: {
+  slug: string;
+}) {
+  return (
+    <main className="mx-auto flex min-h-[55vh] max-w-2xl flex-col justify-center px-6 py-16 text-center">
+      <div className="mx-auto mb-5 flex size-12 items-center justify-center rounded-full bg-[var(--brand)]/10 text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
+        <LockIcon aria-hidden="true" size={22} strokeWidth={1.8} />
+      </div>
+      <h1 className="text-2xl font-semibold tracking-tight">
+        This page is private
+      </h1>
+      <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+        The page exists, but it is marked sensitive, so it is only available to
+        signed-in readers with access. We keep these pages out of the public
+        reader to avoid exposing private medical details, logistics, or
+        confidential source material.
+      </p>
+      <p className="mt-4 break-words rounded-md bg-[var(--sidebar-bg)] px-3 py-2 text-xs text-[var(--text-muted)] ring-1 ring-[var(--border)]">
+        {slug}
+      </p>
+      <div className="mt-6 flex justify-center">
+        <Link
+          href="/"
+          className="inline-flex h-9 items-center rounded-md bg-[var(--brand)] px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--brand)]/90"
+        >
+          Back to the wiki
+        </Link>
+      </div>
+    </main>
+  );
+}
+
 // -- Async body for ISR pages (streamed via PPR) -----------------------------
 async function DeferredMarkdownBody({
   filePath,
@@ -235,6 +269,35 @@ export async function renderDocumentPage({
   }
 
   if (!file) {
+    if (!includeSensitive) {
+      const sensitiveFile = await getMarkdownFile(contentPath, {
+        includeSensitive: true,
+        piiMode: showPii ? "revealed" : "redacted",
+      });
+      if (sensitiveFile?.sensitive === true) {
+        return <SensitivePageUnavailable slug={sensitiveFile.slug} />;
+      }
+
+      if (contentPath !== "index") {
+        const sensitiveCanonicalPath = await getCanonicalSlug(contentPath, {
+          includeSensitive: true,
+        });
+        if (sensitiveCanonicalPath && sensitiveCanonicalPath !== contentPath) {
+          const canonicalSensitiveFile = await getMarkdownFile(
+            sensitiveCanonicalPath,
+            {
+              includeSensitive: true,
+              piiMode: showPii ? "revealed" : "redacted",
+            },
+          );
+          if (canonicalSensitiveFile?.sensitive === true) {
+            return (
+              <SensitivePageUnavailable slug={canonicalSensitiveFile.slug} />
+            );
+          }
+        }
+      }
+    }
     notFound();
   }
 
