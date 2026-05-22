@@ -175,6 +175,53 @@ async function replaceRolePermissions(
   });
 }
 
+async function clearRoleAssignmentsForUser(
+  ctx: MutationCtx,
+  site: SiteCtx,
+  userId: Id<"users">,
+) {
+  const assignments = site.siteId
+    ? await ctx.db
+        .query("userRoles")
+        .withIndex("by_site_user", (q) =>
+          q.eq("siteId", site.siteId!).eq("userId", userId),
+        )
+        .collect()
+    : await ctx.db
+        .query("userRoles")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+
+  for (const assignment of assignments) {
+    if (rowBelongsToSite(assignment, site)) {
+      await ctx.db.delete(assignment._id);
+    }
+  }
+}
+
+async function setRoleForSiteUser(
+  ctx: MutationCtx,
+  site: SiteCtx,
+  userId: Id<"users">,
+  roleId?: Id<"roles">,
+) {
+  const user = await ctx.db.get(userId);
+  if (!user || !rowBelongsToSite(user, site)) {
+    throw new Error("user does not belong to this site");
+  }
+
+  await clearRoleAssignmentsForUser(ctx, site, userId);
+
+  if (!roleId) return null;
+
+  return await ctx.db.insert("userRoles", {
+    ...(site.siteId ? { siteId: site.siteId } : {}),
+    userId,
+    roleId,
+    createdAt: Date.now(),
+  });
+}
+
 export const listUsersWithRoles = query({
   args: { siteSlug: v.optional(v.string()) },
   handler: async (ctx, { siteSlug }) => {
@@ -387,11 +434,6 @@ export const setRoleForUser = mutation({
   args: { userId: v.id("users"), roleId: v.optional(v.id("roles")), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { userId, roleId, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    const user = await ctx.db.get(userId);
-    if (!user || !rowBelongsToSite(user, site)) {
-      throw new Error("user does not belong to this site");
-    }
-
     if (roleId) {
       const role = await ctx.db.get(roleId);
       if (!role || !rowBelongsToSite(role, site)) {
@@ -399,30 +441,65 @@ export const setRoleForUser = mutation({
       }
     }
 
-    const assignments = site.siteId
-      ? await ctx.db
-          .query("userRoles")
-          .withIndex("by_site_user", (q) => q.eq("siteId", site.siteId!).eq("userId", userId))
-          .collect()
-      : await ctx.db
-          .query("userRoles")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .collect();
+    return await setRoleForSiteUser(ctx, site, userId, roleId);
+  },
+});
 
-    for (const assignment of assignments) {
-      if (rowBelongsToSite(assignment, site)) {
-        await ctx.db.delete(assignment._id);
+export const setRoleForUsers = mutation({
+  args: {
+    userIds: v.array(v.id("users")),
+    roleId: v.optional(v.id("roles")),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { userIds, roleId, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    if (roleId) {
+      const role = await ctx.db.get(roleId);
+      if (!role || !rowBelongsToSite(role, site)) {
+        throw new Error("role does not belong to this site");
       }
     }
 
-    if (!roleId) return null;
+    let updated = 0;
+    for (const userId of Array.from(new Set(userIds))) {
+      await setRoleForSiteUser(ctx, site, userId, roleId);
+      updated += 1;
+    }
+    return { updated };
+  },
+});
 
-    return await ctx.db.insert("userRoles", {
-      ...(site.siteId ? { siteId: site.siteId } : {}),
-      userId,
-      roleId,
-      createdAt: Date.now(),
-    });
+export const deleteUsers = mutation({
+  args: {
+    userIds: v.array(v.id("users")),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { userIds, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    let deleted = 0;
+    let revokedSessions = 0;
+
+    for (const userId of Array.from(new Set(userIds))) {
+      const user = await ctx.db.get(userId);
+      if (!user || !rowBelongsToSite(user, site)) {
+        throw new Error("user does not belong to this site");
+      }
+
+      await clearRoleAssignmentsForUser(ctx, site, userId);
+
+      const sessions = await ctx.db.query("userSessions").collect();
+      for (const session of sessions) {
+        if (session.userId === userId && rowBelongsToSite(session, site)) {
+          await ctx.db.delete(session._id);
+          revokedSessions += 1;
+        }
+      }
+
+      await ctx.db.delete(userId);
+      deleted += 1;
+    }
+
+    return { deleted, revokedSessions };
   },
 });
 

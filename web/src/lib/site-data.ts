@@ -289,6 +289,10 @@ export function createSiteData(
         convex.mutation((api as any).access.assignRoleToUser, args as any),
       setRoleForUser: (args: { userId: string; roleId?: string }) =>
         convex.mutation((api as any).access.setRoleForUser, args as any),
+      setRoleForUsers: (args: { userIds: string[]; roleId?: string }) =>
+        convex.mutation((api as any).access.setRoleForUsers, args as any),
+      deleteUsers: (args: { userIds: string[] }) =>
+        convex.mutation((api as any).access.deleteUsers, args as any),
       canUserAccessSlug: (args: { userId: string; slug: string }) =>
         convex.query((api as any).access.canUserAccessSlug, args as any),
     },

@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { siteDataFromRequest } from "@/lib/site-data";
 import { getSessionUserFromCookieHeader } from "@/lib/session-user";
 import { cookies, headers } from "next/headers";
-import { AccessRoleSelect } from "./access-role-select";
 import { AccessRoleActions, AccessRoleCreateButton } from "./access-role-actions";
+import { AccessUsersTable } from "./access-users-table";
 
 type AccessRole = {
   _id: string;
@@ -175,6 +175,62 @@ async function setUserRole(userId: string, roleId: string) {
   }
 }
 
+async function setUsersRole(userIds: string[], roleId: string) {
+  "use server";
+  const request = await getRequestContext();
+  const user = await getSessionUserFromCookieHeader(
+    request.cookieHeader,
+    request.headers,
+  );
+  if (!user) return { ok: false, error: "Sign in required" };
+
+  try {
+    if (userIds.length === 0) {
+      return { ok: false, error: "Select at least one user" };
+    }
+
+    await siteDataFromRequest(request).access.setRoleForUsers({
+      userIds,
+      roleId: roleId || undefined,
+    });
+    revalidatePath("/admin/access");
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unable to save roles",
+    };
+  }
+}
+
+async function deleteUsers(userIds: string[]) {
+  "use server";
+  const request = await getRequestContext();
+  const user = await getSessionUserFromCookieHeader(
+    request.cookieHeader,
+    request.headers,
+  );
+  if (!user) return { ok: false, error: "Sign in required" };
+
+  try {
+    if (userIds.length === 0) {
+      return { ok: false, error: "Select at least one user" };
+    }
+    if (userIds.includes(user._id)) {
+      return { ok: false, error: "You cannot delete your own user" };
+    }
+
+    await siteDataFromRequest(request).access.deleteUsers({ userIds });
+    revalidatePath("/admin/access");
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unable to delete users",
+    };
+  }
+}
+
 export default async function AccessAdminPage() {
   const request = await getRequestContext();
   const sessionUser = await getSessionUserFromCookieHeader(
@@ -283,53 +339,14 @@ export default async function AccessAdminPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Users
-          </h2>
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="min-w-[720px] w-full text-left text-sm">
-            <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">User</th>
-                <th className="px-3 py-2 font-medium">Email</th>
-                <th className="px-3 py-2 font-medium">Role</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {users.map((user) => (
-                <tr key={user._id}>
-                  <td className="px-3 py-2 font-medium">
-                    {user.name || user.email}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">
-                    {user.email}
-                  </td>
-                  <td className="px-3 py-2">
-                    <AccessRoleSelect
-                      roles={roles}
-                      userId={user._id}
-                      userLabel={user.name || user.email}
-                      initialRoleId={user.roleIds[0] ?? ""}
-                      onSave={setUserRole}
-                    />
-                    {user.roles.length > 1 && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {user.roles.length} roles assigned; changing this replaces them.
-                      </p>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {users.length === 0 && (
-                <tr>
-                  <td className="px-3 py-6 text-muted-foreground" colSpan={3}>
-                    No users
-                  </td>
-                </tr>
-              )}
-            </tbody>
-            </table>
-          </div>
+          <AccessUsersTable
+            users={users}
+            roles={roles}
+            onSaveUserRole={setUserRole}
+            onBulkSetRole={setUsersRole}
+            onBulkDelete={deleteUsers}
+            currentUserId={sessionUser._id}
+          />
         </section>
       </div>
     </main>
