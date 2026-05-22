@@ -155,20 +155,20 @@ test.describe("Page load experience", () => {
     await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeHidden();
   });
 
-  test("mobile initial paint keeps the bottom-nav affordance", async ({ page }) => {
+  test("mobile initial paint keeps the header nav affordance", async ({ page }) => {
     await page.setViewportSize(mobileViewport);
     await blockAppScripts(page);
     await page.goto(withMagicLink("/about/Index"), { waitUntil: "commit" });
 
-    const bottomBar = page.getByTestId("bottom-nav-trigger");
+    const mobileHeader = page.getByTestId("mobile-page-header");
+    const navButton = page.getByTestId("bottom-nav-trigger");
 
-    await expect(bottomBar).toBeVisible();
+    await expect(mobileHeader).toBeVisible();
+    await expect(navButton).toBeVisible();
 
-    const bottomBarBox = await bottomBar.boundingBox();
-    expect(bottomBarBox).not.toBeNull();
-    expect(bottomBarBox!.y).toBeGreaterThan(mobileViewport.height - 120);
-    expect(bottomBarBox!.y + bottomBarBox!.height).toBeLessThanOrEqual(
-      mobileViewport.height + 1
-    );
+    const headerBox = await mobileHeader.boundingBox();
+    expect(headerBox).not.toBeNull();
+    expect(headerBox!.y).toBeLessThanOrEqual(1);
+    expect(headerBox!.height).toBeGreaterThan(40);
   });
 });

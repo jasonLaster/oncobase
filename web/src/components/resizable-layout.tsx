@@ -183,7 +183,7 @@ export function ResizableLayout({
         onPointerUp={onPointerUp}
         className="hidden w-[3px] shrink-0 cursor-col-resize bg-[var(--sidebar-border)] transition-colors hover:bg-[var(--brand)] active:bg-[var(--brand)] md:block"
       />
-      <div className="min-h-0 min-w-0 flex-1 overflow-hidden pb-12 md:pb-0">
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden pt-12 md:pt-0">
         {children}
       </div>
     </div>

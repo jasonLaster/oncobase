@@ -43,17 +43,16 @@ test.describe("Chat", () => {
     await expect(page).toHaveURL(/\/chat/, { timeout: 15_000 });
   });
 
-  test("mobile bottom sheet shows chat history navigation", async ({ page }) => {
+  test("mobile header navigation opens page nav by default with an outline tab", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
 
     await page.getByTestId("bottom-nav-trigger").click();
 
-    await expect(page.getByText("Chats", { exact: true })).toBeVisible();
-    await expect(
-      page
-        .getByTestId("bottom-nav-chat-list")
-        .getByTestId("conversation-list-new-chat")
-    ).toBeVisible();
-    await expect(page.getByText("Pages", { exact: true })).toBeHidden();
+    const sheet = page.getByTestId("bottom-nav-sheet");
+    await expect(page.getByText("Page navigation", { exact: true })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Page nav" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Outline" })).toBeVisible();
+    await expect(sheet.getByTestId("bottom-nav-page-tree")).toBeVisible();
   });
 });

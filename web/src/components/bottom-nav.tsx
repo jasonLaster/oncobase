@@ -1,11 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
 import { TreeNode, fileTreeNodeKey, formatName } from "@/components/sidebar";
+import { openCommandPalette } from "@/components/command-palette";
 import { useNavigationPathname } from "@/lib/navigation-intent";
-import { ConversationList } from "@diana-tnbc/chat";
+
+type NavTab = "pages" | "outline";
+
+type OutlineItem = {
+  id: string;
+  text: string;
+  level: number;
+};
 
 function getPageTitle(pathname: string): string {
   if (pathname === "/") return "Home";
@@ -25,8 +34,34 @@ function subscribePathnameSnapshot() {
   return () => {};
 }
 
+function getOutlineHeadingText(heading: HTMLHeadingElement) {
+  return (
+    heading.textContent
+      ?.replace(/#\s*$/, "")
+      .replace(/\s+/g, " ")
+      .trim() ?? ""
+  );
+}
+
+function getOutlineItems(): OutlineItem[] {
+  if (typeof document === "undefined") return [];
+  const root = document.querySelector<HTMLElement>('[data-test-id="document-article"]');
+  if (!root) return [];
+
+  return Array.from(root.querySelectorAll<HTMLHeadingElement>("h2[id], h3[id], h4[id]"))
+    .map((heading) => ({
+      id: heading.id,
+      text: getOutlineHeadingText(heading),
+      level: Number(heading.tagName.slice(1)),
+    }))
+    .filter((item) => item.text.length > 0);
+}
+
 export function BottomNav({ tree }: { tree: FileNode[] }) {
   const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<NavTab>("pages");
+  const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const routerPathname = usePathname();
   const activePathname = useNavigationPathname();
   const pathname = useSyncExternalStore(
@@ -36,14 +71,26 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
   );
   const title = getPageTitle(pathname);
   const isChatRoute = pathname.startsWith("/chat");
-
   const close = useCallback(() => setOpen(false), []);
+  const openSheet = useCallback(() => {
+    setActiveTab("pages");
+    setOutlineItems(getOutlineItems());
+    setOpen(true);
+  }, []);
+
+  const jumpToHeading = useCallback((id: string) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    close();
+  }, [close]);
 
   // Close on route change
   const [prevPathname, setPrevPathname] = useState(pathname);
   if (pathname !== prevPathname) {
     setPrevPathname(pathname);
     setOpen(false);
+    setActiveTab("pages");
   }
 
   // Lock body scroll when sheet is open
@@ -56,30 +103,99 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
     }
   }, [open]);
 
+  useEffect(() => {
+    const refresh = () => setOutlineItems(getOutlineItems());
+    refresh();
+
+    const root = document.querySelector<HTMLElement>('[data-test-id="document-article"]');
+    if (!root) return;
+
+    const observer = new MutationObserver(refresh);
+    observer.observe(root, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, [pathname]);
+
+  useEffect(() => {
+    if (outlineItems.length === 0) {
+      return;
+    }
+
+    const headings = outlineItems
+      .map((item) => document.getElementById(item.id))
+      .filter((heading): heading is HTMLElement => Boolean(heading));
+
+    if (headings.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible?.target.id) {
+          setActiveHeadingId(visible.target.id);
+        }
+      },
+      { rootMargin: "-20% 0px -65% 0px", threshold: [0, 1] }
+    );
+
+    headings.forEach((heading) => observer.observe(heading));
+    return () => observer.disconnect();
+  }, [outlineItems]);
+
   return (
     <>
-      {/* Bottom bar */}
-      <button
-        onClick={() => setOpen(true)}
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-12 bg-[var(--sidebar-bg)]/95 backdrop-blur-sm border-t border-[var(--sidebar-border)]"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-        data-test-id="bottom-nav-trigger"
+      <header
+        className="fixed inset-x-0 top-0 z-40 flex h-12 items-center gap-2 border-b border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]/95 px-3 backdrop-blur-sm md:hidden"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        data-test-id="mobile-page-header"
       >
-        <span className="truncate text-sm font-medium">{title}</span>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="shrink-0 text-[var(--text-muted)]"
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold leading-tight text-[var(--foreground)]">
+            {title}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          aria-label="Search files"
+          title="Search files"
+          className="flex size-9 shrink-0 items-center justify-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--text-muted)] transition-colors hover:border-[var(--brand)] hover:text-[var(--foreground)]"
+          data-test-id="mobile-header-search"
         >
-          <polyline points="4 10 8 6 12 10" />
-        </svg>
-      </button>
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.25" />
+            <path d="m10.25 10.25 3.5 3.5" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={openSheet}
+          aria-label="Open page navigation"
+          title="Open page navigation"
+          className="flex size-9 shrink-0 items-center justify-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--text-muted)] transition-colors hover:border-[var(--brand)] hover:text-[var(--foreground)]"
+          data-test-id="bottom-nav-trigger"
+        >
+          <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 4h10M3 8h10M3 12h7" />
+          </svg>
+        </button>
+      </header>
+
+      {!isChatRoute && (
+        <Link
+          href="/chat"
+          aria-label="Ask wiki"
+          title="Ask wiki"
+          className="fixed bottom-[calc(2rem+env(safe-area-inset-bottom))] right-4 z-50 inline-flex size-12 items-center justify-center rounded-full border border-[var(--brand)]/25 bg-[var(--brand)] text-white shadow-lg shadow-black/15 transition-transform active:scale-[0.97] md:hidden"
+          data-test-id="mobile-ask-wiki"
+        >
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+            <path d="M9 10h6M9 14h4" />
+          </svg>
+        </Link>
+      )}
 
       {/* Bottom sheet overlay */}
       <div
@@ -99,7 +215,7 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
 
         {/* Sheet */}
         <div
-          className={`absolute bottom-0 left-0 right-0 max-h-[85dvh] bg-[var(--sidebar-bg)] rounded-t-2xl shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
+          className={`absolute bottom-0 left-0 right-0 h-[min(88dvh,46rem)] bg-[var(--sidebar-bg)] rounded-t-2xl shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
             open ? "translate-y-0" : "translate-y-full"
           }`}
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
@@ -109,7 +225,7 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
             <div className="w-8 h-1 rounded-full bg-[var(--text-muted)]/30 mx-auto mb-2" />
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold">
-                {isChatRoute ? "Chats" : "Pages"}
+                Page navigation
               </span>
               <button
                 onClick={close}
@@ -130,16 +246,41 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
                 </svg>
               </button>
             </div>
+            <div className="mt-3 flex rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
+              <button
+                type="button"
+                onClick={() => setActiveTab("pages")}
+                className={`flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors ${
+                  activeTab === "pages"
+                    ? "bg-[var(--accent-light)] text-[var(--brand)]"
+                    : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                Page nav
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOutlineItems(getOutlineItems());
+                  setActiveTab("outline");
+                }}
+                className={`flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors ${
+                  activeTab === "outline"
+                    ? "bg-[var(--accent-light)] text-[var(--brand)]"
+                    : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                Outline
+              </button>
+            </div>
           </div>
 
           {/* Scrollable navigation */}
           <nav
             className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain p-2"
-            data-test-id={isChatRoute ? "bottom-nav-chat-list" : "bottom-nav-page-tree"}
+            data-test-id={activeTab === "outline" ? "bottom-nav-outline" : "bottom-nav-page-tree"}
           >
-            {isChatRoute ? (
-              <ConversationList />
-            ) : (
+            {activeTab === "pages" ? (
               tree.map((node) => (
                 <TreeNode
                   activePathname={activePathname}
@@ -148,6 +289,33 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
                   onNavigate={close}
                 />
               ))
+            ) : outlineItems.length > 0 ? (
+              <div className="space-y-0.5">
+                {outlineItems.map((item) => {
+                  const active = item.id === activeHeadingId;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      aria-current={active ? "location" : undefined}
+                      data-active-outline-heading={active ? "true" : undefined}
+                      onClick={() => jumpToHeading(item.id)}
+                      style={{ paddingLeft: `${Math.max(0, item.level - 2) * 14 + 12}px` }}
+                      className={`block w-full rounded-md py-2 pr-2 text-left text-sm transition-colors ${
+                        active
+                          ? "bg-[var(--brand)]/10 font-medium text-[var(--brand)]"
+                          : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+                      }`}
+                    >
+                      <span className="line-clamp-2">{item.text}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-[var(--sidebar-border)] px-4 py-6 text-sm text-[var(--text-muted)]">
+                No headings found on this page.
+              </div>
             )}
           </nav>
         </div>

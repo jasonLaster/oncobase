@@ -1563,7 +1563,7 @@ export function OutlineShell({
         data-comments-bottom-rail
         aria-label="Document comments and outline"
         className={cn(
-          "fixed inset-x-0 bottom-[calc(3rem+env(safe-area-inset-bottom))] z-40 flex flex-col border-t border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-[0_-12px_28px_rgba(15,23,42,0.14)] transition-[height] duration-200 ease-out md:bottom-0 lg:hidden",
+          "hidden",
           sidebarOpen ? "h-[min(52dvh,30rem)]" : "h-14"
         )}
       >
