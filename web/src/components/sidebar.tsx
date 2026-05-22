@@ -92,6 +92,9 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
   sources: BookOpen,
   wiki: BookOpen,
 
+  // about/*
+  overview: Activity,
+
   // sources/*
   "claudes-research": Beaker,
   "echo-immune": Activity,
@@ -132,6 +135,22 @@ const FILE_ICONS: Record<string, LucideIcon> = {
   "2-urgent": Flame,
   "3-completed": CircleCheckBig,
   "4-backlog": ListChecks,
+};
+
+const FILE_ICONS_BY_SLUG: Record<string, LucideIcon> = {
+  "about/About": Info,
+  "about/Index": Info,
+  "about/Journal": NotebookPen,
+  "about/Log": ScrollText,
+  "about/Terminology": BookOpen,
+  "about/overview/index": Activity,
+  "about/overview/active-workstreams": ListChecks,
+  "about/overview/current-status": ClipboardCheck,
+  "about/overview/for-experts": GraduationCap,
+  "about/overview/for-friends-and-family": Users,
+  "about/overview/for-peers": Users,
+  "about/overview/key-context": Target,
+  "about/overview/test-tracker": Microscope,
 };
 
 function lastPathSegment(slug: string) {
@@ -390,7 +409,7 @@ export function TreeNode({
     );
   }
 
-  const FileGlyph = FILE_ICONS[node.name] ?? FileText;
+  const FileGlyph = FILE_ICONS_BY_SLUG[node.slug] ?? FILE_ICONS[node.name] ?? FileText;
 
   return (
     <Link
