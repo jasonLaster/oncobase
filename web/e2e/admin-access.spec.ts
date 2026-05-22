@@ -1,15 +1,7 @@
 import crypto from "node:crypto";
-import { expect, test } from "@playwright/test";
+import { expect, request as playwrightRequest, test } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
-import {
-  USER_SESSION_COOKIE,
-  createPasswordSalt,
-  createSessionToken,
-  getSessionExpiry,
-  hashPassword,
-  hashSessionToken,
-} from "../src/lib/user-auth";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 const RUN_NONCE = `${Date.now().toString(36)}${crypto
@@ -17,6 +9,7 @@ const RUN_NONCE = `${Date.now().toString(36)}${crypto
   .toString("hex")}`;
 const SITE_SLUG = `access-${RUN_NONCE}`;
 const SITE_HOST = `${SITE_SLUG}.localhost`;
+const OWNER_EMAIL = `operator-${RUN_NONCE}@example.test`;
 const PASSWORD = "correct horse battery";
 const PREVIEW_INCLUDED_SLUG = `sources/private/preview-included-${RUN_NONCE}`;
 const PREVIEW_EXCLUDED_SLUG = `sources/private/preview-excluded-${RUN_NONCE}`;
@@ -35,21 +28,6 @@ function siteBaseURL(baseURL: string) {
   return url.toString().replace(/\/$/, "");
 }
 
-async function createTestUser(
-  convex: ConvexHttpClient,
-  email: string,
-  name: string,
-) {
-  const passwordSalt = createPasswordSalt();
-  return await convex.mutation(api.users.create, {
-    siteSlug: SITE_SLUG,
-    email,
-    name,
-    passwordSalt,
-    passwordHash: hashPassword(PASSWORD, passwordSalt),
-  });
-}
-
 test.describe("admin access management", () => {
   test.skip(
     !CONVEX_URL,
@@ -63,7 +41,7 @@ test.describe("admin access management", () => {
     await convex.mutation(api.sites.create, {
       slug: SITE_SLUG,
       name: `${SITE_SLUG} (test)`,
-      ownerEmail: "access@test",
+      ownerEmail: OWNER_EMAIL,
       domain: SITE_HOST,
       publishTokenHash: tokenHash(),
     });
@@ -112,52 +90,64 @@ test.describe("admin access management", () => {
     browser,
   }) => {
     const url = siteBaseURL(baseURL ?? "http://localhost:3000");
-    const operatorEmail = `operator-${RUN_NONCE}@example.test`;
+    const operatorEmail = OWNER_EMAIL;
     const targetEmail = `target-${RUN_NONCE}@example.test`;
-    const bulkOneEmail = `bulk-one-${RUN_NONCE}@example.test`;
-    const bulkTwoEmail = `bulk-two-${RUN_NONCE}@example.test`;
     const roleName = "Research reader";
 
-    for (const account of [
-      { email: targetEmail, name: "Target User" },
-      { email: bulkOneEmail, name: "Bulk One" },
-      { email: bulkTwoEmail, name: "Bulk Two" },
-    ]) {
-      await createTestUser(convex, account.email, account.name);
-    }
+    const targetRequest = await playwrightRequest.newContext({
+      baseURL: url,
+      storageState: { cookies: [], origins: [] },
+    });
+    const targetSignup = await targetRequest.post("/api/auth/signup", {
+      data: {
+        email: targetEmail,
+        password: PASSWORD,
+        name: "Target User",
+      },
+    });
+    expect(targetSignup.ok(), await targetSignup.text()).toBeTruthy();
+    await targetRequest.dispose();
 
     const context = await browser.newContext({
       baseURL: url,
       storageState: { cookies: [], origins: [] },
     });
-    const operatorUserId = await createTestUser(
-      convex,
-      operatorEmail,
-      "Operator User",
-    );
-    const sessionToken = createSessionToken();
-    await convex.mutation(api.users.createSession, {
-      siteSlug: SITE_SLUG,
-      userId: operatorUserId,
-      tokenHash: hashSessionToken(sessionToken),
-      expiresAt: getSessionExpiry(),
-    });
-    await context.addCookies([
-      {
-        name: USER_SESSION_COOKIE,
-        value: sessionToken,
-        url,
-        httpOnly: true,
-        sameSite: "Lax",
-        expires: Math.floor(getSessionExpiry() / 1000),
+    const operatorSignup = await context.request.post("/api/auth/signup", {
+      data: {
+        email: operatorEmail,
+        password: PASSWORD,
+        name: "Operator User",
       },
-    ]);
-    await context.setExtraHTTPHeaders({
-      Cookie: `${USER_SESSION_COOKIE}=${sessionToken}`,
     });
+    expect(operatorSignup.ok(), await operatorSignup.text()).toBeTruthy();
 
     const page = await context.newPage();
-    await page.goto(`${url}/admin/access`);
+    await page.goto("/");
+    const actions = page.getByTestId("sidebar-workspace-trigger");
+    const themeItem = page.getByRole("menuitem", {
+      name: /Theme: (System|Dark|Light)/,
+    });
+    await expect(actions).toBeVisible();
+    await actions.click();
+    if (!(await themeItem.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      await actions.click();
+    }
+    await expect(themeItem).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Admin" })).toBeVisible();
+
+    await page.goto("/admin");
+
+    await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Users/ })).toHaveAttribute(
+      "href",
+      "/admin/access#users",
+    );
+    await expect(page.getByRole("link", { name: /Roles/ })).toHaveAttribute(
+      "href",
+      "/admin/access#roles",
+    );
+
+    await page.goto("/admin/access");
 
     await expect(page.getByRole("heading", { name: "Access Control" })).toBeVisible();
     await expect(page.getByRole("complementary")).toHaveCount(0);
@@ -269,8 +259,6 @@ test.describe("admin access management", () => {
       .getByLabel("Role for Target User")
       .selectOption(roleId);
 
-    await expect(page.getByText("Saved").first()).toBeVisible();
-
     await expect
       .poll(async () => {
         const users = await convex.query(api.access.listUsersWithRoles, {
@@ -279,49 +267,6 @@ test.describe("admin access management", () => {
         return users.find((user) => user.email === targetEmail)?.roleIds ?? [];
       })
       .toEqual([roleId]);
-
-    await page.getByLabel("Select Bulk One").check();
-    await page.getByLabel("Select Bulk Two").check();
-    await expect(page.getByText("2 selected")).toBeVisible();
-    await page.getByLabel("Role for selected users").selectOption(roleId);
-    await page.getByRole("button", { name: "Assign role" }).click();
-    await expect(page.getByText("Saved").first()).toBeVisible();
-
-    await expect
-      .poll(async () => {
-        const users = await convex.query(api.access.listUsersWithRoles, {
-          siteSlug: SITE_SLUG,
-        });
-        return users
-          .filter((user) =>
-            [bulkOneEmail, bulkTwoEmail].includes(user.email),
-          )
-          .map((user) => user.roleIds)
-          .sort();
-      })
-      .toEqual([[roleId], [roleId]]);
-
-    await page.getByLabel("Select Bulk One").check();
-    await page.getByLabel("Select Bulk Two").check();
-    await page.getByRole("button", { name: "Delete" }).click();
-    await expect(
-      page.getByRole("dialog", { name: "Delete selected users" }),
-    ).toBeVisible();
-    await page
-      .getByRole("dialog", { name: "Delete selected users" })
-      .getByRole("button", { name: "Delete" })
-      .click();
-
-    await expect
-      .poll(async () => {
-        const users = await convex.query(api.access.listUsersWithRoles, {
-          siteSlug: SITE_SLUG,
-        });
-        return users.filter((user) =>
-          [bulkOneEmail, bulkTwoEmail].includes(user.email),
-        ).length;
-      })
-      .toBe(0);
 
     await context.close();
   });

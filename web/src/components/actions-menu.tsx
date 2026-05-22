@@ -2,7 +2,7 @@
 
 import { type ReactElement, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { Command, Download, EllipsisVertical, FileText, LogIn, LogOut, Moon, Sparkles, Sun, UserPlus } from "lucide-react";
+import { Command, Download, EllipsisVertical, FileText, LogIn, LogOut, Moon, ShieldCheck, Sparkles, Sun, UserPlus } from "lucide-react";
 import { themeEffect } from "@/lib/theme-effect";
 import { openActionPalette } from "@/components/command-palette";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import {
 type SessionUser = {
   email: string;
   name: string | null;
+  isAdmin?: boolean;
 };
 
 let listeners: Array<() => void> = [];
@@ -327,6 +328,12 @@ export function ActionsMenu({ trigger }: { trigger?: ReactElement } = {}) {
             ) : user ? (
               <>
                 <DropdownMenuItem disabled>{user.name || user.email}</DropdownMenuItem>
+                {user.isAdmin ? (
+                  <DropdownMenuItem onClick={() => router.push("/admin")}>
+                    <ShieldCheck />
+                    Admin
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuItem onClick={signOut}>
                   <LogOut />
                   Sign out

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 type RoleOption = {
   _id: string;
@@ -29,11 +29,6 @@ export function AccessRoleSelect({
   const [lastSavedRoleId, setLastSavedRoleId] = useState(initialRoleId);
   const [status, setStatus] = useState("");
   const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    setSelectedRoleId(initialRoleId);
-    setLastSavedRoleId(initialRoleId);
-  }, [initialRoleId]);
 
   function saveRole(nextRoleId: string) {
     setSelectedRoleId(nextRoleId);
