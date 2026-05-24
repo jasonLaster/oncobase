@@ -33,6 +33,7 @@ type RoleRules = {
   excludePathPatterns: string[];
   includeTags: string[];
   excludeTags: string[];
+  emailPatterns: string[];
 };
 
 type Role = RoleRules & {
@@ -136,6 +137,8 @@ function RoleRulesFields({
   setIncludeTags,
   excludeTags,
   setExcludeTags,
+  emailPatterns,
+  setEmailPatterns,
 }: {
   name: string;
   setName: (value: string) => void;
@@ -149,6 +152,8 @@ function RoleRulesFields({
   setIncludeTags: (value: string) => void;
   excludeTags: string;
   setExcludeTags: (value: string) => void;
+  emailPatterns: string;
+  setEmailPatterns: (value: string) => void;
 }) {
   return (
     <div className="grid gap-3">
@@ -164,6 +169,14 @@ function RoleRulesFields({
         <Input
           value={description}
           onChange={(event) => setDescription(event.currentTarget.value)}
+        />
+      </label>
+      <label className="grid gap-1.5 text-sm font-medium">
+        Auto-assign emails
+        <Input
+          value={emailPatterns}
+          onChange={(event) => setEmailPatterns(event.currentTarget.value)}
+          placeholder="serova.bio, @serova.bio, name@example.com"
         />
       </label>
       <label className="grid gap-1.5 text-sm font-medium">
@@ -366,6 +379,8 @@ function RoleRuleModalBody({
   setIncludeTags,
   excludeTags,
   setExcludeTags,
+  emailPatterns,
+  setEmailPatterns,
 }: {
   pages: PreviewPage[];
   name: string;
@@ -380,6 +395,8 @@ function RoleRuleModalBody({
   setIncludeTags: (value: string) => void;
   excludeTags: string;
   setExcludeTags: (value: string) => void;
+  emailPatterns: string;
+  setEmailPatterns: (value: string) => void;
 }) {
   const [tab, setTab] = useState<"rules" | "preview">("rules");
   const rules = useMemo(
@@ -388,8 +405,15 @@ function RoleRuleModalBody({
       excludePathPatterns: textToList(excludePathPatterns),
       includeTags: textToList(includeTags),
       excludeTags: textToList(excludeTags),
+      emailPatterns: textToList(emailPatterns),
     }),
-    [excludePathPatterns, excludeTags, includePathPatterns, includeTags],
+    [
+      emailPatterns,
+      excludePathPatterns,
+      excludeTags,
+      includePathPatterns,
+      includeTags,
+    ],
   );
 
   return (
@@ -435,6 +459,8 @@ function RoleRuleModalBody({
           setIncludeTags={setIncludeTags}
           excludeTags={excludeTags}
           setExcludeTags={setExcludeTags}
+          emailPatterns={emailPatterns}
+          setEmailPatterns={setEmailPatterns}
         />
       ) : (
         <RoleRulesPreview pages={pages} rules={rules} />
@@ -451,6 +477,7 @@ function roleValues({
   excludePathPatterns,
   includeTags,
   excludeTags,
+  emailPatterns,
 }: {
   name: string;
   description: string;
@@ -458,6 +485,7 @@ function roleValues({
   excludePathPatterns: string;
   includeTags: string;
   excludeTags: string;
+  emailPatterns: string;
 }) {
   return {
     name,
@@ -466,6 +494,7 @@ function roleValues({
     excludePathPatterns: textToList(excludePathPatterns),
     includeTags: textToList(includeTags),
     excludeTags: textToList(excludeTags),
+    emailPatterns: textToList(emailPatterns),
   };
 }
 
@@ -484,6 +513,7 @@ export function AccessRoleCreateButton({
   const [excludePathPatterns, setExcludePathPatterns] = useState("");
   const [includeTags, setIncludeTags] = useState("");
   const [excludeTags, setExcludeTags] = useState("");
+  const [emailPatterns, setEmailPatterns] = useState("");
   const [status, setStatus] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -494,6 +524,7 @@ export function AccessRoleCreateButton({
     setExcludePathPatterns("");
     setIncludeTags("");
     setExcludeTags("");
+    setEmailPatterns("");
     setStatus("");
   }
 
@@ -509,6 +540,7 @@ export function AccessRoleCreateButton({
             excludePathPatterns,
             includeTags,
             excludeTags,
+            emailPatterns,
           }),
         );
         if (result.ok) {
@@ -550,6 +582,8 @@ export function AccessRoleCreateButton({
             setIncludeTags={setIncludeTags}
             excludeTags={excludeTags}
             setExcludeTags={setExcludeTags}
+            emailPatterns={emailPatterns}
+            setEmailPatterns={setEmailPatterns}
           />
           <p aria-live="polite" className="min-h-4 text-xs text-muted-foreground">
             {isPending ? "Saving" : status}
@@ -595,6 +629,9 @@ export function AccessRoleActions({
   );
   const [includeTags, setIncludeTags] = useState(listToText(role.includeTags));
   const [excludeTags, setExcludeTags] = useState(listToText(role.excludeTags));
+  const [emailPatterns, setEmailPatterns] = useState(
+    listToText(role.emailPatterns),
+  );
   const [status, setStatus] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -610,6 +647,7 @@ export function AccessRoleActions({
             excludePathPatterns,
             includeTags,
             excludeTags,
+            emailPatterns,
           }),
         });
         if (result.ok) {
@@ -689,6 +727,8 @@ export function AccessRoleActions({
             setIncludeTags={setIncludeTags}
             excludeTags={excludeTags}
             setExcludeTags={setExcludeTags}
+            emailPatterns={emailPatterns}
+            setEmailPatterns={setEmailPatterns}
           />
           <p aria-live="polite" className="min-h-4 text-xs text-muted-foreground">
             {isPending ? "Saving" : status}

@@ -197,6 +197,7 @@ export default defineSchema({
     siteId: v.optional(v.id("sites")),
     name: v.string(),
     description: v.optional(v.string()),
+    emailPatterns: v.optional(v.array(v.string())),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

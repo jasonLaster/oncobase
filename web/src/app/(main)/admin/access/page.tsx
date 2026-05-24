@@ -16,6 +16,7 @@ type AccessRole = {
   excludePathPatterns?: string[];
   includeTags?: string[];
   excludeTags?: string[];
+  emailPatterns?: string[];
 };
 
 type AccessUser = {
@@ -39,6 +40,7 @@ type RoleRuleValues = {
   excludePathPatterns?: string[];
   includeTags?: string[];
   excludeTags?: string[];
+  emailPatterns?: string[];
 };
 
 type SaveResult = {
@@ -81,6 +83,7 @@ async function createRole(values: RoleRuleValues): Promise<SaveResult> {
       excludePathPatterns: values.excludePathPatterns ?? [],
       includeTags,
       excludeTags: values.excludeTags ?? [],
+      emailPatterns: values.emailPatterns ?? [],
     });
     revalidatePath("/admin/access");
     return { ok: true };
@@ -119,6 +122,7 @@ async function updateRole(
       excludePathPatterns: values.excludePathPatterns ?? [],
       includeTags,
       excludeTags: values.excludeTags ?? [],
+      emailPatterns: values.emailPatterns ?? [],
     });
     revalidatePath("/admin/access");
     return { ok: true };
@@ -196,6 +200,7 @@ export default async function AccessAdminPage() {
     excludePathPatterns: role.excludePathPatterns ?? [],
     includeTags: role.includeTags ?? [],
     excludeTags: role.excludeTags ?? [],
+    emailPatterns: role.emailPatterns ?? [],
   }));
   const previewPages = rawPreviewPages
     .map((page) => ({
@@ -231,7 +236,7 @@ export default async function AccessAdminPage() {
             data-testid="roles-table-scroll"
             className="overflow-x-auto rounded-lg border border-border"
           >
-            <table className="min-w-[980px] w-full text-left text-sm">
+            <table className="min-w-[1120px] w-full text-left text-sm">
             <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 font-medium">Role</th>
@@ -239,6 +244,7 @@ export default async function AccessAdminPage() {
                 <th className="px-3 py-2 font-medium">Exclude paths</th>
                 <th className="px-3 py-2 font-medium">Include tags</th>
                 <th className="px-3 py-2 font-medium">Exclude tags</th>
+                <th className="px-3 py-2 font-medium">Auto emails</th>
                 <th className="w-12 px-3 py-2 font-medium">
                   <span className="sr-only">Actions</span>
                 </th>
@@ -260,6 +266,9 @@ export default async function AccessAdminPage() {
                   <td className="px-3 py-2 text-muted-foreground">
                     {role.excludeTags.join(", ") || "None"}
                   </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {role.emailPatterns.join(", ") || "Manual"}
+                  </td>
                   <td className="px-3 py-2 text-right">
                     <AccessRoleActions
                       role={role}
@@ -272,7 +281,7 @@ export default async function AccessAdminPage() {
               ))}
               {roles.length === 0 && (
                 <tr>
-                  <td className="px-3 py-6 text-muted-foreground" colSpan={6}>
+                  <td className="px-3 py-6 text-muted-foreground" colSpan={7}>
                     No roles
                   </td>
                 </tr>

@@ -270,6 +270,7 @@ export function createSiteData(
         excludePathPatterns?: string[];
         includeTags?: string[];
         excludeTags?: string[];
+        emailPatterns?: string[];
       }) =>
         convex.mutation((api as any).access.createRole, args as any),
       updateRole: (args: {
@@ -281,6 +282,7 @@ export function createSiteData(
         excludePathPatterns?: string[];
         includeTags?: string[];
         excludeTags?: string[];
+        emailPatterns?: string[];
       }) =>
         convex.mutation((api as any).access.updateRole, args as any),
       deleteRole: (args: { roleId: string }) =>

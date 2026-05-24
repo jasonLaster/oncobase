@@ -26,6 +26,38 @@ function cleanTags(values: string[] | undefined) {
   return cleanList(values).map((tag) => tag.toLowerCase());
 }
 
+function cleanEmailPatterns(values: string[] | undefined) {
+  return cleanList(values).map((pattern) => pattern.toLowerCase());
+}
+
+function emailMatchesPattern(email: string, pattern: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedPattern = pattern.trim().toLowerCase();
+  const emailDomain = normalizedEmail.split("@")[1] ?? "";
+
+  if (!normalizedEmail || !normalizedPattern || !emailDomain) return false;
+
+  if (normalizedPattern.startsWith("*@")) {
+    return emailDomain === normalizedPattern.slice(2);
+  }
+
+  if (normalizedPattern.startsWith("@")) {
+    return emailDomain === normalizedPattern.slice(1);
+  }
+
+  if (!normalizedPattern.includes("@")) {
+    return emailDomain === normalizedPattern;
+  }
+
+  return normalizedEmail === normalizedPattern;
+}
+
+function roleMatchesEmail(role: Doc<"roles">, email: string) {
+  return cleanEmailPatterns(role.emailPatterns).some((pattern) =>
+    emailMatchesPattern(email, pattern),
+  );
+}
+
 type PermissionRule = Pick<
   Doc<"rolePermissions">,
   | "pathPattern"
@@ -208,13 +240,24 @@ export const listUsersWithRoles = query({
 
     return users
       .filter((user) => rowBelongsToSite(user, site))
-      .map((user) => ({
-        _id: user._id,
-        email: user.email,
-        name: user.name ?? null,
-        roles: rolesByUser.get(user._id) ?? [],
-        roleIds: roleIdsByUser.get(user._id) ?? [],
-      }));
+      .map((user) => {
+        const roleNames = new Set(rolesByUser.get(user._id) ?? []);
+        const roleIds = new Set(roleIdsByUser.get(user._id) ?? []);
+
+        for (const role of rolesById.values()) {
+          if (!roleMatchesEmail(role, user.email)) continue;
+          roleNames.add(role.name);
+          roleIds.add(String(role._id));
+        }
+
+        return {
+          _id: user._id,
+          email: user.email,
+          name: user.name ?? null,
+          roles: Array.from(roleNames),
+          roleIds: Array.from(roleIds),
+        };
+      });
   },
 });
 
@@ -233,6 +276,7 @@ export const listRoles = query({
         return {
           ...role,
           ...summarizePermissions(rolePermissions),
+          emailPatterns: cleanEmailPatterns(role.emailPatterns),
         };
       });
   },
@@ -247,6 +291,7 @@ export const createRole = mutation({
     excludePathPatterns: v.optional(v.array(v.string())),
     includeTags: v.optional(v.array(v.string())),
     excludeTags: v.optional(v.array(v.string())),
+    emailPatterns: v.optional(v.array(v.string())),
     siteSlug: v.optional(v.string()),
   },
   handler: async (
@@ -259,6 +304,7 @@ export const createRole = mutation({
       excludePathPatterns,
       includeTags,
       excludeTags,
+      emailPatterns,
       siteSlug,
     },
   ) => {
@@ -267,6 +313,7 @@ export const createRole = mutation({
       ...(site.siteId ? { siteId: site.siteId } : {}),
       name,
       description,
+      emailPatterns: cleanEmailPatterns(emailPatterns),
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -291,6 +338,7 @@ export const updateRole = mutation({
     excludePathPatterns: v.optional(v.array(v.string())),
     includeTags: v.optional(v.array(v.string())),
     excludeTags: v.optional(v.array(v.string())),
+    emailPatterns: v.optional(v.array(v.string())),
     siteSlug: v.optional(v.string()),
   },
   handler: async (
@@ -304,6 +352,7 @@ export const updateRole = mutation({
       excludePathPatterns,
       includeTags,
       excludeTags,
+      emailPatterns,
       siteSlug,
     },
   ) => {
@@ -316,6 +365,7 @@ export const updateRole = mutation({
     await ctx.db.patch(roleId, {
       name: name.trim(),
       description: description?.trim() || undefined,
+      emailPatterns: cleanEmailPatterns(emailPatterns),
       updatedAt: Date.now(),
     });
     await replaceRolePermissions(ctx, site, roleId, {
@@ -470,15 +520,47 @@ export const canUserAccessSlug = query({
     }
 
     const assignments = site.siteId
-      ? await ctx.db.query("userRoles").withIndex("by_site_user", (q) => q.eq("siteId", site.siteId!).eq("userId", userId)).collect()
-      : await ctx.db.query("userRoles").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
+      ? await ctx.db
+          .query("userRoles")
+          .withIndex("by_site_user", (q) =>
+            q.eq("siteId", site.siteId!).eq("userId", userId),
+          )
+          .collect()
+      : await ctx.db
+          .query("userRoles")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .collect();
+    const user = await ctx.db.get(userId);
+    const allowedRoleIds = new Set<string>();
+    for (const assignment of assignments) {
+      if (
+        rowBelongsToSite(assignment, site) &&
+        rolesById.has(assignment.roleId)
+      ) {
+        allowedRoleIds.add(String(assignment.roleId));
+      }
+    }
+    if (user && rowBelongsToSite(user, site)) {
+      for (const role of rolesById.values()) {
+        if (roleMatchesEmail(role, user.email)) {
+          allowedRoleIds.add(String(role._id));
+        }
+      }
+    }
     const rules: PermissionRule[] = [];
-    for (const a of assignments) {
-      if (!rowBelongsToSite(a, site)) continue;
-      if (!rolesById.has(a.roleId)) continue;
+    for (const roleId of allowedRoleIds) {
+      const typedRoleId = roleId as Id<"roles">;
       const perms = site.siteId
-        ? await ctx.db.query("rolePermissions").withIndex("by_site_role", (q) => q.eq("siteId", site.siteId!).eq("roleId", a.roleId)).collect()
-        : await ctx.db.query("rolePermissions").withIndex("by_role", (q) => q.eq("roleId", a.roleId)).collect();
+        ? await ctx.db
+            .query("rolePermissions")
+            .withIndex("by_site_role", (q) =>
+              q.eq("siteId", site.siteId!).eq("roleId", typedRoleId),
+            )
+            .collect()
+        : await ctx.db
+            .query("rolePermissions")
+            .withIndex("by_role", (q) => q.eq("roleId", typedRoleId))
+            .collect();
       for (const p of perms) if (rowBelongsToSite(p, site)) rules.push(p);
     }
     return rules.some((rule) => ruleMatchesSlug(rule, slug, documentTags));

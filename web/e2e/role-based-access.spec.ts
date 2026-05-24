@@ -19,6 +19,7 @@ const PROTECTED_SLUG = "sources/rbac-private";
 const TAG_PROTECTED_SLUG = "sources/rbac-tag-private";
 const TAG_EXCLUDED_SLUG = "sources/rbac-tag-excluded";
 const PATH_EXCLUDED_SLUG = "sources/rbac-private/excluded";
+const SEROVA_SENSITIVE_SLUG = "sources/rbac-serova-sensitive";
 const PASSWORD = "correct horse battery";
 
 function tokenHash() {
@@ -74,6 +75,7 @@ test.describe("role-based access permissions", () => {
   let anonymous: APIRequestContext;
   let unassignedUser: APIRequestContext;
   let assignedUser: APIRequestContext;
+  let serovaUser: APIRequestContext;
 
   test.beforeAll(async ({ baseURL }) => {
     const url = baseURL ?? "http://localhost:3000";
@@ -132,6 +134,15 @@ test.describe("role-based access permissions", () => {
       contentHash: `${RUN_NONCE}-path-excluded`,
       sensitive: true,
     });
+    await convex.mutation(api.documents.upsert, {
+      siteSlug: SITE_SLUG,
+      slug: SEROVA_SENSITIVE_SLUG,
+      title: "RBAC Serova Sensitive Source",
+      content: "Serova-sensitive marker only matching email domains should see.",
+      tags: ["serova-sensitive"],
+      contentHash: `${RUN_NONCE}-serova-sensitive`,
+      sensitive: true,
+    });
 
     anonymous = await playwrightRequest.newContext({
       baseURL: url,
@@ -145,6 +156,10 @@ test.describe("role-based access permissions", () => {
     assignedUser = await newSiteUserContext(
       url,
       `assigned-${RUN_NONCE}@example.test`,
+    );
+    serovaUser = await newSiteUserContext(
+      url,
+      `serova-${RUN_NONCE}@serova.bio`,
     );
 
     const assignedAccount = await convex.query(api.users.getByEmailForAuth, {
@@ -177,6 +192,13 @@ test.describe("role-based access permissions", () => {
       userId: assignedAccount!._id,
       roleId: tagRoleId,
     });
+
+    await convex.mutation(api.access.createRole, {
+      siteSlug: SITE_SLUG,
+      name: "Serova sensitive reader",
+      includeTags: ["serova-sensitive"],
+      emailPatterns: ["serova.bio"],
+    });
   });
 
   test.afterAll(async () => {
@@ -184,6 +206,7 @@ test.describe("role-based access permissions", () => {
       anonymous?.dispose(),
       unassignedUser?.dispose(),
       assignedUser?.dispose(),
+      serovaUser?.dispose(),
     ]);
     if (!convex) return;
     try {
@@ -206,6 +229,10 @@ test.describe("role-based access permissions", () => {
       await convex.mutation(api.documents.deleteBySlug, {
         siteSlug: SITE_SLUG,
         slug: PATH_EXCLUDED_SLUG,
+      });
+      await convex.mutation(api.documents.deleteBySlug, {
+        siteSlug: SITE_SLUG,
+        slug: SEROVA_SENSITIVE_SLUG,
       });
       await convex.mutation(api.sites.archive, { slug: SITE_SLUG });
     } catch {
@@ -244,5 +271,16 @@ test.describe("role-based access permissions", () => {
     expect(await allowed.text()).toContain("RBAC Tag Protected Source");
 
     await expectSourceNotFound(assignedUser, TAG_EXCLUDED_SLUG);
+  });
+
+  test("applies email domain role rules", async () => {
+    await expectSourceNotFound(unassignedUser, SEROVA_SENSITIVE_SLUG);
+
+    const allowed = await expectSourceStatus(
+      serovaUser,
+      SEROVA_SENSITIVE_SLUG,
+      200,
+    );
+    expect(await allowed.text()).toContain("RBAC Serova Sensitive Source");
   });
 });
