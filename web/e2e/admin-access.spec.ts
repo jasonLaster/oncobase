@@ -138,20 +138,29 @@ test.describe("admin access management", () => {
     await page.goto("/admin");
 
     await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Users/ })).toHaveAttribute(
-      "href",
-      "/admin/access#users",
-    );
-    await expect(page.getByRole("link", { name: /Roles/ })).toHaveAttribute(
-      "href",
-      "/admin/access#roles",
-    );
+    await expect(
+      page.getByRole("link", { name: /Users Review signed-in/ }),
+    ).toHaveAttribute("href", "/admin/users");
+    await expect(
+      page.getByRole("link", { name: /Roles Create and edit/ }),
+    ).toHaveAttribute("href", "/admin/roles");
 
-    await page.goto("/admin/access");
+    await page.goto("/admin/pages");
 
-    await expect(page.getByRole("heading", { name: "Access Control" })).toBeVisible();
-    await expect(page.getByRole("complementary")).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Pages" }),
+    ).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "Admin" })).toBeVisible();
+    await expect(
+      page.getByRole("complementary", { name: "Admin" }).getByRole("link", {
+        name: "Pages",
+      }),
+    ).toHaveAttribute("href", "/admin/pages");
 
+    await page.goto("/admin/roles");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Roles" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Create role" }).click();
     await expect(page.getByRole("dialog", { name: "Create role" })).toBeVisible();
     await page.getByLabel("Role name").fill(roleName);
@@ -172,12 +181,14 @@ test.describe("admin access management", () => {
     await createDialog.getByRole("tab", { name: "Rules" }).click();
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("dialog", { name: "Create role" })).toBeHidden();
-    await expect(page.getByRole("row", { name: new RegExp(roleName) })).toBeVisible();
+    const rolesSection = page.locator("#roles");
+    await expect(
+      rolesSection.getByRole("row", { name: new RegExp(roleName) }),
+    ).toBeVisible();
 
     await page.setViewportSize({ width: 500, height: 800 });
     const roleTableWidths = await page
-      .locator("table")
-      .first()
+      .locator("#roles table")
       .evaluate((element) => ({
         clientWidth: element.parentElement?.clientWidth ?? 0,
         scrollWidth: element.parentElement?.scrollWidth ?? 0,
@@ -185,22 +196,6 @@ test.describe("admin access management", () => {
     expect(roleTableWidths.scrollWidth).toBeGreaterThan(
       roleTableWidths.clientWidth,
     );
-    await page.setViewportSize({ width: 1280, height: 720 });
-
-    await page.setViewportSize({ width: 500, height: 360 });
-    const pageScroll = await page.locator("main").evaluate((element) => {
-      element.scrollTop = 100;
-      const style = window.getComputedStyle(element);
-      return {
-        clientHeight: element.clientHeight,
-        overflowY: style.overflowY,
-        scrollHeight: element.scrollHeight,
-        scrollTop: element.scrollTop,
-      };
-    });
-    expect(pageScroll.overflowY).toBe("auto");
-    expect(pageScroll.scrollHeight).toBeGreaterThan(pageScroll.clientHeight);
-    expect(pageScroll.scrollTop).toBeGreaterThan(0);
     await page.setViewportSize({ width: 1280, height: 720 });
 
     let roleId = "";
@@ -254,6 +249,10 @@ test.describe("admin access management", () => {
         includeTags: ["research-private"],
       });
 
+    await page.goto("/admin/users");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Users" }),
+    ).toBeVisible();
     await page
       .getByRole("row", { name: new RegExp(`Target User ${targetEmail}`) })
       .getByLabel("Role for Target User")

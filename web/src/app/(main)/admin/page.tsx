@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   ArrowRightIcon,
+  FileLock2Icon,
   ShieldCheckIcon,
   SlidersHorizontalIcon,
   UsersRoundIcon,
@@ -24,21 +25,27 @@ type AdminLink = {
 
 const adminLinks: AdminLink[] = [
   {
+    title: "Pages",
+    description: "Review hidden pages and role-based exclusions.",
+    href: "/admin/pages",
+    icon: FileLock2Icon,
+  },
+  {
     title: "Users",
     description: "Review signed-in accounts and assign the right role.",
-    href: "/admin/access#users",
+    href: "/admin/users",
     icon: UsersRoundIcon,
   },
   {
     title: "Roles",
     description: "Create and edit path and tag based access rules.",
-    href: "/admin/access#roles",
+    href: "/admin/roles",
     icon: ShieldCheckIcon,
   },
   {
     title: "Access Control",
-    description: "Open the full users, roles, and access rules table.",
-    href: "/admin/access",
+    description: "Start with the page visibility and exclusion view.",
+    href: "/admin/pages",
     icon: SlidersHorizontalIcon,
   },
 ];
@@ -80,7 +87,7 @@ export default async function AdminPage() {
 
             return (
               <Link
-                key={item.href}
+              key={item.title}
                 href={item.href}
                 className="group flex min-h-28 items-start gap-3 rounded-lg border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               >
