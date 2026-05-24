@@ -95,12 +95,16 @@ export function buildCommentListItems(
   threads: ThreadData[],
   draftAnchor?: SelectionAnchor | null
 ): CommentListItem[] {
-  const items: CommentListItem[] = threads.map((thread, order) => ({
-    type: "thread",
-    thread,
-    order,
-    anchorStart: getThreadAnchor(thread)?.start ?? Number.POSITIVE_INFINITY,
-  }));
+  const items: CommentListItem[] = threads.flatMap((thread, order) => {
+    const anchor = getThreadAnchor(thread);
+    if (!anchor) return [];
+    return [{
+      type: "thread",
+      thread,
+      order,
+      anchorStart: anchor.start,
+    }];
+  });
 
   if (draftAnchor) {
     items.push({

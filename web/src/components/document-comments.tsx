@@ -14,6 +14,11 @@ import {
 import type { ThreadData } from "@liveblocks/client";
 import { useThreads } from "@liveblocks/react";
 import { Comment, Composer, Thread } from "@liveblocks/react-ui";
+import {
+  AuthDialog,
+  type SessionUser,
+  useSessionUser,
+} from "@/components/actions-menu";
 import { cn } from "@/lib/utils";
 import { LiveblocksRoom } from "@/components/liveblocks-room";
 import {
@@ -31,9 +36,11 @@ import {
   type SelectionAnchor,
   sortThreads,
 } from "@/lib/liveblocks-comments";
+import { commentsFeatureEnabled } from "@/lib/comments-feature";
 
 type HighlightRect = {
   id: string;
+  threadId?: string;
   top: number;
   left: number;
   width: number;
@@ -639,6 +646,51 @@ function DraftSelectionThreadCard({
   );
 }
 
+function CommentSignInPrompt({
+  context = "comment",
+}: {
+  context?: "comment" | "selection";
+}) {
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const { setUser } = useSessionUser();
+
+  function handleAuthSuccess(nextUser: SessionUser) {
+    setUser(nextUser);
+    window.dispatchEvent(new CustomEvent("wiki-auth-session-change"));
+  }
+
+  return (
+    <>
+      <div
+        data-test-id="comments-sign-in-state"
+        className="rounded-xl border border-dashed border-[var(--sidebar-border)] bg-[var(--background)] px-4 py-5 text-sm"
+      >
+        <p className="font-medium text-[var(--foreground)]">
+          Sign in to leave a comment
+        </p>
+        {context === "selection" ? (
+          <p className="mt-1 leading-6 text-[var(--text-muted)]">
+            Your selected text is ready. Sign in to attach a comment to it.
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setAuthDialogOpen(true)}
+          className="mt-3 inline-flex w-full items-center justify-center rounded-md border border-indigo-600 bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:border-indigo-700 hover:bg-indigo-700"
+        >
+          Sign in
+        </button>
+      </div>
+
+      <AuthDialog
+        open={authDialogOpen}
+        onOpenChange={setAuthDialogOpen}
+        onAuthSuccess={handleAuthSuccess}
+      />
+    </>
+  );
+}
+
 function CommentsShell({
   documentSlug,
   documentTitle,
@@ -649,6 +701,8 @@ function CommentsShell({
   children: ReactNode;
 }) {
   const threadsResult = useThreads();
+  const { loadingUser, user: sessionUser } = useSessionUser();
+  const canComment = Boolean(sessionUser);
   const threads = useMemo(
     () => (threadsResult.isLoading || threadsResult.error ? [] : threadsResult.threads),
     [threadsResult.isLoading, threadsResult.error, threadsResult.threads]
@@ -658,7 +712,7 @@ function CommentsShell({
   const rafRef = useRef<number | null>(null);
   const pendingSelectionId = useId();
   const [pendingSelection, setPendingSelection] = useState<SelectionAnchor | null>(null);
-  const [composerMode, setComposerMode] = useState<"page" | "selection" | null>(null);
+  const [composerMode, setComposerMode] = useState<"selection" | null>(null);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [highlightRects, setHighlightRects] = useState<HighlightRect[]>([]);
   const [selectionTooltip, setSelectionTooltip] = useState<SelectionTooltipPosition | null>(null);
@@ -715,7 +769,9 @@ function CommentsShell({
 
   const sortedThreads = useMemo(() => sortThreads(threads), [threads]);
   const visibleThreads = useMemo(
-    () => (showResolvedThreads ? sortedThreads : sortedThreads.filter((thread) => !thread.resolved)),
+    () =>
+      (showResolvedThreads ? sortedThreads : sortedThreads.filter((thread) => !thread.resolved))
+        .filter((thread) => getThreadAnchor(thread)),
     [showResolvedThreads, sortedThreads]
   );
   const numberedThreads = useMemo(
@@ -778,6 +834,7 @@ function CommentsShell({
         rects.forEach((rect, rectIndex) => {
           nextRects.push({
             id: `${thread.id}:${rectIndex}`,
+            threadId: thread.id,
             active,
             pending: false,
             top: rect.top - rootRect.top + root.scrollTop,
@@ -866,24 +923,72 @@ function CommentsShell({
     }, 0);
   };
 
+  const handleArticleClick = (event: React.MouseEvent<HTMLElement>) => {
+    const root = articleRef.current;
+    if (!root) return;
+
+    const target = event.target as HTMLElement;
+    if (
+      target.closest(
+        "button, a, input, textarea, select, [role='button'], [contenteditable='true']"
+      )
+    ) {
+      return;
+    }
+
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) return;
+
+    const rootRect = root.getBoundingClientRect();
+    const x = event.clientX - rootRect.left;
+    const y = event.clientY - rootRect.top + root.scrollTop;
+    const clickedThreadId = highlightRects.find(
+      (rect) =>
+        rect.threadId &&
+        !rect.pending &&
+        x >= rect.left &&
+        x <= rect.left + rect.width &&
+        y >= rect.top &&
+        y <= rect.top + rect.height
+    )?.threadId;
+
+    if (!clickedThreadId) return;
+    event.preventDefault();
+    focusThreadById(clickedThreadId);
+  };
+
   const focusThread = useCallback((thread: ThreadData, options?: { syncUrl?: boolean }) => {
     const root = articleRef.current;
+    const anchor = getThreadAnchor(thread);
+    if (!anchor) return;
+
     setPendingSelection(null);
     setComposerMode(null);
+    setSidebarMode("comments");
+    setCommentsOpen(true);
     setActiveThreadId(thread.id);
     if (options?.syncUrl !== false) {
       updateThreadQueryParam(thread.id);
     }
 
-    const anchor = getThreadAnchor(thread);
-    if (!root || !anchor) return;
+    if (!root) return;
 
     const range = restoreRange(root, anchor);
     if (!range) return;
     const target = getRangeAnchorElement(range);
     if (!target) return;
     scrollElementIntoContainerView(target, 96);
-  }, []);
+  }, [setCommentsOpen]);
+
+  const focusThreadById = useCallback(
+    (threadId: string) => {
+      const thread = sortedThreads.find((candidate) => candidate.id === threadId);
+      if (!thread) return false;
+      focusThread(thread);
+      return true;
+    },
+    [focusThread, sortedThreads]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -892,9 +997,18 @@ function CommentsShell({
     if (!threadId || activeThreadId === threadId) return;
 
     const thread = sortedThreads.find((candidate) => candidate.id === threadId);
-    if (!thread) return;
+    if (!thread) {
+      if (!threadsResult.isLoading) {
+        updateThreadQueryParam(null);
+      }
+      return;
+    }
 
     const timeoutId = window.setTimeout(() => {
+      if (!getThreadAnchor(thread)) {
+        updateThreadQueryParam(null);
+        return;
+      }
       if (thread.resolved && !showResolvedThreads) {
         setShowResolvedThreads(true);
       }
@@ -910,6 +1024,7 @@ function CommentsShell({
     setCommentsOpen,
     showResolvedThreads,
     sortedThreads,
+    threadsResult.isLoading,
   ]);
 
   const jumpToHeading = (id: string) => {
@@ -1018,36 +1133,9 @@ function CommentsShell({
   const sidebarContent = (
     <div className="bg-[var(--background)]/40 p-3">
       <div className="space-y-4">
-        {sidebarMode === "comments" &&
-        effectiveComposerMode !== "page" &&
-        effectiveComposerMode !== "selection" ? (
-          <button
-            type="button"
-            onClick={() => {
-              setPendingSelection(null);
-              setSelectionTooltip(null);
-              setActiveThreadId(null);
-              updateThreadQueryParam(null);
-              setComposerMode("page");
-            }}
-            className="flex w-full items-center justify-between rounded-xl border border-dashed border-[var(--sidebar-border)] bg-[var(--background)] px-3 py-3 text-left text-sm text-[var(--text-muted)] transition-colors hover:border-[var(--brand)] hover:text-[var(--foreground)]"
-          >
-            <span>Add a page-level comment</span>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M8 3.25v9.5M3.25 8h9.5" />
-            </svg>
-          </button>
-        ) : null}
-
-        {sidebarMode === "comments" && effectiveComposerMode === "page" ? (
-          <Composer
-            key="page-comment-composer"
-            metadata={createThreadMetadata({ documentSlug, documentTitle })}
-            autoFocus
-            className="lb-composer-override"
-            onComposerSubmit={() => {
-              setComposerMode(null);
-            }}
+        {sidebarMode === "comments" && !loadingUser && !canComment ? (
+          <CommentSignInPrompt
+            context={pendingSelection ? "selection" : "comment"}
           />
         ) : null}
 
@@ -1083,7 +1171,7 @@ function CommentsShell({
           <div className="space-y-3">
             {commentListItems.map((item) => {
               if (item.type === "draft-selection") {
-                if (!pendingSelection) return null;
+                if (!pendingSelection || !canComment) return null;
                 return (
                   <DraftSelectionThreadCard
                     key="draft-selection"
@@ -1186,7 +1274,7 @@ function CommentsShell({
                                 Copy comment
                               </Comment.DropdownItem>
                             ) : null}
-                            {isFirstComment ? (
+                            {isFirstComment && canComment ? (
                               <Comment.DropdownItem
                                 onSelect={() => {
                                   void (async () => {
@@ -1205,9 +1293,11 @@ function CommentsShell({
                                     );
 
                                     if (!response.ok) return;
+                                    if (activeThreadId === thread.id) {
+                                      updateThreadQueryParam(null);
+                                    }
                                     setActiveThreadId((current) => {
                                       if (current === thread.id) {
-                                        updateThreadQueryParam(null);
                                         return null;
                                       }
 
@@ -1266,6 +1356,7 @@ function CommentsShell({
           <article
             ref={articleRef}
             onPointerUp={handlePointerUp}
+            onClick={handleArticleClick}
             className="relative mx-auto max-w-4xl overflow-visible pr-4 md:pr-8"
             data-test-id="document-article"
             data-document-slug={documentSlug}
@@ -1320,7 +1411,11 @@ function CommentsShell({
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    setComposerMode("selection");
+                    setSidebarMode("comments");
+                    setCommentsOpen(true);
+                    if (canComment) {
+                      setComposerMode("selection");
+                    }
                   }}
                   aria-label="Add comment"
                   title="Add comment"
@@ -1789,7 +1884,7 @@ export function OutlineShell({
 }
 
 export const commentsEnabled =
-  process.env.NEXT_PUBLIC_ENABLE_COMMENTS === "true";
+  commentsFeatureEnabled();
 
 export function ActiveDocumentComments({
   documentSlug,
@@ -1801,7 +1896,14 @@ export function ActiveDocumentComments({
   children: ReactNode;
 }) {
   return (
-    <LiveblocksRoom roomId={getRoomId(documentSlug)}>
+    <LiveblocksRoom
+      roomId={getRoomId(documentSlug)}
+      fallback={
+        <OutlineShell documentSlug={documentSlug} documentTitle={documentTitle}>
+          {children}
+        </OutlineShell>
+      }
+    >
       <CommentsShell documentSlug={documentSlug} documentTitle={documentTitle}>
         {children}
       </CommentsShell>

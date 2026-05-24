@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactElement, useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Command, Download, EllipsisVertical, FileText, LogIn, LogOut, Moon, ShieldCheck, Sparkles, Sun } from "lucide-react";
 import { themeEffect } from "@/lib/theme-effect";
@@ -23,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type SessionUser = {
+export type SessionUser = {
   email: string;
   name: string | null;
   isAdmin?: boolean;
@@ -46,7 +47,7 @@ function notify() {
   listeners.forEach((l) => l());
 }
 
-function useSessionUser() {
+export function useSessionUser() {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
@@ -95,7 +96,7 @@ function useSessionUser() {
   return { loadingUser, setUser, user };
 }
 
-function AuthDialog({
+export function AuthDialog({
   open,
   onOpenChange,
   onAuthSuccess,
@@ -104,6 +105,8 @@ function AuthDialog({
   onOpenChange: (open: boolean) => void;
   onAuthSuccess: (user: SessionUser) => void;
 }) {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -112,6 +115,7 @@ function AuthDialog({
   useEffect(() => {
     if (open) {
       setError("");
+      setMode("signin");
     }
   }, [open]);
 
@@ -121,11 +125,16 @@ function AuthDialog({
     setError("");
 
     try {
-      const response = await fetch("/api/auth/signin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await fetch(
+        mode === "signin" ? "/api/auth/signin" : "/api/auth/signup",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            mode === "signin" ? { email, password } : { email, name, password }
+          ),
+        }
+      );
       const data = await response.json();
 
       if (!response.ok) {
@@ -136,6 +145,7 @@ function AuthDialog({
       onAuthSuccess(data.user);
       onOpenChange(false);
       setPassword("");
+      setName("");
     } catch {
       setError("Unable to reach the server");
     } finally {
@@ -145,46 +155,142 @@ function AuthDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogTitle className="sr-only">Sign in</DialogTitle>
+      <DialogContent className="overflow-hidden p-0 sm:max-w-[760px]">
+        <DialogTitle className="sr-only">
+          {mode === "signin" ? "Sign in" : "Sign up"}
+        </DialogTitle>
         <DialogDescription className="sr-only">
-          Sign in to your account.
+          {mode === "signin"
+            ? "Sign in to your account."
+            : "Create an account."}
         </DialogDescription>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground" htmlFor="auth-email">
-              Email
-            </label>
-            <Input
-              id="auth-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-              required
+        <div className="grid min-h-[430px] md:grid-cols-[minmax(0,1fr)_330px]">
+          <div className="flex items-center p-5 sm:p-8">
+            <div className="w-full">
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold tracking-normal text-[var(--foreground)]">
+                  {mode === "signin" ? "Welcome back" : "Create your account"}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+                  {mode === "signin"
+                    ? "Sign in to comment and view additional content."
+                    : "Join the wiki to comment and follow the work."}
+                </p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-3">
+                {mode === "signup" ? (
+                  <div className="space-y-1">
+                    <label
+                      className="text-xs font-medium text-muted-foreground"
+                      htmlFor="auth-name"
+                    >
+                      Name
+                    </label>
+                    <Input
+                      id="auth-name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Your name"
+                      autoComplete="name"
+                    />
+                  </div>
+                ) : null}
+                <div className="space-y-1">
+                  <label
+                    className="text-xs font-medium text-muted-foreground"
+                    htmlFor="auth-email"
+                  >
+                    Email
+                  </label>
+                  <Input
+                    id="auth-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label
+                    className="text-xs font-medium text-muted-foreground"
+                    htmlFor="auth-password"
+                  >
+                    Password
+                  </label>
+                  <Input
+                    id="auth-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter" || pending) return;
+                      e.preventDefault();
+                      e.currentTarget.form?.requestSubmit();
+                    }}
+                    placeholder="Your password"
+                    autoComplete={
+                      mode === "signin" ? "current-password" : "new-password"
+                    }
+                    required
+                  />
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <Button type="submit" className="w-full" disabled={pending}>
+                  {pending
+                    ? mode === "signin"
+                      ? "Signing in..."
+                      : "Signing up..."
+                    : mode === "signin"
+                      ? "Sign in"
+                      : "Sign up"}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError("");
+                    setMode((current) =>
+                      current === "signin" ? "signup" : "signin"
+                    );
+                  }}
+                  className="block w-full text-center text-sm font-medium text-[var(--brand)] hover:underline"
+                >
+                  {mode === "signin"
+                    ? "Need an account? Sign up"
+                    : "Already have an account? Sign in"}
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div
+            aria-hidden="true"
+            className="hidden border-l border-[var(--sidebar-border)] bg-[var(--accent-light)]/45 p-4 md:flex md:items-center md:justify-center dark:bg-[var(--accent-light)]/30"
+          >
+            <Image
+              src="/auth-wiki-cartoon-light.png"
+              alt=""
+              width={900}
+              height={900}
+              className="block h-auto w-full max-w-[290px] rounded-lg dark:hidden"
+              draggable={false}
+              unoptimized
+            />
+            <Image
+              src="/auth-wiki-cartoon-dark.png"
+              alt=""
+              width={900}
+              height={900}
+              className="hidden h-auto w-full max-w-[290px] rounded-lg dark:block"
+              draggable={false}
+              unoptimized
             />
           </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground" htmlFor="auth-password">
-              Password
-            </label>
-            <Input
-              id="auth-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Your password"
-              autoComplete="current-password"
-              required
-            />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? "Signing in..." : "Sign in"}
-          </Button>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -205,7 +311,7 @@ export function SidebarSignInPrompt() {
     <>
       <div className="mb-2 rounded-lg border border-[var(--sidebar-border)] bg-[var(--popover)] p-3 shadow-sm">
         <p className="text-xs font-medium leading-snug text-[var(--foreground)]">
-          Sign in to view additional content
+          Comment and view additional content
         </p>
         <button
           type="button"

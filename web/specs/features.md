@@ -159,8 +159,10 @@ The app is a multi-site wiki publishing platform. Diana is site #1; additional s
 
 ### Comments
 
-- Comments are behind `NEXT_PUBLIC_ENABLE_COMMENTS`. When disabled, `/comments` redirects to `/` and the comments navigation link is hidden.
-- When enabled, document pages render the Liveblocks comment UI through `DocumentComments`.
+- Comments are enabled by default. `NEXT_PUBLIC_ENABLE_COMMENTS=false` is the
+  global kill switch; per-site `enableComments` and Liveblocks credentials are
+  enforced by the server routes.
+- Document pages render the Liveblocks comment UI through `DocumentComments`.
 - Supported comments behavior includes:
   - page-level comments
   - text-selection-anchored comments
@@ -357,7 +359,7 @@ The app is a multi-site wiki publishing platform. Diana is site #1; additional s
 - `NEXT_PUBLIC_ENABLE_CHAT`
   - enables or disables the chat product surface
 - `NEXT_PUBLIC_ENABLE_COMMENTS`
-  - enables or disables the comments product surface
+  - optional global kill switch; set to `false` to disable the comments product surface
 - `NEXT_PUBLIC_CONVEX_URL`
   - powers chat persistence, document queries, metadata, and production asset lookup
 - `AI_GATEWAY_API_KEY`
@@ -373,8 +375,8 @@ The app is a multi-site wiki publishing platform. Diana is site #1; additional s
 
 ## Notes And Caveats
 
-- The chat and comments navigation entries do not behave the same way:
-  - chat is always linked in the sidebar, even if the route is disabled and immediately redirects
-  - comments are only linked when the feature flag is enabled
+- The chat and comments navigation entries are both exposed in the sidebar when
+  their product surfaces are active; comments can still fail closed per site if
+  Liveblocks is not provisioned.
 - The file palette and action palette keyboard listeners currently differ from some user-facing labels and comments in the code.
 - This document describes the implementation as it exists today, including gated and partial behaviors, rather than a future roadmap.

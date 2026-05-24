@@ -19,6 +19,8 @@ const LINK_PREVIEW_BOT_RE =
 const DEFAULT_SITE_SLUG = "diana";
 const HOST_CACHE_TTL_MS = 15_000;
 const VERCEL_PROJECT_HOST_PREFIX = "diana-tnbc";
+const PUBLIC_FILE_RE =
+  /\.(?:avif|css|csv|gif|html|ico|jpe?g|js|json|map|mp3|mp4|pdf|png|svg|txt|webm|webp|woff2?|zip)$/i;
 
 type ResolvedSite = {
   slug: string;
@@ -226,7 +228,8 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/api/login") ||
     request.nextUrl.pathname.startsWith("/api/auth") ||
     request.nextUrl.pathname.startsWith("/api/publish") ||
-    request.nextUrl.pathname.startsWith("/api/file")
+    request.nextUrl.pathname.startsWith("/api/file") ||
+    PUBLIC_FILE_RE.test(request.nextUrl.pathname)
   ) {
     return NextResponse.next({ request: { headers: requestHeaders } });
   }

@@ -42,8 +42,12 @@ export async function GET(request: Request) {
   const siteSlug = siteData.siteSlug;
   const includeSensitive = Boolean(await getSessionUserFromRequest(request));
   const cacheKey = `${siteSlug}:${includeSensitive ? "private" : "public"}`;
+  const url = new URL(request.url);
+  const bypassCache =
+    url.searchParams.get("fresh") === "1" ||
+    request.headers.get("cache-control")?.includes("no-cache") === true;
   const cached = responseCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < RESPONSE_TTL_MS) {
+  if (!bypassCache && cached && Date.now() - cached.timestamp < RESPONSE_TTL_MS) {
     return NextResponse.json(cached.body);
   }
 
@@ -58,12 +62,15 @@ export async function GET(request: Request) {
     let mode: string;
 
     // Try the Convex fast path (commentRooms table populated by webhook).
-    // Falls back to full Liveblocks scan if Convex lookup fails (e.g. function not deployed).
+    // `fresh=1` intentionally bypasses this index because /comments should
+    // reflect Liveblocks even when the webhook-backed room list is stale.
     let activeRooms: string[] = [];
-    try {
-      activeRooms = await siteData.commentRooms.listActive();
-    } catch {
-      // commentRooms function may not be deployed yet — fall through to full scan
+    if (!bypassCache) {
+      try {
+        activeRooms = await siteData.commentRooms.listActive();
+      } catch {
+        // commentRooms function may not be deployed yet — fall through to full scan
+      }
     }
     timing.convexLookup = Date.now() - t0;
 
@@ -170,8 +177,9 @@ export async function GET(request: Request) {
       _timing: { ...timing, mode },
     };
 
-    // Cache the response
-    responseCache.set(cacheKey, { body, timestamp: Date.now() });
+    if (!bypassCache) {
+      responseCache.set(cacheKey, { body, timestamp: Date.now() });
+    }
 
     console.log(
       `[liveblocks-threads] ${mode} | ` +
@@ -179,7 +187,13 @@ export async function GET(request: Request) {
         `convexLookup=${timing.convexLookup}ms fetchThreads=${timing.fetchThreads}ms resolveNames=${timing.resolveNames}ms total=${timing.total}ms`
     );
 
-    return NextResponse.json(body);
+    return NextResponse.json(body, {
+      headers: bypassCache
+        ? {
+            "Cache-Control": "no-store",
+          }
+        : undefined,
+    });
   } catch (err) {
     console.error("[liveblocks-threads] Error:", err);
     return NextResponse.json(

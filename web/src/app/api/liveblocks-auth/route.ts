@@ -11,7 +11,11 @@ import {
 
 export async function GET(request: Request) {
   const config = await resolveLiveblocksConfig(request);
-  return NextResponse.json({ configured: config.ok });
+  return NextResponse.json({
+    configured: config.ok,
+    siteSlug: config.ok ? config.creds.siteSlug : config.siteSlug,
+    reason: config.ok ? null : config.reason,
+  });
 }
 
 export async function POST(request: Request) {
@@ -36,12 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Room not found" }, { status: 404 });
   }
 
-  const cookieHeader = request.headers.get("cookie") ?? "";
-  const guestCookie = cookieHeader
-    .split(/;\s*/)
-    .find((part) => part.startsWith(`${LIVEBLOCKS_GUEST_COOKIE}=`))
-    ?.slice(LIVEBLOCKS_GUEST_COOKIE.length + 1);
-  const guestUser = parseGuestUser(guestCookie);
+  const guestUser = sessionUser ? null : parseGuestUserFromRequest(request);
   if (guestUser) {
     await persistLiveblocksGuestName(guestUser, siteData).catch(() => {});
   }
@@ -53,7 +52,7 @@ export async function POST(request: Request) {
   };
 
   const session = liveblocks.prepareSession(userId, { userInfo });
-  session.allow(room, session.FULL_ACCESS);
+  session.allow(room, sessionUser ? session.FULL_ACCESS : session.READ_ACCESS);
   const { body, status } = await session.authorize();
 
   return new NextResponse(body, {
@@ -62,6 +61,15 @@ export async function POST(request: Request) {
       "Content-Type": "application/json",
     },
   });
+}
+
+function parseGuestUserFromRequest(request: Request) {
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const guestCookie = cookieHeader
+    .split(/;\s*/)
+    .find((part) => part.startsWith(`${LIVEBLOCKS_GUEST_COOKIE}=`))
+    ?.slice(LIVEBLOCKS_GUEST_COOKIE.length + 1);
+  return parseGuestUser(guestCookie);
 }
 
 async function isSensitiveRoom(roomId: string, siteData: ReturnType<typeof siteDataFromRequest>) {

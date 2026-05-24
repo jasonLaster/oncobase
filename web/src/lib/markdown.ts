@@ -236,6 +236,14 @@ export async function getMarkdownFileForSite(
   slug: string,
   { includeSensitive = false }: MarkdownReadOptions = {},
 ): Promise<MarkdownFile | null> {
+  return fetchMarkdownFileForSite(siteSlug, slug, includeSensitive);
+}
+
+async function fetchMarkdownFileForSite(
+  siteSlug: SiteSlug,
+  slug: string,
+  includeSensitive: boolean,
+): Promise<MarkdownFile | null> {
   "use cache";
   cacheLife("hours");
   cacheTag(
@@ -244,7 +252,7 @@ export async function getMarkdownFileForSite(
     siteDocCacheTag(siteSlug, slug),
   );
 
-  return readMarkdownFileForSite(siteSlug, slug, { includeSensitive });
+  return await readMarkdownFileForSite(siteSlug, slug, { includeSensitive });
 }
 
 export async function readMarkdownFileForSite(

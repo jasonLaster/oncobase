@@ -24,6 +24,7 @@
 
 import type { Doc } from "@convex/_generated/dataModel";
 import { api } from "@convex/_generated/api";
+import { commentsFeatureEnabled } from "@/lib/comments-feature";
 import { getConvexServerClient } from "@/lib/convex-server";
 import { DEFAULT_SITE_SLUG, siteSlugFromRequest } from "@/lib/site";
 
@@ -55,6 +56,10 @@ export async function resolveLiveblocksConfig(
   request: { headers: Headers },
 ): Promise<LiveblocksConfig> {
   const siteSlug = siteSlugFromRequest(request);
+
+  if (!commentsFeatureEnabled()) {
+    return { ok: false, reason: "comments-disabled", siteSlug };
+  }
 
   let site: Doc<"sites"> | null = null;
   try {

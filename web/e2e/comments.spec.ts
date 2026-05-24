@@ -29,11 +29,27 @@ const liveblocksSecret =
 
 /** Ensure the desktop comments sidebar pane is open. */
 async function ensureCommentsPaneOpen(page: Page) {
-  const addBtn = page
-    .getByRole("button", { name: "Add a page-level comment" })
+  const signInState = page.getByTestId("comments-sign-in-state").last();
+  const readyState = page
+    .locator(
+      [
+        '[data-test-id="comments-sign-in-state"]',
+        '[data-comment-list-item="thread"]',
+        '[data-comment-draft-thread]',
+        'text=/\\d+ (unresolved|total) thread/',
+        'text=No comments yet',
+        'text=No open comments',
+        'text=Comments are temporarily unavailable.',
+      ].join(", ")
+    )
     .last();
 
-  if (await addBtn.isVisible().catch(() => false)) return;
+  if (
+    (await readyState.isVisible().catch(() => false)) ||
+    (await signInState.isVisible().catch(() => false))
+  ) {
+    return;
+  }
 
   // Pane is collapsed or still in lazy outline mode; activate comments.
   const openBtn = page.getByRole("button", { name: "Open comments" }).last();
@@ -48,7 +64,7 @@ async function ensureCommentsPaneOpen(page: Page) {
     }
   }
 
-  await expect(addBtn).toBeVisible({ timeout: 10_000 });
+  await expect(readyState).toBeVisible({ timeout: 10_000 });
 }
 
 async function waitForCommentsListSettled(page: Page) {
@@ -62,17 +78,29 @@ async function waitForCommentsUi(page: Page) {
   await page.waitForFunction(
     () => {
       const text = document.body.innerText;
-      const buttons = Array.from(document.querySelectorAll("button"));
-      return buttons.some(
-        (button) =>
-          (button.textContent ?? "").includes("Add a page-level comment")
-      ) || /\d+ (unresolved|total) thread/.test(text) ||
+      return /\d+ (unresolved|total) thread/.test(text) ||
         text.includes("No comments yet") ||
         text.includes("No open comments") ||
+        text.includes("Sign in to leave a comment") ||
         text.includes("Comments are temporarily unavailable.");
     },
     { timeout: 15_000 }
   );
+}
+
+async function signInForComments(page: Page) {
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const response = await page.context().request.post("/api/auth/signup", {
+    data: {
+      name: `Playwright Comments ${suffix}`,
+      email: `comments-${suffix}@example.test`,
+      password: "playwright-password",
+    },
+  });
+  test.skip(!response.ok(), "Convex user storage unavailable");
+  await page.addInitScript(() => {
+    window.localStorage.removeItem("comments-pane-open");
+  });
 }
 
 async function selectArticleText(page: Page) {
@@ -461,24 +489,6 @@ async function expectVisibleThreadActive(page: Page, threadId: string) {
   );
 }
 
-async function createPageLevelComment(page: Page) {
-  await ensureCommentsPaneOpen(page);
-  await waitForCommentsListSettled(page);
-  const text = `Playwright page comment ${Date.now()} ${Math.floor(
-    Math.random() * 1000
-  )}`;
-
-  const createdThreadId = await createThreadFixture(text, {
-    documentSlug: DOCUMENT_SLUG,
-    documentTitle: DOCUMENT_TITLE,
-  });
-  await page.goto(`/about/About?thread=${createdThreadId}`);
-  await waitForCommentsUi(page);
-  await ensureCommentsPaneOpen(page);
-  const threadId = await waitForVisibleThreadId(page, text);
-  return { text, threadId };
-}
-
 async function createSelectionComment(page: Page) {
   await ensureCommentsPaneOpen(page);
   await waitForCommentsListSettled(page);
@@ -508,14 +518,11 @@ async function activateAndWaitForComments(page: Page) {
   const readState = () =>
     page.evaluate(() => {
       const text = document.body.innerText;
-      const buttons = Array.from(document.querySelectorAll("button"));
       const hasReadyUi =
-        buttons.some((button) =>
-          (button.textContent ?? "").includes("Add a page-level comment")
-        ) ||
         /\d+ (unresolved|total) thread/.test(text) ||
         text.includes("No comments yet") ||
-        text.includes("No open comments");
+        text.includes("No open comments") ||
+        text.includes("Sign in to leave a comment");
 
       if (hasReadyUi) return "ready";
       if (
@@ -536,6 +543,7 @@ async function activateAndWaitForComments(page: Page) {
 
     const candidates = [
       page.getByRole("button", { name: "Open comments" }).last(),
+      page.getByRole("button", { name: "Expand comments rail" }).last(),
       page.getByRole("button", { name: "Comments", exact: true }).last(),
     ];
     for (const candidate of candidates) {
@@ -553,16 +561,27 @@ async function activateAndWaitForComments(page: Page) {
 
 /** Check if the comments feature is active on a document page. */
 async function commentsAreEnabled(page: Page) {
-  const openComments = page.getByRole("button", { name: "Open comments" }).last();
-  if (await openComments.isVisible({ timeout: 10_000 }).catch(() => false)) {
-    return true;
+  const controls = [
+    page.getByRole("button", { name: "Open comments" }).last(),
+    page.getByRole("button", { name: "Expand comments rail" }).last(),
+    page.getByRole("button", { name: "Comments", exact: true }).last(),
+  ];
+
+  for (const control of controls) {
+    if (await control.isVisible({ timeout: 10_000 }).catch(() => false)) {
+      return true;
+    }
   }
 
-  return page
-    .getByRole("button", { name: "Comments", exact: true })
-    .last()
-    .isVisible({ timeout: 5_000 })
-    .catch(() => false);
+  return false;
+}
+
+async function commentsLinkVisible(page: Page) {
+  const link = page.getByTestId("sidebar-view-comments");
+  if (await link.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    return true;
+  }
+  return false;
 }
 
 async function openGlobalCommentsPage(page: Page) {
@@ -689,6 +708,11 @@ test.describe("Document comments sidebar", () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/table-examples");
     await expect(page.locator("article").first()).toBeVisible({ timeout: 10_000 });
+    await page
+      .getByRole("button", { name: "Outline", exact: true })
+      .last()
+      .click();
+    await expectVisibleOutlineHeadingCount(page);
     const activeOutlineHeading = page.locator('[data-active-outline-heading="true"]').last();
     await expect(activeOutlineHeading).toBeVisible({ timeout: 5_000 });
     const initialActiveText = await activeOutlineHeading.textContent();
@@ -721,6 +745,7 @@ test.describe("Document comments sidebar", () => {
   });
 
   test("open outline rail still exposes comments activation", async ({ page }) => {
+    await signInForComments(page);
     await page.addInitScript(() => {
       window.localStorage.setItem("comments-pane-open", "1");
     });
@@ -737,14 +762,16 @@ test.describe("Document comments sidebar", () => {
     ).toBeVisible();
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
 
+    await ensureCommentsPaneOpen(page);
     await expect(
-      page.getByRole("button", { name: "Add a page-level comment" }).last()
-    ).toBeVisible();
+      page.getByRole("button", { name: "Add a page-level comment" })
+    ).toHaveCount(0);
   });
 
   test("mobile bottom rail outline still exposes comments activation", async ({
     page,
   }) => {
+    await signInForComments(page);
     await page.setViewportSize({ width: 820, height: 900 });
     await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
@@ -757,14 +784,16 @@ test.describe("Document comments sidebar", () => {
     ).toBeVisible();
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
 
+    await ensureCommentsPaneOpen(page);
     await expect(
       page.getByRole("button", { name: "Add a page-level comment" })
-    ).toBeVisible();
+    ).toHaveCount(0);
   });
 
   test("phone bottom rail switches between comments and outline", async ({
     page,
   }) => {
+    await signInForComments(page);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
@@ -776,22 +805,22 @@ test.describe("Document comments sidebar", () => {
     expect(railBox!.y).toBeGreaterThan(250);
 
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
+    await ensureCommentsPaneOpen(page);
     await expect(
-      rail.getByRole("button", { name: "Add a page-level comment" })
-    ).toBeVisible();
+      page.getByRole("button", { name: "Add a page-level comment" })
+    ).toHaveCount(0);
 
     await rail.getByRole("button", { name: "Outline", exact: true }).click();
     await expectVisibleOutlineHeadingCount(page);
 
     await rail.getByRole("button", { name: "Comments", exact: true }).click();
-    await expect(
-      rail.getByRole("button", { name: "Add a page-level comment" })
-    ).toBeVisible();
+    await ensureCommentsPaneOpen(page);
   });
 
   test("ipad bottom rail switches between comments and outline", async ({
     page,
   }) => {
+    await signInForComments(page);
     await page.setViewportSize({ width: 820, height: 900 });
     await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
@@ -803,17 +832,16 @@ test.describe("Document comments sidebar", () => {
     expect(railBox!.y).toBeGreaterThan(360);
 
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
+    await ensureCommentsPaneOpen(page);
     await expect(
-      rail.getByRole("button", { name: "Add a page-level comment" })
-    ).toBeVisible();
+      page.getByRole("button", { name: "Add a page-level comment" })
+    ).toHaveCount(0);
 
     await rail.getByRole("button", { name: "Outline", exact: true }).click();
     await expectVisibleOutlineHeadingCount(page);
 
     await rail.getByRole("button", { name: "Comments", exact: true }).click();
-    await expect(
-      rail.getByRole("button", { name: "Add a page-level comment" })
-    ).toBeVisible();
+    await ensureCommentsPaneOpen(page);
   });
 
   test("comment and outline rail buttons toggle the rail", async ({ page }) => {
@@ -871,6 +899,7 @@ test.describe("Document comments sidebar", () => {
 
 test.describe("Comment actions dropdown", () => {
   test("comment actions menu opens with filter option", async ({ page }) => {
+    await signInForComments(page);
     await page.goto("/about/Journal");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
@@ -883,6 +912,7 @@ test.describe("Comment actions dropdown", () => {
   });
 
   test("toggling resolved filter changes thread count label", async ({ page }) => {
+    await signInForComments(page);
     await page.goto("/about/Journal");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
@@ -910,13 +940,14 @@ test.describe("Comment actions dropdown", () => {
   });
 
   test("per-comment actions dropdown opens above the rail", async ({ page }) => {
+    await signInForComments(page);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
     await ensureCommentsPaneOpen(page);
 
-    const { threadId } = await createPageLevelComment(page);
+    const { threadId } = await createSelectionComment(page);
     try {
       const opened = await clickCommentAction(page, "More", threadId);
       expect(opened).toBe(true);
@@ -933,13 +964,14 @@ test.describe("Comment actions dropdown", () => {
   });
 
   test("reaction emoji picker opens above the rail", async ({ page }) => {
+    await signInForComments(page);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
     await ensureCommentsPaneOpen(page);
 
-    const { threadId } = await createPageLevelComment(page);
+    const { threadId } = await createSelectionComment(page);
     try {
       const opened = await clickCommentAction(page, "Add reaction", threadId);
       expect(opened).toBe(true);
@@ -958,16 +990,29 @@ test.describe("Comment actions dropdown", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Creating comments", () => {
-  test("page-level composer opens and has send button", async ({ page }) => {
+  test("guest opening the sidebar sees a sign-in state instead of the composer", async ({
+    page,
+  }) => {
     await page.goto("/about/Journal");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
     await ensureCommentsPaneOpen(page);
 
-    await page
-      .getByRole("button", { name: "Add a page-level comment" })
-      .last()
-      .click();
+    await expect(page.getByTestId("comments-sign-in-state").last()).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Add a page-level comment" })
+    ).toHaveCount(0);
+  });
+
+  test("signed-in selection composer opens and has send button", async ({ page }) => {
+    await signInForComments(page);
+    await page.goto("/about/Journal");
+    test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
+    test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
+    await ensureCommentsPaneOpen(page);
+
+    await selectArticleText(page);
+    await page.getByRole("button", { name: "Add comment" }).click();
 
     // Composer editor and send button should appear
     const editor = page.getByRole("textbox", { name: "Composer editor" }).last();
@@ -977,16 +1022,15 @@ test.describe("Creating comments", () => {
     await expect(page.getByRole("button", { name: "Send" }).last()).toBeVisible();
   });
 
-  test("typing in composer enables send button", async ({ page }) => {
+  test("typing in selection composer enables send button", async ({ page }) => {
+    await signInForComments(page);
     await page.goto("/about/Journal");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
     await ensureCommentsPaneOpen(page);
 
-    await page
-      .getByRole("button", { name: "Add a page-level comment" })
-      .last()
-      .click();
+    await selectArticleText(page);
+    await page.getByRole("button", { name: "Add comment" }).click();
 
     const editor = page.getByRole("textbox", { name: "Composer editor" }).last();
     await editor.click();
@@ -1006,16 +1050,38 @@ test.describe("Text selection", () => {
     await page.goto("/about/About");
     // Wait for page content to render (works with or without comments)
     await expect(page.locator("article").first()).toBeVisible();
+    await page.waitForFunction(
+      () => (document.querySelector("article")?.textContent ?? "").trim().length > 40,
+      { timeout: 10_000 }
+    );
 
-    // Verify we can select text in the article
-    const article = page.locator("article").first();
-    await expect(article).toBeVisible();
+    const selection = await page.evaluate(() => {
+      const root = document.querySelector("article");
+      if (!root) return "";
 
-    // Triple-click to select a paragraph – should not be blocked
-    const firstParagraph = article.locator("p").first();
-    await firstParagraph.click({ clickCount: 3 });
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          const text = (node.textContent ?? "").replace(/\s+/g, " ").trim();
+          return text.length > 20
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT;
+        },
+      });
+      const textNode = walker.nextNode() as Text | null;
+      if (!textNode?.textContent) return "";
 
-    const selection = await page.evaluate(() => window.getSelection()?.toString());
+      const text = textNode.textContent;
+      const start = Math.max(0, text.search(/\S/));
+      const end = Math.min(text.length, start + 40);
+      const range = document.createRange();
+      range.setStart(textNode, start);
+      range.setEnd(textNode, end);
+
+      const nextSelection = window.getSelection();
+      nextSelection?.removeAllRanges();
+      nextSelection?.addRange(range);
+      return nextSelection?.toString() ?? "";
+    });
     expect(selection).toBeTruthy();
     expect((selection ?? "").length).toBeGreaterThan(0);
   });
@@ -1065,6 +1131,7 @@ test.describe("Text selection", () => {
   });
 
   test("draft selection thread renders in sorted list order", async ({ page }) => {
+    await signInForComments(page);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
@@ -1089,9 +1156,75 @@ test.describe("Text selection", () => {
     );
   });
 
+  test("text selection shows the comment tooltip while comments are collapsed", async ({ page }) => {
+    await signInForComments(page);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/about/About");
+    test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
+    test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
+    await ensureCommentsPaneOpen(page);
+
+    await page.getByRole("button", { name: "Collapse comments pane" }).last().click();
+    await expect(page.getByRole("button", { name: "Open comments" }).last()).toBeVisible();
+
+    await selectArticleText(page);
+    await page.getByRole("button", { name: "Add comment" }).click();
+
+    await expect(page.getByRole("button", { name: "Collapse comments pane" }).last()).toBeVisible();
+    await expect(page.locator("[data-comment-draft-thread]").last()).toBeVisible({
+      timeout: 5_000,
+    });
+  });
+
+  test("guest selection opens comments with sign-in prompt instead of a draft composer", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/about/About");
+    test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
+    test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
+    await ensureCommentsPaneOpen(page);
+
+    await page.getByRole("button", { name: "Collapse comments pane" }).last().click();
+    await expect(page.getByRole("button", { name: "Open comments" }).last()).toBeVisible();
+
+    await selectArticleText(page);
+    await page.getByRole("button", { name: "Add comment" }).click();
+
+    await expect(page.getByRole("button", { name: "Collapse comments pane" }).last()).toBeVisible();
+    await expect(page.getByTestId("comments-sign-in-state").last()).toBeVisible();
+    await expect(page.locator("[data-comment-draft-thread]").last()).toBeHidden();
+  });
+
+  test("clicking an anchored comment highlight opens the comments sidebar", async ({ page }) => {
+    await signInForComments(page);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/about/About");
+    test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
+    test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
+    await ensureCommentsPaneOpen(page);
+
+    const { threadId } = await createSelectionComment(page);
+    try {
+      await page.getByRole("button", { name: "Collapse comments pane" }).last().click();
+      await expect(page.getByRole("button", { name: "Open comments" }).last()).toBeVisible();
+      await page.evaluate(() => window.getSelection()?.removeAllRanges());
+
+      const point = await page.locator('[data-comment-highlight="active"], [data-comment-highlight="saved"]').first().boundingBox();
+      expect(point).toBeTruthy();
+      await page.mouse.click(point!.x + point!.width / 2, point!.y + point!.height / 2);
+
+      await expect(page.getByRole("button", { name: "Collapse comments pane" }).last()).toBeVisible();
+      await expectVisibleThreadActive(page, threadId);
+    } finally {
+      await deleteThread(page, threadId);
+    }
+  });
+
   test("opening a linked selection URL activates the thread", async ({
     page,
   }) => {
+    await signInForComments(page);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
@@ -1147,6 +1280,29 @@ test.describe("Global comments page", () => {
     test.skip(status === "unavailable", "Comments backend unavailable");
 
     await waitForGlobalCommentsContent(page);
+  });
+
+  test("comments page bypasses the threads response cache", async ({ page }) => {
+    const threadsResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/liveblocks-threads?fresh=1") &&
+        response.request().method() === "GET",
+      { timeout: 20_000 }
+    );
+
+    await page.goto("/comments");
+    test.skip(!page.url().includes("/comments"), "Comments feature not enabled");
+
+    const response = await threadsResponse.catch(() => null);
+    test.skip(!response?.ok(), "Comments backend unavailable");
+    expect(response!.headers()["cache-control"]).toContain("no-store");
+  });
+
+  test("fresh comments request performs a full room scan", async ({ request }) => {
+    const res = await request.get("/api/liveblocks-threads?fresh=1");
+    test.skip(!res.ok(), "Comments backend unavailable");
+    const body = await res.json();
+    expect(body._timing?.mode).toBe("full-scan");
   });
 
   test("thread cards link to source documents", async ({ page }) => {
@@ -1206,6 +1362,28 @@ test.describe("Global comments page", () => {
     // Button label should toggle
     expect(textAfter).not.toBe(textBefore);
   });
+
+  test("guest replying on /comments sees a sign-in prompt", async ({ page }) => {
+    const status = await openGlobalCommentsPage(page);
+    test.skip(status === "disabled", "Comments feature not enabled");
+    test.skip(status === "unavailable", "Comments backend unavailable");
+
+    let contentState = await waitForGlobalCommentsContent(page);
+    const toggleBtn = page.getByRole("button", { name: /View all comments|Open only/ });
+    if (
+      contentState === "empty" &&
+      (await toggleBtn.isVisible().catch(() => false)) &&
+      ((await toggleBtn.textContent()) ?? "").includes("View all comments")
+    ) {
+      await toggleBtn.click();
+      contentState = await waitForGlobalCommentsContent(page);
+    }
+    test.skip(contentState === "empty", "No comments available to reply to");
+
+    await page.getByRole("button", { name: /Reply|Show \d+ replies?/ }).first().click();
+    await expect(page.getByText("Sign in to reply").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign in" }).first()).toBeVisible();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1223,6 +1401,7 @@ test.describe("Delete thread", () => {
   });
 
   test("delete thread menu item appears on first comment", async ({ page }) => {
+    await signInForComments(page);
     await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
@@ -1290,6 +1469,7 @@ test.describe("Delete thread", () => {
   });
 
   test("delete thread action keeps the comments rail open", async ({ page }) => {
+    await signInForComments(page);
     await page.setViewportSize({ width: 1280, height: 800 });
 
     await page.goto("/about/About");
@@ -1297,7 +1477,7 @@ test.describe("Delete thread", () => {
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
     await ensureCommentsPaneOpen(page);
 
-    const { threadId } = await createPageLevelComment(page);
+    const { threadId } = await createSelectionComment(page);
     try {
       const opened = await clickCommentAction(page, "More", threadId);
       expect(opened).toBe(true);
@@ -1341,6 +1521,39 @@ test.describe("API endpoints", () => {
         expect(typeof body.userNames).toBe("object");
       }
     }
+  });
+
+  test("add-comment API rejects guests", async ({ request }) => {
+    const configuredRes = await request.get("/api/liveblocks-auth");
+    const configured = await configuredRes.json();
+    test.skip(!configured.configured, "Comments backend unavailable");
+
+    const res = await request.post("/api/liveblocks-add-comment", {
+      data: {
+        roomId: ROOM_ID,
+        threadId: "th_guest_blocked",
+        body: "guest reply should be blocked",
+      },
+    });
+    expect(res.status()).toBe(401);
+    const body = await res.json();
+    expect(body.error).toContain("Sign in");
+  });
+
+  test("delete-thread API rejects guests", async ({ request }) => {
+    const configuredRes = await request.get("/api/liveblocks-auth");
+    const configured = await configuredRes.json();
+    test.skip(!configured.configured, "Comments backend unavailable");
+
+    const res = await request.post("/api/liveblocks-delete-thread", {
+      data: {
+        roomId: ROOM_ID,
+        threadId: "th_guest_blocked",
+      },
+    });
+    expect(res.status()).toBe(401);
+    const body = await res.json();
+    expect(body.error).toContain("Sign in");
   });
 
   test("auth session GET returns user object", async ({ request }) => {
@@ -1414,21 +1627,97 @@ test.describe("API endpoints", () => {
 
 test.describe("Sidebar navigation", () => {
   // Note: chat is reached via the header "New chat" button (covered in chat.spec.ts).
-  test("View comments link is visible in sidebar", async ({ page }) => {
+  test("Comments link is visible in sidebar", async ({ page }) => {
     await page.goto("/");
-    const link = page.getByRole("link", { name: "View comments" });
-    // Link only appears when NEXT_PUBLIC_ENABLE_COMMENTS=true
-    if (!(await link.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      test.skip(true, "Comments feature not enabled");
-    }
+    const link = page.getByTestId("sidebar-view-comments");
+    test.skip(!(await commentsLinkVisible(page)), "Comments feature not enabled");
     await expect(link).toBeVisible();
   });
 
-  test("clicking View comments navigates to /comments", async ({ page }) => {
+  test("clicking Comments navigates to /comments", async ({ page }) => {
     await page.goto("/");
-    const link = page.getByRole("link", { name: "View comments" });
-    test.skip(!(await link.isVisible({ timeout: 3_000 }).catch(() => false)), "Comments feature not enabled");
+    const link = page.getByTestId("sidebar-view-comments");
+    test.skip(!(await commentsLinkVisible(page)), "Comments feature not enabled");
     await link.click();
     await expect(page).toHaveURL(/\/comments/);
+  });
+
+  test("sign-in dialog shows sign-up link and submits with Enter", async ({
+    page,
+  }) => {
+    const user = {
+      email: "auth-dialog-playwright@example.test",
+      name: "Auth Dialog Playwright",
+    };
+    let signedIn = false;
+
+    await page.route("**/api/auth/session", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ user: signedIn ? user : null }),
+      });
+    });
+    await page.route("**/api/auth/signup", async (route) => {
+      signedIn = true;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, user }),
+      });
+    });
+
+    await page.goto("/");
+    await page.getByTestId("sidebar-sign-in").first().evaluate((button) => {
+      (button as HTMLButtonElement).click();
+    });
+    await expect(page.getByRole("dialog")).toBeVisible();
+    const authCartoonLoaded = await page.waitForFunction(() =>
+      Array.from(document.querySelectorAll('img[src*="auth-wiki-cartoon-"]')).some(
+        (image) => {
+          const element = image as HTMLImageElement;
+          const rect = element.getBoundingClientRect();
+          return (
+            element.currentSrc.includes("/auth-wiki-cartoon-") &&
+            !element.currentSrc.includes("/_next/image") &&
+            element.naturalWidth > 0 &&
+            rect.width > 0 &&
+            rect.height > 0 &&
+            getComputedStyle(element).display !== "none"
+          );
+        }
+      )
+    );
+    expect(await authCartoonLoaded.jsonValue()).toBe(true);
+
+    const signInButton = page.getByRole("button", { name: "Sign in" }).last();
+    const signUpLink = page.getByRole("button", {
+      name: "Need an account? Sign up",
+    });
+    await expect(signInButton).toBeVisible();
+    await expect(signUpLink).toBeVisible();
+
+    const [signInBox, signUpBox] = await Promise.all([
+      signInButton.boundingBox(),
+      signUpLink.boundingBox(),
+    ]);
+    expect(signInBox).not.toBeNull();
+    expect(signUpBox).not.toBeNull();
+    expect(signUpBox!.y).toBeGreaterThan(signInBox!.y);
+
+    await signUpLink.click();
+    await page.locator("#auth-name").fill("Auth Dialog Playwright");
+    await page.locator("#auth-email").fill("auth-dialog-playwright@example.test");
+    await page.locator("#auth-password").fill("playwright-password");
+
+    const signupRequest = page.waitForRequest(
+      (request) =>
+        request.method() === "POST" &&
+        new URL(request.url()).pathname === "/api/auth/signup"
+    );
+    await page.locator("#auth-password").press("Enter");
+    await signupRequest;
+
+    await expect(page.getByTestId("sidebar-sign-in").first()).toBeHidden();
   });
 });

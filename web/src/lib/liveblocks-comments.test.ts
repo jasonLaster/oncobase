@@ -37,7 +37,7 @@ describe("liveblocks comment helpers", () => {
           anchorPrefix: "",
           anchorSuffix: "",
         }),
-        thread("page-level", "2026-01-02T00:00:00.000Z"),
+        thread("unanchored", "2026-01-02T00:00:00.000Z"),
         thread("early", "2026-01-03T00:00:00.000Z", {
           anchorStart: 10,
           anchorEnd: 15,
@@ -53,7 +53,7 @@ describe("liveblocks comment helpers", () => {
       items.map((item) =>
         item.type === "thread" ? item.thread.id : "draft-selection"
       )
-    ).toEqual(["early", "draft-selection", "late", "page-level"]);
+    ).toEqual(["early", "draft-selection", "late"]);
   });
 
   test("stores selection metadata with document identity", () => {

@@ -2,6 +2,11 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
+import {
+  AuthDialog,
+  type SessionUser,
+  useSessionUser,
+} from "@/components/actions-menu";
 import { getCommentPlainText } from "@/lib/liveblocks-comments";
 import { formatLiveblocksUserId } from "@/lib/liveblocks-user-format";
 
@@ -44,6 +49,14 @@ function buildThreadItems(
   userNames: Map<string, string>
 ): ThreadItem[] {
   return threads
+    .filter((thread) => {
+      const metadata = thread.metadata ?? {};
+      return (
+        typeof metadata.anchorStart === "number" &&
+        typeof metadata.anchorEnd === "number" &&
+        typeof metadata.anchorQuote === "string"
+      );
+    })
     .map((thread) => {
       const metadata = thread.metadata ?? {};
       const latestComment = thread.comments.at(-1);
@@ -99,14 +112,23 @@ function formatRelativeTime(date: Date) {
 function ReplyComposer({
   roomId,
   threadId,
+  canComment,
   onCommentAdded,
 }: {
   roomId: string;
   threadId: string;
+  canComment: boolean;
   onCommentAdded: (comment: { id: string; author: string; createdAt: Date; text: string }) => void;
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const { setUser } = useSessionUser();
+
+  function handleAuthSuccess(nextUser: SessionUser) {
+    setUser(nextUser);
+    window.dispatchEvent(new CustomEvent("wiki-auth-session-change"));
+  }
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -143,6 +165,30 @@ function ReplyComposer({
     [text, sending, roomId, threadId, onCommentAdded]
   );
 
+  if (!canComment) {
+    return (
+      <>
+        <div className="mt-3 rounded-lg border border-dashed border-[var(--sidebar-border)] bg-[var(--background)] px-3 py-3 text-sm">
+          <p className="font-medium text-[var(--foreground)]">
+            Sign in to reply
+          </p>
+          <button
+            type="button"
+            onClick={() => setAuthDialogOpen(true)}
+            className="mt-3 rounded-md border border-indigo-600 bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:border-indigo-700 hover:bg-indigo-700"
+          >
+            Sign in
+          </button>
+        </div>
+        <AuthDialog
+          open={authDialogOpen}
+          onOpenChange={setAuthDialogOpen}
+          onAuthSuccess={handleAuthSuccess}
+        />
+      </>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
       <input
@@ -166,10 +212,12 @@ function ReplyComposer({
 
 function ThreadCard({
   item,
+  canComment,
   expanded,
   onToggle,
 }: {
   item: ThreadItem;
+  canComment: boolean;
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -274,6 +322,7 @@ function ThreadCard({
           <ReplyComposer
             roomId={item.roomId}
             threadId={item.id}
+            canComment={canComment}
             onCommentAdded={handleCommentAdded}
           />
         </div>
@@ -292,6 +341,8 @@ function CommentsTimeline() {
   const [error, setError] = useState<string | null>(null);
   const [showResolvedThreads, setShowResolvedThreads] = useState(false);
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
+  const { user: sessionUser } = useSessionUser();
+  const canComment = Boolean(sessionUser);
 
   useEffect(() => {
     let cancelled = false;
@@ -301,7 +352,12 @@ function CommentsTimeline() {
       setError(null);
 
       try {
-        const res = await fetch("/api/liveblocks-threads");
+        const res = await fetch("/api/liveblocks-threads?fresh=1", {
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        });
         if (!res.ok) throw new Error("Failed to fetch threads");
         const data = await res.json();
         if (cancelled) return;
@@ -395,12 +451,13 @@ function CommentsTimeline() {
         </button>
       </div>
       {items.map((item) => (
-        <ThreadCard
-          key={item.id}
-          item={item}
-          expanded={expandedThreads.has(item.id)}
-          onToggle={() => toggleThread(item.id)}
-        />
+          <ThreadCard
+            key={item.id}
+            item={item}
+            canComment={canComment}
+            expanded={expandedThreads.has(item.id)}
+            onToggle={() => toggleThread(item.id)}
+          />
       ))}
     </div>
   );

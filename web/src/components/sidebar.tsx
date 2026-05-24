@@ -28,6 +28,7 @@ import {
   ListChecks,
   ListTodo,
   Mail,
+  MessageSquareText,
   Microscope,
   NotebookPen,
   Package,
@@ -45,6 +46,7 @@ import {
 import type { FileNode } from "@/lib/markdown";
 import { ActionsMenu, SidebarSignInPrompt } from "@/components/actions-menu";
 import { openCommandPalette } from "@/components/command-palette";
+import { commentsFeatureEnabled } from "@/lib/comments-feature";
 import { formatFileLabel } from "@/lib/file-labels";
 import {
   setNavigationIntent,
@@ -473,6 +475,41 @@ function WorkspaceHeader() {
   );
 }
 
+function CommentsTreeLink({ activePathname }: { activePathname: string }) {
+  const isActive = activePathname.startsWith("/comments");
+
+  return (
+    <Link
+      href="/comments"
+      data-test-id="sidebar-view-comments"
+      data-selected-file-tree-item={isActive ? "true" : undefined}
+      className={`group flex items-center rounded-md text-sm transition-colors ${
+        isActive
+          ? "bg-[var(--accent-light)] font-medium text-[var(--foreground)]"
+          : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+      }`}
+      style={{
+        height: `${ROW_HEIGHT}px`,
+        paddingLeft: `${rowPadding(0, true)}px`,
+        paddingRight: "8px",
+        gap: `${ICON_GAP}px`,
+      }}
+      title="Comments"
+    >
+      <MessageSquareText
+        size={ICON_SIZE}
+        className={`shrink-0 transition-opacity ${
+          isActive ? "opacity-100" : "opacity-50 group-hover:opacity-90"
+        }`}
+        aria-hidden="true"
+      />
+      <span className="min-w-0 flex-1 truncate font-medium text-[var(--foreground)]/85">
+        Comments
+      </span>
+    </Link>
+  );
+}
+
 /**
  * One half of the split footer pill. Centered icon + label, subtle hover.
  */
@@ -535,8 +572,7 @@ function FooterPillButton({
 function SidebarFooter() {
   const pathname = useNavigationPathname();
   return (
-    <div className="shrink-0 px-3 pb-3 pt-1">
-      <SidebarSignInPrompt />
+    <div className="shrink-0 space-y-2 px-3 pb-3 pt-1">
       <div className="flex items-stretch overflow-hidden rounded-lg border border-[var(--sidebar-border)] bg-[var(--popover)] shadow-sm">
         <FooterPillButton
           icon={WandSparkles}
@@ -554,6 +590,7 @@ function SidebarFooter() {
           testId="sidebar-search"
         />
       </div>
+      <SidebarSignInPrompt />
     </div>
   );
 }
@@ -599,6 +636,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
         className="min-h-0 flex-1 select-none overflow-y-auto px-1.5 py-2"
         data-test-id="sidebar-tree"
       >
+        {commentsFeatureEnabled() ? <CommentsTreeLink activePathname={pathname} /> : null}
         {tree.map((node) => (
           <TreeNode
             activePathname={pathname}

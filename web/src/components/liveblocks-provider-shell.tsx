@@ -11,9 +11,6 @@ import {
 } from "@/lib/guest-user";
 import { formatLiveblocksUserId } from "@/lib/liveblocks-user-format";
 
-const FALLBACK_PUBLIC_API_KEY =
-  "pk_dev_HXZfdhC5pUVp1uUoX4mp31GEwMiYRKXXF5uoiZugexxsNV65JmHUqcRN__UFGQ05";
-
 type SessionUser = {
   _id?: string;
   email: string;
@@ -30,12 +27,14 @@ type ResolvedUsersResponse = {
   users?: Record<string, { name?: string; email?: string }>;
 };
 
-export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
-  const publicApiKey =
-    process.env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY ?? FALLBACK_PUBLIC_API_KEY;
-  const [providerMode, setProviderMode] = useState<"auth" | "public">(
-    "public"
-  );
+export function LiveblocksProviderShell({
+  children,
+  fallback = null,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
+  const [ready, setReady] = useState(false);
   const [identity, setIdentity] = useState<Identity | null>(null);
 
   useEffect(() => {
@@ -55,16 +54,9 @@ export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
     document.cookie = `${LIVEBLOCKS_GUEST_COOKIE}=${serialized}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
     let cancelled = false;
 
-    async function resolveProvider() {
+    async function resolveIdentity() {
       try {
-        const [authConfigResponse, sessionResponse] = await Promise.all([
-          fetch("/api/liveblocks-auth"),
-          fetch("/api/auth/session"),
-        ]);
-
-        const authConfig = authConfigResponse.ok
-          ? ((await authConfigResponse.json()) as { configured?: boolean })
-          : { configured: false };
+        const sessionResponse = await fetch("/api/auth/session");
         const sessionData = sessionResponse.ok
           ? ((await sessionResponse.json()) as { user?: SessionUser | null })
           : { user: null };
@@ -84,15 +76,15 @@ export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
                 name: guest.name,
               }
         );
-        setProviderMode(authConfig.configured ? "auth" : "public");
+        setReady(true);
       } catch {
         if (cancelled) return;
-        setIdentity({ name: guest.name });
-        setProviderMode("public");
+        setIdentity({ id: guest.id, name: guest.name });
+        setReady(true);
       }
     }
 
-    resolveProvider();
+    resolveIdentity();
 
     // Persist guest name to Convex so the server can resolve it later
     fetch("/api/liveblocks-guest", {
@@ -106,12 +98,14 @@ export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  if (!ready) {
+    return <>{fallback}</>;
+  }
+
   return (
     <LiveblocksProvider
-      key={`${providerMode}:${identity?.email ?? identity?.name ?? "anonymous"}`}
-      {...(providerMode === "auth"
-        ? { authEndpoint: "/api/liveblocks-auth" }
-        : { publicApiKey })}
+      key={`auth:${identity?.id ?? identity?.email ?? identity?.name ?? "anonymous"}`}
+      authEndpoint="/api/liveblocks-auth"
       resolveUsers={async ({ userIds }) => {
         try {
           const response = await fetch("/api/liveblocks-users", {

@@ -4,7 +4,10 @@ Liveblocks-powered commenting system that supports page-level and text-selection
 
 ## Availability
 
-- The comments product surface is gated by `NEXT_PUBLIC_ENABLE_COMMENTS`.
+- The comments product surface is enabled by default. Operators can explicitly
+  disable the global surface with `NEXT_PUBLIC_ENABLE_COMMENTS=false`.
+- Liveblocks access is also gated server-side by the active site's
+  `sites.config.enableComments` value and Liveblocks credential readiness.
 - When disabled:
   - `/comments` redirects to `/`
   - the "View comments" navigation link is hidden
@@ -16,7 +19,10 @@ Liveblocks-powered commenting system that supports page-level and text-selection
 
 - **Signed-in users** (via `/api/auth/signin`) are identified by their Convex user ID, display their real name and email.
 - **Guest users** get a persistent random identity (e.g. "Swift Fox 472") stored in a cookie, localStorage, and Convex. Identity survives page reloads and browser restarts and can be resolved by other users.
-- **Auth mode detection**: the client probes `GET /api/liveblocks-auth` on mount. If the server has `LIVEBLOCKS_SECRET_KEY` (or `LIVEBLOCKS_API_KEY`) configured, it switches to the authenticated endpoint; otherwise it falls back to the public API key.
+- The client always uses the authenticated `/api/liveblocks-auth` endpoint.
+  There is no public-key fallback; a site without configured Liveblocks
+  credentials renders comments as temporarily unavailable and the API fails
+  closed.
 - The `/api/liveblocks*` and `/api/auth/*` routes are exempt from the site-wide password middleware.
 - The document comment UI resolves Liveblocks author IDs through `/api/liveblocks-users`, which reads signed-in user names from Convex `users` and guest names from Convex `guestNames`.
 
@@ -99,7 +105,7 @@ Liveblocks portals (dropdowns, emoji pickers) require `z-index: 50` (via `.lb-po
 | Variable | Required | Description |
 |---|---|---|
 | `LIVEBLOCKS_SECRET_KEY` or `LIVEBLOCKS_API_KEY` | For auth mode | Liveblocks secret key; enables authenticated sessions with user identity |
-| `NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY` | No | Public key override (falls back to hardcoded dev key) |
+| `NEXT_PUBLIC_ENABLE_COMMENTS` | No | Optional global kill switch; only `false` disables the comments surface |
 
 ## Key Files
 

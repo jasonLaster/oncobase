@@ -6,13 +6,15 @@ import { LiveblocksProviderShell } from "@/components/liveblocks-provider-shell"
 
 export function LiveblocksRoom({
   roomId,
+  fallback,
   children,
 }: {
   roomId: string;
+  fallback?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <LiveblocksProviderShell>
+    <LiveblocksProviderShell fallback={fallback}>
       <RoomProvider id={roomId}>{children}</RoomProvider>
     </LiveblocksProviderShell>
   );
