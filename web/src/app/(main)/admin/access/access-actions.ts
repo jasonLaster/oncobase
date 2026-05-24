@@ -142,3 +142,57 @@ export async function setUserRole(
     };
   }
 }
+
+export async function setUsersRole(
+  userIds: string[],
+  roleId: string,
+): Promise<SaveResult> {
+  const auth = await requireAdminForAction();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  try {
+    if (userIds.length === 0) {
+      return { ok: false, error: "Select at least one user" };
+    }
+
+    await siteDataFromRequest(auth.request).access.setRoleForUsers({
+      userIds,
+      roleId: roleId || undefined,
+    });
+    revalidateAdminRoutes();
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unable to save roles",
+    };
+  }
+}
+
+export async function deleteUsers(userIds: string[]): Promise<SaveResult> {
+  const auth = await requireAdminForAction();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  try {
+    if (userIds.length === 0) {
+      return { ok: false, error: "Select at least one user" };
+    }
+
+    const user = await getSessionUserWithAdminFromCookieHeader(
+      auth.request.cookieHeader,
+      auth.request.headers,
+    );
+    if (userIds.includes(user?._id ?? "")) {
+      return { ok: false, error: "You cannot delete your own user" };
+    }
+
+    await siteDataFromRequest(auth.request).access.deleteUsers({ userIds });
+    revalidateAdminRoutes();
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unable to delete users",
+    };
+  }
+}
