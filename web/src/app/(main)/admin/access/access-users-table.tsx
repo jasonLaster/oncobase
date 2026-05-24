@@ -122,7 +122,9 @@ export function AccessUsersTable({
             className="min-w-24 text-sm text-muted-foreground"
           >
             {selectedCount > 0
-              ? `${selectedCount} selected`
+              ? status
+                ? `${selectedCount} selected - ${status}`
+                : `${selectedCount} selected`
               : status || "No selection"}
           </span>
           <label className="sr-only" htmlFor="bulk-role">
