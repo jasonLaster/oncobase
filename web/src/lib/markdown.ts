@@ -436,7 +436,7 @@ export async function getAllTags(): Promise<string[]> {
 async function getPagesByTagForSite(
   siteSlug: SiteSlug,
   tag: string,
-): Promise<Array<{ slug: string; title: string }>> {
+): Promise<Array<{ slug: string; title: string; sensitive?: boolean }>> {
   "use cache";
   cacheLife("hours");
   cacheTag(
@@ -453,10 +453,30 @@ async function getPagesByTagForSite(
   });
 }
 
+async function getPagesByTagIncludingSensitiveForSite(
+  siteSlug: SiteSlug,
+  tag: string,
+): Promise<Array<{ slug: string; title: string; sensitive?: boolean }>> {
+  if (shouldSkipConvexReads()) return [];
+  const docs = await siteDataFromSlug(siteSlug).documents.list({
+    includeSensitive: true,
+  });
+  const normalizedTag = tag.toLowerCase();
+  return docs
+    .filter((doc) => doc.tags.includes(normalizedTag))
+    .map(({ slug, title, sensitive }) => ({ slug, title, sensitive }))
+    .sort((a, b) => a.title.localeCompare(b.title));
+}
+
 export async function getPagesByTag(
   tag: string,
-): Promise<Array<{ slug: string; title: string }>> {
-  return getPagesByTagForSite(await readSiteSlug(), tag);
+  options: MarkdownDiscoveryOptions = {},
+): Promise<Array<{ slug: string; title: string; sensitive?: boolean }>> {
+  const siteSlug = await readSiteSlug();
+  if (options.includeSensitive) {
+    return getPagesByTagIncludingSensitiveForSite(siteSlug, tag);
+  }
+  return getPagesByTagForSite(siteSlug, tag);
 }
 
 // ── Tree construction ────────────────────────────────────────────────────────

@@ -260,8 +260,13 @@ export function createSiteData(
     },
     access: {
       listUsersWithRoles: () =>
-        convex.query((api as any).access.listUsersWithRoles, {} as any),
-      listRoles: () => convex.query((api as any).access.listRoles, {} as any),
+        convex.query((api as any).access.listUsersWithRoles, {
+          siteSlug: scope.siteSlug,
+        } as any),
+      listRoles: () =>
+        convex.query((api as any).access.listRoles, {
+          siteSlug: scope.siteSlug,
+        } as any),
       createRole: (args: {
         name: string;
         description?: string;
@@ -272,7 +277,10 @@ export function createSiteData(
         excludeTags?: string[];
         emailPatterns?: string[];
       }) =>
-        convex.mutation((api as any).access.createRole, args as any),
+        convex.mutation((api as any).access.createRole, {
+          ...args,
+          siteSlug: scope.siteSlug,
+        } as any),
       updateRole: (args: {
         roleId: string;
         name: string;
@@ -284,19 +292,40 @@ export function createSiteData(
         excludeTags?: string[];
         emailPatterns?: string[];
       }) =>
-        convex.mutation((api as any).access.updateRole, args as any),
+        convex.mutation((api as any).access.updateRole, {
+          ...args,
+          siteSlug: scope.siteSlug,
+        } as any),
       deleteRole: (args: { roleId: string }) =>
-        convex.mutation((api as any).access.deleteRole, args as any),
+        convex.mutation((api as any).access.deleteRole, {
+          ...args,
+          siteSlug: scope.siteSlug,
+        } as any),
       assignRoleToUser: (args: { userId: string; roleId: string }) =>
-        convex.mutation((api as any).access.assignRoleToUser, args as any),
+        convex.mutation((api as any).access.assignRoleToUser, {
+          ...args,
+          siteSlug: scope.siteSlug,
+        } as any),
       setRoleForUser: (args: { userId: string; roleId?: string }) =>
-        convex.mutation((api as any).access.setRoleForUser, args as any),
+        convex.mutation((api as any).access.setRoleForUser, {
+          ...args,
+          siteSlug: scope.siteSlug,
+        } as any),
       setRoleForUsers: (args: { userIds: string[]; roleId?: string }) =>
-        convex.mutation((api as any).access.setRoleForUsers, args as any),
+        convex.mutation((api as any).access.setRoleForUsers, {
+          ...args,
+          siteSlug: scope.siteSlug,
+        } as any),
       deleteUsers: (args: { userIds: string[] }) =>
-        convex.mutation((api as any).access.deleteUsers, args as any),
+        convex.mutation((api as any).access.deleteUsers, {
+          ...args,
+          siteSlug: scope.siteSlug,
+        } as any),
       canUserAccessSlug: (args: { userId: string; slug: string }) =>
-        convex.query((api as any).access.canUserAccessSlug, args as any),
+        convex.query((api as any).access.canUserAccessSlug, {
+          ...args,
+          siteSlug: scope.siteSlug,
+        } as any),
     },
   };
 }

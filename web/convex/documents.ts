@@ -204,7 +204,12 @@ export const listPage = query({
     return {
       page: result.page
         .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
-        .map(({ slug, title, tags }) => ({ slug, title, tags })),
+        .map(({ slug, title, tags, sensitive }) => ({
+          slug,
+          title,
+          tags,
+          sensitive,
+        })),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
     };
@@ -278,7 +283,12 @@ export const list = action({
     let isDone = false;
     while (!isDone) {
       const page: {
-        page: Array<{ slug: string; title: string; tags: string[] }>;
+        page: Array<{
+          slug: string;
+          title: string;
+          tags: string[];
+          sensitive?: boolean;
+        }>;
         isDone: boolean;
         continueCursor: string;
       } = await ctx.runQuery(api.documents.listPage, {
@@ -296,12 +306,22 @@ export const list = action({
 });
 
 export const getByTag = action({
-  args: { tag: v.string(), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { tag, siteSlug }): Promise<Array<{ slug: string; title: string }>> => {
-    const allDocs = await ctx.runAction(api.documents.list, { siteSlug });
+  args: {
+    tag: v.string(),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    { tag, includeSensitive, siteSlug },
+  ): Promise<Array<{ slug: string; title: string; sensitive?: boolean }>> => {
+    const allDocs = await ctx.runAction(api.documents.list, {
+      includeSensitive,
+      siteSlug,
+    });
     return allDocs
       .filter((d) => d.tags.includes(tag))
-      .map(({ slug, title }) => ({ slug, title }))
+      .map(({ slug, title, sensitive }) => ({ slug, title, sensitive }))
       .sort((a, b) => a.title.localeCompare(b.title));
   },
 });
