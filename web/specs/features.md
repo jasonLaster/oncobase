@@ -212,10 +212,10 @@ The app is a multi-site wiki publishing platform. Diana is site #1; additional s
 
 - There are two separate auth layers:
   - a simple site password gate enforced by middleware
-  - optional account sign-in/sign-up flows for user identity and future saved features
+  - optional account auth flows for user identity and future saved features
 - Optional account auth supports:
-  - sign up with name, email, and password
   - sign in and sign out from the actions menu
+  - account creation through the auth API for operator and test flows
   - persistent session cookies
 - Role-based access permissions are account-based and site-scoped:
   - `/admin/access` creates roles and assigns them to site users

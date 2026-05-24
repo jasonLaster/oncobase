@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
+import { SidebarSignInPrompt } from "@/components/actions-menu";
 import { TreeNode, fileTreeNodeKey, formatName } from "@/components/sidebar";
 import { openCommandPalette } from "@/components/command-palette";
 import { useNavigationPathname } from "@/lib/navigation-intent";
@@ -281,14 +282,17 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
             data-test-id={activeTab === "outline" ? "bottom-nav-outline" : "bottom-nav-page-tree"}
           >
             {activeTab === "pages" ? (
-              tree.map((node) => (
-                <TreeNode
-                  activePathname={activePathname}
-                  key={fileTreeNodeKey(node)}
-                  node={node}
-                  onNavigate={close}
-                />
-              ))
+              <>
+                <SidebarSignInPrompt />
+                {tree.map((node) => (
+                  <TreeNode
+                    activePathname={activePathname}
+                    key={fileTreeNodeKey(node)}
+                    node={node}
+                    onNavigate={close}
+                  />
+                ))}
+              </>
             ) : outlineItems.length > 0 ? (
               <div className="space-y-0.5">
                 {outlineItems.map((item) => {

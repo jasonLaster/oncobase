@@ -1,0 +1,74 @@
+<svg width="1440" height="920" viewBox="0 0 1440 920" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="920" fill="#f7f7f5"/>
+  <text x="72" y="78" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">Sign-in prominence proposals</text>
+  <text x="72" y="112" fill="#6b7280" font-family="Inter, Arial, sans-serif" font-size="16">Three account prompts that keep the wiki quiet while making sign-in easier to notice.</text>
+
+  <g transform="translate(72 160)">
+    <rect width="1296" height="190" rx="8" fill="#ffffff" stroke="#dedbd2"/>
+    <rect width="1296" height="48" rx="8" fill="#f1f0eb"/>
+    <rect x="22" y="13" width="24" height="24" rx="6" fill="#4f46e5"/>
+    <text x="56" y="32" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">Diana TNBC</text>
+    <rect x="244" y="10" width="440" height="28" rx="6" fill="#ffffff" stroke="#dedbd2"/>
+    <text x="262" y="29" fill="#8a8880" font-family="Inter, Arial, sans-serif" font-size="13">Search the wiki</text>
+    <rect x="1080" y="9" width="92" height="30" rx="6" fill="#111827"/>
+    <text x="1101" y="29" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">Sign in</text>
+    <rect x="1184" y="9" width="30" height="30" rx="6" fill="#ffffff" stroke="#dedbd2"/>
+    <circle cx="1199" cy="24" r="2" fill="#6b7280"/>
+    <circle cx="1199" cy="17" r="2" fill="#6b7280"/>
+    <circle cx="1199" cy="31" r="2" fill="#6b7280"/>
+    <rect x="1020" y="52" width="232" height="118" rx="8" fill="#ffffff" stroke="#d1d5db"/>
+    <text x="1036" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">Account</text>
+    <text x="1036" y="106" fill="#6b7280" font-family="Inter, Arial, sans-serif" font-size="12">Keep your identity attached to comments and protected wiki access.</text>
+    <rect x="1036" y="126" width="200" height="30" rx="6" fill="#111827"/>
+    <text x="1109" y="146" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">Sign in</text>
+    <text x="22" y="150" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">Option A: top-right CTA plus stronger dropdown row</text>
+  </g>
+
+  <g transform="translate(72 390)">
+    <rect width="400" height="430" rx="8" fill="#ffffff" stroke="#dedbd2"/>
+    <rect width="400" height="48" rx="8" fill="#f1f0eb"/>
+    <rect x="18" y="13" width="24" height="24" rx="6" fill="#4f46e5"/>
+    <text x="52" y="32" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">Diana TNBC</text>
+    <rect x="18" y="76" width="364" height="34" rx="6" fill="#fafafa" stroke="#dedbd2"/>
+    <text x="36" y="98" fill="#6b7280" font-family="Inter, Arial, sans-serif" font-size="13">Search</text>
+    <rect x="18" y="128" width="364" height="172" rx="8" fill="#f8fafc" stroke="#dbe2ea"/>
+    <text x="38" y="162" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700">Sign in to participate</text>
+    <text x="38" y="190" fill="#6b7280" font-family="Inter, Arial, sans-serif" font-size="13">Use your account for comments, saved identity, and pages shared privately.</text>
+    <rect x="38" y="218" width="324" height="34" rx="6" fill="#111827"/>
+    <text x="177" y="240" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">Sign in</text>
+    <text x="18" y="354" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="700">Option B: sidebar prompt</text>
+    <text x="18" y="382" fill="#6b7280" font-family="Inter, Arial, sans-serif" font-size="13">Best when account features live near wiki navigation and comments.</text>
+  </g>
+
+  <g transform="translate(520 390)">
+    <rect width="400" height="430" rx="8" fill="#ffffff" stroke="#dedbd2"/>
+    <rect x="92" y="32" width="216" height="366" rx="24" fill="#111827"/>
+    <rect x="104" y="48" width="192" height="334" rx="18" fill="#f7f7f5"/>
+    <rect x="104" y="48" width="192" height="44" rx="18" fill="#f1f0eb"/>
+    <text x="128" y="76" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700">Diana TNBC</text>
+    <rect x="124" y="116" width="152" height="26" rx="6" fill="#ffffff" stroke="#dedbd2"/>
+    <text x="138" y="133" fill="#8a8880" font-family="Inter, Arial, sans-serif" font-size="10">Search</text>
+    <rect x="118" y="276" width="164" height="78" rx="10" fill="#ffffff" stroke="#d1d5db"/>
+    <text x="134" y="302" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700">Sign in</text>
+    <text x="134" y="322" fill="#6b7280" font-family="Inter, Arial, sans-serif" font-size="10">Comment with your name.</text>
+    <rect x="134" y="332" width="132" height="16" rx="4" fill="#111827"/>
+    <text x="187" y="344" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="700">Continue</text>
+    <text x="18" y="354" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="700">Option C: mobile bottom sheet</text>
+    <text x="18" y="382" fill="#6b7280" font-family="Inter, Arial, sans-serif" font-size="13">Appears after a guest opens comments or protected account features.</text>
+  </g>
+
+  <g transform="translate(968 390)">
+    <rect width="400" height="430" rx="8" fill="#ffffff" stroke="#dedbd2"/>
+    <rect x="22" y="28" width="356" height="58" rx="8" fill="#f1f0eb"/>
+    <text x="44" y="63" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">Treatment notes</text>
+    <rect x="296" y="42" width="62" height="26" rx="6" fill="#111827"/>
+    <text x="310" y="60" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="700">Sign in</text>
+    <rect x="22" y="114" width="356" height="162" rx="8" fill="#ffffff" stroke="#dedbd2"/>
+    <text x="44" y="150" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Comment thread</text>
+    <text x="44" y="184" fill="#6b7280" font-family="Inter, Arial, sans-serif" font-size="13">Guest comments work, but signed-in users keep a stable name.</text>
+    <rect x="44" y="214" width="130" height="32" rx="6" fill="#111827"/>
+    <text x="81" y="235" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">Sign in</text>
+    <text x="18" y="354" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="700">Option D: contextual comment prompt</text>
+    <text x="18" y="382" fill="#6b7280" font-family="Inter, Arial, sans-serif" font-size="13">Prompt at the moment sign-in has obvious value.</text>
+  </g>
+</svg>
