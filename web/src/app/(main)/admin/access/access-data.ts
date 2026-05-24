@@ -2,9 +2,10 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import fs from "node:fs";
 import path from "node:path";
+import matter from "gray-matter";
 import { siteDataFromRequest } from "@/lib/site-data";
 import { getSessionUserWithAdminFromCookieHeader } from "@/lib/session-user";
-import { readVaultDocuments } from "../../../../../scripts/publish/walk-vault";
+import { isSensitiveFrontmatter } from "@/lib/sensitive-pages";
 
 export type AccessRole = {
   _id: string;
@@ -119,23 +120,45 @@ function candidateVaultPaths() {
   return [
     process.env.WIKI_VAULT_PATH,
     process.env.OBSIDIAN_VAULT_PATH,
-    path.resolve(process.cwd(), "../obsidian"),
   ].filter((value): value is string => Boolean(value));
 }
 
 function readSourceSensitiveSlugs() {
+  if (process.env.VERCEL === "1") return null;
+
   const vaultPath = candidateVaultPaths().find((candidate) =>
     fs.existsSync(candidate),
   );
   if (!vaultPath) return null;
 
   try {
-    return new Set(
-      readVaultDocuments(vaultPath)
-        .filter((document) => document.sensitive)
-        .map((document) => document.slug),
-    );
+    return new Set(readSensitiveMarkdownSlugs(vaultPath));
   } catch {
     return null;
   }
+}
+
+function readSensitiveMarkdownSlugs(dir: string, basePath = ""): string[] {
+  const slugs: string[] = [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) continue;
+    const fullPath = path.join(dir, entry.name);
+    const relativePath = basePath ? `${basePath}/${entry.name}` : entry.name;
+
+    if (entry.isDirectory()) {
+      slugs.push(...readSensitiveMarkdownSlugs(fullPath, relativePath));
+      continue;
+    }
+
+    if (!relativePath.endsWith(".md")) continue;
+    const raw = fs.readFileSync(fullPath, "utf8");
+    const { data } = matter(raw);
+    if (isSensitiveFrontmatter(data as Record<string, unknown>)) {
+      slugs.push(relativePath.replace(/\.md$/, ""));
+    }
+  }
+
+  return slugs;
 }
