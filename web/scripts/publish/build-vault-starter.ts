@@ -8,25 +8,11 @@ const TEMPLATE_ROOT = path.join(REPO_ROOT, "obsidian-2");
 const PUBLIC_ROOT = path.join(WEB_ROOT, "public");
 const OUT_FILE = path.join(PUBLIC_ROOT, "wiki-vault-starter.zip");
 
-const PUBLISH_FILES = [
-  "blob.ts",
-  "check.ts",
-  "cli.ts",
-  "config.ts",
-  "embeddings.ts",
-  "init.ts",
-  "publish.ts",
-  "rate-limit.ts",
-  "skills.ts",
-  "sync.ts",
-  "version.ts",
-  "walk-vault.ts",
-];
-
 const SKILLS = ["wiki-quickstart", "check"];
 
 function readJson(file: string) {
   return JSON.parse(fs.readFileSync(file, "utf8")) as {
+    version?: string;
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
   };
@@ -46,30 +32,23 @@ function addDir(zip: JSZip, srcDir: string, zipDir = "") {
 }
 
 function starterPackage() {
-  const webPackage = readJson(path.join(WEB_ROOT, "package.json"));
-  const dependencies = webPackage.dependencies ?? {};
-  const devDependencies = webPackage.devDependencies ?? {};
+  const publisherPackage = readJson(
+    path.join(REPO_ROOT, "packages", "oncobase", "package.json"),
+  );
+  const publisherVersion = publisherPackage.version ? `^${publisherPackage.version}` : "latest";
   return {
     name: "wiki-vault",
     private: true,
     type: "module",
     scripts: {
-      "wiki:init": "bun scripts/publish/init.ts",
-      "wiki:check": "bun scripts/publish/check.ts",
-      "wiki:publish": "bun scripts/publish/publish.ts",
-      "wiki:sync": "bun scripts/publish/sync.ts",
-      "wiki:skills": "bun scripts/publish/skills.ts",
-    },
-    dependencies: {
-      "@vercel/blob": dependencies["@vercel/blob"],
-      dotenv: dependencies.dotenv,
-      "gray-matter": dependencies["gray-matter"],
-      "js-tiktoken": dependencies["js-tiktoken"],
-      openai: dependencies.openai,
+      "wiki:init": "oncobase init",
+      "wiki:check": "oncobase check",
+      "wiki:publish": "oncobase publish",
+      "wiki:sync": "oncobase sync",
+      "wiki:skills": "oncobase skills",
     },
     devDependencies: {
-      "bun-types": devDependencies["bun-types"],
-      typescript: devDependencies.typescript,
+      "@oncobase/oncobase": publisherVersion,
     },
   };
 }
@@ -77,13 +56,6 @@ function starterPackage() {
 async function main() {
   const zip = new JSZip();
   addDir(zip, TEMPLATE_ROOT);
-
-  for (const file of PUBLISH_FILES) {
-    zip.file(
-      `scripts/publish/${file}`,
-      fs.readFileSync(path.join(WEB_ROOT, "scripts", "publish", file)),
-    );
-  }
 
   for (const skill of SKILLS) {
     const skillDir = path.join(REPO_ROOT, ".claude", "skills", skill);
@@ -107,7 +79,7 @@ async function main() {
           resolveJsonModule: true,
           types: ["bun-types"],
         },
-        include: ["scripts/**/*.ts"],
+        include: [],
       },
       null,
       2,

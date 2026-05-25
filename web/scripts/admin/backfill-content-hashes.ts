@@ -27,9 +27,13 @@ import path from "node:path";
 import { ConvexHttpClient } from "convex/browser";
 import dotenv from "dotenv";
 import { api } from "../../convex/_generated/api";
-import { HASH_FUNCTION_VERSION, hashDocument, readVaultDocuments } from "../publish/walk-vault";
-import { readFlag } from "../publish/cli";
-import { loadConfig } from "../publish/config";
+import {
+  HASH_FUNCTION_VERSION,
+  hashDocument,
+  loadConfig,
+  readFlag,
+  readVaultDocuments,
+} from "@oncobase/oncobase";
 import { changedSlugsSinceRef } from "./changed-slugs";
 
 dotenv.config({

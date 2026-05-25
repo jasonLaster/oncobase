@@ -30,7 +30,8 @@
       ],
       "@diana-tnbc/smart-table/layout-adapter": [
         "../packages/smart-table/src/layout-adapter.ts"
-      ]
+      ],
+      "@oncobase/oncobase": ["../packages/oncobase/src/index.ts"]
     }
   },
   "include": [
