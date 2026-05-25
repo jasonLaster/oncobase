@@ -36,12 +36,12 @@ async function ensureCommentsPaneOpen(page: Page) {
         '[data-test-id="comments-sign-in-state"]',
         '[data-comment-list-item="thread"]',
         '[data-comment-draft-thread]',
-        'text=/\\d+ (unresolved|total) thread/',
-        'text=No comments yet',
-        'text=No open comments',
-        'text=Comments are temporarily unavailable.',
       ].join(", ")
     )
+    .or(page.getByText(/\d+ (unresolved|total) thread/))
+    .or(page.getByText("No comments yet"))
+    .or(page.getByText("No open comments"))
+    .or(page.getByText("Comments are temporarily unavailable."))
     .last();
 
   if (
@@ -52,7 +52,7 @@ async function ensureCommentsPaneOpen(page: Page) {
   }
 
   // Pane is collapsed or still in lazy outline mode; activate comments.
-  const openBtn = page.getByRole("button", { name: "Open comments" }).last();
+  const openBtn = page.locator('aside button[aria-label="Open comments"]').last();
   if (await openBtn.isVisible().catch(() => false)) {
     await openBtn.click();
   } else {
@@ -64,7 +64,53 @@ async function ensureCommentsPaneOpen(page: Page) {
     }
   }
 
-  await expect(readyState).toBeVisible({ timeout: 10_000 });
+  await page.waitForFunction(
+    () => {
+      const selectors = [
+        '[data-test-id="comments-sign-in-state"]',
+        '[data-comment-list-item="thread"]',
+        '[data-comment-draft-thread]',
+      ];
+      const selectorVisible = selectors.some((selector) =>
+        Array.from(document.querySelectorAll(selector)).some((item) => {
+          const element = item as HTMLElement;
+          const rect = element.getBoundingClientRect();
+          const style = window.getComputedStyle(element);
+          return (
+            rect.width > 0 &&
+            rect.height > 0 &&
+            style.display !== "none" &&
+            style.visibility !== "hidden"
+          );
+        })
+      );
+      if (selectorVisible) return true;
+
+      return Array.from(document.querySelectorAll("p, div")).some((item) => {
+        const element = item as HTMLElement;
+        const text = element.textContent ?? "";
+        if (
+          !(
+            /\d+ (unresolved|total) thread/.test(text) ||
+            text.includes("No comments yet") ||
+            text.includes("No open comments") ||
+            text.includes("Comments are temporarily unavailable.")
+          )
+        ) {
+          return false;
+        }
+        const rect = element.getBoundingClientRect();
+        const style = window.getComputedStyle(element);
+        return (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          style.display !== "none" &&
+          style.visibility !== "hidden"
+        );
+      });
+    },
+    { timeout: 10_000 }
+  );
 }
 
 async function waitForCommentsListSettled(page: Page) {
@@ -544,6 +590,7 @@ async function activateAndWaitForComments(page: Page) {
     const candidates = [
       page.getByRole("button", { name: "Open comments" }).last(),
       page.getByRole("button", { name: "Expand comments rail" }).last(),
+      page.getByTestId("mobile-header-comments"),
       page.getByRole("button", { name: "Comments", exact: true }).last(),
     ];
     for (const candidate of candidates) {
@@ -564,6 +611,7 @@ async function commentsAreEnabled(page: Page) {
   const controls = [
     page.getByRole("button", { name: "Open comments" }).last(),
     page.getByRole("button", { name: "Expand comments rail" }).last(),
+    page.getByTestId("mobile-header-comments"),
     page.getByRole("button", { name: "Comments", exact: true }).last(),
   ];
 
@@ -768,7 +816,7 @@ test.describe("Document comments sidebar", () => {
     ).toHaveCount(0);
   });
 
-  test("mobile bottom rail outline still exposes comments activation", async ({
+  test("tablet right rail outline still exposes comments activation", async ({
     page,
   }) => {
     await signInForComments(page);
@@ -790,7 +838,7 @@ test.describe("Document comments sidebar", () => {
     ).toHaveCount(0);
   });
 
-  test("phone bottom rail switches between comments and outline", async ({
+  test("phone header comments button opens a comments-only bottom panel", async ({
     page,
   }) => {
     await signInForComments(page);
@@ -798,26 +846,26 @@ test.describe("Document comments sidebar", () => {
     await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
 
-    const rail = bottomCommentsRail(page);
-    await expect(rail).toBeVisible();
-    const railBox = await rail.boundingBox();
-    expect(railBox).toBeTruthy();
-    expect(railBox!.y).toBeGreaterThan(250);
+    await expect(bottomCommentsRail(page)).toBeHidden();
+    await page.getByTestId("mobile-header-comments").click();
+    const panel = page.getByTestId("mobile-comments-panel");
+    await expect(panel).toHaveAttribute("data-state", "open");
+    const panelBox = await panel.locator("aside").boundingBox();
+    expect(panelBox).toBeTruthy();
+    expect(panelBox!.y).toBeGreaterThan(80);
 
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
     await ensureCommentsPaneOpen(page);
     await expect(
       page.getByRole("button", { name: "Add a page-level comment" })
     ).toHaveCount(0);
-
-    await rail.getByRole("button", { name: "Outline", exact: true }).click();
-    await expectVisibleOutlineHeadingCount(page);
-
-    await rail.getByRole("button", { name: "Comments", exact: true }).click();
+    await expect(
+      panel.getByRole("button", { name: "Outline", exact: true })
+    ).toHaveCount(0);
     await ensureCommentsPaneOpen(page);
   });
 
-  test("ipad bottom rail switches between comments and outline", async ({
+  test("ipad uses the right rail for comments and outline", async ({
     page,
   }) => {
     await signInForComments(page);
@@ -825,11 +873,7 @@ test.describe("Document comments sidebar", () => {
     await page.goto("/about/About");
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
 
-    const rail = bottomCommentsRail(page);
-    await expect(rail).toBeVisible();
-    const railBox = await rail.boundingBox();
-    expect(railBox).toBeTruthy();
-    expect(railBox!.y).toBeGreaterThan(360);
+    await expect(bottomCommentsRail(page)).toBeHidden();
 
     test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
     await ensureCommentsPaneOpen(page);
@@ -837,10 +881,33 @@ test.describe("Document comments sidebar", () => {
       page.getByRole("button", { name: "Add a page-level comment" })
     ).toHaveCount(0);
 
-    await rail.getByRole("button", { name: "Outline", exact: true }).click();
+    const rightRailBox = await page.evaluate(() => {
+      const collapseButton = Array.from(
+        document.querySelectorAll('button[aria-label="Collapse comments pane"]')
+      ).find((button) => {
+        const rect = (button as HTMLElement).getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      const aside = collapseButton?.closest("aside") as HTMLElement | null;
+      const rect = aside?.getBoundingClientRect();
+      return rect
+        ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+        : null;
+    });
+    expect(rightRailBox).toBeTruthy();
+    expect(rightRailBox!.x).toBeGreaterThan(500);
+    expect(rightRailBox!.height).toBeGreaterThan(800);
+
+    await page
+      .getByRole("button", { name: "Outline", exact: true })
+      .last()
+      .click();
     await expectVisibleOutlineHeadingCount(page);
 
-    await rail.getByRole("button", { name: "Comments", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Comments", exact: true })
+      .last()
+      .click();
     await ensureCommentsPaneOpen(page);
   });
 

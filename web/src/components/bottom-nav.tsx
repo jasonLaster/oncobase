@@ -11,6 +11,8 @@ import { useNavigationPathname } from "@/lib/navigation-intent";
 
 type NavTab = "pages" | "outline";
 
+const MOBILE_COMMENTS_PANEL_EVENT = "mobile-comments-panel-open";
+
 type OutlineItem = {
   id: string;
   text: string;
@@ -72,11 +74,20 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
   );
   const title = getPageTitle(pathname);
   const isChatRoute = pathname.startsWith("/chat");
+  const isDocumentRoute =
+    !isChatRoute &&
+    !pathname.startsWith("/comments") &&
+    !pathname.startsWith("/search") &&
+    !pathname.startsWith("/admin");
   const close = useCallback(() => setOpen(false), []);
   const openSheet = useCallback(() => {
     setActiveTab("pages");
     setOutlineItems(getOutlineItems());
     setOpen(true);
+  }, []);
+  const openCommentsPanel = useCallback(() => {
+    document.documentElement.dataset.mobileCommentsPanelRequested = "true";
+    window.dispatchEvent(new CustomEvent(MOBILE_COMMENTS_PANEL_EVENT));
   }, []);
 
   const jumpToHeading = useCallback((id: string) => {
@@ -169,6 +180,20 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
             <path d="m10.25 10.25 3.5 3.5" />
           </svg>
         </button>
+        {isDocumentRoute ? (
+          <button
+            type="button"
+            onClick={openCommentsPanel}
+            aria-label="Open comments"
+            title="Open comments"
+            className="flex size-9 shrink-0 items-center justify-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--text-muted)] transition-colors hover:border-[var(--brand)] hover:text-[var(--foreground)]"
+            data-test-id="mobile-header-comments"
+          >
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
+            </svg>
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={openSheet}
