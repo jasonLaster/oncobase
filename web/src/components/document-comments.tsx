@@ -128,31 +128,6 @@ function OutlineButton({
   );
 }
 
-function RailToggleIcon({ direction }: { direction: "up" | "down" | "right" }) {
-  const points =
-    direction === "up"
-      ? "4 10 8 6 12 10"
-      : direction === "down"
-        ? "4 6 8 10 12 6"
-        : "6 4 10 8 6 12";
-
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polyline points={points} />
-    </svg>
-  );
-}
-
 function getOutlineHeadingText(heading: HTMLHeadingElement): string {
   const clone = heading.cloneNode(true) as HTMLHeadingElement;
   clone
@@ -276,6 +251,7 @@ const COMMENTS_DEFAULT_WIDTH = 384; // 24rem
 const COMMENTS_COLLAPSED_WIDTH = 64; // w-16
 const DESKTOP_SIDEBAR_TOP_OFFSET = 24;
 const COMMENTS_PANE_EVENT = "comments-pane-state-change";
+const MOBILE_COMMENTS_PANEL_EVENT = "mobile-comments-panel-open";
 
 type PaneStateSnapshot = {
   open: boolean;
@@ -717,6 +693,7 @@ function CommentsShell({
   const [highlightRects, setHighlightRects] = useState<HighlightRect[]>([]);
   const [selectionTooltip, setSelectionTooltip] = useState<SelectionTooltipPosition | null>(null);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("comments");
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const { activeHeadingId, outlineItems } = useDocumentOutline(
     articleRef,
     scrollRootRef,
@@ -812,6 +789,38 @@ function CommentsShell({
     },
     [commentsOpen, setCommentsOpen, sidebarMode]
   );
+  const selectSidebarMode = useCallback(
+    (mode: SidebarMode) => {
+      setSidebarMode(mode);
+      setCommentsOpen(true);
+    },
+    [setCommentsOpen]
+  );
+  const closeMobilePanel = useCallback(() => setMobilePanelOpen(false), []);
+
+  useEffect(() => {
+    const openMobilePanel = () => {
+      delete document.documentElement.dataset.mobileCommentsPanelRequested;
+      selectSidebarMode("comments");
+      setMobilePanelOpen(true);
+    };
+
+    window.addEventListener(MOBILE_COMMENTS_PANEL_EVENT, openMobilePanel);
+    if (document.documentElement.dataset.mobileCommentsPanelRequested === "true") {
+      openMobilePanel();
+    }
+    return () => {
+      window.removeEventListener(MOBILE_COMMENTS_PANEL_EVENT, openMobilePanel);
+    };
+  }, [selectSidebarMode]);
+
+  useEffect(() => {
+    if (!mobilePanelOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobilePanelOpen]);
 
   useEffect(() => {
     const root = articleRef.current;
@@ -1054,7 +1063,10 @@ function CommentsShell({
     );
   }, [hasDraftSelection, pendingSelection, visibleThreads]);
 
-  const sidebarHeader = (
+  const renderSidebarHeader = (
+    collapseControl: ReactNode,
+    tabBehavior: "toggle" | "select" = "toggle"
+  ) => (
     <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] px-3 py-2">
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex items-center gap-2">
@@ -1062,27 +1074,27 @@ function CommentsShell({
             <SidebarButton
               variant="tab"
               active={sidebarMode === "comments"}
-              onClick={() => toggleSidebarMode("comments")}
+              onClick={() =>
+                tabBehavior === "toggle"
+                  ? toggleSidebarMode("comments")
+                  : selectSidebarMode("comments")
+              }
             >
               Comments
             </SidebarButton>
             <SidebarButton
               variant="tab"
               active={sidebarMode === "outline"}
-              onClick={() => toggleSidebarMode("outline")}
+              onClick={() =>
+                tabBehavior === "toggle"
+                  ? toggleSidebarMode("outline")
+                  : selectSidebarMode("outline")
+              }
             >
               Outline
             </SidebarButton>
           </div>
-          <SidebarButton
-            onClick={toggleCommentsPane}
-            aria-label="Collapse comments pane"
-            className="h-auto w-auto px-2 py-1"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 4 10 8 6 12" />
-            </svg>
-          </SidebarButton>
+          {collapseControl}
         </div>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
@@ -1126,6 +1138,58 @@ function CommentsShell({
             </DropdownMenu>
           ) : null}
         </div>
+      </div>
+    </div>
+  );
+
+  const mobileCommentsHeader = (
+    <div className="border-b border-[var(--sidebar-border)] px-3 py-2">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="min-w-0 flex-1 text-sm font-semibold text-[var(--foreground)]">
+          Comments
+        </span>
+        <SidebarButton
+          onClick={closeMobilePanel}
+          aria-label="Close comments panel"
+          className="h-auto w-auto px-2 py-1"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <line x1="4" y1="4" x2="12" y2="12" />
+            <line x1="12" y1="4" x2="4" y2="12" />
+          </svg>
+        </SidebarButton>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-[var(--text-muted)]">
+          {visibleThreads.length} {showResolvedThreads ? "total" : "unresolved"} thread{visibleThreads.length === 1 ? "" : "s"}
+        </p>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]">
+            <span className="sr-only">Comment actions</span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="3.5" cy="8" r="1" />
+              <circle cx="8" cy="8" r="1" />
+              <circle cx="12.5" cy="8" r="1" />
+            </svg>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem
+              onClick={() => setShowResolvedThreads((current) => !current)}
+            >
+              {showResolvedThreads ? "Show unresolved only" : "View all threads"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
@@ -1347,9 +1411,6 @@ function CommentsShell({
           ["--comments-pane-width" as string]: commentsOpen
             ? `${commentsWidth}px`
             : `${COMMENTS_COLLAPSED_WIDTH}px`,
-          ["--comments-mobile-rail-height" as string]: commentsOpen
-            ? "min(52dvh, 30rem)"
-            : "3.5rem",
         }}
       >
         <div className="min-w-0 flex-1">
@@ -1443,56 +1504,41 @@ function CommentsShell({
         </div>
       </div>
 
-      <aside
-        data-comments-bottom-rail
-        aria-label="Document comments and outline"
+      <div
         className={cn(
-          "fixed inset-x-0 bottom-[calc(3rem+env(safe-area-inset-bottom))] z-40 flex flex-col border-t border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-[0_-12px_28px_rgba(15,23,42,0.14)] transition-[height] duration-200 ease-out md:bottom-0 lg:hidden",
-          commentsOpen ? "h-[min(52dvh,30rem)]" : "h-14"
+          "fixed inset-0 z-50 transition-opacity duration-300 md:hidden",
+          mobilePanelOpen
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0"
         )}
+        data-test-id="mobile-comments-panel"
+        data-state={mobilePanelOpen ? "open" : "closed"}
       >
-        {commentsOpen ? (
-          <>
-            <div className="shrink-0 pt-1">
-              <div className="mx-auto mb-1 h-1 w-8 rounded-full bg-[var(--text-muted)]/30" />
-              {sidebarHeader}
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              {sidebarContent}
-            </div>
-          </>
-        ) : (
-          <div className="flex h-full items-center gap-2 px-3">
-            <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
-              <SidebarButton
-                variant="tab"
-                active={sidebarMode === "comments"}
-                onClick={() => toggleSidebarMode("comments")}
-              >
-                Comments
-              </SidebarButton>
-              <SidebarButton
-                variant="tab"
-                active={sidebarMode === "outline"}
-                onClick={() => toggleSidebarMode("outline")}
-              >
-                Outline
-              </SidebarButton>
-            </div>
-            <SidebarButton
-              onClick={() => setCommentsOpen(true)}
-              aria-label="Expand comments rail"
-              className="h-auto w-auto px-2 py-1"
-            >
-              <RailToggleIcon direction="up" />
-            </SidebarButton>
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+          onClick={closeMobilePanel}
+        />
+        <aside
+          aria-label="Document comments"
+          className={cn(
+            "absolute bottom-0 left-0 right-0 flex h-[min(88dvh,46rem)] flex-col rounded-t-2xl bg-[var(--sidebar-bg)] shadow-2xl transition-transform duration-300 ease-out",
+            mobilePanelOpen ? "translate-y-0" : "translate-y-full"
+          )}
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
+          <div className="shrink-0 pt-2">
+            <div className="mx-auto mb-2 h-1 w-8 rounded-full bg-[var(--text-muted)]/30" />
+            {mobileCommentsHeader}
           </div>
-        )}
-      </aside>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {sidebarContent}
+          </div>
+        </aside>
+      </div>
 
       <aside
         className={cn(
-          "hidden lg:flex fixed right-0 top-0 bottom-0 z-30 bg-[var(--background)]",
+          "hidden md:flex fixed right-0 top-0 bottom-0 z-30 bg-[var(--background)]",
           commentsOpen ? "flex-col shadow-[-4px_0_12px_rgba(0,0,0,0.12)]" : "w-16 flex-col items-center py-3"
         )}
         style={commentsOpen ? { width: commentsWidth } : undefined}
@@ -1508,7 +1554,17 @@ function CommentsShell({
               aria-orientation="vertical"
               className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-transparent hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
             />
-            {sidebarHeader}
+            {renderSidebarHeader(
+              <SidebarButton
+                onClick={toggleCommentsPane}
+                aria-label="Collapse comments pane"
+                className="h-auto w-auto px-2 py-1"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 4 10 8 6 12" />
+                </svg>
+              </SidebarButton>
+            )}
             <div className="min-h-0 flex-1 overflow-y-auto">{sidebarContent}</div>
           </>
         ) : (
@@ -1634,9 +1690,6 @@ export function OutlineShell({
           "--comments-pane-width": sidebarOpen
             ? `${sidebarWidth}px`
             : `${COMMENTS_COLLAPSED_WIDTH}px`,
-          "--comments-mobile-rail-height": sidebarOpen
-            ? "min(52dvh, 30rem)"
-            : "3.5rem",
         } as React.CSSProperties
       }
     >
@@ -1655,117 +1708,8 @@ export function OutlineShell({
       </div>
 
       <aside
-        data-comments-bottom-rail
-        aria-label="Document comments and outline"
         className={cn(
-          "hidden",
-          sidebarOpen ? "h-[min(52dvh,30rem)]" : "h-14"
-        )}
-      >
-        {sidebarOpen ? (
-          <>
-            <div className="shrink-0 border-b border-[var(--sidebar-border)] px-3 pb-2 pt-1">
-              <div className="mx-auto mb-1 h-1 w-8 rounded-full bg-[var(--text-muted)]/30" />
-              {onActivate ? (
-                <div className="mb-2 flex items-center gap-2">
-                  <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
-                    <SidebarButton
-                      variant="tab"
-                      onClick={onActivate}
-                    >
-                      Comments
-                    </SidebarButton>
-                    <SidebarButton
-                      variant="tab"
-                      active
-                      onClick={toggleSidebar}
-                    >
-                      Outline
-                    </SidebarButton>
-                  </div>
-                  <SidebarButton
-                    onClick={toggleSidebar}
-                    aria-label="Collapse outline rail"
-                    className="h-auto w-auto px-2 py-1"
-                  >
-                    <RailToggleIcon direction="down" />
-                  </SidebarButton>
-                </div>
-              ) : (
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="min-w-0 flex-1 text-xs font-medium text-[var(--foreground)]">
-                    Outline
-                  </span>
-                  <SidebarButton
-                    onClick={toggleSidebar}
-                    aria-label="Collapse outline rail"
-                    className="h-auto w-auto px-2 py-1"
-                  >
-                    <RailToggleIcon direction="down" />
-                  </SidebarButton>
-                </div>
-              )}
-              <p className="text-xs text-[var(--text-muted)]">
-                {outlineItems.length} heading{outlineItems.length === 1 ? "" : "s"}
-              </p>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--background)]/40 p-3">
-              {outlineItems.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[var(--sidebar-border)] px-4 py-6 text-sm text-[var(--text-muted)]">
-                  No headings found on this page.
-                </div>
-              ) : (
-                <div className="space-y-0.5">
-                  {outlineItems.map((item) => (
-                    <OutlineButton
-                      key={item.key}
-                      item={item}
-                      active={item.id === activeHeadingId}
-                      ancestor={activeHeadingParentIds.has(item.id)}
-                      onClick={() => jumpToHeading(item.id)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="flex h-full items-center gap-2 px-3">
-            {onActivate ? (
-              <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
-                <SidebarButton
-                  variant="tab"
-                  onClick={onActivate}
-                >
-                  Comments
-                </SidebarButton>
-                <SidebarButton
-                  variant="tab"
-                  active
-                  onClick={() => setSidebarOpen(true)}
-                >
-                  Outline
-                </SidebarButton>
-              </div>
-            ) : (
-              <span className="min-w-0 flex-1 text-sm font-medium text-[var(--foreground)]">
-                Outline
-              </span>
-            )}
-            <SidebarButton
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Expand outline rail"
-              className="h-auto w-auto px-2 py-1"
-            >
-              <RailToggleIcon direction="up" />
-            </SidebarButton>
-          </div>
-        )}
-      </aside>
-
-      <aside
-        className={cn(
-          "hidden lg:flex fixed right-0 top-0 bottom-0 z-30 bg-[var(--background)]",
+          "hidden md:flex fixed right-0 top-0 bottom-0 z-30 bg-[var(--background)]",
           sidebarOpen ? "flex-col shadow-[-4px_0_12px_rgba(0,0,0,0.12)]" : "w-16 flex-col items-center py-3"
         )}
         style={sidebarOpen ? { width: sidebarWidth } : undefined}
