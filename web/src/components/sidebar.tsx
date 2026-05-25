@@ -68,14 +68,6 @@ export function fileTreeNodeKey(node: FileNode) {
 
 function getDirectoryDefaultChild(node: FileNode) {
   if (node.type !== "directory") return null;
-  const indexChild =
-    node.children?.find(
-      (child) =>
-        child.type === "file" &&
-        (child.name === "index" || child.slug === `${node.slug}/index`),
-    ) ?? null;
-  if (indexChild) return indexChild;
-
   return (
     node.children?.find(
       (child) => node.badge === "Notes set" && child.type === "file" && child.name === "Overview",

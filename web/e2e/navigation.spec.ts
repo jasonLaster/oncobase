@@ -141,7 +141,7 @@ test.describe("Page viewing & sidebar navigation", () => {
     await expect(page).toHaveURL(/\/wiki\/treatment\/chemo-day$/);
   });
 
-  test("index-backed directories link to their index while keeping index first", async ({ page }) => {
+  test("index-backed directories expand without selecting their index", async ({ page }) => {
     await page.goto("/wiki/treatment/plan/index");
 
     await expandDirectory(page, "wiki");
@@ -149,15 +149,15 @@ test.describe("Page viewing & sidebar navigation", () => {
     await expandDirectory(page, "plan");
 
     const nav = page.locator(sidebar);
-    const planLink = nav.getByRole("link", { name: "plan", exact: true }).first();
+    const planButton = nav.getByRole("button", { name: "plan", exact: true }).first();
     const indexLink = nav
       .locator('a[href="/wiki/treatment/plan/index"]')
       .filter({ hasText: /^index$/ })
       .first();
     const ctdnaLink = nav.getByRole("link", { name: "ctdna schedule", exact: true }).first();
 
-    await expect(planLink).toHaveAttribute("href", "/wiki/treatment/plan/index");
-    await expect(planLink.locator("svg")).toBeVisible();
+    await expect(planButton).toHaveAttribute("aria-expanded", "true");
+    await expect(planButton.locator("svg").first()).toBeVisible();
     await expect(indexLink).toHaveAttribute("href", "/wiki/treatment/plan/index");
 
     const indexBox = await indexLink.boundingBox();
@@ -166,14 +166,14 @@ test.describe("Page viewing & sidebar navigation", () => {
     expect(ctdnaBox).not.toBeNull();
     expect(indexBox!.y).toBeLessThan(ctdnaBox!.y);
 
-    await planLink.click();
+    await planButton.click();
     await expect(ctdnaLink).toBeHidden();
-    await planLink.click();
+    await planButton.click();
     await expect(ctdnaLink).toBeVisible();
     await expect(page).toHaveURL(/\/wiki\/treatment\/plan\/index$/);
     await expectSingleSelectedSidebarItem(page, {
       href: "/wiki/treatment/plan/index",
-      text: "plan",
+      text: "index",
     });
   });
 
