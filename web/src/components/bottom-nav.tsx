@@ -5,9 +5,15 @@ import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
 import { SidebarSignInPrompt } from "@/components/actions-menu";
-import { TreeNode, fileTreeNodeKey, formatName } from "@/components/sidebar";
+import {
+  CommentsTreeLink,
+  TreeNode,
+  fileTreeNodeKey,
+  formatName,
+} from "@/components/sidebar";
 import { openCommandPalette } from "@/components/command-palette";
 import { useNavigationPathname } from "@/lib/navigation-intent";
+import { commentsFeatureEnabled } from "@/lib/comments-feature";
 
 type NavTab = "pages" | "outline";
 
@@ -305,6 +311,9 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
           >
             {activeTab === "pages" ? (
               <>
+                {commentsFeatureEnabled() ? (
+                  <CommentsTreeLink activePathname={activePathname} onNavigate={close} />
+                ) : null}
                 <SidebarSignInPrompt />
                 {tree.map((node) => (
                   <TreeNode

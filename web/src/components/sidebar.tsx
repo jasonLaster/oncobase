@@ -467,12 +467,19 @@ function WorkspaceHeader() {
   );
 }
 
-function CommentsTreeLink({ activePathname }: { activePathname: string }) {
+export function CommentsTreeLink({
+  activePathname,
+  onNavigate,
+}: {
+  activePathname: string;
+  onNavigate?: () => void;
+}) {
   const isActive = activePathname.startsWith("/comments");
 
   return (
     <Link
       href="/comments"
+      onClick={onNavigate}
       data-test-id="sidebar-view-comments"
       data-selected-file-tree-item={isActive ? "true" : undefined}
       className={`group flex items-center rounded-md text-sm transition-colors ${

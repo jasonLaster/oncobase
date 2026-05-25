@@ -54,5 +54,8 @@ test.describe("Chat", () => {
     await expect(sheet.getByRole("button", { name: "Page nav" })).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Outline" })).toBeVisible();
     await expect(sheet.getByTestId("bottom-nav-page-tree")).toBeVisible();
+    await expect(
+      sheet.getByTestId("bottom-nav-page-tree").getByTestId("sidebar-view-comments")
+    ).toBeVisible();
   });
 });
