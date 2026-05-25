@@ -50,7 +50,7 @@ test.describe("Chat", () => {
     await page.getByTestId("bottom-nav-trigger").click();
 
     const sheet = page.getByTestId("bottom-nav-sheet");
-    await expect(page.getByText("Page navigation", { exact: true })).toBeVisible();
+    await expect(sheet.getByText("Page navigation", { exact: true })).toBeHidden();
     await expect(sheet.getByRole("button", { name: "Page nav" })).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Outline" })).toBeVisible();
     await expect(sheet.getByTestId("bottom-nav-page-tree")).toBeVisible();

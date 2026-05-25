@@ -246,13 +246,10 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
           }`}
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
-          {/* Drag handle + header */}
+          {/* Drag handle + close button */}
           <div className="shrink-0 pt-2 pb-1 px-4">
             <div className="w-8 h-1 rounded-full bg-[var(--text-muted)]/30 mx-auto mb-2" />
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold">
-                Page navigation
-              </span>
+            <div className="flex justify-end">
               <button
                 onClick={close}
                 aria-label="Close navigation"
