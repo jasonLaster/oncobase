@@ -572,7 +572,8 @@ function FooterPillButton({
 function SidebarFooter() {
   const pathname = useNavigationPathname();
   return (
-    <div className="shrink-0 space-y-2 px-3 pb-3 pt-1">
+    <div className="shrink-0 space-y-3 px-3 pb-3 pt-1">
+      <SidebarSignInPrompt />
       <div className="flex items-stretch overflow-hidden rounded-lg border border-[var(--sidebar-border)] bg-[var(--popover)] shadow-sm">
         <FooterPillButton
           icon={WandSparkles}
@@ -590,7 +591,6 @@ function SidebarFooter() {
           testId="sidebar-search"
         />
       </div>
-      <SidebarSignInPrompt />
     </div>
   );
 }
