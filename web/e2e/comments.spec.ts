@@ -843,7 +843,7 @@ test.describe("Document comments sidebar", () => {
   }) => {
     await signInForComments(page);
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/about/About");
+    await page.goto("/about/About", { waitUntil: "domcontentloaded" });
     test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
 
     await expect(bottomCommentsRail(page)).toBeHidden();
@@ -863,6 +863,78 @@ test.describe("Document comments sidebar", () => {
       panel.getByRole("button", { name: "Outline", exact: true })
     ).toHaveCount(0);
     await ensureCommentsPaneOpen(page);
+  });
+
+  test("phone selection comment button opens the comments bottom panel", async ({
+    page,
+  }) => {
+    await signInForComments(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/about/About", { waitUntil: "domcontentloaded" });
+    test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
+    test.skip(!(await activateAndWaitForComments(page)), "Comments backend unavailable");
+    const panel = page.getByTestId("mobile-comments-panel");
+    if ((await panel.getAttribute("data-state").catch(() => null)) === "open") {
+      await panel.getByRole("button", { name: "Close comments panel" }).click();
+      await expect(panel).toHaveAttribute("data-state", "closed");
+    }
+
+    await selectArticleText(page);
+    await page.getByRole("button", { name: "Add comment" }).click();
+
+    await expect(panel).toHaveAttribute("data-state", "open");
+    await expect(panel.getByRole("button", { name: "Close comments panel" })).toBeVisible();
+  });
+
+  test("phone comments bottom panel can be resized", async ({ page }) => {
+    await signInForComments(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/about/About");
+    test.skip(!(await commentsAreEnabled(page)), "Comments feature not enabled");
+
+    await page.getByTestId("mobile-header-comments").click();
+    const panel = page.getByTestId("mobile-comments-panel");
+    const aside = panel.locator("aside");
+    const heightBefore = (await aside.boundingBox())?.height ?? 0;
+    const resizer = panel.getByRole("separator", { name: "Resize comments panel" });
+    const box = await resizer.boundingBox();
+    expect(box).toBeTruthy();
+    const dragX = box!.x + box!.width / 2;
+    const dragY = box!.y + box!.height / 2;
+
+    await resizer.dispatchEvent("pointerdown", {
+      bubbles: true,
+      clientX: dragX,
+      clientY: dragY,
+      pointerId: 1,
+      pointerType: "touch",
+    });
+    await page.evaluate(
+      ({ x, y }) => {
+        window.dispatchEvent(
+          new PointerEvent("pointermove", {
+            bubbles: true,
+            clientX: x,
+            clientY: y + 80,
+            pointerId: 1,
+            pointerType: "touch",
+          })
+        );
+        window.dispatchEvent(
+          new PointerEvent("pointerup", {
+            bubbles: true,
+            clientX: x,
+            clientY: y + 80,
+            pointerId: 1,
+            pointerType: "touch",
+          })
+        );
+      },
+      { x: dragX, y: dragY }
+    );
+
+    const heightAfter = (await aside.boundingBox())?.height ?? 0;
+    expect(heightAfter).toBeLessThan(heightBefore - 40);
   });
 
   test("ipad uses the right rail for comments and outline", async ({

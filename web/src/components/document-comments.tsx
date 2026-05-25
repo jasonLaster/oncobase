@@ -249,6 +249,9 @@ const COMMENTS_MIN_WIDTH = 240;
 const COMMENTS_MAX_WIDTH = 640;
 const COMMENTS_DEFAULT_WIDTH = 384; // 24rem
 const COMMENTS_COLLAPSED_WIDTH = 64; // w-16
+const MOBILE_COMMENTS_MIN_HEIGHT = 320;
+const MOBILE_COMMENTS_MAX_HEIGHT_RATIO = 0.94;
+const MOBILE_COMMENTS_DEFAULT_HEIGHT_RATIO = 0.88;
 const DESKTOP_SIDEBAR_TOP_OFFSET = 24;
 const COMMENTS_PANE_EVENT = "comments-pane-state-change";
 const MOBILE_COMMENTS_PANEL_EVENT = "mobile-comments-panel-open";
@@ -289,6 +292,32 @@ function readStoredPaneWidth() {
   }
 
   return COMMENTS_DEFAULT_WIDTH;
+}
+
+function getMaxMobileCommentsHeight() {
+  if (typeof window === "undefined") return 736;
+  return Math.max(
+    MOBILE_COMMENTS_MIN_HEIGHT,
+    Math.round(window.innerHeight * MOBILE_COMMENTS_MAX_HEIGHT_RATIO)
+  );
+}
+
+function getDefaultMobileCommentsHeight() {
+  if (typeof window === "undefined") return 736;
+  return Math.min(
+    getMaxMobileCommentsHeight(),
+    Math.max(
+      MOBILE_COMMENTS_MIN_HEIGHT,
+      Math.round(window.innerHeight * MOBILE_COMMENTS_DEFAULT_HEIGHT_RATIO)
+    )
+  );
+}
+
+function clampMobileCommentsHeight(height: number) {
+  return Math.min(
+    getMaxMobileCommentsHeight(),
+    Math.max(MOBILE_COMMENTS_MIN_HEIGHT, Math.round(height))
+  );
 }
 
 function getServerPaneState(defaultOpen: boolean): PaneStateSnapshot {
@@ -694,6 +723,7 @@ function CommentsShell({
   const [selectionTooltip, setSelectionTooltip] = useState<SelectionTooltipPosition | null>(null);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("comments");
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const [mobilePanelHeight, setMobilePanelHeight] = useState<number | null>(null);
   const { activeHeadingId, outlineItems } = useDocumentOutline(
     articleRef,
     scrollRootRef,
@@ -709,6 +739,10 @@ function CommentsShell({
   const commentsDragging = useRef(false);
   const commentsStartX = useRef(0);
   const commentsStartWidth = useRef(0);
+  const mobilePanelRef = useRef<HTMLElement | null>(null);
+  const mobilePanelDragging = useRef(false);
+  const mobilePanelStartY = useRef(0);
+  const mobilePanelStartHeight = useRef(0);
 
   const onCommentsPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -797,12 +831,126 @@ function CommentsShell({
     [setCommentsOpen]
   );
   const closeMobilePanel = useCallback(() => setMobilePanelOpen(false), []);
+  const openMobileCommentsPanel = useCallback(() => {
+    selectSidebarMode("comments");
+    setMobilePanelHeight((current) => current ?? getDefaultMobileCommentsHeight());
+    setMobilePanelOpen(true);
+  }, [selectSidebarMode]);
+
+  const openSelectionComments = useCallback(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches
+    ) {
+      openMobileCommentsPanel();
+    } else {
+      selectSidebarMode("comments");
+    }
+
+    if (canComment) {
+      setComposerMode("selection");
+    }
+  }, [canComment, openMobileCommentsPanel, selectSidebarMode]);
+
+  const updateMobilePanelHeight = useCallback((clientY: number) => {
+    const delta = mobilePanelStartY.current - clientY;
+    setMobilePanelHeight(
+      clampMobileCommentsHeight(mobilePanelStartHeight.current + delta)
+    );
+  }, []);
+
+  const beginMobilePanelResize = useCallback((clientY: number) => {
+    mobilePanelDragging.current = true;
+    mobilePanelStartY.current = clientY;
+    mobilePanelStartHeight.current =
+      mobilePanelRef.current?.getBoundingClientRect().height ??
+      mobilePanelHeight ??
+      getDefaultMobileCommentsHeight();
+  }, [mobilePanelHeight]);
+
+  const onMobilePanelPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    beginMobilePanelResize(e.clientY);
+
+    const pointerId = e.pointerId;
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!mobilePanelDragging.current || event.pointerId !== pointerId) return;
+      updateMobilePanelHeight(event.clientY);
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      mobilePanelDragging.current = false;
+      updateMobilePanelHeight(event.clientY);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!mobilePanelDragging.current) return;
+      updateMobilePanelHeight(event.clientY);
+    };
+    const handleMouseUp = (event: MouseEvent) => {
+      mobilePanelDragging.current = false;
+      updateMobilePanelHeight(event.clientY);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // Synthetic pointer drags used in tests may not register as active pointers.
+    }
+  }, [beginMobilePanelResize, updateMobilePanelHeight]);
+
+  const onMobilePanelMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    beginMobilePanelResize(e.clientY);
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!mobilePanelDragging.current) return;
+      updateMobilePanelHeight(event.clientY);
+    };
+    const handleMouseUp = (event: MouseEvent) => {
+      mobilePanelDragging.current = false;
+      updateMobilePanelHeight(event.clientY);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  }, [beginMobilePanelResize, updateMobilePanelHeight]);
+
+  const onMobilePanelPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!mobilePanelDragging.current) return;
+    updateMobilePanelHeight(e.clientY);
+  }, [updateMobilePanelHeight]);
+
+  const onMobilePanelPointerUp = useCallback((e: React.PointerEvent) => {
+    if (!mobilePanelDragging.current) return;
+    mobilePanelDragging.current = false;
+    const target = e.currentTarget as HTMLElement;
+    if (target.hasPointerCapture(e.pointerId)) {
+      target.releasePointerCapture(e.pointerId);
+    }
+    updateMobilePanelHeight(e.clientY);
+  }, [updateMobilePanelHeight]);
 
   useEffect(() => {
     const openMobilePanel = () => {
       delete document.documentElement.dataset.mobileCommentsPanelRequested;
-      selectSidebarMode("comments");
-      setMobilePanelOpen(true);
+      openMobileCommentsPanel();
     };
 
     window.addEventListener(MOBILE_COMMENTS_PANEL_EVENT, openMobilePanel);
@@ -812,7 +960,7 @@ function CommentsShell({
     return () => {
       window.removeEventListener(MOBILE_COMMENTS_PANEL_EVENT, openMobilePanel);
     };
-  }, [selectSidebarMode]);
+  }, [openMobileCommentsPanel]);
 
   useEffect(() => {
     if (!mobilePanelOpen) return;
@@ -864,7 +1012,7 @@ function CommentsShell({
 
           if (firstRect) {
             setSelectionTooltip({
-              top: firstRect.top - rootRect.top + root.scrollTop - 40,
+              top: Math.max(8, firstRect.top - rootRect.top + root.scrollTop - 40),
               left: Math.min(
                 Math.max(8, firstRect.left - rootRect.left),
                 Math.max(8, root.clientWidth - 140)
@@ -1472,11 +1620,7 @@ function CommentsShell({
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    setSidebarMode("comments");
-                    setCommentsOpen(true);
-                    if (canComment) {
-                      setComposerMode("selection");
-                    }
+                    openSelectionComments();
                   }}
                   aria-label="Add comment"
                   title="Add comment"
@@ -1519,15 +1663,31 @@ function CommentsShell({
           onClick={closeMobilePanel}
         />
         <aside
+          ref={mobilePanelRef}
           aria-label="Document comments"
           className={cn(
             "absolute bottom-0 left-0 right-0 flex h-[min(88dvh,46rem)] flex-col rounded-t-2xl bg-[var(--sidebar-bg)] shadow-2xl transition-transform duration-300 ease-out",
             mobilePanelOpen ? "translate-y-0" : "translate-y-full"
           )}
-          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          style={{
+            paddingBottom: "env(safe-area-inset-bottom)",
+            height: mobilePanelHeight ?? undefined,
+          }}
         >
           <div className="shrink-0 pt-2">
-            <div className="mx-auto mb-2 h-1 w-8 rounded-full bg-[var(--text-muted)]/30" />
+            <div
+              onPointerDown={onMobilePanelPointerDown}
+              onPointerMove={onMobilePanelPointerMove}
+              onPointerUp={onMobilePanelPointerUp}
+              onPointerCancel={onMobilePanelPointerUp}
+              onMouseDown={onMobilePanelMouseDown}
+              role="separator"
+              aria-label="Resize comments panel"
+              aria-orientation="horizontal"
+              className="flex h-6 w-full cursor-row-resize touch-none items-center justify-center"
+            >
+              <div className="h-1 w-10 rounded-full bg-[var(--text-muted)]/30 transition-colors hover:bg-[var(--brand)] active:bg-[var(--brand)]" />
+            </div>
             {mobileCommentsHeader}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
