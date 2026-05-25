@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import path from "node:path";
 import { writeConfig } from "./config";
 
@@ -14,7 +15,7 @@ const publishUrl =
 
 if (!site) {
   console.error(
-    "Usage: bun scripts/publish/init.ts --site <slug> [--vault <path>] [--publish-url <url>]",
+    "Usage: oncobase init --site <slug> [--vault <path>] [--publish-url <url>]",
   );
   process.exit(1);
 }

@@ -6,9 +6,13 @@ import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../convex/_generated/api";
-import { readFlag, siteTokenEnvName } from "./cli";
-import { writeConfig, writePublishToken } from "./config";
-import { syncSkills } from "./skills";
+import {
+  readFlag,
+  siteTokenEnvName,
+  syncSkills,
+  writeConfig,
+  writePublishToken,
+} from "@oncobase/oncobase";
 
 const SLUG_RE = /^[a-z0-9-]{1,32}$/;
 

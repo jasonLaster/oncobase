@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
-import { isSensitiveFrontmatter } from "../../src/lib/sensitive-pages";
+import { isSensitiveFrontmatter } from "./sensitive-pages";
 
 // Walks a local Obsidian vault and yields the publish-ready
 // document and asset entries. Used by the publisher CLI in

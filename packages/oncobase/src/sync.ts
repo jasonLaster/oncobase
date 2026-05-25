@@ -161,7 +161,7 @@ async function post<T>(
   });
   if (!response.ok) {
     if (response.status === 426) {
-      throw new Error(`${await response.text()}\nDownload the latest vault starter, then retry.`);
+      throw new Error(`${await response.text()}\nUpdate @oncobase/oncobase, then retry.`);
     }
     throw new Error(`${response.status} ${await readErrorBody(response)}`);
   }
@@ -503,14 +503,4 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
     reviewDir: reviewed > 0 || skippedAssets.length > 0 ? reviewDirPath : null,
     usedPlanEndpoint: plan.planned,
   };
-}
-
-if (import.meta.main) {
-  const args = process.argv.slice(2);
-  const site = readFlag(args, "--site");
-  if (!site) {
-    console.error("Usage: bun scripts/publish/sync.ts --site <slug>");
-    process.exit(1);
-  }
-  await runSync({ site });
 }

@@ -1,16 +1,17 @@
 import fs from "node:fs";
 import path from "node:path";
-import { readFlag } from "./cli";
 import { loadConfig } from "./config";
 
 const DEFAULT_SKILLS = ["wiki-quickstart", "check"];
 
 function skillSourceRoot() {
   const candidates = [
-    path.resolve(__dirname, "..", "..", ".claude", "skills"),
-    path.resolve(__dirname, "..", "..", "..", ".claude", "skills"),
+    path.resolve(process.cwd(), ".claude", "skills"),
+    path.resolve(process.cwd(), ".agents", "skills"),
+    path.resolve(process.cwd(), "..", ".claude", "skills"),
+    path.resolve(process.cwd(), "..", ".agents", "skills"),
   ];
-  return candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[0];
+  return candidates.find((candidate) => fs.existsSync(candidate));
 }
 
 function copyDir(src: string, dest: string) {
@@ -31,7 +32,12 @@ export function syncSkills(site: string, skills = DEFAULT_SKILLS) {
   const srcRoot = skillSourceRoot();
   const destRoot = path.join(config.vaultPath, ".claude", "skills");
   const copied: string[] = [];
-  const missing: string[] = [];
+  const missing = srcRoot ? [] : [...skills];
+
+  if (!srcRoot) {
+    console.warn("No local .claude/skills or .agents/skills directory found; skipping skill sync.");
+    return { copied, missing, destRoot };
+  }
 
   for (const skill of skills) {
     const src = path.join(srcRoot, skill);
@@ -48,14 +54,4 @@ export function syncSkills(site: string, skills = DEFAULT_SKILLS) {
     console.warn(`Skills not found in platform repo: ${missing.join(", ")}`);
   }
   return { copied, missing, destRoot };
-}
-
-if (import.meta.main) {
-  const args = process.argv.slice(2);
-  const site = readFlag(args, "--site");
-  if (!site) {
-    console.error("Usage: bun scripts/publish/skills.ts --site <slug>");
-    process.exit(1);
-  }
-  syncSkills(site);
 }

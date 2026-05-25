@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { loadConfig, loadPublishToken } from "./config";
 import {
   HASH_FUNCTION_VERSION,
@@ -11,7 +12,7 @@ import { ensureCleanVault } from "./working-tree";
 
 const site = readFlag(process.argv.slice(2), "--site");
 if (!site) {
-  console.error("Usage: bun scripts/publish/check.ts --site <slug>");
+  console.error("Usage: oncobase check --site <slug>");
   process.exit(1);
 }
 
@@ -52,7 +53,7 @@ const response = await fetch(`${config.publishUrl}/begin`, {
 if (!response.ok) {
   if (response.status === 426) {
     console.error(await response.text());
-    console.error("Update the publisher scripts, then retry. For a vault, download the latest starter zip and copy scripts/publish/ over this vault.");
+    console.error("Update @oncobase/oncobase, then retry.");
     process.exit(1);
   }
   console.error(
@@ -96,7 +97,7 @@ if (staleAssets.length > 0) {
 if (staleHashVersion > 0) {
   console.log(
     `Hash format: ${staleHashVersion} of the changed documents differ only by hash format ` +
-      `(run scripts/admin/backfill-content-hashes.ts to migrate without re-uploading).`,
+      `(ask an operator to run the content-hash backfill to migrate without re-uploading).`,
   );
 }
 console.log(`Run id:    ${result.runId}`);
