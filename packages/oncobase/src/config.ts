@@ -3,12 +3,10 @@ import os from "node:os";
 import path from "node:path";
 import dotenv from "dotenv";
 
-// Bun auto-loads .env / .env.local from cwd. The publisher scripts can
-// run either from web/ or from a standalone vault, so also load env
-// files from the directory two levels above scripts/publish/.
-const WEB_ROOT = path.join(__dirname, "..", "..");
-dotenv.config({ path: path.join(WEB_ROOT, ".env.local"), override: false, quiet: true });
-dotenv.config({ path: path.join(WEB_ROOT, ".env"), override: false, quiet: true });
+// Load local env files for npm/node users. Bun does this automatically, but
+// the packaged CLI should behave the same when installed in a vault.
+dotenv.config({ path: path.join(process.cwd(), ".env.local"), override: false, quiet: true });
+dotenv.config({ path: path.join(process.cwd(), ".env"), override: false, quiet: true });
 
 export type PublishConfig = {
   site: string;
@@ -29,7 +27,7 @@ export function loadConfig(site: string): PublishConfig {
   const file = configPath(site);
   if (!fs.existsSync(file)) {
     throw new Error(
-      `Missing config: run wiki:init --site ${site} first.\nLooked at: ${file}`,
+      `Missing config: run oncobase init --site ${site} first.\nLooked at: ${file}`,
     );
   }
   return JSON.parse(fs.readFileSync(file, "utf8")) as PublishConfig;

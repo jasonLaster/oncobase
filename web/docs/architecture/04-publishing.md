@@ -1,14 +1,14 @@
 # 4. Publishing Pipeline
 
-Authors edit markdown in Obsidian. To make those edits live, they run `bun wiki:publish`. Everything between "save in Obsidian" and "live on the site" happens in this pipeline.
+Authors edit markdown in Obsidian. To make those edits live, they run `oncobase publish` directly or through the repo's `wiki:publish` script. Everything between "save in Obsidian" and "live on the site" happens in this pipeline.
 
 ## High-level flow
 
 ```mermaid
 flowchart LR
   V[(Obsidian vault\nobsidian/)]
-  CLI[wiki:publish CLI\nscripts/publish/publish.ts]
-  Walk[walk-vault.ts\nfind markdown + assets]
+  CLI[oncobase publish CLI\n@oncobase/oncobase]
+  Walk[vault walker\nfind markdown + assets]
   Hash[hash content\nskip unchanged]
   ConvexAPI[(Convex\ndocuments, pdfAssets,\nfileAssets)]
   BlobAPI[(Vercel Blob)]
@@ -26,9 +26,9 @@ flowchart LR
   Workflows --> BlobAPI
 ```
 
-## What `wiki:publish` does
+## What `oncobase publish` does
 
-1. **Walks the vault** (`scripts/publish/walk-vault.ts`) skipping `.obsidian`, `Clippings`, `Google Drive`, etc.
+1. **Walks the vault** (`@oncobase/oncobase`) skipping `.obsidian`, `Clippings`, `Google Drive`, etc.
 2. **Per markdown file**: parses frontmatter (`gray-matter`), applies PII redactions (`pii-redaction.ts`), computes a SHA hash of the post-redaction body. If the hash matches Convex's stored `contentHash`, skip — otherwise upsert into `documents`.
 3. **Per binary asset**: hashes the file. If unchanged, skip. Otherwise uploads to Vercel Blob and upserts a `pdfAssets` / `fileAssets` row pointing at the new `blobUrl`.
 4. Optionally commits + pushes, which triggers a Vercel deploy.

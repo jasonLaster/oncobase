@@ -9,7 +9,7 @@ import path from "node:path";
 import { ConvexHttpClient } from "convex/browser";
 import dotenv from "dotenv";
 import { api } from "../../convex/_generated/api";
-import { writePublishToken } from "../publish/config";
+import { writePublishToken } from "@oncobase/oncobase";
 
 dotenv.config({ path: path.join(__dirname, "..", "..", ".env.local"), quiet: true });
 

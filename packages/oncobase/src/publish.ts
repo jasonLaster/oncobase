@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import fs from "node:fs";
 import { sitePut } from "./blob";
 import { countEmbeddingTokens, embedBatch } from "./embeddings";
@@ -33,7 +34,7 @@ async function post(url: string, token: string, body: unknown) {
   if (!response.ok) {
     if (response.status === 426) {
       throw new Error(
-        `${await response.text()}\nUpdate the publisher scripts, then retry. For a vault, download the latest starter zip and copy scripts/publish/ over this vault.`,
+        `${await response.text()}\nUpdate @oncobase/oncobase, then retry.`,
       );
     }
     throw new Error(`${response.status} ${await readErrorBody(response)}`);
@@ -164,7 +165,7 @@ const allowDirty = hasFlag(args, "--allow-dirty");
 
 if (!site) {
   console.error(
-    "Usage: bun scripts/publish/publish.ts --site <slug> [--dry-run] [--force] [--confirm-tombstone] [--sync-first] [--no-sync-preflight] [--allow-dirty]",
+    "Usage: oncobase publish --site <slug> [--dry-run] [--force] [--confirm-tombstone] [--sync-first] [--no-sync-preflight] [--allow-dirty]",
   );
   process.exit(1);
 }
@@ -226,7 +227,7 @@ const staleHashVersionCount = begin.staleHashVersionSlugs?.length ?? 0;
 if (staleHashVersionCount > 0) {
   console.log(
     `  ${staleHashVersionCount} of the changed documents differ only by hash format — run ` +
-      `\`bun scripts/admin/backfill-content-hashes.ts --site ${config.site}\` ` +
+      `the operator content-hash backfill for ${config.site} ` +
       `to migrate hashes without re-uploading content (and embeddings).`,
   );
 }
