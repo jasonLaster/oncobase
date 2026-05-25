@@ -103,4 +103,26 @@ describe("readChatPage", () => {
       ],
     });
   });
+
+  test("normalizes mdx suffixes before lookup", async () => {
+    const calls: string[] = [];
+    const siteData = siteDataWithDocs(async ({ slug }) => {
+      calls.push(slug);
+      if (slug !== "wiki/index") return null;
+      return doc({
+        slug,
+        title: "Index",
+        content: "Index content",
+      });
+    });
+
+    const result = await readChatPage(siteData, "wiki/index.mdx#overview");
+
+    expect(calls).toEqual(["wiki/index"]);
+    expect(result).toMatchObject({
+      slug: "wiki/index",
+      anchor: "overview",
+      href: "/wiki/index#overview",
+    });
+  });
 });

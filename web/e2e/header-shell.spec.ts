@@ -1,17 +1,21 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Header shell", () => {
-  test("about/Index prerender includes header chrome before hydration", async ({ request, baseURL }) => {
+  test("about/Index prerender includes navigation chrome before hydration", async ({
+    request,
+    baseURL,
+  }) => {
     const response = await request.get(new URL("/about/Index?token=diana", baseURL).toString());
 
     expect(response.ok()).toBeTruthy();
 
     const html = await response.text();
 
-    expect(html).toContain('aria-label="Home"');
-    expect(html).toContain('placeholder="Search wiki..."');
-    expect(html).toContain('aria-label="New chat"');
-    expect(html).toContain('aria-label="Find files (⌘P)"');
-    expect(html).toContain('aria-label="Actions"');
+    expect(html).toContain('aria-label="Workspace menu"');
+    expect(html).toContain("Diana TNBC");
+    expect(html).toContain('data-test-id="sidebar-view-comments"');
+    expect(html).toContain('href="/index"');
+    expect(html).toContain("Ask wiki");
+    expect(html).toContain('data-test-id="sidebar-search"');
   });
 });

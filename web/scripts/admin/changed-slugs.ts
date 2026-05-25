@@ -1,12 +1,12 @@
 import { execFileSync } from "node:child_process";
 
-// Returns the set of vault slugs whose .md file has been modified
+// Returns the set of vault slugs whose markdown file has been modified
 // since `ref`. Used by the hash-backfill admin script to skip slugs
 // that need to publish naturally.
 //
 // History: an earlier version passed `${vaultRel}/**.md` as the git
 // pathspec, which silently dropped files in nested directories on
-// some git versions. Pass the directory and filter to .md in JS.
+// some git versions. Pass the directory and filter to markdown in JS.
 
 export function changedSlugsSinceRef(args: {
   cwd: string;
@@ -37,11 +37,11 @@ export function slugsFromGitOutput(
   for (const line of raw.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    if (!trimmed.endsWith(".md")) continue;
+    if (!/\.(?:md|mdx)$/i.test(trimmed)) continue;
     const rel = trimmed.startsWith(prefix)
       ? trimmed.slice(prefix.length)
       : trimmed;
-    slugs.add(rel.replace(/\.md$/, ""));
+    slugs.add(rel.replace(/\.(?:md|mdx)$/i, ""));
   }
   return slugs;
 }

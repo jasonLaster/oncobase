@@ -11,8 +11,8 @@ function makeVault() {
   return tmpDir;
 }
 
-function writeDoc(vault: string, markdown: string) {
-  fs.writeFileSync(path.join(vault, "home.md"), markdown);
+function writeDoc(vault: string, markdown: string, name = "home.md") {
+  fs.writeFileSync(path.join(vault, name), markdown);
   return readVaultDocuments(vault)[0];
 }
 
@@ -62,6 +62,18 @@ describe("readVaultDocuments", () => {
 
     expect(sensitiveDoc.sensitive).toBe(true);
     expect(sensitiveDoc.hash).not.toBe(publicDoc.hash);
+  });
+
+  test("reads mdx documents with the same slug rules as markdown", () => {
+    const vault = makeVault();
+    const mdxDoc = writeDoc(
+      vault,
+      "---\ntitle: Home\n---\n# Home\n<CustomIsland />\n",
+      "index.mdx",
+    );
+
+    expect(mdxDoc.slug).toBe("index");
+    expect(mdxDoc.content).toContain("<CustomIsland />");
   });
 
   test("excludes assets with sensitive markdown sidecars", () => {
