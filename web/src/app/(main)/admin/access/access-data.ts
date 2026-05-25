@@ -36,6 +36,17 @@ export type AccessPreviewPage = {
   sourceSensitive?: boolean;
 };
 
+const hiddenUserDomains = new Set(["example.test", "example.com"]);
+
+function isHiddenTestUser(user: AccessUser) {
+  const domain = user.email.trim().toLowerCase().split("@")[1];
+  return Boolean(domain && hiddenUserDomains.has(domain));
+}
+
+function visibleAdminUsers(users: AccessUser[]) {
+  return users.filter((user) => !isHiddenTestUser(user));
+}
+
 export async function getRequestContext() {
   const [cookieStore, requestHeaders] = await Promise.all([
     cookies(),
@@ -85,7 +96,7 @@ export async function getAccessUsersAndRoles() {
   ])) as [AccessUser[], AccessRole[]];
 
   return {
-    users,
+    users: visibleAdminUsers(users),
     roles: rawRoles.map(normalizeRole),
   };
 }
@@ -102,7 +113,7 @@ export async function getAccessPagesData() {
   const sourceSensitiveSlugs = readSourceSensitiveSlugs();
 
   return {
-    users,
+    users: visibleAdminUsers(users),
     roles: rawRoles.map(normalizeRole),
     pages: rawPreviewPages
       .map((page) => ({

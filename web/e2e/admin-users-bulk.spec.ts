@@ -10,6 +10,7 @@ import {
   hashPassword,
   hashSessionToken,
 } from "../src/lib/user-auth";
+import { cleanupSiteUsers } from "./helpers";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 const RUN_NONCE = `${Date.now().toString(36)}${crypto
@@ -17,7 +18,7 @@ const RUN_NONCE = `${Date.now().toString(36)}${crypto
   .toString("hex")}`;
 const SITE_SLUG = `bulk-access-${RUN_NONCE}`;
 const SITE_HOST = `${SITE_SLUG}.localhost`;
-const OWNER_EMAIL = `owner-${RUN_NONCE}@example.test`;
+const OWNER_EMAIL = `owner-${RUN_NONCE}@playwright.invalid`;
 const PASSWORD = "correct horse battery";
 
 function tokenHash() {
@@ -68,6 +69,7 @@ test.describe("admin bulk user access actions", () => {
   test.afterAll(async () => {
     if (!convex) return;
     try {
+      await cleanupSiteUsers(convex, SITE_SLUG);
       await convex.mutation(api.sites.archive, { slug: SITE_SLUG });
     } catch {
       // Best-effort cleanup for local and CI runs.
@@ -80,12 +82,16 @@ test.describe("admin bulk user access actions", () => {
   }) => {
     const url = siteBaseURL(baseURL ?? "http://localhost:3000");
     const roleName = "Bulk research reader";
-    const bulkOneEmail = `bulk-one-${RUN_NONCE}@example.test`;
-    const bulkTwoEmail = `bulk-two-${RUN_NONCE}@example.test`;
+    const bulkOneEmail = `bulk-one-${RUN_NONCE}@playwright.invalid`;
+    const bulkTwoEmail = `bulk-two-${RUN_NONCE}@playwright.invalid`;
+    const hiddenExampleTestEmail = `hidden-test-${RUN_NONCE}@example.test`;
+    const hiddenExampleComEmail = `hidden-com-${RUN_NONCE}@example.com`;
 
     const ownerUserId = await createTestUser(convex, OWNER_EMAIL, "Owner User");
     await createTestUser(convex, bulkOneEmail, "Bulk One");
     await createTestUser(convex, bulkTwoEmail, "Bulk Two");
+    await createTestUser(convex, hiddenExampleTestEmail, "Hidden Example Test");
+    await createTestUser(convex, hiddenExampleComEmail, "Hidden Example Com");
     const roleId = await convex.mutation(api.access.createRole, {
       siteSlug: SITE_SLUG,
       name: roleName,
@@ -115,6 +121,8 @@ test.describe("admin bulk user access actions", () => {
       page.getByRole("heading", { level: 1, name: "Users" }),
     ).toBeVisible();
     await expect(page.getByLabel("Select Owner User")).toBeDisabled();
+    await expect(page.getByText(hiddenExampleTestEmail)).toHaveCount(0);
+    await expect(page.getByText(hiddenExampleComEmail)).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Assign role" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Delete" })).toBeVisible();
 

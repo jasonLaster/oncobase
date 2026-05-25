@@ -1,5 +1,6 @@
 "use client";
 
+import fuzzysort from "fuzzysort";
 import { useMemo, useState } from "react";
 import {
   EyeIcon,
@@ -55,6 +56,7 @@ type PageRow = PreviewPage & {
   excludedRoles: RoleMatch[];
   isRestricted: boolean;
   visibleUserIds: Set<string>;
+  searchText: string;
 };
 
 const pageStateFilters: Array<{
@@ -65,7 +67,8 @@ const pageStateFilters: Array<{
   {
     value: "all",
     label: "All",
-    description: "Pages matching the active search, role, and user filters.",
+    description:
+      "All pages matching the active search and selected user or role lens.",
   },
   {
     value: "sensitive",
@@ -83,7 +86,7 @@ const pageStateFilters: Array<{
     value: "excluded",
     label: "Role-excluded",
     description:
-      "A role that includes broad content removes this page by an exclude path or exclude tag.",
+      "With all roles selected, any role exclusion. With a role selected, pages excluded by that role.",
   },
   {
     value: "visible",
@@ -103,17 +106,52 @@ function pageMatchesUser(row: PageRow, userId: string) {
   return !row.isRestricted || row.visibleUserIds.has(userId);
 }
 
-function pageMatchesState(row: PageRow, state: PageState, userId: string) {
+function roleIsIncluded(row: PageRow, roleId: string) {
+  return row.includedRoles.some((match) => match.role._id === roleId);
+}
+
+function roleIsExcluded(row: PageRow, roleId: string) {
+  return row.excludedRoles.some((match) => match.role._id === roleId);
+}
+
+function pageMatchesRoleLens(row: PageRow, state: PageState, roleId: string) {
+  if (roleId === "all") return true;
+  if (state === "excluded") return roleIsExcluded(row, roleId);
+  if (state === "visible") {
+    return !row.isRestricted || roleIsIncluded(row, roleId);
+  }
+  if (state === "blocked") {
+    return row.isRestricted && !roleIsIncluded(row, roleId);
+  }
+  return true;
+}
+
+function pageMatchesState(
+  row: PageRow,
+  state: PageState,
+  userId: string,
+  roleId: string,
+) {
   if (state === "all") return true;
   if (state === "sensitive") return isSensitive(row);
   if (state === "restricted") return row.isRestricted;
-  if (state === "excluded") return row.excludedRoles.length > 0;
+  if (state === "excluded") {
+    return roleId === "all"
+      ? row.excludedRoles.length > 0
+      : roleIsExcluded(row, roleId);
+  }
   if (state === "visible") {
+    if (roleId !== "all") {
+      return !row.isRestricted || roleIsIncluded(row, roleId);
+    }
     return userId === "all"
       ? !isSensitive(row) && !row.isRestricted
       : pageMatchesUser(row, userId);
   }
   if (state === "blocked") {
+    if (roleId !== "all") {
+      return row.isRestricted && !roleIsIncluded(row, roleId);
+    }
     return userId !== "all" && !pageMatchesUser(row, userId);
   }
   return true;
@@ -127,28 +165,28 @@ function pageMatchesSearch(row: PageRow, query: string) {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
 
-  return [
-    row.title,
-    row.slug,
-    ...row.tags,
-    ...row.includedRoles.map((match) => match.role.name),
-    ...row.excludedRoles.map((match) => match.role.name),
-  ]
-    .join(" ")
-    .toLowerCase()
-    .includes(needle);
-}
-
-function pageMatchesRole(row: PageRow, roleId: string) {
-  if (roleId === "all") return true;
-  return (
-    row.includedRoles.some((match) => match.role._id === roleId) ||
-    row.excludedRoles.some((match) => match.role._id === roleId)
+  return Boolean(
+    row.searchText.toLowerCase().includes(needle) ||
+      fuzzysort.single(query, row.searchText),
   );
 }
 
 function pageMatchesUserFilter(row: PageRow, userId: string, state: PageState) {
   return userId === "all" || state === "blocked" || pageMatchesUser(row, userId);
+}
+
+function searchSortedRows(rows: PageRow[], query: string) {
+  const trimmed = query.trim();
+  if (!trimmed) return rows;
+
+  const ranked = fuzzysort
+    .go(trimmed, rows, {
+      key: "searchText",
+      threshold: -1000,
+    })
+    .map((result) => result.obj);
+  const rankedSlugs = new Set(ranked.map((row) => row.slug));
+  return [...ranked, ...rows.filter((row) => !rankedSlugs.has(row.slug))];
 }
 
 function summarizeNames(values: string[], fallback: string) {
@@ -221,9 +259,21 @@ export function AccessPagesPanel({
           excludedRoles,
           isRestricted: includedRoles.length > 0,
           visibleUserIds,
+          searchText: [
+            page.title,
+            page.slug,
+            ...page.tags,
+            ...includedRoles.map((match) => match.role.name),
+            ...excludedRoles.map((match) => match.role.name),
+          ].join(" "),
         };
       }),
     [pages, roles, users],
+  );
+
+  const selectedRole = useMemo(
+    () => roles.find((role) => role._id === roleId) ?? null,
+    [roleId, roles],
   );
 
   const counts = useMemo(() => {
@@ -231,9 +281,9 @@ export function AccessPagesPanel({
       rows.filter(
         (row) =>
           pageMatchesSearch(row, query) &&
-          pageMatchesRole(row, roleId) &&
+          pageMatchesRoleLens(row, nextState, roleId) &&
           pageMatchesUserFilter(row, userId, nextState) &&
-          pageMatchesState(row, nextState, userId),
+          pageMatchesState(row, nextState, userId, roleId),
       ).length;
     return {
       all: countFor("all"),
@@ -246,12 +296,13 @@ export function AccessPagesPanel({
   }, [query, roleId, rows, userId]);
 
   const filteredRows = useMemo(() => {
-    return rows.filter((row) => {
-      if (!pageMatchesState(row, state, userId)) return false;
-      if (!pageMatchesRole(row, roleId)) return false;
+    const stateRows = rows.filter((row) => {
+      if (!pageMatchesRoleLens(row, state, roleId)) return false;
+      if (!pageMatchesState(row, state, userId, roleId)) return false;
       if (!pageMatchesUserFilter(row, userId, state)) return false;
       return pageMatchesSearch(row, query);
     });
+    return searchSortedRows(stateRows, query);
   }, [query, roleId, rows, state, userId]);
 
   return (
@@ -377,6 +428,25 @@ export function AccessPagesPanel({
                           <FileLock2Icon aria-hidden="true" />
                           Role-gated
                         </Badge>
+                      ) : null}
+                      {selectedRole ? (
+                        roleIsExcluded(row, selectedRole._id) ? (
+                          <Badge variant="outline">
+                            <EyeOffIcon aria-hidden="true" />
+                            Excluded for {selectedRole.name}
+                          </Badge>
+                        ) : !row.isRestricted ||
+                          roleIsIncluded(row, selectedRole._id) ? (
+                          <Badge variant="secondary">
+                            <EyeIcon aria-hidden="true" />
+                            Visible to {selectedRole.name}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">
+                            <EyeOffIcon aria-hidden="true" />
+                            Blocked for {selectedRole.name}
+                          </Badge>
+                        )
                       ) : null}
                     </div>
                   </td>

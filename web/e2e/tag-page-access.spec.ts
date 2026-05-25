@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { expect, test, type BrowserContext } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
+import { cleanupSiteUsers } from "./helpers";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 const RUN_NONCE = `${Date.now().toString(36)}${crypto
@@ -128,6 +129,7 @@ test.describe("tag page access", () => {
           slug: DENIED_SLUG,
         }),
       ]);
+      await cleanupSiteUsers(convex, SITE_SLUG);
       await convex.mutation(api.sites.archive, { slug: SITE_SLUG });
     } catch {
       // Best-effort cleanup for local and CI runs.

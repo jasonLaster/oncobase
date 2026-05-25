@@ -1,4 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import type { ConvexHttpClient } from "convex/browser";
+import { api } from "../convex/_generated/api";
 
 export function nextErrorOverlay(page: Page) {
   return page.locator(
@@ -47,4 +49,20 @@ export async function waitForVisible(locator: Locator, timeout = 15_000) {
   await expect
     .poll(async () => locator.isVisible().catch(() => false), { timeout })
     .toBe(true);
+}
+
+export async function cleanupSiteUsers(
+  convex: ConvexHttpClient,
+  siteSlug: string,
+) {
+  const users = await convex.query(api.access.listUsersWithRoles, {
+    siteSlug,
+  });
+  const userIds = users.map((user) => user._id);
+  if (userIds.length === 0) return;
+
+  await convex.mutation(api.access.deleteUsers, {
+    siteSlug,
+    userIds,
+  });
 }

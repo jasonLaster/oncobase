@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { expect, request as playwrightRequest, test } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
+import { cleanupSiteUsers } from "./helpers";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 const RUN_NONCE = `${Date.now().toString(36)}${crypto
@@ -9,13 +10,14 @@ const RUN_NONCE = `${Date.now().toString(36)}${crypto
   .toString("hex")}`;
 const SITE_SLUG = `access-${RUN_NONCE}`;
 const SITE_HOST = `${SITE_SLUG}.localhost`;
-const OWNER_EMAIL = `operator-${RUN_NONCE}@example.test`;
+const OWNER_EMAIL = `operator-${RUN_NONCE}@playwright.invalid`;
 const PASSWORD = "correct horse battery";
 const PREVIEW_INCLUDED_SLUG = `sources/private/preview-included-${RUN_NONCE}`;
 const PREVIEW_EXCLUDED_SLUG = `sources/private/preview-excluded-${RUN_NONCE}`;
 const PREVIEW_PUBLIC_SLUG = `sources/public/preview-public-${RUN_NONCE}`;
 const PREVIEW_INCLUDED_TITLE = "Preview Included Source";
 const PREVIEW_EXCLUDED_TITLE = "Preview Excluded Source";
+const PREVIEW_PUBLIC_TITLE = "Preview Public Source";
 
 function tokenHash() {
   const token = `wpt_${crypto.randomBytes(24).toString("base64url")}`;
@@ -67,7 +69,7 @@ test.describe("admin access management", () => {
       convex.mutation(api.documents.upsert, {
         siteSlug: SITE_SLUG,
         slug: PREVIEW_PUBLIC_SLUG,
-        title: "Preview Public Source",
+        title: PREVIEW_PUBLIC_TITLE,
         content: "Public preview fixture",
         tags: ["public-summary"],
         contentHash: `test:${PREVIEW_PUBLIC_SLUG}`,
@@ -79,6 +81,7 @@ test.describe("admin access management", () => {
   test.afterAll(async () => {
     if (!convex) return;
     try {
+      await cleanupSiteUsers(convex, SITE_SLUG);
       await convex.mutation(api.sites.archive, { slug: SITE_SLUG });
     } catch {
       // Best-effort cleanup for local and CI runs.
@@ -91,7 +94,7 @@ test.describe("admin access management", () => {
   }) => {
     const url = siteBaseURL(baseURL ?? "http://localhost:3000");
     const operatorEmail = OWNER_EMAIL;
-    const targetEmail = `target-${RUN_NONCE}@example.test`;
+    const targetEmail = `target-${RUN_NONCE}@playwright.invalid`;
     const roleName = "Research reader";
 
     const targetRequest = await playwrightRequest.newContext({
@@ -209,6 +212,21 @@ test.describe("admin access management", () => {
       })
       .not.toBe("");
 
+    await page.goto("/admin/pages");
+    const pagesSection = page.locator("#pages");
+    await page.getByLabel("Role").selectOption(roleId);
+    await expect(pagesSection.getByText(PREVIEW_PUBLIC_TITLE)).toBeVisible();
+    await expect(
+      pagesSection.getByText(`Visible to ${roleName}`).first(),
+    ).toBeVisible();
+    await page.getByRole("button", { name: /Role-excluded/ }).click();
+    await expect(pagesSection.getByText(PREVIEW_EXCLUDED_TITLE)).toBeVisible();
+    await expect(pagesSection.getByText(PREVIEW_INCLUDED_TITLE)).toBeHidden();
+    await page.getByRole("button", { name: /All/ }).click();
+    await page.getByLabel("Search pages").fill("prv incl src");
+    await expect(pagesSection.getByText(PREVIEW_INCLUDED_TITLE)).toBeVisible();
+
+    await page.goto("/admin/roles");
     await page.getByRole("button", { name: `Actions for ${roleName}` }).click();
     await page.getByRole("menuitem", { name: "Edit" }).click();
     await expect(page.getByRole("dialog", { name: "Edit role" })).toBeVisible();
