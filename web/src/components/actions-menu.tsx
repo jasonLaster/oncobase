@@ -311,7 +311,7 @@ export function SidebarSignInPrompt() {
     <>
       <div className="mb-2 rounded-lg border border-[var(--sidebar-border)] bg-[var(--popover)] p-3 shadow-sm">
         <p className="text-xs font-medium leading-snug text-[var(--foreground)]">
-          Comment and view additional content
+          Sign in to comment and view additional content
         </p>
         <button
           type="button"
