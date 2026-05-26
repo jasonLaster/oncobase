@@ -80,7 +80,6 @@ export default defineSchema({
     embedding: v.optional(v.array(v.float64())),
     embeddingHash: v.optional(v.string()),
     description: v.optional(v.string()),
-    featured: v.optional(v.boolean()),
     sensitive: v.optional(v.boolean()),
     sizeBytes: v.optional(v.number()),
     updatedAt: v.number(),
