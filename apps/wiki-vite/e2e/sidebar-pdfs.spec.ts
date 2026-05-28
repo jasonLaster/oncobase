@@ -33,7 +33,7 @@ test.describe("Sidebar source files", () => {
     if (!isPartialManifest) {
       expect(slugs.some((slug) => slug.startsWith("sources/"))).toBe(true);
       expect(slugs).toContain("wiki/updates/week-8-may-3-to-9");
-      expect(slugs).toContain("about/overview/current-status");
+      expect(slugs).toContain("about/overview/key-context");
     }
 
     expect(Array.isArray(manifest.assets)).toBe(true);
