@@ -163,11 +163,11 @@ function readSensitiveMarkdownSlugs(dir: string, basePath = ""): string[] {
       continue;
     }
 
-    if (!relativePath.endsWith(".md")) continue;
+    if (!/\.(?:md|mdx)$/i.test(relativePath)) continue;
     const raw = fs.readFileSync(fullPath, "utf8");
     const { data } = matter(raw);
     if (isSensitiveFrontmatter(data as Record<string, unknown>)) {
-      slugs.push(relativePath.replace(/\.md$/, ""));
+      slugs.push(relativePath.replace(/\.(?:md|mdx)$/i, ""));
     }
   }
 

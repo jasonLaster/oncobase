@@ -40,9 +40,9 @@ export function resolveWikilinks(content: string, currentSlug?: string): string 
       return `[${label}](/api/file?path=${encodeURIComponent(pdfPath)})`;
     }
 
-    // Strip .md extension, normalize spaces
-    const slug = target.replace(/\.md$/, "").replace(/\s+/g, "-");
-    const label = display || target.split("/").pop()?.replace(/\.md$/, "") || target;
+    // Strip markdown extensions, normalize spaces
+    const slug = target.replace(/\.(?:md|mdx)$/i, "").replace(/\s+/g, "-");
+    const label = display || target.split("/").pop()?.replace(/\.(?:md|mdx)$/i, "") || target;
     return `[${label}](/${slug})`;
   });
 }

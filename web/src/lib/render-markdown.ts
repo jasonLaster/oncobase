@@ -235,13 +235,13 @@ function decorateRenderedImages(html: string): string {
  * Absolute URLs (http/https//) are left unchanged.
  */
 function fixMarkdownLinks(html: string): string {
-  return html.replace(/href="([^"]+\.md(?:#[^"]*)?)"/g, (_match, href) => {
+  return html.replace(/href="([^"]+\.(?:md|mdx)(?:#[^"]*)?)"/g, (_match, href) => {
     // Leave absolute URLs alone
     if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//")) {
       return `href="${href}"`;
     }
     // Strip .md before any # anchor: "path/to/file.md#section" → "path/to/file#section"
-    return `href="${href.replace(/\.md(#|$)/, "$1")}"`;
+    return `href="${href.replace(/\.(?:md|mdx)(#|$)/, "$1")}"`;
   });
 }
 
