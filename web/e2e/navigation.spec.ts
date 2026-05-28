@@ -88,7 +88,7 @@ test.describe("Page viewing & sidebar navigation", () => {
     const nav = page.locator(sidebar);
     await expectSingleSelectedSidebarItem(page, {
       href: "/wiki/treatment/plan/index",
-      text: "plan",
+      text: "index",
     });
 
     const { releaseRoute, routeSeen } = await holdRouteUntilReleased(
@@ -114,7 +114,7 @@ test.describe("Page viewing & sidebar navigation", () => {
     await page.goto("/wiki/treatment/plan/index");
     await expectSingleSelectedSidebarItem(page, {
       href: "/wiki/treatment/plan/index",
-      text: "plan",
+      text: "index",
     });
 
     const { releaseRoute, routeSeen } = await holdRouteUntilReleased(
@@ -177,7 +177,7 @@ test.describe("Page viewing & sidebar navigation", () => {
     });
   });
 
-  test("meeting note sets select their overview by default", async ({ page }) => {
+  test("meeting note set folders do not take selection from the active file", async ({ page }) => {
     await page.goto("/sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-overview");
 
     const nav = page.locator(sidebar);
@@ -188,10 +188,13 @@ test.describe("Page viewing & sidebar navigation", () => {
       "href",
       "/sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-overview",
     );
-    await expect(selectedItem).toContainText("May 13th - echo kernis phm tissue sync");
-    await expect(selectedItem).toContainText("Notes set");
+    await expect(selectedItem).toHaveText("Overview");
 
-    const activeSet = selectedItem.locator("xpath=../..");
+    const activeSet = nav
+      .getByRole("button", {
+        name: /May 13th - echo kernis phm tissue sync.*Notes set/,
+      })
+      .locator("xpath=..");
     await expect(activeSet.getByRole("link", { name: "Overview" })).toHaveAttribute(
       "href",
       "/sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-overview",

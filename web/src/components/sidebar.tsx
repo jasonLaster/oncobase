@@ -66,15 +66,6 @@ export function fileTreeNodeKey(node: FileNode) {
   return `${node.type}:${node.slug}:${node.type === "pdf" ? node.pdfPath ?? "" : ""}`;
 }
 
-function getDirectoryDefaultChild(node: FileNode) {
-  if (node.type !== "directory") return null;
-  return (
-    node.children?.find(
-      (child) => node.badge === "Notes set" && child.type === "file" && child.name === "Overview",
-    ) ?? null
-  );
-}
-
 // Semantic icon mapping for folders. Keys are the final path segment so the
 // same icon applies whether a folder lives at the top level or nested (e.g.
 // "research" matches both /research and /wiki/research). Anything not in the
@@ -192,13 +183,11 @@ export function TreeNode({
   node,
   depth = 0,
   onNavigate,
-  suppressActive = false,
 }: {
   activePathname: string;
   node: FileNode;
   depth?: number;
   onNavigate?: () => void;
-  suppressActive?: boolean;
 }) {
   const pathname = activePathname;
   const hasActive = hasActiveDescendant(node, pathname);
@@ -210,7 +199,7 @@ export function TreeNode({
     setUserToggle(null);
   }
   const open = userToggle !== null ? userToggle : shouldOpen;
-  const isActive = !suppressActive && pathname === `/${node.slug}`;
+  const isActive = pathname === `/${node.slug}`;
   const isTopLevel = depth === 0;
   const SectionIcon =
     node.type === "directory"
@@ -222,10 +211,7 @@ export function TreeNode({
   if (node.type === "directory") {
     const hasChildren = (node.children?.length ?? 0) > 0;
     const isTruncated = Boolean(node.truncated);
-    const defaultChild = getDirectoryDefaultChild(node);
-    const directoryHref = defaultChild ? `/${defaultChild.slug}` : null;
-    const DirectoryGlyph = SectionIcon ?? (defaultChild ? FileText : open ? FolderOpen : Folder);
-    const directoryIsActive = directoryHref === pathname;
+    const DirectoryGlyph = SectionIcon ?? (open ? FolderOpen : Folder);
 
     if (!hasChildren) {
       return (
@@ -266,103 +252,37 @@ export function TreeNode({
 
     return (
       <div className={topLevelSpacing}>
-        {directoryHref ? (
-          <div
-            className={`group flex w-full items-center rounded-md text-left text-sm transition-colors hover:bg-[var(--accent-light)] ${
-              directoryIsActive
-                ? "bg-[var(--accent-light)] text-[var(--foreground)] font-medium"
-                : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
-            }`}
-            style={{
-              height: `${ROW_HEIGHT}px`,
-              paddingLeft: `${rowPadding(depth, true)}px`,
-              paddingRight: "6px",
-              gap: `${ICON_GAP}px`,
-            }}
-          >
-            <Link
-              href={directoryHref}
-              onClick={(event) => {
-                const shouldHandleClick = shouldSetNavigationIntent(event);
-                if (shouldHandleClick && open) {
-                  event.preventDefault();
-                  setUserToggle(false);
-                  return;
-                }
-                if (shouldHandleClick) {
-                  setUserToggle(true);
-                  setNavigationIntent(directoryHref);
-                }
-                onNavigate?.();
-              }}
-              data-selected-file-tree-item={directoryIsActive ? "true" : undefined}
-              className="flex min-w-0 flex-1 items-center"
-              style={{ gap: `${ICON_GAP}px` }}
-              title={formatName(node.name)}
-            >
-              <DirectoryGlyph
-                size={ICON_SIZE}
-                className={`shrink-0 transition-opacity ${
-                  directoryIsActive ? "opacity-100" : "opacity-60 group-hover:opacity-90"
-                }`}
-                aria-hidden="true"
-              />
-              <span className={`min-w-0 flex-1 truncate ${isTopLevel ? "font-medium text-[var(--foreground)]/85" : ""}`}>
-                {formatName(node.name)}
-              </span>
-              {node.badge && (
-                <span className="shrink-0 rounded border border-[var(--brand)]/20 bg-[var(--accent-light)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--brand)]">
-                  {node.badge}
-                </span>
-              )}
-            </Link>
-            <button
-              type="button"
-              aria-label={`${open ? "Collapse" : "Expand"} ${formatName(node.name)}`}
-              aria-expanded={open}
-              onClick={() => setUserToggle(!open)}
-              className="rounded p-1 text-current opacity-60 transition-opacity hover:opacity-100"
-            >
-              <ChevronRight
-                size={12}
-                className={`shrink-0 transition-transform ${open ? "rotate-90" : ""}`}
-                aria-hidden="true"
-              />
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            aria-expanded={open}
-            onClick={() => setUserToggle(!open)}
-            className="group flex w-full items-center rounded-md text-left text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
-            style={{
-              height: `${ROW_HEIGHT}px`,
-              paddingLeft: `${rowPadding(depth, true)}px`,
-              paddingRight: "6px",
-              gap: `${ICON_GAP}px`,
-            }}
-          >
-            <DirectoryGlyph
-              size={ICON_SIZE}
-              className="shrink-0 opacity-60 transition-opacity group-hover:opacity-90"
-              aria-hidden="true"
-            />
-            <span className={`min-w-0 flex-1 truncate ${isTopLevel ? "font-medium text-[var(--foreground)]/85" : ""}`}>
-              {formatName(node.name)}
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setUserToggle(!open)}
+          className="group flex w-full items-center rounded-md text-left text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+          style={{
+            height: `${ROW_HEIGHT}px`,
+            paddingLeft: `${rowPadding(depth, true)}px`,
+            paddingRight: "6px",
+            gap: `${ICON_GAP}px`,
+          }}
+        >
+          <DirectoryGlyph
+            size={ICON_SIZE}
+            className="shrink-0 opacity-60 transition-opacity group-hover:opacity-90"
+            aria-hidden="true"
+          />
+          <span className={`min-w-0 flex-1 truncate ${isTopLevel ? "font-medium text-[var(--foreground)]/85" : ""}`}>
+            {formatName(node.name)}
+          </span>
+          {node.badge && (
+            <span className="shrink-0 rounded border border-[var(--brand)]/20 bg-[var(--accent-light)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--brand)]">
+              {node.badge}
             </span>
-            {node.badge && (
-              <span className="shrink-0 rounded border border-[var(--brand)]/20 bg-[var(--accent-light)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--brand)]">
-                {node.badge}
-              </span>
-            )}
-            <ChevronRight
-              size={12}
-              className={`shrink-0 opacity-0 transition-all group-hover:opacity-60 ${open ? "rotate-90" : ""}`}
-              aria-hidden="true"
-            />
-          </button>
-        )}
+          )}
+          <ChevronRight
+            size={12}
+            className={`shrink-0 opacity-0 transition-all group-hover:opacity-60 ${open ? "rotate-90" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
         {open && (
           <div className="pt-0.5">
             {node.children?.map((child) => (
@@ -372,7 +292,6 @@ export function TreeNode({
                 node={child}
                 depth={depth + 1}
                 onNavigate={onNavigate}
-                suppressActive={directoryIsActive && child === defaultChild}
               />
             ))}
           </div>
