@@ -15,10 +15,10 @@ const PUBLIC_CACHE_CONTROL =
   "public, max-age=60, s-maxage=300, stale-while-revalidate=3600";
 const PRIVATE_CACHE_CONTROL = "private, max-age=30, stale-while-revalidate=300";
 const SESSION_CACHE_VERSION = "v1";
-const MANIFEST_PAGE_SIZE = 100;
+const MANIFEST_PAGE_SIZE = 500;
 const MANIFEST_FALLBACK_PAGE_SIZE = 25;
 const ASSET_PAGE_SIZE = 1000;
-const MANIFEST_TIMEOUT_MS = 20_000;
+const MANIFEST_TIMEOUT_MS = 40_000;
 const MANIFEST_BOUNDED_FALLBACK_TIMEOUT_MS = 5_000;
 const DEFAULT_PAGE_LIMIT = 25;
 const MAX_PAGE_LIMIT = 100;
