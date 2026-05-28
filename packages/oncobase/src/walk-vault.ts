@@ -29,6 +29,7 @@ const FILE_ASSET_EXTENSIONS = new Set([
   ".svg",
   ".csv",
 ]);
+const DOCUMENT_EXTENSIONS = new Set([".md", ".mdx"]);
 
 const CONTENT_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -126,16 +127,18 @@ function isSensitiveMarkdownFile(filePath: string) {
 
 function isSensitiveSidecarFile(filePath: string) {
   const ext = path.extname(filePath);
-  if (!ext || ext === ".md") return false;
-  const siblingMarkdownPath = filePath.slice(0, -ext.length) + ".md";
-  return fs.existsSync(siblingMarkdownPath) && isSensitiveMarkdownFile(siblingMarkdownPath);
+  if (!ext || DOCUMENT_EXTENSIONS.has(ext)) return false;
+  return Array.from(DOCUMENT_EXTENSIONS).some((documentExt) => {
+    const siblingMarkdownPath = filePath.slice(0, -ext.length) + documentExt;
+    return fs.existsSync(siblingMarkdownPath) && isSensitiveMarkdownFile(siblingMarkdownPath);
+  });
 }
 
 export function readVaultDocuments(vaultPath: string): PublishDocument[] {
   return vaultFiles(vaultPath)
-    .filter(({ relativePath }) => relativePath.endsWith(".md"))
+    .filter(({ relativePath }) => DOCUMENT_EXTENSIONS.has(path.extname(relativePath)))
     .map(({ filePath, relativePath }) => {
-      const slug = relativePath.replace(/\.md$/, "");
+      const slug = relativePath.replace(/\.(?:md|mdx)$/i, "");
       const raw = fs.readFileSync(filePath, "utf8");
       let data: Record<string, unknown> = {};
       let content = raw;
@@ -163,7 +166,12 @@ export function readVaultDocuments(vaultPath: string): PublishDocument[] {
         content: body,
         tags,
         sensitive,
-        hash: hashDocument({ title, content: body, tags, sensitive }),
+        hash: hashDocument({
+          title,
+          content: body,
+          tags,
+          sensitive,
+        }),
       };
     });
 }

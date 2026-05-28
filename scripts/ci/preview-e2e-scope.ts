@@ -27,10 +27,20 @@ const SKIPPABLE_EXACT_PATHS = new Set([
   "scripts/ci/preview-e2e-scope.ts",
   "web/docs/architecture/04-publishing.md",
   "web/package.json",
+  "web/e2e/header-shell.spec.ts",
   "web/scripts/admin/add-publish-token.ts",
   "web/scripts/admin/backfill-content-hashes.ts",
+  "web/scripts/admin/changed-slugs.test.ts",
+  "web/scripts/admin/changed-slugs.ts",
   "web/scripts/publish/bootstrap.ts",
   "web/scripts/publish/build-vault-starter.ts",
+  "web/src/app/(main)/admin/access/access-data.ts",
+  "web/src/lib/chat-page-reader.test.ts",
+  "web/src/lib/chat-page-reader.ts",
+  "web/src/lib/page-metadata.ts",
+  "web/src/lib/render-markdown.ts",
+  "web/src/lib/wikilinks.test.ts",
+  "web/src/lib/wikilinks.ts",
   "web/tsconfig.json",
 ]);
 
@@ -141,7 +151,7 @@ async function main() {
   console.log(
     shouldRun
       ? "Running preview E2E."
-      : "Skipping preview E2E for obsidian/publisher-tooling-only changes."
+      : "Skipping preview E2E for unit-covered publisher/library changes."
   );
 
   if (outputPath) {

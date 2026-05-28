@@ -15,6 +15,10 @@ describe("resolveWikilinks", () => {
     );
   });
 
+  test("strips mdx extensions from targets and labels", () => {
+    expect(resolveWikilinks("[[about/Home.mdx]]")).toBe("[Home](/about/Home)");
+  });
+
   test("renders escaped aliases inside table cells as one table cell link", () => {
     const resolved = resolveWikilinks(
       "| Signal | Source |\n|---|---|\n| ctDNA | [[wiki/diagnostics/ctdna-mrd\\|ctDNA/MRD]] |"

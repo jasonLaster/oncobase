@@ -198,11 +198,11 @@ function decorateRenderedImages(html: string): string {
 }
 
 function fixMarkdownLinks(html: string, currentSlug?: string): string {
-  return html.replace(/href="([^"]+\.md(?:#[^"]*)?)"/g, (_match, href) => {
+  return html.replace(/href="([^"]+\.(?:md|mdx)(?:#[^"]*)?)"/g, (_match, href) => {
     if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//")) {
       return `href="${href}"`;
     }
-    return `href="${href.replace(/\.md(#|$)/, "$1")}"`;
+    return `href="${href.replace(/\.(?:md|mdx)(#|$)/, "$1")}"`;
   }).replace(/href="([^"]+)"/g, (_match, href) => {
     if (
       href.startsWith("http://") ||

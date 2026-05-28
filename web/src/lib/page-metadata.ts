@@ -36,7 +36,7 @@ export function normalizeMarkdownRoutePath(input: string): string {
     })
     .join("/");
 
-  return decoded.replace(/\.md$/i, "");
+  return decoded.replace(/\.(?:md|mdx)$/i, "");
 }
 
 export async function getMarkdownFileForRoutePath(

@@ -45,7 +45,7 @@ function splitWikilinkAlias(inner: string) {
 }
 
 function splitSlugAnchor(value: string) {
-  const normalized = value.replace(/^\/+/, "").replace(/\.md(?=#|$)/, "");
+  const normalized = value.replace(/^\/+/, "").replace(/\.(?:md|mdx)(?=#|$)/, "");
   const hashIndex = normalized.indexOf("#");
   if (hashIndex === -1) return { slug: normalized, anchor: undefined };
   return {

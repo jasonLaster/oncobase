@@ -76,8 +76,8 @@ export function resolveWikilinks(
       return `[${label}](${encodeFilePath(pdfPath, apiBasePath)})`;
     }
 
-    const slug = target.replace(/\.md$/i, "").replace(/\s+/g, "-");
-    const label = display || target.split("/").pop()?.replace(/\.md$/i, "") || target;
+    const slug = target.replace(/\.(?:md|mdx)$/i, "").replace(/\s+/g, "-");
+    const label = display || target.split("/").pop()?.replace(/\.(?:md|mdx)$/i, "") || target;
     return `[${label}](/${slug})`;
   });
 }
@@ -123,8 +123,8 @@ export function resolveImageSrc(src: string, currentSlug?: string, apiBasePath =
 
 export function resolveHref(href: string | undefined, currentSlug?: string, apiBasePath = "") {
   if (!href) return href;
-  if (href.endsWith(".md") || href.includes(".md#")) {
-    return href.replace(/\.md(#|$)/, "$1");
+  if (/\.(?:md|mdx)(?:#|$)/.test(href)) {
+    return href.replace(/\.(?:md|mdx)(#|$)/, "$1");
   }
   if (href.endsWith(".pdf")) {
     return encodeFilePath(resolveAssetPath(href, currentSlug), apiBasePath);
