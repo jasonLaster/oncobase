@@ -87,6 +87,22 @@ at jason.laster.11@gmail.com</redact> today.`;
       "the patient called the clinic."
     );
   });
+
+  test("preserves markdown link destinations while redacting visible labels", () => {
+    const input = [
+      "[Diana page](/sources/research/diana-schedule)",
+      "",
+      "[prad-asco]: /sources/research/papers/asco-2026-diana-schedule-and-people#p-rad",
+    ].join("\n");
+
+    expect(applyPiiRedactions(input)).toBe(
+      [
+        "[the patient page](/sources/research/diana-schedule)",
+        "",
+        "[prad-asco]: /sources/research/papers/asco-2026-diana-schedule-and-people#p-rad",
+      ].join("\n"),
+    );
+  });
 });
 
 describe("shouldShowPii", () => {

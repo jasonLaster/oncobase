@@ -242,6 +242,26 @@ Inline <redact label="someone">Diana Laster</redact> text.`,
     expect(html).toContain('data-footnote-ref=""');
     expect(html).toContain('data-footnote-backref=""');
   });
+
+  test("renders reference-style links whose definition URL contains fallback-redacted terms", () => {
+    const html = renderMarkdown(
+      [
+        "[P-RAD / TBCRC-053 TNBC cohort, ASCO 2026][prad-asco]",
+        "",
+        "[prad-asco]: /sources/research/papers/asco-abstracts/asco-2026-diana-schedule-and-people#p-rad--tbcrc-053-tnbc-cohort",
+      ].join("\n"),
+      "sources/research/papers/asco-abstracts/example",
+    );
+
+    expect(html).toContain(
+      'href="/sources/research/papers/asco-abstracts/asco-2026-diana-schedule-and-people#p-rad--tbcrc-053-tnbc-cohort"',
+    );
+    expect(html).toContain(
+      ">P-RAD / TBCRC-053 TNBC cohort, ASCO 2026</a>",
+    );
+    expect(html).not.toContain("[prad-asco]:");
+    expect(html).not.toContain("the patient-schedule");
+  });
 });
 
 describe("renderMarkdown theme-paired images", () => {

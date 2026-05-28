@@ -124,6 +124,38 @@ function applyFallbackRedactions(
   );
 }
 
+function preserveMarkdownLinkDestinations(
+  markdown: string,
+  transform: (content: string) => string,
+): string {
+  const destinations: string[] = [];
+  const stash = (destination: string) => {
+    const token = `__ONCOBASE_LINK_DEST_${destinations.length}__`;
+    destinations.push(destination);
+    return token;
+  };
+
+  const protectedMarkdown = markdown
+    .replace(
+      /^([ \t]{0,3}\[[^\]\n]+\]:[ \t]*)(<[^>\n]*>|[^ \t\n]+)([^\n]*)$/gm,
+      (_match, prefix: string, destination: string, suffix: string) =>
+        `${prefix}${stash(destination)}${suffix}`,
+    )
+    .replace(
+      /(!?\[[^\]\n]+\]\()([^)\s]+)((?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\))/g,
+      (_match, prefix: string, destination: string, suffix: string) =>
+        `${prefix}${stash(destination)}${suffix}`,
+    );
+
+  const transformed = transform(protectedMarkdown);
+
+  return destinations.reduce(
+    (output, destination, index) =>
+      output.replaceAll(`__ONCOBASE_LINK_DEST_${index}__`, destination),
+    transformed,
+  );
+}
+
 export function applyPiiRedactions(
   markdown: string,
   { mode = "redacted", patterns }: ApplyPiiRedactionsOptions = {}
@@ -160,7 +192,9 @@ export function applyPiiRedactions(
 
   const withFallbacks =
     mode === "redacted"
-      ? applyFallbackRedactions(withoutInline, effectivePatterns)
+      ? preserveMarkdownLinkDestinations(withoutInline, (content) =>
+          applyFallbackRedactions(content, effectivePatterns)
+        )
       : withoutInline;
 
   return normalizeMarkdownWhitespace(withFallbacks);
