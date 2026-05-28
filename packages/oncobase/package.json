@@ -23,7 +23,7 @@
   },
   "type": "module",
   "bin": {
-    "oncobase": "./dist/main.js"
+    "oncobase": "dist/main.js"
   },
   "files": [
     "dist",
