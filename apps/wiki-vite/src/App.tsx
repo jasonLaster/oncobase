@@ -1,0 +1,117 @@
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { Route, Routes } from "react-router";
+import { publishMetrics } from "./observability";
+import { Header } from "./shell/Header";
+import { LiveStoreDevtoolsFooter } from "./shell/LiveStoreDevtoolsFooter";
+import { MobileNav, Sidebar } from "./shell/Navigation";
+import { ResizableAppShell } from "./shell/ResizableAppShell";
+import { WikiSync } from "./sync/WikiSync";
+import type { Metrics } from "./types";
+import { useWikiScope } from "./wiki-context";
+
+const initialMetrics: Metrics = {
+  status: "idle",
+  message: "Waiting for LiveStore",
+  manifestBytes: 0,
+  markdownBytes: 0,
+  eventCount: 0,
+  opfsBytes: null,
+  storageQuotaBytes: null,
+  storagePressure: "unknown",
+  lastSyncMs: null,
+  coldRouteRenderMs: null,
+  warmRouteRenderMs: null,
+  lastRouteRenderMs: null,
+  failedBodyFetches: 0,
+};
+
+const WikiPage = lazy(() =>
+  import("./pages/WikiPage").then((module) => ({ default: module.WikiPage })),
+);
+const LoginPage = lazy(() =>
+  import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })),
+);
+const SearchPage = lazy(() =>
+  import("./pages/SearchPage").then((module) => ({ default: module.SearchPage })),
+);
+const TableExamplesPage = lazy(() =>
+  import("./pages/TableExamplesPage").then((module) => ({
+    default: module.TableExamplesPage,
+  })),
+);
+const ChatPage = lazy(() =>
+  import("./chat/ChatPage").then((module) => ({ default: module.ChatPage })),
+);
+
+function PageFallback() {
+  return (
+    <article className="page-shell">
+      <div className="loading-line">Preparing markdown renderer</div>
+    </article>
+  );
+}
+
+export function App({
+  devtoolsFooterVisible,
+  liveStoreDevtoolsEnabled,
+  storeId,
+}: {
+  devtoolsFooterVisible: boolean;
+  liveStoreDevtoolsEnabled: boolean;
+  storeId: string;
+}) {
+  const scope = useWikiScope();
+  const [metrics, setMetrics] = useState<Metrics>(initialMetrics);
+
+  useEffect(() => {
+    publishMetrics(metrics);
+  }, [metrics]);
+
+  const bumpMetrics = useCallback((patch: Partial<Metrics>) => {
+    setMetrics((current) => ({
+      ...current,
+      ...patch,
+      eventCount:
+        patch.eventCount == null ? current.eventCount : current.eventCount + patch.eventCount,
+      failedBodyFetches:
+        patch.failedBodyFetches == null
+          ? current.failedBodyFetches
+          : current.failedBodyFetches + patch.failedBodyFetches,
+      markdownBytes:
+        patch.markdownBytes == null
+          ? current.markdownBytes
+          : current.markdownBytes + patch.markdownBytes,
+    }));
+  }, []);
+
+  return (
+    <>
+      <WikiSync onMetrics={bumpMetrics} />
+      <div className="prototype-shell">
+        <Header />
+        <ResizableAppShell sidebar={<Sidebar />}>
+          <main className="content-shell">
+            <Suspense fallback={<PageFallback />}>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/table-examples" element={<TableExamplesPage />} />
+                <Route path="/chat" element={<ChatPage />} />
+                <Route path="/chat/:id" element={<ChatPage />} />
+                <Route path="*" element={<WikiPage metrics={metrics} onMetrics={bumpMetrics} />} />
+              </Routes>
+            </Suspense>
+          </main>
+        </ResizableAppShell>
+        <LiveStoreDevtoolsFooter
+          enabled={liveStoreDevtoolsEnabled}
+          metrics={metrics}
+          scope={scope}
+          storeId={storeId}
+          visible={devtoolsFooterVisible}
+        />
+        <MobileNav />
+      </div>
+    </>
+  );
+}

@@ -13,6 +13,7 @@ domain prompts, tool definitions, markdown rendering, and product copy.
 - Configure host-specific markdown with `MarkdownRenderer`.
 - Configure host-specific tool displays with `ToolCallRenderer`.
 - Configure source extraction with `extractSources`.
+- Use `ConversationListCore`, `ConversationActionsMenu`, and `ArchivedChatsCore` when a non-Next host needs the same chat sidebar rows, actions, and archived-management surface with its own router adapter.
 
 Convex codegen should run in the host app that defines the Convex functions. This
 package should not import `@convex/_generated/*` or any host source aliases.

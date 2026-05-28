@@ -13,7 +13,7 @@ import {
   pruneFileTreeForShell,
   type ShellFileTreeOptions,
 } from "@/lib/file-tree-shell";
-import { isHiddenFileTreePath } from "@/lib/file-tree-paths";
+import { isHiddenFileTreeAssetPath, isHiddenFileTreePath } from "@/lib/file-tree-paths";
 import type { PiiRedactionMode } from "@/lib/pii-redaction";
 import {
   siteAssetsCacheTag,
@@ -41,7 +41,7 @@ async function readSiteSlug(): Promise<SiteSlug> {
 // - web/specs/multi-site.md
 
 export type { CompactFileNode, FileNode };
-export { isHiddenFileTreePath };
+export { isHiddenFileTreeAssetPath, isHiddenFileTreePath };
 
 export interface MarkdownFile {
   slug: string;
@@ -341,8 +341,8 @@ export async function getCompactFileTreeForSite(
     insertPdf(root, pdfPath);
   }
   for (const filePath of filePaths) {
-    if (isHiddenFileTreePath(filePath)) continue;
-    insertSlug(root, canonicalizePublishedSlug(filePath), "file");
+    if (isHiddenFileTreeAssetPath(filePath)) continue;
+    insertSlug(root, filePath, "file");
   }
 
   const grouped = groupFileTreeCollectionsDeep(root);

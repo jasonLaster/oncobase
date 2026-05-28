@@ -1,6 +1,21 @@
 export { ChatBottomActions, ConversationDropdown } from "./components/chat-actions";
+export {
+  ArchivedChatsCore,
+  type ArchivedChatsCoreProps,
+  type ArchivedConversation,
+} from "./components/archived-chats-core";
+export {
+  ConversationActionsMenu,
+  type ConversationActionsMenuProps,
+} from "./components/conversation-actions-core";
 export { ChatInterface } from "./components/chat-interface";
 export { default as ConversationList } from "./components/conversation-list";
+export {
+  ConversationListCore,
+  type ConversationListConversation,
+  type ConversationListCoreProps,
+  type ConversationListLinkRenderProps,
+} from "./components/conversation-list-core";
 export {
   AssistantMessage,
   DefaultToolCallBlock,

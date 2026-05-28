@@ -137,6 +137,16 @@ export function createSiteData(
         withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
           convex.query(api.documents.listPageWithContent, nextArgs),
         ),
+      listPage: (args: SiteScopedArgs<typeof api.documents.listPage>) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.listPage, nextArgs),
+        ),
+      listManifestPage: (
+        args: SiteScopedArgs<typeof api.documents.listManifestPage>,
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.listManifestPage, nextArgs),
+        ),
       listPageWithDescriptions: (
         args: SiteScopedArgs<typeof api.documents.listPageWithDescriptions>,
       ) =>

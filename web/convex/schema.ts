@@ -73,6 +73,7 @@ export default defineSchema({
     content: v.string(),
     tags: v.array(v.string()),
     contentHash: v.optional(v.string()),
+    sizeBytes: v.optional(v.number()),
     // Recipe version that produced contentHash. Lets /begin
     // distinguish content edits from hash-format upgrades; absent
     // for legacy rows that pre-date this field.
@@ -81,7 +82,6 @@ export default defineSchema({
     embeddingHash: v.optional(v.string()),
     description: v.optional(v.string()),
     sensitive: v.optional(v.boolean()),
-    sizeBytes: v.optional(v.number()),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
   })

@@ -15,7 +15,7 @@
  * back to the pre-Phase-1 cadence without reverting code.
  */
 
-import type { ChatConvexApi } from "./types";
+import type { ChatConvexApi } from "./types.js";
 
 export type FlusherPart = Record<string, unknown>;
 

@@ -1,28 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import type { AnchorHTMLAttributes } from "react";
-import ReactMarkdown from "react-markdown";
+import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
-  MdTable,
-  MdTbody,
-  MdTd,
-  MdTh,
-  MdThead,
-  MdTr,
-} from "@/components/markdown-table";
-import { resolveWikilinks } from "@/lib/wikilinks";
-import { MarkdownHeadingAnchors } from "@/components/markdown-heading-anchors";
-import { TheaterImage } from "@/components/image-theater";
-import {
-  markdownRehypePlugins,
-  markdownRemarkPlugins,
-} from "@/lib/markdown-math";
-import { preprocessCitationMarkdown } from "@/lib/citation-links";
+  WikiMarkdown,
+  type WikiMarkdownLinkProps,
+  type WikiMarkdownRouteAdapter,
+} from "@diana-tnbc/wiki-markdown";
+import { toast } from "sonner";
 import {
   isInternalChatResponseHref,
   resolveChatResponseHref,
 } from "@/lib/chat-response-links";
+
+function NextMarkdownLink({ href, children, ...props }: WikiMarkdownLinkProps) {
+  return (
+    <Link href={href ?? "#"} {...props}>
+      {children}
+    </Link>
+  );
+}
 
 /**
  * Client-side markdown renderer for interactive contexts (chat, search)
@@ -36,44 +34,28 @@ export function MarkdownRendererClient({
   content: string;
   disableAnchors?: boolean;
 }) {
-  const resolved = resolveWikilinks(content);
-  const citationLinked = preprocessCitationMarkdown(resolved);
+  const router = useRouter();
+  const routeAdapter = useMemo<WikiMarkdownRouteAdapter>(
+    () => ({
+      push: (href, options) => {
+        router.push(href, { scroll: options?.scroll });
+      },
+    }),
+    [router],
+  );
 
   return (
-    <div className="prose max-w-none">
-      <ReactMarkdown
-        remarkPlugins={markdownRemarkPlugins}
-        rehypePlugins={markdownRehypePlugins}
-        components={{
-          a: ({ href, children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) => {
-            const resolvedHref = resolveChatResponseHref(href);
-
-            if (isInternalChatResponseHref(resolvedHref)) {
-              return (
-                <Link href={resolvedHref} {...props}>
-                  {children}
-                </Link>
-              );
-            }
-
-            return (
-              <a href={resolvedHref} {...props}>
-                {children}
-              </a>
-            );
-          },
-          table: MdTable,
-          thead: MdThead,
-          tbody: MdTbody,
-          tr: MdTr,
-          th: MdTh,
-          td: MdTd,
-          img: TheaterImage,
-        }}
-      >
-        {citationLinked}
-      </ReactMarkdown>
-      <MarkdownHeadingAnchors disableAnchors={disableAnchors} />
-    </div>
+    <WikiMarkdown
+      content={content}
+      disableAnchors={disableAnchors}
+      isInternalHref={isInternalChatResponseHref}
+      LinkComponent={NextMarkdownLink}
+      notification={{
+        success: (message) => toast.success(message),
+        error: (message) => toast.error(message),
+      }}
+      routeAdapter={routeAdapter}
+      resolveLinkHref={(href) => resolveChatResponseHref(href)}
+    />
   );
 }

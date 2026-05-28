@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   canonicalizePublishedSlug,
   groupFileTreeCollectionsDeep,
+  isHiddenFileTreeAssetPath,
   isHiddenFileTreePath,
   sortTree,
   type FileNode,
@@ -17,6 +18,12 @@ describe("isHiddenFileTreePath", () => {
   test("keeps non-image asset directories visible", () => {
     expect(isHiddenFileTreePath("education/sources/paper.pdf")).toBe(false);
     expect(isHiddenFileTreePath("education/image-analysis/notes.md")).toBe(false);
+  });
+
+  test("hides image file assets outside literal images directories", () => {
+    expect(isHiddenFileTreeAssetPath("sources/paper-images/img-000.jpg")).toBe(true);
+    expect(isHiddenFileTreeAssetPath("sources/paper-images/figure.svg")).toBe(true);
+    expect(isHiddenFileTreeAssetPath("sources/paper-images/table.csv")).toBe(false);
   });
 });
 

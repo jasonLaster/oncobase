@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const TABLE_PAGE = "/sources/research/ai-models/index";
-const TABLE_PAGE_HEADING = "AI Models for the patient's Case — Canonical Index";
+const TABLE_PAGE_HEADING = "AI models for Diana's case — canonical index";
 const PAPER_CATALOG_PAGE = "/sources/research/paper-catalog";
 const AUTH_STATE_PATH = "e2e/.auth/state.json";
 

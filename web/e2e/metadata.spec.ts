@@ -50,7 +50,7 @@ test.describe("page metadata", () => {
     const survival = await getHtml(request, "/wiki/prognosis/survival-statistics");
 
     expect(readTitle(diagnosis)).toBe("Diagnosis \u2014 TNBC Knowledge Base");
-    expect(readTitle(survival)).toBe("Survival Statistics \u2014 TNBC Knowledge Base");
+    expect(readTitle(survival)).toBe("Survival statistics \u2014 TNBC Knowledge Base");
 
     const diagnosisDescription = readMetaContent(diagnosis, "description");
     const survivalDescription = readMetaContent(survival, "description");
@@ -61,7 +61,7 @@ test.describe("page metadata", () => {
     expect(survivalDescription).not.toBe(DEFAULT_DESCRIPTION);
     expect(diagnosisDescription).not.toBe(survivalDescription);
     expect(readMetaContent(diagnosis, "og:title")).toBe("Diagnosis");
-    expect(readMetaContent(survival, "og:title")).toBe("Survival Statistics");
+    expect(readMetaContent(survival, "og:title")).toBe("Survival statistics");
   });
 
   test("serves page-specific metadata to link preview bots without a login cookie", async ({ baseURL }) => {
@@ -79,9 +79,9 @@ test.describe("page metadata", () => {
       const survival = await getHtml(botRequest, "/wiki/prognosis/survival-statistics");
 
       expect(readTitle(diagnosis)).toBe("Diagnosis \u2014 TNBC Knowledge Base");
-      expect(readTitle(survival)).toBe("Survival Statistics \u2014 TNBC Knowledge Base");
+      expect(readTitle(survival)).toBe("Survival statistics \u2014 TNBC Knowledge Base");
       expect(readMetaContent(diagnosis, "og:title")).toBe("Diagnosis");
-      expect(readMetaContent(survival, "og:title")).toBe("Survival Statistics");
+      expect(readMetaContent(survival, "og:title")).toBe("Survival statistics");
       expect(readMetaContent(diagnosis, "description")).not.toBe(DEFAULT_DESCRIPTION);
       expect(diagnosis).not.toContain("MRN");
     } finally {

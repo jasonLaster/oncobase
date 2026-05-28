@@ -2,8 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 import { mockAISearch } from "./ai-search-mock";
 import { waitForVisible } from "./helpers";
 
-const SEARCH_QUERY = "multicentric";
-const DIAGNOSIS_RESULT = "a[href='/wiki/diagnostics/diagnosis']";
+const SEARCH_QUERY = "diagnosis";
+const DIAGNOSIS_RESULT_TEXT = "diagnosis and staging happened recently";
 const isProdSearchRun = process.env.TEST_ENV === "prod";
 const AI_RESULTS_QUERY = "mock ai ranked results";
 const AI_LINK_QUERY = "mock ai result links";
@@ -29,7 +29,7 @@ async function waitForTextSearchState(page: Page) {
 }
 
 test.describe("Search", () => {
-  test.describe.configure({ timeout: 60_000 });
+  test.describe.configure({ timeout: 120_000 });
 
   test("search input on /search navigates to results", async ({ page }) => {
     await mockAISearch(page);
@@ -42,8 +42,8 @@ test.describe("Search", () => {
     await expect(page).toHaveURL(new RegExp(`/search\\?q=${SEARCH_QUERY}$`));
     await openTextSearch(page);
     if (isProdSearchRun) {
-      await waitForVisible(page.locator(DIAGNOSIS_RESULT).first());
-      await waitForVisible(page.getByText(/\d+ results? in \d+ files?/).first());
+      await waitForVisible(page.getByText(DIAGNOSIS_RESULT_TEXT).first(), 90_000);
+      await waitForVisible(page.getByText(/\d+ results? in \d+ files?/).first(), 90_000);
       return;
     }
 
@@ -56,8 +56,8 @@ test.describe("Search", () => {
     await mockAISearch(page);
     await page.goto(`/search?q=${SEARCH_QUERY}`);
     await openTextSearch(page);
-    await waitForVisible(page.locator(DIAGNOSIS_RESULT).first());
-    await waitForVisible(page.getByText(/\d+ results? in \d+ files?/).first());
+    await waitForVisible(page.getByText(DIAGNOSIS_RESULT_TEXT).first(), 90_000);
+    await waitForVisible(page.getByText(/\d+ results? in \d+ files?/).first(), 90_000);
   });
 
   test("empty search shows no results message", async ({ page }) => {

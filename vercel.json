@@ -1,0 +1,38 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "bun install --frozen-lockfile",
+  "buildCommand": "bun --cwd apps/wiki-vite build",
+  "outputDirectory": "apps/wiki-vite/dist",
+  "functions": {
+    "api/app-shell.ts": {
+      "includeFiles": "apps/wiki-vite/dist/**",
+      "maxDuration": 60
+    },
+    "api/index.ts": {
+      "includeFiles": "apps/wiki-vite/dist/.vercel-functions/**",
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api?__path=api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/api/app-shell?__path=$1"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ]
+}

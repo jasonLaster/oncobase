@@ -1,21 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import type { AnchorHTMLAttributes } from "react";
+import { lazy, Suspense, type AnchorHTMLAttributes } from "react";
 import { Streamdown, type Components as StreamdownComponents } from "streamdown";
 import rehypeKatex from "rehype-katex";
 import type { ChatMarkdownRendererProps } from "@diana-tnbc/chat";
 import {
+  MarkdownPre,
   MdTable,
   MdTbody,
   MdTd,
   MdTh,
   MdThead,
   MdTr,
-} from "@/components/markdown-table";
-import { resolveWikilinks } from "@/lib/wikilinks";
-import { markdownRemarkPlugins } from "@/lib/markdown-math";
-import { preprocessCitationMarkdown } from "@/lib/citation-links";
+  markdownRemarkPlugins,
+  preprocessCitationMarkdown,
+  resolveWikilinks,
+} from "@diana-tnbc/wiki-markdown";
+import type { WikiMermaidGanttMarker } from "@diana-tnbc/wiki-markdown/mermaid";
 import { MarkdownRendererClient } from "@/components/markdown-renderer-client";
 import { RoutedAnchorLinks } from "@/components/markdown-heading-anchors";
 import {
@@ -25,6 +27,43 @@ import {
 
 const STREAMDOWN_DISABLED = process.env.NEXT_PUBLIC_CHAT_STREAMDOWN === "0";
 const chatRehypePlugins = [rehypeKatex];
+
+const MERMAID_FENCE_PATTERN = /(^|\n)\s*```mermaid\s*(\n|$)/;
+const DIANA_GANTT_MARKERS: WikiMermaidGanttMarker[] = [
+  { date: "2026-07-14", label: "Phase 2 (12 weeks)" },
+  { date: "2026-09-10", label: "Surgery" },
+];
+const DIANA_GANTT_REFERENCE_YEAR = 2026;
+
+const LazyMermaidRenderer = lazy(() =>
+  import("@diana-tnbc/wiki-markdown/mermaid").then((module) => ({
+    default: module.WikiMermaidRenderer,
+  })),
+);
+
+function ChatMermaidRendererSlot({
+  content,
+  isStreaming,
+}: {
+  content: string;
+  isStreaming: boolean;
+}) {
+  // While a response is still streaming the mermaid block can be incomplete;
+  // skip the rich renderer until the stream finishes so the fallback shows
+  // the partial source instead of a broken SVG. Once streaming completes the
+  // renderer mounts, finds the `data-graph` fallback that `MarkdownPre`
+  // already produced, and upgrades it into the themed SVG.
+  if (isStreaming) return null;
+  if (!MERMAID_FENCE_PATTERN.test(content)) return null;
+  return (
+    <Suspense fallback={null}>
+      <LazyMermaidRenderer
+        ganttAxisReferenceYear={DIANA_GANTT_REFERENCE_YEAR}
+        ganttMarkers={DIANA_GANTT_MARKERS}
+      />
+    </Suspense>
+  );
+}
 
 export function DianaChatMarkdownRenderer({
   content,
@@ -57,6 +96,7 @@ export function DianaChatMarkdownRenderer({
         </a>
       );
     },
+    pre: MarkdownPre,
     table: MdTable,
     thead: MdThead,
     tbody: MdTbody,
@@ -79,6 +119,7 @@ export function DianaChatMarkdownRenderer({
       >
         {citationLinked}
       </Streamdown>
+      <ChatMermaidRendererSlot content={content} isStreaming={isStreaming} />
       <RoutedAnchorLinks />
     </div>
   );

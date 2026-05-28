@@ -39,8 +39,11 @@ function lruSet(id: string, value: CachedSnapshot): void {
 }
 
 export function ConversationPageClient({ id }: { id: string }) {
-  const { convexApi, copy } = useChatRuntime();
-  const conversation = useQuery(convexApi.conversations.get, { id });
+  const { convexApi, copy, siteSlug } = useChatRuntime();
+  const conversation = useQuery(
+    convexApi.conversations.get,
+    siteSlug ? { id, siteSlug } : { id },
+  );
 
   // Cache initial messages on first load per ID.
   const initialMessages = useMemo(() => {

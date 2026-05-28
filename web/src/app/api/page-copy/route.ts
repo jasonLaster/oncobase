@@ -51,6 +51,7 @@ function copyHeaders(
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const slug = url.searchParams.get("slug") ?? "";
+  const scope = url.searchParams.get("scope");
   const requestedCacheKey = cacheKeyPart(
     url.searchParams.get("cacheKey") ?? "latest",
   );
@@ -70,6 +71,10 @@ export async function GET(request: Request) {
         `${siteSlug}:public:${cacheKeyPart(publicFile.slug)}:${requestedCacheKey}`,
       ),
     });
+  }
+
+  if (scope === "public") {
+    return new Response("Not found", { status: 404 });
   }
 
   const sessionUser = await getSessionUserFromRequest(request);

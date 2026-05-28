@@ -269,6 +269,34 @@ export const listPageWithContent = query({
   },
 });
 
+export const listManifestPage = query({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const result = await paginatedDocs(ctx, site, cursor, numItems);
+    return {
+      page: result.page
+        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
+        .map(({ slug, title, tags, description, content, contentHash, sensitive, sizeBytes }) => ({
+          slug,
+          title,
+          tags,
+          description: description ?? null,
+          contentHash: contentHash ?? null,
+          sensitive: sensitive === true,
+          size: sizeBytes ?? content.length,
+        })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  },
+});
+
 export const list = action({
   args: {
     includeSensitive: v.optional(v.boolean()),
@@ -355,10 +383,12 @@ export const upsert = mutation({
   ) => {
     const site = await requireSite(ctx, siteSlug);
     const existing = await findDocBySlug(ctx, site, slug);
+    const sizeBytes = content.length;
     if (existing) {
       if (
         existing.contentHash === contentHash &&
         existing.hashFunctionVersion === hashFunctionVersion &&
+        existing.sizeBytes === sizeBytes &&
         existing.sensitive === sensitive &&
         !existing.deletedAt
       ) {
@@ -369,6 +399,7 @@ export const upsert = mutation({
         content,
         tags,
         contentHash,
+        sizeBytes,
         hashFunctionVersion,
         sensitive,
         siteId: site.siteId ?? existing.siteId,
@@ -384,6 +415,7 @@ export const upsert = mutation({
       content,
       tags,
       contentHash,
+      sizeBytes,
       hashFunctionVersion,
       sensitive,
       updatedAt: Date.now(),
@@ -524,11 +556,12 @@ export const vectorSearch = action({
   args: {
     embedding: v.array(v.float64()),
     limit: v.optional(v.number()),
+    includeSensitive: v.optional(v.boolean()),
     siteSlug: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    { embedding, limit, siteSlug },
+    { embedding, limit, includeSensitive, siteSlug },
   ): Promise<
     Array<{ slug: string; title: string; tags: string[]; score: number }>
   > => {
@@ -550,6 +583,7 @@ export const vectorSearch = action({
       results.map(async (r) => {
         const doc = await ctx.runQuery(api.documents.getById, {
           id: r._id,
+          includeSensitive,
           siteSlug,
         });
         if (!doc) return null;
@@ -868,6 +902,9 @@ export const assetHashesPage = query({
     // sibling document checks, which can exceed Convex's read limit on
     // large vaults.
     const includeAll = includeSensitive ?? true;
+    const sensitiveSlugs = includeAll
+      ? null
+      : await sensitiveSiblingSlugSet(ctx, site);
     const parsed = cursor ? (JSON.parse(cursor) as {
       pdf: string | null;
       pdfDone: boolean;
@@ -879,6 +916,7 @@ export const assetHashesPage = query({
       kind: "pdf" | "file";
       path: string;
       contentHash: string | undefined;
+      sizeBytes?: number;
       blobUrl: string;
     }> = [];
 
@@ -896,11 +934,12 @@ export const assetHashesPage = query({
           });
       for (const row of result.page) {
         if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-        if (!(await canReadAssetPath(ctx, site, row.path, includeAll))) continue;
+        if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
         out.push({
           kind: "pdf",
           path: row.path,
           contentHash: row.contentHash,
+          sizeBytes: row.sizeBytes,
           blobUrl: row.blobUrl,
         });
       }
@@ -917,11 +956,12 @@ export const assetHashesPage = query({
           });
       for (const row of result.page) {
         if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-        if (!(await canReadAssetPath(ctx, site, row.path, includeAll))) continue;
+        if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
         out.push({
           kind: "file",
           path: row.path,
           contentHash: row.contentHash,
+          sizeBytes: row.sizeBytes,
           blobUrl: row.blobUrl,
         });
       }

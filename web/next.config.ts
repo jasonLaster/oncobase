@@ -8,7 +8,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     return redirects;
   },
-  transpilePackages: ["@diana-tnbc/chat", "@diana-tnbc/smart-table"],
+  transpilePackages: [
+    "@diana-tnbc/chat",
+    "@diana-tnbc/smart-table",
+    "@diana-tnbc/wiki-markdown",
+  ],
   outputFileTracingRoot: path.join(__dirname, ".."),
   turbopack: {
     root: path.join(__dirname, ".."),

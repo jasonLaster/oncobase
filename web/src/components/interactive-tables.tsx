@@ -1,15 +1,16 @@
 "use client";
 
-import { SmartTableEnhancer } from "@diana-tnbc/smart-table";
+import { WikiMarkdownTableEnhancer } from "@diana-tnbc/wiki-markdown";
+import { usePathname } from "next/navigation";
 import { dianaSmartTableLayoutAdapter } from "@/lib/smart-table-layout-adapter";
 
 export function InteractiveTables() {
+  const pathname = usePathname();
+
   return (
-    <SmartTableEnhancer
+    <WikiMarkdownTableEnhancer
       layoutAdapter={dianaSmartTableLayoutAdapter}
-      getPersistenceKey={({ index }) =>
-        `${window.location.pathname}::prose-table-${index}`
-      }
+      persistenceScope={pathname}
     />
   );
 }

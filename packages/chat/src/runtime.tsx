@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ComponentType, type ReactNode } from "react";
 import { resolveChatCopy } from "./copy";
 import { createChatRoutes, type ChatRouteConfig, type ChatRoutes } from "./routes";
 import type {
@@ -17,7 +17,14 @@ interface ChatRuntimeValue {
   convexApi: ChatConvexApi;
   copy: ResolvedChatCopy;
   routes: ChatRoutes;
+  siteSlug?: string;
   storageKeyPrefix: string;
+  LinkComponent?: ComponentType<{
+    children: ReactNode;
+    className?: string;
+    href: string;
+    title?: string;
+  }>;
   MarkdownRenderer?: ChatMarkdownRenderer;
   ToolCallRenderer?: ChatToolCallRenderer;
   extractSources?: ChatSourceExtractor;
@@ -31,7 +38,9 @@ export function ChatRuntimeProvider({
   convexApi,
   copy,
   routes,
+  siteSlug,
   storageKeyPrefix = "chat",
+  LinkComponent,
   MarkdownRenderer,
   ToolCallRenderer,
   extractSources,
@@ -41,7 +50,14 @@ export function ChatRuntimeProvider({
   convexApi: ChatConvexApi;
   copy?: ChatCopy;
   routes?: ChatRouteConfig;
+  siteSlug?: string;
   storageKeyPrefix?: string;
+  LinkComponent?: ComponentType<{
+    children: ReactNode;
+    className?: string;
+    href: string;
+    title?: string;
+  }>;
   MarkdownRenderer?: ChatMarkdownRenderer;
   ToolCallRenderer?: ChatToolCallRenderer;
   extractSources?: ChatSourceExtractor;
@@ -56,7 +72,9 @@ export function ChatRuntimeProvider({
         convexApi,
         copy: resolvedCopy,
         routes: resolvedRoutes,
+        siteSlug,
         storageKeyPrefix,
+        LinkComponent,
         MarkdownRenderer,
         ToolCallRenderer,
         extractSources,

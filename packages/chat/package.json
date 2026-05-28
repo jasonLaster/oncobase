@@ -74,6 +74,16 @@
       "import": "./src/components/chat-actions.tsx",
       "default": "./src/components/chat-actions.tsx"
     },
+    "./components/archived-chats-core": {
+      "types": "./src/components/archived-chats-core.tsx",
+      "import": "./src/components/archived-chats-core.tsx",
+      "default": "./src/components/archived-chats-core.tsx"
+    },
+    "./components/conversation-actions-core": {
+      "types": "./src/components/conversation-actions-core.tsx",
+      "import": "./src/components/conversation-actions-core.tsx",
+      "default": "./src/components/conversation-actions-core.tsx"
+    },
     "./components/chat-interface": {
       "types": "./src/components/chat-interface.tsx",
       "import": "./src/components/chat-interface.tsx",
@@ -83,6 +93,11 @@
       "types": "./src/components/conversation-list.tsx",
       "import": "./src/components/conversation-list.tsx",
       "default": "./src/components/conversation-list.tsx"
+    },
+    "./components/conversation-list-core": {
+      "types": "./src/components/conversation-list-core.tsx",
+      "import": "./src/components/conversation-list-core.tsx",
+      "default": "./src/components/conversation-list-core.tsx"
     },
     "./components/messages": {
       "types": "./src/components/messages.tsx",

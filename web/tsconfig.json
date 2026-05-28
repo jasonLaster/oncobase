@@ -9,6 +9,7 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
@@ -31,7 +32,16 @@
       "@diana-tnbc/smart-table/layout-adapter": [
         "../packages/smart-table/src/layout-adapter.ts"
       ],
-      "@oncobase/oncobase": ["../packages/oncobase/src/index.ts"]
+      "@oncobase/oncobase": ["../packages/oncobase/src/index.ts"],
+      "@diana-tnbc/wiki-content": [
+        "../packages/wiki-content/src/index.ts"
+      ],
+      "@diana-tnbc/wiki-comments": [
+        "../packages/wiki-comments/src/index.tsx"
+      ],
+      "@diana-tnbc/wiki-comments/*": [
+        "../packages/wiki-comments/src/*"
+      ]
     }
   },
   "include": [

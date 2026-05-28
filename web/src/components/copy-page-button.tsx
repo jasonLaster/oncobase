@@ -1,23 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
-async function writeClipboardText(text: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand("copy");
-  document.body.removeChild(textarea);
-}
+import { copyTextToClipboard } from "@diana-tnbc/wiki-shell";
 
 function pageCopyUrl(slug: string, contentHash?: string) {
   const url = new URL("/api/page-copy", window.location.origin);
@@ -43,32 +27,24 @@ export function CopyPageButton({
 
   useEffect(() => {
     return () => {
-      if (resetTimerRef.current) {
-        clearTimeout(resetTimerRef.current);
-      }
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     };
   }, []);
 
   async function handleCopy() {
     if (state === "copying") return;
-
-    if (resetTimerRef.current) {
-      clearTimeout(resetTimerRef.current);
-    }
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     setState("copying");
     try {
       const response = await fetch(pageCopyUrl(slug, contentHash), {
         credentials: "same-origin",
         headers: { Accept: "text/markdown" },
       });
-      if (!response.ok) {
-        throw new Error(`copy request failed: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`copy request failed: ${response.status}`);
 
       const content = await response.text();
-      await writeClipboardText(`# ${title}\n\n${content}`);
+      await copyTextToClipboard(`# ${title}\n\n${content}`);
       setState("copied");
-
       resetTimerRef.current = setTimeout(() => setState("idle"), 2000);
     } catch (error) {
       console.error("[CopyPageButton] Failed to copy page", error);

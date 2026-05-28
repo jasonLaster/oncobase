@@ -1,0 +1,72 @@
+{
+  "name": "@diana-tnbc/wiki-comments",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Liveblocks-backed document comments rail and supporting helpers extracted from the Diana wiki Next app. Currently consumed only by web — the Vite reader ships without comments by design.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.tsx",
+      "import": "./src/index.tsx",
+      "default": "./src/index.tsx"
+    },
+    "./room": {
+      "types": "./src/room.tsx",
+      "import": "./src/room.tsx",
+      "default": "./src/room.tsx"
+    },
+    "./provider": {
+      "types": "./src/provider.tsx",
+      "import": "./src/provider.tsx",
+      "default": "./src/provider.tsx"
+    },
+    "./threads": {
+      "types": "./src/threads.ts",
+      "import": "./src/threads.ts",
+      "default": "./src/threads.ts"
+    },
+    "./site": {
+      "types": "./src/site.ts",
+      "import": "./src/site.ts",
+      "default": "./src/site.ts"
+    },
+    "./user-resolution": {
+      "types": "./src/user-resolution.ts",
+      "import": "./src/user-resolution.ts",
+      "default": "./src/user-resolution.ts"
+    },
+    "./user-format": {
+      "types": "./src/user-format.ts",
+      "import": "./src/user-format.ts",
+      "default": "./src/user-format.ts"
+    },
+    "./page-client": {
+      "types": "./src/page-client.tsx",
+      "import": "./src/page-client.tsx",
+      "default": "./src/page-client.tsx"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "bun test src/*.test.ts"
+  },
+  "dependencies": {
+    "@diana-tnbc/wiki-shell": "workspace:*"
+  },
+  "peerDependencies": {
+    "@liveblocks/client": "^3.18.1",
+    "@liveblocks/node": "^3.18.1",
+    "@liveblocks/react": "^3.18.1",
+    "@liveblocks/react-ui": "^3.18.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "bun-types": "^1.3.12",
+    "typescript": "^5"
+  }
+}

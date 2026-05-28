@@ -1,5 +1,6 @@
 import { resolveWikilinks } from "@/lib/wikilinks";
 import { renderMarkdown, renderMarkdownAsync } from "@/lib/render-markdown";
+import { WikiMarkdownFrame } from "@diana-tnbc/wiki-markdown/frame";
 import { renderCachedMarkdownHtmlForSite } from "@/lib/markdown-render-cache";
 import { MarkdownHeadingAnchors } from "@/components/markdown-heading-anchors";
 import { MermaidRenderer } from "@/components/mermaid-renderer";
@@ -25,7 +26,7 @@ export function MarkdownRenderer({
   const html = renderMarkdown(resolved, currentSlug);
 
   return (
-    <div className="prose max-w-none">
+    <WikiMarkdownFrame>
       <div dangerouslySetInnerHTML={{ __html: html }} />
       <MarkdownHeadingAnchors
         disableAnchors={disableAnchors}
@@ -34,7 +35,7 @@ export function MarkdownRenderer({
       <InteractiveTables />
       <MermaidRenderer />
       <ImageTheater />
-    </div>
+    </WikiMarkdownFrame>
   );
 }
 
@@ -58,7 +59,7 @@ export async function MarkdownRendererAsync({
       : await renderMarkdownAsync(resolveWikilinks(content, currentSlug), currentSlug);
 
   return (
-    <div className="prose max-w-none">
+    <WikiMarkdownFrame>
       <div dangerouslySetInnerHTML={{ __html: html }} />
       <MarkdownHeadingAnchors
         disableAnchors={disableAnchors}
@@ -67,6 +68,6 @@ export async function MarkdownRendererAsync({
       <InteractiveTables />
       <MermaidRenderer />
       <ImageTheater />
-    </div>
+    </WikiMarkdownFrame>
   );
 }

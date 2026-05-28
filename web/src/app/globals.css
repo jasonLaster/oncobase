@@ -1,13 +1,18 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "./smart-table.css";
+@import "@diana-tnbc/smart-table/styles.css";
+@import "@diana-tnbc/wiki-shell/styles.css";
+@import "@diana-tnbc/wiki-markdown/styles.css";
 
 /* Tailwind v4 needs to scan Streamdown's compiled output to pick up the
    utility classes used internally by its components. Only takes effect when
    NEXT_PUBLIC_CHAT_STREAMDOWN=1 — otherwise the bundle never imports it. */
 @source "../../../node_modules/streamdown/dist";
 @source "../../../packages/chat/src";
+@source "../../../packages/wiki-comments/src";
+@source "../../../packages/wiki-markdown/src";
+@source "../../../packages/wiki-shell/src";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -46,23 +51,6 @@
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-}
-
-[data-sidebar-layout][data-sidebar-state="expanded"] > [data-sidebar-collapsed-rail],
-[data-sidebar-layout][data-sidebar-state="collapsed"] > [data-sidebar-expanded-rail] {
-  display: none;
-}
-
-html[data-initial-sidebar-state="collapsed"]
-  [data-sidebar-layout][data-sidebar-state="expanded"]
-  > [data-sidebar-collapsed-rail] {
-  display: flex;
-}
-
-html[data-initial-sidebar-state="collapsed"]
-  [data-sidebar-layout][data-sidebar-state="expanded"]
-  > [data-sidebar-expanded-rail] {
-  display: none;
 }
 
 @theme inline {

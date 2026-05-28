@@ -18,7 +18,6 @@
 
 import type { UIMessage } from "ai";
 import { memo, useMemo, useState } from "react";
-import Link from "next/link";
 import { StreamingMarkdown } from "./streaming-markdown";
 import { useChatRuntime } from "../runtime";
 import type { ChatSource, ChatToolCallRendererProps } from "../types";
@@ -122,7 +121,7 @@ const SourceLinks = memo(function SourceLinks({
 }: {
   sources: ChatSource[];
 }) {
-  const { copy } = useChatRuntime();
+  const { copy, LinkComponent } = useChatRuntime();
   const [open, setOpen] = useState(false);
   if (sources.length === 0) return null;
 
@@ -163,10 +162,10 @@ const SourceLinks = memo(function SourceLinks({
               "inline-flex max-w-full min-w-0 items-center gap-1 rounded-sm border border-[var(--sidebar-border)] bg-[var(--background)] px-1.5 py-px text-[11px] leading-5 text-[var(--brand)] hover:border-[var(--brand)] transition-colors sm:max-w-[220px]";
             const key = source.id ?? source.href ?? source.title;
 
-            return source.href?.startsWith("/") ? (
-              <Link key={key} href={source.href} title={source.title} className={className}>
+            return source.href?.startsWith("/") && LinkComponent ? (
+              <LinkComponent key={key} href={source.href} title={source.title} className={className}>
                 {content}
-              </Link>
+              </LinkComponent>
             ) : source.href ? (
               <a key={key} href={source.href} title={source.title} className={className}>
                 {content}

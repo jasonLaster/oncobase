@@ -1,0 +1,106 @@
+{
+  "name": "@diana-tnbc/wiki-shell",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Reusable Diana wiki shell components shared by web and the Vite reader.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./outline": {
+      "types": "./src/outline.ts",
+      "import": "./src/outline.ts",
+      "default": "./src/outline.ts"
+    },
+    "./header": {
+      "types": "./src/header.tsx",
+      "import": "./src/header.tsx",
+      "default": "./src/header.tsx"
+    },
+    "./actions-menu": {
+      "types": "./src/actions-menu.tsx",
+      "import": "./src/actions-menu.tsx",
+      "default": "./src/actions-menu.tsx"
+    },
+    "./theme": {
+      "types": "./src/theme.ts",
+      "import": "./src/theme.ts",
+      "default": "./src/theme.ts"
+    },
+    "./page-chrome": {
+      "types": "./src/page-chrome.tsx",
+      "import": "./src/page-chrome.tsx",
+      "default": "./src/page-chrome.tsx"
+    },
+    "./page-states": {
+      "types": "./src/page-states.tsx",
+      "import": "./src/page-states.tsx",
+      "default": "./src/page-states.tsx"
+    },
+    "./search": {
+      "types": "./src/search.tsx",
+      "import": "./src/search.tsx",
+      "default": "./src/search.tsx"
+    },
+    "./palette": {
+      "types": "./src/palette.tsx",
+      "import": "./src/palette.tsx",
+      "default": "./src/palette.tsx"
+    },
+    "./file-palette": {
+      "types": "./src/file-palette.tsx",
+      "import": "./src/file-palette.tsx",
+      "default": "./src/file-palette.tsx"
+    },
+    "./chat": {
+      "types": "./src/chat.tsx",
+      "import": "./src/chat.tsx",
+      "default": "./src/chat.tsx"
+    },
+    "./wiki-chat": {
+      "types": "./src/wiki-chat.tsx",
+      "import": "./src/wiki-chat.tsx",
+      "default": "./src/wiki-chat.tsx"
+    },
+    "./navigation": {
+      "types": "./src/navigation.tsx",
+      "import": "./src/navigation.tsx",
+      "default": "./src/navigation.tsx"
+    },
+    "./right-rail": {
+      "types": "./src/right-rail.tsx",
+      "import": "./src/right-rail.tsx",
+      "default": "./src/right-rail.tsx"
+    },
+    "./resizable-layout": {
+      "types": "./src/resizable-layout.tsx",
+      "import": "./src/resizable-layout.tsx",
+      "default": "./src/resizable-layout.tsx"
+    },
+    "./styles.css": "./src/styles.css",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "bun test src/*.test.ts"
+  },
+  "dependencies": {
+    "@diana-tnbc/chat": "workspace:*",
+    "@tanstack/react-virtual": "3.13.24",
+    "fuzzysort": "^3.1.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "bun-types": "^1.3.12",
+    "typescript": "^5"
+  }
+}
