@@ -219,6 +219,9 @@ export function createSiteData(
       upsertFileAsset: (
         args: SiteScopedArgs<typeof api.documents.upsertFileAsset>,
       ) => convex.mutation(api.documents.upsertFileAsset, args),
+      backfillAssetHashes: (
+        args: SiteScopedArgs<typeof api.documents.backfillAssetHashes>,
+      ) => convex.mutation(api.documents.backfillAssetHashes, args),
       deleteBySlug: (args: SiteScopedArgs<typeof api.documents.deleteBySlug>) =>
         convex.mutation(api.documents.deleteBySlug, args),
       deletePdfAssetByPath: (

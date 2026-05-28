@@ -52,6 +52,28 @@ const SKIPPED_ASSET_LOG = ".skipped-assets.txt";
 // or transient Convex/Cloudflare instability without editing the script.
 const DOC_CONCURRENCY = readPositiveIntEnv("PUBLISH_DOC_CONCURRENCY", 16);
 const ASSET_CONCURRENCY = readPositiveIntEnv("PUBLISH_ASSET_CONCURRENCY", 6);
+const LARGE_ASSET_UPLOAD_THRESHOLD = readPositiveIntEnv(
+  "PUBLISH_LARGE_ASSET_UPLOAD_THRESHOLD",
+  100,
+);
+const LARGE_ASSET_UPLOAD_DOC_LIMIT = readPositiveIntEnv(
+  "PUBLISH_LARGE_ASSET_UPLOAD_DOC_LIMIT",
+  10,
+);
+
+type AssetChangeReason =
+  | "missingRemoteAssetRow"
+  | "missingRemoteContentHash"
+  | "hashMismatch"
+  | "forced";
+
+type AssetChange = {
+  path: string;
+  kind: "pdf" | "file";
+  reason: AssetChangeReason;
+};
+
+type AssetChangeCounts = Record<AssetChangeReason, number>;
 
 async function runWithConcurrency<T>(
   items: T[],
@@ -115,6 +137,30 @@ async function uploadAsset(
   return await response.json();
 }
 
+async function backfillAssetHashes(
+  publishUrl: string,
+  token: string,
+  siteSlug: string,
+  assets: PublishAsset[],
+) {
+  let patched = 0;
+  let missing = 0;
+  for (let i = 0; i < assets.length; i += 500) {
+    const batch = assets.slice(i, i + 500);
+    const result = (await post(`${publishUrl}/asset-hashes`, token, {
+      siteSlug,
+      entries: batch.map((asset) => ({
+        path: asset.relativePath,
+        kind: asset.kind,
+        contentHash: asset.hash,
+      })),
+    })) as { patched?: number; missing?: string[] };
+    patched += result.patched ?? 0;
+    missing += result.missing?.length ?? 0;
+  }
+  return { patched, missing };
+}
+
 async function embedInChunks(
   docs: PublishDocument[],
 ): Promise<(number[] | undefined)[]> {
@@ -158,6 +204,8 @@ const args = process.argv.slice(2);
 const site = readFlag(args, "--site");
 const dryRun = hasFlag(args, "--dry-run");
 const force = hasFlag(args, "--force");
+const confirmFullRepublish = hasFlag(args, "--confirm-full-republish");
+const confirmLargeAssetUpload = hasFlag(args, "--confirm-large-asset-upload");
 const confirmTombstone = hasFlag(args, "--confirm-tombstone") || force;
 const syncFirst = hasFlag(args, "--sync-first");
 const noSyncPreflight = hasFlag(args, "--no-sync-preflight");
@@ -165,7 +213,14 @@ const allowDirty = hasFlag(args, "--allow-dirty");
 
 if (!site) {
   console.error(
-    "Usage: oncobase publish --site <slug> [--dry-run] [--force] [--confirm-tombstone] [--sync-first] [--no-sync-preflight] [--allow-dirty]",
+    "Usage: oncobase publish --site <slug> [--dry-run] [--force --confirm-full-republish] [--confirm-large-asset-upload] [--confirm-tombstone] [--sync-first] [--no-sync-preflight] [--allow-dirty]",
+  );
+  process.exit(1);
+}
+
+if (force && !dryRun && !confirmFullRepublish) {
+  console.error(
+    "--force republishes every document and asset. Re-run with --confirm-full-republish if you really want to rebuild the world.",
   );
   process.exit(1);
 }
@@ -221,6 +276,7 @@ const begin = (await post(`${config.publishUrl}/begin`, token, {
   staleDocumentSlugs?: string[];
   staleAssetPaths?: string[];
   staleHashVersionSlugs?: string[];
+  assetChanges?: AssetChange[];
 };
 
 const staleHashVersionCount = begin.staleHashVersionSlugs?.length ?? 0;
@@ -258,13 +314,67 @@ function abortOnSignal(signal: NodeJS.Signals) {
 process.once("SIGINT", abortOnSignal);
 process.once("SIGTERM", abortOnSignal);
 
+function assetChangeCounts(assetChanges: AssetChange[]): AssetChangeCounts {
+  return assetChanges.reduce<AssetChangeCounts>(
+    (counts, change) => {
+      counts[change.reason]++;
+      return counts;
+    },
+    {
+      missingRemoteAssetRow: 0,
+      missingRemoteContentHash: 0,
+      hashMismatch: 0,
+      forced: 0,
+    },
+  );
+}
+
+function printAssetChangeBreakdown(assetChanges: AssetChange[]) {
+  const counts = assetChangeCounts(assetChanges);
+  console.log(
+    `  asset diff: ${counts.missingRemoteAssetRow} missing rows, ${counts.missingRemoteContentHash} metadata-only hash backfills, ${counts.hashMismatch} hash mismatches, ${counts.forced} forced`,
+  );
+}
+
+function assetKey(kind: "pdf" | "file", path: string) {
+  return `${kind}:${path}`;
+}
+
 const changedDocs = force
   ? documents
   : documents.filter((doc) => begin.missingDocumentSlugs.includes(doc.slug));
+const assetsByKey = new Map(
+  assets.map((asset) => [
+    assetKey(asset.kind, asset.relativePath),
+    asset,
+  ]),
+);
+const assetChanges =
+  begin.assetChanges ??
+  begin.missingAssetPaths.map((path) => ({
+    path,
+    kind: "file" as const,
+    reason: "hashMismatch" as const,
+  }));
 const missingAssetPathSet = new Set(begin.missingAssetPaths);
+const uploadAssetKeys = new Set(
+  assetChanges
+    .filter((asset) => asset.reason !== "missingRemoteContentHash")
+    .map((asset) => assetKey(asset.kind, asset.path)),
+);
 const changedAssets = force
   ? assets
-  : assets.filter((asset) => missingAssetPathSet.has(asset.relativePath));
+  : begin.assetChanges
+    ? assets.filter((asset) =>
+        uploadAssetKeys.has(assetKey(asset.kind, asset.relativePath)),
+      )
+    : assets.filter((asset) => missingAssetPathSet.has(asset.relativePath));
+const hashBackfillAssets = assetChanges
+  .filter((asset) => asset.reason === "missingRemoteContentHash")
+  .map((asset) => assetsByKey.get(assetKey(asset.kind, asset.path)))
+  .filter((asset): asset is PublishAsset => Boolean(asset));
+
+printAssetChangeBreakdown(assetChanges);
 
 const staleDocCount = begin.staleDocumentSlugs?.length ?? 0;
 const staleAssetCount = begin.staleAssetPaths?.length ?? 0;
@@ -285,7 +395,7 @@ if (!dryRun && !confirmTombstone && (staleDocCount > 0 || staleAssetCount > 0)) 
 
 if (dryRun) {
   console.log(
-    `Dry run: ${changedDocs.length} documents changed, ${changedAssets.length} assets changed, ${
+    `Dry run: ${changedDocs.length} documents changed, ${changedAssets.length} assets need upload, ${hashBackfillAssets.length} asset hashes need metadata-only backfill, ${
       begin.staleDocumentSlugs?.length ?? 0
     } documents stale, ${begin.staleAssetPaths?.length ?? 0} assets stale`,
   );
@@ -293,6 +403,36 @@ if (dryRun) {
 }
 
 try {
+if (
+  !force &&
+  !confirmLargeAssetUpload &&
+  changedAssets.length > LARGE_ASSET_UPLOAD_THRESHOLD &&
+  changedDocs.length <= LARGE_ASSET_UPLOAD_DOC_LIMIT
+) {
+  console.error(
+    `Publish wants to upload ${changedAssets.length} assets while only ${changedDocs.length} documents changed.`,
+  );
+  console.error(
+    "Review the asset diff above, then re-run with --confirm-large-asset-upload if the byte upload is intentional.",
+  );
+  await abortIfHolding("aborted: large asset upload requires confirmation");
+  process.exit(1);
+}
+
+if (hashBackfillAssets.length > 0) {
+  const result = await backfillAssetHashes(
+    config.publishUrl,
+    token,
+    config.site,
+    hashBackfillAssets,
+  );
+  console.log(
+    `  backfilled ${result.patched}/${hashBackfillAssets.length} asset hashes without uploading bytes${
+      result.missing ? ` (${result.missing} rows missing)` : ""
+    }`,
+  );
+}
+
 const doEmbed = Boolean(process.env.OPENAI_API_KEY) && changedDocs.length > 0;
 const embeddings = doEmbed
   ? await embedInChunks(changedDocs)
@@ -360,7 +500,7 @@ lockHeld = false; // /finish releases the lock; don't double-abort.
 const tombstonedDocSlugs = begin.staleDocumentSlugs ?? [];
 const tombstonedAssetPaths = begin.staleAssetPaths ?? [];
 console.log(
-  `Published ${changedDocs.length} documents, ${uploaded} assets, tombstoned ${
+  `Published ${changedDocs.length} documents, uploaded ${uploaded} assets, backfilled ${hashBackfillAssets.length} asset hashes, tombstoned ${
     tombstonedDocSlugs.length
   } documents and ${tombstonedAssetPaths.length} assets for ${config.site}.`,
 );

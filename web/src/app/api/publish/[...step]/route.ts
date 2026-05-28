@@ -32,6 +32,18 @@ type Manifest = {
   assets?: Array<{ path: string; hash: string; kind?: "pdf" | "file" }>;
 };
 
+type AssetChangeReason =
+  | "missingRemoteAssetRow"
+  | "missingRemoteContentHash"
+  | "hashMismatch"
+  | "forced";
+
+type AssetChange = {
+  path: string;
+  kind: "pdf" | "file";
+  reason: AssetChangeReason;
+};
+
 type SyncManifest = {
   documents?: Array<{ slug: string; hash: string }>;
   assets?: Array<{ path: string; hash: string; kind?: "pdf" | "file" }>;
@@ -156,7 +168,15 @@ async function currentDocumentHashes(siteData: SiteData) {
 }
 
 async function currentAssetHashes(siteData: SiteData) {
-  const hashes = new Map<string, string | undefined>();
+  const hashes = new Map<
+    string,
+    {
+      kind: "pdf" | "file";
+      path: string;
+      contentHash: string | undefined;
+      blobUrl?: string | undefined;
+    }
+  >();
   let cursor: string | null = null;
   let isDone = false;
   while (!isDone) {
@@ -169,12 +189,13 @@ async function currentAssetHashes(siteData: SiteData) {
         kind: "pdf" | "file";
         path: string;
         contentHash: string | undefined;
+        blobUrl?: string | undefined;
       }>;
       isDone: boolean;
       continueCursor: string;
     };
     for (const asset of page.page) {
-      hashes.set(`${asset.kind}:${asset.path}`, asset.contentHash);
+      hashes.set(`${asset.kind}:${asset.path}`, asset);
     }
     isDone = page.isDone;
     cursor = page.continueCursor;
@@ -242,6 +263,37 @@ async function handleAssetUpload(request: Request) {
   return NextResponse.json({ ok: true, blobUrl, sizeBytes });
 }
 
+async function handleAssetHashBackfill(request: Request) {
+  const body = (await request.json()) as {
+    siteSlug?: string;
+    entries?: Array<{
+      path?: string;
+      kind?: string;
+      contentHash?: string;
+    }>;
+  };
+
+  const siteSlug = body.siteSlug ?? "";
+  if (!siteSlug) return new Response("siteSlug required", { status: 400 });
+
+  const entries = (body.entries ?? []).map((entry) => ({
+    path: entry.path ?? "",
+    kind: entry.kind === "pdf" ? ("pdf" as const) : ("file" as const),
+    contentHash: entry.contentHash ?? "",
+  }));
+  if (entries.length === 0) {
+    return new Response("entries required", { status: 400 });
+  }
+  if (entries.some((entry) => !entry.path || !entry.contentHash)) {
+    return new Response("entry path and contentHash required", { status: 400 });
+  }
+
+  const { siteData } = await requirePublishSite(request, siteSlug);
+  const result = await siteData.documents.backfillAssetHashes({ entries });
+  revalidatePublishedAsset(siteSlug);
+  return NextResponse.json(result);
+}
+
 function logRouteError(step: string, error: unknown) {
   // Centralized so any failure path that returns 500 also leaves a
   // server-side breadcrumb. Without this, Convex query errors only
@@ -284,6 +336,12 @@ export async function POST(
   try {
     if (step === "asset") {
       return await handleAssetUpload(request);
+    }
+
+    if (step === "asset-hashes") {
+      const unsupported = unsupportedPublisherResponse(request);
+      if (unsupported) return unsupported;
+      return await handleAssetHashBackfill(request);
     }
 
     const body = await request.json();
@@ -451,13 +509,31 @@ export async function POST(
       );
 
       const existingAssetHashes = await currentAssetHashes(siteData);
-      const missingAssetPaths = force
-        ? (manifest.assets ?? []).map((asset) => asset.path)
-        : (manifest.assets ?? [])
-            .filter((asset) => {
-              return existingAssetHashes.get(assetKey(asset)) !== asset.hash;
-            })
-            .map((asset) => asset.path);
+      const assetChanges: AssetChange[] = [];
+      for (const asset of manifest.assets ?? []) {
+        const kind = asset.kind ?? "file";
+        const existing = existingAssetHashes.get(assetKey(asset));
+        if (force) {
+          assetChanges.push({ path: asset.path, kind, reason: "forced" });
+        } else if (!existing) {
+          assetChanges.push({
+            path: asset.path,
+            kind,
+            reason: "missingRemoteAssetRow",
+          });
+        } else if (!existing.contentHash && existing.blobUrl) {
+          assetChanges.push({
+            path: asset.path,
+            kind,
+            reason: "missingRemoteContentHash",
+          });
+        } else if (existing.contentHash !== asset.hash) {
+          assetChanges.push({ path: asset.path, kind, reason: "hashMismatch" });
+        }
+      }
+      const missingAssetPaths = assetChanges
+        .filter((asset) => asset.reason !== "missingRemoteContentHash")
+        .map((asset) => asset.path);
       const manifestAssetKeys = new Set(
         (manifest.assets ?? []).map((asset) => assetKey(asset)),
       );
@@ -469,6 +545,7 @@ export async function POST(
         runId: crypto.randomUUID(),
         missingDocumentSlugs,
         missingAssetPaths,
+        assetChanges,
         staleDocumentSlugs,
         staleAssetPaths,
         staleHashVersionSlugs,

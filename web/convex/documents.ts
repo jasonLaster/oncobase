@@ -847,6 +847,51 @@ export const upsertPdfAsset = mutation({
   },
 });
 
+export const backfillAssetHashes = mutation({
+  args: {
+    siteSlug: v.optional(v.string()),
+    entries: v.array(
+      v.object({
+        kind: v.union(v.literal("pdf"), v.literal("file")),
+        path: v.string(),
+        contentHash: v.string(),
+      }),
+    ),
+  },
+  handler: async (ctx, { siteSlug, entries }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const result = {
+      found: 0,
+      patched: 0,
+      missing: [] as string[],
+      unchanged: 0,
+    };
+
+    for (const entry of entries) {
+      const table = entry.kind === "pdf" ? "pdfAssets" : "fileAssets";
+      const row = await findAssetByPath(ctx, table, site, entry.path);
+      if (!row || row.deletedAt) {
+        result.missing.push(`${entry.kind}:${entry.path}`);
+        continue;
+      }
+
+      result.found++;
+      if (row.contentHash === entry.contentHash) {
+        result.unchanged++;
+        continue;
+      }
+
+      await ctx.db.patch(row._id, {
+        contentHash: entry.contentHash,
+        siteId: site.siteId ?? row.siteId,
+      });
+      result.patched++;
+    }
+
+    return result;
+  },
+});
+
 export const deletePdfAssetByPath = mutation({
   args: { path: v.string(), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { path, siteSlug }) => {

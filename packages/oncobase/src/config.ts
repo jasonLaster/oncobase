@@ -3,10 +3,29 @@ import os from "node:os";
 import path from "node:path";
 import dotenv from "dotenv";
 
-// Load local env files for npm/node users. Bun does this automatically, but
-// the packaged CLI should behave the same when installed in a vault.
-dotenv.config({ path: path.join(process.cwd(), ".env.local"), override: false, quiet: true });
-dotenv.config({ path: path.join(process.cwd(), ".env"), override: false, quiet: true });
+const loadedEnvFiles = new Set<string>();
+
+function loadEnvFile(file: string) {
+  if (loadedEnvFiles.has(file) || !fs.existsSync(file)) return;
+  dotenv.config({ path: file, override: false, quiet: true });
+  loadedEnvFiles.add(file);
+}
+
+function loadEnvFilesNear(dir: string) {
+  let current = path.resolve(dir);
+  for (let depth = 0; depth < 4; depth++) {
+    loadEnvFile(path.join(current, ".env.local"));
+    loadEnvFile(path.join(current, ".env"));
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+}
+
+// Load local env files for npm/node users. Bun does this automatically for the
+// cwd, but the packaged CLI should also find vault-adjacent credentials like
+// ../.env.local when invoked from an Obsidian checkout.
+loadEnvFilesNear(process.cwd());
 
 export type PublishConfig = {
   site: string;
@@ -30,7 +49,9 @@ export function loadConfig(site: string): PublishConfig {
       `Missing config: run oncobase init --site ${site} first.\nLooked at: ${file}`,
     );
   }
-  return JSON.parse(fs.readFileSync(file, "utf8")) as PublishConfig;
+  const config = JSON.parse(fs.readFileSync(file, "utf8")) as PublishConfig;
+  loadEnvFilesNear(config.vaultPath);
+  return config;
 }
 
 export function tokenEnvName(site: string) {

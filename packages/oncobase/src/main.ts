@@ -3,10 +3,17 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const COMMANDS = new Set(["init", "sync", "check", "publish", "skills"]);
+const COMMANDS = new Set([
+  "init",
+  "sync",
+  "check",
+  "publish",
+  "skills",
+  "assets:backfill-hashes",
+]);
 
 function usage() {
-  console.error("Usage: oncobase <init|sync|check|publish|skills> [options]");
+  console.error("Usage: oncobase <init|sync|check|publish|skills|assets:backfill-hashes> [options]");
 }
 
 const [command, ...args] = process.argv.slice(2);
@@ -16,7 +23,14 @@ if (!command || !COMMANDS.has(command)) {
 }
 
 const binDir = path.dirname(fileURLToPath(import.meta.url));
-const scriptName = command === "sync" ? "sync-command.js" : command === "skills" ? "skills-command.js" : `${command}.js`;
+const scriptName =
+  command === "sync"
+    ? "sync-command.js"
+    : command === "skills"
+      ? "skills-command.js"
+      : command === "assets:backfill-hashes"
+        ? "assets-backfill-hashes.js"
+        : `${command}.js`;
 const result = spawnSync(process.execPath, [path.join(binDir, scriptName), ...args], {
   stdio: "inherit",
   env: process.env,

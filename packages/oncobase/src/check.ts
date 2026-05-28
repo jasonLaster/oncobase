@@ -10,6 +10,12 @@ import { PUBLISHER_PROTOCOL_VERSION, PUBLISHER_VERSION_HEADER } from "./version"
 import { readErrorBody } from "./http";
 import { ensureCleanVault } from "./working-tree";
 
+type AssetChangeReason =
+  | "missingRemoteAssetRow"
+  | "missingRemoteContentHash"
+  | "hashMismatch"
+  | "forced";
+
 const site = readFlag(process.argv.slice(2), "--site");
 if (!site) {
   console.error("Usage: oncobase check --site <slug>");
@@ -69,6 +75,11 @@ const result = (await response.json()) as {
   staleDocumentSlugs?: string[];
   staleAssetPaths?: string[];
   staleHashVersionSlugs?: string[];
+  assetChanges?: Array<{
+    path: string;
+    kind: "pdf" | "file";
+    reason: AssetChangeReason;
+  }>;
 };
 
 const staleDocs = result.staleDocumentSlugs ?? [];
@@ -85,6 +96,23 @@ console.log(
     assets.length - result.missingAssetPaths.length
   } unchanged`,
 );
+if (result.assetChanges) {
+  const counts = result.assetChanges.reduce<Record<AssetChangeReason, number>>(
+    (acc, change) => {
+      acc[change.reason]++;
+      return acc;
+    },
+    {
+      missingRemoteAssetRow: 0,
+      missingRemoteContentHash: 0,
+      hashMismatch: 0,
+      forced: 0,
+    },
+  );
+  console.log(
+    `Asset diff: ${counts.missingRemoteAssetRow} missing rows, ${counts.missingRemoteContentHash} metadata-only hash backfills, ${counts.hashMismatch} hash mismatches`,
+  );
+}
 console.log(
   `Stale:     ${staleDocs.length} documents, ${staleAssets.length} assets will be tombstoned on publish`,
 );
