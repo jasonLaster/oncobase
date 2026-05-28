@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { api } from "@convex/_generated/api";
+import { getConvexServerClient } from "@/lib/convex-server";
+import { applyPiiRedactions, parseSitePiiPatterns } from "@/lib/pii-redaction";
 import { siteDataFromRequest } from "@/lib/site-data";
 
 // Site-scoped text search endpoint. Reads the active site from the
@@ -21,5 +24,20 @@ export async function GET(request: NextRequest) {
     limit,
   });
 
-  return NextResponse.json({ results });
+  const site = await getConvexServerClient().query(api.sites.getBySlug, {
+    slug: siteData.siteSlug,
+  });
+  const piiPatterns = parseSitePiiPatterns(site?.config.piiPatterns);
+  const redact = (value: unknown) =>
+    typeof value === "string"
+      ? applyPiiRedactions(value, { patterns: piiPatterns })
+      : value;
+
+  return NextResponse.json({
+    results: results.map((result) => ({
+      ...result,
+      excerpt: redact("excerpt" in result ? result.excerpt : undefined),
+      title: redact("title" in result ? result.title : undefined),
+    })),
+  });
 }

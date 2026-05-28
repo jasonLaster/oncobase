@@ -16,6 +16,28 @@ export function documentArticle(page: Page) {
   return page.getByTestId("document-article").first();
 }
 
+export async function waitForDocumentArticle(page: Page, timeout = 30_000) {
+  await page.waitForFunction(
+    () =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>('[data-test-id="document-article"]')
+      ).some((article) => {
+        const rect = article.getBoundingClientRect();
+        const style = window.getComputedStyle(article);
+        const textLength = (article.textContent ?? "").replace(/\s+/g, " ").trim().length;
+        return (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          textLength > 40
+        );
+      }),
+    { timeout }
+  );
+  return documentArticle(page);
+}
+
 export function chatComposer(page: Page) {
   return page.getByTestId("chat-composer-textarea");
 }

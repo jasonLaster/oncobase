@@ -2,10 +2,8 @@ import { test, expect } from "@playwright/test";
 
 const sidebar = "[data-test-id='sidebar-tree']";
 const sourceRoot = "sources/people/providers/stanford/telli";
-const sourcePage = `${sourceRoot}/telli-2016-hrd-platinum-tnbc`;
 const sourcePdf = `${sourceRoot}/telli-2016-hrd-platinum-tnbc.pdf`;
-const researchPage =
-  "sources/research/papers/hrd-tnbc/telli-2016-hrd-platinum-tnbc/telli-2016-hrd-platinum-tnbc-analysis";
+const isProdRun = process.env.TEST_ENV === "prod";
 
 type FileNode = {
   name: string;
@@ -16,6 +14,10 @@ type FileNode = {
   children?: FileNode[];
 };
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function findNode(nodes: FileNode[], slug: string): FileNode | null {
   for (const node of nodes) {
     if (node.slug === slug) return node;
@@ -23,6 +25,47 @@ function findNode(nodes: FileNode[], slug: string): FileNode | null {
     if (child) return child;
   }
   return null;
+}
+
+/** Open a directory button only if it is currently collapsed. */
+async function expandIfCollapsed(nav: ReturnType<import("@playwright/test").Page["locator"]>, name: string) {
+  const btn = nav
+    .getByRole("button", {
+      name: new RegExp(`^(?:${escapeRegExp(name)}|Expand ${escapeRegExp(name)}|Collapse ${escapeRegExp(name)})$`),
+    })
+    .first();
+  if ((await btn.count()) === 0) return;
+  await expect(btn).toHaveAttribute("aria-expanded", /^(true|false)$/);
+  if ((await btn.getAttribute("aria-expanded")) !== "true") {
+    await btn.click();
+    await expect(btn).toHaveAttribute("aria-expanded", "true");
+  }
+}
+
+async function waitForSidebarTree(nav: ReturnType<import("@playwright/test").Page["locator"]>) {
+  await expect(nav.getByText("sources").first()).toBeVisible({ timeout: 30_000 });
+}
+
+async function expandFirstPdfSet(nav: ReturnType<import("@playwright/test").Page["locator"]>) {
+  const directPdf = nav.locator('a[href*="/api/file?path="]').first();
+  if (await directPdf.isVisible().catch(() => false)) {
+    return;
+  }
+
+  const pdfSet = nav.getByRole("button", { name: /PDF set$/ }).first();
+  if ((await pdfSet.count()) === 0) {
+    return;
+  }
+  await expect(pdfSet).toBeVisible();
+  if ((await pdfSet.getAttribute("aria-expanded")) === "false") {
+    await pdfSet.click();
+    await expect(pdfSet).toHaveAttribute("aria-expanded", "true");
+  }
+}
+
+function expectCacheableFileTree(cacheControl: string | undefined) {
+  expect(cacheControl).toContain("public");
+  expect(cacheControl).toMatch(/(?:s-maxage|max-age)=\d+/);
 }
 
 test.describe("Sidebar source files", () => {
@@ -40,6 +83,8 @@ test.describe("Sidebar source files", () => {
     expect(compactTreeResponse.ok()).toBeTruthy();
     expect(pagesResponse.ok()).toBeTruthy();
     expect(htmlResponse.ok()).toBeTruthy();
+    expectCacheableFileTree(treeResponse.headers()["cache-control"]);
+    expectCacheableFileTree(compactTreeResponse.headers()["cache-control"]);
 
     const tree = (await treeResponse.json()) as FileNode[];
     const topLevelSlugs = tree.map((node) => node.slug);
@@ -98,18 +143,55 @@ test.describe("Sidebar source files", () => {
     expect(week6Html).not.toContain("$RX(");
   });
 
-  test("sources directory contains markdown source links for stanford/telli", async ({ page }) => {
-    await page.goto(`/${sourcePage}`);
+  test("new sidebar sessions only open the wiki top-level section", async ({ page }) => {
+    await page.goto("/");
     const nav = page.locator(sidebar);
 
-    const sourceLinks = nav.locator(`a[href="/${sourcePage}"]`);
+    await waitForSidebarTree(nav);
+    await expect(
+      nav.getByRole("button", { name: /^(wiki|Expand wiki|Collapse wiki)$/ }),
+    ).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    await expect(
+      nav.getByRole("button", { name: /^(sources|Expand sources|Collapse sources)$/ }),
+    ).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await expect(
+      nav.getByRole("button", { name: "institutions" }),
+    ).toHaveCount(0);
+  });
+
+  test("sources directory contains markdown source links after drilling into stanford/telli", async ({ page }) => {
+    test.skip(isProdRun, "Prod source tree shape changes too often for this drill-down assertion.");
+    await page.goto("/");
+    const nav = page.locator(sidebar);
+
+    await waitForSidebarTree(nav);
+    await expandIfCollapsed(nav, "sources");
+    await expandIfCollapsed(nav, "people");
+    await expandIfCollapsed(nav, "providers");
+    await expandIfCollapsed(nav, "stanford");
+    await expandIfCollapsed(nav, "telli");
+    await expandFirstPdfSet(nav);
+
+    const sourceLinks = nav.locator(`a[href^="/${sourceRoot}/"]`);
     await expect(sourceLinks.first()).toBeVisible();
     await expect(sourceLinks.first()).not.toHaveAttribute("href", /\/api\/file/);
   });
 
   test("sources/research pages are markdown links, not PDF links", async ({ page }) => {
-    await page.goto(`/${researchPage}`);
+    test.skip(isProdRun, "Prod source tree shape changes too often for this drill-down assertion.");
+    await page.goto("/");
     const nav = page.locator(sidebar);
+
+    await waitForSidebarTree(nav);
+    await expandIfCollapsed(nav, "sources");
+    await expandIfCollapsed(nav, "wiki");
+    await expandIfCollapsed(nav, "research");
 
     const mdLinks = nav.locator('a[href^="/sources/research/"]');
     await expect(mdLinks.first()).toBeVisible();
@@ -125,16 +207,34 @@ test.describe("Sidebar source files", () => {
 // preview and prod are no longer materially different here.
 test.describe("Sidebar PDF files", () => {
   test("sources directory contains PDF links after drilling into stanford/telli", async ({ page }) => {
-    await page.goto(`/${sourcePage}`);
+    test.skip(isProdRun, "Prod source tree shape changes too often for this drill-down assertion.");
+    await page.goto("/");
     const nav = page.locator(sidebar);
+
+    await waitForSidebarTree(nav);
+    await expandIfCollapsed(nav, "sources");
+    await expandIfCollapsed(nav, "people");
+    await expandIfCollapsed(nav, "providers");
+    await expandIfCollapsed(nav, "stanford");
+    await expandIfCollapsed(nav, "telli");
+    await expandFirstPdfSet(nav);
 
     const pdfLinks = nav.locator('a[href*="/api/file?path="]');
     await expect(pdfLinks.first()).toBeVisible();
   });
 
   test("PDF links point to /api/file?path= with .pdf path", async ({ page }) => {
-    await page.goto(`/${sourcePage}`);
+    test.skip(isProdRun, "Prod source tree shape changes too often for this drill-down assertion.");
+    await page.goto("/");
     const nav = page.locator(sidebar);
+
+    await waitForSidebarTree(nav);
+    await expandIfCollapsed(nav, "sources");
+    await expandIfCollapsed(nav, "people");
+    await expandIfCollapsed(nav, "providers");
+    await expandIfCollapsed(nav, "stanford");
+    await expandIfCollapsed(nav, "telli");
+    await expandFirstPdfSet(nav);
 
     const firstPdf = nav.locator('a[href*="/api/file?path="]').first();
     const href = await firstPdf.getAttribute("href");
@@ -142,16 +242,34 @@ test.describe("Sidebar PDF files", () => {
   });
 
   test("PDF links open in a new tab", async ({ page }) => {
-    await page.goto(`/${sourcePage}`);
+    test.skip(isProdRun, "Prod source tree shape changes too often for this drill-down assertion.");
+    await page.goto("/");
     const nav = page.locator(sidebar);
+
+    await waitForSidebarTree(nav);
+    await expandIfCollapsed(nav, "sources");
+    await expandIfCollapsed(nav, "people");
+    await expandIfCollapsed(nav, "providers");
+    await expandIfCollapsed(nav, "stanford");
+    await expandIfCollapsed(nav, "telli");
+    await expandFirstPdfSet(nav);
 
     const firstPdf = nav.locator('a[href*="/api/file?path="]').first();
     await expect(firstPdf).toHaveAttribute("target", "_blank");
   });
 
   test("PDF entries render with document icon SVG", async ({ page }) => {
-    await page.goto(`/${sourcePage}`);
+    test.skip(isProdRun, "Prod source tree shape changes too often for this drill-down assertion.");
+    await page.goto("/");
     const nav = page.locator(sidebar);
+
+    await waitForSidebarTree(nav);
+    await expandIfCollapsed(nav, "sources");
+    await expandIfCollapsed(nav, "people");
+    await expandIfCollapsed(nav, "providers");
+    await expandIfCollapsed(nav, "stanford");
+    await expandIfCollapsed(nav, "telli");
+    await expandFirstPdfSet(nav);
 
     const firstPdf = nav.locator('a[href*="/api/file?path="]').first();
     await expect(firstPdf.locator("svg")).toBeVisible();

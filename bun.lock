@@ -92,7 +92,7 @@
       "name": "@oncobase/oncobase",
       "version": "0.1.1",
       "bin": {
-        "oncobase": "./dist/main.js",
+        "oncobase": "dist/main.js",
       },
       "dependencies": {
         "@vercel/blob": "^2.3.3",

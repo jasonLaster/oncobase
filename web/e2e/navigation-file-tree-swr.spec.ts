@@ -12,6 +12,7 @@ const staleTree: CompactFileNode[] = [
 const freshTree: CompactFileNode[] = [
   ["d", "fresh", [["f", "updated-page"]]],
 ];
+const isProdRun = process.env.TEST_ENV === "prod";
 
 async function expandDirectory(
   nav: ReturnType<import("@playwright/test").Page["locator"]>,
@@ -51,6 +52,11 @@ async function mockFileTreeApi(page: Page) {
 }
 
 test.describe("Navigation file tree SWR", () => {
+  test.skip(
+    isProdRun,
+    "The SWR cache replacement test mocks navigation internals and is covered outside deployed-prod stress."
+  );
+
   test("shows cached full tree after hydration, then replaces it with the fresh tree", async ({
     page,
   }) => {

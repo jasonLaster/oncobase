@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const IMAGE_PAGE =
   "/sources/research/papers/cancer-vaccines/cleveland-clinic-2025-alpha-lactalbumin-phase1-final";
+const isProdRun = process.env.TEST_ENV === "prod";
 
 async function openFirstTheaterImage(page: Page) {
   const image = page.locator(".prose img[data-theater-image]").first();
@@ -18,6 +19,11 @@ async function openFirstTheaterImage(page: Page) {
 }
 
 test.describe("Image theater", () => {
+  test.skip(
+    isProdRun,
+    "Image theater assertions depend on a specific deployed markdown image fixture."
+  );
+
   test("opens markdown images with download and closes on the first mask or close-button click", async ({
     page,
   }) => {
