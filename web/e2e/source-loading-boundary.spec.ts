@@ -3,6 +3,7 @@ import { documentArticle, nextErrorOverlay, openCommandPalette } from "./helpers
 
 const WIKI_ROUTE = "/wiki/diagnostics/diagnosis";
 const SOURCE_ROUTE = "/sources/clinical-trials/trials/zest-nct05306330";
+const isProdRun = process.env.TEST_ENV === "prod";
 
 async function delayRoutePayload(page: Page, routePath: string) {
   await page.route("**/*", async (route) => {
@@ -27,6 +28,11 @@ async function chooseCommandPaletteResult(page: Page, slug: string) {
 }
 
 test.describe("source loading boundary", () => {
+  test.skip(
+    isProdRun,
+    "Source loading boundary behavior is content/streaming sensitive and is covered outside repeated prod stress."
+  );
+
   test("wiki pages do not render the source document loading shell", async ({ page }) => {
     await page.goto(WIKI_ROUTE, { waitUntil: "domcontentloaded" });
 

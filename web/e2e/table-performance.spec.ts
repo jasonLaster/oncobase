@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { resizeAuditExampleTables } from "@diana-tnbc/smart-table/examples";
 
 const TABLE_PAGE = "/table-examples";
+const isProdRun = process.env.TEST_ENV === "prod";
 
 type ResizeFrameMetrics = {
   sampleCount: number;
@@ -23,6 +24,11 @@ test.describe("Smart table resize performance", () => {
   test("keeps resize interactions responsive across the audit fixtures", async ({
     page,
   }) => {
+    test.skip(
+      isProdRun,
+      "Frame-timing assertions are too noisy for repeated deployed-prod stress."
+    );
+
     test.slow();
 
     const results: Array<{ id: string; metrics: ResizeFrameMetrics }> = [];
