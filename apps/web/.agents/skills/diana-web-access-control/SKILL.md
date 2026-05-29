@@ -1,11 +1,12 @@
 ---
 name: diana-web-access-control
-description: Use when editing the Diana TNBC web app access model, including RBAC, email-domain roles, tag/path permissions, sensitive/private page behavior, /admin/access UX, tags grouped by path, or sign-in prompts around protected content.
+description: Use when editing the Oncobase web access model for the Diana production site, including RBAC, email-domain roles, tag/path permissions, sensitive/private page behavior, /admin/access UX, tags grouped by path, or sign-in prompts around protected content.
 ---
 
 # Diana Web Access Control
 
-Use this for Diana-specific auth, access, and admin work in `web/`.
+Use this for auth, access, and admin work in `apps/web`, especially where the
+current Diana production site has site-specific migration defaults.
 
 ## Start Here
 
@@ -47,7 +48,7 @@ Public academic analysis is not sensitive by topic alone. Do not add sensitivity
 
 ## Verification
 
-From `web/`, use the real local checks:
+From `apps/web`, use the real local checks:
 
 ```bash
 bun run typecheck
@@ -62,6 +63,6 @@ For production-facing UI changes, inspect the page with a browser at desktop and
 
 ## Common Pitfalls
 
-- `bun run check` does not exist in `web/package.json`; use `bun run typecheck` and `bun run lint`.
+- `bun run check` does not exist in `apps/web/package.json`; use `bun run typecheck` and `bun run lint`.
 - Local admin browser tests can fail because of auth/session setup rather than the access logic itself. Confirm with direct utility or mutation coverage before changing unrelated UI.
 - Unrelated dirty files are common in this repo family. Inspect `git status`, stage only intended files, and keep commits scoped to the access/admin change.

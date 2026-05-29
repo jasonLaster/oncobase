@@ -1,13 +1,12 @@
 # Single-site Assumptions Inventory
 
-Snapshot of every place in the engine that assumes one site, taken at
-the start of the multi-tenant migration. Each entry maps to a phase
-in [plans/multi-tenant-wiki](../../plans/multi-tenant-wiki/) where it
-is removed or scoped.
+Snapshot of every place in the engine that assumed one site at the
+start of the multi-tenant migration. The remaining public contract now
+lives in [multi-site.md](./multi-site.md).
 
-## Filesystem reads from `obsidian/` at runtime — Phase 1
+## Filesystem reads from the legacy vault path at runtime — Phase 1
 
-The runtime app currently reads `obsidian/` from disk in five places.
+At the start of the migration, the runtime app read a repo-local vault from disk in five places.
 After Phase 1 these all flow through Convex/Blob.
 
 | Path | Lines |
@@ -19,7 +18,7 @@ After Phase 1 these all flow through Convex/Blob.
 | [src/workflows/build-download-cache.ts](../src/workflows/build-download-cache.ts) | 40–41, 69 |
 
 `next.config.ts` lines 93–101 (`outputFileTracingExcludes` /
-`outputFileTracingIncludes` for `../obsidian/**`) become dead code
+`outputFileTracingIncludes` for the legacy vault path) become dead code
 after Phase 1 and get removed there.
 
 ## Build-time fs reads — kept (publisher CLI in Phase 4)
@@ -89,7 +88,7 @@ specific values.
 
 `users` and `userSessions` are global to the Convex deployment. v1
 goes site-scoped: same email under different sites is independent.
-Decision documented in [02-site-records.md](../../plans/multi-tenant-wiki/02-site-records.md).
+Decision is now reflected in [multi-site.md](./multi-site.md).
 
 The single-site password gate in [src/proxy.ts](../src/proxy.ts) is
 keyed only on a global `authed` cookie. Phase 3 moves this to per-site

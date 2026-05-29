@@ -44,7 +44,7 @@ const SKIPPABLE_EXACT_PATHS = new Set([
   "apps/web/tsconfig.json",
 ]);
 
-const SKIPPABLE_PREFIXES = ["obsidian/", "packages/oncobase/"];
+const SKIPPABLE_PREFIXES = ["obsidian-2/", "packages/oncobase/"];
 
 function assertEnv(value: string | undefined, name: string): string {
   if (!value) {

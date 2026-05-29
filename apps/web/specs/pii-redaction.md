@@ -235,12 +235,10 @@ The feature must remain server-side first.
 - Store a `sensitive` flag on ingested document records
 - Exclude sensitive markdown and inherited-sensitive sidecar files from archives, asset ingest, PDF ingest, and public asset routes
 
-### Claude Code wiki maintenance
+### Vault maintenance skills
 
-`../obsidian/CLAUDE.md`
-`../obsidian/.agents/skills/update/SKILL.md`
-`../obsidian/.agents/skills/ingest/SKILL.md`
-`../obsidian/.agents/skills/query/SKILL.md`
+Vault-local maintenance guidance, for example `.claude/skills/*` or
+`.agents/skills/*`, should:
 
 - Document the page-level sensitivity syntax
 - Instruct Claude Code not to read, search, summarize, cite, ingest, or use sensitive pages by default
@@ -248,7 +246,7 @@ The feature must remain server-side first.
 
 ### Vault hygiene
 
-`../obsidian/.agents/skills/lint/check-pii.ts`
+Vault-local lint tooling, for example `.agents/skills/lint/check-pii.ts`, should:
 
 - Add focused vault lint for high-risk identifiers and fields
 - Ignore content already wrapped in redact blocks

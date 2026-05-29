@@ -1,8 +1,8 @@
-# Web App Feature Spec
+# Oncobase Web Feature Spec
 
-Current-state feature inventory for the `web` app, based on the implementation in `src/app`, `src/components`, `convex/`, and the existing end-to-end tests.
+Current-state feature inventory for the `apps/web` app, based on the implementation in `src/app`, `src/components`, `convex/`, workspace packages, and the existing end-to-end tests.
 
-This document focuses on shipped behavior and notable implementation details. Detailed comments behavior still lives in [comments.md](./comments.md).
+This document focuses on shipped app behavior and notable implementation details. The public, cross-repository feature map lives in [`../../../docs/features.md`](../../../docs/features.md). Detailed comments behavior still lives in [comments.md](./comments.md).
 
 ## Multi-site model
 
@@ -10,12 +10,12 @@ The app is a multi-site wiki publishing platform. Diana is site #1; additional s
 
 - The proxy resolves the active site from the `Host` header on every request and sets `x-site-slug` on the forwarded request. Client-supplied `x-site-slug` is overwritten.
 - Every public Convex function takes an optional `siteSlug` and threads it through the `requireSite` helper. ESLint bans raw `ctx.db.query(` outside the helper.
-- Diana's content is rendered through the sibling `obsidian/` tree at static-generation time during the migration window; new sites publish into Convex via `bun run wiki:publish` and serve from there. Both paths coexist; the cutover that retires the fs path is documented in [plans/multi-tenant-wiki/work-log.md](../../plans/multi-tenant-wiki/work-log.md).
+- Sites publish into Convex via `bun run wiki:publish` and serve from the site-scoped Convex/Blob records. The starter vault shape is documented in [`../../../obsidian-2`](../../../obsidian-2/README.md).
 - `/api/file`, `/api/search`, downloads, comments, chat — all Convex-backed and site-scoped via `requireSite`.
 
 ## Product Surface
 
-- The app is a password-gated wiki and research workspace. For Diana the content tree is the sibling `obsidian/` directory; for new sites it is Convex (populated by the publisher CLI).
+- The app is a password-gated wiki and research workspace backed by Convex content populated by the publisher CLI.
 - Primary route surfaces:
   - `/` renders `index.md`
   - `/[...slug]` renders markdown pages and redirects `.pdf` and `.md` URL variants

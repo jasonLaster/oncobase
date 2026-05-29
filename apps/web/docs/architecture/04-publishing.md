@@ -6,7 +6,7 @@ Authors edit markdown in Obsidian. To make those edits live, they run `oncobase 
 
 ```mermaid
 flowchart LR
-  V[(Obsidian vault\nobsidian/)]
+  V[(Obsidian vault\nconfigured per site)]
   CLI[oncobase publish CLI\n@oncobase/oncobase]
   Walk[vault walker\nfind markdown + assets]
   Hash[hash content\nskip unchanged]

@@ -52,7 +52,7 @@ flowchart LR
 | **Vercel Workflows** (`apps/web/src/workflows`) | Durable post-deploy jobs: build download caches, generate AI page descriptions, embed new pages. |
 | **OpenAI** | `text-embedding-3-small` for retrieval, GPT-class models for chat answers. |
 | **Liveblocks** | Realtime threads on each page (comments) and guest-name persistence. |
-| **Obsidian vault** | Author-side source. Lives in `obsidian/` at the repo root; `wiki:publish` is the only thing that promotes it. |
+| **Obsidian vault** | Author-side source. A starter/example vault lives in `obsidian-2/`; production vaults are configured per site and `wiki:publish` is the only thing that promotes them. |
 
 ## Runtime characteristics
 

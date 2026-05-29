@@ -1,5 +1,5 @@
 /**
- * Check that all local PDFs in obsidian/ are uploaded to Convex.
+ * Check that all local vault PDFs are uploaded to Convex.
  * Exits with code 1 if any PDFs are missing from Convex.
  *
  * Usage: bun scripts/check-pdfs.ts

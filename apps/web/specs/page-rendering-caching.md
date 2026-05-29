@@ -113,7 +113,7 @@ Next app supplies only `next/link`, `next/navigation`, Sonner
 notifications, and the Diana-specific smart-table layout adapter. The
 Vite + LiveStore reader supplies React Router navigation and LiveStore
 data. The productionization plan for that reader lives in
-[`../../plans/vite-livestore-wiki-reader.md`](../../plans/vite-livestore-wiki-reader.md).
+[`../../../plans/vite-livestore-wiki-reader.md`](../../../plans/vite-livestore-wiki-reader.md).
 
 The render cache version is `MARKDOWN_RENDER_CACHE_VERSION` in
 `src/lib/wiki-cache-tags.ts`. The shared cached markdown renderer passes

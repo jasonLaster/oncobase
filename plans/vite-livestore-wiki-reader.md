@@ -630,7 +630,7 @@ The recommended package shape is `packages/wiki-shell`: framework-neutral React 
 
 Follow-up from the live `/about/Log` rendering report:
 
-- Compared the canonical vault file at `/Users/jasonlaster/src/projects/diana-tnbc/obsidian/about/Log.md` against the local Vite API. The page API now matches the disk source exactly after the expected PII redaction pass: `docHash=fb6bc1485b03a208`, `apiHash=fb6bc1485b03a208`, `exactAfterRedaction=true`, with both the newest `Saturday, May 9th` entry and the final `Friday, March 13th` biopsy entry present.
+- Compared the canonical production vault file for `about/Log.md` against the local Vite API. The page API matched the disk source exactly after the expected PII redaction pass: `docHash=fb6bc1485b03a208`, `apiHash=fb6bc1485b03a208`, `exactAfterRedaction=true`, with both the newest `Saturday, May 9th` entry and the final `Friday, March 13th` biopsy entry present.
 - Updated just `about/Log` through the additive publish document endpoint after finding the backend content was stale relative to disk. The issue was not markdown truncation: the stale backend body still rendered through the tail, but it missed the newest top-of-log entries.
 - Fixed the replacement reader client to revalidate browser HTTP cache for wiki session, manifest, and page-body requests by default. This keeps a warmed LiveStore page from being incorrectly considered fresh when the backend has already published a newer hash.
 - Added Playwright coverage that renders a Log-sized markdown body and asserts top, middle, and tail sentinels survive the manifest, LiveStore, markdown renderer, and page chrome path.
