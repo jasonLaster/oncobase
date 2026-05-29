@@ -71,6 +71,11 @@
       "import": "./src/navigation.tsx",
       "default": "./src/navigation.tsx"
     },
+    "./tree-icons": {
+      "types": "./src/tree-icons.tsx",
+      "import": "./src/tree-icons.tsx",
+      "default": "./src/tree-icons.tsx"
+    },
     "./right-rail": {
       "types": "./src/right-rail.tsx",
       "import": "./src/right-rail.tsx",
@@ -92,7 +97,8 @@
   "dependencies": {
     "@diana-tnbc/chat": "workspace:*",
     "@tanstack/react-virtual": "3.13.24",
-    "fuzzysort": "^3.1.0"
+    "fuzzysort": "^3.1.0",
+    "lucide-react": "^1.11.0"
   },
   "peerDependencies": {
     "react": "^19.0.0",

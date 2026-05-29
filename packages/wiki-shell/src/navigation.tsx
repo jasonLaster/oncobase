@@ -6,6 +6,7 @@ import {
   useEffect,
 } from "react";
 import { cn } from "./utils";
+import { getWikiDirectoryIcon, getWikiFileIcon } from "./tree-icons";
 
 export type WikiNavigationNode = {
   badge?: string;
@@ -75,14 +76,6 @@ export function collectActiveAncestors(tree: WikiNavigationNode[], activeSlug: s
 
   tree.forEach((node) => visit(node, []));
   return ancestors;
-}
-
-function ChevronIcon({ open }: { open: boolean }) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
-      {open ? <path d="M4 6l4 4 4-4" /> : <path d="M6 4l4 4-4 4" />}
-    </svg>
-  );
 }
 
 function FileIcon() {
@@ -199,6 +192,7 @@ function WikiTreeNode({
     const accessibleName = node.badge
       ? `${open ? "Collapse" : "Expand"} ${formattedName} ${node.badge}`
       : `${open ? "Collapse" : "Expand"} ${formattedName}`;
+    const DirectoryIcon = getWikiDirectoryIcon(node.slug, open);
 
     return (
       <div>
@@ -214,10 +208,7 @@ function WikiTreeNode({
           onClick={() => onToggleDirectory(node.slug, open)}
           style={{ paddingLeft: indent + 8 }}
         >
-          <span className="wiki-shell-tree-disclosure-text" aria-hidden="true">
-            {open ? "▼" : "▶"}
-          </span>
-          <ChevronIcon open={open} />
+          <DirectoryIcon className="wiki-shell-tree-icon" size={16} aria-hidden="true" />
           <span>{formattedName}</span>
           {node.badge ? <span className="wiki-shell-tree-badge tree-badge">{node.badge}</span> : null}
         </button>
@@ -259,9 +250,15 @@ function WikiTreeNode({
   }
 
   const active = node.slug === activeSlug;
+  const FileGlyph = getWikiFileIcon(node.slug, node.name);
   return renderPageLink({
     active,
-    children: formattedName,
+    children: (
+      <>
+        <FileGlyph className="wiki-shell-tree-icon" size={16} aria-hidden="true" />
+        <span className="wiki-shell-tree-label">{formattedName}</span>
+      </>
+    ),
     className: cn("wiki-shell-tree-link tree-link", active && "active"),
     node,
     onNavigate,

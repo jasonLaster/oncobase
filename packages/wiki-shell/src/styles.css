@@ -595,6 +595,23 @@ html[data-initial-sidebar-state="collapsed"]
   padding: 1px 5px;
 }
 
+.wiki-shell-tree-icon {
+  flex: 0 0 auto;
+  opacity: 0.6;
+}
+
+.wiki-shell-tree-link.active .wiki-shell-tree-icon {
+  opacity: 1;
+}
+
+.wiki-shell-tree-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .wiki-shell-bottom-nav-trigger,
 .wiki-shell-bottom-nav-sheet {
   display: none;
