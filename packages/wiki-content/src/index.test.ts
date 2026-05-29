@@ -193,7 +193,7 @@ describe("wiki content contracts", () => {
         origin: "https://example.test/path",
         cacheKey: "user:1/private",
       }),
-    ).toBe("wiki-vite-reader-v2-diana_tn_bc-session-https___example_test_path-user_1_private");
+    ).toBe("wiki-vite-reader-v3-diana_tn_bc-session-https___example_test_path-user_1_private");
   });
 
   test("includes the reader cache version in store ids", () => {
@@ -211,7 +211,7 @@ describe("wiki content contracts", () => {
       readerCacheVersion: "reader:v2",
     });
 
-    expect(currentId).toContain("reader-v2");
+    expect(currentId).toContain("reader-v3");
     expect(nextId).toBe("wiki-vite-reader_v2-diana-public-https___example_test-public-v1");
     expect(nextId).not.toBe(currentId);
   });
