@@ -15,8 +15,8 @@
     "types": ["bun-types"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../../web/src/*"],
-      "@convex/*": ["../../web/convex/*"]
+      "@/*": ["../../apps/web/src/*"],
+      "@convex/*": ["../../apps/web/convex/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

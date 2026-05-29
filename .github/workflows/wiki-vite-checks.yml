@@ -10,7 +10,7 @@ on:
       - "packages/wiki-shell/**"
       - "packages/smart-table/**"
       - "packages/chat/**"
-      - "web/convex/**"
+      - "apps/web/convex/**"
       - "package.json"
       - "bun.lock"
       - ".github/workflows/wiki-vite-checks.yml"

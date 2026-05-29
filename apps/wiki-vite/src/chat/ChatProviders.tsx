@@ -7,7 +7,7 @@ import { WikiMarkdown } from "@diana-tnbc/wiki-markdown";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { useEffect, useMemo, type ReactNode } from "react";
 import { Link } from "react-router";
-import { api } from "../../../../web/convex/_generated/api.js";
+import { api } from "../../../../apps/web/convex/_generated/api.js";
 import { publishChatPerfSnapshot } from "../observability";
 import { useWikiSession } from "../wiki-context";
 import { hrefForSlug } from "../wiki-utils";

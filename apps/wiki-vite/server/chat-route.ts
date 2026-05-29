@@ -12,16 +12,16 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { createConvexFlusher } from "../../../packages/chat/src/flusher.js";
 import { getCachedSystemPrompt } from "../../../packages/chat/src/system-prompt-cache.js";
-import { readChatPageFromDocuments } from "../../../packages/wiki-content/src/chat-tools.js";
+import { readChatPageFromDocuments } from "@diana-tnbc/wiki-content/chat-tools";
 import {
   ChatRequestSchema,
   DIANA_CHAT_SYSTEM_PROMPT_BASE,
   compactChatToolResult,
   generateChatSearchPatterns,
-} from "../../../packages/wiki-content/src/chat-route.js";
-import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "../../../packages/wiki-content/src/pii.js";
-import { api } from "../../../web/convex/_generated/api.js";
-import type { Id } from "../../../web/convex/_generated/dataModel.js";
+} from "@diana-tnbc/wiki-content/chat-route";
+import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@diana-tnbc/wiki-content/pii";
+import { api } from "../../../apps/web/convex/_generated/api.js";
+import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
 
 const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 });
 const generateRunId = createIdGenerator({ prefix: "run", size: 16 });

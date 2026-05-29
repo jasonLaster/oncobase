@@ -2,6 +2,7 @@
   "name": "@diana-tnbc/chat",
   "version": "0.1.0",
   "private": false,
+  "license": "MIT",
   "description": "Configurable full-stack Next.js chat feature with AI SDK streaming and Convex persistence.",
   "keywords": [
     "ai",
@@ -13,13 +14,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jasonLaster/diana-tnbc.git",
+    "url": "git+https://github.com/jasonLaster/oncobase.git",
     "directory": "packages/chat"
   },
   "bugs": {
-    "url": "https://github.com/jasonLaster/diana-tnbc/issues"
+    "url": "https://github.com/jasonLaster/oncobase/issues"
   },
-  "homepage": "https://github.com/jasonLaster/diana-tnbc/tree/main/packages/chat",
+  "homepage": "https://github.com/jasonLaster/oncobase/tree/main/packages/chat",
   "publishConfig": {
     "access": "public"
   },

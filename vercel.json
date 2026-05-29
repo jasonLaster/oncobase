@@ -5,11 +5,11 @@
   "buildCommand": "bun --cwd apps/wiki-vite build",
   "outputDirectory": "apps/wiki-vite/dist",
   "functions": {
-    "api/app-shell.ts": {
+    "api/app-shell.js": {
       "includeFiles": "apps/wiki-vite/dist/**",
       "maxDuration": 60
     },
-    "api/index.ts": {
+    "api/index.js": {
       "includeFiles": "apps/wiki-vite/dist/.vercel-functions/**",
       "maxDuration": 60
     }

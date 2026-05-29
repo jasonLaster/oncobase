@@ -163,11 +163,11 @@ jobs:
         run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
 
       - name: Install Playwright browsers
-        working-directory: web
+        working-directory: apps/web
         run: bunx playwright install --with-deps chromium
 
       - name: Run e2e tests against preview
-        working-directory: web
+        working-directory: apps/web
         env:
           TEST_ENV: prod
           PROD_URL: ${{ needs.preview-url.outputs.url }}

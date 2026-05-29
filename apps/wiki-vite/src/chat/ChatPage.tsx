@@ -9,8 +9,8 @@ import {
 } from "@diana-tnbc/wiki-shell";
 import { useMutation, useQuery } from "convex/react";
 import { Link, useParams } from "react-router";
-import { api } from "../../../../web/convex/_generated/api.js";
-import type { Id } from "../../../../web/convex/_generated/dataModel.js";
+import { api } from "../../../../apps/web/convex/_generated/api.js";
+import type { Id } from "../../../../apps/web/convex/_generated/dataModel.js";
 import { useWikiSession } from "../wiki-context";
 import { ChatConversationList } from "./ChatConversationList";
 import { ChatProviders } from "./ChatProviders";

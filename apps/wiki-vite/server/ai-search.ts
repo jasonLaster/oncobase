@@ -2,8 +2,8 @@ import { generateText, Output } from "ai";
 import { ConvexHttpClient } from "convex/browser";
 import OpenAI from "openai";
 import { z } from "zod";
-import { applyPiiRedactions, parseSitePiiPatterns } from "../../../packages/wiki-content/src/pii.js";
-import { api } from "../../../web/convex/_generated/api.js";
+import { applyPiiRedactions, parseSitePiiPatterns } from "@diana-tnbc/wiki-content/pii";
+import { api } from "../../../apps/web/convex/_generated/api.js";
 
 const MAX_CANDIDATES = 12;
 const SCORE_BATCH_SIZE = 4;
