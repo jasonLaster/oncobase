@@ -142,6 +142,20 @@ The PR workflow keeps those phases independent:
 
 The header finder is intentionally not the canonical wiki search. It filters the local manifest/page index for instant page switching. Canonical text search, AI search, and the full-stack chat experience are now served by the Vite backend/app surface for the standalone migration path.
 
+## Comments
+
+Document comments are powered by the shared `@diana-tnbc/wiki-comments` package + Liveblocks, reusing the **same Convex deployment** as the Next.js reader, so comment threads are shared across both readers (per-site Liveblocks workspace, `markdown:<slug>` room ids). The Vite backend serves `/api/liveblocks-auth`, `/api/liveblocks-users`, and `/api/liveblocks-guest` (in `server/wiki-api.ts`), signing per-site session tokens with the workspace secret.
+
+Comments are gated by `NEXT_PUBLIC_ENABLE_COMMENTS` (needs `LIVEBLOCKS_API_KEY` / `LIVEBLOCKS_PUBLIC_KEY`). When enabled, the reader renders the shared comments rail (Comments/Outline tabs, highlight-to-comment, page-level composer); when disabled the comments graph (Liveblocks JS + CSS) is dead-code-eliminated, so a comments-off build adds nothing to the bundle.
+
+The mocked e2e suite pins comments **off** (`WIKI_VITE_FORCE_COMMENTS_OFF=1`) for a deterministic outline rail, so `comments.spec` skips by default. Run it against a comments-enabled server with a live Liveblocks workspace:
+
+```sh
+NEXT_PUBLIC_ENABLE_COMMENTS=true PORT=61055 bun dev      # one shell
+WIKI_VITE_TEST_COMMENTS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:61055 \
+  bunx playwright test comments.spec                     # another shell
+```
+
 ## Scope
 
 The default store is public-only, even if the browser also has a signed-in wiki session. Open `/?scope=session` to use authenticated content. Session mode first fetches `/api/wiki/session` and only opens LiveStore with a server-issued cache key for the current wiki session.

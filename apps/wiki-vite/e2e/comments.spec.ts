@@ -1,60 +1,54 @@
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { gotoWiki, installWikiApiMocks } from "./fixtures";
 
-test.describe.skip("Parked backlog: document comments sidebar", () => {
-  test("sidebar loads with Comments / Outline toggle", async () => {});
-  test("sidebar shows thread count", async () => {});
-  test("switching to Outline tab shows headings", async () => {});
-  test("outline sidebar renders on document page", async () => {});
-  test("open outline rail still exposes comments activation", async () => {});
-  test("mobile bottom rail outline still exposes comments activation", async () => {});
-  test("phone bottom rail switches between comments and outline", async () => {});
-  test("ipad bottom rail switches between comments and outline", async () => {});
-  test("comment and outline rail buttons toggle the rail", async () => {});
-  test("comments rail can be resized", async () => {});
-});
+// Document comments in the Vite reader are powered by the shared
+// @diana-tnbc/wiki-comments package + Liveblocks, reusing the same Convex
+// deployment as the Next.js reader. They need a live Liveblocks workspace, so
+// they are NOT part of the default mocked suite (which pins comments off for a
+// deterministic outline rail). Run them against a comments-enabled server:
+//
+//   NEXT_PUBLIC_ENABLE_COMMENTS=true bun dev          # in one shell
+//   WIKI_VITE_TEST_COMMENTS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:<port> \
+//     bunx playwright test comments.spec
+const RUN_COMMENTS = process.env.WIKI_VITE_TEST_COMMENTS === "1";
 
-test.describe.skip("Parked backlog: comment actions dropdown", () => {
-  test("comment actions menu opens with filter option", async () => {});
-  test("toggling resolved filter changes thread count label", async () => {});
-  test("per-comment actions dropdown opens above the rail", async () => {});
-  test("reaction emoji picker opens above the rail", async () => {});
-});
+test.describe("Document comments", () => {
+  test.skip(
+    !RUN_COMMENTS,
+    "Set WIKI_VITE_TEST_COMMENTS=1 and target a comments-enabled server (Liveblocks).",
+  );
 
-test.describe.skip("Parked backlog: creating comments", () => {
-  test("page-level composer opens and has send button", async () => {});
-  test("typing in composer enables send button", async () => {});
-});
+  test.beforeEach(async ({ page }) => {
+    // Mock wiki content for fast, deterministic pages; /api/liveblocks-auth is
+    // left unmocked so it hits the real Liveblocks-backed server.
+    await installWikiApiMocks(page);
+    await gotoWiki(page, "/wiki/logistics/insurance");
+  });
 
-test.describe.skip("Parked backlog: text selection comments", () => {
-  test("highlight overlay does not block text selection", async () => {});
-  test("pending highlight renders behind article text", async () => {});
-  test("draft selection thread renders in sorted list order", async () => {});
-  test("opening a linked selection URL activates the thread", async () => {});
-});
+  test("renders the comments rail with Comments / Outline tabs", async ({ page }) => {
+    await expect(page.getByRole("button", { name: "Comments" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Outline" }).first()).toBeVisible();
+    // Liveblocks connection resolved: a thread count is shown (0 or more). Both
+    // rails carry the text in the DOM, so scope to the visible (desktop) one.
+    await expect(
+      page.getByText(/unresolved threads?/i).filter({ visible: true }),
+    ).toBeVisible({ timeout: 20_000 });
+  });
 
-test.describe.skip("Parked backlog: global comments page", () => {
-  test("loads and shows thread list", async () => {});
-  test("comments page renders thread list or empty state", async () => {});
-  test("thread cards link to source documents", async () => {});
-  test("toggle between open and all comments", async () => {});
-});
+  test("exposes a page-level composer once Liveblocks authorizes", async ({ page }) => {
+    await expect(
+      page.getByText("Add a page-level comment").filter({ visible: true }),
+    ).toBeVisible({ timeout: 20_000 });
+  });
 
-test.describe.skip("Parked backlog: delete thread", () => {
-  test("delete-thread API rejects missing params", async () => {});
-  test("delete thread menu item appears on first comment", async () => {});
-  test("delete thread action keeps the comments rail open", async () => {});
-});
+  test("switches between the Comments and Outline rail views", async ({ page }) => {
+    const composer = page.getByText("Add a page-level comment").filter({ visible: true });
+    await expect(composer).toBeVisible({ timeout: 20_000 });
 
-test.describe.skip("Parked backlog: comments and Liveblocks API endpoints", () => {
-  test("liveblocks-auth GET returns configured status", async () => {});
-  test("liveblocks-threads GET returns threads array", async () => {});
-  test("auth session GET returns user object", async () => {});
-  test("liveblocks-users rejects malformed IDs", async () => {});
-  test("guest names are stored in Convex and resolvable to other users", async () => {});
-  test("signed-in user names resolve from Convex user records", async () => {});
-});
+    await page.getByRole("button", { name: "Outline" }).filter({ visible: true }).first().click();
+    await expect(composer).toHaveCount(0);
 
-test.describe.skip("Parked backlog: comments sidebar navigation", () => {
-  test("View comments link is visible in sidebar", async () => {});
-  test("clicking View comments navigates to /comments", async () => {});
+    await page.getByRole("button", { name: "Comments" }).filter({ visible: true }).first().click();
+    await expect(composer).toBeVisible();
+  });
 });

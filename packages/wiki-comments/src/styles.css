@@ -1,0 +1,68 @@
+/*
+ * Comment-rail styling shared by both readers. These rules used to live in the
+ * Next.js app's globals.css; shipping them with the package means the Vite
+ * reader gets identical Liveblocks composer/thread styling and rail spacing.
+ * Theme tokens (--brand, --card, --foreground, --sidebar-border) are provided
+ * by each app's global stylesheet.
+ */
+
+.lb-root {
+  --lb-accent: var(--brand);
+  --lb-background: var(--card);
+  --lb-foreground: var(--foreground);
+  --lb-border: var(--sidebar-border);
+  --lb-radius: 0.9rem;
+}
+
+.lb-composer-override.lb-composer,
+.lb-composer-override .lb-composer-editor,
+.lb-composer-override .lb-composer-footer {
+  background: transparent;
+}
+
+.lb-composer-override.lb-composer {
+  border-color: var(--sidebar-border);
+  border-radius: 0.95rem;
+  box-shadow: none;
+}
+
+.lb-composer-override .lb-composer-editor {
+  min-height: 5.5rem;
+}
+
+.lb-thread,
+.lb-comment {
+  box-shadow: none !important;
+}
+
+.lb-thread {
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.lb-comment {
+  border-radius: 0.85rem !important;
+}
+
+/* Liveblocks portals (dropdowns, emoji pickers) must sit above the
+   fixed comments sidebar (z-30) and the article highlight overlay. */
+.lb-portal {
+  z-index: 50 !important;
+}
+
+#liveblocks-badge {
+  display: none !important;
+}
+
+@media (min-width: 768px) {
+  .comments-content-wrapper {
+    position: relative;
+    padding-right: var(--comments-pane-width, 24rem) !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .comments-content-wrapper {
+    padding-bottom: calc(3rem + env(safe-area-inset-bottom) + 1rem) !important;
+  }
+}

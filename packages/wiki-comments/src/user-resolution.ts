@@ -1,8 +1,8 @@
-import type { GuestUser } from "./guest-user";
+import type { GuestUser } from "./guest-user.ts";
 import {
   formatLiveblocksUserId,
   type ResolvedLiveblocksUser,
-} from "./user-format";
+} from "./user-format.ts";
 
 /**
  * Structural subset of an app's SiteData that comment user-resolution needs.

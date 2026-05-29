@@ -52,6 +52,22 @@ const LazyMermaidRenderer = lazy(() =>
   })),
 );
 
+// Build-time flag injected by vite.config `define`. When comments are enabled
+// the reader renders the shared Liveblocks comments rail; otherwise (and in the
+// pinned e2e suite) it renders the plain outline rail.
+declare const __WIKI_COMMENTS_ENABLED__: boolean;
+
+// Gate the dynamic import on the build flag so a comments-OFF build dead-code
+// eliminates the entire comments graph (Liveblocks JS + CSS) — keeping the
+// eager bundle within budget. A comments-ON build loads it as a lazy chunk.
+const LazyDocumentComments = __WIKI_COMMENTS_ENABLED__
+  ? lazy(() =>
+      import("@diana-tnbc/wiki-comments").then((module) => ({
+        default: module.ActiveDocumentComments,
+      })),
+    )
+  : null;
+
 function MermaidRendererSlot({ content }: { content: string }) {
   if (!MERMAID_FENCE_PATTERN.test(content)) return null;
   return (
@@ -250,14 +266,8 @@ export function WikiPage({
     );
   }
 
-  return (
-    <DocumentOutlineShell
-      articleClassName="page-shell"
-      contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
-      documentSlug={page.slug}
-      documentTitle={page.title}
-      pathname={location.pathname}
-    >
+  const readerBody = (
+    <>
       {toast ? <WikiToast>{toast}</WikiToast> : null}
       <WikiPageHeader
         title={page.title}
@@ -297,6 +307,30 @@ export function WikiPage({
         tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
       />
       <MermaidRendererSlot content={page.content} />
+    </>
+  );
+
+  const outlineShell = (
+    <DocumentOutlineShell
+      articleClassName="page-shell"
+      contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
+      documentSlug={page.slug}
+      documentTitle={page.title}
+      pathname={location.pathname}
+    >
+      {readerBody}
     </DocumentOutlineShell>
   );
+
+  if (__WIKI_COMMENTS_ENABLED__ && LazyDocumentComments) {
+    return (
+      <Suspense fallback={outlineShell}>
+        <LazyDocumentComments documentSlug={page.slug} documentTitle={page.title}>
+          {readerBody}
+        </LazyDocumentComments>
+      </Suspense>
+    );
+  }
+
+  return outlineShell;
 }

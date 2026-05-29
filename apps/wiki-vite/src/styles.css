@@ -5,6 +5,7 @@
 @source "../../../packages/chat/src";
 @source "../../../packages/wiki-markdown/src";
 @source "../../../packages/wiki-shell/src";
+@source "../../../packages/wiki-comments/src";
 
 :root {
   color-scheme: light;
