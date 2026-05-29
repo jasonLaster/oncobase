@@ -10,6 +10,7 @@ export type PreviewPage = {
   slug: string;
   title: string;
   tags: string[];
+  sensitiveInclude?: string[];
   sensitive?: boolean;
   sourceSensitive?: boolean;
 };
@@ -41,6 +42,35 @@ export function anyPatternMatches(patterns: string[], slug: string) {
   return patterns.some((pattern) => patternMatches(pattern, slug));
 }
 
+const LEGACY_SENSITIVE_INCLUDE_TAGS = new Map([
+  ["echo-sensitive", "echo"],
+  ["serova-sensitive", "serova"],
+]);
+
+function tagMatchesRuleTag(
+  ruleTag: string,
+  pageTags: Set<string>,
+  sensitiveInclude: Set<string>,
+) {
+  const normalizedRuleTag = ruleTag.trim().toLowerCase();
+  const legacyAlias = LEGACY_SENSITIVE_INCLUDE_TAGS.get(normalizedRuleTag);
+  if (legacyAlias) {
+    return pageTags.has(normalizedRuleTag) || sensitiveInclude.has(legacyAlias);
+  }
+
+  if (pageTags.has(normalizedRuleTag) || sensitiveInclude.has(normalizedRuleTag)) {
+    return true;
+  }
+
+  for (const [legacyTag, canonicalTag] of LEGACY_SENSITIVE_INCLUDE_TAGS) {
+    if (canonicalTag === normalizedRuleTag && pageTags.has(legacyTag)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function classifyPage(
   page: PreviewPage,
   rules: RoleRules,
@@ -49,15 +79,20 @@ export function classifyPage(
   const hasIncludeTags = rules.includeTags.length > 0;
   const pathIncluded =
     !hasIncludePaths || anyPatternMatches(rules.includePathPatterns, page.slug);
-  const normalizedPageTags = page.tags.map((tag) => tag.trim().toLowerCase());
+  const normalizedPageTags = new Set(
+    page.tags.map((tag) => tag.trim().toLowerCase()),
+  );
+  const normalizedSensitiveInclude = new Set(
+    (page.sensitiveInclude ?? []).map((tag) => tag.trim().toLowerCase()),
+  );
   const tagIncluded =
     !hasIncludeTags ||
     rules.includeTags.some((tag) =>
-      normalizedPageTags.includes(tag.trim().toLowerCase()),
+      tagMatchesRuleTag(tag, normalizedPageTags, normalizedSensitiveInclude),
     );
   const pathExcluded = anyPatternMatches(rules.excludePathPatterns, page.slug);
   const tagExcluded = rules.excludeTags.some((tag) =>
-    normalizedPageTags.includes(tag.trim().toLowerCase()),
+    tagMatchesRuleTag(tag, normalizedPageTags, normalizedSensitiveInclude),
   );
 
   if (pathIncluded && tagIncluded && !pathExcluded && !tagExcluded) {

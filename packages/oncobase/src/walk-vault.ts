@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
-import { isSensitiveFrontmatter } from "./sensitive-pages";
+import { isSensitiveFrontmatter, normalizeFrontmatterTags } from "./sensitive-pages";
 
 // Walks a local Obsidian vault and yields the publish-ready
 // document and asset entries. Used by the publisher CLI in
@@ -47,6 +47,7 @@ export type PublishDocument = {
   title: string;
   content: string;
   tags: string[];
+  sensitiveInclude: string[];
   hash: string;
   sensitive: boolean;
 };
@@ -69,7 +70,8 @@ export type PublishAsset = {
 // History:
 //   1 — JSON.stringify({title, content, tags}) over RAW vault content
 //   2 — includes the sensitive flag in the hashed document payload
-export const HASH_FUNCTION_VERSION = 2;
+//   3 — includes sensitiveInclude and migrates legacy *-sensitive tags
+export const HASH_FUNCTION_VERSION = 3;
 
 export function hashBytes(content: string | Buffer) {
   return crypto.createHash("sha256").update(content).digest("hex").slice(0, 16);
@@ -83,6 +85,7 @@ export function hashFile(filePath: string) {
 export function hashDocument(
   doc: Pick<PublishDocument, "title" | "content" | "tags"> & {
     sensitive?: boolean;
+    sensitiveInclude?: string[];
   },
 ) {
   return hashBytes(
@@ -91,7 +94,34 @@ export function hashDocument(
       content: doc.content,
       tags: doc.tags,
       sensitive: doc.sensitive === true,
+      sensitiveInclude: doc.sensitiveInclude ?? [],
     }),
+  );
+}
+
+const LEGACY_SENSITIVE_INCLUDE_TAGS = new Map([
+  ["echo-sensitive", "echo"],
+  ["serova-sensitive", "serova"],
+]);
+
+function normalizeSensitiveInclude(
+  frontmatter: Record<string, unknown>,
+  tags: string[],
+) {
+  const explicit = normalizeFrontmatterTags(
+    frontmatter["sensitive-include"] ?? frontmatter.sensitiveInclude,
+  );
+  const migrated = tags
+    .map((tag) => LEGACY_SENSITIVE_INCLUDE_TAGS.get(tag.trim().toLowerCase()))
+    .filter((tag): tag is string => Boolean(tag));
+  return Array.from(
+    new Set([...explicit, ...migrated].map((tag) => tag.toLowerCase())),
+  );
+}
+
+function removeLegacySensitiveIncludeTags(tags: string[]) {
+  return tags.filter(
+    (tag) => !LEGACY_SENSITIVE_INCLUDE_TAGS.has(tag.trim().toLowerCase()),
   );
 }
 
@@ -156,20 +186,22 @@ export function readVaultDocuments(vaultPath: string): PublishDocument[] {
       const body = h1Match
         ? content.replace(/^#\s+.+$/m, "").replace(/^\n+/, "")
         : content;
-      const tags = Array.isArray(data.tags)
-        ? (data.tags as unknown[]).filter((tag): tag is string => typeof tag === "string")
-        : [];
+      const rawTags = normalizeFrontmatterTags(data.tags);
+      const tags = removeLegacySensitiveIncludeTags(rawTags);
+      const sensitiveInclude = normalizeSensitiveInclude(data, rawTags);
       const sensitive = isSensitiveFrontmatter(data as Record<string, unknown>);
       return {
         slug,
         title,
         content: body,
         tags,
+        sensitiveInclude,
         sensitive,
         hash: hashDocument({
           title,
           content: body,
           tags,
+          sensitiveInclude,
           sensitive,
         }),
       };

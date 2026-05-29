@@ -14,6 +14,7 @@ function doc(overrides: Partial<TestDocument> & Pick<TestDocument, "slug">): Tes
     title: overrides.slug,
     content: "",
     tags: [],
+    sensitiveInclude: [],
     description: undefined,
     contentHash: undefined,
     hashFunctionVersion: undefined,

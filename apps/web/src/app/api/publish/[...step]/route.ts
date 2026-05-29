@@ -553,11 +553,22 @@ export async function POST(
     }
 
     if (step === "document") {
-      const { slug, title, content, tags, hash, hashFunctionVersion, embedding, sensitive } = body as {
+      const {
+        slug,
+        title,
+        content,
+        tags,
+        sensitiveInclude,
+        hash,
+        hashFunctionVersion,
+        embedding,
+        sensitive,
+      } = body as {
         slug?: string;
         title?: string;
         content?: string;
         tags?: string[];
+        sensitiveInclude?: string[];
         hash?: string;
         hashFunctionVersion?: number;
         embedding?: number[];
@@ -582,6 +593,9 @@ export async function POST(
         title,
         content: redactedContent,
         tags: Array.isArray(tags) ? tags : [],
+        sensitiveInclude: Array.isArray(sensitiveInclude)
+          ? sensitiveInclude
+          : [],
         contentHash: hash,
         hashFunctionVersion,
         sensitive: sensitive === true,

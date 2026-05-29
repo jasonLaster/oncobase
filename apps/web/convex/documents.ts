@@ -172,6 +172,7 @@ export const getBySlug = query({
       title: doc.title,
       content: doc.content,
       tags: doc.tags,
+      sensitiveInclude: doc.sensitiveInclude ?? [],
       description: doc.description,
       contentHash: doc.contentHash,
       hashFunctionVersion: doc.hashFunctionVersion,
@@ -204,10 +205,11 @@ export const listPage = query({
     return {
       page: result.page
         .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
-        .map(({ slug, title, tags, sensitive }) => ({
+        .map(({ slug, title, tags, sensitiveInclude, sensitive }) => ({
           slug,
           title,
           tags,
+          sensitiveInclude: sensitiveInclude ?? [],
           sensitive,
         })),
       isDone: result.isDone,
@@ -255,11 +257,12 @@ export const listPageWithContent = query({
     return {
       page: result.page
         .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
-        .map(({ slug, title, content, tags, contentHash, sensitive }) => ({
+        .map(({ slug, title, content, tags, sensitiveInclude, contentHash, sensitive }) => ({
           slug,
           title,
           content,
           tags,
+          sensitiveInclude: sensitiveInclude ?? [],
           contentHash,
           sensitive,
         })),
@@ -305,8 +308,22 @@ export const list = action({
   handler: async (
     ctx,
     { includeSensitive, siteSlug },
-  ): Promise<Array<{ slug: string; title: string; tags: string[]; sensitive?: boolean }>> => {
-    const results: Array<{ slug: string; title: string; tags: string[]; sensitive?: boolean }> = [];
+  ): Promise<
+    Array<{
+      slug: string;
+      title: string;
+      tags: string[];
+      sensitiveInclude?: string[];
+      sensitive?: boolean;
+    }>
+  > => {
+    const results: Array<{
+      slug: string;
+      title: string;
+      tags: string[];
+      sensitiveInclude?: string[];
+      sensitive?: boolean;
+    }> = [];
     let cursor: string | null = null;
     let isDone = false;
     while (!isDone) {
@@ -315,6 +332,7 @@ export const list = action({
           slug: string;
           title: string;
           tags: string[];
+          sensitiveInclude?: string[];
           sensitive?: boolean;
         }>;
         isDone: boolean;
@@ -373,23 +391,37 @@ export const upsert = mutation({
     title: v.string(),
     content: v.string(),
     tags: v.array(v.string()),
+    sensitiveInclude: v.optional(v.array(v.string())),
     contentHash: v.string(),
     hashFunctionVersion: v.optional(v.number()),
     sensitive: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
-    { siteSlug, slug, title, content, tags, contentHash, hashFunctionVersion, sensitive = false },
+    {
+      siteSlug,
+      slug,
+      title,
+      content,
+      tags,
+      sensitiveInclude,
+      contentHash,
+      hashFunctionVersion,
+      sensitive = false,
+    },
   ) => {
     const site = await requireSite(ctx, siteSlug);
     const existing = await findDocBySlug(ctx, site, slug);
     const sizeBytes = content.length;
+    const cleanedSensitiveInclude = sensitiveInclude ?? [];
     if (existing) {
       if (
         existing.contentHash === contentHash &&
         existing.hashFunctionVersion === hashFunctionVersion &&
         existing.sizeBytes === sizeBytes &&
         existing.sensitive === sensitive &&
+        JSON.stringify(existing.sensitiveInclude ?? []) ===
+          JSON.stringify(cleanedSensitiveInclude) &&
         !existing.deletedAt
       ) {
         return { skipped: true };
@@ -398,6 +430,7 @@ export const upsert = mutation({
         title,
         content,
         tags,
+        sensitiveInclude: cleanedSensitiveInclude,
         contentHash,
         sizeBytes,
         hashFunctionVersion,
@@ -414,6 +447,7 @@ export const upsert = mutation({
       title,
       content,
       tags,
+      sensitiveInclude: cleanedSensitiveInclude,
       contentHash,
       sizeBytes,
       hashFunctionVersion,

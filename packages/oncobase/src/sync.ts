@@ -20,6 +20,7 @@ type RemoteDoc = {
   title: string;
   content: string;
   tags?: string[];
+  sensitiveInclude?: string[];
   contentHash?: string;
   sensitive?: boolean;
 };
@@ -132,6 +133,7 @@ export function formatRemoteDocument(doc: RemoteDoc) {
     tags: doc.tags ?? [],
   };
   if (doc.sensitive) frontmatter.sensitive = true;
+  if (doc.sensitiveInclude?.length) frontmatter["sensitive-include"] = doc.sensitiveInclude;
   const raw = matter.stringify(doc.content, frontmatter);
   return doc.content.endsWith("\n") ? raw : raw.replace(/\n$/, "");
 }
@@ -358,6 +360,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
         title: doc.title,
         content: doc.content,
         tags,
+        sensitiveInclude: doc.sensitiveInclude ?? [],
         sensitive: doc.sensitive,
       });
     const local = localDocs.get(doc.slug);
