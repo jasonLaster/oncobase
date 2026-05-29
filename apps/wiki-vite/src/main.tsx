@@ -5,6 +5,7 @@ import {
 } from "@diana-tnbc/wiki-content";
 import { createElement, lazy, StrictMode, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { AppErrorBoundary } from "./AppErrorBoundary";
 import { publishRuntimeEnvironment } from "./observability";
 import "./styles.css";
 
@@ -164,5 +165,9 @@ function WikiViteRoot() {
 }
 
 createRoot(document.getElementById("root")!).render(
-  createElement(StrictMode, null, createElement(WikiViteRoot)),
+  createElement(
+    StrictMode,
+    null,
+    createElement(AppErrorBoundary, null, createElement(WikiViteRoot)),
+  ),
 );

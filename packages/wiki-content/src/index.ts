@@ -15,7 +15,7 @@ export type CompactFileNode =
 
 export type WikiScope = "public" | "session";
 
-export const WIKI_READER_CACHE_VERSION = "reader-v2";
+export const WIKI_READER_CACHE_VERSION = "reader-v3";
 
 export interface WikiManifestPage {
   slug: string;
