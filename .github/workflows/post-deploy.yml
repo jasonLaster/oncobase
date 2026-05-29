@@ -16,7 +16,13 @@ jobs:
   changes:
     if: >
       github.event.deployment_status.state == 'success' &&
-      github.event.deployment.environment == 'Preview' &&
+      (
+        github.event.deployment.environment == 'Preview' ||
+        (
+          startsWith(github.event.deployment.environment, 'Preview') &&
+          endsWith(github.event.deployment.environment, 'diana-tnbc')
+        )
+      ) &&
       github.event.deployment_status.target_url != ''
     runs-on: ubuntu-latest
     outputs:
@@ -187,7 +193,15 @@ jobs:
           ENDFORM_GIT_COMMIT_SHA: ${{ steps.github-preview.outputs.sha }}
         run: bun run test:endform
   trigger-post-deploy:
-    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production'
+    if: >
+      github.event.deployment_status.state == 'success' &&
+      (
+        github.event.deployment.environment == 'Production' ||
+        (
+          startsWith(github.event.deployment.environment, 'Production') &&
+          endsWith(github.event.deployment.environment, 'diana-tnbc')
+        )
+      )
     runs-on: ubuntu-latest
     steps:
       - name: Trigger post-deploy workflow
