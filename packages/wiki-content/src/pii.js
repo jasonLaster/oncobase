@@ -20,11 +20,6 @@ const DIANA_FALLBACK_REPLACEMENTS = [
   { pattern: /\bDiana Laster\b/gi, replacement: "the patient" },
   { pattern: /\bLaster,\s*Diana\b/gi, replacement: "the patient" },
   { pattern: /\bJason Laster\b/gi, replacement: "the caregiver" },
-  { pattern: /\bDiana's\b/gi, replacement: "the patient's" },
-  {
-    pattern: /\bDiana\b(?!\s+(?:Pechter|L\b))/gi,
-    replacement: "the patient",
-  },
   { pattern: /\b88855655\b/g, replacement: "[redacted MRN]" },
   { pattern: /\b12\/11\/1989\b/g, replacement: "[redacted DOB]" },
   { pattern: /\b11-Dec-1989\b/g, replacement: "[redacted DOB]" },
