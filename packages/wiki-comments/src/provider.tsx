@@ -8,7 +8,7 @@ import {
   LIVEBLOCKS_GUEST_STORAGE_KEY,
   parseGuestUser,
   serializeGuestUser,
-} from "../../../apps/web/src/lib/guest-user";
+} from "./guest-user";
 import { formatLiveblocksUserId } from "./user-format";
 
 const FALLBACK_PUBLIC_API_KEY =

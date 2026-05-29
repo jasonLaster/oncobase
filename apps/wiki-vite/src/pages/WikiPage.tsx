@@ -6,19 +6,15 @@ import {
 } from "@diana-tnbc/wiki-markdown";
 import {
   DocumentOutlineShell,
-  WikiBadge,
-  WikiBreadcrumbs,
+  WikiCopyPageButton,
   WikiEmptyState,
   WikiPageActionButton,
-  WikiPageFooter,
   WikiPageHeader,
-  WikiPageLoading,
-  WikiSourceLinks,
-  WikiStatusNotice,
+  WikiPageSkeleton,
   WikiTagList,
   WikiToast,
-  type WikiBreadcrumbItem,
 } from "@diana-tnbc/wiki-shell";
+import { LockIcon } from "lucide-react";
 import {
   Suspense,
   lazy,
@@ -30,33 +26,16 @@ import {
 } from "react";
 import type { WikiMermaidGanttMarker } from "@diana-tnbc/wiki-markdown/mermaid";
 import { Link, useLocation, useNavigate } from "react-router";
-import {
-  assets$,
-  pageContentBySlug$,
-  pageIndex$,
-  pageIndexBySlug$,
-  siteState$,
-} from "../livestore/queries";
+import { pageContentBySlug$, pageIndexBySlug$ } from "../livestore/queries";
 import type {
-  AssetIndexRow,
   Metrics,
   MetricsPatch,
   PageContentRow,
   PageIndexRow,
-  SiteStateRow,
 } from "../types";
-import {
-  formatBytes,
-  hrefForSlug,
-  parseJsonArray,
-  slugFromPath,
-  storageSnapshot,
-} from "../wiki-utils";
-import { useWikiScope } from "../wiki-context";
-import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
+import { parseJsonArray, slugFromPath, storageSnapshot } from "../wiki-utils";
 import { RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
-import { PageActions } from "./PageActions";
 
 const DIANA_GANTT_MARKERS: WikiMermaidGanttMarker[] = [
   { date: "2026-07-14", label: "Phase 2 (12 weeks)" },
@@ -93,51 +72,6 @@ function routeLink({ href, children, ...props }: WikiMarkdownLinkProps) {
   );
 }
 
-function formatBreadcrumbLabel(part: string) {
-  return part.replace(/-/g, " ");
-}
-
-function buildBreadcrumbItems({
-  pageSlugs,
-  slug,
-  title,
-}: {
-  pageSlugs?: Set<string>;
-  slug?: string;
-  title?: string;
-}): WikiBreadcrumbItem[] {
-  const parts = slug?.split("/").filter(Boolean) ?? [];
-  const items: WikiBreadcrumbItem[] = [{ href: "/", key: "home", label: "Home" }];
-
-  parts.forEach((part, index) => {
-    const path = parts.slice(0, index + 1).join("/");
-    const isCurrent = index === parts.length - 1;
-    const label = isCurrent && title ? title : formatBreadcrumbLabel(part);
-    items.push({
-      current: isCurrent,
-      href: !isCurrent && pageSlugs?.has(path) ? hrefForSlug(path) : undefined,
-      key: path,
-      label,
-    });
-  });
-
-  return items;
-}
-
-function Breadcrumbs(props: {
-  pageSlugs?: Set<string>;
-  slug?: string;
-  title?: string;
-}) {
-  return (
-    <WikiBreadcrumbs
-      data-test-id="breadcrumbs"
-      items={buildBreadcrumbItems(props)}
-      renderLink={(item) => <Link to={item.href ?? "#"}>{item.label}</Link>}
-    />
-  );
-}
-
 export function WikiPage({
   metrics,
   onMetrics,
@@ -147,7 +81,6 @@ export function WikiPage({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const scope = useWikiScope();
   const [toast, setToast] = useState<string | null>(null);
   const slug = slugFromPath(location.pathname);
   const routeRenderRef = useRef<{
@@ -163,10 +96,6 @@ export function WikiPage({
   });
   const page = useStore().store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
   const index = useStore().store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;
-  const pageIndex = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
-  const assets = useStore().store.useQuery(assets$) as AssetIndexRow[];
-  const siteState = useStore().store.useQuery(siteState$) as SiteStateRow | null;
-  const stale = page?.contentStatus === "stale";
   const deleted = page?.contentStatus === "deleted";
   const failedCurrentFetch =
     !page?.content &&
@@ -174,14 +103,6 @@ export function WikiPage({
     metrics.status === "error" &&
     metrics.message.includes(slug);
   const tags = parseJsonArray<string>(page?.tagsJson ?? index?.tagsJson ?? "[]");
-  const relatedAssets = useMemo(
-    () => relatedAssetsForSlug(slug, assets).slice(0, 6),
-    [assets, slug],
-  );
-  const pageSlugs = useMemo(
-    () => new Set(pageIndex.map((page) => page.slug)),
-    [pageIndex],
-  );
   const description = index?.description ?? null;
   const routeAdapter = useMemo(
     () => ({
@@ -262,7 +183,6 @@ export function WikiPage({
   if (page?.missingAt || page?.contentStatus === "missing") {
     return (
       <WikiEmptyState
-        before={<Breadcrumbs />}
         data-test-id="document-article"
         title="Page not found"
         description={`The latest manifest does not include markdown for ${slug}. This reader can keep using cached pages while the backend catches up.`}
@@ -286,7 +206,6 @@ export function WikiPage({
     if (failedCurrentFetch) {
       return (
         <WikiEmptyState
-          before={<Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={index?.title} />}
           data-test-id="document-article"
           title={index?.title ?? "Markdown unavailable"}
           description="The page is in the local manifest, but its markdown body could not be fetched. Cached pages remain available while this request is retried."
@@ -305,7 +224,6 @@ export function WikiPage({
     if (metrics.status === "error") {
       return (
         <WikiEmptyState
-          before={<Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={index?.title} />}
           data-test-id="document-article"
           title={index?.title ?? "Markdown unavailable"}
           description={metrics.message || "The page could not be loaded from the wiki backend."}
@@ -323,9 +241,10 @@ export function WikiPage({
 
     return (
       <article className="page-shell" data-test-id="document-article">
-        <WikiPageLoading
+        <WikiPageSkeleton
           data-test-id="page-loading"
-          label={`Loading markdown for ${index?.title ?? slug}`}
+          includeTags
+          label={`Loading ${index?.title ?? slug}`}
         />
       </article>
     );
@@ -339,46 +258,27 @@ export function WikiPage({
       documentTitle={page.title}
       pathname={location.pathname}
     >
-      {toast ? (
-        <WikiToast>{toast}</WikiToast>
-      ) : null}
-      <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />
+      {toast ? <WikiToast>{toast}</WikiToast> : null}
       <WikiPageHeader
         title={page.title}
-        description={description ?? slug}
         badges={
           <>
-            {stale ? <WikiBadge variant="updating">updating</WikiBadge> : null}
-            {page.sensitive ? <WikiBadge variant="sensitive">sensitive</WikiBadge> : null}
-            <WikiBadge>{formatBytes(page.size)}</WikiBadge>
+            {page.sensitive ? (
+              <span
+                aria-label="Sensitive page"
+                title="Sensitive page"
+                className="wiki-shell-sensitive-lock"
+              >
+                <LockIcon aria-hidden size={16} strokeWidth={1.8} />
+              </span>
+            ) : null}
+            <WikiCopyPageButton
+              slug={page.slug}
+              title={page.title}
+              contentHash={page.contentHash ?? undefined}
+            />
           </>
         }
-      />
-      {stale ? (
-        <WikiStatusNotice>
-          Showing cached markdown while a newer version is fetched in the background.
-        </WikiStatusNotice>
-      ) : null}
-      <PageActions
-        content={page.content}
-        contentHash={page.contentHash}
-        scope={scope}
-        slug={page.slug}
-        title={page.title}
-      />
-      <WikiSourceLinks
-        data-test-id="source-links"
-        items={relatedAssets.map((asset) => ({
-          href: assetHref(asset.path),
-          key: asset.path,
-          kind: asset.kind === "pdf" ? "PDF" : "File",
-          label: assetFileName(asset.path),
-        }))}
-        renderLink={(asset, children) => (
-          <a href={asset.href} target="_blank" rel="noreferrer">
-            {children}
-          </a>
-        )}
       />
       <WikiTagList
         tags={tags}
@@ -397,15 +297,6 @@ export function WikiPage({
         tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
       />
       <MermaidRendererSlot content={page.content} />
-      <WikiPageFooter
-        items={[
-          `Manifest: ${siteState?.generatedAt ?? "pending"}`,
-          `Content hash: ${page.contentHash ?? "none"}`,
-          page.expectedContentHash && page.expectedContentHash !== page.contentHash
-            ? `Expected hash: ${page.expectedContentHash}`
-            : null,
-        ].filter(Boolean)}
-      />
     </DocumentOutlineShell>
   );
 }

@@ -14,8 +14,12 @@ import {
   MarkdownRenderer,
   MarkdownRendererAsync,
 } from "@/components/markdown-renderer";
+import {
+  WikiCopyPageButton,
+  WikiPageHeader,
+  WikiTagList,
+} from "@diana-tnbc/wiki-shell";
 import { PageLoadingSkeleton } from "@/components/page-loading";
-import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
 import { SHOW_PII_QUERY_PARAM } from "@/lib/pii-redaction";
 import { DEFAULT_SITE_SLUG, getRequestSiteSlug, toSiteSlug } from "@/lib/site";
@@ -101,6 +105,8 @@ async function canViewSensitivePages(): Promise<boolean> {
 }
 
 // -- Page header (static in PPR cache) ---------------------------------------
+// Rendered from the shared @diana-tnbc/wiki-shell chrome so the Next.js reader
+// and the Vite reader render an identical header.
 function DocHeader({
   file,
 }: {
@@ -112,41 +118,41 @@ function DocHeader({
     frontmatter: Record<string, unknown>;
   };
 }) {
+  const tags = Array.isArray(file.frontmatter.tags)
+    ? (file.frontmatter.tags as string[])
+    : [];
   return (
-    <header className="mb-6">
-      <div className="flex items-start justify-between gap-2">
-        <h1 className="text-3xl font-bold">{file.title}</h1>
-        <div className="flex shrink-0 items-center gap-1">
-          {file.sensitive === true && (
-            <span
-              aria-label="Sensitive page"
-              title="Sensitive page"
-              className="inline-flex size-7 items-center justify-center rounded-md text-[var(--text-muted)]"
-            >
-              <LockIcon aria-hidden="true" size={16} strokeWidth={1.8} />
-            </span>
-          )}
-          <CopyPageButton
-            slug={file.slug}
-            title={file.title}
-            contentHash={file.contentHash}
-          />
-        </div>
-      </div>
-      {Array.isArray(file.frontmatter.tags) && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {(file.frontmatter.tags as string[]).map((tag: string) => (
-            <Link
-              key={tag}
-              href={`/tags/${encodeURIComponent(tag)}`}
-              className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs text-[var(--brand)] ring-1 ring-[var(--brand)]/20 transition-colors hover:bg-[var(--brand)]/15"
-            >
-              {tag}
-            </Link>
-          ))}
-        </div>
-      )}
-    </header>
+    <>
+      <WikiPageHeader
+        title={file.title}
+        badges={
+          <>
+            {file.sensitive === true && (
+              <span
+                aria-label="Sensitive page"
+                title="Sensitive page"
+                className="wiki-shell-sensitive-lock"
+              >
+                <LockIcon aria-hidden="true" size={16} strokeWidth={1.8} />
+              </span>
+            )}
+            <WikiCopyPageButton
+              slug={file.slug}
+              title={file.title}
+              contentHash={file.contentHash}
+            />
+          </>
+        }
+      />
+      <WikiTagList
+        tags={tags}
+        renderTag={(tag) => (
+          <Link key={tag} href={`/tags/${encodeURIComponent(tag)}`}>
+            {tag}
+          </Link>
+        )}
+      />
+    </>
   );
 }
 

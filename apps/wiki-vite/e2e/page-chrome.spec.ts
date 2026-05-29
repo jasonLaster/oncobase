@@ -1,79 +1,43 @@
 import { expect, test } from "@playwright/test";
 import { documentArticle, gotoWiki, installWikiApiMocks } from "./fixtures";
 
+// The Vite reader renders the same minimal chrome as the legacy Next.js reader:
+// a title row (h1 + copy-as-markdown action), a tag row, and the persistent
+// outline rail. Breadcrumbs, the inline download action row, the size badge,
+// and the source-links section were removed so both readers are identical.
 test.describe("Page chrome parity", () => {
   test.beforeEach(async ({ page }) => {
     await installWikiApiMocks(page);
   });
 
-  test("renders breadcrumbs, description, and page action affordances", async ({ page }) => {
+  test("renders the minimal reader header with title, copy action, and tags", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
-    const breadcrumbs = page.getByTestId("breadcrumbs");
-    await expect(breadcrumbs.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
-    await expect(breadcrumbs).toContainText("wiki/logistics/Insurance");
-    await expect(breadcrumbs.locator('[aria-current="page"]')).toHaveText("Insurance");
-    await expect(documentArticle(page).locator(".page-header")).toContainText(
-      "Insurance planning notes.",
-    );
+    const header = documentArticle(page).locator(".page-header");
+    await expect(header.locator("h1")).toHaveText("Insurance");
+    await expect(
+      header.getByRole("button", { name: "Copy page as markdown" }),
+    ).toBeVisible();
+
+    await expect(
+      documentArticle(page).locator(".tag-row").getByRole("link", { name: "logistics" }),
+    ).toBeVisible();
+
     await expect(page).toHaveTitle("Insurance - Diana Wiki");
     await expect
-      .poll(() =>
-        page.locator('meta[name="description"]').getAttribute("content"),
-      )
+      .poll(() => page.locator('meta[name="description"]').getAttribute("content"))
       .toBe("Insurance planning notes.");
-
-    const actions = page.getByTestId("page-actions");
-    await expect(actions.getByRole("button", { name: "Copy page as markdown" })).toBeVisible();
-    await expect(actions.getByRole("button", { name: "Copy page link" })).toBeVisible();
-    await expect(actions.getByRole("button", { name: "Print page" })).toBeVisible();
-    await expect(actions.getByRole("link", { name: "Markdown", exact: true })).toHaveAttribute(
-      "href",
-      /\/api\/page-copy\?slug=wiki%2Flogistics%2Finsurance&cacheKey=.*&scope=public/,
-    );
-    await expect(actions.getByRole("link", { name: "Markdown zip" })).toHaveAttribute(
-      "href",
-      /\/api\/download\?type=markdown&scope=public$/,
-    );
-    await expect(actions.getByRole("link", { name: "Full wiki" })).toHaveAttribute(
-      "href",
-      /\/api\/download\?type=full&scope=public$/,
-    );
-    await expect(actions.getByRole("link", { name: "Main app" })).toHaveAttribute(
-      "href",
-      /\/wiki\/logistics\/insurance$/,
-    );
   });
 
-  test("page markdown downloads are served by the Vite API boundary", async ({ page, request }) => {
-    await gotoWiki(page, "/wiki/logistics/insurance");
-
-    const href = await page
-      .getByTestId("page-actions")
-      .getByRole("link", { name: "Markdown", exact: true })
-      .getAttribute("href");
-    expect(href).toBeTruthy();
-
-    const response = await request.get(href!);
-    expect(response.ok(), await response.text()).toBe(true);
-    expect(response.headers()["content-type"]).toContain("text/markdown");
-    expect(response.headers()["content-disposition"]).toContain("insurance.md");
-    expect(response.headers()["x-wiki-cache-scope"]).toBe("public");
-    expect((await response.text()).length).toBeGreaterThan(100);
-  });
-
-  test("copies local markdown without a server body fetch", async ({ page, context }) => {
+  test("copies local markdown via the shared copy-as-markdown action", async ({ page, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await gotoWiki(page, "/wiki/logistics/insurance");
 
     await page.getByRole("button", { name: "Copy page as markdown" }).click();
 
-    await expect(page.getByRole("button", { name: "Copy page as markdown" })).toContainText(
-      "Copied",
-    );
-    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(
-      "Prior authorization",
-    );
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toContain("Prior authorization");
   });
 
   test("renders a persistent outline rail for page headings", async ({ page }) => {
@@ -100,18 +64,5 @@ test.describe("Page chrome parity", () => {
     await mobileOutline.getByRole("button", { name: "Claims follow-up" }).click();
 
     await expect(page).toHaveURL(/#claims-follow-up$/);
-  });
-
-  test("surfaces source file provenance from the local asset index", async ({ page }) => {
-    await gotoWiki(page, "/sources/people/providers/stanford/telli");
-
-    const sources = page.getByTestId("source-links");
-    await expect(sources).toContainText("Source files");
-    await expect(
-      sources.getByRole("link", { name: /telli-2016-hrd-platinum-tnbc\.pdf/ }),
-    ).toHaveAttribute(
-      "href",
-      /\/api\/file\?path=sources%2Fpeople%2Fproviders%2Fstanford%2Ftelli%2Ftelli-2016-hrd-platinum-tnbc\.pdf/,
-    );
   });
 });

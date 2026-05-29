@@ -14,14 +14,14 @@ import {
 import type { ThreadData } from "@liveblocks/client";
 import { useThreads } from "@liveblocks/react";
 import { Comment, Composer, Thread } from "@liveblocks/react-ui";
-import { cn } from "../../../apps/web/src/lib/utils";
+import { cn } from "@diana-tnbc/wiki-shell";
 import { LiveblocksRoom } from "./room";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../../../apps/web/src/components/ui/dropdown-menu";
+} from "./dropdown";
 import {
   buildCommentListItems,
   createThreadMetadata,

@@ -148,12 +148,11 @@ test.describe("Page viewing and sidebar navigation", () => {
       .toBeGreaterThan(340);
   });
 
-  test("page shows tags, sensitive scope, and cache metadata", async ({ page }) => {
+  test("page shows tags and the active cache scope", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
 
     await expect(documentArticle(page).locator(".tag-row").getByRole("link", { name: "logistics" })).toBeVisible();
     await expect(documentArticle(page).locator(".tag-row").getByRole("link", { name: "insurance" })).toBeVisible();
-    await expect(documentArticle(page).locator(".page-footer")).toContainText("Content hash:");
     await expect(page.getByTestId("scope-switcher").getByRole("link", { name: "Public" })).toHaveClass(/active/);
   });
 

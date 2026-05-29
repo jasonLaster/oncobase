@@ -41,6 +41,11 @@
       "import": "./src/user-format.ts",
       "default": "./src/user-format.ts"
     },
+    "./guest-user": {
+      "types": "./src/guest-user.ts",
+      "import": "./src/guest-user.ts",
+      "default": "./src/guest-user.ts"
+    },
     "./page-client": {
       "types": "./src/page-client.tsx",
       "import": "./src/page-client.tsx",
