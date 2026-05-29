@@ -1,8 +1,9 @@
 {
-  "name": "diana-breast-cancer",
+  "name": "oncobase",
   "private": true,
+  "license": "MIT",
   "type": "module",
-  "workspaces": ["web", "apps/*", "packages/*"],
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "dev": "turbo run dev:app",
     "dev:local-convex": "turbo run dev:app dev:convex",
@@ -13,7 +14,7 @@
     "test:unit": "turbo run test:unit",
     "verify:wiki-vite": "bun run verify:wiki-vite:static && bun run verify:wiki-vite:unit && bun --cwd apps/wiki-vite test:e2e",
     "verify:wiki-vite:static": "bun --cwd packages/smart-table build && bun run lint && bun --cwd packages/wiki-content typecheck && bun --cwd packages/wiki-markdown typecheck && bun --cwd packages/wiki-shell typecheck && bun --cwd apps/wiki-vite typecheck && bun --cwd apps/wiki-vite build && bun --cwd apps/wiki-vite check:bundle",
-    "verify:wiki-vite:unit": "bun --cwd packages/smart-table test:unit && bun --cwd packages/wiki-content test:unit && bun --cwd packages/wiki-markdown test:unit && bun --cwd packages/wiki-shell test:unit && bun --cwd apps/wiki-vite test:unit",
+    "verify:wiki-vite:unit": "bun --cwd packages/smart-table build && bun --cwd packages/smart-table test:unit && bun --cwd packages/wiki-content test:unit && bun --cwd packages/wiki-markdown test:unit && bun --cwd packages/wiki-shell test:unit && bun --cwd apps/wiki-vite test:unit",
     "verify:wiki-vite:server": "bun --cwd apps/wiki-vite verify:standalone",
     "test:e2e:wiki-vite": "bun --cwd apps/wiki-vite test:e2e",
     "test:e2e:wiki-vite:preview": "bun --cwd apps/wiki-vite test:e2e:preview"

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { ConvexHttpClient } from "convex/browser";
-import { api } from "../../../web/convex/_generated/api.js";
+import { api } from "../../../apps/web/convex/_generated/api.js";
 import {
   authedCookieName,
   createClient,

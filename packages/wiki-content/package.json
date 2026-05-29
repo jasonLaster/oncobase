@@ -2,6 +2,7 @@
   "name": "@diana-tnbc/wiki-content",
   "version": "0.1.0",
   "private": false,
+  "license": "MIT",
   "description": "Shared wiki content contracts, tree helpers, and browser API client utilities.",
   "type": "module",
   "exports": {

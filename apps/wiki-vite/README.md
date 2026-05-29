@@ -1,6 +1,6 @@
 # Vite + LiveStore Wiki Reader
 
-This is a side-by-side prototype for a client-rendered wiki reader. It keeps the existing `web` app as the content source and uses LiveStore as a persistent browser read cache for the file tree, page index, asset index, and markdown bodies.
+This is a side-by-side prototype for a client-rendered wiki reader. It keeps the existing `apps/web` app as the content source and uses LiveStore as a persistent browser read cache for the file tree, page index, asset index, and markdown bodies.
 
 The productionization plan lives in [`../../plans/vite-livestore-wiki-reader.md`](../../plans/vite-livestore-wiki-reader.md). This README describes how the current prototype runs.
 
@@ -32,7 +32,7 @@ This is the normal one-server development loop for the prototype. It uses `NEXT_
 If you need to compare against the current Next route handlers instead, start the current Next app:
 
 ```sh
-cd web
+cd apps/web
 bun run dev
 ```
 
@@ -50,7 +50,7 @@ PORT=62003 bun run start:server
 
 ## Vercel
 
-The standalone replacement has an isolated Vercel project named `diana-tnbc-wiki-vite`. The existing Next project remains `diana-tnbc` with Vercel root directory `web`; the isolated Vite project is connected to the repo root and uses the root `vercel.json`.
+The standalone replacement has an isolated Vercel project named `diana-tnbc-wiki-vite`. The existing Next project remains `diana-tnbc` with Vercel root directory `apps/web`; the isolated Vite project is connected to the repo root and uses the root `vercel.json`.
 
 The root Vercel config builds `apps/wiki-vite`, serves `apps/wiki-vite/dist`, and routes app HTML plus `/api/*` through Vercel Functions that call bundled versions of the same request handlers as `server/standalone.ts`. That keeps local standalone behavior and Vercel behavior aligned for password gate enforcement, route metadata, search, AI search, chat, downloads, files, and page-copy.
 
@@ -127,7 +127,7 @@ PORT=62004 bun run start:server
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:62004 bun run test:e2e:preview
 ```
 
-The suite mirrors the current `web/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app. P0 multi-site isolation, PII parity, and chat perf specs are active; standalone metadata hardening is covered by `verify:standalone` because production HTML patching is owned by the Bun server rather than the Vite dev server. Comments, Liveblocks, and deeper chat navigation resilience are labeled as backlog so they remain visible without blocking the standalone replacement path.
+The suite mirrors the current `apps/web/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app. P0 multi-site isolation, PII parity, and chat perf specs are active; standalone metadata hardening is covered by `verify:standalone` because production HTML patching is owned by the Bun server rather than the Vite dev server. Comments, Liveblocks, and deeper chat navigation resilience are labeled as backlog so they remain visible without blocking the standalone replacement path.
 
 From the repository root, `bun run verify:wiki-vite` runs the current migration proof: static checks, unit checks, and the migrated Vite Playwright suite. `bun run verify:wiki-vite:static` runs lint, package/app typechecks, the Vite build, and the bundle budget. `bun run verify:wiki-vite:unit` runs the shared package and Vite app unit tests.
 
@@ -148,7 +148,7 @@ The default store is public-only, even if the browser also has a signed-in wiki 
 
 ## Architecture Note
 
-The prototype is intentionally side-by-side with the current Next app. `web` remains the v1 content source and publishing target; this app only consumes public/session API snapshots and stores them in the browser.
+The prototype is intentionally side-by-side with the current Next app. `apps/web` remains the v1 content source and publishing target; this app only consumes public/session API snapshots and stores them in the browser.
 
 The durable wiki behavior should stay in shared packages. `@diana-tnbc/wiki-content` owns manifest/page/tree contracts and cache reconciliation. `@diana-tnbc/wiki-markdown` owns markdown rendering, route-safe links, heading anchors, image theater, citations, math, and smart-table integration. The Vite app should remain the LiveStore and React Router adapter around those packages.
 

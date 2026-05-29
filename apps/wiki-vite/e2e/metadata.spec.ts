@@ -6,5 +6,5 @@ import { test } from "@playwright/test";
 // server and asserts the HTML that the Vite dev server intentionally does not patch.
 //
 // This dev-server placeholder is intentionally a no-op so the suite still tracks the file
-// for parity with the current `web/e2e` layout without misrepresenting where coverage lives.
+// for parity with the current `apps/web/e2e` layout without misrepresenting where coverage lives.
 test("metadata coverage is owned by the standalone server smoke", () => {});

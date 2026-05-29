@@ -8,12 +8,12 @@ import type {
   WikiPageRecord,
   WikiScope,
   WikiSessionIdentity,
-} from "./index.js";
+} from "./index.ts";
 import {
   compareFileTreeNodes,
   isHiddenFileTreeAssetPath,
   isHiddenFileTreePath,
-} from "./index.js";
+} from "./index.ts";
 
 const PUBLIC_CACHE_CONTROL =
   "public, max-age=60, s-maxage=300, stale-while-revalidate=3600";

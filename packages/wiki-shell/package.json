@@ -2,6 +2,7 @@
   "name": "@diana-tnbc/wiki-shell",
   "version": "0.1.0",
   "private": false,
+  "license": "MIT",
   "description": "Reusable Diana wiki shell components shared by web and the Vite reader.",
   "type": "module",
   "exports": {

@@ -2,6 +2,7 @@
   "name": "@oncobase/oncobase",
   "version": "0.1.1",
   "private": false,
+  "license": "MIT",
   "description": "Official Oncobase CLI for syncing, checking, and publishing Obsidian vaults.",
   "keywords": [
     "obsidian",

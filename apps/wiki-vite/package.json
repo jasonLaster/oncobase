@@ -2,6 +2,7 @@
   "name": "@diana-tnbc/wiki-vite",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
@@ -9,8 +10,8 @@
     "check:bundle": "bun scripts/check-bundle-budget.ts",
     "verify:standalone": "bun scripts/verify-standalone.ts",
     "start:server": "bun server/standalone.ts",
-    "typecheck": "bun --cwd ../../packages/smart-table build && tsc --noEmit",
-    "test:unit": "bun --cwd ../../packages/smart-table build && bun test src server",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "bun test src server",
     "test:e2e": "playwright test",
     "test:e2e:endform": "endform test",
     "test:e2e:preview": "playwright test --config playwright.preview.config.ts"

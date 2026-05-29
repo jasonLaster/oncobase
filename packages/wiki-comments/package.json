@@ -2,6 +2,7 @@
   "name": "@diana-tnbc/wiki-comments",
   "version": "0.1.0",
   "private": false,
+  "license": "MIT",
   "description": "Liveblocks-backed document comments rail and supporting helpers extracted from the Diana wiki Next app. Currently consumed only by web — the Vite reader ships without comments by design.",
   "type": "module",
   "exports": {

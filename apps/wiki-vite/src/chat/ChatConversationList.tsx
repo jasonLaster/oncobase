@@ -3,8 +3,8 @@ import { ConversationListCore } from "@diana-tnbc/chat/components/conversation-l
 import { useChatRuntime } from "@diana-tnbc/chat/runtime";
 import { useMutation, useQuery } from "convex/react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { api } from "../../../../web/convex/_generated/api.js";
-import type { Id } from "../../../../web/convex/_generated/dataModel.js";
+import { api } from "../../../../apps/web/convex/_generated/api.js";
+import type { Id } from "../../../../apps/web/convex/_generated/dataModel.js";
 import { useWikiSession } from "../wiki-context";
 
 export function ChatConversationList() {

@@ -1,6 +1,6 @@
-import type { Id } from "../../../web/convex/_generated/dataModel";
-import type { GuestUser } from "../../../web/src/lib/guest-user";
-import type { SiteData } from "../../../web/src/lib/site-data";
+import type { Id } from "../../../apps/web/convex/_generated/dataModel";
+import type { GuestUser } from "../../../apps/web/src/lib/guest-user";
+import type { SiteData } from "../../../apps/web/src/lib/site-data";
 import {
   formatLiveblocksUserId,
   type ResolvedLiveblocksUser,

@@ -180,7 +180,7 @@ jobs:
           NODE
 
       - name: Run E2E tests against Vercel preview with Endform
-        working-directory: web
+        working-directory: apps/web
         env:
           PROD_URL: ${{ steps.vercel-preview.outputs.url }}
           ENDFORM_GIT_BRANCH: ${{ steps.github-preview.outputs.branch }}

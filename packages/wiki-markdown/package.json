@@ -2,6 +2,7 @@
   "name": "@diana-tnbc/wiki-markdown",
   "version": "0.1.0",
   "private": false,
+  "license": "MIT",
   "description": "Client-safe React markdown renderer for Diana wiki pages.",
   "type": "module",
   "exports": {
@@ -46,7 +47,7 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test:unit": "bun --cwd ../smart-table build && bun test src/*.test.ts"
+    "test:unit": "bun test src/*.test.ts"
   },
   "dependencies": {
     "@diana-tnbc/smart-table": "workspace:*",

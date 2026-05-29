@@ -38,11 +38,11 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Install Playwright browsers
-        working-directory: web
+        working-directory: apps/web
         run: bunx playwright install --with-deps chromium
 
       - name: Run e2e stress test
-        working-directory: web
+        working-directory: apps/web
         run: bunx playwright test --project=tests --repeat-each=${PLAYWRIGHT_REPEAT_EACH} --reporter=list,html
 
       - name: Upload Playwright report
@@ -50,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: web/playwright-report
+          path: apps/web/playwright-report
           retention-days: 14
 
       - name: Upload test results
@@ -58,5 +58,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-results
-          path: web/test-results
+          path: apps/web/test-results
           retention-days: 14

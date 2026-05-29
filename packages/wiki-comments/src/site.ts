@@ -22,10 +22,10 @@
  *      keys — operators can disable comments without touching credentials.
  */
 
-import type { Doc } from "../../../web/convex/_generated/dataModel";
-import { api } from "../../../web/convex/_generated/api";
-import { getConvexServerClient } from "../../../web/src/lib/convex-server";
-import { DEFAULT_SITE_SLUG, siteSlugFromRequest } from "../../../web/src/lib/site";
+import type { Doc } from "../../../apps/web/convex/_generated/dataModel";
+import { api } from "../../../apps/web/convex/_generated/api";
+import { getConvexServerClient } from "../../../apps/web/src/lib/convex-server";
+import { DEFAULT_SITE_SLUG, siteSlugFromRequest } from "../../../apps/web/src/lib/site";
 
 export type LiveblocksCredentials = {
   siteSlug: string;
