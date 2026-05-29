@@ -6,9 +6,17 @@ describe("PII redaction", () => {
     expect(applyPiiRedactions("Diana Laster MRN 88855655")).toBe(
       "the patient MRN [redacted MRN]",
     );
-    expect(applyPiiRedactions("Diana's treatment plan")).toBe(
-      "the patient's treatment plan",
+    expect(applyPiiRedactions("Laster, Diana MRN 88855655")).toBe(
+      "the patient MRN [redacted MRN]",
     );
+  });
+
+  test("preserves Diana-facing labels while redacting full identifiers", () => {
+    expect(
+      applyPiiRedactions(
+        "## Relevance to Diana\n\nDiana's plan mentions Diana Laster.",
+      ),
+    ).toBe("## Relevance to Diana\n\nDiana's plan mentions the patient.");
   });
 
   test("honors explicit redaction blocks and reveal mode", () => {

@@ -40,7 +40,7 @@ describe("chat page tools", () => {
 
     expect(result).toEqual({
       slug: "private/notes",
-      title: "the patient private notes",
+      title: "Diana private notes",
       href: "/private/notes#follow-up",
       anchor: "follow-up",
       tags: ["private"],
@@ -72,12 +72,12 @@ describe("chat page tools", () => {
 
     expect(result).toMatchObject({
       slug: "wiki/plan",
-      title: "the patient treatment plan",
+      title: "Diana treatment plan",
       content: "Discuss [[wiki/labs#cbc|labs]] with the patient.",
       linked_pages: [
         {
           slug: "wiki/labs",
-          title: "the patient labs",
+          title: "Diana labs",
           href: "/wiki/labs#cbc",
           anchor: "cbc",
         },

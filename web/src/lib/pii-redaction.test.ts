@@ -76,7 +76,7 @@ at jason.laster.11@gmail.com</redact> today.`;
     expect(applyPiiRedactions(input, { mode: "revealed" })).toBe(input);
   });
 
-  test("preserves explicit non-patient Diana references in fallback mode", () => {
+  test("preserves Diana-facing references in fallback mode", () => {
     expect(applyPiiRedactions("Reviewed by Diana Pechter and Diana L.")).toBe(
       "Reviewed by Diana Pechter and Diana L."
     );
@@ -84,20 +84,22 @@ at jason.laster.11@gmail.com</redact> today.`;
       "Reviewed by DIANA PECHTER and DIANA L."
     );
     expect(applyPiiRedactions("DIANA called the clinic.")).toBe(
-      "the patient called the clinic."
+      "DIANA called the clinic."
     );
   });
 
-  test("preserves markdown link destinations while redacting visible labels", () => {
+  test("preserves markdown link destinations while redacting visible full identifiers", () => {
     const input = [
       "[Diana page](/sources/research/diana-schedule)",
+      "[Diana Laster page](/sources/research/diana-laster-schedule)",
       "",
       "[prad-asco]: /sources/research/papers/asco-2026-diana-schedule-and-people#p-rad",
     ].join("\n");
 
     expect(applyPiiRedactions(input)).toBe(
       [
-        "[the patient page](/sources/research/diana-schedule)",
+        "[Diana page](/sources/research/diana-schedule)",
+        "[the patient page](/sources/research/diana-laster-schedule)",
         "",
         "[prad-asco]: /sources/research/papers/asco-2026-diana-schedule-and-people#p-rad",
       ].join("\n"),

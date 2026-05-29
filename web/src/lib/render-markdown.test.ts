@@ -36,6 +36,18 @@ Inline <redact label="someone">Diana Laster</redact> text.`,
     expect(html).not.toContain("<redact");
   });
 
+  test("preserves Diana-facing labels while redacting full identifiers", () => {
+    const html = renderMarkdown(
+      "## Relevance to Diana\n\nDiana's treatment context mentions Diana Laster.",
+      "wiki/relevance-example",
+    );
+
+    expect(html).toContain(">Relevance to Diana</h2>");
+    expect(html).toContain("Diana's treatment context mentions the patient.");
+    expect(html).not.toContain("Diana Laster");
+    expect(html).not.toContain("Relevance to the patient");
+  });
+
   test("renders one wrapped table per example fixture", () => {
     const html = renderMarkdown(buildExampleTablesDocument(), "table-examples");
 
