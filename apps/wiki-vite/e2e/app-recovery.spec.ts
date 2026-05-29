@@ -2,22 +2,23 @@ import { expect, test } from "@playwright/test";
 import { installWikiApiMocks } from "./fixtures";
 
 test.describe("app recovery boundary", () => {
-  test("shows a recovery screen instead of a blank root when the shell fails to load", async ({
+  test("recovers from a failed shell chunk: reloads once, then shows a recovery screen", async ({
     page,
   }) => {
     await installWikiApiMocks(page);
 
-    // Simulate a returning visitor whose persisted store/chunk can no longer be
-    // loaded: fail the lazy LiveStore shell import. Without an error boundary
-    // this leaves an empty #root; with one it surfaces a recovery screen.
+    // Persistently fail the lazy LiveStore shell import. The first failure
+    // auto-reloads once (vite:preloadError); the reload fails again and, with
+    // the once-per-session guard spent, surfaces the recovery screen instead of
+    // a blank #root.
     await page.route(/LiveStoreRoot/, (route) => route.abort());
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     const recovery = page.getByTestId("app-recovery");
-    await expect(recovery).toBeVisible();
-    await expect(recovery).toContainText("This reader hit a snag");
-    await expect(page.getByTestId("app-recovery-reset")).toBeVisible();
+    await expect(recovery).toBeVisible({ timeout: 20_000 });
+    await expect(recovery).toContainText("The reader needs to reload");
+    await expect(page.getByTestId("app-recovery-reload")).toBeVisible();
 
     const rootHtml = await page.locator("#root").innerHTML();
     expect(rootHtml.length).toBeGreaterThan(0);
