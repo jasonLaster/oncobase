@@ -5,9 +5,17 @@ import {
 } from "@diana-tnbc/wiki-content";
 import { createElement, lazy, StrictMode, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { AppErrorBoundary } from "./AppErrorBoundary";
+import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { publishRuntimeEnvironment } from "./observability";
 import "./styles.css";
+
+// Vite throws this when a dynamic import's JS/CSS fails to load — most often a
+// tab left open across a deploy. Recover by reloading once; if we already
+// reloaded this session, let it propagate to the error boundary instead of
+// silently swallowing the failure.
+window.addEventListener("vite:preloadError", (event) => {
+  if (reloadOnceForLoadError()) event.preventDefault();
+});
 
 publishRuntimeEnvironment({
   mode: import.meta.env.MODE,

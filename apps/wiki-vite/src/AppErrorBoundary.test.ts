@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
-import { clearLocalWikiData } from "./AppErrorBoundary";
+import {
+  clearLocalWikiData,
+  isChunkLoadError,
+  reloadOnceForLoadError,
+} from "./AppErrorBoundary";
 
 const descriptors = ["navigator", "indexedDB", "window"] as const;
 const originals = new Map<string, PropertyDescriptor | undefined>(
@@ -58,5 +62,43 @@ describe("clearLocalWikiData", () => {
 
     await expect(clearLocalWikiData()).resolves.toBeUndefined();
     expect(removeItem).toHaveBeenCalledWith("wiki-vite-scope");
+  });
+});
+
+describe("isChunkLoadError", () => {
+  test("matches Vite dynamic-import and CSS preload failures", () => {
+    for (const message of [
+      "Unable to preload CSS for /assets/src-BrbTFx9E.css",
+      "Failed to fetch dynamically imported module: https://x/assets/LiveStoreRoot-abc.js",
+      "Unable to preload module for /assets/chunk.js",
+      "error loading dynamically imported module",
+      "Importing a module script failed.",
+    ]) {
+      expect(isChunkLoadError(new Error(message))).toBe(true);
+    }
+  });
+
+  test("does not match unrelated runtime errors", () => {
+    expect(isChunkLoadError(new Error("Cannot read properties of undefined"))).toBe(false);
+    expect(isChunkLoadError(new Error("LiveStore failed to open store"))).toBe(false);
+    expect(isChunkLoadError(null)).toBe(false);
+  });
+});
+
+describe("reloadOnceForLoadError", () => {
+  test("reloads only once per tab session", () => {
+    const store = new Map<string, string>();
+    const reload = mock(() => {});
+    stub("window", {
+      location: { reload },
+      sessionStorage: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+      },
+    });
+
+    expect(reloadOnceForLoadError()).toBe(true);
+    expect(reloadOnceForLoadError()).toBe(false);
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 });
