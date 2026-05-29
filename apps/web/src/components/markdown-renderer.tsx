@@ -1,6 +1,6 @@
 import { resolveWikilinks } from "@/lib/wikilinks";
 import { renderMarkdown, renderMarkdownAsync } from "@/lib/render-markdown";
-import { WikiMarkdownFrame } from "@diana-tnbc/wiki-markdown/frame";
+import { WikiMarkdownFrame } from "@oncobase/wiki-markdown/frame";
 import { renderCachedMarkdownHtmlForSite } from "@/lib/markdown-render-cache";
 import { MarkdownHeadingAnchors } from "@/components/markdown-heading-anchors";
 import { MermaidRenderer } from "@/components/mermaid-renderer";

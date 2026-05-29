@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "diana-breast-cancer",
+      "name": "oncobase",
       "dependencies": {
         "@vercel/blob": "^2.3.3",
         "rehype-slug": "^6.0.0",
@@ -17,24 +17,24 @@
       },
     },
     "apps/web": {
-      "name": "web",
+      "name": "@oncobase/web",
       "version": "0.1.0",
       "dependencies": {
         "@ai-sdk/react": "^3.0.149",
         "@base-ui/react": "^1.3.0",
-        "@diana-tnbc/chat": "workspace:*",
-        "@diana-tnbc/smart-table": "workspace:*",
-        "@diana-tnbc/wiki-comments": "workspace:*",
-        "@diana-tnbc/wiki-content": "workspace:*",
-        "@diana-tnbc/wiki-markdown": "workspace:*",
-        "@diana-tnbc/wiki-shell": "workspace:*",
         "@lexical/react": "^0.43.0",
         "@liveblocks/client": "^3.18.1",
         "@liveblocks/node": "^3.18.1",
         "@liveblocks/react": "^3.18.1",
         "@liveblocks/react-lexical": "^3.18.1",
         "@liveblocks/react-ui": "^3.18.1",
+        "@oncobase/chat": "workspace:*",
         "@oncobase/oncobase": "workspace:*",
+        "@oncobase/smart-table": "workspace:*",
+        "@oncobase/wiki-comments": "workspace:*",
+        "@oncobase/wiki-content": "workspace:*",
+        "@oncobase/wiki-markdown": "workspace:*",
+        "@oncobase/wiki-shell": "workspace:*",
         "@radix-ui/react-use-controllable-state": "^1.2.2",
         "@rive-app/react-webgl2": "^4.28.2",
         "@streamdown/cjk": "^1.0.3",
@@ -107,19 +107,19 @@
       },
     },
     "apps/wiki-vite": {
-      "name": "@diana-tnbc/wiki-vite",
+      "name": "@oncobase/wiki-vite",
       "version": "0.1.0",
       "dependencies": {
-        "@diana-tnbc/chat": "workspace:*",
-        "@diana-tnbc/smart-table": "workspace:*",
-        "@diana-tnbc/wiki-content": "workspace:*",
-        "@diana-tnbc/wiki-markdown": "workspace:*",
-        "@diana-tnbc/wiki-shell": "workspace:*",
         "@livestore/adapter-web": "0.3.1",
         "@livestore/livestore": "0.3.1",
         "@livestore/peer-deps": "0.3.1",
         "@livestore/react": "0.3.1",
         "@livestore/wa-sqlite": "1.0.5-dev.2",
+        "@oncobase/chat": "workspace:*",
+        "@oncobase/smart-table": "workspace:*",
+        "@oncobase/wiki-content": "workspace:*",
+        "@oncobase/wiki-markdown": "workspace:*",
+        "@oncobase/wiki-shell": "workspace:*",
         "ai": "^6.0.168",
         "archiver": "^7.0.1",
         "convex": "^1.34.1",
@@ -148,7 +148,7 @@
       },
     },
     "packages/chat": {
-      "name": "@diana-tnbc/chat",
+      "name": "@oncobase/chat",
       "version": "0.1.0",
       "dependencies": {
         "@ai-sdk/react": "^3.0.149",
@@ -199,7 +199,7 @@
       },
     },
     "packages/smart-table": {
-      "name": "@diana-tnbc/smart-table",
+      "name": "@oncobase/smart-table",
       "version": "0.1.0",
       "dependencies": {
         "@chenglou/pretext": "^0.0.5",
@@ -218,10 +218,10 @@
       },
     },
     "packages/wiki-comments": {
-      "name": "@diana-tnbc/wiki-comments",
+      "name": "@oncobase/wiki-comments",
       "version": "0.1.0",
       "dependencies": {
-        "@diana-tnbc/wiki-shell": "workspace:*",
+        "@oncobase/wiki-shell": "workspace:*",
       },
       "devDependencies": {
         "@types/react": "^19",
@@ -239,7 +239,7 @@
       },
     },
     "packages/wiki-content": {
-      "name": "@diana-tnbc/wiki-content",
+      "name": "@oncobase/wiki-content",
       "version": "0.1.0",
       "dependencies": {
         "js-tiktoken": "^1.0.21",
@@ -251,10 +251,10 @@
       },
     },
     "packages/wiki-markdown": {
-      "name": "@diana-tnbc/wiki-markdown",
+      "name": "@oncobase/wiki-markdown",
       "version": "0.1.0",
       "dependencies": {
-        "@diana-tnbc/smart-table": "workspace:*",
+        "@oncobase/smart-table": "workspace:*",
         "beautiful-mermaid": "^1.1.3",
         "katex": "^0.16.45",
         "mermaid": "^11.14.0",
@@ -281,10 +281,10 @@
       },
     },
     "packages/wiki-shell": {
-      "name": "@diana-tnbc/wiki-shell",
+      "name": "@oncobase/wiki-shell",
       "version": "0.1.0",
       "dependencies": {
-        "@diana-tnbc/chat": "workspace:*",
+        "@oncobase/chat": "workspace:*",
         "@tanstack/react-virtual": "3.13.24",
         "fuzzysort": "^3.1.0",
       },
@@ -440,20 +440,6 @@
     "@chevrotain/types": ["@chevrotain/types@12.0.0", "", {}, "sha512-S+04vjFQKeuYw0/eW3U52LkAHQsB1ASxsPGsLPUyQgrZ2iNNibQrsidruDzjEX2JYfespXMG0eZmXlhA6z7nWA=="],
 
     "@chevrotain/utils": ["@chevrotain/utils@12.0.0", "", {}, "sha512-lB59uJoaGIfOOL9knQqQRfhl9g7x8/wqFkp13zTdkRu1huG9kg6IJs1O8hqj9rs6h7orGxHJUKb+mX3rPbWGhA=="],
-
-    "@diana-tnbc/chat": ["@diana-tnbc/chat@workspace:packages/chat"],
-
-    "@diana-tnbc/smart-table": ["@diana-tnbc/smart-table@workspace:packages/smart-table"],
-
-    "@diana-tnbc/wiki-comments": ["@diana-tnbc/wiki-comments@workspace:packages/wiki-comments"],
-
-    "@diana-tnbc/wiki-content": ["@diana-tnbc/wiki-content@workspace:packages/wiki-content"],
-
-    "@diana-tnbc/wiki-markdown": ["@diana-tnbc/wiki-markdown@workspace:packages/wiki-markdown"],
-
-    "@diana-tnbc/wiki-shell": ["@diana-tnbc/wiki-shell@workspace:packages/wiki-shell"],
-
-    "@diana-tnbc/wiki-vite": ["@diana-tnbc/wiki-vite@workspace:apps/wiki-vite"],
 
     "@dotenvx/dotenvx": ["@dotenvx/dotenvx@1.60.2", "", { "dependencies": { "commander": "^11.1.0", "dotenv": "^17.2.1", "eciesjs": "^0.4.10", "execa": "^5.1.1", "fdir": "^6.2.0", "ignore": "^5.3.0", "object-treeify": "1.1.33", "picomatch": "^4.0.2", "which": "^4.0.0", "yocto-spinner": "^1.1.0" }, "bin": { "dotenvx": "src/cli/dotenvx.js" } }, "sha512-r4AznHUvfLONuWdoSIQtut6Ez/ym+lGXRtDvRaoAEMEhAmwSoK24jRsfR28vcb3ygWm7qeYOcbZolhtseJl6mA=="],
 
@@ -847,7 +833,21 @@
 
     "@oclif/plugin-help": ["@oclif/plugin-help@6.2.37", "", { "dependencies": { "@oclif/core": "^4" } }, "sha512-5N/X/FzlJaYfpaHwDC0YHzOzKDWa41s9t+4FpCDu4f9OMReds4JeNBaaWk9rlIzdKjh2M6AC5Q18ORfECRkHGA=="],
 
+    "@oncobase/chat": ["@oncobase/chat@workspace:packages/chat"],
+
     "@oncobase/oncobase": ["@oncobase/oncobase@workspace:packages/oncobase"],
+
+    "@oncobase/smart-table": ["@oncobase/smart-table@workspace:packages/smart-table"],
+
+    "@oncobase/wiki-comments": ["@oncobase/wiki-comments@workspace:packages/wiki-comments"],
+
+    "@oncobase/wiki-content": ["@oncobase/wiki-content@workspace:packages/wiki-content"],
+
+    "@oncobase/wiki-markdown": ["@oncobase/wiki-markdown@workspace:packages/wiki-markdown"],
+
+    "@oncobase/wiki-shell": ["@oncobase/wiki-shell@workspace:packages/wiki-shell"],
+
+    "@oncobase/wiki-vite": ["@oncobase/wiki-vite@workspace:apps/wiki-vite"],
 
     "@open-draft/deferred-promise": ["@open-draft/deferred-promise@2.2.0", "", {}, "sha512-CecwLWx3rhxVQF6V4bAgPS5t+So2sTbPgAzafKkVizyi7tlwpcFpdFqq+wqF2OwNBmqFuu6tOyouTuxgpMfzmA=="],
 
@@ -3395,7 +3395,7 @@
 
     "wcwidth": ["wcwidth@1.0.1", "", { "dependencies": { "defaults": "^1.0.3" } }, "sha512-XHPEwS0q6TaxcvG85+8EYkbiCux2XtWG2mkc47Ng2A77BQu9+DqIOJldST4HgPkuea7dvKSj5VgX3P1d4rW8Tg=="],
 
-    "web": ["web@workspace:apps/web"],
+    "@oncobase/web": ["@oncobase/web@workspace:apps/web"],
 
     "web-namespaces": ["web-namespaces@2.0.1", "", {}, "sha512-bKr1DkiNa2krS7qxNtdrtHAmzuYGFQLiQ13TsorsdT6ULTkPLKuu5+GsFpDlg6JFjUTwX2DyhMPG2be8uPrqsQ=="],
 

@@ -1,9 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@diana-tnbc/smart-table/styles.css";
-@import "@diana-tnbc/wiki-shell/styles.css";
-@import "@diana-tnbc/wiki-markdown/styles.css";
+@import "@oncobase/smart-table/styles.css";
+@import "@oncobase/wiki-shell/styles.css";
+@import "@oncobase/wiki-markdown/styles.css";
 
 /* Tailwind v4 needs to scan Streamdown's compiled output to pick up the
    utility classes used internally by its components. Only takes effect when

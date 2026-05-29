@@ -1,4 +1,4 @@
-# @diana-tnbc/chat
+# @oncobase/chat
 
 Configurable full-stack chat UI for Next.js apps. The package owns the reusable
 client experience, AI SDK transport wiring, Convex persistence references, and
@@ -21,7 +21,7 @@ package should not import `@convex/_generated/*` or any host source aliases.
 ```tsx
 "use client";
 
-import { ChatRuntimeProvider } from "@diana-tnbc/chat/runtime";
+import { ChatRuntimeProvider } from "@oncobase/chat/runtime";
 import { api } from "@convex/_generated/api";
 
 export function AppChatProvider({ children }: { children: React.ReactNode }) {

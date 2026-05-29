@@ -1,4 +1,4 @@
 export {
   formatLiveblocksUserId,
   type ResolvedLiveblocksUser,
-} from "@diana-tnbc/wiki-comments/user-format";
+} from "@oncobase/wiki-comments/user-format";

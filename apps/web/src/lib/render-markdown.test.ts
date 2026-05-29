@@ -3,7 +3,7 @@ import {
   buildExampleTablesDocument,
   exampleTables,
   renderExampleTableSection,
-} from "@diana-tnbc/smart-table/examples";
+} from "@oncobase/smart-table/examples";
 import { renderMarkdown } from "./render-markdown";
 import { normalizeMathValue } from "./markdown-math";
 

@@ -3,4 +3,4 @@ export {
   expandCompactFileTree,
   type CompactFileNode,
   type FileNode,
-} from "@diana-tnbc/wiki-content";
+} from "@oncobase/wiki-content";

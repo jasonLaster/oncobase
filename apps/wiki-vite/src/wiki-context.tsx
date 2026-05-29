@@ -1,4 +1,4 @@
-import type { WikiScope, WikiSessionIdentity } from "@diana-tnbc/wiki-content";
+import type { WikiScope, WikiSessionIdentity } from "@oncobase/wiki-content";
 import { createContext, useContext, type ReactNode } from "react";
 
 const WikiScopeContext = createContext<WikiScope>("public");

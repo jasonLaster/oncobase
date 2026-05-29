@@ -7,13 +7,13 @@ import {
   SmartTableHead,
   SmartTableHeader,
   SmartTableRow,
-} from "@diana-tnbc/smart-table";
+} from "@oncobase/smart-table";
 import {
   featuredExampleTables,
   resizeAuditExampleTables,
   type ExampleTableDefinition,
-} from "@diana-tnbc/smart-table/examples";
-import { dianaSmartTableLayoutAdapter } from "@/lib/smart-table-layout-adapter";
+} from "@oncobase/smart-table/examples";
+import { webSmartTableLayoutAdapter } from "@/lib/smart-table-layout-adapter";
 
 const liveScenarioExamples = featuredExampleTables.filter((example) =>
   example.apiModes.includes("declarative")
@@ -30,7 +30,7 @@ function ScenarioTable({
 }) {
   return (
     <SmartTable
-      layoutAdapter={dianaSmartTableLayoutAdapter}
+      layoutAdapter={webSmartTableLayoutAdapter}
       persistenceKey={persistenceKey}
     >
       <SmartTableHeader>

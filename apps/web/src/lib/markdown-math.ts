@@ -3,4 +3,4 @@ export {
   markdownRemarkPlugins,
   normalizeMathValue,
   remarkCleanMath,
-} from "@diana-tnbc/wiki-markdown/math";
+} from "@oncobase/wiki-markdown/math";

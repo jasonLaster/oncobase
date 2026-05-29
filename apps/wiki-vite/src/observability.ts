@@ -1,5 +1,5 @@
 import type { Metrics } from "./types";
-import type { ChatPerfEvent } from "@diana-tnbc/chat/perf";
+import type { ChatPerfEvent } from "@oncobase/chat/perf";
 
 type SearchMetric = {
   query: string;

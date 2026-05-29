@@ -9,9 +9,9 @@ const nextConfig: NextConfig = {
     return redirects;
   },
   transpilePackages: [
-    "@diana-tnbc/chat",
-    "@diana-tnbc/smart-table",
-    "@diana-tnbc/wiki-markdown",
+    "@oncobase/chat",
+    "@oncobase/smart-table",
+    "@oncobase/wiki-markdown",
   ],
   outputFileTracingRoot: path.join(__dirname, "..", ".."),
   turbopack: {

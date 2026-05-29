@@ -1,9 +1,9 @@
-import { ChatRuntimeProvider } from "@diana-tnbc/chat/runtime";
+import { ChatRuntimeProvider } from "@oncobase/chat/runtime";
 import {
   WikiChatToolRenderer,
   extractWikiChatSources,
-} from "@diana-tnbc/wiki-shell/wiki-chat";
-import { WikiMarkdown } from "@diana-tnbc/wiki-markdown";
+} from "@oncobase/wiki-shell/wiki-chat";
+import { WikiMarkdown } from "@oncobase/wiki-markdown";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { useEffect, useMemo, type ReactNode } from "react";
 import { Link } from "react-router";

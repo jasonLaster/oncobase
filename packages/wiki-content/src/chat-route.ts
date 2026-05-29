@@ -1,13 +1,13 @@
 import { z } from "zod";
 
 /**
- * Canonical Diana chat system prompt used by both the Next chat route and
+ * Canonical wiki chat system prompt used by both the Next chat route and
  * the Vite standalone chat route. Hosts that need a different prompt should
  * pass their own via `loadSystemPrompt` rather than diverge a copy of this
  * constant; the two apps previously kept drifting versions and the chat
  * citation-shape contracts only stay stable when both sides share one source.
  */
-export const DIANA_CHAT_SYSTEM_PROMPT_BASE = `You are a research assistant for a triple-negative breast cancer (TNBC) knowledge base. You help answer questions about the patient's diagnosis, treatment plan, research, and related medical topics.
+export const WIKI_CHAT_SYSTEM_PROMPT_BASE = `You are a research assistant for an Oncobase knowledge base. You help answer questions about the site's documents, care context, research, and related medical topics.
 
 You have access to tools that let you search and read wiki pages. Use them to find relevant information before answering. Always ground your answers in the wiki content when possible.
 

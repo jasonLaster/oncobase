@@ -1,6 +1,6 @@
 "use client";
 
-import { WikiPageSkeleton } from "@diana-tnbc/wiki-shell";
+import { WikiPageSkeleton } from "@oncobase/wiki-shell";
 
 type PageLoadingSkeletonProps = {
   label?: string;

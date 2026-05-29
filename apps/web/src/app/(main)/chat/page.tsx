@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import NewChatPage from "@diana-tnbc/chat/pages/new-chat-page";
+import NewChatPage from "@oncobase/chat/pages/new-chat-page";
 import { chatConfigured } from "@/lib/chat-config";
 
 export const metadata: Metadata = {

@@ -3,7 +3,7 @@ import {
   WikiMarkdown,
   type WikiMarkdownLinkProps,
   type WikiMarkdownNotificationAdapter,
-} from "@diana-tnbc/wiki-markdown";
+} from "@oncobase/wiki-markdown";
 import {
   DocumentOutlineShell,
   WikiBadge,
@@ -18,7 +18,7 @@ import {
   WikiTagList,
   WikiToast,
   type WikiBreadcrumbItem,
-} from "@diana-tnbc/wiki-shell";
+} from "@oncobase/wiki-shell";
 import {
   Suspense,
   lazy,
@@ -28,7 +28,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { WikiMermaidGanttMarker } from "@diana-tnbc/wiki-markdown/mermaid";
+import type { WikiMermaidGanttMarker } from "@oncobase/wiki-markdown/mermaid";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
   assets$,
@@ -58,17 +58,17 @@ import { RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
 import { PageActions } from "./PageActions";
 
-const DIANA_GANTT_MARKERS: WikiMermaidGanttMarker[] = [
+const WIKI_GANTT_MARKERS: WikiMermaidGanttMarker[] = [
   { date: "2026-07-14", label: "Phase 2 (12 weeks)" },
   { date: "2026-09-10", label: "Surgery" },
 ];
 
-const DIANA_GANTT_REFERENCE_YEAR = 2026;
+const WIKI_GANTT_REFERENCE_YEAR = 2026;
 
 const MERMAID_FENCE_PATTERN = /^\s*```mermaid\s*$/m;
 
 const LazyMermaidRenderer = lazy(() =>
-  import("@diana-tnbc/wiki-markdown/mermaid").then((module) => ({
+  import("@oncobase/wiki-markdown/mermaid").then((module) => ({
     default: module.WikiMermaidRenderer,
   })),
 );
@@ -78,8 +78,8 @@ function MermaidRendererSlot({ content }: { content: string }) {
   return (
     <Suspense fallback={null}>
       <LazyMermaidRenderer
-        ganttAxisReferenceYear={DIANA_GANTT_REFERENCE_YEAR}
-        ganttMarkers={DIANA_GANTT_MARKERS}
+        ganttAxisReferenceYear={WIKI_GANTT_REFERENCE_YEAR}
+        ganttMarkers={WIKI_GANTT_MARKERS}
       />
     </Suspense>
   );

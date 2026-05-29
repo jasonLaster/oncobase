@@ -8,7 +8,7 @@ import { PageLoadingSkeleton } from "@/components/page-loading";
 import { ResizableLayout } from "@/components/resizable-layout";
 import { Sidebar } from "@/components/sidebar";
 import { useNavigationFileTree } from "@/components/use-navigation-file-tree";
-import { ConversationList } from "@diana-tnbc/chat";
+import { ConversationList } from "@oncobase/chat";
 
 function SidebarFallback() {
   return (

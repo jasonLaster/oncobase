@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { copyTextToClipboard } from "@diana-tnbc/wiki-shell";
+import { copyTextToClipboard } from "@oncobase/wiki-shell";
 
 function pageCopyUrl(slug: string, contentHash?: string) {
   const url = new URL("/api/page-copy", window.location.origin);

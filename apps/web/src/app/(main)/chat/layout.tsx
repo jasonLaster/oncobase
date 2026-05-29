@@ -1,4 +1,4 @@
-import ChatLayout from "@diana-tnbc/chat/pages/chat-layout";
+import ChatLayout from "@oncobase/chat/pages/chat-layout";
 import { chatConfigured } from "@/lib/chat-config";
 
 export const chatEnabled = chatConfigured;

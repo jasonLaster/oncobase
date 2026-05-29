@@ -19,8 +19,8 @@ import {
   MdTr,
   SmartTableEnhancer,
   type SmartTableLayoutAdapter,
-} from "@diana-tnbc/smart-table";
-import "@diana-tnbc/smart-table/styles.css";
+} from "@oncobase/smart-table";
+import "@oncobase/smart-table/styles.css";
 import "./styles.css";
 import { preprocessCitationMarkdown, preprocessCitations } from "./citations";
 import {
