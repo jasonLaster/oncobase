@@ -42,6 +42,12 @@ function vendorChunk(id: string): string | null {
 
 export default defineConfig({
   build: {
+    // Keep all styles in a single entry stylesheet. Per-chunk CSS files are
+    // preloaded via `<link rel="stylesheet">` before a lazy chunk executes, and
+    // a single failed preload (e.g. a stale/aborted immutable cache entry) takes
+    // the whole reader down with "Unable to preload CSS". One eager stylesheet
+    // removes that failure mode entirely.
+    cssCodeSplit: false,
     modulePreload: {
       resolveDependencies(filename, deps) {
         if (filename.includes("LiveStoreRoot") || filename.includes("WikiPage")) {
