@@ -23,6 +23,7 @@ import {
 import "@diana-tnbc/smart-table/styles.css";
 import "./styles.css";
 import { preprocessCitationMarkdown, preprocessCitations } from "./citations";
+import { preprocessWikiMarkdownText } from "./preprocess";
 import {
   MarkdownHeadingAnchors,
   RoutedAnchorLinks,
@@ -174,8 +175,8 @@ export function WikiMarkdown({
   resolveLinkHref,
   isInternalHref = isInternalWikiHref,
 }: WikiMarkdownProps) {
-  const prepared = preprocessCitationMarkdown(
-    resolveWikilinks(content, currentSlug, apiBasePath),
+  const prepared = preprocessWikiMarkdownText(
+    preprocessCitationMarkdown(resolveWikilinks(content, currentSlug, apiBasePath)),
   );
 
   return (
