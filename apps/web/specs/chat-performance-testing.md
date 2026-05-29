@@ -236,10 +236,10 @@ A short list of clicks every phase reviewer is expected to do before approving a
 
 ## Tooling notes
 
-- Playwright config lives at [apps/web/playwright.config.ts](playwright.config.ts). Add a `chat-perf` project that injects a flag enabling `useChatPerf`'s console output, then captures it via `page.on('console', …)`.
+- Playwright config lives at [`../playwright.config.ts`](../playwright.config.ts). Add a `chat-perf` project that injects a flag enabling `useChatPerf`'s console output, then captures it via `page.on('console', …)`.
 - Chrome DevTools Protocol traces are saved as `apps/web/e2e/.perf/<scenario>-<sha>.trace.json` so we can diff Performance panels across phases.
 - The `chat-bench.ts` script accepts `--baseline` to write into `apps/web/e2e/.perf/baseline.json` and `--compare` to diff against it.
-- Convex test deployment is provisioned by the existing [sync-convex skill](.agents/skills/sync-convex/SKILL.md). Tests reset their fixtures between runs.
+- Convex test deployment is provisioned by the local operator workflow. Tests reset their fixtures between runs.
 - The visual regression suite uses Playwright's built-in `toMatchSnapshot`. Update snapshots with `bun playwright test --update-snapshots` and review the diff before committing.
 
 For ongoing measured results (which numbers landed at which phase), see `chat-performance-qa.md` once Phase 0 is in progress.

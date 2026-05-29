@@ -1,78 +1,89 @@
-This is a Next.js 16 app-router project managed with Bun.
+# Oncobase Web
 
-## Getting Started
+`apps/web` is the current production Oncobase app. It is a Next.js App Router application with Convex functions, Vercel deployment hooks, publishing APIs, site admin tools, chat, search, comments, downloads, and the production wiki reader.
+
+The public feature overview starts at [`../../docs/features.md`](../../docs/features.md). Architecture docs live in [`docs/architecture`](docs/architecture/README.md), and app-level product specs live in [`specs`](specs/features.md).
+
+## What This App Owns
+
+- site resolution and password-gated routing
+- wiki page rendering and route metadata
+- Convex schema/functions for sites, documents, comments, users, roles, chat, and metadata
+- publishing endpoints consumed by `@oncobase/oncobase`
+- text search, AI search, and chat routes
+- Liveblocks comments routes and UI integration
+- admin scripts for site creation, publish tokens, locks, archive/restore, and user passwords
+- Playwright and Endform tests for the production surface
+
+Reusable behavior should move into packages under [`../../packages`](../../packages/README.md) when it is no longer app-specific.
+
+## Run Locally
 
 Install dependencies from the workspace root:
 
-```bash
-cd ../..
+```sh
 bun install
-cd apps/web
 ```
 
-Run the development server:
+Start the app:
 
-```bash
-bun dev
+```sh
+bun --cwd apps/web dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-By default, the dev app reads from the production Convex deployment
-(`https://youthful-cricket-560.convex.cloud`) so local UI iteration uses the
-same data shape as production. To point at a different Convex deployment, set
-`NEXT_PUBLIC_CONVEX_URL`. To fully disable Convex reads, set
-`NEXT_PUBLIC_USE_PROD_CONVEX=0`.
+By default, local development can point at the production-shaped Convex data model. Set `NEXT_PUBLIC_CONVEX_URL` to use a specific Convex deployment. Use the local Convex process when you need schema/function changes:
 
-If you need to run the local Convex dev deployment as well:
-
-```bash
-bun run dev:local-convex
+```sh
+bun --cwd apps/web dev:local-convex
 ```
 
-## Testing
+## Verification
 
-Run the local Playwright suite:
+From this app:
 
-```bash
-bun run test
+```sh
+bun --cwd apps/web typecheck
+bun --cwd apps/web lint
+bun --cwd apps/web test:unit
+bun --cwd apps/web test
 ```
 
-Run the same suite on Endform:
+From the repository root:
 
-```bash
+```sh
+bun run typecheck
+bun run test:unit
+bun run lint
+bun run build
+```
+
+## Endform And Preview Tests
+
+Run the local Playwright suite on Endform:
+
+```sh
 bun x endform login
-bun run test:endform
+bun --cwd apps/web test:endform
 ```
 
-Endform currently requires Node 22+.
+Target a deployed preview:
 
-`bun run test:endform` uses the Playwright `webServer` config, so Endform can automatically proxy your local `http://localhost:3000` app to the remote runners.
-
-To target a deployed preview instead of a local server:
-
-```bash
-TEST_ENV=prod PROD_URL=https://your-preview-url.vercel.app bun run test:endform
+```sh
+TEST_ENV=prod PROD_URL=https://your-preview-url.vercel.app bun --cwd apps/web test:endform
 ```
 
-The GitHub preview workflow now expects these repository secrets:
+The preview workflow expects:
 
 - `ENDFORM_API_KEY`
 - `VERCEL_AUTOMATION_BYPASS_SECRET`
 
-You can start editing the app in `src/app`. The page auto-updates as you edit the file.
+## Operator Docs
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Operator runbook](specs/operator-runbook.md)
+- [Publishing architecture](docs/architecture/04-publishing.md)
+- [Multi-site spec](specs/multi-site.md)
+- [Role-based access](specs/role-based-access.md)
+- [PII redaction](specs/pii-redaction.md)
+- [Comments](specs/comments.md)

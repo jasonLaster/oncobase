@@ -81,7 +81,7 @@ The Playwright suite should cover these flows on `sources/research/ai-models/ind
 
 ## Current Automated Coverage
 
-Current [table-expansion.spec.ts](/Users/jasonlaster/src/projects/diana-tnbc/apps/web/e2e/table-expansion.spec.ts) covers:
+Current [`table-expansion.spec.ts`](../e2e/table-expansion.spec.ts) covers:
 
 - expand/collapse
 - left-sidebar lane widening
@@ -192,7 +192,7 @@ Before shipping changes to table expansion:
 
 ## Ownership
 
-- [e2e/table-expansion.spec.ts](/Users/jasonlaster/src/projects/diana-tnbc/apps/web/e2e/table-expansion.spec.ts) owns the automated regression coverage
-- [interactive-tables.tsx](/Users/jasonlaster/src/projects/diana-tnbc/apps/web/src/components/interactive-tables.tsx) owns the prose expansion behavior
-- [globals.css](/Users/jasonlaster/src/projects/diana-tnbc/apps/web/src/app/globals.css) owns the overlay styling contract
-- [smart-table-layout.ts](/Users/jasonlaster/src/projects/diana-tnbc/apps/web/src/lib/smart-table-layout.ts) owns content-aware sizing and manual-width persistence
+- [`e2e/table-expansion.spec.ts`](../e2e/table-expansion.spec.ts) owns the automated regression coverage
+- [`packages/smart-table/src/interactive-tables.tsx`](../../../packages/smart-table/src/interactive-tables.tsx) owns the prose expansion behavior
+- [`src/app/globals.css`](../src/app/globals.css) owns the overlay styling contract
+- [`packages/smart-table/src/smart-table-layout.ts`](../../../packages/smart-table/src/smart-table-layout.ts) owns content-aware sizing and manual-width persistence

@@ -1,15 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config";
 
 const DEFAULT_SKILLS = ["wiki-quickstart", "check"];
 
 function skillSourceRoot() {
+  const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const candidates = [
     path.resolve(process.cwd(), ".claude", "skills"),
     path.resolve(process.cwd(), ".agents", "skills"),
     path.resolve(process.cwd(), "..", ".claude", "skills"),
     path.resolve(process.cwd(), "..", ".agents", "skills"),
+    path.join(packageRoot, "skills"),
   ];
   return candidates.find((candidate) => fs.existsSync(candidate));
 }

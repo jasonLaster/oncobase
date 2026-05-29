@@ -55,13 +55,13 @@ Versions in use today: `ai@^6.0.147`, `@ai-sdk/react@^3.0.149`, `next@16.2.2`, `
 
 Frontend findings (paths under `apps/web/src/app/(main)/chat/`):
 
-1. **No `useChat`.** [chat-interface.tsx](src/app/(main)/chat/_components/chat-interface.tsx) drives the stream by hand: `fetch("/api/chat")` plus a Convex `useQuery` subscription to `conversation.streamingText` and `conversation.streamingParts`. This means tokens travel client → server → Convex → client, gated by the 500ms server flush interval, instead of arriving directly over SSE.
-2. **`streamingParts` is a JSON string in Convex.** [chat-interface.tsx:384](src/app/(main)/chat/_components/chat-interface.tsx) calls `JSON.parse` inside `useMemo`, but the *string* changes on every flush, so the parse runs every flush.
-3. **Whole list re-renders on every token.** [chat-interface.tsx:660](src/app/(main)/chat/_components/chat-interface.tsx) maps `messages` on each render, the streaming block at [chat-interface.tsx:697](src/app/(main)/chat/_components/chat-interface.tsx) re-renders on every change to `serverStreamingText`, and the existing assistant-message rendering does not memoize per message.
+1. **No `useChat`.** `src/app/(main)/chat/_components/chat-interface.tsx` drives the stream by hand: `fetch("/api/chat")` plus a Convex `useQuery` subscription to `conversation.streamingText` and `conversation.streamingParts`. This means tokens travel client -> server -> Convex -> client, gated by the 500ms server flush interval, instead of arriving directly over SSE.
+2. **`streamingParts` is a JSON string in Convex.** `chat-interface.tsx:384` calls `JSON.parse` inside `useMemo`, but the *string* changes on every flush, so the parse runs every flush.
+3. **Whole list re-renders on every token.** `chat-interface.tsx:660` maps `messages` on each render, the streaming block at `chat-interface.tsx:697` re-renders on every change to `serverStreamingText`, and the existing assistant-message rendering does not memoize per message.
 4. **Plain `react-markdown` for streaming text.** Each token reparses the entire growing string. Unclosed code fences and partial tables flicker.
-5. **Auto-scroll uses imperative `scrollTop = scrollHeight`** ([chat-interface.tsx:422](src/app/(main)/chat/_components/chat-interface.tsx)) on every state change. No backpressure, no "user scrolled up" pin contract beyond a 100px threshold check.
+5. **Auto-scroll uses imperative `scrollTop = scrollHeight`** (`chat-interface.tsx:422`) on every state change. No backpressure, no "user scrolled up" pin contract beyond a 100px threshold check.
 6. **Module-level `messageCache` Map** in `[id]/client.tsx` grows unbounded as users browse threads.
-7. **No IME composition handling** on the composer ([chat-interface.tsx:777](src/app/(main)/chat/_components/chat-interface.tsx)). Submitting on `Enter` while composing Japanese / Chinese / Korean breaks input.
+7. **No IME composition handling** on the composer (`chat-interface.tsx:777`). Submitting on `Enter` while composing Japanese / Chinese / Korean breaks input.
 8. **Auto-resume on mount** re-triggers generation if the last message is `user` and no stream is live, with no debounce; double-mounts in dev or fast remounts can fire twice.
 9. **No virtualization.** Long threads will degrade smoothly until they don't.
 

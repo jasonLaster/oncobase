@@ -4,10 +4,9 @@ This is the contract for the shared wiki platform. Diana is site #1;
 additional sites share the same Next.js deployment, Convex
 deployment, Blob store, and codebase. Isolation is enforced in code.
 
-The plan and the simplification rationale live in
-[plans/multi-tenant-wiki](../../plans/multi-tenant-wiki/), with a
-phase-by-phase implementation log at
-[plans/multi-tenant-wiki/work-log.md](../../plans/multi-tenant-wiki/work-log.md).
+This document is the public contract for the multi-site model. Older
+private migration planning notes have been collapsed into this spec and
+the current architecture docs.
 
 ## The site model
 
@@ -266,5 +265,5 @@ cookie during the migration window; other sites get
    provision a workspace, the webhook routes its events by
    workspace ID → siteSlug.
 
-The plan's deferrals and tripwires live at
-[plans/multi-tenant-wiki/work-log.md](../../plans/multi-tenant-wiki/work-log.md).
+Keep deferred multi-site work visible in this section until it either
+ships or moves into a tracked public issue.

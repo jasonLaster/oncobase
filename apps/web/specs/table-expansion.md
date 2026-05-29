@@ -15,7 +15,7 @@ Expanded prose tables should break out of the article column and use the full ho
 
 ## Scope
 
-This spec applies to markdown tables enhanced by [interactive-tables.tsx](/Users/jasonlaster/src/projects/diana-tnbc/apps/web/src/components/interactive-tables.tsx) inside document prose.
+This spec applies to markdown tables enhanced by [`@oncobase/smart-table`](../../../packages/smart-table/README.md) inside document prose.
 
 It does not define the non-prose `SmartTable` component API. That path can continue using different expansion rules if needed, but the long-term goal should be for both implementations to converge on the same mental model.
 
@@ -166,18 +166,18 @@ Using the rail-to-rail lane fixes both problems and matches the visual expectati
 
 Current ownership is:
 
-- [interactive-tables.tsx](/Users/jasonlaster/src/projects/diana-tnbc/apps/web/src/components/interactive-tables.tsx)
+- [`packages/smart-table/src/interactive-tables.tsx`](../../../packages/smart-table/src/interactive-tables.tsx)
   - enhancement lifecycle
   - toggle behavior
   - expansion layer creation
   - rail-aware geometry updates
   - expanded-state persistence across layout rerenders
-- [globals.css](/Users/jasonlaster/src/projects/diana-tnbc/apps/web/src/app/globals.css)
+- [`apps/web/src/app/globals.css`](../src/app/globals.css)
   - visual styling for both in-flow and expanded tables
   - expansion layer positioning rules
-- [document-comments.tsx](/Users/jasonlaster/src/projects/diana-tnbc/apps/web/src/components/document-comments.tsx)
+- [`packages/wiki-comments/src/index.tsx`](../../../packages/wiki-comments/src/index.tsx)
   - stable sidebar state and width persistence that expansion logic depends on
-- [smart-table-layout.ts](/Users/jasonlaster/src/projects/diana-tnbc/apps/web/src/lib/smart-table-layout.ts)
+- [`packages/smart-table/src/smart-table-layout.ts`](../../../packages/smart-table/src/smart-table-layout.ts)
   - content-aware widths
   - manual width locking
   - manual width persistence across remounts
