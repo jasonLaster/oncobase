@@ -46,6 +46,34 @@ describe("wiki content contracts", () => {
     ]);
   });
 
+  test("sorts weekly update pages by descending week number", () => {
+    expect(
+      buildCompactTreeFromManifest([
+        { slug: "wiki/updates/week-8-may-3-to-9" },
+        { slug: "wiki/updates/week-10-may-17-to-23" },
+        { slug: "wiki/updates/week-9-may-10-to-16" },
+        { slug: "wiki/updates/index" },
+      ]),
+    ).toEqual([
+      [
+        "d",
+        "wiki",
+        [
+          [
+            "d",
+            "updates",
+            [
+              ["f", "week-10-may-17-to-23"],
+              ["f", "week-9-may-10-to-16"],
+              ["f", "week-8-may-3-to-9"],
+              ["f", "index"],
+            ],
+          ],
+        ],
+      ],
+    ]);
+  });
+
   test("hides image asset directories from the navigation tree only", () => {
     expect(isHiddenFileTreePath("images/scan.png")).toBe(true);
     expect(isHiddenFileTreePath("wiki/media/images/scan.png")).toBe(true);

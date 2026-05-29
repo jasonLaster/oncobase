@@ -300,6 +300,26 @@ export function buildCompactTreeFromManifest(
   return compactFileTree(buildFileTreeFromManifest(pages, assets));
 }
 
+function weekNumberFromName(name: string) {
+  return /^week-(\d+)(?:\b|-)/i.exec(name)?.[1];
+}
+
+export function compareFileTreeNodes(
+  a: Pick<FileNode, "name" | "type">,
+  b: Pick<FileNode, "name" | "type">,
+) {
+  if (a.type === "directory" && b.type !== "directory") return -1;
+  if (a.type !== "directory" && b.type === "directory") return 1;
+
+  const aWeek = weekNumberFromName(a.name);
+  const bWeek = weekNumberFromName(b.name);
+  if (aWeek && bWeek) return Number(bWeek) - Number(aWeek);
+  if (aWeek) return -1;
+  if (bWeek) return 1;
+
+  return a.name.localeCompare(b.name);
+}
+
 function insertFileNode(
   nodes: FileNode[],
   segments: string[],
@@ -345,11 +365,7 @@ function insertFileNode(
 }
 
 function sortFileTree(nodes: FileNode[]) {
-  nodes.sort((a, b) => {
-    if (a.type === "directory" && b.type !== "directory") return -1;
-    if (a.type !== "directory" && b.type === "directory") return 1;
-    return a.name.localeCompare(b.name);
-  });
+  nodes.sort(compareFileTreeNodes);
   for (const node of nodes) sortFileTree(node.children ?? []);
 }
 

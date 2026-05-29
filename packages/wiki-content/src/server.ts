@@ -9,7 +9,11 @@ import type {
   WikiScope,
   WikiSessionIdentity,
 } from "./index.js";
-import { isHiddenFileTreeAssetPath, isHiddenFileTreePath } from "./index.js";
+import {
+  compareFileTreeNodes,
+  isHiddenFileTreeAssetPath,
+  isHiddenFileTreePath,
+} from "./index.js";
 
 const PUBLIC_CACHE_CONTROL =
   "public, max-age=60, s-maxage=300, stale-while-revalidate=3600";
@@ -208,11 +212,7 @@ function insertFileNode(
 }
 
 function sortFileTree(nodes: ApiFileNode[]) {
-  nodes.sort((a, b) => {
-    if (a.type === "directory" && b.type !== "directory") return -1;
-    if (a.type !== "directory" && b.type === "directory") return 1;
-    return a.name.localeCompare(b.name);
-  });
+  nodes.sort(compareFileTreeNodes);
   for (const node of nodes) sortFileTree(node.children ?? []);
 }
 
