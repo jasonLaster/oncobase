@@ -22,6 +22,7 @@ describe("sensitive page metadata", () => {
       "sensitive",
       "wiki",
     ]);
+    expect(normalizeFrontmatterTags("serova, echo")).toEqual(["serova", "echo"]);
     expect(hasSensitiveTag(["Sensitive"])).toBe(true);
   });
 });

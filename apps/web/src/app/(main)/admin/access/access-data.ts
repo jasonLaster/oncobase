@@ -32,6 +32,7 @@ export type AccessPreviewPage = {
   slug: string;
   title: string;
   tags: string[];
+  sensitiveInclude?: string[];
   sensitive?: boolean;
   sourceSensitive?: boolean;
 };
@@ -120,6 +121,7 @@ export async function getAccessPagesData() {
         slug: page.slug,
         title: page.title,
         tags: page.tags ?? [],
+        sensitiveInclude: page.sensitiveInclude ?? [],
         sensitive: page.sensitive,
         sourceSensitive: sourceSensitiveSlugs?.has(page.slug),
       }))

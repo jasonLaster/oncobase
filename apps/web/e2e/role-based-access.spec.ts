@@ -139,8 +139,9 @@ test.describe("role-based access permissions", () => {
       siteSlug: SITE_SLUG,
       slug: SEROVA_SENSITIVE_SLUG,
       title: "RBAC Serova Sensitive Source",
-      content: "Serova-sensitive marker only matching email domains should see.",
-      tags: ["serova-sensitive"],
+      content: "Serova sensitive marker only matching email domains should see.",
+      tags: [],
+      sensitiveInclude: ["serova"],
       contentHash: `${RUN_NONCE}-serova-sensitive`,
       sensitive: true,
     });

@@ -126,7 +126,7 @@ function RoleRulesFields({
         <Input
           value={includeTags}
           onChange={(event) => setIncludeTags(event.currentTarget.value)}
-          placeholder="trial, vendor-sensitive"
+          placeholder="serova, echo, trial"
         />
       </label>
       <label className="grid gap-1.5 text-sm font-medium">
@@ -172,7 +172,7 @@ function RoleRulesPreview({
     return rows.filter((row) => {
       if (status !== "all" && row.preview.status !== status) return false;
       if (!needle) return true;
-      return [row.title, row.slug, ...row.tags]
+      return [row.title, row.slug, ...row.tags, ...(row.sensitiveInclude ?? [])]
         .join(" ")
         .toLowerCase()
         .includes(needle);
@@ -245,6 +245,25 @@ function RoleRulesPreview({
                         <span
                           key={`${row.slug}-${tag}`}
                           className="rounded border border-border px-1.5 py-0.5"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                      {(row.sensitiveInclude ?? []).map((tag) => (
+                        <span
+                          key={`${row.slug}-sensitive-include-${tag}`}
+                          className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-900"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  ) : row.sensitiveInclude?.length ? (
+                    <div className="flex flex-wrap gap-1">
+                      {row.sensitiveInclude.map((tag) => (
+                        <span
+                          key={`${row.slug}-sensitive-include-${tag}`}
+                          className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-900"
                         >
                           {tag}
                         </span>

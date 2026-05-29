@@ -68,4 +68,24 @@ describe("formatRemoteDocument", () => {
     expect(local.content).toBe(remote.content);
     expect(local.hash).toBe(hashDocument(remote));
   });
+
+  test("writes sensitive include frontmatter", () => {
+    const vault = makeVault();
+    const remote = {
+      slug: "remote",
+      title: "Remote",
+      content: "Body text",
+      tags: ["tag"],
+      sensitive: true,
+      sensitiveInclude: ["serova", "echo"],
+    };
+    fs.writeFileSync(path.join(vault, "remote.md"), formatRemoteDocument(remote));
+
+    const raw = fs.readFileSync(path.join(vault, "remote.md"), "utf8");
+    const [local] = readVaultDocuments(vault);
+
+    expect(raw).toContain("sensitive-include:");
+    expect(local.sensitiveInclude).toEqual(["serova", "echo"]);
+    expect(local.hash).toBe(hashDocument(remote));
+  });
 });

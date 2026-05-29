@@ -5,7 +5,7 @@
  * Background. Until commit afd82ad2 ("runtime: read wiki content from
  * Convex and Blob"), the build pipeline ran `scripts/ingest-wiki.ts`,
  * which stored `contentHash = sha256(redactedContent).slice(0,16)`.
- * The new publisher computes `hashDocument({title, content, tags})`
+ * The new publisher computes `hashDocument({title, content, tags, sensitive, sensitiveInclude})`
  * over the *raw* (un-redacted) local content. The two functions
  * disagree, so every legacy doc registers as "changed" even when it
  * wasn't.
@@ -138,6 +138,8 @@ while (true) {
       title: local.title,
       content: local.content,
       tags: local.tags,
+      sensitive: local.sensitive,
+      sensitiveInclude: local.sensitiveInclude,
     });
     if (remote.contentHash === newHash) {
       alreadyMatching++;

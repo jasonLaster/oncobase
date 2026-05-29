@@ -74,6 +74,7 @@ export default defineSchema({
     tags: v.array(v.string()),
     contentHash: v.optional(v.string()),
     sizeBytes: v.optional(v.number()),
+    sensitiveInclude: v.optional(v.array(v.string())),
     // Recipe version that produced contentHash. Lets /begin
     // distinguish content edits from hash-format upgrades; absent
     // for legacy rows that pre-date this field.
