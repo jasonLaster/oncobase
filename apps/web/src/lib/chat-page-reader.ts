@@ -2,7 +2,7 @@ import {
   CHAT_UNAVAILABLE_CONTENT,
   readChatPageFromDocuments,
   type ChatReadPageResult,
-} from "@diana-tnbc/wiki-content/chat-tools";
+} from "@oncobase/wiki-content/chat-tools";
 import type { SiteData } from "@/lib/site-data";
 
 export { CHAT_UNAVAILABLE_CONTENT, type ChatReadPageResult };

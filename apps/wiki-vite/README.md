@@ -150,7 +150,7 @@ The default store is public-only, even if the browser also has a signed-in wiki 
 
 The prototype is intentionally side-by-side with the current Next app. `apps/web` remains the v1 content source and publishing target; this app only consumes public/session API snapshots and stores them in the browser.
 
-The durable wiki behavior should stay in shared packages. `@diana-tnbc/wiki-content` owns manifest/page/tree contracts and cache reconciliation. `@diana-tnbc/wiki-markdown` owns markdown rendering, route-safe links, heading anchors, image theater, citations, math, and smart-table integration. The Vite app should remain the LiveStore and React Router adapter around those packages.
+The durable wiki behavior should stay in shared packages. `@oncobase/wiki-content` owns manifest/page/tree contracts and cache reconciliation. `@oncobase/wiki-markdown` owns markdown rendering, route-safe links, heading anchors, image theater, citations, math, and smart-table integration. The Vite app should remain the LiveStore and React Router adapter around those packages.
 
 LiveStore is used as a local read cache without a remote sync backend. The schema stores:
 

@@ -1,3 +1,3 @@
 "use client";
 
-export { ImageTheater, TheaterImage } from "@diana-tnbc/wiki-markdown";
+export { ImageTheater, TheaterImage } from "@oncobase/wiki-markdown";

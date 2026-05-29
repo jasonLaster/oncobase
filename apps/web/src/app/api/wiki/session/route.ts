@@ -1,7 +1,7 @@
 import { getSessionUserFromRequest } from "@/lib/session-user";
 import { siteDataFromRequest } from "@/lib/site-data";
 import { wikiApiHeaders, wikiApiOptions } from "@/lib/wiki-api-cors";
-import { createWikiSessionResponse } from "@diana-tnbc/wiki-content/server";
+import { createWikiSessionResponse } from "@oncobase/wiki-content/server";
 
 export async function GET(request: Request) {
   const siteData = siteDataFromRequest(request);

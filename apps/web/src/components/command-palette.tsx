@@ -51,7 +51,7 @@ import {
   type CommandPaletteOutlineHeading,
   type CommandPalettePageEntry,
   type CommandPaletteRow,
-} from "@diana-tnbc/wiki-shell";
+} from "@oncobase/wiki-shell";
 import { themeEffect } from "@/lib/theme-effect";
 import { cn } from "@/lib/utils";
 import { setNavigationIntent } from "@/lib/navigation-intent";

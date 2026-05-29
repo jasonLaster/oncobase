@@ -6,7 +6,7 @@ import {
   type WikiManifest,
   type WikiManifestPage,
   type WikiScope,
-} from "@diana-tnbc/wiki-content";
+} from "@oncobase/wiki-content";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { pageContentBySlug$ } from "../livestore/queries";

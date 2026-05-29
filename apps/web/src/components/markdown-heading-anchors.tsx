@@ -4,7 +4,7 @@ import {
   MarkdownHeadingAnchors as SharedMarkdownHeadingAnchors,
   RoutedAnchorLinks as SharedRoutedAnchorLinks,
   type WikiMarkdownRouteAdapter,
-} from "@diana-tnbc/wiki-markdown";
+} from "@oncobase/wiki-markdown";
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

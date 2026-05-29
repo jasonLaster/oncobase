@@ -3,12 +3,12 @@
 import {
   DefaultToolCallBlock,
   getChatToolInfo,
-} from "@diana-tnbc/chat/components/messages";
-import { useChatRuntime } from "@diana-tnbc/chat/runtime";
+} from "@oncobase/chat/components/messages";
+import { useChatRuntime } from "@oncobase/chat/runtime";
 import type {
   ChatSourceExtractor,
   ChatToolCallRendererProps,
-} from "@diana-tnbc/chat/types";
+} from "@oncobase/chat/types";
 import { memo, useState, type ReactNode } from "react";
 
 function hrefForPage(value: string | undefined, fallback?: string) {
@@ -239,8 +239,6 @@ export function WikiChatToolRenderer({
   return <DefaultToolCallBlock toolName={toolName} state={state} />;
 }
 
-export const DianaChatToolRenderer = WikiChatToolRenderer;
-
 export const extractWikiChatSources: ChatSourceExtractor = (parts) => {
   const seen = new Set<string>();
   const sources: ReturnType<ChatSourceExtractor> = [];
@@ -297,5 +295,3 @@ export const extractWikiChatSources: ChatSourceExtractor = (parts) => {
 
   return sources;
 };
-
-export const extractDianaChatSources = extractWikiChatSources;

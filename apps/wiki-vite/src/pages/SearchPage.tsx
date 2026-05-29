@@ -9,7 +9,7 @@ import {
   WikiSearchResultLink,
   WikiSearchResults,
   WikiSearchSubmitButton,
-} from "@diana-tnbc/wiki-shell";
+} from "@oncobase/wiki-shell";
 import { recordSearchMetric } from "../observability";
 import { hrefForSlug } from "../wiki-utils";
 

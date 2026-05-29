@@ -1,6 +1,6 @@
-# @diana-tnbc/wiki-markdown
+# @oncobase/wiki-markdown
 
-Shared markdown runtime for the Diana wiki.
+Shared markdown runtime for Oncobase wikis.
 
 See [`../../plans/vite-livestore-wiki-reader.md`](../../plans/vite-livestore-wiki-reader.md) for the productionization plan that explains why this package is the durable layer between the current Next app and the Vite + LiveStore reader.
 
@@ -25,6 +25,6 @@ This package may depend on React, markdown processors, smart tables, and browser
 - layout adapters for site-specific smart-table expansion behavior
 
 Server-rendered hosts should wrap rendered HTML in `WikiMarkdownFrame` from
-`@diana-tnbc/wiki-markdown/frame` and import
-`@diana-tnbc/wiki-markdown/styles.css` from their global stylesheet. Client
+`@oncobase/wiki-markdown/frame` and import
+`@oncobase/wiki-markdown/styles.css` from their global stylesheet. Client
 hosts that render `WikiMarkdown` get the same frame contract automatically.

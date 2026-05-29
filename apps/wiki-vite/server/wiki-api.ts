@@ -10,9 +10,9 @@ import {
   createWikiSessionResponse,
   type PageWithContent,
   type WikiApiDocumentsGateway,
-} from "@diana-tnbc/wiki-content/server";
-import { readChatPageFromDocuments } from "@diana-tnbc/wiki-content/chat-tools";
-import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@diana-tnbc/wiki-content/pii";
+} from "@oncobase/wiki-content/server";
+import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
+import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
 import { api } from "../../../apps/web/convex/_generated/api.js";
 import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
 import { handleAiSearchRequest } from "./ai-search.js";

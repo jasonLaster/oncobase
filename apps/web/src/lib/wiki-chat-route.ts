@@ -18,13 +18,13 @@ import { resolveServerConvexUrl } from "@/lib/convex-url";
 import {
   createConvexFlusher,
   getCachedSystemPrompt,
-} from "@diana-tnbc/chat/route";
+} from "@oncobase/chat/route";
 import {
   ChatRequestSchema,
-  DIANA_CHAT_SYSTEM_PROMPT_BASE,
+  WIKI_CHAT_SYSTEM_PROMPT_BASE,
   compactChatToolResult,
   generateChatSearchPatterns,
-} from "@diana-tnbc/wiki-content/chat-route";
+} from "@oncobase/wiki-content/chat-route";
 import { siteSlugFromRequest } from "@/lib/site";
 import { siteDataFromSlug } from "@/lib/site-data";
 import { readChatPage } from "@/lib/chat-page-reader";
@@ -47,7 +47,7 @@ async function loadSystemPrompt(siteSlug: string): Promise<string> {
     }),
   ]);
 
-  let prompt = DIANA_CHAT_SYSTEM_PROMPT_BASE;
+  let prompt = WIKI_CHAT_SYSTEM_PROMPT_BASE;
 
   if (diagnosisDoc) {
     prompt += `\n\n## PATIENT DIAGNOSIS\n\n${applyPiiRedactions(diagnosisDoc.content)}`;

@@ -1,6 +1,6 @@
 # Wiki Shell
 
-Reusable Diana wiki shell components shared by the current `web` app and the Vite reader.
+Reusable wiki shell components shared by the current `web` app and the Vite reader.
 
 The package is intentionally adapter-shaped. It owns visual behavior, layout state, CSS variables, and accessibility semantics, while host apps supply routing, data, and product-specific actions.
 

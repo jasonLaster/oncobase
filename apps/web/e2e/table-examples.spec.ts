@@ -4,7 +4,7 @@ import {
   type ExampleTableDefinition,
   featuredExampleTables,
   resizeAuditExampleTables,
-} from "@diana-tnbc/smart-table/examples";
+} from "@oncobase/smart-table/examples";
 
 const TABLE_PAGE = "/table-examples";
 const AUTH_STATE_PATH = "e2e/.auth/state.json";

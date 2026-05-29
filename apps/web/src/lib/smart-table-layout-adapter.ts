@@ -2,7 +2,7 @@ import {
   getDefaultVerticalScrollContainer,
   type SmartTableBleed,
   type SmartTableLayoutAdapter,
-} from "@diana-tnbc/smart-table/layout-adapter";
+} from "@oncobase/smart-table/layout-adapter";
 
 const COMMENTS_PANE_EVENT = "comments-pane-state-change";
 
@@ -112,7 +112,7 @@ function getRightRailElement() {
   return rightRail instanceof HTMLElement ? rightRail : null;
 }
 
-export const dianaSmartTableLayoutAdapter: SmartTableLayoutAdapter = {
+export const webSmartTableLayoutAdapter: SmartTableLayoutAdapter = {
   shouldUseOverlay() {
     return window.matchMedia("(min-width: 1024px)").matches;
   },

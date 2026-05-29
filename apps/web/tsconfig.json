@@ -23,23 +23,23 @@
     "paths": {
       "@/*": ["./src/*"],
       "@convex/*": ["./convex/*"],
-      "@diana-tnbc/chat": ["../../packages/chat/src/index.ts"],
-      "@diana-tnbc/chat/*": ["../../packages/chat/src/*"],
-      "@diana-tnbc/smart-table": ["../../packages/smart-table/src/index.ts"],
-      "@diana-tnbc/smart-table/examples": [
+      "@oncobase/chat": ["../../packages/chat/src/index.ts"],
+      "@oncobase/chat/*": ["../../packages/chat/src/*"],
+      "@oncobase/smart-table": ["../../packages/smart-table/src/index.ts"],
+      "@oncobase/smart-table/examples": [
         "../../packages/smart-table/src/example-tables.ts"
       ],
-      "@diana-tnbc/smart-table/layout-adapter": [
+      "@oncobase/smart-table/layout-adapter": [
         "../../packages/smart-table/src/layout-adapter.ts"
       ],
       "@oncobase/oncobase": ["../../packages/oncobase/src/index.ts"],
-      "@diana-tnbc/wiki-content": [
+      "@oncobase/wiki-content": [
         "../../packages/wiki-content/src/index.ts"
       ],
-      "@diana-tnbc/wiki-comments": [
+      "@oncobase/wiki-comments": [
         "../../packages/wiki-comments/src/index.tsx"
       ],
-      "@diana-tnbc/wiki-comments/*": [
+      "@oncobase/wiki-comments/*": [
         "../../packages/wiki-comments/src/*"
       ]
     }

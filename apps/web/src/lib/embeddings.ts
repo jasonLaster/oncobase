@@ -4,7 +4,7 @@ import {
   embedWithChunking,
   prepareForEmbedding,
   type EmbeddingsCreate,
-} from "@diana-tnbc/wiki-content/embeddings";
+} from "@oncobase/wiki-content/embeddings";
 
 export { countEmbeddingTokens, prepareForEmbedding };
 

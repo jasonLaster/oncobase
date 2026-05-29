@@ -1,1 +1,1 @@
-export { resolveWikilinks, splitWikilinkAlias } from "@diana-tnbc/wiki-markdown/paths";
+export { resolveWikilinks, splitWikilinkAlias } from "@oncobase/wiki-markdown/paths";

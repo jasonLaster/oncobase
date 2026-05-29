@@ -1,1 +1,1 @@
-export { POST } from "@/lib/diana-chat-route";
+export { POST } from "@/lib/wiki-chat-route";

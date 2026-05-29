@@ -1,12 +1,12 @@
-import { ArchivedChatsCore } from "@diana-tnbc/chat/components/archived-chats-core";
-import { ChatInterface } from "@diana-tnbc/chat/components/chat-interface";
-import { useChatRuntime } from "@diana-tnbc/chat/runtime";
+import { ArchivedChatsCore } from "@oncobase/chat/components/archived-chats-core";
+import { ChatInterface } from "@oncobase/chat/components/chat-interface";
+import { useChatRuntime } from "@oncobase/chat/runtime";
 import {
   WikiChatMain,
   WikiChatPage,
   WikiChatSidebar,
   WikiChatState,
-} from "@diana-tnbc/wiki-shell";
+} from "@oncobase/wiki-shell";
 import { useMutation, useQuery } from "convex/react";
 import { Link, useParams } from "react-router";
 import { api } from "../../../../apps/web/convex/_generated/api.js";

@@ -1,4 +1,4 @@
-import type { WikiManifest, WikiPageRecord } from "@diana-tnbc/wiki-content";
+import type { WikiManifest, WikiPageRecord } from "@oncobase/wiki-content";
 import { events } from "./livestore/schema";
 import type { StoragePressure } from "./types";
 

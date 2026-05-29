@@ -1,1 +1,1 @@
-export { ResizableLayout as ResizableAppShell } from "@diana-tnbc/wiki-shell";
+export { ResizableLayout as ResizableAppShell } from "@oncobase/wiki-shell";

@@ -1,9 +1,9 @@
 {
-  "name": "@diana-tnbc/wiki-markdown",
+  "name": "@oncobase/wiki-markdown",
   "version": "0.1.0",
   "private": false,
   "license": "MIT",
-  "description": "Client-safe React markdown renderer for Diana wiki pages.",
+  "description": "Client-safe React markdown renderer for Oncobase wiki pages.",
   "type": "module",
   "exports": {
     ".": {
@@ -50,7 +50,7 @@
     "test:unit": "bun test src/*.test.ts"
   },
   "dependencies": {
-    "@diana-tnbc/smart-table": "workspace:*",
+    "@oncobase/smart-table": "workspace:*",
     "beautiful-mermaid": "^1.1.3",
     "katex": "^0.16.45",
     "mermaid": "^11.14.0",

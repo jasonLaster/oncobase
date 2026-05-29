@@ -1,4 +1,4 @@
-# `@diana-tnbc/smart-table`
+# `@oncobase/smart-table`
 
 Adaptive React tables for dense content.
 
@@ -13,30 +13,30 @@ The package focuses on the awkward cases that basic table wrappers tend to miss:
 ## Installation
 
 ```bash
-bun add @diana-tnbc/smart-table
+bun add @oncobase/smart-table
 ```
 
 or
 
 ```bash
-npm install @diana-tnbc/smart-table
+npm install @oncobase/smart-table
 ```
 
 Import the stylesheet once near your app root:
 
 ```ts
-import "@diana-tnbc/smart-table/styles.css";
+import "@oncobase/smart-table/styles.css";
 ```
 
 ## Entry Points
 
 The package exposes two usage layers:
 
-- `@diana-tnbc/smart-table`
+- `@oncobase/smart-table`
   Client-facing React components such as `SmartTable` and `SmartTableEnhancer`
-- `@diana-tnbc/smart-table/layout-adapter`
+- `@oncobase/smart-table/layout-adapter`
   Generic layout adapter types and helpers for overlay geometry
-- `@diana-tnbc/smart-table/examples`
+- `@oncobase/smart-table/examples`
   Reusable example fixtures for QA, visual checks, and tests
 
 If you need layout helpers in a server-safe module, import them from the
@@ -54,7 +54,7 @@ import {
   SmartTableHead,
   SmartTableHeader,
   SmartTableRow,
-} from "@diana-tnbc/smart-table";
+} from "@oncobase/smart-table";
 
 export function Example() {
   return (
@@ -86,7 +86,7 @@ Markdown, CMS content, or sanitized rich text.
 ```tsx
 "use client";
 
-import { SmartTableEnhancer } from "@diana-tnbc/smart-table";
+import { SmartTableEnhancer } from "@oncobase/smart-table";
 
 export function RenderedMarkdown({ html }: { html: string }) {
   return (
@@ -105,7 +105,7 @@ sticky rails, split panes, or custom resize events, provide a
 `SmartTableLayoutAdapter`.
 
 ```tsx
-import type { SmartTableLayoutAdapter } from "@diana-tnbc/smart-table/layout-adapter";
+import type { SmartTableLayoutAdapter } from "@oncobase/smart-table/layout-adapter";
 
 const adapter: SmartTableLayoutAdapter = {
   shouldUseOverlay() {
@@ -187,7 +187,7 @@ Fixture subpath:
 
 ## Testing Fixtures
 
-The `@diana-tnbc/smart-table/examples` export provides a shared corpus of table
+The `@oncobase/smart-table/examples` export provides a shared corpus of table
 fixtures so package-level tests and host-app browser tests can validate the same
 inputs.
 

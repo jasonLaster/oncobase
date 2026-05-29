@@ -1,1 +1,1 @@
-export * from "@diana-tnbc/wiki-content/pii";
+export * from "@oncobase/wiki-content/pii";

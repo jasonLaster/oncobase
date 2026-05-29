@@ -25,7 +25,7 @@ All three are scoped by `siteId` via the `siteSlug` resolved in [proxy.ts](../..
 
 ## Chat: streaming with retrieval
 
-[`/api/chat`](../../src/app/api/chat/route.ts) is a thin re-export of [`diana-chat-route.ts`](../../src/lib/diana-chat-route.ts), which builds on the shared `@diana-tnbc/chat` package.
+[`/api/chat`](../../src/app/api/chat/route.ts) is a thin re-export of [`wiki-chat-route.ts`](../../src/lib/wiki-chat-route.ts), which builds on the shared `@oncobase/chat` package.
 
 ```mermaid
 sequenceDiagram
