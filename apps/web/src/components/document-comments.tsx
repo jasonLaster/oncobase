@@ -1701,6 +1701,7 @@ function CommentsShell({
           "hidden md:flex fixed right-0 top-0 bottom-0 z-30 bg-[var(--background)]",
           commentsOpen ? "flex-col shadow-[-4px_0_12px_rgba(0,0,0,0.12)]" : "w-16 flex-col items-center py-3"
         )}
+        data-wiki-shell-right-rail
         style={commentsOpen ? { width: commentsWidth } : undefined}
       >
         {commentsOpen ? (
@@ -1872,6 +1873,7 @@ export function OutlineShell({
           "hidden md:flex fixed right-0 top-0 bottom-0 z-30 bg-[var(--background)]",
           sidebarOpen ? "flex-col shadow-[-4px_0_12px_rgba(0,0,0,0.12)]" : "w-16 flex-col items-center py-3"
         )}
+        data-wiki-shell-right-rail
         style={sidebarOpen ? { width: sidebarWidth } : undefined}
       >
         {sidebarOpen ? (

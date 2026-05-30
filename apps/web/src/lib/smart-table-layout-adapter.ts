@@ -108,7 +108,10 @@ function getLeftRailElement() {
 }
 
 function getRightRailElement() {
-  const rightRail = document.querySelector("aside.hidden.lg\\:flex.fixed.right-0");
+  const rightRail =
+    document.querySelector("[data-wiki-shell-right-rail]") ??
+    document.querySelector("aside.hidden.md\\:flex.fixed.right-0") ??
+    document.querySelector("aside.hidden.lg\\:flex.fixed.right-0");
   return rightRail instanceof HTMLElement ? rightRail : null;
 }
 
