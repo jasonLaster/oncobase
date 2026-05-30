@@ -156,6 +156,25 @@ WIKI_VITE_TEST_COMMENTS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:61055 \
   bunx playwright test comments.spec                     # another shell
 ```
 
+## Reader parity suite (one suite, both readers, real backend)
+
+`e2e-shared/reader-parity.ts` is a single Playwright suite run against BOTH this
+Vite reader AND the legacy Next.js reader, talking to the SAME real Convex
+backend (no mocks). Each app supplies a thin adapter (`apps/wiki-vite/e2e/parity.spec.ts`,
+`apps/web/e2e/parity.spec.ts`) for auth + selectors; the assertions (page title,
+markdown body, sidebar sections, heading-anchor slugs) are identical, so a green
+run in both is direct evidence the readers behave the same on real content.
+
+```sh
+# Vite reader against real Convex
+bun --cwd apps/wiki-vite test:e2e --grep "reader parity"
+# legacy reader against real Convex (runs auth.setup first)
+bun --cwd apps/web test parity.spec
+```
+
+Unlike the mocked suite, these hit Convex over the network, so they need the
+backend env (`.env.local`) and are slower/network-dependent (like `live-data.spec`).
+
 ## Scope
 
 The default store is public-only, even if the browser also has a signed-in wiki session. Open `/?scope=session` to use authenticated content. Session mode first fetches `/api/wiki/session` and only opens LiveStore with a server-issued cache key for the current wiki session.
