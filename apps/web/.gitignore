@@ -42,3 +42,6 @@ next-env.d.ts
 test-results/
 public/wiki-vault-starter.zip
 .env*.local
+
+# Playwright auth state (logged-in session) — never commit
+/e2e/.auth/
