@@ -68,5 +68,37 @@ export function registerReaderParity(adapter: ReaderAdapter) {
       const article = page.getByTestId("document-article").first();
       await expect(article.locator("h2[id], h3[id]").first()).toBeVisible({ timeout: LONG });
     });
+
+    test("renders markdown block structure, not just text (shared renderer)", async ({
+      page,
+    }) => {
+      test.setTimeout(120_000);
+      await adapter.open(page, "/wiki/logistics/insurance");
+
+      // Both render paths emit real block elements; a prose page always has
+      // paragraphs. A length-only check can't tell rendered HTML from raw text,
+      // so assert the shared pipeline actually produced <p> blocks.
+      const article = page.getByTestId("document-article").first();
+      await expect(article.locator("p").first()).toBeVisible({ timeout: LONG });
+    });
+
+    test("applies the dark theme from the shared `theme` key", async ({ page }) => {
+      test.setTimeout(120_000);
+
+      // Both readers resolve the same `theme` localStorage key to a `dark` class
+      // on <html> (shared applyWikiTheme / legacy themeEffect, byte-identical
+      // behavior). Seeding it before any page script runs is deterministic — no
+      // toggle-click, so no animation/timing flake.
+      await page.addInitScript(() => {
+        try {
+          window.localStorage.setItem("theme", "dark");
+        } catch {
+          /* storage may be unavailable; the assertion below will surface it */
+        }
+      });
+      await adapter.open(page, "/about/Terminology");
+
+      await expect(page.locator("html")).toHaveClass(/\bdark\b/, { timeout: LONG });
+    });
   });
 }
