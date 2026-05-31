@@ -4,7 +4,7 @@ import { type ReactElement, useCallback, useEffect, useState, useSyncExternalSto
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Command, Download, EllipsisVertical, FileText, LogIn, LogOut, Moon, ShieldCheck, Sparkles, Sun } from "lucide-react";
-import { themeEffect } from "@/lib/theme-effect";
+import { applyWikiTheme } from "@oncobase/wiki-shell/theme";
 import { openActionPalette } from "@/components/command-palette";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -344,7 +344,7 @@ export function ActionsMenu({ trigger }: { trigger?: ReactElement } = {}) {
       mq.addEventListener("change", cb);
       return () => mq.removeEventListener("change", cb);
     }, []),
-    () => themeEffect(),
+    () => applyWikiTheme(),
     () => "light",
   );
 
@@ -367,7 +367,7 @@ export function ActionsMenu({ trigger }: { trigger?: ReactElement } = {}) {
     } else {
       localStorage.setItem("theme", newPref);
     }
-    themeEffect();
+    applyWikiTheme();
     notify();
   }
 
