@@ -1,7 +1,7 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "tw-animate-css";
-@import "@diana-tnbc/wiki-shell/styles.css";
+@import "@oncobase/wiki-shell/styles.css";
 @source "../../../packages/chat/src";
 @source "../../../packages/wiki-markdown/src";
 @source "../../../packages/wiki-shell/src";

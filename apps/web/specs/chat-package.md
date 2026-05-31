@@ -19,9 +19,9 @@ portable to another Next.js app without carrying Diana-specific knowledge.
 - `/api/chat` prompt construction, model choice, tool definitions, embeddings,
   search/read behavior, and PII redaction.
 - Product copy, suggested prompts, route metadata, and chat enablement flags.
-- Diana-specific markdown transforms, including wikilinks, citations, math, and
+- Wiki-specific markdown transforms, including wikilinks, citations, math, and
   smart-table rendering.
-- Diana-specific tool UI and source extraction for `read_page` and
+- Wiki-specific tool UI and source extraction for `read_page` and
   `search_wiki`.
 
 ## Portability checks

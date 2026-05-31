@@ -1,1 +1,1 @@
-export { preprocessCitationMarkdown } from "@diana-tnbc/wiki-markdown/citations";
+export { preprocessCitationMarkdown } from "@oncobase/wiki-markdown/citations";

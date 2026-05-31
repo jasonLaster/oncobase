@@ -35,11 +35,11 @@ import {
   WikiCommandList,
   WikiCommandPanel,
   WikiCommandSearch,
-} from "@diana-tnbc/wiki-shell";
+} from "@oncobase/wiki-shell";
 import {
   WikiFilePalette,
   type WikiFilePalettePage,
-} from "@diana-tnbc/wiki-shell/file-palette";
+} from "@oncobase/wiki-shell/file-palette";
 import { readLiveStoreDevtoolsEnabled, reloadWithLiveStoreDevtools } from "../livestore/devtools";
 import { assets$, pageIndex$ } from "../livestore/queries";
 import { events } from "../livestore/schema";

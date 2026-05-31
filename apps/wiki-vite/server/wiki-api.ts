@@ -10,9 +10,9 @@ import {
   createWikiSessionResponse,
   type PageWithContent,
   type WikiApiDocumentsGateway,
-} from "@diana-tnbc/wiki-content/server";
-import { readChatPageFromDocuments } from "@diana-tnbc/wiki-content/chat-tools";
-import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@diana-tnbc/wiki-content/pii";
+} from "@oncobase/wiki-content/server";
+import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
+import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
 import { api } from "../../../apps/web/convex/_generated/api.js";
 import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
 import { handleAiSearchRequest } from "./ai-search.js";
@@ -22,16 +22,16 @@ import {
   liveblocksDisabledResponse,
   resolveLiveblocksConfig,
   type CommentsSite,
-} from "@diana-tnbc/wiki-comments/site";
+} from "@oncobase/wiki-comments/site";
 import {
   persistLiveblocksGuestName,
   resolveLiveblocksUsers,
   type CommentsSiteData,
-} from "@diana-tnbc/wiki-comments/user-resolution";
+} from "@oncobase/wiki-comments/user-resolution";
 import {
   LIVEBLOCKS_GUEST_COOKIE,
   parseGuestUser,
-} from "@diana-tnbc/wiki-comments/guest-user";
+} from "@oncobase/wiki-comments/guest-user";
 
 const DEFAULT_SITE_SLUG = "diana";
 const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
@@ -525,7 +525,7 @@ async function handleAuthSessionRequest(
 
 // --- Liveblocks comments -------------------------------------------------
 // The Vite reader reuses the shared Convex deployment + the decoupled
-// @diana-tnbc/wiki-comments helpers, so comment threads are shared with the
+// @oncobase/wiki-comments helpers, so comment threads are shared with the
 // Next.js reader (same per-site Liveblocks workspace + room ids).
 
 function commentsSiteData(client: ConvexHttpClient, siteSlug: string): CommentsSiteData {

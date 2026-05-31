@@ -14,7 +14,7 @@ import {
 import type { ThreadData } from "@liveblocks/client";
 import { useThreads } from "@liveblocks/react";
 import { Comment, Composer, Thread } from "@liveblocks/react-ui";
-import { cn } from "@diana-tnbc/wiki-shell";
+import { cn } from "@oncobase/wiki-shell";
 import "@liveblocks/react-ui/styles.css";
 import "./styles.css";
 import { LiveblocksRoom } from "./room";

@@ -1,6 +1,6 @@
-import { ConversationActionsMenu } from "@diana-tnbc/chat/components/conversation-actions-core";
-import { ConversationListCore } from "@diana-tnbc/chat/components/conversation-list-core";
-import { useChatRuntime } from "@diana-tnbc/chat/runtime";
+import { ConversationActionsMenu } from "@oncobase/chat/components/conversation-actions-core";
+import { ConversationListCore } from "@oncobase/chat/components/conversation-list-core";
+import { useChatRuntime } from "@oncobase/chat/runtime";
 import { useMutation, useQuery } from "convex/react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { api } from "../../../../apps/web/convex/_generated/api.js";

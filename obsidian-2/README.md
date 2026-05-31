@@ -17,7 +17,7 @@ token:
 
 ```sh
 bun install
-bun run wiki:init --site <slug> --publish-url https://<slug>.diana-tnbc.com/api/publish
+bun run wiki:init --site <slug> --publish-url https://<slug>.example.com/api/publish
 
 mkdir -p ~/.config/wiki
 printf '%s\n' '<wpt_ token>' > ~/.config/wiki/<slug>.token

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import ConversationPage from "@diana-tnbc/chat/pages/conversation-page";
+import ConversationPage from "@oncobase/chat/pages/conversation-page";
 import { chatConfigured } from "@/lib/chat-config";
 import Loading from "./loading";
 

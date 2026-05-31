@@ -1,5 +1,5 @@
-import { WikiMarkdown, type WikiMarkdownLinkProps } from "@diana-tnbc/wiki-markdown";
-import { buildExampleTablesDocument } from "@diana-tnbc/smart-table/examples";
+import { WikiMarkdown, type WikiMarkdownLinkProps } from "@oncobase/wiki-markdown";
+import { buildExampleTablesDocument } from "@oncobase/smart-table/examples";
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";

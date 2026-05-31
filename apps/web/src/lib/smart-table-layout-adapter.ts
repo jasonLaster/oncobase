@@ -2,7 +2,7 @@ import {
   getDefaultVerticalScrollContainer,
   type SmartTableBleed,
   type SmartTableLayoutAdapter,
-} from "@diana-tnbc/smart-table/layout-adapter";
+} from "@oncobase/smart-table/layout-adapter";
 
 const COMMENTS_PANE_EVENT = "comments-pane-state-change";
 
@@ -108,11 +108,14 @@ function getLeftRailElement() {
 }
 
 function getRightRailElement() {
-  const rightRail = document.querySelector("aside.hidden.lg\\:flex.fixed.right-0");
+  const rightRail =
+    document.querySelector("[data-wiki-shell-right-rail]") ??
+    document.querySelector("aside.hidden.md\\:flex.fixed.right-0") ??
+    document.querySelector("aside.hidden.lg\\:flex.fixed.right-0");
   return rightRail instanceof HTMLElement ? rightRail : null;
 }
 
-export const dianaSmartTableLayoutAdapter: SmartTableLayoutAdapter = {
+export const webSmartTableLayoutAdapter: SmartTableLayoutAdapter = {
   shouldUseOverlay() {
     return window.matchMedia("(min-width: 1024px)").matches;
   },

@@ -1,8 +1,8 @@
 import {
   getDefaultVerticalScrollContainer,
   type SmartTableLayoutAdapter,
-} from "@diana-tnbc/smart-table";
-import { COMMENTS_PANE_EVENT } from "@diana-tnbc/wiki-shell";
+} from "@oncobase/smart-table";
+import { COMMENTS_PANE_EVENT } from "@oncobase/wiki-shell";
 
 const OUTLINE_STATE_EVENT = "wiki-vite:outline-state-change";
 const GUTTER = 20;

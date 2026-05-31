@@ -4,7 +4,7 @@ import path from "path";
 import {
   renderWikiMarkdownHtml,
   renderWikiMarkdownHtmlAsync,
-} from "@diana-tnbc/wiki-markdown/server";
+} from "@oncobase/wiki-markdown/server";
 import { applyPiiRedactions } from "@/lib/pii-redaction";
 import { MARKDOWN_RENDER_CACHE_VERSION } from "@/lib/wiki-cache-tags";
 

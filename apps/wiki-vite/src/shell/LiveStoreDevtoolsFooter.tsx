@@ -7,7 +7,7 @@ import {
   ZapIcon,
 } from "lucide-react";
 import { useStore } from "@livestore/react";
-import type { WikiScope } from "@diana-tnbc/wiki-content";
+import type { WikiScope } from "@oncobase/wiki-content";
 import { reloadWithLiveStoreDevtools } from "../livestore/devtools";
 import { events } from "../livestore/schema";
 import { WARM_CACHE_EVENT } from "../sync/WikiSync";

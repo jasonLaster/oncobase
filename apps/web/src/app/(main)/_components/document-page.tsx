@@ -18,7 +18,7 @@ import {
   WikiCopyPageButton,
   WikiPageHeader,
   WikiTagList,
-} from "@diana-tnbc/wiki-shell";
+} from "@oncobase/wiki-shell";
 import { PageLoadingSkeleton } from "@/components/page-loading";
 import { DocumentComments } from "@/components/document-comments-wrapper";
 import { SHOW_PII_QUERY_PARAM } from "@/lib/pii-redaction";
@@ -105,7 +105,7 @@ async function canViewSensitivePages(): Promise<boolean> {
 }
 
 // -- Page header (static in PPR cache) ---------------------------------------
-// Rendered from the shared @diana-tnbc/wiki-shell chrome so the Next.js reader
+// Rendered from the shared @oncobase/wiki-shell chrome so the Next.js reader
 // and the Vite reader render an identical header.
 function DocHeader({
   file,

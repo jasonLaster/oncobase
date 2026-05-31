@@ -26,6 +26,34 @@ function cleanTags(values: string[] | undefined) {
   return cleanList(values).map((tag) => tag.toLowerCase());
 }
 
+const LEGACY_SENSITIVE_INCLUDE_TAGS = new Map([
+  ["echo-sensitive", "echo"],
+  ["serova-sensitive", "serova"],
+]);
+
+function documentTagMatchesRuleTag(
+  ruleTag: string,
+  documentTags: Set<string>,
+  sensitiveInclude: Set<string>,
+) {
+  const legacyAlias = LEGACY_SENSITIVE_INCLUDE_TAGS.get(ruleTag);
+  if (legacyAlias) {
+    return documentTags.has(ruleTag) || sensitiveInclude.has(legacyAlias);
+  }
+
+  if (documentTags.has(ruleTag) || sensitiveInclude.has(ruleTag)) {
+    return true;
+  }
+
+  for (const [legacyTag, canonicalTag] of LEGACY_SENSITIVE_INCLUDE_TAGS) {
+    if (canonicalTag === ruleTag && documentTags.has(legacyTag)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function cleanEmailPatterns(values: string[] | undefined) {
   return cleanList(values).map((pattern) => pattern.toLowerCase());
 }
@@ -71,6 +99,7 @@ function ruleMatchesSlug(
   rule: PermissionRule,
   slug: string,
   documentTags: string[],
+  documentSensitiveInclude: string[] = [],
 ) {
   const includePathPatterns = cleanList([
     ...(rule.pathPattern ? [rule.pathPattern] : []),
@@ -79,14 +108,24 @@ function ruleMatchesSlug(
   const excludePathPatterns = cleanList(rule.excludePathPatterns);
   const includeTags = cleanTags(rule.includeTags);
   const excludeTags = cleanTags(rule.excludeTags);
-  const tagSet = new Set(documentTags.map((tag) => tag.trim().toLowerCase()));
+  const tagSet = new Set(
+    documentTags.map((tag) => tag.trim().toLowerCase()),
+  );
+  const sensitiveIncludeSet = new Set(
+    documentSensitiveInclude.map((tag) => tag.trim().toLowerCase()),
+  );
   const pathMatches =
     includePathPatterns.length === 0 || pathAllowed(slug, includePathPatterns);
   const pathExcluded =
     excludePathPatterns.length > 0 && pathAllowed(slug, excludePathPatterns);
   const includeMatches =
-    includeTags.length === 0 || includeTags.some((tag) => tagSet.has(tag));
-  const excludeMatches = excludeTags.some((tag) => tagSet.has(tag));
+    includeTags.length === 0 ||
+    includeTags.some((tag) =>
+      documentTagMatchesRuleTag(tag, tagSet, sensitiveIncludeSet),
+    );
+  const excludeMatches = excludeTags.some((tag) =>
+    documentTagMatchesRuleTag(tag, tagSet, sensitiveIncludeSet),
+  );
 
   return pathMatches && includeMatches && !pathExcluded && !excludeMatches;
 }
@@ -588,11 +627,16 @@ export const canUserAccessSlug = query({
     }
     const doc = await findDocumentBySlug(ctx, site, slug);
     const documentTags = doc?.tags ?? [];
+    const documentSensitiveInclude = doc?.sensitiveInclude ?? [];
     const protectedRules = (await ctx.db.query("rolePermissions").collect()).filter(
       (permission) =>
         rowBelongsToSite(permission, site) && rolesById.has(permission.roleId),
     );
-    if (!protectedRules.some((rule) => ruleMatchesSlug(rule, slug, documentTags))) {
+    if (
+      !protectedRules.some((rule) =>
+        ruleMatchesSlug(rule, slug, documentTags, documentSensitiveInclude),
+      )
+    ) {
       return true;
     }
 
@@ -640,6 +684,8 @@ export const canUserAccessSlug = query({
             .collect();
       for (const p of perms) if (rowBelongsToSite(p, site)) rules.push(p);
     }
-    return rules.some((rule) => ruleMatchesSlug(rule, slug, documentTags));
+    return rules.some((rule) =>
+      ruleMatchesSlug(rule, slug, documentTags, documentSensitiveInclude),
+    );
   },
 });

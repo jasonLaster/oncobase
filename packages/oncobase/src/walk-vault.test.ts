@@ -64,6 +64,17 @@ describe("readVaultDocuments", () => {
     expect(sensitiveDoc.hash).not.toBe(publicDoc.hash);
   });
 
+  test("reads sensitive-include frontmatter and migrates legacy sensitive tags", () => {
+    const vault = makeVault();
+    const doc = writeDoc(
+      vault,
+      "---\ntitle: Alpha\ntags: [serova-sensitive, echo-sensitive, trial]\nsensitive-include: [sponsor]\n---\n# Home\nSame body\n",
+    );
+
+    expect(doc.tags).toEqual(["trial"]);
+    expect(doc.sensitiveInclude).toEqual(["sponsor", "serova", "echo"]);
+  });
+
   test("reads mdx documents with the same slug rules as markdown", () => {
     const vault = makeVault();
     const mdxDoc = writeDoc(

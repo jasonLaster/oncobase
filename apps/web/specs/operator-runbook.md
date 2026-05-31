@@ -5,8 +5,8 @@ deliberately covers the common operations; everything else is a
 short numbered procedure operators run by hand. Promote a procedure
 to a CLI command after the third manual run.
 
-The plan and tripwires for each deferred operation live in
-[plans/multi-tenant-wiki/06-admin-onboarding.md](../../plans/multi-tenant-wiki/06-admin-onboarding.md).
+Deferred operation tripwires should be promoted into this runbook or
+tracked in a public issue when they become active work.
 
 ## Quick reference — `wiki:` scripts
 

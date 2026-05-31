@@ -4,7 +4,7 @@ import Link from "next/link";
 import { lazy, Suspense, type AnchorHTMLAttributes } from "react";
 import { Streamdown, type Components as StreamdownComponents } from "streamdown";
 import rehypeKatex from "rehype-katex";
-import type { ChatMarkdownRendererProps } from "@diana-tnbc/chat";
+import type { ChatMarkdownRendererProps } from "@oncobase/chat";
 import {
   MarkdownPre,
   MdTable,
@@ -16,8 +16,8 @@ import {
   markdownRemarkPlugins,
   preprocessCitationMarkdown,
   resolveWikilinks,
-} from "@diana-tnbc/wiki-markdown";
-import type { WikiMermaidGanttMarker } from "@diana-tnbc/wiki-markdown/mermaid";
+} from "@oncobase/wiki-markdown";
+import type { WikiMermaidGanttMarker } from "@oncobase/wiki-markdown/mermaid";
 import { MarkdownRendererClient } from "@/components/markdown-renderer-client";
 import { RoutedAnchorLinks } from "@/components/markdown-heading-anchors";
 import {
@@ -29,14 +29,14 @@ const STREAMDOWN_DISABLED = process.env.NEXT_PUBLIC_CHAT_STREAMDOWN === "0";
 const chatRehypePlugins = [rehypeKatex];
 
 const MERMAID_FENCE_PATTERN = /(^|\n)\s*```mermaid\s*(\n|$)/;
-const DIANA_GANTT_MARKERS: WikiMermaidGanttMarker[] = [
+const CHAT_GANTT_MARKERS: WikiMermaidGanttMarker[] = [
   { date: "2026-07-14", label: "Phase 2 (12 weeks)" },
   { date: "2026-09-10", label: "Surgery" },
 ];
-const DIANA_GANTT_REFERENCE_YEAR = 2026;
+const CHAT_GANTT_REFERENCE_YEAR = 2026;
 
 const LazyMermaidRenderer = lazy(() =>
-  import("@diana-tnbc/wiki-markdown/mermaid").then((module) => ({
+  import("@oncobase/wiki-markdown/mermaid").then((module) => ({
     default: module.WikiMermaidRenderer,
   })),
 );
@@ -58,14 +58,14 @@ function ChatMermaidRendererSlot({
   return (
     <Suspense fallback={null}>
       <LazyMermaidRenderer
-        ganttAxisReferenceYear={DIANA_GANTT_REFERENCE_YEAR}
-        ganttMarkers={DIANA_GANTT_MARKERS}
+        ganttAxisReferenceYear={CHAT_GANTT_REFERENCE_YEAR}
+        ganttMarkers={CHAT_GANTT_MARKERS}
       />
     </Suspense>
   );
 }
 
-export function DianaChatMarkdownRenderer({
+export function WikiChatMarkdownRenderer({
   content,
   disableAnchors,
   isStreaming = false,

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { resizeAuditExampleTables } from "@diana-tnbc/smart-table/examples";
+import { resizeAuditExampleTables } from "@oncobase/smart-table/examples";
 
 const TABLE_PAGE = "/table-examples";
 const isProdRun = process.env.TEST_ENV === "prod";

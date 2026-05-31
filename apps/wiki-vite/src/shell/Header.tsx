@@ -1,4 +1,4 @@
-import type { WikiScope } from "@diana-tnbc/wiki-content";
+import type { WikiScope } from "@oncobase/wiki-content";
 import {
   WikiActionsMenu,
   WikiHeader,
@@ -14,7 +14,7 @@ import {
   wikiThemeLabel,
   type WikiActionsMenuAuthInput,
   type WikiActionsMenuUser,
-} from "@diana-tnbc/wiki-shell";
+} from "@oncobase/wiki-shell";
 import { CommandIcon, MessageCircleIcon } from "lucide-react";
 import {
   Suspense,

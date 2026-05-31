@@ -30,8 +30,8 @@ Phased plan for the work described in [chat-performance.md](./chat-performance.m
 Goal: capture the metrics that govern the budget table in [chat-performance.md](./chat-performance.md).
 
 Work:
-- Add a `useChatPerf()` hook in [chat-interface.tsx](src/app/(main)/chat/_components/chat-interface.tsx) that tracks first-token latency, tokens/sec, commits/sec (via a render counter), and stale-stream events. Emit a `chat.perf` event to the existing telemetry sink. Dev mode logs to console only.
-- Add a `chat-perf` Playwright project under [e2e/](e2e/) that runs the canonical scenarios from [chat-performance-testing.md](./chat-performance-testing.md) with CDP performance traces enabled.
+- Add a `useChatPerf()` hook in `src/app/(main)/chat/_components/chat-interface.tsx` that tracks first-token latency, tokens/sec, commits/sec (via a render counter), and stale-stream events. Emit a `chat.perf` event to the existing telemetry sink. Dev mode logs to console only.
+- Add a `chat-perf` Playwright project under [`../e2e`](../e2e/) that runs the canonical scenarios from [chat-performance-testing.md](./chat-performance-testing.md) with CDP performance traces enabled.
 - Add a tiny `bun scripts/chat-bench.ts` that hits `/api/chat` directly with a fixed prompt and records the time-to-first-byte and tokens/sec for the route alone.
 - Capture a baseline run for each metric in [chat-performance-testing.md](./chat-performance-testing.md) → "Baseline" column. Commit the JSON.
 
@@ -51,7 +51,7 @@ Exit gate:
 Goal: smooth the token cadence the client receives, and centralize Convex writes.
 
 Work:
-- Add `experimental_transform: smoothStream({ delayInMs: 25, chunking: 'word' })` to the `streamText` call in [route.ts](src/app/api/chat/route.ts).
+- Add `experimental_transform: smoothStream({ delayInMs: 25, chunking: 'word' })` to the `streamText` call in `src/app/api/chat/route.ts`.
 - Extract `createConvexFlusher(conversationId, { intervalMs: 250 })` to `apps/web/src/app/api/chat/_flusher.ts`. It owns:
   - one `setInterval` at 250ms (down from 500ms),
   - a coalesced text buffer,
@@ -76,7 +76,7 @@ Goal: stop JSON-encoding the streaming parts.
 
 Work:
 - Add a typed `convex/chat/types.ts` mirroring the `ChatUIMessage` parts described in [chat-performance.md](./chat-performance.md#message--parts-model).
-- Migrate `conversations.streamingParts` from `string` (JSON-encoded) to `array(Part)` in [convex/schema.ts](convex/schema.ts).
+- Migrate `conversations.streamingParts` from `string` (JSON-encoded) to `array(Part)` in [`../convex/schema.ts`](../convex/schema.ts).
 - Migrate `messages.parts` from a JSON string to a typed array in the same schema change.
 - Add a one-shot Convex migration (`convex/migrations/0007_native_parts.ts`) that reads existing rows, parses their JSON strings, writes them back as arrays, and deletes any malformed rows safely (logging counts).
 - Update the flusher and `saveMessages` to write the typed shape directly. Drop `JSON.stringify` and the client-side `JSON.parse`.
@@ -99,7 +99,7 @@ Goal: stream tokens to the active tab over SSE, not via Convex round-trip.
 
 Work:
 - Update `apps/web/src/app/api/chat/route.ts` to return `result.toUIMessageStreamResponse({ generateId })`. The existing Convex flusher still runs as a side effect.
-- Replace the manual `fetch("/api/chat")` + Convex subscription block in [chat-interface.tsx](src/app/(main)/chat/_components/chat-interface.tsx) with `useChat({ api: '/api/chat', id: conversationId, experimental_throttle: 50, initialMessages, transport: new DefaultChatTransport({ ... }) })`.
+- Replace the manual `fetch("/api/chat")` + Convex subscription block in `src/app/(main)/chat/_components/chat-interface.tsx` with `useChat({ api: '/api/chat', id: conversationId, experimental_throttle: 50, initialMessages, transport: new DefaultChatTransport({ ... }) })`.
 - Keep the Convex `useQuery` subscription, but only consume it when `useChat`'s `status === 'ready'` and the local message list is behind. This is the cross-tab catch-up surface, not the live stream.
 - Wire abort: `useChat({ ... }).stop()` for the local stream; the route's existing `req.signal` already stops the model on disconnect.
 - Generate ids with `createIdGenerator({ prefix: 'msg' })` on both the client (for optimistic user messages) and the server (for assistant messages).

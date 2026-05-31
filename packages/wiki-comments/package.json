@@ -1,9 +1,9 @@
 {
-  "name": "@diana-tnbc/wiki-comments",
+  "name": "@oncobase/wiki-comments",
   "version": "0.1.0",
   "private": false,
   "license": "MIT",
-  "description": "Liveblocks-backed document comments rail and supporting helpers extracted from the Diana wiki Next app. Currently consumed only by web — the Vite reader ships without comments by design.",
+  "description": "Liveblocks-backed document comments rail and supporting helpers for Oncobase wiki apps. Currently consumed only by web; the Vite reader ships without comments by design.",
   "type": "module",
   "exports": {
     ".": {
@@ -59,7 +59,7 @@
     "test:unit": "bun test src/*.test.ts"
   },
   "dependencies": {
-    "@diana-tnbc/wiki-shell": "workspace:*"
+    "@oncobase/wiki-shell": "workspace:*"
   },
   "peerDependencies": {
     "@liveblocks/client": "^3.18.1",

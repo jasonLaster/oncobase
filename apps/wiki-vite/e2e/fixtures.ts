@@ -7,12 +7,12 @@ import {
   type WikiManifestPage,
   type WikiPageRecord,
   type WikiScope,
-} from "@diana-tnbc/wiki-content";
+} from "@oncobase/wiki-content";
 import {
   applyPiiRedactions,
   parseSitePiiPatterns,
   type PiiPattern,
-} from "@diana-tnbc/wiki-content/pii";
+} from "@oncobase/wiki-content/pii";
 
 type FixturePage = {
   title: string;

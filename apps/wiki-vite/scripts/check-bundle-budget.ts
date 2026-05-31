@@ -39,7 +39,7 @@ const totalGzipBudget = 1_300_000;
  * Lazy on-demand chunks that should not count against the initial-load budget.
  *
  * The reader entry never references these directly: they are pulled in via
- * `lazy(() => import("@diana-tnbc/wiki-markdown/mermaid"))` (and through
+ * `lazy(() => import("@oncobase/wiki-markdown/mermaid"))` (and through
  * mermaid's own dynamic `import("./diagrams/...")` splits) only when the
  * current markdown contains a mermaid fence. We allowlist the mermaid-related
  * sub-chunk names produced by Vite's bundler so the eager-asset budget tracks

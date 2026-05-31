@@ -1,5 +1,5 @@
 {
-  "name": "@diana-tnbc/wiki-vite",
+  "name": "@oncobase/wiki-vite",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
@@ -17,12 +17,12 @@
     "test:e2e:preview": "playwright test --config playwright.preview.config.ts"
   },
   "dependencies": {
-    "@diana-tnbc/wiki-content": "workspace:*",
-    "@diana-tnbc/wiki-markdown": "workspace:*",
-    "@diana-tnbc/wiki-shell": "workspace:*",
-    "@diana-tnbc/wiki-comments": "workspace:*",
-    "@diana-tnbc/chat": "workspace:*",
-    "@diana-tnbc/smart-table": "workspace:*",
+    "@oncobase/wiki-content": "workspace:*",
+    "@oncobase/wiki-markdown": "workspace:*",
+    "@oncobase/wiki-shell": "workspace:*",
+    "@oncobase/wiki-comments": "workspace:*",
+    "@oncobase/chat": "workspace:*",
+    "@oncobase/smart-table": "workspace:*",
     "@liveblocks/client": "^3.18.1",
     "@liveblocks/node": "^3.18.1",
     "@liveblocks/react": "^3.18.1",

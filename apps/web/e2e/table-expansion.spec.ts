@@ -68,6 +68,14 @@ test.describe("Prose table expansion", () => {
 
     const initial = await getFirstTableMetrics(page);
     expect(initial.expanded).toBe(true);
+    expect(initial.leftRail).not.toBeNull();
+    expect(initial.rightRail).not.toBeNull();
+    expect(
+      Math.abs((initial.layer?.left ?? 0) - (initial.leftRail?.right ?? 0) - 20)
+    ).toBeLessThanOrEqual(4);
+    expect(
+      Math.abs((initial.rightRail?.left ?? 0) - (initial.layer?.right ?? 0) - 20)
+    ).toBeLessThanOrEqual(4);
 
     await page.getByRole("button", { name: "Collapse sidebar" }).click();
 
@@ -561,7 +569,10 @@ async function getFirstTableMetrics(page: Page) {
         : expandedRail instanceof HTMLElement && isMeasurable(expandedRail)
           ? expandedRail
           : null;
-    const rightRail = document.querySelector<HTMLElement>("aside.hidden.lg\\:flex.fixed.right-0");
+    const rightRail =
+      document.querySelector<HTMLElement>("[data-wiki-shell-right-rail]") ??
+      document.querySelector<HTMLElement>("aside.hidden.md\\:flex.fixed.right-0") ??
+      document.querySelector<HTMLElement>("aside.hidden.lg\\:flex.fixed.right-0");
     const scrollOwner = shell ? getVerticalScrollContainer(shell) : null;
     const button =
       layer?.querySelector<HTMLElement>(":scope > button") ??

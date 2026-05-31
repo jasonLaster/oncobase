@@ -2,7 +2,7 @@ import { useStore } from "@livestore/react";
 import {
   expandCompactFileTree,
   type CompactFileNode,
-} from "@diana-tnbc/wiki-content";
+} from "@oncobase/wiki-content";
 import {
   WikiMobileNavigation,
   WikiMobileNavigationSheet,
@@ -11,7 +11,7 @@ import {
   formatTreeNodeName,
   type WikiNavigationNode,
   type WikiTreePageLinkRenderArgs,
-} from "@diana-tnbc/wiki-shell";
+} from "@oncobase/wiki-shell";
 import {
   useCallback,
   useEffect,

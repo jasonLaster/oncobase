@@ -9,8 +9,8 @@ import {
   SmartTableHead,
   SmartTableHeader,
   SmartTableRow,
-} from "@diana-tnbc/smart-table";
-import { dianaSmartTableLayoutAdapter } from "@/lib/smart-table-layout-adapter";
+} from "@oncobase/smart-table";
+import { webSmartTableLayoutAdapter } from "@/lib/smart-table-layout-adapter";
 
 export function MdTable(props: React.ComponentProps<typeof SmartTable>) {
   const id = useId();
@@ -18,7 +18,7 @@ export function MdTable(props: React.ComponentProps<typeof SmartTable>) {
 
   return (
     <SmartTable
-      layoutAdapter={dianaSmartTableLayoutAdapter}
+      layoutAdapter={webSmartTableLayoutAdapter}
       persistenceKey={`${pathname}::md-table-${id}`}
       {...props}
     />

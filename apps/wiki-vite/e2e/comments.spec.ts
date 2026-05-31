@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { gotoWiki, installWikiApiMocks } from "./fixtures";
 
 // Document comments in the Vite reader are powered by the shared
-// @diana-tnbc/wiki-comments package + Liveblocks, reusing the same Convex
+// @oncobase/wiki-comments package + Liveblocks, reusing the same Convex
 // deployment as the Next.js reader. They need a live Liveblocks workspace, so
 // they are NOT part of the default mocked suite (which pins comments off for a
 // deterministic outline rail). Run them against a comments-enabled server:

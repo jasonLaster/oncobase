@@ -1,4 +1,4 @@
-import { buildExampleTablesDocument } from "@diana-tnbc/smart-table/examples";
+import { buildExampleTablesDocument } from "@oncobase/smart-table/examples";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { DeclarativeSmartTableExample } from "@/components/declarative-smart-table-example";
 import { DocumentComments } from "@/components/document-comments-wrapper";

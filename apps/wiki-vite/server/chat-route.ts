@@ -12,14 +12,14 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { createConvexFlusher } from "../../../packages/chat/src/flusher.js";
 import { getCachedSystemPrompt } from "../../../packages/chat/src/system-prompt-cache.js";
-import { readChatPageFromDocuments } from "@diana-tnbc/wiki-content/chat-tools";
+import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
 import {
   ChatRequestSchema,
-  DIANA_CHAT_SYSTEM_PROMPT_BASE,
+  WIKI_CHAT_SYSTEM_PROMPT_BASE,
   compactChatToolResult,
   generateChatSearchPatterns,
-} from "@diana-tnbc/wiki-content/chat-route";
-import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@diana-tnbc/wiki-content/pii";
+} from "@oncobase/wiki-content/chat-route";
+import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
 import { api } from "../../../apps/web/convex/_generated/api.js";
 import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
 
@@ -147,7 +147,7 @@ async function loadSystemPrompt(
     documents.getBySlug({ slug: "wiki/diagnostics/diagnosis" }),
   ]);
 
-  let prompt = DIANA_CHAT_SYSTEM_PROMPT_BASE;
+  let prompt = WIKI_CHAT_SYSTEM_PROMPT_BASE;
   if (diagnosisDoc) {
     prompt += `\n\n## PATIENT DIAGNOSIS\n\n${redact(diagnosisDoc.content)}`;
   }

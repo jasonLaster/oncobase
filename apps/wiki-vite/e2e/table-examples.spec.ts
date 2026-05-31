@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   exampleTables,
   type ExampleTableDefinition,
-} from "@diana-tnbc/smart-table/examples";
+} from "@oncobase/smart-table/examples";
 import {
   documentArticle,
   firstSmartTableShell,

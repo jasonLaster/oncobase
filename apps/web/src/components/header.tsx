@@ -16,7 +16,7 @@ import {
   WikiHeaderButton,
   WikiHeaderSearchForm,
   WikiLogo,
-} from "@diana-tnbc/wiki-shell";
+} from "@oncobase/wiki-shell";
 import { ActionsMenu } from "@/components/actions-menu";
 import { openCommandPalette } from "@/components/command-palette";
 

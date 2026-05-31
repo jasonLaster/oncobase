@@ -10,7 +10,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { cn } from "@diana-tnbc/wiki-shell";
+import { cn } from "@oncobase/wiki-shell";
 
 // A tiny, dependency-free dropdown menu. It replaces the app-local Base UI
 // dropdown so the comments package has no `apps/web` imports and can be

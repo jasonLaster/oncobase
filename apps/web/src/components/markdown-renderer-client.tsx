@@ -7,7 +7,7 @@ import {
   WikiMarkdown,
   type WikiMarkdownLinkProps,
   type WikiMarkdownRouteAdapter,
-} from "@diana-tnbc/wiki-markdown";
+} from "@oncobase/wiki-markdown";
 import { toast } from "sonner";
 import {
   isInternalChatResponseHref,
