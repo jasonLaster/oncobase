@@ -9,43 +9,9 @@ import {
   type MouseEvent,
 } from "react";
 import {
-  Activity,
-  Archive,
-  Beaker,
-  BookOpen,
-  Briefcase,
-  Building2,
-  Calendar,
   ChevronDown,
-  ChevronRight,
-  CircleCheckBig,
-  ClipboardCheck,
-  Crosshair,
-  Dna,
-  FileText,
-  Flame,
-  Folder,
-  FolderOpen,
-  GraduationCap,
-  HelpCircle,
-  Inbox,
-  Info,
-  Landmark,
-  ListChecks,
-  ListTodo,
-  Mail,
   MessageSquareText,
-  Microscope,
-  NotebookPen,
-  Package,
-  Pill,
-  ScrollText,
   Search,
-  ShieldCheck,
-  Syringe,
-  Target,
-  TrendingUp,
-  Users,
   WandSparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -53,6 +19,7 @@ import {
   WikiSidebar,
   collectActiveAncestors,
   type WikiTreePageLinkRenderArgs,
+  type WikiTreeProps,
 } from "@oncobase/wiki-shell";
 import type { FileNode } from "@/lib/markdown";
 import { ActionsMenu, SidebarSignInPrompt } from "@/components/actions-menu";
@@ -68,102 +35,10 @@ export function formatName(name: string): string {
   return formatFileLabel(name);
 }
 
-export function hasActiveDescendant(node: FileNode, decodedPathname: string): boolean {
-  if (node.type === "file") return decodedPathname === `/${node.slug}`;
-  return node.children?.some((child) => hasActiveDescendant(child, decodedPathname)) ?? false;
-}
-
-export function fileTreeNodeKey(node: FileNode) {
-  return `${node.type}:${node.slug}:${node.type === "pdf" ? node.pdfPath ?? "" : ""}`;
-}
-
-// Semantic icon mapping for folders. Keys are the final path segment so the
-// same icon applies whether a folder lives at the top level or nested (e.g.
-// "research" matches both /research and /wiki/research). Anything not in the
-// map falls back to a generic folder icon.
-const SECTION_ICONS: Record<string, LucideIcon> = {
-  // top-level
-  about: Info,
-  "project-management": ListTodo,
-  sources: BookOpen,
-  wiki: BookOpen,
-
-  // about/*
-  overview: Activity,
-
-  // sources/*
-  "claudes-research": Beaker,
-  "echo-immune": Activity,
-  emails: Mail,
-  institutions: Building2,
-  insurance: ShieldCheck,
-  kernis: Users,
-  "meeting-notes": NotebookPen,
-  "research-analyses": Beaker,
-  "research-articles": BookOpen,
-  "test-results": Microscope,
-
-  // wiki/*
-  archived: Archive,
-  companies: Briefcase,
-  diagnostics: ClipboardCheck,
-  education: GraduationCap,
-  logistics: Package,
-  people: Users,
-  prognosis: TrendingUp,
-  questions: HelpCircle,
-  research: Beaker,
-  strategy: Target,
-  summary: ScrollText,
-  treatment: Pill,
-  updates: Calendar,
-
-  // wiki/education/*
-  "designing-a-vaccine": Syringe,
-  "molecular-profiling": Dna,
-  "oncology-101": Landmark,
-  "reading-a-tumor": Microscope,
-  "targeted-therapy-modalities": Crosshair,
-};
-
-const FILE_ICONS: Record<string, LucideIcon> = {
-  "1-inbox": Inbox,
-  "2-urgent": Flame,
-  "3-completed": CircleCheckBig,
-  "4-backlog": ListChecks,
-};
-
-const FILE_ICONS_BY_SLUG: Record<string, LucideIcon> = {
-  "about/About": Info,
-  "about/Index": Info,
-  "about/Journal": NotebookPen,
-  "about/Log": ScrollText,
-  "about/Terminology": BookOpen,
-  "about/overview/index": Activity,
-  "about/overview/active-workstreams": ListChecks,
-  "about/overview/current-status": ClipboardCheck,
-  "about/overview/for-experts": GraduationCap,
-  "about/overview/for-friends-and-family": Users,
-  "about/overview/for-peers": Users,
-  "about/overview/key-context": Target,
-  "about/overview/test-tracker": Microscope,
-};
-
-function lastPathSegment(slug: string) {
-  const i = slug.lastIndexOf("/");
-  return i === -1 ? slug : slug.slice(i + 1);
-}
-
-function PdfIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-      <path d="M5 2.5h4.5L13 6v7.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1Z" />
-      <path d="M9.5 2.5V6H13" />
-      <path d="M6 9.5h4" />
-      <path d="M6 11.5h3" />
-    </svg>
-  );
-}
+const ROW_HEIGHT = 30;
+const ICON_SIZE = 16;
+const ICON_GAP = 10;
+const SECTION_INDENT = 12;
 
 function shouldSetNavigationIntent(event: MouseEvent<HTMLAnchorElement>) {
   return (
@@ -173,200 +48,6 @@ function shouldSetNavigationIntent(event: MouseEvent<HTMLAnchorElement>) {
     !event.ctrlKey &&
     !event.shiftKey &&
     !event.altKey
-  );
-}
-
-const ROW_HEIGHT = 30;
-const ICON_SIZE = 16;
-const ICON_GAP = 10;
-const SECTION_INDENT = 12;
-const INDENT_PX = 18;
-
-function rowPadding(depth: number, hasSectionIcon: boolean) {
-  if (depth === 0) return SECTION_INDENT;
-  // Children align under the parent label, past the icon column at depth 0.
-  const base = hasSectionIcon ? SECTION_INDENT + ICON_SIZE + ICON_GAP : SECTION_INDENT;
-  return base + (depth - 1) * INDENT_PX;
-}
-
-export function TreeNode({
-  activePathname,
-  node,
-  depth = 0,
-  onNavigate,
-}: {
-  activePathname: string;
-  node: FileNode;
-  depth?: number;
-  onNavigate?: () => void;
-}) {
-  const pathname = activePathname;
-  const hasActive = hasActiveDescendant(node, pathname);
-  const shouldOpen = hasActive || (depth === 0 && node.slug === "wiki");
-  const [userToggle, setUserToggle] = useState<boolean | null>(null);
-  const [prevPathname, setPrevPathname] = useState(pathname);
-  if (pathname !== prevPathname) {
-    setPrevPathname(pathname);
-    setUserToggle(null);
-  }
-  const open = userToggle !== null ? userToggle : shouldOpen;
-  const isActive = pathname === `/${node.slug}`;
-  const isTopLevel = depth === 0;
-  const SectionIcon =
-    node.type === "directory"
-      ? SECTION_ICONS[lastPathSegment(node.slug)] ?? null
-      : null;
-  // Add breathing room above top-level sections to separate groups.
-  const topLevelSpacing = isTopLevel ? "mt-1" : "";
-
-  if (node.type === "directory") {
-    const hasChildren = (node.children?.length ?? 0) > 0;
-    const isTruncated = Boolean(node.truncated);
-    const DirectoryGlyph = SectionIcon ?? (open ? FolderOpen : Folder);
-
-    if (!hasChildren) {
-      return (
-        <div className={topLevelSpacing}>
-          <div
-            className="group flex items-center rounded-md text-sm text-[var(--text-muted)]"
-            style={{
-              height: `${ROW_HEIGHT}px`,
-              paddingLeft: `${rowPadding(depth, true)}px`,
-              paddingRight: "8px",
-              gap: `${ICON_GAP}px`,
-            }}
-            title={isTruncated ? "Loading children" : formatName(node.name)}
-          >
-            <DirectoryGlyph
-              size={ICON_SIZE}
-              className="shrink-0 opacity-60"
-              aria-hidden="true"
-            />
-            <span className={`min-w-0 flex-1 truncate ${isTopLevel ? "font-medium text-[var(--foreground)]/85" : ""}`}>
-              {formatName(node.name)}
-            </span>
-            {isTruncated && (
-              <span
-                aria-hidden="true"
-                className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-current opacity-50"
-              />
-            )}
-            {node.badge && (
-              <span className="shrink-0 rounded border border-[var(--brand)]/20 bg-[var(--accent-light)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--brand)]">
-                {node.badge}
-              </span>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className={topLevelSpacing}>
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setUserToggle(!open)}
-          className="group flex w-full items-center rounded-md text-left text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
-          style={{
-            height: `${ROW_HEIGHT}px`,
-            paddingLeft: `${rowPadding(depth, true)}px`,
-            paddingRight: "6px",
-            gap: `${ICON_GAP}px`,
-          }}
-        >
-          <DirectoryGlyph
-            size={ICON_SIZE}
-            className="shrink-0 opacity-60 transition-opacity group-hover:opacity-90"
-            aria-hidden="true"
-          />
-          <span className={`min-w-0 flex-1 truncate ${isTopLevel ? "font-medium text-[var(--foreground)]/85" : ""}`}>
-            {formatName(node.name)}
-          </span>
-          {node.badge && (
-            <span className="shrink-0 rounded border border-[var(--brand)]/20 bg-[var(--accent-light)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--brand)]">
-              {node.badge}
-            </span>
-          )}
-          <ChevronRight
-            size={12}
-            className={`shrink-0 opacity-0 transition-all group-hover:opacity-60 ${open ? "rotate-90" : ""}`}
-            aria-hidden="true"
-          />
-        </button>
-        {open && (
-          <div className="pt-0.5">
-            {node.children?.map((child) => (
-              <TreeNode
-                activePathname={activePathname}
-                key={fileTreeNodeKey(child)}
-                node={child}
-                depth={depth + 1}
-                onNavigate={onNavigate}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (node.type === "pdf") {
-    return (
-      <a
-        href={`/api/file?path=${encodeURIComponent(node.pdfPath!)}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={onNavigate}
-        className={`group flex items-center rounded-md text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] ${topLevelSpacing}`}
-        style={{
-          height: `${ROW_HEIGHT}px`,
-          paddingLeft: `${rowPadding(depth, true)}px`,
-          paddingRight: "8px",
-          gap: `${ICON_GAP}px`,
-        }}
-        title={`${formatName(node.name)}.pdf`}
-      >
-        <PdfIcon />
-        <span className="min-w-0 flex-1 truncate">{formatName(node.name)}.pdf</span>
-      </a>
-    );
-  }
-
-  const FileGlyph = FILE_ICONS_BY_SLUG[node.slug] ?? FILE_ICONS[node.name] ?? FileText;
-
-  return (
-    <Link
-      href={`/${node.slug}`}
-      onClick={(event) => {
-        if (shouldSetNavigationIntent(event)) {
-          setNavigationIntent(`/${node.slug}`);
-        }
-        onNavigate?.();
-      }}
-      data-selected-file-tree-item={isActive ? "true" : undefined}
-      className={`group flex items-center rounded-md text-sm transition-colors ${
-        isActive
-          ? "bg-[var(--accent-light)] text-[var(--foreground)] font-medium"
-          : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
-      } ${topLevelSpacing}`}
-      style={{
-        height: `${ROW_HEIGHT}px`,
-        paddingLeft: `${rowPadding(depth, true)}px`,
-        paddingRight: "8px",
-        gap: `${ICON_GAP}px`,
-      }}
-      title={formatName(node.name)}
-    >
-      <FileGlyph
-        size={ICON_SIZE}
-        className={`shrink-0 transition-opacity ${
-          isActive ? "opacity-100" : "opacity-50 group-hover:opacity-90"
-        }`}
-        aria-hidden="true"
-      />
-      <span className="min-w-0 flex-1 truncate">{formatName(node.name)}</span>
-    </Link>
   );
 }
 
@@ -419,7 +100,7 @@ export function CommentsTreeLink({
       }`}
       style={{
         height: `${ROW_HEIGHT}px`,
-        paddingLeft: `${rowPadding(0, true)}px`,
+        paddingLeft: `${SECTION_INDENT}px`,
         paddingRight: "8px",
         gap: `${ICON_GAP}px`,
       }}
@@ -524,7 +205,20 @@ function SidebarFooter() {
   );
 }
 
-// File-tree page links for the shared WikiSidebar. The shared tree supplies the
+// Legacy default-open rule: only the top-level "wiki" section starts open for a
+// new session (active ancestors always open, handled by WikiTree).
+const sidebarDirectoryDefaultOpen: NonNullable<
+  WikiTreeProps["defaultDirectoryOpen"]
+> = (node, depth) => depth === 0 && node.slug === "wiki";
+
+// Match the legacy directory button's accessible name (its label text, no
+// "Expand/Collapse" prefix) so existing selectors keep working.
+const sidebarDirectoryAriaLabel: NonNullable<
+  WikiTreeProps["directoryAriaLabel"]
+> = ({ formattedName, node }) =>
+  node.badge ? `${formattedName} ${node.badge}` : formattedName;
+
+// File-tree page links for the shared WikiTree. The shared tree supplies the
 // icon + label as `children` (via the shared semantic icons); we wrap them in a
 // Next.js <Link> that sets the optimistic navigation intent and the
 // `data-selected-file-tree-item` marker the auto-scroll + e2e rely on.
@@ -555,17 +249,34 @@ function renderSidebarPageLink({
   );
 }
 
-export function Sidebar({ tree }: { tree: FileNode[] }) {
-  const pathname = useNavigationPathname();
+/**
+ * Shared WikiTree props for the legacy reader's file tree, used by BOTH the
+ * desktop sidebar and the mobile bottom-nav so they render one tree the same
+ * way: legacy default-open rule, rich `formatFileLabel` labels, bare directory
+ * aria-labels, navigation-intent links, and ephemeral directory toggles that
+ * reset on navigation (each route re-applies the default-open rule).
+ */
+export function useSidebarTreeProps(
+  tree: FileNode[],
+  pathname: string,
+): Pick<
+  WikiTreeProps,
+  | "activeAncestorSlugs"
+  | "activeSlug"
+  | "defaultDirectoryOpen"
+  | "directoryAriaLabel"
+  | "expandedSlugs"
+  | "formatNodeName"
+  | "onToggleDirectory"
+  | "renderPageLink"
+  | "tree"
+> {
   const activeSlug = decodeURIComponent(pathname).replace(/^\//, "");
   const activeAncestorSlugs = useMemo(
     () => collectActiveAncestors(tree, activeSlug),
     [tree, activeSlug],
   );
 
-  // Directory toggles are ephemeral and reset on navigation, matching the
-  // legacy tree: each route change re-applies the default-open rule so the
-  // active page's ancestors expand without persisting manual toggles.
   const [expandedSlugs, setExpandedSlugs] = useState<Map<string, boolean>>(
     () => new Map(),
   );
@@ -577,6 +288,23 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
   const onToggleDirectory = useCallback((slug: string, open: boolean) => {
     setExpandedSlugs((current) => new Map(current).set(slug, !open));
   }, []);
+
+  return {
+    activeAncestorSlugs,
+    activeSlug,
+    defaultDirectoryOpen: sidebarDirectoryDefaultOpen,
+    directoryAriaLabel: sidebarDirectoryAriaLabel,
+    expandedSlugs,
+    formatNodeName: formatName,
+    onToggleDirectory,
+    renderPageLink: renderSidebarPageLink,
+    tree,
+  };
+}
+
+export function Sidebar({ tree }: { tree: FileNode[] }) {
+  const pathname = useNavigationPathname();
+  const treeProps = useSidebarTreeProps(tree, pathname);
 
   // Smooth-scroll the active item into view on navigation. The shared tree has
   // no built-in auto-scroll, so query the rendered nav by its test id.
@@ -610,30 +338,15 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
 
   return (
     <WikiSidebar
-      activeAncestorSlugs={activeAncestorSlugs}
-      activeSlug={activeSlug}
+      {...treeProps}
       beforeTree={
         commentsFeatureEnabled() ? (
           <CommentsTreeLink activePathname={pathname} />
         ) : null
       }
       data-test-id="sidebar"
-      // Legacy default-open rule: only the top-level "wiki" section starts open
-      // for a new session (active ancestors always open, handled by WikiTree).
-      defaultDirectoryOpen={(node, depth) => depth === 0 && node.slug === "wiki"}
-      // Match the legacy directory button's accessible name (its label text, no
-      // "Expand/Collapse" prefix) so existing selectors keep working.
-      directoryAriaLabel={({ formattedName, node }) =>
-        node.badge ? `${formattedName} ${node.badge}` : formattedName
-      }
-      expandedSlugs={expandedSlugs}
       footer={<SidebarFooter />}
-      // Rich legacy labels (date prefixes, ordering-prefix stripping).
-      formatNodeName={formatName}
       heading={<WorkspaceHeader />}
-      onToggleDirectory={onToggleDirectory}
-      renderPageLink={renderSidebarPageLink}
-      tree={tree}
       treeTestId="sidebar-tree"
     />
   );

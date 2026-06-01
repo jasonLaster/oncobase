@@ -5,11 +5,11 @@ import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
 import { SidebarSignInPrompt } from "@/components/actions-menu";
+import { WikiTree } from "@oncobase/wiki-shell";
 import {
   CommentsTreeLink,
-  TreeNode,
-  fileTreeNodeKey,
   formatName,
+  useSidebarTreeProps,
 } from "@/components/sidebar";
 import { openCommandPalette } from "@/components/command-palette";
 import { useNavigationPathname } from "@/lib/navigation-intent";
@@ -73,6 +73,7 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const routerPathname = usePathname();
   const activePathname = useNavigationPathname();
+  const treeProps = useSidebarTreeProps(tree, activePathname);
   const pathname = useSyncExternalStore(
     subscribePathnameSnapshot,
     () => routerPathname,
@@ -315,14 +316,7 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
                   <CommentsTreeLink activePathname={activePathname} onNavigate={close} />
                 ) : null}
                 <SidebarSignInPrompt />
-                {tree.map((node) => (
-                  <TreeNode
-                    activePathname={activePathname}
-                    key={fileTreeNodeKey(node)}
-                    node={node}
-                    onNavigate={close}
-                  />
-                ))}
+                <WikiTree {...treeProps} onNavigate={close} />
               </>
             ) : outlineItems.length > 0 ? (
               <div className="space-y-0.5">
