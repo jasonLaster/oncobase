@@ -14,9 +14,8 @@ import {
 import type { ThreadData } from "@liveblocks/client";
 import { useThreads } from "@liveblocks/react";
 import { Comment, Composer, Thread } from "@liveblocks/react-ui";
+import { useCommentsAuth, type CommentsSessionUser } from "./auth-context";
 import { cn } from "@oncobase/wiki-shell";
-import "@liveblocks/react-ui/styles.css";
-import "./styles.css";
 import { LiveblocksRoom } from "./room";
 import {
   DropdownMenu,
@@ -36,6 +35,7 @@ import {
 
 type HighlightRect = {
   id: string;
+  threadId?: string;
   top: number;
   left: number;
   width: number;
@@ -55,6 +55,8 @@ type OutlineItem = {
   id: string;
   text: string;
   level: number;
+  key: string;
+  parentIds: string[];
 };
 
 type SidebarButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -88,28 +90,36 @@ function SidebarButton({
   );
 }
 
-function RailToggleIcon({ direction }: { direction: "up" | "down" | "right" }) {
-  const points =
-    direction === "up"
-      ? "4 10 8 6 12 10"
-      : direction === "down"
-        ? "4 6 8 10 12 6"
-        : "6 4 10 8 6 12";
-
+function OutlineButton({
+  active,
+  ancestor,
+  item,
+  onClick,
+}: {
+  active: boolean;
+  ancestor: boolean;
+  item: OutlineItem;
+  onClick: () => void;
+}) {
   return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
+    <button
+      type="button"
+      aria-current={active ? "location" : undefined}
+      data-active-outline-heading={active ? "true" : undefined}
+      onClick={onClick}
+      style={{ paddingLeft: `${Math.max(0, item.level - 1) * 14 + 12}px` }}
+      title={item.text}
+      className={cn(
+        "relative block w-full cursor-pointer rounded-md py-1.5 pr-2 text-left text-sm transition-colors",
+        active
+          ? "bg-[var(--brand)]/10 font-medium text-[var(--brand)]"
+          : ancestor
+            ? "text-[var(--foreground)]"
+            : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+      )}
     >
-      <polyline points={points} />
-    </svg>
+      <span className="line-clamp-2">{item.text}</span>
+    </button>
   );
 }
 
@@ -128,14 +138,118 @@ function getOutlineHeadingText(heading: HTMLHeadingElement): string {
     .trim();
 }
 
+function getOutlineHeadings(root: HTMLElement): OutlineItem[] {
+  const headings = Array.from(
+    root.querySelectorAll<HTMLHeadingElement>("h1[id], h2[id], h3[id], h4[id]")
+  );
+  const parentStack: Array<{ id: string; level: number }> = [];
+
+  return headings.map((heading, index) => {
+    const level = Number.parseInt(heading.tagName.slice(1), 10);
+    while (
+      parentStack.length > 0 &&
+      parentStack[parentStack.length - 1]!.level >= level
+    ) {
+      parentStack.pop();
+    }
+
+    const item = {
+      id: heading.id,
+      text: getOutlineHeadingText(heading) || heading.id,
+      level,
+      key: `${heading.id}:${index}`,
+      parentIds: parentStack.map((parent) => parent.id),
+    };
+    parentStack.push({ id: heading.id, level });
+    return item;
+  });
+}
+
+function getActiveHeadingId(root: HTMLElement, scrollRoot: HTMLElement | null) {
+  const headings = Array.from(
+    root.querySelectorAll<HTMLHeadingElement>("h1[id], h2[id], h3[id], h4[id]")
+  );
+  if (headings.length === 0) return null;
+
+  const scrollRootTop = scrollRoot?.getBoundingClientRect().top ?? 0;
+  const activationLine = scrollRootTop + 112;
+  let activeHeading = headings[0]!;
+
+  for (const heading of headings) {
+    const rect = heading.getBoundingClientRect();
+    if (rect.top <= activationLine) {
+      activeHeading = heading;
+      continue;
+    }
+    break;
+  }
+
+  return activeHeading.id;
+}
+
+function useDocumentOutline(
+  articleRef: React.RefObject<HTMLElement | null>,
+  scrollRootRef: React.RefObject<HTMLElement | null>,
+  children: ReactNode
+) {
+  const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const root = articleRef.current;
+    if (!root) return;
+
+    let frameId: number | null = null;
+
+    const updateActiveHeading = () => {
+      frameId = null;
+      if (!root.isConnected) return;
+      setActiveHeadingId(getActiveHeadingId(root, scrollRootRef.current));
+    };
+
+    const scheduleActiveHeadingUpdate = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(updateActiveHeading);
+    };
+
+    const updateOutline = () => {
+      setOutlineItems(getOutlineHeadings(root));
+      scheduleActiveHeadingUpdate();
+    };
+
+    updateOutline();
+    const observer = new MutationObserver(updateOutline);
+    observer.observe(root, { childList: true, subtree: true });
+
+    const scrollRoot = scrollRootRef.current;
+    scrollRoot?.addEventListener("scroll", scheduleActiveHeadingUpdate, {
+      passive: true,
+    });
+    window.addEventListener("resize", scheduleActiveHeadingUpdate);
+
+    return () => {
+      observer.disconnect();
+      scrollRoot?.removeEventListener("scroll", scheduleActiveHeadingUpdate);
+      window.removeEventListener("resize", scheduleActiveHeadingUpdate);
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+    };
+  }, [articleRef, children, scrollRootRef]);
+
+  return { activeHeadingId, outlineItems };
+}
+
 const COMMENTS_PANE_STORAGE_KEY = "comments-pane-open";
 const COMMENTS_WIDTH_STORAGE_KEY = "comments-pane-width";
 const COMMENTS_MIN_WIDTH = 240;
 const COMMENTS_MAX_WIDTH = 640;
 const COMMENTS_DEFAULT_WIDTH = 384; // 24rem
 const COMMENTS_COLLAPSED_WIDTH = 64; // w-16
+const MOBILE_COMMENTS_MIN_HEIGHT = 320;
+const MOBILE_COMMENTS_MAX_HEIGHT_RATIO = 0.94;
+const MOBILE_COMMENTS_DEFAULT_HEIGHT_RATIO = 0.88;
 const DESKTOP_SIDEBAR_TOP_OFFSET = 24;
 const COMMENTS_PANE_EVENT = "comments-pane-state-change";
+const MOBILE_COMMENTS_PANEL_EVENT = "mobile-comments-panel-open";
 
 type PaneStateSnapshot = {
   open: boolean;
@@ -173,6 +287,32 @@ function readStoredPaneWidth() {
   }
 
   return COMMENTS_DEFAULT_WIDTH;
+}
+
+function getMaxMobileCommentsHeight() {
+  if (typeof window === "undefined") return 736;
+  return Math.max(
+    MOBILE_COMMENTS_MIN_HEIGHT,
+    Math.round(window.innerHeight * MOBILE_COMMENTS_MAX_HEIGHT_RATIO)
+  );
+}
+
+function getDefaultMobileCommentsHeight() {
+  if (typeof window === "undefined") return 736;
+  return Math.min(
+    getMaxMobileCommentsHeight(),
+    Math.max(
+      MOBILE_COMMENTS_MIN_HEIGHT,
+      Math.round(window.innerHeight * MOBILE_COMMENTS_DEFAULT_HEIGHT_RATIO)
+    )
+  );
+}
+
+function clampMobileCommentsHeight(height: number) {
+  return Math.min(
+    getMaxMobileCommentsHeight(),
+    Math.max(MOBILE_COMMENTS_MIN_HEIGHT, Math.round(height))
+  );
 }
 
 function getServerPaneState(defaultOpen: boolean): PaneStateSnapshot {
@@ -506,6 +646,53 @@ function DraftSelectionThreadCard({
   );
 }
 
+function CommentSignInPrompt({
+  context = "comment",
+}: {
+  context?: "comment" | "selection";
+}) {
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const { setUser, AuthDialog } = useCommentsAuth();
+
+  function handleAuthSuccess(nextUser: CommentsSessionUser) {
+    setUser(nextUser);
+    window.dispatchEvent(new CustomEvent("wiki-auth-session-change"));
+  }
+
+  return (
+    <>
+      <div
+        data-test-id="comments-sign-in-state"
+        className="rounded-xl border border-dashed border-[var(--sidebar-border)] bg-[var(--background)] px-4 py-5 text-sm"
+      >
+        <p className="font-medium text-[var(--foreground)]">
+          Sign in to leave a comment
+        </p>
+        {context === "selection" ? (
+          <p className="mt-1 leading-6 text-[var(--text-muted)]">
+            Your selected text is ready. Sign in to attach a comment to it.
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setAuthDialogOpen(true)}
+          className="mt-3 inline-flex w-full items-center justify-center rounded-md border border-indigo-600 bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:border-indigo-700 hover:bg-indigo-700"
+        >
+          Sign in
+        </button>
+      </div>
+
+      {AuthDialog ? (
+        <AuthDialog
+          open={authDialogOpen}
+          onOpenChange={setAuthDialogOpen}
+          onAuthSuccess={handleAuthSuccess}
+        />
+      ) : null}
+    </>
+  );
+}
+
 function CommentsShell({
   documentSlug,
   documentTitle,
@@ -516,20 +703,29 @@ function CommentsShell({
   children: ReactNode;
 }) {
   const threadsResult = useThreads();
+  const { loadingUser, user: sessionUser } = useCommentsAuth();
+  const canComment = Boolean(sessionUser);
   const threads = useMemo(
     () => (threadsResult.isLoading || threadsResult.error ? [] : threadsResult.threads),
     [threadsResult.isLoading, threadsResult.error, threadsResult.threads]
   );
   const articleRef = useRef<HTMLElement | null>(null);
+  const scrollRootRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const pendingSelectionId = useId();
   const [pendingSelection, setPendingSelection] = useState<SelectionAnchor | null>(null);
-  const [composerMode, setComposerMode] = useState<"page" | "selection" | null>(null);
+  const [composerMode, setComposerMode] = useState<"selection" | null>(null);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [highlightRects, setHighlightRects] = useState<HighlightRect[]>([]);
   const [selectionTooltip, setSelectionTooltip] = useState<SelectionTooltipPosition | null>(null);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("comments");
-  const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const [mobilePanelHeight, setMobilePanelHeight] = useState<number | null>(null);
+  const { activeHeadingId, outlineItems } = useDocumentOutline(
+    articleRef,
+    scrollRootRef,
+    children
+  );
   const [showResolvedThreads, setShowResolvedThreads] = useState(false);
   const {
     open: commentsOpen,
@@ -540,6 +736,10 @@ function CommentsShell({
   const commentsDragging = useRef(false);
   const commentsStartX = useRef(0);
   const commentsStartWidth = useRef(0);
+  const mobilePanelRef = useRef<HTMLElement | null>(null);
+  const mobilePanelDragging = useRef(false);
+  const mobilePanelStartY = useRef(0);
+  const mobilePanelStartHeight = useRef(0);
 
   const onCommentsPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -577,7 +777,9 @@ function CommentsShell({
 
   const sortedThreads = useMemo(() => sortThreads(threads), [threads]);
   const visibleThreads = useMemo(
-    () => (showResolvedThreads ? sortedThreads : sortedThreads.filter((thread) => !thread.resolved)),
+    () =>
+      (showResolvedThreads ? sortedThreads : sortedThreads.filter((thread) => !thread.resolved))
+        .filter((thread) => getThreadAnchor(thread)),
     [showResolvedThreads, sortedThreads]
   );
   const numberedThreads = useMemo(
@@ -597,6 +799,11 @@ function CommentsShell({
   )
     ? activeThreadId
     : null;
+  const activeHeadingParentIds = useMemo(() => {
+    return new Set(
+      outlineItems.find((item) => item.id === activeHeadingId)?.parentIds ?? []
+    );
+  }, [activeHeadingId, outlineItems]);
 
   const toggleCommentsPane = () => {
     setCommentsOpen((current) => !current);
@@ -613,6 +820,152 @@ function CommentsShell({
     },
     [commentsOpen, setCommentsOpen, sidebarMode]
   );
+  const selectSidebarMode = useCallback(
+    (mode: SidebarMode) => {
+      setSidebarMode(mode);
+      setCommentsOpen(true);
+    },
+    [setCommentsOpen]
+  );
+  const closeMobilePanel = useCallback(() => setMobilePanelOpen(false), []);
+  const openMobileCommentsPanel = useCallback(() => {
+    selectSidebarMode("comments");
+    setMobilePanelHeight((current) => current ?? getDefaultMobileCommentsHeight());
+    setMobilePanelOpen(true);
+  }, [selectSidebarMode]);
+
+  const openSelectionComments = useCallback(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches
+    ) {
+      openMobileCommentsPanel();
+    } else {
+      selectSidebarMode("comments");
+    }
+
+    if (canComment) {
+      setComposerMode("selection");
+    }
+  }, [canComment, openMobileCommentsPanel, selectSidebarMode]);
+
+  const updateMobilePanelHeight = useCallback((clientY: number) => {
+    const delta = mobilePanelStartY.current - clientY;
+    setMobilePanelHeight(
+      clampMobileCommentsHeight(mobilePanelStartHeight.current + delta)
+    );
+  }, []);
+
+  const beginMobilePanelResize = useCallback((clientY: number) => {
+    mobilePanelDragging.current = true;
+    mobilePanelStartY.current = clientY;
+    mobilePanelStartHeight.current =
+      mobilePanelRef.current?.getBoundingClientRect().height ??
+      mobilePanelHeight ??
+      getDefaultMobileCommentsHeight();
+  }, [mobilePanelHeight]);
+
+  const onMobilePanelPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    beginMobilePanelResize(e.clientY);
+
+    const pointerId = e.pointerId;
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!mobilePanelDragging.current || event.pointerId !== pointerId) return;
+      updateMobilePanelHeight(event.clientY);
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      mobilePanelDragging.current = false;
+      updateMobilePanelHeight(event.clientY);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!mobilePanelDragging.current) return;
+      updateMobilePanelHeight(event.clientY);
+    };
+    const handleMouseUp = (event: MouseEvent) => {
+      mobilePanelDragging.current = false;
+      updateMobilePanelHeight(event.clientY);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // Synthetic pointer drags used in tests may not register as active pointers.
+    }
+  }, [beginMobilePanelResize, updateMobilePanelHeight]);
+
+  const onMobilePanelMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    beginMobilePanelResize(e.clientY);
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!mobilePanelDragging.current) return;
+      updateMobilePanelHeight(event.clientY);
+    };
+    const handleMouseUp = (event: MouseEvent) => {
+      mobilePanelDragging.current = false;
+      updateMobilePanelHeight(event.clientY);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  }, [beginMobilePanelResize, updateMobilePanelHeight]);
+
+  const onMobilePanelPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!mobilePanelDragging.current) return;
+    updateMobilePanelHeight(e.clientY);
+  }, [updateMobilePanelHeight]);
+
+  const onMobilePanelPointerUp = useCallback((e: React.PointerEvent) => {
+    if (!mobilePanelDragging.current) return;
+    mobilePanelDragging.current = false;
+    const target = e.currentTarget as HTMLElement;
+    if (target.hasPointerCapture(e.pointerId)) {
+      target.releasePointerCapture(e.pointerId);
+    }
+    updateMobilePanelHeight(e.clientY);
+  }, [updateMobilePanelHeight]);
+
+  useEffect(() => {
+    const openMobilePanel = () => {
+      delete document.documentElement.dataset.mobileCommentsPanelRequested;
+      openMobileCommentsPanel();
+    };
+
+    window.addEventListener(MOBILE_COMMENTS_PANEL_EVENT, openMobilePanel);
+    if (document.documentElement.dataset.mobileCommentsPanelRequested === "true") {
+      openMobilePanel();
+    }
+    return () => {
+      window.removeEventListener(MOBILE_COMMENTS_PANEL_EVENT, openMobilePanel);
+    };
+  }, [openMobileCommentsPanel]);
+
+  useEffect(() => {
+    if (!mobilePanelOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobilePanelOpen]);
 
   useEffect(() => {
     const root = articleRef.current;
@@ -635,6 +988,7 @@ function CommentsShell({
         rects.forEach((rect, rectIndex) => {
           nextRects.push({
             id: `${thread.id}:${rectIndex}`,
+            threadId: thread.id,
             active,
             pending: false,
             top: rect.top - rootRect.top + root.scrollTop,
@@ -655,7 +1009,7 @@ function CommentsShell({
 
           if (firstRect) {
             setSelectionTooltip({
-              top: firstRect.top - rootRect.top + root.scrollTop - 40,
+              top: Math.max(8, firstRect.top - rootRect.top + root.scrollTop - 40),
               left: Math.min(
                 Math.max(8, firstRect.left - rootRect.left),
                 Math.max(8, root.clientWidth - 140)
@@ -704,30 +1058,6 @@ function CommentsShell({
     };
   }, [effectiveActiveThreadId, numberedThreads, pendingSelection, pendingSelectionId]);
 
-  useEffect(() => {
-    const root = articleRef.current;
-    if (!root) return;
-
-    const updateOutline = () => {
-      const headings = Array.from(
-        root.querySelectorAll<HTMLHeadingElement>("h1[id], h2[id], h3[id], h4[id]")
-      );
-
-      setOutlineItems(
-        headings.map((heading) => ({
-          id: heading.id,
-          text: getOutlineHeadingText(heading) || heading.id,
-          level: Number.parseInt(heading.tagName.slice(1), 10),
-        }))
-      );
-    };
-
-    updateOutline();
-    const observer = new MutationObserver(updateOutline);
-    observer.observe(root, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [children]);
-
   const handlePointerUp = () => {
     window.setTimeout(() => {
       const root = articleRef.current;
@@ -747,24 +1077,72 @@ function CommentsShell({
     }, 0);
   };
 
+  const handleArticleClick = (event: React.MouseEvent<HTMLElement>) => {
+    const root = articleRef.current;
+    if (!root) return;
+
+    const target = event.target as HTMLElement;
+    if (
+      target.closest(
+        "button, a, input, textarea, select, [role='button'], [contenteditable='true']"
+      )
+    ) {
+      return;
+    }
+
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) return;
+
+    const rootRect = root.getBoundingClientRect();
+    const x = event.clientX - rootRect.left;
+    const y = event.clientY - rootRect.top + root.scrollTop;
+    const clickedThreadId = highlightRects.find(
+      (rect) =>
+        rect.threadId &&
+        !rect.pending &&
+        x >= rect.left &&
+        x <= rect.left + rect.width &&
+        y >= rect.top &&
+        y <= rect.top + rect.height
+    )?.threadId;
+
+    if (!clickedThreadId) return;
+    event.preventDefault();
+    focusThreadById(clickedThreadId);
+  };
+
   const focusThread = useCallback((thread: ThreadData, options?: { syncUrl?: boolean }) => {
     const root = articleRef.current;
+    const anchor = getThreadAnchor(thread);
+    if (!anchor) return;
+
     setPendingSelection(null);
     setComposerMode(null);
+    setSidebarMode("comments");
+    setCommentsOpen(true);
     setActiveThreadId(thread.id);
     if (options?.syncUrl !== false) {
       updateThreadQueryParam(thread.id);
     }
 
-    const anchor = getThreadAnchor(thread);
-    if (!root || !anchor) return;
+    if (!root) return;
 
     const range = restoreRange(root, anchor);
     if (!range) return;
     const target = getRangeAnchorElement(range);
     if (!target) return;
     scrollElementIntoContainerView(target, 96);
-  }, []);
+  }, [setCommentsOpen]);
+
+  const focusThreadById = useCallback(
+    (threadId: string) => {
+      const thread = sortedThreads.find((candidate) => candidate.id === threadId);
+      if (!thread) return false;
+      focusThread(thread);
+      return true;
+    },
+    [focusThread, sortedThreads]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -773,9 +1151,18 @@ function CommentsShell({
     if (!threadId || activeThreadId === threadId) return;
 
     const thread = sortedThreads.find((candidate) => candidate.id === threadId);
-    if (!thread) return;
+    if (!thread) {
+      if (!threadsResult.isLoading) {
+        updateThreadQueryParam(null);
+      }
+      return;
+    }
 
     const timeoutId = window.setTimeout(() => {
+      if (!getThreadAnchor(thread)) {
+        updateThreadQueryParam(null);
+        return;
+      }
       if (thread.resolved && !showResolvedThreads) {
         setShowResolvedThreads(true);
       }
@@ -791,6 +1178,7 @@ function CommentsShell({
     setCommentsOpen,
     showResolvedThreads,
     sortedThreads,
+    threadsResult.isLoading,
   ]);
 
   const jumpToHeading = (id: string) => {
@@ -814,13 +1202,19 @@ function CommentsShell({
     pendingSelection !== null &&
     effectiveComposerMode === "selection";
   const commentListItems = useMemo(() => {
+    // This shell renders page-level (unanchored) threads on a separate path, so
+    // exclude them from the anchored margin list.
     return buildCommentListItems(
       visibleThreads,
-      hasDraftSelection ? pendingSelection : null
+      hasDraftSelection ? pendingSelection : null,
+      { includeUnanchored: false }
     );
   }, [hasDraftSelection, pendingSelection, visibleThreads]);
 
-  const sidebarHeader = (
+  const renderSidebarHeader = (
+    collapseControl: ReactNode,
+    tabBehavior: "toggle" | "select" = "toggle"
+  ) => (
     <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] px-3 py-2">
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex items-center gap-2">
@@ -828,27 +1222,27 @@ function CommentsShell({
             <SidebarButton
               variant="tab"
               active={sidebarMode === "comments"}
-              onClick={() => toggleSidebarMode("comments")}
+              onClick={() =>
+                tabBehavior === "toggle"
+                  ? toggleSidebarMode("comments")
+                  : selectSidebarMode("comments")
+              }
             >
               Comments
             </SidebarButton>
             <SidebarButton
               variant="tab"
               active={sidebarMode === "outline"}
-              onClick={() => toggleSidebarMode("outline")}
+              onClick={() =>
+                tabBehavior === "toggle"
+                  ? toggleSidebarMode("outline")
+                  : selectSidebarMode("outline")
+              }
             >
               Outline
             </SidebarButton>
           </div>
-          <SidebarButton
-            onClick={toggleCommentsPane}
-            aria-label="Collapse comments pane"
-            className="h-auto w-auto px-2 py-1"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 4 10 8 6 12" />
-            </svg>
-          </SidebarButton>
+          {collapseControl}
         </div>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
@@ -896,39 +1290,64 @@ function CommentsShell({
     </div>
   );
 
+  const mobileCommentsHeader = (
+    <div className="border-b border-[var(--sidebar-border)] px-3 py-2">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="min-w-0 flex-1 text-sm font-semibold text-[var(--foreground)]">
+          Comments
+        </span>
+        <SidebarButton
+          onClick={closeMobilePanel}
+          aria-label="Close comments panel"
+          className="h-auto w-auto px-2 py-1"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <line x1="4" y1="4" x2="12" y2="12" />
+            <line x1="12" y1="4" x2="4" y2="12" />
+          </svg>
+        </SidebarButton>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-[var(--text-muted)]">
+          {visibleThreads.length} {showResolvedThreads ? "total" : "unresolved"} thread{visibleThreads.length === 1 ? "" : "s"}
+        </p>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]">
+            <span className="sr-only">Comment actions</span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="3.5" cy="8" r="1" />
+              <circle cx="8" cy="8" r="1" />
+              <circle cx="12.5" cy="8" r="1" />
+            </svg>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem
+              onClick={() => setShowResolvedThreads((current) => !current)}
+            >
+              {showResolvedThreads ? "Show unresolved only" : "View all threads"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+
   const sidebarContent = (
     <div className="bg-[var(--background)]/40 p-3">
       <div className="space-y-4">
-        {sidebarMode === "comments" &&
-        effectiveComposerMode !== "page" &&
-        effectiveComposerMode !== "selection" ? (
-          <button
-            type="button"
-            onClick={() => {
-              setPendingSelection(null);
-              setSelectionTooltip(null);
-              setActiveThreadId(null);
-              updateThreadQueryParam(null);
-              setComposerMode("page");
-            }}
-            className="flex w-full items-center justify-between rounded-xl border border-dashed border-[var(--sidebar-border)] bg-[var(--background)] px-3 py-3 text-left text-sm text-[var(--text-muted)] transition-colors hover:border-[var(--brand)] hover:text-[var(--foreground)]"
-          >
-            <span>Add a page-level comment</span>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M8 3.25v9.5M3.25 8h9.5" />
-            </svg>
-          </button>
-        ) : null}
-
-        {sidebarMode === "comments" && effectiveComposerMode === "page" ? (
-          <Composer
-            key="page-comment-composer"
-            metadata={createThreadMetadata({ documentSlug, documentTitle })}
-            autoFocus
-            className="lb-composer-override"
-            onComposerSubmit={() => {
-              setComposerMode(null);
-            }}
+        {sidebarMode === "comments" && !loadingUser && !canComment ? (
+          <CommentSignInPrompt
+            context={pendingSelection ? "selection" : "comment"}
           />
         ) : null}
 
@@ -940,15 +1359,13 @@ function CommentsShell({
           ) : (
             <div className="space-y-0.5">
               {outlineItems.map((item) => (
-                <SidebarButton
-                  key={item.id}
-                  variant="list"
+                <OutlineButton
+                  key={item.key}
+                  item={item}
+                  active={item.id === activeHeadingId}
+                  ancestor={activeHeadingParentIds.has(item.id)}
                   onClick={() => jumpToHeading(item.id)}
-                  style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
-                  title={item.text}
-                >
-                  <span className="line-clamp-2">{item.text}</span>
-                </SidebarButton>
+                />
               ))}
             </div>
           )
@@ -966,7 +1383,7 @@ function CommentsShell({
           <div className="space-y-3">
             {commentListItems.map((item) => {
               if (item.type === "draft-selection") {
-                if (!pendingSelection) return null;
+                if (!pendingSelection || !canComment) return null;
                 return (
                   <DraftSelectionThreadCard
                     key="draft-selection"
@@ -1069,7 +1486,7 @@ function CommentsShell({
                                 Copy comment
                               </Comment.DropdownItem>
                             ) : null}
-                            {isFirstComment ? (
+                            {isFirstComment && canComment ? (
                               <Comment.DropdownItem
                                 onSelect={() => {
                                   void (async () => {
@@ -1088,9 +1505,11 @@ function CommentsShell({
                                     );
 
                                     if (!response.ok) return;
+                                    if (activeThreadId === thread.id) {
+                                      updateThreadQueryParam(null);
+                                    }
                                     setActiveThreadId((current) => {
                                       if (current === thread.id) {
-                                        updateThreadQueryParam(null);
                                         return null;
                                       }
 
@@ -1133,22 +1552,20 @@ function CommentsShell({
   );
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div ref={scrollRootRef} className="h-full overflow-y-auto">
       <div
         className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-4 md:px-8 md:py-8 comments-content-wrapper"
         style={{
           ["--comments-pane-width" as string]: commentsOpen
             ? `${commentsWidth}px`
             : `${COMMENTS_COLLAPSED_WIDTH}px`,
-          ["--comments-mobile-rail-height" as string]: commentsOpen
-            ? "min(52dvh, 30rem)"
-            : "3.5rem",
         }}
       >
         <div className="min-w-0 flex-1">
           <article
             ref={articleRef}
             onPointerUp={handlePointerUp}
+            onClick={handleArticleClick}
             className="relative mx-auto max-w-4xl overflow-visible pr-4 md:pr-8"
             data-test-id="document-article"
             data-document-slug={documentSlug}
@@ -1203,7 +1620,7 @@ function CommentsShell({
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    setComposerMode("selection");
+                    openSelectionComments();
                   }}
                   aria-label="Add comment"
                   title="Add comment"
@@ -1231,58 +1648,60 @@ function CommentsShell({
         </div>
       </div>
 
-      <aside
-        data-comments-bottom-rail
-        aria-label="Document comments and outline"
+      <div
         className={cn(
-          "fixed inset-x-0 bottom-[calc(3rem+env(safe-area-inset-bottom))] z-40 flex flex-col border-t border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-[0_-12px_28px_rgba(15,23,42,0.14)] transition-[height] duration-200 ease-out md:bottom-0 lg:hidden",
-          commentsOpen ? "h-[min(52dvh,30rem)]" : "h-14"
+          "fixed inset-0 z-50 transition-opacity duration-300 md:hidden",
+          mobilePanelOpen
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0"
         )}
+        data-test-id="mobile-comments-panel"
+        data-state={mobilePanelOpen ? "open" : "closed"}
       >
-        {commentsOpen ? (
-          <>
-            <div className="shrink-0 pt-1">
-              <div className="mx-auto mb-1 h-1 w-8 rounded-full bg-[var(--text-muted)]/30" />
-              {sidebarHeader}
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              {sidebarContent}
-            </div>
-          </>
-        ) : (
-          <div className="flex h-full items-center gap-2 px-3">
-            <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
-              <SidebarButton
-                variant="tab"
-                active={sidebarMode === "comments"}
-                onClick={() => toggleSidebarMode("comments")}
-              >
-                Comments
-              </SidebarButton>
-              <SidebarButton
-                variant="tab"
-                active={sidebarMode === "outline"}
-                onClick={() => toggleSidebarMode("outline")}
-              >
-                Outline
-              </SidebarButton>
-            </div>
-            <SidebarButton
-              onClick={() => setCommentsOpen(true)}
-              aria-label="Expand comments rail"
-              className="h-auto w-auto px-2 py-1"
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+          onClick={closeMobilePanel}
+        />
+        <aside
+          ref={mobilePanelRef}
+          aria-label="Document comments"
+          className={cn(
+            "absolute bottom-0 left-0 right-0 flex h-[min(88dvh,46rem)] flex-col rounded-t-2xl bg-[var(--sidebar-bg)] shadow-2xl transition-transform duration-300 ease-out",
+            mobilePanelOpen ? "translate-y-0" : "translate-y-full"
+          )}
+          style={{
+            paddingBottom: "env(safe-area-inset-bottom)",
+            height: mobilePanelHeight ?? undefined,
+          }}
+        >
+          <div className="shrink-0 pt-2">
+            <div
+              onPointerDown={onMobilePanelPointerDown}
+              onPointerMove={onMobilePanelPointerMove}
+              onPointerUp={onMobilePanelPointerUp}
+              onPointerCancel={onMobilePanelPointerUp}
+              onMouseDown={onMobilePanelMouseDown}
+              role="separator"
+              aria-label="Resize comments panel"
+              aria-orientation="horizontal"
+              className="flex h-6 w-full cursor-row-resize touch-none items-center justify-center"
             >
-              <RailToggleIcon direction="up" />
-            </SidebarButton>
+              <div className="h-1 w-10 rounded-full bg-[var(--text-muted)]/30 transition-colors hover:bg-[var(--brand)] active:bg-[var(--brand)]" />
+            </div>
+            {mobileCommentsHeader}
           </div>
-        )}
-      </aside>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {sidebarContent}
+          </div>
+        </aside>
+      </div>
 
       <aside
         className={cn(
-          "hidden lg:flex fixed right-0 top-12 bottom-0 z-30 bg-[var(--sidebar-bg)]",
-          commentsOpen ? "flex-col" : "w-16 flex-col items-center py-3 border-l border-[var(--sidebar-border)]"
+          "hidden md:flex fixed right-0 top-0 bottom-0 z-30 bg-[var(--background)]",
+          commentsOpen ? "flex-col shadow-[-4px_0_12px_rgba(0,0,0,0.12)]" : "w-16 flex-col items-center py-3"
         )}
+        data-wiki-shell-right-rail
         style={commentsOpen ? { width: commentsWidth } : undefined}
       >
         {commentsOpen ? (
@@ -1294,9 +1713,19 @@ function CommentsShell({
               role="separator"
               aria-label="Resize comments pane"
               aria-orientation="vertical"
-              className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-[var(--sidebar-border)] hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
+              className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-transparent hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
             />
-            {sidebarHeader}
+            {renderSidebarHeader(
+              <SidebarButton
+                onClick={toggleCommentsPane}
+                aria-label="Collapse comments pane"
+                className="h-auto w-auto px-2 py-1"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 4 10 8 6 12" />
+                </svg>
+              </SidebarButton>
+            )}
             <div className="min-h-0 flex-1 overflow-y-auto">{sidebarContent}</div>
           </>
         ) : (
@@ -1347,7 +1776,17 @@ export function OutlineShell({
   onActivate?: () => void;
 }) {
   const articleRef = useRef<HTMLElement | null>(null);
-  const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
+  const scrollRootRef = useRef<HTMLDivElement | null>(null);
+  const { activeHeadingId, outlineItems } = useDocumentOutline(
+    articleRef,
+    scrollRootRef,
+    children
+  );
+  const activeHeadingParentIds = useMemo(() => {
+    return new Set(
+      outlineItems.find((item) => item.id === activeHeadingId)?.parentIds ?? []
+    );
+  }, [activeHeadingId, outlineItems]);
   const {
     open: sidebarOpen,
     setOpen: setSidebarOpen,
@@ -1403,40 +1842,15 @@ export function OutlineShell({
     scrollElementIntoContainerView(target, 24);
   };
 
-  useEffect(() => {
-    const root = articleRef.current;
-    if (!root) return;
-
-    const updateOutline = () => {
-      const headings = Array.from(
-        root.querySelectorAll<HTMLHeadingElement>("h1[id], h2[id], h3[id], h4[id]")
-      );
-      setOutlineItems(
-        headings.map((heading) => ({
-          id: heading.id,
-          text: getOutlineHeadingText(heading) || heading.id,
-          level: Number.parseInt(heading.tagName.slice(1), 10),
-        }))
-      );
-    };
-
-    updateOutline();
-    const observer = new MutationObserver(updateOutline);
-    observer.observe(root, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [children]);
-
   return (
     <div
+      ref={scrollRootRef}
       className="h-full overflow-y-auto"
       style={
         {
           "--comments-pane-width": sidebarOpen
             ? `${sidebarWidth}px`
             : `${COMMENTS_COLLAPSED_WIDTH}px`,
-          "--comments-mobile-rail-height": sidebarOpen
-            ? "min(52dvh, 30rem)"
-            : "3.5rem",
         } as React.CSSProperties
       }
     >
@@ -1455,121 +1869,11 @@ export function OutlineShell({
       </div>
 
       <aside
-        data-comments-bottom-rail
-        aria-label="Document comments and outline"
         className={cn(
-          "fixed inset-x-0 bottom-[calc(3rem+env(safe-area-inset-bottom))] z-40 flex flex-col border-t border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-[0_-12px_28px_rgba(15,23,42,0.14)] transition-[height] duration-200 ease-out md:bottom-0 lg:hidden",
-          sidebarOpen ? "h-[min(52dvh,30rem)]" : "h-14"
+          "hidden md:flex fixed right-0 top-0 bottom-0 z-30 bg-[var(--background)]",
+          sidebarOpen ? "flex-col shadow-[-4px_0_12px_rgba(0,0,0,0.12)]" : "w-16 flex-col items-center py-3"
         )}
-      >
-        {sidebarOpen ? (
-          <>
-            <div className="shrink-0 border-b border-[var(--sidebar-border)] px-3 pb-2 pt-1">
-              <div className="mx-auto mb-1 h-1 w-8 rounded-full bg-[var(--text-muted)]/30" />
-              {onActivate ? (
-                <div className="mb-2 flex items-center gap-2">
-                  <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
-                    <SidebarButton
-                      variant="tab"
-                      onClick={onActivate}
-                    >
-                      Comments
-                    </SidebarButton>
-                    <SidebarButton
-                      variant="tab"
-                      active
-                      onClick={toggleSidebar}
-                    >
-                      Outline
-                    </SidebarButton>
-                  </div>
-                  <SidebarButton
-                    onClick={toggleSidebar}
-                    aria-label="Collapse outline rail"
-                    className="h-auto w-auto px-2 py-1"
-                  >
-                    <RailToggleIcon direction="down" />
-                  </SidebarButton>
-                </div>
-              ) : (
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="min-w-0 flex-1 text-xs font-medium text-[var(--foreground)]">
-                    Outline
-                  </span>
-                  <SidebarButton
-                    onClick={toggleSidebar}
-                    aria-label="Collapse outline rail"
-                    className="h-auto w-auto px-2 py-1"
-                  >
-                    <RailToggleIcon direction="down" />
-                  </SidebarButton>
-                </div>
-              )}
-              <p className="text-xs text-[var(--text-muted)]">
-                {outlineItems.length} heading{outlineItems.length === 1 ? "" : "s"}
-              </p>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--background)]/40 p-3">
-              {outlineItems.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[var(--sidebar-border)] px-4 py-6 text-sm text-[var(--text-muted)]">
-                  No headings found on this page.
-                </div>
-              ) : (
-                <div className="space-y-0.5">
-                  {outlineItems.map((item) => (
-                    <SidebarButton
-                      key={item.id}
-                      variant="list"
-                      onClick={() => jumpToHeading(item.id)}
-                      style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
-                      title={item.text}
-                    >
-                      <span className="line-clamp-2">{item.text}</span>
-                    </SidebarButton>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="flex h-full items-center gap-2 px-3">
-            {onActivate ? (
-              <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
-                <SidebarButton
-                  variant="tab"
-                  onClick={onActivate}
-                >
-                  Comments
-                </SidebarButton>
-                <SidebarButton
-                  variant="tab"
-                  active
-                  onClick={() => setSidebarOpen(true)}
-                >
-                  Outline
-                </SidebarButton>
-              </div>
-            ) : (
-              <span className="min-w-0 flex-1 text-sm font-medium text-[var(--foreground)]">
-                Outline
-              </span>
-            )}
-            <SidebarButton
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Expand outline rail"
-              className="h-auto w-auto px-2 py-1"
-            >
-              <RailToggleIcon direction="up" />
-            </SidebarButton>
-          </div>
-        )}
-      </aside>
-
-      <aside
-        className={cn(
-          "hidden lg:flex fixed right-0 top-12 bottom-0 z-30 bg-[var(--sidebar-bg)]",
-          sidebarOpen ? "flex-col" : "w-16 flex-col items-center py-3 border-l border-[var(--sidebar-border)]"
-        )}
+        data-wiki-shell-right-rail
         style={sidebarOpen ? { width: sidebarWidth } : undefined}
       >
         {sidebarOpen ? (
@@ -1581,7 +1885,7 @@ export function OutlineShell({
               role="separator"
               aria-label="Resize outline pane"
               aria-orientation="vertical"
-              className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-[var(--sidebar-border)] hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
+              className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-transparent hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
             />
             <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] px-3 py-2">
               {onActivate ? (
@@ -1640,15 +1944,13 @@ export function OutlineShell({
                 ) : (
                   <div className="space-y-0.5">
                     {outlineItems.map((item) => (
-                      <SidebarButton
-                        key={item.id}
-                        variant="list"
+                      <OutlineButton
+                        key={item.key}
+                        item={item}
+                        active={item.id === activeHeadingId}
+                        ancestor={activeHeadingParentIds.has(item.id)}
                         onClick={() => jumpToHeading(item.id)}
-                        style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
-                        title={item.text}
-                      >
-                        <span className="line-clamp-2">{item.text}</span>
-                      </SidebarButton>
+                      />
                     ))}
                   </div>
                 )}
@@ -1700,13 +2002,17 @@ export function ActiveDocumentComments({
   children: ReactNode;
 }) {
   return (
-    <LiveblocksRoom roomId={getRoomId(documentSlug)}>
+    <LiveblocksRoom
+      roomId={getRoomId(documentSlug)}
+      fallback={
+        <OutlineShell documentSlug={documentSlug} documentTitle={documentTitle}>
+          {children}
+        </OutlineShell>
+      }
+    >
       <CommentsShell documentSlug={documentSlug} documentTitle={documentTitle}>
         {children}
       </CommentsShell>
     </LiveblocksRoom>
   );
 }
-
-// Re-export the wrapper component for callers using the package barrel.
-export { DocumentComments } from "./wrapper";

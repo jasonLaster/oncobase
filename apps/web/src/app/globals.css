@@ -10,7 +10,11 @@
    NEXT_PUBLIC_CHAT_STREAMDOWN=1 — otherwise the bundle never imports it. */
 @source "../../../node_modules/streamdown/dist";
 @source "../../../packages/chat/src";
-@source "../../../packages/wiki-comments/src";
+/* 4 levels up from src/app to the repo root `packages/`. The wiki-comments
+   document-comments UI lives here now and uses Tailwind utilities (e.g. the
+   z-0 highlight layer) that must be scanned so the dev server generates them
+   (the production build also auto-detects them). */
+@source "../../../../packages/wiki-comments/src";
 @source "../../../packages/wiki-markdown/src";
 @source "../../../packages/wiki-shell/src";
 

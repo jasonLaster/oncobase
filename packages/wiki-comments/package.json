@@ -51,6 +51,11 @@
       "import": "./src/page-client.tsx",
       "default": "./src/page-client.tsx"
     },
+    "./auth-context": {
+      "types": "./src/auth-context.tsx",
+      "import": "./src/auth-context.tsx",
+      "default": "./src/auth-context.tsx"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
