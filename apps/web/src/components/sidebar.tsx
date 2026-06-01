@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent,
+} from "react";
 import {
   Activity,
   Archive,
@@ -43,6 +49,11 @@ import {
   WandSparkles,
   type LucideIcon,
 } from "lucide-react";
+import {
+  WikiSidebar,
+  collectActiveAncestors,
+  type WikiTreePageLinkRenderArgs,
+} from "@oncobase/wiki-shell";
 import type { FileNode } from "@/lib/markdown";
 import { ActionsMenu, SidebarSignInPrompt } from "@/components/actions-menu";
 import { openCommandPalette } from "@/components/command-palette";
@@ -513,13 +524,67 @@ function SidebarFooter() {
   );
 }
 
+// File-tree page links for the shared WikiSidebar. The shared tree supplies the
+// icon + label as `children` (via the shared semantic icons); we wrap them in a
+// Next.js <Link> that sets the optimistic navigation intent and the
+// `data-selected-file-tree-item` marker the auto-scroll + e2e rely on.
+function renderSidebarPageLink({
+  active,
+  children,
+  className,
+  node,
+  onNavigate,
+  style,
+}: WikiTreePageLinkRenderArgs) {
+  return (
+    <Link
+      href={`/${node.slug}`}
+      onClick={(event) => {
+        if (shouldSetNavigationIntent(event)) {
+          setNavigationIntent(`/${node.slug}`);
+        }
+        onNavigate?.(event);
+      }}
+      data-selected-file-tree-item={active ? "true" : undefined}
+      className={className}
+      style={style}
+      title={formatName(node.name)}
+    >
+      {children}
+    </Link>
+  );
+}
+
 export function Sidebar({ tree }: { tree: FileNode[] }) {
   const pathname = useNavigationPathname();
-  const navRef = useRef<HTMLElement>(null);
+  const activeSlug = decodeURIComponent(pathname).replace(/^\//, "");
+  const activeAncestorSlugs = useMemo(
+    () => collectActiveAncestors(tree, activeSlug),
+    [tree, activeSlug],
+  );
 
+  // Directory toggles are ephemeral and reset on navigation, matching the
+  // legacy tree: each route change re-applies the default-open rule so the
+  // active page's ancestors expand without persisting manual toggles.
+  const [expandedSlugs, setExpandedSlugs] = useState<Map<string, boolean>>(
+    () => new Map(),
+  );
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setExpandedSlugs(new Map());
+  }
+  const onToggleDirectory = useCallback((slug: string, open: boolean) => {
+    setExpandedSlugs((current) => new Map(current).set(slug, !open));
+  }, []);
+
+  // Smooth-scroll the active item into view on navigation. The shared tree has
+  // no built-in auto-scroll, so query the rendered nav by its test id.
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      const nav = navRef.current;
+      const nav = document.querySelector<HTMLElement>(
+        '[data-test-id="sidebar-tree"]',
+      );
       const selectedItem = nav?.querySelector<HTMLElement>(
         '[data-selected-file-tree-item="true"]',
       );
@@ -544,26 +609,32 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
   }, [pathname]);
 
   return (
-    <aside
-      className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
+    <WikiSidebar
+      activeAncestorSlugs={activeAncestorSlugs}
+      activeSlug={activeSlug}
+      beforeTree={
+        commentsFeatureEnabled() ? (
+          <CommentsTreeLink activePathname={pathname} />
+        ) : null
+      }
       data-test-id="sidebar"
-    >
-      <WorkspaceHeader />
-      <nav
-        ref={navRef}
-        className="min-h-0 flex-1 select-none overflow-y-auto px-1.5 py-2"
-        data-test-id="sidebar-tree"
-      >
-        {commentsFeatureEnabled() ? <CommentsTreeLink activePathname={pathname} /> : null}
-        {tree.map((node) => (
-          <TreeNode
-            activePathname={pathname}
-            key={fileTreeNodeKey(node)}
-            node={node}
-          />
-        ))}
-      </nav>
-      <SidebarFooter />
-    </aside>
+      // Legacy default-open rule: only the top-level "wiki" section starts open
+      // for a new session (active ancestors always open, handled by WikiTree).
+      defaultDirectoryOpen={(node, depth) => depth === 0 && node.slug === "wiki"}
+      // Match the legacy directory button's accessible name (its label text, no
+      // "Expand/Collapse" prefix) so existing selectors keep working.
+      directoryAriaLabel={({ formattedName, node }) =>
+        node.badge ? `${formattedName} ${node.badge}` : formattedName
+      }
+      expandedSlugs={expandedSlugs}
+      footer={<SidebarFooter />}
+      // Rich legacy labels (date prefixes, ordering-prefix stripping).
+      formatNodeName={formatName}
+      heading={<WorkspaceHeader />}
+      onToggleDirectory={onToggleDirectory}
+      renderPageLink={renderSidebarPageLink}
+      tree={tree}
+      treeTestId="sidebar-tree"
+    />
   );
 }

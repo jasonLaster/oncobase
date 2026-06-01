@@ -31,12 +31,27 @@ export type WikiTreePageLinkRenderArgs = {
 export type WikiTreeProps = {
   activeAncestorSlugs: Set<string>;
   activeSlug: string;
+  /**
+   * Whether a directory should be open by DEFAULT (no user toggle, and not an
+   * active ancestor — those always open). Receives the node and its depth.
+   * Defaults to "every top-level directory" (`depth < 1`), which is the Vite
+   * reader's behavior. The legacy reader passes a stricter predicate (only the
+   * `wiki` top-level section) so both readers keep their existing defaults.
+   */
+  defaultDirectoryOpen?: (node: WikiNavigationNode, depth: number) => boolean;
   directoryAriaLabel?: (args: {
     formattedName: string;
     node: WikiNavigationNode;
     open: boolean;
   }) => string;
   expandedSlugs: Map<string, boolean>;
+  /**
+   * How a node's raw `name` is turned into its display label. Defaults to the
+   * Vite reader's simple dash→space transform. The legacy reader passes its
+   * richer file-label formatter (date prefixes, ordering-prefix stripping) so
+   * both readers keep their existing labels.
+   */
+  formatNodeName?: (name: string) => string;
   getFileHref?: (node: WikiNavigationNode) => string;
   onNavigate?: () => void;
   onToggleDirectory: (slug: string, open: boolean) => void;
@@ -46,6 +61,8 @@ export type WikiTreeProps = {
 
 export type WikiSidebarProps = Omit<ComponentProps<"aside">, "children"> &
   WikiTreeProps & {
+    /** Rendered inside the scroll nav, above the file tree (e.g. a Comments link). */
+    beforeTree?: ReactNode;
     footer?: ReactNode;
     heading?: ReactNode;
     treeTestId?: string;
@@ -94,10 +111,13 @@ function FileIcon() {
 export function WikiSidebar({
   activeAncestorSlugs,
   activeSlug,
+  beforeTree,
   className,
+  defaultDirectoryOpen,
   directoryAriaLabel,
   expandedSlugs,
   footer,
+  formatNodeName,
   getFileHref,
   heading = "File tree",
   onNavigate,
@@ -120,11 +140,14 @@ export function WikiSidebar({
         </div>
       ) : null}
       <nav className="wiki-shell-sidebar-nav" data-test-id={treeTestId}>
+        {beforeTree}
         <WikiTree
           activeAncestorSlugs={activeAncestorSlugs}
           activeSlug={activeSlug}
+          defaultDirectoryOpen={defaultDirectoryOpen}
           directoryAriaLabel={directoryAriaLabel}
           expandedSlugs={expandedSlugs}
+          formatNodeName={formatNodeName}
           getFileHref={getFileHref}
           onNavigate={onNavigate}
           onToggleDirectory={onToggleDirectory}
@@ -140,8 +163,10 @@ export function WikiSidebar({
 export function WikiTree({
   activeAncestorSlugs,
   activeSlug,
+  defaultDirectoryOpen,
   directoryAriaLabel,
   expandedSlugs,
+  formatNodeName,
   getFileHref,
   onNavigate,
   onToggleDirectory,
@@ -155,8 +180,10 @@ export function WikiTree({
           key={treeNodeKey(node)}
           activeAncestorSlugs={activeAncestorSlugs}
           activeSlug={activeSlug}
+          defaultDirectoryOpen={defaultDirectoryOpen}
           directoryAriaLabel={directoryAriaLabel}
           expandedSlugs={expandedSlugs}
+          formatNodeName={formatNodeName}
           getFileHref={getFileHref}
           node={node}
           onNavigate={onNavigate}
@@ -176,9 +203,11 @@ type WikiTreeNodeProps = Omit<WikiTreeProps, "tree"> & {
 function WikiTreeNode({
   activeAncestorSlugs,
   activeSlug,
+  defaultDirectoryOpen,
   depth = 0,
   directoryAriaLabel,
   expandedSlugs,
+  formatNodeName,
   getFileHref,
   node,
   onNavigate,
@@ -186,11 +215,14 @@ function WikiTreeNode({
   renderPageLink,
 }: WikiTreeNodeProps) {
   const indent = depth * 12;
-  const formattedName = formatTreeNodeName(node.name);
+  const formattedName = (formatNodeName ?? formatTreeNodeName)(node.name);
 
   if (node.type === "directory") {
     const userOpen = expandedSlugs.get(node.slug);
-    const open = userOpen ?? (depth < 1 || activeAncestorSlugs.has(node.slug));
+    const open =
+      userOpen ??
+      (activeAncestorSlugs.has(node.slug) ||
+        (defaultDirectoryOpen?.(node, depth) ?? depth < 1));
     const accessibleName = node.badge
       ? `${open ? "Collapse" : "Expand"} ${formattedName} ${node.badge}`
       : `${open ? "Collapse" : "Expand"} ${formattedName}`;
@@ -220,9 +252,11 @@ function WikiTreeNode({
                 key={treeNodeKey(child)}
                 activeAncestorSlugs={activeAncestorSlugs}
                 activeSlug={activeSlug}
+                defaultDirectoryOpen={defaultDirectoryOpen}
                 directoryAriaLabel={directoryAriaLabel}
                 depth={depth + 1}
                 expandedSlugs={expandedSlugs}
+                formatNodeName={formatNodeName}
                 getFileHref={getFileHref}
                 node={child}
                 onNavigate={onNavigate}
@@ -363,7 +397,9 @@ export function WikiMobileNavigation({
   activeAncestorSlugs,
   activeSlug,
   className,
+  defaultDirectoryOpen,
   expandedSlugs,
+  formatNodeName,
   getFileHref,
   onNavigate,
   onOpenChange,
@@ -392,7 +428,9 @@ export function WikiMobileNavigation({
             <WikiTree
               activeAncestorSlugs={activeAncestorSlugs}
               activeSlug={activeSlug}
+              defaultDirectoryOpen={defaultDirectoryOpen}
               expandedSlugs={expandedSlugs}
+              formatNodeName={formatNodeName}
               getFileHref={getFileHref}
               onNavigate={close}
               onToggleDirectory={onToggleDirectory}
