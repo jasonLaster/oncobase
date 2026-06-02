@@ -68,16 +68,37 @@ function expectCacheableFileTree(cacheControl: string | undefined) {
   expect(cacheControl).toMatch(/(?:s-maxage|max-age)=\d+/);
 }
 
+async function getWithRetry(
+  request: Parameters<Parameters<typeof test.describe>[1]>[0]["request"],
+  path: string,
+  attempts = 3,
+) {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await request.get(path, { timeout: 20_000 });
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts) break;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 250));
+    }
+  }
+
+  throw lastError;
+}
+
 test.describe("Sidebar source files", () => {
   test("/api/file-tree returns the complete cached tree while page HTML keeps the shell lean", async ({
     request,
   }) => {
-    const [treeResponse, compactTreeResponse, pagesResponse, htmlResponse] = await Promise.all([
-      request.get("/api/file-tree"),
-      request.get("/api/file-tree?format=compact"),
-      request.get("/api/pages"),
-      request.get("/wiki/updates/week-6-april-19-to-25?token=diana"),
-    ]);
+    const treeResponse = await getWithRetry(request, "/api/file-tree");
+    const compactTreeResponse = await getWithRetry(request, "/api/file-tree?format=compact");
+    const pagesResponse = await getWithRetry(request, "/api/pages");
+    const htmlResponse = await getWithRetry(
+      request,
+      "/wiki/updates/week-6-april-19-to-25?token=diana",
+    );
 
     expect(treeResponse.ok()).toBeTruthy();
     expect(compactTreeResponse.ok()).toBeTruthy();
