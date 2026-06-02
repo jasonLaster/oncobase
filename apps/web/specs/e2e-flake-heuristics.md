@@ -4,6 +4,48 @@ This page tracks recurring failure modes from CI and the heuristics we use to de
 
 ## Current Failure Modes
 
+### Source tree payload checks under cold or bursty startup
+
+Observed in the May 24-25, 2026 scheduled `E2E Stress Test` runs on `main`, especially run `26396143895`.
+
+Symptoms:
+
+- `sidebar-pdfs.spec.ts` repeatedly fails `/api/file-tree returns the complete cached tree while page HTML keeps the shell lean`.
+- The same run often passes the neighboring sidebar tests, which points to request timing rather than a stable schema regression.
+- Follow-on retries in the same stress run can fail in under a second, which is consistent with transient request or startup races instead of a slow deterministic assertion mismatch.
+- A cold local run on current `main` also timed out while issuing the initial request bundle, while the immediate rerun passed.
+
+Heuristics:
+
+- Do not make shell-payload assertions depend on four simultaneous cold-start requests when the product behavior under test is the response content, not parallel request throughput.
+- Retry transient request failures before classifying the result as a payload regression.
+- Keep the existing response-content assertions unchanged so a real serialization regression still fails deterministically once responses arrive.
+
+Mitigations in this branch:
+
+- `sidebar-pdfs.spec.ts` now fetches `/api/file-tree`, `/api/file-tree?format=compact`, `/api/pages`, and the HTML shell sequentially with a small retry budget instead of one cold `Promise.all(...)` burst.
+
+### Preview URL gate timed out before preview E2E started
+
+Observed in the latest `PR Checks` runs on May 24-25, 2026: `26372565754`, `26373648044`, and `26376448291`.
+
+Symptoms:
+
+- `Resolve Preview URL` fails after 40 polling attempts while `Static` and `Unit` pass.
+- `E2E (Preview)` is skipped because the preview URL output is never produced.
+- The job log repeatedly prints `Preview deployment not created yet (attempt N/40).`
+- The failure is branch-agnostic across PRs that changed unrelated product areas.
+
+Heuristics:
+
+- Bucket this separately from browser-test regressions; no Playwright step ran in these PR workflows.
+- Treat it as deployment-discovery drift unless the job finds a preview deployment and then fails while resolving status or URL fields.
+- Keep using the scheduled stress workflow as the actionable browser signal while this gate is broken.
+
+Current status:
+
+- The failing repository checkout available in this workspace no longer contains the `PR Checks` workflow file, so this sweep could document the regression but not patch the stale preview-resolution job in place.
+
 ### Static shell versus streamed content
 
 Observed in the May 4, May 7, and May 8, 2026 scheduled `E2E Stress Test` runs on `main`.
