@@ -188,6 +188,30 @@ CD4^{+} T cells expand, while ^{68}Ga tracers stay unchanged.
     expect(html).toContain('aria-label="Open image: Figure 1"');
   });
 
+  test("renders a slides viewer from a marked markdown image list", () => {
+    const html = renderWikiMarkdownHtml(
+      [
+        "<!-- slides -->",
+        "- ![First scan](images/first.png)",
+        "- ![Second scan](images/second.png)",
+      ].join("\n"),
+      "wiki/research/index",
+    );
+
+    expect(html).toContain('class="wiki-slides-viewer"');
+    expect(html).toContain("data-wiki-slides");
+    expect(countMatches(html, /data-wiki-slide(?:\s|>|="")/g)).toBe(2);
+    expect(html).toContain("1 / 2");
+    expect(html).toContain("data-wiki-slides-prev");
+    expect(html).toContain("data-wiki-slides-next");
+    expect(html).toContain(
+      'src="/api/file?path=wiki%2Fresearch%2Fimages%2Ffirst.png"',
+    );
+    expect(html).toContain(
+      'src="/api/file?path=wiki%2Fresearch%2Fimages%2Fsecond.png"',
+    );
+  });
+
   test("preserves currency and still renders math", () => {
     const html = renderWikiMarkdownHtml([
       "Cost is $1.5M and math is $x^2$.",

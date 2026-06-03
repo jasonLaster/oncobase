@@ -6,6 +6,7 @@ import { MarkdownHeadingAnchors } from "@/components/markdown-heading-anchors";
 import { MermaidRenderer } from "@/components/mermaid-renderer";
 import { InteractiveTables } from "@/components/interactive-tables";
 import { ImageTheater } from "@/components/image-theater";
+import { SlidesViewerControls } from "@/components/slides-viewer";
 
 type MarkdownRendererProps = {
   content: string;
@@ -34,6 +35,7 @@ export function MarkdownRenderer({
       />
       <InteractiveTables />
       <MermaidRenderer />
+      <SlidesViewerControls />
       <ImageTheater />
     </WikiMarkdownFrame>
   );
@@ -67,6 +69,7 @@ export async function MarkdownRendererAsync({
       />
       <InteractiveTables />
       <MermaidRenderer />
+      <SlidesViewerControls />
       <ImageTheater />
     </WikiMarkdownFrame>
   );

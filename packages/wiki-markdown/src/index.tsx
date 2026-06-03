@@ -31,6 +31,8 @@ import {
 } from "./heading-anchors";
 import { ImageTheater, TheaterImage } from "./image-theater";
 import { markdownRehypePlugins, markdownRemarkPlugins } from "./math";
+import { expandSlidesMarkdown } from "./slides-markdown";
+import { SlidesViewer, SlidesViewerControls } from "./slides-viewer";
 import { WikiMarkdownFrame } from "./frame";
 import {
   isInternalWikiHref,
@@ -174,8 +176,8 @@ export function WikiMarkdown({
   resolveLinkHref,
   isInternalHref = isInternalWikiHref,
 }: WikiMarkdownProps) {
-  const prepared = preprocessCitationMarkdown(
-    resolveWikilinks(content, currentSlug, apiBasePath),
+  const prepared = expandSlidesMarkdown(
+    preprocessCitationMarkdown(resolveWikilinks(content, currentSlug, apiBasePath)),
   );
 
   return (
@@ -232,6 +234,7 @@ export function WikiMarkdown({
         routeAdapter={routeAdapter}
         scopeKey={anchorScopeKey ?? currentSlug}
       />
+      <SlidesViewerControls />
     </WikiMarkdownFrame>
   );
 }
@@ -248,6 +251,8 @@ export {
   MarkdownPre,
   MermaidFallback,
   RoutedAnchorLinks,
+  SlidesViewer,
+  SlidesViewerControls,
   TheaterImage,
   WikiMarkdownFrame,
   isInternalWikiHref,

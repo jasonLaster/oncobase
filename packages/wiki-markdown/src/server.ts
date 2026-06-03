@@ -7,6 +7,7 @@ import remarkRehype from "remark-rehype";
 import { unified } from "unified";
 import { preprocessCitationMarkdown } from "./citations";
 import { markdownRehypePlugins, markdownRemarkPlugins } from "./math";
+import { expandSlidesMarkdown } from "./slides-markdown";
 
 const processor = unified()
   .use(remarkParse)
@@ -347,7 +348,8 @@ function fixPdfLinks(html: string): string {
 
 export function renderWikiMarkdownHtml(md: string, currentSlug?: string): string {
   const citationLinked = preprocessCitationMarkdown(md);
-  const mermaidExtracted = extractMermaidBlocks(citationLinked);
+  const slidesExpanded = expandSlidesMarkdown(citationLinked);
+  const mermaidExtracted = extractMermaidBlocks(slidesExpanded);
   const cleanMd = escapeCurrencyDollars(
     normalizeCurrencyTypos(stripLegacyTableDirectives(mermaidExtracted)),
   );
@@ -363,7 +365,8 @@ export async function renderWikiMarkdownHtmlAsync(
   currentSlug?: string,
 ): Promise<string> {
   const citationLinked = preprocessCitationMarkdown(md);
-  const mermaidExtracted = extractMermaidBlocks(citationLinked);
+  const slidesExpanded = expandSlidesMarkdown(citationLinked);
+  const mermaidExtracted = extractMermaidBlocks(slidesExpanded);
   const cleanMd = escapeCurrencyDollars(
     normalizeCurrencyTypos(stripLegacyTableDirectives(mermaidExtracted)),
   );

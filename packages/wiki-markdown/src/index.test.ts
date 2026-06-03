@@ -6,6 +6,7 @@ import {
   resolveAssetPath,
   resolveHref,
   resolveWikilinks,
+  SlidesViewer,
   splitWikilinkAlias,
   WikiMarkdown,
 } from "./index";
@@ -83,5 +84,23 @@ gantt
 
     expect(html).toContain('<router-link href="/wiki/diagnostics/diagnosis">Diagnosis</router-link>');
     expect(html).toContain('href="/api/file?path=wiki%2Fresearch%2Fpaper.pdf"');
+  });
+
+  test("renders a reusable slides viewer from an image list", () => {
+    const html = renderToStaticMarkup(
+      createElement(SlidesViewer, {
+        currentSlug: "wiki/research/index",
+        images: [
+          { src: "images/first.png", alt: "First scan" },
+          { src: "images/second.png", alt: "Second scan" },
+        ],
+      }),
+    );
+
+    expect(html).toContain('class="wiki-slides-viewer"');
+    expect(html).toContain('data-wiki-slides=""');
+    expect(html).toContain("1 / 2");
+    expect(html).toContain('src="/api/file?path=wiki%2Fresearch%2Fimages%2Ffirst.png"');
+    expect(html).toContain('alt="Second scan"');
   });
 });
