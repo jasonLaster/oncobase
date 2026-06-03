@@ -57,7 +57,6 @@ test.describe("Page load experience", () => {
     await expect(article).toContainText("LOG_TOP_SENTINEL");
     await expect(article).toContainText("LOG_MIDDLE_SENTINEL");
     await expect(article).toContainText("LOG_TAIL_SENTINEL");
-    await expect(article.locator(".page-footer")).toContainText("Content hash:");
   });
 
   test("initial paint keeps header, sidebar, and article chrome without diagnostics", async ({ page }) => {

@@ -142,6 +142,39 @@ The PR workflow keeps those phases independent:
 
 The header finder is intentionally not the canonical wiki search. It filters the local manifest/page index for instant page switching. Canonical text search, AI search, and the full-stack chat experience are now served by the Vite backend/app surface for the standalone migration path.
 
+## Comments
+
+Document comments are powered by the shared `@oncobase/wiki-comments` package + Liveblocks, reusing the **same Convex deployment** as the Next.js reader, so comment threads are shared across both readers (per-site Liveblocks workspace, `markdown:<slug>` room ids). The Vite backend serves `/api/liveblocks-auth`, `/api/liveblocks-users`, and `/api/liveblocks-guest` (in `server/wiki-api.ts`), signing per-site session tokens with the workspace secret.
+
+Comments are gated by `NEXT_PUBLIC_ENABLE_COMMENTS` (needs `LIVEBLOCKS_API_KEY` / `LIVEBLOCKS_PUBLIC_KEY`). When enabled, the reader renders the shared comments rail (Comments/Outline tabs, highlight-to-comment, page-level composer); when disabled the comments graph (Liveblocks JS + CSS) is dead-code-eliminated, so a comments-off build adds nothing to the bundle.
+
+The mocked e2e suite pins comments **off** (`WIKI_VITE_FORCE_COMMENTS_OFF=1`) for a deterministic outline rail, so `comments.spec` skips by default. Run it against a comments-enabled server with a live Liveblocks workspace:
+
+```sh
+NEXT_PUBLIC_ENABLE_COMMENTS=true PORT=61055 bun dev      # one shell
+WIKI_VITE_TEST_COMMENTS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:61055 \
+  bunx playwright test comments.spec                     # another shell
+```
+
+## Reader parity suite (one suite, both readers, real backend)
+
+`e2e-shared/reader-parity.ts` is a single Playwright suite run against BOTH this
+Vite reader AND the legacy Next.js reader, talking to the SAME real Convex
+backend (no mocks). Each app supplies a thin adapter (`apps/wiki-vite/e2e/parity.spec.ts`,
+`apps/web/e2e/parity.spec.ts`) for auth + selectors; the assertions (page title,
+markdown body, sidebar sections, heading-anchor slugs) are identical, so a green
+run in both is direct evidence the readers behave the same on real content.
+
+```sh
+# Vite reader against real Convex
+bun --cwd apps/wiki-vite test:e2e --grep "reader parity"
+# legacy reader against real Convex (runs auth.setup first)
+bun --cwd apps/web test parity.spec
+```
+
+Unlike the mocked suite, these hit Convex over the network, so they need the
+backend env (`.env.local`) and are slower/network-dependent (like `live-data.spec`).
+
 ## Scope
 
 The default store is public-only, even if the browser also has a signed-in wiki session. Open `/?scope=session` to use authenticated content. Session mode first fetches `/api/wiki/session` and only opens LiveStore with a server-issued cache key for the current wiki session.
@@ -150,7 +183,7 @@ The default store is public-only, even if the browser also has a signed-in wiki 
 
 The prototype is intentionally side-by-side with the current Next app. `apps/web` remains the v1 content source and publishing target; this app only consumes public/session API snapshots and stores them in the browser.
 
-The durable wiki behavior should stay in shared packages. `@oncobase/wiki-content` owns manifest/page/tree contracts and cache reconciliation. `@oncobase/wiki-markdown` owns markdown rendering, route-safe links, heading anchors, image theater, citations, math, and smart-table integration. The Vite app should remain the LiveStore and React Router adapter around those packages.
+The durable wiki behavior should stay in shared packages. `@oncobase/wiki-content` owns manifest/page/tree contracts and cache reconciliation. `@oncobase/wiki-markdown` owns markdown rendering, route-safe links, heading anchors, image theater (including light/dark `data-theme-pair` variants), citations, math, and smart-table integration. `@oncobase/wiki-shell` owns the shared page chrome — `WikiPageHeader`, `WikiCopyPageButton`, the loading skeleton, the outline rail, sidebar, and theme controls — so this reader and the Next.js reader render an identical header from one source. The Vite app should remain the LiveStore and React Router adapter around those packages.
 
 LiveStore is used as a local read cache without a remote sync backend. The schema stores:
 

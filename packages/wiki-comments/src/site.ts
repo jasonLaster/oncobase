@@ -20,12 +20,11 @@
  *      its own workspace credentials.
  *   4. `sites.config.enableComments === false` always wins regardless of
  *      keys — operators can disable comments without touching credentials.
+ *
+ * This module is framework-agnostic: the caller fetches the site row (from
+ * Convex, in either app) and passes it in, so the package has no Convex or
+ * `apps/web` dependency.
  */
-
-import type { Doc } from "../../../apps/web/convex/_generated/dataModel";
-import { api } from "../../../apps/web/convex/_generated/api";
-import { getConvexServerClient } from "../../../apps/web/src/lib/convex-server";
-import { DEFAULT_SITE_SLUG, siteSlugFromRequest } from "../../../apps/web/src/lib/site";
 
 export type LiveblocksCredentials = {
   siteSlug: string;
@@ -41,30 +40,45 @@ export type LiveblocksConfig =
   | { ok: true; creds: LiveblocksCredentials }
   | { ok: false; reason: LiveblocksDisabledReason; siteSlug: string };
 
-function envSecret(): string | null {
+/**
+ * Structural subset of a `sites` row that comment credential resolution needs.
+ * Each app's Convex `Doc<"sites">` satisfies this interface structurally.
+ */
+export type CommentsSite = {
+  config?: { enableComments?: boolean } | null;
+  liveblocksSecretKey?: string | null;
+  liveblocksPublicKey?: string | null;
+};
+
+export type ResolveLiveblocksConfigInput = {
+  /** The resolved site slug for the incoming request. */
+  siteSlug: string;
+  /** The site row, already fetched by the caller (null when not found). */
+  site: CommentsSite | null;
+  /** The default ("home") site slug that may use deployment env credentials. */
+  defaultSiteSlug: string;
+  /** Optional explicit env overrides; defaults to process.env. */
+  envSecretKey?: string | null;
+  envPublicKey?: string | null;
+};
+
+function defaultEnvSecret(): string | null {
   return (
     process.env.LIVEBLOCKS_SECRET_KEY ?? process.env.LIVEBLOCKS_API_KEY ?? null
   );
 }
 
-function envPublic(): string | null {
+function defaultEnvPublic(): string | null {
   return process.env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY ?? null;
 }
 
-export async function resolveLiveblocksConfig(
-  request: { headers: Headers },
-): Promise<LiveblocksConfig> {
-  const siteSlug = siteSlugFromRequest(request);
-
-  let site: Doc<"sites"> | null = null;
-  try {
-    site = await getConvexServerClient().query(api.sites.getBySlug, {
-      slug: siteSlug,
-    });
-  } catch {
-    site = null;
-  }
-
+export function resolveLiveblocksConfig({
+  siteSlug,
+  site,
+  defaultSiteSlug,
+  envSecretKey,
+  envPublicKey,
+}: ResolveLiveblocksConfigInput): LiveblocksConfig {
   // Operator can disable comments per site regardless of credentials.
   if (site?.config?.enableComments === false) {
     return { ok: false, reason: "comments-disabled", siteSlug };
@@ -82,21 +96,25 @@ export async function resolveLiveblocksConfig(
     };
   }
 
-  // Diana migration-window fallback to deployment env.
-  if (siteSlug === DEFAULT_SITE_SLUG) {
-    const secret = envSecret();
+  // Default-site migration-window fallback to deployment env.
+  if (siteSlug === defaultSiteSlug) {
+    const secret = envSecretKey ?? defaultEnvSecret();
     if (!secret) {
       return { ok: false, reason: "credentials-missing", siteSlug };
     }
     return {
       ok: true,
-      creds: { siteSlug, secretKey: secret, publicKey: envPublic() },
+      creds: {
+        siteSlug,
+        secretKey: secret,
+        publicKey: envPublicKey ?? defaultEnvPublic(),
+      },
     };
   }
 
   // Any other site without explicit per-site keys: hard-disable. Comments
-  // for non-Diana sites require provisioning a Liveblocks workspace and
-  // storing its keys on the site row (Phase 6 work).
+  // for non-default sites require provisioning a Liveblocks workspace and
+  // storing its keys on the site row.
   return { ok: false, reason: "credentials-missing", siteSlug };
 }
 

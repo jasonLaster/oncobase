@@ -17,7 +17,10 @@ const extraHTTPHeaders = previewBypassSecret
 const webServer = process.env.PLAYWRIGHT_BASE_URL
   ? undefined
   : {
-      command: `PORT=${port} bun dev`,
+      // Pin comments off so the mocked suite renders the deterministic outline
+      // rail (comments.spec skips). Comments/Liveblocks are exercised by a live
+      // run, not mocks.
+      command: `PORT=${port} WIKI_VITE_FORCE_COMMENTS_OFF=1 bun dev`,
       url: baseURL,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

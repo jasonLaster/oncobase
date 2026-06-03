@@ -1,3 +1,5 @@
+"use client";
+
 import {
   type ButtonHTMLAttributes,
   type CSSProperties,
@@ -5,6 +7,7 @@ import {
   type SetStateAction,
   useCallback,
   useRef,
+  useState,
   useSyncExternalStore,
 } from "react";
 import {
@@ -239,11 +242,17 @@ export function RailToggleIcon({
 export type DocumentOutlineShellProps = {
   articleClassName?: string;
   children: ReactNode;
+  /**
+   * Optional comments pane content. When provided, the rail shows
+   * Comments/Outline tabs and hosts this node in its comments view, so the
+   * rail chrome (resize, collapse, mobile sheet) is owned entirely by
+   * wiki-shell and the comments package only supplies the thread UI.
+   */
+  comments?: ReactNode;
   contentKey: string;
   defaultOpen?: boolean;
   documentSlug?: string;
   documentTitle?: string;
-  onActivateComments?: () => void;
   pathname?: string;
   scrollRootSelector?: string;
 };
@@ -286,11 +295,11 @@ function OutlineList({
 export function DocumentOutlineShell({
   articleClassName,
   children,
+  comments,
   contentKey,
   defaultOpen = false,
   documentSlug,
   documentTitle,
-  onActivateComments,
   pathname,
   scrollRootSelector,
 }: DocumentOutlineShellProps) {
@@ -306,13 +315,60 @@ export function DocumentOutlineShell({
     width: sidebarWidth,
     setWidth: setSidebarWidth,
   } = usePersistedPaneState(defaultOpen);
+  const [view, setView] = useState<"comments" | "outline">("outline");
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
   const paneWidth = sidebarOpen ? sidebarWidth : COMMENTS_COLLAPSED_WIDTH;
 
+  const hasComments = comments != null;
+  const commentsView = hasComments && view === "comments";
+
   const toggleSidebar = () => setSidebarOpen((current) => !current);
   const openSidebar = () => setSidebarOpen(true);
+  const activateComments = () => {
+    setView("comments");
+    setSidebarOpen(true);
+  };
+  const activateOutline = () => {
+    setView("outline");
+    setSidebarOpen(true);
+  };
+
+  // Shared rail fragments. When there are no comments, `railTabs` renders the
+  // plain "Outline" title and the count always shows, so the outline-only path
+  // (used by both readers today) is byte-identical to before.
+  const railTabs = hasComments ? (
+    <div className="wiki-shell-outline-tabs">
+      <OutlineRailButton
+        variant="tab"
+        active={view === "comments"}
+        onClick={activateComments}
+      >
+        Comments
+      </OutlineRailButton>
+      <OutlineRailButton
+        variant="tab"
+        active={view === "outline"}
+        onClick={activateOutline}
+      >
+        Outline
+      </OutlineRailButton>
+    </div>
+  ) : (
+    <span className="wiki-shell-outline-title">Outline</span>
+  );
+
+  const railHeadingCount = (
+    <p className="wiki-shell-outline-count">
+      {items.length} heading{items.length === 1 ? "" : "s"}
+    </p>
+  );
+  const railHeadingCountSpan = (
+    <span className="wiki-shell-outline-count">
+      {items.length} heading{items.length === 1 ? "" : "s"}
+    </span>
+  );
 
   const jumpToHeading = (item: OutlineItem) => {
     const root = articleRef.current;
@@ -365,6 +421,14 @@ export function DocumentOutlineShell({
     [setSidebarWidth],
   );
 
+  const railBody = commentsView ? (
+    <div className="wiki-shell-comments-pane" data-test-id="comments-pane">
+      {comments}
+    </div>
+  ) : (
+    <OutlineList activeId={activeId} items={items} onJump={jumpToHeading} />
+  );
+
   return (
     <div
       className="wiki-shell-outline-root"
@@ -406,18 +470,7 @@ export function DocumentOutlineShell({
             <div className="wiki-shell-mobile-outline-header">
               <div className="wiki-shell-mobile-outline-grip" aria-hidden="true" />
               <div className="wiki-shell-mobile-outline-title-row">
-                {onActivateComments ? (
-                  <div className="wiki-shell-outline-tabs">
-                    <OutlineRailButton variant="tab" onClick={onActivateComments}>
-                      Comments
-                    </OutlineRailButton>
-                    <OutlineRailButton variant="tab" active onClick={toggleSidebar}>
-                      Outline
-                    </OutlineRailButton>
-                  </div>
-                ) : (
-                  <span className="wiki-shell-outline-title">Outline</span>
-                )}
+                {railTabs}
                 <OutlineRailButton
                   className="wiki-shell-outline-icon-button"
                   onClick={toggleSidebar}
@@ -426,31 +479,14 @@ export function DocumentOutlineShell({
                   <RailToggleIcon direction="down" />
                 </OutlineRailButton>
               </div>
-              <p className="wiki-shell-outline-count">
-                {items.length} heading{items.length === 1 ? "" : "s"}
-              </p>
+              {commentsView ? null : railHeadingCount}
             </div>
-            <div className="wiki-shell-mobile-outline-body">
-              <OutlineList activeId={activeId} items={items} onJump={jumpToHeading} />
-            </div>
+            <div className="wiki-shell-mobile-outline-body">{railBody}</div>
           </>
         ) : (
           <div className="wiki-shell-mobile-outline-collapsed">
-            {onActivateComments ? (
-              <div className="wiki-shell-outline-tabs">
-                <OutlineRailButton variant="tab" onClick={onActivateComments}>
-                  Comments
-                </OutlineRailButton>
-                <OutlineRailButton variant="tab" active onClick={openSidebar}>
-                  Outline
-                </OutlineRailButton>
-              </div>
-            ) : (
-              <span className="wiki-shell-outline-title">Outline</span>
-            )}
-            <span className="wiki-shell-outline-count">
-              {items.length} heading{items.length === 1 ? "" : "s"}
-            </span>
+            {railTabs}
+            {commentsView ? null : railHeadingCountSpan}
             <OutlineRailButton
               className="wiki-shell-outline-icon-button"
               onClick={openSidebar}
@@ -485,19 +521,10 @@ export function DocumentOutlineShell({
               onPointerUp={onPointerUp}
             />
             <div className="wiki-shell-right-rail-header">
-              {onActivateComments ? (
+              {hasComments ? (
                 <div className="wiki-shell-right-rail-header-main">
-                  <div className="wiki-shell-outline-tabs">
-                    <OutlineRailButton variant="tab" onClick={onActivateComments}>
-                      Comments
-                    </OutlineRailButton>
-                    <OutlineRailButton variant="tab" active onClick={toggleSidebar}>
-                      Outline
-                    </OutlineRailButton>
-                  </div>
-                  <p className="wiki-shell-outline-count">
-                    {items.length} heading{items.length === 1 ? "" : "s"}
-                  </p>
+                  {railTabs}
+                  {commentsView ? null : railHeadingCount}
                 </div>
               ) : (
                 <span className="wiki-shell-outline-title">Outline</span>
@@ -510,15 +537,13 @@ export function DocumentOutlineShell({
                 <RailToggleIcon direction="right" />
               </OutlineRailButton>
             </div>
-            <div className="wiki-shell-right-rail-body">
-              <OutlineList activeId={activeId} items={items} onJump={jumpToHeading} />
-            </div>
+            <div className="wiki-shell-right-rail-body">{railBody}</div>
           </>
         ) : (
           <>
-            {onActivateComments ? (
+            {hasComments ? (
               <OutlineRailButton
-                onClick={onActivateComments}
+                onClick={activateComments}
                 aria-label="Open comments"
               >
                 <svg
@@ -538,8 +563,8 @@ export function DocumentOutlineShell({
             ) : null}
             <OutlineRailButton
               active
-              className={onActivateComments ? "wiki-shell-outline-stacked-button" : undefined}
-              onClick={openSidebar}
+              className={hasComments ? "wiki-shell-outline-stacked-button" : undefined}
+              onClick={hasComments ? activateOutline : openSidebar}
               aria-label="Open outline"
             >
               <svg

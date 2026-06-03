@@ -44,7 +44,7 @@ test.describe("Search and local page finding", () => {
 
     await expect(page).toHaveURL(/\/private\/plan$/);
     await waitForPageTitle(page, "Private Plan");
-    await expect(page.locator(".badge.sensitive")).toHaveText("sensitive");
+    await expect(page.locator('[aria-label="Sensitive page"]')).toBeVisible();
   });
 
   test("header search submits to backend search and exposes chat/files handoffs", async ({ page }) => {

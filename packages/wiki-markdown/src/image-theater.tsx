@@ -168,24 +168,13 @@ export function ImageTheater({ scopeSelector = ".prose" }: { scopeSelector?: str
   ) : null;
 }
 
-export function TheaterImage({
+function SingleTheaterImage({
+  resolvedSrc,
+  alt,
   className,
-  currentSlug,
-  apiBasePath,
-  src,
-  alt = "",
   ...props
-}: ComponentProps<"img"> & {
-  currentSlug?: string;
-  apiBasePath?: string;
-}) {
-  const resolvedSrc =
-    typeof src === "string" ? resolveImageSrc(src, currentSlug, apiBasePath) : src;
+}: ComponentProps<"img"> & { resolvedSrc: string; alt: string }) {
   const [image, setImage] = useState<TheaterImageState | null>(null);
-
-  if (!resolvedSrc || typeof resolvedSrc !== "string") {
-    return <img alt={alt} className={className} src={resolvedSrc} {...props} />;
-  }
 
   return (
     <>
@@ -207,5 +196,80 @@ export function TheaterImage({
         <ImageTheaterModal image={image} onClose={() => setImage(null)} />
       ) : null}
     </>
+  );
+}
+
+export function TheaterImage({
+  className,
+  currentSlug,
+  apiBasePath,
+  src,
+  alt = "",
+  "data-theme-pair": themePairAttr,
+  dataThemePair,
+  ...props
+}: ComponentProps<"img"> & {
+  currentSlug?: string;
+  apiBasePath?: string;
+  // react-markdown may surface the raw HTML attribute either as the hyphenated
+  // `data-theme-pair` or the camelCased `dataThemePair`, depending on version.
+  "data-theme-pair"?: boolean | string;
+  dataThemePair?: boolean | string;
+}) {
+  // Theme-pair images mirror the server renderer's expandThemeImages(): an
+  // authored `<img data-theme-pair src="diagram-light.png">` becomes a light +
+  // dark pair toggled by the `.dark` class, so the React (Vite) reader renders
+  // identically to the SSR (Next.js) reader.
+  const themePair = themePairAttr ?? dataThemePair;
+  const isThemePair = themePair !== undefined && themePair !== false;
+  const lightSuffix =
+    isThemePair && typeof src === "string"
+      ? src.match(/^(.*)-light(\.[a-zA-Z0-9]+)$/)
+      : null;
+
+  if (lightSuffix) {
+    const darkSrc = `${lightSuffix[1]}-dark${lightSuffix[2]}`;
+    const lightResolved = resolveImageSrc(lightSuffix[0], currentSlug, apiBasePath);
+    const darkResolved = resolveImageSrc(darkSrc, currentSlug, apiBasePath);
+    if (typeof lightResolved === "string" && typeof darkResolved === "string") {
+      // The toggle class wraps the whole clickable unit (button + image) so the
+      // hidden variant is fully removed from layout in the inactive theme.
+      return (
+        <>
+          <span className="dark:hidden">
+            <SingleTheaterImage
+              {...props}
+              alt={alt}
+              className={className}
+              resolvedSrc={lightResolved}
+            />
+          </span>
+          <span className="hidden dark:block">
+            <SingleTheaterImage
+              {...props}
+              alt={alt}
+              className={className}
+              resolvedSrc={darkResolved}
+            />
+          </span>
+        </>
+      );
+    }
+  }
+
+  const resolvedSrc =
+    typeof src === "string" ? resolveImageSrc(src, currentSlug, apiBasePath) : src;
+
+  if (!resolvedSrc || typeof resolvedSrc !== "string") {
+    return <img alt={alt} className={className} src={resolvedSrc} {...props} />;
+  }
+
+  return (
+    <SingleTheaterImage
+      {...props}
+      alt={alt}
+      className={className}
+      resolvedSrc={resolvedSrc}
+    />
   );
 }

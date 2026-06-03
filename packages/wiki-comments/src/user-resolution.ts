@@ -1,10 +1,26 @@
-import type { Id } from "../../../apps/web/convex/_generated/dataModel";
-import type { GuestUser } from "../../../apps/web/src/lib/guest-user";
-import type { SiteData } from "../../../apps/web/src/lib/site-data";
+import type { GuestUser } from "./guest-user.ts";
 import {
   formatLiveblocksUserId,
   type ResolvedLiveblocksUser,
-} from "./user-format";
+} from "./user-format.ts";
+
+/**
+ * Structural subset of an app's SiteData that comment user-resolution needs.
+ * Declared here (with method syntax, so parameters compare bivariantly) so the
+ * package does not depend on app-specific Convex types — each app's real
+ * SiteData satisfies this interface structurally.
+ */
+export interface CommentsSiteData {
+  users: {
+    getUsersByIds(args: { ids: string[] }): Promise<
+      ReadonlyArray<{ id: string; name?: string | null; email: string }>
+    >;
+  };
+  guestNames: {
+    upsert(args: { guestId: string; name: string }): Promise<unknown>;
+    getByIds(args: { guestIds: string[] }): Promise<Record<string, string>>;
+  };
+}
 
 const CONVEX_USER_ID_RE = /^[a-z0-9]{32}$/;
 
@@ -20,7 +36,7 @@ function uniqueUserIds(userIds: readonly string[]) {
 
 export async function persistLiveblocksGuestName(
   guest: GuestUser | null,
-  siteData: SiteData,
+  siteData: CommentsSiteData,
 ) {
   if (!guest) return;
 
@@ -33,7 +49,7 @@ export async function persistLiveblocksGuestName(
 
 export async function resolveLiveblocksUsers(
   userIds: readonly string[],
-  siteData: SiteData,
+  siteData: CommentsSiteData,
 ): Promise<Record<string, ResolvedLiveblocksUser>> {
   const ids = uniqueUserIds(userIds);
   const resolvedUsers: Record<string, ResolvedLiveblocksUser> = {};
@@ -45,9 +61,7 @@ export async function resolveLiveblocksUsers(
     await Promise.allSettled([
       convexIds.length > 0
         ? siteData.users
-            .getUsersByIds({
-              ids: convexIds as Id<"users">[],
-            })
+            .getUsersByIds({ ids: convexIds })
             .then((users) => {
               for (const user of users) {
                 resolvedUsers[user.id] = {

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   type PointerEvent,
   type ReactNode,

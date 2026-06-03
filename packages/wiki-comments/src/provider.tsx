@@ -8,7 +8,7 @@ import {
   LIVEBLOCKS_GUEST_STORAGE_KEY,
   parseGuestUser,
   serializeGuestUser,
-} from "../../../apps/web/src/lib/guest-user";
+} from "./guest-user";
 import { formatLiveblocksUserId } from "./user-format";
 
 const FALLBACK_PUBLIC_API_KEY =
@@ -30,13 +30,23 @@ type ResolvedUsersResponse = {
   users?: Record<string, { name?: string; email?: string }>;
 };
 
-export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
+export function LiveblocksProviderShell({
+  children,
+  fallback,
+}: {
+  children: ReactNode;
+  // When provided, render this until the identity/provider mode resolves
+  // (the legacy reader relies on this gate). Omitting it keeps the previous
+  // behavior of rendering the provider immediately.
+  fallback?: ReactNode;
+}) {
   const publicApiKey =
     process.env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY ?? FALLBACK_PUBLIC_API_KEY;
   const [providerMode, setProviderMode] = useState<"auth" | "public">(
     "public"
   );
   const [identity, setIdentity] = useState<Identity | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const cookieValue = document.cookie
@@ -85,10 +95,12 @@ export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
               }
         );
         setProviderMode(authConfig.configured ? "auth" : "public");
+        setReady(true);
       } catch {
         if (cancelled) return;
         setIdentity({ name: guest.name });
         setProviderMode("public");
+        setReady(true);
       }
     }
 
@@ -105,6 +117,10 @@ export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  if (fallback !== undefined && !ready) {
+    return <>{fallback}</>;
+  }
 
   return (
     <LiveblocksProvider

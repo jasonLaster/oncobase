@@ -52,7 +52,7 @@ import {
   type CommandPalettePageEntry,
   type CommandPaletteRow,
 } from "@oncobase/wiki-shell";
-import { themeEffect } from "@/lib/theme-effect";
+import { applyWikiTheme } from "@oncobase/wiki-shell/theme";
 import { cn } from "@/lib/utils";
 import { setNavigationIntent } from "@/lib/navigation-intent";
 
@@ -665,7 +665,7 @@ export function ActionPalette() {
       media.addEventListener("change", cb);
       return () => media.removeEventListener("change", cb);
     }, []),
-    () => themeEffect(),
+    () => applyWikiTheme(),
     () => "light",
   );
 
@@ -693,14 +693,14 @@ export function ActionPalette() {
     }
     if (nextPref === null) localStorage.removeItem("theme");
     else localStorage.setItem("theme", nextPref);
-    themeEffect();
+    applyWikiTheme();
     notifyTheme();
     setOpen(false);
   }
 
   function useSystemTheme() {
     localStorage.removeItem("theme");
-    themeEffect();
+    applyWikiTheme();
     notifyTheme();
     setOpen(false);
   }

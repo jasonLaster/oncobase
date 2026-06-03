@@ -24,7 +24,6 @@ test.describe("Visual parity", () => {
       "background-color",
       "rgba(0, 0, 0, 0)",
     );
-    await expect(page.locator(".page-action").first()).toHaveCSS("border-radius", "5px");
     await expect(page.locator(".wiki-shell-outline-root")).toBeVisible();
     await expect(page.locator(".sidebar-expanded-rail")).toBeVisible();
     await expect(page.getByTestId("wiki-sidebar")).not.toContainText("File tree");

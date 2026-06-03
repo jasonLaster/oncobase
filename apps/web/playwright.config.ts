@@ -34,6 +34,13 @@ const prodWorkers = Number.isFinite(requestedProdWorkers)
 
 export default defineConfig({
   testDir: "./e2e",
+  // The shared reader-parity suite lives at the repo root (`e2e-shared/`) so a
+  // single spec can run against both readers. Local/preview Playwright runs
+  // resolve that cross-package import fine (and exercise it in the PR gate), but
+  // Endform uploads only this app's files to its remote runners, so the
+  // `../../../e2e-shared/...` import is missing there and crashes the bundle.
+  // Skip it under Endform only; PR-Checks Playwright still covers web parity.
+  testIgnore: isEndform ? ["**/parity.spec.ts"] : undefined,
   timeout: 45_000,
   expect: { timeout: 15_000 },
   fullyParallel: !isLocal && !isEndform,

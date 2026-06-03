@@ -17,6 +17,21 @@ import { api } from "../../../apps/web/convex/_generated/api.js";
 import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
 import { handleAiSearchRequest } from "./ai-search.js";
 import { handleChatRequest } from "./chat-route.js";
+import { Liveblocks } from "@liveblocks/node";
+import {
+  liveblocksDisabledResponse,
+  resolveLiveblocksConfig,
+  type CommentsSite,
+} from "@oncobase/wiki-comments/site";
+import {
+  persistLiveblocksGuestName,
+  resolveLiveblocksUsers,
+  type CommentsSiteData,
+} from "@oncobase/wiki-comments/user-resolution";
+import {
+  LIVEBLOCKS_GUEST_COOKIE,
+  parseGuestUser,
+} from "@oncobase/wiki-comments/guest-user";
 
 const DEFAULT_SITE_SLUG = "diana";
 const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
@@ -506,6 +521,163 @@ async function handleAuthSessionRequest(
       },
     },
   );
+}
+
+// --- Liveblocks comments -------------------------------------------------
+// The Vite reader reuses the shared Convex deployment + the decoupled
+// @oncobase/wiki-comments helpers, so comment threads are shared with the
+// Next.js reader (same per-site Liveblocks workspace + room ids).
+
+function commentsSiteData(client: ConvexHttpClient, siteSlug: string): CommentsSiteData {
+  return {
+    users: {
+      getUsersByIds: ({ ids }) =>
+        client.query(
+          api.users.getUsersByIds,
+          withSiteSlug(siteSlug, { ids: ids as Id<"users">[] }),
+        ),
+    },
+    guestNames: {
+      upsert: ({ guestId, name }) =>
+        client.mutation(
+          api.guestNames.upsert,
+          withSiteSlug(siteSlug, { guestId, name }),
+        ),
+      getByIds: ({ guestIds }) =>
+        client.query(api.guestNames.getByIds, withSiteSlug(siteSlug, { guestIds })),
+    },
+  };
+}
+
+async function resolveLiveblocks(client: ConvexHttpClient, siteSlug: string) {
+  const site = (await client
+    .query(api.sites.getBySlug, { slug: siteSlug })
+    .catch(() => null)) as CommentsSite | null;
+  return resolveLiveblocksConfig({ siteSlug, site, defaultSiteSlug: DEFAULT_SITE_SLUG });
+}
+
+function guestUserFromRequest(request: Request) {
+  const value = (request.headers.get("cookie") ?? "")
+    .split(/;\s*/)
+    .find((part) => part.startsWith(`${LIVEBLOCKS_GUEST_COOKIE}=`))
+    ?.slice(LIVEBLOCKS_GUEST_COOKIE.length + 1);
+  return parseGuestUser(value);
+}
+
+async function isSensitiveRoom(
+  roomId: string,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  if (!roomId.startsWith("markdown:")) return false;
+  const doc = await client
+    .query(
+      api.documents.getBySlug,
+      withSiteSlug(siteSlug, {
+        slug: roomId.slice("markdown:".length),
+        includeSensitive: true,
+      }),
+    )
+    .catch(() => null);
+  return doc?.sensitive === true;
+}
+
+async function handleLiveblocksAuthRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  const config = await resolveLiveblocks(client, siteSlug);
+
+  if (request.method === "GET") {
+    return Response.json({
+      configured: config.ok,
+      siteSlug: config.ok ? config.creds.siteSlug : config.siteSlug,
+      reason: config.ok ? null : config.reason,
+    });
+  }
+
+  if (request.method !== "POST") {
+    return Response.json(
+      { error: "Method not allowed" },
+      { status: 405, headers: { Allow: "GET, POST" } },
+    );
+  }
+
+  if (!config.ok) {
+    return liveblocksDisabledResponse(config);
+  }
+
+  const { room } = (await request.json().catch(() => ({}))) as { room?: string };
+  if (!room || typeof room !== "string") {
+    return Response.json({ error: "room is required" }, { status: 400 });
+  }
+
+  const sessionUser = await getSessionUser(request, client, siteSlug);
+  if (!sessionUser && (await isSensitiveRoom(room, client, siteSlug))) {
+    return Response.json({ error: "Room not found" }, { status: 404 });
+  }
+
+  const guestUser = sessionUser ? null : guestUserFromRequest(request);
+  if (guestUser) {
+    await persistLiveblocksGuestName(
+      guestUser,
+      commentsSiteData(client, siteSlug),
+    ).catch(() => {});
+  }
+
+  const liveblocks = new Liveblocks({ secret: config.creds.secretKey });
+  const userId = sessionUser?._id ?? guestUser?.id ?? `guest:${room}`;
+  const session = liveblocks.prepareSession(userId, {
+    userInfo: {
+      name: sessionUser?.name || sessionUser?.email || guestUser?.name || "Guest",
+      email: sessionUser?.email,
+    },
+  });
+  session.allow(room, sessionUser ? session.FULL_ACCESS : session.READ_ACCESS);
+  const { body, status } = await session.authorize();
+  return new Response(body, { status, headers: { "Content-Type": "application/json" } });
+}
+
+async function handleLiveblocksUsersRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  if (request.method !== "POST") {
+    return Response.json(
+      { error: "Method not allowed" },
+      { status: 405, headers: { Allow: "POST" } },
+    );
+  }
+  const body = (await request.json().catch(() => ({}))) as { userIds?: string[] };
+  const userIds = Array.isArray(body.userIds) ? body.userIds : [];
+  const users = await resolveLiveblocksUsers(userIds, commentsSiteData(client, siteSlug));
+  return Response.json({ users });
+}
+
+async function handleLiveblocksGuestRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  if (request.method !== "POST") {
+    return Response.json(
+      { error: "Method not allowed" },
+      { status: 405, headers: { Allow: "POST" } },
+    );
+  }
+  const body = (await request.json().catch(() => ({}))) as {
+    guestId?: string;
+    name?: string;
+  };
+  if (body.guestId && body.name) {
+    await persistLiveblocksGuestName(
+      { id: body.guestId, name: body.name },
+      commentsSiteData(client, siteSlug),
+    ).catch(() => {});
+  }
+  return Response.json({ ok: true });
 }
 
 async function handleAuthSigninRequest(
@@ -1038,6 +1210,9 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/auth/signin" ||
       pathname === "/api/auth/signup" ||
       pathname === "/api/auth/signout" ||
+      pathname === "/api/liveblocks-auth" ||
+      pathname === "/api/liveblocks-users" ||
+      pathname === "/api/liveblocks-guest" ||
       pathname === "/api/ai-search" ||
       pathname === "/api/chat" ||
       pathname === "/api/search" ||
@@ -1104,6 +1279,18 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/auth/signout") {
       return handleAuthSignoutRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/liveblocks-auth") {
+      return handleLiveblocksAuthRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/liveblocks-users") {
+      return handleLiveblocksUsersRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/liveblocks-guest") {
+      return handleLiveblocksGuestRequest(request, client, siteSlug);
     }
 
     if (pathname === "/api/search") {

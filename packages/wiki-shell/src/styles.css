@@ -595,6 +595,23 @@ html[data-initial-sidebar-state="collapsed"]
   padding: 1px 5px;
 }
 
+.wiki-shell-tree-icon {
+  flex: 0 0 auto;
+  opacity: 0.6;
+}
+
+.wiki-shell-tree-link.active .wiki-shell-tree-icon {
+  opacity: 1;
+}
+
+.wiki-shell-tree-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .wiki-shell-bottom-nav-trigger,
 .wiki-shell-bottom-nav-sheet {
   display: none;
@@ -719,6 +736,49 @@ html[data-initial-sidebar-state="collapsed"]
   background: var(--accent-light);
   border-color: color-mix(in srgb, var(--brand) 28%, var(--border));
   color: var(--brand);
+}
+
+.wiki-shell-icon-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0.375rem;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  padding: 0.375rem;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.wiki-shell-icon-button:hover,
+.wiki-shell-icon-button:focus-visible {
+  background: var(--accent-light);
+  color: var(--brand);
+}
+
+.wiki-shell-icon-button:disabled {
+  cursor: default;
+}
+
+.wiki-shell-sensitive-lock {
+  align-items: center;
+  border-radius: 0.375rem;
+  color: var(--muted);
+  display: inline-flex;
+  height: 1.75rem;
+  justify-content: center;
+  width: 1.75rem;
+}
+
+/* Comments pane content hosted inside the shared outline rail. */
+.wiki-shell-comments-pane {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .wiki-shell-loading-line {

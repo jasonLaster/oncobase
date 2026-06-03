@@ -1,7 +1,7 @@
 import { livestoreDevtoolsPlugin } from "@livestore/devtools-vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import { wikiApiPlugin } from "./server/wiki-api";
 
 const apiOrigin = process.env.VITE_WIKI_API_ORIGIN ?? "";
@@ -40,7 +40,25 @@ function vendorChunk(id: string): string | null {
   return null;
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  // WIKI_VITE_FORCE_COMMENTS_OFF lets tooling (the e2e web server) pin comments
+  // off deterministically. It is NOT set in .env.local, so bun's env-file load
+  // cannot clobber it the way it overrides NEXT_PUBLIC_ENABLE_COMMENTS.
+  const commentsFlag =
+    process.env.WIKI_VITE_FORCE_COMMENTS_OFF === "1"
+      ? "false"
+      : env.NEXT_PUBLIC_ENABLE_COMMENTS ?? process.env.NEXT_PUBLIC_ENABLE_COMMENTS ?? "";
+  return {
+  // The shared comments package reads these at module load; Vite has no
+  // process.env in the browser bundle, so define them from the loaded env.
+  define: {
+    "process.env.NEXT_PUBLIC_ENABLE_COMMENTS": JSON.stringify(commentsFlag),
+    "process.env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY": JSON.stringify(
+      env.LIVEBLOCKS_PUBLIC_KEY ?? env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY ?? "",
+    ),
+    __WIKI_COMMENTS_ENABLED__: JSON.stringify(commentsFlag === "true"),
+  },
   build: {
     // Keep all styles in a single entry stylesheet. Per-chunk CSS files are
     // preloaded via `<link rel="stylesheet">` before a lazy chunk executes, and
@@ -93,4 +111,5 @@ export default defineConfig({
     react(),
     livestoreDevtoolsPlugin({ schemaPath: "./src/livestore/schema.ts" }),
   ],
+  };
 });

@@ -41,10 +41,20 @@
       "import": "./src/user-format.ts",
       "default": "./src/user-format.ts"
     },
+    "./guest-user": {
+      "types": "./src/guest-user.ts",
+      "import": "./src/guest-user.ts",
+      "default": "./src/guest-user.ts"
+    },
     "./page-client": {
       "types": "./src/page-client.tsx",
       "import": "./src/page-client.tsx",
       "default": "./src/page-client.tsx"
+    },
+    "./auth-context": {
+      "types": "./src/auth-context.tsx",
+      "import": "./src/auth-context.tsx",
+      "default": "./src/auth-context.tsx"
     },
     "./package.json": "./package.json"
   },

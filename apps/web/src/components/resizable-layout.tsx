@@ -1,90 +1,20 @@
 "use client";
 
-import { useCallback, useRef, useSyncExternalStore } from "react";
+import { useCallback, useRef } from "react";
+import {
+  setResizableSidebarWidth,
+  useResizableSidebarWidth,
+} from "@oncobase/wiki-shell";
 
+// Drag-handle clamps. The sidebar-width STATE (localStorage `sidebar-width`,
+// the cross-tab listeners, the `data-initial-sidebar-state` sync) lives in the
+// shared `@oncobase/wiki-shell` ResizableLayout hooks so both readers share one
+// source of truth. This reader keeps its own markup because its mobile layout
+// has a fixed top header the content offsets for (`pt-12`), whereas the shared
+// layout offsets a bottom nav instead.
 const MIN_WIDTH = 160;
 const MAX_WIDTH = 480;
 const DEFAULT_WIDTH = 256;
-const STORAGE_KEY = "sidebar-width";
-let listeners: Array<() => void> = [];
-let widthCache: number | null = null;
-
-function readStoredWidth() {
-  if (typeof window === "undefined") return DEFAULT_WIDTH;
-
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    const nextWidth = parseInt(stored, 10);
-    if (nextWidth >= 0 && nextWidth <= MAX_WIDTH) {
-      return nextWidth;
-    }
-  }
-
-  return DEFAULT_WIDTH;
-}
-
-function syncInitialSidebarState(width: number) {
-  if (typeof window === "undefined") return;
-
-  window.document.documentElement.dataset.initialSidebarState =
-    width === 0 ? "collapsed" : "expanded";
-}
-
-function subscribe(onStoreChange: () => void) {
-  if (typeof window === "undefined") {
-    return () => {};
-  }
-
-  listeners.push(onStoreChange);
-
-  const handleStorage = (event: StorageEvent) => {
-    if (event.key && event.key !== STORAGE_KEY) return;
-
-    widthCache = null;
-    syncInitialSidebarState(readStoredWidth());
-    onStoreChange();
-  };
-
-  window.addEventListener("storage", handleStorage);
-
-  return () => {
-    listeners = listeners.filter((listener) => listener !== onStoreChange);
-    window.removeEventListener("storage", handleStorage);
-  };
-}
-
-function getWidthSnapshot() {
-  if (typeof window === "undefined") return DEFAULT_WIDTH;
-
-  if (widthCache !== null) {
-    return widthCache;
-  }
-
-  widthCache = readStoredWidth();
-  return widthCache;
-}
-
-function getServerWidthSnapshot() {
-  return DEFAULT_WIDTH;
-}
-
-function updateWidth(
-  nextWidth: number,
-  options?: {
-    persist?: boolean;
-  }
-) {
-  if (typeof window === "undefined") return;
-
-  widthCache = nextWidth;
-  syncInitialSidebarState(nextWidth);
-
-  if (options?.persist ?? true) {
-    window.localStorage.setItem(STORAGE_KEY, String(nextWidth));
-  }
-
-  listeners.forEach((listener) => listener());
-}
 
 export function ResizableLayout({
   sidebar,
@@ -93,11 +23,7 @@ export function ResizableLayout({
   sidebar: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const width = useSyncExternalStore(
-    subscribe,
-    getWidthSnapshot,
-    getServerWidthSnapshot
-  );
+  const width = useResizableSidebarWidth();
   const collapsed = width === 0;
   const dragging = useRef(false);
   const startX = useRef(0);
@@ -105,9 +31,9 @@ export function ResizableLayout({
 
   const toggle = useCallback(() => {
     if (collapsed) {
-      updateWidth(DEFAULT_WIDTH);
+      setResizableSidebarWidth(DEFAULT_WIDTH);
     } else {
-      updateWidth(0);
+      setResizableSidebarWidth(0);
     }
   }, [collapsed]);
 
@@ -126,7 +52,7 @@ export function ResizableLayout({
     if (!dragging.current) return;
     const delta = e.clientX - startX.current;
     const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta));
-    updateWidth(next, { persist: false });
+    setResizableSidebarWidth(next, { persist: false });
   }, []);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
@@ -135,7 +61,7 @@ export function ResizableLayout({
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     const delta = e.clientX - startX.current;
     const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta));
-    updateWidth(next);
+    setResizableSidebarWidth(next);
   }, []);
 
   return (

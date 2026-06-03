@@ -103,6 +103,10 @@ export {
   type WikiPageSkeletonProps,
 } from "./page-states";
 export {
+  WikiCopyPageButton,
+  type WikiCopyPageButtonProps,
+} from "./copy-page-button";
+export {
   WikiSearchForm,
   WikiSearchHeader,
   WikiSearchInput,
@@ -202,3 +206,4 @@ export {
   useResizableSidebarWidth,
   type ResizableLayoutProps,
 } from "./resizable-layout";
+export { cn } from "./utils";

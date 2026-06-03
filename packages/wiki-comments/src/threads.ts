@@ -93,14 +93,25 @@ export type CommentListItem =
 
 export function buildCommentListItems(
   threads: ThreadData[],
-  draftAnchor?: SelectionAnchor | null
+  draftAnchor?: SelectionAnchor | null,
+  // The Vite reader keeps unanchored (page-level) threads in the margin list
+  // (sorted last). The legacy reader renders page-level threads on a separate
+  // path and excludes them here — it passes `includeUnanchored: false`.
+  options?: { includeUnanchored?: boolean }
 ): CommentListItem[] {
-  const items: CommentListItem[] = threads.map((thread, order) => ({
-    type: "thread",
-    thread,
-    order,
-    anchorStart: getThreadAnchor(thread)?.start ?? Number.POSITIVE_INFINITY,
-  }));
+  const includeUnanchored = options?.includeUnanchored ?? true;
+  const items: CommentListItem[] = threads.flatMap((thread, order) => {
+    const anchor = getThreadAnchor(thread);
+    if (!anchor && !includeUnanchored) return [];
+    return [
+      {
+        type: "thread" as const,
+        thread,
+        order,
+        anchorStart: anchor?.start ?? Number.POSITIVE_INFINITY,
+      },
+    ];
+  });
 
   if (draftAnchor) {
     items.push({
