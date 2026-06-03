@@ -1,10 +1,9 @@
 "use client";
 
-import { Suspense, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
 import { BottomNav } from "@/components/bottom-nav";
-import { PageLoadingSkeleton } from "@/components/page-loading";
 import { ResizableLayout } from "@/components/resizable-layout";
 import { Sidebar } from "@/components/sidebar";
 import { useNavigationFileTree } from "@/components/use-navigation-file-tree";
@@ -37,16 +36,8 @@ export function NavigationShell({
     treeVersion,
   });
 
-  const shouldRenderStaticContent =
-    pathname === "/table-examples" || pathname === "/sources/research/paper-catalog";
-  const content = shouldRenderStaticContent ? (
-    children
-  ) : (
-    <Suspense fallback={<PageLoadingSkeleton />}>{children}</Suspense>
-  );
-
   if (pathname.startsWith("/admin")) {
-    return <div className="h-full min-h-0 overflow-hidden">{content}</div>;
+    return <div className="h-full min-h-0 overflow-hidden">{children}</div>;
   }
 
   const sidebar = pathname.startsWith("/chat") ? (
@@ -66,7 +57,7 @@ export function NavigationShell({
 
   return (
     <>
-      <ResizableLayout sidebar={sidebar}>{content}</ResizableLayout>
+      <ResizableLayout sidebar={sidebar}>{children}</ResizableLayout>
       <BottomNav tree={tree} />
     </>
   );
