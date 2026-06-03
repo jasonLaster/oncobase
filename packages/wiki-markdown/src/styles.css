@@ -378,6 +378,7 @@
 .wiki-slides-viewer__controls {
   align-items: center;
   border-top: 1px solid var(--border, #e2e8f0);
+  background: var(--card, #ffffff);
   display: grid;
   gap: 0.75rem;
   grid-template-columns: minmax(5.5rem, 1fr) auto minmax(5.5rem, 1fr);
@@ -386,21 +387,22 @@
 
 .wiki-slides-viewer__button {
   align-items: center;
-  background: var(--panel, #ffffff);
+  background: var(--foreground, #0f172a);
   border: 1px solid var(--border, #e2e8f0);
   border-radius: 0.375rem;
-  color: var(--foreground, #0f172a);
+  color: var(--background, #ffffff);
   cursor: pointer;
   display: inline-flex;
   font: inherit;
   font-size: 0.875rem;
+  font-weight: 600;
   justify-content: center;
   min-height: 2.25rem;
   padding: 0 0.75rem;
 }
 
 .wiki-slides-viewer__button:hover {
-  background: var(--surface-muted, #f8fafc);
+  background: color-mix(in srgb, var(--foreground, #0f172a) 86%, transparent);
 }
 
 .wiki-slides-viewer__button:focus-visible {

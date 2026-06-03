@@ -78,7 +78,7 @@ export function expandSlidesMarkdown(md: string): string {
       continue;
     }
 
-    output.push(renderSlidesHtml(images));
+    output.push("", renderSlidesHtml(images), "");
     index = cursor - 1;
   }
 

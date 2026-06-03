@@ -194,6 +194,7 @@ CD4^{+} T cells expand, while ^{68}Ga tracers stay unchanged.
         "<!-- slides -->",
         "- ![First scan](images/first.png)",
         "- ![Second scan](images/second.png)",
+        "## Why It Matters",
       ].join("\n"),
       "wiki/research/index",
     );
@@ -210,6 +211,9 @@ CD4^{+} T cells expand, while ^{68}Ga tracers stay unchanged.
     expect(html).toContain(
       'src="/api/file?path=wiki%2Fresearch%2Fimages%2Fsecond.png"',
     );
+    expect(html).toContain('id="why-it-matters"');
+    expect(html).toContain(">Why It Matters</h2>");
+    expect(html).not.toContain("## Why It Matters");
   });
 
   test("preserves currency and still renders math", () => {
