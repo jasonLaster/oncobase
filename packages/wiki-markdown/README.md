@@ -28,3 +28,44 @@ Server-rendered hosts should wrap rendered HTML in `WikiMarkdownFrame` from
 `@oncobase/wiki-markdown/frame` and import
 `@oncobase/wiki-markdown/styles.css` from their global stylesheet. Client
 hosts that render `WikiMarkdown` get the same frame contract automatically.
+
+## Slides Viewer
+
+Use a slides viewer when a wiki page should show a compact, step-through set of
+images instead of a vertical stack. In markdown, add a `slides` marker comment
+immediately before a normal list of markdown images:
+
+```md
+<!-- slides -->
+- ![Baseline scan](images/baseline.png)
+- ![Follow-up scan](images/follow-up.png)
+- ![Treatment diagram](images/treatment-diagram.png)
+```
+
+The renderer converts that marked image list into a single viewer with Previous
+and Next controls, a `1 / N` counter, and the same relative asset resolution used
+by ordinary markdown images. Unmarked image lists continue to render as normal
+markdown lists.
+
+For React contexts that already have image data, import the component directly:
+
+```tsx
+import { SlidesViewer } from "@oncobase/wiki-markdown";
+
+export function ExampleSlides() {
+  return (
+    <SlidesViewer
+      currentSlug="wiki/treatment/index"
+      images={[
+        { src: "images/baseline.png", alt: "Baseline scan" },
+        { src: "images/follow-up.png", alt: "Follow-up scan" },
+      ]}
+    />
+  );
+}
+```
+
+Server-rendered HTML hosts must include `SlidesViewerControls` as a client
+enhancer inside the same `WikiMarkdownFrame` as the rendered HTML. The Next app's
+`MarkdownRenderer` already does this. Hosts that render the shared
+`WikiMarkdown` component get the controls automatically.

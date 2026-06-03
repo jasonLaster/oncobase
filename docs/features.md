@@ -70,6 +70,7 @@ Features include:
 - KaTeX math
 - Mermaid fallback rendering and lazy client rendering
 - image theater support
+- marked image-list slides viewer for compact step-through image sets
 - PII redaction before display, search, chat, copy, and downloads
 - smart-table enhancement for wide or dense tables
 
