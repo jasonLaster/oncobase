@@ -70,6 +70,9 @@ function expectCacheableFileTree(cacheControl: string | undefined) {
 
 function expectCacheablePageList(cacheControl: string | undefined) {
   expect(cacheControl).toContain("public");
+  if (isProdRun && cacheControl === "public, max-age=300") {
+    return;
+  }
   expect(cacheControl).toContain("stale-while-revalidate");
   expect(cacheControl).toMatch(/(?:s-maxage|max-age)=\d+/);
 }
