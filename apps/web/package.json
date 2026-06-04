@@ -31,11 +31,15 @@
     "wiki:site:archive": "bun scripts/admin/archive-site.ts",
     "wiki:site:restore": "bun scripts/admin/restore-site.ts",
     "wiki:site:lock-clear": "bun scripts/admin/clear-publish-lock.ts",
-    "wiki:site:backfill": "bun scripts/admin/backfill-site-ids.ts"
+    "wiki:site:backfill": "bun scripts/admin/backfill-site-ids.ts",
+    "dicom:upload": "bun scripts/upload-dicom-assets.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.149",
     "@base-ui/react": "^1.3.0",
+    "@cornerstonejs/core": "^4.22.13",
+    "@cornerstonejs/dicom-image-loader": "^4.22.13",
+    "@cornerstonejs/tools": "^4.22.13",
     "@oncobase/chat": "workspace:*",
     "@oncobase/smart-table": "workspace:*",
     "@oncobase/oncobase": "workspace:*",
@@ -67,6 +71,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "convex": "^1.34.1",
+    "dicom-parser": "^1.8.21",
     "dotenv": "^17.4.2",
     "embla-carousel-react": "^8.6.0",
     "fuzzysort": "^3.1.0",
