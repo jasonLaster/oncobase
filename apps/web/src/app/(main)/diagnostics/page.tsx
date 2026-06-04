@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { ArrowUpRight, CalendarDays, ScanSearch } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  ArrowUpRight,
+  BookOpen,
+  CalendarDays,
+  FileText,
+  ScanSearch,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,7 +26,7 @@ export default function DiagnosticsPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-normal">Diagnostics</h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Biopsy imaging shortcuts for the DICOM viewer.
+              Biopsy imaging shortcuts with linked pathology reports.
             </p>
           </div>
           <Badge variant="outline" className="w-fit">
@@ -29,10 +36,7 @@ export default function DiagnosticsPage() {
 
         <section className="grid gap-3">
           {DIAGNOSTIC_BIOPSIES.map((biopsy) => (
-            <article
-              key={biopsy.id}
-              className="grid gap-4 rounded-lg border border-border bg-card p-4 text-card-foreground sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-            >
+            <article key={biopsy.id} className="rounded-lg border border-border bg-card p-4 text-card-foreground">
               <div className="min-w-0">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <Badge className="bg-primary text-primary-foreground">
@@ -58,17 +62,63 @@ export default function DiagnosticsPage() {
                 </div>
               </div>
 
-              <Link
-                href={getDicomViewerHref(biopsy.id)}
-                className="inline-flex h-8 w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 text-sm font-medium whitespace-nowrap text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-              >
-                Open viewer
-                <ArrowUpRight className="size-4" />
-              </Link>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <DiagnosticsActionLink
+                  href={getDicomViewerHref(biopsy.id)}
+                  icon={<ScanSearch className="size-4" />}
+                  label="Open viewer"
+                  primary
+                />
+                <DiagnosticsActionLink
+                  href={biopsy.pathologySourceHref}
+                  icon={<BookOpen className="size-4" />}
+                  label="Pathology source"
+                />
+                {biopsy.pathologyPdfHref ? (
+                  <DiagnosticsActionLink
+                    href={biopsy.pathologyPdfHref}
+                    icon={<FileText className="size-4" />}
+                    label="Source PDF"
+                  />
+                ) : null}
+                <DiagnosticsActionLink
+                  href={getDiagnosticReportHref(biopsy.id)}
+                  icon={<FileText className="size-4" />}
+                  label="Original report"
+                />
+              </div>
             </article>
           ))}
         </section>
       </main>
     </div>
+  );
+}
+
+function getDiagnosticReportHref(biopsyId: string) {
+  return `/api/diagnostic-reports/${encodeURIComponent(biopsyId)}`;
+}
+
+function DiagnosticsActionLink({
+  href,
+  icon,
+  label,
+  primary = false,
+}: {
+  href: string;
+  icon: ReactNode;
+  label: string;
+  primary?: boolean;
+}) {
+  const className = primary
+    ? "inline-flex h-8 w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 text-sm font-medium whitespace-nowrap text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+    : "inline-flex h-8 w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-medium whitespace-nowrap transition-colors hover:border-primary/40 hover:bg-accent hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none";
+
+  return (
+    <Link href={href} className={className}>
+      {icon}
+      {label}
+      <ArrowUpRight className="size-4" />
+    </Link>
   );
 }
