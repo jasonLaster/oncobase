@@ -305,6 +305,11 @@
     "permanent": true
   },
   {
+    "source": "/wiki/education/designing-a-vaccine/07-tcr-and-tcr-sequencing",
+    "destination": "/wiki/education/molecular-profiling/tcr-and-tcr-sequencing",
+    "permanent": true
+  },
+  {
     "source": "/wiki/diagnostics/biobanking-paths",
     "destination": "/wiki/questions/tissue-and-data-routing",
     "permanent": true
