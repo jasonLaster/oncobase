@@ -53,10 +53,28 @@ export interface MarkdownFile {
   frontmatter: Record<string, unknown>;
 }
 
+export interface MarkdownManifest {
+  slug: string;
+  title: string;
+  contentHash?: string;
+  sensitive?: boolean;
+  frontmatter: Record<string, unknown>;
+}
+
 export interface PageEntry {
   name: string;
   slug: string;
   path: string;
+}
+
+export interface ResolvedMarkdownRoute {
+  canonicalSlug: string | null;
+  file: MarkdownFile | null;
+}
+
+export interface ResolvedMarkdownManifestRoute {
+  canonicalSlug: string | null;
+  manifest: MarkdownManifest | null;
 }
 
 interface MarkdownReadOptions {
@@ -232,6 +250,18 @@ async function fetchCanonicalSlugMap({
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
+function toMarkdownFrontmatter(doc: {
+  tags?: string[];
+  description?: string | null;
+  sensitive?: boolean;
+}): Record<string, unknown> {
+  const tags = Array.isArray(doc.tags) ? doc.tags : [];
+  const frontmatter: Record<string, unknown> = { tags };
+  if (doc.description) frontmatter.description = doc.description;
+  if (doc.sensitive) frontmatter.sensitive = true;
+  return frontmatter;
+}
+
 export async function getMarkdownFileForSite(
   siteSlug: SiteSlug,
   slug: string,
@@ -285,18 +315,88 @@ export async function readMarkdownFileForSite(
   if (!doc) return null;
   const resolvedSlug = legacySlug && doc.slug === legacySlug ? slug : doc.slug;
 
-  const tags = Array.isArray(doc.tags) ? doc.tags : [];
-  const frontmatter: Record<string, unknown> = { tags };
-  if (doc.description) frontmatter.description = doc.description;
-  if (doc.sensitive) frontmatter.sensitive = true;
-
   return {
     slug: canonicalizePublishedSlug(resolvedSlug),
     title: doc.title,
     content: doc.content,
     contentHash: doc.contentHash,
     sensitive: doc.sensitive,
-    frontmatter,
+    frontmatter: toMarkdownFrontmatter(doc),
+  };
+}
+
+export async function getMarkdownManifestForSite(
+  siteSlug: SiteSlug,
+  slug: string,
+  { includeSensitive = false }: MarkdownReadOptions = {},
+): Promise<MarkdownManifest | null> {
+  return fetchMarkdownManifestForSite(siteSlug, slug, includeSensitive);
+}
+
+async function fetchMarkdownManifestForSite(
+  siteSlug: SiteSlug,
+  slug: string,
+  includeSensitive: boolean,
+): Promise<MarkdownManifest | null> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(
+    siteCacheTag(siteSlug),
+    siteDocsCacheTag(siteSlug),
+    siteDocCacheTag(siteSlug, slug),
+  );
+
+  return await readMarkdownManifestForSite(siteSlug, slug, { includeSensitive });
+}
+
+export async function readMarkdownManifestForSite(
+  siteSlug: SiteSlug,
+  slug: string,
+  { includeSensitive = false }: MarkdownReadOptions = {},
+): Promise<MarkdownManifest | null> {
+  if (shouldSkipConvexReads()) return null;
+  const siteData = siteDataFromSlug(siteSlug);
+  let doc: {
+    slug: string;
+    title: string;
+    tags?: string[];
+    description?: string | null;
+    contentHash?: string;
+    sensitive?: boolean;
+  } | null = null;
+
+  try {
+    doc = await siteData.documents.getManifestBySlug(
+      includeSensitive ? { slug, includeSensitive: true } : { slug },
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/Server Error|Unknown function|Could not find public function/i.test(message)) {
+      throw error;
+    }
+
+    const fallbackDoc = await siteData.documents.getBySlug(
+      includeSensitive ? { slug, includeSensitive: true } : { slug },
+    );
+    if (fallbackDoc) {
+      doc = {
+        slug: fallbackDoc.slug,
+        title: fallbackDoc.title,
+        tags: fallbackDoc.tags,
+        description: fallbackDoc.description,
+        contentHash: fallbackDoc.contentHash,
+        sensitive: fallbackDoc.sensitive,
+      };
+    }
+  }
+  if (!doc) return null;
+
+  return {
+    slug: canonicalizePublishedSlug(doc.slug),
+    title: doc.title,
+    contentHash: doc.contentHash,
+    sensitive: doc.sensitive,
+    frontmatter: toMarkdownFrontmatter(doc),
   };
 }
 
@@ -424,6 +524,57 @@ export async function getCanonicalSlug(
 ): Promise<string | null> {
   const map = await fetchCanonicalSlugMap({ includeSensitive });
   return map.get(slug.toLowerCase()) ?? null;
+}
+
+export async function getCanonicalSlugForSite(
+  siteSlug: SiteSlug,
+  slug: string,
+  { includeSensitive = false }: MarkdownDiscoveryOptions = {},
+): Promise<string | null> {
+  const map = await fetchCanonicalSlugMapForSite(siteSlug, includeSensitive);
+  return map.get(slug.toLowerCase()) ?? null;
+}
+
+export async function resolveMarkdownRouteForSite(
+  siteSlug: SiteSlug,
+  slug: string,
+  opts: MarkdownReadOptions = {},
+): Promise<ResolvedMarkdownRoute> {
+  const file = await getMarkdownFileForSite(siteSlug, slug, opts);
+  if (file || slug === "index") {
+    return { canonicalSlug: null, file };
+  }
+
+  const canonicalSlug = await getCanonicalSlugForSite(siteSlug, slug, opts);
+  if (!canonicalSlug) {
+    return { canonicalSlug: null, file: null };
+  }
+
+  return {
+    canonicalSlug,
+    file: await getMarkdownFileForSite(siteSlug, canonicalSlug, opts),
+  };
+}
+
+export async function resolveMarkdownManifestRouteForSite(
+  siteSlug: SiteSlug,
+  slug: string,
+  opts: MarkdownReadOptions = {},
+): Promise<ResolvedMarkdownManifestRoute> {
+  const manifest = await getMarkdownManifestForSite(siteSlug, slug, opts);
+  if (manifest || slug === "index") {
+    return { canonicalSlug: null, manifest };
+  }
+
+  const canonicalSlug = await getCanonicalSlugForSite(siteSlug, slug, opts);
+  if (!canonicalSlug) {
+    return { canonicalSlug: null, manifest: null };
+  }
+
+  return {
+    canonicalSlug,
+    manifest: await getMarkdownManifestForSite(siteSlug, canonicalSlug, opts),
+  };
 }
 
 async function getAllTagsForSite(siteSlug: SiteSlug): Promise<string[]> {

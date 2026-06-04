@@ -1,6 +1,8 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { renderMarkdownAsync } from "@/lib/render-markdown";
+import { getMarkdownFileForSite } from "@/lib/markdown";
 import { resolveWikilinks } from "@/lib/wikilinks";
+import { toSiteSlug } from "@/lib/site";
 import {
   MARKDOWN_RENDER_CACHE_VERSION,
   siteCacheTag,
@@ -15,30 +17,85 @@ export async function renderCachedMarkdownHtmlForSite({
   slug,
   contentHash,
   content,
+  includeSensitive,
 }: {
   siteSlug: string;
   slug: string;
   contentHash?: string | null;
-  content: string;
+  content?: string;
+  includeSensitive?: boolean;
 }): Promise<string> {
+  if (contentHash && content == null) {
+    return renderCachedMarkdownHtmlByHash({
+      siteSlug,
+      slug,
+      contentHash,
+      includeSensitive,
+      renderCacheVersion: MARKDOWN_RENDER_CACHE_VERSION,
+    });
+  }
+
   return renderCachedMarkdownHtml({
     siteSlug,
     slug,
     contentHash,
     content,
+    includeSensitive,
     renderCacheVersion: MARKDOWN_RENDER_CACHE_VERSION,
   });
+}
+
+async function renderCachedMarkdownHtmlByHash(args: {
+  siteSlug: string;
+  slug: string;
+  contentHash: string;
+  includeSensitive?: boolean;
+  renderCacheVersion: string;
+}): Promise<string> {
+  "use cache";
+  const {
+    siteSlug,
+    slug,
+    contentHash,
+    includeSensitive = false,
+    renderCacheVersion,
+  } = args;
+  cacheLife("weeks");
+  cacheTag(
+    siteCacheTag(siteSlug),
+    siteRenderCacheTag(siteSlug),
+    `${siteRenderCacheTag(siteSlug)}:${renderCacheVersion}`,
+    `${siteRenderCacheTag(siteSlug)}:${renderCacheVersion}:${contentHash}`,
+    siteDocCacheTag(siteSlug, slug),
+  );
+
+  const file = await getMarkdownFileForSite(toSiteSlug(siteSlug), slug, {
+    includeSensitive,
+  });
+  if (!file) {
+    throw new Error(`Cannot render missing markdown cache entry: ${siteSlug}/${slug}`);
+  }
+
+  const resolved = resolveWikilinks(file.content, slug);
+  return await renderMarkdownAsync(resolved, slug);
 }
 
 async function renderCachedMarkdownHtml(args: {
   siteSlug: string;
   slug: string;
   contentHash?: string | null;
-  content: string;
+  content?: string;
+  includeSensitive?: boolean;
   renderCacheVersion: string;
 }): Promise<string> {
   "use cache";
   const { siteSlug, slug, content, renderCacheVersion } = args;
+  if (content == null) {
+    throw new Error(
+      `Cannot render markdown cache entry without content: ${siteSlug}/${slug}`,
+    );
+  }
+
   cacheLife("weeks");
   cacheTag(
     siteCacheTag(siteSlug),

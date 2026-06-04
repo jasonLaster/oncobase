@@ -6,10 +6,13 @@ import { notFound, redirect } from "next/navigation";
 import { LockIcon } from "lucide-react";
 import {
   getAllSlugs,
-  getCanonicalSlug,
-  getMarkdownFile,
+  getMarkdownFileForSite,
+  resolveMarkdownManifestRouteForSite,
 } from "@/lib/markdown";
-import { getMarkdownPageMetadata, toNextMetadata } from "@/lib/page-metadata";
+import {
+  getMarkdownPageMetadataForSite,
+  toNextMetadata,
+} from "@/lib/page-metadata";
 import {
   MarkdownRenderer,
   MarkdownRendererAsync,
@@ -70,7 +73,8 @@ export async function generateDocumentMetadata(
   const routePath = slug.join("/");
   const routeAliasKey = routePath.toLowerCase();
   const contentPath = ROUTE_SLUG_ALIASES.get(routeAliasKey) ?? routePath;
-  const page = await getMarkdownPageMetadata(contentPath);
+  const siteSlug = await getRequestSiteSlug();
+  const page = await getMarkdownPageMetadataForSite(siteSlug, contentPath);
   if (page) return toNextMetadata(page);
 
   if (!(await canViewSensitivePages())) {
@@ -80,7 +84,7 @@ export async function generateDocumentMetadata(
     };
   }
 
-  const sensitivePage = await getMarkdownPageMetadata(routePath, {
+  const sensitivePage = await getMarkdownPageMetadataForSite(siteSlug, routePath, {
     includeSensitive: true,
   });
   return sensitivePage ? toNextMetadata(sensitivePage) : {};
@@ -185,19 +189,21 @@ export function SensitivePageUnavailable({
 }
 
 // -- Async body for ISR pages (streamed via PPR) -----------------------------
-async function DeferredMarkdownBody({
+async function AsyncMarkdownBody({
   filePath,
+  includeSensitive,
   showPii,
   slug,
   siteSlug,
 }: {
   filePath: string;
+  includeSensitive: boolean;
   showPii: boolean;
   slug: string;
   siteSlug: string;
 }) {
-  const file = await getMarkdownFile(filePath, {
-    includeSensitive: true,
+  const file = await getMarkdownFileForSite(toSiteSlug(siteSlug), filePath, {
+    includeSensitive,
     piiMode: showPii ? "revealed" : "redacted",
   });
   if (!file) notFound();
@@ -207,7 +213,24 @@ async function DeferredMarkdownBody({
       currentSlug={slug}
       siteSlug={siteSlug}
       contentHash={file.contentHash}
+      includeSensitive={includeSensitive}
     />
+  );
+}
+
+function MarkdownBodyFallback() {
+  return (
+    <div
+      aria-label="Loading page body"
+      className="space-y-4"
+      data-test-id="markdown-body-loading"
+      role="status"
+    >
+      <div className="h-4 w-11/12 animate-pulse rounded bg-[var(--accent-light)]" />
+      <div className="h-4 w-full animate-pulse rounded bg-[var(--accent-light)]" />
+      <div className="h-4 w-10/12 animate-pulse rounded bg-[var(--accent-light)]" />
+      <div className="h-28 w-full animate-pulse rounded-md bg-[var(--accent-light)]" />
+    </div>
   );
 }
 
@@ -248,99 +271,102 @@ export async function renderDocumentPage({
   }
 
   const contentPath = ROUTE_SLUG_ALIASES.get(routeAliasKey) ?? cleanPath;
-  const includeSensitive = await canViewSensitivePages();
+  const requestSiteSlug = await getRequestSiteSlug();
+  let includeSensitive = false;
 
   // Try the requested slug first. Most runtime pages already use canonical
-  // casing, and this avoids loading the full slug map in the streamed path.
-  let file = await getMarkdownFile(contentPath, {
-    includeSensitive,
-    piiMode: showPii ? "revealed" : "redacted",
-  });
-
-  if (!file && contentPath !== "index") {
-    const canonicalPath = await getCanonicalSlug(contentPath, {
-      includeSensitive,
-    });
-    if (!aliasCanonicalPath && canonicalPath && canonicalPath !== contentPath) {
-      redirect(documentRedirectPath(`/${canonicalPath}`, showPii));
-    }
-    file = await getMarkdownFile(canonicalPath ?? contentPath, {
+  // casing, and this keeps ordinary public page views off the auth/session path.
+  let { canonicalSlug, manifest } = await resolveMarkdownManifestRouteForSite(
+    requestSiteSlug,
+    contentPath,
+    {
       includeSensitive,
       piiMode: showPii ? "revealed" : "redacted",
-    });
+    },
+  );
+
+  if (!aliasCanonicalPath && canonicalSlug && canonicalSlug !== contentPath) {
+    redirect(documentRedirectPath(`/${canonicalSlug}`, showPii));
   }
 
-  if (!file) {
-    if (!includeSensitive) {
-      const sensitiveFile = await getMarkdownFile(contentPath, {
-        includeSensitive: true,
-        piiMode: showPii ? "revealed" : "redacted",
-      });
-      if (sensitiveFile?.sensitive === true) {
-        return <SensitivePageUnavailable slug={sensitiveFile.slug} />;
-      }
-
-      if (contentPath !== "index") {
-        const sensitiveCanonicalPath = await getCanonicalSlug(contentPath, {
+  if (!manifest) {
+    includeSensitive = await canViewSensitivePages();
+    if (includeSensitive) {
+      const resolvedSensitiveRoute = await resolveMarkdownManifestRouteForSite(
+        requestSiteSlug,
+        contentPath,
+        {
           includeSensitive: true,
-        });
-        if (sensitiveCanonicalPath && sensitiveCanonicalPath !== contentPath) {
-          const canonicalSensitiveFile = await getMarkdownFile(
-            sensitiveCanonicalPath,
-            {
-              includeSensitive: true,
-              piiMode: showPii ? "revealed" : "redacted",
-            },
-          );
-          if (canonicalSensitiveFile?.sensitive === true) {
-            return (
-              <SensitivePageUnavailable slug={canonicalSensitiveFile.slug} />
-            );
-          }
-        }
+          piiMode: showPii ? "revealed" : "redacted",
+        },
+      );
+      canonicalSlug = resolvedSensitiveRoute.canonicalSlug;
+      manifest = resolvedSensitiveRoute.manifest;
+
+      if (!aliasCanonicalPath && canonicalSlug && canonicalSlug !== contentPath) {
+        redirect(documentRedirectPath(`/${canonicalSlug}`, showPii));
+      }
+    }
+  }
+
+  if (!manifest) {
+    if (!includeSensitive) {
+      const sensitiveRoute = await resolveMarkdownManifestRouteForSite(
+        requestSiteSlug,
+        contentPath,
+        {
+          includeSensitive: true,
+          piiMode: showPii ? "revealed" : "redacted",
+        },
+      );
+      if (sensitiveRoute.manifest?.sensitive === true) {
+        return <SensitivePageUnavailable slug={sensitiveRoute.manifest.slug} />;
       }
     }
     notFound();
   }
 
-  const resolvedPath = file.slug;
+  const resolvedPath = manifest.slug;
   const displayFile =
-    aliasCanonicalPath && file.slug === "index" && file.title === "index"
-      ? { ...file, title: "Index" }
-      : file;
-  const isDeferred = ISR_DEFERRED_PREFIXES.some((p) => resolvedPath.startsWith(p));
+    aliasCanonicalPath && manifest.slug === "index" && manifest.title === "index"
+      ? { ...manifest, title: "Index" }
+      : manifest;
   // Keep index routes synchronous so `/` and `/about/Index` include body text
   // in the prerendered validation shell; normal pages use cached async HTML.
   const shouldRenderSynchronously = resolvedPath === "index";
   const siteSlug =
     resolvedPath === "index"
       ? toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG)
-      : await getRequestSiteSlug();
+      : requestSiteSlug;
+  const syncFile = shouldRenderSynchronously
+    ? await getMarkdownFileForSite(siteSlug, resolvedPath, {
+        includeSensitive,
+        piiMode: showPii ? "revealed" : "redacted",
+      })
+    : null;
+
+  if (shouldRenderSynchronously && !syncFile) {
+    notFound();
+  }
 
   return (
-    <DocumentComments documentSlug={file.slug} documentTitle={displayFile.title}>
+    <DocumentComments documentSlug={manifest.slug} documentTitle={displayFile.title}>
       <DocHeader file={displayFile} />
-      {isDeferred ? (
-        <Suspense fallback={null}>
-          <DeferredMarkdownBody
+      {shouldRenderSynchronously ? (
+        <MarkdownRenderer
+          content={syncFile!.content}
+          currentSlug={syncFile!.slug}
+        />
+      ) : (
+        <Suspense fallback={<MarkdownBodyFallback />}>
+          <AsyncMarkdownBody
             filePath={resolvedPath}
+            includeSensitive={includeSensitive}
             showPii={showPii}
-            slug={file.slug}
+            slug={manifest.slug}
             siteSlug={siteSlug}
           />
         </Suspense>
-      ) : shouldRenderSynchronously ? (
-        <MarkdownRenderer
-          content={file.content}
-          currentSlug={file.slug}
-        />
-      ) : (
-        <MarkdownRendererAsync
-          content={file.content}
-          currentSlug={file.slug}
-          siteSlug={siteSlug}
-          contentHash={file.contentHash}
-        />
       )}
     </DocumentComments>
   );

@@ -15,6 +15,11 @@ type MarkdownRendererProps = {
   anchorScopeKey?: string;
   siteSlug?: string;
   contentHash?: string | null;
+  includeSensitive?: boolean;
+};
+
+type MarkdownRendererAsyncProps = Omit<MarkdownRendererProps, "content"> & {
+  content?: string;
 };
 
 export function MarkdownRenderer({
@@ -49,7 +54,12 @@ export async function MarkdownRendererAsync({
   anchorScopeKey,
   siteSlug,
   contentHash,
-}: MarkdownRendererProps) {
+  includeSensitive,
+}: MarkdownRendererAsyncProps) {
+  if (!contentHash && content == null) {
+    throw new Error("MarkdownRendererAsync requires content when contentHash is missing");
+  }
+
   const html =
     siteSlug && currentSlug
       ? await renderCachedMarkdownHtmlForSite({
@@ -57,8 +67,9 @@ export async function MarkdownRendererAsync({
           slug: currentSlug,
           contentHash,
           content,
+          includeSensitive,
         })
-      : await renderMarkdownAsync(resolveWikilinks(content, currentSlug), currentSlug);
+      : await renderMarkdownAsync(resolveWikilinks(content ?? "", currentSlug), currentSlug);
 
   return (
     <WikiMarkdownFrame>
