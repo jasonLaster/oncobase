@@ -1,0 +1,74 @@
+import Link from "next/link";
+import { ArrowUpRight, CalendarDays, ScanSearch } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import {
+  DIAGNOSTIC_BIOPSIES,
+  getDicomViewerHref,
+} from "@/lib/diagnostic-biopsies";
+
+export const metadata = {
+  title: "Diagnostics",
+};
+
+export default function DiagnosticsPage() {
+  return (
+    <div className="h-full overflow-y-auto bg-background text-foreground">
+      <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <header className="flex flex-col gap-3 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-normal">Diagnostics</h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Biopsy imaging shortcuts for the DICOM viewer.
+            </p>
+          </div>
+          <Badge variant="outline" className="w-fit">
+            {DIAGNOSTIC_BIOPSIES.length} biopsies
+          </Badge>
+        </header>
+
+        <section className="grid gap-3">
+          {DIAGNOSTIC_BIOPSIES.map((biopsy) => (
+            <article
+              key={biopsy.id}
+              className="grid gap-4 rounded-lg border border-border bg-card p-4 text-card-foreground sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+            >
+              <div className="min-w-0">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <Badge className="bg-primary text-primary-foreground">
+                    {biopsy.shortLabel}
+                  </Badge>
+                  <Badge variant="outline">{biopsy.modality}</Badge>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {biopsy.id}
+                  </span>
+                </div>
+                <h2 className="text-base font-semibold tracking-normal">
+                  {biopsy.title}
+                </h2>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarDays className="size-4" />
+                    {biopsy.dateLabel}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <ScanSearch className="size-4" />
+                    {biopsy.focus}
+                  </span>
+                </div>
+              </div>
+
+              <Link
+                href={getDicomViewerHref(biopsy.id)}
+                className="inline-flex h-8 w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 text-sm font-medium whitespace-nowrap text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+              >
+                Open viewer
+                <ArrowUpRight className="size-4" />
+              </Link>
+            </article>
+          ))}
+        </section>
+      </main>
+    </div>
+  );
+}

@@ -4,6 +4,20 @@ export const metadata = {
   title: "DICOM Viewer",
 };
 
-export default function DicomViewerPage() {
-  return <DicomViewerClient />;
+interface DicomViewerPageProps {
+  searchParams: Promise<{
+    id?: string;
+    biopsyId?: string;
+    seriesId?: string;
+  }>;
+}
+
+export default async function DicomViewerPage({ searchParams }: DicomViewerPageProps) {
+  const params = await searchParams;
+  return (
+    <DicomViewerClient
+      initialBiopsyId={params.biopsyId ?? params.id ?? null}
+      initialSeriesId={params.seriesId ?? null}
+    />
+  );
 }

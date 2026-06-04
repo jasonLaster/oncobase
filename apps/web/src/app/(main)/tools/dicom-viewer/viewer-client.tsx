@@ -18,6 +18,7 @@ import useSWR from "swr";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getDiagnosticBiopsyById } from "@/lib/diagnostic-biopsies";
 import { cn } from "@/lib/utils";
 
 type CornerstoneCore = typeof import("@cornerstonejs/core");
@@ -135,7 +136,15 @@ function safeAddTool(tools: CornerstoneTools, ToolClass: unknown) {
   }
 }
 
-export function DicomViewerClient() {
+interface DicomViewerClientProps {
+  initialBiopsyId?: string | null;
+  initialSeriesId?: string | null;
+}
+
+export function DicomViewerClient({
+  initialBiopsyId = null,
+  initialSeriesId = null,
+}: DicomViewerClientProps) {
   const viewportElementRef = useRef<HTMLDivElement | null>(null);
   const renderingEngineRef = useRef<InstanceType<CornerstoneCore["RenderingEngine"]> | null>(
     null,
@@ -148,7 +157,9 @@ export function DicomViewerClient() {
   const viewportId = useRef(`oncobase-dicom-viewport-${crypto.randomUUID()}`);
   const toolGroupId = useRef(`oncobase-dicom-tools-${crypto.randomUUID()}`);
 
-  const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
+  const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(
+    initialSeriesId,
+  );
   const [sliceIndex, setSliceIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [toolMode, setToolMode] = useState<ToolMode>("window");
@@ -167,12 +178,13 @@ export function DicomViewerClient() {
   );
 
   const preferredSeriesId = useMemo(() => {
+    const requestedBiopsySeries = findSeriesForBiopsy(displaySeries, initialBiopsyId);
     const preferred =
-      displaySeries.find((series) =>
-        series.relativeDirectory.toLowerCase().includes("4-10 biopsy"),
-      ) ?? displaySeries[0];
+      requestedBiopsySeries ??
+      findSeriesForBiopsy(displaySeries, "biopsy-2026-04-10") ??
+      displaySeries[0];
     return preferred?.id ?? null;
-  }, [displaySeries]);
+  }, [displaySeries, initialBiopsyId]);
 
   const selectedSeries = useMemo(() => {
     const id = selectedSeriesId ?? preferredSeriesId;
@@ -722,6 +734,25 @@ function MetaRow({ label, value }: { label: string; value: string | null | undef
 
 function isRenderableSeries(series: DicomSeries) {
   return !new Set(["PR", "SR", "OT"]).has((series.modality ?? "").toUpperCase());
+}
+
+function findSeriesForBiopsy(series: DicomSeries[], biopsyId: string | null | undefined) {
+  const biopsy = getDiagnosticBiopsyById(biopsyId);
+  if (!biopsy) return null;
+
+  const directoryNeedle = biopsy.directoryIncludes.toLowerCase();
+  return (
+    series
+      .filter((candidate) => {
+        const directory = candidate.relativeDirectory.toLowerCase();
+        return (
+          candidate.studyDate === biopsy.isoDate &&
+          directory.includes(directoryNeedle) &&
+          isRenderableSeries(candidate)
+        );
+      })
+      .sort((a, b) => b.images.length - a.images.length)[0] ?? null
+  );
 }
 
 function formatBytes(bytes: number) {
