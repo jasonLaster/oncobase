@@ -99,6 +99,9 @@ gantt
 
     expect(html).toContain('class="wiki-slides-viewer"');
     expect(html).toContain('data-wiki-slides=""');
+    expect(html).toContain('aria-label="Previous slide"');
+    expect(html).toContain('aria-label="Next slide"');
+    expect(html).toContain('data-theater-image=""');
     expect(html).toContain("1 / 2");
     expect(html).toContain('src="/api/file?path=wiki%2Fresearch%2Fimages%2Ffirst.png"');
     expect(html).toContain('alt="Second scan"');

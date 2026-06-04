@@ -205,6 +205,9 @@ CD4^{+} T cells expand, while ^{68}Ga tracers stay unchanged.
     expect(html).toContain("1 / 2");
     expect(html).toContain("data-wiki-slides-prev");
     expect(html).toContain("data-wiki-slides-next");
+    expect(html).toContain('aria-label="Previous slide"');
+    expect(html).toContain('aria-label="Next slide"');
+    expect(html).toContain("data-theater-image");
     expect(html).toContain(
       'src="/api/file?path=wiki%2Fresearch%2Fimages%2Ffirst.png"',
     );

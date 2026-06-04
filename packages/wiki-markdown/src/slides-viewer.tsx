@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ImageTheaterModal, type TheaterImageState } from "./image-theater";
 import { resolveImageSrc } from "./paths";
 
 export type SlidesViewerImage = {
@@ -87,57 +88,92 @@ export function SlidesViewer({
 }) {
   const slides = useMemo(
     () =>
-      images
-        .map((image) => ({
-          src: resolveImageSrc(image.src, currentSlug, apiBasePath),
-          alt: image.alt ?? "",
-        }))
-        .filter((image) => image.src),
+      images.reduce<Array<{ src: string; alt: string }>>((resolved, image) => {
+        const src = resolveImageSrc(image.src, currentSlug, apiBasePath);
+        if (src) resolved.push({ src, alt: image.alt ?? "" });
+        return resolved;
+      }, []),
     [apiBasePath, currentSlug, images],
   );
+  const [theaterImage, setTheaterImage] = useState<TheaterImageState | null>(null);
 
   if (slides.length === 0) return null;
 
+  const openSlide = (index: number) => {
+    const slide = slides[index];
+    if (!slide) return;
+
+    setTheaterImage({
+      ...slide,
+      images: slides,
+      index,
+    });
+  };
+
   return (
-    <figure
-      className={classNames("wiki-slides-viewer", className)}
-      data-index="0"
-      data-wiki-slides=""
-    >
-      <div className="wiki-slides-viewer__stage">
-        <ol className="wiki-slides-viewer__slides">
-          {slides.map((image, index) => (
-            <li
-              className="wiki-slides-viewer__slide"
-              data-active={index === 0 ? "true" : "false"}
-              data-wiki-slide=""
-              hidden={index !== 0}
-              key={`${image.src}:${index}`}
-            >
-              <img alt={image.alt} src={image.src} />
-            </li>
-          ))}
-        </ol>
-      </div>
-      <div className="wiki-slides-viewer__controls">
-        <button
-          className="wiki-slides-viewer__button"
-          data-wiki-slides-prev=""
-          type="button"
-        >
-          Previous
-        </button>
-        <span className="wiki-slides-viewer__status" data-wiki-slides-status="">
-          1 / {slides.length}
-        </span>
-        <button
-          className="wiki-slides-viewer__button"
-          data-wiki-slides-next=""
-          type="button"
-        >
-          Next
-        </button>
-      </div>
-    </figure>
+    <>
+      <figure
+        className={classNames("wiki-slides-viewer", className)}
+        data-index="0"
+        data-wiki-slides=""
+      >
+        <div className="wiki-slides-viewer__stage">
+          <ol className="wiki-slides-viewer__slides">
+            {slides.map((image, index) => (
+              <li
+                className="wiki-slides-viewer__slide"
+                data-active={index === 0 ? "true" : "false"}
+                data-wiki-slide=""
+                hidden={index !== 0}
+                key={`${image.src}:${index}`}
+              >
+                <button
+                  aria-label={image.alt ? `Open image: ${image.alt}` : "Open image"}
+                  className="wiki-slides-viewer__image-button"
+                  onClick={() => openSlide(index)}
+                  type="button"
+                >
+                  <img
+                    alt={image.alt}
+                    data-theater-image=""
+                    src={image.src}
+                  />
+                </button>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className="wiki-slides-viewer__controls">
+          <button
+            aria-label="Previous slide"
+            className="wiki-slides-viewer__button"
+            data-wiki-slides-prev=""
+            title="Previous slide"
+            type="button"
+          >
+            <span aria-hidden="true">&lt;</span>
+          </button>
+          <span className="wiki-slides-viewer__status" data-wiki-slides-status="">
+            1 / {slides.length}
+          </span>
+          <button
+            aria-label="Next slide"
+            className="wiki-slides-viewer__button"
+            data-wiki-slides-next=""
+            title="Next slide"
+            type="button"
+          >
+            <span aria-hidden="true">&gt;</span>
+          </button>
+        </div>
+      </figure>
+      {theaterImage ? (
+        <ImageTheaterModal
+          image={theaterImage}
+          onClose={() => setTheaterImage(null)}
+          onImageChange={setTheaterImage}
+        />
+      ) : null}
+    </>
   );
 }

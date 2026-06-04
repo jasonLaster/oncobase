@@ -20,9 +20,11 @@ function renderSlidesHtml(images: SlideImage[]) {
     .map((image, index) => {
       const hidden = index === 0 ? "" : " hidden";
       const active = index === 0 ? "true" : "false";
+      const label = image.alt ? `Open image: ${image.alt}` : "Open image";
       return (
         `<li class="wiki-slides-viewer__slide" data-wiki-slide data-active="${active}"${hidden}>` +
-        `<img src="${escapeHtmlAttribute(image.src)}" alt="${escapeHtmlAttribute(image.alt)}">` +
+        `<img src="${escapeHtmlAttribute(image.src)}" alt="${escapeHtmlAttribute(image.alt)}" ` +
+        `data-theater-image role="button" tabindex="0" aria-label="${escapeHtmlAttribute(label)}">` +
         `</li>`
       );
     })
@@ -34,9 +36,9 @@ function renderSlidesHtml(images: SlideImage[]) {
     `<ol class="wiki-slides-viewer__slides">${slides}</ol>` +
     `</div>` +
     `<div class="wiki-slides-viewer__controls">` +
-    `<button class="wiki-slides-viewer__button" data-wiki-slides-prev type="button">Previous</button>` +
+    `<button class="wiki-slides-viewer__button" data-wiki-slides-prev type="button" aria-label="Previous slide" title="Previous slide"><span aria-hidden="true">&lt;</span></button>` +
     `<span class="wiki-slides-viewer__status" data-wiki-slides-status>1 / ${images.length}</span>` +
-    `<button class="wiki-slides-viewer__button" data-wiki-slides-next type="button">Next</button>` +
+    `<button class="wiki-slides-viewer__button" data-wiki-slides-next type="button" aria-label="Next slide" title="Next slide"><span aria-hidden="true">&gt;</span></button>` +
     `</div>` +
     `</figure>`
   );
