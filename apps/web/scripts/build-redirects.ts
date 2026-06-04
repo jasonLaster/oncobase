@@ -98,6 +98,9 @@ const phmBases = [
 const sourceRedirects: Redirect[] = [
   { source: "/about/For-Patients", destination: "/about/About" },
   { source: "/asco/presentations/263034-p-rad", destination: "/asco/presentations/263034-p-rad/index" },
+  { source: "/asco/presentations/263034-p-rad-analysis", destination: "/asco/presentations/263034-p-rad/analysis" },
+  { source: "/asco/presentations/263034-p-rad-slides-ocr", destination: "/asco/presentations/263034-p-rad/slides-ocr" },
+  { source: "/asco/presentations/263034-p-rad-transcript", destination: "/asco/presentations/263034-p-rad/transcript" },
   { source: "/asco/presentations/257914-serova-synthetic-lethality-neoantigens", destination: "/asco/presentations/257914-serova-synthetic-lethality-neoantigens/index" },
   { source: "/wiki/summary", destination: "/about/overview" },
   { source: "/wiki/summary/index", destination: "/about/overview/index" },
