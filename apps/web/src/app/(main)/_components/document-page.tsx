@@ -28,10 +28,8 @@ import { getSessionUserFromCookieHeader } from "@/lib/session-user";
 // content from prod Convex per request, so there's no static benefit
 // to building the page tree at preview time. Production seeds the
 // most-trafficked pages via generateDocumentStaticParams below.
-const SEEDED_STATIC_PARAMS: { slug: string[] }[] = [
-  { slug: ["about", "Index"] },
-  { slug: ["about", "Log"] },
-];
+const PREVIEW_STATIC_SLUGS = ["about/Index", "about/Log"];
+const SEEDED_STATIC_PREFIXES = ["about/", "wiki/about/", "wiki/updates/"];
 const ROUTE_SLUG_ALIASES = new Map([["about/index", "index"]]);
 const ROUTE_ALIAS_CANONICAL_PATHS = new Map([["about/index", "about/Index"]]);
 
@@ -39,20 +37,41 @@ function isPreviewDeployment() {
   return process.env.VERCEL_ENV === "preview";
 }
 
+function toStaticParams(slugs: string[]) {
+  return slugs.map((slug) => ({
+    slug: slug.split("/"),
+  }));
+}
+
+function getSeededStaticSlugs(allSlugs: string[]) {
+  const seededSlugs = new Set(PREVIEW_STATIC_SLUGS);
+
+  for (const slug of allSlugs) {
+    if (SEEDED_STATIC_PREFIXES.some((prefix) => slug.startsWith(prefix))) {
+      seededSlugs.add(slug);
+    }
+  }
+
+  return Array.from(seededSlugs);
+}
+
 export async function generateDocumentStaticParams() {
   const t0 = Date.now();
   if (isPreviewDeployment()) {
+    const params = toStaticParams(PREVIEW_STATIC_SLUGS);
     console.log(
-      `[build] preview generateStaticParams: ${SEEDED_STATIC_PARAMS.length} seed pages in ${Date.now() - t0}ms`
+      `[build] preview generateStaticParams: ${params.length} seed pages in ${Date.now() - t0}ms`
     );
-    return SEEDED_STATIC_PARAMS;
+    return params;
   }
 
   const all = await getAllSlugs();
+  const seededSlugs = getSeededStaticSlugs(all);
+  const params = toStaticParams(seededSlugs);
   console.log(
-    `[build] generateStaticParams: ${SEEDED_STATIC_PARAMS.length}/${all.length} seed pages in ${Date.now() - t0}ms`
+    `[build] generateStaticParams: ${params.length}/${all.length} seed pages in ${Date.now() - t0}ms`
   );
-  return SEEDED_STATIC_PARAMS;
+  return params;
 }
 
 export async function generateDocumentMetadata(
