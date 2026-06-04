@@ -13,7 +13,6 @@ import { ResizableLayout } from "@/components/resizable-layout";
 import { Sidebar } from "@/components/sidebar";
 import { useNavigationFileTree } from "@/components/use-navigation-file-tree";
 import { ConversationList } from "@oncobase/chat";
-import type { CommandPaletteCompactFileNode } from "@oncobase/wiki-shell";
 
 function SidebarFallback() {
   return (
@@ -28,12 +27,10 @@ function SidebarFallback() {
 
 export function NavigationShell({
   children,
-  initialCompactTree,
   initialTree,
   treeVersion,
 }: {
   children: ReactNode;
-  initialCompactTree?: CommandPaletteCompactFileNode[];
   initialTree: FileNode[];
   treeVersion: string;
 }) {
@@ -70,7 +67,7 @@ export function NavigationShell({
       <BottomNav tree={tree} />
       {hasFileTree ? (
         <>
-          <CommandPalette initialCompactTree={initialCompactTree} />
+          <CommandPalette key={pathname} />
           <OutlinePalette />
           <ActionPalette />
         </>
