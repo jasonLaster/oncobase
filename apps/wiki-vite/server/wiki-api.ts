@@ -60,13 +60,31 @@ const piiPatternCache = new Map<string, PiiPatternEntry>();
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
+  ".dcm": "application/dicom",
+  ".dicom": "application/dicom",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".gz": "application/gzip",
   ".csv": "text/csv; charset=utf-8",
+  ".json": "application/json",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".png": "image/png",
   ".gif": "image/gif",
+  ".ppt": "application/vnd.ms-powerpoint",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".rtf": "application/rtf",
   ".webp": "image/webp",
   ".svg": "image/svg+xml",
+  ".tar": "application/x-tar",
+  ".tif": "image/tiff",
+  ".tiff": "image/tiff",
+  ".tsv": "text/tab-separated-values; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".xml": "application/xml",
+  ".zip": "application/zip",
 };
 
 function resolveConvexUrl() {
@@ -792,34 +810,36 @@ async function appendMarkdownToArchive(
   }
 }
 
-async function appendPdfAssetsToArchive(
+async function appendAssetsToArchive(
   arc: archiver.Archiver,
   client: ConvexHttpClient,
   siteSlug: string,
   includeSensitive: boolean,
   maxAssets: number,
 ) {
-  const assets = (await client.query(
-    api.documents.listPdfAssets,
-    withSiteSlug(
-      siteSlug,
-      includeSensitive ? { includeSensitive: true as const } : {},
-    ),
-  )) as DownloadAsset[];
+  const args = withSiteSlug(
+    siteSlug,
+    includeSensitive ? { includeSensitive: true as const } : {},
+  );
+  const [pdfAssets, fileAssets] = await Promise.all([
+    client.query(api.documents.listPdfAssets, args) as Promise<DownloadAsset[]>,
+    client.query(api.documents.listFileAssets, args) as Promise<DownloadAsset[]>,
+  ]);
+  const assets = [...pdfAssets, ...fileAssets];
 
   for (const asset of assets.slice(0, maxAssets)) {
     if (!asset.blobUrl) continue;
     try {
       const response = await fetch(asset.blobUrl);
       if (!response.ok) {
-        console.warn(`[download] Failed to fetch PDF ${asset.path}: ${response.status}`);
+        console.warn(`[download] Failed to fetch asset ${asset.path}: ${response.status}`);
         continue;
       }
       arc.append(Buffer.from(await response.arrayBuffer()), {
         name: archiveEntryPath(asset.path),
       });
     } catch (error) {
-      console.warn(`[download] Failed to fetch PDF ${asset.path}`, error);
+      console.warn(`[download] Failed to fetch asset ${asset.path}`, error);
     }
   }
 }
@@ -846,7 +866,7 @@ async function handleDownloadRequest(
 
   const stream = archiverToStream(type, async (arc) => {
     if (type === "full") {
-      await appendPdfAssetsToArchive(arc, client, siteSlug, includeSensitive, maxAssets);
+      await appendAssetsToArchive(arc, client, siteSlug, includeSensitive, maxAssets);
     }
     await appendMarkdownToArchive(arc, client, siteSlug, includeSensitive, maxPages);
     await arc.finalize();

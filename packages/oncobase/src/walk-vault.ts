@@ -21,25 +21,61 @@ const EXCLUDED_FILES = new Set(["CLAUDE.md"]);
 
 const PDF_EXTENSIONS = new Set([".pdf"]);
 const FILE_ASSET_EXTENSIONS = new Set([
+  ".dcm",
+  ".dicom",
+  ".doc",
+  ".docx",
+  ".gz",
   ".jpg",
   ".jpeg",
+  ".json",
   ".png",
   ".gif",
+  ".ppt",
+  ".pptx",
+  ".rtf",
   ".webp",
   ".svg",
   ".csv",
+  ".tar",
+  ".tif",
+  ".tiff",
+  ".tsv",
+  ".txt",
+  ".xls",
+  ".xlsx",
+  ".xml",
+  ".zip",
 ]);
 const DOCUMENT_EXTENSIONS = new Set([".md", ".mdx"]);
 
 const CONTENT_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
+  ".dcm": "application/dicom",
+  ".dicom": "application/dicom",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".gz": "application/gzip",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
+  ".json": "application/json",
   ".png": "image/png",
   ".gif": "image/gif",
+  ".ppt": "application/vnd.ms-powerpoint",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".rtf": "application/rtf",
   ".webp": "image/webp",
   ".svg": "image/svg+xml",
   ".csv": "text/csv",
+  ".tar": "application/x-tar",
+  ".tif": "image/tiff",
+  ".tiff": "image/tiff",
+  ".tsv": "text/tab-separated-values",
+  ".txt": "text/plain",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".xml": "application/xml",
+  ".zip": "application/zip",
 };
 
 export type PublishDocument = {
@@ -145,25 +181,6 @@ function vaultFiles(dir: string, basePath = ""): Entry[] {
   return out;
 }
 
-function isSensitiveMarkdownFile(filePath: string) {
-  try {
-    const raw = fs.readFileSync(filePath, "utf8");
-    const { data } = matter(raw);
-    return isSensitiveFrontmatter(data as Record<string, unknown>);
-  } catch {
-    return false;
-  }
-}
-
-function isSensitiveSidecarFile(filePath: string) {
-  const ext = path.extname(filePath);
-  if (!ext || DOCUMENT_EXTENSIONS.has(ext)) return false;
-  return Array.from(DOCUMENT_EXTENSIONS).some((documentExt) => {
-    const siblingMarkdownPath = filePath.slice(0, -ext.length) + documentExt;
-    return fs.existsSync(siblingMarkdownPath) && isSensitiveMarkdownFile(siblingMarkdownPath);
-  });
-}
-
 export function readVaultDocuments(vaultPath: string): PublishDocument[] {
   return vaultFiles(vaultPath)
     .filter(({ relativePath }) => DOCUMENT_EXTENSIONS.has(path.extname(relativePath)))
@@ -215,7 +232,6 @@ export function readVaultAssets(vaultPath: string): PublishAsset[] {
     const isPdf = PDF_EXTENSIONS.has(ext);
     const isFile = FILE_ASSET_EXTENSIONS.has(ext);
     if (!isPdf && !isFile) continue;
-    if (isSensitiveSidecarFile(filePath)) continue;
     const stat = fs.statSync(filePath);
     assets.push({
       filePath,

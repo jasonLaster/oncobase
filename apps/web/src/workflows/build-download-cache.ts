@@ -26,7 +26,7 @@ const BLOB_NAMES_BY_SITE = (siteSlug: string) =>
         markdown: `${siteSlug}-wiki-markdown.zip`,
       } as const);
 
-const PDF_BATCH_TARGET_BYTES = 64 * 1024 * 1024;
+const ASSET_BATCH_TARGET_BYTES = 64 * 1024 * 1024;
 const MIN_MULTIPART_PART_BYTES = 5 * 1024 * 1024;
 const ZIP_MAX_UINT32 = 0xffffffff;
 const ZIP_MAX_UINT16 = 0xffff;
@@ -35,14 +35,14 @@ const ZIP_STORE_METHOD = 0;
 const DEFAULT_DOS_TIME = 0;
 const DEFAULT_DOS_DATE = 0x5821; // 2024-01-01
 
-interface PdfAsset {
+interface ArchiveAsset {
   path: string;
   blobUrl: string;
   sizeBytes?: number | null;
 }
 
 interface ArchivePlan {
-  pdfBatches: PdfAsset[][];
+  assetBatches: ArchiveAsset[][];
 }
 
 interface MultipartUploadState {
@@ -87,16 +87,20 @@ async function collectArchivePlan(
   const siteData = await getWorkflowSiteData(siteSlug);
 
   if (type === "markdown") {
-    return { pdfBatches: [] };
+    return { assetBatches: [] };
   }
 
-  const assets = ((await siteData.documents.listPdfAssets()) as PdfAsset[]).sort(
+  const [pdfAssets, fileAssets] = await Promise.all([
+    siteData.documents.listPdfAssets(),
+    siteData.documents.listFileAssets(),
+  ]);
+  const assets = ([...pdfAssets, ...fileAssets] as ArchiveAsset[]).sort(
     (a, b) => a.path.localeCompare(b.path),
   );
   console.log(
-    `[download-cache] PDF assets in Convex: ${assets.length} site=${siteSlug}`,
+    `[download-cache] Binary assets in Convex: ${assets.length} site=${siteSlug}`,
   );
-  return { pdfBatches: batchPdfAssets(assets) };
+  return { assetBatches: batchArchiveAssets(assets) };
 }
 
 async function createArchiveUpload(
@@ -122,9 +126,9 @@ async function createArchiveUpload(
   return { pathname, ...upload };
 }
 
-async function uploadPdfArchivePart(
+async function uploadAssetArchivePart(
   upload: MultipartUploadState,
-  batch: PdfAsset[],
+  batch: ArchiveAsset[],
   partNumber: number,
   startOffset: number,
 ): Promise<ArchivePartResult> {
@@ -135,16 +139,16 @@ async function uploadPdfArchivePart(
   if (!token) throw new FatalError("Blob write token not set");
 
   const t0 = Date.now();
-  const { body, entries } = await buildPdfLocalBlocks(batch, startOffset);
+  const { body, entries } = await buildAssetLocalBlocks(batch, startOffset);
   if (body.byteLength < MIN_MULTIPART_PART_BYTES) {
     throw new RetryableError(
-      `PDF archive part ${partNumber} is too small for non-final multipart upload`,
+      `Asset archive part ${partNumber} is too small for non-final multipart upload`,
     );
   }
 
   const part = await uploadMultipartPart(upload, partNumber, body, token);
   console.log(
-    `[download-cache] PDF part ${partNumber}: ${entries.length}/${batch.length} PDFs, ${(body.byteLength / 1024 / 1024).toFixed(1)} MB in ${Date.now() - t0}ms`,
+    `[download-cache] Asset part ${partNumber}: ${entries.length}/${batch.length} assets, ${(body.byteLength / 1024 / 1024).toFixed(1)} MB in ${Date.now() - t0}ms`,
   );
   return { part, entries, bytesUploaded: body.byteLength };
 }
@@ -153,7 +157,7 @@ async function uploadFinalArchivePart(
   upload: MultipartUploadState,
   type: DownloadType,
   siteSlug: string,
-  pdfBatch: PdfAsset[],
+  assetBatch: ArchiveAsset[],
   previousEntries: ZipEntryMetadata[],
   previousParts: UploadedPart[],
   partNumber: number,
@@ -170,11 +174,11 @@ async function uploadFinalArchivePart(
   const finalEntries: ZipEntryMetadata[] = [];
   let offset = startOffset;
 
-  if (type === "full" && pdfBatch.length > 0) {
-    const pdfBlocks = await buildPdfLocalBlocks(pdfBatch, offset);
-    localBuffers.push(pdfBlocks.body);
-    finalEntries.push(...pdfBlocks.entries);
-    offset += pdfBlocks.body.byteLength;
+  if (type === "full" && assetBatch.length > 0) {
+    const assetBlocks = await buildAssetLocalBlocks(assetBatch, offset);
+    localBuffers.push(assetBlocks.body);
+    finalEntries.push(...assetBlocks.entries);
+    offset += assetBlocks.body.byteLength;
   }
 
   const markdownBlocks = await buildMarkdownLocalBlocks(siteSlug, offset);
@@ -237,15 +241,15 @@ async function saveCache(
 
 // ─── archive builders (called inside steps, full Node.js access) ──────────────
 
-function batchPdfAssets(assets: PdfAsset[]): PdfAsset[][] {
-  const batches: PdfAsset[][] = [];
-  let batch: PdfAsset[] = [];
+function batchArchiveAssets(assets: ArchiveAsset[]): ArchiveAsset[][] {
+  const batches: ArchiveAsset[][] = [];
+  let batch: ArchiveAsset[] = [];
   let batchBytes = 0;
 
   for (const asset of assets) {
     batch.push(asset);
     batchBytes += Math.max(0, Number(asset.sizeBytes ?? 0));
-    if (batchBytes >= PDF_BATCH_TARGET_BYTES) {
+    if (batchBytes >= ASSET_BATCH_TARGET_BYTES) {
       batches.push(batch);
       batch = [];
       batchBytes = 0;
@@ -259,14 +263,14 @@ function batchPdfAssets(assets: PdfAsset[]): PdfAsset[][] {
   return batches;
 }
 
-async function buildPdfLocalBlocks(batch: PdfAsset[], startOffset: number) {
+async function buildAssetLocalBlocks(batch: ArchiveAsset[], startOffset: number) {
   const buffers = await Promise.all(
     batch.map(async (asset) => {
       try {
         const res = await fetch(asset.blobUrl);
         if (!res.ok) {
           console.warn(
-            `[download-cache] Failed to fetch PDF ${asset.path}: ${res.status}`,
+            `[download-cache] Failed to fetch asset ${asset.path}: ${res.status}`,
           );
           return null;
         }
@@ -275,7 +279,7 @@ async function buildPdfLocalBlocks(batch: PdfAsset[], startOffset: number) {
           data: Buffer.from(await res.arrayBuffer()),
         };
       } catch (err: unknown) {
-        console.warn(`[download-cache] Failed to fetch PDF ${asset.path}:`, err);
+        console.warn(`[download-cache] Failed to fetch asset ${asset.path}:`, err);
         return null;
       }
     }),
@@ -492,8 +496,8 @@ export async function buildDownloadCacheWorkflow(
   );
 
   const plan = await collectArchivePlan(type, siteSlug);
-  if (type === "full" && plan.pdfBatches.length === 0) {
-    console.log("[download-cache] No PDFs ingested yet — skipping full cache build");
+  if (type === "full" && plan.assetBatches.length === 0) {
+    console.log("[download-cache] No binary assets ingested yet — skipping full cache build");
     return;
   }
 
@@ -501,15 +505,15 @@ export async function buildDownloadCacheWorkflow(
   const upload = await createArchiveUpload(type, siteSlug);
   const previousEntries: ZipEntryMetadata[] = [];
   const previousParts: UploadedPart[] = [];
-  const pdfBatchesToUpload =
-    type === "full" ? plan.pdfBatches.slice(0, -1) : [];
-  const finalPdfBatch =
-    type === "full" ? (plan.pdfBatches.at(-1) ?? []) : [];
+  const assetBatchesToUpload =
+    type === "full" ? plan.assetBatches.slice(0, -1) : [];
+  const finalAssetBatch =
+    type === "full" ? (plan.assetBatches.at(-1) ?? []) : [];
   let partNumber = 1;
   let offset = 0;
 
-  for (const batch of pdfBatchesToUpload) {
-    const result = await uploadPdfArchivePart(
+  for (const batch of assetBatchesToUpload) {
+    const result = await uploadAssetArchivePart(
       upload,
       batch,
       partNumber,
@@ -528,7 +532,7 @@ export async function buildDownloadCacheWorkflow(
     upload,
     type,
     siteSlug,
-    finalPdfBatch,
+    finalAssetBatch,
     previousEntries,
     previousParts,
     partNumber,

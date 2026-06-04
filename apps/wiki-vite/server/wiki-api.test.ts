@@ -100,6 +100,23 @@ function createFakeConvexClient() {
               blobUrl: "data:application/pdf;base64,JVBERi0xLjQKJUVPRgo=",
             },
           ];
+        case "documents:listFileAssets": {
+          const includeSensitive = args.includeSensitive === true;
+          return [
+            {
+              path: "biopsy/raw/dicom.zip",
+              blobUrl: "data:application/zip;base64,UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==",
+            },
+            ...(includeSensitive
+              ? [
+                  {
+                    path: "private/plan.zip",
+                    blobUrl: "data:application/zip;base64,UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==",
+                  },
+                ]
+              : []),
+          ];
+        }
         default:
           throw new Error(`Unexpected query ${getFunctionName(ref)}`);
       }
@@ -219,11 +236,18 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(privateBody).not.toContain("Diana Laster");
     expect(privateBody).not.toContain("88855655");
 
-    const fullArchive = await handler(
-      request("/api/download?type=full&scope=public&limit=1&assetLimit=1"),
-    );
+    const fullArchive = await handler(request("/api/download?type=full&scope=public&limit=1"));
     const fullZip = await JSZip.loadAsync(await fullArchive!.arrayBuffer());
     expect(Object.keys(fullZip.files)).toContain("sources/public/source.pdf");
+    expect(Object.keys(fullZip.files)).toContain("biopsy/raw/dicom.zip");
+    expect(Object.keys(fullZip.files)).not.toContain("private/plan.zip");
+
+    const sessionFullArchive = await handler(
+      request("/api/download?type=full&scope=session&limit=1", {
+        headers: { Cookie: cookie },
+      }),
+    );
+    const sessionFullZip = await JSZip.loadAsync(await sessionFullArchive!.arrayBuffer());
+    expect(Object.keys(sessionFullZip.files)).toContain("private/plan.zip");
   });
 });
-

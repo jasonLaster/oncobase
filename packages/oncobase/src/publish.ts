@@ -45,7 +45,8 @@ async function post(url: string, token: string, body: unknown) {
 // Assets go directly to Vercel Blob from the publisher (the function
 // is metadata-only), so the cap here is just RAM headroom for
 // fs.readFileSync. Stream the body if outliers exceed this.
-const MAX_ASSET_BYTES = 200 * 1024 * 1024;
+const MAX_ASSET_BYTES =
+  readPositiveIntEnv("PUBLISH_MAX_ASSET_MB", 1024) * 1024 * 1024;
 const SKIPPED_ASSET_LOG = ".skipped-assets.txt";
 // Doc POSTs are small JSON; asset uploads are up to 24MB and bandwidth-bound.
 // Keep env overrides so operators can back off during large generated batches
