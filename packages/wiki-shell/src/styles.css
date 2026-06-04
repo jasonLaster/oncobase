@@ -1173,8 +1173,8 @@ html[data-initial-sidebar-state="collapsed"]
 .wiki-shell-command-palette {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 24px 70px rgb(17 24 39 / 0.22);
+  border-radius: 0.75rem;
+  box-shadow: 0 24px 70px rgb(17 24 39 / 0.2);
   color: var(--foreground);
   max-height: min(680px, calc(100vh - 96px));
   overflow: hidden;
@@ -1183,20 +1183,35 @@ html[data-initial-sidebar-state="collapsed"]
 
 .wiki-shell-command-search {
   align-items: center;
-  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-muted) 58%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 0.625rem;
   display: flex;
-  gap: 8px;
-  min-height: 48px;
-  padding: 0 12px 0 14px;
+  gap: 0.375rem;
+  margin: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.375rem 0 0.875rem;
+}
+
+.wiki-shell-command-search > svg {
+  color: var(--muted);
+  flex: 0 0 auto;
+  opacity: 0.8;
 }
 
 .wiki-shell-command-search input {
   background: transparent;
   border: 0;
   color: var(--foreground);
+  flex: 1 1 auto;
   min-width: 0;
   outline: 0;
+  padding: 0.5rem 0.25rem;
   width: 100%;
+}
+
+.wiki-shell-command-search input::placeholder {
+  color: var(--muted);
 }
 
 .wiki-shell-command-search button {
@@ -1207,14 +1222,17 @@ html[data-initial-sidebar-state="collapsed"]
   color: var(--muted);
   cursor: pointer;
   display: inline-flex;
+  flex: 0 0 auto;
   height: 30px;
   justify-content: center;
   width: 30px;
 }
 
-.wiki-shell-command-search button:hover {
+.wiki-shell-command-search button:hover,
+.wiki-shell-command-search button:focus-visible {
   background: var(--surface-muted);
   color: var(--foreground);
+  outline: none;
 }
 
 .wiki-shell-command-tabs {
@@ -1251,7 +1269,7 @@ html[data-initial-sidebar-state="collapsed"]
 .wiki-shell-command-list {
   max-height: min(480px, calc(100vh - 250px));
   overflow: auto;
-  padding: 6px;
+  padding: 0.25rem 0.75rem 0.5rem;
 }
 
 .wiki-shell-file-palette .wiki-shell-command-list {
@@ -1273,7 +1291,7 @@ html[data-initial-sidebar-state="collapsed"]
   font-weight: 600;
   height: 1.75rem;
   left: 0;
-  padding: 0 0.5rem 0.25rem;
+  padding: 0 0.25rem 0.25rem;
   position: absolute;
   top: 0;
   width: 100%;
@@ -1309,7 +1327,7 @@ html[data-initial-sidebar-state="collapsed"]
   gap: 10px;
   grid-template-columns: 18px minmax(0, 1fr);
   min-height: 46px;
-  padding: 7px 10px;
+  padding: 7px 0.625rem;
   text-align: left;
   text-decoration: none;
   width: 100%;
