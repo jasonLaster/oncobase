@@ -7,10 +7,34 @@ import { expect, test, type Page } from "@playwright/test";
 
 const biopsyLinks = [
   {
+    id: "diagnostic-2026-04-01-breast-mri",
+    title: "April 1 breast MRI",
+    directory: "04-01-breast-mri/dicoms",
+    counter: "616 / 1230",
+  },
+  {
+    id: "diagnostic-2026-03-27-petct",
+    title: "March 27 PET/CT",
+    directory: "03-27-petct/dicoms",
+    counter: "173 / 344",
+  },
+  {
+    id: "diagnostic-2026-03-20-ultrasound",
+    title: "March 20 ultrasound",
+    directory: "03-20-ultrasound/dicoms",
+    counter: "6 / 11",
+  },
+  {
     id: "biopsy-2026-04-10",
     title: "April 10 biopsy",
     directory: "4-10 biopsy/LASTERDIANAD (1)/SER00003",
     counter: "5 / 9",
+  },
+  {
+    id: "diagnostic-2026-02-20-ultrasound",
+    title: "February 20 ultrasound",
+    directory: "02-20-ultrasound/dicoms",
+    counter: "12 / 22",
   },
   {
     id: "biopsy-2026-03-23",
@@ -91,7 +115,7 @@ test.describe("DICOM viewer", () => {
         "href",
         `/tools/dicom-viewer?id=${biopsy.id}`,
       );
-      await expect(card.getByRole("link", { name: "Pathology report" })).toHaveCount(1);
+      await expect(card.getByRole("link")).not.toHaveCount(1);
     }
   });
 

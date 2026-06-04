@@ -12,6 +12,7 @@ const MIME_TYPES: Record<string, string> = {
   ".gif":  "image/gif",
   ".webp": "image/webp",
   ".svg":  "image/svg+xml",
+  ".zip":  "application/zip",
 };
 
 function getMimeType(filePath: string): string | null {

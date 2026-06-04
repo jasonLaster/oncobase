@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   DIAGNOSTIC_BIOPSIES,
   getDicomViewerHref,
+  type DiagnosticBiopsy,
 } from "@/lib/diagnostic-biopsies";
 
 export const metadata = {
@@ -25,61 +26,71 @@ export default function DiagnosticsPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-normal">Diagnostics</h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Biopsy imaging shortcuts with the canonical pathology report.
+              Imaging shortcuts with linked reports and source files.
             </p>
           </div>
           <Badge variant="outline" className="w-fit">
-            {DIAGNOSTIC_BIOPSIES.length} biopsies
+            {DIAGNOSTIC_BIOPSIES.length} studies
           </Badge>
         </header>
 
         <section className="grid gap-3">
-          {DIAGNOSTIC_BIOPSIES.map((biopsy) => (
-            <article key={biopsy.id} className="rounded-lg border border-border bg-card p-4 text-card-foreground">
-              <div className="min-w-0">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <Badge className="bg-primary text-primary-foreground">
-                    {biopsy.shortLabel}
-                  </Badge>
-                  <Badge variant="outline">{biopsy.modality}</Badge>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {biopsy.id}
-                  </span>
+          {DIAGNOSTIC_BIOPSIES.map((biopsy) => {
+            const reportLinks = getReportLinks(biopsy);
+            return (
+              <article key={biopsy.id} className="rounded-lg border border-border bg-card p-4 text-card-foreground">
+                <div className="min-w-0">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <Badge className="bg-primary text-primary-foreground">
+                      {biopsy.shortLabel}
+                    </Badge>
+                    <Badge variant="outline">{biopsy.modality}</Badge>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {biopsy.id}
+                    </span>
+                  </div>
+                  <h2 className="text-base font-semibold tracking-normal">
+                    {biopsy.title}
+                  </h2>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <CalendarDays className="size-4" />
+                      {biopsy.dateLabel}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <ScanSearch className="size-4" />
+                      {biopsy.focus}
+                    </span>
+                  </div>
                 </div>
-                <h2 className="text-base font-semibold tracking-normal">
-                  {biopsy.title}
-                </h2>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5">
-                    <CalendarDays className="size-4" />
-                    {biopsy.dateLabel}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <ScanSearch className="size-4" />
-                    {biopsy.focus}
-                  </span>
-                </div>
-              </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <DiagnosticsActionLink
-                  href={getDicomViewerHref(biopsy.id)}
-                  icon={<ScanSearch className="size-4" />}
-                  label="Open viewer"
-                  primary
-                />
-                <DiagnosticsActionLink
-                  href={biopsy.pathologyReportHref}
-                  icon={<FileText className="size-4" />}
-                  label="Pathology report"
-                />
-              </div>
-            </article>
-          ))}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <DiagnosticsActionLink
+                    href={getDicomViewerHref(biopsy.id)}
+                    icon={<ScanSearch className="size-4" />}
+                    label="Open viewer"
+                    primary
+                  />
+                  {reportLinks.map((link) => (
+                    <DiagnosticsActionLink
+                      key={`${biopsy.id}-${link.href}`}
+                      href={link.href}
+                      icon={<FileText className="size-4" />}
+                      label={link.label}
+                    />
+                  ))}
+                </div>
+              </article>
+            );
+          })}
         </section>
       </main>
     </div>
   );
+}
+
+function getReportLinks(biopsy: DiagnosticBiopsy) {
+  return biopsy.reportLinks ?? [{ label: "Pathology report", href: biopsy.pathologyReportHref }];
 }
 
 function DiagnosticsActionLink({
