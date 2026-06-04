@@ -2,89 +2,15 @@
 
 import { useCallback, useRef, useSyncExternalStore } from "react";
 
-const MIN_WIDTH = 160;
-const MAX_WIDTH = 480;
-const DEFAULT_WIDTH = 256;
-const STORAGE_KEY = "sidebar-width";
-let listeners: Array<() => void> = [];
-let widthCache: number | null = null;
-
-function readStoredWidth() {
-  if (typeof window === "undefined") return DEFAULT_WIDTH;
-
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    const nextWidth = parseInt(stored, 10);
-    if (nextWidth >= 0 && nextWidth <= MAX_WIDTH) {
-      return nextWidth;
-    }
-  }
-
-  return DEFAULT_WIDTH;
-}
-
-function syncInitialSidebarState(width: number) {
-  if (typeof window === "undefined") return;
-
-  window.document.documentElement.dataset.initialSidebarState =
-    width === 0 ? "collapsed" : "expanded";
-}
-
-function subscribe(onStoreChange: () => void) {
-  if (typeof window === "undefined") {
-    return () => {};
-  }
-
-  listeners.push(onStoreChange);
-
-  const handleStorage = (event: StorageEvent) => {
-    if (event.key && event.key !== STORAGE_KEY) return;
-
-    widthCache = null;
-    syncInitialSidebarState(readStoredWidth());
-    onStoreChange();
-  };
-
-  window.addEventListener("storage", handleStorage);
-
-  return () => {
-    listeners = listeners.filter((listener) => listener !== onStoreChange);
-    window.removeEventListener("storage", handleStorage);
-  };
-}
-
-function getWidthSnapshot() {
-  if (typeof window === "undefined") return DEFAULT_WIDTH;
-
-  if (widthCache !== null) {
-    return widthCache;
-  }
-
-  widthCache = readStoredWidth();
-  return widthCache;
-}
-
-function getServerWidthSnapshot() {
-  return DEFAULT_WIDTH;
-}
-
-function updateWidth(
-  nextWidth: number,
-  options?: {
-    persist?: boolean;
-  }
-) {
-  if (typeof window === "undefined") return;
-
-  widthCache = nextWidth;
-  syncInitialSidebarState(nextWidth);
-
-  if (options?.persist ?? true) {
-    window.localStorage.setItem(STORAGE_KEY, String(nextWidth));
-  }
-
-  listeners.forEach((listener) => listener());
-}
+import {
+  getResizableSidebarServerSnapshot,
+  getResizableSidebarSnapshot,
+  RESIZABLE_SIDEBAR_DEFAULT_WIDTH,
+  RESIZABLE_SIDEBAR_MAX_WIDTH,
+  RESIZABLE_SIDEBAR_MIN_WIDTH,
+  setResizableSidebarWidth,
+  subscribeToResizableSidebar,
+} from "@/components/resizable-sidebar-store";
 
 export function ResizableLayout({
   sidebar,
@@ -94,9 +20,9 @@ export function ResizableLayout({
   children: React.ReactNode;
 }) {
   const width = useSyncExternalStore(
-    subscribe,
-    getWidthSnapshot,
-    getServerWidthSnapshot
+    subscribeToResizableSidebar,
+    getResizableSidebarSnapshot,
+    getResizableSidebarServerSnapshot
   );
   const collapsed = width === 0;
   const dragging = useRef(false);
@@ -105,9 +31,9 @@ export function ResizableLayout({
 
   const toggle = useCallback(() => {
     if (collapsed) {
-      updateWidth(DEFAULT_WIDTH);
+      setResizableSidebarWidth(RESIZABLE_SIDEBAR_DEFAULT_WIDTH);
     } else {
-      updateWidth(0);
+      setResizableSidebarWidth(0);
     }
   }, [collapsed]);
 
@@ -125,8 +51,11 @@ export function ResizableLayout({
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragging.current) return;
     const delta = e.clientX - startX.current;
-    const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta));
-    updateWidth(next, { persist: false });
+    const next = Math.min(
+      RESIZABLE_SIDEBAR_MAX_WIDTH,
+      Math.max(RESIZABLE_SIDEBAR_MIN_WIDTH, startWidth.current + delta),
+    );
+    setResizableSidebarWidth(next, { persist: false });
   }, []);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
@@ -134,8 +63,11 @@ export function ResizableLayout({
     dragging.current = false;
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     const delta = e.clientX - startX.current;
-    const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta));
-    updateWidth(next);
+    const next = Math.min(
+      RESIZABLE_SIDEBAR_MAX_WIDTH,
+      Math.max(RESIZABLE_SIDEBAR_MIN_WIDTH, startWidth.current + delta),
+    );
+    setResizableSidebarWidth(next);
   }, []);
 
   return (
@@ -149,6 +81,7 @@ export function ResizableLayout({
         className="hidden shrink-0 flex-col items-center border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] pt-2 md:flex md:w-12"
       >
         <button
+          type="button"
           onClick={toggle}
           aria-label="Expand sidebar"
           className="rounded-md p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
@@ -166,6 +99,7 @@ export function ResizableLayout({
         style={{ width }}
       >
         <button
+          type="button"
           onClick={toggle}
           aria-label="Collapse sidebar"
           className="absolute right-2 top-2 z-10 rounded-md border border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] p-1 text-[var(--text-muted)] opacity-0 shadow-sm transition-opacity hover:text-[var(--foreground)] group-hover:opacity-100 [@media(hover:none)]:opacity-100"

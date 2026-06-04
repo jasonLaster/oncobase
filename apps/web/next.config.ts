@@ -23,6 +23,10 @@ const nextConfig: NextConfig = {
   },
   turbopack: {
     root: path.join(__dirname, "..", ".."),
+    resolveAlias: {
+      fs: { browser: "./src/lib/browser-empty-module.ts" },
+      path: { browser: "./src/lib/browser-empty-module.ts" },
+    },
   },
 };
 

@@ -135,6 +135,44 @@ export default defineSchema({
     .index("by_path", ["path"])
     .index("by_site_path", ["siteId", "path"]),
 
+  dicomSeries: defineTable({
+    siteId: v.optional(v.id("sites")),
+    seriesKey: v.string(),
+    label: v.string(),
+    relativeDirectory: v.string(),
+    modality: v.optional(v.string()),
+    studyDescription: v.optional(v.string()),
+    seriesDescription: v.optional(v.string()),
+    studyDate: v.optional(v.string()),
+    seriesNumber: v.optional(v.number()),
+    imageCount: v.number(),
+    uploadedAt: v.number(),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("by_series_key", ["seriesKey"])
+    .index("by_site_series_key", ["siteId", "seriesKey"])
+    .index("by_site_updated", ["siteId", "updatedAt"]),
+
+  dicomImages: defineTable({
+    siteId: v.optional(v.id("sites")),
+    seriesKey: v.string(),
+    path: v.string(),
+    fileName: v.string(),
+    blobUrl: v.string(),
+    sizeBytes: v.number(),
+    contentHash: v.optional(v.string()),
+    instanceNumber: v.optional(v.number()),
+    imagePosition: v.optional(v.number()),
+    rows: v.optional(v.number()),
+    columns: v.optional(v.number()),
+    uploadedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("by_path", ["path"])
+    .index("by_site_path", ["siteId", "path"])
+    .index("by_site_series", ["siteId", "seriesKey"]),
+
   conversations: defineTable({
     siteId: v.optional(v.id("sites")),
     title: v.string(),

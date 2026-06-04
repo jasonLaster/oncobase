@@ -11,6 +11,7 @@
 import type * as access from "../access.js";
 import type * as commentRooms from "../commentRooms.js";
 import type * as conversations from "../conversations.js";
+import type * as dicom from "../dicom.js";
 import type * as documents from "../documents.js";
 import type * as guestNames from "../guestNames.js";
 import type * as lib_site from "../lib/site.js";
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   access: typeof access;
   commentRooms: typeof commentRooms;
   conversations: typeof conversations;
+  dicom: typeof dicom;
   documents: typeof documents;
   guestNames: typeof guestNames;
   "lib/site": typeof lib_site;
