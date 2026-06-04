@@ -8,6 +8,11 @@ import {
   type CompactFileNode,
 } from "@/lib/file-tree-compact";
 import { useHasHydrated } from "@/components/use-has-hydrated";
+import {
+  fileTreeCacheKey,
+  readCachedCompactTree,
+  writeCachedCompactTree,
+} from "@/components/navigation-file-tree-cache";
 
 type FileTreeScope = "public" | "session";
 type FileTreeSWRKey = readonly [
@@ -15,50 +20,6 @@ type FileTreeSWRKey = readonly [
   scope: FileTreeScope,
   storageKey: string,
 ];
-
-const FILE_TREE_CACHE_VERSION = "v2";
-const fileTreeMemoryCache = new Map<string, CompactFileNode[]>();
-
-function fileTreeCacheKey(scope: FileTreeScope, version: string) {
-  const origin = typeof window === "undefined" ? "" : window.location.origin;
-  return `${origin}:file-tree:${FILE_TREE_CACHE_VERSION}:${version}:${scope}`;
-}
-
-function readCachedCompactTree(cacheKey: string) {
-  const memoryHit = fileTreeMemoryCache.get(cacheKey);
-  if (memoryHit) return memoryHit;
-
-  try {
-    if (typeof window === "undefined") return null;
-
-    const raw = window.sessionStorage.getItem(cacheKey);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as { tree?: CompactFileNode[] };
-    if (!Array.isArray(parsed.tree)) return null;
-
-    fileTreeMemoryCache.set(cacheKey, parsed.tree);
-    return parsed.tree;
-  } catch {
-    return null;
-  }
-}
-
-function writeCachedCompactTree(cacheKey: string, tree: CompactFileNode[]) {
-  fileTreeMemoryCache.set(cacheKey, tree);
-
-  try {
-    if (typeof window === "undefined") return;
-
-    window.sessionStorage.setItem(
-      cacheKey,
-      JSON.stringify({ version: FILE_TREE_CACHE_VERSION, tree }),
-    );
-  } catch {
-    // Storage is a best-effort warm cache; quota/private mode failures
-    // should never affect navigation.
-  }
-}
 
 async function fetchCompactFileTree([
   ,
@@ -83,6 +44,8 @@ async function fetchCompactFileTree([
 
   const compactTree = (await response.json()) as CompactFileNode[];
   if (scope === "public") {
+    writeCachedCompactTree(storageKey, compactTree, { persist: true });
+  } else {
     writeCachedCompactTree(storageKey, compactTree);
   }
   return compactTree;

@@ -7,7 +7,7 @@ import { Suspense } from "react";
 import { CommandPalette, OutlinePalette, ActionPalette } from "@/components/command-palette";
 import { ConvexClientProvider } from "@/components/convex-provider";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
-import { getAllPageEntriesForSite } from "@/lib/markdown";
+import { getCompactFileTreeForSite } from "@/lib/markdown";
 import { getSessionUserFromCookieHeader } from "@/lib/session-user";
 import { DEFAULT_SITE_SLUG, toSiteSlug } from "@/lib/site";
 import "@liveblocks/react-ui/styles.css";
@@ -56,11 +56,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+async function CommandPaletteBootstrap() {
   const headerStore = await headers();
   const siteSlug = toSiteSlug(
     headerStore.get("x-site-slug") ?? DEFAULT_SITE_SLUG,
@@ -71,10 +67,18 @@ export default async function RootLayout({
       headerStore,
     ),
   );
-  const initialCommandPalettePages = await getAllPageEntriesForSite(siteSlug, {
+  const initialCompactTree = await getCompactFileTreeForSite(siteSlug, {
     includeSensitive,
   });
 
+  return <CommandPalette initialCompactTree={initialCompactTree} />;
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html
       lang="en"
@@ -87,11 +91,11 @@ export default async function RootLayout({
       </head>
       <body className="min-h-full">
         <ConvexClientProvider>{children}</ConvexClientProvider>
-        <Suspense fallback={null}>
-          <CommandPalette initialPages={initialCommandPalettePages} />
-          <OutlinePalette />
-          <ActionPalette />
+        <Suspense fallback={<CommandPalette />}>
+          <CommandPaletteBootstrap />
         </Suspense>
+        <OutlinePalette />
+        <ActionPalette />
         <Toaster richColors closeButton position="bottom-right" theme="system" />
         <Analytics />
         <ServiceWorkerRegistration />

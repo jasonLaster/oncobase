@@ -68,6 +68,12 @@ function expectCacheableFileTree(cacheControl: string | undefined) {
   expect(cacheControl).toMatch(/(?:s-maxage|max-age)=\d+/);
 }
 
+function expectCacheablePageList(cacheControl: string | undefined) {
+  expect(cacheControl).toContain("public");
+  expect(cacheControl).toContain("stale-while-revalidate");
+  expect(cacheControl).toMatch(/(?:s-maxage|max-age)=\d+/);
+}
+
 test.describe("Sidebar source files", () => {
   test("/api/file-tree returns the complete cached tree while page HTML keeps the shell lean", async ({
     request,
@@ -85,6 +91,8 @@ test.describe("Sidebar source files", () => {
     expect(htmlResponse.ok()).toBeTruthy();
     expectCacheableFileTree(treeResponse.headers()["cache-control"]);
     expectCacheableFileTree(compactTreeResponse.headers()["cache-control"]);
+    expectCacheablePageList(pagesResponse.headers()["cache-control"]);
+    expect(pagesResponse.headers()["x-pages-cache"]).toBe("public");
 
     const tree = (await treeResponse.json()) as FileNode[];
     const topLevelSlugs = tree.map((node) => node.slug);

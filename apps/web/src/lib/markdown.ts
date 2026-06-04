@@ -402,6 +402,10 @@ export async function getAllPageEntriesForSite(
   siteSlug: SiteSlug,
   { includeSensitive = false }: MarkdownDiscoveryOptions = {},
 ): Promise<PageEntry[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(siteCacheTag(siteSlug), siteDocsCacheTag(siteSlug));
+
   const docs = await fetchAllDocsForSite(siteSlug, includeSensitive);
   return docs.map((doc) => {
     const segments = doc.slug.split("/");

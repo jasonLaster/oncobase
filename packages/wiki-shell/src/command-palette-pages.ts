@@ -12,6 +12,11 @@ export type CommandPalettePageEntry = {
   path: string;
 };
 
+export type CommandPaletteCompactFileNode =
+  | ["d", string, CommandPaletteCompactFileNode[], (string | null)?, string?]
+  | ["f", string, string?]
+  | ["p", string, string?];
+
 export type CommandPalettePreparedPage = {
   page: CommandPalettePageEntry;
   prepName: Fuzzysort.Prepared;
@@ -64,6 +69,68 @@ export function prepareCommandPalettePages(
     prepName: fuzzysort.prepare(page.name.replace(/-/g, " ")),
     prepPath: fuzzysort.prepare(page.path),
   }));
+}
+
+function childSlug(parentSlug: string, name: string) {
+  return parentSlug ? `${parentSlug}/${name}` : name;
+}
+
+function resolveRelativeSlug(parentSlug: string, override: string) {
+  const segments = parentSlug.split("/").filter(Boolean);
+  for (const part of override.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") segments.pop();
+    else segments.push(part);
+  }
+  return segments.join("/");
+}
+
+function expandCompactSlug(parentSlug: string, name: string, override?: string) {
+  if (!override) return childSlug(parentSlug, name);
+  if (
+    override === "." ||
+    override === ".." ||
+    override.startsWith("../") ||
+    override.startsWith("./")
+  ) {
+    return resolveRelativeSlug(parentSlug, override);
+  }
+  return override.includes("/") ? override : childSlug(parentSlug, override);
+}
+
+function isExtensionlessPageSlug(slug: string) {
+  const lastSegment = slug.split("/").filter(Boolean).at(-1);
+  return Boolean(lastSegment && !lastSegment.includes("."));
+}
+
+export function commandPalettePagesFromCompactFileTree(
+  tree: CommandPaletteCompactFileNode[],
+): CommandPalettePageEntry[] {
+  const pages: CommandPalettePageEntry[] = [];
+
+  const visit = (nodes: CommandPaletteCompactFileNode[], parentSlug = "") => {
+    for (const node of nodes) {
+      const [type, name] = node;
+      if (type === "d") {
+        visit(node[2], expandCompactSlug(parentSlug, name, node[4]));
+        continue;
+      }
+
+      if (type !== "f") continue;
+
+      const slug = expandCompactSlug(parentSlug, name, node[2]);
+      if (!isExtensionlessPageSlug(slug)) continue;
+
+      pages.push({
+        name: slug.split("/").at(-1) ?? name,
+        slug,
+        path: slug.split("/").join(" / "),
+      });
+    }
+  };
+
+  visit(tree);
+  return pages;
 }
 
 /**

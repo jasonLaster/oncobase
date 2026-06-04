@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildCommandPaletteRows,
+  commandPalettePagesFromCompactFileTree,
   formatCommandPalettePagePath,
   getCommandPalettePageGroup,
   prepareCommandPalettePages,
@@ -58,6 +59,42 @@ describe("buildCommandPaletteRows", () => {
     });
     expect(result.visibleRows).toEqual([]);
     expect(result.visibleEntries).toEqual([]);
+  });
+});
+
+describe("commandPalettePagesFromCompactFileTree", () => {
+  test("derives searchable pages from compact file nodes", () => {
+    const result = commandPalettePagesFromCompactFileTree([
+      [
+        "d",
+        "wiki",
+        [
+          ["f", "index"],
+          ["f", "chemo-day"],
+          ["p", "protocol"],
+          ["f", "raw-export.csv"],
+        ],
+      ],
+      ["f", "About", "about/About"],
+    ]);
+
+    expect(result).toEqual([
+      { name: "index", slug: "wiki/index", path: "wiki / index" },
+      { name: "chemo-day", slug: "wiki/chemo-day", path: "wiki / chemo-day" },
+      { name: "About", slug: "about/About", path: "about / About" },
+    ]);
+  });
+
+  test("honors relative compact slug overrides", () => {
+    const result = commandPalettePagesFromCompactFileTree([
+      ["d", "about", [["f", "Journal", "../journal/Journal"]]],
+      ["d", "wiki", [["d", "treatment", [["f", "plan", "./plans/current"]]]]],
+    ]);
+
+    expect(result.map((page) => page.slug)).toEqual([
+      "journal/Journal",
+      "wiki/treatment/plans/current",
+    ]);
   });
 });
 

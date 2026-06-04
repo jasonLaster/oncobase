@@ -40,6 +40,7 @@ import {
   COMMAND_PALETTE_ROW_HEIGHT,
   addCommandPaletteRecentSlug,
   buildCommandPaletteRows,
+  commandPalettePagesFromCompactFileTree,
   formatCommandPalettePagePath,
   getCommandPaletteOutlineElement,
   getCommandPaletteOutlineHeadings,
@@ -48,6 +49,7 @@ import {
   observeCommandPaletteOutline,
   prepareCommandPalettePages,
   scrollCommandPaletteHeadingIntoView,
+  type CommandPaletteCompactFileNode,
   type CommandPaletteOutlineHeading,
   type CommandPalettePageEntry,
   type CommandPaletteRow,
@@ -55,6 +57,7 @@ import {
 import { themeEffect } from "@/lib/theme-effect";
 import { cn } from "@/lib/utils";
 import { setNavigationIntent } from "@/lib/navigation-intent";
+import { readLatestCachedCompactTree } from "@/components/navigation-file-tree-cache";
 
 // ─── Theme store ──────────────────────────────────────────────────────────────
 
@@ -131,12 +134,18 @@ type IdleSchedulerWindow = Window & {
 };
 
 export function CommandPalette({
+  initialCompactTree = [],
   initialPages = [],
 }: {
+  initialCompactTree?: CommandPaletteCompactFileNode[];
   initialPages?: CommandPalettePageEntry[];
 }) {
+  const initialTreePages =
+    initialPages.length > 0
+      ? initialPages
+      : commandPalettePagesFromCompactFileTree(initialCompactTree);
   const [open, setOpen] = useState(false);
-  const [pages, setPages] = useState<CommandPalettePageEntry[]>(initialPages);
+  const [pages, setPages] = useState<CommandPalettePageEntry[]>(initialTreePages);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -149,6 +158,18 @@ export function CommandPalette({
   const pagesRequestRef = useRef<Promise<void> | null>(null);
   const didResetScrollForOpenRef = useRef(false);
   const palettePathnameRef = useRef(pathname);
+
+  const seedPagesFromFileTreeCache = useCallback(() => {
+    if (pagesLoadedRef.current) return true;
+    const compactTree = readLatestCachedCompactTree();
+    if (!compactTree) return false;
+
+    const cachedPages = commandPalettePagesFromCompactFileTree(compactTree);
+    if (cachedPages.length === 0) return false;
+
+    setPages((currentPages) => (currentPages.length > 0 ? currentPages : cachedPages));
+    return true;
+  }, []);
 
   const loadPages = useCallback((showLoading = false) => {
     if (pagesLoadedRef.current) return;
@@ -183,11 +204,15 @@ export function CommandPalette({
   }, []);
 
   useEffect(() => {
-    globalOpenFiles = () => setOpen(true);
+    globalOpenFiles = () => {
+      const seeded = seedPagesFromFileTreeCache();
+      setOpen(true);
+      loadPages(!seeded && pages.length === 0);
+    };
     return () => {
       globalOpenFiles = null;
     };
-  }, []);
+  }, [loadPages, pages.length, seedPagesFromFileTreeCache]);
 
   useEffect(() => {
     if (initialPages.length === 0) return;
@@ -196,23 +221,37 @@ export function CommandPalette({
   }, [initialPages]);
 
   useEffect(() => {
+    if (initialPages.length > 0 || initialCompactTree.length === 0) return;
+    const compactTreePages = commandPalettePagesFromCompactFileTree(initialCompactTree);
+    if (compactTreePages.length === 0) return;
+    setPages((current) => (current.length === 0 ? compactTreePages : current));
+  }, [initialCompactTree, initialPages.length]);
+
+  useEffect(() => {
     const idleWindow = window as IdleSchedulerWindow;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let idleId: number | null = null;
 
     if (idleWindow.requestIdleCallback) {
-      idleId = idleWindow.requestIdleCallback(() => loadPages(), {
-        timeout: 1500,
-      });
+      idleId = idleWindow.requestIdleCallback(
+        () => {
+          seedPagesFromFileTreeCache();
+          loadPages();
+        },
+        { timeout: 1500 },
+      );
     } else {
-      timeoutId = setTimeout(() => loadPages(), 250);
+      timeoutId = setTimeout(() => {
+        seedPagesFromFileTreeCache();
+        loadPages();
+      }, 250);
     }
 
     return () => {
       if (idleId !== null) idleWindow.cancelIdleCallback?.(idleId);
       if (timeoutId !== null) clearTimeout(timeoutId);
     };
-  }, [loadPages]);
+  }, [loadPages, seedPagesFromFileTreeCache]);
 
   useEffect(
     () =>
@@ -226,10 +265,11 @@ export function CommandPalette({
 
   useEffect(() => {
     if (open && pages.length === 0) {
-      const timeoutId = setTimeout(() => loadPages(true), 0);
+      const seeded = seedPagesFromFileTreeCache();
+      const timeoutId = setTimeout(() => loadPages(!seeded), 0);
       return () => clearTimeout(timeoutId);
     }
-  }, [loadPages, open, pages.length]);
+  }, [loadPages, open, pages.length, seedPagesFromFileTreeCache]);
 
   useEffect(() => {
     if (!pages.length || pathname === "/") return;
