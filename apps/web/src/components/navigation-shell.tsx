@@ -4,10 +4,16 @@ import { type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import type { FileNode } from "@/lib/markdown";
 import { BottomNav } from "@/components/bottom-nav";
+import {
+  ActionPalette,
+  CommandPalette,
+  OutlinePalette,
+} from "@/components/command-palette";
 import { ResizableLayout } from "@/components/resizable-layout";
 import { Sidebar } from "@/components/sidebar";
 import { useNavigationFileTree } from "@/components/use-navigation-file-tree";
 import { ConversationList } from "@oncobase/chat";
+import type { CommandPaletteCompactFileNode } from "@oncobase/wiki-shell";
 
 function SidebarFallback() {
   return (
@@ -22,10 +28,12 @@ function SidebarFallback() {
 
 export function NavigationShell({
   children,
+  initialCompactTree,
   initialTree,
   treeVersion,
 }: {
   children: ReactNode;
+  initialCompactTree?: CommandPaletteCompactFileNode[];
   initialTree: FileNode[];
   treeVersion: string;
 }) {
@@ -40,6 +48,7 @@ export function NavigationShell({
     return <div className="h-full min-h-0 overflow-hidden">{children}</div>;
   }
 
+  const hasFileTree = tree.length > 0 && !pathname.startsWith("/chat");
   const sidebar = pathname.startsWith("/chat") ? (
     <aside
       className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
@@ -49,7 +58,7 @@ export function NavigationShell({
         <ConversationList />
       </nav>
     </aside>
-  ) : tree.length > 0 ? (
+  ) : hasFileTree ? (
     <Sidebar tree={tree} />
   ) : (
     <SidebarFallback />
@@ -59,6 +68,13 @@ export function NavigationShell({
     <>
       <ResizableLayout sidebar={sidebar}>{children}</ResizableLayout>
       <BottomNav tree={tree} />
+      {hasFileTree ? (
+        <>
+          <CommandPalette initialCompactTree={initialCompactTree} />
+          <OutlinePalette />
+          <ActionPalette />
+        </>
+      ) : null}
     </>
   );
 }

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { NavigationShell } from "@/components/navigation-shell";
 import { WebChatRuntimeProvider } from "@/components/chat-runtime-provider";
 import { PageLoadingSkeleton } from "@/components/page-loading";
-import { getShellFileTreeForSite, type FileNode } from "@/lib/markdown";
+import { getCompactFileTreeForSite, getShellFileTreeForSite, type FileNode } from "@/lib/markdown";
 import { getSitePublishVersion } from "@/lib/site-publish-version";
 import { DEFAULT_SITE_SLUG, toSiteSlug } from "@/lib/site";
 import { formatFileLabel } from "@/lib/file-labels";
@@ -105,8 +105,9 @@ export default async function MainLayout({
   children: React.ReactNode;
 }) {
   const siteSlug = toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG);
-  const [shellTree, treeVersion] = await Promise.all([
+  const [shellTree, initialCompactTree, treeVersion] = await Promise.all([
     getShellFileTreeForSite(siteSlug, { maxDepth: 4 }),
+    getCompactFileTreeForSite(siteSlug),
     getSitePublishVersion(siteSlug),
   ]);
   const shellFallback = <ShellFallback tree={shellTree} />;
@@ -118,7 +119,11 @@ export default async function MainLayout({
         data-test-id="app-shell"
       >
         <Suspense fallback={shellFallback}>
-          <NavigationShell initialTree={shellTree} treeVersion={treeVersion}>
+          <NavigationShell
+            initialCompactTree={initialCompactTree}
+            initialTree={shellTree}
+            treeVersion={treeVersion}
+          >
             {children}
           </NavigationShell>
         </Suspense>
