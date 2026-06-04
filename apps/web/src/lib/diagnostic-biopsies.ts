@@ -7,8 +7,7 @@ export interface DiagnosticBiopsy {
   modality: string;
   focus: string;
   directoryIncludes: string;
-  pathologySourceHref: string;
-  pathologyPdfHref?: string;
+  pathologyReportHref: string;
 }
 
 export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [
@@ -21,9 +20,7 @@ export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [
     modality: "US",
     focus: "Biopsy ultrasound stack",
     directoryIncludes: "4-10 biopsy",
-    pathologySourceHref:
-      "/sources/diagnostics/04-10-kernis-path-report/04-10-kernis-path-report",
-    pathologyPdfHref:
+    pathologyReportHref:
       "/api/file?path=sources%2Fdiagnostics%2F04-10-kernis-path-report%2F04-10-kernis-path-report.pdf",
   },
   {
@@ -35,7 +32,7 @@ export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [
     modality: "US",
     focus: "Axilla biopsy ultrasound stack",
     directoryIncludes: "3-23 - US Axilla biopsy",
-    pathologySourceHref: "/sources/diagnostics/03-23-us-axilla-core-biopsy",
+    pathologyReportHref: "/sources/diagnostics/03-23-us-axilla-core-biopsy",
   },
   {
     id: "biopsy-2026-03-13",
@@ -46,8 +43,7 @@ export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [
     modality: "US",
     focus: "Biopsy ultrasound stack",
     directoryIncludes: "3-13 - Biopsy",
-    pathologySourceHref: "/sources/diagnostics/03-13-breast-biopsy-report",
-    pathologyPdfHref:
+    pathologyReportHref:
       "/api/file?path=sources%2Fdiagnostics%2F03-13-breast-biopsy-report.pdf",
   },
 ];

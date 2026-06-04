@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   ArrowUpRight,
-  BookOpen,
   CalendarDays,
   FileText,
   ScanSearch,
@@ -26,7 +25,7 @@ export default function DiagnosticsPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-normal">Diagnostics</h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Biopsy imaging shortcuts with linked pathology reports.
+              Biopsy imaging shortcuts with the canonical pathology report.
             </p>
           </div>
           <Badge variant="outline" className="w-fit">
@@ -70,21 +69,9 @@ export default function DiagnosticsPage() {
                   primary
                 />
                 <DiagnosticsActionLink
-                  href={biopsy.pathologySourceHref}
-                  icon={<BookOpen className="size-4" />}
-                  label="Pathology source"
-                />
-                {biopsy.pathologyPdfHref ? (
-                  <DiagnosticsActionLink
-                    href={biopsy.pathologyPdfHref}
-                    icon={<FileText className="size-4" />}
-                    label="Source PDF"
-                  />
-                ) : null}
-                <DiagnosticsActionLink
-                  href={getDiagnosticReportHref(biopsy.id)}
+                  href={biopsy.pathologyReportHref}
                   icon={<FileText className="size-4" />}
-                  label="Original report"
+                  label="Pathology report"
                 />
               </div>
             </article>
@@ -93,10 +80,6 @@ export default function DiagnosticsPage() {
       </main>
     </div>
   );
-}
-
-function getDiagnosticReportHref(biopsyId: string) {
-  return `/api/diagnostic-reports/${encodeURIComponent(biopsyId)}`;
 }
 
 function DiagnosticsActionLink({

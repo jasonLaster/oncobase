@@ -142,7 +142,7 @@ export async function resolveDicomPath(relativePath: string) {
   return { root, absolutePath };
 }
 
-export function getDiagnosticsRootCandidates() {
+function getDiagnosticsRootCandidates() {
   const envRoots = [
     process.env.ONCOBASE_DICOM_ROOT,
     process.env.DIANA_DIAGNOSTICS_PATH,
