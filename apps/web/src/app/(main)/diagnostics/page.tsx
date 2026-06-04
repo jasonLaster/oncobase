@@ -1,11 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import {
-  ArrowUpRight,
-  CalendarDays,
-  FileText,
-  ScanSearch,
-} from "lucide-react";
+import { ArrowUpRight, FileText, ScanSearch } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,7 +16,7 @@ export const metadata = {
 export default function DiagnosticsPage() {
   return (
     <div className="h-full overflow-y-auto bg-background text-foreground">
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-3 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-normal">Diagnostics</h1>
@@ -34,59 +29,87 @@ export default function DiagnosticsPage() {
           </Badge>
         </header>
 
-        <section className="grid gap-3">
-          {DIAGNOSTIC_BIOPSIES.map((biopsy) => {
-            const reportLinks = getReportLinks(biopsy);
-            return (
-              <article key={biopsy.id} className="rounded-lg border border-border bg-card p-4 text-card-foreground">
-                <div className="min-w-0">
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <Badge className="bg-primary text-primary-foreground">
-                      {biopsy.shortLabel}
-                    </Badge>
-                    <Badge variant="outline">{biopsy.modality}</Badge>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {biopsy.id}
-                    </span>
-                  </div>
-                  <h2 className="text-base font-semibold tracking-normal">
-                    {biopsy.title}
-                  </h2>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5">
-                      <CalendarDays className="size-4" />
-                      {biopsy.dateLabel}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <ScanSearch className="size-4" />
-                      {biopsy.focus}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <DiagnosticsActionLink
-                    href={getDicomViewerHref(biopsy.id)}
-                    icon={<ScanSearch className="size-4" />}
-                    label="Open viewer"
-                    primary
-                  />
-                  {reportLinks.map((link) => (
-                    <DiagnosticsActionLink
-                      key={`${biopsy.id}-${link.href}`}
-                      href={link.href}
-                      icon={<FileText className="size-4" />}
-                      label={link.label}
-                    />
-                  ))}
-                </div>
-              </article>
-            );
-          })}
+        <section className="overflow-hidden rounded-lg border border-border bg-background">
+          <div>
+            <table className="w-full table-fixed border-collapse text-left text-sm">
+              <colgroup>
+                <col className="w-28 sm:w-32" />
+                <col className="w-32 sm:w-48" />
+                <col className="w-20 sm:w-24" />
+                <col />
+              </colgroup>
+              <thead className="border-b border-border bg-muted/40 text-xs font-medium uppercase tracking-normal text-muted-foreground">
+                <tr>
+                  <th scope="col" className="px-3 py-3 sm:px-4">
+                    Date
+                  </th>
+                  <th scope="col" className="px-3 py-3 sm:px-4">
+                    Study
+                  </th>
+                  <th scope="col" className="px-3 py-3 sm:px-4">
+                    Type
+                  </th>
+                  <th scope="col" className="px-3 py-3 sm:px-4">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {DIAGNOSTIC_BIOPSIES.map((biopsy) => {
+                  const reportLinks = getReportLinks(biopsy);
+                  return (
+                    <tr key={biopsy.id} className="align-top transition-colors hover:bg-muted/30">
+                      <th
+                        scope="row"
+                        className="whitespace-nowrap px-3 py-3 font-medium text-foreground sm:px-4"
+                      >
+                        {biopsy.dateLabel}
+                      </th>
+                      <td className="px-3 py-3 sm:px-4">
+                        <div className="font-medium text-foreground">
+                          {getStudyLabel(biopsy)}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 sm:px-4">
+                        <Badge variant="outline">{biopsy.modality}</Badge>
+                      </td>
+                      <td className="px-3 py-3 sm:px-4">
+                        <div className="flex flex-wrap gap-2">
+                          <DiagnosticsActionLink
+                            href={getDicomViewerHref(biopsy.id)}
+                            icon={<ScanSearch className="size-4" />}
+                            label="DICOM viewer"
+                            primary
+                          />
+                          {reportLinks.map((link) => (
+                            <DiagnosticsActionLink
+                              key={`${biopsy.id}-${link.href}`}
+                              href={link.href}
+                              icon={<FileText className="size-4" />}
+                              label={link.label}
+                            />
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </section>
       </main>
     </div>
   );
+}
+
+function getStudyLabel(biopsy: DiagnosticBiopsy) {
+  const withoutDate = biopsy.title.replace(
+    /^(January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2} /,
+    "",
+  );
+
+  return withoutDate.charAt(0).toUpperCase() + withoutDate.slice(1);
 }
 
 function getReportLinks(biopsy: DiagnosticBiopsy) {

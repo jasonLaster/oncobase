@@ -90,6 +90,24 @@ export function ResizableLayout({
   sidebar,
   children,
 }: {
+  sidebar: React.ReactNode | null;
+  children: React.ReactNode;
+}) {
+  if (!sidebar) {
+    return (
+      <div className="h-full min-h-0 overflow-hidden pt-12 md:pt-0">
+        {children}
+      </div>
+    );
+  }
+
+  return <ResizableSidebarLayout sidebar={sidebar}>{children}</ResizableSidebarLayout>;
+}
+
+function ResizableSidebarLayout({
+  sidebar,
+  children,
+}: {
   sidebar: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -149,6 +167,7 @@ export function ResizableLayout({
         className="hidden shrink-0 flex-col items-center border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] pt-2 md:flex md:w-12"
       >
         <button
+          type="button"
           onClick={toggle}
           aria-label="Expand sidebar"
           className="rounded-md p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
@@ -166,6 +185,7 @@ export function ResizableLayout({
         style={{ width }}
       >
         <button
+          type="button"
           onClick={toggle}
           aria-label="Collapse sidebar"
           className="absolute right-2 top-2 z-10 rounded-md border border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] p-1 text-[var(--text-muted)] opacity-0 shadow-sm transition-opacity hover:text-[var(--foreground)] group-hover:opacity-100 [@media(hover:none)]:opacity-100"

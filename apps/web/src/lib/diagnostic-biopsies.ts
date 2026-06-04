@@ -49,7 +49,7 @@ export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [
         ),
       },
       {
-        label: "Source zip",
+        label: "Download assets",
         href: fileAssetHref(
           "diagnostics/viewer-upload/04-01-breast-mri/source-files.zip",
         ),
@@ -86,7 +86,7 @@ export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [
         ),
       },
       {
-        label: "Source zip",
+        label: "Download assets",
         href: fileAssetHref("diagnostics/viewer-upload/03-27-petct/source-files.zip"),
       },
     ],
@@ -117,7 +117,7 @@ export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [
         ),
       },
       {
-        label: "Source zip",
+        label: "Download assets",
         href: fileAssetHref("diagnostics/viewer-upload/03-20-ultrasound/source-files.zip"),
       },
     ],
@@ -128,7 +128,7 @@ export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [
     title: "April 10 biopsy",
     dateLabel: "Apr 10, 2026",
     isoDate: "2026-04-10",
-    modality: "US",
+    modality: "Biopsy",
     focus: "Biopsy ultrasound stack",
     directoryIncludes: "4-10 biopsy",
     pathologyReportHref:
@@ -154,7 +154,7 @@ export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [
         ),
       },
       {
-        label: "Source zip",
+        label: "Download assets",
         href: fileAssetHref("diagnostics/viewer-upload/02-20-ultrasound/source-files.zip"),
       },
     ],
@@ -165,7 +165,7 @@ export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [
     title: "March 23 axilla biopsy",
     dateLabel: "Mar 23, 2026",
     isoDate: "2026-03-23",
-    modality: "US",
+    modality: "Biopsy",
     focus: "Axilla biopsy ultrasound stack",
     directoryIncludes: "3-23 - US Axilla biopsy",
     pathologyReportHref: "/sources/diagnostics/03-23-us-axilla-core-biopsy",
@@ -176,7 +176,7 @@ export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [
     title: "March 13 biopsy",
     dateLabel: "Mar 13, 2026",
     isoDate: "2026-03-13",
-    modality: "US",
+    modality: "Biopsy",
     focus: "Biopsy ultrasound stack",
     directoryIncludes: "3-13 - Biopsy",
     pathologyReportHref:

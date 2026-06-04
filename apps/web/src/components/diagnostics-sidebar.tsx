@@ -9,7 +9,7 @@ import {
   getDicomViewerHref,
 } from "@/lib/diagnostic-biopsies";
 
-const ROW_HEIGHT = 42;
+const ROW_HEIGHT = 32;
 
 export function DiagnosticsSidebar() {
   return (
@@ -57,9 +57,6 @@ function DiagnosticsSidebarFrame({ activeBiopsyId }: { activeBiopsyId: string | 
               title={biopsy.title}
             >
               <span className="block truncate">{biopsy.title}</span>
-              <span className="block truncate text-[11px] font-normal text-[var(--text-muted)]">
-                {biopsy.focus}
-              </span>
             </Link>
           ))}
         </div>
