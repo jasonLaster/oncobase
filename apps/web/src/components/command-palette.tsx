@@ -446,14 +446,14 @@ export function CommandPalette({
         </div>
       ) : null}
 
-      <Dialog
-        open={open}
-        onOpenChange={(nextOpen) => {
-          if (nextOpen) setOpen(true);
-          else closePalette();
-        }}
-      >
-        {open ? (
+      {open ? (
+        <Dialog
+          open={open}
+          onOpenChange={(nextOpen) => {
+            if (nextOpen) setOpen(true);
+            else closePalette();
+          }}
+        >
           <DialogContent
             className="top-[10%] sm:top-1/4 translate-y-0 overflow-hidden rounded-xl! p-0 max-w-[calc(100%-1rem)] sm:max-w-xl"
             showCloseButton={false}
@@ -517,8 +517,8 @@ export function CommandPalette({
               </div>
             </div>
           </DialogContent>
-        ) : null}
-      </Dialog>
+        </Dialog>
+      ) : null}
     </>
   );
 }
@@ -662,6 +662,8 @@ export function OutlinePalette() {
     });
   }, []);
 
+  if (!open) return null;
+
   return (
     <CommandDialog open={open} onOpenChange={setOpen} title="Outline" description="Jump to a heading">
       <Command>
@@ -770,6 +772,8 @@ export function ActionPalette() {
     setOpen(false);
     window.location.href = `/api/download?type=${type}`;
   }
+
+  if (!open) return null;
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen} title="Commands" description="Run an action">

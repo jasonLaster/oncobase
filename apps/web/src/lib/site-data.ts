@@ -122,6 +122,16 @@ export function createSiteData(
         ),
       getByTag: (args: SiteScopedArgs<typeof api.documents.getByTag>) =>
         convex.action(api.documents.getByTag, args),
+      getManifestBySlug: (args: {
+        slug: string;
+        includeSensitive?: boolean;
+      }) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query((api as any).documents.getManifestBySlug, {
+            ...nextArgs,
+            siteSlug: scope.siteSlug,
+          } as any),
+        ),
       listTags: () => convex.action(api.documents.listTags, {}),
       vectorSearch: (args: SiteScopedArgs<typeof api.documents.vectorSearch>) =>
         convex.action(api.documents.vectorSearch, args),
