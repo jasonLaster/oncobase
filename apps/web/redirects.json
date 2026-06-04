@@ -125,6 +125,16 @@
     "permanent": true
   },
   {
+    "source": "/asco/presentations/263034-p-rad",
+    "destination": "/asco/presentations/263034-p-rad/index",
+    "permanent": true
+  },
+  {
+    "source": "/asco/presentations/257914-serova-synthetic-lethality-neoantigens",
+    "destination": "/asco/presentations/257914-serova-synthetic-lethality-neoantigens/index",
+    "permanent": true
+  },
+  {
     "source": "/wiki/summary",
     "destination": "/about/overview",
     "permanent": true
