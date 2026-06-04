@@ -106,7 +106,7 @@ export default async function MainLayout({
 }) {
   const siteSlug = toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG);
   const [shellTree, treeVersion] = await Promise.all([
-    getShellFileTreeForSite(siteSlug, { maxDepth: 2 }),
+    getShellFileTreeForSite(siteSlug, { maxDepth: 4 }),
     getSitePublishVersion(siteSlug),
   ]);
   const shellFallback = <ShellFallback tree={shellTree} />;

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "sonner";
@@ -6,6 +7,9 @@ import { Suspense } from "react";
 import { CommandPalette, OutlinePalette, ActionPalette } from "@/components/command-palette";
 import { ConvexClientProvider } from "@/components/convex-provider";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { getAllPageEntriesForSite } from "@/lib/markdown";
+import { getSessionUserFromCookieHeader } from "@/lib/session-user";
+import { DEFAULT_SITE_SLUG, toSiteSlug } from "@/lib/site";
 import "@liveblocks/react-ui/styles.css";
 import "katex/dist/katex.min.css";
 import "./globals.css";
@@ -52,11 +56,25 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headerStore = await headers();
+  const siteSlug = toSiteSlug(
+    headerStore.get("x-site-slug") ?? DEFAULT_SITE_SLUG,
+  );
+  const includeSensitive = Boolean(
+    await getSessionUserFromCookieHeader(
+      headerStore.get("cookie") ?? "",
+      headerStore,
+    ),
+  );
+  const initialCommandPalettePages = await getAllPageEntriesForSite(siteSlug, {
+    includeSensitive,
+  });
+
   return (
     <html
       lang="en"
@@ -70,7 +88,7 @@ export default function RootLayout({
       <body className="min-h-full">
         <ConvexClientProvider>{children}</ConvexClientProvider>
         <Suspense fallback={null}>
-          <CommandPalette />
+          <CommandPalette initialPages={initialCommandPalettePages} />
           <OutlinePalette />
           <ActionPalette />
         </Suspense>

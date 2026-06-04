@@ -130,9 +130,13 @@ type IdleSchedulerWindow = Window & {
   cancelIdleCallback?: (id: number) => void;
 };
 
-export function CommandPalette() {
+export function CommandPalette({
+  initialPages = [],
+}: {
+  initialPages?: CommandPalettePageEntry[];
+}) {
   const [open, setOpen] = useState(false);
-  const [pages, setPages] = useState<CommandPalettePageEntry[]>([]);
+  const [pages, setPages] = useState<CommandPalettePageEntry[]>(initialPages);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -141,7 +145,7 @@ export function CommandPalette() {
   const router = useRouter();
   const pathname = usePathname();
   const [listElement, setListElement] = useState<HTMLDivElement | null>(null);
-  const pagesLoadedRef = useRef(false);
+  const pagesLoadedRef = useRef(initialPages.length > 0);
   const pagesRequestRef = useRef<Promise<void> | null>(null);
   const didResetScrollForOpenRef = useRef(false);
   const palettePathnameRef = useRef(pathname);
@@ -158,7 +162,18 @@ export function CommandPalette() {
       })
       .then((nextPages: CommandPalettePageEntry[]) => {
         pagesLoadedRef.current = true;
-        setPages(nextPages);
+        setPages((current) => {
+          if (current.length === nextPages.length) {
+            const unchanged = current.every(
+              (page, index) =>
+                page.slug === nextPages[index]?.slug &&
+                page.name === nextPages[index]?.name &&
+                page.path === nextPages[index]?.path,
+            );
+            if (unchanged) return current;
+          }
+          return nextPages;
+        });
       })
       .catch(() => {})
       .finally(() => {
@@ -173,6 +188,12 @@ export function CommandPalette() {
       globalOpenFiles = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (initialPages.length === 0) return;
+    pagesLoadedRef.current = true;
+    setPages((current) => (current.length === 0 ? initialPages : current));
+  }, [initialPages]);
 
   useEffect(() => {
     const idleWindow = window as IdleSchedulerWindow;
