@@ -91,11 +91,13 @@ export default function RootLayout({
       </head>
       <body className="min-h-full">
         <ConvexClientProvider>{children}</ConvexClientProvider>
-        <Suspense fallback={<CommandPalette />}>
+        <Suspense fallback={null}>
           <CommandPaletteBootstrap />
         </Suspense>
-        <OutlinePalette />
-        <ActionPalette />
+        <Suspense fallback={null}>
+          <OutlinePalette />
+          <ActionPalette />
+        </Suspense>
         <Toaster richColors closeButton position="bottom-right" theme="system" />
         <Analytics />
         <ServiceWorkerRegistration />
