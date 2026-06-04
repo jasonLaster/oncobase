@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  FileText,
   ImageIcon,
   Info,
   Move,
@@ -18,7 +19,11 @@ import useSWR from "swr";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getDiagnosticBiopsyById } from "@/lib/diagnostic-biopsies";
+import {
+  DIAGNOSTIC_BIOPSIES,
+  getDiagnosticBiopsyById,
+  type DiagnosticBiopsy,
+} from "@/lib/diagnostic-biopsies";
 import { cn } from "@/lib/utils";
 
 type CornerstoneCore = typeof import("@cornerstonejs/core");
@@ -174,25 +179,47 @@ export function DicomViewerClient({
     revalidateOnFocus: false,
   });
 
-  const displaySeries = useMemo(
+  const renderableSeries = useMemo(
     () => catalog?.series.filter(isRenderableSeries) ?? [],
     [catalog],
+  );
+
+  const requestedBiopsy = useMemo(
+    () => getDiagnosticBiopsyById(initialBiopsyId),
+    [initialBiopsyId],
+  );
+
+  const displaySeries = useMemo(
+    () =>
+      requestedBiopsy
+        ? renderableSeries.filter((series) => matchesBiopsySeries(series, requestedBiopsy))
+        : renderableSeries,
+    [renderableSeries, requestedBiopsy],
   );
 
   const preferredSeriesId = useMemo(() => {
     const requestedBiopsySeries = findSeriesForBiopsy(displaySeries, initialBiopsyId);
     const preferred =
       requestedBiopsySeries ??
-      findSeriesForBiopsy(displaySeries, "biopsy-2026-04-10") ??
-      displaySeries[0];
+      findSeriesForBiopsy(renderableSeries, "biopsy-2026-04-10") ??
+      renderableSeries[0];
     return preferred?.id ?? null;
-  }, [displaySeries, initialBiopsyId]);
+  }, [displaySeries, initialBiopsyId, renderableSeries]);
 
   const selectedSeries = useMemo(() => {
     const id = selectedSeriesId ?? preferredSeriesId;
     if (!id) return null;
-    return displaySeries.find((series) => series.id === id) ?? null;
+    return (
+      displaySeries.find((series) => series.id === id) ??
+      displaySeries.find((series) => series.id === preferredSeriesId) ??
+      null
+    );
   }, [displaySeries, preferredSeriesId, selectedSeriesId]);
+
+  const selectedBiopsy = useMemo(
+    () => findBiopsyForSeries(selectedSeries) ?? requestedBiopsy,
+    [requestedBiopsy, selectedSeries],
+  );
 
   const activeStack = useMemo<ActiveStack | null>(() => {
     if (!selectedSeries) return null;
@@ -489,7 +516,10 @@ export function DicomViewerClient({
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0b0d0f] text-zinc-100">
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)_280px]">
-        <aside className="min-h-0 overflow-y-auto border-b border-white/10 bg-[#11151a] lg:border-r lg:border-b-0">
+        <aside
+          className="min-h-0 overflow-y-auto border-b border-white/10 bg-[#11151a] lg:border-r lg:border-b-0"
+          data-test-id="dicom-series-panel"
+        >
           <div className="space-y-3 p-3">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-semibold tracking-wide text-zinc-300 uppercase">
@@ -543,9 +573,30 @@ export function DicomViewerClient({
               })}
             </div>
 
+            {selectedBiopsy ? (
+              <a
+                href={selectedBiopsy.pathologyReportHref}
+                className="block rounded-lg border border-emerald-300/35 bg-emerald-300/10 p-3 text-left transition-colors hover:border-emerald-200/60 hover:bg-emerald-300/15"
+                data-test-id="dicom-pathology-report-link"
+              >
+                <div className="flex items-center gap-2 text-sm font-semibold text-emerald-50">
+                  <FileText className="size-4 shrink-0 text-emerald-200" />
+                  <span>Pathology report</span>
+                </div>
+                <div className="mt-2 text-xs leading-5 text-emerald-100/80">
+                  {selectedBiopsy.title}
+                </div>
+                <div className="mt-1 text-xs font-medium text-emerald-100">
+                  Open canonical report
+                </div>
+              </a>
+            ) : null}
+
             {catalog?.root && catalog.series.length > 0 && displaySeries.length === 0 ? (
               <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
-                The catalog only has non-image DICOM objects right now.
+                {requestedBiopsy
+                  ? "No image series matched this biopsy."
+                  : "The catalog only has non-image DICOM objects right now."}
               </div>
             ) : null}
 
@@ -791,21 +842,30 @@ function isRenderableSeries(series: DicomSeries) {
   return !new Set(["PR", "SR", "OT"]).has((series.modality ?? "").toUpperCase());
 }
 
+function matchesBiopsySeries(series: DicomSeries, biopsy: DiagnosticBiopsy) {
+  return (
+    series.studyDate === biopsy.isoDate &&
+    series.relativeDirectory
+      .toLowerCase()
+      .includes(biopsy.directoryIncludes.toLowerCase()) &&
+    isRenderableSeries(series)
+  );
+}
+
+function findBiopsyForSeries(series: DicomSeries | null) {
+  if (!series) return null;
+  return (
+    DIAGNOSTIC_BIOPSIES.find((biopsy) => matchesBiopsySeries(series, biopsy)) ?? null
+  );
+}
+
 function findSeriesForBiopsy(series: DicomSeries[], biopsyId: string | null | undefined) {
   const biopsy = getDiagnosticBiopsyById(biopsyId);
   if (!biopsy) return null;
 
-  const directoryNeedle = biopsy.directoryIncludes.toLowerCase();
   return (
     series
-      .filter((candidate) => {
-        const directory = candidate.relativeDirectory.toLowerCase();
-        return (
-          candidate.studyDate === biopsy.isoDate &&
-          directory.includes(directoryNeedle) &&
-          isRenderableSeries(candidate)
-        );
-      })
+      .filter((candidate) => matchesBiopsySeries(candidate, biopsy))
       .sort((a, b) => b.images.length - a.images.length)[0] ?? null
   );
 }

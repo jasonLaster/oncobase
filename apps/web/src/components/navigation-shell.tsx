@@ -10,6 +10,7 @@ import {
   OutlinePalette,
 } from "@/components/command-palette";
 import { ResizableLayout } from "@/components/resizable-layout";
+import { DiagnosticsSidebar } from "@/components/diagnostics-sidebar";
 import { Sidebar } from "@/components/sidebar";
 import { useNavigationFileTree } from "@/components/use-navigation-file-tree";
 import { ConversationList } from "@oncobase/chat";
@@ -48,6 +49,8 @@ export function NavigationShell({
     return <div className="h-full min-h-0 overflow-hidden">{children}</div>;
   }
 
+  const usesDiagnosticsSidebar =
+    pathname === "/diagnostics" || pathname.startsWith("/tools/dicom-viewer");
   const hasFileTree = tree.length > 0 && !pathname.startsWith("/chat");
   const sidebar = pathname.startsWith("/chat") ? (
     <aside
@@ -58,6 +61,8 @@ export function NavigationShell({
         <ConversationList />
       </nav>
     </aside>
+  ) : usesDiagnosticsSidebar ? (
+    <DiagnosticsSidebar />
   ) : hasFileTree ? (
     <Sidebar tree={tree} />
   ) : (

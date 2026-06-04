@@ -91,7 +91,46 @@ test.describe("DICOM viewer", () => {
         "href",
         `/tools/dicom-viewer?id=${biopsy.id}`,
       );
+      await expect(card.getByRole("link", { name: "Pathology report" })).toHaveCount(1);
     }
+  });
+
+  test("diagnostics routes replace the file tree with biopsy shortcuts", async ({
+    page,
+  }) => {
+    await page.goto("/diagnostics");
+
+    const sidebar = page.getByTestId("diagnostics-sidebar");
+    await expect(sidebar).toBeVisible();
+    await expect(sidebar.getByRole("link")).toHaveCount(biopsyLinks.length);
+    await expect(sidebar).not.toContainText("Diagnostics");
+    await expect(sidebar).not.toContainText("Pathology report");
+    await expect(sidebar).not.toContainText("project management");
+
+    for (const biopsy of biopsyLinks) {
+      await expect(sidebar.getByRole("link", { name: biopsy.title })).toHaveAttribute(
+        "href",
+        `/tools/dicom-viewer?id=${biopsy.id}`,
+      );
+    }
+
+    await page.goto("/tools/dicom-viewer?id=biopsy-2026-03-23");
+    await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
+    await expect(sidebar).toBeVisible();
+    await expect(
+      sidebar.getByRole("link", { name: "March 13 biopsy" }),
+    ).toHaveAttribute("href", "/tools/dicom-viewer?id=biopsy-2026-03-13");
+
+    const seriesPanel = page.getByTestId("dicom-series-panel");
+    await expect(seriesPanel).toContainText("2026-03-23");
+    await expect(seriesPanel).not.toContainText("2026-04-10");
+    await expect(page.getByTestId("dicom-pathology-report-link")).toHaveAttribute(
+      "href",
+      "/sources/diagnostics/03-23-us-axilla-core-biopsy",
+    );
+    await expect(page.getByTestId("dicom-pathology-report-link")).toContainText(
+      "Pathology report",
+    );
   });
 
   for (const biopsy of biopsyLinks) {
