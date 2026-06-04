@@ -1,0 +1,15 @@
+{
+  "offline": true,
+  "failOn": "none",
+  "adoptExistingLintConfig": true,
+  "ignore": {
+    "files": [
+      "**/.next/**",
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/playwright-report/**",
+      "**/test-results/**",
+      "apps/web/convex/_generated/**"
+    ]
+  }
+}

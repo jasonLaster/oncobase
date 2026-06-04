@@ -62,6 +62,11 @@ jobs:
           NEXT_PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
         run: bun run build
 
+      - name: React Doctor
+        run: |
+          git fetch origin ${{ github.base_ref || 'main' }} --depth=1
+          bunx react-doctor@0.2.16 --offline --verbose --diff origin/${{ github.base_ref || 'main' }} --annotations --fail-on none
+
   unit:
     name: Unit
     runs-on: ubuntu-latest
