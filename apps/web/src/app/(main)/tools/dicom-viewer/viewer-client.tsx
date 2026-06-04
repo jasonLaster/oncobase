@@ -175,9 +175,11 @@ export function DicomViewerClient({
   const {
     data: catalog,
     error: catalogError,
+    isLoading: catalogLoading,
   } = useSWR<DicomCatalog>("/api/dicom/studies", fetchDicomCatalog, {
     revalidateOnFocus: false,
   });
+  const seriesLoading = catalogLoading && !catalog && !catalogError;
 
   const renderableSeries = useMemo(
     () => catalog?.series.filter(isRenderableSeries) ?? [],
@@ -526,51 +528,55 @@ export function DicomViewerClient({
                 Series
               </h2>
               <Badge variant="outline" className="border-white/15 text-zinc-300">
-                {displaySeries.length}
+                {seriesLoading ? "..." : displaySeries.length}
               </Badge>
             </div>
 
             <div className="space-y-2">
-              {displaySeries.map((series) => {
-                const selected = selectedSeries?.id === series.id;
-                return (
-                  <button
-                    key={series.id}
-                    className={cn(
-                      "w-full rounded-lg border p-3 text-left transition-colors",
-                      selected
-                        ? "border-sky-400/50 bg-sky-400/10"
-                        : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]",
-                    )}
-                    onClick={() => {
-                      setSelectedSeriesId(series.id);
-                      setIsPlaying(false);
-                    }}
-                  >
-                    <div className="flex items-start gap-2">
-                      <ImageIcon className="mt-0.5 size-4 shrink-0 text-zinc-400" />
-                      <div className="min-w-0 flex-1">
-                        <div className="line-clamp-2 text-sm font-medium text-zinc-100">
-                          {series.label}
-                        </div>
-                        <div className="mt-1 truncate text-xs text-zinc-500">
-                          {series.relativeDirectory}
+              {seriesLoading ? (
+                <SeriesLoadingState />
+              ) : (
+                displaySeries.map((series) => {
+                  const selected = selectedSeries?.id === series.id;
+                  return (
+                    <button
+                      key={series.id}
+                      className={cn(
+                        "w-full rounded-lg border p-3 text-left transition-colors",
+                        selected
+                          ? "border-sky-400/50 bg-sky-400/10"
+                          : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]",
+                      )}
+                      onClick={() => {
+                        setSelectedSeriesId(series.id);
+                        setIsPlaying(false);
+                      }}
+                    >
+                      <div className="flex items-start gap-2">
+                        <ImageIcon className="mt-0.5 size-4 shrink-0 text-zinc-400" />
+                        <div className="min-w-0 flex-1">
+                          <div className="line-clamp-2 text-sm font-medium text-zinc-100">
+                            {series.label}
+                          </div>
+                          <div className="mt-1 truncate text-xs text-zinc-500">
+                            {series.relativeDirectory}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {series.modality ? (
-                        <Badge variant="secondary" className="bg-white/10 text-zinc-200">
-                          {series.modality}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {series.modality ? (
+                          <Badge variant="secondary" className="bg-white/10 text-zinc-200">
+                            {series.modality}
+                          </Badge>
+                        ) : null}
+                        <Badge variant="outline" className="border-white/15 text-zinc-300">
+                          {series.images.length} images
                         </Badge>
-                      ) : null}
-                      <Badge variant="outline" className="border-white/15 text-zinc-300">
-                        {series.images.length} images
-                      </Badge>
-                    </div>
-                  </button>
-                );
-              })}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
 
             {selectedBiopsy ? (
@@ -600,7 +606,7 @@ export function DicomViewerClient({
               </div>
             ) : null}
 
-            {!catalog?.root ? (
+            {!seriesLoading && !catalog?.root ? (
               <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
                 No DICOM catalog was found.
               </div>
@@ -715,7 +721,25 @@ export function DicomViewerClient({
               data-test-id="dicom-cornerstone-viewport"
               data-testid="dicom-cornerstone-viewport"
             />
-            {!hasStack ? (
+            {!hasStack && seriesLoading ? (
+              <div
+                className="absolute inset-0 flex items-center justify-center bg-black/80 px-6 text-center"
+                data-test-id="dicom-viewport-series-loading"
+                data-testid="dicom-viewport-series-loading"
+                role="status"
+              >
+                <div className="max-w-sm">
+                  <div className="mx-auto mb-4 size-10 animate-spin rounded-full border-2 border-white/20 border-t-emerald-300" />
+                  <div className="text-sm font-medium text-zinc-200">
+                    Loading DICOM series
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">
+                    Finding available image stacks...
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            {!hasStack && !seriesLoading ? (
               <div className="absolute inset-0 flex items-center justify-center bg-black/80 px-6 text-center">
                 <div className="max-w-sm">
                   <ScanSearch className="mx-auto mb-4 size-10 text-zinc-500" />
@@ -796,6 +820,36 @@ export function DicomViewerClient({
             </section>
           </div>
         </aside>
+      </div>
+    </div>
+  );
+}
+
+function SeriesLoadingState() {
+  return (
+    <div
+      className="space-y-2"
+      data-test-id="dicom-series-loading"
+      data-testid="dicom-series-loading"
+      role="status"
+    >
+      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-zinc-200">
+          <div className="size-4 animate-spin rounded-full border-2 border-white/20 border-t-emerald-300" />
+          Loading series
+        </div>
+        <div className="space-y-2">
+          <div className="h-3 w-3/4 animate-pulse rounded bg-white/10" />
+          <div className="h-3 w-full animate-pulse rounded bg-white/10" />
+          <div className="h-3 w-1/2 animate-pulse rounded bg-white/10" />
+        </div>
+      </div>
+      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
+        <div className="space-y-2">
+          <div className="h-3 w-2/3 animate-pulse rounded bg-white/10" />
+          <div className="h-3 w-5/6 animate-pulse rounded bg-white/10" />
+          <div className="h-3 w-1/3 animate-pulse rounded bg-white/10" />
+        </div>
       </div>
     </div>
   );

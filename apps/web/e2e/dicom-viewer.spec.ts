@@ -101,6 +101,31 @@ function holdDicomFileRequest(page: Page, fileName: string) {
   };
 }
 
+function holdDicomStudiesRequest(page: Page) {
+  let release = () => {};
+  let released = false;
+  const requestSeen = new Promise<void>((resolve) => {
+    void page.route("**/api/dicom/studies**", async (route) => {
+      if (released) {
+        await route.continue();
+        return;
+      }
+
+      resolve();
+      await new Promise<void>((next) => {
+        release = next;
+      });
+      released = true;
+      await route.continue();
+    });
+  });
+
+  return {
+    requestSeen,
+    release: () => release(),
+  };
+}
+
 test.describe.configure({ mode: "serial" });
 
 test.describe("DICOM viewer", () => {
@@ -177,6 +202,37 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByTestId("dicom-pathology-report-link")).toContainText(
       "Pathology report",
     );
+  });
+
+  test("shows a loading state while series are loading", async ({ page }) => {
+    const heldRequest = holdDicomStudiesRequest(page);
+
+    await page.goto("/tools/dicom-viewer?id=biopsy-2026-04-10", {
+      waitUntil: "domcontentloaded",
+    });
+    await heldRequest.requestSeen;
+
+    await expect(page.getByTestId("dicom-series-loading")).toBeVisible();
+    await expect(page.getByTestId("dicom-series-loading")).toContainText(
+      "Loading series",
+    );
+    await expect(page.getByTestId("dicom-viewport-series-loading")).toContainText(
+      "Loading DICOM series",
+    );
+    await expect(page.getByTestId("dicom-series-panel")).not.toContainText(
+      "No DICOM catalog was found.",
+    );
+    await expect(page.getByTestId("dicom-viewport-series-loading")).not.toContainText(
+      "Select a DICOM series.",
+    );
+
+    heldRequest.release();
+
+    await expect(page.getByTestId("dicom-series-loading")).toBeHidden();
+    await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
+    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9", {
+      timeout: 30_000,
+    });
   });
 
   for (const biopsy of biopsyLinks) {
