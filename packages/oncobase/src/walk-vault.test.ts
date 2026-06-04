@@ -87,7 +87,7 @@ describe("readVaultDocuments", () => {
     expect(mdxDoc.content).toContain("<CustomIsland />");
   });
 
-  test("excludes assets with sensitive markdown sidecars", () => {
+  test("reads provider data bundles and sensitive sidecar assets", () => {
     const vault = makeVault();
     fs.writeFileSync(path.join(vault, "public.md"), "# Public\n");
     fs.writeFileSync(path.join(vault, "public.pdf"), Buffer.alloc(256));
@@ -96,9 +96,28 @@ describe("readVaultDocuments", () => {
       "---\nsensitive: true\n---\n# Private\n",
     );
     fs.writeFileSync(path.join(vault, "private.pdf"), Buffer.alloc(256));
+    fs.mkdirSync(path.join(vault, "biopsy", "raw"), { recursive: true });
+    fs.writeFileSync(path.join(vault, "biopsy", "raw", "dicom.zip"), Buffer.alloc(256));
+    fs.writeFileSync(path.join(vault, "biopsy", "raw", "scan.dcm"), Buffer.alloc(256));
+    fs.writeFileSync(path.join(vault, "biopsy", "path-report.docx"), Buffer.alloc(256));
 
-    expect(readVaultAssets(vault).map((asset) => asset.relativePath)).toEqual([
-      "public.pdf",
-    ]);
+    const assets = readVaultAssets(vault);
+    expect(assets.map((asset) => asset.relativePath)).toEqual(
+      expect.arrayContaining([
+        "public.pdf",
+        "private.pdf",
+        "biopsy/raw/dicom.zip",
+        "biopsy/raw/scan.dcm",
+        "biopsy/path-report.docx",
+      ]),
+    );
+    expect(assets.find((asset) => asset.relativePath === "biopsy/raw/dicom.zip")).toMatchObject({
+      kind: "file",
+      contentType: "application/zip",
+    });
+    expect(assets.find((asset) => asset.relativePath === "biopsy/raw/scan.dcm")).toMatchObject({
+      kind: "file",
+      contentType: "application/dicom",
+    });
   });
 });

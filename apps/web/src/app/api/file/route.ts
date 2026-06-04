@@ -5,13 +5,31 @@ import { getSessionUserFromRequest } from "@/lib/session-user";
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf":  "application/pdf",
+  ".dcm": "application/dicom",
+  ".dicom": "application/dicom",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".gz": "application/gzip",
   ".csv":  "text/csv; charset=utf-8",
+  ".json": "application/json",
   ".jpg":  "image/jpeg",
   ".jpeg": "image/jpeg",
   ".png":  "image/png",
   ".gif":  "image/gif",
+  ".ppt": "application/vnd.ms-powerpoint",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".rtf": "application/rtf",
   ".webp": "image/webp",
   ".svg":  "image/svg+xml",
+  ".tar": "application/x-tar",
+  ".tif": "image/tiff",
+  ".tiff": "image/tiff",
+  ".tsv": "text/tab-separated-values; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".xml": "application/xml",
+  ".zip": "application/zip",
 };
 
 function getMimeType(filePath: string): string | null {

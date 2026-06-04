@@ -54,7 +54,12 @@ function archiverToStream(
 
 // ─── Convex helpers ───────────────────────────────────────────────────────────
 
-/** Full archive: PDFs from public Blob + markdown from Convex */
+type DownloadAsset = {
+  path: string;
+  blobUrl: string;
+};
+
+/** Full archive: binary assets from public Blob + markdown from Convex */
 function buildFullArchiveStream(
   siteData: SiteData,
   piiPatterns: PiiPattern[],
@@ -63,43 +68,47 @@ function buildFullArchiveStream(
     `[download] Building full archive from public Blob+Convex for site=${siteData.siteSlug}`,
   );
   return archiverToStream("full", async (arc) => {
-    const pdfAssets = await siteData.documents.listPdfAssets();
-    console.log(`[download] Full archive: ${pdfAssets.length} PDF assets to fetch`);
+    const [pdfAssets, fileAssets] = await Promise.all([
+      siteData.documents.listPdfAssets(),
+      siteData.documents.listFileAssets(),
+    ]);
+    const assets = [...pdfAssets, ...fileAssets] as DownloadAsset[];
+    console.log(`[download] Full archive: ${assets.length} binary assets to fetch`);
 
     const BATCH = 20;
-    let pdfsFetched = 0;
-    let pdfsFailed = 0;
+    let assetsFetched = 0;
+    let assetsFailed = 0;
 
-    for (let i = 0; i < pdfAssets.length; i += BATCH) {
-      const batch = pdfAssets.slice(i, i + BATCH);
+    for (let i = 0; i < assets.length; i += BATCH) {
+      const batch = assets.slice(i, i + BATCH);
       const t0 = Date.now();
       const buffers = await Promise.all(
         batch.map(async (asset) => {
           try {
             const res = await fetch(asset.blobUrl);
             if (!res.ok) {
-              console.warn(`[download] Failed to fetch PDF ${asset.path}: ${res.status}`);
+              console.warn(`[download] Failed to fetch asset ${asset.path}: ${res.status}`);
               return null;
             }
             const buf = Buffer.from(await res.arrayBuffer());
             return { name: asset.path, buf };
           } catch (err) {
-            console.warn(`[download] Failed to fetch PDF ${asset.path}:`, err);
+            console.warn(`[download] Failed to fetch asset ${asset.path}:`, err);
             return null;
           }
         })
       );
       for (const item of buffers) {
-        if (item) { arc.append(item.buf, { name: item.name }); pdfsFetched++; }
-        else pdfsFailed++;
+        if (item) { arc.append(item.buf, { name: item.name }); assetsFetched++; }
+        else assetsFailed++;
       }
       console.log(
-        `[download] PDF batch ${Math.floor(i / BATCH) + 1}/${Math.ceil(pdfAssets.length / BATCH)}: ` +
+        `[download] Asset batch ${Math.floor(i / BATCH) + 1}/${Math.ceil(assets.length / BATCH)}: ` +
         `${buffers.filter(Boolean).length}/${batch.length} fetched in ${Date.now() - t0}ms`
       );
     }
 
-    console.log(`[download] PDFs complete: ${pdfsFetched} added, ${pdfsFailed} failed`);
+    console.log(`[download] Assets complete: ${assetsFetched} added, ${assetsFailed} failed`);
     await appendMarkdownToArchive(arc, siteData, piiPatterns);
     arc.finalize();
   });
