@@ -29,7 +29,9 @@ import {
   type WikiMarkdownNotificationAdapter,
   type WikiMarkdownRouteAdapter,
 } from "./heading-anchors";
-import { ImageTheater, TheaterImage } from "./image-theater";
+import { ImageTheater } from "./image-theater";
+import { type WikiImageComponent } from "./image-renderer";
+import { TheaterImage } from "./theater-image";
 import { markdownRehypePlugins, markdownRemarkPlugins } from "./math";
 import { expandSlidesMarkdown } from "./slides-markdown";
 import { SlidesViewer, SlidesViewerControls } from "./slides-viewer";
@@ -65,6 +67,7 @@ export type WikiMarkdownProps = {
   routeAdapter?: WikiMarkdownRouteAdapter;
   notification?: WikiMarkdownNotificationAdapter;
   tableLayoutAdapter?: SmartTableLayoutAdapter;
+  ImageComponent?: WikiImageComponent;
   resolveLinkHref?: (
     href: string | undefined,
     context: WikiMarkdownResolveHrefContext,
@@ -173,6 +176,7 @@ export function WikiMarkdown({
   routeAdapter,
   notification,
   tableLayoutAdapter,
+  ImageComponent,
   resolveLinkHref,
   isInternalHref = isInternalWikiHref,
 }: WikiMarkdownProps) {
@@ -220,6 +224,7 @@ export function WikiMarkdown({
           img: (props) => (
             <TheaterImage
               {...props}
+              ImageComponent={ImageComponent}
               currentSlug={currentSlug}
               apiBasePath={apiBasePath}
             />
@@ -266,5 +271,9 @@ export {
   resolveWikilinks,
   splitWikilinkAlias,
 };
-export type { WikiMarkdownNotificationAdapter, WikiMarkdownRouteAdapter };
+export type {
+  WikiImageComponent,
+  WikiMarkdownNotificationAdapter,
+  WikiMarkdownRouteAdapter,
+};
 export { normalizeMathValue, remarkCleanMath } from "./math";

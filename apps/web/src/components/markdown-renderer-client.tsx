@@ -13,6 +13,7 @@ import {
   isInternalChatResponseHref,
   resolveChatResponseHref,
 } from "@/lib/chat-response-links";
+import { NextWikiImage } from "@/components/image-theater";
 
 function NextMarkdownLink({ href, children, ...props }: WikiMarkdownLinkProps) {
   return (
@@ -48,6 +49,7 @@ export function MarkdownRendererClient({
     <WikiMarkdown
       content={content}
       disableAnchors={disableAnchors}
+      ImageComponent={NextWikiImage}
       isInternalHref={isInternalChatResponseHref}
       LinkComponent={NextMarkdownLink}
       notification={{

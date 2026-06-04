@@ -443,19 +443,40 @@
 
 .wiki-image-theater {
   background: color-mix(in srgb, black 88%, transparent);
+  border: 0;
   color: white;
   cursor: zoom-out;
   display: flex;
   inset: 0;
+  margin: 0;
+  max-height: none;
+  max-width: none;
+  padding: 0;
   position: fixed;
+  width: 100%;
   z-index: 80;
+}
+
+.wiki-image-theater::backdrop {
+  background: transparent;
+}
+
+.wiki-image-theater__scrim {
+  background: transparent;
+  border: 0;
+  cursor: zoom-out;
+  inset: 0;
+  padding: 0;
+  position: absolute;
 }
 
 .wiki-image-theater__frame {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
   width: 100%;
+  z-index: 1;
 }
 
 .wiki-image-theater__toolbar {

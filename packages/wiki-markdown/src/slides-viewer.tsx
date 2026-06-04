@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ImageTheaterModal, type TheaterImageState } from "./image-theater";
+import { DefaultWikiImage, type WikiImageComponent } from "./image-renderer";
+import { ImageTheaterModal } from "./image-theater-modal";
+import {
+  type TheaterImageState,
+} from "./image-theater-state";
 import { resolveImageSrc } from "./paths";
 
 export type SlidesViewerImage = {
@@ -80,11 +84,13 @@ export function SlidesViewer({
   currentSlug,
   apiBasePath,
   className,
+  ImageComponent = DefaultWikiImage,
 }: {
   images: SlidesViewerImage[];
   currentSlug?: string;
   apiBasePath?: string;
   className?: string;
+  ImageComponent?: WikiImageComponent;
 }) {
   const slides = useMemo(
     () =>
@@ -133,7 +139,7 @@ export function SlidesViewer({
                   onClick={() => openSlide(index)}
                   type="button"
                 >
-                  <img
+                  <ImageComponent
                     alt={image.alt}
                     data-theater-image=""
                     src={image.src}
@@ -169,6 +175,7 @@ export function SlidesViewer({
       </figure>
       {theaterImage ? (
         <ImageTheaterModal
+          ImageComponent={ImageComponent}
           image={theaterImage}
           onClose={() => setTheaterImage(null)}
           onImageChange={setTheaterImage}
