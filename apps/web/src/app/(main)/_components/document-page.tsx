@@ -24,15 +24,13 @@ import { SHOW_PII_QUERY_PARAM } from "@/lib/pii-redaction";
 import { DEFAULT_SITE_SLUG, getRequestSiteSlug, toSiteSlug } from "@/lib/site";
 import { getSessionUserFromCookieHeader } from "@/lib/session-user";
 
-// All sources/ content is immutable raw documents rarely visited directly.
-// Deferring them to on-demand rendering saves significant build time.
-const ISR_DEFERRED_PREFIXES = ["sources/"];
 // Preview deployments don't prerender pages: the runtime fetches
 // content from prod Convex per request, so there's no static benefit
 // to building the page tree at preview time. Production seeds the
 // most-trafficked pages via generateDocumentStaticParams below.
-const CACHE_COMPONENTS_VALIDATION_PARAMS: { slug: string[] }[] = [
+const SEEDED_STATIC_PARAMS: { slug: string[] }[] = [
   { slug: ["about", "Index"] },
+  { slug: ["about", "Log"] },
 ];
 const ROUTE_SLUG_ALIASES = new Map([["about/index", "index"]]);
 const ROUTE_ALIAS_CANONICAL_PATHS = new Map([["about/index", "about/Index"]]);
@@ -45,25 +43,16 @@ export async function generateDocumentStaticParams() {
   const t0 = Date.now();
   if (isPreviewDeployment()) {
     console.log(
-      `[build] preview generateStaticParams: ${CACHE_COMPONENTS_VALIDATION_PARAMS.length} seed page in ${Date.now() - t0}ms`
+      `[build] preview generateStaticParams: ${SEEDED_STATIC_PARAMS.length} seed pages in ${Date.now() - t0}ms`
     );
-    return CACHE_COMPONENTS_VALIDATION_PARAMS;
+    return SEEDED_STATIC_PARAMS;
   }
 
   const all = await getAllSlugs();
-  const params = all
-    .filter((slug) => {
-      if (slug === "index") return false;
-      return !ISR_DEFERRED_PREFIXES.some((prefix) => slug.startsWith(prefix));
-    })
-    .map((slug) => ({
-      slug: slug.split("/"),
-    }));
-  if (params.length === 0) {
-    params.unshift(...CACHE_COMPONENTS_VALIDATION_PARAMS);
-  }
-  console.log(`[build] generateStaticParams: ${params.length}/${all.length} pages in ${Date.now() - t0}ms`);
-  return params;
+  console.log(
+    `[build] generateStaticParams: ${SEEDED_STATIC_PARAMS.length}/${all.length} seed pages in ${Date.now() - t0}ms`
+  );
+  return SEEDED_STATIC_PARAMS;
 }
 
 export async function generateDocumentMetadata(
