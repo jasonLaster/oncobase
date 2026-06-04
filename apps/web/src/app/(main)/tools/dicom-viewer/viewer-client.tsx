@@ -8,6 +8,9 @@ import {
   ImageIcon,
   Info,
   Move,
+  PanelLeftClose,
+  PanelRightClose,
+  PanelRightOpen,
   Pause,
   Play,
   RotateCcw,
@@ -19,6 +22,7 @@ import useSWR from "swr";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { setResizableSidebarWidth } from "@/components/resizable-sidebar-store";
 import {
   DIAGNOSTIC_BIOPSIES,
   getDiagnosticBiopsyById,
@@ -172,6 +176,7 @@ export function DicomViewerClient({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isInverted, setIsInverted] = useState(false);
   const [loadingImageIndex, setLoadingImageIndex] = useState<number | null>(null);
+  const [stackRailOpen, setStackRailOpen] = useState(true);
   const {
     data: catalog,
     error: catalogError,
@@ -512,10 +517,19 @@ export function DicomViewerClient({
   }, [handleKeyDown]);
 
   const hasStack = Boolean(activeStack?.images.length);
+  const collapseGuardrails = () => {
+    setResizableSidebarWidth(0);
+    setStackRailOpen(false);
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0b0d0f] text-zinc-100">
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)_280px]">
+      <div
+        className={cn(
+          "grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]",
+          stackRailOpen && "xl:grid-cols-[320px_minmax(0,1fr)_280px]",
+        )}
+      >
         <aside
           className="min-h-0 overflow-y-auto border-b border-white/10 bg-[#11151a] lg:border-r lg:border-b-0"
           data-test-id="dicom-series-panel"
@@ -630,6 +644,33 @@ export function DicomViewerClient({
                 setToolMode((mode) => (mode === "zoom" ? "window" : "zoom"))
               }
             />
+            <div className="mx-1 h-6 w-px bg-white/10" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-zinc-300 hover:bg-white/10"
+              onClick={collapseGuardrails}
+              title="Collapse diagnostics and stack rails"
+              data-test-id="dicom-collapse-guardrails"
+            >
+              <PanelLeftClose className="size-4" />
+              Rails
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-zinc-300 hover:bg-white/10"
+              onClick={() => setStackRailOpen((open) => !open)}
+              title={stackRailOpen ? "Collapse stack rail" : "Open stack rail"}
+              aria-pressed={stackRailOpen}
+              data-test-id="dicom-toggle-stack-rail"
+            >
+              {stackRailOpen ? (
+                <PanelRightClose className="size-4" />
+              ) : (
+                <PanelRightOpen className="size-4" />
+              )}
+            </Button>
             <div className="mx-1 h-6 w-px bg-white/10" />
             <Button
               variant="ghost"
@@ -751,51 +792,58 @@ export function DicomViewerClient({
           </div>
         </main>
 
-        <aside className="hidden min-h-0 overflow-y-auto border-t border-white/10 bg-[#11151a] xl:block xl:border-t-0 xl:border-l">
-          <div className="space-y-5 p-4">
-            <section>
-              <div className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
-                <Info className="size-4" />
-                Stack
-              </div>
-              <dl className="space-y-3 text-sm">
-                <MetaRow label="Title" value={activeStack?.title} />
-                <MetaRow label="Source" value={activeStack?.source} />
-                <MetaRow label="Date" value={activeStack?.studyDate} />
-                <MetaRow label="Modality" value={activeStack?.modality} />
-                <MetaRow label="Directory" value={activeStack?.directory} />
-              </dl>
-            </section>
+        {stackRailOpen ? (
+          <aside
+            className="hidden min-h-0 overflow-y-auto border-t border-white/10 bg-[#11151a] xl:block xl:border-t-0 xl:border-l"
+            data-test-id="dicom-stack-panel"
+          >
+            <div className="space-y-5 p-4">
+              <section>
+                <div className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
+                  <Info className="size-4" />
+                  Stack
+                </div>
+                <dl className="space-y-3 text-sm">
+                  <MetaRow label="Title" value={activeStack?.title} />
+                  <MetaRow label="Source" value={activeStack?.source} />
+                  <MetaRow label="Date" value={activeStack?.studyDate} />
+                  <MetaRow label="Modality" value={activeStack?.modality} />
+                  <MetaRow label="Directory" value={activeStack?.directory} />
+                </dl>
+              </section>
 
-            <section>
-              <div className="mb-3 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
-                Current Image
-              </div>
-              <dl className="space-y-3 text-sm">
-                <MetaRow label="File" value={currentImage?.fileName} />
-                <MetaRow label="Instance" value={currentImage?.instanceNumber?.toString()} />
-                <MetaRow label="Dimensions" value={currentImage?.dimensions} />
-                <MetaRow
-                  label="Size"
-                  value={
-                    currentImage?.byteLength ? formatBytes(currentImage.byteLength) : undefined
-                  }
-                />
-              </dl>
-              <div className="mt-3 break-all rounded-lg border border-white/10 bg-black/30 p-2 font-mono text-[11px] text-zinc-500">
-                {currentImage?.relativePath ?? "No image selected"}
-              </div>
-            </section>
+              <section>
+                <div className="mb-3 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
+                  Current Image
+                </div>
+                <dl className="space-y-3 text-sm">
+                  <MetaRow label="File" value={currentImage?.fileName} />
+                  <MetaRow label="Instance" value={currentImage?.instanceNumber?.toString()} />
+                  <MetaRow label="Dimensions" value={currentImage?.dimensions} />
+                  <MetaRow
+                    label="Size"
+                    value={
+                      currentImage?.byteLength
+                        ? formatBytes(currentImage.byteLength)
+                        : undefined
+                    }
+                  />
+                </dl>
+                <div className="mt-3 break-all rounded-lg border border-white/10 bg-black/30 p-2 font-mono text-[11px] text-zinc-500">
+                  {currentImage?.relativePath ?? "No image selected"}
+                </div>
+              </section>
 
-            <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-zinc-400">
-              <div className="font-medium text-zinc-200">Mouse</div>
-              <div>Left drag uses the selected tool.</div>
-              <div>Right drag pans. Middle drag zooms. Wheel scrolls slices.</div>
-              <div className="mt-2 font-medium text-zinc-200">Keyboard</div>
-              <div>Arrow keys step through images. Space toggles cine.</div>
-            </section>
-          </div>
-        </aside>
+              <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-zinc-400">
+                <div className="font-medium text-zinc-200">Mouse</div>
+                <div>Left drag uses the selected tool.</div>
+                <div>Right drag pans. Middle drag zooms. Wheel scrolls slices.</div>
+                <div className="mt-2 font-medium text-zinc-200">Keyboard</div>
+                <div>Arrow keys step through images. Space toggles cine.</div>
+              </section>
+            </div>
+          </aside>
+        ) : null}
       </div>
     </div>
   );

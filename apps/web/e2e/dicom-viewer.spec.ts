@@ -52,7 +52,9 @@ const biopsyLinks = [
 const petctReportPath = "diagnostics/viewer-upload/03-27-petct/report.pdf";
 
 async function gotoViewer(page: Page, biopsyId = "biopsy-2026-04-10") {
-  await page.goto(`/tools/dicom-viewer?id=${biopsyId}`);
+  await page.goto(`/tools/dicom-viewer?id=${biopsyId}`, {
+    waitUntil: "domcontentloaded",
+  });
   await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
   await expect(page.getByRole("button", { name: "W/L", exact: true })).toBeVisible();
 }
@@ -190,6 +192,34 @@ test.describe("DICOM viewer", () => {
       await expect(page.locator("dd", { hasText: biopsy.directory }).first()).toBeVisible();
     });
   }
+
+  test("collapses the diagnostics and stack rails from the viewer toolbar", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoViewer(page);
+
+    await expect(page.locator("[data-sidebar-layout]")).toHaveAttribute(
+      "data-sidebar-state",
+      "expanded",
+    );
+    await expect(page.getByTestId("diagnostics-sidebar")).toBeVisible();
+    await expect(page.getByTestId("dicom-stack-panel")).toBeVisible();
+    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9", {
+      timeout: 30_000,
+    });
+
+    await page.getByTestId("dicom-collapse-guardrails").click();
+
+    await expect(page.locator("[data-sidebar-layout]")).toHaveAttribute(
+      "data-sidebar-state",
+      "collapsed",
+    );
+    await expect(page.getByTestId("dicom-stack-panel")).toBeHidden();
+
+    await page.getByTestId("dicom-toggle-stack-rail").click();
+    await expect(page.getByTestId("dicom-stack-panel")).toBeVisible();
+  });
 
   test("pan and zoom act as toggles back to window-level", async ({ page }) => {
     await gotoViewer(page);
