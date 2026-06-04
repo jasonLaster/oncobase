@@ -30,6 +30,25 @@ The publish token can be provided with `WIKI_PUBLISH_TOKEN_<SITE>`, `WIKI_PUBLIS
 - `oncobase publish --site <slug>` uploads changed content, assets, embeddings, and confirmed tombstones.
 - `oncobase skills --site <slug>` copies bundled vault skills into `<vault>/.claude/skills`.
 - `oncobase assets:backfill-hashes --site <slug>` backfills asset hashes without a full content upload.
+- `oncobase transcription record --site <slug> --context <file>` records audio until Ctrl-C, then transcribes and drafts an enriched note with Vercel AI Gateway.
+- `oncobase transcription transcribe --site <slug> --audio <file> --context <file>` transcribes an existing recording and drafts the note after the fact.
+
+## Transcription
+
+Transcription uses the Vercel AI Gateway by default with `openai/gpt-realtime-2`. Set `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN` before running it. The recording command requires `ffmpeg`.
+
+```sh
+npx oncobase transcription record --site acme --context ./call-context.md --title "Partner call"
+npx oncobase transcription transcribe --site acme --audio ./meeting.mp3 --context ./call-context.md --wiki wiki/people
+```
+
+Useful options:
+
+- `--context <file>` adds explicit context files; repeat it or pass comma-separated paths.
+- `--wiki <slug-or-path>` adds specific wiki pages from the configured vault.
+- `--wiki-all` includes wiki page bodies until `--max-context-chars` is reached.
+- `--model <id>` overrides the default Gateway model.
+- `--output`, `--transcript-output`, and `--note-output` choose output files.
 
 ## Bundled Skills
 
