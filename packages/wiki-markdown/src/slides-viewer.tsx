@@ -7,6 +7,7 @@ import {
   type TheaterImageState,
 } from "./image-theater-state";
 import { resolveImageSrc } from "./paths";
+import { sortSlidesNewestFirst } from "./slides-sort";
 
 export type SlidesViewerImage = {
   src: string;
@@ -94,11 +95,14 @@ export function SlidesViewer({
 }) {
   const slides = useMemo(
     () =>
-      images.reduce<Array<{ src: string; alt: string }>>((resolved, image) => {
-        const src = resolveImageSrc(image.src, currentSlug, apiBasePath);
-        if (src) resolved.push({ src, alt: image.alt ?? "" });
-        return resolved;
-      }, []),
+      sortSlidesNewestFirst(images).reduce<Array<{ src: string; alt: string }>>(
+        (resolved, image) => {
+          const src = resolveImageSrc(image.src, currentSlug, apiBasePath);
+          if (src) resolved.push({ src, alt: image.alt ?? "" });
+          return resolved;
+        },
+        [],
+      ),
     [apiBasePath, currentSlug, images],
   );
   const [theaterImage, setTheaterImage] = useState<TheaterImageState | null>(null);

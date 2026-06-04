@@ -106,4 +106,24 @@ gantt
     expect(html).toContain('src="/api/file?path=wiki%2Fresearch%2Fimages%2Ffirst.png"');
     expect(html).toContain('alt="Second scan"');
   });
+
+  test("sorts reusable dated slides from newest to oldest", () => {
+    const html = renderToStaticMarkup(
+      createElement(SlidesViewer, {
+        currentSlug: "wiki/diagnostics/index",
+        images: [
+          { src: "images/mri-04-10.png", alt: "MRI 04-10" },
+          { src: "images/pet-2026-05-08.png", alt: "PET" },
+          { src: "images/ct-march-28.png", alt: "CT March 28 2026" },
+        ],
+      }),
+    );
+
+    expect(html.indexOf("pet-2026-05-08.png")).toBeLessThan(
+      html.indexOf("mri-04-10.png"),
+    );
+    expect(html.indexOf("mri-04-10.png")).toBeLessThan(
+      html.indexOf("ct-march-28.png"),
+    );
+  });
 });

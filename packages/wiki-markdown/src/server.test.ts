@@ -219,6 +219,29 @@ CD4^{+} T cells expand, while ^{68}Ga tracers stay unchanged.
     expect(html).not.toContain("## Why It Matters");
   });
 
+  test("sorts dated slide images from newest to oldest", () => {
+    const html = renderWikiMarkdownHtml(
+      [
+        "<!-- slides -->",
+        "- ![MRI 04-10](images/mri-04-10.png)",
+        "- ![PET 2026-05-08](images/pet-2026-05-08.png)",
+        "- ![CT March 28 2026](images/ct-march-28.png)",
+        "- ![Pathology](images/pathology.png)",
+      ].join("\n"),
+      "wiki/diagnostics/index",
+    );
+
+    expect(html.indexOf("pet-2026-05-08.png")).toBeLessThan(
+      html.indexOf("mri-04-10.png"),
+    );
+    expect(html.indexOf("mri-04-10.png")).toBeLessThan(
+      html.indexOf("ct-march-28.png"),
+    );
+    expect(html.indexOf("ct-march-28.png")).toBeLessThan(
+      html.indexOf("pathology.png"),
+    );
+  });
+
   test("preserves currency and still renders math", () => {
     const html = renderWikiMarkdownHtml([
       "Cost is $1.5M and math is $x^2$.",

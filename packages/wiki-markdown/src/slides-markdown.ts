@@ -1,3 +1,5 @@
+import { sortSlidesNewestFirst } from "./slides-sort";
+
 type SlideImage = {
   src: string;
   alt: string;
@@ -80,7 +82,7 @@ export function expandSlidesMarkdown(md: string): string {
       continue;
     }
 
-    output.push("", renderSlidesHtml(images), "");
+    output.push("", renderSlidesHtml(sortSlidesNewestFirst(images)), "");
     index = cursor - 1;
   }
 
