@@ -1,4 +1,5 @@
 export {
+  compareFileTreeNodes,
   compactFileTree,
   expandCompactFileTree,
   type CompactFileNode,

@@ -54,6 +54,54 @@ describe("sortTree", () => {
 
     expect(tree.map((node) => node.name)).toEqual(["index", "alpha", "zeta", "archived"]);
   });
+
+  test("sorts weekly updates by descending week number", () => {
+    const tree: FileNode[] = [
+      {
+        name: "wiki",
+        slug: "wiki",
+        type: "directory",
+        children: [
+          {
+            name: "updates",
+            slug: "wiki/updates",
+            type: "directory",
+            children: [
+              {
+                name: "week-8-may-3-to-9",
+                slug: "wiki/updates/week-8-may-3-to-9",
+                type: "file",
+              },
+              {
+                name: "index",
+                slug: "wiki/updates/index",
+                type: "file",
+              },
+              {
+                name: "week-10-may-17-to-23",
+                slug: "wiki/updates/week-10-may-17-to-23",
+                type: "file",
+              },
+              {
+                name: "week-9-may-10-to-16",
+                slug: "wiki/updates/week-9-may-10-to-16",
+                type: "file",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    sortTree(tree);
+
+    expect(tree[0]?.children?.[0]?.children?.map((node) => node.name)).toEqual([
+      "week-10-may-17-to-23",
+      "week-9-may-10-to-16",
+      "week-8-may-3-to-9",
+      "index",
+    ]);
+  });
 });
 
 describe("groupFileTreeCollectionsDeep", () => {

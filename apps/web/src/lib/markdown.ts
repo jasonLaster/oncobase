@@ -4,6 +4,7 @@ import { siteDataFromSlug } from "@/lib/site-data";
 import { DEFAULT_SITE_SLUG, toSiteSlug, type SiteSlug } from "@/lib/site";
 import { shouldSkipConvexReads } from "@/lib/convex-url";
 import {
+  compareFileTreeNodes,
   compactFileTree,
   expandCompactFileTree,
   type CompactFileNode,
@@ -725,8 +726,15 @@ function isArchivedDirectory(node: FileNode) {
   return node.type === "directory" && node.name === "archived";
 }
 
-export function sortTree(nodes: FileNode[]) {
+function isUpdatesDirectory(slug: string) {
+  return slug === "wiki/updates";
+}
+
+export function sortTree(nodes: FileNode[], parentSlug = "") {
   nodes.sort((a, b) => {
+    if (isUpdatesDirectory(parentSlug)) {
+      return compareFileTreeNodes(a, b);
+    }
     if (a.name === "index" && b.name !== "index") return -1;
     if (b.name === "index" && a.name !== "index") return 1;
     if (isArchivedDirectory(a) && !isArchivedDirectory(b)) return 1;
@@ -734,6 +742,6 @@ export function sortTree(nodes: FileNode[]) {
     return a.name.localeCompare(b.name);
   });
   for (const node of nodes) {
-    if (node.children) sortTree(node.children);
+    if (node.children) sortTree(node.children, node.slug);
   }
 }
