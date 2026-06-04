@@ -101,7 +101,7 @@ const DownloadIcon = () => (
   </svg>
 );
 const SearchIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-4 shrink-0 opacity-50">
     <circle cx="6.5" cy="6.5" r="4" />
     <path d="M11 11l3 3" />
   </svg>
@@ -463,8 +463,8 @@ export function CommandPalette({
               <DialogDescription>Search pages</DialogDescription>
             </DialogHeader>
             <div className="flex size-full flex-col overflow-hidden rounded-xl! bg-popover p-1 text-popover-foreground">
-              <div className="p-1 pb-2">
-                <div className="relative flex h-8! w-full min-w-0 items-center rounded-lg! border border-input/30 bg-input/30 shadow-none!">
+              <div className="p-2 pb-2">
+                <div className="relative flex min-h-11 w-full min-w-0 items-center gap-1.5 rounded-[0.625rem]! border border-input/30 bg-input/30 px-1.5 pl-3 shadow-none!">
                   <input
                     aria-activedescendant={
                       visibleEntries[activeIndex]
@@ -475,7 +475,7 @@ export function CommandPalette({
                     aria-expanded={open}
                     aria-label="Search pages"
                     autoComplete="off"
-                    className="w-full bg-transparent px-2 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full bg-transparent px-1 py-2 text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
                     data-slot="command-input"
                     onChange={(event) => {
                       setSearch(event.target.value);
@@ -491,7 +491,7 @@ export function CommandPalette({
                 </div>
               </div>
               <div
-                className="no-scrollbar max-h-[60dvh] sm:max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none"
+                className="no-scrollbar max-h-[60dvh] sm:max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto px-2 pb-2 pt-1 outline-none"
                 id="page-palette-list"
                 ref={setListElement}
                 role="listbox"
