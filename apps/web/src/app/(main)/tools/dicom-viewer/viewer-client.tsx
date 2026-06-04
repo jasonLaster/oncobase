@@ -152,6 +152,7 @@ export function DicomViewerClient({
   const viewportRef = useRef<InstanceType<CornerstoneCore["StackViewport"]> | null>(null);
   const modulesRef = useRef<CornerstoneModules | null>(null);
   const sliceIndexRef = useRef(0);
+  const imageRequestIdRef = useRef(0);
 
   const renderingEngineId = useRef(`oncobase-dicom-engine-${crypto.randomUUID()}`);
   const viewportId = useRef(`oncobase-dicom-viewport-${crypto.randomUUID()}`);
@@ -165,6 +166,7 @@ export function DicomViewerClient({
   const [toolMode, setToolMode] = useState<ToolMode>("window");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isInverted, setIsInverted] = useState(false);
+  const [loadingImageIndex, setLoadingImageIndex] = useState<number | null>(null);
   const {
     data: catalog,
     error: catalogError,
@@ -216,6 +218,8 @@ export function DicomViewerClient({
   }, [selectedSeries]);
 
   const currentImage = activeStack?.images[sliceIndex] ?? activeStack?.images[0] ?? null;
+  const loadingImage =
+    loadingImageIndex !== null ? activeStack?.images[loadingImageIndex] : null;
   const displayError =
     error ??
     (catalogError instanceof Error
@@ -338,13 +342,17 @@ export function DicomViewerClient({
 
         setSliceIndex(initialIndex);
         sliceIndexRef.current = initialIndex;
+        setLoadingImageIndex(null);
         setIsInverted(false);
+        prefetchNearbyImages(modules.core, currentStack.images, initialIndex);
 
         const onNewImage = (event: Event) => {
           const detail = (event as CustomEvent<{ imageIdIndex: number }>).detail;
           if (typeof detail?.imageIdIndex === "number") {
             sliceIndexRef.current = detail.imageIdIndex;
             setSliceIndex(detail.imageIdIndex);
+            setLoadingImageIndex(null);
+            prefetchNearbyImages(modules.core, currentStack.images, detail.imageIdIndex);
           }
         };
         viewportElement.addEventListener(core.Enums.Events.STACK_NEW_IMAGE, onNewImage);
@@ -389,15 +397,36 @@ export function DicomViewerClient({
 
   const showImage = useCallback(
     async (nextIndex: number) => {
-      const count = activeStack?.images.length ?? 0;
-      if (!viewportRef.current || count === 0) return;
+      const images = activeStack?.images;
+      const count = images?.length ?? 0;
+      const viewport = viewportRef.current;
+      if (!viewport || !images || count === 0) return;
       const clamped = Math.max(0, Math.min(nextIndex, count - 1));
-      sliceIndexRef.current = clamped;
-      setSliceIndex(clamped);
-      await viewportRef.current.setImageIdIndex(clamped);
-      viewportRef.current.render();
+      if (clamped === sliceIndexRef.current) return;
+
+      const requestId = imageRequestIdRef.current + 1;
+      imageRequestIdRef.current = requestId;
+      setLoadingImageIndex(clamped);
+      setError(null);
+
+      try {
+        const imageId = await viewport.setImageIdIndex(clamped);
+        if (imageRequestIdRef.current !== requestId) return;
+        sliceIndexRef.current = clamped;
+        setSliceIndex(clamped);
+        setLoadingImageIndex(null);
+        viewport.render();
+
+        const modules = modulesRef.current;
+        if (modules) prefetchNearbyImages(modules.core, images, clamped);
+        return imageId;
+      } catch (caught) {
+        if (imageRequestIdRef.current !== requestId) return;
+        setLoadingImageIndex(null);
+        setError(caught instanceof Error ? caught.message : "Could not load image");
+      }
     },
-    [activeStack?.images.length],
+    [activeStack],
   );
 
   useEffect(() => {
@@ -540,13 +569,15 @@ export function DicomViewerClient({
               active={toolMode === "pan"}
               icon={<Move className="size-4" />}
               label="Pan"
-              onClick={() => setToolMode("pan")}
+              onClick={() => setToolMode((mode) => (mode === "pan" ? "window" : "pan"))}
             />
             <ToolButton
               active={toolMode === "zoom"}
               icon={<ZoomIn className="size-4" />}
               label="Zoom"
-              onClick={() => setToolMode("zoom")}
+              onClick={() =>
+                setToolMode((mode) => (mode === "zoom" ? "window" : "zoom"))
+              }
             />
             <div className="mx-1 h-6 w-px bg-white/10" />
             <Button
@@ -605,13 +636,17 @@ export function DicomViewerClient({
                 type="range"
                 min={0}
                 max={Math.max(0, (activeStack?.images.length ?? 1) - 1)}
-                value={sliceIndex}
+                value={loadingImageIndex ?? sliceIndex}
                 disabled={!hasStack}
                 onChange={(event) => void showImage(Number(event.currentTarget.value))}
               />
             </div>
             <div className="font-mono text-xs text-zinc-400">
-              {hasStack ? `${sliceIndex + 1} / ${activeStack?.images.length}` : "0 / 0"}
+              <span data-test-id="dicom-slice-counter">
+                {hasStack
+                  ? `${(loadingImageIndex ?? sliceIndex) + 1} / ${activeStack?.images.length}`
+                  : "0 / 0"}
+              </span>
             </div>
             <div className="hidden min-w-0 max-w-64 truncate text-xs text-zinc-500 lg:block xl:hidden">
               {currentImage?.fileName ?? activeStack?.title ?? ""}
@@ -626,6 +661,7 @@ export function DicomViewerClient({
             <div
               ref={viewportElementRef}
               className="absolute inset-0 bg-black"
+              data-test-id="dicom-cornerstone-viewport"
               data-testid="dicom-cornerstone-viewport"
             />
             {!hasStack ? (
@@ -634,6 +670,24 @@ export function DicomViewerClient({
                   <ScanSearch className="mx-auto mb-4 size-10 text-zinc-500" />
                   <div className="text-sm font-medium text-zinc-200">
                     Select a DICOM series.
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            {loadingImageIndex !== null ? (
+              <div
+                className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 px-6 text-center backdrop-blur-[1px]"
+                aria-live="polite"
+                data-test-id="dicom-image-loading"
+                data-testid="dicom-image-loading"
+              >
+                <div className="rounded-lg border border-white/10 bg-black/80 px-4 py-3 shadow-lg">
+                  <div className="mx-auto mb-3 size-7 animate-spin rounded-full border-2 border-white/20 border-t-emerald-300" />
+                  <div className="text-sm font-medium text-zinc-100">
+                    Loading image {loadingImageIndex + 1}
+                  </div>
+                  <div className="mt-1 max-w-56 truncate text-xs text-zinc-400">
+                    {loadingImage?.fileName ?? activeStack?.title}
                   </div>
                 </div>
               </div>
@@ -716,6 +770,7 @@ function ToolButton({
         active && "border-emerald-300/50 bg-emerald-300/15 text-emerald-100",
       )}
       onClick={onClick}
+      aria-pressed={active}
     >
       {icon}
       {label}
@@ -753,6 +808,32 @@ function findSeriesForBiopsy(series: DicomSeries[], biopsyId: string | null | un
       })
       .sort((a, b) => b.images.length - a.images.length)[0] ?? null
   );
+}
+
+function prefetchNearbyImages(
+  core: CornerstoneCore,
+  images: ViewerImage[],
+  currentIndex: number,
+) {
+  const candidateIndexes = [
+    currentIndex + 1,
+    currentIndex - 1,
+    currentIndex + 2,
+    currentIndex - 2,
+  ];
+
+  for (const index of candidateIndexes) {
+    const imageId = images[index]?.imageId;
+    if (!imageId) continue;
+    void core.imageLoader
+      .loadAndCacheImage(imageId, {
+        priority: 0,
+        requestType: "prefetch",
+      })
+      .catch(() => {
+        // Prefetch is opportunistic; normal navigation still reports load errors.
+      });
+  }
 }
 
 function formatBytes(bytes: number) {
