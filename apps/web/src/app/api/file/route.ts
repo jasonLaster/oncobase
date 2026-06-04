@@ -28,7 +28,63 @@ function assetPathToSiblingSlug(assetPath: string) {
   return assetPath.replace(/\.[^/.]+$/, "");
 }
 
-async function fetchBlobAsset(normalizedPath: string, siteSlug: string) {
+function contentDisposition(ext: string, filename: string) {
+  const disposition = ext === ".zip" ? "attachment" : "inline";
+  return `${disposition}; filename="${filename}"`;
+}
+
+function blobRequestHeaders(request: NextRequest) {
+  const range = request.headers.get("Range");
+  return range ? { Range: range } : undefined;
+}
+
+function streamBlobResponse({
+  ext,
+  filename,
+  mimeType,
+  sizeBytes,
+  upstream,
+}: {
+  ext: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes?: number;
+  upstream: Response;
+}) {
+  const headers = new Headers({
+    "Cache-Control": "public, max-age=86400",
+    "Content-Disposition": contentDisposition(ext, filename),
+    "Content-Type": mimeType,
+    "Vary": "Range",
+  });
+
+  const contentLength = upstream.headers.get("content-length");
+  if (contentLength) {
+    headers.set("Content-Length", contentLength);
+  } else if (sizeBytes && upstream.status !== 206) {
+    headers.set("Content-Length", String(sizeBytes));
+  }
+
+  const acceptRanges = upstream.headers.get("accept-ranges");
+  if (acceptRanges) headers.set("Accept-Ranges", acceptRanges);
+
+  const contentRange = upstream.headers.get("content-range");
+  if (contentRange) headers.set("Content-Range", contentRange);
+
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers,
+  });
+}
+
+async function fetchBlobAsset(
+  request: NextRequest,
+  normalizedPath: string,
+  siteSlug: string,
+  ext: string,
+  filename: string,
+  mimeType: string,
+) {
   const token = getBlobToken();
   if (!token) return null;
 
@@ -49,12 +105,21 @@ async function fetchBlobAsset(normalizedPath: string, siteSlug: string) {
   }
   if (!blob) return null;
 
-  const upstream = await fetch(blob.url);
+  const upstream = await fetch(blob.url, {
+    headers: blobRequestHeaders(request),
+  });
   if (!upstream.ok) {
     return { error: new NextResponse("Blob fetch failed", { status: 502 }) };
   }
 
-  return { buffer: Buffer.from(await upstream.arrayBuffer()) };
+  return {
+    response: streamBlobResponse({
+      ext,
+      filename,
+      mimeType,
+      upstream,
+    }),
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -99,17 +164,18 @@ export async function GET(request: NextRequest) {
         );
 
     if (asset?.blobUrl) {
-      const upstream = await fetch(asset.blobUrl);
+      const upstream = await fetch(asset.blobUrl, {
+        headers: blobRequestHeaders(request),
+      });
       if (!upstream.ok) {
         return new NextResponse("Blob fetch failed", { status: 502 });
       }
-      const buf = Buffer.from(await upstream.arrayBuffer());
-      return new NextResponse(buf, {
-        headers: {
-          "Content-Type": mimeType,
-          "Content-Disposition": `inline; filename="${filename}"`,
-          "Cache-Control": "public, max-age=86400",
-        },
+      return streamBlobResponse({
+        ext,
+        filename,
+        mimeType,
+        sizeBytes: asset.sizeBytes,
+        upstream,
       });
     }
   } catch (err) {
@@ -117,17 +183,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const blob = await fetchBlobAsset(normalized, siteData.siteSlug);
+    const blob = await fetchBlobAsset(
+      request,
+      normalized,
+      siteData.siteSlug,
+      ext,
+      filename,
+      mimeType,
+    );
     if (blob?.error) return blob.error;
-    if (blob?.buffer) {
-      return new NextResponse(blob.buffer, {
-        headers: {
-          "Content-Type": mimeType,
-          "Content-Disposition": `inline; filename="${filename}"`,
-          "Cache-Control": "public, max-age=86400",
-        },
-      });
-    }
+    if (blob?.response) return blob.response;
   } catch (err) {
     console.error("[file] Blob fallback failed:", err);
   }

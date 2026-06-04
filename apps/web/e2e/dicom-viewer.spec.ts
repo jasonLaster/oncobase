@@ -49,6 +49,7 @@ const biopsyLinks = [
     counter: "10 / 19",
   },
 ];
+const petctReportPath = "diagnostics/viewer-upload/03-27-petct/report.pdf";
 
 async function gotoViewer(page: Page, biopsyId = "biopsy-2026-04-10") {
   await page.goto(`/tools/dicom-viewer?id=${biopsyId}`);
@@ -117,6 +118,27 @@ test.describe("DICOM viewer", () => {
       );
       await expect(card.getByRole("link")).not.toHaveCount(1);
     }
+  });
+
+  test("diagnostic report PDFs support byte-range loading", async ({
+    request,
+    baseURL,
+  }) => {
+    const res = await request.get(
+      `${baseURL}/api/file?path=${encodeURIComponent(petctReportPath)}`,
+      {
+        headers: {
+          Range: "bytes=0-99",
+        },
+      },
+    );
+
+    expect(res.status()).toBe(206);
+    expect(res.headers()["content-type"]).toContain("application/pdf");
+    expect(res.headers()["content-disposition"]).toContain("inline");
+    expect(res.headers()["content-length"]).toBe("100");
+    expect(res.headers()["content-range"]).toMatch(/^bytes 0-99\/\d+$/);
+    expect((await res.body()).subarray(0, 5).toString()).toBe("%PDF-");
   });
 
   test("diagnostics routes replace the file tree with biopsy shortcuts", async ({
