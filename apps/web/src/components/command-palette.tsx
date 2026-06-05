@@ -455,16 +455,16 @@ export function CommandPalette({
           }}
         >
           <DialogContent
-            className="top-[10%] sm:top-1/4 translate-y-0 overflow-hidden rounded-xl! p-0 max-w-[calc(100%-1rem)] sm:max-w-xl"
+            className="top-[10%] translate-y-0 overflow-hidden rounded-2xl! border border-border/70 bg-popover/98 p-0 shadow-2xl shadow-black/15 ring-0 sm:top-[22%] sm:max-w-2xl"
             showCloseButton={false}
           >
             <DialogHeader className="sr-only">
               <DialogTitle>Go to page</DialogTitle>
               <DialogDescription>Search pages</DialogDescription>
             </DialogHeader>
-            <div className="flex size-full flex-col overflow-hidden rounded-xl! bg-popover p-1 text-popover-foreground">
-              <div className="p-2 pb-2">
-                <div className="relative flex min-h-11 w-full min-w-0 items-center gap-1.5 rounded-[0.625rem]! border border-input/30 bg-input/30 px-1.5 pl-3 shadow-none!">
+            <div className="flex size-full flex-col overflow-hidden rounded-2xl! bg-popover p-2 text-popover-foreground">
+              <div className="pb-2">
+                <div className="relative flex min-h-12 w-full min-w-0 items-center gap-2 rounded-xl! border border-border/70 bg-muted/45 px-3 shadow-inner shadow-black/[0.025] transition-colors focus-within:border-ring/35 focus-within:bg-background/80 focus-within:ring-2 focus-within:ring-ring/10">
                   <input
                     aria-activedescendant={
                       visibleEntries[activeIndex]
@@ -475,7 +475,7 @@ export function CommandPalette({
                     aria-expanded={open}
                     aria-label="Search pages"
                     autoComplete="off"
-                    className="w-full bg-transparent px-1 py-2 text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full bg-transparent px-0 py-2 text-[0.9375rem] outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
                     data-slot="command-input"
                     onChange={(event) => {
                       setSearch(event.target.value);
@@ -491,7 +491,7 @@ export function CommandPalette({
                 </div>
               </div>
               <div
-                className="no-scrollbar max-h-[60dvh] sm:max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto px-2 pb-2 pt-1 outline-none"
+                className="no-scrollbar max-h-[60dvh] scroll-py-1 overflow-x-hidden overflow-y-auto px-0 pb-1 pt-0.5 outline-none sm:max-h-80"
                 id="page-palette-list"
                 ref={setListElement}
                 role="listbox"
@@ -558,7 +558,7 @@ function VirtualizedPageEntries({
             return (
               <div
                 key={`${row.label}-${virtualItem.index}`}
-                className="absolute left-0 top-0 flex h-7 w-full items-end px-2 pb-1 text-xs font-medium text-muted-foreground"
+                className="absolute left-0 top-0 flex h-7 w-full items-end px-3 pb-1 text-xs font-medium text-muted-foreground"
                 style={{ transform: `translateY(${virtualItem.start}px)` }}
               >
                 {row.label}
@@ -587,16 +587,18 @@ function VirtualizedPageEntries({
               role="option"
               type="button"
               className={cn(
-                "absolute left-0 top-0 flex h-14 w-full cursor-default items-center gap-2 rounded-lg px-2 py-2 text-left text-sm outline-hidden select-none",
-                selected && "bg-muted text-foreground",
+                "absolute left-0 top-0 flex h-14 w-full cursor-default items-center gap-3 rounded-xl px-3 py-2 text-left text-sm outline-hidden select-none transition-colors",
+                selected && "bg-muted/80 text-foreground ring-1 ring-border/50",
                 virtualItem.index === activeRowIndex && "z-10",
               )}
               style={{ transform: `translateY(${virtualItem.start}px)` }}
             >
-              <FileTextIcon className="mr-2 size-4 shrink-0 opacity-50 self-start mt-0.5" />
-              <div className="flex flex-col min-w-0">
-                <span className="truncate">{page.name.replace(/-/g, " ")}</span>
-                <span className="text-xs text-muted-foreground truncate">
+              <FileTextIcon className="size-4 shrink-0 text-muted-foreground/70" />
+              <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                <span className="max-w-[65%] min-w-0 shrink truncate text-[0.9375rem] leading-5 text-foreground">
+                  {page.name.replace(/-/g, " ")}
+                </span>
+                <span className="min-w-[5rem] flex-1 truncate text-xs leading-5 text-muted-foreground">
                   {formatCommandPalettePagePath(page.slug)}
                 </span>
               </div>
