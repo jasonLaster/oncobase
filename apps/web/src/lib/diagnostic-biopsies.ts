@@ -16,7 +16,7 @@ export interface DiagnosticReportLink {
   href: string;
 }
 
-export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [
+const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
   {
     id: "diagnostic-2026-04-01-breast-mri",
     shortLabel: "4/1",
@@ -183,6 +183,10 @@ export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [
       "/api/file?path=sources%2Fdiagnostics%2F03-13-breast-biopsy-report.pdf",
   },
 ];
+
+export const DIAGNOSTIC_BIOPSIES: DiagnosticBiopsy[] = [...DIAGNOSTIC_BIOPSIES_UNSORTED].sort(
+  (a, b) => b.isoDate.localeCompare(a.isoDate),
+);
 
 export function getDiagnosticBiopsyById(id: string | null | undefined) {
   if (!id) return null;

@@ -128,7 +128,7 @@ function DiagnosticsActionLink({
   primary?: boolean;
 }) {
   const className = primary
-    ? "inline-flex h-8 w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 text-sm font-medium whitespace-nowrap text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+    ? "inline-flex h-8 w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-2.5 text-sm font-medium whitespace-nowrap text-neutral-950 transition-colors hover:border-primary/40 hover:bg-white/90 hover:text-neutral-950 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
     : "inline-flex h-8 w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-medium whitespace-nowrap transition-colors hover:border-primary/40 hover:bg-accent hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none";
 
   return (
