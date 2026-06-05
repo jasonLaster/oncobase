@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse, connection } from "next/server";
+import { createReadStream } from "node:fs";
+import { promises as fs } from "node:fs";
 import path from "path";
+import { Readable } from "node:stream";
 import { siteDataFromRequest } from "@/lib/site-data";
+import { DEFAULT_SITE_SLUG } from "@/lib/site";
 import { getSessionUserFromRequest } from "@/lib/session-user";
 
 const MIME_TYPES: Record<string, string> = {
@@ -50,29 +54,187 @@ function contentDisposition(ext: string, filename: string) {
   return `${disposition}; filename="${filename}"`;
 }
 
+function authedCookieName(siteSlug: string) {
+  return siteSlug === DEFAULT_SITE_SLUG ? "authed" : `authed_${siteSlug}`;
+}
+
+function hasSitePasswordSession(request: NextRequest, siteSlug: string) {
+  return request.cookies.get(authedCookieName(siteSlug))?.value === "true";
+}
+
 function blobRequestHeaders(request: NextRequest) {
   const range = request.headers.get("Range");
   return range ? { Range: range } : undefined;
+}
+
+function diagnosticsRootCandidates() {
+  const envRoots = [
+    process.env.DIANA_DIAGNOSTICS_PATH,
+    process.env.ONCOBASE_DICOM_ROOT,
+    process.env.DICOM_VIEWER_ROOT,
+  ]
+    .flatMap((value) => (value ? value.split(":") : []))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const cwd = process.cwd();
+  return [
+    ...new Set([
+      ...envRoots,
+      path.resolve(cwd, "../diana-tnbc/diagnostics"),
+      path.resolve(cwd, "../../..", "diana-tnbc/diagnostics"),
+      path.resolve(cwd, "../../../..", "diana-tnbc/diagnostics"),
+      "/Users/jasonlaster/src/projects/diana-tnbc/diagnostics",
+    ]),
+  ];
+}
+
+async function findDiagnosticsRoot() {
+  for (const candidate of diagnosticsRootCandidates()) {
+    try {
+      const stats = await fs.stat(candidate);
+      if (stats.isDirectory()) return candidate;
+    } catch {
+      // Local roots vary by checkout; keep trying the next candidate.
+    }
+  }
+  return null;
+}
+
+async function resolveLocalViewerUploadPath(normalizedPath: string) {
+  if (process.env.NODE_ENV === "production") return null;
+  const prefix = "diagnostics/viewer-upload/";
+  if (!normalizedPath.startsWith(prefix)) return null;
+
+  const root = await findDiagnosticsRoot();
+  if (!root) return null;
+
+  const uploadRelativePath = normalizedPath.slice(prefix.length);
+  const uploadRoot = path.join(root, "_deidentified-viewer-upload");
+  const absolutePath = path.resolve(uploadRoot, uploadRelativePath);
+  const relativeToUploadRoot = path.relative(uploadRoot, absolutePath);
+  if (relativeToUploadRoot.startsWith("..") || path.isAbsolute(relativeToUploadRoot)) {
+    return null;
+  }
+
+  try {
+    const stats = await fs.stat(absolutePath);
+    return stats.isFile() ? { absolutePath, sizeBytes: stats.size } : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseRangeHeader(range: string | null, sizeBytes: number) {
+  if (!range) return null;
+  const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+  if (!match) return "invalid" as const;
+
+  const [, startText, endText] = match;
+  if (!startText && !endText) return "invalid" as const;
+
+  let start: number;
+  let end: number;
+
+  if (!startText) {
+    const suffixLength = Number(endText);
+    if (!Number.isSafeInteger(suffixLength) || suffixLength <= 0) {
+      return "invalid" as const;
+    }
+    start = Math.max(sizeBytes - suffixLength, 0);
+    end = sizeBytes - 1;
+  } else {
+    start = Number(startText);
+    end = endText ? Number(endText) : sizeBytes - 1;
+  }
+
+  if (
+    !Number.isSafeInteger(start) ||
+    !Number.isSafeInteger(end) ||
+    start < 0 ||
+    end < start ||
+    start >= sizeBytes
+  ) {
+    return "invalid" as const;
+  }
+
+  return { start, end: Math.min(end, sizeBytes - 1) };
+}
+
+async function localFileResponse({
+  absolutePath,
+  ext,
+  filename,
+  mimeType,
+  request,
+  sizeBytes,
+}: {
+  absolutePath: string;
+  ext: string;
+  filename: string;
+  mimeType: string;
+  request: NextRequest;
+  sizeBytes: number;
+}) {
+  const range = parseRangeHeader(request.headers.get("Range"), sizeBytes);
+  const headers = new Headers({
+    "Accept-Ranges": "bytes",
+    "Cache-Control": "private, max-age=60, stale-while-revalidate=3600",
+    "Content-Disposition": contentDisposition(ext, filename),
+    "Content-Type": mimeType,
+    "Vary": "Cookie, Range",
+  });
+
+  if (range === "invalid") {
+    headers.set("Content-Range", `bytes */${sizeBytes}`);
+    return new Response(null, { status: 416, headers });
+  }
+
+  if (range) {
+    const contentLength = range.end - range.start + 1;
+    headers.set("Content-Length", String(contentLength));
+    headers.set("Content-Range", `bytes ${range.start}-${range.end}/${sizeBytes}`);
+    const stream = createReadStream(absolutePath, {
+      start: range.start,
+      end: range.end,
+    });
+    return new Response(Readable.toWeb(stream) as unknown as ReadableStream, {
+      status: 206,
+      headers,
+    });
+  }
+
+  headers.set("Content-Length", String(sizeBytes));
+  return new Response(
+    Readable.toWeb(createReadStream(absolutePath)) as unknown as ReadableStream,
+    {
+      headers,
+    },
+  );
 }
 
 function streamBlobResponse({
   ext,
   filename,
   mimeType,
+  privateCache,
   sizeBytes,
   upstream,
 }: {
   ext: string;
   filename: string;
   mimeType: string;
+  privateCache: boolean;
   sizeBytes?: number;
   upstream: Response;
 }) {
   const headers = new Headers({
-    "Cache-Control": "public, max-age=86400",
+    "Cache-Control": privateCache
+      ? "private, max-age=60, stale-while-revalidate=3600"
+      : "public, max-age=86400",
     "Content-Disposition": contentDisposition(ext, filename),
     "Content-Type": mimeType,
-    "Vary": "Range",
+    "Vary": privateCache ? "Cookie, Range" : "Range",
   });
 
   const contentLength = upstream.headers.get("content-length");
@@ -101,6 +263,7 @@ async function fetchBlobAsset(
   ext: string,
   filename: string,
   mimeType: string,
+  privateCache: boolean,
 ) {
   const token = getBlobToken();
   if (!token) return null;
@@ -134,6 +297,7 @@ async function fetchBlobAsset(
       ext,
       filename,
       mimeType,
+      privateCache,
       upstream,
     }),
   };
@@ -158,7 +322,9 @@ export async function GET(request: NextRequest) {
   const filename = path.basename(normalized);
 
   const siteData = siteDataFromRequest(request);
-  const includeSensitive = Boolean(await getSessionUserFromRequest(request));
+  const includeSensitive =
+    hasSitePasswordSession(request, siteData.siteSlug) ||
+    Boolean(await getSessionUserFromRequest(request));
   const siblingDoc = await siteData.documents.getBySlug({
     slug: assetPathToSiblingSlug(normalized),
     includeSensitive: true,
@@ -191,6 +357,7 @@ export async function GET(request: NextRequest) {
         ext,
         filename,
         mimeType,
+        privateCache: includeSensitive,
         sizeBytes: asset.sizeBytes,
         upstream,
       });
@@ -207,11 +374,26 @@ export async function GET(request: NextRequest) {
       ext,
       filename,
       mimeType,
+      includeSensitive,
     );
     if (blob?.error) return blob.error;
     if (blob?.response) return blob.response;
   } catch (err) {
     console.error("[file] Blob fallback failed:", err);
+  }
+
+  if (includeSensitive) {
+    const localViewerUpload = await resolveLocalViewerUploadPath(normalized);
+    if (localViewerUpload) {
+      return localFileResponse({
+        absolutePath: localViewerUpload.absolutePath,
+        ext,
+        filename,
+        mimeType,
+        request,
+        sizeBytes: localViewerUpload.sizeBytes,
+      });
+    }
   }
 
   return new NextResponse("File not found", { status: 404 });

@@ -49,7 +49,8 @@ const biopsyLinks = [
     counter: "10 / 19",
   },
 ];
-const petctReportPath = "diagnostics/viewer-upload/03-27-petct/report.pdf";
+const breastMriReportPath =
+  "diagnostics/viewer-upload/04-01-breast-mri/reports/04-01-breast-mri.pdf";
 
 async function gotoViewer(page: Page, biopsyId = "biopsy-2026-04-10") {
   await page.goto(`/tools/dicom-viewer?id=${biopsyId}`, {
@@ -140,14 +141,15 @@ test.describe("DICOM viewer", () => {
     ).toHaveAttribute("href", "/tools/dicom-viewer?id=biopsy-2026-04-10");
   });
 
-  test("diagnostic report PDFs support byte-range loading", async ({
+  test("diagnostics report PDFs support password-gated byte-range loading", async ({
     request,
     baseURL,
   }) => {
     const res = await request.get(
-      `${baseURL}/api/file?path=${encodeURIComponent(petctReportPath)}`,
+      `${baseURL}/api/file?path=${encodeURIComponent(breastMriReportPath)}`,
       {
         headers: {
+          Cookie: "authed=true",
           Range: "bytes=0-99",
         },
       },
@@ -156,6 +158,9 @@ test.describe("DICOM viewer", () => {
     expect(res.status()).toBe(206);
     expect(res.headers()["content-type"]).toContain("application/pdf");
     expect(res.headers()["content-disposition"]).toContain("inline");
+    expect(res.headers()["cache-control"]).toContain("private");
+    expect(res.headers()["vary"]).toContain("Cookie");
+    expect(res.headers()["vary"]).toContain("Range");
     expect(res.headers()["content-length"]).toBe("100");
     expect(res.headers()["content-range"]).toMatch(/^bytes 0-99\/\d+$/);
     expect((await res.body()).subarray(0, 5).toString()).toBe("%PDF-");
