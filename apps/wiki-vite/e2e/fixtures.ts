@@ -28,6 +28,7 @@ type MockOptions = {
   sessionCacheKey?: string;
   sessionUserHash?: string;
   manifestFailure?: boolean;
+  pageDelays?: Partial<Record<string, number>>;
   pageFailures?: Partial<Record<string, number | true>>;
   pageOverrides?: Partial<Record<string, Partial<FixturePage>>>;
   piiPatterns?: string[] | null;
@@ -406,6 +407,14 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
       .map((slug) => slug.trim())
       .filter(Boolean);
     if (slugs.length > 0) {
+      const delayMs = Math.max(
+        0,
+        ...slugs.map((slug) => options.pageDelays?.[slug] ?? 0),
+      );
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+
       const failedSlug = slugs.find((slug) => (pageFailures.get(slug) ?? 0) > 0);
       if (failedSlug) {
         const remaining = pageFailures.get(failedSlug) ?? 0;

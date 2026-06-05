@@ -23,6 +23,7 @@ import {
   Suspense,
   lazy,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -150,6 +151,21 @@ export function WikiPage({
   const scope = useWikiScope();
   const [toast, setToast] = useState<string | null>(null);
   const slug = slugFromPath(location.pathname);
+  const deferredSlug = useDeferredValue(slug);
+  const routePending = deferredSlug !== slug;
+  const page = useStore().store.useQuery(pageContentBySlug$(deferredSlug)) as PageContentRow | null;
+  const index = useStore().store.useQuery(pageIndexBySlug$(deferredSlug)) as PageIndexRow | null;
+  const routeIndex = useStore().store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;
+  const pageIndex = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
+  const assets = useStore().store.useQuery(assets$) as AssetIndexRow[];
+  const siteState = useStore().store.useQuery(siteState$) as SiteStateRow | null;
+  const stale = page?.contentStatus === "stale";
+  const deleted = page?.contentStatus === "deleted";
+  const failedCurrentFetch =
+    !page?.content &&
+    Boolean(index) &&
+    metrics.status === "error" &&
+    metrics.message.includes(slug);
   const routeRenderRef = useRef<{
     hadContent: boolean;
     recorded: boolean;
@@ -161,22 +177,18 @@ export function WikiPage({
     slug,
     start: performance.now(),
   });
-  const page = useStore().store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
-  const index = useStore().store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;
-  const pageIndex = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
-  const assets = useStore().store.useQuery(assets$) as AssetIndexRow[];
-  const siteState = useStore().store.useQuery(siteState$) as SiteStateRow | null;
-  const stale = page?.contentStatus === "stale";
-  const deleted = page?.contentStatus === "deleted";
-  const failedCurrentFetch =
-    !page?.content &&
-    Boolean(index) &&
-    metrics.status === "error" &&
-    metrics.message.includes(slug);
+  if (routeRenderRef.current.slug !== slug) {
+    routeRenderRef.current = {
+      hadContent: Boolean(page?.content && page.slug === slug),
+      recorded: false,
+      slug,
+      start: performance.now(),
+    };
+  }
   const tags = parseJsonArray<string>(page?.tagsJson ?? index?.tagsJson ?? "[]");
   const relatedAssets = useMemo(
-    () => relatedAssetsForSlug(slug, assets).slice(0, 6),
-    [assets, slug],
+    () => relatedAssetsForSlug(deferredSlug, assets).slice(0, 6),
+    [assets, deferredSlug],
   );
   const pageSlugs = useMemo(
     () => new Set(pageIndex.map((page) => page.slug)),
@@ -227,17 +239,10 @@ export function WikiPage({
   }, [description, page?.title]);
 
   useEffect(() => {
-    routeRenderRef.current = {
-      hadContent: Boolean(page?.content),
-      recorded: false,
-      slug,
-      start: performance.now(),
-    };
-  }, [slug]);
-
-  useEffect(() => {
     const routeRender = routeRenderRef.current;
-    if (!page?.content || routeRender.recorded || routeRender.slug !== slug) return;
+    if (!page?.content || page.slug !== slug || routeRender.recorded || routeRender.slug !== slug) {
+      return;
+    }
 
     const elapsed = performance.now() - routeRender.start;
     routeRender.recorded = true;
@@ -247,7 +252,23 @@ export function WikiPage({
         ? { warmRouteRenderMs: elapsed }
         : { coldRouteRenderMs: elapsed }),
     });
-  }, [onMetrics, page?.content, slug]);
+  }, [onMetrics, page?.content, page?.slug, slug]);
+
+  if (routePending) {
+    return (
+      <article
+        className="page-shell"
+        data-navigation-pending="true"
+        data-test-id="document-article"
+      >
+        <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={routeIndex?.title} />
+        <WikiPageLoading
+          data-test-id="page-loading"
+          label={`Opening ${routeIndex?.title ?? slug}`}
+        />
+      </article>
+    );
+  }
 
   if (deleted) {
     return (
@@ -331,6 +352,14 @@ export function WikiPage({
     );
   }
 
+  const pageBadges = (
+    <>
+      {stale ? <WikiBadge variant="updating">updating</WikiBadge> : null}
+      {page.sensitive ? <WikiBadge variant="sensitive">sensitive</WikiBadge> : null}
+      <WikiBadge>{formatBytes(page.size)}</WikiBadge>
+    </>
+  );
+
   return (
     <DocumentOutlineShell
       articleClassName="page-shell"
@@ -346,13 +375,7 @@ export function WikiPage({
       <WikiPageHeader
         title={page.title}
         description={description ?? slug}
-        badges={
-          <>
-            {stale ? <WikiBadge variant="updating">updating</WikiBadge> : null}
-            {page.sensitive ? <WikiBadge variant="sensitive">sensitive</WikiBadge> : null}
-            <WikiBadge>{formatBytes(page.size)}</WikiBadge>
-          </>
-        }
+        badges={pageBadges}
       />
       {stale ? (
         <WikiStatusNotice>

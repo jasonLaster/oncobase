@@ -19,7 +19,7 @@ import {
   useState,
   type MouseEvent,
 } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { ChatConversationList } from "../chat/ChatConversationList";
 import { ChatProviders } from "../chat/ChatProviders";
 import { fileTree$, pageIndex$ } from "../livestore/queries";
@@ -100,9 +100,10 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
 
 export function Sidebar() {
   const tree = useWikiTree();
-  const location = useLocation();
-  const activeSlug = slugFromPath(location.pathname);
+  const { pathname } = useLocation();
+  const activeSlug = slugFromPath(pathname);
   const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
+  const renderPageLink = usePageLinkRenderer();
 
   return (
     <WikiSidebar
@@ -140,43 +141,59 @@ function shouldSetNavigationIntent(event: MouseEvent<HTMLAnchorElement>) {
   );
 }
 
-function renderPageLink({
-  active,
-  children,
-  className,
-  node,
-  onNavigate,
-  style,
-}: WikiTreePageLinkRenderArgs) {
-  return (
-    <Link
-      className={className}
-      aria-current={active ? "page" : undefined}
-      style={style}
-      to={hrefForSlug(node.slug)}
-      onClick={(event) => {
-        if (shouldSetNavigationIntent(event)) {
-          setNavigationIntentForSlug(node.slug);
-        }
-        onNavigate?.(event);
-      }}
-    >
-      {children}
-    </Link>
+function usePageLinkRenderer() {
+  const navigate = useNavigate();
+
+  return useCallback(
+    ({
+      active,
+      children,
+      className,
+      node,
+      onNavigate,
+      style,
+    }: WikiTreePageLinkRenderArgs) => {
+      const href = hrefForSlug(node.slug);
+      return (
+        <Link
+          className={className}
+          aria-current={active ? "page" : undefined}
+          style={style}
+          to={href}
+          onClick={(event) => {
+            if (!shouldSetNavigationIntent(event)) {
+              onNavigate?.(event);
+              return;
+            }
+
+            setNavigationIntentForSlug(node.slug);
+            onNavigate?.(event);
+            if (event.defaultPrevented) return;
+            event.preventDefault();
+            navigate(href, { flushSync: true });
+          }}
+        >
+          {children}
+        </Link>
+      );
+    },
+    [navigate],
   );
 }
 
 export function MobileNav() {
   const tree = useWikiTree();
-  const location = useLocation();
-  const [open, setOpen] = useState(false);
-  const isChatRoute = location.pathname.startsWith("/chat");
-  const activeSlug = slugFromPath(location.pathname);
+  const { pathname } = useLocation();
+  const renderPageLink = usePageLinkRenderer();
+  const isChatRoute = pathname.startsWith("/chat");
+  const activeSlug = slugFromPath(pathname);
   const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
-
-  useEffect(() => {
-    setOpen(false);
-  }, [location.pathname]);
+  const [navState, setNavState] = useState({ open: false, pathname });
+  const open = navState.pathname === pathname ? navState.open : false;
+  const setOpen = useCallback(
+    (nextOpen: boolean) => setNavState({ open: nextOpen, pathname }),
+    [pathname],
+  );
 
   if (isChatRoute) {
     return (
@@ -207,7 +224,7 @@ export function MobileNav() {
       onToggleDirectory={toggleDirectory}
       open={open}
       renderPageLink={renderPageLink}
-      title={pageTitleFromPath(location.pathname)}
+      title={pageTitleFromPath(pathname)}
       tree={tree}
     />
   );

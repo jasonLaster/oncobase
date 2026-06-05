@@ -55,6 +55,22 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(documentArticle(page)).toContainText("Prior authorization");
   });
 
+  test("sidebar navigation commits the route before delayed markdown resolves", async ({ page }) => {
+    await page.unroute("**/api/wiki/pages**");
+    await installWikiApiMocks(page, {
+      pageDelays: { "wiki/logistics/insurance": 5_000 },
+    });
+    await gotoWiki(page, "/");
+
+    await openDirectory(page, "logistics");
+    await page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" }).click();
+
+    await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
+    await expect(documentArticle(page).getByTestId("page-loading")).toBeVisible();
+    await waitForPageTitle(page, "Insurance");
+    await expect(documentArticle(page)).toContainText("Prior authorization");
+  });
+
   test("deep links auto-expand the active sidebar branch", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
