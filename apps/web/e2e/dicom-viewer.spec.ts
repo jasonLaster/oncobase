@@ -193,7 +193,7 @@ test.describe("DICOM viewer", () => {
     });
   }
 
-  test("collapses the diagnostics and stack rails from the viewer toolbar", async ({
+  test("collapses the diagnostics and stack rails from the viewer rails", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });

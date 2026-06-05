@@ -527,7 +527,9 @@ export function DicomViewerClient({
       <div
         className={cn(
           "grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]",
-          stackRailOpen && "xl:grid-cols-[320px_minmax(0,1fr)_280px]",
+          stackRailOpen
+            ? "xl:grid-cols-[320px_minmax(0,1fr)_280px]"
+            : "xl:grid-cols-[320px_minmax(0,1fr)_44px]",
         )}
       >
         <aside
@@ -535,13 +537,26 @@ export function DicomViewerClient({
           data-test-id="dicom-series-panel"
         >
           <div className="space-y-3 p-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold tracking-wide text-zinc-300 uppercase">
                 Series
               </h2>
-              <Badge variant="outline" className="border-white/15 text-zinc-300">
-                {displaySeries.length}
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                <Badge variant="outline" className="border-white/15 text-zinc-300">
+                  {displaySeries.length}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 px-2 text-zinc-300 hover:bg-white/10"
+                  onClick={collapseGuardrails}
+                  title="Collapse diagnostics and stack rails"
+                  data-test-id="dicom-collapse-guardrails"
+                >
+                  <PanelLeftClose className="size-4" />
+                  Rails
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -644,33 +659,6 @@ export function DicomViewerClient({
                 setToolMode((mode) => (mode === "zoom" ? "window" : "zoom"))
               }
             />
-            <div className="mx-1 h-6 w-px bg-white/10" />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5 text-zinc-300 hover:bg-white/10"
-              onClick={collapseGuardrails}
-              title="Collapse diagnostics and stack rails"
-              data-test-id="dicom-collapse-guardrails"
-            >
-              <PanelLeftClose className="size-4" />
-              Rails
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-zinc-300 hover:bg-white/10"
-              onClick={() => setStackRailOpen((open) => !open)}
-              title={stackRailOpen ? "Collapse stack rail" : "Open stack rail"}
-              aria-pressed={stackRailOpen}
-              data-test-id="dicom-toggle-stack-rail"
-            >
-              {stackRailOpen ? (
-                <PanelRightClose className="size-4" />
-              ) : (
-                <PanelRightOpen className="size-4" />
-              )}
-            </Button>
             <div className="mx-1 h-6 w-px bg-white/10" />
             <Button
               variant="ghost"
@@ -799,9 +787,23 @@ export function DicomViewerClient({
           >
             <div className="space-y-5 p-4">
               <section>
-                <div className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
-                  <Info className="size-4" />
-                  Stack
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
+                    <Info className="size-4" />
+                    Stack
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-zinc-300 hover:bg-white/10"
+                    onClick={() => setStackRailOpen(false)}
+                    title="Collapse stack rail"
+                    aria-label="Collapse stack rail"
+                    aria-pressed={stackRailOpen}
+                    data-test-id="dicom-toggle-stack-rail"
+                  >
+                    <PanelRightClose className="size-4" />
+                  </Button>
                 </div>
                 <dl className="space-y-3 text-sm">
                   <MetaRow label="Title" value={activeStack?.title} />
@@ -843,7 +845,22 @@ export function DicomViewerClient({
               </section>
             </div>
           </aside>
-        ) : null}
+        ) : (
+          <div className="hidden min-h-0 border-l border-white/10 bg-[#11151a] xl:flex xl:items-start xl:justify-center xl:pt-3">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-zinc-300 hover:bg-white/10"
+              onClick={() => setStackRailOpen(true)}
+              title="Open stack rail"
+              aria-label="Open stack rail"
+              aria-pressed={stackRailOpen}
+              data-test-id="dicom-toggle-stack-rail"
+            >
+              <PanelRightOpen className="size-4" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
