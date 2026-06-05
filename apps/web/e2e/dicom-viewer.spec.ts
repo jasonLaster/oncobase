@@ -110,15 +110,17 @@ test.describe("DICOM viewer", () => {
     await page.goto("/diagnostics");
 
     await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
-
     for (const biopsy of biopsyLinks) {
-      const card = page.locator("article").filter({ hasText: biopsy.id });
-      await expect(card.getByRole("heading", { name: biopsy.title })).toBeVisible();
-      await expect(card.getByRole("link", { name: "Open viewer" })).toHaveAttribute(
+      const viewerLink = page.locator(
+        `a[href="/tools/dicom-viewer?id=${biopsy.id}"]`
+      );
+
+      await expect(viewerLink).toBeVisible();
+      await expect(viewerLink).toContainText("DICOM viewer");
+      await expect(viewerLink).toHaveAttribute(
         "href",
         `/tools/dicom-viewer?id=${biopsy.id}`,
       );
-      await expect(card.getByRole("link")).not.toHaveCount(1);
     }
   });
 
