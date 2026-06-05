@@ -364,13 +364,20 @@ export function DicomViewerClient({
 
         const imageIds = currentStack.images.map((image) => image.imageId);
         const initialIndex = imageIds.length > 1 ? Math.floor(imageIds.length / 2) : 0;
+        await waitForElementSize(viewportElement);
+        setLoadingImageIndex(initialIndex);
         await viewport.setStack(imageIds, initialIndex);
         if (cancelled) return;
 
+        renderingEngine.resize(true, false);
         viewport.resetCamera();
         viewport.resetProperties();
         viewport.render();
-        renderingEngine.resize(true, false);
+        window.requestAnimationFrame(() => {
+          if (cancelled) return;
+          renderingEngine.resize(true, true);
+          viewport.render();
+        });
 
         setSliceIndex(initialIndex);
         sliceIndexRef.current = initialIndex;
@@ -409,11 +416,19 @@ export function DicomViewerClient({
     const element = viewportElementRef.current;
     if (!element) return;
 
+    let resizeFrame = 0;
     const observer = new ResizeObserver(() => {
-      renderingEngineRef.current?.resize(true, false);
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(() => {
+        renderingEngineRef.current?.resize(true, true);
+        viewportRef.current?.render();
+      });
     });
     observer.observe(element);
-    return () => observer.disconnect();
+    return () => {
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+      observer.disconnect();
+    };
   }, []);
 
   useEffect(() => {
@@ -516,6 +531,19 @@ export function DicomViewerClient({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 1023px), (max-height: 560px)");
+    const syncCompactLayout = () => {
+      if (query.matches) {
+        setStackRailOpen(false);
+      }
+    };
+
+    syncCompactLayout();
+    query.addEventListener("change", syncCompactLayout);
+    return () => query.removeEventListener("change", syncCompactLayout);
+  }, []);
+
   const hasStack = Boolean(activeStack?.images.length);
   const collapseGuardrails = () => {
     setResizableSidebarWidth(0);
@@ -526,17 +554,18 @@ export function DicomViewerClient({
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0b0d0f] text-zinc-100">
       <div
         className={cn(
-          "grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]",
+          "grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[300px_minmax(0,1fr)] lg:grid-rows-none max-lg:landscape:grid-rows-[minmax(0,1fr)]",
           stackRailOpen
             ? "xl:grid-cols-[320px_minmax(0,1fr)_280px]"
             : "xl:grid-cols-[320px_minmax(0,1fr)_44px]",
         )}
+        data-dicom-viewer-layout
       >
         <aside
-          className="min-h-0 overflow-y-auto border-b border-white/10 bg-[#11151a] lg:border-r lg:border-b-0"
+          className="min-h-0 overflow-x-auto overflow-y-hidden border-b border-white/10 bg-[#11151a] lg:overflow-y-auto lg:border-r lg:border-b-0 max-lg:landscape:hidden"
           data-test-id="dicom-series-panel"
         >
-          <div className="space-y-3 p-3">
+          <div className="space-y-3 p-2.5 sm:p-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold tracking-wide text-zinc-300 uppercase">
                 Series
@@ -559,14 +588,14 @@ export function DicomViewerClient({
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-2 lg:overflow-visible lg:pb-0">
               {displaySeries.map((series) => {
                 const selected = selectedSeries?.id === series.id;
                 return (
                   <button
                     key={series.id}
                     className={cn(
-                      "w-full rounded-lg border p-3 text-left transition-colors",
+                      "w-64 shrink-0 rounded-lg border p-2.5 text-left transition-colors sm:w-72 lg:w-full lg:p-3",
                       selected
                         ? "border-sky-400/50 bg-sky-400/10"
                         : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]",
@@ -605,7 +634,7 @@ export function DicomViewerClient({
             {selectedBiopsy ? (
               <a
                 href={selectedBiopsy.pathologyReportHref}
-                className="block rounded-lg border border-emerald-300/35 bg-emerald-300/10 p-3 text-left transition-colors hover:border-emerald-200/60 hover:bg-emerald-300/15"
+                className="block w-64 shrink-0 rounded-lg border border-emerald-300/35 bg-emerald-300/10 p-3 text-left transition-colors hover:border-emerald-200/60 hover:bg-emerald-300/15 sm:w-72 lg:w-auto"
                 data-test-id="dicom-pathology-report-link"
               >
                 <div className="flex items-center gap-2 text-sm font-semibold text-emerald-50">
@@ -638,7 +667,7 @@ export function DicomViewerClient({
         </aside>
 
         <main className="flex min-h-0 flex-col bg-black">
-          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/10 bg-[#0d1013] px-3 py-2">
+          <div className="flex shrink-0 flex-nowrap items-center gap-1 overflow-x-auto border-b border-white/10 bg-[#0d1013] px-2 py-1.5 sm:flex-wrap sm:gap-2 sm:px-3 sm:py-2">
             <ToolButton
               active={toolMode === "window"}
               icon={<SlidersHorizontal className="size-4" />}
@@ -659,7 +688,7 @@ export function DicomViewerClient({
                 setToolMode((mode) => (mode === "zoom" ? "window" : "zoom"))
               }
             />
-            <div className="mx-1 h-6 w-px bg-white/10" />
+            <div className="mx-0.5 h-6 w-px shrink-0 bg-white/10 sm:mx-1" />
             <Button
               variant="ghost"
               size="icon"
@@ -690,11 +719,11 @@ export function DicomViewerClient({
             >
               <ChevronRight className="size-4" />
             </Button>
-            <div className="mx-1 h-6 w-px bg-white/10" />
+            <div className="mx-0.5 h-6 w-px shrink-0 bg-white/10 sm:mx-1" />
             <Button
               variant="ghost"
               size="sm"
-              className="text-zinc-300 hover:bg-white/10"
+              className="text-zinc-300 hover:bg-white/10 max-[420px]:px-2"
               onClick={toggleInvert}
               disabled={!hasStack}
             >
@@ -710,7 +739,7 @@ export function DicomViewerClient({
             >
               <RotateCcw className="size-4" />
             </Button>
-            <div className="min-w-36 flex-1 px-2">
+            <div className="min-w-28 flex-[1_0_7rem] px-1 sm:min-w-36 sm:px-2">
               <input
                 className="h-2 w-full accent-emerald-300"
                 type="range"
@@ -721,7 +750,7 @@ export function DicomViewerClient({
                 onChange={(event) => void showImage(Number(event.currentTarget.value))}
               />
             </div>
-            <div className="font-mono text-xs text-zinc-400">
+            <div className="shrink-0 font-mono text-xs text-zinc-400">
               <span data-test-id="dicom-slice-counter">
                 {hasStack
                   ? `${(loadingImageIndex ?? sliceIndex) + 1} / ${activeStack?.images.length}`
@@ -734,9 +763,10 @@ export function DicomViewerClient({
           </div>
 
           <div
-            className="relative min-h-[420px] flex-1 outline-none"
+            className="relative min-h-[260px] flex-1 outline-none sm:min-h-[420px] max-lg:landscape:min-h-0"
             onContextMenu={(event) => event.preventDefault()}
             aria-label="DICOM image viewport"
+            data-test-id="dicom-viewport-frame"
           >
             <div
               ref={viewportElementRef}
@@ -744,7 +774,16 @@ export function DicomViewerClient({
               data-test-id="dicom-cornerstone-viewport"
               data-testid="dicom-cornerstone-viewport"
             />
-            {!hasStack ? (
+            {!catalog && !displayError ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/80 px-6 text-center">
+                <div className="max-w-sm">
+                  <div className="mx-auto mb-4 size-8 animate-spin rounded-full border-2 border-white/15 border-t-emerald-300" />
+                  <div className="text-sm font-medium text-zinc-200">
+                    Loading DICOM catalog.
+                  </div>
+                </div>
+              </div>
+            ) : !hasStack ? (
               <div className="absolute inset-0 flex items-center justify-center bg-black/80 px-6 text-center">
                 <div className="max-w-sm">
                   <ScanSearch className="mx-auto mb-4 size-10 text-zinc-500" />
@@ -889,7 +928,7 @@ function ToolButton({
       aria-pressed={active}
     >
       {icon}
-      {label}
+      <span className="sr-only sm:not-sr-only">{label}</span>
     </Button>
   );
 }
@@ -933,6 +972,29 @@ function findSeriesForBiopsy(series: DicomSeries[], biopsyId: string | null | un
       .filter((candidate) => matchesBiopsySeries(candidate, biopsy))
       .sort((a, b) => b.images.length - a.images.length)[0] ?? null
   );
+}
+
+function waitForElementSize(element: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0) return Promise.resolve();
+
+  return new Promise<void>((resolve) => {
+    let frames = 0;
+    const tick = () => {
+      const nextRect = element.getBoundingClientRect();
+      frames += 1;
+      if (nextRect.width > 0 && nextRect.height > 0) {
+        resolve();
+        return;
+      }
+      if (frames > 120) {
+        resolve();
+        return;
+      }
+      window.requestAnimationFrame(tick);
+    };
+    window.requestAnimationFrame(tick);
+  });
 }
 
 function prefetchNearbyImages(

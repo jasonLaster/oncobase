@@ -110,8 +110,9 @@ test.describe("DICOM viewer", () => {
     await page.goto("/diagnostics");
 
     await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
+    const desktopTable = page.getByTestId("diagnostics-desktop-table");
     for (const biopsy of biopsyLinks) {
-      const viewerLink = page.locator(
+      const viewerLink = desktopTable.locator(
         `a[href="/tools/dicom-viewer?id=${biopsy.id}"]`
       );
 
@@ -122,6 +123,21 @@ test.describe("DICOM viewer", () => {
         `/tools/dicom-viewer?id=${biopsy.id}`,
       );
     }
+  });
+
+  test("diagnostics page uses a compact mobile study list", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/diagnostics");
+
+    const mobileList = page.getByTestId("diagnostics-mobile-list");
+    await expect(mobileList).toBeVisible();
+    await expect(page.getByRole("table")).toBeHidden();
+    await expect(
+      mobileList.getByRole("link", { name: /DICOM viewer/ }),
+    ).toHaveCount(biopsyLinks.length);
+    await expect(
+      mobileList.getByRole("link", { name: /DICOM viewer/ }).first(),
+    ).toHaveAttribute("href", "/tools/dicom-viewer?id=biopsy-2026-04-10");
   });
 
   test("diagnostic report PDFs support byte-range loading", async ({
@@ -210,6 +226,9 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9", {
       timeout: 30_000,
     });
+    await expect(page.getByTestId("dicom-image-loading")).toBeHidden({
+      timeout: 30_000,
+    });
 
     await page.getByTestId("dicom-collapse-guardrails").click();
 
@@ -221,6 +240,39 @@ test.describe("DICOM viewer", () => {
 
     await page.getByTestId("dicom-toggle-stack-rail").click();
     await expect(page.getByTestId("dicom-stack-panel")).toBeVisible();
+  });
+
+  test("gives the image viewport the full width in mobile landscape", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 844, height: 390 });
+    await gotoViewer(page, "biopsy-2026-04-10");
+
+    await expect(page.getByTestId("mobile-page-header")).toBeHidden();
+    await expect(page.locator('[data-test-id="diagnostics-sidebar"]:visible')).toHaveCount(0);
+    await expect(page.locator('[data-test-id="dicom-series-panel"]:visible')).toHaveCount(0);
+    await expect(page.locator('[data-test-id="dicom-stack-panel"]:visible')).toHaveCount(0);
+
+    const frameBox = await page.getByTestId("dicom-viewport-frame").boundingBox();
+    expect(frameBox?.width).toBeGreaterThan(800);
+    expect(frameBox?.height).toBeGreaterThan(320);
+    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9", {
+      timeout: 30_000,
+    });
+
+    const canvasState = await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        '[data-test-id="dicom-cornerstone-viewport"] canvas',
+      );
+      return {
+        height: canvas?.height ?? 0,
+        imageBytes: canvas?.toDataURL("image/png").length ?? 0,
+        width: canvas?.width ?? 0,
+      };
+    });
+    expect(canvasState.width).toBeGreaterThan(800);
+    expect(canvasState.height).toBeGreaterThan(300);
+    expect(canvasState.imageBytes).toBeGreaterThan(8_000);
   });
 
   test("pan and zoom act as toggles back to window-level", async ({ page }) => {

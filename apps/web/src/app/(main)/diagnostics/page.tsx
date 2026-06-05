@@ -8,6 +8,7 @@ import {
   getDicomViewerHref,
   type DiagnosticBiopsy,
 } from "@/lib/diagnostic-biopsies";
+import { cn } from "@/lib/utils";
 
 export const metadata = {
   title: "Diagnostics",
@@ -30,7 +31,7 @@ export default function DiagnosticsPage() {
         </header>
 
         <section className="overflow-hidden rounded-lg border border-border bg-background">
-          <div>
+          <div className="hidden md:block" data-test-id="diagnostics-desktop-table">
             <table className="w-full table-fixed border-collapse text-left text-sm">
               <colgroup>
                 <col className="w-28 sm:w-32" />
@@ -97,6 +98,47 @@ export default function DiagnosticsPage() {
               </tbody>
             </table>
           </div>
+
+          <div className="divide-y divide-border md:hidden" data-test-id="diagnostics-mobile-list">
+            {DIAGNOSTIC_BIOPSIES.map((biopsy) => {
+              const reportLinks = getReportLinks(biopsy);
+              return (
+                <article key={biopsy.id} className="p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-foreground">
+                        {biopsy.title}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>{biopsy.dateLabel}</span>
+                        <Badge variant="outline" className="h-5 px-1.5 text-[11px]">
+                          {biopsy.modality}
+                        </Badge>
+                      </div>
+                    </div>
+                    <DiagnosticsActionLink
+                      href={getDicomViewerHref(biopsy.id)}
+                      icon={<ScanSearch className="size-4" />}
+                      label="DICOM viewer"
+                      primary
+                      compact
+                    />
+                  </div>
+                  <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                    {reportLinks.map((link) => (
+                      <DiagnosticsActionLink
+                        key={`${biopsy.id}-${link.href}`}
+                        href={link.href}
+                        icon={<FileText className="size-4" />}
+                        label={link.label}
+                        compact
+                      />
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </section>
       </main>
     </div>
@@ -121,18 +163,20 @@ function DiagnosticsActionLink({
   icon,
   label,
   primary = false,
+  compact = false,
 }: {
   href: string;
   icon: ReactNode;
   label: string;
   primary?: boolean;
+  compact?: boolean;
 }) {
   const className = primary
     ? "inline-flex h-8 w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-2.5 text-sm font-medium whitespace-nowrap text-neutral-950 transition-colors hover:border-primary/40 hover:bg-white/90 hover:text-neutral-950 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
     : "inline-flex h-8 w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-medium whitespace-nowrap transition-colors hover:border-primary/40 hover:bg-accent hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none";
 
   return (
-    <Link href={href} className={className}>
+    <Link href={href} className={cn(className, compact && "px-2 text-xs")}>
       {icon}
       {label}
       <ArrowUpRight className="size-4" />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
 
 import {
   getResizableSidebarServerSnapshot,
@@ -11,6 +12,7 @@ import {
   setResizableSidebarWidth,
   subscribeToResizableSidebar,
 } from "@/components/resizable-sidebar-store";
+import { cn } from "@/lib/utils";
 
 export function ResizableLayout({
   sidebar,
@@ -37,12 +39,14 @@ function ResizableSidebarLayout({
   sidebar: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const width = useSyncExternalStore(
     subscribeToResizableSidebar,
     getResizableSidebarSnapshot,
     getResizableSidebarServerSnapshot
   );
   const collapsed = width === 0;
+  const immersiveMobileLandscape = pathname.startsWith("/tools/dicom-viewer");
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
@@ -93,10 +97,14 @@ function ResizableSidebarLayout({
       className="flex h-full min-h-0 overflow-hidden"
       data-sidebar-layout
       data-sidebar-state={collapsed ? "collapsed" : "expanded"}
+      data-immersive-route={immersiveMobileLandscape ? "dicom-viewer" : undefined}
     >
       <div
         data-sidebar-collapsed-rail
-        className="hidden shrink-0 flex-col items-center border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] pt-2 md:flex md:w-12"
+        className={cn(
+          "hidden shrink-0 flex-col items-center border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] pt-2 md:flex md:w-12",
+          immersiveMobileLandscape && "max-lg:landscape:hidden",
+        )}
       >
         <button
           type="button"
@@ -113,7 +121,10 @@ function ResizableSidebarLayout({
       </div>
       <div
         data-sidebar-expanded-rail
-        className="group relative hidden min-h-0 shrink-0 overflow-hidden md:block"
+        className={cn(
+          "group relative hidden min-h-0 shrink-0 overflow-hidden md:block",
+          immersiveMobileLandscape && "max-lg:landscape:hidden",
+        )}
         style={{ width }}
       >
         <button
@@ -133,9 +144,18 @@ function ResizableSidebarLayout({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        className="hidden w-[3px] shrink-0 cursor-col-resize bg-[var(--sidebar-border)] transition-colors hover:bg-[var(--brand)] active:bg-[var(--brand)] md:block"
+        className={cn(
+          "hidden w-[3px] shrink-0 cursor-col-resize bg-[var(--sidebar-border)] transition-colors hover:bg-[var(--brand)] active:bg-[var(--brand)] md:block",
+          immersiveMobileLandscape && "max-lg:landscape:hidden",
+        )}
       />
-      <div className="min-h-0 min-w-0 flex-1 overflow-hidden pt-12 md:pt-0">
+      <div
+        className={cn(
+          "min-h-0 min-w-0 flex-1 overflow-hidden pt-12 md:pt-0",
+          immersiveMobileLandscape && "max-lg:landscape:pt-0",
+        )}
+        data-sidebar-content
+      >
         {children}
       </div>
     </div>
