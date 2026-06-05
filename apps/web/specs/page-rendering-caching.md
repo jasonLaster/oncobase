@@ -27,11 +27,13 @@ route into a slow or broken one.
 | `/chat`, `/search`, `/comments`, tools pages | Static or dynamic by feature | These are not document routes. Their cache policy should be owned by their feature specs. |
 | API routes | Dynamic unless proven otherwise | Route handlers default to request-bound behavior and should explicitly own HTTP cache headers. |
 
-Preview deployments intentionally seed only the smallest set of pages
-needed to validate PPR (`/about/Index`). Production seeds a small
-high-traffic set plus weekly update pages matching `wiki/updates/week-*`.
-Sources are deferred by default so publish and deploy time do not scale
-with the full source archive.
+Local development and preview deployments intentionally seed only the
+smallest set of pages needed to validate PPR (`/about/Index`). Local dev
+keeps this minimal because server caches are disabled and route-time
+static param generation should not depend on fetching the full published
+slug list. Production seeds a small high-traffic set plus weekly update
+pages matching `wiki/updates/week-*`. Sources are deferred by default so
+publish and deploy time do not scale with the full source archive.
 
 ## First Paint Contract
 
@@ -43,13 +45,14 @@ Every document page should have useful HTML before client JavaScript:
 - document title for the requested page
 - body text for the index route and other critical PPR validation pages
 
-The shell tree in `src/app/(main)/layout.tsx` is deliberately shallow:
-top-level and second-level nodes only. It does not include full
-`sources` or `wiki` branches because the full tree is very large and
-serializing it through the RSC stream can dominate HTML size and
-trigger client parse/hydration failures. The client refreshes the full
-tree from `/api/file-tree?format=compact` after first mount when the
-initial tree is empty or contains `truncated` nodes.
+The shell tree in `src/app/(main)/layout.tsx` is deliberately static
+and shallow: top-level and selected second-level nodes only. It does
+not fetch or serialize the full `sources` or `wiki` branches because
+the full tree is very large, depends on live Convex reads when server
+caches are disabled, and can dominate HTML size or first-byte latency.
+The client refreshes the full tree from `/api/file-tree?format=compact`
+after first mount when the initial tree is empty or contains
+`truncated` nodes.
 Do not pass the full compact tree through the server layout just to
 warm the command palette; the palette can seed from the hydrated
 sidebar cache or fetch `/api/pages` after first paint.
@@ -79,10 +82,10 @@ Important document helpers:
   `Markdown`/`PDF` children, so deep source ancestors are not repeated
   throughout the payload. `getFileTreeForSite(siteSlug)` expands that
   cached compact tree for compatibility callers.
-- `getShellFileTreeForSite(siteSlug, { maxDepth: 2 })` expands and
-  prunes the cached full tree into the small server shell tree. Deeper
-  directories are omitted and their visible parent is marked
-  `truncated`.
+- `getShellFileTreeForSite(siteSlug, { maxDepth: 2 })` is available
+  for compatibility callers that need to expand and prune the cached
+  full tree. The first-paint app shell does not call it; it starts from
+  a static bounded tree and marks omitted branches as `truncated`.
 - `getCanonicalSlug(contentPath)` resolves casing and index aliases
   from the cached canonical slug map.
 

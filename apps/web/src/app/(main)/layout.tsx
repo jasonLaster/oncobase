@@ -7,7 +7,7 @@ import { NavigationShell } from "@/components/navigation-shell";
 import { WebChatRuntimeProvider } from "@/components/chat-runtime-provider";
 import { PageLoadingSkeleton } from "@/components/page-loading";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
-import { getShellFileTreeForSite, type FileNode } from "@/lib/markdown";
+import type { FileNode } from "@/lib/markdown";
 import { getSitePublishVersion } from "@/lib/site-publish-version";
 import { DEFAULT_SITE_SLUG, toSiteSlug } from "@/lib/site";
 import { formatFileLabel } from "@/lib/file-labels";
@@ -24,6 +24,66 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+function truncatedDirectory(name: string, slug: string): FileNode {
+  return {
+    name,
+    slug,
+    type: "directory",
+    children: [],
+    truncated: true,
+  };
+}
+
+const STATIC_SHELL_TREE: FileNode[] = [
+  { name: "index", slug: "index", type: "file" },
+  {
+    name: "about",
+    slug: "about",
+    type: "directory",
+    children: [
+      { name: "About", slug: "about/About", type: "file" },
+      { name: "Journal", slug: "about/Journal", type: "file" },
+      { name: "Log", slug: "about/Log", type: "file" },
+      {
+        name: "overview",
+        slug: "about/overview",
+        type: "directory",
+        children: [],
+        truncated: true,
+      },
+      { name: "Terminology", slug: "about/Terminology", type: "file" },
+    ],
+  },
+  truncatedDirectory("asco", "asco"),
+  truncatedDirectory("project management", "project-management"),
+  truncatedDirectory("sources", "sources"),
+  {
+    name: "wiki",
+    slug: "wiki",
+    type: "directory",
+    children: [
+      { name: "index", slug: "wiki/index", type: "file" },
+      truncatedDirectory("companies", "wiki/companies"),
+      truncatedDirectory("diagnostics", "wiki/diagnostics"),
+      truncatedDirectory("education", "wiki/education"),
+      truncatedDirectory("logistics", "wiki/logistics"),
+      truncatedDirectory("people", "wiki/people"),
+      truncatedDirectory("prognosis", "wiki/prognosis"),
+      truncatedDirectory("questions", "wiki/questions"),
+      truncatedDirectory("treatment", "wiki/treatment"),
+      truncatedDirectory("updates", "wiki/updates"),
+    ],
+  },
+];
+
+async function getInitialTreeVersion(siteSlug: string) {
+  if (process.env.NODE_ENV === "development") {
+    return "development";
+  }
+
+  return getSitePublishVersion(siteSlug);
+}
 
 function fallbackHref(node: FileNode) {
   if (node.type === "pdf") {
@@ -143,10 +203,8 @@ export default async function MainLayout({
   children: React.ReactNode;
 }) {
   const siteSlug = toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG);
-  const [shellTree, treeVersion] = await Promise.all([
-    getShellFileTreeForSite(siteSlug, { maxDepth: 2 }),
-    getSitePublishVersion(siteSlug),
-  ]);
+  const shellTree = STATIC_SHELL_TREE;
+  const treeVersion = await getInitialTreeVersion(siteSlug);
   const shellFallback = <ShellFallback tree={shellTree} />;
 
   return (

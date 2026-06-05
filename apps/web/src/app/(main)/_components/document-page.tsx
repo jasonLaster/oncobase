@@ -36,8 +36,11 @@ const SEEDED_WEEKLY_UPDATE_SLUG_RE = /^wiki\/updates\/week-[^/]+$/;
 const ROUTE_SLUG_ALIASES = new Map([["about/index", "index"]]);
 const ROUTE_ALIAS_CANONICAL_PATHS = new Map([["about/index", "about/Index"]]);
 
-function isPreviewDeployment() {
-  return process.env.VERCEL_ENV === "preview";
+function shouldUseMinimalStaticParams() {
+  return (
+    process.env.NODE_ENV === "development" ||
+    process.env.VERCEL_ENV === "preview"
+  );
 }
 
 function seededWeeklyUpdateStaticParams(slugs: string[]) {
@@ -52,9 +55,9 @@ function seededWeeklyUpdateStaticParams(slugs: string[]) {
 
 export async function generateDocumentStaticParams() {
   const t0 = Date.now();
-  if (isPreviewDeployment()) {
+  if (shouldUseMinimalStaticParams()) {
     console.log(
-      `[build] preview generateStaticParams: ${SEEDED_STATIC_PARAMS.length} seed pages in ${Date.now() - t0}ms`
+      `[build] minimal generateStaticParams: ${SEEDED_STATIC_PARAMS.length} seed pages in ${Date.now() - t0}ms`
     );
     return SEEDED_STATIC_PARAMS;
   }
