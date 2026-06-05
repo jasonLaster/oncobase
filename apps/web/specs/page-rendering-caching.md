@@ -50,6 +50,9 @@ serializing it through the RSC stream can dominate HTML size and
 trigger client parse/hydration failures. The client refreshes the full
 tree from `/api/file-tree?format=compact` after first mount when the
 initial tree is empty or contains `truncated` nodes.
+Do not pass the full compact tree through the server layout just to
+warm the command palette; the palette can seed from the hydrated
+sidebar cache or fetch `/api/pages` after first paint.
 
 Pruned shell data must not masquerade as complete data. If a fallback
 tree exposes a `sources` or `wiki` branch with omitted children, that
