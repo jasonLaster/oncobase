@@ -27,6 +27,10 @@ const pageCases: PageLoadCase[] = [
     bodyText: "Patient identifiers hidden.",
   },
   {
+    route: "/wiki/updates/week-10-may-17-to-23",
+    heading: "Week 10",
+  },
+  {
     route: "/sources/meeting-notes/04-09---dirbas-biopsy-planning-overview",
     heading: "Dr. Dirbas Biopsy Planning Call — April 8, 2026",
   },

@@ -21,16 +21,17 @@ route into a slow or broken one.
 | --- | --- | --- |
 | `/` | Static | The homepage is the site index and should be fast on first paint. It uses a build-time site slug (`SITE_SLUG` or Diana) and cached Convex document data. |
 | `/about/Index` | Seeded PPR | This is the canonical index route used by page-load tests and initial shell validation. It must render header, sidebar chrome, title, and body text in the server HTML. |
-| `/[...slug]` | PPR | Most wiki/source pages get reusable chrome immediately while content can stream through cached document/render entries. |
+| `/[...slug]` | PPR | Most wiki/source pages get reusable chrome immediately while content can stream through cached document/render entries. Production also seeds high-traffic weekly update pages matching `wiki/updates/week-*` so post-deploy first paint does not depend on the first reader request. |
 | `/sources/[...slug]` | PPR | Source pages can be heavy and less frequently viewed, so they keep the shell responsive and defer source body rendering. |
 | `/pii-view/[...slug]` | PPR or dynamic reveal path | Revealed PII content may force request-bound behavior. It must not pollute the redacted public cache. |
 | `/chat`, `/search`, `/comments`, tools pages | Static or dynamic by feature | These are not document routes. Their cache policy should be owned by their feature specs. |
 | API routes | Dynamic unless proven otherwise | Route handlers default to request-bound behavior and should explicitly own HTTP cache headers. |
 
 Preview deployments intentionally seed only the smallest set of pages
-needed to validate PPR (`/about/Index`). Production can seed more
-high-traffic slugs, but sources are deferred by default so publish and
-deploy time do not scale with the full source archive.
+needed to validate PPR (`/about/Index`). Production seeds a small
+high-traffic set plus weekly update pages matching `wiki/updates/week-*`.
+Sources are deferred by default so publish and deploy time do not scale
+with the full source archive.
 
 ## First Paint Contract
 

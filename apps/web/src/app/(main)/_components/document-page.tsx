@@ -32,11 +32,22 @@ const SEEDED_STATIC_PARAMS: { slug: string[] }[] = [
   { slug: ["about", "Index"] },
   { slug: ["about", "Log"] },
 ];
+const SEEDED_WEEKLY_UPDATE_SLUG_RE = /^wiki\/updates\/week-[^/]+$/;
 const ROUTE_SLUG_ALIASES = new Map([["about/index", "index"]]);
 const ROUTE_ALIAS_CANONICAL_PATHS = new Map([["about/index", "about/Index"]]);
 
 function isPreviewDeployment() {
   return process.env.VERCEL_ENV === "preview";
+}
+
+function seededWeeklyUpdateStaticParams(slugs: string[]) {
+  const seeded: { slug: string[] }[] = [];
+  for (const slug of slugs) {
+    if (SEEDED_WEEKLY_UPDATE_SLUG_RE.test(slug)) {
+      seeded.push({ slug: slug.split("/") });
+    }
+  }
+  return seeded.sort((a, b) => a.slug.join("/").localeCompare(b.slug.join("/")));
 }
 
 export async function generateDocumentStaticParams() {
@@ -49,10 +60,12 @@ export async function generateDocumentStaticParams() {
   }
 
   const all = await getAllSlugs();
+  const seededWeeklyUpdates = seededWeeklyUpdateStaticParams(all);
+  const seeded = [...SEEDED_STATIC_PARAMS, ...seededWeeklyUpdates];
   console.log(
-    `[build] generateStaticParams: ${SEEDED_STATIC_PARAMS.length}/${all.length} seed pages in ${Date.now() - t0}ms`
+    `[build] generateStaticParams: ${seeded.length}/${all.length} seed pages (${seededWeeklyUpdates.length} weekly updates) in ${Date.now() - t0}ms`
   );
-  return SEEDED_STATIC_PARAMS;
+  return seeded;
 }
 
 export async function generateDocumentMetadata(
@@ -209,17 +222,16 @@ async function AsyncMarkdownBody({
 
 function MarkdownBodyFallback() {
   return (
-    <div
+    <output
       aria-label="Loading page body"
       className="space-y-4"
       data-test-id="markdown-body-loading"
-      role="status"
     >
       <div className="h-4 w-11/12 animate-pulse rounded bg-[var(--accent-light)]" />
       <div className="h-4 w-full animate-pulse rounded bg-[var(--accent-light)]" />
       <div className="h-4 w-10/12 animate-pulse rounded bg-[var(--accent-light)]" />
       <div className="h-28 w-full animate-pulse rounded-md bg-[var(--accent-light)]" />
-    </div>
+    </output>
   );
 }
 
