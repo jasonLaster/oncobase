@@ -11,18 +11,18 @@
  * wasn't.
  *
  * Strategy:
- *   - For every local vault doc that was NOT modified after the last
- *     fs-ingest deploy boundary (`--since-ref`, defaults to the
- *     cutover commit), compute the new-style hash and patch it onto
- *     the matching remote row.
+ *   - For every local vault doc that was NOT modified after the
+ *     operator-supplied boundary (`--since-ref`), compute the new-style
+ *     hash and patch it onto the matching remote row.
  *   - For docs that WERE touched after the boundary (today's edits),
- *     leave the legacy hash in place. Those will surface as "changed"
- *     in the next `wiki:check` and republish through the normal flow.
+ *     leave the old hash in place. Those will surface as "changed" in
+ *     the next `wiki:check` and republish through the normal flow.
  *
- *   bun scripts/admin/backfill-content-hashes.ts --site diana
- *   bun scripts/admin/backfill-content-hashes.ts --site diana --dry-run
- *   bun scripts/admin/backfill-content-hashes.ts --site diana --since-ref de2914a5
+ *   bun scripts/admin/backfill-content-hashes.ts --site diana --dry-run --since-ref HEAD~1
+ *   bun scripts/admin/backfill-content-hashes.ts --site diana --since-ref HEAD~1
+ *   bun scripts/admin/backfill-content-hashes.ts --site diana --backfill-all
  */
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { ConvexHttpClient } from "convex/browser";
 import dotenv from "dotenv";
@@ -44,14 +44,33 @@ dotenv.config({
 const args = process.argv.slice(2);
 const siteSlug = readFlag(args, "--site");
 const dryRun = args.includes("--dry-run");
-// Default boundary: last commit that was deployed with the old
-// fs-ingest pipeline. Files modified after this point should NOT be
-// backfilled — they reflect edits that haven't yet been published
-// and need to flow through wiki:publish normally.
-const sinceRef = readFlag(args, "--since-ref") ?? "de2914a5";
+const sinceRef = readFlag(args, "--since-ref");
+const backfillAll = args.includes("--backfill-all");
+
+function readFlags(name: string) {
+  const values: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === name && args[i + 1]) values.push(args[i + 1]);
+  }
+  return values;
+}
 
 if (!siteSlug) {
-  console.error("Usage: bun scripts/admin/backfill-content-hashes.ts --site <slug> [--dry-run] [--since-ref <commit>]");
+  console.error(
+    "Usage: bun scripts/admin/backfill-content-hashes.ts --site <slug> [--dry-run] (--since-ref <commit> | --backfill-all) [--skip-slug <slug>...]",
+  );
+  process.exit(1);
+}
+
+if (!sinceRef && !backfillAll) {
+  console.error(
+    "Refusing to backfill without a boundary. Pass --since-ref <commit> to protect recent edits, or --backfill-all for an intentional full hash migration.",
+  );
+  process.exit(1);
+}
+
+if (sinceRef && backfillAll) {
+  console.error("Use either --since-ref or --backfill-all, not both.");
   process.exit(1);
 }
 
@@ -62,15 +81,32 @@ if (!url) {
   process.exit(1);
 }
 
-const repoRoot = path.resolve(path.join(__dirname, "..", "..", "..", ".."));
-const vaultRel = path.relative(repoRoot, config.vaultPath);
+function gitRootForPath(targetPath: string) {
+  return execFileSync("git", ["-C", targetPath, "rev-parse", "--show-toplevel"], {
+    encoding: "utf8",
+  }).trim();
+}
 
-const skipSlugs = changedSlugsSinceRef({
-  cwd: repoRoot,
-  vaultRel,
-  ref: sinceRef,
-});
-console.log(`Skipping ${skipSlugs.size} slugs touched since ${sinceRef}:`);
+const vaultGitRoot = gitRootForPath(config.vaultPath);
+const vaultRel = path.relative(vaultGitRoot, config.vaultPath) || ".";
+
+const skipSlugs = new Set(readFlags("--skip-slug"));
+if (sinceRef) {
+  for (const slug of changedSlugsSinceRef({
+    cwd: vaultGitRoot,
+    vaultRel,
+    ref: sinceRef,
+  })) {
+    skipSlugs.add(slug);
+  }
+}
+console.log(`Vault git root: ${vaultGitRoot}`);
+console.log(`Vault pathspec: ${vaultRel}`);
+console.log(
+  sinceRef
+    ? `Skipping ${skipSlugs.size} slugs touched since ${sinceRef}:`
+    : `Skipping ${skipSlugs.size} explicitly protected slugs:`,
+);
 for (const s of [...skipSlugs].sort()) console.log("  -", s);
 
 const localDocs = readVaultDocuments(config.vaultPath);
@@ -114,13 +150,22 @@ async function flushBatch() {
 
 while (true) {
   const page: {
-    page: Array<{ slug: string; title: string; content: string; tags: string[]; contentHash?: string }>;
+    page: Array<{
+      slug: string;
+      title: string;
+      content: string;
+      tags: string[];
+      sensitiveInclude?: string[];
+      contentHash?: string;
+      sensitive?: boolean;
+    }>;
     isDone: boolean;
     continueCursor: string;
   } = await client.query(api.documents.listPageWithContent, {
     cursor,
     numItems: 200,
     siteSlug,
+    includeSensitive: true,
   });
 
   for (const remote of page.page) {
