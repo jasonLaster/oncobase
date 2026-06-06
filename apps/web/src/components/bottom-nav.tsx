@@ -220,16 +220,13 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
         </button>
       </header>
 
-      {!isChatRoute && (
+      {!isChatRoute && !isDicomViewerRoute && (
         <Link
           href="/chat"
           aria-label="Ask wiki"
           title="Ask wiki"
-          className={`fixed bottom-[calc(2rem+env(safe-area-inset-bottom))] right-4 z-50 inline-flex size-12 items-center justify-center rounded-full border border-[var(--brand)]/25 bg-[var(--brand)] text-white shadow-lg shadow-black/15 transition-transform active:scale-[0.97] md:hidden ${
-            isDicomViewerRoute ? "max-lg:landscape:hidden" : ""
-          }`}
+          className="fixed right-4 bottom-[calc(2rem+env(safe-area-inset-bottom))] z-50 inline-flex size-12 items-center justify-center rounded-full border border-[var(--brand)]/25 bg-[var(--brand)] text-white shadow-lg shadow-black/15 transition-transform active:scale-[0.97] md:hidden"
           data-test-id="mobile-ask-wiki"
-          data-dicom-viewer-mobile-chrome={isDicomViewerRoute ? "" : undefined}
         >
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />

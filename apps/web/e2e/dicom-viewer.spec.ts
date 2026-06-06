@@ -299,6 +299,39 @@ test.describe("DICOM viewer", () => {
     expect(canvasState.imageBytes).toBeGreaterThan(8_000);
   });
 
+  test("uses a bottom sheet for study navigation in mobile portrait", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoViewer(page, "biopsy-2026-04-10");
+    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9", {
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("dicom-image-loading")).toBeHidden({
+      timeout: 30_000,
+    });
+
+    await expect(page.locator('[data-test-id="dicom-series-panel"]:visible')).toHaveCount(0);
+    await expect(page.locator('[data-test-id="mobile-ask-wiki"]:visible')).toHaveCount(0);
+    await expect(page.getByTestId("dicom-mobile-study-trigger")).toBeVisible();
+
+    const toolsRow = await page.getByTestId("dicom-tools-row").boundingBox();
+    const cineRow = await page.getByTestId("dicom-cine-row").boundingBox();
+    expect(toolsRow?.y).toBeLessThan(cineRow?.y ?? 0);
+
+    await page.getByTestId("dicom-mobile-study-trigger").click();
+    const sheet = page.getByTestId("dicom-mobile-study-sheet");
+    await expect(sheet).toHaveAttribute("data-state", "open");
+    await expect(sheet.getByTestId("dicom-mobile-series-list")).toBeVisible();
+    await expect(sheet.getByText("April 10 biopsy")).toBeVisible();
+
+    await sheet.getByRole("button", { name: "Report", exact: true }).click();
+    await expect(sheet.getByTestId("dicom-mobile-pathology-report-link")).toHaveAttribute(
+      "href",
+      "/api/file?path=sources%2Fdiagnostics%2F04-10-kernis-path-report%2F04-10-kernis-path-report.pdf",
+    );
+  });
+
   test("pan and zoom act as toggles back to window-level", async ({ page }) => {
     await gotoViewer(page);
 

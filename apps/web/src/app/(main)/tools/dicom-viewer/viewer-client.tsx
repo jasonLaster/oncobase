@@ -16,6 +16,7 @@ import {
   RotateCcw,
   ScanSearch,
   SlidersHorizontal,
+  X,
   ZoomIn,
 } from "lucide-react";
 import useSWR from "swr";
@@ -177,6 +178,8 @@ export function DicomViewerClient({
   const [isInverted, setIsInverted] = useState(false);
   const [loadingImageIndex, setLoadingImageIndex] = useState<number | null>(null);
   const [stackRailOpen, setStackRailOpen] = useState(true);
+  const [mobileStudySheetOpen, setMobileStudySheetOpen] = useState(false);
+  const [mobileStudyTab, setMobileStudyTab] = useState<"series" | "report">("series");
   const {
     data: catalog,
     error: catalogError,
@@ -545,6 +548,15 @@ export function DicomViewerClient({
   }, []);
 
   const hasStack = Boolean(activeStack?.images.length);
+  const selectSeries = useCallback((seriesId: string, closeMobileSheet = false) => {
+    setSelectedSeriesId(seriesId);
+    setIsPlaying(false);
+    if (closeMobileSheet) setMobileStudySheetOpen(false);
+  }, []);
+  const openMobileStudySheet = useCallback((tab: "series" | "report" = "series") => {
+    setMobileStudyTab(tab);
+    setMobileStudySheetOpen(true);
+  }, []);
   const collapseGuardrails = () => {
     setResizableSidebarWidth(0);
     setStackRailOpen(false);
@@ -554,7 +566,7 @@ export function DicomViewerClient({
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0b0d0f] text-zinc-100">
       <div
         className={cn(
-          "grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[300px_minmax(0,1fr)] lg:grid-rows-none max-lg:landscape:grid-rows-[minmax(0,1fr)]",
+          "grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] lg:grid-cols-[300px_minmax(0,1fr)] lg:grid-rows-none",
           stackRailOpen
             ? "xl:grid-cols-[320px_minmax(0,1fr)_280px]"
             : "xl:grid-cols-[320px_minmax(0,1fr)_44px]",
@@ -562,7 +574,7 @@ export function DicomViewerClient({
         data-dicom-viewer-layout
       >
         <aside
-          className="min-h-0 overflow-x-auto overflow-y-hidden border-b border-white/10 bg-[#11151a] lg:overflow-y-auto lg:border-r lg:border-b-0 max-lg:landscape:hidden"
+          className="hidden min-h-0 overflow-y-auto border-r border-white/10 bg-[#11151a] lg:block"
           data-test-id="dicom-series-panel"
         >
           <div className="space-y-3 p-2.5 sm:p-3">
@@ -601,8 +613,7 @@ export function DicomViewerClient({
                         : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]",
                     )}
                     onClick={() => {
-                      setSelectedSeriesId(series.id);
-                      setIsPlaying(false);
+                      selectSeries(series.id);
                     }}
                   >
                     <div className="flex items-start gap-2">
@@ -667,101 +678,6 @@ export function DicomViewerClient({
         </aside>
 
         <main className="flex min-h-0 flex-col bg-black">
-          <div className="flex shrink-0 flex-nowrap items-center gap-1 overflow-x-auto border-b border-white/10 bg-[#0d1013] px-2 py-1.5 sm:flex-wrap sm:gap-2 sm:px-3 sm:py-2">
-            <ToolButton
-              active={toolMode === "window"}
-              icon={<SlidersHorizontal className="size-4" />}
-              label="W/L"
-              onClick={() => setToolMode("window")}
-            />
-            <ToolButton
-              active={toolMode === "pan"}
-              icon={<Move className="size-4" />}
-              label="Pan"
-              onClick={() => setToolMode((mode) => (mode === "pan" ? "window" : "pan"))}
-            />
-            <ToolButton
-              active={toolMode === "zoom"}
-              icon={<ZoomIn className="size-4" />}
-              label="Zoom"
-              onClick={() =>
-                setToolMode((mode) => (mode === "zoom" ? "window" : "zoom"))
-              }
-            />
-            <div className="mx-0.5 h-6 w-px shrink-0 bg-white/10 sm:mx-1" />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-zinc-300 hover:bg-white/10"
-              onClick={() => void showImage(sliceIndex - 1)}
-              disabled={!hasStack || sliceIndex <= 0}
-              title="Previous image"
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-zinc-300 hover:bg-white/10"
-              onClick={() => setIsPlaying((value) => !value)}
-              disabled={!hasStack}
-              title={isPlaying ? "Pause cine" : "Play cine"}
-            >
-              {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-zinc-300 hover:bg-white/10"
-              onClick={() => void showImage(sliceIndex + 1)}
-              disabled={!hasStack || sliceIndex >= (activeStack?.images.length ?? 1) - 1}
-              title="Next image"
-            >
-              <ChevronRight className="size-4" />
-            </Button>
-            <div className="mx-0.5 h-6 w-px shrink-0 bg-white/10 sm:mx-1" />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-zinc-300 hover:bg-white/10 max-[420px]:px-2"
-              onClick={toggleInvert}
-              disabled={!hasStack}
-            >
-              Invert
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-zinc-300 hover:bg-white/10"
-              onClick={resetViewport}
-              disabled={!hasStack}
-              title="Reset viewport"
-            >
-              <RotateCcw className="size-4" />
-            </Button>
-            <div className="min-w-28 flex-[1_0_7rem] px-1 sm:min-w-36 sm:px-2">
-              <input
-                className="h-2 w-full accent-emerald-300"
-                type="range"
-                min={0}
-                max={Math.max(0, (activeStack?.images.length ?? 1) - 1)}
-                value={loadingImageIndex ?? sliceIndex}
-                disabled={!hasStack}
-                onChange={(event) => void showImage(Number(event.currentTarget.value))}
-              />
-            </div>
-            <div className="shrink-0 font-mono text-xs text-zinc-400">
-              <span data-test-id="dicom-slice-counter">
-                {hasStack
-                  ? `${(loadingImageIndex ?? sliceIndex) + 1} / ${activeStack?.images.length}`
-                  : "0 / 0"}
-              </span>
-            </div>
-            <div className="hidden min-w-0 max-w-64 truncate text-xs text-zinc-500 lg:block xl:hidden">
-              {currentImage?.fileName ?? activeStack?.title ?? ""}
-            </div>
-          </div>
-
           <div
             className="relative min-h-[260px] flex-1 outline-none sm:min-h-[420px] max-lg:landscape:min-h-0"
             onContextMenu={(event) => event.preventDefault()}
@@ -816,6 +732,126 @@ export function DicomViewerClient({
                 {displayError}
               </div>
             ) : null}
+          </div>
+
+          <div
+            className="flex shrink-0 flex-col gap-1 border-t border-white/10 bg-[#0d1013] px-2 py-1.5 sm:px-3 sm:py-2 lg:flex-row lg:items-center lg:gap-2 max-lg:landscape:flex-row max-lg:landscape:items-center max-lg:landscape:gap-1.5"
+            data-test-id="dicom-controls"
+          >
+            <div
+              className="flex shrink-0 items-center gap-1 overflow-x-auto"
+              data-test-id="dicom-tools-row"
+            >
+              <ToolButton
+                active={toolMode === "window"}
+                icon={<SlidersHorizontal className="size-4" />}
+                label="W/L"
+                onClick={() => setToolMode("window")}
+              />
+              <ToolButton
+                active={toolMode === "pan"}
+                icon={<Move className="size-4" />}
+                label="Pan"
+                onClick={() =>
+                  setToolMode((mode) => (mode === "pan" ? "window" : "pan"))
+                }
+              />
+              <ToolButton
+                active={toolMode === "zoom"}
+                icon={<ZoomIn className="size-4" />}
+                label="Zoom"
+                onClick={() =>
+                  setToolMode((mode) => (mode === "zoom" ? "window" : "zoom"))
+                }
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/15 bg-white/5 px-2 text-zinc-300 hover:bg-white/10 sm:px-3"
+                onClick={toggleInvert}
+                disabled={!hasStack}
+              >
+                Invert
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-zinc-300 hover:bg-white/10"
+                onClick={resetViewport}
+                disabled={!hasStack}
+                title="Reset viewport"
+              >
+                <RotateCcw className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/15 bg-white/5 px-2 text-zinc-300 hover:bg-white/10 lg:hidden"
+                onClick={() => openMobileStudySheet()}
+                onPointerDown={() => openMobileStudySheet()}
+                data-test-id="dicom-mobile-study-trigger"
+              >
+                <ImageIcon className="size-4" />
+                <span className="sr-only min-[380px]:not-sr-only">Study</span>
+              </Button>
+            </div>
+
+            <div
+              className="flex min-w-0 flex-1 items-center gap-1"
+              data-test-id="dicom-cine-row"
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 text-zinc-300 hover:bg-white/10"
+                onClick={() => void showImage(sliceIndex - 1)}
+                disabled={!hasStack || sliceIndex <= 0}
+                title="Previous image"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 text-zinc-300 hover:bg-white/10"
+                onClick={() => setIsPlaying((value) => !value)}
+                disabled={!hasStack}
+                title={isPlaying ? "Pause cine" : "Play cine"}
+              >
+                {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 text-zinc-300 hover:bg-white/10"
+                onClick={() => void showImage(sliceIndex + 1)}
+                disabled={!hasStack || sliceIndex >= (activeStack?.images.length ?? 1) - 1}
+                title="Next image"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+              <div className="min-w-24 flex-1 px-1 sm:min-w-36 sm:px-2">
+                <input
+                  className="h-2 w-full accent-emerald-300"
+                  type="range"
+                  min={0}
+                  max={Math.max(0, (activeStack?.images.length ?? 1) - 1)}
+                  value={loadingImageIndex ?? sliceIndex}
+                  disabled={!hasStack}
+                  onChange={(event) => void showImage(Number(event.currentTarget.value))}
+                />
+              </div>
+              <div className="shrink-0 font-mono text-xs text-zinc-400">
+                <span data-test-id="dicom-slice-counter">
+                  {hasStack
+                    ? `${(loadingImageIndex ?? sliceIndex) + 1} / ${activeStack?.images.length}`
+                    : "0 / 0"}
+                </span>
+              </div>
+              <div className="hidden min-w-0 max-w-64 truncate text-xs text-zinc-500 lg:block xl:hidden">
+                {currentImage?.fileName ?? activeStack?.title ?? ""}
+              </div>
+            </div>
           </div>
         </main>
 
@@ -900,6 +936,158 @@ export function DicomViewerClient({
             </Button>
           </div>
         )}
+      </div>
+
+      <div
+        className={cn(
+          "fixed inset-0 z-50 transition-opacity duration-300 lg:hidden",
+          mobileStudySheetOpen
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0",
+        )}
+        data-state={mobileStudySheetOpen ? "open" : "closed"}
+        data-test-id="dicom-mobile-study-sheet"
+      >
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+          onClick={() => setMobileStudySheetOpen(false)}
+        />
+        <div
+          className={cn(
+            "absolute right-0 bottom-0 left-0 flex h-[min(82dvh,36rem)] flex-col rounded-t-2xl border-t border-white/10 bg-[#11151a] shadow-2xl transition-transform duration-300 ease-out",
+            mobileStudySheetOpen ? "translate-y-0" : "translate-y-full",
+          )}
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
+          <div className="shrink-0 px-4 pt-2 pb-3">
+            <div className="mx-auto mb-2 h-1 w-8 rounded-full bg-zinc-500/50" />
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-zinc-100">
+                  {selectedBiopsy?.title ?? activeStack?.title ?? "DICOM study"}
+                </div>
+                <div className="mt-0.5 text-xs text-zinc-500">
+                  {displaySeries.length} series
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="shrink-0 text-zinc-300 hover:bg-white/10"
+                onClick={() => setMobileStudySheetOpen(false)}
+                aria-label="Close study navigation"
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+            <div className="mt-3 flex rounded-md border border-white/10 bg-black/30 p-0.5">
+              <button
+                type="button"
+                onClick={() => setMobileStudyTab("series")}
+                className={cn(
+                  "flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors",
+                  mobileStudyTab === "series"
+                    ? "bg-emerald-300/15 text-emerald-100"
+                    : "text-zinc-400 hover:text-zinc-100",
+                )}
+              >
+                Series
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileStudyTab("report")}
+                className={cn(
+                  "flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors",
+                  mobileStudyTab === "report"
+                    ? "bg-emerald-300/15 text-emerald-100"
+                    : "text-zinc-400 hover:text-zinc-100",
+                )}
+              >
+                Report
+              </button>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
+            {mobileStudyTab === "series" ? (
+              <div className="space-y-2" data-test-id="dicom-mobile-series-list">
+                {displaySeries.map((series) => {
+                  const selected = selectedSeries?.id === series.id;
+                  return (
+                    <button
+                      key={series.id}
+                      className={cn(
+                        "w-full rounded-lg border p-3 text-left transition-colors",
+                        selected
+                          ? "border-sky-400/50 bg-sky-400/10"
+                          : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]",
+                      )}
+                      onClick={() => selectSeries(series.id, true)}
+                    >
+                      <div className="flex items-start gap-2">
+                        <ImageIcon className="mt-0.5 size-4 shrink-0 text-zinc-400" />
+                        <div className="min-w-0 flex-1">
+                          <div className="line-clamp-2 text-sm font-medium text-zinc-100">
+                            {series.label}
+                          </div>
+                          <div className="mt-1 truncate text-xs text-zinc-500">
+                            {series.relativeDirectory}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {series.modality ? (
+                          <Badge
+                            variant="secondary"
+                            className="bg-white/10 text-zinc-200"
+                          >
+                            {series.modality}
+                          </Badge>
+                        ) : null}
+                        <Badge variant="outline" className="border-white/15 text-zinc-300">
+                          {series.images.length} images
+                        </Badge>
+                      </div>
+                    </button>
+                  );
+                })}
+                {catalog?.root && catalog.series.length > 0 && displaySeries.length === 0 ? (
+                  <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
+                    {requestedBiopsy
+                      ? "No image series matched this biopsy."
+                      : "The catalog only has non-image DICOM objects right now."}
+                  </div>
+                ) : null}
+                {!catalog?.root ? (
+                  <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
+                    No DICOM catalog was found.
+                  </div>
+                ) : null}
+              </div>
+            ) : selectedBiopsy ? (
+              <a
+                href={selectedBiopsy.pathologyReportHref}
+                className="block rounded-lg border border-emerald-300/35 bg-emerald-300/10 p-3 text-left transition-colors hover:border-emerald-200/60 hover:bg-emerald-300/15"
+                data-test-id="dicom-mobile-pathology-report-link"
+              >
+                <div className="flex items-center gap-2 text-sm font-semibold text-emerald-50">
+                  <FileText className="size-4 shrink-0 text-emerald-200" />
+                  <span>Pathology report</span>
+                </div>
+                <div className="mt-2 text-xs leading-5 text-emerald-100/80">
+                  {selectedBiopsy.title}
+                </div>
+                <div className="mt-1 text-xs font-medium text-emerald-100">
+                  Open canonical report
+                </div>
+              </a>
+            ) : (
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm text-zinc-300">
+                No pathology report is linked to the selected series.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
