@@ -46,7 +46,7 @@ function ResizableSidebarLayout({
     getResizableSidebarServerSnapshot
   );
   const collapsed = width === 0;
-  const immersiveMobileLandscape = pathname.startsWith("/tools/dicom-viewer");
+  const isDicomViewerRoute = pathname.startsWith("/tools/dicom-viewer");
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
@@ -97,13 +97,13 @@ function ResizableSidebarLayout({
       className="flex h-full min-h-0 overflow-hidden"
       data-sidebar-layout
       data-sidebar-state={collapsed ? "collapsed" : "expanded"}
-      data-immersive-route={immersiveMobileLandscape ? "dicom-viewer" : undefined}
+      data-immersive-route={isDicomViewerRoute ? "dicom-viewer" : undefined}
     >
       <div
         data-sidebar-collapsed-rail
         className={cn(
           "hidden shrink-0 flex-col items-center border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] pt-2 md:flex md:w-12",
-          immersiveMobileLandscape && "max-lg:landscape:hidden",
+          isDicomViewerRoute && "max-lg:landscape:hidden",
         )}
       >
         <button
@@ -123,7 +123,7 @@ function ResizableSidebarLayout({
         data-sidebar-expanded-rail
         className={cn(
           "group relative hidden min-h-0 shrink-0 overflow-hidden md:block",
-          immersiveMobileLandscape && "max-lg:landscape:hidden",
+          isDicomViewerRoute && "max-lg:landscape:hidden",
         )}
         style={{ width }}
       >
@@ -146,13 +146,13 @@ function ResizableSidebarLayout({
         onPointerUp={onPointerUp}
         className={cn(
           "hidden w-[3px] shrink-0 cursor-col-resize bg-[var(--sidebar-border)] transition-colors hover:bg-[var(--brand)] active:bg-[var(--brand)] md:block",
-          immersiveMobileLandscape && "max-lg:landscape:hidden",
+          isDicomViewerRoute && "max-lg:landscape:hidden",
         )}
       />
       <div
         className={cn(
           "min-h-0 min-w-0 flex-1 overflow-hidden pt-12 md:pt-0",
-          immersiveMobileLandscape && "max-lg:landscape:pt-0",
+          isDicomViewerRoute && "max-lg:pt-0",
         )}
         data-sidebar-content
       >

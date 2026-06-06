@@ -312,11 +312,16 @@ test.describe("DICOM viewer", () => {
     });
 
     await expect(page.locator('[data-test-id="dicom-series-panel"]:visible')).toHaveCount(0);
+    await expect(page.locator('[data-test-id="mobile-page-header"]:visible')).toHaveCount(0);
     await expect(page.locator('[data-test-id="mobile-ask-wiki"]:visible')).toHaveCount(0);
     await expect(page.getByTestId("dicom-mobile-study-trigger")).toBeVisible();
 
+    const controls = await page.getByTestId("dicom-controls").boundingBox();
+    const frame = await page.getByTestId("dicom-viewport-frame").boundingBox();
     const toolsRow = await page.getByTestId("dicom-tools-row").boundingBox();
     const cineRow = await page.getByTestId("dicom-cine-row").boundingBox();
+    expect(controls?.y).toBeLessThan(frame?.y ?? 0);
+    expect(controls?.y).toBeLessThan(12);
     expect(toolsRow?.y).toBeLessThan(cineRow?.y ?? 0);
 
     await page.getByTestId("dicom-mobile-study-trigger").click();

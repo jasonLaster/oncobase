@@ -166,59 +166,58 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
 
   return (
     <>
-      <header
-        className={`fixed inset-x-0 top-0 z-40 flex h-12 items-center gap-2 border-b border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]/95 px-3 backdrop-blur-sm md:hidden ${
-          isDicomViewerRoute ? "max-lg:landscape:hidden" : ""
-        }`}
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
-        data-test-id="mobile-page-header"
-        data-dicom-viewer-mobile-chrome={isDicomViewerRoute ? "" : undefined}
-      >
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold leading-tight text-[var(--foreground)]">
-            {title}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={openCommandPalette}
-          aria-label="Search files"
-          title="Search files"
-          className="flex size-9 shrink-0 items-center justify-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--text-muted)] transition-colors hover:border-[var(--brand)] hover:text-[var(--foreground)]"
-          data-test-id="mobile-header-search"
+      {!isDicomViewerRoute ? (
+        <header
+          className="fixed inset-x-0 top-0 z-40 flex h-12 items-center gap-2 border-b border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]/95 px-3 backdrop-blur-sm md:hidden"
+          style={{ paddingTop: "env(safe-area-inset-top)" }}
+          data-test-id="mobile-page-header"
         >
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <circle cx="7" cy="7" r="4.25" />
-            <path d="m10.25 10.25 3.5 3.5" />
-          </svg>
-        </button>
-        {isDocumentRoute ? (
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold leading-tight text-[var(--foreground)]">
+              {title}
+            </div>
+          </div>
           <button
             type="button"
-            onClick={openCommentsPanel}
-            aria-label="Open comments"
-            title="Open comments"
+            onClick={openCommandPalette}
+            aria-label="Search files"
+            title="Search files"
             className="flex size-9 shrink-0 items-center justify-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--text-muted)] transition-colors hover:border-[var(--brand)] hover:text-[var(--foreground)]"
-            data-test-id="mobile-header-comments"
+            data-test-id="mobile-header-search"
           >
-            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <circle cx="7" cy="7" r="4.25" />
+              <path d="m10.25 10.25 3.5 3.5" />
             </svg>
           </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={openSheet}
-          aria-label="Open page navigation"
-          title="Open page navigation"
-          className="flex size-9 shrink-0 items-center justify-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--text-muted)] transition-colors hover:border-[var(--brand)] hover:text-[var(--foreground)]"
-          data-test-id="bottom-nav-trigger"
-        >
-          <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M3 4h10M3 8h10M3 12h7" />
-          </svg>
-        </button>
-      </header>
+          {isDocumentRoute ? (
+            <button
+              type="button"
+              onClick={openCommentsPanel}
+              aria-label="Open comments"
+              title="Open comments"
+              className="flex size-9 shrink-0 items-center justify-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--text-muted)] transition-colors hover:border-[var(--brand)] hover:text-[var(--foreground)]"
+              data-test-id="mobile-header-comments"
+            >
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
+              </svg>
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={openSheet}
+            aria-label="Open page navigation"
+            title="Open page navigation"
+            className="flex size-9 shrink-0 items-center justify-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] text-[var(--text-muted)] transition-colors hover:border-[var(--brand)] hover:text-[var(--foreground)]"
+            data-test-id="bottom-nav-trigger"
+          >
+            <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 4h10M3 8h10M3 12h7" />
+            </svg>
+          </button>
+        </header>
+      ) : null}
 
       {!isChatRoute && !isDicomViewerRoute && (
         <Link

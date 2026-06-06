@@ -735,7 +735,7 @@ export function DicomViewerClient({
           </div>
 
           <div
-            className="flex shrink-0 flex-col gap-1 border-t border-white/10 bg-[#0d1013] px-2 py-1.5 sm:px-3 sm:py-2 lg:flex-row lg:items-center lg:gap-2 max-lg:landscape:flex-row max-lg:landscape:items-center max-lg:landscape:gap-1.5"
+            className="flex shrink-0 flex-col gap-1 border-t border-white/10 bg-[#0d1013] px-2 py-1.5 sm:px-3 sm:py-2 lg:flex-row lg:items-center lg:gap-2 max-lg:order-first max-lg:border-t-0 max-lg:border-b max-lg:landscape:flex-row max-lg:landscape:items-center max-lg:landscape:gap-1.5"
             data-test-id="dicom-controls"
           >
             <div
