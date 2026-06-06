@@ -929,7 +929,7 @@ export function DicomViewerClient({
 
       <button
         type="button"
-        className="flex shrink-0 items-center gap-3 border-t border-white/10 bg-[#11151a] px-3 pt-2 pb-2 text-left text-zinc-100 lg:hidden max-lg:landscape:hidden"
+        className="flex shrink-0 items-center gap-3 border-t border-white/10 bg-[#11151a] px-3 pt-2 pb-2 text-left text-zinc-100 lg:hidden"
         style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}
         onClick={() => openMobileStudySheet()}
         data-test-id="dicom-mobile-series-bar"

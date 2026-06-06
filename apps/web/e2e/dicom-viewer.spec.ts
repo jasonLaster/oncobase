@@ -276,11 +276,19 @@ test.describe("DICOM viewer", () => {
     await expect(page.locator('[data-test-id="diagnostics-sidebar"]:visible')).toHaveCount(0);
     await expect(page.locator('[data-test-id="dicom-series-panel"]:visible')).toHaveCount(0);
     await expect(page.locator('[data-test-id="dicom-stack-panel"]:visible')).toHaveCount(0);
+    await expect(page.locator('[data-test-id="dicom-mobile-study-trigger"]:visible')).toHaveCount(0);
+    await expect(page.getByTestId("dicom-mobile-series-bar")).toBeVisible();
+    await expect(page.getByTestId("dicom-mobile-series-bar")).toContainText(
+      "2026-04-10 · US · US Axilla Core BX RT IMGUS0248 · Series 2",
+    );
 
     const frameBox = await page.getByTestId("dicom-viewport-frame").boundingBox();
     expect(frameBox?.width).toBeGreaterThan(800);
-    expect(frameBox?.height).toBeGreaterThan(320);
+    expect(frameBox?.height).toBeGreaterThan(280);
     await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9", {
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("dicom-image-loading")).toBeHidden({
       timeout: 30_000,
     });
 
@@ -295,7 +303,7 @@ test.describe("DICOM viewer", () => {
       };
     });
     expect(canvasState.width).toBeGreaterThan(800);
-    expect(canvasState.height).toBeGreaterThan(300);
+    expect(canvasState.height).toBeGreaterThan(260);
     expect(canvasState.imageBytes).toBeGreaterThan(8_000);
   });
 
