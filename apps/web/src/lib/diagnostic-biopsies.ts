@@ -9,6 +9,7 @@ export interface DiagnosticBiopsy {
   directoryIncludes: string;
   pathologyReportHref: string;
   reportLinks?: DiagnosticReportLink[];
+  downloadHref?: string;
 }
 
 export interface DiagnosticReportLink {
@@ -40,13 +41,10 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
         label: "Axilla biopsy report",
         href: sourcePageHref("03-23-us-axilla-core-biopsy"),
       },
-      {
-        label: "Download assets",
-        href: fileAssetHref(
-          "diagnostics/viewer-upload/04-01-breast-mri/source-files.zip",
-        ),
-      },
     ],
+    downloadHref: fileAssetHref(
+      "diagnostics/viewer-upload/04-01-breast-mri/source-files.zip",
+    ),
   },
   {
     id: "diagnostic-2026-03-27-petct",
@@ -71,11 +69,8 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
         label: "Axilla biopsy report",
         href: sourcePageHref("03-23-us-axilla-core-biopsy"),
       },
-      {
-        label: "Download assets",
-        href: fileAssetHref("diagnostics/viewer-upload/03-27-petct/source-files.zip"),
-      },
     ],
+    downloadHref: fileAssetHref("diagnostics/viewer-upload/03-27-petct/source-files.zip"),
   },
   {
     id: "diagnostic-2026-03-20-ultrasound",
@@ -100,11 +95,8 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
         label: "Breast biopsy report",
         href: sourcePdfHref("03-13-breast-biopsy-report.pdf"),
       },
-      {
-        label: "Download assets",
-        href: fileAssetHref("diagnostics/viewer-upload/03-20-ultrasound/source-files.zip"),
-      },
     ],
+    downloadHref: fileAssetHref("diagnostics/viewer-upload/03-20-ultrasound/source-files.zip"),
   },
   {
     id: "biopsy-2026-04-10",
@@ -137,11 +129,8 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
         label: "Breast biopsy report",
         href: sourcePdfHref("03-13-breast-biopsy-report.pdf"),
       },
-      {
-        label: "Download assets",
-        href: fileAssetHref("diagnostics/viewer-upload/02-20-ultrasound/source-files.zip"),
-      },
     ],
+    downloadHref: fileAssetHref("diagnostics/viewer-upload/02-20-ultrasound/source-files.zip"),
   },
   {
     id: "biopsy-2026-03-23",

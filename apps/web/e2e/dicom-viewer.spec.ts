@@ -120,18 +120,34 @@ test.describe("DICOM viewer", () => {
 
     await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
     const desktopTable = page.getByTestId("diagnostics-desktop-table");
+    await expect(desktopTable.getByRole("columnheader", { name: "Reports" })).toBeVisible();
+    await expect(desktopTable.getByRole("columnheader", { name: "View images" })).toBeVisible();
+    await expect(desktopTable.getByRole("columnheader", { name: "Download" })).toBeVisible();
+    await expect(desktopTable.getByRole("link", { name: "Download" })).toHaveCount(4);
     for (const biopsy of biopsyLinks) {
       const viewerLink = desktopTable.locator(
         `a[href="/tools/dicom-viewer?id=${biopsy.id}"]`
       );
 
       await expect(viewerLink).toBeVisible();
-      await expect(viewerLink).toContainText("DICOM viewer");
+      await expect(viewerLink).toContainText("View images");
       await expect(viewerLink).toHaveAttribute(
         "href",
         `/tools/dicom-viewer?id=${biopsy.id}`,
       );
     }
+
+    const breastMriRow = desktopTable.getByRole("row", {
+      name: /Apr 1, 2026.*Breast MRI/,
+    });
+    await breastMriRow.getByRole("button", { name: "Reports" }).click();
+    await expect(page.getByRole("menuitem", { name: "MRI report" })).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Breast biopsy report" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Axilla biopsy report" }),
+    ).toBeVisible();
   });
 
   test("diagnostics page uses a compact mobile study list", async ({ page }) => {
@@ -142,10 +158,10 @@ test.describe("DICOM viewer", () => {
     await expect(mobileList).toBeVisible();
     await expect(page.getByRole("table")).toBeHidden();
     await expect(
-      mobileList.getByRole("link", { name: /DICOM viewer/ }),
+      mobileList.getByRole("link", { name: /View images/ }),
     ).toHaveCount(biopsyLinks.length);
     await expect(
-      mobileList.getByRole("link", { name: /DICOM viewer/ }).first(),
+      mobileList.getByRole("link", { name: /View images/ }).first(),
     ).toHaveAttribute("href", "/tools/dicom-viewer?id=biopsy-2026-04-10");
   });
 
