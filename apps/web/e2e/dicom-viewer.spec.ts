@@ -66,6 +66,12 @@ async function gotoViewer(page: Page, biopsyId = "biopsy-2026-04-10") {
   });
   await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
   await expect(page.getByRole("button", { name: "W/L", exact: true })).toBeVisible();
+  await expect(
+    page.locator('[data-test-id="dicom-cornerstone-viewport"] canvas'),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("dicom-image-loading")).toBeHidden({
+    timeout: 30_000,
+  });
 }
 
 async function expectToolState(
@@ -84,6 +90,103 @@ async function expectToolState(
     "aria-pressed",
     String(expected.zoom),
   );
+}
+
+async function installInteractionProbe(page: Page) {
+  await page.evaluate(() => {
+    type Probe = { cameraModified: number; voiModified: number };
+    const win = window as typeof window & {
+      __dicomInteractionProbe?: Probe;
+      __dicomInteractionProbeInstalled?: boolean;
+    };
+    win.__dicomInteractionProbe ??= { cameraModified: 0, voiModified: 0 };
+    if (win.__dicomInteractionProbeInstalled) return;
+
+    const viewport = document.querySelector(
+      '[data-test-id="dicom-cornerstone-viewport"]',
+    );
+    viewport?.addEventListener("CORNERSTONE_CAMERA_MODIFIED", () => {
+      if (win.__dicomInteractionProbe) win.__dicomInteractionProbe.cameraModified += 1;
+    });
+    viewport?.addEventListener("CORNERSTONE_VOI_MODIFIED", () => {
+      if (win.__dicomInteractionProbe) win.__dicomInteractionProbe.voiModified += 1;
+    });
+    win.__dicomInteractionProbeInstalled = true;
+  });
+}
+
+async function resetInteractionProbe(page: Page) {
+  await page.evaluate(() => {
+    const win = window as typeof window & {
+      __dicomInteractionProbe?: { cameraModified: number; voiModified: number };
+    };
+    win.__dicomInteractionProbe = { cameraModified: 0, voiModified: 0 };
+  });
+}
+
+async function interactionProbe(page: Page) {
+  return page.evaluate(() => {
+    const win = window as typeof window & {
+      __dicomInteractionProbe?: { cameraModified: number; voiModified: number };
+    };
+    return win.__dicomInteractionProbe ?? { cameraModified: 0, voiModified: 0 };
+  });
+}
+
+async function dispatchTouchDrag(
+  page: Page,
+  start: Array<{ x: number; y: number }>,
+  end: Array<{ x: number; y: number }>,
+) {
+  const client = await page.context().newCDPSession(page);
+  await client.send("Emulation.setTouchEmulationEnabled", {
+    enabled: true,
+    maxTouchPoints: Math.max(start.length, end.length, 2),
+  });
+
+  const pointAt = (
+    points: Array<{ x: number; y: number }>,
+    index: number,
+    step: number,
+    steps: number,
+  ) => {
+    const next = end[index] ?? points[index];
+    const current = points[index];
+    return {
+      id: index + 1,
+      x: Math.round(current.x + (next.x - current.x) * (step / steps)),
+      y: Math.round(current.y + (next.y - current.y) * (step / steps)),
+      radiusX: 1,
+      radiusY: 1,
+      force: 1,
+    };
+  };
+
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: start.map((point, index) => ({
+      id: index + 1,
+      x: Math.round(point.x),
+      y: Math.round(point.y),
+      radiusX: 1,
+      radiusY: 1,
+      force: 1,
+    })),
+  });
+
+  for (let step = 1; step <= 6; step += 1) {
+    await client.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: start.map((_, index) => pointAt(start, index, step, 6)),
+    });
+    await page.waitForTimeout(16);
+  }
+
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await client.detach();
 }
 
 function holdDicomFileRequest(page: Page, fileName: string) {
@@ -387,6 +490,72 @@ test.describe("DICOM viewer", () => {
     await page.getByRole("button", { name: "Zoom", exact: true }).click();
     await page.getByRole("button", { name: "Pan", exact: true }).click();
     await expectToolState(page, { window: false, pan: true, zoom: false });
+  });
+
+  test("mobile touch drags drive the selected pan and zoom tools", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoViewer(page);
+    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9", {
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("dicom-image-loading")).toBeHidden({
+      timeout: 30_000,
+    });
+    await installInteractionProbe(page);
+
+    await expect(page.getByTestId("dicom-viewport-frame")).toHaveCSS(
+      "touch-action",
+      "none",
+    );
+
+    const box = await page.getByTestId("dicom-cornerstone-viewport").boundingBox();
+    expect(box).not.toBeNull();
+    const center = {
+      x: (box?.x ?? 0) + (box?.width ?? 0) / 2,
+      y: (box?.y ?? 0) + (box?.height ?? 0) / 2,
+    };
+
+    await page.getByRole("button", { name: "Pan", exact: true }).click();
+    await expectToolState(page, { window: false, pan: true, zoom: false });
+    await resetInteractionProbe(page);
+    await dispatchTouchDrag(
+      page,
+      [{ x: center.x, y: center.y }],
+      [{ x: center.x + 70, y: center.y + 35 }],
+    );
+    await expect
+      .poll(async () => (await interactionProbe(page)).cameraModified)
+      .toBeGreaterThan(0);
+
+    await page.getByRole("button", { name: "Zoom", exact: true }).click();
+    await expectToolState(page, { window: false, pan: false, zoom: true });
+    await resetInteractionProbe(page);
+    await dispatchTouchDrag(
+      page,
+      [{ x: center.x, y: center.y }],
+      [{ x: center.x, y: center.y - 80 }],
+    );
+    await expect
+      .poll(async () => (await interactionProbe(page)).cameraModified)
+      .toBeGreaterThan(0);
+
+    await resetInteractionProbe(page);
+    await dispatchTouchDrag(
+      page,
+      [
+        { x: center.x - 24, y: center.y },
+        { x: center.x + 24, y: center.y },
+      ],
+      [
+        { x: center.x - 58, y: center.y },
+        { x: center.x + 58, y: center.y },
+      ],
+    );
+    await expect
+      .poll(async () => (await interactionProbe(page)).cameraModified)
+      .toBeGreaterThan(0);
   });
 
   test("next image shows loading state while the requested DICOM file is pending", async ({

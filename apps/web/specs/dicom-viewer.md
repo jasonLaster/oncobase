@@ -49,6 +49,8 @@ The primary left-drag tool is selected by the toolbar:
 - Clicking active `Pan` again returns to `W/L`.
 - Switching from `Zoom` to `Pan` changes the active primary tool without
   resetting the current viewport camera.
+- On touch devices, one-finger drag uses the selected toolbar tool.
+- Two-finger pinch or drag remains available for zooming and panning the image.
 
 Each tool button exposes `aria-pressed` so tests and assistive technology can
 read the active state.

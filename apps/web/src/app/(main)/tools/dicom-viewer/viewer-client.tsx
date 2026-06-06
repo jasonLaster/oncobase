@@ -269,6 +269,8 @@ export function DicomViewerClient({
     if (!modules || !toolGroup) return;
 
     const { MouseBindings } = modules.tools.Enums;
+    const oneFingerDrag = { numTouchPoints: 1 };
+    const twoFingerPinchOrDrag = { numTouchPoints: 2 };
     const primaryTool =
       mode === "window"
         ? modules.tools.WindowLevelTool.toolName
@@ -287,13 +289,14 @@ export function DicomViewerClient({
     });
 
     toolGroup.setToolActive(primaryTool, {
-      bindings: [{ mouseButton: MouseBindings.Primary }],
+      bindings: [{ mouseButton: MouseBindings.Primary }, oneFingerDrag],
     });
     toolGroup.setToolActive(modules.tools.PanTool.toolName, {
       bindings:
         mode === "pan"
           ? [
               { mouseButton: MouseBindings.Primary },
+              oneFingerDrag,
               { mouseButton: MouseBindings.Secondary },
             ]
           : [{ mouseButton: MouseBindings.Secondary }],
@@ -303,9 +306,11 @@ export function DicomViewerClient({
         mode === "zoom"
           ? [
               { mouseButton: MouseBindings.Primary },
+              oneFingerDrag,
               { mouseButton: MouseBindings.Auxiliary },
+              twoFingerPinchOrDrag,
             ]
-          : [{ mouseButton: MouseBindings.Auxiliary }],
+          : [{ mouseButton: MouseBindings.Auxiliary }, twoFingerPinchOrDrag],
     });
     toolGroup.setToolActive(modules.tools.StackScrollTool.toolName, {
       bindings: [{ mouseButton: MouseBindings.Wheel }],
@@ -679,14 +684,14 @@ export function DicomViewerClient({
 
         <main className="flex min-h-0 flex-col bg-black">
           <div
-            className="relative min-h-[260px] flex-1 outline-none sm:min-h-[420px] max-lg:landscape:min-h-0"
+            className="relative min-h-[260px] flex-1 touch-none outline-none select-none sm:min-h-[420px] max-lg:landscape:min-h-0"
             onContextMenu={(event) => event.preventDefault()}
             aria-label="DICOM image viewport"
             data-test-id="dicom-viewport-frame"
           >
             <div
               ref={viewportElementRef}
-              className="absolute inset-0 bg-black"
+              className="absolute inset-0 touch-none bg-black select-none"
               data-test-id="dicom-cornerstone-viewport"
               data-testid="dicom-cornerstone-viewport"
             />
@@ -904,6 +909,9 @@ export function DicomViewerClient({
                 <div className="font-medium text-zinc-200">Mouse</div>
                 <div>Left drag uses the selected tool.</div>
                 <div>Right drag pans. Middle drag zooms. Wheel scrolls slices.</div>
+                <div className="mt-2 font-medium text-zinc-200">Touch</div>
+                <div>One-finger drag uses the selected tool.</div>
+                <div>Two-finger pinch or drag zooms and pans.</div>
                 <div className="mt-2 font-medium text-zinc-200">Keyboard</div>
                 <div>Arrow keys step through images. Space toggles cine.</div>
               </section>
