@@ -294,6 +294,43 @@ async function handleAssetHashBackfill(request: Request) {
   return NextResponse.json(result);
 }
 
+async function handleDocumentHashBackfill(request: Request) {
+  const body = (await request.json()) as {
+    siteSlug?: string;
+    hashFunctionVersion?: number;
+    entries?: Array<{
+      slug?: string;
+      contentHash?: string;
+    }>;
+  };
+
+  const siteSlug = body.siteSlug ?? "";
+  if (!siteSlug) return new Response("siteSlug required", { status: 400 });
+
+  const hashFunctionVersion =
+    typeof body.hashFunctionVersion === "number"
+      ? body.hashFunctionVersion
+      : undefined;
+  const entries = (body.entries ?? []).map((entry) => ({
+    slug: entry.slug ?? "",
+    contentHash: entry.contentHash ?? "",
+  }));
+  if (entries.length === 0) {
+    return new Response("entries required", { status: 400 });
+  }
+  if (entries.some((entry) => !entry.slug || !entry.contentHash)) {
+    return new Response("entry slug and contentHash required", { status: 400 });
+  }
+
+  const { siteData } = await requirePublishSite(request, siteSlug);
+  const result = await siteData.documents.bulkSetContentHash({
+    hashFunctionVersion,
+    entries,
+  });
+  revalidateSiteAfterPublish(siteSlug);
+  return NextResponse.json(result);
+}
+
 function logRouteError(step: string, error: unknown) {
   // Centralized so any failure path that returns 500 also leaves a
   // server-side breadcrumb. Without this, Convex query errors only
@@ -342,6 +379,12 @@ export async function POST(
       const unsupported = unsupportedPublisherResponse(request);
       if (unsupported) return unsupported;
       return await handleAssetHashBackfill(request);
+    }
+
+    if (step === "document-hashes") {
+      const unsupported = unsupportedPublisherResponse(request);
+      if (unsupported) return unsupported;
+      return await handleDocumentHashBackfill(request);
     }
 
     const body = await request.json();

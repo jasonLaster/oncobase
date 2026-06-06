@@ -10,11 +10,12 @@ const COMMANDS = new Set([
   "publish",
   "skills",
   "assets:backfill-hashes",
+  "docs:backfill-hashes",
   "transcription",
 ]);
 
 function usage() {
-  console.error("Usage: oncobase <init|sync|check|publish|skills|assets:backfill-hashes|transcription> [options]");
+  console.error("Usage: oncobase <init|sync|check|publish|skills|assets:backfill-hashes|docs:backfill-hashes|transcription> [options]");
 }
 
 const [command, ...args] = process.argv.slice(2);
@@ -31,6 +32,8 @@ const scriptName =
       ? "skills-command.js"
       : command === "assets:backfill-hashes"
         ? "assets-backfill-hashes.js"
+        : command === "docs:backfill-hashes"
+          ? "docs-backfill-hashes.js"
         : command === "transcription"
           ? "transcription-command.js"
         : `${command}.js`;

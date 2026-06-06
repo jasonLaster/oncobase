@@ -30,6 +30,7 @@ The publish token can be provided with `WIKI_PUBLISH_TOKEN_<SITE>`, `WIKI_PUBLIS
 - `oncobase publish --site <slug>` uploads changed content, assets, embeddings, and confirmed tombstones.
 - `oncobase skills --site <slug>` copies bundled vault skills into `<vault>/.claude/skills`.
 - `oncobase assets:backfill-hashes --site <slug>` backfills asset hashes without a full content upload.
+- `oncobase docs:backfill-hashes --site <slug> --since-ref <commit>` backfills document hashes without a full content upload while protecting recent local edits.
 - `oncobase transcription record --site <slug> --context <file>` records audio until Ctrl-C, then transcribes and drafts an enriched note with Vercel AI Gateway.
 - `oncobase transcription transcribe --site <slug> --audio <file> --context <file>` transcribes an existing recording and drafts the note after the fact.
 
