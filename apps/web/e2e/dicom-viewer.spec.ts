@@ -314,17 +314,23 @@ test.describe("DICOM viewer", () => {
     await expect(page.locator('[data-test-id="dicom-series-panel"]:visible')).toHaveCount(0);
     await expect(page.locator('[data-test-id="mobile-page-header"]:visible')).toHaveCount(0);
     await expect(page.locator('[data-test-id="mobile-ask-wiki"]:visible')).toHaveCount(0);
-    await expect(page.getByTestId("dicom-mobile-study-trigger")).toBeVisible();
+    await expect(page.locator('[data-test-id="dicom-mobile-study-trigger"]:visible')).toHaveCount(0);
+    await expect(page.getByTestId("dicom-mobile-series-bar")).toBeVisible();
+    await expect(page.getByTestId("dicom-mobile-series-bar")).toContainText(
+      "2026-04-10 · US · US Axilla Core BX RT IMGUS0248 · Series 2",
+    );
 
     const controls = await page.getByTestId("dicom-controls").boundingBox();
     const frame = await page.getByTestId("dicom-viewport-frame").boundingBox();
+    const seriesBar = await page.getByTestId("dicom-mobile-series-bar").boundingBox();
     const toolsRow = await page.getByTestId("dicom-tools-row").boundingBox();
     const cineRow = await page.getByTestId("dicom-cine-row").boundingBox();
     expect(controls?.y).toBeLessThan(frame?.y ?? 0);
     expect(controls?.y).toBeLessThan(12);
+    expect(seriesBar?.y).toBeGreaterThan(frame?.y ?? 0);
     expect(toolsRow?.y).toBeLessThan(cineRow?.y ?? 0);
 
-    await page.getByTestId("dicom-mobile-study-trigger").click();
+    await page.getByTestId("dicom-mobile-series-bar").click();
     const sheet = page.getByTestId("dicom-mobile-study-sheet");
     await expect(sheet).toHaveAttribute("data-state", "open");
     await expect(sheet.getByTestId("dicom-mobile-series-list")).toBeVisible();

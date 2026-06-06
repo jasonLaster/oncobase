@@ -783,17 +783,6 @@ export function DicomViewerClient({
               >
                 <RotateCcw className="size-4" />
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-white/15 bg-white/5 px-2 text-zinc-300 hover:bg-white/10 lg:hidden"
-                onClick={() => openMobileStudySheet()}
-                onPointerDown={() => openMobileStudySheet()}
-                data-test-id="dicom-mobile-study-trigger"
-              >
-                <ImageIcon className="size-4" />
-                <span className="sr-only min-[380px]:not-sr-only">Study</span>
-              </Button>
             </div>
 
             <div
@@ -938,6 +927,30 @@ export function DicomViewerClient({
         )}
       </div>
 
+      <button
+        type="button"
+        className="flex shrink-0 items-center gap-3 border-t border-white/10 bg-[#11151a] px-3 pt-2 pb-2 text-left text-zinc-100 lg:hidden max-lg:landscape:hidden"
+        style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}
+        onClick={() => openMobileStudySheet()}
+        data-test-id="dicom-mobile-series-bar"
+      >
+        <ImageIcon className="size-4 shrink-0 text-zinc-400" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">
+            {selectedSeries?.label ?? "Select a DICOM series"}
+          </span>
+          <span className="mt-0.5 block truncate text-xs text-zinc-500">
+            {hasStack
+              ? `${activeStack?.images.length ?? 0} images`
+              : `${displaySeries.length} available series`}
+            {selectedBiopsy ? ` · ${selectedBiopsy.title}` : ""}
+          </span>
+        </span>
+        <span className="shrink-0 text-xs font-medium text-emerald-100">
+          Series
+        </span>
+      </button>
+
       <div
         className={cn(
           "fixed inset-0 z-50 transition-opacity duration-300 lg:hidden",
@@ -1010,44 +1023,48 @@ export function DicomViewerClient({
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
             {mobileStudyTab === "series" ? (
-              <div className="space-y-2" data-test-id="dicom-mobile-series-list">
+              <div
+                className="-mx-3 divide-y divide-white/10"
+                data-test-id="dicom-mobile-series-list"
+              >
                 {displaySeries.map((series) => {
                   const selected = selectedSeries?.id === series.id;
                   return (
                     <button
                       key={series.id}
                       className={cn(
-                        "w-full rounded-lg border p-3 text-left transition-colors",
-                        selected
-                          ? "border-sky-400/50 bg-sky-400/10"
-                          : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]",
+                        "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
+                        selected ? "bg-sky-400/10" : "hover:bg-white/[0.06]",
                       )}
                       onClick={() => selectSeries(series.id, true)}
                     >
-                      <div className="flex items-start gap-2">
-                        <ImageIcon className="mt-0.5 size-4 shrink-0 text-zinc-400" />
-                        <div className="min-w-0 flex-1">
-                          <div className="line-clamp-2 text-sm font-medium text-zinc-100">
-                            {series.label}
-                          </div>
-                          <div className="mt-1 truncate text-xs text-zinc-500">
-                            {series.relativeDirectory}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
+                      <span
+                        className={cn(
+                          "h-10 w-0.5 shrink-0 rounded-full bg-transparent",
+                          selected && "bg-sky-300",
+                        )}
+                        aria-hidden="true"
+                      />
+                      <ImageIcon className="size-4 shrink-0 text-zinc-500" />
+                      <span className="min-w-0 flex-1">
+                        <span className="line-clamp-2 text-sm font-medium text-zinc-100">
+                          {series.label}
+                        </span>
+                        <span className="mt-1 block truncate text-xs text-zinc-500">
+                          {series.relativeDirectory}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right text-xs text-zinc-400">
+                        <span className="block text-zinc-300">
+                          {series.images.length}
+                        </span>
+                        <span className="block">images</span>
                         {series.modality ? (
-                          <Badge
-                            variant="secondary"
-                            className="bg-white/10 text-zinc-200"
-                          >
+                          <span className="mt-1 block text-zinc-500">
                             {series.modality}
-                          </Badge>
+                          </span>
                         ) : null}
-                        <Badge variant="outline" className="border-white/15 text-zinc-300">
-                          {series.images.length} images
-                        </Badge>
-                      </div>
+                      </span>
                     </button>
                   );
                 })}
