@@ -639,7 +639,7 @@ export function DicomViewerClient({
               >
                 <div className="flex items-center gap-2 text-sm font-semibold text-emerald-50">
                   <FileText className="size-4 shrink-0 text-emerald-200" />
-                  <span>Pathology report</span>
+                  <span>{selectedBiopsy.reportLinks?.[0]?.label ?? "Pathology report"}</span>
                 </div>
                 <div className="mt-2 text-xs leading-5 text-emerald-100/80">
                   {selectedBiopsy.title}

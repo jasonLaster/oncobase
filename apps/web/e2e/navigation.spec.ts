@@ -430,7 +430,9 @@ test.describe("Page viewing & sidebar navigation", () => {
       }, id);
     }, { timeout: 15_000 }).toBe(true);
 
-    await page.keyboard.press("Meta+Shift+O");
+    await page.keyboard.press(
+      process.platform === "darwin" ? "Meta+Shift+O" : "Control+Shift+O",
+    );
     const input = page.getByPlaceholder("Search headings…");
     await expect(input).toBeVisible();
     const dialog = page.locator('[role="dialog"]').filter({ has: input });

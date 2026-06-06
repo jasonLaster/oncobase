@@ -50,7 +50,15 @@ const biopsyLinks = [
   },
 ];
 const breastMriReportPath =
-  "diagnostics/viewer-upload/04-01-breast-mri/reports/04-01-breast-mri.pdf";
+  "sources/diagnostics/03-13-breast-biopsy-report.pdf";
+const liveDiagnosticsReportLinks = [
+  "/sources/diagnostics/04-01-breast-mri",
+  "/sources/diagnostics/03-27-petct",
+  "/sources/diagnostics/03-20-ultrasound",
+  "/sources/diagnostics/02-20-ultrasound",
+  "/sources/diagnostics/03-23-us-axilla-core-biopsy",
+  "/api/file?path=sources%2Fdiagnostics%2F03-13-breast-biopsy-report.pdf",
+];
 
 async function gotoViewer(page: Page, biopsyId = "biopsy-2026-04-10") {
   await page.goto(`/tools/dicom-viewer?id=${biopsyId}`, {
@@ -141,11 +149,11 @@ test.describe("DICOM viewer", () => {
     ).toHaveAttribute("href", "/tools/dicom-viewer?id=biopsy-2026-04-10");
   });
 
-  test("diagnostics report PDFs support password-gated byte-range loading", async ({
+  test("diagnostics report links stay live and surfaced PDFs support password-gated byte-range loading", async ({
     request,
     baseURL,
   }) => {
-    const res = await request.get(
+    const pdfRes = await request.get(
       `${baseURL}/api/file?path=${encodeURIComponent(breastMriReportPath)}`,
       {
         headers: {
@@ -155,15 +163,26 @@ test.describe("DICOM viewer", () => {
       },
     );
 
-    expect(res.status()).toBe(206);
-    expect(res.headers()["content-type"]).toContain("application/pdf");
-    expect(res.headers()["content-disposition"]).toContain("inline");
-    expect(res.headers()["cache-control"]).toContain("private");
-    expect(res.headers()["vary"]).toContain("Cookie");
-    expect(res.headers()["vary"]).toContain("Range");
-    expect(res.headers()["content-length"]).toBe("100");
-    expect(res.headers()["content-range"]).toMatch(/^bytes 0-99\/\d+$/);
-    expect((await res.body()).subarray(0, 5).toString()).toBe("%PDF-");
+    expect(pdfRes.status()).toBe(206);
+    expect(pdfRes.headers()["content-type"]).toContain("application/pdf");
+    expect(pdfRes.headers()["content-disposition"]).toContain("inline");
+    expect(pdfRes.headers()["cache-control"]).toContain("private");
+    expect(pdfRes.headers()["vary"]).toContain("Cookie");
+    expect(pdfRes.headers()["vary"]).toContain("Range");
+    expect(pdfRes.headers()["content-length"]).toBe("100");
+    expect(pdfRes.headers()["content-range"]).toMatch(/^bytes 0-99\/\d+$/);
+    expect((await pdfRes.body()).subarray(0, 5).toString()).toBe("%PDF-");
+
+    for (const href of liveDiagnosticsReportLinks) {
+      const res = await request.get(`${baseURL}${href}`, {
+        headers: {
+          Cookie: "authed=true",
+          ...(href.includes("/api/file?path=") ? { Range: "bytes=0-99" } : {}),
+        },
+      });
+
+      expect([200, 206]).toContain(res.status());
+    }
   });
 
   test("diagnostics routes replace the file tree with biopsy shortcuts", async ({

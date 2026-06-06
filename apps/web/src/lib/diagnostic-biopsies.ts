@@ -26,27 +26,19 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
     modality: "MR",
     focus: "Breast MRI stack",
     directoryIncludes: "04-01-breast-mri",
-    pathologyReportHref: fileAssetHref(
-      "diagnostics/viewer-upload/04-01-breast-mri/reports/04-01-breast-mri.pdf",
-    ),
+    pathologyReportHref: sourcePageHref("04-01-breast-mri"),
     reportLinks: [
       {
         label: "MRI report",
-        href: fileAssetHref(
-          "diagnostics/viewer-upload/04-01-breast-mri/reports/04-01-breast-mri.pdf",
-        ),
+        href: sourcePageHref("04-01-breast-mri"),
       },
       {
         label: "Breast biopsy report",
-        href: fileAssetHref(
-          "diagnostics/viewer-upload/04-01-breast-mri/reports/03-13-breast-biopsy-report.pdf",
-        ),
+        href: sourcePdfHref("03-13-breast-biopsy-report.pdf"),
       },
       {
         label: "Axilla biopsy report",
-        href: fileAssetHref(
-          "diagnostics/viewer-upload/04-01-breast-mri/reports/03-23-us-axilla-core-biopsy.pdf",
-        ),
+        href: sourcePageHref("03-23-us-axilla-core-biopsy"),
       },
       {
         label: "Download assets",
@@ -65,25 +57,19 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
     modality: "PET/CT",
     focus: "PET/CT stack",
     directoryIncludes: "03-27-petct",
-    pathologyReportHref: fileAssetHref(
-      "diagnostics/viewer-upload/03-27-petct/report.pdf",
-    ),
+    pathologyReportHref: sourcePageHref("03-27-petct"),
     reportLinks: [
       {
         label: "PET/CT report",
-        href: fileAssetHref("diagnostics/viewer-upload/03-27-petct/report.pdf"),
+        href: sourcePageHref("03-27-petct"),
       },
       {
         label: "Breast biopsy report",
-        href: fileAssetHref(
-          "diagnostics/viewer-upload/03-27-petct/reports/03-13-breast-biopsy-report.pdf",
-        ),
+        href: sourcePdfHref("03-13-breast-biopsy-report.pdf"),
       },
       {
         label: "Axilla biopsy report",
-        href: fileAssetHref(
-          "diagnostics/viewer-upload/03-27-petct/reports/03-23-us-axilla-core-biopsy.pdf",
-        ),
+        href: sourcePageHref("03-23-us-axilla-core-biopsy"),
       },
       {
         label: "Download assets",
@@ -100,21 +86,19 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
     modality: "US",
     focus: "Breast ultrasound stack",
     directoryIncludes: "03-20-ultrasound",
-    pathologyReportHref: fileAssetHref(
-      "diagnostics/viewer-upload/03-20-ultrasound/reports/03-23-us-axilla-core-biopsy.pdf",
-    ),
+    pathologyReportHref: sourcePageHref("03-20-ultrasound"),
     reportLinks: [
       {
+        label: "Ultrasound report",
+        href: sourcePageHref("03-20-ultrasound"),
+      },
+      {
         label: "Axilla biopsy report",
-        href: fileAssetHref(
-          "diagnostics/viewer-upload/03-20-ultrasound/reports/03-23-us-axilla-core-biopsy.pdf",
-        ),
+        href: sourcePageHref("03-23-us-axilla-core-biopsy"),
       },
       {
         label: "Breast biopsy report",
-        href: fileAssetHref(
-          "diagnostics/viewer-upload/03-20-ultrasound/reports/03-13-breast-biopsy-report.pdf",
-        ),
+        href: sourcePdfHref("03-13-breast-biopsy-report.pdf"),
       },
       {
         label: "Download assets",
@@ -143,15 +127,15 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
     modality: "US",
     focus: "Breast ultrasound stack",
     directoryIncludes: "02-20-ultrasound",
-    pathologyReportHref: fileAssetHref(
-      "diagnostics/viewer-upload/02-20-ultrasound/reports/03-13-breast-biopsy-report.pdf",
-    ),
+    pathologyReportHref: sourcePageHref("02-20-ultrasound"),
     reportLinks: [
       {
+        label: "Ultrasound report",
+        href: sourcePageHref("02-20-ultrasound"),
+      },
+      {
         label: "Breast biopsy report",
-        href: fileAssetHref(
-          "diagnostics/viewer-upload/02-20-ultrasound/reports/03-13-breast-biopsy-report.pdf",
-        ),
+        href: sourcePdfHref("03-13-breast-biopsy-report.pdf"),
       },
       {
         label: "Download assets",
@@ -199,4 +183,12 @@ export function getDicomViewerHref(biopsyId: string) {
 
 function fileAssetHref(path: string) {
   return `/api/file?path=${encodeURIComponent(path)}`;
+}
+
+function sourcePageHref(slug: string) {
+  return `/sources/diagnostics/${slug}`;
+}
+
+function sourcePdfHref(fileName: string) {
+  return fileAssetHref(`sources/diagnostics/${fileName}`);
 }
