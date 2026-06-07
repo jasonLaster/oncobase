@@ -49,10 +49,10 @@ export function NavigationShell({
     return <div className="h-full min-h-0 overflow-hidden">{children}</div>;
   }
 
-  const hidesSidebar = pathname === "/diagnostics";
-  const usesDiagnosticsSidebar = pathname.startsWith("/tools/dicom-viewer");
+  const usesDiagnosticsSidebar =
+    pathname === "/diagnostics" || pathname.startsWith("/tools/dicom-viewer");
   const hasFileTree = tree.length > 0 && !pathname.startsWith("/chat");
-  const sidebar = hidesSidebar ? null : pathname.startsWith("/chat") ? (
+  const sidebar = pathname.startsWith("/chat") ? (
     <aside
       className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
       data-test-id="chat-sidebar"
