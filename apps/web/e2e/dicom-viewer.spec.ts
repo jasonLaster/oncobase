@@ -561,6 +561,7 @@ test.describe("DICOM viewer", () => {
   test("next image shows loading state while the requested DICOM file is pending", async ({
     page,
   }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
     const heldRequest = holdDicomFileRequest(page, "IMG00006.dcm");
 
     await gotoViewer(page, "biopsy-2026-04-10");
