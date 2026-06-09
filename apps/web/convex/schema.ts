@@ -71,6 +71,7 @@ export default defineSchema({
     slug: v.string(),
     title: v.string(),
     content: v.string(),
+    rawContent: v.optional(v.string()),
     tags: v.array(v.string()),
     contentHash: v.optional(v.string()),
     sizeBytes: v.optional(v.number()),

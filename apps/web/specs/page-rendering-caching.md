@@ -23,7 +23,7 @@ route into a slow or broken one.
 | `/about/Index` | Seeded PPR | This is the canonical index route used by page-load tests and initial shell validation. It must render header, sidebar chrome, title, and body text in the server HTML. |
 | `/[...slug]` | PPR | Most wiki/source pages get reusable chrome immediately while content can stream through cached document/render entries. Production also seeds high-traffic weekly update pages matching `wiki/updates/week-*` so post-deploy first paint does not depend on the first reader request. |
 | `/sources/[...slug]` | PPR | Source pages can be heavy and less frequently viewed, so they keep the shell responsive and defer source body rendering. |
-| `/pii-view/[...slug]` | PPR or dynamic reveal path | Revealed PII content may force request-bound behavior. It must not pollute the redacted public cache. |
+| `/pii-view/[...slug]` | Admin-only dynamic reveal path | Revealed PII content requires an account-admin check and must not pollute the redacted public cache. |
 | `/chat`, `/search`, `/comments`, tools pages | Static or dynamic by feature | These are not document routes. Their cache policy should be owned by their feature specs. |
 | API routes | Dynamic unless proven otherwise | Route handlers default to request-bound behavior and should explicitly own HTTP cache headers. |
 

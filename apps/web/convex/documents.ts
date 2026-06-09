@@ -17,6 +17,67 @@ import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 
 type AnyCtx = QueryCtx | MutationCtx;
 
+async function sessionUserForTokenHash(
+  ctx: AnyCtx,
+  site: SiteCtx,
+  tokenHash: string | undefined,
+) {
+  if (!tokenHash) return null;
+
+  const session = site.siteId
+    ? await ctx.db
+        .query("userSessions")
+        .withIndex("by_site_token", (q) =>
+          q.eq("siteId", site.siteId!).eq("tokenHash", tokenHash),
+        )
+        .first()
+    : await ctx.db
+        .query("userSessions")
+        .withIndex("by_token_hash", (q) => q.eq("tokenHash", tokenHash))
+        .first();
+
+  if (!session || !rowBelongsToSite(session, site)) return null;
+  if (session.expiresAt <= Date.now()) return null;
+
+  const user = await ctx.db.get(session.userId);
+  if (!user || !rowBelongsToSite(user, site)) return null;
+  return user;
+}
+
+async function canRevealRawContent(
+  ctx: QueryCtx,
+  site: SiteCtx,
+  tokenHash: string | undefined,
+) {
+  const user = await sessionUserForTokenHash(ctx, site, tokenHash);
+  if (!user) return false;
+
+  if (site.site?.ownerEmail.toLowerCase() === user.email.toLowerCase()) {
+    return true;
+  }
+
+  const assignments = site.siteId
+    ? await ctx.db
+        .query("userRoles")
+        .withIndex("by_site_user", (q) =>
+          q.eq("siteId", site.siteId!).eq("userId", user._id),
+        )
+        .collect()
+    : await ctx.db
+        .query("userRoles")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .collect();
+
+  for (const assignment of assignments) {
+    if (!rowBelongsToSite(assignment, site)) continue;
+    const role = await ctx.db.get(assignment.roleId);
+    if (!role || !rowBelongsToSite(role, site)) continue;
+    if (role.name.trim().toLowerCase() === "admin") return true;
+  }
+
+  return false;
+}
+
 function isPublicDocument(doc: { sensitive?: boolean }) {
   return doc.sensitive !== true;
 }
@@ -161,16 +222,22 @@ export const getBySlug = query({
   args: {
     slug: v.string(),
     includeSensitive: v.optional(v.boolean()),
+    rawContentSessionTokenHash: v.optional(v.string()),
     siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { slug, includeSensitive, siteSlug }) => {
+  handler: async (ctx, { slug, includeSensitive, rawContentSessionTokenHash, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const doc = await findDocBySlug(ctx, site, slug);
     if (!doc || !canReadDocument(doc, includeSensitive)) return null;
+    const revealRawContent = await canRevealRawContent(
+      ctx,
+      site,
+      rawContentSessionTokenHash,
+    );
     return {
       slug: doc.slug,
       title: doc.title,
-      content: doc.content,
+      content: revealRawContent ? doc.rawContent ?? doc.content : doc.content,
       tags: doc.tags,
       sensitiveInclude: doc.sensitiveInclude ?? [],
       description: doc.description,
@@ -390,6 +457,7 @@ export const upsert = mutation({
     slug: v.string(),
     title: v.string(),
     content: v.string(),
+    rawContent: v.optional(v.string()),
     tags: v.array(v.string()),
     sensitiveInclude: v.optional(v.array(v.string())),
     contentHash: v.string(),
@@ -403,6 +471,7 @@ export const upsert = mutation({
       slug,
       title,
       content,
+      rawContent,
       tags,
       sensitiveInclude,
       contentHash,
@@ -414,12 +483,15 @@ export const upsert = mutation({
     const existing = await findDocBySlug(ctx, site, slug);
     const sizeBytes = content.length;
     const cleanedSensitiveInclude = sensitiveInclude ?? [];
+    const rawContentChanged =
+      rawContent !== undefined && existing?.rawContent !== rawContent;
     if (existing) {
       if (
         existing.contentHash === contentHash &&
         existing.hashFunctionVersion === hashFunctionVersion &&
         existing.sizeBytes === sizeBytes &&
         existing.sensitive === sensitive &&
+        !rawContentChanged &&
         JSON.stringify(existing.sensitiveInclude ?? []) ===
           JSON.stringify(cleanedSensitiveInclude) &&
         !existing.deletedAt
@@ -429,6 +501,7 @@ export const upsert = mutation({
       await ctx.db.patch(existing._id, {
         title,
         content,
+        ...(rawContent !== undefined ? { rawContent } : {}),
         tags,
         sensitiveInclude: cleanedSensitiveInclude,
         contentHash,
@@ -446,6 +519,7 @@ export const upsert = mutation({
       slug,
       title,
       content,
+      ...(rawContent !== undefined ? { rawContent } : {}),
       tags,
       sensitiveInclude: cleanedSensitiveInclude,
       contentHash,
@@ -695,6 +769,7 @@ export const embeddingStatusPage = query({
         .map((doc) => ({
           slug: doc.slug,
           contentHash: doc.contentHash,
+          hasRawContent: doc.rawContent !== undefined,
           hashFunctionVersion: doc.hashFunctionVersion,
           embeddingHash: doc.embeddingHash,
           sensitive: doc.sensitive,

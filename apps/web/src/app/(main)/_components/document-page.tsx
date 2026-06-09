@@ -20,9 +20,9 @@ import {
 import { PageLoadingSkeleton } from "@/components/page-loading";
 import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
-import { SHOW_PII_QUERY_PARAM } from "@/lib/pii-redaction";
 import { DEFAULT_SITE_SLUG, getRequestSiteSlug, toSiteSlug } from "@/lib/site";
-import { getSessionUserFromCookieHeader } from "@/lib/session-user";
+import { getSessionUserWithAdminFromCookieHeader } from "@/lib/session-user";
+import { USER_SESSION_COOKIE, hashSessionToken } from "@/lib/user-auth";
 
 // Preview deployments don't prerender pages: the runtime fetches
 // content from prod Convex per request, so there's no static benefit
@@ -82,7 +82,7 @@ export async function generateDocumentMetadata(
   const page = await getMarkdownPageMetadataForSite(siteSlug, contentPath);
   if (page) return toNextMetadata(page);
 
-  if (!(await canViewSensitivePages())) {
+  if (!(await getDocumentAccess()).includeSensitive) {
     return {
       title: "Not found",
       robots: { index: false, follow: false },
@@ -95,17 +95,36 @@ export async function generateDocumentMetadata(
   return sensitivePage ? toNextMetadata(sensitivePage) : {};
 }
 
-async function canViewSensitivePages(): Promise<boolean> {
+type DocumentAccess = {
+  includeSensitive: boolean;
+  rawContentSessionTokenHash?: string;
+};
+
+function sessionTokenHashFromCookieHeader(cookieHeader: string) {
+  const sessionToken = cookieHeader
+    .split(/;\s*/)
+    .find((part) => part.startsWith(`${USER_SESSION_COOKIE}=`))
+    ?.slice(USER_SESSION_COOKIE.length + 1);
+
+  return sessionToken ? hashSessionToken(sessionToken) : undefined;
+}
+
+async function getDocumentAccess(): Promise<DocumentAccess> {
   try {
     const requestHeaders = await headers();
-    return Boolean(
-      await getSessionUserFromCookieHeader(
-        requestHeaders.get("cookie") ?? "",
-        requestHeaders,
-      ),
+    const cookieHeader = requestHeaders.get("cookie") ?? "";
+    const user = await getSessionUserWithAdminFromCookieHeader(
+      cookieHeader,
+      requestHeaders,
     );
+    return {
+      includeSensitive: Boolean(user),
+      rawContentSessionTokenHash: user?.isAdmin
+        ? sessionTokenHashFromCookieHeader(cookieHeader)
+        : undefined,
+    };
   } catch {
-    return false;
+    return { includeSensitive: false };
   }
 }
 
@@ -197,19 +216,19 @@ export function SensitivePageUnavailable({
 async function AsyncMarkdownBody({
   filePath,
   includeSensitive,
-  showPii,
+  rawContentSessionTokenHash,
   slug,
   siteSlug,
 }: {
   filePath: string;
   includeSensitive: boolean;
-  showPii: boolean;
+  rawContentSessionTokenHash?: string;
   slug: string;
   siteSlug: string;
 }) {
   const file = await getMarkdownFileForSite(toSiteSlug(siteSlug), filePath, {
     includeSensitive,
-    piiMode: showPii ? "revealed" : "redacted",
+    rawContentSessionTokenHash,
   });
   if (!file) notFound();
   return (
@@ -238,24 +257,20 @@ function MarkdownBodyFallback() {
   );
 }
 
-function documentRedirectPath(pathname: string, showPii: boolean) {
-  if (!showPii) {
-    return pathname;
-  }
-
-  const separator = pathname.includes("?") ? "&" : "?";
-  return `${pathname}${separator}${SHOW_PII_QUERY_PARAM}=1`;
-}
-
 export async function renderDocumentPage({
   params,
-  showPii = false,
+  requireAdminReveal = false,
 }: {
   params: Promise<{ slug: string[] }>;
-  showPii?: boolean;
+  requireAdminReveal?: boolean;
 }) {
   const { slug } = await params;
   const filePath = slug.map(decodeURIComponent).join("/");
+  const documentAccess = await getDocumentAccess();
+
+  if (requireAdminReveal && !documentAccess.rawContentSessionTokenHash) {
+    notFound();
+  }
 
   // Redirect .pdf URLs to the file-serving API route
   if (/\.pdf$/i.test(filePath)) {
@@ -265,13 +280,13 @@ export async function renderDocumentPage({
   // Strip .md suffix -- URLs like /wiki/foo.md should serve /wiki/foo
   const cleanPath = filePath.replace(/\.md$/i, "");
   if (cleanPath !== filePath) {
-    redirect(documentRedirectPath(`/${cleanPath}`, showPii));
+    redirect(`/${cleanPath}`);
   }
 
   const routeAliasKey = cleanPath.toLowerCase();
   const aliasCanonicalPath = ROUTE_ALIAS_CANONICAL_PATHS.get(routeAliasKey);
   if (aliasCanonicalPath && cleanPath !== aliasCanonicalPath) {
-    redirect(documentRedirectPath(`/${aliasCanonicalPath}`, showPii));
+    redirect(`/${aliasCanonicalPath}`);
   }
 
   const contentPath = ROUTE_SLUG_ALIASES.get(routeAliasKey) ?? cleanPath;
@@ -279,36 +294,30 @@ export async function renderDocumentPage({
   let includeSensitive = false;
 
   // Try the requested slug first. Most runtime pages already use canonical
-  // casing, and this keeps ordinary public page views off the auth/session path.
+  // casing, so public readers stay on the public manifest path.
   let { canonicalSlug, manifest } = await resolveMarkdownManifestRouteForSite(
     requestSiteSlug,
     contentPath,
-    {
-      includeSensitive,
-      piiMode: showPii ? "revealed" : "redacted",
-    },
+    { includeSensitive },
   );
 
   if (!aliasCanonicalPath && canonicalSlug && canonicalSlug !== contentPath) {
-    redirect(documentRedirectPath(`/${canonicalSlug}`, showPii));
+    redirect(`/${canonicalSlug}`);
   }
 
   if (!manifest) {
-    includeSensitive = await canViewSensitivePages();
+    includeSensitive = documentAccess.includeSensitive;
     if (includeSensitive) {
       const resolvedSensitiveRoute = await resolveMarkdownManifestRouteForSite(
         requestSiteSlug,
         contentPath,
-        {
-          includeSensitive: true,
-          piiMode: showPii ? "revealed" : "redacted",
-        },
+        { includeSensitive: true },
       );
       canonicalSlug = resolvedSensitiveRoute.canonicalSlug;
       manifest = resolvedSensitiveRoute.manifest;
 
       if (!aliasCanonicalPath && canonicalSlug && canonicalSlug !== contentPath) {
-        redirect(documentRedirectPath(`/${canonicalSlug}`, showPii));
+        redirect(`/${canonicalSlug}`);
       }
     }
   }
@@ -318,10 +327,7 @@ export async function renderDocumentPage({
       const sensitiveRoute = await resolveMarkdownManifestRouteForSite(
         requestSiteSlug,
         contentPath,
-        {
-          includeSensitive: true,
-          piiMode: showPii ? "revealed" : "redacted",
-        },
+        { includeSensitive: true },
       );
       if (sensitiveRoute.manifest?.sensitive === true) {
         return <SensitivePageUnavailable slug={sensitiveRoute.manifest.slug} />;
@@ -345,7 +351,7 @@ export async function renderDocumentPage({
   const syncFile = shouldRenderSynchronously
     ? await getMarkdownFileForSite(siteSlug, resolvedPath, {
         includeSensitive,
-        piiMode: showPii ? "revealed" : "redacted",
+        rawContentSessionTokenHash: documentAccess.rawContentSessionTokenHash,
       })
     : null;
 
@@ -366,7 +372,7 @@ export async function renderDocumentPage({
           <AsyncMarkdownBody
             filePath={resolvedPath}
             includeSensitive={includeSensitive}
-            showPii={showPii}
+            rawContentSessionTokenHash={documentAccess.rawContentSessionTokenHash}
             slug={manifest.slug}
             siteSlug={siteSlug}
           />

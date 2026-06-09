@@ -277,6 +277,7 @@ const begin = (await post(`${config.publishUrl}/begin`, token, {
   staleDocumentSlugs?: string[];
   staleAssetPaths?: string[];
   staleHashVersionSlugs?: string[];
+  rawContentBackfillSlugs?: string[];
   assetChanges?: AssetChange[];
 };
 
@@ -344,6 +345,7 @@ function assetKey(kind: "pdf" | "file", path: string) {
 const changedDocs = force
   ? documents
   : documents.filter((doc) => begin.missingDocumentSlugs.includes(doc.slug));
+const rawContentBackfillSlugSet = new Set(begin.rawContentBackfillSlugs ?? []);
 const assetsByKey = new Map(
   assets.map((asset) => [
     assetKey(asset.kind, asset.relativePath),
@@ -395,8 +397,9 @@ if (!dryRun && !confirmTombstone && (staleDocCount > 0 || staleAssetCount > 0)) 
 }
 
 if (dryRun) {
+  const rawContentBackfillCount = begin.rawContentBackfillSlugs?.length ?? 0;
   console.log(
-    `Dry run: ${changedDocs.length} documents changed, ${changedAssets.length} assets need upload, ${hashBackfillAssets.length} asset hashes need metadata-only backfill, ${
+    `Dry run: ${changedDocs.length} documents changed (${rawContentBackfillCount} raw-content backfills), ${changedAssets.length} assets need upload, ${hashBackfillAssets.length} asset hashes need metadata-only backfill, ${
       begin.staleDocumentSlugs?.length ?? 0
     } documents stale, ${begin.staleAssetPaths?.length ?? 0} assets stale`,
   );
@@ -434,19 +437,26 @@ if (hashBackfillAssets.length > 0) {
   );
 }
 
-const doEmbed = Boolean(process.env.OPENAI_API_KEY) && changedDocs.length > 0;
-const embeddings = doEmbed
-  ? await embedInChunks(changedDocs)
-  : new Array<undefined>(changedDocs.length).fill(undefined);
+const docsToEmbed = changedDocs.filter(
+  (doc) => !rawContentBackfillSlugSet.has(doc.slug),
+);
+const doEmbed = Boolean(process.env.OPENAI_API_KEY) && docsToEmbed.length > 0;
+const embeddingsBySlug = new Map<string, number[] | undefined>();
+if (doEmbed) {
+  const embeddings = await embedInChunks(docsToEmbed);
+  docsToEmbed.forEach((doc, index) => {
+    embeddingsBySlug.set(doc.slug, embeddings[index]);
+  });
+}
 
 let docsDone = 0;
-await runWithConcurrency(changedDocs, DOC_CONCURRENCY, async (doc, i) => {
+await runWithConcurrency(changedDocs, DOC_CONCURRENCY, async (doc) => {
   await post(`${config.publishUrl}/document`, token, {
     runId: begin.runId,
     siteSlug: config.site,
     ...doc,
     hashFunctionVersion: HASH_FUNCTION_VERSION,
-    embedding: embeddings[i],
+    embedding: embeddingsBySlug.get(doc.slug),
   });
   docsDone++;
   if (docsDone % 100 === 0) {

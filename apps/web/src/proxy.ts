@@ -9,8 +9,6 @@ import localHosts from "../.local-hosts.json";
 // run the password gate scoped to that site.
 
 const PASSWORDS = ["wallify", "diana"];
-const SHOW_PII_QUERY_PARAM = "showPII";
-const SHOW_PII_TRUTHY_VALUES = new Set(["1", "true", "yes", "on"]);
 const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
 const CANONICAL_PATHS = new Map([["/about/index", "/about/Index"]]);
 const LINK_PREVIEW_BOT_RE =
@@ -170,11 +168,6 @@ async function isValidMagicToken(token: string, site: ResolvedSite) {
   return false;
 }
 
-function shouldRevealPii(value: string | null) {
-  if (!value) return false;
-  return SHOW_PII_TRUTHY_VALUES.has(value.toLowerCase());
-}
-
 function withSiteHeader(request: NextRequest, siteSlug: string) {
   const requestHeaders = new Headers(request.headers);
   // Always overwrite — never trust an incoming x-site-slug from the
@@ -280,21 +273,6 @@ export async function proxy(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
-  }
-
-  if (
-    shouldRevealPii(request.nextUrl.searchParams.get(SHOW_PII_QUERY_PARAM)) &&
-    !request.nextUrl.pathname.startsWith("/api/") &&
-    !request.nextUrl.pathname.startsWith("/pii-view")
-  ) {
-    const piiUrl = request.nextUrl.clone();
-    piiUrl.pathname =
-      request.nextUrl.pathname === "/"
-        ? "/pii-view/index"
-        : `/pii-view${request.nextUrl.pathname}`;
-    return NextResponse.rewrite(piiUrl, {
-      request: { headers: requestHeaders },
-    });
   }
 
   return NextResponse.next({ request: { headers: requestHeaders } });

@@ -8,7 +8,7 @@ Server-side markdown redaction and page-level sensitivity controls for patient-i
 - Let authors tag an entire page as sensitive when the page, its attachments, or its surrounding context should be hidden from broad/guest access.
 - Hide redacted content by default everywhere the web app reads markdown.
 - Keep hidden content and sensitive pages out of rendered HTML, text search, AI/chat context assembly, Claude Code wiki updates, and downloadable markdown archives.
-- Allow intentional reveal for page rendering with an explicit query param, without weakening the default server-side protection boundary.
+- Allow intentional reveal for admin account page rendering without weakening the default server-side protection boundary.
 - Add vault linting so obvious patient identifiers can be found and redacted before they leak into the app.
 
 ## Non-Goals
@@ -36,7 +36,7 @@ The patient is the patient.
 MRN:
 ```
 
-Reveal render (`?showPII=1`):
+Admin account render:
 
 ```md
 The patient is Diana Laster.
@@ -104,20 +104,21 @@ This is the safe baseline and must be used unless a route explicitly opts into r
 
 ### Reveal mode: `revealed`
 
-This mode is only for request-time page rendering where the caller intentionally passes `showPII`.
+This mode is only for request-time document page rendering after the server verifies that the account session belongs to an admin user.
 
 - Inline and block redactions emit their original content.
 - Fallback replacements are disabled.
-- Reveal does not modify stored/indexed/exported content.
+- Reveal uses the raw stored page body, but it does not modify indexed/exported content.
 
 ### Query param
 
 - Query param name: `showPII`
 - Truthy values: `1`, `true`, `yes`, `on` (case-insensitive).
 - Falsey or missing values, including `0`, `false`, `off`, and an empty `showPII`, must keep default redaction.
-- Reveal applies only to authenticated page markdown rendering paths.
+- `showPII` is not sufficient by itself; raw content reveal requires an admin account session.
+- The proxy must not rewrite `showPII` requests into a reveal route; query params stay harmless unless an admin-authenticated document renderer is already allowed to read raw content.
 - Search, ingest, AI/chat context preparation, and download routes ignore the reveal param and stay redacted.
-- Markdown suffix handling, casing fixes, and route aliases must preserve a truthy reveal intent without revealing for falsey values.
+- Markdown suffix handling, casing fixes, and route aliases must not turn a query parameter into raw-content access.
 
 ### Fallback replacements
 
@@ -131,9 +132,9 @@ Fallback replacements are a defense-in-depth layer for older content that has no
 
 ### Caching and routing
 
-- Redacted and revealed markdown reads must use separate cache keys.
+- Admin raw page reads must not pollute the shared redacted page cache.
 - The default document routes must remain the redacted/static path.
-- Truthy `showPII` requests are routed to the request-time reveal renderer without changing stored markdown, search data, downloads, or AI context.
+- Direct `/pii-view/...` requests must require an admin account session before rendering.
 - API routes must not be rewritten by `showPII`; they remain redacted by construction.
 
 ### Sensitive pages
@@ -152,11 +153,12 @@ Sensitive pages are hidden by default from every broad discovery surface.
 The feature must remain server-side first.
 
 - Raw markdown is never sent to the client when the request is in default mode.
+- Raw markdown may be stored alongside the redacted copy, but Convex may return it only after validating an admin account session token hash.
 - Search indexes/snippets are computed from redacted markdown, not from rendered DOM text.
 - Download archives rebuild markdown from the server-side redacted reader instead of zipping raw `.md` files from disk.
 - Download archives may be built from local disk, Convex records, or prebuilt Blob cache entries; every included markdown entry must be redacted regardless of source.
 - Chat and AI-search context assembly must consume redacted markdown so hidden content is excluded before any model call.
-- Query-param reveal must be read at request time and passed only to the page-level markdown loader; it must not mutate caches or stored source data.
+- Admin raw reveal must be read at request time and passed only to the page-level markdown loader; it must not mutate shared caches, search data, downloads, or AI context.
 - Sensitive pages are excluded before search, vector retrieval, tool responses, chat context assembly, and archive generation.
 - Convex public document reads must filter sensitive documents from `getBySlug`, search, vector search, page lists, content lists, descriptions, embedding status, and embedding upserts.
 - Tool routes such as wiki search, page reads, page lists, and tag lookups must not expose sensitive pages to guests or chat workflows.
@@ -189,10 +191,10 @@ The feature must remain server-side first.
 
 `src/lib/markdown.ts`
 
-- Add `piiMode` option to markdown reads
+- Add an admin-only raw-content read option to markdown reads
 - Add `includeSensitive` options to discovery/read helpers whose callers are allowed to see sensitive pages
-- Redact content before title extraction, body extraction, and cache storage
-- Include `piiMode` in cache keys so revealed and redacted reads never collide
+- Store redacted content for public reads, search, chat, downloads, and sync
+- Bypass the shared document cache for admin raw reads so role changes are not hidden by a cached raw page body
 - Exclude sensitive pages from default slugs, file trees, and PDF/file sidecar discovery
 - Expose helpers for checking whether a markdown slug or Obsidian-relative sidecar path is sensitive
 
@@ -204,9 +206,10 @@ The feature must remain server-side first.
 `src/proxy.ts`
 
 - Keep default page routes on the normal redacted markdown reader.
-- In the proxy, rewrite authenticated requests with truthy `showPII` to the internal reveal route.
-- Use the reveal route only to switch page rendering between `redacted` and `revealed`.
-- Exclude API routes from reveal rewrites so downloads and other server endpoints cannot be flipped by query string.
+- Do not rewrite `showPII` in the proxy; reveal branching must happen after the account-admin check.
+- Let the document renderer request raw content only after checking that the signed-in account is an admin.
+- Keep `/pii-view/[...slug]` admin-only for direct requests.
+- Keep API routes unbranched by `showPII` so downloads and other server endpoints cannot be flipped by query string.
 - Return 404 for sensitive page requests from guests and shared-password visitors.
 - Let signed-in account sessions view sensitive pages through the normal document page renderer.
 - Apply `noindex,nofollow` metadata to sensitive pages and avoid leaking sensitive titles/descriptions to guests.
@@ -256,14 +259,15 @@ Vault-local lint tooling, for example `.agents/skills/lint/check-pii.ts`, should
 
 - A page containing inline redactions does not render hidden values by default.
 - A page containing block redactions does not render the block body by default.
-- Adding `?showPII=1` reveals redacted page content server-side.
-- Adding `?showPII=true`, `?showPII=yes`, or `?showPII=on` also reveals redacted page content.
+- Admin account page rendering reveals redacted page content server-side.
+- Truthy `showPII` values do not reveal raw content for non-admin readers.
+- Direct `/pii-view/...` requests return 404 for non-admin readers.
 - Adding `?showPII=0`, `?showPII=false`, `?showPII=off`, or an empty `showPII` does not reveal hidden content.
-- Markdown suffix requests and canonical redirects preserve truthy reveal intent.
+- Markdown suffix requests and canonical redirects do not create raw-content access.
 - Text search cannot retrieve hidden identifiers from redacted content.
 - Downloaded markdown archives contain only redacted markdown, even if `showPII` is present in the request URL.
 - Chat and AI-search context assembly use redacted markdown only.
-- Stored ingested markdown content is redacted.
+- Stored document `content` is redacted; admin-only `rawContent` may retain the source body for page rendering.
 - Vault lint can flag obvious, unwrapped PII in the main wiki/source surfaces.
 - Redacted and revealed page cache entries do not collide.
 - API routes ignore `showPII` and do not rewrite to reveal routes.
@@ -302,10 +306,11 @@ Vault-local lint tooling, for example `.agents/skills/lint/check-pii.ts`, should
 ### End-to-end tests
 
 - Diagnosis page hides patient identifiers by default.
-- Diagnosis page reveals them with `?showPII=1`.
-- Diagnosis page reveals them with alternate truthy values such as `?showPII=TRUE`.
+- Admin account page rendering reveals hidden redact-block content.
+- Non-admin `?showPII=1` page rendering stays redacted.
+- Non-admin `/pii-view/...` page rendering returns 404.
 - Diagnosis page stays redacted with falsey values such as `?showPII=0`.
-- Diagnosis page keeps reveal semantics after `.md` suffix requests.
+- Diagnosis page stays redacted after `.md` suffix requests from non-admin readers.
 - About page hides inline patient identifiers by default.
 - Text search for hidden MRN and patient-name values returns no results.
 - Markdown export remains redacted even when `showPII=1` is appended to the export URL.

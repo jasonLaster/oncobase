@@ -15,7 +15,6 @@ import {
   type ShellFileTreeOptions,
 } from "@/lib/file-tree-shell";
 import { isHiddenFileTreeAssetPath, isHiddenFileTreePath } from "@/lib/file-tree-paths";
-import type { PiiRedactionMode } from "@/lib/pii-redaction";
 import {
   siteAssetsCacheTag,
   siteCacheTag,
@@ -78,11 +77,11 @@ export interface ResolvedMarkdownManifestRoute {
 }
 
 interface MarkdownReadOptions {
-  // Convex stores content already redacted at publish time, so the
-  // mode here is informational. The reveal path is gone with the fs
-  // reader — raw markdown lives only in the publisher's local vault.
-  piiMode?: PiiRedactionMode;
+  // Public reads use Convex's redacted `content`. Admin page rendering
+  // may pass a session token hash so Convex can verify admin status
+  // before returning raw markdown.
   includeSensitive?: boolean;
+  rawContentSessionTokenHash?: string;
 }
 
 interface MarkdownDiscoveryOptions {
@@ -265,8 +264,17 @@ function toMarkdownFrontmatter(doc: {
 export async function getMarkdownFileForSite(
   siteSlug: SiteSlug,
   slug: string,
-  { includeSensitive = false }: MarkdownReadOptions = {},
+  {
+    includeSensitive = false,
+    rawContentSessionTokenHash,
+  }: MarkdownReadOptions = {},
 ): Promise<MarkdownFile | null> {
+  if (rawContentSessionTokenHash) {
+    return readMarkdownFileForSite(siteSlug, slug, {
+      includeSensitive,
+      rawContentSessionTokenHash,
+    });
+  }
   return fetchMarkdownFileForSite(siteSlug, slug, includeSensitive);
 }
 
@@ -289,27 +297,38 @@ async function fetchMarkdownFileForSite(
 export async function readMarkdownFileForSite(
   siteSlug: SiteSlug,
   slug: string,
-  { includeSensitive = false }: MarkdownReadOptions = {},
+  {
+    includeSensitive = false,
+    rawContentSessionTokenHash,
+  }: MarkdownReadOptions = {},
 ): Promise<MarkdownFile | null> {
   if (shouldSkipConvexReads()) return null;
   const siteData = siteDataFromSlug(siteSlug);
   let doc = await siteData.documents.getBySlug(
-    includeSensitive ? { slug, includeSensitive: true } : { slug },
+    {
+      slug,
+      ...(includeSensitive ? { includeSensitive: true } : {}),
+      ...(rawContentSessionTokenHash ? { rawContentSessionTokenHash } : {}),
+    },
   );
   if (!doc) {
     const indexSlug = `${slug}/index`;
     doc = await siteData.documents.getBySlug(
-      includeSensitive
-        ? { slug: indexSlug, includeSensitive: true }
-        : { slug: indexSlug },
+      {
+        slug: indexSlug,
+        ...(includeSensitive ? { includeSensitive: true } : {}),
+        ...(rawContentSessionTokenHash ? { rawContentSessionTokenHash } : {}),
+      },
     );
   }
   const legacySlug = legacyPublishedSlug(slug);
   if (!doc && legacySlug) {
     doc = await siteData.documents.getBySlug(
-      includeSensitive
-        ? { slug: legacySlug, includeSensitive: true }
-        : { slug: legacySlug },
+      {
+        slug: legacySlug,
+        ...(includeSensitive ? { includeSensitive: true } : {}),
+        ...(rawContentSessionTokenHash ? { rawContentSessionTokenHash } : {}),
+      },
     );
   }
   if (!doc) return null;

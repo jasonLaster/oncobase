@@ -131,6 +131,7 @@ function sitePiiPatterns(site: { config: { piiPatterns?: string[] } }): PiiPatte
 
 type DocHashRow = {
   contentHash: string | undefined;
+  hasRawContent: boolean | undefined;
   hashFunctionVersion: number | undefined;
   sensitive: boolean | undefined;
 };
@@ -144,6 +145,7 @@ async function currentDocumentHashes(siteData: SiteData) {
       page: Array<{
         slug: string;
         contentHash: string | undefined;
+        hasRawContent?: boolean | undefined;
         hashFunctionVersion?: number | undefined;
         sensitive?: boolean | undefined;
       }>;
@@ -157,6 +159,7 @@ async function currentDocumentHashes(siteData: SiteData) {
     for (const doc of page.page) {
       hashes.set(doc.slug, {
         contentHash: doc.contentHash,
+        hasRawContent: doc.hasRawContent,
         hashFunctionVersion: doc.hashFunctionVersion,
         sensitive: doc.sensitive,
       });
@@ -522,6 +525,7 @@ export async function POST(
       const existingDocHashes = await currentDocumentHashes(siteData);
       const docManifest = manifest.documents ?? [];
       const missingDocumentSlugs: string[] = [];
+      const rawContentBackfillSlugs: string[] = [];
       // Subset of missingDocumentSlugs whose hash differs solely
       // because the stored hashFunctionVersion is older than the
       // publisher's. Surfacing this lets operators run a hash-only
@@ -530,13 +534,22 @@ export async function POST(
       const staleHashVersionSlugs: string[] = [];
       for (const doc of docManifest) {
         const existing = existingDocHashes.get(doc.slug);
+        const missingRawContent =
+          existing &&
+          existing.contentHash === doc.hash &&
+          (existing.sensitive === true) === (doc.sensitive === true) &&
+          !existing.hasRawContent;
         if (
           force ||
           !existing ||
           existing.contentHash !== doc.hash ||
-          existing.sensitive === true !== (doc.sensitive === true)
+          existing.sensitive === true !== (doc.sensitive === true) ||
+          missingRawContent
         ) {
           missingDocumentSlugs.push(doc.slug);
+          if (!force && missingRawContent) {
+            rawContentBackfillSlugs.push(doc.slug);
+          }
           if (
             existing &&
             manifestHashFunctionVersion !== undefined &&
@@ -587,6 +600,7 @@ export async function POST(
       return NextResponse.json({
         runId: crypto.randomUUID(),
         missingDocumentSlugs,
+        rawContentBackfillSlugs,
         missingAssetPaths,
         assetChanges,
         staleDocumentSlugs,
@@ -624,10 +638,9 @@ export async function POST(
         });
       }
 
-      // Convex stores only redacted content. Raw markdown stays in the
-      // publisher's local vault — backups, exports, search indexes,
-      // and chat tools all see the redacted text. See
-      // apps/web/specs/multi-site.md.
+      // Search, exports, chat, and public pages consume the redacted
+      // copy. Raw markdown is retained only for admin-authenticated
+      // document page rendering.
       const redactedContent = applyPiiRedactions(content, {
         patterns: piiPatterns,
       });
@@ -635,6 +648,7 @@ export async function POST(
         slug,
         title,
         content: redactedContent,
+        rawContent: content,
         tags: Array.isArray(tags) ? tags : [],
         sensitiveInclude: Array.isArray(sensitiveInclude)
           ? sensitiveInclude
