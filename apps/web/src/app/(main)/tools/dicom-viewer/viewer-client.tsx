@@ -682,7 +682,7 @@ export function DicomViewerClient({
           </div>
         </aside>
 
-        <main className="flex min-h-0 flex-col bg-black">
+        <main className="flex min-h-0 min-w-0 flex-col bg-black">
           <div
             className="relative min-h-[260px] flex-1 touch-none outline-none select-none sm:min-h-[420px] max-lg:landscape:min-h-0"
             onContextMenu={(event) => event.preventDefault()}
