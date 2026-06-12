@@ -225,6 +225,79 @@ test.describe("Page viewing & sidebar navigation", () => {
     );
   });
 
+  test("source tree clicks preserve the current sidebar scroll position", async ({ page }) => {
+    test.skip(
+      process.env.TEST_ENV === "prod",
+      "Remote prod source tree shape can shift while this local sidebar interaction is covered outside prod stress."
+    );
+
+    await page.goto("/sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-overview");
+
+    const nav = page.locator(sidebar);
+    const formattedLink = nav
+      .locator('a[href="/sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-formatted"]')
+      .first();
+    await expect(formattedLink).toBeVisible();
+
+    await page.evaluate(() => {
+      const win = window as typeof window & {
+        __selectedTreeItemScrollCalls?: number;
+        __forceSelectedTreeItemOutOfView?: boolean;
+      };
+      const originalScrollIntoView = Element.prototype.scrollIntoView;
+      const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+
+      win.__selectedTreeItemScrollCalls = 0;
+      win.__forceSelectedTreeItemOutOfView = true;
+
+      Element.prototype.scrollIntoView = function scrollIntoView(...args) {
+        if (
+          this instanceof HTMLElement &&
+          this.dataset.selectedFileTreeItem === "true"
+        ) {
+          win.__selectedTreeItemScrollCalls =
+            (win.__selectedTreeItemScrollCalls ?? 0) + 1;
+        }
+        return originalScrollIntoView.apply(this, args);
+      };
+
+      Element.prototype.getBoundingClientRect = function getBoundingClientRect() {
+        const rect = originalGetBoundingClientRect.apply(this);
+        if (
+          win.__forceSelectedTreeItemOutOfView &&
+          this instanceof HTMLElement &&
+          this.dataset.selectedFileTreeItem === "true"
+        ) {
+          return DOMRect.fromRect({
+            x: rect.x,
+            y: rect.y - 10_000,
+            width: rect.width,
+            height: rect.height,
+          });
+        }
+        return rect;
+      };
+    });
+
+    await formattedLink.evaluate((element) => {
+      (element as HTMLElement).click();
+    });
+    await expect(page).toHaveURL(
+      /\/sources\/meeting-notes\/05-13---echo-kernis-phm-tissue-sync-formatted$/,
+    );
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const win = window as typeof window & {
+            __selectedTreeItemScrollCalls?: number;
+          };
+          return win.__selectedTreeItemScrollCalls ?? 0;
+        }),
+      )
+      .toBe(0);
+  });
+
   test("redirects mixed-case wiki paths to canonical casing", async ({ page }) => {
     await page.goto("/about/index");
     await expect(page).toHaveURL(/\/about\/Index$/);

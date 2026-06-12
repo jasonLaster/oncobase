@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   Activity,
   Archive,
@@ -560,9 +560,18 @@ function SidebarFooter() {
 export function Sidebar({ tree }: { tree: FileNode[] }) {
   const pathname = useNavigationPathname();
   const navRef = useRef<HTMLElement>(null);
+  const skipNextSelectedScrollRef = useRef(false);
+  const markTreeNavigation = useCallback(() => {
+    skipNextSelectedScrollRef.current = true;
+  }, []);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
+      if (skipNextSelectedScrollRef.current) {
+        skipNextSelectedScrollRef.current = false;
+        return;
+      }
+
       const nav = navRef.current;
       const selectedItem = nav?.querySelector<HTMLElement>(
         '[data-selected-file-tree-item="true"]',
@@ -605,6 +614,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
             activePathname={pathname}
             key={fileTreeNodeKey(node)}
             node={node}
+            onNavigate={markTreeNavigation}
           />
         ))}
       </nav>
