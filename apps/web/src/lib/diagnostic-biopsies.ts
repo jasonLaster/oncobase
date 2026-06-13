@@ -19,6 +19,24 @@ export interface DiagnosticReportLink {
 
 const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
   {
+    id: "diagnostic-2026-06-10-petct",
+    shortLabel: "6/10",
+    title: "June 10 PET/CT",
+    dateLabel: "Jun 10, 2026",
+    isoDate: "2026-06-10",
+    modality: "PET/CT",
+    focus: "PET/CT stack",
+    directoryIncludes: "05-10-petct",
+    pathologyReportHref: viewerUploadHref("05-10-petct/report.pdf"),
+    reportLinks: [
+      {
+        label: "PET/CT report",
+        href: viewerUploadHref("05-10-petct/report.pdf"),
+      },
+    ],
+    downloadHref: fileAssetHref("diagnostics/viewer-upload/05-10-petct/source-files.zip"),
+  },
+  {
     id: "diagnostic-2026-04-01-breast-mri",
     shortLabel: "4/1",
     title: "April 1 breast MRI",
@@ -27,11 +45,11 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
     modality: "MR",
     focus: "Breast MRI stack",
     directoryIncludes: "04-01-breast-mri",
-    pathologyReportHref: sourcePageHref("04-01-breast-mri"),
+    pathologyReportHref: sourcePdfHref("401-breast-mri.pdf"),
     reportLinks: [
       {
         label: "MRI report",
-        href: sourcePageHref("04-01-breast-mri"),
+        href: sourcePdfHref("401-breast-mri.pdf"),
       },
       {
         label: "Breast biopsy report",
@@ -39,7 +57,9 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
       },
       {
         label: "Axilla biopsy report",
-        href: sourcePageHref("03-23-us-axilla-core-biopsy"),
+        href: viewerUploadHref(
+          "04-01-breast-mri/reports/03-23-us-axilla-core-biopsy.pdf",
+        ),
       },
     ],
     downloadHref: fileAssetHref(
@@ -55,11 +75,11 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
     modality: "PET/CT",
     focus: "PET/CT stack",
     directoryIncludes: "03-27-petct",
-    pathologyReportHref: sourcePageHref("03-27-petct"),
+    pathologyReportHref: viewerUploadHref("03-27-petct/report.pdf"),
     reportLinks: [
       {
         label: "PET/CT report",
-        href: sourcePageHref("03-27-petct"),
+        href: viewerUploadHref("03-27-petct/report.pdf"),
       },
       {
         label: "Breast biopsy report",
@@ -67,7 +87,9 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
       },
       {
         label: "Axilla biopsy report",
-        href: sourcePageHref("03-23-us-axilla-core-biopsy"),
+        href: viewerUploadHref(
+          "03-27-petct/reports/03-23-us-axilla-core-biopsy.pdf",
+        ),
       },
     ],
     downloadHref: fileAssetHref("diagnostics/viewer-upload/03-27-petct/source-files.zip"),
@@ -89,7 +111,9 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
       },
       {
         label: "Axilla biopsy report",
-        href: sourcePageHref("03-23-us-axilla-core-biopsy"),
+        href: viewerUploadHref(
+          "03-20-ultrasound/reports/03-23-us-axilla-core-biopsy.pdf",
+        ),
       },
       {
         label: "Breast biopsy report",
@@ -141,7 +165,9 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
     modality: "Biopsy",
     focus: "Axilla biopsy ultrasound stack",
     directoryIncludes: "3-23 - US Axilla biopsy",
-    pathologyReportHref: "/sources/diagnostics/03-23-us-axilla-core-biopsy",
+    pathologyReportHref: viewerUploadHref(
+      "03-20-ultrasound/reports/03-23-us-axilla-core-biopsy.pdf",
+    ),
   },
   {
     id: "biopsy-2026-03-13",
@@ -180,4 +206,8 @@ function sourcePageHref(slug: string) {
 
 function sourcePdfHref(fileName: string) {
   return fileAssetHref(`sources/diagnostics/${fileName}`);
+}
+
+function viewerUploadHref(path: string) {
+  return fileAssetHref(`diagnostics/viewer-upload/${path}`);
 }

@@ -228,6 +228,9 @@ export function DicomViewerClient({
     () => findBiopsyForSeries(selectedSeries) ?? requestedBiopsy,
     [requestedBiopsy, selectedSeries],
   );
+  const selectedReportLink = selectedBiopsy
+    ? getPrimaryReportLink(selectedBiopsy)
+    : null;
 
   const activeStack = useMemo<ActiveStack | null>(() => {
     if (!selectedSeries) return null;
@@ -647,15 +650,15 @@ export function DicomViewerClient({
               })}
             </div>
 
-            {selectedBiopsy ? (
+            {selectedReportLink && selectedBiopsy ? (
               <a
-                href={selectedBiopsy.pathologyReportHref}
+                href={selectedReportLink.href}
                 className="block w-64 shrink-0 rounded-lg border border-emerald-300/35 bg-emerald-300/10 p-3 text-left transition-colors hover:border-emerald-200/60 hover:bg-emerald-300/15 sm:w-72 lg:w-auto"
                 data-test-id="dicom-pathology-report-link"
               >
                 <div className="flex items-center gap-2 text-sm font-semibold text-emerald-50">
                   <FileText className="size-4 shrink-0 text-emerald-200" />
-                  <span>{selectedBiopsy.reportLinks?.[0]?.label ?? "Pathology report"}</span>
+                  <span>{selectedReportLink.label}</span>
                 </div>
                 <div className="mt-2 text-xs leading-5 text-emerald-100/80">
                   {selectedBiopsy.title}
@@ -1089,15 +1092,15 @@ export function DicomViewerClient({
                   </div>
                 ) : null}
               </div>
-            ) : selectedBiopsy ? (
+            ) : selectedReportLink && selectedBiopsy ? (
               <a
-                href={selectedBiopsy.pathologyReportHref}
+                href={selectedReportLink.href}
                 className="block rounded-lg border border-emerald-300/35 bg-emerald-300/10 p-3 text-left transition-colors hover:border-emerald-200/60 hover:bg-emerald-300/15"
                 data-test-id="dicom-mobile-pathology-report-link"
               >
                 <div className="flex items-center gap-2 text-sm font-semibold text-emerald-50">
                   <FileText className="size-4 shrink-0 text-emerald-200" />
-                  <span>Pathology report</span>
+                  <span>{selectedReportLink.label}</span>
                 </div>
                 <div className="mt-2 text-xs leading-5 text-emerald-100/80">
                   {selectedBiopsy.title}
@@ -1157,6 +1160,13 @@ function MetaRow({ label, value }: { label: string; value: string | null | undef
 
 function isRenderableSeries(series: DicomSeries) {
   return !new Set(["PR", "SR", "OT"]).has((series.modality ?? "").toUpperCase());
+}
+
+function getPrimaryReportLink(biopsy: DiagnosticBiopsy) {
+  return biopsy.reportLinks?.[0] ?? {
+    label: "Pathology report",
+    href: biopsy.pathologyReportHref,
+  };
 }
 
 function matchesBiopsySeries(series: DicomSeries, biopsy: DiagnosticBiopsy) {

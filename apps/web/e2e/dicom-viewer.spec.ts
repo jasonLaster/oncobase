@@ -7,6 +7,12 @@ import { expect, test, type Page } from "@playwright/test";
 
 const biopsyLinks = [
   {
+    id: "diagnostic-2026-06-10-petct",
+    title: "June 10 PET/CT",
+    directory: "05-10-petct/dicoms",
+    counter: "308 / 615",
+  },
+  {
     id: "diagnostic-2026-04-01-breast-mri",
     title: "April 1 breast MRI",
     directory: "04-01-breast-mri/dicoms",
@@ -49,14 +55,15 @@ const biopsyLinks = [
     counter: "10 / 19",
   },
 ];
-const breastMriReportPath =
-  "sources/diagnostics/03-13-breast-biopsy-report.pdf";
+const breastMriReportPath = "sources/diagnostics/401-breast-mri.pdf";
 const liveDiagnosticsReportLinks = [
-  "/sources/diagnostics/04-01-breast-mri",
-  "/sources/diagnostics/03-27-petct",
+  "/api/file?path=diagnostics%2Fviewer-upload%2F05-10-petct%2Freport.pdf",
+  "/api/file?path=sources%2Fdiagnostics%2F401-breast-mri.pdf",
+  "/api/file?path=diagnostics%2Fviewer-upload%2F03-27-petct%2Freport.pdf",
   "/sources/diagnostics/03-20-ultrasound",
   "/sources/diagnostics/02-20-ultrasound",
-  "/sources/diagnostics/03-23-us-axilla-core-biopsy",
+  "/api/file?path=sources%2Fdiagnostics%2F04-10-kernis-path-report%2F04-10-kernis-path-report.pdf",
+  "/api/file?path=diagnostics%2Fviewer-upload%2F03-20-ultrasound%2Freports%2F03-23-us-axilla-core-biopsy.pdf",
   "/api/file?path=sources%2Fdiagnostics%2F03-13-breast-biopsy-report.pdf",
 ];
 
@@ -226,7 +233,7 @@ test.describe("DICOM viewer", () => {
     await expect(desktopTable.getByRole("columnheader", { name: "Reports" })).toBeVisible();
     await expect(desktopTable.getByRole("columnheader", { name: "View images" })).toBeVisible();
     await expect(desktopTable.getByRole("columnheader", { name: "Download" })).toBeVisible();
-    await expect(desktopTable.getByRole("link", { name: "Download" })).toHaveCount(4);
+    await expect(desktopTable.getByRole("link", { name: "Download" })).toHaveCount(5);
     for (const biopsy of biopsyLinks) {
       const viewerLink = desktopTable.locator(
         `a[href="/tools/dicom-viewer?id=${biopsy.id}"]`
@@ -244,7 +251,10 @@ test.describe("DICOM viewer", () => {
       name: /Apr 1, 2026.*Breast MRI/,
     });
     await breastMriRow.getByRole("button", { name: "Reports" }).click();
-    await expect(page.getByRole("menuitem", { name: "MRI report" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "MRI report" })).toHaveAttribute(
+      "href",
+      "/api/file?path=sources%2Fdiagnostics%2F401-breast-mri.pdf",
+    );
     await expect(
       page.getByRole("menuitem", { name: "Breast biopsy report" }),
     ).toBeVisible();
@@ -265,7 +275,7 @@ test.describe("DICOM viewer", () => {
     ).toHaveCount(biopsyLinks.length);
     await expect(
       mobileList.getByRole("link", { name: /View images/ }).first(),
-    ).toHaveAttribute("href", "/tools/dicom-viewer?id=biopsy-2026-04-10");
+    ).toHaveAttribute("href", "/tools/dicom-viewer?id=diagnostic-2026-06-10-petct");
   });
 
   test("diagnostics report links stay live and surfaced PDFs support password-gated byte-range loading", async ({
@@ -335,7 +345,7 @@ test.describe("DICOM viewer", () => {
     await expect(seriesPanel).not.toContainText("2026-04-10");
     await expect(page.getByTestId("dicom-pathology-report-link")).toHaveAttribute(
       "href",
-      "/sources/diagnostics/03-23-us-axilla-core-biopsy",
+      "/api/file?path=diagnostics%2Fviewer-upload%2F03-20-ultrasound%2Freports%2F03-23-us-axilla-core-biopsy.pdf",
     );
     await expect(page.getByTestId("dicom-pathology-report-link")).toContainText(
       "Pathology report",
