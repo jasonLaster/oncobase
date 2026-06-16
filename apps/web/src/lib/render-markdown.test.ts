@@ -36,6 +36,26 @@ Inline <redact label="someone">Diana Laster</redact> text.`,
     expect(html).not.toContain("<redact");
   });
 
+  test("reveals redaction tags when rendering admin raw content", () => {
+    const html = renderMarkdown(
+      `Before
+
+:::redact[Private discussion redacted.]
+Admin-only section should render.
+:::
+
+After`,
+      "admin-redaction-example",
+      { redactionMode: "revealed" },
+    );
+
+    expect(html).toContain("Before");
+    expect(html).toContain("Admin-only section should render.");
+    expect(html).toContain("After");
+    expect(html).not.toContain("Private discussion redacted.");
+    expect(html).not.toContain(":::redact");
+  });
+
   test("preserves Diana-facing labels while redacting full identifiers", () => {
     const html = renderMarkdown(
       "## Relevance to Diana\n\nDiana's treatment context mentions Diana Laster.",

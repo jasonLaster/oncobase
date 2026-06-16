@@ -217,12 +217,14 @@ async function AsyncMarkdownBody({
   filePath,
   includeSensitive,
   rawContentSessionTokenHash,
+  redactionMode,
   slug,
   siteSlug,
 }: {
   filePath: string;
   includeSensitive: boolean;
   rawContentSessionTokenHash?: string;
+  redactionMode?: "redacted" | "revealed";
   slug: string;
   siteSlug: string;
 }) {
@@ -238,6 +240,7 @@ async function AsyncMarkdownBody({
       siteSlug={siteSlug}
       contentHash={file.contentHash}
       includeSensitive={includeSensitive}
+      redactionMode={redactionMode}
     />
   );
 }
@@ -366,6 +369,9 @@ export async function renderDocumentPage({
         <MarkdownRenderer
           content={syncFile!.content}
           currentSlug={syncFile!.slug}
+          redactionMode={
+            documentAccess.rawContentSessionTokenHash ? "revealed" : "redacted"
+          }
         />
       ) : (
         <Suspense fallback={<MarkdownBodyFallback />}>
@@ -373,6 +379,9 @@ export async function renderDocumentPage({
             filePath={resolvedPath}
             includeSensitive={includeSensitive}
             rawContentSessionTokenHash={documentAccess.rawContentSessionTokenHash}
+            redactionMode={
+              documentAccess.rawContentSessionTokenHash ? "revealed" : "redacted"
+            }
             slug={manifest.slug}
             siteSlug={siteSlug}
           />

@@ -5,7 +5,7 @@ import {
   renderWikiMarkdownHtml,
   renderWikiMarkdownHtmlAsync,
 } from "@oncobase/wiki-markdown/server";
-import { applyPiiRedactions } from "@/lib/pii-redaction";
+import { applyPiiRedactions, type PiiRedactionMode } from "@/lib/pii-redaction";
 import { MARKDOWN_RENDER_CACHE_VERSION } from "@/lib/wiki-cache-tags";
 
 const CACHE_DIR = path.join(process.cwd(), ".next", "cache", "markdown");
@@ -28,8 +28,12 @@ function hashKey(md: string): string {
     .slice(0, 16);
 }
 
-export function renderMarkdown(md: string, currentSlug?: string): string {
-  const redactedMd = applyPiiRedactions(md);
+export function renderMarkdown(
+  md: string,
+  currentSlug?: string,
+  { redactionMode = "redacted" }: { redactionMode?: PiiRedactionMode } = {},
+): string {
+  const redactedMd = applyPiiRedactions(md, { mode: redactionMode });
   const key = hashKey(`${currentSlug ?? ""}:${redactedMd}`);
   const cachePath = path.join(CACHE_DIR, `${key}.html`);
 
@@ -51,9 +55,13 @@ export function renderMarkdown(md: string, currentSlug?: string): string {
   return html;
 }
 
-export async function renderMarkdownAsync(md: string, currentSlug?: string): Promise<string> {
+export async function renderMarkdownAsync(
+  md: string,
+  currentSlug?: string,
+  { redactionMode = "redacted" }: { redactionMode?: PiiRedactionMode } = {},
+): Promise<string> {
   const t0 = performance.now();
-  const redactedMd = applyPiiRedactions(md);
+  const redactedMd = applyPiiRedactions(md, { mode: redactionMode });
   const key = hashKey(`${currentSlug ?? ""}:${redactedMd}`);
   const cachePath = path.join(CACHE_DIR, `${key}.html`);
 
