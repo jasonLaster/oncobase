@@ -27,6 +27,8 @@ import { postPublishWorkflow } from "@/workflows/post-publish";
 
 export const maxDuration = 300;
 
+const MAX_DOCUMENT_CONTENT_STORAGE_BYTES = 950_000;
+
 type Manifest = {
   documents?: Array<{ slug: string; hash: string; sensitive?: boolean }>;
   assets?: Array<{ path: string; hash: string; kind?: "pdf" | "file" }>;
@@ -644,11 +646,17 @@ export async function POST(
       const redactedContent = applyPiiRedactions(content, {
         patterns: piiPatterns,
       });
+      const contentSize = new TextEncoder().encode(content).byteLength;
+      const redactedContentSize = new TextEncoder().encode(redactedContent).byteLength;
+      const rawContent =
+        contentSize + redactedContentSize <= MAX_DOCUMENT_CONTENT_STORAGE_BYTES
+          ? content
+          : undefined;
       await siteData.documents.upsert({
         slug,
         title,
         content: redactedContent,
-        rawContent: content,
+        rawContent,
         tags: Array.isArray(tags) ? tags : [],
         sensitiveInclude: Array.isArray(sensitiveInclude)
           ? sensitiveInclude
