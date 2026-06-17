@@ -184,7 +184,7 @@
     },
     "packages/oncobase": {
       "name": "@oncobase/oncobase",
-      "version": "0.1.2",
+      "version": "0.1.4",
       "bin": {
         "oncobase": "dist/main.js",
       },
