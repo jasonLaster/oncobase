@@ -3,6 +3,7 @@ import {
   resolveMarkdownManifestRouteForSite,
   type MarkdownManifest,
 } from "@/lib/markdown";
+import { markdownTitleToText } from "@/lib/markdown-title";
 import { getRequestSiteSlug, type SiteSlug } from "@/lib/site";
 
 export const SITE_NAME = "TNBC Knowledge Base";
@@ -83,13 +84,14 @@ export async function getMarkdownPageMetadataForSite(
     typeof manifest.frontmatter.description === "string"
       ? manifest.frontmatter.description.trim()
       : "";
+  const plainTitle = markdownTitleToText(manifest.title) || manifest.title;
   const description =
     truncateDescription(frontmatterDescription) ||
-    `${manifest.title} notes in ${SITE_NAME}`;
+    `${plainTitle} notes in ${SITE_NAME}`;
 
   return {
     slug: manifest.slug,
-    title: manifest.title,
+    title: plainTitle,
     description,
     sensitive: manifest.sensitive === true,
   };

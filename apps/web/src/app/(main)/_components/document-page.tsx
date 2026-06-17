@@ -17,9 +17,11 @@ import {
   MarkdownRenderer,
   MarkdownRendererAsync,
 } from "@/components/markdown-renderer";
+import { MarkdownTitle } from "@/components/markdown-title";
 import { PageLoadingSkeleton } from "@/components/page-loading";
 import { CopyPageButton } from "@/components/copy-page-button";
 import { DocumentComments } from "@/components/document-comments-wrapper";
+import { markdownTitleToText } from "@/lib/markdown-title";
 import { DEFAULT_SITE_SLUG, getRequestSiteSlug, toSiteSlug } from "@/lib/site";
 import { getSessionUserWithAdminFromCookieHeader } from "@/lib/session-user";
 import { USER_SESSION_COOKIE, hashSessionToken } from "@/lib/user-auth";
@@ -140,10 +142,14 @@ function DocHeader({
     frontmatter: Record<string, unknown>;
   };
 }) {
+  const plainTitle = markdownTitleToText(file.title) || file.title;
+
   return (
     <header className="mb-6">
       <div className="flex items-start justify-between gap-2">
-        <h1 className="text-3xl font-bold">{file.title}</h1>
+        <h1 className="text-3xl font-bold">
+          <MarkdownTitle title={file.title} currentSlug={file.slug} />
+        </h1>
         <div className="flex shrink-0 items-center gap-1">
           {file.sensitive === true && (
             <span
@@ -156,7 +162,7 @@ function DocHeader({
           )}
           <CopyPageButton
             slug={file.slug}
-            title={file.title}
+            title={plainTitle}
             contentHash={file.contentHash}
           />
         </div>
@@ -344,6 +350,7 @@ export async function renderDocumentPage({
     aliasCanonicalPath && manifest.slug === "index" && manifest.title === "index"
       ? { ...manifest, title: "Index" }
       : manifest;
+  const plainDisplayTitle = markdownTitleToText(displayFile.title) || displayFile.title;
   // Keep index routes synchronous so `/` and `/about/Index` include body text
   // in the prerendered validation shell; normal pages use cached async HTML.
   const shouldRenderSynchronously = resolvedPath === "index";
@@ -363,7 +370,7 @@ export async function renderDocumentPage({
   }
 
   return (
-    <DocumentComments documentSlug={manifest.slug} documentTitle={displayFile.title}>
+    <DocumentComments documentSlug={manifest.slug} documentTitle={plainDisplayTitle}>
       <DocHeader file={displayFile} />
       {shouldRenderSynchronously ? (
         <MarkdownRenderer
