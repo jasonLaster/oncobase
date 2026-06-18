@@ -108,10 +108,18 @@ test.describe("Prose table expansion", () => {
     expect(before.expanded).toBe(true);
     expect(before.scrollOwner?.scrollTop ?? 0).toBe(0);
 
-    const afterScroll = await scrollFirstTableIntoFlow(page, 260);
+    await scrollFirstTableIntoFlow(page, 260);
+    await expect
+      .poll(async () => (await getFirstTableMetrics(page)).scrollOwner?.scrollTop ?? 0)
+      .toBeGreaterThan(200);
+    await expect
+      .poll(
+        async () =>
+          Math.abs(((await getFirstTableMetrics(page)).layer?.top ?? 0) - (before.layer?.top ?? 0)),
+      )
+      .toBeGreaterThan(150);
 
-    expect(afterScroll.scrollOwner?.scrollTop ?? 0).toBeGreaterThan(200);
-    expect(Math.abs((afterScroll.layer?.top ?? 0) - (before.layer?.top ?? 0))).toBeGreaterThan(150);
+    const afterScroll = await getFirstTableMetrics(page);
 
     const deltaBefore = (before.layer?.top ?? 0) - (before.shell?.top ?? 0);
     const deltaAfter = (afterScroll.layer?.top ?? 0) - (afterScroll.shell?.top ?? 0);

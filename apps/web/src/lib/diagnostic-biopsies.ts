@@ -27,11 +27,11 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
     modality: "PET/CT",
     focus: "PET/CT stack",
     directoryIncludes: "05-10-petct",
-    pathologyReportHref: viewerUploadHref("05-10-petct/report.pdf"),
+    pathologyReportHref: sourcePageHref("06-10-cu-grip-petct"),
     reportLinks: [
       {
         label: "PET/CT report",
-        href: viewerUploadHref("05-10-petct/report.pdf"),
+        href: sourcePageHref("06-10-cu-grip-petct"),
       },
     ],
     downloadHref: fileAssetHref("diagnostics/viewer-upload/05-10-petct/source-files.zip"),
@@ -57,9 +57,7 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
       },
       {
         label: "Axilla biopsy report",
-        href: viewerUploadHref(
-          "04-01-breast-mri/reports/03-23-us-axilla-core-biopsy.pdf",
-        ),
+        href: sourcePageHref("03-23-us-axilla-core-biopsy"),
       },
     ],
     downloadHref: fileAssetHref(
@@ -75,11 +73,11 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
     modality: "PET/CT",
     focus: "PET/CT stack",
     directoryIncludes: "03-27-petct",
-    pathologyReportHref: viewerUploadHref("03-27-petct/report.pdf"),
+    pathologyReportHref: sourcePageHref("03-27-petct"),
     reportLinks: [
       {
         label: "PET/CT report",
-        href: viewerUploadHref("03-27-petct/report.pdf"),
+        href: sourcePageHref("03-27-petct"),
       },
       {
         label: "Breast biopsy report",
@@ -87,9 +85,7 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
       },
       {
         label: "Axilla biopsy report",
-        href: viewerUploadHref(
-          "03-27-petct/reports/03-23-us-axilla-core-biopsy.pdf",
-        ),
+        href: sourcePageHref("03-23-us-axilla-core-biopsy"),
       },
     ],
     downloadHref: fileAssetHref("diagnostics/viewer-upload/03-27-petct/source-files.zip"),
@@ -111,9 +107,7 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
       },
       {
         label: "Axilla biopsy report",
-        href: viewerUploadHref(
-          "03-20-ultrasound/reports/03-23-us-axilla-core-biopsy.pdf",
-        ),
+        href: sourcePageHref("03-23-us-axilla-core-biopsy"),
       },
       {
         label: "Breast biopsy report",
@@ -165,9 +159,7 @@ const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
     modality: "Biopsy",
     focus: "Axilla biopsy ultrasound stack",
     directoryIncludes: "3-23 - US Axilla biopsy",
-    pathologyReportHref: viewerUploadHref(
-      "03-20-ultrasound/reports/03-23-us-axilla-core-biopsy.pdf",
-    ),
+    pathologyReportHref: sourcePageHref("03-23-us-axilla-core-biopsy"),
   },
   {
     id: "biopsy-2026-03-13",
