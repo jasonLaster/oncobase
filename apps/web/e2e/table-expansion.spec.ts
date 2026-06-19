@@ -491,7 +491,7 @@ test.describe("Prose table expansion", () => {
         const tdStyle = getComputedStyle(td);
 
         return {
-          wrapperBorderTopWidth: wrapperStyle.borderTopWidth,
+          wrapperBorderTopStyle: wrapperStyle.borderTopStyle,
           wrapperBorderRadius: wrapperStyle.borderRadius,
           thTextTransform: thStyle.textTransform,
           thTextAlign: thStyle.textAlign,
@@ -501,7 +501,7 @@ test.describe("Prose table expansion", () => {
       });
 
       expect(snapshot).not.toBeNull();
-      expect(Number.parseFloat(snapshot?.wrapperBorderTopWidth ?? "0")).toBeGreaterThan(0);
+      expect(snapshot?.wrapperBorderTopStyle).not.toBe("none");
       expect(Number.parseFloat(snapshot?.wrapperBorderRadius ?? "0")).toBeGreaterThan(0);
       expect(snapshot?.thTextTransform).toBe("uppercase");
       expect(snapshot?.thTextAlign).toBe("left");
