@@ -108,10 +108,18 @@ test.describe("Prose table expansion", () => {
     expect(before.expanded).toBe(true);
     expect(before.scrollOwner?.scrollTop ?? 0).toBe(0);
 
-    const afterScroll = await scrollFirstTableIntoFlow(page, 260);
+    await scrollFirstTableIntoFlow(page, 260);
+    await expect
+      .poll(async () => (await getFirstTableMetrics(page)).scrollOwner?.scrollTop ?? 0)
+      .toBeGreaterThan(200);
+    await expect
+      .poll(
+        async () =>
+          Math.abs(((await getFirstTableMetrics(page)).layer?.top ?? 0) - (before.layer?.top ?? 0)),
+      )
+      .toBeGreaterThan(150);
 
-    expect(afterScroll.scrollOwner?.scrollTop ?? 0).toBeGreaterThan(200);
-    expect(Math.abs((afterScroll.layer?.top ?? 0) - (before.layer?.top ?? 0))).toBeGreaterThan(150);
+    const afterScroll = await getFirstTableMetrics(page);
 
     const deltaBefore = (before.layer?.top ?? 0) - (before.shell?.top ?? 0);
     const deltaAfter = (afterScroll.layer?.top ?? 0) - (afterScroll.shell?.top ?? 0);
@@ -483,6 +491,7 @@ test.describe("Prose table expansion", () => {
         const tdStyle = getComputedStyle(td);
 
         return {
+          wrapperBorderTopStyle: wrapperStyle.borderTopStyle,
           wrapperBorderTopWidth: wrapperStyle.borderTopWidth,
           wrapperBorderRadius: wrapperStyle.borderRadius,
           thTextTransform: thStyle.textTransform,
@@ -493,7 +502,7 @@ test.describe("Prose table expansion", () => {
       });
 
       expect(snapshot).not.toBeNull();
-      expect(Number.parseFloat(snapshot?.wrapperBorderTopWidth ?? "0")).toBeGreaterThan(0);
+      expect(snapshot?.wrapperBorderTopStyle).not.toBe("none");
       expect(Number.parseFloat(snapshot?.wrapperBorderRadius ?? "0")).toBeGreaterThan(0);
       expect(snapshot?.thTextTransform).toBe("uppercase");
       expect(snapshot?.thTextAlign).toBe("left");

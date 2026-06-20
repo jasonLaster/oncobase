@@ -232,7 +232,7 @@ async function hasAdminSession(cookieHeader: string, siteSlug: string) {
       tokenHash,
     }),
     convex.query(api.sites.getBySlug, { slug: siteSlug }),
-    convex.query((api as any).access.listUsersWithRoles, { siteSlug }),
+    convex.query(api.access.listUsersWithRoles, { siteSlug }),
   ]);
 
   if (!user) {
