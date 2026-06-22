@@ -51,18 +51,16 @@ export function chatLog(page: Page) {
 }
 
 export async function openCommandPalette(page: Page) {
-  const input = page.locator("[data-slot=command-input]");
+  const dialog = page.locator('[role="dialog"]').first();
+  const input = dialog.locator("[data-slot=command-input]");
 
-  await expect
-    .poll(
-      async () => {
-        await page.getByTestId("sidebar-search").click();
-        return input.isVisible().catch(() => false);
-      },
-      { timeout: 15_000 }
-    )
-    .toBe(true);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (await input.isVisible().catch(() => false)) break;
+    await page.getByTestId("sidebar-search").click();
+    await input.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
+  }
 
+  await expect(dialog).toBeVisible({ timeout: 15_000 });
   await expect(input).toBeEditable({ timeout: 15_000 });
   return input;
 }

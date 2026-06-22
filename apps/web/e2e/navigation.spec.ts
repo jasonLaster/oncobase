@@ -430,10 +430,18 @@ test.describe("Page viewing & sidebar navigation", () => {
       }, id);
     }, { timeout: 15_000 }).toBe(true);
 
-    await page.keyboard.press(
-      process.platform === "darwin" ? "Meta+Shift+O" : "Control+Shift+O",
-    );
     const input = page.getByPlaceholder("Search headings…");
+    await expect
+      .poll(
+        async () => {
+          await page.keyboard.press(
+            process.platform === "darwin" ? "Meta+Shift+O" : "Control+Shift+O",
+          );
+          return input.isVisible().catch(() => false);
+        },
+        { timeout: 15_000 }
+      )
+      .toBe(true);
     await expect(input).toBeVisible();
     const dialog = page.locator('[role="dialog"]').filter({ has: input });
 
