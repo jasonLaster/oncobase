@@ -7,6 +7,9 @@ export async function startWikiMaintenanceWorkflows(
   const { buildDownloadCacheWorkflow } = await import("./build-download-cache");
   const { generateDescriptionsWorkflow } = await import("./generate-descriptions");
   const { ingestEmbeddingsWorkflow } = await import("./ingest-embeddings");
+  const { prewarmMarkdownRenderCacheWorkflow } = await import(
+    "./prewarm-markdown-render-cache"
+  );
   const { prewarmWikiPagesWorkflow } = await import("./prewarm-wiki-pages");
 
   const token =
@@ -18,23 +21,26 @@ export async function startWikiMaintenanceWorkflows(
     );
   }
 
-  const [full, markdown, descriptions, embeddings, prewarm] = await Promise.all([
-    token
-      ? start(buildDownloadCacheWorkflow, ["full", siteSlug])
-      : Promise.resolve(null),
-    token
-      ? start(buildDownloadCacheWorkflow, ["markdown", siteSlug])
-      : Promise.resolve(null),
-    start(generateDescriptionsWorkflow, [siteSlug]),
-    start(ingestEmbeddingsWorkflow, [siteSlug]),
-    start(prewarmWikiPagesWorkflow, [siteSlug]),
-  ]);
+  const [full, markdown, descriptions, embeddings, renderPrewarm, prewarm] =
+    await Promise.all([
+      token
+        ? start(buildDownloadCacheWorkflow, ["full", siteSlug])
+        : Promise.resolve(null),
+      token
+        ? start(buildDownloadCacheWorkflow, ["markdown", siteSlug])
+        : Promise.resolve(null),
+      start(generateDescriptionsWorkflow, [siteSlug]),
+      start(ingestEmbeddingsWorkflow, [siteSlug]),
+      start(prewarmMarkdownRenderCacheWorkflow, [siteSlug]),
+      start(prewarmWikiPagesWorkflow, [siteSlug]),
+    ]);
 
   return {
     downloadFull: full?.runId ?? null,
     downloadMarkdown: markdown?.runId ?? null,
     descriptions: descriptions.runId,
     embeddings: embeddings.runId,
+    renderPrewarm: renderPrewarm.runId,
     prewarm: prewarm.runId,
   };
 }
