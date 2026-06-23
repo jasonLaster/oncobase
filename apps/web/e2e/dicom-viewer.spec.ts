@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { DIAGNOSTIC_BIOPSIES } from "../src/lib/diagnostic-biopsies";
 
 /**
  * Verifies the DICOM viewer contract documented in
@@ -56,16 +57,14 @@ const biopsyLinks = [
   },
 ];
 const breastMriReportPath = "sources/diagnostics/401-breast-mri.pdf";
-const liveDiagnosticsReportLinks = [
-  "/api/file?path=diagnostics%2Fviewer-upload%2F05-10-petct%2Freport.pdf",
-  "/api/file?path=sources%2Fdiagnostics%2F401-breast-mri.pdf",
-  "/api/file?path=diagnostics%2Fviewer-upload%2F03-27-petct%2Freport.pdf",
-  "/sources/diagnostics/03-20-ultrasound",
-  "/sources/diagnostics/02-20-ultrasound",
-  "/api/file?path=sources%2Fdiagnostics%2F04-10-kernis-path-report%2F04-10-kernis-path-report.pdf",
-  "/api/file?path=diagnostics%2Fviewer-upload%2F03-20-ultrasound%2Freports%2F03-23-us-axilla-core-biopsy.pdf",
-  "/api/file?path=sources%2Fdiagnostics%2F03-13-breast-biopsy-report.pdf",
-];
+const liveDiagnosticsReportLinks = Array.from(
+  new Set(
+    DIAGNOSTIC_BIOPSIES.flatMap((biopsy) => [
+      biopsy.pathologyReportHref,
+      ...(biopsy.reportLinks?.map((link) => link.href) ?? []),
+    ]),
+  ),
+);
 
 async function gotoViewer(page: Page, biopsyId = "biopsy-2026-04-10") {
   await page.goto(`/tools/dicom-viewer?id=${biopsyId}`, {
@@ -345,7 +344,7 @@ test.describe("DICOM viewer", () => {
     await expect(seriesPanel).not.toContainText("2026-04-10");
     await expect(page.getByTestId("dicom-pathology-report-link")).toHaveAttribute(
       "href",
-      "/api/file?path=diagnostics%2Fviewer-upload%2F03-20-ultrasound%2Freports%2F03-23-us-axilla-core-biopsy.pdf",
+      "/sources/diagnostics/03-23-us-axilla-core-biopsy",
     );
     await expect(page.getByTestId("dicom-pathology-report-link")).toContainText(
       "Pathology report",

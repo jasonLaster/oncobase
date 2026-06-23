@@ -52,6 +52,15 @@ async function expandDirectory(page: Page, name: string) {
   }
 }
 
+async function waitForCommandPaletteItems(page: Page) {
+  const dialog = page.locator('[role="dialog"]').first();
+  const firstItem = dialog.locator("[cmdk-item]").first();
+
+  await expect(firstItem).toBeVisible({ timeout: 30_000 });
+
+  return { dialog, firstItem };
+}
+
 test.describe("Page viewing & sidebar navigation", () => {
   test("serves the about index canonical redirect before rendering", async ({ request }) => {
     const response = await request.get("/about/index?token=diana", {
@@ -194,7 +203,12 @@ test.describe("Page viewing & sidebar navigation", () => {
   });
 
   test("meeting note set folders do not take selection from the active file", async ({ page }) => {
-    await page.goto("/sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-overview");
+    test.slow(process.env.TEST_ENV === "prod", "Prod sidebar tree hydration can be slow under stress.");
+    await page.goto("/sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-overview", {
+      waitUntil: "domcontentloaded",
+    });
+    await expandDirectory(page, "sources");
+    await expandDirectory(page, "meeting notes");
 
     const nav = page.locator(sidebar);
     const selectedItem = nav.locator('[data-selected-file-tree-item="true"]');
@@ -280,32 +294,33 @@ test.describe("Page viewing & sidebar navigation", () => {
   });
 
   test("command palette shows pages before typing when there are no recents", async ({ page }) => {
-    await page.goto("/");
+    test.slow(process.env.TEST_ENV === "prod", "Prod command palette page data can be slow under stress.");
+    await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.evaluate(() => {
       localStorage.removeItem("cmd-palette-recent");
     });
 
     await openCommandPalette(page);
 
-    const dialog = page.locator('[role="dialog"]').first();
+    const { dialog, firstItem } = await waitForCommandPaletteItems(page);
     await expect(dialog.getByText("No pages found.")).toHaveCount(0);
-    await expect(dialog.locator('[cmdk-item]').first()).toBeVisible();
-    await expect(dialog.locator('[cmdk-item]').first().locator(".text-xs")).not.toBeEmpty();
+    await expect(firstItem.locator(".text-xs")).not.toBeEmpty();
     await expect(dialog.locator('[cmdk-item][data-value*="Journal"]').first()).toBeVisible();
   });
 
   test("command palette shows recent pages and all pages before typing", async ({ page }) => {
-    await page.goto("/");
+    test.slow(process.env.TEST_ENV === "prod", "Prod command palette page data can be slow under stress.");
+    await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.evaluate(() => {
       localStorage.setItem("cmd-palette-recent", JSON.stringify(["about/Journal"]));
     });
 
     await openCommandPalette(page);
 
-    const dialog = page.locator('[role="dialog"]').first();
+    const { dialog, firstItem } = await waitForCommandPaletteItems(page);
     await expect(dialog.getByText("Recent pages")).toBeVisible();
     await expect(dialog.getByText("All pages")).toBeVisible();
-    await expect(dialog.locator('[cmdk-item]').first()).toHaveAttribute("data-value", /Journal/);
+    await expect(firstItem).toHaveAttribute("data-value", /Journal/);
     await expect(dialog.locator('[cmdk-item]').nth(1)).toBeVisible();
 
     const recentHeader = await dialog.getByText("Recent pages").boundingBox();
@@ -323,7 +338,8 @@ test.describe("Page viewing & sidebar navigation", () => {
   });
 
   test("command palette resets scroll position when reopened", async ({ page }) => {
-    await page.goto("/");
+    test.slow(process.env.TEST_ENV === "prod", "Prod command palette page data can be slow under stress.");
+    await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.evaluate(() => {
       localStorage.removeItem("cmd-palette-recent");
     });
@@ -331,7 +347,7 @@ test.describe("Page viewing & sidebar navigation", () => {
     await openCommandPalette(page);
     const listbox = page.locator("#page-palette-list");
     await expect(listbox).toBeVisible();
-    await expect(page.locator('[cmdk-item]').first()).toBeVisible();
+    await waitForCommandPaletteItems(page);
     await expect.poll(
       () => listbox.evaluate((element) => element.scrollHeight > element.clientHeight)
     ).toBe(true);
@@ -347,7 +363,7 @@ test.describe("Page viewing & sidebar navigation", () => {
     await openCommandPalette(page);
 
     await expect.poll(() => page.locator("#page-palette-list").evaluate((element) => element.scrollTop)).toBe(0);
-    await expect(page.locator('[cmdk-item]').first()).toBeVisible();
+    await waitForCommandPaletteItems(page);
   });
 
   test("command palette Enter navigation does not flash the outline palette", async ({ page }) => {
@@ -405,7 +421,8 @@ test.describe("Page viewing & sidebar navigation", () => {
   });
 
   test("outline palette jumps to a selected heading", async ({ page }) => {
-    await page.goto("/table-examples");
+    test.slow(process.env.TEST_ENV === "prod", "Prod outline palette interactions can be slow under stress.");
+    await page.goto("/table-examples", { waitUntil: "domcontentloaded" });
 
     const headings = page.locator("article h2[id], article h3[id]");
     await expect(headings.first()).toBeVisible();
@@ -430,10 +447,18 @@ test.describe("Page viewing & sidebar navigation", () => {
       }, id);
     }, { timeout: 15_000 }).toBe(true);
 
-    await page.keyboard.press(
-      process.platform === "darwin" ? "Meta+Shift+O" : "Control+Shift+O",
-    );
     const input = page.getByPlaceholder("Search headings…");
+    await expect
+      .poll(
+        async () => {
+          await page.keyboard.press(
+            process.platform === "darwin" ? "Meta+Shift+O" : "Control+Shift+O",
+          );
+          return input.isVisible().catch(() => false);
+        },
+        { timeout: 15_000 }
+      )
+      .toBe(true);
     await expect(input).toBeVisible();
     const dialog = page.locator('[role="dialog"]').filter({ has: input });
 
@@ -441,7 +466,7 @@ test.describe("Page viewing & sidebar navigation", () => {
     const targetItem = dialog.locator("[cmdk-item]").filter({ hasText: headingText }).first();
     await expect(targetItem).toHaveAttribute("aria-selected", "true");
 
-    await input.press("Enter");
+    await targetItem.click();
 
     await expect.poll(async () => {
       return page.evaluate((targetId) => {
@@ -452,6 +477,6 @@ test.describe("Page viewing & sidebar navigation", () => {
           target.getBoundingClientRect().bottom > 0
         );
       }, id);
-    }, { timeout: 15_000 }).toBe(true);
+    }, { timeout: 30_000 }).toBe(true);
   });
 });

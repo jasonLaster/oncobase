@@ -10,6 +10,7 @@ import localHosts from "../.local-hosts.json";
 
 const PASSWORDS = ["wallify", "diana"];
 const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
+const USER_SESSION_COOKIE = "wiki_user_session";
 const CANONICAL_PATHS = new Map([["/about/index", "/about/Index"]]);
 const LINK_PREVIEW_BOT_RE =
   /\b(slackbot|twitterbot|facebookexternalhit|facebot|linkedinbot|discordbot|whatsapp|telegrambot|skypeuripreview|microsoftpreview|teamsbot|pinterest|redditbot|applebot)\b/i;
@@ -29,6 +30,11 @@ type ResolvedSite = {
 
 const hostCache = new Map<string, ResolvedSite>();
 let convexClient: ConvexHttpClient | null = null;
+
+type UserRoleSummary = {
+  _id: string;
+  roles: string[];
+};
 
 function getConvex() {
   const url = resolveServerConvexUrl();
@@ -176,6 +182,73 @@ function withSiteHeader(request: NextRequest, siteSlug: string) {
   return requestHeaders;
 }
 
+function getCookieValue(cookieHeader: string, name: string) {
+  return cookieHeader
+    .split(/;\s*/)
+    .find((part) => part.startsWith(`${name}=`))
+    ?.slice(name.length + 1);
+}
+
+async function hashSessionToken(token: string) {
+  const encoded = new TextEncoder().encode(token);
+  const digest = await crypto.subtle.digest("SHA-256", encoded);
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
+function notFoundHtml() {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>404: This page could not be found.</title>
+  </head>
+  <body>
+    <main>
+      <h1>404</h1>
+      <h2>This page could not be found.</h2>
+    </main>
+  </body>
+</html>`;
+}
+
+async function hasAdminSession(cookieHeader: string, siteSlug: string) {
+  const sessionToken = getCookieValue(cookieHeader, USER_SESSION_COOKIE);
+  if (!sessionToken) {
+    return false;
+  }
+
+  const convex = getConvex();
+  if (!convex) {
+    return false;
+  }
+
+  const tokenHash = await hashSessionToken(sessionToken);
+  const [user, site, users] = await Promise.all([
+    convex.query(api.users.getSessionUser, {
+      siteSlug,
+      tokenHash,
+    }),
+    convex.query(api.sites.getBySlug, { slug: siteSlug }),
+    convex.query(api.access.listUsersWithRoles, { siteSlug }),
+  ]);
+
+  if (!user) {
+    return false;
+  }
+
+  const userWithRoles = (users as UserRoleSummary[]).find(
+    (item) => item._id === user._id,
+  );
+  const isOwner = site?.ownerEmail?.toLowerCase() === user.email.toLowerCase();
+  const hasAdminRole =
+    userWithRoles?.roles.some((role) => role.trim().toLowerCase() === "admin") ??
+    false;
+  return Boolean(isOwner || hasAdminRole);
+}
+
 function isDianaPreviewTestAuth(request: NextRequest, site: ResolvedSite) {
   const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
   return (
@@ -210,6 +283,19 @@ export async function proxy(request: NextRequest) {
   }
 
   const requestHeaders = withSiteHeader(request, site.slug);
+
+  if (request.nextUrl.pathname.startsWith("/pii-view")) {
+    const cookieHeader = request.headers.get("cookie") ?? "";
+    if (!(await hasAdminSession(cookieHeader, site.slug))) {
+      return new NextResponse(notFoundHtml(), {
+        status: 404,
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "private, no-store",
+        },
+      });
+    }
+  }
 
   // Auth/login routes own their own auth flow — bypass the password
   // gate but still set x-site-slug. /api/file is here because it's

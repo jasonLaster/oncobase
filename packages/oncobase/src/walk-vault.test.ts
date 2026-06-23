@@ -120,4 +120,21 @@ describe("readVaultDocuments", () => {
       contentType: "application/dicom",
     });
   });
+
+  test("rejects unresolved Git LFS pointer assets", () => {
+    const vault = makeVault();
+    fs.writeFileSync(
+      path.join(vault, "report.pdf"),
+      [
+        "version https://git-lfs.github.com/spec/v1",
+        "oid sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "size 123456",
+        "",
+      ].join("\n"),
+    );
+
+    expect(() => readVaultAssets(vault)).toThrow(
+      "Refusing to publish unresolved Git LFS pointer asset: report.pdf",
+    );
+  });
 });

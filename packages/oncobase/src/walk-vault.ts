@@ -118,6 +118,18 @@ export function hashFile(filePath: string) {
   return hashBytes(buf);
 }
 
+function isGitLfsPointer(filePath: string) {
+  const fd = fs.openSync(filePath, "r");
+  try {
+    const buffer = Buffer.alloc(128);
+    const bytesRead = fs.readSync(fd, buffer, 0, buffer.length, 0);
+    const head = buffer.subarray(0, bytesRead).toString("utf8");
+    return head.startsWith("version https://git-lfs.github.com/spec/v1\n");
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 export function hashDocument(
   doc: Pick<PublishDocument, "title" | "content" | "tags"> & {
     sensitive?: boolean;
@@ -232,6 +244,11 @@ export function readVaultAssets(vaultPath: string): PublishAsset[] {
     const isPdf = PDF_EXTENSIONS.has(ext);
     const isFile = FILE_ASSET_EXTENSIONS.has(ext);
     if (!isPdf && !isFile) continue;
+    if (isGitLfsPointer(filePath)) {
+      throw new Error(
+        `Refusing to publish unresolved Git LFS pointer asset: ${relativePath}`,
+      );
+    }
     const stat = fs.statSync(filePath);
     assets.push({
       filePath,
