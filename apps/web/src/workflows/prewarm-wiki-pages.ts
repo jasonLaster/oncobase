@@ -4,6 +4,7 @@ const DEFAULT_PREWARM_BASE_URL = "https://diana-tnbc.com";
 const DEFAULT_PREWARM_TOKEN = "diana";
 const PREWARM_BATCH_SIZE = 12;
 const PREWARM_TIMEOUT_MS = 30_000;
+const PREWARM_API_PAGE_LIMIT = 100;
 const ASSET_EXTENSION_RE = /\.(?:avif|gif|jpe?g|pdf|png|svg|webp)$/i;
 const EMPTY_PREWARM_RESULT: PrewarmWikiPagesResult = {
   total: 0,
@@ -27,6 +28,14 @@ export interface PrewarmWikiPagesResult {
 
 interface PrewarmPageResult {
   slug: string;
+  ok: boolean;
+  status?: number;
+  bytes?: number;
+  error?: string;
+}
+
+interface PrewarmApiResult {
+  endpoint: string;
   ok: boolean;
   status?: number;
   bytes?: number;
@@ -84,6 +93,146 @@ async function fetchWithTimeout(url: URL, init: RequestInit = {}) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function apiPathForEndpoint(endpoint: string) {
+  return endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+}
+
+async function prewarmApiEndpoint(
+  endpoint: string,
+  cookie: string | null,
+  baseUrl: string,
+): Promise<PrewarmApiResult> {
+  const url = new URL(apiPathForEndpoint(endpoint), baseUrl);
+
+  try {
+    const response = await fetchWithTimeout(url, {
+      redirect: "follow",
+      headers: {
+        Accept: "application/json",
+        ...(cookie ? { Cookie: cookie } : {}),
+      },
+    });
+    const text = await response.text();
+
+    if (!response.ok) {
+      return {
+        endpoint,
+        ok: false,
+        status: response.status,
+        bytes: text.length,
+        error: `HTTP ${response.status}`,
+      };
+    }
+
+    return {
+      endpoint,
+      ok: true,
+      status: response.status,
+      bytes: text.length,
+    };
+  } catch (error) {
+    return {
+      endpoint,
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+async function prewarmApiEndpoints(
+  endpoints: string[],
+  cookie: string | null,
+  baseUrl: string,
+): Promise<PrewarmApiResult[]> {
+  "use step";
+  return Promise.all(
+    endpoints.map((endpoint) => prewarmApiEndpoint(endpoint, cookie, baseUrl)),
+  );
+}
+
+async function prewarmWikiPagesApiBatches(
+  cookie: string | null,
+  baseUrl: string,
+): Promise<PrewarmApiResult[]> {
+  "use step";
+
+  const results: PrewarmApiResult[] = [];
+  let cursor: string | null = null;
+  let isDone = false;
+
+  while (!isDone) {
+    const params = new URLSearchParams({
+      limit: String(PREWARM_API_PAGE_LIMIT),
+    });
+    if (cursor) params.set("cursor", cursor);
+
+    const endpoint = `/api/wiki/pages?${params.toString()}`;
+
+    try {
+      const url = new URL(apiPathForEndpoint(endpoint), baseUrl);
+      const response = await fetchWithTimeout(url, {
+        redirect: "follow",
+        headers: {
+          Accept: "application/json",
+          ...(cookie ? { Cookie: cookie } : {}),
+        },
+      });
+      const text = await response.text();
+
+      if (!response.ok) {
+        results.push({
+          endpoint,
+          ok: false,
+          status: response.status,
+          bytes: text.length,
+          error: `HTTP ${response.status}`,
+        });
+        break;
+      }
+
+      results.push({
+        endpoint,
+        ok: true,
+        status: response.status,
+        bytes: text.length,
+      });
+
+      const body = JSON.parse(text) as {
+        isDone?: boolean;
+        continueCursor?: string | null;
+      };
+      isDone = body.isDone !== false;
+      cursor = body.continueCursor ?? null;
+      if (!isDone && !cursor) {
+        results.push({
+          endpoint,
+          ok: false,
+          error: "missing continueCursor for next /api/wiki/pages batch",
+        });
+        break;
+      }
+    } catch (error) {
+      results.push({
+        endpoint,
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      break;
+    }
+  }
+
+  return results;
+}
+
+function apiEndpointsForPrewarm() {
+  return [
+    "/api/pages",
+    "/api/file-tree",
+    "/api/file-tree?format=compact",
+    "/api/wiki/manifest",
+  ];
 }
 
 async function listPrewarmSlugs(siteSlug: string): Promise<string[]> {
@@ -216,6 +365,21 @@ export async function prewarmWikiPagesWorkflow(
   );
   const slugs = await listPrewarmSlugs(siteSlug);
   const cookie = await createPrewarmSession(config);
+
+  const [metadataApiResults, pageApiResults] = await Promise.all([
+    prewarmApiEndpoints(apiEndpointsForPrewarm(), cookie, config.baseUrl),
+    prewarmWikiPagesApiBatches(cookie, config.baseUrl),
+  ]);
+  const apiResults = [...metadataApiResults, ...pageApiResults];
+  const failedApiResults = apiResults.filter((result) => !result.ok);
+  console.log(
+    `[prewarm-wiki-pages] API endpoints warmed=${apiResults.length - failedApiResults.length}/${apiResults.length} failed=${failedApiResults.length}`,
+  );
+  for (const result of failedApiResults) {
+    console.warn(
+      `[prewarm-wiki-pages] API warm failed endpoint=${result.endpoint} status=${result.status ?? "n/a"} error=${result.error ?? "unknown"}`,
+    );
+  }
 
   const results: PrewarmPageResult[] = [];
   for (let i = 0; i < slugs.length; i += PREWARM_BATCH_SIZE) {
