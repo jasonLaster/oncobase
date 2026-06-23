@@ -239,9 +239,11 @@ async function AsyncMarkdownBody({
     rawContentSessionTokenHash,
   });
   if (!file) notFound();
+  const canRenderFromContentHash =
+    Boolean(file.contentHash) && rawContentSessionTokenHash === undefined;
   return (
     <MarkdownRendererAsync
-      content={file.content}
+      content={canRenderFromContentHash ? undefined : file.content}
       currentSlug={slug}
       siteSlug={siteSlug}
       contentHash={file.contentHash}

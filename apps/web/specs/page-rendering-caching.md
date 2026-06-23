@@ -169,14 +169,21 @@ This design makes publish fast because deployment does not need to
 rebuild the full wiki. It also makes the first request after publish
 pay only for the cache entries that are actually visited.
 
-Post-deploy and post-publish maintenance starts
-`prewarmWikiPagesWorkflow(siteSlug)`, which fetches actual deployed
-routes for `index`, `about/**`, and `wiki/**` in batches. It excludes
-`sources/**`, PDFs, assets, and hidden image paths. Outside production,
-the workflow skips unless `WIKI_PREWARM_BASE_URL` is set. In production,
-it uses `WIKI_PREWARM_BASE_URL` and `WIKI_PREWARM_TOKEN` when set,
-otherwise it warms Diana via `https://diana-tnbc.com` with the Diana
-magic token.
+Post-deploy and post-publish maintenance starts two warmers for
+`index`, `about/**`, and `wiki/**`. Both exclude `sources/**`, PDFs,
+assets, and hidden image paths.
+
+- `prewarmMarkdownRenderCacheWorkflow(siteSlug)` runs inside the server
+  runtime and calls the cached markdown renderer directly. This is the
+  primary post-publish speed path because it fills the rendered HTML
+  cache by site, render version, and content hash without waiting for
+  reader traffic or paying HTTP route overhead.
+- `prewarmWikiPagesWorkflow(siteSlug)` fetches actual deployed routes in
+  batches. This still validates route output and warms route-level
+  caches. Outside production, it skips unless `WIKI_PREWARM_BASE_URL` is
+  set. In production, it uses `WIKI_PREWARM_BASE_URL` and
+  `WIKI_PREWARM_TOKEN` when set, otherwise it warms Diana via
+  `https://diana-tnbc.com` with the Diana magic token.
 
 ## PPR Boundaries
 
