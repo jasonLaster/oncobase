@@ -94,6 +94,7 @@ const PROJECT_MANAGEMENT_VIEW_FILES = new Set([
   "3-completed",
   "4-backlog",
 ]);
+const CANONICAL_SLUG_LOOKUP_VERSION = "2";
 
 export function canonicalizePublishedSlug(slug: string): string {
   const prefix = "project-management/";
@@ -244,10 +245,15 @@ async function fetchAllFilePathsForSite(
 async function fetchCanonicalSlugEntriesForSite(
   siteSlug: SiteSlug,
   includeSensitive = false,
+  lookupVersion = CANONICAL_SLUG_LOOKUP_VERSION,
 ): Promise<Array<[string, string]>> {
   "use cache";
   cacheLife("hours");
-  cacheTag(siteCacheTag(siteSlug), siteDocsCacheTag(siteSlug));
+  cacheTag(
+    siteCacheTag(siteSlug),
+    siteDocsCacheTag(siteSlug),
+    `${siteDocsCacheTag(siteSlug)}:canonical-slugs:${lookupVersion}`,
+  );
 
   const docs = await fetchAllDocsForSite(siteSlug, includeSensitive);
   return canonicalSlugLookupEntriesFromSlugs(docs.map((doc) => doc.slug));
@@ -257,7 +263,13 @@ async function fetchCanonicalSlugMapForSite(
   siteSlug: SiteSlug,
   includeSensitive = false,
 ): Promise<Map<string, string>> {
-  return new Map(await fetchCanonicalSlugEntriesForSite(siteSlug, includeSensitive));
+  return new Map(
+    await fetchCanonicalSlugEntriesForSite(
+      siteSlug,
+      includeSensitive,
+      CANONICAL_SLUG_LOOKUP_VERSION,
+    ),
+  );
 }
 
 async function fetchCanonicalSlugMap({
