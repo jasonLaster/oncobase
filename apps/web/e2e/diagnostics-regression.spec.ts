@@ -321,7 +321,7 @@ test.describe("diagnostics regressions", () => {
     expect(dayTickLabels.length).toBeGreaterThan(0);
     for (const label of dayTickLabels) {
       expect(label.text).toMatch(/^\d+$/);
-      expect(label.transform).toContain("rotate(45");
+      expect(label.transform).toContain("rotate(-45");
     }
     const monthLabelGeometry = await drilldownChart.evaluate((chartElement) => {
       const dayLabel = chartElement.querySelector(

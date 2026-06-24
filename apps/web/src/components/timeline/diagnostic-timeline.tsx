@@ -1087,7 +1087,7 @@ function DrilldownChart({
                   fontWeight="500"
                   opacity="0.68"
                   textAnchor="start"
-                  transform={`rotate(45 ${x + 4} ${plot.bottom + 20})`}
+                  transform={`rotate(-45 ${x + 4} ${plot.bottom + 20})`}
                 >
                   {tick.label}
                 </text>
