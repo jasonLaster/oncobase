@@ -137,9 +137,10 @@ redirect, and diagnostics subpage regressions are covered by
 - Mobile page navigation exposes only the single `Diagnostics` app route.
 - Timeline imaging tooltips link to `/diagnostics/imaging` and the DICOM viewer.
 - The ctDNA category drill-in keeps the explanatory note outside the SVG chart,
-  renders Signatera and NeXT Personal y-axes on the left with vertical titles,
-  and shows popup tooltips for points.
+  renders Signatera, NeXT Personal, and Guardant360 y-axes on the left with
+  vertical titles, supports track toggles and `Cmd + scroll` zooming, and shows
+  popup tooltips for points.
 - The Blood Counts category drill-in renders ANC, Hemoglobin, and Platelets
-  y-axes on the left with vertical titles, keeps SVG scaling uniform, verifies
-  dots align with their paths, dims non-active axes on hover, and shows point
-  tooltips with CBC source links.
+  y-axes on the sticky left axis panel with vertical titles, keeps SVG scaling
+  uniform, verifies dots align with their paths, dims non-active axes on hover,
+  and shows point tooltips with CBC source links.

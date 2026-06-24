@@ -51,7 +51,7 @@ const PLOT_MIN_WIDTH = 920;
 const TIMELINE_LABEL_COLUMN = "minmax(180px,260px)";
 const DRILLDOWN_WIDTH = 1120;
 const DRILLDOWN_HEIGHT = 420;
-const DRILLDOWN_AXIS_SLOT_WIDTH = 64;
+const DRILLDOWN_AXIS_SLOT_WIDTH = 54;
 const DRILLDOWN_PLOT = { bottom: 336, left: 198, right: 1084, top: 42 };
 const MONTH_TICK_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -1098,7 +1098,6 @@ function DrilldownChart({
 
 interface DrilldownAxisPlacement {
   lineX: number;
-  labelX: number;
   textAnchor: "end" | "start";
   titleX: number;
   tickX1: number;
@@ -1153,9 +1152,10 @@ function DrilldownYAxis({
         fill={track.color}
         fontSize="12"
         fontWeight="700"
-        textAnchor="start"
+        textAnchor="middle"
+        transform={`rotate(-90 ${axis.titleX} ${(plot.top + plot.bottom) / 2})`}
         x={axis.titleX}
-        y={plot.top - 14}
+        y={(plot.top + plot.bottom) / 2}
       >
         {formatAxisTitle(track)}
       </text>
@@ -2280,15 +2280,13 @@ function drilldownAxisPlacement(
 ): DrilldownAxisPlacement {
   const offset = (total - index - 1) * DRILLDOWN_AXIS_SLOT_WIDTH;
   const lineX = plot.left - offset;
-  const labelX = Math.max(8, lineX - DRILLDOWN_AXIS_SLOT_WIDTH + 10);
   return {
     lineX,
-    labelX,
-    textAnchor: "start",
-    titleX: labelX,
+    textAnchor: "end",
+    titleX: lineX - 40,
     tickX1: lineX - 8,
     tickX2: lineX,
-    valueX: labelX,
+    valueX: lineX - 12,
   };
 }
 
