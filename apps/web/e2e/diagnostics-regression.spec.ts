@@ -128,7 +128,17 @@ test.describe("diagnostics regressions", () => {
   }) => {
     await page.goto("/diagnostics", { waitUntil: "domcontentloaded" });
 
-    await page.getByTestId("timeline-toggle-sleeve-imaging").click();
+    await expect(page.getByTestId("timeline-track-signatera")).toBeVisible();
+    const petctTrack = page.getByTestId("timeline-track-petct");
+    await expect
+      .poll(async () => {
+        const currentCount = await petctTrack.count();
+        if (currentCount > 0) return currentCount;
+        await page.getByTestId("timeline-toggle-sleeve-imaging").click();
+        await page.waitForTimeout(50);
+        return petctTrack.count();
+      })
+      .toBe(1);
     await page.getByTestId("timeline-marker-cu-grip-petct-2026-06-10").hover();
     const tooltip = page.getByTestId("timeline-tooltip-cu-grip-petct-2026-06-10");
     await expect(tooltip).toBeVisible();
@@ -272,6 +282,24 @@ test.describe("diagnostics regressions", () => {
     await expect(
       drilldownChart.getByTestId("timeline-drilldown-day-tick"),
     ).not.toHaveCount(0);
+    const zoomScrollMetrics = await drilldownChart.evaluate((chartElement) => {
+      const chart = chartElement as HTMLElement;
+      const svg = chart.querySelector(
+        '[data-test-id="timeline-drilldown-svg"]',
+      ) as SVGSVGElement | null;
+
+      return {
+        clientWidth: chart.clientWidth,
+        scrollWidth: chart.scrollWidth,
+        svgWidth: Number(svg?.getAttribute("width")),
+      };
+    });
+    expect(zoomScrollMetrics.scrollWidth).toBeGreaterThan(
+      zoomScrollMetrics.clientWidth * 5,
+    );
+    expect(zoomScrollMetrics.svgWidth).toBeGreaterThan(
+      zoomScrollMetrics.clientWidth * 5,
+    );
     const startAfterZoom = await visibleStartTime(drilldownChart);
     await drilldownChart.dispatchEvent("wheel", {
       bubbles: true,
@@ -297,6 +325,34 @@ test.describe("diagnostics regressions", () => {
     const startAfterLeftScroll = await visibleStartTime(drilldownChart);
     expect(startAfterLeftScroll).toBeLessThan(startAfterRightScroll);
     await expect(page).toHaveURL(/\/diagnostics$/);
+
+    await drilldownChart.evaluate((chartElement) => {
+      const chart = chartElement as HTMLElement;
+      chart.scrollLeft = 0;
+      chart.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect
+      .poll(async () => visibleStartTime(drilldownChart))
+      .toBeLessThan(startAfterLeftScroll);
+    const leftEdgeMetrics = await drilldownChart.evaluate((chartElement) => {
+      const chart = chartElement as HTMLElement;
+      const firstPoint = chart.querySelector(
+        '[data-test-id="timeline-drilldown-point-signatera-signatera-2026-04-01"]',
+      ) as SVGCircleElement | null;
+      const axis = chart.querySelector(
+        '[data-test-id="timeline-drilldown-axis-svg"]',
+      ) as SVGSVGElement | null;
+      const pointBox = firstPoint?.getBoundingClientRect();
+      const axisBox = axis?.getBoundingClientRect();
+
+      return {
+        axisRight: axisBox?.right ?? 0,
+        pointLeft: pointBox?.left ?? 0,
+        scrollLeft: chart.scrollLeft,
+      };
+    });
+    expect(leftEdgeMetrics.scrollLeft).toBe(0);
+    expect(leftEdgeMetrics.pointLeft).toBeGreaterThan(leftEdgeMetrics.axisRight);
   });
 
   test("group drill-in charts render axes, aligned markers, and hover tooltips", async ({

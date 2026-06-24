@@ -10,6 +10,7 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type UIEvent as ReactUIEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import { createPortal } from "react-dom";
@@ -741,6 +742,7 @@ function DrilldownChart({
 }) {
   const plot = DRILLDOWN_PLOT;
   const chartRef = useRef<HTMLDivElement>(null);
+  const syncingScrollRef = useRef(false);
   const [visibleRange, setVisibleRange] = useState(fullRange);
   const [tooltip, setTooltip] = useState<DrilldownTooltipState | null>(null);
   const [activeAxisTrackId, setActiveAxisTrackId] = useState<string | null>(null);
@@ -778,6 +780,16 @@ function DrilldownChart({
   const monthTicks = buildMonthTicks(visibleRange.start, visibleRange.end);
   const weekTicks = buildWeekTicks(visibleRange.start, visibleRange.end);
   const dayTicks = buildDayTicks(visibleRange.start, visibleRange.end);
+  const basePlotWidth = plot.right - plot.left;
+  const rangeSpan = Math.max(visibleRange.end - visibleRange.start, DRILLDOWN_MIN_RANGE_MS);
+  const fullSpan = Math.max(fullRange.end - fullRange.start, rangeSpan);
+  const contentPlotWidth = Math.max(basePlotWidth, (fullSpan / rangeSpan) * basePlotWidth);
+  const contentRightPadding = DRILLDOWN_WIDTH - plot.right;
+  const contentWidth = Math.ceil(plot.left + contentPlotWidth + contentRightPadding);
+  const contentPlot = {
+    ...plot,
+    right: plot.left + contentPlotWidth,
+  };
   const chartTracks = drilldownTracks.map((track, index) => ({
     ...track,
     axis: drilldownAxisPlacement(index, drilldownTracks.length, plot),
@@ -812,6 +824,43 @@ function DrilldownChart({
     setActiveAxisTrackId(null);
     setTooltip(null);
   }, []);
+  const scrollLeftForRange = useCallback(
+    (range: DateRange) => {
+      if (fullSpan <= 0) return 0;
+      return ((range.start - fullRange.start) / fullSpan) * contentPlotWidth;
+    },
+    [contentPlotWidth, fullRange.start, fullSpan],
+  );
+  const handleScroll = useCallback(
+    (event: ReactUIEvent<HTMLDivElement>) => {
+      if (syncingScrollRef.current) return;
+
+      const scrollLeft = event.currentTarget.scrollLeft;
+      setVisibleRange((currentRange) => {
+        const span = currentRange.end - currentRange.start;
+        const nextStart = fullRange.start + (scrollLeft / contentPlotWidth) * fullSpan;
+        return clampRange(
+          { start: nextStart, end: nextStart + span },
+          fullRange,
+          DRILLDOWN_MIN_RANGE_MS,
+        );
+      });
+    },
+    [contentPlotWidth, fullRange, fullSpan],
+  );
+  useEffect(() => {
+    const chartElement = chartRef.current;
+    if (!chartElement) return;
+
+    const nextScrollLeft = scrollLeftForRange(visibleRange);
+    if (Math.abs(chartElement.scrollLeft - nextScrollLeft) < 1) return;
+
+    syncingScrollRef.current = true;
+    chartElement.scrollLeft = nextScrollLeft;
+    requestAnimationFrame(() => {
+      syncingScrollRef.current = false;
+    });
+  }, [scrollLeftForRange, visibleRange]);
   useEffect(() => {
     const chartElement = chartRef.current;
     if (!chartElement) return;
@@ -838,12 +887,12 @@ function DrilldownChart({
       const rect = chartElement.getBoundingClientRect();
       const contentX = event.clientX - rect.left + chartElement.scrollLeft;
       const cursorPercent = Math.min(
-        Math.max((contentX - plot.left) / (plot.right - plot.left), 0),
+        Math.max((contentX - plot.left) / contentPlotWidth, 0),
         1,
       );
       const factor = event.deltaY > 0 ? 1.16 : 0.86;
       setVisibleRange((currentRange) => {
-        const cursorTime = timeForPercent(cursorPercent, currentRange);
+        const cursorTime = fullRange.start + cursorPercent * fullSpan;
         const nextStart = cursorTime - (cursorTime - currentRange.start) * factor;
         const nextEnd = cursorTime + (currentRange.end - cursorTime) * factor;
         return clampRange(
@@ -856,7 +905,14 @@ function DrilldownChart({
 
     chartElement.addEventListener("wheel", onWheel, { passive: false });
     return () => chartElement.removeEventListener("wheel", onWheel);
-  }, [fullRange, hideTooltip, plot.left, plot.right]);
+  }, [
+    contentPlotWidth,
+    fullRange,
+    fullSpan,
+    hideTooltip,
+    plot.left,
+    plot.right,
+  ]);
 
   return (
     <div className="grid gap-2 overflow-hidden rounded-lg border border-border bg-background p-3">
@@ -870,12 +926,13 @@ function DrilldownChart({
         data-visible-range={`${formatIsoDate(visibleRange.start)}:${formatIsoDate(
           visibleRange.end,
         )}`}
+        onScroll={handleScroll}
         onPointerLeave={hideTooltip}
         ref={chartRef}
       >
         <div
-          className="relative min-w-[1120px]"
-          style={{ height: DRILLDOWN_HEIGHT }}
+          className="relative"
+          style={{ height: DRILLDOWN_HEIGHT, width: contentWidth }}
         >
           <div
             className="pointer-events-none sticky left-0 top-0 z-20 bg-background/95 shadow-[8px_0_18px_rgba(15,23,42,0.08)]"
@@ -916,22 +973,22 @@ function DrilldownChart({
             </svg>
           </div>
         <svg
-          className="absolute left-0 top-0 block h-full w-full"
+          className="absolute left-0 top-0 block h-full"
           data-test-id="timeline-drilldown-svg"
           height={DRILLDOWN_HEIGHT}
           role="img"
           aria-label="Expanded timeline chart"
           style={{
-            aspectRatio: `${DRILLDOWN_WIDTH} / ${DRILLDOWN_HEIGHT}`,
+            aspectRatio: `${contentWidth} / ${DRILLDOWN_HEIGHT}`,
             fontFamily: "var(--font-sans, ui-sans-serif, system-ui, sans-serif)",
           }}
-          viewBox={`0 0 ${DRILLDOWN_WIDTH} ${DRILLDOWN_HEIGHT}`}
-          width={DRILLDOWN_WIDTH}
+          viewBox={`0 0 ${contentWidth} ${DRILLDOWN_HEIGHT}`}
+          width={contentWidth}
         >
           <rect
             x="0"
             y="0"
-            width={DRILLDOWN_WIDTH}
+            width={contentWidth}
             height={DRILLDOWN_HEIGHT}
             fill="var(--background)"
           />
@@ -941,7 +998,7 @@ function DrilldownChart({
               <line
                 key={`grid-y-${tick}`}
                 x1={plot.left}
-                x2={plot.right}
+                x2={contentPlot.right}
                 y1={y}
                 y2={y}
                 stroke="currentColor"
@@ -951,7 +1008,7 @@ function DrilldownChart({
             );
           })}
           {weekTicks.map((tick) => {
-            const x = chartX(tick.time, visibleRange, plot);
+            const x = chartX(tick.time, fullRange, contentPlot);
             return (
               <line
                 key={`drill-week-${tick.time}`}
@@ -966,7 +1023,7 @@ function DrilldownChart({
             );
           })}
           {dayTicks.map((tick) => {
-            const x = chartX(tick.time, visibleRange, plot);
+            const x = chartX(tick.time, fullRange, contentPlot);
             return (
               <g key={`drill-day-${tick.time}`}>
                 <line
@@ -993,7 +1050,7 @@ function DrilldownChart({
             );
           })}
           {monthTicks.map((tick) => {
-            const x = chartX(tick.time, visibleRange, plot);
+            const x = chartX(tick.time, fullRange, contentPlot);
             return (
               <g key={`drill-month-${tick.time}`}>
                 <line
@@ -1029,8 +1086,8 @@ function DrilldownChart({
           />
           <line
             data-test-id="timeline-drilldown-plot-right-edge"
-            x1={plot.right}
-            x2={plot.right}
+            x1={contentPlot.right}
+            x2={contentPlot.right}
             y1={plot.top}
             y2={plot.bottom}
             stroke="currentColor"
@@ -1039,7 +1096,7 @@ function DrilldownChart({
           />
           <line
             x1={plot.left}
-            x2={plot.right}
+            x2={contentPlot.right}
             y1={plot.bottom}
             y2={plot.bottom}
             stroke="currentColor"
@@ -1047,7 +1104,7 @@ function DrilldownChart({
             vectorEffect="non-scaling-stroke"
           />
           {chartTracks.map(({ domain, events, track }) => {
-            const path = drilldownPath(events, domain, track, visibleRange, plot);
+            const path = drilldownPath(events, domain, track, fullRange, contentPlot);
             return (
               <g key={`series-${track.id}`}>
                 {path ? (
@@ -1071,7 +1128,7 @@ function DrilldownChart({
                     } on ${formatDisplayDate(event.date)}`}
                     data-test-id={`timeline-drilldown-point-${track.id}-${event.id}`}
                     key={`point-${track.id}-${event.id}`}
-                    cx={chartX(toTime(event.date), visibleRange, plot)}
+                    cx={chartX(toTime(event.date), fullRange, contentPlot)}
                     cy={chartY(event.value ?? 0, domain, track.scale, plot)}
                     r="5"
                     fill={track.color}
@@ -1108,7 +1165,7 @@ function DrilldownChart({
                 )}`}
                 data-test-id={`timeline-drilldown-event-${track.id}-${event.id}`}
                 key={`event-${track.id}-${event.id}`}
-                cx={chartX(toTime(event.date), visibleRange, plot)}
+                cx={chartX(toTime(event.date), fullRange, contentPlot)}
                 cy={chartY(0.5, [0, 1], "linear", plot)}
                 r="5"
                 fill={track.color}
