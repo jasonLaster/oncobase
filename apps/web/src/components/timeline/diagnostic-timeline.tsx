@@ -48,6 +48,7 @@ const SERIES_TOP = 8;
 const SERIES_BOTTOM = 38;
 const PLOT_MIN_WIDTH = 920;
 const TIMELINE_LABEL_COLUMN = "minmax(180px,260px)";
+const DEFAULT_EXPANDED_SLEEVE_ID = "molecular";
 const DRILLDOWN_WIDTH = 1120;
 const DRILLDOWN_HEIGHT = 420;
 const DRILLDOWN_AXIS_SLOT_WIDTH = 54;
@@ -189,7 +190,7 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
     defaultVisibleRange,
     (visibleRange): TimelineState => ({
       activeEventId: null,
-      collapsedSleeves: new Set(),
+      collapsedSleeves: defaultCollapsedSleeves(data.sleeves),
       drag: null,
       filter: "",
       tooltipAnchor: null,
@@ -1287,6 +1288,7 @@ function TimelineSleeves({
                 <button
                   type="button"
                   onClick={() => onToggleSleeve(sleeve.id)}
+                  data-test-id={`timeline-toggle-sleeve-${sleeve.id}`}
                   className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-0.5 text-left text-sm font-semibold text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
                 >
                   {collapsed ? (
@@ -2125,6 +2127,14 @@ function flattenEvents(sleeves: DiagnosticTimelineSleeve[]): TimelineEventRef[] 
         track,
       })),
     ),
+  );
+}
+
+function defaultCollapsedSleeves(sleeves: DiagnosticTimelineSleeve[]) {
+  return new Set(
+    sleeves
+      .filter((sleeve) => sleeve.id !== DEFAULT_EXPANDED_SLEEVE_ID)
+      .map((sleeve) => sleeve.id),
   );
 }
 

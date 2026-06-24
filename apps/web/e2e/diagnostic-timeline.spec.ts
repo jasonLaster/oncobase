@@ -25,6 +25,9 @@ test.describe("diagnostic timeline", () => {
     await expect(page.getByTestId("timeline-sleeve-molecular")).toContainText(
       "ctDNA and Molecular Response",
     );
+    await expect(page.getByTestId("timeline-track-signatera")).toBeVisible();
+    await expect(page.getByTestId("timeline-track-petct")).toHaveCount(0);
+    await expect(page.getByTestId("timeline-track-anc")).toHaveCount(0);
     await expect(page.getByTestId("timeline-detail-panel")).toHaveCount(0);
     await expect(page.getByTestId("timeline-sticky-header")).toHaveCSS(
       "position",
@@ -243,6 +246,7 @@ test.describe("diagnostic timeline", () => {
       signateraTooltip.getByRole("link", { name: "Source page" }),
     ).toHaveAttribute("href", "/sources/diagnostics/05-28-signatera-ctdna");
 
+    await page.getByTestId("timeline-toggle-sleeve-imaging").click();
     await page.getByTestId("timeline-marker-cu-grip-petct-2026-06-10").hover();
     const petTooltip = page.getByTestId(
       "timeline-tooltip-cu-grip-petct-2026-06-10",

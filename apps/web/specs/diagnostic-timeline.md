@@ -119,6 +119,8 @@ redirect, and diagnostics subpage regressions are covered by
 - Plain wheel scroll does not zoom, while `Cmd + wheel` does.
 - Horizontal wheel scroll pans the serialized visible date range in both directions.
 - Dragging the highlighted overview window pans the serialized visible date range.
+- On initial load, non-ctDNA categories are collapsed while the ctDNA /
+  molecular-response category is expanded.
 - A swimlane magnifier opens a drill-in dialog with the larger chart and log-scale label when appropriate.
 - A category magnifier opens a drill-in dialog that overlays the category's numeric swimlanes.
 - Hovering a Signatera marker opens a tooltip with the ctDNA result and source link.

@@ -128,6 +128,7 @@ test.describe("diagnostics regressions", () => {
   }) => {
     await page.goto("/diagnostics", { waitUntil: "domcontentloaded" });
 
+    await page.getByTestId("timeline-toggle-sleeve-imaging").click();
     await page.getByTestId("timeline-marker-cu-grip-petct-2026-06-10").hover();
     const tooltip = page.getByTestId("timeline-tooltip-cu-grip-petct-2026-06-10");
     await expect(tooltip).toBeVisible();
