@@ -29,7 +29,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -617,10 +616,6 @@ function TimelineDrilldownDialog({
       : target?.scope === "sleeve"
         ? target.sleeve.label
         : "Timeline detail";
-  const description =
-    target?.scope === "track"
-      ? "Expanded swimlane view with a larger y-axis and all recorded points."
-      : "Expanded category view with numeric swimlanes overlaid and color-coded y-axis domains.";
   const targetKey =
     target?.scope === "track"
       ? `track:${target.track.id}`
@@ -673,7 +668,6 @@ function TimelineDrilldownDialog({
       >
         <DialogHeader className="border-b border-border px-5 py-4 pr-12">
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         {target ? (
           <div className="grid gap-4 px-5 pb-5">
