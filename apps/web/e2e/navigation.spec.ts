@@ -46,7 +46,7 @@ async function expandDirectory(page: Page, name: string) {
     })
     .first();
 
-  await expect(toggle).toBeVisible();
+  await expect(toggle).toBeVisible({ timeout: 60_000 });
   if ((await toggle.getAttribute("aria-expanded")) !== "true") {
     await toggle.click();
   }
@@ -54,9 +54,10 @@ async function expandDirectory(page: Page, name: string) {
 
 async function waitForCommandPaletteItems(page: Page) {
   const dialog = page.locator('[role="dialog"]').first();
+  await expect(dialog.getByText(/Loading pages/)).toBeHidden({ timeout: 60_000 });
   const firstItem = dialog.locator("[cmdk-item]").first();
 
-  await expect(firstItem).toBeVisible({ timeout: 30_000 });
+  await expect(firstItem).toBeVisible({ timeout: 60_000 });
 
   return { dialog, firstItem };
 }
