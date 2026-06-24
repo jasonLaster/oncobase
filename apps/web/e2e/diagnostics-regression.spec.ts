@@ -202,8 +202,9 @@ test.describe("diagnostics regressions", () => {
             id,
             lineX: Number(axisLine?.getAttribute("x1")),
             plotLeft,
+            textAnchor: title?.getAttribute("text-anchor") ?? "",
             title: title?.textContent ?? "",
-            transform: title?.getAttribute("transform") ?? "",
+            titleX: Number(title?.getAttribute("x")),
             values: Array.from(axis?.querySelectorAll("text") ?? [])
               .map((text) => text.textContent ?? "")
               .filter((text) => text !== title?.textContent),
@@ -214,7 +215,8 @@ test.describe("diagnostics regressions", () => {
       expect(axis.lineX, `${axis.id} axis should stay on the left`).toBeLessThanOrEqual(
         axis.plotLeft,
       );
-      expect(axis.transform).toContain("rotate(-90");
+      expect(axis.textAnchor).toBe("start");
+      expect(axis.titleX).toBeLessThan(axis.lineX);
     }
     expect(ctdnaAxes.map((axis) => axis.title)).toEqual([
       "Signatera (MTM/mL)",
@@ -308,7 +310,14 @@ test.describe("diagnostics regressions", () => {
             ),
           );
           if (!path) {
-            return { circleCount: circles.length, id, maxDistance: Number.POSITIVE_INFINITY };
+            return {
+              axisLineX: Number.NaN,
+              circleCount: circles.length,
+              id,
+              maxDistance: Number.POSITIVE_INFINITY,
+              titleAnchor: null,
+              titleX: Number.NaN,
+            };
           }
           const pathPoints = parsePathPoints(path);
           const distances = circles.map((circle, index) => {
@@ -332,9 +341,14 @@ test.describe("diagnostics regressions", () => {
             title: axisSvg.querySelector(
               `[data-test-id="timeline-drilldown-axis-label-${id}"]`,
             )?.textContent,
-            titleTransform: axisSvg
+            titleAnchor: axisSvg
               .querySelector(`[data-test-id="timeline-drilldown-axis-label-${id}"]`)
-              ?.getAttribute("transform"),
+              ?.getAttribute("text-anchor"),
+            titleX: Number(
+              axisSvg
+                .querySelector(`[data-test-id="timeline-drilldown-axis-label-${id}"]`)
+                ?.getAttribute("x"),
+            ),
           };
         });
         const matrix = svg.getScreenCTM();
@@ -357,7 +371,8 @@ test.describe("diagnostics regressions", () => {
         series.axisLineX,
         `${series.id} y-axis should be on the left side of the plot`,
       ).toBeLessThanOrEqual(chartGeometry.plotLeft);
-      expect(series.titleTransform).toContain("rotate(-90");
+      expect(series.titleAnchor).toBe("start");
+      expect(series.titleX).toBeLessThan(series.axisLineX);
     }
     expect(chartGeometry.series.map((series) => series.title)).toEqual([
       "ANC (x10E9/L)",
