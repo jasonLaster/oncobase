@@ -277,4 +277,77 @@ export default defineSchema({
     .index("by_token_hash", ["tokenHash"])
     .index("by_user", ["userId"])
     .index("by_site_token", ["siteId", "tokenHash"]),
+
+  epicFhirOAuthStates: defineTable({
+    siteId: v.optional(v.id("sites")),
+    userId: v.optional(v.id("users")),
+    providerKey: v.string(),
+    stateHash: v.string(),
+    redirectUri: v.string(),
+    codeVerifierCiphertext: v.string(),
+    fhirBaseUrl: v.string(),
+    authorizationEndpoint: v.string(),
+    tokenEndpoint: v.string(),
+    scopes: v.array(v.string()),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_state_hash", ["stateHash"])
+    .index("by_site_user", ["siteId", "userId"]),
+
+  epicFhirConnections: defineTable({
+    siteId: v.optional(v.id("sites")),
+    userId: v.optional(v.id("users")),
+    providerKey: v.string(),
+    providerName: v.string(),
+    fhirBaseUrl: v.string(),
+    authorizationEndpoint: v.string(),
+    tokenEndpoint: v.string(),
+    patientIdCiphertext: v.optional(v.string()),
+    scopes: v.array(v.string()),
+    accessTokenCiphertext: v.optional(v.string()),
+    refreshTokenCiphertext: v.optional(v.string()),
+    tokenExpiresAt: v.optional(v.number()),
+    status: v.union(
+      v.literal("active"),
+      v.literal("error"),
+      v.literal("revoked"),
+    ),
+    lastObservationIssuedAt: v.optional(v.string()),
+    lastDiagnosticReportDate: v.optional(v.string()),
+    lastSyncStartedAt: v.optional(v.number()),
+    lastSyncAt: v.optional(v.number()),
+    lastSyncError: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_site_provider", ["siteId", "providerKey"])
+    .index("by_site_status", ["siteId", "status"])
+    .index("by_site_user", ["siteId", "userId"]),
+
+  epicFhirLabResults: defineTable({
+    siteId: v.optional(v.id("sites")),
+    connectionId: v.id("epicFhirConnections"),
+    resourceType: v.string(),
+    fhirId: v.string(),
+    status: v.optional(v.string()),
+    category: v.optional(v.string()),
+    codeText: v.optional(v.string()),
+    codeSystem: v.optional(v.string()),
+    code: v.optional(v.string()),
+    effectiveAt: v.optional(v.string()),
+    issuedAt: v.optional(v.string()),
+    sortAt: v.string(),
+    valueText: v.optional(v.string()),
+    unit: v.optional(v.string()),
+    referenceRangeText: v.optional(v.string()),
+    interpretation: v.optional(v.string()),
+    rawHash: v.string(),
+    rawJsonCiphertext: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_site_connection_sort", ["siteId", "connectionId", "sortAt"])
+    .index("by_site_resource", ["siteId", "resourceType", "fhirId"])
+    .index("by_connection_resource", ["connectionId", "resourceType", "fhirId"]),
 });

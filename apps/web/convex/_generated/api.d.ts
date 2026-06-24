@@ -13,6 +13,7 @@ import type * as commentRooms from "../commentRooms.js";
 import type * as conversations from "../conversations.js";
 import type * as dicom from "../dicom.js";
 import type * as documents from "../documents.js";
+import type * as epicFhir from "../epicFhir.js";
 import type * as guestNames from "../guestNames.js";
 import type * as lib_site from "../lib/site.js";
 import type * as migrations from "../migrations.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   conversations: typeof conversations;
   dicom: typeof dicom;
   documents: typeof documents;
+  epicFhir: typeof epicFhir;
   guestNames: typeof guestNames;
   "lib/site": typeof lib_site;
   migrations: typeof migrations;
