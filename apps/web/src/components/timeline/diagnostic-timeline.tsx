@@ -743,9 +743,18 @@ function DrilldownChart({
   const plot = DRILLDOWN_PLOT;
   const chartRef = useRef<HTMLDivElement>(null);
   const syncingScrollRef = useRef(false);
-  const [visibleRange, setVisibleRange] = useState(fullRange);
+  const drilldownRange = useMemo(
+    () => drilldownRangeForTracks(tracks, fullRange),
+    [fullRange, tracks],
+  );
+  const [visibleRangeState, setVisibleRange] = useState(drilldownRange);
+  const visibleRange = useMemo(
+    () => clampRange(visibleRangeState, drilldownRange, DRILLDOWN_MIN_RANGE_MS),
+    [drilldownRange, visibleRangeState],
+  );
   const [tooltip, setTooltip] = useState<DrilldownTooltipState | null>(null);
   const [activeAxisTrackId, setActiveAxisTrackId] = useState<string | null>(null);
+  const tooltipHideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const drilldownTracks: Array<{
     domain: [number, number];
     events: Array<DiagnosticTimelineEvent & { value: number }>;
@@ -782,7 +791,7 @@ function DrilldownChart({
   const dayTicks = buildDayTicks(visibleRange.start, visibleRange.end);
   const basePlotWidth = plot.right - plot.left;
   const rangeSpan = Math.max(visibleRange.end - visibleRange.start, DRILLDOWN_MIN_RANGE_MS);
-  const fullSpan = Math.max(fullRange.end - fullRange.start, rangeSpan);
+  const fullSpan = Math.max(drilldownRange.end - drilldownRange.start, rangeSpan);
   const contentPlotWidth = Math.max(basePlotWidth, (fullSpan / rangeSpan) * basePlotWidth);
   const contentRightPadding = DRILLDOWN_WIDTH - plot.right;
   const contentWidth = Math.ceil(plot.left + contentPlotWidth + contentRightPadding);
@@ -797,6 +806,10 @@ function DrilldownChart({
 
   const showTooltip = useCallback(
     (element: SVGGraphicsElement, track: DiagnosticTimelineTrack, event: DiagnosticTimelineEvent) => {
+      if (tooltipHideTimeout.current) {
+        clearTimeout(tooltipHideTimeout.current);
+        tooltipHideTimeout.current = null;
+      }
       const targetBox = element.getBoundingClientRect();
 
       setActiveAxisTrackId(track.id);
@@ -821,15 +834,37 @@ function DrilldownChart({
     setActiveAxisTrackId(trackId);
   }, []);
   const hideTooltip = useCallback(() => {
+    if (tooltipHideTimeout.current) {
+      clearTimeout(tooltipHideTimeout.current);
+      tooltipHideTimeout.current = null;
+    }
     setActiveAxisTrackId(null);
     setTooltip(null);
   }, []);
+  const scheduleHideTooltip = useCallback(() => {
+    if (tooltipHideTimeout.current) {
+      clearTimeout(tooltipHideTimeout.current);
+    }
+    tooltipHideTimeout.current = setTimeout(() => {
+      setActiveAxisTrackId(null);
+      setTooltip(null);
+      tooltipHideTimeout.current = null;
+    }, 140);
+  }, []);
+  useEffect(
+    () => () => {
+      if (tooltipHideTimeout.current) {
+        clearTimeout(tooltipHideTimeout.current);
+      }
+    },
+    [],
+  );
   const scrollLeftForRange = useCallback(
     (range: DateRange) => {
       if (fullSpan <= 0) return 0;
-      return ((range.start - fullRange.start) / fullSpan) * contentPlotWidth;
+      return ((range.start - drilldownRange.start) / fullSpan) * contentPlotWidth;
     },
-    [contentPlotWidth, fullRange.start, fullSpan],
+    [contentPlotWidth, drilldownRange.start, fullSpan],
   );
   const handleScroll = useCallback(
     (event: ReactUIEvent<HTMLDivElement>) => {
@@ -838,15 +873,16 @@ function DrilldownChart({
       const scrollLeft = event.currentTarget.scrollLeft;
       setVisibleRange((currentRange) => {
         const span = currentRange.end - currentRange.start;
-        const nextStart = fullRange.start + (scrollLeft / contentPlotWidth) * fullSpan;
+        const nextStart =
+          drilldownRange.start + (scrollLeft / contentPlotWidth) * fullSpan;
         return clampRange(
           { start: nextStart, end: nextStart + span },
-          fullRange,
+          drilldownRange,
           DRILLDOWN_MIN_RANGE_MS,
         );
       });
     },
-    [contentPlotWidth, fullRange, fullSpan],
+    [contentPlotWidth, drilldownRange, fullSpan],
   );
   useEffect(() => {
     const chartElement = chartRef.current;
@@ -877,7 +913,7 @@ function DrilldownChart({
         setVisibleRange((currentRange) => {
           const span = currentRange.end - currentRange.start;
           const delta = (panPixels / (plot.right - plot.left)) * span;
-          return panRangeByTime(currentRange, fullRange, delta);
+          return panRangeByTime(currentRange, drilldownRange, delta);
         });
         return;
       }
@@ -892,12 +928,12 @@ function DrilldownChart({
       );
       const factor = event.deltaY > 0 ? 1.16 : 0.86;
       setVisibleRange((currentRange) => {
-        const cursorTime = fullRange.start + cursorPercent * fullSpan;
+        const cursorTime = drilldownRange.start + cursorPercent * fullSpan;
         const nextStart = cursorTime - (cursorTime - currentRange.start) * factor;
         const nextEnd = cursorTime + (currentRange.end - cursorTime) * factor;
         return clampRange(
           { start: nextStart, end: nextEnd },
-          fullRange,
+          drilldownRange,
           DRILLDOWN_MIN_RANGE_MS,
         );
       });
@@ -907,7 +943,7 @@ function DrilldownChart({
     return () => chartElement.removeEventListener("wheel", onWheel);
   }, [
     contentPlotWidth,
-    fullRange,
+    drilldownRange,
     fullSpan,
     hideTooltip,
     plot.left,
@@ -927,7 +963,7 @@ function DrilldownChart({
           visibleRange.end,
         )}`}
         onScroll={handleScroll}
-        onPointerLeave={hideTooltip}
+        onPointerLeave={scheduleHideTooltip}
         ref={chartRef}
       >
         <div
@@ -1008,7 +1044,7 @@ function DrilldownChart({
             );
           })}
           {weekTicks.map((tick) => {
-            const x = chartX(tick.time, fullRange, contentPlot);
+            const x = chartX(tick.time, drilldownRange, contentPlot);
             return (
               <line
                 key={`drill-week-${tick.time}`}
@@ -1023,7 +1059,7 @@ function DrilldownChart({
             );
           })}
           {dayTicks.map((tick) => {
-            const x = chartX(tick.time, fullRange, contentPlot);
+            const x = chartX(tick.time, drilldownRange, contentPlot);
             return (
               <g key={`drill-day-${tick.time}`}>
                 <line
@@ -1050,7 +1086,7 @@ function DrilldownChart({
             );
           })}
           {monthTicks.map((tick) => {
-            const x = chartX(tick.time, fullRange, contentPlot);
+            const x = chartX(tick.time, drilldownRange, contentPlot);
             return (
               <g key={`drill-month-${tick.time}`}>
                 <line
@@ -1104,7 +1140,13 @@ function DrilldownChart({
             vectorEffect="non-scaling-stroke"
           />
           {chartTracks.map(({ domain, events, track }) => {
-            const path = drilldownPath(events, domain, track, fullRange, contentPlot);
+            const path = drilldownPath(
+              events,
+              domain,
+              track,
+              drilldownRange,
+              contentPlot,
+            );
             return (
               <g key={`series-${track.id}`}>
                 {path ? (
@@ -1128,7 +1170,7 @@ function DrilldownChart({
                     } on ${formatDisplayDate(event.date)}`}
                     data-test-id={`timeline-drilldown-point-${track.id}-${event.id}`}
                     key={`point-${track.id}-${event.id}`}
-                    cx={chartX(toTime(event.date), fullRange, contentPlot)}
+                    cx={chartX(toTime(event.date), drilldownRange, contentPlot)}
                     cy={chartY(event.value ?? 0, domain, track.scale, plot)}
                     r="5"
                     fill={track.color}
@@ -1139,7 +1181,7 @@ function DrilldownChart({
                     onPointerEnter={(pointerEvent) =>
                       showTooltip(pointerEvent.currentTarget, track, event)
                     }
-                    onPointerLeave={hideTooltip}
+                    onPointerLeave={scheduleHideTooltip}
                     onPointerMove={(pointerEvent) =>
                       showTooltip(pointerEvent.currentTarget, track, event)
                     }
@@ -1165,7 +1207,7 @@ function DrilldownChart({
                 )}`}
                 data-test-id={`timeline-drilldown-event-${track.id}-${event.id}`}
                 key={`event-${track.id}-${event.id}`}
-                cx={chartX(toTime(event.date), fullRange, contentPlot)}
+                cx={chartX(toTime(event.date), drilldownRange, contentPlot)}
                 cy={chartY(0.5, [0, 1], "linear", plot)}
                 r="5"
                 fill={track.color}
@@ -1176,7 +1218,7 @@ function DrilldownChart({
                 onPointerEnter={(pointerEvent) =>
                   showTooltip(pointerEvent.currentTarget, track, event)
                 }
-                onPointerLeave={hideTooltip}
+                onPointerLeave={scheduleHideTooltip}
                 onPointerMove={(pointerEvent) =>
                   showTooltip(pointerEvent.currentTarget, track, event)
                 }
@@ -1195,7 +1237,16 @@ function DrilldownChart({
         </svg>
         </div>
         {tooltip ? (
-          <DrilldownTooltip onPointerLeave={hideTooltip} tooltip={tooltip} />
+          <DrilldownTooltip
+            onPointerEnter={() => {
+              if (tooltipHideTimeout.current) {
+                clearTimeout(tooltipHideTimeout.current);
+                tooltipHideTimeout.current = null;
+              }
+            }}
+            onPointerLeave={hideTooltip}
+            tooltip={tooltip}
+          />
         ) : null}
       </div>
     </div>
@@ -1296,9 +1347,11 @@ function DrilldownYAxis({
 }
 
 function DrilldownTooltip({
+  onPointerEnter,
   onPointerLeave,
   tooltip,
 }: {
+  onPointerEnter: () => void;
   onPointerLeave: () => void;
   tooltip: DrilldownTooltipState;
 }) {
@@ -1313,6 +1366,7 @@ function DrilldownTooltip({
           : "-translate-x-1/2 translate-y-3",
       )}
       data-test-id="timeline-drilldown-tooltip"
+      onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       role="tooltip"
       style={{ left: tooltip.x, top: tooltip.y }}
@@ -2316,6 +2370,32 @@ function numericEventsForTrack(track: DiagnosticTimelineTrack) {
 
 function reportedEventsForTrack(track: DiagnosticTimelineTrack) {
   return track.events.filter((event) => event.status !== "planned");
+}
+
+function drilldownRangeForTracks(
+  tracks: DiagnosticTimelineTrack[],
+  fallbackRange: DateRange,
+) {
+  const times = tracks.flatMap((track) =>
+    reportedEventsForTrack(track).flatMap((event) => [
+      toTime(event.date),
+      event.endDate ? toTime(event.endDate) : toTime(event.date),
+    ]),
+  );
+
+  if (times.length === 0) return fallbackRange;
+
+  const min = Math.min(...times);
+  const max = Math.max(...times);
+  const span = Math.max(max - min, DRILLDOWN_MIN_RANGE_MS);
+  const padding = Math.max(3 * MS_PER_DAY, span * 0.08);
+  const end = max === min ? max + padding : max;
+
+  return clampRange(
+    { start: min - padding, end },
+    fallbackRange,
+    DRILLDOWN_MIN_RANGE_MS,
+  );
 }
 
 function domainForTrack(track: DiagnosticTimelineTrack): [number, number] {

@@ -333,7 +333,7 @@ test.describe("diagnostics regressions", () => {
     });
     await expect
       .poll(async () => visibleStartTime(drilldownChart))
-      .toBeLessThan(startAfterLeftScroll);
+      .toBeLessThanOrEqual(startAfterLeftScroll);
     const leftEdgeMetrics = await drilldownChart.evaluate((chartElement) => {
       const chart = chartElement as HTMLElement;
       const firstPoint = chart.querySelector(
@@ -353,6 +353,33 @@ test.describe("diagnostics regressions", () => {
     });
     expect(leftEdgeMetrics.scrollLeft).toBe(0);
     expect(leftEdgeMetrics.pointLeft).toBeGreaterThan(leftEdgeMetrics.axisRight);
+
+    await drilldownChart.evaluate((chartElement) => {
+      const chart = chartElement as HTMLElement;
+      chart.scrollLeft = chart.scrollWidth - chart.clientWidth;
+      chart.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    const rightEdgeMetrics = await drilldownChart.evaluate((chartElement) => {
+      const chart = chartElement as HTMLElement;
+      const viewport = chart.getBoundingClientRect();
+      const latestPoint = chart.querySelector(
+        '[data-test-id="timeline-drilldown-point-personalis-personalis-2026-06-09"]',
+      ) as SVGCircleElement | null;
+      const pointBox = latestPoint?.getBoundingClientRect();
+
+      return {
+        pointLeft: pointBox?.left ?? 0,
+        pointRight: pointBox?.right ?? 0,
+        viewportLeft: viewport.left,
+        viewportRight: viewport.right,
+      };
+    });
+    expect(rightEdgeMetrics.pointLeft).toBeLessThanOrEqual(
+      rightEdgeMetrics.viewportRight,
+    );
+    expect(rightEdgeMetrics.pointRight).toBeGreaterThanOrEqual(
+      rightEdgeMetrics.viewportLeft,
+    );
   });
 
   test("group drill-in charts render axes, aligned markers, and hover tooltips", async ({

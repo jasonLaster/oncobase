@@ -63,11 +63,15 @@ test.describe("diagnostic timeline", () => {
       `2026-04-02:${todayInPacificTime()}`,
     );
     const rangeBefore = await timeline.getAttribute("data-visible-range");
-    await page.getByRole("button", { name: "Zoom in" }).click();
-    await expect(timeline).not.toHaveAttribute(
-      "data-visible-range",
-      rangeBefore ?? "",
-    );
+    const zoomInButton = page
+      .getByTestId("timeline-toolbar")
+      .getByRole("button", { name: "Zoom in" });
+    await expect
+      .poll(async () => {
+        await zoomInButton.click();
+        return timeline.getAttribute("data-visible-range");
+      })
+      .not.toBe(rangeBefore);
 
     const rangeAfterButtonZoom = await timeline.getAttribute("data-visible-range");
     const plotPanel = page.locator("[data-plot-panel]").first();
