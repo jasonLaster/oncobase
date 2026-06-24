@@ -22,6 +22,9 @@ The app is a multi-site wiki publishing platform. Diana is site #1; additional s
   - `/search` provides text and AI search
   - `/chat`, `/chat/[id]`, `/chat/archived` provide the research assistant when chat is enabled
   - `/comments` provides the global comments timeline when comments are enabled
+  - `/diagnostics` provides the diagnostics timeline landing page
+  - `/diagnostics/imaging` provides the imaging/report/DICOM shortcut table
+  - `/tools/dicom-viewer` opens DICOM image stacks from diagnostics links
   - `/tags/[tag]` provides tag archive pages
   - `/login` handles the site password gate
 - Desktop layout uses a header, a resizable left sidebar, and a main content pane.
@@ -118,6 +121,37 @@ The app is a multi-site wiki publishing platform. Diana is site #1; additional s
   - ranked results
   - no results
   - API error
+
+### Diagnostics
+
+- `/diagnostics` is the top-level diagnostics surface.
+- The `/diagnostics` header is intentionally compact:
+  - heading: `Diagnostics`
+  - links: `Imaging`, `Summary`, and `ctDNA`
+  - no `As of` badge, event-count badge, or descriptive paragraph
+- The diagnostics timeline is fetched through `/api/timeline` from the
+  site-scoped Convex `meta` key `diagnosticTimeline:data`.
+- Timeline sleeves group imaging/staging, pathology/tissue, ctDNA and molecular
+  response, blood counts, and chemistry/endocrine markers.
+- Timeline interactions include:
+  - hover/focus tooltips for result details
+  - sticky date overview and calendar axis with month and week ticks
+  - filter input plus zoom in, zoom out, and reset controls
+  - horizontal wheel panning and `Cmd + scroll` zooming
+  - draggable overview window
+  - magnifier dialogs for individual swimlanes and whole categories
+  - popup tooltips inside magnifier dialogs
+  - color-coded y-axes and aligned markers for grouped drill-in charts
+- Imaging events link to `/diagnostics/imaging` and to
+  `/tools/dicom-viewer?id=<diagnostic-id>` when a viewer stack exists.
+- `/diagnostics/imaging` contains the imaging table and mobile imaging list. It
+  uses the normal app sidebar rather than the DICOM study shortcut sidebar.
+- `/tools/dicom-viewer` uses the DICOM study shortcut sidebar and renders image
+  stacks with report links, series navigation, and window/level, pan, and zoom
+  controls.
+- The legacy `/timeline` route redirects to `/diagnostics`.
+- Desktop and mobile navigation expose a single `Diagnostics` app route; the old
+  separate `Timeline` entry is intentionally absent.
 
 ### Chat With Wiki
 

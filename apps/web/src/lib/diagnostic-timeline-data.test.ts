@@ -67,7 +67,7 @@ describe("diagnostic timeline data", () => {
 
     expect(mri?.links?.map((link) => link.href)).toEqual(
       expect.arrayContaining([
-        "/diagnostics",
+        "/diagnostics/imaging",
         "/tools/dicom-viewer?id=diagnostic-2026-04-01-breast-mri",
       ]),
     );

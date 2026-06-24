@@ -224,10 +224,10 @@ function holdDicomFileRequest(page: Page, fileName: string) {
 test.describe.configure({ mode: "serial" });
 
 test.describe("DICOM viewer", () => {
-  test("diagnostics page links each biopsy shortcut to the viewer", async ({ page }) => {
-    await page.goto("/diagnostics");
+  test("diagnostics imaging page links each biopsy shortcut to the viewer", async ({ page }) => {
+    await page.goto("/diagnostics/imaging");
 
-    await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible();
     const desktopTable = page.getByTestId("diagnostics-desktop-table");
     await expect(desktopTable.getByRole("columnheader", { name: "Reports" })).toBeVisible();
     await expect(desktopTable.getByRole("columnheader", { name: "View images" })).toBeVisible();
@@ -262,9 +262,9 @@ test.describe("DICOM viewer", () => {
     ).toBeVisible();
   });
 
-  test("diagnostics page uses a compact mobile study list", async ({ page }) => {
+  test("diagnostics imaging page uses a compact mobile study list", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/diagnostics");
+    await page.goto("/diagnostics/imaging");
 
     const mobileList = page.getByTestId("diagnostics-mobile-list");
     await expect(mobileList).toBeVisible();
@@ -313,30 +313,32 @@ test.describe("DICOM viewer", () => {
     }
   });
 
-  test("diagnostics routes replace the file tree with biopsy shortcuts", async ({
+  test("diagnostics imaging page uses the normal sidebar and viewer uses biopsy shortcuts", async ({
     page,
   }) => {
-    await page.goto("/diagnostics");
+    await page.goto("/diagnostics/imaging");
 
-    const sidebar = page.getByTestId("diagnostics-sidebar");
+    const sidebar = page.getByTestId("sidebar");
     await expect(sidebar).toBeVisible();
-    await expect(sidebar.getByRole("link")).toHaveCount(biopsyLinks.length);
-    await expect(sidebar).not.toContainText("Diagnostics");
-    await expect(sidebar).not.toContainText("Pathology report");
-    await expect(sidebar).not.toContainText("project management");
-
-    for (const biopsy of biopsyLinks) {
-      await expect(sidebar.getByRole("link", { name: biopsy.title })).toHaveAttribute(
-        "href",
-        `/tools/dicom-viewer?id=${biopsy.id}`,
-      );
-    }
+    await expect(page.getByTestId("diagnostics-sidebar")).toHaveCount(0);
+    await expect(sidebar.getByTestId("sidebar-view-diagnostics")).toHaveAttribute(
+      "href",
+      "/diagnostics",
+    );
+    await expect(sidebar.getByTestId("sidebar-view-diagnostics")).toHaveAttribute(
+      "data-selected-file-tree-item",
+      "true",
+    );
+    await expect(sidebar.getByRole("link", { name: "March 13 biopsy" })).toHaveCount(0);
+    await expect(sidebar).toContainText("project management");
 
     await page.goto("/tools/dicom-viewer?id=biopsy-2026-03-23");
     await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
-    await expect(sidebar).toBeVisible();
+    const viewerSidebar = page.getByTestId("diagnostics-sidebar");
+    await expect(viewerSidebar).toBeVisible();
+    await expect(viewerSidebar.getByRole("link")).toHaveCount(biopsyLinks.length);
     await expect(
-      sidebar.getByRole("link", { name: "March 13 biopsy" }),
+      viewerSidebar.getByRole("link", { name: "March 13 biopsy" }),
     ).toHaveAttribute("href", "/tools/dicom-viewer?id=biopsy-2026-03-13");
 
     const seriesPanel = page.getByTestId("dicom-series-panel");

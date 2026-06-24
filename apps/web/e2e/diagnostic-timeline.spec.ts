@@ -4,11 +4,23 @@ test.describe("diagnostic timeline", () => {
   test("renders sleeves, week ticks, hover tooltips, diagnostics links, and zoom state", async ({
     page,
   }) => {
-    await page.goto("/timeline", { waitUntil: "domcontentloaded" });
+    await page.goto("/diagnostics", { waitUntil: "domcontentloaded" });
 
     await expect(
-      page.getByRole("heading", { name: "Diagnostic Timeline" }),
+      page.getByRole("heading", { name: "Diagnostics" }),
     ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Imaging" })).toHaveAttribute(
+      "href",
+      "/diagnostics/imaging",
+    );
+    await expect(page.getByRole("link", { name: "Summary" })).toHaveAttribute(
+      "href",
+      "/wiki/diagnostics/test-results-summary",
+    );
+    await expect(page.getByRole("link", { name: "ctDNA" })).toHaveAttribute(
+      "href",
+      "/wiki/diagnostics/ctdna-mrd",
+    );
     await expect(page.getByTestId("diagnostic-timeline")).toBeVisible();
     await expect(page.getByTestId("timeline-sleeve-molecular")).toContainText(
       "ctDNA and Molecular Response",
@@ -21,6 +33,21 @@ test.describe("diagnostic timeline", () => {
     await expect(page.getByTestId("timeline-visible-range-label")).toContainText(
       "Apr 2",
     );
+    await expect(
+      page.getByTestId("timeline-sticky-header").getByTestId("timeline-filter"),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("timeline-toolbar").getByRole("button", { name: "Zoom in" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Show full timeline" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Focus molecular result window" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Focus recent results" }),
+    ).toHaveCount(0);
 
     const weekTickCount = await page.getByTestId("timeline-week-tick").count();
     const monthTickCount = await page.getByTestId("timeline-month-tick").count();
@@ -140,6 +167,28 @@ test.describe("diagnostic timeline", () => {
       "data-visible-range",
       `2026-04-02:${todayInPacificTime()}`,
     );
+
+    await page.getByTestId("timeline-inspect-track-personalis").click();
+    await expect(page.getByTestId("timeline-drilldown-dialog")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "NeXT Personal" })).toBeVisible();
+    await expect(page.getByTestId("timeline-drilldown-chart")).toBeVisible();
+    await expect(page.getByTestId("timeline-drilldown-dialog")).toContainText("log");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("timeline-drilldown-dialog")).toHaveCount(0);
+
+    await page.getByTestId("timeline-inspect-sleeve-molecular").click();
+    await expect(page.getByTestId("timeline-drilldown-dialog")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "ctDNA and Molecular Response" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("timeline-drilldown-dialog")).toContainText(
+      "Signatera",
+    );
+    await expect(page.getByTestId("timeline-drilldown-dialog")).toContainText(
+      "NeXT Personal",
+    );
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("timeline-drilldown-dialog")).toHaveCount(0);
 
     await expect(
       page.getByTestId("timeline-tooltip-signatera-2026-05-28"),

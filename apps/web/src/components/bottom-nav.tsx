@@ -8,7 +8,6 @@ import { SidebarSignInPrompt } from "@/components/actions-menu";
 import {
   CommentsTreeLink,
   DiagnosticsTreeLink,
-  TimelineTreeLink,
   TreeNode,
   fileTreeNodeKey,
   formatName,
@@ -31,8 +30,7 @@ function getPageTitle(pathname: string): string {
   if (pathname === "/") return "Home";
   if (pathname.startsWith("/chat")) return "Chat with wiki";
   if (pathname.startsWith("/comments")) return "View comments";
-  if (pathname === "/diagnostics" || pathname.startsWith("/tools/dicom-viewer")) return "Diagnostics";
-  if (pathname === "/timeline") return "Diagnostic timeline";
+  if (pathname.startsWith("/diagnostics") || pathname.startsWith("/tools/dicom-viewer")) return "Diagnostics";
   if (pathname.startsWith("/search")) return "Search";
   if (pathname.startsWith("/tags/")) {
     const tag = decodeURIComponent(pathname.split("/tags/")[1] || "");
@@ -322,7 +320,6 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
                   <CommentsTreeLink activePathname={activePathname} onNavigate={close} />
                 ) : null}
                 <DiagnosticsTreeLink activePathname={activePathname} onNavigate={close} />
-                <TimelineTreeLink activePathname={activePathname} onNavigate={close} />
                 <SidebarSignInPrompt />
                 {tree.map((node) => (
                   <TreeNode

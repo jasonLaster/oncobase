@@ -124,7 +124,7 @@ function diagnosticLinksForEvent(event: DiagnosticTimelineEvent): DiagnosticTime
   ];
 
   return [
-    { label: "Diagnostics", href: "/diagnostics" },
+    { label: "Imaging", href: "/diagnostics/imaging" },
     ...reportLinks,
     { label: "View images", href: getDicomViewerHref(biopsy.id) },
   ];

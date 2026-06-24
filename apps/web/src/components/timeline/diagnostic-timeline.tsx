@@ -6,6 +6,7 @@ import {
   useMemo,
   useReducer,
   useRef,
+  useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -18,13 +19,19 @@ import {
   FileText,
   RotateCcw,
   Search,
-  SlidersHorizontal,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type {
   DiagnosticTimelineData,
   DiagnosticTimelineEvent,
@@ -40,6 +47,9 @@ const TRACK_HEIGHT = 48;
 const SERIES_TOP = 8;
 const SERIES_BOTTOM = 38;
 const PLOT_MIN_WIDTH = 920;
+const DRILLDOWN_WIDTH = 1120;
+const DRILLDOWN_HEIGHT = 420;
+const DRILLDOWN_PLOT = { bottom: 336, left: 154, right: 964, top: 42 };
 const MONTH_TICK_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
   timeZone: "UTC",
@@ -121,6 +131,32 @@ type TimelineAction =
   | { type: "showEvent"; anchor: TooltipAnchor; eventId: string }
   | { type: "toggleSleeve"; sleeveId: string };
 
+type DrilldownTarget =
+  | {
+      scope: "sleeve";
+      sleeve: DiagnosticTimelineSleeve;
+    }
+  | {
+      scope: "track";
+      sleeve: DiagnosticTimelineSleeve;
+      track: DiagnosticTimelineTrack;
+    };
+
+interface DrilldownTooltipState {
+  color: string;
+  date: string;
+  details: string[];
+  id: string;
+  label: string;
+  links: DiagnosticTimelineLink[];
+  placement: "above" | "below";
+  result: string;
+  trackLabel: string;
+  valueLabel: string | null;
+  x: number;
+  y: number;
+}
+
 export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
   const fullRange = useMemo(
     () => ({
@@ -166,6 +202,9 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
     tooltipAnchor,
     visibleRange,
   } = state;
+  const [drilldownTarget, setDrilldownTarget] = useState<DrilldownTarget | null>(
+    null,
+  );
   const tooltipHideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allEventRefs = useMemo(() => flattenEvents(data.sleeves), [data.sleeves]);
@@ -195,12 +234,6 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
     return sleeves;
   }, [data.sleeves, normalizedFilter]);
 
-  const visibleEventCount = filteredSleeves.reduce(
-    (total, sleeve) =>
-      total +
-      sleeve.tracks.reduce((trackTotal, track) => trackTotal + track.events.length, 0),
-    0,
-  );
   const monthTicks = useMemo(
     () => buildMonthTicks(visibleRange.start, visibleRange.end),
     [visibleRange.end, visibleRange.start],
@@ -293,10 +326,6 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
     () => setVisibleRange(defaultVisibleRange),
     [defaultVisibleRange, setVisibleRange],
   );
-  const showFullRange = useCallback(
-    () => setVisibleRange(fullRange),
-    [fullRange, setVisibleRange],
-  );
 
   const zoomBy = useCallback(
     (factor: number) => {
@@ -306,21 +335,6 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
       updateRange(center - nextSpan / 2, center + nextSpan / 2);
     },
     [updateRange, visibleRange.end, visibleRange.start],
-  );
-
-  const setPreset = useCallback(
-    (preset: "all" | "mrd" | "recent") => {
-      if (preset === "all") {
-        showFullRange();
-        return;
-      }
-      if (preset === "mrd") {
-        updateRange(toTime("2026-04-01"), toTime("2026-06-30"));
-        return;
-      }
-      updateRange(toTime("2026-05-01"), fullRange.end);
-    },
-    [fullRange.end, showFullRange, updateRange],
   );
 
   const toggleSleeve = useCallback(
@@ -350,10 +364,16 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
           activeOverviewX={activeOverviewX}
           activeX={activeX}
           eventDots={allEventDots}
+          filter={filter}
           fullRange={fullRange}
           monthTicks={monthTicks}
+          onFilterChange={(nextFilter) =>
+            dispatch({ type: "setFilter", filter: nextFilter })
+          }
           onRangeChange={setVisibleRange}
+          onResetRange={resetRange}
           onWheel={dragHandlers.onWheel}
+          onZoom={zoomBy}
           visibleRange={visibleRange}
           weekTicks={weekTicks}
         />
@@ -366,6 +386,12 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
           monthTicks={monthTicks}
           onActivate={showTimelineEvent}
           onDeactivate={scheduleHideTimelineEvent}
+          onInspectSleeve={(sleeve) =>
+            setDrilldownTarget({ scope: "sleeve", sleeve })
+          }
+          onInspectTrack={(sleeve, track) =>
+            setDrilldownTarget({ scope: "track", sleeve, track })
+          }
           onToggleSleeve={toggleSleeve}
           sleeves={filteredSleeves}
           visibleRange={visibleRange}
@@ -373,15 +399,12 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
         />
       </div>
 
-      <TimelineFooterControls
-        filter={filter}
-        onFilterChange={(nextFilter) =>
-          dispatch({ type: "setFilter", filter: nextFilter })
-        }
-        onPreset={setPreset}
-        onResetRange={resetRange}
-        onZoom={zoomBy}
-        visibleEventCount={visibleEventCount}
+      <TimelineDrilldownDialog
+        fullRange={fullRange}
+        onOpenChange={(open) => {
+          if (!open) setDrilldownTarget(null);
+        }}
+        target={drilldownTarget}
       />
 
       {activeEvent && tooltipAnchor?.eventId === activeEvent.event.id ? (
@@ -444,20 +467,28 @@ function TimelineStickyHeader({
   activeOverviewX,
   activeX,
   eventDots,
+  filter,
   fullRange,
   monthTicks,
+  onFilterChange,
   onRangeChange,
+  onResetRange,
   onWheel,
+  onZoom,
   visibleRange,
   weekTicks,
 }: {
   activeOverviewX: number | null;
   activeX: number | null;
   eventDots: TimelineEventRef[];
+  filter: string;
   fullRange: DateRange;
   monthTicks: TimelineTick[];
+  onFilterChange: (filter: string) => void;
   onRangeChange: (range: DateRange | ((range: DateRange) => DateRange)) => void;
+  onResetRange: () => void;
   onWheel: (event: ReactWheelEvent<HTMLElement>) => void;
+  onZoom: (factor: number) => void;
   visibleRange: DateRange;
   weekTicks: TimelineTick[];
 }) {
@@ -466,16 +497,75 @@ function TimelineStickyHeader({
       className="sticky top-0 z-40 rounded-t-lg border-b border-border bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/88"
       data-test-id="timeline-sticky-header"
     >
-      <div className="grid grid-cols-[minmax(148px,220px)_minmax(0,1fr)] border-b border-border/80">
-        <div className="border-r border-border px-3 py-3">
-          <div className="text-[11px] font-medium uppercase tracking-normal text-muted-foreground">
-            Visible window
+      <div
+        className="flex flex-wrap items-center gap-3 border-b border-border/80 px-3 py-2"
+        data-test-id="timeline-toolbar"
+      >
+        <div className="min-w-48 flex-1">
+          <div className="text-sm font-semibold tracking-normal text-foreground">
+            Date window
           </div>
           <div
-            className="mt-1 text-base font-semibold tracking-normal text-foreground"
+            className="text-xs font-medium tracking-normal text-muted-foreground"
             data-test-id="timeline-visible-range-label"
           >
             {formatRange(visibleRange)}
+          </div>
+        </div>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+          <div className="relative min-w-56 flex-1 sm:max-w-md">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              aria-label="Filter timeline results"
+              value={filter}
+              onChange={(event) => onFilterChange(event.target.value)}
+              className="h-8 w-full rounded-lg border border-border bg-background pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50 focus:ring-3 focus:ring-ring/20"
+              placeholder="Filter timeline..."
+              data-test-id="timeline-filter"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={() => onZoom(0.7)}
+              aria-label="Zoom in"
+              title="Zoom in"
+            >
+              <ZoomIn className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={() => onZoom(1.35)}
+              aria-label="Zoom out"
+              title="Zoom out"
+            >
+              <ZoomOut className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={onResetRange}
+              aria-label="Reset timeline range"
+              title="Reset range"
+            >
+              <RotateCcw className="size-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-[minmax(148px,220px)_minmax(0,1fr)] border-b border-border/80">
+        <div className="border-r border-border px-3 py-2">
+          <div className="text-[11px] font-medium uppercase tracking-normal text-muted-foreground">
+            Overview
+          </div>
+          <div className="text-xs font-medium tracking-normal text-muted-foreground">
+            Window
           </div>
         </div>
         <div className="min-w-0 border-l border-border/60 px-3 py-2">
@@ -500,108 +590,538 @@ function TimelineStickyHeader({
   );
 }
 
-function TimelineFooterControls({
-  filter,
-  onFilterChange,
-  onPreset,
-  onResetRange,
-  onZoom,
-  visibleEventCount,
+function TimelineDrilldownDialog({
+  fullRange,
+  onOpenChange,
+  target,
 }: {
-  filter: string;
-  onFilterChange: (filter: string) => void;
-  onPreset: (preset: "all" | "mrd" | "recent") => void;
-  onResetRange: () => void;
-  onZoom: (factor: number) => void;
-  visibleEventCount: number;
+  fullRange: DateRange;
+  onOpenChange: (open: boolean) => void;
+  target: DrilldownTarget | null;
 }) {
+  const tracks =
+    target?.scope === "track"
+      ? [target.track]
+      : target?.scope === "sleeve"
+        ? target.sleeve.tracks
+        : [];
+  const title =
+    target?.scope === "track"
+      ? target.track.label
+      : target?.scope === "sleeve"
+        ? target.sleeve.label
+        : "Timeline detail";
+  const description =
+    target?.scope === "track"
+      ? "Expanded swimlane view with a larger y-axis and all recorded points."
+      : "Expanded category view with numeric swimlanes overlaid and color-coded y-axis domains.";
+
   return (
-    <div className="grid gap-2 rounded-lg border border-border bg-background p-3 text-sm shadow-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-56 flex-1 sm:max-w-sm">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            aria-label="Filter timeline results"
-            value={filter}
-            onChange={(event) => onFilterChange(event.target.value)}
-            className="h-8 w-full rounded-lg border border-border bg-background pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50 focus:ring-3 focus:ring-ring/20"
-            placeholder="Filter results..."
-            data-test-id="timeline-filter"
+    <Dialog open={target !== null} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-h-[88vh] w-[calc(100vw-2rem)] overflow-y-auto p-0 sm:max-w-[1180px]"
+        data-test-id="timeline-drilldown-dialog"
+      >
+        <DialogHeader className="border-b border-border px-5 py-4 pr-12">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        {target ? (
+          <div className="grid gap-4 px-5 pb-5">
+            <div className="flex flex-wrap gap-2 pt-4">
+              {tracks.map((track) => {
+                const numericEvents = numericEventsForTrack(track);
+                const domain = domainForTrack(track);
+                return (
+                  <Badge
+                    key={track.id}
+                    variant="outline"
+                    className="gap-1.5 border-border"
+                    style={{ borderColor: `${track.color}66` }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="size-2 rounded-full"
+                      style={{ backgroundColor: track.color }}
+                    />
+                    {track.label}
+                    {numericEvents.length > 0 ? (
+                      <span className="text-muted-foreground">
+                        {formatChartValue(domain[0])} - {formatChartValue(domain[1])}
+                        {track.unit ? ` ${track.unit}` : ""}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {track.events.length} events
+                      </span>
+                    )}
+                    {track.scale === "log" ? (
+                      <span className="font-mono text-[10px] uppercase tracking-normal text-muted-foreground">
+                        log
+                      </span>
+                    ) : null}
+                  </Badge>
+                );
+              })}
+            </div>
+            <DrilldownChart fullRange={fullRange} tracks={tracks} />
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DrilldownChart({
+  fullRange,
+  tracks,
+}: {
+  fullRange: DateRange;
+  tracks: DiagnosticTimelineTrack[];
+}) {
+  const plot = DRILLDOWN_PLOT;
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [tooltip, setTooltip] = useState<DrilldownTooltipState | null>(null);
+  const numericTracks: Array<{
+    domain: [number, number];
+    events: Array<DiagnosticTimelineEvent & { value: number }>;
+    track: DiagnosticTimelineTrack;
+  }> = [];
+  const eventMarkers: Array<{
+    event: DiagnosticTimelineEvent;
+    lane: number;
+    track: DiagnosticTimelineTrack;
+  }> = [];
+
+  tracks.forEach((track, trackIndex) => {
+    const events = numericEventsForTrack(track);
+    if (events.length > 0) {
+      numericTracks.push({
+        domain: domainForTrack(track),
+        events,
+        track,
+      });
+    }
+
+    let eventIndex = 0;
+    for (const event of track.events) {
+      if (typeof event.value === "number") continue;
+      eventMarkers.push({
+        event,
+        lane: (trackIndex + eventIndex) % 4,
+        track,
+      });
+      eventIndex += 1;
+    }
+  });
+  const monthTicks = buildMonthTicks(fullRange.start, fullRange.end);
+  const weekTicks = buildWeekTicks(fullRange.start, fullRange.end);
+  const chartTracks = numericTracks.map((track, index) => ({
+    ...track,
+    axis: drilldownAxisPlacement(index, numericTracks.length, plot),
+  }));
+  const showsNormalizedOverlay = chartTracks.length > 1;
+
+  const showTooltip = useCallback(
+    (element: SVGGraphicsElement, track: DiagnosticTimelineTrack, event: DiagnosticTimelineEvent) => {
+      const chartElement = chartRef.current;
+      if (!chartElement) return;
+      const chartBox = chartElement.getBoundingClientRect();
+      const targetBox = element.getBoundingClientRect();
+      const x =
+        targetBox.left -
+        chartBox.left +
+        chartElement.scrollLeft +
+        targetBox.width / 2;
+      const y =
+        targetBox.top - chartBox.top + chartElement.scrollTop + targetBox.height / 2;
+
+      setTooltip({
+        color: track.color,
+        date: formatDisplayDate(event.date),
+        details: event.details ?? [],
+        id: `${track.id}-${event.id}`,
+        label: event.label,
+        links: event.links ?? [],
+        placement: y < 112 ? "below" : "above",
+        result: event.result,
+        trackLabel: track.label,
+        valueLabel: event.valueLabel ?? null,
+        x,
+        y,
+      });
+    },
+    [],
+  );
+  const hideTooltip = useCallback(() => setTooltip(null), []);
+
+  return (
+    <div className="grid gap-2 overflow-hidden rounded-lg border border-border bg-background p-3">
+      {showsNormalizedOverlay ? (
+        <div
+          className="text-xs font-medium text-muted-foreground"
+          data-test-id="timeline-drilldown-note"
+        >
+          Normalized per swimlane. Color labels above show each y-axis domain.
+        </div>
+      ) : null}
+      <div
+        className="relative overflow-x-auto rounded-md bg-muted/20"
+        data-test-id="timeline-drilldown-chart"
+        onPointerLeave={hideTooltip}
+        ref={chartRef}
+      >
+        <svg
+          className="block min-w-[1120px] w-full"
+          data-test-id="timeline-drilldown-svg"
+          height={DRILLDOWN_HEIGHT}
+          role="img"
+          aria-label="Expanded timeline chart"
+          style={{
+            aspectRatio: `${DRILLDOWN_WIDTH} / ${DRILLDOWN_HEIGHT}`,
+            fontFamily: "var(--font-sans, ui-sans-serif, system-ui, sans-serif)",
+          }}
+          viewBox={`0 0 ${DRILLDOWN_WIDTH} ${DRILLDOWN_HEIGHT}`}
+          width={DRILLDOWN_WIDTH}
+        >
+          <rect
+            x="0"
+            y="0"
+            width={DRILLDOWN_WIDTH}
+            height={DRILLDOWN_HEIGHT}
+            fill="var(--background)"
           />
-        </div>
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onPreset("all")}
-            aria-label="Show full timeline"
-          >
-            All
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onPreset("mrd")}
-            aria-label="Focus molecular result window"
-          >
-            MRD
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onPreset("recent")}
-            aria-label="Focus recent results"
-          >
-            Recent
-          </Button>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={() => onZoom(0.7)}
-            aria-label="Zoom in"
-            title="Zoom in"
-          >
-            <ZoomIn className="size-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={() => onZoom(1.35)}
-            aria-label="Zoom out"
-            title="Zoom out"
-          >
-            <ZoomOut className="size-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={onResetRange}
-            aria-label="Reset timeline range"
-            title="Reset range"
-          >
-            <RotateCcw className="size-4" />
-          </Button>
-        </div>
+          {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
+            const y = plot.bottom - tick * (plot.bottom - plot.top);
+            return (
+              <line
+                key={`grid-y-${tick}`}
+                x1={plot.left}
+                x2={plot.right}
+                y1={y}
+                y2={y}
+                stroke="currentColor"
+                strokeOpacity="0.12"
+                vectorEffect="non-scaling-stroke"
+              />
+            );
+          })}
+          {weekTicks.map((tick) => {
+            const x = chartX(tick.time, fullRange, plot);
+            return (
+              <line
+                key={`drill-week-${tick.time}`}
+                x1={x}
+                x2={x}
+                y1={plot.top}
+                y2={plot.bottom}
+                stroke="currentColor"
+                strokeOpacity="0.08"
+                vectorEffect="non-scaling-stroke"
+              />
+            );
+          })}
+          {monthTicks.map((tick) => {
+            const x = chartX(tick.time, fullRange, plot);
+            return (
+              <g key={`drill-month-${tick.time}`}>
+                <line
+                  x1={x}
+                  x2={x}
+                  y1={plot.top}
+                  y2={plot.bottom}
+                  stroke="currentColor"
+                  strokeOpacity="0.2"
+                  vectorEffect="non-scaling-stroke"
+                />
+                <text
+                  x={x + 8}
+                  y={plot.bottom + 34}
+                  fill="currentColor"
+                  fontSize="14"
+                  fontWeight="600"
+                >
+                  {tick.label}
+                </text>
+              </g>
+            );
+          })}
+          <line
+            x1={plot.left}
+            x2={plot.left}
+            y1={plot.top}
+            y2={plot.bottom}
+            stroke="currentColor"
+            strokeOpacity="0.35"
+            vectorEffect="non-scaling-stroke"
+          />
+          <line
+            x1={plot.right}
+            x2={plot.right}
+            y1={plot.top}
+            y2={plot.bottom}
+            stroke="currentColor"
+            strokeOpacity="0.22"
+            vectorEffect="non-scaling-stroke"
+          />
+          <line
+            x1={plot.left}
+            x2={plot.right}
+            y1={plot.bottom}
+            y2={plot.bottom}
+            stroke="currentColor"
+            strokeOpacity="0.35"
+            vectorEffect="non-scaling-stroke"
+          />
+          {chartTracks.map(({ axis, domain, track }) => (
+            <DrilldownYAxis
+              axis={axis}
+              domain={domain}
+              key={`axis-${track.id}`}
+              plot={plot}
+              scale={track.scale}
+              track={track}
+            />
+          ))}
+          {chartTracks.map(({ domain, events, track }) => {
+            const path = drilldownPath(events, domain, track, fullRange, plot);
+            return (
+              <g key={`series-${track.id}`}>
+                {path ? (
+                  <path
+                    data-test-id={`timeline-drilldown-series-${track.id}`}
+                    d={path}
+                    fill="none"
+                    stroke={track.color}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="3"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ) : null}
+                {events.map((event) => (
+                  <circle
+                    aria-label={`${track.label}: ${
+                      event.valueLabel ?? event.result
+                    } on ${formatDisplayDate(event.date)}`}
+                    data-test-id={`timeline-drilldown-point-${track.id}-${event.id}`}
+                    key={`point-${track.id}-${event.id}`}
+                    cx={chartX(toTime(event.date), fullRange, plot)}
+                    cy={chartY(event.value ?? 0, domain, track.scale, plot)}
+                    r="5"
+                    fill={track.color}
+                    onBlur={hideTooltip}
+                    onFocus={(focusEvent) =>
+                      showTooltip(focusEvent.currentTarget, track, event)
+                    }
+                    onPointerEnter={(pointerEvent) =>
+                      showTooltip(pointerEvent.currentTarget, track, event)
+                    }
+                    onPointerMove={(pointerEvent) =>
+                      showTooltip(pointerEvent.currentTarget, track, event)
+                    }
+                    stroke="var(--background)"
+                    strokeWidth="2"
+                    tabIndex={0}
+                    vectorEffect="non-scaling-stroke"
+                  >
+                    <title>
+                      {track.label}: {event.valueLabel ?? event.result} on{" "}
+                      {formatDisplayDate(event.date)}
+                    </title>
+                  </circle>
+                ))}
+              </g>
+            );
+          })}
+          {eventMarkers.map(({ event, lane, track }) => {
+            const x = chartX(toTime(event.date), fullRange, plot);
+            const y = plot.bottom - 12 - lane * 14;
+            return (
+              <path
+                aria-label={`${track.label}: ${event.label} on ${formatDisplayDate(
+                  event.date,
+                )}`}
+                data-test-id={`timeline-drilldown-event-${track.id}-${event.id}`}
+                key={`event-${track.id}-${event.id}`}
+                d={`M ${x} ${y - 7} L ${x + 14} ${y} L ${x} ${y + 7} L ${x - 14} ${y} Z`}
+                fill={track.color}
+                onBlur={hideTooltip}
+                onFocus={(focusEvent) =>
+                  showTooltip(focusEvent.currentTarget, track, event)
+                }
+                onPointerEnter={(pointerEvent) =>
+                  showTooltip(pointerEvent.currentTarget, track, event)
+                }
+                onPointerMove={(pointerEvent) =>
+                  showTooltip(pointerEvent.currentTarget, track, event)
+                }
+                opacity="0.75"
+                tabIndex={0}
+              >
+                <title>
+                  {track.label}: {event.label} on {formatDisplayDate(event.date)}
+                </title>
+              </path>
+            );
+          })}
+        </svg>
+        {tooltip ? <DrilldownTooltip tooltip={tooltip} /> : null}
       </div>
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <Badge variant="outline" className="gap-1.5">
-          <SlidersHorizontal className="size-3" />
-          {visibleEventCount} shown
-        </Badge>
-        <Badge variant="outline">Reported</Badge>
-        <Badge variant="destructive">Flagged</Badge>
-        <Badge variant="outline" className="border-dashed">
-          Planned
-        </Badge>
+    </div>
+  );
+}
+
+interface DrilldownAxisPlacement {
+  lineX: number;
+  side: "left" | "right";
+  textAnchor: "end" | "start";
+  tickX1: number;
+  tickX2: number;
+  valueX: number;
+}
+
+function DrilldownYAxis({
+  axis,
+  domain,
+  plot,
+  scale,
+  track,
+}: {
+  axis: DrilldownAxisPlacement;
+  domain: [number, number];
+  plot: ChartPlot;
+  scale: DiagnosticTimelineTrack["scale"];
+  track: DiagnosticTimelineTrack;
+}) {
+  const ticks = yAxisTicks(domain, scale);
+
+  return (
+    <g data-test-id={`timeline-drilldown-axis-${track.id}`}>
+      <line
+        x1={axis.lineX}
+        x2={axis.lineX}
+        y1={plot.top}
+        y2={plot.bottom}
+        stroke={track.color}
+        strokeOpacity="0.42"
+        vectorEffect="non-scaling-stroke"
+      />
+      <text
+        data-test-id={`timeline-drilldown-axis-label-${track.id}`}
+        fill={track.color}
+        fontSize="12"
+        fontWeight="700"
+        textAnchor={axis.textAnchor}
+        x={axis.valueX}
+        y={plot.top - 16}
+      >
+        {track.label}
+      </text>
+      {track.scale === "log" ? (
+        <text
+          fill={track.color}
+          fontSize="10"
+          fontWeight="700"
+          opacity="0.82"
+          textAnchor={axis.textAnchor}
+          x={axis.valueX}
+          y={plot.top - 2}
+        >
+          log scale
+        </text>
+      ) : null}
+      {ticks.map((value) => {
+        const y = chartY(value, domain, scale, plot);
+        return (
+          <g key={`axis-${track.id}-${value}`}>
+            <line
+              x1={axis.tickX1}
+              x2={axis.tickX2}
+              y1={y}
+              y2={y}
+              stroke={track.color}
+              strokeOpacity="0.7"
+              vectorEffect="non-scaling-stroke"
+            />
+            <text
+              fill={track.color}
+              fontSize="12"
+              fontWeight="600"
+              textAnchor={axis.textAnchor}
+              x={axis.valueX}
+              y={y + 4}
+            >
+              {formatChartValue(value)}
+            </text>
+          </g>
+        );
+      })}
+      {track.unit ? (
+        <text
+          fill={track.color}
+          fontSize="10"
+          fontWeight="700"
+          opacity="0.82"
+          textAnchor={axis.textAnchor}
+          x={axis.valueX}
+          y={plot.bottom + 18}
+        >
+          {track.unit}
+        </text>
+      ) : null}
+    </g>
+  );
+}
+
+function DrilldownTooltip({ tooltip }: { tooltip: DrilldownTooltipState }) {
+  return (
+    <div
+      className={cn(
+        "pointer-events-auto absolute z-20 max-w-[320px] rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg",
+        tooltip.placement === "above"
+          ? "-translate-x-1/2 -translate-y-[calc(100%+12px)]"
+          : "-translate-x-1/2 translate-y-3",
+      )}
+      data-test-id="timeline-drilldown-tooltip"
+      role="tooltip"
+      style={{ left: tooltip.x, top: tooltip.y }}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          aria-hidden="true"
+          className="size-2 rounded-full"
+          style={{ backgroundColor: tooltip.color }}
+        />
+        <span className="font-semibold">{tooltip.trackLabel}</span>
+        <span className="text-muted-foreground">{tooltip.date}</span>
       </div>
+      <div className="mt-1 font-medium">{tooltip.label}</div>
+      {tooltip.valueLabel ? (
+        <div className="mt-1 text-muted-foreground">{tooltip.valueLabel}</div>
+      ) : null}
+      <div className="mt-1 leading-snug">{tooltip.result}</div>
+      {tooltip.details.length > 0 ? (
+        <ul className="mt-2 grid gap-1 text-muted-foreground">
+          {tooltip.details.map((detail) => (
+            <li key={detail}>{detail}</li>
+          ))}
+        </ul>
+      ) : null}
+      {tooltip.links.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {tooltip.links.map((link) => (
+            <a
+              className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 font-medium text-foreground hover:bg-muted"
+              href={link.href}
+              key={`${tooltip.id}-${link.href}`}
+            >
+              {link.label}
+              <ExternalLink className="size-3" />
+            </a>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -614,6 +1134,8 @@ function TimelineSleeves({
   monthTicks,
   onActivate,
   onDeactivate,
+  onInspectSleeve,
+  onInspectTrack,
   onToggleSleeve,
   sleeves,
   visibleRange,
@@ -626,6 +1148,11 @@ function TimelineSleeves({
   monthTicks: TimelineTick[];
   onActivate: (eventId: string, anchorElement: HTMLElement) => void;
   onDeactivate: (eventId: string) => void;
+  onInspectSleeve: (sleeve: DiagnosticTimelineSleeve) => void;
+  onInspectTrack: (
+    sleeve: DiagnosticTimelineSleeve,
+    track: DiagnosticTimelineTrack,
+  ) => void;
   onToggleSleeve: (sleeveId: string) => void;
   sleeves: DiagnosticTimelineSleeve[];
   visibleRange: DateRange;
@@ -642,12 +1169,12 @@ function TimelineSleeves({
 
         return (
           <section key={sleeve.id} data-test-id={`timeline-sleeve-${sleeve.id}`}>
-            <button
-              type="button"
-              onClick={() => onToggleSleeve(sleeve.id)}
-              className="grid w-full grid-cols-[minmax(148px,220px)_minmax(0,1fr)] items-center bg-muted/50 text-left transition-colors hover:bg-muted/70"
-            >
-              <span className="flex min-w-0 items-center gap-2 border-r border-border px-3 py-2.5 text-sm font-semibold text-foreground">
+            <div className="grid w-full grid-cols-[minmax(148px,220px)_minmax(0,1fr)] items-center bg-muted/50">
+              <button
+                type="button"
+                onClick={() => onToggleSleeve(sleeve.id)}
+                className="flex min-w-0 items-center gap-2 border-r border-border px-3 py-2.5 text-left text-sm font-semibold text-foreground transition-colors hover:bg-muted/70"
+              >
                 {collapsed ? (
                   <ChevronRight className="size-4 text-muted-foreground" />
                 ) : (
@@ -657,14 +1184,25 @@ function TimelineSleeves({
                 <span className="text-xs font-medium text-muted-foreground">
                   {eventCount}
                 </span>
-              </span>
-              <span
-                className="h-full border-l-4 px-3 py-2.5 text-xs text-muted-foreground"
+              </button>
+              <div
+                className="flex h-full min-w-0 items-center justify-between gap-2 border-l-4 px-3 py-2.5 text-xs text-muted-foreground"
                 style={{ borderColor: sleeve.tone }}
               >
-                {sleeve.description}
-              </span>
-            </button>
+                <span className="min-w-0 truncate">{sleeve.description}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => onInspectSleeve(sleeve)}
+                  aria-label={`Inspect ${sleeve.label}`}
+                  title={`Inspect ${sleeve.label}`}
+                  data-test-id={`timeline-inspect-sleeve-${sleeve.id}`}
+                >
+                  <Search className="size-4" />
+                </Button>
+              </div>
+            </div>
 
             {!collapsed ? (
               <div>
@@ -677,6 +1215,7 @@ function TimelineSleeves({
                     monthTicks={monthTicks}
                     onActivate={onActivate}
                     onDeactivate={onDeactivate}
+                    onInspect={() => onInspectTrack(sleeve, track)}
                     sleeve={sleeve}
                     track={track}
                     visibleRange={visibleRange}
@@ -769,6 +1308,7 @@ function TimelineTrackRow({
   monthTicks,
   onActivate,
   onDeactivate,
+  onInspect,
   sleeve,
   track,
   visibleRange,
@@ -780,6 +1320,7 @@ function TimelineTrackRow({
   monthTicks: TimelineTick[];
   onActivate: (eventId: string, anchorElement: HTMLElement) => void;
   onDeactivate: (eventId: string) => void;
+  onInspect: () => void;
   sleeve: DiagnosticTimelineSleeve;
   track: DiagnosticTimelineTrack;
   visibleRange: DateRange;
@@ -811,6 +1352,18 @@ function TimelineTrackRow({
         {track.unit ? (
           <span className="shrink-0 text-xs text-muted-foreground">{track.unit}</span>
         ) : null}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={onInspect}
+          aria-label={`Inspect ${track.label}`}
+          title={`Inspect ${track.label}`}
+          data-test-id={`timeline-inspect-track-${track.id}`}
+          className="ml-auto"
+        >
+          <Search className="size-4" />
+        </Button>
       </div>
 
       <div className="min-w-0 overflow-x-auto">
@@ -1433,6 +1986,155 @@ function buildSeriesPath(
   return points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ");
+}
+
+function numericEventsForTrack(track: DiagnosticTimelineTrack) {
+  return track.events
+    .filter((event): event is DiagnosticTimelineEvent & { value: number } =>
+      typeof event.value === "number",
+    )
+    .sort((a, b) => toTime(a.date) - toTime(b.date));
+}
+
+function domainForTrack(track: DiagnosticTimelineTrack): [number, number] {
+  if (track.valueDomain) return track.valueDomain;
+  const values = numericEventsForTrack(track).map((event) => event.value);
+  if (values.length === 0) return [0, 1];
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+
+  if (track.scale === "log") {
+    min = Math.max(min, 0.0001);
+    max = Math.max(max, min * 10);
+    return [min, max];
+  }
+
+  if (min === max) {
+    const padding = Math.max(Math.abs(min) * 0.1, 1);
+    return [min - padding, max + padding];
+  }
+
+  const padding = (max - min) * 0.08;
+  return [Math.max(0, min - padding), max + padding];
+}
+
+function drilldownPath(
+  events: Array<DiagnosticTimelineEvent & { value: number }>,
+  domain: [number, number],
+  track: DiagnosticTimelineTrack,
+  fullRange: DateRange,
+  plot: ChartPlot,
+) {
+  if (events.length < 2) return "";
+  return events
+    .map((event, index) => {
+      const x = chartX(toTime(event.date), fullRange, plot);
+      const y = chartY(event.value, domain, track.scale, plot);
+      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+    })
+    .join(" ");
+}
+
+interface ChartPlot {
+  bottom: number;
+  left: number;
+  right: number;
+  top: number;
+}
+
+function chartX(time: number, range: DateRange, plot: ChartPlot) {
+  const width = plot.right - plot.left;
+  return plot.left + (percentForTime(time, range) / 100) * width;
+}
+
+function chartY(
+  value: number,
+  domain: [number, number],
+  scale: DiagnosticTimelineTrack["scale"],
+  plot: ChartPlot,
+) {
+  const normalized = normalizedValue(value, domain, scale);
+  return plot.bottom - normalized * (plot.bottom - plot.top);
+}
+
+function drilldownAxisPlacement(
+  index: number,
+  total: number,
+  plot: ChartPlot,
+): DrilldownAxisPlacement {
+  if (total <= 1) {
+    return {
+      lineX: plot.left,
+      side: "left",
+      textAnchor: "end",
+      tickX1: plot.left - 8,
+      tickX2: plot.left,
+      valueX: plot.left - 12,
+    };
+  }
+
+  const leftCount = Math.ceil(total / 2);
+  if (index < leftCount) {
+    const offset = index * 58;
+    return {
+      lineX: plot.left - 4 - offset,
+      side: "left",
+      textAnchor: "end",
+      tickX1: plot.left - 12 - offset,
+      tickX2: plot.left - 4 - offset,
+      valueX: plot.left - 16 - offset,
+    };
+  }
+
+  const offset = (index - leftCount) * 58;
+  return {
+    lineX: plot.right + 4 + offset,
+    side: "right",
+    textAnchor: "start",
+    tickX1: plot.right + 4 + offset,
+    tickX2: plot.right + 12 + offset,
+    valueX: plot.right + 16 + offset,
+  };
+}
+
+function normalizedValue(
+  value: number,
+  domain: [number, number],
+  scale: DiagnosticTimelineTrack["scale"],
+) {
+  const [min, max] = domain;
+  if (scale === "log") {
+    const safeMin = Math.max(min, 0.0001);
+    const safeMax = Math.max(max, safeMin + 0.0001);
+    const logMin = Math.log10(safeMin);
+    const logMax = Math.log10(safeMax);
+    return Math.min(
+      Math.max((Math.log10(Math.max(value, safeMin)) - logMin) / (logMax - logMin), 0),
+      1,
+    );
+  }
+
+  if (max <= min) return 0.5;
+  return Math.min(Math.max((value - min) / (max - min), 0), 1);
+}
+
+function yAxisTicks(
+  domain: [number, number],
+  scale: DiagnosticTimelineTrack["scale"],
+) {
+  const [min, max] = domain;
+  if (scale === "log") {
+    return [min, Math.sqrt(min * max), max];
+  }
+  return [min, min + (max - min) / 2, max];
+}
+
+function formatChartValue(value: number) {
+  if (value === 0) return "0";
+  if (Math.abs(value) >= 100) return value.toFixed(0);
+  if (Math.abs(value) >= 10) return value.toFixed(1).replace(/\.0$/, "");
+  if (Math.abs(value) >= 1) return value.toFixed(2).replace(/\.0+$/, "");
+  return value.toPrecision(2);
 }
 
 function markerTop(

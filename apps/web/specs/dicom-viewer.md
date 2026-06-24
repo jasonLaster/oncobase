@@ -1,27 +1,43 @@
 # DICOM Viewer Feature Spec
 
-This document describes the behavior verified by `apps/web/e2e/dicom-viewer.spec.ts`.
+This document describes the behavior verified by
+`apps/web/e2e/dicom-viewer.spec.ts`. Diagnostics route/sidebar regressions are
+also covered by
+`apps/web/e2e/diagnostics-regression.spec.ts`.
 
 ## Routes
 
-- `/diagnostics` lists the biopsy imaging shortcuts.
+- `/diagnostics/imaging` lists the diagnostic imaging shortcuts.
 - `/tools/dicom-viewer?id=biopsy-2026-04-10` opens the April 10 biopsy stack.
 - `/tools/dicom-viewer?id=biopsy-2026-03-23` opens the March 23 axilla biopsy stack.
 - `/tools/dicom-viewer?id=biopsy-2026-03-13` opens the March 13 biopsy stack.
+- `/diagnostics` is the diagnostics timeline landing page, not the imaging
+  table.
+- `/timeline` redirects to `/diagnostics`.
 
 The viewer also accepts `biopsyId` and `seriesId` query parameters. `id` and
 `biopsyId` are human-facing biopsy IDs. `seriesId` is the raw DICOM series id.
 
-## Diagnostics Page Contract
+## Diagnostic Imaging Page Contract
 
-The diagnostics page must show the three known biopsy IDs:
+The diagnostics imaging page must show the known imaging/test rows used by the
+DICOM viewer, including these biopsy IDs:
 
 - `biopsy-2026-04-10`
 - `biopsy-2026-03-23`
 - `biopsy-2026-03-13`
 
-Each card must link to the DICOM viewer with `id=<biopsy-id>`. The page is a
-workflow surface, not a marketing page.
+- The page heading is `Imaging`.
+- Desktop renders `diagnostics-desktop-table`; mobile renders
+  `diagnostics-mobile-list`.
+- Desktop columns are `Date`, `Study`, `Type`, `Reports`, `View images`, and
+  `Download`.
+- Each row exposes `Reports`, `View images`, and `Download` as separate actions.
+- Each card or row links to the DICOM viewer with `id=<biopsy-id>` or
+  `id=<diagnostic-id>` for non-biopsy imaging studies.
+- The page uses the normal app sidebar because the table itself lists the
+  imaging tests.
+- The DICOM viewer uses the biopsy shortcut sidebar.
 
 ## Viewer Deep-Link Contract
 
@@ -86,3 +102,19 @@ surface real image-load errors.
   viewer surface.
 - Full diagnostic report parsing is intentionally out of scope.
 - Window/level, pan, and zoom persistence across page reloads is not required.
+
+## Automated Coverage
+
+`apps/web/e2e/dicom-viewer.spec.ts` verifies:
+
+- `/diagnostics/imaging` links each imaging shortcut to the viewer.
+- `/diagnostics/imaging` renders a compact mobile study list.
+- Diagnostic report links stay live and PDF byte-range loading works when the
+  underlying source asset is a real PDF.
+- `/diagnostics/imaging` uses the normal app sidebar.
+- `/tools/dicom-viewer` uses the DICOM biopsy shortcut sidebar, selects the
+  expected image stack, and preserves viewer tool/loading behavior.
+
+`apps/web/e2e/diagnostics-regression.spec.ts` verifies the route-level split
+between `/diagnostics`, `/diagnostics/imaging`, `/timeline`, and the DICOM
+viewer sidebar.

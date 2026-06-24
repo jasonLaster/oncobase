@@ -10,16 +10,16 @@ export const diagnosticTimelineSeed: DiagnosticTimelineData = {
     },
     "sourcePages": [
       {
-        "label": "Test results summary",
+        "label": "Summary",
         "href": "/wiki/diagnostics/test-results-summary"
       },
       {
-        "label": "ctDNA / MRD monitoring",
+        "label": "ctDNA",
         "href": "/wiki/diagnostics/ctdna-mrd"
       },
       {
-        "label": "Diagnostics",
-        "href": "/diagnostics"
+        "label": "Imaging",
+        "href": "/diagnostics/imaging"
       }
     ]
   },
