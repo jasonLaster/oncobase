@@ -317,6 +317,17 @@ test.describe("diagnostics regressions", () => {
     await expect(tooltip).toBeVisible();
     await expect(tooltip).toContainText("ANC");
     await expect(tooltip).toContainText("0.79 x10E9/L low");
+    await expect(dialog.getByTestId("timeline-drilldown-axis-anc")).toHaveAttribute(
+      "data-active-axis",
+      "true",
+    );
+    await expect(
+      dialog.getByTestId("timeline-drilldown-axis-hemoglobin"),
+    ).toHaveAttribute("data-dimmed-axis", "true");
+    await expect(dialog.getByTestId("timeline-drilldown-axis-platelets")).toHaveAttribute(
+      "data-dimmed-axis",
+      "true",
+    );
     await expect(tooltip.getByRole("link", { name: "CBC" })).toHaveAttribute(
       "href",
       "/sources/diagnostics/ucsf-mychart-test-results/19-may-07-2026-cbc-w-auto-diff-lab-only",

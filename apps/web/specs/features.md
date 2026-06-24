@@ -143,6 +143,7 @@ The app is a multi-site wiki publishing platform. Diana is site #1; additional s
   - popup tooltips inside magnifier dialogs
   - left-side color-coded y-axes, vertical axis titles, and aligned markers for
     grouped drill-in charts
+  - hover-highlighted drill-in y-axes that dim unrelated axes in grouped charts
 - Imaging events link to `/diagnostics/imaging` and to
   `/tools/dicom-viewer?id=<diagnostic-id>` when a viewer stack exists.
 - `/diagnostics/imaging` contains the imaging table and mobile imaging list. It

@@ -103,6 +103,8 @@ redirect, and diagnostics subpage regressions are covered by
   series paths in rendered geometry.
 - Drill-in markers and event diamonds expose hover/focus tooltips with the date,
   value or event label, result text, details, and source links.
+- Drill-in marker, series, or axis hover activates the relevant y-axis and dims
+  the other y-axes so grouped numeric overlays remain readable.
 
 ## Automated Timeline Coverage
 
@@ -139,4 +141,5 @@ redirect, and diagnostics subpage regressions are covered by
   and shows popup tooltips for points.
 - The Blood Counts category drill-in renders ANC, Hemoglobin, and Platelets
   y-axes on the left with vertical titles, keeps SVG scaling uniform, verifies
-  dots align with their paths, and shows point tooltips with CBC source links.
+  dots align with their paths, dims non-active axes on hover, and shows point
+  tooltips with CBC source links.

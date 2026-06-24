@@ -683,6 +683,7 @@ function DrilldownChart({
   const plot = DRILLDOWN_PLOT;
   const chartRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<DrilldownTooltipState | null>(null);
+  const [activeAxisTrackId, setActiveAxisTrackId] = useState<string | null>(null);
   const numericTracks: Array<{
     domain: [number, number];
     events: Array<DiagnosticTimelineEvent & { value: number }>;
@@ -737,6 +738,7 @@ function DrilldownChart({
       const y =
         targetBox.top - chartBox.top + chartElement.scrollTop + targetBox.height / 2;
 
+      setActiveAxisTrackId(track.id);
       setTooltip({
         color: track.color,
         date: formatDisplayDate(event.date),
@@ -754,7 +756,13 @@ function DrilldownChart({
     },
     [],
   );
-  const hideTooltip = useCallback(() => setTooltip(null), []);
+  const activateAxis = useCallback((trackId: string | null) => {
+    setActiveAxisTrackId(trackId);
+  }, []);
+  const hideTooltip = useCallback(() => {
+    setActiveAxisTrackId(null);
+    setTooltip(null);
+  }, []);
 
   return (
     <div className="grid gap-2 overflow-hidden rounded-lg border border-border bg-background p-3">
@@ -878,9 +886,11 @@ function DrilldownChart({
           />
           {chartTracks.map(({ axis, domain, track }) => (
             <DrilldownYAxis
+              activeTrackId={activeAxisTrackId}
               axis={axis}
               domain={domain}
               key={`axis-${track.id}`}
+              onAxisActivate={activateAxis}
               plot={plot}
               scale={track.scale}
               track={track}
@@ -900,6 +910,8 @@ function DrilldownChart({
                     strokeLinejoin="round"
                     strokeWidth="3"
                     vectorEffect="non-scaling-stroke"
+                    onPointerEnter={() => activateAxis(track.id)}
+                    onPointerLeave={() => activateAxis(null)}
                   />
                 ) : null}
                 {events.map((event) => (
@@ -985,22 +997,36 @@ interface DrilldownAxisPlacement {
 }
 
 function DrilldownYAxis({
+  activeTrackId,
   axis,
   domain,
+  onAxisActivate,
   plot,
   scale,
   track,
 }: {
+  activeTrackId: string | null;
   axis: DrilldownAxisPlacement;
   domain: [number, number];
+  onAxisActivate: (trackId: string | null) => void;
   plot: ChartPlot;
   scale: DiagnosticTimelineTrack["scale"];
   track: DiagnosticTimelineTrack;
 }) {
   const ticks = yAxisTicks(domain, scale);
+  const isActive = activeTrackId === track.id;
+  const isDimmed = activeTrackId !== null && !isActive;
 
   return (
-    <g data-test-id={`timeline-drilldown-axis-${track.id}`}>
+    <g
+      data-active-axis={isActive ? "true" : "false"}
+      data-dimmed-axis={isDimmed ? "true" : "false"}
+      data-test-id={`timeline-drilldown-axis-${track.id}`}
+      onPointerEnter={() => onAxisActivate(track.id)}
+      onPointerLeave={() => onAxisActivate(null)}
+      opacity={isDimmed ? 0.24 : 1}
+      style={{ transition: "opacity 140ms ease" }}
+    >
       <line
         x1={axis.lineX}
         x2={axis.lineX}
