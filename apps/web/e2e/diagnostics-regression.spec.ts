@@ -222,6 +222,29 @@ test.describe("diagnostics regressions", () => {
       "100",
       "1000",
     ]);
+    const fullRangeMonthGeometry = await drilldownChart.evaluate((chartElement) => {
+      const mayLabel = chartElement.querySelector(
+        '[data-test-id="timeline-drilldown-month-label"][data-month-label="May"]',
+      ) as SVGTextElement | null;
+      const mayBoundary = chartElement.querySelector(
+        '[data-test-id="timeline-drilldown-month-boundary"][data-month-label="May"]',
+      ) as SVGLineElement | null;
+      const juneBoundary = chartElement.querySelector(
+        '[data-test-id="timeline-drilldown-month-boundary"][data-month-label="Jun"]',
+      ) as SVGLineElement | null;
+
+      return {
+        mayX: Number(mayLabel?.getAttribute("x")),
+        monthCenter:
+          (Number(mayBoundary?.getAttribute("x1")) +
+            Number(juneBoundary?.getAttribute("x1"))) /
+          2,
+      };
+    });
+    expect(fullRangeMonthGeometry.mayX).toBeCloseTo(
+      fullRangeMonthGeometry.monthCenter,
+      1,
+    );
     await expect(
       dialog.getByTestId(
         "timeline-drilldown-point-signatera-signatera-late-june-planned",
@@ -300,6 +323,23 @@ test.describe("diagnostics regressions", () => {
       expect(label.text).toMatch(/^\d+$/);
       expect(label.transform).toContain("rotate(45");
     }
+    const monthLabelGeometry = await drilldownChart.evaluate((chartElement) => {
+      const dayLabel = chartElement.querySelector(
+        '[data-test-id="timeline-drilldown-day-tick"] + text',
+      ) as SVGTextElement | null;
+      const monthLabels = Array.from(
+        chartElement.querySelectorAll('[data-test-id="timeline-drilldown-month-label"]'),
+      ) as SVGTextElement[];
+      const monthLabel = monthLabels.find((label) => Number(label.getAttribute("y")) > 0);
+
+      return {
+        dayY: Number(dayLabel?.getAttribute("y")),
+        monthY: Number(monthLabel?.getAttribute("y")),
+      };
+    });
+    expect(monthLabelGeometry.monthY - monthLabelGeometry.dayY).toBeGreaterThanOrEqual(
+      20,
+    );
     const zoomScrollMetrics = await drilldownChart.evaluate((chartElement) => {
       const chart = chartElement as HTMLElement;
       const svg = chart.querySelector(
@@ -526,6 +566,8 @@ test.describe("diagnostics regressions", () => {
     const tooltip = page.getByTestId("timeline-drilldown-tooltip");
     await expect(tooltip).toBeVisible();
     await expect(tooltip).toContainText("ANC");
+    const tooltipText = await tooltip.innerText();
+    expect(tooltipText.match(/^ANC$/gm) ?? []).toHaveLength(1);
     await expect(tooltip).toContainText("0.79 x10E9/L low");
     await expect(dialog.getByTestId("timeline-drilldown-axis-anc")).toHaveAttribute(
       "data-active-axis",

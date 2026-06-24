@@ -1094,11 +1094,23 @@ function DrilldownChart({
               </g>
             );
           })}
-          {monthTicks.map((tick) => {
+          {monthTicks.map((tick, index) => {
             const x = chartX(tick.time, drilldownRange, contentPlot);
+            const nextMonthTime =
+              monthTicks[index + 1]?.time ??
+              Date.UTC(
+                new Date(tick.time).getUTCFullYear(),
+                new Date(tick.time).getUTCMonth() + 1,
+                1,
+              );
+            const monthEnd = Math.min(nextMonthTime, visibleRange.end);
+            const monthStart = Math.max(tick.time, visibleRange.start);
+            const labelX = chartX((monthStart + monthEnd) / 2, drilldownRange, contentPlot);
             return (
               <g key={`drill-month-${tick.time}`}>
                 <line
+                  data-month-label={tick.label}
+                  data-test-id="timeline-drilldown-month-boundary"
                   x1={x}
                   x2={x}
                   y1={plot.top}
@@ -1108,11 +1120,14 @@ function DrilldownChart({
                   vectorEffect="non-scaling-stroke"
                 />
                 <text
-                  x={x + 8}
-                  y={plot.bottom + 34}
+                  data-month-label={tick.label}
+                  data-test-id="timeline-drilldown-month-label"
+                  x={labelX}
+                  y={plot.bottom + 52}
                   fill="currentColor"
                   fontSize="14"
                   fontWeight="600"
+                  textAnchor="middle"
                 >
                   {tick.label}
                 </text>
@@ -1389,7 +1404,9 @@ function DrilldownTooltip({
         <span className="font-semibold">{tooltip.trackLabel}</span>
         <span className="text-muted-foreground">{tooltip.date}</span>
       </div>
-      <div className="mt-1 font-medium">{tooltip.label}</div>
+      {tooltip.label !== tooltip.trackLabel ? (
+        <div className="mt-1 font-medium">{tooltip.label}</div>
+      ) : null}
       {tooltip.valueLabel ? (
         <div className="mt-1 text-muted-foreground">{tooltip.valueLabel}</div>
       ) : null}
