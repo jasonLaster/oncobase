@@ -12,6 +12,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronDown,
   ChevronRight,
@@ -616,6 +617,49 @@ function TimelineDrilldownDialog({
     target?.scope === "track"
       ? "Expanded swimlane view with a larger y-axis and all recorded points."
       : "Expanded category view with numeric swimlanes overlaid and color-coded y-axis domains.";
+  const targetKey =
+    target?.scope === "track"
+      ? `track:${target.track.id}`
+      : target?.scope === "sleeve"
+        ? `sleeve:${target.sleeve.id}`
+        : "none";
+  const trackIds = tracks.map((track) => track.id).join(":");
+  const allTrackIds = useMemo(
+    () => (trackIds ? trackIds.split(":") : []),
+    [trackIds],
+  );
+  const [trackToggleState, setTrackToggleState] = useState<{
+    enabledTrackIds: Set<string>;
+    targetKey: string;
+  }>(() => ({
+    enabledTrackIds: new Set(allTrackIds),
+    targetKey,
+  }));
+  const enabledTrackIds =
+    trackToggleState.targetKey === targetKey
+      ? trackToggleState.enabledTrackIds
+      : new Set(allTrackIds);
+
+  const visibleTracks = tracks.filter((track) => enabledTrackIds.has(track.id));
+  const toggleTrack = useCallback(
+    (trackId: string) => {
+      setTrackToggleState((current) => {
+        const currentIds =
+          current.targetKey === targetKey
+            ? current.enabledTrackIds
+            : new Set(allTrackIds);
+        const next = new Set(currentIds);
+        if (next.has(trackId)) {
+          if (next.size <= 1) return { enabledTrackIds: next, targetKey };
+          next.delete(trackId);
+        } else {
+          next.add(trackId);
+        }
+        return { enabledTrackIds: next, targetKey };
+      });
+    },
+    [allTrackIds, targetKey],
+  );
 
   return (
     <Dialog open={target !== null} onOpenChange={onOpenChange}>
@@ -631,13 +675,23 @@ function TimelineDrilldownDialog({
           <div className="grid gap-4 px-5 pb-5">
             <div className="flex flex-wrap gap-2 pt-4">
               {tracks.map((track) => {
+                const events = reportedEventsForTrack(track);
                 const numericEvents = numericEventsForTrack(track);
                 const domain = domainForTrack(track);
+                const enabled = enabledTrackIds.has(track.id);
                 return (
-                  <Badge
+                  <button
+                    aria-pressed={enabled}
+                    className={cn(
+                      "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
+                      enabled
+                        ? "bg-background text-foreground"
+                        : "bg-muted/40 text-muted-foreground opacity-60 hover:opacity-85",
+                    )}
+                    data-test-id={`timeline-drilldown-track-toggle-${track.id}`}
                     key={track.id}
-                    variant="outline"
-                    className="gap-1.5 border-border"
+                    onClick={() => toggleTrack(track.id)}
+                    type="button"
                     style={{ borderColor: `${track.color}66` }}
                   >
                     <span
@@ -653,7 +707,7 @@ function TimelineDrilldownDialog({
                       </span>
                     ) : (
                       <span className="text-muted-foreground">
-                        {track.events.length} events
+                        {events.length} events
                       </span>
                     )}
                     {track.scale === "log" ? (
@@ -661,11 +715,11 @@ function TimelineDrilldownDialog({
                         log
                       </span>
                     ) : null}
-                  </Badge>
+                  </button>
                 );
               })}
             </div>
-            <DrilldownChart fullRange={fullRange} tracks={tracks} />
+            <DrilldownChart fullRange={fullRange} tracks={visibleTracks} />
           </div>
         ) : null}
       </DialogContent>
@@ -681,62 +735,50 @@ function DrilldownChart({
   tracks: DiagnosticTimelineTrack[];
 }) {
   const plot = DRILLDOWN_PLOT;
-  const chartRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<DrilldownTooltipState | null>(null);
   const [activeAxisTrackId, setActiveAxisTrackId] = useState<string | null>(null);
-  const numericTracks: Array<{
+  const drilldownTracks: Array<{
     domain: [number, number];
     events: Array<DiagnosticTimelineEvent & { value: number }>;
-    track: DiagnosticTimelineTrack;
-  }> = [];
-  const eventMarkers: Array<{
-    event: DiagnosticTimelineEvent;
-    lane: number;
+    eventMarkers: DiagnosticTimelineEvent[];
     track: DiagnosticTimelineTrack;
   }> = [];
 
-  tracks.forEach((track, trackIndex) => {
+  tracks.forEach((track) => {
     const events = numericEventsForTrack(track);
+    const markerEvents = reportedEventsForTrack(track).filter(
+      (event) => typeof event.value !== "number",
+    );
     if (events.length > 0) {
-      numericTracks.push({
+      drilldownTracks.push({
         domain: domainForTrack(track),
         events,
+        eventMarkers: markerEvents,
         track,
       });
+      return;
     }
 
-    let eventIndex = 0;
-    for (const event of track.events) {
-      if (typeof event.value === "number") continue;
-      eventMarkers.push({
-        event,
-        lane: (trackIndex + eventIndex) % 4,
+    if (markerEvents.length > 0) {
+      drilldownTracks.push({
+        domain: [0, 1],
+        events: [],
+        eventMarkers: markerEvents,
         track,
       });
-      eventIndex += 1;
     }
   });
   const monthTicks = buildMonthTicks(fullRange.start, fullRange.end);
   const weekTicks = buildWeekTicks(fullRange.start, fullRange.end);
-  const chartTracks = numericTracks.map((track, index) => ({
+  const chartTracks = drilldownTracks.map((track, index) => ({
     ...track,
-    axis: drilldownAxisPlacement(index, numericTracks.length, plot),
+    axis: drilldownAxisPlacement(index, drilldownTracks.length, plot),
   }));
   const showsNormalizedOverlay = chartTracks.length > 1;
 
   const showTooltip = useCallback(
     (element: SVGGraphicsElement, track: DiagnosticTimelineTrack, event: DiagnosticTimelineEvent) => {
-      const chartElement = chartRef.current;
-      if (!chartElement) return;
-      const chartBox = chartElement.getBoundingClientRect();
       const targetBox = element.getBoundingClientRect();
-      const x =
-        targetBox.left -
-        chartBox.left +
-        chartElement.scrollLeft +
-        targetBox.width / 2;
-      const y =
-        targetBox.top - chartBox.top + chartElement.scrollTop + targetBox.height / 2;
 
       setActiveAxisTrackId(track.id);
       setTooltip({
@@ -746,12 +788,12 @@ function DrilldownChart({
         id: `${track.id}-${event.id}`,
         label: event.label,
         links: event.links ?? [],
-        placement: y < 112 ? "below" : "above",
+        placement: "above",
         result: event.result,
         trackLabel: track.label,
         valueLabel: event.valueLabel ?? null,
-        x,
-        y,
+        x: targetBox.left + targetBox.width / 2,
+        y: targetBox.top + targetBox.height / 2,
       });
     },
     [],
@@ -775,13 +817,54 @@ function DrilldownChart({
         </div>
       ) : null}
       <div
-        className="relative overflow-x-auto rounded-md bg-muted/20"
+        className="relative overflow-x-auto overscroll-x-contain rounded-md bg-muted/20"
         data-test-id="timeline-drilldown-chart"
         onPointerLeave={hideTooltip}
-        ref={chartRef}
       >
+        <div
+          className="relative min-w-[1120px]"
+          style={{ height: DRILLDOWN_HEIGHT }}
+        >
+          <div
+            className="pointer-events-none sticky left-0 top-0 z-20 bg-background/95 shadow-[8px_0_18px_rgba(15,23,42,0.08)]"
+            style={{ height: DRILLDOWN_HEIGHT, width: plot.left }}
+          >
+            <svg
+              className="pointer-events-auto block"
+              data-test-id="timeline-drilldown-axis-svg"
+              height={DRILLDOWN_HEIGHT}
+              role="presentation"
+              style={{
+                fontFamily: "var(--font-sans, ui-sans-serif, system-ui, sans-serif)",
+              }}
+              viewBox={`0 0 ${plot.left} ${DRILLDOWN_HEIGHT}`}
+              width={plot.left}
+            >
+              <rect
+                x="0"
+                y="0"
+                width={plot.left}
+                height={DRILLDOWN_HEIGHT}
+                fill="var(--background)"
+                fillOpacity="0.94"
+              />
+              {chartTracks.map(({ axis, domain, events, track }) => (
+                <DrilldownYAxis
+                  activeTrackId={activeAxisTrackId}
+                  axis={axis}
+                  domain={domain}
+                  key={`axis-${track.id}`}
+                  onAxisActivate={activateAxis}
+                  plot={plot}
+                  scale={track.scale}
+                  showTicks={events.length > 0}
+                  track={track}
+                />
+              ))}
+            </svg>
+          </div>
         <svg
-          className="block min-w-[1120px] w-full"
+          className="absolute left-0 top-0 block h-full w-full"
           data-test-id="timeline-drilldown-svg"
           height={DRILLDOWN_HEIGHT}
           role="img"
@@ -884,18 +967,6 @@ function DrilldownChart({
             strokeOpacity="0.35"
             vectorEffect="non-scaling-stroke"
           />
-          {chartTracks.map(({ axis, domain, track }) => (
-            <DrilldownYAxis
-              activeTrackId={activeAxisTrackId}
-              axis={axis}
-              domain={domain}
-              key={`axis-${track.id}`}
-              onAxisActivate={activateAxis}
-              plot={plot}
-              scale={track.scale}
-              track={track}
-            />
-          ))}
           {chartTracks.map(({ domain, events, track }) => {
             const path = drilldownPath(events, domain, track, fullRange, plot);
             return (
@@ -932,6 +1003,7 @@ function DrilldownChart({
                     onPointerEnter={(pointerEvent) =>
                       showTooltip(pointerEvent.currentTarget, track, event)
                     }
+                    onPointerLeave={hideTooltip}
                     onPointerMove={(pointerEvent) =>
                       showTooltip(pointerEvent.currentTarget, track, event)
                     }
@@ -949,17 +1021,17 @@ function DrilldownChart({
               </g>
             );
           })}
-          {eventMarkers.map(({ event, lane, track }) => {
-            const x = chartX(toTime(event.date), fullRange, plot);
-            const y = plot.bottom - 12 - lane * 14;
-            return (
-              <path
+          {chartTracks.flatMap(({ eventMarkers, track }) =>
+            eventMarkers.map((event) => (
+              <circle
                 aria-label={`${track.label}: ${event.label} on ${formatDisplayDate(
                   event.date,
                 )}`}
                 data-test-id={`timeline-drilldown-event-${track.id}-${event.id}`}
                 key={`event-${track.id}-${event.id}`}
-                d={`M ${x} ${y - 7} L ${x + 14} ${y} L ${x} ${y + 7} L ${x - 14} ${y} Z`}
+                cx={chartX(toTime(event.date), fullRange, plot)}
+                cy={chartY(0.5, [0, 1], "linear", plot)}
+                r="5"
                 fill={track.color}
                 onBlur={hideTooltip}
                 onFocus={(focusEvent) =>
@@ -968,20 +1040,27 @@ function DrilldownChart({
                 onPointerEnter={(pointerEvent) =>
                   showTooltip(pointerEvent.currentTarget, track, event)
                 }
+                onPointerLeave={hideTooltip}
                 onPointerMove={(pointerEvent) =>
                   showTooltip(pointerEvent.currentTarget, track, event)
                 }
-                opacity="0.75"
+                opacity="0.85"
+                stroke="var(--background)"
+                strokeWidth="2"
                 tabIndex={0}
+                vectorEffect="non-scaling-stroke"
               >
                 <title>
                   {track.label}: {event.label} on {formatDisplayDate(event.date)}
                 </title>
-              </path>
-            );
-          })}
+              </circle>
+            )),
+          )}
         </svg>
-        {tooltip ? <DrilldownTooltip tooltip={tooltip} /> : null}
+        </div>
+        {tooltip ? (
+          <DrilldownTooltip onPointerLeave={hideTooltip} tooltip={tooltip} />
+        ) : null}
       </div>
     </div>
   );
@@ -1003,6 +1082,7 @@ function DrilldownYAxis({
   onAxisActivate,
   plot,
   scale,
+  showTicks,
   track,
 }: {
   activeTrackId: string | null;
@@ -1011,9 +1091,10 @@ function DrilldownYAxis({
   onAxisActivate: (trackId: string | null) => void;
   plot: ChartPlot;
   scale: DiagnosticTimelineTrack["scale"];
+  showTicks: boolean;
   track: DiagnosticTimelineTrack;
 }) {
-  const ticks = yAxisTicks(domain, scale);
+  const ticks = showTicks ? yAxisTicks(domain, scale) : [];
   const isActive = activeTrackId === track.id;
   const isDimmed = activeTrackId !== null && !isActive;
 
@@ -1078,16 +1159,25 @@ function DrilldownYAxis({
   );
 }
 
-function DrilldownTooltip({ tooltip }: { tooltip: DrilldownTooltipState }) {
-  return (
+function DrilldownTooltip({
+  onPointerLeave,
+  tooltip,
+}: {
+  onPointerLeave: () => void;
+  tooltip: DrilldownTooltipState;
+}) {
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       className={cn(
-        "pointer-events-auto absolute z-20 max-w-[320px] rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg",
+        "pointer-events-auto fixed z-[100] max-w-[320px] rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg",
         tooltip.placement === "above"
           ? "-translate-x-1/2 -translate-y-[calc(100%+12px)]"
           : "-translate-x-1/2 translate-y-3",
       )}
       data-test-id="timeline-drilldown-tooltip"
+      onPointerLeave={onPointerLeave}
       role="tooltip"
       style={{ left: tooltip.x, top: tooltip.y }}
     >
@@ -1126,7 +1216,8 @@ function DrilldownTooltip({ tooltip }: { tooltip: DrilldownTooltipState }) {
           ))}
         </div>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -1259,7 +1350,7 @@ function TimelineAxis({
         </div>
         <div className="mt-0.5 text-xs font-semibold text-foreground">Weeks</div>
       </div>
-      <div className="relative min-w-0 overflow-x-auto">
+      <div className="relative min-w-0 overflow-x-auto overscroll-x-contain">
         <div
           className="relative h-9"
           onWheel={onWheel}
@@ -1370,7 +1461,7 @@ function TimelineTrackRow({
         </Button>
       </div>
 
-      <div className="min-w-0 overflow-x-auto">
+      <div className="min-w-0 overflow-x-auto overscroll-x-contain">
         <div
           className="relative select-none"
           onPointerDown={dragHandlers.onPointerDown}
@@ -1699,6 +1790,7 @@ function Overview({
   const overviewRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     initialRange: DateRange;
+    mode: "move" | "resize-left" | "resize-right";
     startX: number;
     width: number;
   } | null>(null);
@@ -1711,13 +1803,21 @@ function Overview({
       if (!drag) return;
       const fullSpan = fullRange.end - fullRange.start;
       const delta = ((clientX - drag.startX) / drag.width) * fullSpan;
+      if (drag.mode === "resize-left") {
+        onRangeChange(resizeRangeLeft(drag.initialRange, fullRange, delta));
+        return;
+      }
+      if (drag.mode === "resize-right") {
+        onRangeChange(resizeRangeRight(drag.initialRange, fullRange, delta));
+        return;
+      }
       onRangeChange(panRangeByTime(drag.initialRange, fullRange, delta));
     },
     [fullRange, onRangeChange],
   );
 
-  const onWindowPointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLElement>) => {
+  const startWindowDrag = useCallback(
+    (event: ReactPointerEvent<HTMLElement>, mode: "move" | "resize-left" | "resize-right") => {
       if (event.button !== 0) return;
       const rect = overviewRef.current?.getBoundingClientRect();
       if (!rect || rect.width <= 0) return;
@@ -1726,11 +1826,29 @@ function Overview({
       event.currentTarget.setPointerCapture(event.pointerId);
       dragRef.current = {
         initialRange: visibleRange,
+        mode,
         startX: event.clientX,
         width: rect.width,
       };
     },
     [visibleRange],
+  );
+
+  const onWindowPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => startWindowDrag(event, "move"),
+    [startWindowDrag],
+  );
+
+  const onLeftHandlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) =>
+      startWindowDrag(event, "resize-left"),
+    [startWindowDrag],
+  );
+
+  const onRightHandlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) =>
+      startWindowDrag(event, "resize-right"),
+    [startWindowDrag],
   );
 
   const onWindowPointerMove = useCallback(
@@ -1761,10 +1879,29 @@ function Overview({
     [fullRange, onRangeChange, visibleRange],
   );
 
+  const onHandleKeyDown = useCallback(
+    (
+      event: ReactKeyboardEvent<HTMLElement>,
+      mode: "resize-left" | "resize-right",
+    ) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const span = visibleRange.end - visibleRange.start;
+      const direction = event.key === "ArrowLeft" ? -1 : 1;
+      const step = span * (event.shiftKey ? 0.25 : 0.1) * direction;
+      onRangeChange(
+        mode === "resize-left"
+          ? resizeRangeLeft(visibleRange, fullRange, step)
+          : resizeRangeRight(visibleRange, fullRange, step),
+      );
+    },
+    [fullRange, onRangeChange, visibleRange],
+  );
+
   return (
     <div
       ref={overviewRef}
-      className="relative h-14 overflow-hidden rounded-lg border border-border bg-muted/40"
+      className="relative h-14 overflow-hidden overscroll-x-contain rounded-lg border border-border bg-muted/40"
       data-test-id="timeline-overview"
     >
       {events.map(({ event, track }) => {
@@ -1789,7 +1926,7 @@ function Overview({
       <button
         type="button"
         aria-label={`Drag visible timeline window, ${formatRange(visibleRange)}`}
-        className="absolute inset-y-1 cursor-grab rounded-md border-x-2 border-primary/70 bg-primary/15 transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/35 active:cursor-grabbing"
+        className="absolute inset-y-1 cursor-grab rounded-md border border-primary/50 bg-primary/15 transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/35 active:cursor-grabbing"
         data-test-id="timeline-overview-window"
         onKeyDown={onWindowKeyDown}
         onPointerCancel={stopWindowDrag}
@@ -1797,6 +1934,30 @@ function Overview({
         onPointerMove={onWindowPointerMove}
         onPointerUp={stopWindowDrag}
         style={{ left: `${left}%`, width: `${Math.max(1, right - left)}%` }}
+      />
+      <button
+        type="button"
+        aria-label={`Resize timeline window start, ${formatRange(visibleRange)}`}
+        className="absolute inset-y-1 z-10 w-4 cursor-ew-resize rounded-l-md border border-primary/70 bg-primary/35 transition-colors hover:bg-primary/45 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/35"
+        data-test-id="timeline-overview-window-left-handle"
+        onKeyDown={(event) => onHandleKeyDown(event, "resize-left")}
+        onPointerCancel={stopWindowDrag}
+        onPointerDown={onLeftHandlePointerDown}
+        onPointerMove={onWindowPointerMove}
+        onPointerUp={stopWindowDrag}
+        style={{ left: `${left}%` }}
+      />
+      <button
+        type="button"
+        aria-label={`Resize timeline window end, ${formatRange(visibleRange)}`}
+        className="absolute inset-y-1 z-10 w-4 cursor-ew-resize rounded-r-md border border-primary/70 bg-primary/35 transition-colors hover:bg-primary/45 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/35"
+        data-test-id="timeline-overview-window-right-handle"
+        onKeyDown={(event) => onHandleKeyDown(event, "resize-right")}
+        onPointerCancel={stopWindowDrag}
+        onPointerDown={onRightHandlePointerDown}
+        onPointerMove={onWindowPointerMove}
+        onPointerUp={stopWindowDrag}
+        style={{ left: `calc(${right}% - 1rem)` }}
       />
       {activeX !== null && activeX >= 0 && activeX <= 100 ? (
         <div
@@ -1993,24 +2154,28 @@ function buildSeriesPath(
 }
 
 function numericEventsForTrack(track: DiagnosticTimelineTrack) {
-  return track.events
+  return reportedEventsForTrack(track)
     .filter((event): event is DiagnosticTimelineEvent & { value: number } =>
       typeof event.value === "number",
     )
     .sort((a, b) => toTime(a.date) - toTime(b.date));
 }
 
+function reportedEventsForTrack(track: DiagnosticTimelineTrack) {
+  return track.events.filter((event) => event.status !== "planned");
+}
+
 function domainForTrack(track: DiagnosticTimelineTrack): [number, number] {
-  if (track.valueDomain) return track.valueDomain;
+  if (track.valueDomain) {
+    return track.scale === "log" ? logDomain(track.valueDomain) : track.valueDomain;
+  }
   const values = numericEventsForTrack(track).map((event) => event.value);
   if (values.length === 0) return [0, 1];
-  let min = Math.min(...values);
-  let max = Math.max(...values);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
 
   if (track.scale === "log") {
-    min = Math.max(min, 0.0001);
-    max = Math.max(max, min * 10);
-    return [min, max];
+    return logDomain([min, max]);
   }
 
   if (min === max) {
@@ -2020,6 +2185,15 @@ function domainForTrack(track: DiagnosticTimelineTrack): [number, number] {
 
   const padding = (max - min) * 0.08;
   return [Math.max(0, min - padding), max + padding];
+}
+
+function logDomain([min, max]: [number, number]): [number, number] {
+  const safeMin = Math.max(min, 0.0001);
+  const safeMax = Math.max(max, safeMin * 10);
+  return [
+    10 ** Math.floor(Math.log10(safeMin)),
+    10 ** Math.ceil(Math.log10(safeMax)),
+  ];
 }
 
 function drilldownPath(
@@ -2117,7 +2291,13 @@ function yAxisTicks(
 ) {
   const [min, max] = domain;
   if (scale === "log") {
-    return [min, Math.sqrt(min * max), max];
+    const startPower = Math.ceil(Math.log10(Math.max(min, 0.0001)));
+    const endPower = Math.floor(Math.log10(Math.max(max, min)));
+    const ticks: number[] = [];
+    for (let power = startPower; power <= endPower; power += 1) {
+      ticks.push(10 ** power);
+    }
+    return ticks.length > 0 ? ticks : [min, max];
   }
   return [min, min + (max - min) / 2, max];
 }
@@ -2255,6 +2435,26 @@ function panRangeByTime(range: DateRange, fullRange: DateRange, delta: number) {
     },
     fullRange,
   );
+}
+
+function resizeRangeLeft(range: DateRange, fullRange: DateRange, delta: number) {
+  return {
+    start: Math.min(
+      Math.max(range.start + delta, fullRange.start),
+      range.end - MIN_RANGE_MS,
+    ),
+    end: range.end,
+  };
+}
+
+function resizeRangeRight(range: DateRange, fullRange: DateRange, delta: number) {
+  return {
+    start: range.start,
+    end: Math.max(
+      Math.min(range.end + delta, fullRange.end),
+      range.start + MIN_RANGE_MS,
+    ),
+  };
 }
 
 function percentForDate(date: string, range: DateRange) {

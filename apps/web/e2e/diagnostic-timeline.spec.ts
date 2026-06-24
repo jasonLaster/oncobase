@@ -162,6 +162,46 @@ test.describe("diagnostic timeline", () => {
       rangeAfterReset ?? "",
     );
 
+    const rangeBeforeLeftResize = await timeline.getAttribute("data-visible-range");
+    const leftHandle = page.getByTestId("timeline-overview-window-left-handle");
+    const leftHandleBox = await leftHandle.boundingBox();
+    expect(leftHandleBox).not.toBeNull();
+    await page.mouse.move(
+      leftHandleBox!.x + leftHandleBox!.width / 2,
+      leftHandleBox!.y + leftHandleBox!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      leftHandleBox!.x + leftHandleBox!.width / 2 + 80,
+      leftHandleBox!.y + leftHandleBox!.height / 2,
+      { steps: 5 },
+    );
+    await page.mouse.up();
+    await expect(timeline).not.toHaveAttribute(
+      "data-visible-range",
+      rangeBeforeLeftResize ?? "",
+    );
+
+    const rangeAfterLeftResize = await timeline.getAttribute("data-visible-range");
+    const rightHandle = page.getByTestId("timeline-overview-window-right-handle");
+    const rightHandleBox = await rightHandle.boundingBox();
+    expect(rightHandleBox).not.toBeNull();
+    await page.mouse.move(
+      rightHandleBox!.x + rightHandleBox!.width / 2,
+      rightHandleBox!.y + rightHandleBox!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      rightHandleBox!.x + rightHandleBox!.width / 2 - 80,
+      rightHandleBox!.y + rightHandleBox!.height / 2,
+      { steps: 5 },
+    );
+    await page.mouse.up();
+    await expect(timeline).not.toHaveAttribute(
+      "data-visible-range",
+      rangeAfterLeftResize ?? "",
+    );
+
     await page.getByRole("button", { name: "Reset timeline range" }).click();
     await expect(timeline).toHaveAttribute(
       "data-visible-range",

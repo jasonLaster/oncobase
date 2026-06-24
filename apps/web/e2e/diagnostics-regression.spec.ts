@@ -159,18 +159,26 @@ test.describe("diagnostics regressions", () => {
     );
     await expect(dialog.getByTestId("timeline-drilldown-chart")).toBeVisible();
     const ctdnaAxes = await dialog
-      .getByTestId("timeline-drilldown-svg")
-      .evaluate((svgElement) => {
-        const svg = svgElement as unknown as SVGSVGElement;
+      .getByTestId("timeline-drilldown-chart")
+      .evaluate((chartElement) => {
+        const chart = chartElement as HTMLElement;
+        const svg = chart.querySelector(
+          '[data-test-id="timeline-drilldown-svg"]',
+        ) as SVGSVGElement;
+        const axisSvg = chart.querySelector(
+          '[data-test-id="timeline-drilldown-axis-svg"]',
+        ) as SVGSVGElement;
         const plotLeft = Number(
           svg
-            .querySelector('[data-test-id="timeline-drilldown-plot-left-edge"]')
+            ?.querySelector('[data-test-id="timeline-drilldown-plot-left-edge"]')
             ?.getAttribute("x1"),
         );
-        return ["signatera", "personalis"].map((id) => {
-          const axis = svg.querySelector(`[data-test-id="timeline-drilldown-axis-${id}"]`);
+        return ["signatera", "personalis", "guardant"].map((id) => {
+          const axis = axisSvg?.querySelector(
+            `[data-test-id="timeline-drilldown-axis-${id}"]`,
+          );
           const axisLine = axis?.querySelector("line");
-          const title = svg.querySelector(
+          const title = axisSvg?.querySelector(
             `[data-test-id="timeline-drilldown-axis-label-${id}"]`,
           );
           return {
@@ -179,6 +187,9 @@ test.describe("diagnostics regressions", () => {
             plotLeft,
             title: title?.textContent ?? "",
             transform: title?.getAttribute("transform") ?? "",
+            values: Array.from(axis?.querySelectorAll("text") ?? [])
+              .map((text) => text.textContent ?? "")
+              .filter((text) => text !== title?.textContent),
           };
         });
       });
@@ -191,12 +202,32 @@ test.describe("diagnostics regressions", () => {
     expect(ctdnaAxes.map((axis) => axis.title)).toEqual([
       "Signatera (MTM/mL)",
       "NeXT Personal (PPM, log)",
+      "Guardant360",
     ]);
+    expect(ctdnaAxes.find((axis) => axis.id === "personalis")?.values).toEqual([
+      "1",
+      "10",
+      "100",
+      "1000",
+    ]);
+    await expect(
+      dialog.getByTestId(
+        "timeline-drilldown-point-signatera-signatera-late-june-planned",
+      ),
+    ).toHaveCount(0);
+    const guardantToggle = dialog.getByTestId("timeline-drilldown-track-toggle-guardant");
+    await expect(guardantToggle).toHaveAttribute("aria-pressed", "true");
+    await guardantToggle.click();
+    await expect(guardantToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(dialog.getByTestId("timeline-drilldown-axis-guardant")).toHaveCount(0);
+    await guardantToggle.click();
+    await expect(guardantToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(dialog.getByTestId("timeline-drilldown-axis-guardant")).toBeVisible();
 
     await dialog
       .getByTestId("timeline-drilldown-point-signatera-signatera-2026-05-28")
       .hover();
-    const tooltip = dialog.getByTestId("timeline-drilldown-tooltip");
+    const tooltip = page.getByTestId("timeline-drilldown-tooltip");
     await expect(tooltip).toBeVisible();
     await expect(tooltip).toContainText("Signatera");
     await expect(tooltip).toContainText("0.17 MTM/mL positive");
@@ -227,9 +258,14 @@ test.describe("diagnostics regressions", () => {
 
     const chartGeometry = await dialog
       .getByTestId("timeline-drilldown-chart")
-      .getByTestId("timeline-drilldown-svg")
-      .evaluate((svgElement) => {
-        const svg = svgElement as unknown as SVGSVGElement;
+      .evaluate((chartElement) => {
+        const chart = chartElement as HTMLElement;
+        const svg = chart.querySelector(
+          '[data-test-id="timeline-drilldown-svg"]',
+        ) as SVGSVGElement;
+        const axisSvg = chart.querySelector(
+          '[data-test-id="timeline-drilldown-axis-svg"]',
+        ) as SVGSVGElement;
         const parsePathPoints = (path: SVGPathElement) => {
           const d = path.getAttribute("d") ?? "";
           return Array.from(d.matchAll(/[ML]\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)).map(
@@ -269,17 +305,17 @@ test.describe("diagnostics regressions", () => {
 
           return {
             axisLineX: Number(
-              svg
+              axisSvg
                 .querySelector(`[data-test-id="timeline-drilldown-axis-${id}"] line`)
                 ?.getAttribute("x1"),
             ),
             circleCount: circles.length,
             id,
             maxDistance: Math.max(...distances),
-            title: svg.querySelector(
+            title: axisSvg.querySelector(
               `[data-test-id="timeline-drilldown-axis-label-${id}"]`,
             )?.textContent,
-            titleTransform: svg
+            titleTransform: axisSvg
               .querySelector(`[data-test-id="timeline-drilldown-axis-label-${id}"]`)
               ?.getAttribute("transform"),
           };
@@ -313,7 +349,7 @@ test.describe("diagnostics regressions", () => {
     ]);
 
     await dialog.getByTestId("timeline-drilldown-point-anc-anc-2026-05-07").hover();
-    const tooltip = dialog.getByTestId("timeline-drilldown-tooltip");
+    const tooltip = page.getByTestId("timeline-drilldown-tooltip");
     await expect(tooltip).toBeVisible();
     await expect(tooltip).toContainText("ANC");
     await expect(tooltip).toContainText("0.79 x10E9/L low");
