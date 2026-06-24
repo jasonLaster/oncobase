@@ -140,8 +140,9 @@ redirect, and diagnostics subpage regressions are covered by
 - Timeline imaging tooltips link to `/diagnostics/imaging` and the DICOM viewer.
 - The ctDNA category drill-in keeps the explanatory note outside the SVG chart,
   renders Signatera, NeXT Personal, and Guardant360 y-axes on the left with
-  vertical titles, supports track toggles and `Cmd + scroll` zooming, and shows
-  popup tooltips for points.
+  vertical titles, supports track toggles, `Cmd + scroll` zooming with a
+  one-day minimum range, horizontal wheel panning while zoomed, day/week tick
+  marks at tight ranges, and popup tooltips for points.
 - The Blood Counts category drill-in renders ANC, Hemoglobin, and Platelets
   y-axes on the sticky left axis panel with vertical titles, keeps SVG scaling
   uniform, verifies dots align with their paths, dims non-active axes on hover,

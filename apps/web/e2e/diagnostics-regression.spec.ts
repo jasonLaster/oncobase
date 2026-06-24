@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 test.describe("diagnostics regressions", () => {
   test("diagnostics root is the timeline landing page with the compact header", async ({
@@ -158,61 +158,8 @@ test.describe("diagnostics regressions", () => {
     );
     const drilldownChart = dialog.getByTestId("timeline-drilldown-chart");
     await expect(drilldownChart).toBeVisible();
-    const rangeBeforeZoom = await drilldownChart.getAttribute("data-visible-range");
     const chartBox = await drilldownChart.boundingBox();
     expect(chartBox).not.toBeNull();
-    await drilldownChart.dispatchEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-      clientX: chartBox!.x + chartBox!.width / 2,
-      clientY: chartBox!.y + chartBox!.height / 2,
-      deltaX: 0,
-      deltaY: -360,
-      metaKey: true,
-    });
-    await expect(drilldownChart).not.toHaveAttribute(
-      "data-visible-range",
-      rangeBeforeZoom ?? "",
-    );
-    const rangeAfterZoom = await drilldownChart.getAttribute("data-visible-range");
-    await drilldownChart.dispatchEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-      clientX: chartBox!.x + chartBox!.width / 2,
-      clientY: chartBox!.y + chartBox!.height / 2,
-      deltaX: 420,
-      deltaY: 0,
-      metaKey: false,
-    });
-    await expect(drilldownChart).not.toHaveAttribute(
-      "data-visible-range",
-      rangeAfterZoom ?? "",
-    );
-    const rangeAfterRightScroll = await drilldownChart.getAttribute(
-      "data-visible-range",
-    );
-    expect(rangeStartTime(rangeAfterRightScroll)).toBeGreaterThan(
-      rangeStartTime(rangeAfterZoom),
-    );
-    await drilldownChart.dispatchEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-      clientX: chartBox!.x + chartBox!.width / 2,
-      clientY: chartBox!.y + chartBox!.height / 2,
-      deltaX: -420,
-      deltaY: 0,
-      metaKey: false,
-    });
-    await expect(drilldownChart).not.toHaveAttribute(
-      "data-visible-range",
-      rangeAfterRightScroll ?? "",
-    );
-    const rangeAfterLeftScroll = await drilldownChart.getAttribute(
-      "data-visible-range",
-    );
-    expect(rangeStartTime(rangeAfterLeftScroll)).toBeLessThan(
-      rangeStartTime(rangeAfterRightScroll),
-    );
     const ctdnaAxes = await dialog
       .getByTestId("timeline-drilldown-chart")
       .evaluate((chartElement) => {
@@ -290,6 +237,66 @@ test.describe("diagnostics regressions", () => {
       "href",
       "/sources/diagnostics/05-28-signatera-ctdna",
     );
+
+    const rangeBeforeZoom = await drilldownChart.getAttribute("data-visible-range");
+    await drilldownChart.dispatchEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: chartBox!.x + chartBox!.width / 2,
+      clientY: chartBox!.y + chartBox!.height / 2,
+      deltaX: 0,
+      deltaY: -360,
+      metaKey: true,
+    });
+    await expect(drilldownChart).not.toHaveAttribute(
+      "data-visible-range",
+      rangeBeforeZoom ?? "",
+    );
+    for (let index = 0; index < 40; index += 1) {
+      await drilldownChart.dispatchEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: chartBox!.x + chartBox!.width / 2,
+        clientY: chartBox!.y + chartBox!.height / 2,
+        deltaX: 0,
+        deltaY: -500,
+        metaKey: true,
+      });
+    }
+    await expect
+      .poll(async () => Number(await drilldownChart.getAttribute("data-visible-range-days")))
+      .toBeGreaterThanOrEqual(1);
+    await expect
+      .poll(async () => Number(await drilldownChart.getAttribute("data-visible-range-days")))
+      .toBeLessThanOrEqual(3);
+    await expect(
+      drilldownChart.getByTestId("timeline-drilldown-day-tick"),
+    ).not.toHaveCount(0);
+    const startAfterZoom = await visibleStartTime(drilldownChart);
+    await drilldownChart.dispatchEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: chartBox!.x + chartBox!.width / 2,
+      clientY: chartBox!.y + chartBox!.height / 2,
+      deltaX: 420,
+      deltaY: 0,
+      metaKey: false,
+    });
+    const startAfterRightScroll = await visibleStartTime(drilldownChart);
+    expect(startAfterRightScroll).toBeGreaterThan(startAfterZoom);
+    await expect(page).toHaveURL(/\/diagnostics$/);
+    await drilldownChart.dispatchEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: chartBox!.x + chartBox!.width / 2,
+      clientY: chartBox!.y + chartBox!.height / 2,
+      deltaX: -420,
+      deltaY: 0,
+      metaKey: false,
+    });
+    const startAfterLeftScroll = await visibleStartTime(drilldownChart);
+    expect(startAfterLeftScroll).toBeLessThan(startAfterRightScroll);
+    await expect(page).toHaveURL(/\/diagnostics$/);
   });
 
   test("group drill-in charts render axes, aligned markers, and hover tooltips", async ({
@@ -451,7 +458,6 @@ async function openDrilldown(page: Page, testId: string) {
     .toBe(1);
 }
 
-function rangeStartTime(range: string | null) {
-  const [start] = (range ?? "").split(":");
-  return Date.parse(`${start}T00:00:00Z`);
+async function visibleStartTime(locator: Locator) {
+  return Number(await locator.getAttribute("data-visible-start-time"));
 }

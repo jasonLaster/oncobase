@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MIN_RANGE_MS = 10 * MS_PER_DAY;
+const DRILLDOWN_MIN_RANGE_MS = MS_PER_DAY;
 const TRACK_HEIGHT = 48;
 const SERIES_TOP = 8;
 const SERIES_BOTTOM = 38;
@@ -60,6 +61,11 @@ const MONTH_TICK_FORMATTER = new Intl.DateTimeFormat("en-US", {
 const WEEK_TICK_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
+  timeZone: "UTC",
+});
+const DAY_TICK_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "short",
   timeZone: "UTC",
 });
 const DISPLAY_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
@@ -734,6 +740,7 @@ function DrilldownChart({
   tracks: DiagnosticTimelineTrack[];
 }) {
   const plot = DRILLDOWN_PLOT;
+  const chartRef = useRef<HTMLDivElement>(null);
   const [visibleRange, setVisibleRange] = useState(fullRange);
   const [tooltip, setTooltip] = useState<DrilldownTooltipState | null>(null);
   const [activeAxisTrackId, setActiveAxisTrackId] = useState<string | null>(null);
@@ -770,6 +777,7 @@ function DrilldownChart({
   });
   const monthTicks = buildMonthTicks(visibleRange.start, visibleRange.end);
   const weekTicks = buildWeekTicks(visibleRange.start, visibleRange.end);
+  const dayTicks = buildDayTicks(visibleRange.start, visibleRange.end);
   const chartTracks = drilldownTracks.map((track, index) => ({
     ...track,
     axis: drilldownAxisPlacement(index, drilldownTracks.length, plot),
@@ -804,12 +812,15 @@ function DrilldownChart({
     setActiveAxisTrackId(null);
     setTooltip(null);
   }, []);
-  const onChartWheel = useCallback(
-    (event: ReactWheelEvent<HTMLDivElement>) => {
-      if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+  useEffect(() => {
+    const chartElement = chartRef.current;
+    if (!chartElement) return;
+
+    const onWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaX) > 1) {
         event.preventDefault();
         hideTooltip();
-        const rect = event.currentTarget.getBoundingClientRect();
+        const rect = chartElement.getBoundingClientRect();
         const scale =
           event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.width : 1;
         const panPixels = event.deltaX * scale;
@@ -824,33 +835,43 @@ function DrilldownChart({
       if (!event.metaKey) return;
       event.preventDefault();
       hideTooltip();
-      const rect = event.currentTarget.getBoundingClientRect();
-      const contentX = event.clientX - rect.left + event.currentTarget.scrollLeft;
+      const rect = chartElement.getBoundingClientRect();
+      const contentX = event.clientX - rect.left + chartElement.scrollLeft;
       const cursorPercent = Math.min(
         Math.max((contentX - plot.left) / (plot.right - plot.left), 0),
         1,
       );
-      const cursorTime = timeForPercent(cursorPercent, visibleRange);
       const factor = event.deltaY > 0 ? 1.16 : 0.86;
       setVisibleRange((currentRange) => {
+        const cursorTime = timeForPercent(cursorPercent, currentRange);
         const nextStart = cursorTime - (cursorTime - currentRange.start) * factor;
         const nextEnd = cursorTime + (currentRange.end - cursorTime) * factor;
-        return clampRange({ start: nextStart, end: nextEnd }, fullRange);
+        return clampRange(
+          { start: nextStart, end: nextEnd },
+          fullRange,
+          DRILLDOWN_MIN_RANGE_MS,
+        );
       });
-    },
-    [fullRange, hideTooltip, plot.left, plot.right, visibleRange],
-  );
+    };
+
+    chartElement.addEventListener("wheel", onWheel, { passive: false });
+    return () => chartElement.removeEventListener("wheel", onWheel);
+  }, [fullRange, hideTooltip, plot.left, plot.right]);
 
   return (
     <div className="grid gap-2 overflow-hidden rounded-lg border border-border bg-background p-3">
       <div
-        className="relative overflow-x-auto overscroll-x-contain rounded-md bg-muted/20"
+        className="relative overflow-x-auto overscroll-x-none rounded-md bg-muted/20"
         data-test-id="timeline-drilldown-chart"
+        data-visible-start-time={Math.round(visibleRange.start)}
+        data-visible-range-days={Math.round(
+          (visibleRange.end - visibleRange.start) / MS_PER_DAY,
+        )}
         data-visible-range={`${formatIsoDate(visibleRange.start)}:${formatIsoDate(
           visibleRange.end,
         )}`}
-        onWheel={onChartWheel}
         onPointerLeave={hideTooltip}
+        ref={chartRef}
       >
         <div
           className="relative min-w-[1120px]"
@@ -942,6 +963,33 @@ function DrilldownChart({
                 strokeOpacity="0.08"
                 vectorEffect="non-scaling-stroke"
               />
+            );
+          })}
+          {dayTicks.map((tick) => {
+            const x = chartX(tick.time, visibleRange, plot);
+            return (
+              <g key={`drill-day-${tick.time}`}>
+                <line
+                  data-test-id="timeline-drilldown-day-tick"
+                  x1={x}
+                  x2={x}
+                  y1={plot.top}
+                  y2={plot.bottom}
+                  stroke="currentColor"
+                  strokeOpacity="0.08"
+                  vectorEffect="non-scaling-stroke"
+                />
+                <text
+                  x={x + 4}
+                  y={plot.bottom + 18}
+                  fill="currentColor"
+                  fontSize="11"
+                  fontWeight="500"
+                  opacity="0.68"
+                >
+                  {tick.label}
+                </text>
+              </g>
             );
           })}
           {monthTicks.map((tick) => {
@@ -2455,8 +2503,35 @@ function buildWeekTicks(start: number, end: number) {
   return ticks;
 }
 
-function clampRange(range: DateRange, fullRange: DateRange): DateRange {
-  const span = Math.max(range.end - range.start, MIN_RANGE_MS);
+function buildDayTicks(start: number, end: number) {
+  if (end - start > 45 * MS_PER_DAY) return [];
+
+  const ticks: TimelineTick[] = [];
+  const startDate = new Date(start);
+  let time = Date.UTC(
+    startDate.getUTCFullYear(),
+    startDate.getUTCMonth(),
+    startDate.getUTCDate(),
+  );
+  if (time < start) time += MS_PER_DAY;
+
+  while (time <= end) {
+    ticks.push({
+      label: DAY_TICK_FORMATTER.format(new Date(time)),
+      time,
+    });
+    time += MS_PER_DAY;
+  }
+
+  return ticks;
+}
+
+function clampRange(
+  range: DateRange,
+  fullRange: DateRange,
+  minRangeMs = MIN_RANGE_MS,
+): DateRange {
+  const span = Math.max(range.end - range.start, minRangeMs);
   let start = range.start;
   let end = range.start + span;
 
