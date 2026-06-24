@@ -806,7 +806,22 @@ function DrilldownChart({
   }, []);
   const onChartWheel = useCallback(
     (event: ReactWheelEvent<HTMLDivElement>) => {
-      if (!event.metaKey || Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
+      if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+        event.preventDefault();
+        hideTooltip();
+        const rect = event.currentTarget.getBoundingClientRect();
+        const scale =
+          event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.width : 1;
+        const panPixels = event.deltaX * scale;
+
+        setVisibleRange((currentRange) => {
+          const span = currentRange.end - currentRange.start;
+          const delta = (panPixels / (plot.right - plot.left)) * span;
+          return panRangeByTime(currentRange, fullRange, delta);
+        });
+        return;
+      }
+      if (!event.metaKey) return;
       event.preventDefault();
       hideTooltip();
       const rect = event.currentTarget.getBoundingClientRect();
