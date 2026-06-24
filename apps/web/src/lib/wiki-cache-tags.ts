@@ -1,4 +1,4 @@
-export const MARKDOWN_RENDER_CACHE_VERSION = "33";
+export const MARKDOWN_RENDER_CACHE_VERSION = "34";
 
 export function siteCacheTag(siteSlug: string) {
   return `site:${siteSlug}`;

@@ -5,6 +5,7 @@ const DEFAULT_PREWARM_TOKEN = "diana";
 const PREWARM_BATCH_SIZE = 12;
 const PREWARM_TIMEOUT_MS = 30_000;
 const PREWARM_API_PAGE_LIMIT = 100;
+const MAX_PRIORITY_PAGE_PREWARM_SLUGS = 64;
 const ASSET_EXTENSION_RE = /\.(?:avif|gif|jpe?g|pdf|png|svg|webp)$/i;
 const EMPTY_PREWARM_RESULT: PrewarmWikiPagesResult = {
   total: 0,
@@ -53,6 +54,23 @@ function shouldPrewarmSlug(slug: string) {
   if (isHiddenFileTreePath(slug)) return false;
   if (ASSET_EXTENSION_RE.test(slug)) return false;
   return slug === "index" || slug.startsWith("about/") || slug.startsWith("wiki/");
+}
+
+function normalizePrewarmSlug(slug: string) {
+  return slug.trim().replace(/^\/+/, "").replace(/\.(?:md|mdx)$/i, "");
+}
+
+function normalizePrioritySlugs(slugs: string[] = []) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const rawSlug of slugs) {
+    const slug = normalizePrewarmSlug(rawSlug);
+    if (!shouldPrewarmSlug(slug) || seen.has(slug)) continue;
+    out.push(slug);
+    seen.add(slug);
+    if (out.length >= MAX_PRIORITY_PAGE_PREWARM_SLUGS) break;
+  }
+  return out;
 }
 
 function routePathForSlug(slug: string) {
@@ -347,8 +365,28 @@ async function prewarmBatch(
   return Promise.all(slugs.map((slug) => prewarmOne(slug, cookie, baseUrl)));
 }
 
+async function prewarmPageBatches(
+  slugs: string[],
+  cookie: string | null,
+  baseUrl: string,
+  label: string,
+): Promise<PrewarmPageResult[]> {
+  const results: PrewarmPageResult[] = [];
+  for (let i = 0; i < slugs.length; i += PREWARM_BATCH_SIZE) {
+    const batch = slugs.slice(i, i + PREWARM_BATCH_SIZE);
+    const batchResults = await prewarmBatch(batch, cookie, baseUrl);
+    results.push(...batchResults);
+    const warmed = results.filter((result) => result.ok).length;
+    console.log(
+      `[prewarm-wiki-pages] ${label} batch ${Math.floor(i / PREWARM_BATCH_SIZE) + 1}/${Math.ceil(slugs.length / PREWARM_BATCH_SIZE)} warmed=${warmed}/${results.length}`,
+    );
+  }
+  return results;
+}
+
 export async function prewarmWikiPagesWorkflow(
   siteSlug = "diana",
+  prioritySlugs: string[] = [],
 ): Promise<PrewarmWikiPagesResult> {
   "use workflow";
 
@@ -363,8 +401,15 @@ export async function prewarmWikiPagesWorkflow(
   console.log(
     `[prewarm-wiki-pages] Workflow started site=${siteSlug} baseUrl=${config.baseUrl} defaultBaseUrl=${config.usingDefaultBaseUrl}`,
   );
-  const slugs = await listPrewarmSlugs(siteSlug);
   const cookie = await createPrewarmSession(config);
+  const priority = normalizePrioritySlugs(prioritySlugs);
+  const priorityResults = priority.length
+    ? await prewarmPageBatches(priority, cookie, config.baseUrl, "Priority")
+    : [];
+  const priorityRequested = new Set(priority);
+  const priorityWarmed = new Set(
+    priorityResults.filter((result) => result.ok).map((result) => result.slug),
+  );
 
   const [metadataApiResults, pageApiResults] = await Promise.all([
     prewarmApiEndpoints(apiEndpointsForPrewarm(), cookie, config.baseUrl),
@@ -381,16 +426,15 @@ export async function prewarmWikiPagesWorkflow(
     );
   }
 
-  const results: PrewarmPageResult[] = [];
-  for (let i = 0; i < slugs.length; i += PREWARM_BATCH_SIZE) {
-    const batch = slugs.slice(i, i + PREWARM_BATCH_SIZE);
-    const batchResults = await prewarmBatch(batch, cookie, config.baseUrl);
-    results.push(...batchResults);
-    const warmed = results.filter((result) => result.ok).length;
-    console.log(
-      `[prewarm-wiki-pages] Batch ${Math.floor(i / PREWARM_BATCH_SIZE) + 1}/${Math.ceil(slugs.length / PREWARM_BATCH_SIZE)} warmed=${warmed}/${results.length}`,
-    );
-  }
+  const slugs = (await listPrewarmSlugs(siteSlug)).filter(
+    (slug) => !priorityRequested.has(slug) && !priorityWarmed.has(slug),
+  );
+  const results = [
+    ...priorityResults,
+    ...(slugs.length
+      ? await prewarmPageBatches(slugs, cookie, config.baseUrl, "Full")
+      : []),
+  ];
 
   const failures = results
     .filter((result) => !result.ok)
@@ -401,7 +445,7 @@ export async function prewarmWikiPagesWorkflow(
     }));
 
   const summary = {
-    total: slugs.length,
+    total: results.length,
     warmed: results.length - failures.length,
     failed: failures.length,
     failures,

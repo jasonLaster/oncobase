@@ -6,7 +6,6 @@ import { resolveWikilinks } from "@/lib/wikilinks";
 import { toSiteSlug } from "@/lib/site";
 import {
   MARKDOWN_RENDER_CACHE_VERSION,
-  siteCacheTag,
   siteDocCacheTag,
   siteRenderCacheTag,
 } from "@/lib/wiki-cache-tags";
@@ -66,7 +65,6 @@ async function renderCachedMarkdownHtmlByHash(args: {
   } = args;
   cacheLife("weeks");
   cacheTag(
-    siteCacheTag(siteSlug),
     siteRenderCacheTag(siteSlug),
     `${siteRenderCacheTag(siteSlug)}:${renderCacheVersion}`,
     `${siteRenderCacheTag(siteSlug)}:${renderCacheVersion}:${contentHash}`,
@@ -103,7 +101,6 @@ async function renderCachedMarkdownHtml(args: {
 
   cacheLife("weeks");
   cacheTag(
-    siteCacheTag(siteSlug),
     siteRenderCacheTag(siteSlug),
     `${siteRenderCacheTag(siteSlug)}:${renderCacheVersion}`,
     siteDocCacheTag(siteSlug, slug),

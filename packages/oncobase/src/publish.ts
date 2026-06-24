@@ -503,6 +503,7 @@ if (skipped.length > 0) {
 await post(`${config.publishUrl}/finish`, token, {
   runId: begin.runId,
   siteSlug: config.site,
+  changedDocumentSlugs: changedDocs.map((doc) => doc.slug),
   deletedDocSlugs: begin.staleDocumentSlugs ?? [],
   deletedAssetPaths: begin.staleAssetPaths ?? [],
 });

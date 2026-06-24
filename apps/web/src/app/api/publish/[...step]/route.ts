@@ -28,6 +28,7 @@ import { postPublishWorkflow } from "@/workflows/post-publish";
 export const maxDuration = 300;
 
 const MAX_DOCUMENT_CONTENT_STORAGE_BYTES = 950_000;
+const MAX_POST_PUBLISH_PRIORITY_SLUGS = 64;
 
 type Manifest = {
   documents?: Array<{ slug: string; hash: string; sensitive?: boolean }>;
@@ -348,15 +349,35 @@ function logRouteError(step: string, error: unknown) {
   console.error(`[publish] ${step} failed: ${message}`, stack ?? "");
 }
 
-async function startPostPublishWorkflow(siteSlug: string) {
+async function startPostPublishWorkflow(
+  siteSlug: string,
+  prioritySlugs: string[] = [],
+) {
   try {
-    const run = await start(postPublishWorkflow, [siteSlug]);
-    console.log(`[publish] post-publish workflow started: runId=${run.runId}`);
+    const run = await start(postPublishWorkflow, [siteSlug, prioritySlugs]);
+    console.log(
+      `[publish] post-publish workflow started: runId=${run.runId} priority=${prioritySlugs.length}`,
+    );
     return run.runId;
   } catch (error) {
     logRouteError("post-publish", error);
     return null;
   }
+}
+
+function postPublishPrioritySlugs(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const slugs: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") continue;
+    const slug = item.trim().replace(/^\/+/, "").replace(/\.(?:md|mdx)$/i, "");
+    if (!slug || seen.has(slug)) continue;
+    slugs.push(slug);
+    seen.add(slug);
+    if (slugs.length >= MAX_POST_PUBLISH_PRIORITY_SLUGS) break;
+  }
+  return slugs;
 }
 
 export async function POST(
@@ -714,7 +735,11 @@ export async function POST(
         }
         await convex.mutation(api.sites.finishPublish, { slug: siteSlug });
         revalidateSiteAfterPublish(siteSlug);
-        const postPublishRunId = await startPostPublishWorkflow(siteSlug);
+        const prioritySlugs = postPublishPrioritySlugs(body.changedDocumentSlugs);
+        const postPublishRunId = await startPostPublishWorkflow(
+          siteSlug,
+          prioritySlugs,
+        );
         return NextResponse.json({ ok: true, postPublishRunId });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

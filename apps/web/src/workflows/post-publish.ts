@@ -8,12 +8,21 @@ import { startWikiMaintenanceWorkflows } from "@/workflows/wiki-maintenance";
  * the background: download zips, generated descriptions, embeddings, and
  * rendered wiki/about pages.
  */
-export async function postPublishWorkflow(siteSlug = "diana") {
+export async function postPublishWorkflow(
+  siteSlug = "diana",
+  prioritySlugs: string[] = [],
+) {
   "use workflow";
 
-  console.log(`[post-publish] Workflow started (site=${siteSlug})`);
+  console.log(
+    `[post-publish] Workflow started (site=${siteSlug}, priority=${prioritySlugs.length})`,
+  );
 
-  const runIds = await startWikiMaintenanceWorkflows("post-publish", siteSlug);
+  const runIds = await startWikiMaintenanceWorkflows(
+    "post-publish",
+    siteSlug,
+    prioritySlugs,
+  );
 
   console.log("[post-publish] All child workflows launched:", runIds);
 }

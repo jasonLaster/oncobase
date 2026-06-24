@@ -103,6 +103,35 @@ export function canonicalizePublishedSlug(slug: string): string {
   return `${prefix}views/${rest}`;
 }
 
+function routeSlugAliasKey(slug: string): string {
+  return slug.toLowerCase().replace(/\s+/g, "-");
+}
+
+export function canonicalSlugLookupEntriesFromSlugs(
+  slugs: string[],
+): Array<[string, string]> {
+  const canonicalSlugs = slugs.map(canonicalizePublishedSlug);
+  const entries: Array<[string, string]> = [];
+  const seen = new Set<string>();
+
+  for (const canonicalSlug of canonicalSlugs) {
+    const lower = canonicalSlug.toLowerCase();
+    if (seen.has(lower)) continue;
+    entries.push([lower, canonicalSlug]);
+    seen.add(lower);
+  }
+
+  for (const canonicalSlug of canonicalSlugs) {
+    const lower = canonicalSlug.toLowerCase();
+    const alias = routeSlugAliasKey(canonicalSlug);
+    if (alias === lower || seen.has(alias)) continue;
+    entries.push([alias, canonicalSlug]);
+    seen.add(alias);
+  }
+
+  return entries;
+}
+
 function legacyPublishedSlug(slug: string): string | null {
   const prefix = "project-management/views/";
   if (!slug.startsWith(prefix)) return null;
@@ -221,17 +250,7 @@ async function fetchCanonicalSlugEntriesForSite(
   cacheTag(siteCacheTag(siteSlug), siteDocsCacheTag(siteSlug));
 
   const docs = await fetchAllDocsForSite(siteSlug, includeSensitive);
-  const entries: Array<[string, string]> = [];
-  const seen = new Set<string>();
-  for (const doc of docs) {
-    const canonicalSlug = canonicalizePublishedSlug(doc.slug);
-    const lower = canonicalSlug.toLowerCase();
-    if (!seen.has(lower)) {
-      entries.push([lower, canonicalSlug]);
-      seen.add(lower);
-    }
-  }
-  return entries;
+  return canonicalSlugLookupEntriesFromSlugs(docs.map((doc) => doc.slug));
 }
 
 async function fetchCanonicalSlugMapForSite(

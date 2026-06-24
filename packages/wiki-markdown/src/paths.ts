@@ -58,6 +58,18 @@ export function encodeFilePath(path: string, apiBasePath = "") {
   return `${apiBasePath}/api/file?path=${encodeURIComponent(path)}`;
 }
 
+function wikiRouteHref(target: string) {
+  const suffixIndex = target.search(/[?#]/);
+  const rawPath = suffixIndex === -1 ? target : target.slice(0, suffixIndex);
+  const suffix = suffixIndex === -1 ? "" : target.slice(suffixIndex);
+  const slug = rawPath.replace(/\.(?:md|mdx)$/i, "");
+  const encodedPath = slug
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `/${encodedPath}${suffix}`;
+}
+
 export function resolveWikilinks(
   content: string,
   currentSlug?: string,
@@ -76,9 +88,8 @@ export function resolveWikilinks(
       return `[${label}](${encodeFilePath(pdfPath, apiBasePath)})`;
     }
 
-    const slug = target.replace(/\.(?:md|mdx)$/i, "").replace(/\s+/g, "-");
     const label = display || target.split("/").pop()?.replace(/\.(?:md|mdx)$/i, "") || target;
-    return `[${label}](/${slug})`;
+    return `[${label}](${wikiRouteHref(target)})`;
   });
 }
 

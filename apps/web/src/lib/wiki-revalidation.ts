@@ -4,7 +4,6 @@ import {
   siteCacheTag,
   siteDocCacheTag,
   siteDocsCacheTag,
-  siteRenderCacheTag,
   siteTagsCacheTag,
   siteTreeCacheTag,
 } from "@/lib/wiki-cache-tags";
@@ -23,7 +22,6 @@ export function revalidatePublishedDocument(siteSlug: string, slug: string) {
     siteDocsCacheTag(siteSlug),
     siteTreeCacheTag(siteSlug),
     siteTagsCacheTag(siteSlug),
-    siteRenderCacheTag(siteSlug),
     siteDocCacheTag(siteSlug, slug),
   ]);
 }
@@ -43,7 +41,6 @@ export function revalidateSiteAfterPublish(siteSlug: string) {
     siteAssetsCacheTag(siteSlug),
     siteTreeCacheTag(siteSlug),
     siteTagsCacheTag(siteSlug),
-    siteRenderCacheTag(siteSlug),
   ]);
   revalidatePath("/", "layout");
 }

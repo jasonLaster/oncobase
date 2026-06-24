@@ -25,6 +25,15 @@ describe("wiki markdown helpers", () => {
     );
   });
 
+  test("encodes route links with spaces instead of hyphenizing them", () => {
+    expect(resolveWikilinks("[[about/log/June 2026|June 2026]]")).toBe(
+      "[June 2026](/about/log/June%202026)",
+    );
+    expect(resolveWikilinks("[[about/log/April 16-30 2026|April]]")).toBe(
+      "[April](/about/log/April%2016-30%202026)",
+    );
+  });
+
   test("rewrites relative asset paths", () => {
     expect(resolveAssetPath("images/scan.png", "wiki/diagnostics/index")).toBe(
       "wiki/diagnostics/images/scan.png",

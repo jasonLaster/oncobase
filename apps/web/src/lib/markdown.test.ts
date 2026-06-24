@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   canonicalizePublishedSlug,
+  canonicalSlugLookupEntriesFromSlugs,
   groupFileTreeCollectionsDeep,
   isHiddenFileTreeAssetPath,
   isHiddenFileTreePath,
@@ -38,6 +39,23 @@ describe("canonicalizePublishedSlug", () => {
     expect(canonicalizePublishedSlug("project-management/projects/clinical/foo")).toBe(
       "project-management/projects/clinical/foo",
     );
+  });
+
+  test("adds hyphenized route aliases for slugs with spaces", () => {
+    const map = new Map(
+      canonicalSlugLookupEntriesFromSlugs([
+        "about/log/June 2026",
+        "about/log/April 16-30 2026",
+        "wiki/foo bar",
+        "wiki/foo-bar",
+      ]),
+    );
+
+    expect(map.get("about/log/june-2026")).toBe("about/log/June 2026");
+    expect(map.get("about/log/april-16-30-2026")).toBe(
+      "about/log/April 16-30 2026",
+    );
+    expect(map.get("wiki/foo-bar")).toBe("wiki/foo-bar");
   });
 });
 

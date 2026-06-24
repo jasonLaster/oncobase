@@ -1,6 +1,7 @@
 export async function startWikiMaintenanceWorkflows(
   source: "post-deploy" | "post-publish",
   siteSlug: string,
+  prioritySlugs: string[] = [],
 ): Promise<Record<string, string | null>> {
   "use step";
   const { start } = await import("workflow/api");
@@ -31,8 +32,8 @@ export async function startWikiMaintenanceWorkflows(
         : Promise.resolve(null),
       start(generateDescriptionsWorkflow, [siteSlug]),
       start(ingestEmbeddingsWorkflow, [siteSlug]),
-      start(prewarmMarkdownRenderCacheWorkflow, [siteSlug]),
-      start(prewarmWikiPagesWorkflow, [siteSlug]),
+      start(prewarmMarkdownRenderCacheWorkflow, [siteSlug, prioritySlugs]),
+      start(prewarmWikiPagesWorkflow, [siteSlug, prioritySlugs]),
     ]);
 
   return {
