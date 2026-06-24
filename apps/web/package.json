@@ -32,7 +32,8 @@
     "wiki:site:restore": "bun scripts/admin/restore-site.ts",
     "wiki:site:lock-clear": "bun scripts/admin/clear-publish-lock.ts",
     "wiki:site:backfill": "bun scripts/admin/backfill-site-ids.ts",
-    "dicom:upload": "bun scripts/upload-dicom-assets.ts"
+    "dicom:upload": "bun scripts/upload-dicom-assets.ts",
+    "timeline:seed": "bun scripts/seed-diagnostic-timeline.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.149",

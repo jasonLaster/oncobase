@@ -472,6 +472,48 @@ export function DiagnosticsTreeLink({
   );
 }
 
+export function TimelineTreeLink({
+  activePathname,
+  onNavigate,
+}: {
+  activePathname: string;
+  onNavigate?: () => void;
+}) {
+  const isActive = activePathname === "/timeline";
+
+  return (
+    <Link
+      href="/timeline"
+      onClick={onNavigate}
+      data-test-id="sidebar-view-timeline"
+      data-selected-file-tree-item={isActive ? "true" : undefined}
+      className={`group flex items-center rounded-md text-sm transition-colors ${
+        isActive
+          ? "bg-[var(--accent-light)] font-medium text-[var(--foreground)]"
+          : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
+      }`}
+      style={{
+        height: `${ROW_HEIGHT}px`,
+        paddingLeft: `${rowPadding(0, true)}px`,
+        paddingRight: "8px",
+        gap: `${ICON_GAP}px`,
+      }}
+      title="Timeline"
+    >
+      <Calendar
+        size={ICON_SIZE}
+        className={`shrink-0 transition-opacity ${
+          isActive ? "opacity-100" : "opacity-50 group-hover:opacity-90"
+        }`}
+        aria-hidden="true"
+      />
+      <span className="min-w-0 flex-1 truncate font-medium text-[var(--foreground)]/85">
+        Timeline
+      </span>
+    </Link>
+  );
+}
+
 /**
  * One half of the split footer pill. Centered icon + label, subtle hover.
  */
@@ -600,6 +642,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
       >
         {commentsFeatureEnabled() ? <CommentsTreeLink activePathname={pathname} /> : null}
         <DiagnosticsTreeLink activePathname={pathname} />
+        <TimelineTreeLink activePathname={pathname} />
         {tree.map((node) => (
           <TreeNode
             activePathname={pathname}
