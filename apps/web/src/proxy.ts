@@ -308,6 +308,7 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/api/auth") ||
     request.nextUrl.pathname.startsWith("/api/publish") ||
     request.nextUrl.pathname.startsWith("/api/file") ||
+    request.nextUrl.pathname.startsWith("/api/integrations/epic") ||
     request.nextUrl.pathname.startsWith("/api/wiki") ||
     PUBLIC_FILE_RE.test(request.nextUrl.pathname)
   ) {

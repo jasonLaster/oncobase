@@ -47,7 +47,7 @@ redirect URI above and include patient read scopes for `Patient`, `Observation`,
 After the Epic client ID is active at UCSF, visit:
 
 ```text
-/api/integrations/epic/authorize
+https://diana-tnbc.com/api/integrations/epic/authorize
 ```
 
 Sign in through UCSF MyChart and approve access. The hourly cron then keeps
