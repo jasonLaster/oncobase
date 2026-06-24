@@ -773,7 +773,6 @@ function DrilldownChart({
     ...track,
     axis: drilldownAxisPlacement(index, drilldownTracks.length, plot),
   }));
-  const showsNormalizedOverlay = chartTracks.length > 1;
 
   const showTooltip = useCallback(
     (element: SVGGraphicsElement, track: DiagnosticTimelineTrack, event: DiagnosticTimelineEvent) => {
@@ -828,14 +827,6 @@ function DrilldownChart({
 
   return (
     <div className="grid gap-2 overflow-hidden rounded-lg border border-border bg-background p-3">
-      {showsNormalizedOverlay ? (
-        <div
-          className="text-xs font-medium text-muted-foreground"
-          data-test-id="timeline-drilldown-note"
-        >
-          Normalized per swimlane. Color labels above show each y-axis domain.
-        </div>
-      ) : null}
       <div
         className="relative overflow-x-auto overscroll-x-contain rounded-md bg-muted/20"
         data-test-id="timeline-drilldown-chart"

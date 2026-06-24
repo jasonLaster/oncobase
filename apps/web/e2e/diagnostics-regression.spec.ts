@@ -148,9 +148,7 @@ test.describe("diagnostics regressions", () => {
     await openDrilldown(page, "timeline-inspect-sleeve-molecular");
     const dialog = page.getByTestId("timeline-drilldown-dialog");
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByTestId("timeline-drilldown-note")).toContainText(
-      "Normalized per swimlane",
-    );
+    await expect(dialog.getByTestId("timeline-drilldown-note")).toHaveCount(0);
     await expect(dialog.getByTestId("timeline-drilldown-axis-signatera")).toContainText(
       "Signatera",
     );
