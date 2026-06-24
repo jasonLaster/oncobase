@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 test.describe("diagnostics regressions", () => {
   test("diagnostics root is the timeline landing page with the compact header", async ({
@@ -145,7 +145,7 @@ test.describe("diagnostics regressions", () => {
   }) => {
     await page.goto("/diagnostics", { waitUntil: "domcontentloaded" });
 
-    await page.getByTestId("timeline-inspect-sleeve-molecular").click();
+    await openDrilldown(page, "timeline-inspect-sleeve-molecular");
     const dialog = page.getByTestId("timeline-drilldown-dialog");
     await expect(dialog).toBeVisible();
     await expect(dialog.getByTestId("timeline-drilldown-note")).toContainText(
@@ -158,6 +158,40 @@ test.describe("diagnostics regressions", () => {
       "NeXT Personal",
     );
     await expect(dialog.getByTestId("timeline-drilldown-chart")).toBeVisible();
+    const ctdnaAxes = await dialog
+      .getByTestId("timeline-drilldown-svg")
+      .evaluate((svgElement) => {
+        const svg = svgElement as unknown as SVGSVGElement;
+        const plotLeft = Number(
+          svg
+            .querySelector('[data-test-id="timeline-drilldown-plot-left-edge"]')
+            ?.getAttribute("x1"),
+        );
+        return ["signatera", "personalis"].map((id) => {
+          const axis = svg.querySelector(`[data-test-id="timeline-drilldown-axis-${id}"]`);
+          const axisLine = axis?.querySelector("line");
+          const title = svg.querySelector(
+            `[data-test-id="timeline-drilldown-axis-label-${id}"]`,
+          );
+          return {
+            id,
+            lineX: Number(axisLine?.getAttribute("x1")),
+            plotLeft,
+            title: title?.textContent ?? "",
+            transform: title?.getAttribute("transform") ?? "",
+          };
+        });
+      });
+    for (const axis of ctdnaAxes) {
+      expect(axis.lineX, `${axis.id} axis should stay on the left`).toBeLessThanOrEqual(
+        axis.plotLeft,
+      );
+      expect(axis.transform).toContain("rotate(-90");
+    }
+    expect(ctdnaAxes.map((axis) => axis.title)).toEqual([
+      "Signatera (MTM/mL)",
+      "NeXT Personal (PPM, log)",
+    ]);
 
     await dialog
       .getByTestId("timeline-drilldown-point-signatera-signatera-2026-05-28")
@@ -177,7 +211,7 @@ test.describe("diagnostics regressions", () => {
   }) => {
     await page.goto("/diagnostics", { waitUntil: "domcontentloaded" });
 
-    await page.getByTestId("timeline-inspect-sleeve-blood-counts").click();
+    await openDrilldown(page, "timeline-inspect-sleeve-blood-counts");
     const dialog = page.getByTestId("timeline-drilldown-dialog");
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole("heading", { name: "Blood Counts" })).toBeVisible();
@@ -206,6 +240,11 @@ test.describe("diagnostics regressions", () => {
           );
         };
         const seriesIds = ["anc", "hemoglobin", "platelets"];
+        const plotLeft = Number(
+          svg
+            .querySelector('[data-test-id="timeline-drilldown-plot-left-edge"]')
+            ?.getAttribute("x1"),
+        );
         const series = seriesIds.map((id) => {
           const path = svg.querySelector<SVGPathElement>(
             `[data-test-id="timeline-drilldown-series-${id}"]`,
@@ -229,14 +268,26 @@ test.describe("diagnostics regressions", () => {
           });
 
           return {
+            axisLineX: Number(
+              svg
+                .querySelector(`[data-test-id="timeline-drilldown-axis-${id}"] line`)
+                ?.getAttribute("x1"),
+            ),
             circleCount: circles.length,
             id,
             maxDistance: Math.max(...distances),
+            title: svg.querySelector(
+              `[data-test-id="timeline-drilldown-axis-label-${id}"]`,
+            )?.textContent,
+            titleTransform: svg
+              .querySelector(`[data-test-id="timeline-drilldown-axis-label-${id}"]`)
+              ?.getAttribute("transform"),
           };
         });
         const matrix = svg.getScreenCTM();
 
         return {
+          plotLeft,
           scaleX: matrix?.a ?? Number.NaN,
           scaleY: matrix?.d ?? Number.NaN,
           series,
@@ -249,7 +300,17 @@ test.describe("diagnostics regressions", () => {
       expect(series.maxDistance, `${series.id} dots should sit on the line`).toBeLessThan(
         0.001,
       );
+      expect(
+        series.axisLineX,
+        `${series.id} y-axis should be on the left side of the plot`,
+      ).toBeLessThanOrEqual(chartGeometry.plotLeft);
+      expect(series.titleTransform).toContain("rotate(-90");
     }
+    expect(chartGeometry.series.map((series) => series.title)).toEqual([
+      "ANC (x10E9/L)",
+      "Hemoglobin (g/dL)",
+      "Platelets (x10E9/L)",
+    ]);
 
     await dialog.getByTestId("timeline-drilldown-point-anc-anc-2026-05-07").hover();
     const tooltip = dialog.getByTestId("timeline-drilldown-tooltip");
@@ -262,3 +323,22 @@ test.describe("diagnostics regressions", () => {
     );
   });
 });
+
+async function openDrilldown(page: Page, testId: string) {
+  const trigger = page.getByTestId(testId);
+  const dialog = page.getByTestId("timeline-drilldown-dialog");
+
+  await expect
+    .poll(
+      async () => {
+        if ((await dialog.count()) > 0) return 1;
+        await trigger.scrollIntoViewIfNeeded();
+        await expect(trigger).toBeVisible();
+        await trigger.click();
+        await dialog.waitFor({ state: "visible", timeout: 750 }).catch(() => {});
+        return dialog.count();
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(1);
+}

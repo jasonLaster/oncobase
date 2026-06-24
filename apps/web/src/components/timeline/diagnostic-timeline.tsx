@@ -49,7 +49,8 @@ const SERIES_BOTTOM = 38;
 const PLOT_MIN_WIDTH = 920;
 const DRILLDOWN_WIDTH = 1120;
 const DRILLDOWN_HEIGHT = 420;
-const DRILLDOWN_PLOT = { bottom: 336, left: 154, right: 964, top: 42 };
+const DRILLDOWN_AXIS_SLOT_WIDTH = 54;
+const DRILLDOWN_PLOT = { bottom: 336, left: 198, right: 1084, top: 42 };
 const MONTH_TICK_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
   timeZone: "UTC",
@@ -847,6 +848,7 @@ function DrilldownChart({
             );
           })}
           <line
+            data-test-id="timeline-drilldown-plot-left-edge"
             x1={plot.left}
             x2={plot.left}
             y1={plot.top}
@@ -856,6 +858,7 @@ function DrilldownChart({
             vectorEffect="non-scaling-stroke"
           />
           <line
+            data-test-id="timeline-drilldown-plot-right-edge"
             x1={plot.right}
             x2={plot.right}
             y1={plot.top}
@@ -974,8 +977,8 @@ function DrilldownChart({
 
 interface DrilldownAxisPlacement {
   lineX: number;
-  side: "left" | "right";
   textAnchor: "end" | "start";
+  titleX: number;
   tickX1: number;
   tickX2: number;
   valueX: number;
@@ -1012,25 +1015,13 @@ function DrilldownYAxis({
         fill={track.color}
         fontSize="12"
         fontWeight="700"
-        textAnchor={axis.textAnchor}
-        x={axis.valueX}
-        y={plot.top - 16}
+        textAnchor="middle"
+        transform={`rotate(-90 ${axis.titleX} ${(plot.top + plot.bottom) / 2})`}
+        x={axis.titleX}
+        y={(plot.top + plot.bottom) / 2}
       >
-        {track.label}
+        {formatAxisTitle(track)}
       </text>
-      {track.scale === "log" ? (
-        <text
-          fill={track.color}
-          fontSize="10"
-          fontWeight="700"
-          opacity="0.82"
-          textAnchor={axis.textAnchor}
-          x={axis.valueX}
-          y={plot.top - 2}
-        >
-          log scale
-        </text>
-      ) : null}
       {ticks.map((value) => {
         const y = chartY(value, domain, scale, plot);
         return (
@@ -1057,19 +1048,6 @@ function DrilldownYAxis({
           </g>
         );
       })}
-      {track.unit ? (
-        <text
-          fill={track.color}
-          fontSize="10"
-          fontWeight="700"
-          opacity="0.82"
-          textAnchor={axis.textAnchor}
-          x={axis.valueX}
-          y={plot.bottom + 18}
-        >
-          {track.unit}
-        </text>
-      ) : null}
     </g>
   );
 }
@@ -2062,39 +2040,28 @@ function drilldownAxisPlacement(
   total: number,
   plot: ChartPlot,
 ): DrilldownAxisPlacement {
-  if (total <= 1) {
-    return {
-      lineX: plot.left,
-      side: "left",
-      textAnchor: "end",
-      tickX1: plot.left - 8,
-      tickX2: plot.left,
-      valueX: plot.left - 12,
-    };
-  }
-
-  const leftCount = Math.ceil(total / 2);
-  if (index < leftCount) {
-    const offset = index * 58;
-    return {
-      lineX: plot.left - 4 - offset,
-      side: "left",
-      textAnchor: "end",
-      tickX1: plot.left - 12 - offset,
-      tickX2: plot.left - 4 - offset,
-      valueX: plot.left - 16 - offset,
-    };
-  }
-
-  const offset = (index - leftCount) * 58;
+  const offset = (total - index - 1) * DRILLDOWN_AXIS_SLOT_WIDTH;
+  const lineX = plot.left - offset;
   return {
-    lineX: plot.right + 4 + offset,
-    side: "right",
-    textAnchor: "start",
-    tickX1: plot.right + 4 + offset,
-    tickX2: plot.right + 12 + offset,
-    valueX: plot.right + 16 + offset,
+    lineX,
+    textAnchor: "end",
+    titleX: lineX - 40,
+    tickX1: lineX - 8,
+    tickX2: lineX,
+    valueX: lineX - 12,
   };
+}
+
+function formatAxisTitle(track: DiagnosticTimelineTrack) {
+  const parts = [track.label];
+  const qualifiers = [
+    track.unit,
+    track.scale === "log" ? "log" : null,
+  ].filter(Boolean);
+  if (qualifiers.length > 0) {
+    parts.push(`(${qualifiers.join(", ")})`);
+  }
+  return parts.join(" ");
 }
 
 function normalizedValue(

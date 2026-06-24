@@ -93,8 +93,12 @@ redirect, and diagnostics subpage regressions are covered by
   domains, and log-scale labeling where the track uses log scale.
 - Category drill-ins overlay numeric swimlanes in the category, such as
   Signatera and NeXT Personal in the ctDNA sleeve.
-- Grouped drill-ins render one color-coded y-axis per numeric swimlane so the
-  normalized overlay is still traceable back to each original value domain.
+- Grouped drill-ins render one color-coded y-axis per numeric swimlane on the
+  left side of the plot so the normalized overlay is still traceable back to
+  each original value domain.
+- Drill-in y-axis titles are vertical and include the swimlane label plus unit
+  and log-scale marker when applicable, saving horizontal space while keeping
+  tick values readable.
 - Drill-in SVGs use uniform x/y scaling; markers must sit directly on their
   series paths in rendered geometry.
 - Drill-in markers and event diamonds expose hover/focus tooltips with the date,
@@ -131,8 +135,8 @@ redirect, and diagnostics subpage regressions are covered by
 - Mobile page navigation exposes only the single `Diagnostics` app route.
 - Timeline imaging tooltips link to `/diagnostics/imaging` and the DICOM viewer.
 - The ctDNA category drill-in keeps the explanatory note outside the SVG chart,
-  renders Signatera and NeXT Personal y-axes, and shows popup tooltips for
-  points.
+  renders Signatera and NeXT Personal y-axes on the left with vertical titles,
+  and shows popup tooltips for points.
 - The Blood Counts category drill-in renders ANC, Hemoglobin, and Platelets
-  y-axes, keeps SVG scaling uniform, verifies dots align with their paths, and
-  shows point tooltips with CBC source links.
+  y-axes on the left with vertical titles, keeps SVG scaling uniform, verifies
+  dots align with their paths, and shows point tooltips with CBC source links.
