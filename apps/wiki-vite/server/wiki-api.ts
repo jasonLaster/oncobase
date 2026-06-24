@@ -17,6 +17,12 @@ import { api } from "../../../apps/web/convex/_generated/api.js";
 import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
 import { handleAiSearchRequest } from "./ai-search.js";
 import { handleChatRequest } from "./chat-route.js";
+import {
+  handleEpicAuthorizeRequest,
+  handleEpicCallbackRequest,
+  handleEpicSyncRequest,
+  isAdminSessionUser,
+} from "./epic-fhir.js";
 
 const DEFAULT_SITE_SLUG = "diana";
 const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
@@ -1064,7 +1070,10 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/tools" ||
       pathname === "/api/download" ||
       pathname === "/api/file" ||
-      pathname === "/api/page-copy";
+      pathname === "/api/page-copy" ||
+      pathname === "/api/integrations/epic/authorize" ||
+      pathname === "/api/integrations/epic/callback" ||
+      pathname === "/api/integrations/epic/sync";
     if (!handled) return null;
 
     const siteSlug = await resolveSiteSlug(request, client);
@@ -1162,6 +1171,36 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/page-copy") {
       return handlePageCopyRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/integrations/epic/authorize") {
+      const sessionUser = await getSessionUser(request, client, siteSlug);
+      const adminUser = (await isAdminSessionUser(client, siteSlug, sessionUser))
+        ? sessionUser
+        : null;
+      return handleEpicAuthorizeRequest({
+        request,
+        client,
+        siteSlug,
+        adminUser,
+      });
+    }
+
+    if (pathname === "/api/integrations/epic/callback") {
+      return handleEpicCallbackRequest({ request, client, siteSlug });
+    }
+
+    if (pathname === "/api/integrations/epic/sync") {
+      const sessionUser = await getSessionUser(request, client, siteSlug);
+      const adminUser = (await isAdminSessionUser(client, siteSlug, sessionUser))
+        ? sessionUser
+        : null;
+      return handleEpicSyncRequest({
+        request,
+        client,
+        siteSlug,
+        adminUser,
+      });
     }
 
     return null;
