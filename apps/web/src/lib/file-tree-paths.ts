@@ -1,4 +1,5 @@
 const HIDDEN_FILE_TREE_DIRECTORIES = new Set(["images"]);
+const HIDDEN_FILE_TREE_FILENAMES = new Set(["package.json"]);
 const HIDDEN_FILE_TREE_FILE_EXTENSIONS = new Set([
   ".avif",
   ".gif",
@@ -12,7 +13,15 @@ const HIDDEN_FILE_TREE_FILE_EXTENSIONS = new Set([
 export function isHiddenFileTreePath(path: string): boolean {
   return path
     .split("/")
-    .some((segment) => HIDDEN_FILE_TREE_DIRECTORIES.has(segment));
+    .some((segment) => {
+      const lower = segment.toLowerCase();
+      return (
+        HIDDEN_FILE_TREE_DIRECTORIES.has(lower) ||
+        HIDDEN_FILE_TREE_FILENAMES.has(lower) ||
+        lower === "tsconfig" ||
+        lower.startsWith("tsconfig.")
+      );
+    });
 }
 
 export function isHiddenFileTreeAssetPath(path: string): boolean {

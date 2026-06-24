@@ -78,14 +78,25 @@ describe("wiki content contracts", () => {
     expect(isHiddenFileTreePath("images/scan.png")).toBe(true);
     expect(isHiddenFileTreePath("wiki/media/images/scan.png")).toBe(true);
     expect(isHiddenFileTreePath("wiki/image-analysis/notes")).toBe(false);
+    expect(isHiddenFileTreePath("wiki/config/package.json")).toBe(true);
+    expect(isHiddenFileTreePath("wiki/config/tsconfig.json")).toBe(true);
+    expect(isHiddenFileTreePath("wiki/config/tsconfig.base.json")).toBe(true);
+    expect(isHiddenFileTreePath("wiki/config/tsconfig-notes")).toBe(false);
     expect(isHiddenFileTreeAssetPath("sources/paper-images/img-000.jpg")).toBe(true);
     expect(isHiddenFileTreeAssetPath("sources/paper-images/diagram.svg")).toBe(true);
     expect(isHiddenFileTreeAssetPath("sources/paper-images/table.csv")).toBe(false);
     expect(
       buildCompactTreeFromManifest(
-        [{ slug: "wiki/image-analysis/notes" }, { slug: "wiki/education/images/index" }],
+        [
+          { slug: "wiki/image-analysis/notes" },
+          { slug: "wiki/education/images/index" },
+          { slug: "wiki/config/package.json" },
+          { slug: "wiki/config/tsconfig.json" },
+        ],
         [
           { kind: "file", path: "wiki/media/images/scan.png" },
+          { kind: "file", path: "wiki/config/package.json" },
+          { kind: "file", path: "wiki/config/tsconfig.json" },
           { kind: "file", path: "sources/paper-images/img-000.jpg" },
           { kind: "pdf", path: "sources/images/pathology-slide.pdf" },
           { kind: "pdf", path: "sources/people/providers/stanford/telli.pdf" },
