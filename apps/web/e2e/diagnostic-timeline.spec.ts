@@ -14,6 +14,13 @@ test.describe("diagnostic timeline", () => {
       "ctDNA and Molecular Response",
     );
     await expect(page.getByTestId("timeline-detail-panel")).toHaveCount(0);
+    await expect(page.getByTestId("timeline-sticky-header")).toHaveCSS(
+      "position",
+      "sticky",
+    );
+    await expect(page.getByTestId("timeline-visible-range-label")).toContainText(
+      "Apr 2",
+    );
 
     const weekTickCount = await page.getByTestId("timeline-week-tick").count();
     const monthTickCount = await page.getByTestId("timeline-month-tick").count();
@@ -74,13 +81,58 @@ test.describe("diagnostic timeline", () => {
       cancelable: true,
       clientX: plotBox!.x + plotBox!.width / 2,
       clientY: plotBox!.y + plotBox!.height / 2,
+      deltaX: -520,
+      deltaY: 0,
+      metaKey: false,
+    });
+    await expect(timeline).not.toHaveAttribute(
+      "data-visible-range",
+      rangeAfterHorizontalScroll ?? "",
+    );
+
+    const rangeAfterLeftScroll = await timeline.getAttribute("data-visible-range");
+    expect(rangeStartTime(rangeAfterLeftScroll)).toBeLessThan(
+      rangeStartTime(rangeAfterHorizontalScroll),
+    );
+
+    await plotPanel.dispatchEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: plotBox!.x + plotBox!.width / 2,
+      clientY: plotBox!.y + plotBox!.height / 2,
       deltaX: 0,
       deltaY: -400,
       metaKey: true,
     });
     await expect(timeline).not.toHaveAttribute(
       "data-visible-range",
-      rangeAfterHorizontalScroll ?? "",
+      rangeAfterLeftScroll ?? "",
+    );
+
+    await page.getByRole("button", { name: "Reset timeline range" }).click();
+    await expect(timeline).toHaveAttribute(
+      "data-visible-range",
+      `2026-04-02:${todayInPacificTime()}`,
+    );
+
+    const rangeAfterReset = await timeline.getAttribute("data-visible-range");
+    const overviewWindow = page.getByTestId("timeline-overview-window");
+    const overviewBox = await overviewWindow.boundingBox();
+    expect(overviewBox).not.toBeNull();
+    await page.mouse.move(
+      overviewBox!.x + overviewBox!.width / 2,
+      overviewBox!.y + overviewBox!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      overviewBox!.x + overviewBox!.width / 2 + 120,
+      overviewBox!.y + overviewBox!.height / 2,
+      { steps: 6 },
+    );
+    await page.mouse.up();
+    await expect(timeline).not.toHaveAttribute(
+      "data-visible-range",
+      rangeAfterReset ?? "",
     );
 
     await page.getByRole("button", { name: "Reset timeline range" }).click();
@@ -117,6 +169,11 @@ test.describe("diagnostic timeline", () => {
     await expect(page.getByTestId("timeline-track-signatera")).toHaveCount(0);
   });
 });
+
+function rangeStartTime(range: string | null) {
+  if (!range) return Number.NaN;
+  return Date.parse(`${range.split(":")[0]}T00:00:00Z`);
+}
 
 function todayInPacificTime() {
   const parts = new Intl.DateTimeFormat("en-CA", {

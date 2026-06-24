@@ -7,6 +7,7 @@ import {
   useReducer,
   useRef,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
@@ -116,7 +117,6 @@ type TimelineAction =
   | { type: "hideEvent"; eventId?: string }
   | { type: "setDrag"; drag: DragState | null }
   | { type: "setFilter"; filter: string }
-  | { type: "setTooltipAnchor"; anchor: TooltipAnchor | null }
   | { type: "setVisibleRange"; range: DateRange | ((range: DateRange) => DateRange) }
   | { type: "showEvent"; anchor: TooltipAnchor; eventId: string }
   | { type: "toggleSleeve"; sleeveId: string };
@@ -212,6 +212,9 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
   const allEventDots = useMemo(() => flattenEvents(data.sleeves), [data.sleeves]);
   const activeX = activeEvent
     ? percentForDate(activeEvent.event.date, visibleRange)
+    : null;
+  const activeOverviewX = activeEvent
+    ? percentForDate(activeEvent.event.date, fullRange)
     : null;
 
   const clearTooltipHide = useCallback(() => {
@@ -342,28 +345,17 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
         visibleRange.end,
       )}`}
     >
-      <TimelineControls
-        activeX={activeX}
-        eventDots={allEventDots}
-        filter={filter}
-        fullRange={fullRange}
-        onFilterChange={(nextFilter) =>
-          dispatch({ type: "setFilter", filter: nextFilter })
-        }
-        onPreset={setPreset}
-        onResetRange={resetRange}
-        onZoom={zoomBy}
-        visibleEventCount={visibleEventCount}
-        visibleRange={visibleRange}
-      />
-
-      <div className="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
-        <TimelineAxis
+      <div className="rounded-lg border border-border bg-background shadow-sm">
+        <TimelineStickyHeader
+          activeOverviewX={activeOverviewX}
           activeX={activeX}
+          eventDots={allEventDots}
+          fullRange={fullRange}
           monthTicks={monthTicks}
+          onRangeChange={setVisibleRange}
           onWheel={dragHandlers.onWheel}
-          weekTicks={weekTicks}
           visibleRange={visibleRange}
+          weekTicks={weekTicks}
         />
 
         <TimelineSleeves
@@ -380,6 +372,17 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
           weekTicks={weekTicks}
         />
       </div>
+
+      <TimelineFooterControls
+        filter={filter}
+        onFilterChange={(nextFilter) =>
+          dispatch({ type: "setFilter", filter: nextFilter })
+        }
+        onPreset={setPreset}
+        onResetRange={resetRange}
+        onZoom={zoomBy}
+        visibleEventCount={visibleEventCount}
+      />
 
       {activeEvent && tooltipAnchor?.eventId === activeEvent.event.id ? (
         <TimelineTooltip
@@ -411,8 +414,6 @@ function timelineReducer(state: TimelineState, action: TimelineAction): Timeline
       return { ...state, drag: action.drag };
     case "setFilter":
       return { ...state, filter: action.filter };
-    case "setTooltipAnchor":
-      return { ...state, tooltipAnchor: action.anchor };
     case "setVisibleRange":
       return {
         ...state,
@@ -439,125 +440,167 @@ function timelineReducer(state: TimelineState, action: TimelineAction): Timeline
   }
 }
 
-function TimelineControls({
+function TimelineStickyHeader({
+  activeOverviewX,
   activeX,
   eventDots,
-  filter,
   fullRange,
+  monthTicks,
+  onRangeChange,
+  onWheel,
+  visibleRange,
+  weekTicks,
+}: {
+  activeOverviewX: number | null;
+  activeX: number | null;
+  eventDots: TimelineEventRef[];
+  fullRange: DateRange;
+  monthTicks: TimelineTick[];
+  onRangeChange: (range: DateRange | ((range: DateRange) => DateRange)) => void;
+  onWheel: (event: ReactWheelEvent<HTMLElement>) => void;
+  visibleRange: DateRange;
+  weekTicks: TimelineTick[];
+}) {
+  return (
+    <div
+      className="sticky top-0 z-40 rounded-t-lg border-b border-border bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/88"
+      data-test-id="timeline-sticky-header"
+    >
+      <div className="grid grid-cols-[minmax(148px,220px)_minmax(0,1fr)] border-b border-border/80">
+        <div className="border-r border-border px-3 py-3">
+          <div className="text-[11px] font-medium uppercase tracking-normal text-muted-foreground">
+            Visible window
+          </div>
+          <div
+            className="mt-1 text-base font-semibold tracking-normal text-foreground"
+            data-test-id="timeline-visible-range-label"
+          >
+            {formatRange(visibleRange)}
+          </div>
+        </div>
+        <div className="min-w-0 border-l border-border/60 px-3 py-2">
+          <Overview
+            activeX={activeOverviewX}
+            events={eventDots}
+            fullRange={fullRange}
+            onRangeChange={onRangeChange}
+            visibleRange={visibleRange}
+          />
+        </div>
+      </div>
+
+      <TimelineAxis
+        activeX={activeX}
+        monthTicks={monthTicks}
+        onWheel={onWheel}
+        weekTicks={weekTicks}
+        visibleRange={visibleRange}
+      />
+    </div>
+  );
+}
+
+function TimelineFooterControls({
+  filter,
   onFilterChange,
   onPreset,
   onResetRange,
   onZoom,
   visibleEventCount,
-  visibleRange,
 }: {
-  activeX: number | null;
-  eventDots: TimelineEventRef[];
   filter: string;
-  fullRange: DateRange;
   onFilterChange: (filter: string) => void;
   onPreset: (preset: "all" | "mrd" | "recent") => void;
   onResetRange: () => void;
   onZoom: (factor: number) => void;
   visibleEventCount: number;
-  visibleRange: DateRange;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-background p-3 shadow-sm">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-56 flex-1 sm:max-w-sm">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              aria-label="Filter timeline results"
-              value={filter}
-              onChange={(event) => onFilterChange(event.target.value)}
-              className="h-8 w-full rounded-lg border border-border bg-background pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50 focus:ring-3 focus:ring-ring/20"
-              placeholder="Filter results..."
-              data-test-id="timeline-filter"
-            />
-          </div>
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onPreset("all")}
-              aria-label="Show full timeline"
-            >
-              All
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onPreset("mrd")}
-              aria-label="Focus molecular result window"
-            >
-              MRD
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onPreset("recent")}
-              aria-label="Focus recent results"
-            >
-              Recent
-            </Button>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              onClick={() => onZoom(0.7)}
-              aria-label="Zoom in"
-              title="Zoom in"
-            >
-              <ZoomIn className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              onClick={() => onZoom(1.35)}
-              aria-label="Zoom out"
-              title="Zoom out"
-            >
-              <ZoomOut className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              onClick={onResetRange}
-              aria-label="Reset timeline range"
-              title="Reset range"
-            >
-              <RotateCcw className="size-4" />
-            </Button>
-          </div>
+    <div className="grid gap-2 rounded-lg border border-border bg-background p-3 text-sm shadow-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-56 flex-1 sm:max-w-sm">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            aria-label="Filter timeline results"
+            value={filter}
+            onChange={(event) => onFilterChange(event.target.value)}
+            className="h-8 w-full rounded-lg border border-border bg-background pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50 focus:ring-3 focus:ring-ring/20"
+            placeholder="Filter results..."
+            data-test-id="timeline-filter"
+          />
         </div>
-
-        <Overview
-          activeX={activeX}
-          events={eventDots}
-          fullRange={fullRange}
-          visibleRange={visibleRange}
-        />
-
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <Badge variant="outline" className="gap-1.5">
-            <SlidersHorizontal className="size-3" />
-            {visibleEventCount} shown
-          </Badge>
-          <Badge variant="outline">Reported</Badge>
-          <Badge variant="destructive">Flagged</Badge>
-          <Badge variant="outline" className="border-dashed">
-            Planned
-          </Badge>
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => onPreset("all")}
+            aria-label="Show full timeline"
+          >
+            All
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => onPreset("mrd")}
+            aria-label="Focus molecular result window"
+          >
+            MRD
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => onPreset("recent")}
+            aria-label="Focus recent results"
+          >
+            Recent
+          </Button>
         </div>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            onClick={() => onZoom(0.7)}
+            aria-label="Zoom in"
+            title="Zoom in"
+          >
+            <ZoomIn className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            onClick={() => onZoom(1.35)}
+            aria-label="Zoom out"
+            title="Zoom out"
+          >
+            <ZoomOut className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            onClick={onResetRange}
+            aria-label="Reset timeline range"
+            title="Reset range"
+          >
+            <RotateCcw className="size-4" />
+          </Button>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <Badge variant="outline" className="gap-1.5">
+          <SlidersHorizontal className="size-3" />
+          {visibleEventCount} shown
+        </Badge>
+        <Badge variant="outline">Reported</Badge>
+        <Badge variant="destructive">Flagged</Badge>
+        <Badge variant="outline" className="border-dashed">
+          Planned
+        </Badge>
       </div>
     </div>
   );
@@ -663,9 +706,15 @@ function TimelineAxis({
   visibleRange: DateRange;
 }) {
   return (
-    <div className="grid grid-cols-[minmax(148px,220px)_minmax(0,1fr)] border-b border-border bg-background">
-      <div className="border-r border-border px-3 py-2 text-xs font-medium uppercase tracking-normal text-muted-foreground">
-        {formatRange(visibleRange)}
+    <div
+      className="grid grid-cols-[minmax(148px,220px)_minmax(0,1fr)] bg-background"
+      data-test-id="timeline-calendar-axis"
+    >
+      <div className="border-r border-border px-3 py-2">
+        <div className="text-[11px] font-medium uppercase tracking-normal text-muted-foreground">
+          Calendar
+        </div>
+        <div className="mt-0.5 text-xs font-semibold text-foreground">Weeks</div>
       </div>
       <div className="relative min-w-0 overflow-x-auto">
         <div
@@ -1081,19 +1130,84 @@ function Overview({
   activeX,
   events,
   fullRange,
+  onRangeChange,
   visibleRange,
 }: {
   activeX: number | null;
   events: TimelineEventRef[];
   fullRange: DateRange;
+  onRangeChange: (range: DateRange | ((range: DateRange) => DateRange)) => void;
   visibleRange: DateRange;
 }) {
+  const overviewRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{
+    initialRange: DateRange;
+    startX: number;
+    width: number;
+  } | null>(null);
   const left = percentForTime(visibleRange.start, fullRange);
   const right = percentForTime(visibleRange.end, fullRange);
 
+  const dragWindow = useCallback(
+    (clientX: number) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const fullSpan = fullRange.end - fullRange.start;
+      const delta = ((clientX - drag.startX) / drag.width) * fullSpan;
+      onRangeChange(panRangeByTime(drag.initialRange, fullRange, delta));
+    },
+    [fullRange, onRangeChange],
+  );
+
+  const onWindowPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (event.button !== 0) return;
+      const rect = overviewRef.current?.getBoundingClientRect();
+      if (!rect || rect.width <= 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      dragRef.current = {
+        initialRange: visibleRange,
+        startX: event.clientX,
+        width: rect.width,
+      };
+    },
+    [visibleRange],
+  );
+
+  const onWindowPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (!dragRef.current) return;
+      event.preventDefault();
+      dragWindow(event.clientX);
+    },
+    [dragWindow],
+  );
+
+  const stopWindowDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragRef.current = null;
+  }, []);
+
+  const onWindowKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLElement>) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const span = visibleRange.end - visibleRange.start;
+      const direction = event.key === "ArrowLeft" ? -1 : 1;
+      const step = span * (event.shiftKey ? 0.25 : 0.1) * direction;
+      onRangeChange(panRangeByTime(visibleRange, fullRange, step));
+    },
+    [fullRange, onRangeChange, visibleRange],
+  );
+
   return (
     <div
-      className="relative mt-3 h-12 overflow-hidden rounded-lg border border-border bg-muted/40"
+      ref={overviewRef}
+      className="relative h-14 overflow-hidden rounded-lg border border-border bg-muted/40"
       data-test-id="timeline-overview"
     >
       {events.map(({ event, track }) => {
@@ -1115,13 +1229,21 @@ function Overview({
           />
         );
       })}
-      <div
-        className="absolute inset-y-0 rounded-md border-x-2 border-primary/60 bg-primary/10"
+      <button
+        type="button"
+        aria-label={`Drag visible timeline window, ${formatRange(visibleRange)}`}
+        className="absolute inset-y-1 cursor-grab rounded-md border-x-2 border-primary/70 bg-primary/15 transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/35 active:cursor-grabbing"
+        data-test-id="timeline-overview-window"
+        onKeyDown={onWindowKeyDown}
+        onPointerCancel={stopWindowDrag}
+        onPointerDown={onWindowPointerDown}
+        onPointerMove={onWindowPointerMove}
+        onPointerUp={stopWindowDrag}
         style={{ left: `${left}%`, width: `${Math.max(1, right - left)}%` }}
       />
       {activeX !== null && activeX >= 0 && activeX <= 100 ? (
         <div
-          className="absolute inset-y-0 border-l border-primary/70"
+          className="pointer-events-none absolute inset-y-0 border-l border-primary/70"
           style={{ left: `${activeX}%` }}
         />
       ) : null}
@@ -1232,13 +1354,7 @@ function usePlotDragHandlers({
           const span = currentRange.end - currentRange.start;
           const delta = (panPixels / rect.width) * span;
 
-          return clampRange(
-            {
-              start: currentRange.start + delta,
-              end: currentRange.end + delta,
-            },
-            fullRange,
-          );
+          return panRangeByTime(currentRange, fullRange, delta);
         });
         return;
       }
@@ -1434,6 +1550,16 @@ function clampRange(range: DateRange, fullRange: DateRange): DateRange {
   }
 
   return { start, end };
+}
+
+function panRangeByTime(range: DateRange, fullRange: DateRange, delta: number) {
+  return clampRange(
+    {
+      start: range.start + delta,
+      end: range.end + delta,
+    },
+    fullRange,
+  );
 }
 
 function percentForDate(date: string, range: DateRange) {
