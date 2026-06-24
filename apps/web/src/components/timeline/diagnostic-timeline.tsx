@@ -48,6 +48,7 @@ const TRACK_HEIGHT = 48;
 const SERIES_TOP = 8;
 const SERIES_BOTTOM = 38;
 const PLOT_MIN_WIDTH = 920;
+const TIMELINE_LABEL_COLUMN = "minmax(180px,260px)";
 const DRILLDOWN_WIDTH = 1120;
 const DRILLDOWN_HEIGHT = 420;
 const DRILLDOWN_AXIS_SLOT_WIDTH = 54;
@@ -561,7 +562,10 @@ function TimelineStickyHeader({
         </div>
       </div>
 
-      <div className="grid grid-cols-[minmax(148px,220px)_minmax(0,1fr)] border-b border-border/80">
+      <div
+        className="grid border-b border-border/80"
+        style={{ gridTemplateColumns: `${TIMELINE_LABEL_COLUMN} minmax(0, 1fr)` }}
+      >
         <div className="border-r border-border px-3 py-2">
           <div className="text-[11px] font-medium uppercase tracking-normal text-muted-foreground">
             Overview
@@ -735,6 +739,7 @@ function DrilldownChart({
   tracks: DiagnosticTimelineTrack[];
 }) {
   const plot = DRILLDOWN_PLOT;
+  const [visibleRange, setVisibleRange] = useState(fullRange);
   const [tooltip, setTooltip] = useState<DrilldownTooltipState | null>(null);
   const [activeAxisTrackId, setActiveAxisTrackId] = useState<string | null>(null);
   const drilldownTracks: Array<{
@@ -768,8 +773,8 @@ function DrilldownChart({
       });
     }
   });
-  const monthTicks = buildMonthTicks(fullRange.start, fullRange.end);
-  const weekTicks = buildWeekTicks(fullRange.start, fullRange.end);
+  const monthTicks = buildMonthTicks(visibleRange.start, visibleRange.end);
+  const weekTicks = buildWeekTicks(visibleRange.start, visibleRange.end);
   const chartTracks = drilldownTracks.map((track, index) => ({
     ...track,
     axis: drilldownAxisPlacement(index, drilldownTracks.length, plot),
@@ -805,6 +810,27 @@ function DrilldownChart({
     setActiveAxisTrackId(null);
     setTooltip(null);
   }, []);
+  const onChartWheel = useCallback(
+    (event: ReactWheelEvent<HTMLDivElement>) => {
+      if (!event.metaKey || Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
+      event.preventDefault();
+      hideTooltip();
+      const rect = event.currentTarget.getBoundingClientRect();
+      const contentX = event.clientX - rect.left + event.currentTarget.scrollLeft;
+      const cursorPercent = Math.min(
+        Math.max((contentX - plot.left) / (plot.right - plot.left), 0),
+        1,
+      );
+      const cursorTime = timeForPercent(cursorPercent, visibleRange);
+      const factor = event.deltaY > 0 ? 1.16 : 0.86;
+      setVisibleRange((currentRange) => {
+        const nextStart = cursorTime - (cursorTime - currentRange.start) * factor;
+        const nextEnd = cursorTime + (currentRange.end - cursorTime) * factor;
+        return clampRange({ start: nextStart, end: nextEnd }, fullRange);
+      });
+    },
+    [fullRange, hideTooltip, plot.left, plot.right, visibleRange],
+  );
 
   return (
     <div className="grid gap-2 overflow-hidden rounded-lg border border-border bg-background p-3">
@@ -819,6 +845,10 @@ function DrilldownChart({
       <div
         className="relative overflow-x-auto overscroll-x-contain rounded-md bg-muted/20"
         data-test-id="timeline-drilldown-chart"
+        data-visible-range={`${formatIsoDate(visibleRange.start)}:${formatIsoDate(
+          visibleRange.end,
+        )}`}
+        onWheel={onChartWheel}
         onPointerLeave={hideTooltip}
       >
         <div
@@ -899,7 +929,7 @@ function DrilldownChart({
             );
           })}
           {weekTicks.map((tick) => {
-            const x = chartX(tick.time, fullRange, plot);
+            const x = chartX(tick.time, visibleRange, plot);
             return (
               <line
                 key={`drill-week-${tick.time}`}
@@ -914,7 +944,7 @@ function DrilldownChart({
             );
           })}
           {monthTicks.map((tick) => {
-            const x = chartX(tick.time, fullRange, plot);
+            const x = chartX(tick.time, visibleRange, plot);
             return (
               <g key={`drill-month-${tick.time}`}>
                 <line
@@ -968,7 +998,7 @@ function DrilldownChart({
             vectorEffect="non-scaling-stroke"
           />
           {chartTracks.map(({ domain, events, track }) => {
-            const path = drilldownPath(events, domain, track, fullRange, plot);
+            const path = drilldownPath(events, domain, track, visibleRange, plot);
             return (
               <g key={`series-${track.id}`}>
                 {path ? (
@@ -992,7 +1022,7 @@ function DrilldownChart({
                     } on ${formatDisplayDate(event.date)}`}
                     data-test-id={`timeline-drilldown-point-${track.id}-${event.id}`}
                     key={`point-${track.id}-${event.id}`}
-                    cx={chartX(toTime(event.date), fullRange, plot)}
+                    cx={chartX(toTime(event.date), visibleRange, plot)}
                     cy={chartY(event.value ?? 0, domain, track.scale, plot)}
                     r="5"
                     fill={track.color}
@@ -1029,7 +1059,7 @@ function DrilldownChart({
                 )}`}
                 data-test-id={`timeline-drilldown-event-${track.id}-${event.id}`}
                 key={`event-${track.id}-${event.id}`}
-                cx={chartX(toTime(event.date), fullRange, plot)}
+                cx={chartX(toTime(event.date), visibleRange, plot)}
                 cy={chartY(0.5, [0, 1], "linear", plot)}
                 r="5"
                 fill={track.color}
@@ -1264,27 +1294,26 @@ function TimelineSleeves({
 
         return (
           <section key={sleeve.id} data-test-id={`timeline-sleeve-${sleeve.id}`}>
-            <div className="grid w-full grid-cols-[minmax(148px,220px)_minmax(0,1fr)] items-center bg-muted/50">
-              <button
-                type="button"
-                onClick={() => onToggleSleeve(sleeve.id)}
-                className="flex min-w-0 items-center gap-2 border-r border-border px-3 py-2.5 text-left text-sm font-semibold text-foreground transition-colors hover:bg-muted/70"
-              >
-                {collapsed ? (
-                  <ChevronRight className="size-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="size-4 text-muted-foreground" />
-                )}
-                <span className="truncate">{sleeve.label}</span>
-                <span className="text-xs font-medium text-muted-foreground">
-                  {eventCount}
-                </span>
-              </button>
-              <div
-                className="flex h-full min-w-0 items-center justify-between gap-2 border-l-4 px-3 py-2.5 text-xs text-muted-foreground"
-                style={{ borderColor: sleeve.tone }}
-              >
-                <span className="min-w-0 truncate">{sleeve.description}</span>
+            <div
+              className="grid w-full items-center bg-muted/50"
+              style={{ gridTemplateColumns: `${TIMELINE_LABEL_COLUMN} minmax(0, 1fr)` }}
+            >
+              <div className="flex min-w-0 items-center gap-1 border-r border-border px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => onToggleSleeve(sleeve.id)}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-0.5 text-left text-sm font-semibold text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+                >
+                  {collapsed ? (
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <span className="min-w-0 truncate">{sleeve.label}</span>
+                  <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                    {eventCount}
+                  </span>
+                </button>
                 <Button
                   type="button"
                   variant="ghost"
@@ -1293,9 +1322,16 @@ function TimelineSleeves({
                   aria-label={`Inspect ${sleeve.label}`}
                   title={`Inspect ${sleeve.label}`}
                   data-test-id={`timeline-inspect-sleeve-${sleeve.id}`}
+                  className="shrink-0"
                 >
                   <Search className="size-4" />
                 </Button>
+              </div>
+              <div
+                className="flex h-full min-w-0 items-center gap-2 border-l-4 px-3 py-2.5 text-xs text-muted-foreground"
+                style={{ borderColor: sleeve.tone }}
+              >
+                <span className="min-w-0 truncate">{sleeve.description}</span>
               </div>
             </div>
 
@@ -1341,8 +1377,9 @@ function TimelineAxis({
 }) {
   return (
     <div
-      className="grid grid-cols-[minmax(148px,220px)_minmax(0,1fr)] bg-background"
+      className="grid bg-background"
       data-test-id="timeline-calendar-axis"
+      style={{ gridTemplateColumns: `${TIMELINE_LABEL_COLUMN} minmax(0, 1fr)` }}
     >
       <div className="border-r border-border px-3 py-2">
         <div className="text-[11px] font-medium uppercase tracking-normal text-muted-foreground">
@@ -1433,8 +1470,9 @@ function TimelineTrackRow({
 
   return (
     <div
-      className="grid min-h-12 grid-cols-[minmax(148px,220px)_minmax(0,1fr)] border-t border-border/70 first:border-t-0"
+      className="grid min-h-12 border-t border-border/70 first:border-t-0"
       data-test-id={`timeline-track-${track.id}`}
+      style={{ gridTemplateColumns: `${TIMELINE_LABEL_COLUMN} minmax(0, 1fr)` }}
     >
       <div className="flex min-w-0 items-center gap-2 border-r border-border bg-background px-3">
         <span

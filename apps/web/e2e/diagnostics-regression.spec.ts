@@ -157,7 +157,24 @@ test.describe("diagnostics regressions", () => {
     await expect(dialog.getByTestId("timeline-drilldown-axis-personalis")).toContainText(
       "NeXT Personal",
     );
-    await expect(dialog.getByTestId("timeline-drilldown-chart")).toBeVisible();
+    const drilldownChart = dialog.getByTestId("timeline-drilldown-chart");
+    await expect(drilldownChart).toBeVisible();
+    const rangeBeforeZoom = await drilldownChart.getAttribute("data-visible-range");
+    const chartBox = await drilldownChart.boundingBox();
+    expect(chartBox).not.toBeNull();
+    await drilldownChart.dispatchEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: chartBox!.x + chartBox!.width / 2,
+      clientY: chartBox!.y + chartBox!.height / 2,
+      deltaX: 0,
+      deltaY: -360,
+      metaKey: true,
+    });
+    await expect(drilldownChart).not.toHaveAttribute(
+      "data-visible-range",
+      rangeBeforeZoom ?? "",
+    );
     const ctdnaAxes = await dialog
       .getByTestId("timeline-drilldown-chart")
       .evaluate((chartElement) => {
