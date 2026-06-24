@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import {
   Activity,
   Archive,
@@ -52,6 +59,7 @@ import {
   setNavigationIntent,
   useNavigationPathname,
 } from "@/lib/navigation-intent";
+import { SidebarTreeSkeleton } from "@/components/sidebar-tree-skeleton";
 
 export function formatName(name: string): string {
   return formatFileLabel(name);
@@ -182,11 +190,15 @@ export function TreeNode({
   activePathname,
   node,
   depth = 0,
+  expandedSlugs,
+  onDirectoryToggle,
   onNavigate,
 }: {
   activePathname: string;
   node: FileNode;
   depth?: number;
+  expandedSlugs?: Map<string, boolean>;
+  onDirectoryToggle?: (slug: string, open: boolean) => void;
   onNavigate?: () => void;
 }) {
   const pathname = activePathname;
@@ -198,7 +210,13 @@ export function TreeNode({
     setPrevPathname(pathname);
     setUserToggle(null);
   }
-  const open = userToggle !== null ? userToggle : shouldOpen;
+  const controlledOpen = expandedSlugs?.get(node.slug);
+  const open =
+    controlledOpen !== undefined
+      ? controlledOpen
+      : userToggle !== null
+        ? userToggle
+        : shouldOpen;
   const isActive = pathname === `/${node.slug}`;
   const isTopLevel = depth === 0;
   const SectionIcon =
@@ -255,7 +273,14 @@ export function TreeNode({
         <button
           type="button"
           aria-expanded={open}
-          onClick={() => setUserToggle(!open)}
+          onClick={() => {
+            const nextOpen = !open;
+            if (onDirectoryToggle) {
+              onDirectoryToggle(node.slug, nextOpen);
+            } else {
+              setUserToggle(nextOpen);
+            }
+          }}
           className="group flex w-full items-center rounded-md text-left text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]"
           style={{
             height: `${ROW_HEIGHT}px`,
@@ -288,9 +313,11 @@ export function TreeNode({
             {node.children?.map((child) => (
               <TreeNode
                 activePathname={activePathname}
+                expandedSlugs={expandedSlugs}
                 key={fileTreeNodeKey(child)}
                 node={child}
                 depth={depth + 1}
+                onDirectoryToggle={onDirectoryToggle}
                 onNavigate={onNavigate}
               />
             ))}
@@ -557,9 +584,43 @@ function SidebarFooter() {
   );
 }
 
+function SidebarChrome({ children }: { children: ReactNode }) {
+  return (
+    <aside
+      className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
+      data-test-id="sidebar"
+    >
+      <WorkspaceHeader />
+      {children}
+      <SidebarFooter />
+    </aside>
+  );
+}
+
+export function SidebarLoading() {
+  return (
+    <SidebarChrome>
+      <SidebarTreeSkeleton />
+    </SidebarChrome>
+  );
+}
+
 export function Sidebar({ tree }: { tree: FileNode[] }) {
   const pathname = useNavigationPathname();
   const navRef = useRef<HTMLElement>(null);
+  const [expandedSlugs, setExpandedSlugs] = useState(() => new Map<string, boolean>());
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setExpandedSlugs(new Map());
+  }
+  const handleDirectoryToggle = useCallback((slug: string, open: boolean) => {
+    setExpandedSlugs((current) => {
+      const next = new Map(current);
+      next.set(slug, open);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -588,11 +649,7 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
   }, [pathname]);
 
   return (
-    <aside
-      className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
-      data-test-id="sidebar"
-    >
-      <WorkspaceHeader />
+    <SidebarChrome>
       <nav
         ref={navRef}
         className="min-h-0 flex-1 select-none overflow-y-auto px-1.5 py-2"
@@ -603,12 +660,13 @@ export function Sidebar({ tree }: { tree: FileNode[] }) {
         {tree.map((node) => (
           <TreeNode
             activePathname={pathname}
+            expandedSlugs={expandedSlugs}
             key={fileTreeNodeKey(node)}
             node={node}
+            onDirectoryToggle={handleDirectoryToggle}
           />
         ))}
       </nav>
-      <SidebarFooter />
-    </aside>
+    </SidebarChrome>
   );
 }

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "sonner";
@@ -7,10 +8,10 @@ import { NavigationShell } from "@/components/navigation-shell";
 import { WebChatRuntimeProvider } from "@/components/chat-runtime-provider";
 import { PageLoadingSkeleton } from "@/components/page-loading";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { SidebarTreeSkeleton } from "@/components/sidebar-tree-skeleton";
 import type { FileNode } from "@/lib/markdown";
 import { getSitePublishVersion } from "@/lib/site-publish-version";
 import { DEFAULT_SITE_SLUG, toSiteSlug } from "@/lib/site";
-import { formatFileLabel } from "@/lib/file-labels";
 import "../globals.css";
 import "@liveblocks/react-ui/styles.css";
 import "katex/dist/katex.min.css";
@@ -85,61 +86,83 @@ async function getInitialTreeVersion(siteSlug: string) {
   return getSitePublishVersion(siteSlug);
 }
 
-function fallbackHref(node: FileNode) {
-  if (node.type === "pdf") {
-    return `/api/file?path=${encodeURIComponent(node.pdfPath ?? node.slug)}`;
-  }
-  return `/${node.slug}`;
-}
-
-function FallbackTree({
-  nodes,
-  depth = 0,
-}: {
-  nodes: FileNode[];
-  depth?: number;
-}) {
+function FallbackWorkspaceHeader() {
   return (
-    <>
-      {nodes.map((node) => {
-        if (node.type === "directory") {
-          const shouldRenderChildren = depth === 0 && node.slug === "about";
-
-          return (
-            <div key={node.slug}>
-              <button
-                type="button"
-                className="flex w-full items-center gap-1 px-2 py-1 text-left text-sm"
-              >
-                <span aria-hidden="true">▼</span>
-                <span>{formatFileLabel(node.name)}</span>
-              </button>
-              {shouldRenderChildren ? (
-                <div className="pl-3">
-                  <FallbackTree nodes={node.children ?? []} depth={depth + 1} />
-                </div>
-              ) : null}
-            </div>
-          );
-        }
-
-        return (
-          <a
-            key={node.slug}
-            href={fallbackHref(node)}
-            className="block px-2 py-1 text-sm"
-            target={node.type === "pdf" ? "_blank" : undefined}
-            rel={node.type === "pdf" ? "noopener noreferrer" : undefined}
+    <div className="flex h-12 shrink-0 items-center gap-1 px-2">
+      <button
+        type="button"
+        aria-label="Workspace menu"
+        data-test-id="sidebar-workspace-trigger"
+        className="group flex h-9 max-w-[calc(100%-2.5rem)] items-center gap-2 rounded-md px-2 text-left text-sm font-semibold text-[var(--foreground)]"
+      >
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 32 32"
+          className="shrink-0 rounded-md"
+          aria-hidden="true"
+        >
+          <rect width="32" height="32" rx="6" fill="#4f46e5" />
+          <text
+            x="16"
+            y="23"
+            fontFamily="system-ui, -apple-system, sans-serif"
+            fontSize="22"
+            fontWeight="700"
+            fill="white"
+            textAnchor="middle"
           >
-            {formatFileLabel(node.name)}
-          </a>
-        );
-      })}
-    </>
+            D
+          </text>
+        </svg>
+        <span className="min-w-0 flex-1 truncate">Diana TNBC</span>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="shrink-0 opacity-50"
+          aria-hidden="true"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+    </div>
   );
 }
 
-function ShellFallback({ tree }: { tree: FileNode[] }) {
+function FallbackSidebarFooter() {
+  return (
+    <div className="shrink-0 px-3 pb-3 pt-1">
+      <div className="flex items-stretch overflow-hidden rounded-lg border border-[var(--sidebar-border)] bg-[var(--popover)] shadow-sm">
+        <Link
+          href="/chat"
+          className="flex flex-1 items-center justify-center gap-2 px-3 py-2 text-[13px] text-[var(--text-muted)]"
+          data-test-id="sidebar-ask-wiki"
+        >
+          Ask wiki
+        </Link>
+        <div
+          aria-hidden="true"
+          className="w-px shrink-0 self-stretch bg-[var(--sidebar-border)]"
+        />
+        <button
+          type="button"
+          className="flex flex-1 items-center justify-center gap-2 px-3 py-2 text-[13px] text-[var(--text-muted)]"
+          data-test-id="sidebar-search"
+        >
+          Search
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ShellFallback() {
   return (
     <>
       <div
@@ -177,12 +200,13 @@ function ShellFallback({ tree }: { tree: FileNode[] }) {
               <polyline points="11 4 7 8 11 12" />
             </svg>
           </button>
-          <aside className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex">
-            <div className="h-12 shrink-0 px-3" />
-            <nav className="min-h-0 flex-1 overflow-y-auto px-1 py-2">
-              <FallbackTree nodes={tree} />
-            </nav>
-            <div className="h-16 shrink-0" />
+          <aside
+            className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
+            data-test-id="sidebar"
+          >
+            <FallbackWorkspaceHeader />
+            <SidebarTreeSkeleton />
+            <FallbackSidebarFooter />
           </aside>
         </div>
         <div data-sidebar-expanded-rail className="w-[3px] shrink-0 bg-[var(--sidebar-border)]" />
@@ -205,7 +229,7 @@ export default async function MainLayout({
   const siteSlug = toSiteSlug(process.env.SITE_SLUG ?? DEFAULT_SITE_SLUG);
   const shellTree = STATIC_SHELL_TREE;
   const treeVersion = await getInitialTreeVersion(siteSlug);
-  const shellFallback = <ShellFallback tree={shellTree} />;
+  const shellFallback = <ShellFallback />;
 
   return (
     <ConvexClientProvider>

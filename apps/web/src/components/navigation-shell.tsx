@@ -11,21 +11,10 @@ import {
 } from "@/components/command-palette";
 import { ResizableLayout } from "@/components/resizable-layout";
 import { DiagnosticsSidebar } from "@/components/diagnostics-sidebar";
-import { Sidebar } from "@/components/sidebar";
+import { Sidebar, SidebarLoading } from "@/components/sidebar";
 import { useNavigationFileTree } from "@/components/use-navigation-file-tree";
 import { ConversationList } from "@oncobase/chat";
 import type { CommandPaletteCompactFileNode } from "@oncobase/wiki-shell";
-
-function SidebarFallback() {
-  return (
-    <aside
-      className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
-      data-test-id="sidebar-loading"
-    >
-      <nav className="flex-1 min-h-0 overflow-y-auto p-2" />
-    </aside>
-  );
-}
 
 export function NavigationShell({
   children,
@@ -39,7 +28,7 @@ export function NavigationShell({
   treeVersion: string;
 }) {
   const pathname = usePathname();
-  const tree = useNavigationFileTree({
+  const fileTree = useNavigationFileTree({
     enabled: !pathname.startsWith("/chat"),
     initialTree,
     treeVersion,
@@ -50,7 +39,9 @@ export function NavigationShell({
   }
 
   const usesDiagnosticsSidebar = pathname.startsWith("/tools/dicom-viewer");
-  const hasFileTree = tree.length > 0 && !pathname.startsWith("/chat");
+  const hasFileTree =
+    fileTree.ready && fileTree.tree.length > 0 && !pathname.startsWith("/chat");
+  const navigationTree = hasFileTree ? fileTree.tree : [];
   const sidebar = pathname.startsWith("/chat") ? (
     <aside
       className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
@@ -63,15 +54,15 @@ export function NavigationShell({
   ) : usesDiagnosticsSidebar ? (
     <DiagnosticsSidebar />
   ) : hasFileTree ? (
-    <Sidebar tree={tree} />
+    <Sidebar tree={fileTree.tree} />
   ) : (
-    <SidebarFallback />
+    <SidebarLoading />
   );
 
   return (
     <>
       <ResizableLayout sidebar={sidebar}>{children}</ResizableLayout>
-      <BottomNav tree={tree} />
+      <BottomNav tree={navigationTree} />
       {hasFileTree ? (
         <>
           <CommandPalette initialCompactTree={initialCompactTree} />

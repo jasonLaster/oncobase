@@ -134,6 +134,24 @@ export function useNavigationFileTree({
 
   return useMemo(() => {
     const compactTree = sessionCompactTree ?? publicCompactTree;
-    return compactTree ? expandCompactFileTree(compactTree) : initialTree;
-  }, [initialTree, publicCompactTree, sessionCompactTree]);
+    const publicResolved = publicCompactTree !== undefined || Boolean(publicError);
+    const sessionResolved = sessionCompactTree !== undefined || Boolean(sessionError);
+    const ready =
+      shouldLoadFileTree &&
+      (Array.isArray(compactTree) || (publicResolved && sessionResolved));
+
+    return {
+      ready,
+      tree: Array.isArray(compactTree)
+        ? expandCompactFileTree(compactTree)
+        : initialTree,
+    };
+  }, [
+    initialTree,
+    publicCompactTree,
+    publicError,
+    sessionCompactTree,
+    sessionError,
+    shouldLoadFileTree,
+  ]);
 }
