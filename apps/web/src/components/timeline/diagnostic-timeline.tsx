@@ -54,7 +54,7 @@ const DRILLDOWN_WIDTH = 1120;
 const DRILLDOWN_HEIGHT = 420;
 const DRILLDOWN_AXIS_SLOT_WIDTH = 54;
 const DRILLDOWN_PLOT = { bottom: 336, left: 198, right: 1084, top: 42 };
-const DRILLDOWN_MAX_DAY_WIDTH = 20;
+const DRILLDOWN_MAX_DAY_WIDTH = 40;
 const DRILLDOWN_MIN_RANGE_MS =
   Math.ceil(
     (DRILLDOWN_PLOT.right - DRILLDOWN_PLOT.left) / DRILLDOWN_MAX_DAY_WIDTH,
@@ -70,7 +70,6 @@ const WEEK_TICK_FORMATTER = new Intl.DateTimeFormat("en-US", {
 });
 const DAY_TICK_FORMATTER = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
-  month: "short",
   timeZone: "UTC",
 });
 const DISPLAY_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
@@ -1082,11 +1081,13 @@ function DrilldownChart({
                 />
                 <text
                   x={x + 4}
-                  y={plot.bottom + 18}
+                  y={plot.bottom + 20}
                   fill="currentColor"
                   fontSize="11"
                   fontWeight="500"
                   opacity="0.68"
+                  textAnchor="start"
+                  transform={`rotate(45 ${x + 4} ${plot.bottom + 20})`}
                 >
                   {tick.label}
                 </text>

@@ -275,16 +275,31 @@ test.describe("diagnostics regressions", () => {
     }
     await expect
       .poll(async () => Number(await drilldownChart.getAttribute("data-visible-range-days")))
-      .toBeGreaterThanOrEqual(44);
+      .toBeGreaterThanOrEqual(22);
     await expect
       .poll(async () => Number(await drilldownChart.getAttribute("data-visible-range-days")))
-      .toBeLessThanOrEqual(45);
+      .toBeLessThanOrEqual(23);
     await expect
       .poll(async () => Number(await drilldownChart.getAttribute("data-visible-day-width-px")))
-      .toBeLessThanOrEqual(20);
+      .toBeLessThanOrEqual(40);
     await expect(
       drilldownChart.getByTestId("timeline-drilldown-day-tick"),
     ).not.toHaveCount(0);
+    const dayTickLabels = await drilldownChart.evaluate((chartElement) =>
+      Array.from(
+        chartElement.querySelectorAll(
+          '[data-test-id="timeline-drilldown-day-tick"] + text',
+        ),
+      ).map((label) => ({
+        text: label.textContent ?? "",
+        transform: label.getAttribute("transform") ?? "",
+      })),
+    );
+    expect(dayTickLabels.length).toBeGreaterThan(0);
+    for (const label of dayTickLabels) {
+      expect(label.text).toMatch(/^\d+$/);
+      expect(label.transform).toContain("rotate(45");
+    }
     const zoomScrollMetrics = await drilldownChart.evaluate((chartElement) => {
       const chart = chartElement as HTMLElement;
       const svg = chart.querySelector(
