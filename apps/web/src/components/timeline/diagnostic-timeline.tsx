@@ -44,7 +44,6 @@ import { cn } from "@/lib/utils";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MIN_RANGE_MS = 10 * MS_PER_DAY;
-const DRILLDOWN_MIN_RANGE_MS = MS_PER_DAY;
 const TRACK_HEIGHT = 48;
 const SERIES_TOP = 8;
 const SERIES_BOTTOM = 38;
@@ -55,6 +54,11 @@ const DRILLDOWN_WIDTH = 1120;
 const DRILLDOWN_HEIGHT = 420;
 const DRILLDOWN_AXIS_SLOT_WIDTH = 54;
 const DRILLDOWN_PLOT = { bottom: 336, left: 198, right: 1084, top: 42 };
+const DRILLDOWN_MAX_DAY_WIDTH = 20;
+const DRILLDOWN_MIN_RANGE_MS =
+  Math.ceil(
+    (DRILLDOWN_PLOT.right - DRILLDOWN_PLOT.left) / DRILLDOWN_MAX_DAY_WIDTH,
+  ) * MS_PER_DAY;
 const MONTH_TICK_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
   timeZone: "UTC",
@@ -959,6 +963,10 @@ function DrilldownChart({
         data-visible-range-days={Math.round(
           (visibleRange.end - visibleRange.start) / MS_PER_DAY,
         )}
+        data-visible-day-width-px={(
+          ((plot.right - plot.left) * MS_PER_DAY) /
+          (visibleRange.end - visibleRange.start)
+        ).toFixed(2)}
         data-visible-range={`${formatIsoDate(visibleRange.start)}:${formatIsoDate(
           visibleRange.end,
         )}`}

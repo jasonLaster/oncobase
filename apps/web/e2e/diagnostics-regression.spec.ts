@@ -275,10 +275,13 @@ test.describe("diagnostics regressions", () => {
     }
     await expect
       .poll(async () => Number(await drilldownChart.getAttribute("data-visible-range-days")))
-      .toBeGreaterThanOrEqual(1);
+      .toBeGreaterThanOrEqual(44);
     await expect
       .poll(async () => Number(await drilldownChart.getAttribute("data-visible-range-days")))
-      .toBeLessThanOrEqual(3);
+      .toBeLessThanOrEqual(45);
+    await expect
+      .poll(async () => Number(await drilldownChart.getAttribute("data-visible-day-width-px")))
+      .toBeLessThanOrEqual(20);
     await expect(
       drilldownChart.getByTestId("timeline-drilldown-day-tick"),
     ).not.toHaveCount(0);
@@ -295,11 +298,16 @@ test.describe("diagnostics regressions", () => {
       };
     });
     expect(zoomScrollMetrics.scrollWidth).toBeGreaterThan(
-      zoomScrollMetrics.clientWidth * 5,
+      zoomScrollMetrics.clientWidth * 1.2,
     );
     expect(zoomScrollMetrics.svgWidth).toBeGreaterThan(
-      zoomScrollMetrics.clientWidth * 5,
+      zoomScrollMetrics.clientWidth * 1.2,
     );
+    await drilldownChart.evaluate((chartElement) => {
+      const chart = chartElement as HTMLElement;
+      chart.scrollLeft = 0;
+      chart.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
     const startAfterZoom = await visibleStartTime(drilldownChart);
     await drilldownChart.dispatchEvent("wheel", {
       bubbles: true,
