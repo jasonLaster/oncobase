@@ -14,7 +14,7 @@ test.describe("Header shell", () => {
     expect(html).toContain('aria-label="Workspace menu"');
     expect(html).toContain("Diana TNBC");
     expect(html).toContain('data-test-id="sidebar-view-comments"');
-    expect(html).toContain('href="/index"');
+    expect(html).toContain('href="/chat"');
     expect(html).toContain("Ask wiki");
     expect(html).toContain('data-test-id="sidebar-search"');
   });

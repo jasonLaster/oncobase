@@ -110,7 +110,7 @@ async function blockAppScripts(page: Page) {
 }
 
 function sidebar(page: Page) {
-  return page.getByTestId("sidebar");
+  return page.locator('[data-test-id="sidebar"]:visible').first();
 }
 
 async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
@@ -121,10 +121,10 @@ async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
   const sb = sidebar(page);
 
   await expect(sb).toBeVisible();
-  await expect(page.getByTestId("sidebar-workspace-trigger")).toBeVisible();
-  await expect(page.getByTestId("sidebar-search")).toBeVisible();
-  await expect(page.getByTestId("sidebar-ask-wiki")).toBeVisible();
-  await expect(page.getByTestId("sidebar")).not.toContainText("File tree");
+  await expect(sb.getByTestId("sidebar-workspace-trigger")).toBeVisible();
+  await expect(sb.getByTestId("sidebar-search")).toBeVisible();
+  await expect(sb.getByTestId("sidebar-ask-wiki")).toBeVisible();
+  await expect(sb).not.toContainText("File tree");
 
   const sidebarBox = await sb.boundingBox();
   expect(sidebarBox).not.toBeNull();
