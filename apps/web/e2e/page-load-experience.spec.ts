@@ -148,6 +148,25 @@ test.describe("Page load experience", () => {
     });
   }
 
+  test("desktop sidebar renders the shell tree while the full file tree is pending", async ({ page }) => {
+    await page.setViewportSize(desktopViewport);
+    await page.route("**/api/file-tree**", async (route) => {
+      await delay(2_000);
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([["d", "wiki", [["f", "index"]]]]),
+      });
+    });
+
+    await page.goto(withMagicLink("/about/Index"), { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByTestId("sidebar")).toBeVisible();
+    await expect(page.getByTestId("sidebar").getByRole("button", { name: "wiki" })).toBeVisible({
+      timeout: 500,
+    });
+    await expect(page.getByLabel("Loading page tree")).toHaveCount(0);
+  });
+
   test("desktop initial paint honors a collapsed sidebar preference", async ({ page }) => {
     await page.setViewportSize(desktopViewport);
     await page.addInitScript(() => {

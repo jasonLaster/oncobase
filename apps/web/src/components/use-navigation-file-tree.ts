@@ -11,6 +11,7 @@ import { useHasHydrated } from "@/components/use-has-hydrated";
 import {
   fileTreeCacheKey,
   readCachedCompactTree,
+  readLatestCachedCompactTree,
   writeCachedCompactTree,
 } from "@/components/navigation-file-tree-cache";
 
@@ -32,7 +33,7 @@ async function fetchCompactFileTree([
   url.searchParams.set("cacheKey", storageKey);
 
   const response = await fetch(url, {
-    cache: "no-cache",
+    cache: scope === "public" ? "default" : "no-store",
     credentials: "same-origin",
     headers: { Accept: "application/json" },
   });
@@ -49,6 +50,39 @@ async function fetchCompactFileTree([
     writeCachedCompactTree(storageKey, compactTree);
   }
   return compactTree;
+}
+
+export function resolveNavigationFileTree({
+  enabled,
+  initialTree,
+  publicCompactTree,
+  publicError,
+  sessionCompactTree,
+  sessionError,
+}: {
+  enabled: boolean;
+  initialTree: FileNode[];
+  publicCompactTree?: CompactFileNode[] | null;
+  publicError?: unknown;
+  sessionCompactTree?: CompactFileNode[] | null;
+  sessionError?: unknown;
+}) {
+  const compactTree = sessionCompactTree ?? publicCompactTree;
+  const publicResolved = publicCompactTree !== undefined || Boolean(publicError);
+  const sessionResolved = sessionCompactTree !== undefined || Boolean(sessionError);
+  const hasInitialTree = initialTree.length > 0;
+  const ready =
+    enabled &&
+    (hasInitialTree ||
+      Array.isArray(compactTree) ||
+      (publicResolved && sessionResolved));
+
+  return {
+    ready,
+    tree: Array.isArray(compactTree)
+      ? expandCompactFileTree(compactTree)
+      : initialTree,
+  };
 }
 
 export function useNavigationFileTree({
@@ -79,7 +113,11 @@ export function useNavigationFileTree({
     [sessionStorageKey, shouldLoadFileTree],
   );
   const cachedPublicTree = useMemo(
-    () => (shouldLoadFileTree ? readCachedCompactTree(publicStorageKey) : null),
+    () =>
+      shouldLoadFileTree
+        ? (readCachedCompactTree(publicStorageKey) ??
+          readLatestCachedCompactTree())
+        : null,
     [publicStorageKey, shouldLoadFileTree],
   );
 
@@ -132,26 +170,19 @@ export function useNavigationFileTree({
     }
   }, [sessionError]);
 
-  return useMemo(() => {
-    const compactTree = sessionCompactTree ?? publicCompactTree;
-    const publicResolved = publicCompactTree !== undefined || Boolean(publicError);
-    const sessionResolved = sessionCompactTree !== undefined || Boolean(sessionError);
-    const ready =
-      shouldLoadFileTree &&
-      (Array.isArray(compactTree) || (publicResolved && sessionResolved));
-
-    return {
-      ready,
-      tree: Array.isArray(compactTree)
-        ? expandCompactFileTree(compactTree)
-        : initialTree,
-    };
-  }, [
+  return useMemo(() => resolveNavigationFileTree({
+    enabled,
     initialTree,
     publicCompactTree,
     publicError,
     sessionCompactTree,
     sessionError,
-    shouldLoadFileTree,
+  }), [
+    enabled,
+    initialTree,
+    publicCompactTree,
+    publicError,
+    sessionCompactTree,
+    sessionError,
   ]);
 }
