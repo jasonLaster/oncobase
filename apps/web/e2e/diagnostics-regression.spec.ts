@@ -164,8 +164,19 @@ test.describe("diagnostics regressions", () => {
       0,
     );
 
-    await mobileTimeline.getByTestId("mobile-toggle-sleeve-molecular").click();
     const swimlanes = mobileTimeline.getByTestId("mobile-swimlanes-molecular");
+    await expect
+      .poll(
+        async () => {
+          const currentCount = await swimlanes.count();
+          if (currentCount > 0) return currentCount;
+          await mobileTimeline.getByTestId("mobile-toggle-sleeve-molecular").click();
+          await page.waitForTimeout(50);
+          return swimlanes.count();
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(1);
     await expect(swimlanes).toBeVisible();
     await expect(swimlanes.getByTestId("mobile-swimlane-track-signatera")).toBeVisible();
     await expect(
@@ -179,6 +190,24 @@ test.describe("diagnostics regressions", () => {
     const bottomSheet = page.getByTestId("mobile-timeline-bottom-sheet");
     await expect(bottomSheet).toContainText("Signatera");
     await expect(bottomSheet).toContainText("0.17 MTM/mL positive");
+
+    const timeline = page.getByTestId("diagnostic-timeline");
+    const rangeBeforePan = await timeline.getAttribute("data-visible-range");
+    const signateraPan = swimlanes.getByTestId("mobile-swimlane-pan-signatera");
+    const signateraPanBox = await signateraPan.boundingBox();
+    expect(signateraPanBox).not.toBeNull();
+    await page.mouse.move(
+      signateraPanBox!.x + signateraPanBox!.width * 0.72,
+      signateraPanBox!.y + signateraPanBox!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      signateraPanBox!.x + signateraPanBox!.width * 0.72 + 90,
+      signateraPanBox!.y + signateraPanBox!.height / 2,
+      { steps: 5 },
+    );
+    await page.mouse.up();
+    await expect(timeline).not.toHaveAttribute("data-visible-range", rangeBeforePan ?? "");
   });
 
   test("timeline imaging tooltips link to imaging and the DICOM viewer", async ({

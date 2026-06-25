@@ -501,6 +501,11 @@ function MobileDiagnosticTimeline({
     0,
   );
   const nearbySleeves = data.sleeves.filter((sleeve) => sleeve.id !== "blood-counts");
+  const mobilePanHandlers = useMobileTimelinePanHandlers({
+    fullRange,
+    onRangeChange,
+    visibleRange,
+  });
 
   if (!bloodSleeve) return null;
 
@@ -595,6 +600,7 @@ function MobileDiagnosticTimeline({
         </div>
 
         <MobileBloodCountsChart
+          mobilePanHandlers={mobilePanHandlers}
           selectedEventId={selectedRef?.event.id ?? null}
           tracks={bloodTracks}
           visibleRange={visibleRange}
@@ -652,6 +658,7 @@ function MobileDiagnosticTimeline({
               </button>
               {expanded ? (
                 <MobileSleeveSwimlanes
+                  mobilePanHandlers={mobilePanHandlers}
                   onSelectEvent={onMobileSelectEvent}
                   sleeve={sleeve}
                   visibleRange={visibleRange}
@@ -666,10 +673,12 @@ function MobileDiagnosticTimeline({
 }
 
 function MobileSleeveSwimlanes({
+  mobilePanHandlers,
   onSelectEvent,
   sleeve,
   visibleRange,
 }: {
+  mobilePanHandlers: ReturnType<typeof useMobileTimelinePanHandlers>;
   onSelectEvent: (eventId: string) => void;
   sleeve: DiagnosticTimelineSleeve;
   visibleRange: DateRange;
@@ -711,7 +720,14 @@ function MobileSleeveSwimlanes({
                 ) : null}
               </div>
             </div>
-            <div className="relative min-h-14 overflow-hidden bg-muted/10">
+            <div
+              className="relative min-h-14 cursor-grab overflow-hidden bg-muted/10 [touch-action:pan-y] active:cursor-grabbing"
+              data-test-id={`mobile-swimlane-pan-${track.id}`}
+              onPointerCancel={mobilePanHandlers.onPointerCancel}
+              onPointerDown={mobilePanHandlers.onPointerDown}
+              onPointerMove={mobilePanHandlers.onPointerMove}
+              onPointerUp={mobilePanHandlers.onPointerUp}
+            >
               <TimelineGrid
                 monthTicks={buildMonthTicks(visibleRange.start, visibleRange.end)}
                 visibleRange={visibleRange}
@@ -781,6 +797,7 @@ function MobileSleeveSwimlanes({
 }
 
 function MobileBloodCountsChart({
+  mobilePanHandlers,
   monthTicks,
   onSelectEvent,
   selectedEventId,
@@ -788,6 +805,7 @@ function MobileBloodCountsChart({
   visibleRange,
   weekTicks,
 }: {
+  mobilePanHandlers: ReturnType<typeof useMobileTimelinePanHandlers>;
   monthTicks: TimelineTick[];
   onSelectEvent: (eventId: string) => void;
   selectedEventId: string | null;
@@ -805,7 +823,14 @@ function MobileBloodCountsChart({
     : null;
 
   return (
-    <div className="px-2 pb-3">
+    <div
+      className="cursor-grab px-2 pb-3 [touch-action:pan-y] active:cursor-grabbing"
+      data-test-id="mobile-blood-counts-pan"
+      onPointerCancel={mobilePanHandlers.onPointerCancel}
+      onPointerDown={mobilePanHandlers.onPointerDown}
+      onPointerMove={mobilePanHandlers.onPointerMove}
+      onPointerUp={mobilePanHandlers.onPointerUp}
+    >
       <svg
         aria-label="Mobile blood counts trend"
         className="block h-auto w-full rounded-lg bg-muted/20 text-muted-foreground"
@@ -2880,6 +2905,72 @@ function usePlotDragHandlers({
   );
 
   return { onPointerCancel, onPointerDown, onPointerMove, onPointerUp, onWheel };
+}
+
+function useMobileTimelinePanHandlers({
+  fullRange,
+  onRangeChange,
+  visibleRange,
+}: {
+  fullRange: DateRange;
+  onRangeChange: (range: DateRange | ((range: DateRange) => DateRange)) => void;
+  visibleRange: DateRange;
+}) {
+  const dragRef = useRef<{
+    initialRange: DateRange;
+    startX: number;
+    width: number;
+  } | null>(null);
+
+  const onPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (event.button !== 0) return;
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest('button, a, [role="button"]')
+      ) {
+        return;
+      }
+
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      dragRef.current = {
+        initialRange: visibleRange,
+        startX: event.clientX,
+        width: rect.width,
+      };
+    },
+    [visibleRange],
+  );
+
+  const onPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      event.preventDefault();
+
+      const span = drag.initialRange.end - drag.initialRange.start;
+      const delta = ((drag.startX - event.clientX) / drag.width) * span;
+      onRangeChange(panRangeByTime(drag.initialRange, fullRange, delta));
+    },
+    [fullRange, onRangeChange],
+  );
+
+  const stopDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragRef.current = null;
+  }, []);
+
+  return {
+    onPointerCancel: stopDrag,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp: stopDrag,
+  };
 }
 
 function flattenEvents(sleeves: DiagnosticTimelineSleeve[]): TimelineEventRef[] {
