@@ -37,7 +37,7 @@ test.describe("Chat", () => {
 
   test("Ask wiki footer button navigates to chat", async ({ page }) => {
     await page.goto("/");
-    const askWiki = page.getByTestId("sidebar-ask-wiki");
+    const askWiki = page.locator('[data-test-id="sidebar-ask-wiki"]:visible').first();
     await expect(askWiki).toBeVisible();
     await askWiki.click();
     await expect(page).toHaveURL(/\/chat/, { timeout: 15_000 });
