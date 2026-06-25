@@ -123,6 +123,64 @@ test.describe("diagnostics regressions", () => {
     await expect(pageTree.getByTestId("sidebar-view-timeline")).toHaveCount(0);
   });
 
+  test("mobile diagnostics renders the blood-count chart and bottom sheet", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/diagnostics", { waitUntil: "domcontentloaded" });
+
+    const mobileTimeline = page.getByTestId("mobile-diagnostic-timeline");
+    await expect(mobileTimeline).toBeVisible();
+    await expect(page.getByTestId("timeline-sticky-header")).toBeHidden();
+    await expect(mobileTimeline.getByTestId("mobile-blood-counts-chart")).toBeVisible();
+    await expect(mobileTimeline.getByRole("button", { name: "All" })).toHaveCount(0);
+    await expect(mobileTimeline.getByRole("button", { name: "Blood" })).toHaveCount(
+      0,
+    );
+
+    const bottomSheet = page.getByTestId("mobile-timeline-bottom-sheet");
+    await expect(bottomSheet).toBeVisible();
+    await expect(bottomSheet).toContainText("May 26, 2026");
+    await expect(bottomSheet).toContainText("Hemoglobin");
+    await expect(bottomSheet).toContainText("10.7 g/dL low");
+    await expect(bottomSheet.getByRole("link", { name: "CBC" })).toHaveAttribute(
+      "href",
+      "/sources/diagnostics/ucsf-mychart-test-results/04-may-26-2026-cbc-w-auto-diff-lab-only",
+    );
+
+    await mobileTimeline.getByRole("button", { name: /ANC: 0\.79/ }).focus();
+    await page.keyboard.press("Enter");
+    await expect(bottomSheet).toContainText("ANC");
+    await expect(bottomSheet).toContainText("0.79 x10E9/L low");
+  });
+
+  test("mobile diagnostics category rows expand to swimlanes", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/diagnostics", { waitUntil: "domcontentloaded" });
+
+    const mobileTimeline = page.getByTestId("mobile-diagnostic-timeline");
+    await expect(mobileTimeline).toBeVisible();
+    await expect(mobileTimeline.getByTestId("mobile-swimlanes-molecular")).toHaveCount(
+      0,
+    );
+
+    await mobileTimeline.getByTestId("mobile-toggle-sleeve-molecular").click();
+    const swimlanes = mobileTimeline.getByTestId("mobile-swimlanes-molecular");
+    await expect(swimlanes).toBeVisible();
+    await expect(swimlanes.getByTestId("mobile-swimlane-track-signatera")).toBeVisible();
+    await expect(
+      swimlanes.getByTestId("mobile-swimlane-track-personalis"),
+    ).toBeVisible();
+    await expect(swimlanes.getByTestId("mobile-swimlane-track-guardant")).toBeVisible();
+
+    await swimlanes
+      .getByTestId("mobile-swimlane-event-signatera-2026-05-28")
+      .click();
+    const bottomSheet = page.getByTestId("mobile-timeline-bottom-sheet");
+    await expect(bottomSheet).toContainText("Signatera");
+    await expect(bottomSheet).toContainText("0.17 MTM/mL positive");
+  });
+
   test("timeline imaging tooltips link to imaging and the DICOM viewer", async ({
     page,
   }) => {

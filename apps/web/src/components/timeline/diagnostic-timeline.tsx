@@ -15,6 +15,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import {
+  CalendarDays,
   ChevronDown,
   ChevronRight,
   ExternalLink,
@@ -218,6 +219,9 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
   const [drilldownTarget, setDrilldownTarget] = useState<DrilldownTarget | null>(
     null,
   );
+  const [mobileSelectedEventId, setMobileSelectedEventId] = useState<string | null>(
+    null,
+  );
   const tooltipHideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allEventRefs = useMemo(() => flattenEvents(data.sleeves), [data.sleeves]);
@@ -372,7 +376,17 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
         visibleRange.end,
       )}`}
     >
-      <div className="rounded-lg border border-border bg-background shadow-sm">
+      <MobileDiagnosticTimeline
+        data={data}
+        fullRange={fullRange}
+        mobileSelectedEventId={mobileSelectedEventId}
+        onMobileSelectEvent={setMobileSelectedEventId}
+        onRangeChange={setVisibleRange}
+        onResetRange={resetRange}
+        visibleRange={visibleRange}
+      />
+
+      <div className="hidden rounded-lg border border-border bg-background shadow-sm md:block">
         <TimelineStickyHeader
           activeOverviewX={activeOverviewX}
           activeX={activeX}
@@ -429,6 +443,556 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
         />
       ) : null}
     </section>
+  );
+}
+
+function MobileDiagnosticTimeline({
+  data,
+  fullRange,
+  mobileSelectedEventId,
+  onMobileSelectEvent,
+  onRangeChange,
+  onResetRange,
+  visibleRange,
+}: {
+  data: DiagnosticTimelineData;
+  fullRange: DateRange;
+  mobileSelectedEventId: string | null;
+  onMobileSelectEvent: (eventId: string) => void;
+  onRangeChange: (range: DateRange | ((range: DateRange) => DateRange)) => void;
+  onResetRange: () => void;
+  visibleRange: DateRange;
+}) {
+  const allEventRefs = useMemo(() => flattenEvents(data.sleeves), [data.sleeves]);
+  const bloodSleeve =
+    data.sleeves.find((sleeve) => sleeve.id === "blood-counts") ?? null;
+  const bloodTracks = useMemo(
+    () =>
+      bloodSleeve?.tracks.filter((track) => numericEventsForTrack(track).length > 0) ??
+      [],
+    [bloodSleeve],
+  );
+  const defaultSelectedRef = useMemo(
+    () => defaultMobileSelectedEventRef(bloodSleeve, allEventRefs),
+    [allEventRefs, bloodSleeve],
+  );
+  const [expandedMobileSleeveId, setExpandedMobileSleeveId] = useState<string | null>(
+    null,
+  );
+  const selectedRef =
+    (mobileSelectedEventId
+      ? allEventRefs.find((item) => item.event.id === mobileSelectedEventId)
+      : null) ??
+    defaultSelectedRef ??
+    allEventRefs[0] ??
+    null;
+  const selectedOverviewX = selectedRef
+    ? percentForDate(selectedRef.event.date, fullRange)
+    : null;
+  const bloodEventCount = bloodTracks.reduce(
+    (total, track) => total + reportedEventsForTrack(track).length,
+    0,
+  );
+  const flaggedCount = bloodTracks.reduce(
+    (total, track) =>
+      total +
+      reportedEventsForTrack(track).filter((event) => event.status === "flagged")
+        .length,
+    0,
+  );
+  const nearbySleeves = data.sleeves.filter((sleeve) => sleeve.id !== "blood-counts");
+
+  if (!bloodSleeve) return null;
+
+  return (
+    <div className="grid gap-3 md:hidden" data-test-id="mobile-diagnostic-timeline">
+      <section className="rounded-lg border border-border bg-background shadow-sm">
+        <div className="flex items-start justify-between gap-3 border-b border-border/80 px-3 py-3">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold tracking-normal text-foreground">
+              Diagnostics
+            </h2>
+            <div
+              className="mt-0.5 text-xs font-medium text-muted-foreground"
+              data-test-id="mobile-timeline-visible-range-label"
+            >
+              {formatRange(visibleRange)}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label="Search diagnostics"
+              title="Search"
+            >
+              <Search className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label="Change date window"
+              title="Date window"
+              onClick={onResetRange}
+            >
+              <CalendarDays className="size-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="px-3 py-3">
+          <Overview
+            activeX={selectedOverviewX}
+            events={allEventRefs}
+            fullRange={fullRange}
+            onRangeChange={onRangeChange}
+            visibleRange={visibleRange}
+          />
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+        <div className="flex items-start justify-between gap-3 border-b border-border/80 px-3 py-3">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <h3 className="truncate text-base font-semibold text-foreground">
+                {bloodSleeve.label}
+              </h3>
+              <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                {bloodEventCount}
+              </span>
+            </div>
+            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+              {bloodSleeve.description}
+            </p>
+          </div>
+          {flaggedCount > 0 ? (
+            <Badge variant="destructive" className="shrink-0">
+              Flagged
+            </Badge>
+          ) : null}
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto px-3 py-3">
+          {bloodTracks.map((track) => (
+            <button
+              aria-label={`Show ${track.label}`}
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border bg-background px-3 text-xs font-medium text-foreground/90"
+              key={track.id}
+              style={{ borderColor: `${track.color}66` }}
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                className="size-2 rounded-full"
+                style={{ backgroundColor: track.color }}
+              />
+              {track.label}
+            </button>
+          ))}
+        </div>
+
+        <MobileBloodCountsChart
+          selectedEventId={selectedRef?.event.id ?? null}
+          tracks={bloodTracks}
+          visibleRange={visibleRange}
+          weekTicks={buildWeekTicks(visibleRange.start, visibleRange.end)}
+          monthTicks={buildMonthTicks(visibleRange.start, visibleRange.end)}
+          onSelectEvent={onMobileSelectEvent}
+        />
+      </section>
+
+      {selectedRef ? <MobileTimelineBottomSheet selectedRef={selectedRef} /> : null}
+
+      <div className="grid gap-2 pb-4">
+        {nearbySleeves.slice(0, 4).map((sleeve) => {
+          const count = sleeve.tracks.reduce(
+            (total, track) => total + track.events.length,
+            0,
+          );
+          const expanded = expandedMobileSleeveId === sleeve.id;
+          return (
+            <div
+              className="overflow-hidden rounded-lg border border-border bg-background"
+              key={sleeve.id}
+              data-test-id={`mobile-timeline-sleeve-${sleeve.id}`}
+            >
+              <button
+                aria-expanded={expanded}
+                className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+                data-test-id={`mobile-toggle-sleeve-${sleeve.id}`}
+                onClick={() =>
+                  setExpandedMobileSleeveId(expanded ? null : sleeve.id)
+                }
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  className="h-9 w-1 rounded-full"
+                  style={{ backgroundColor: sleeve.tone }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium text-foreground">
+                      {sleeve.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{count}</span>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {sleeve.description}
+                  </p>
+                </div>
+                {expanded ? (
+                  <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                )}
+              </button>
+              {expanded ? (
+                <MobileSleeveSwimlanes
+                  onSelectEvent={onMobileSelectEvent}
+                  sleeve={sleeve}
+                  visibleRange={visibleRange}
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MobileSleeveSwimlanes({
+  onSelectEvent,
+  sleeve,
+  visibleRange,
+}: {
+  onSelectEvent: (eventId: string) => void;
+  sleeve: DiagnosticTimelineSleeve;
+  visibleRange: DateRange;
+}) {
+  return (
+    <div
+      className="divide-y divide-border/70 border-t border-border/80"
+      data-test-id={`mobile-swimlanes-${sleeve.id}`}
+    >
+      {sleeve.tracks.map((track) => {
+        const visibleEvents = track.events.filter((event) =>
+          eventIntersectsRange(event, visibleRange),
+        );
+        const seriesEvents = visibleEvents.filter(
+          (event) => typeof event.value === "number",
+        );
+        const path = buildSeriesPath(seriesEvents, track, visibleRange);
+
+        return (
+          <div
+            className="grid min-h-14 grid-cols-[minmax(108px,36%)_minmax(0,1fr)]"
+            data-test-id={`mobile-swimlane-track-${track.id}`}
+            key={track.id}
+          >
+            <div className="flex min-w-0 items-center gap-2 border-r border-border/70 px-3 py-2">
+              <span
+                aria-hidden="true"
+                className="size-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: track.color }}
+              />
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-foreground/90">
+                  {track.label}
+                </div>
+                {track.unit ? (
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    {track.unit}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="relative min-h-14 overflow-hidden bg-muted/10">
+              <TimelineGrid
+                monthTicks={buildMonthTicks(visibleRange.start, visibleRange.end)}
+                visibleRange={visibleRange}
+                weekTicks={buildWeekTicks(visibleRange.start, visibleRange.end)}
+              />
+              {path ? (
+                <svg
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+                  preserveAspectRatio="none"
+                  viewBox={`0 0 100 ${TRACK_HEIGHT}`}
+                >
+                  <path
+                    d={path}
+                    fill="none"
+                    stroke={track.color}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeOpacity={0.72}
+                    strokeWidth={2.2}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                </svg>
+              ) : null}
+              {visibleEvents.map((event, index) => {
+                const x = percentForDate(event.date, visibleRange);
+                const top = markerTop(event, track, index);
+                const planned = event.status === "planned";
+                return (
+                  <button
+                    aria-label={`${track.label}: ${
+                      event.valueLabel ?? event.result
+                    } on ${formatDisplayDate(event.date)}`}
+                    className={cn(
+                      "absolute z-10 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/35",
+                      planned ? "border-dashed bg-background" : "border-background",
+                      event.status === "flagged" && "ring-2 ring-red-200",
+                    )}
+                    data-test-id={`mobile-swimlane-event-${event.id}`}
+                    key={event.id}
+                    onClick={() => onSelectEvent(event.id)}
+                    style={{
+                      backgroundColor: planned ? "var(--background)" : track.color,
+                      borderColor: planned ? track.color : "var(--background)",
+                      left: `${x}%`,
+                      top,
+                    }}
+                    type="button"
+                  >
+                    <span className="sr-only">{event.label}</span>
+                    {planned ? (
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-1 rounded-full"
+                        style={{ backgroundColor: track.color }}
+                      />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MobileBloodCountsChart({
+  monthTicks,
+  onSelectEvent,
+  selectedEventId,
+  tracks,
+  visibleRange,
+  weekTicks,
+}: {
+  monthTicks: TimelineTick[];
+  onSelectEvent: (eventId: string) => void;
+  selectedEventId: string | null;
+  tracks: DiagnosticTimelineTrack[];
+  visibleRange: DateRange;
+  weekTicks: TimelineTick[];
+}) {
+  const plot: ChartPlot = { bottom: 132, left: 18, right: 344, top: 20 };
+  const height = 174;
+  const selectedEvent = tracks
+    .flatMap((track) => track.events)
+    .find((event) => event.id === selectedEventId);
+  const selectedX = selectedEvent
+    ? chartX(toTime(selectedEvent.date), visibleRange, plot)
+    : null;
+
+  return (
+    <div className="px-2 pb-3">
+      <svg
+        aria-label="Mobile blood counts trend"
+        className="block h-auto w-full rounded-lg bg-muted/20 text-muted-foreground"
+        data-test-id="mobile-blood-counts-chart"
+        role="img"
+        viewBox={`0 0 360 ${height}`}
+      >
+        <rect width="360" height={height} rx="8" fill="var(--background)" />
+        {[0, 0.33, 0.66, 1].map((tick) => {
+          const y = plot.top + tick * (plot.bottom - plot.top);
+          return (
+            <line
+              key={`mobile-y-${tick}`}
+              x1={plot.left}
+              x2={plot.right}
+              y1={y}
+              y2={y}
+              stroke="currentColor"
+              strokeOpacity="0.12"
+              vectorEffect="non-scaling-stroke"
+            />
+          );
+        })}
+        {weekTicks.map((tick) => (
+          <line
+            key={`mobile-week-${tick.time}`}
+            x1={chartX(tick.time, visibleRange, plot)}
+            x2={chartX(tick.time, visibleRange, plot)}
+            y1={plot.top}
+            y2={plot.bottom}
+            stroke="currentColor"
+            strokeOpacity="0.07"
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        {monthTicks.map((tick) => {
+          const x = chartX(tick.time, visibleRange, plot);
+          return (
+            <g key={`mobile-month-${tick.time}`}>
+              <line
+                x1={x}
+                x2={x}
+                y1={plot.top}
+                y2={plot.bottom}
+                stroke="currentColor"
+                strokeOpacity="0.22"
+                vectorEffect="non-scaling-stroke"
+              />
+              <text
+                x={Math.min(Math.max(x + 4, plot.left + 4), plot.right - 28)}
+                y={plot.bottom + 22}
+                fill="currentColor"
+                fontSize="12"
+                fontWeight="600"
+              >
+                {tick.label}
+              </text>
+            </g>
+          );
+        })}
+        {selectedX !== null && selectedX >= plot.left && selectedX <= plot.right ? (
+          <line
+            x1={selectedX}
+            x2={selectedX}
+            y1={plot.top}
+            y2={plot.bottom}
+            stroke="var(--primary)"
+            strokeOpacity="0.5"
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : null}
+        {tracks.map((track, index) => {
+          const events = numericEventsForTrack(track).filter((event) =>
+            eventIntersectsRange(event, visibleRange),
+          );
+          const domain = domainForTrack(track);
+          const path = mobileSeriesPath(events, domain, track, visibleRange, plot);
+          const latestVisibleEvent = events.at(-1);
+          return (
+            <g key={track.id}>
+              {path ? (
+                <path
+                  d={path}
+                  fill="none"
+                  stroke={track.color}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeOpacity="0.8"
+                  strokeWidth="3"
+                  vectorEffect="non-scaling-stroke"
+                />
+              ) : null}
+              {events.map((event) => {
+                const x = chartX(toTime(event.date), visibleRange, plot);
+                const y = chartY(event.value, domain, track.scale, plot);
+                const selected = event.id === selectedEventId;
+                return (
+                  <circle
+                    aria-label={`${track.label}: ${
+                      event.valueLabel ?? event.result
+                    } on ${formatDisplayDate(event.date)}`}
+                    fill={track.color}
+                    key={event.id}
+                    onClick={() => onSelectEvent(event.id)}
+                    onKeyDown={(keyboardEvent) => {
+                      if (
+                        keyboardEvent.key === "Enter" ||
+                        keyboardEvent.key === " "
+                      ) {
+                        keyboardEvent.preventDefault();
+                        onSelectEvent(event.id);
+                      }
+                    }}
+                    r={selected ? 8 : 5}
+                    role="button"
+                    stroke={selected ? "var(--ring)" : "var(--background)"}
+                    strokeWidth={selected ? 4 : 2}
+                    tabIndex={0}
+                    vectorEffect="non-scaling-stroke"
+                    cx={x}
+                    cy={y}
+                  />
+                );
+              })}
+              {latestVisibleEvent ? (
+                <text
+                  x={plot.right - 2}
+                  y={Math.max(14, 18 + index * 16)}
+                  fill={track.color}
+                  fontSize="11"
+                  fontWeight="700"
+                  textAnchor="end"
+                >
+                  {mobileTrackLabel(track)}
+                </text>
+              ) : null}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function MobileTimelineBottomSheet({
+  selectedRef,
+}: {
+  selectedRef: TimelineEventRef;
+}) {
+  const { event, sleeve, track } = selectedRef;
+  const primaryLink = event.links?.[0] ?? null;
+
+  return (
+    <aside
+      className="mx-1 rounded-lg border bg-card px-4 pb-4 pt-2 text-card-foreground shadow-xl md:hidden"
+      data-test-id="mobile-timeline-bottom-sheet"
+      style={{ borderColor: `${track.color}66` }}
+    >
+      <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted-foreground/40" />
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+            {formatDisplayDate(event.date)} · {sleeve.label}
+          </div>
+          <h3 className="mt-1 text-base font-semibold tracking-normal text-foreground">
+            {event.label}
+          </h3>
+        </div>
+        <Badge
+          variant={event.status === "flagged" ? "destructive" : "outline"}
+          className="shrink-0 capitalize"
+        >
+          {event.status}
+        </Badge>
+      </div>
+      {event.valueLabel ? (
+        <div className="mt-3 break-words font-mono text-2xl font-semibold tracking-normal text-foreground">
+          {event.valueLabel}
+        </div>
+      ) : null}
+      <p className="mt-2 text-sm leading-6 text-foreground/85">{event.result}</p>
+      {primaryLink ? (
+        <div className="mt-3">
+          <TimelineLink link={primaryLink} />
+        </div>
+      ) : null}
+    </aside>
   );
 }
 
@@ -2470,6 +3034,43 @@ function drilldownPath(
       return `${index === 0 ? "M" : "L"} ${x} ${y}`;
     })
     .join(" ");
+}
+
+function mobileSeriesPath(
+  events: Array<DiagnosticTimelineEvent & { value: number }>,
+  domain: [number, number],
+  track: DiagnosticTimelineTrack,
+  visibleRange: DateRange,
+  plot: ChartPlot,
+) {
+  if (events.length < 2) return "";
+  return events
+    .map((event, index) => {
+      const x = chartX(toTime(event.date), visibleRange, plot);
+      const y = chartY(event.value, domain, track.scale, plot);
+      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+    })
+    .join(" ");
+}
+
+function defaultMobileSelectedEventRef(
+  bloodSleeve: DiagnosticTimelineSleeve | null,
+  allEventRefs: TimelineEventRef[],
+) {
+  const hemoglobin = bloodSleeve?.tracks.find((track) => track.id === "hemoglobin");
+  const preferred =
+    hemoglobin?.events.find((event) => event.id === "hgb-2026-05-26") ??
+    hemoglobin?.events.find((event) => event.status === "flagged") ??
+    hemoglobin?.events.at(-1);
+
+  if (!preferred) return null;
+  return allEventRefs.find((item) => item.event.id === preferred.id) ?? null;
+}
+
+function mobileTrackLabel(track: DiagnosticTimelineTrack) {
+  if (track.id === "hemoglobin") return "Hgb";
+  if (track.id === "platelets") return "Plt";
+  return track.label;
 }
 
 interface ChartPlot {
