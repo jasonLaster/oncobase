@@ -60,6 +60,16 @@ at jason.laster.11@gmail.com</redact> today.`;
     );
   });
 
+  test("reveals matching sensitive include redactions in redacted mode", () => {
+    const input =
+      'Status: <redact sensitive-include="serova" fallback="">Serova-only update</redact>.';
+
+    expect(applyPiiRedactions(input)).toBe("Status: .");
+    expect(
+      applyPiiRedactions(input, { sensitiveIncludes: ["serova"] }),
+    ).toBe("Status: Serova-only update.");
+  });
+
   test("applies fallback replacements for known identifiers", () => {
     const input =
       "DIANA LASTER's MRN is 88855655 and the report says Laster, Diana with DOB 12/11/1989. Contact diana.pechter@gmail.com.";

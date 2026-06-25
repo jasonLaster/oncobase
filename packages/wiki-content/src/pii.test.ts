@@ -25,6 +25,36 @@ describe("PII redaction", () => {
     expect(applyPiiRedactions(input, { mode: "revealed" })).toContain("secret");
   });
 
+  test("reveals inline redactions only for matching sensitive include criteria", () => {
+    const input =
+      'Public <redact sensitive-include="serova" fallback="">Serova-only note</redact> done.';
+
+    expect(applyPiiRedactions(input)).toBe("Public  done.");
+    expect(
+      applyPiiRedactions(input, { sensitiveIncludes: ["echo"] }),
+    ).toBe("Public  done.");
+    expect(
+      applyPiiRedactions(input, { sensitiveIncludes: ["serova"] }),
+    ).toBe("Public Serova-only note done.");
+  });
+
+  test("supports fallback labels and sensitive include criteria on block redactions", () => {
+    const input = `Before
+
+:::redact sensitive-include="serova echo" fallback="Vendor detail hidden."
+Serova detail for a matching reader.
+:::
+
+After`;
+
+    expect(applyPiiRedactions(input)).toBe(
+      "Before\n\nVendor detail hidden.\n\nAfter",
+    );
+    expect(
+      applyPiiRedactions(input, { sensitiveIncludes: ["ECHO"] }),
+    ).toBe("Before\n\nSerova detail for a matching reader.\n\nAfter");
+  });
+
   test("uses site-specific patterns without Diana fallback leakage", () => {
     const patterns = parseSitePiiPatterns(["/Friend Name/g=>the friend"]);
     expect(applyPiiRedactions("Friend Name met Diana", { patterns })).toBe(

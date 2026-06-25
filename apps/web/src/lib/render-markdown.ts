@@ -5,10 +5,19 @@ import {
   renderWikiMarkdownHtml,
   renderWikiMarkdownHtmlAsync,
 } from "@oncobase/wiki-markdown/server";
-import { applyPiiRedactions, type PiiRedactionMode } from "@/lib/pii-redaction";
+import {
+  applyPiiRedactions,
+  type ApplyPiiRedactionsOptions,
+  type PiiRedactionMode,
+} from "@/lib/pii-redaction";
 import { MARKDOWN_RENDER_CACHE_VERSION } from "@/lib/wiki-cache-tags";
 
 const CACHE_DIR = path.join(process.cwd(), ".next", "cache", "markdown");
+
+type RenderMarkdownOptions = {
+  redactionMode?: PiiRedactionMode;
+  sensitiveIncludes?: ApplyPiiRedactionsOptions["sensitiveIncludes"];
+};
 
 function ensureCacheDir() {
   if (!fs.existsSync(CACHE_DIR)) {
@@ -31,9 +40,12 @@ function hashKey(md: string): string {
 export function renderMarkdown(
   md: string,
   currentSlug?: string,
-  { redactionMode = "redacted" }: { redactionMode?: PiiRedactionMode } = {},
+  { redactionMode = "redacted", sensitiveIncludes }: RenderMarkdownOptions = {},
 ): string {
-  const redactedMd = applyPiiRedactions(md, { mode: redactionMode });
+  const redactedMd = applyPiiRedactions(md, {
+    mode: redactionMode,
+    sensitiveIncludes,
+  });
   const key = hashKey(`${currentSlug ?? ""}:${redactedMd}`);
   const cachePath = path.join(CACHE_DIR, `${key}.html`);
 
@@ -58,10 +70,13 @@ export function renderMarkdown(
 export async function renderMarkdownAsync(
   md: string,
   currentSlug?: string,
-  { redactionMode = "redacted" }: { redactionMode?: PiiRedactionMode } = {},
+  { redactionMode = "redacted", sensitiveIncludes }: RenderMarkdownOptions = {},
 ): Promise<string> {
   const t0 = performance.now();
-  const redactedMd = applyPiiRedactions(md, { mode: redactionMode });
+  const redactedMd = applyPiiRedactions(md, {
+    mode: redactionMode,
+    sensitiveIncludes,
+  });
   const key = hashKey(`${currentSlug ?? ""}:${redactedMd}`);
   const cachePath = path.join(CACHE_DIR, `${key}.html`);
 

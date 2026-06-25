@@ -1,7 +1,10 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { renderMarkdownAsync } from "@/lib/render-markdown";
 import { getMarkdownFileForSite } from "@/lib/markdown";
-import type { PiiRedactionMode } from "@/lib/pii-redaction";
+import type {
+  ApplyPiiRedactionsOptions,
+  PiiRedactionMode,
+} from "@/lib/pii-redaction";
 import { resolveWikilinks } from "@/lib/wikilinks";
 import { toSiteSlug } from "@/lib/site";
 import {
@@ -19,6 +22,7 @@ export async function renderCachedMarkdownHtmlForSite({
   content,
   includeSensitive,
   redactionMode,
+  sensitiveIncludes,
 }: {
   siteSlug: string;
   slug: string;
@@ -26,6 +30,7 @@ export async function renderCachedMarkdownHtmlForSite({
   content?: string;
   includeSensitive?: boolean;
   redactionMode?: PiiRedactionMode;
+  sensitiveIncludes?: ApplyPiiRedactionsOptions["sensitiveIncludes"];
 }): Promise<string> {
   if (contentHash && content == null) {
     return renderCachedMarkdownHtmlByHash({
@@ -33,6 +38,8 @@ export async function renderCachedMarkdownHtmlForSite({
       slug,
       contentHash,
       includeSensitive,
+      redactionMode,
+      sensitiveIncludes,
       renderCacheVersion: MARKDOWN_RENDER_CACHE_VERSION,
     });
   }
@@ -44,6 +51,7 @@ export async function renderCachedMarkdownHtmlForSite({
     content,
     includeSensitive,
     redactionMode,
+    sensitiveIncludes,
     renderCacheVersion: MARKDOWN_RENDER_CACHE_VERSION,
   });
 }
@@ -53,6 +61,8 @@ async function renderCachedMarkdownHtmlByHash(args: {
   slug: string;
   contentHash: string;
   includeSensitive?: boolean;
+  redactionMode?: PiiRedactionMode;
+  sensitiveIncludes?: ApplyPiiRedactionsOptions["sensitiveIncludes"];
   renderCacheVersion: string;
 }): Promise<string> {
   "use cache";
@@ -61,6 +71,8 @@ async function renderCachedMarkdownHtmlByHash(args: {
     slug,
     contentHash,
     includeSensitive = false,
+    redactionMode = "redacted",
+    sensitiveIncludes,
     renderCacheVersion,
   } = args;
   cacheLife("weeks");
@@ -79,7 +91,10 @@ async function renderCachedMarkdownHtmlByHash(args: {
   }
 
   const resolved = resolveWikilinks(file.content, slug);
-  return await renderMarkdownAsync(resolved, slug);
+  return await renderMarkdownAsync(resolved, slug, {
+    redactionMode,
+    sensitiveIncludes,
+  });
 }
 
 async function renderCachedMarkdownHtml(args: {
@@ -89,10 +104,18 @@ async function renderCachedMarkdownHtml(args: {
   content?: string;
   includeSensitive?: boolean;
   redactionMode?: PiiRedactionMode;
+  sensitiveIncludes?: ApplyPiiRedactionsOptions["sensitiveIncludes"];
   renderCacheVersion: string;
 }): Promise<string> {
   "use cache";
-  const { siteSlug, slug, content, redactionMode = "redacted", renderCacheVersion } = args;
+  const {
+    siteSlug,
+    slug,
+    content,
+    redactionMode = "redacted",
+    sensitiveIncludes,
+    renderCacheVersion,
+  } = args;
   if (content == null) {
     throw new Error(
       `Cannot render markdown cache entry without content: ${siteSlug}/${slug}`,
@@ -107,5 +130,8 @@ async function renderCachedMarkdownHtml(args: {
   );
 
   const resolved = resolveWikilinks(content, slug);
-  return await renderMarkdownAsync(resolved, slug, { redactionMode });
+  return await renderMarkdownAsync(resolved, slug, {
+    redactionMode,
+    sensitiveIncludes,
+  });
 }

@@ -1,6 +1,9 @@
 import { resolveWikilinks } from "@/lib/wikilinks";
 import { renderMarkdown, renderMarkdownAsync } from "@/lib/render-markdown";
-import type { PiiRedactionMode } from "@/lib/pii-redaction";
+import type {
+  ApplyPiiRedactionsOptions,
+  PiiRedactionMode,
+} from "@/lib/pii-redaction";
 import { WikiMarkdownFrame } from "@oncobase/wiki-markdown/frame";
 import { renderCachedMarkdownHtmlForSite } from "@/lib/markdown-render-cache";
 import { MarkdownHeadingAnchors } from "@/components/markdown-heading-anchors";
@@ -18,6 +21,7 @@ type MarkdownRendererProps = {
   contentHash?: string | null;
   includeSensitive?: boolean;
   redactionMode?: PiiRedactionMode;
+  sensitiveIncludes?: ApplyPiiRedactionsOptions["sensitiveIncludes"];
 };
 
 type MarkdownRendererAsyncProps = Omit<MarkdownRendererProps, "content"> & {
@@ -30,9 +34,13 @@ export function MarkdownRenderer({
   disableAnchors,
   anchorScopeKey,
   redactionMode,
+  sensitiveIncludes,
 }: MarkdownRendererProps) {
   const resolved = resolveWikilinks(content, currentSlug);
-  const html = renderMarkdown(resolved, currentSlug, { redactionMode });
+  const html = renderMarkdown(resolved, currentSlug, {
+    redactionMode,
+    sensitiveIncludes,
+  });
 
   return (
     <WikiMarkdownFrame>
@@ -59,6 +67,7 @@ export async function MarkdownRendererAsync({
   contentHash,
   includeSensitive,
   redactionMode,
+  sensitiveIncludes,
 }: MarkdownRendererAsyncProps) {
   if (!contentHash && content == null) {
     throw new Error("MarkdownRendererAsync requires content when contentHash is missing");
@@ -73,9 +82,11 @@ export async function MarkdownRendererAsync({
           content,
           includeSensitive,
           redactionMode,
+          sensitiveIncludes,
         })
       : await renderMarkdownAsync(resolveWikilinks(content ?? "", currentSlug), currentSlug, {
           redactionMode,
+          sensitiveIncludes,
         });
 
   return (

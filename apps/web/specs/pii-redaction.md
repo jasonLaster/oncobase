@@ -13,7 +13,7 @@ Server-side markdown redaction and page-level sensitivity controls for patient-i
 
 ## Non-Goals
 
-- Fine-grained per-span or per-role authorization beyond the signed-in account versus guest boundary.
+- Client-side criteria checks; matching sensitive include criteria must be decided server-side before rendering.
 - Automatic NLP-based redaction of arbitrary identifiers.
 - Client-only hiding of already-rendered sensitive content.
 - Retroactive cleanup of previously generated embeddings in this change set.
@@ -27,6 +27,25 @@ Use inline tags when only a short span should be hidden:
 ```md
 The patient is <redact label="the patient">Diana Laster</redact>.
 MRN: <redact>[internal MRN]</redact>
+```
+
+Use `fallback` as the replacement text when the span should be visible only for
+a matching sensitive include criterion:
+
+```md
+Partner detail: <redact sensitive-include="serova" fallback="">Serova-only note</redact>
+```
+
+Default render:
+
+```md
+Partner detail:
+```
+
+Render when the server passes a matching `serova` criterion:
+
+```md
+Partner detail: Serova-only note
 ```
 
 Default render:
@@ -98,8 +117,11 @@ This is the safe baseline and must be used unless a route explicitly opts into r
 
 - Inline `<redact>` spans are removed from output.
 - Inline spans with `label="..."` render the label instead of the hidden content.
+- Inline spans with `fallback="..."` render the fallback instead of the hidden content.
+- Inline spans with `sensitive-include="..."` reveal their body only when the server-side render call passes a matching include criterion; otherwise they render their fallback or disappear.
 - `:::redact ... :::` blocks are removed from output.
 - Block labels render as replacement text in place of the hidden block.
+- Block redactions may also use `fallback="..."` and `sensitive-include="..."` on the opening marker.
 - Known high-risk literals still get fallback replacement even if they were not explicitly wrapped.
 
 ### Reveal mode: `revealed`
@@ -174,6 +196,7 @@ The feature must remain server-side first.
 
 - Parse block redactions with `:::redact[optional label] ... :::`
 - Parse inline redactions with `<redact label="optional label">...</redact>`
+- Parse `fallback` and `sensitive-include` attributes on redaction tags and block markers
 - Normalize whitespace after removals so documents do not accumulate blank gaps
 - Apply conservative fallback replacements for known patient identifiers that still exist in older source material
 - Expose `shouldShowPii()` and `SHOW_PII_QUERY_PARAM`

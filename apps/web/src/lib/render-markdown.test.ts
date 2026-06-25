@@ -56,6 +56,17 @@ After`,
     expect(html).not.toContain(":::redact");
   });
 
+  test("reveals matching sensitive include redaction tags", () => {
+    const html = renderMarkdown(
+      'Before <redact sensitive-include="serova" fallback="">Serova details</redact> after.',
+      "serova-redaction-example",
+      { sensitiveIncludes: ["serova"] },
+    );
+
+    expect(html).toContain("Before Serova details after.");
+    expect(html).not.toContain("<redact");
+  });
+
   test("preserves Diana-facing labels while redacting full identifiers", () => {
     const html = renderMarkdown(
       "## Relevance to Diana\n\nDiana's treatment context mentions Diana Laster.",

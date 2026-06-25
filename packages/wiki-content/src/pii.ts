@@ -7,7 +7,7 @@ export type PiiPattern = {
   replacement: string;
 };
 
-interface ApplyPiiRedactionsOptions {
+export interface ApplyPiiRedactionsOptions {
   mode?: PiiRedactionMode;
   /**
    * Per-site fallback patterns. Each pattern's `pattern` is applied with
@@ -19,15 +19,24 @@ interface ApplyPiiRedactionsOptions {
    * substitutions leak into the friend's content.
    */
   patterns?: PiiPattern[];
+  /**
+   * Sensitive include criteria granted to the current read. Explicit redaction
+   * tags with a matching `sensitive-include` attribute reveal their body in
+   * redacted mode while unmatched tags continue to render only their fallback.
+   */
+  sensitiveIncludes?: string[];
 }
 
 const TRUTHY_VALUES = new Set(["1", "true", "yes", "on"]);
 
 const BLOCK_REDACTION_RE =
-  /^[\t ]*:::redact(?:\[(.*?)\])?[\t ]*\r?\n([\s\S]*?)^[\t ]*:::[\t ]*$/gm;
+  /^[\t ]*:::redact\b([^\n]*)\r?\n([\s\S]*?)^[\t ]*:::[\t ]*$/gm;
 
 const INLINE_REDACTION_RE =
-  /<redact(?:\s+label=(?:"([^"]*)"|'([^']*)'))?\s*>([\s\S]*?)<\/redact>/gi;
+  /<redact\b([^>]*)>([\s\S]*?)<\/redact>/gi;
+
+const ATTRIBUTE_RE =
+  /([A-Za-z_:][A-Za-z0-9_:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
 
 const DIANA_FALLBACK_REPLACEMENTS: PiiPattern[] = [
   {
@@ -109,6 +118,71 @@ function normalizeMarkdownWhitespace(markdown: string): string {
     .trim();
 }
 
+function parseAttributes(raw: string | undefined): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  if (!raw) return attrs;
+
+  for (const match of raw.matchAll(ATTRIBUTE_RE)) {
+    const key = match[1].trim().toLowerCase();
+    attrs[key] = match[2] ?? match[3] ?? match[4] ?? "";
+  }
+
+  return attrs;
+}
+
+function normalizeSensitiveIncludes(values: string | string[] | undefined) {
+  const rawValues = Array.isArray(values) ? values : values ? [values] : [];
+  return Array.from(
+    new Set(
+      rawValues
+        .flatMap((value) => value.split(/[,\s]+/))
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+}
+
+type RedactionAttributes = {
+  fallback?: string;
+  sensitiveIncludes: string[];
+};
+
+function parseRedactionAttributes(
+  raw: string | undefined,
+  label: string | undefined,
+): RedactionAttributes {
+  const attrs = parseAttributes(raw);
+  return {
+    fallback: attrs.fallback ?? attrs.label ?? label,
+    sensitiveIncludes: normalizeSensitiveIncludes(
+      attrs["sensitive-include"] ?? attrs.sensitiveinclude,
+    ),
+  };
+}
+
+function parseBlockRedactionAttributes(raw: string | undefined) {
+  const source = raw ?? "";
+  const labelMatch = source.match(/\[(.*?)\]/);
+  const label = labelMatch?.[1]?.trim();
+  const attrSource = labelMatch
+    ? `${source.slice(0, labelMatch.index)} ${source.slice(
+        (labelMatch.index ?? 0) + labelMatch[0].length,
+      )}`
+    : source;
+
+  return parseRedactionAttributes(attrSource, label);
+}
+
+function canRevealSensitiveRedaction(
+  requiredIncludes: string[],
+  grantedIncludes: Set<string>,
+) {
+  return (
+    requiredIncludes.length > 0 &&
+    requiredIncludes.some((include) => grantedIncludes.has(include))
+  );
+}
+
 function applyFallbackRedactions(
   markdown: string,
   patterns: PiiPattern[],
@@ -153,7 +227,11 @@ function preserveMarkdownLinkDestinations(
 
 export function applyPiiRedactions(
   markdown: string,
-  { mode = "redacted", patterns }: ApplyPiiRedactionsOptions = {}
+  {
+    mode = "redacted",
+    patterns,
+    sensitiveIncludes,
+  }: ApplyPiiRedactionsOptions = {}
 ): string {
   // When no explicit patterns are provided, fall back to the Diana
   // hardcoded list — preserves single-tenant behavior. Multi-site
@@ -161,28 +239,37 @@ export function applyPiiRedactions(
   // (which yields `[]` for sites without any configured patterns,
   // disabling the fallback entirely for them).
   const effectivePatterns = patterns ?? DIANA_FALLBACK_REPLACEMENTS;
-  const redact = (content: string, label: string | undefined, isBlock: boolean) => {
-    if (mode === "revealed") {
+  const grantedSensitiveIncludes = new Set(
+    normalizeSensitiveIncludes(sensitiveIncludes),
+  );
+  const redact = (
+    content: string,
+    attrs: RedactionAttributes,
+    isBlock: boolean,
+  ) => {
+    if (
+      mode === "revealed" ||
+      canRevealSensitiveRedaction(attrs.sensitiveIncludes, grantedSensitiveIncludes)
+    ) {
       return content;
     }
 
-    return normalizeReplacement(label ?? "", isBlock);
+    return normalizeReplacement(attrs.fallback ?? "", isBlock);
   };
 
   const withoutBlocks = markdown.replace(
     BLOCK_REDACTION_RE,
-    (_match, label: string | undefined, content: string) =>
-      redact(content, label?.trim(), true)
+    (_match, attrs: string | undefined, content: string) =>
+      redact(content, parseBlockRedactionAttributes(attrs), true)
   );
 
   const withoutInline = withoutBlocks.replace(
     INLINE_REDACTION_RE,
     (
       _match,
-      doubleQuotedLabel: string | undefined,
-      singleQuotedLabel: string | undefined,
+      attrs: string | undefined,
       content: string
-    ) => redact(content, doubleQuotedLabel ?? singleQuotedLabel, false)
+    ) => redact(content, parseRedactionAttributes(attrs, undefined), false)
   );
 
   const withFallbacks =
