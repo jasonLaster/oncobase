@@ -472,7 +472,10 @@ test.describe("DICOM viewer", () => {
   }) => {
     await page.goto(`/diagnostics/imaging${seededStudySetQuery}`);
 
-    const sidebar = page.getByTestId("app-shell").getByTestId("sidebar");
+    const sidebar = page
+      .getByTestId("app-shell")
+      .locator('[data-test-id="sidebar"]:visible')
+      .first();
     await expect(sidebar).toBeVisible();
     await expect(page.getByTestId("diagnostics-sidebar")).toHaveCount(0);
     await expect(sidebar.getByTestId("sidebar-view-diagnostics")).toHaveAttribute(

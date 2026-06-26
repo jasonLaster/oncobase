@@ -35,7 +35,7 @@ test.describe("diagnostics regressions", () => {
     );
     await expect(page.getByTestId("diagnostics-sidebar")).toHaveCount(0);
 
-    const sidebar = page.getByTestId("sidebar");
+    const sidebar = page.locator('[data-test-id="sidebar"]:visible').first();
     await expect(sidebar).toBeVisible();
     await expect(sidebar.getByTestId("sidebar-view-diagnostics")).toHaveAttribute(
       "href",
@@ -82,7 +82,7 @@ test.describe("diagnostics regressions", () => {
     await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible();
     await expect(page.getByTestId("diagnostics-sidebar")).toHaveCount(0);
 
-    const sidebar = page.getByTestId("sidebar");
+    const sidebar = page.locator('[data-test-id="sidebar"]:visible').first();
     await expect(sidebar).toBeVisible();
     await expect(sidebar.getByTestId("sidebar-view-diagnostics")).toHaveAttribute(
       "data-selected-file-tree-item",

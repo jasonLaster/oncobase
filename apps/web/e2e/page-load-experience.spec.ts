@@ -160,8 +160,10 @@ test.describe("Page load experience", () => {
 
     await page.goto(withMagicLink("/about/Index"), { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByTestId("sidebar")).toBeVisible();
-    await expect(page.getByTestId("sidebar").getByRole("button", { name: "wiki" })).toBeVisible({
+    const sb = sidebar(page);
+
+    await expect(sb).toBeVisible();
+    await expect(sb.getByRole("button", { name: "wiki" })).toBeVisible({
       timeout: 500,
     });
     await expect(page.getByLabel("Loading page tree")).toHaveCount(0);

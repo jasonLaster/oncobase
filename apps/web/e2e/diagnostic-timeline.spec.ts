@@ -39,9 +39,9 @@ test.describe("diagnostic timeline", () => {
     await expect(
       page.getByTestId("timeline-sticky-header").getByTestId("timeline-filter"),
     ).toBeVisible();
-    await expect(
-      page.getByTestId("timeline-toolbar").getByRole("button", { name: "Zoom in" }),
-    ).toBeVisible();
+    const stickyHeader = page.getByTestId("timeline-sticky-header");
+    const toolbar = stickyHeader.getByTestId("timeline-toolbar");
+    await expect(toolbar.getByRole("button", { name: "Zoom in" })).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Show full timeline" }),
     ).toHaveCount(0);
@@ -63,9 +63,7 @@ test.describe("diagnostic timeline", () => {
       `2026-04-02:${todayInPacificTime()}`,
     );
     const rangeBefore = await timeline.getAttribute("data-visible-range");
-    const zoomInButton = page
-      .getByTestId("timeline-toolbar")
-      .getByRole("button", { name: "Zoom in" });
+    const zoomInButton = toolbar.getByRole("button", { name: "Zoom in" });
     await expect
       .poll(async () => {
         await zoomInButton.click();
@@ -143,14 +141,14 @@ test.describe("diagnostic timeline", () => {
       rangeAfterLeftScroll ?? "",
     );
 
-    await page.getByRole("button", { name: "Reset timeline range" }).click();
+    await toolbar.getByRole("button", { name: "Reset timeline range" }).click();
     await expect(timeline).toHaveAttribute(
       "data-visible-range",
       `2026-04-02:${todayInPacificTime()}`,
     );
 
     const rangeAfterReset = await timeline.getAttribute("data-visible-range");
-    const overviewWindow = page.getByTestId("timeline-overview-window");
+    const overviewWindow = stickyHeader.getByTestId("timeline-overview-window");
     const overviewBox = await overviewWindow.boundingBox();
     expect(overviewBox).not.toBeNull();
     await page.mouse.move(
@@ -170,7 +168,9 @@ test.describe("diagnostic timeline", () => {
     );
 
     const rangeBeforeLeftResize = await timeline.getAttribute("data-visible-range");
-    const leftHandle = page.getByTestId("timeline-overview-window-left-handle");
+    const leftHandle = stickyHeader.getByTestId(
+      "timeline-overview-window-left-handle",
+    );
     const leftHandleBox = await leftHandle.boundingBox();
     expect(leftHandleBox).not.toBeNull();
     await page.mouse.move(
@@ -190,7 +190,9 @@ test.describe("diagnostic timeline", () => {
     );
 
     const rangeAfterLeftResize = await timeline.getAttribute("data-visible-range");
-    const rightHandle = page.getByTestId("timeline-overview-window-right-handle");
+    const rightHandle = stickyHeader.getByTestId(
+      "timeline-overview-window-right-handle",
+    );
     const rightHandleBox = await rightHandle.boundingBox();
     expect(rightHandleBox).not.toBeNull();
     await page.mouse.move(
@@ -209,7 +211,7 @@ test.describe("diagnostic timeline", () => {
       rangeAfterLeftResize ?? "",
     );
 
-    await page.getByRole("button", { name: "Reset timeline range" }).click();
+    await toolbar.getByRole("button", { name: "Reset timeline range" }).click();
     await expect(timeline).toHaveAttribute(
       "data-visible-range",
       `2026-04-02:${todayInPacificTime()}`,
@@ -261,7 +263,7 @@ test.describe("diagnostic timeline", () => {
       petTooltip.getByRole("link", { name: "View images" }),
     ).toHaveAttribute("href", "/tools/dicom-viewer?id=diagnostic-2026-06-10-petct");
 
-    await page.getByTestId("timeline-filter").fill("Guardant360");
+    await stickyHeader.getByTestId("timeline-filter").fill("Guardant360");
     await expect(page.getByTestId("timeline-track-guardant")).toBeVisible();
     await expect(page.getByTestId("timeline-track-signatera")).toHaveCount(0);
   });

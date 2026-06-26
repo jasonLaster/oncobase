@@ -503,7 +503,9 @@ test.describe("Prose table expansion", () => {
 
       expect(snapshot).not.toBeNull();
       expect(snapshot?.wrapperBorderTopStyle).not.toBe("none");
-      expect(Number.parseFloat(snapshot?.wrapperBorderRadius ?? "0")).toBeGreaterThan(0);
+      expect(snapshot?.wrapperBorderRadius ?? "0").not.toMatch(
+        /^0(?:px)?(?: 0(?:px)?)*$/,
+      );
       expect(snapshot?.thTextTransform).toBe("uppercase");
       expect(snapshot?.thTextAlign).toBe("left");
       expect(Number.parseFloat(snapshot?.thLetterSpacing ?? "0")).toBeGreaterThan(0);

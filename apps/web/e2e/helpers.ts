@@ -9,7 +9,7 @@ export function nextErrorOverlay(page: Page) {
 }
 
 export function sidebar(page: Page) {
-  return page.getByTestId("sidebar");
+  return page.locator('[data-test-id="sidebar"]:visible').first();
 }
 
 export function documentArticle(page: Page) {
@@ -56,7 +56,7 @@ export async function openCommandPalette(page: Page) {
 
   for (let attempt = 0; attempt < 4; attempt += 1) {
     if (await input.isVisible().catch(() => false)) break;
-    await page.getByTestId("sidebar-search").click();
+    await sidebar(page).getByTestId("sidebar-search").click();
     await input.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
   }
 
