@@ -8,6 +8,12 @@ import { DIAGNOSTIC_BIOPSIES } from "../src/lib/diagnostic-biopsies";
 
 const biopsyLinks = [
   {
+    id: "diagnostic-2026-06-26-breast-mri",
+    title: "June 26 breast MRI",
+    directory: "06-26-breast-mri/dicoms",
+    counter: "890 / 1778",
+  },
+  {
     id: "diagnostic-2026-06-10-petct",
     title: "June 10 PET/CT",
     directory: "05-10-petct/dicoms",
@@ -232,7 +238,7 @@ test.describe("DICOM viewer", () => {
     await expect(desktopTable.getByRole("columnheader", { name: "Reports" })).toBeVisible();
     await expect(desktopTable.getByRole("columnheader", { name: "View images" })).toBeVisible();
     await expect(desktopTable.getByRole("columnheader", { name: "Download" })).toBeVisible();
-    await expect(desktopTable.getByRole("link", { name: "Download" })).toHaveCount(5);
+    await expect(desktopTable.getByRole("link", { name: "Download" })).toHaveCount(6);
     for (const biopsy of biopsyLinks) {
       const viewerLink = desktopTable.locator(
         `a[href="/tools/dicom-viewer?id=${biopsy.id}"]`

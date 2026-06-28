@@ -19,6 +19,28 @@ export interface DiagnosticReportLink {
 
 const DIAGNOSTIC_BIOPSIES_UNSORTED: DiagnosticBiopsy[] = [
   {
+    id: "diagnostic-2026-06-26-breast-mri",
+    shortLabel: "6/26",
+    title: "June 26 breast MRI",
+    dateLabel: "Jun 26, 2026",
+    isoDate: "2026-06-26",
+    modality: "MR",
+    focus: "Breast MRI stack",
+    directoryIncludes: "06-26-breast-mri",
+    pathologyReportHref: fileAssetHref(
+      "diagnostics/viewer-upload/06-26-breast-mri/report.pdf",
+    ),
+    reportLinks: [
+      {
+        label: "MRI report",
+        href: fileAssetHref("diagnostics/viewer-upload/06-26-breast-mri/report.pdf"),
+      },
+    ],
+    downloadHref: fileAssetHref(
+      "diagnostics/viewer-upload/06-26-breast-mri/source-files.zip",
+    ),
+  },
+  {
     id: "diagnostic-2026-06-10-petct",
     shortLabel: "6/10",
     title: "June 10 PET/CT",

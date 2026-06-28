@@ -151,19 +151,24 @@ export const diagnosticTimelineSeed: DiagnosticTimelineData = {
               ]
             },
             {
-              "id": "mri-2026-06-26-planned",
+              "id": "mri-2026-06-26",
               "date": "2026-06-26",
               "label": "Breast MRI",
-              "result": "Planned taxol/AC crossover imaging gate.",
-              "status": "planned",
+              "result": "Follow-up breast MRI uploaded to the diagnostics viewer.",
+              "status": "reported",
+              "diagnosticId": "diagnostic-2026-06-26-breast-mri",
               "details": [
-                "Scheduled after the current as-of date.",
-                "Near-term decision gate called out in consult notes and ctDNA interpretation."
+                "Taxol/AC crossover imaging gate.",
+                "DICOM stack and report are available from the imaging viewer."
               ],
               "links": [
                 {
-                  "label": "Visit tracker",
-                  "href": "/sources/medical-records/ucsf-mychart-visits"
+                  "label": "DICOM viewer",
+                  "href": "/tools/dicom-viewer?id=diagnostic-2026-06-26-breast-mri"
+                },
+                {
+                  "label": "MRI report",
+                  "href": "/api/file?path=diagnostics%2Fviewer-upload%2F06-26-breast-mri%2Freport.pdf"
                 }
               ]
             }
