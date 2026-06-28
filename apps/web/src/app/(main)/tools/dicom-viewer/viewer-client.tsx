@@ -25,10 +25,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { setResizableSidebarWidth } from "@/components/resizable-sidebar-store";
 import {
-  DIAGNOSTIC_BIOPSIES,
-  getDiagnosticBiopsyById,
-  type DiagnosticBiopsy,
-} from "@/lib/diagnostic-biopsies";
+  DIAGNOSTIC_STUDY_SET_PARAM,
+  getPrimaryReportLink,
+  type DiagnosticStudiesPayload,
+  type DiagnosticStudy,
+} from "@/lib/diagnostic-studies";
 import { cn } from "@/lib/utils";
 
 type CornerstoneCore = typeof import("@cornerstonejs/core");
@@ -104,6 +105,12 @@ async function fetchDicomCatalog(url: string) {
   return (await response.json()) as DicomCatalog;
 }
 
+async function fetchDiagnosticStudies(url: string) {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Diagnostic studies request failed: ${response.status}`);
+  return (await response.json()) as DiagnosticStudiesPayload;
+}
+
 async function ensureCornerstone() {
   if (cornerstoneModulesPromise) return cornerstoneModulesPromise;
 
@@ -149,11 +156,13 @@ function safeAddTool(tools: CornerstoneTools, ToolClass: unknown) {
 interface DicomViewerClientProps {
   initialBiopsyId?: string | null;
   initialSeriesId?: string | null;
+  initialStudySet?: string | null;
 }
 
 export function DicomViewerClient({
   initialBiopsyId = null,
   initialSeriesId = null,
+  initialStudySet = null,
 }: DicomViewerClientProps) {
   const viewportElementRef = useRef<HTMLDivElement | null>(null);
   const renderingEngineRef = useRef<InstanceType<CornerstoneCore["RenderingEngine"]> | null>(
@@ -186,6 +195,23 @@ export function DicomViewerClient({
   } = useSWR<DicomCatalog>("/api/dicom/studies", fetchDicomCatalog, {
     revalidateOnFocus: false,
   });
+  const diagnosticStudiesUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (initialStudySet) params.set(DIAGNOSTIC_STUDY_SET_PARAM, initialStudySet);
+    const query = params.toString();
+    return `/api/diagnostic-studies${query ? `?${query}` : ""}`;
+  }, [initialStudySet]);
+  const { data: diagnosticStudiesPayload } = useSWR<DiagnosticStudiesPayload>(
+    diagnosticStudiesUrl,
+    fetchDiagnosticStudies,
+    {
+      revalidateOnFocus: false,
+    },
+  );
+  const diagnosticStudies = useMemo(
+    () => diagnosticStudiesPayload?.studies ?? [],
+    [diagnosticStudiesPayload],
+  );
 
   const renderableSeries = useMemo(
     () => catalog?.series.filter(isRenderableSeries) ?? [],
@@ -193,8 +219,8 @@ export function DicomViewerClient({
   );
 
   const requestedBiopsy = useMemo(
-    () => getDiagnosticBiopsyById(initialBiopsyId),
-    [initialBiopsyId],
+    () => diagnosticStudies.find((study) => study.id === initialBiopsyId) ?? null,
+    [diagnosticStudies, initialBiopsyId],
   );
 
   const displaySeries = useMemo(
@@ -206,13 +232,17 @@ export function DicomViewerClient({
   );
 
   const preferredSeriesId = useMemo(() => {
-    const requestedBiopsySeries = findSeriesForBiopsy(displaySeries, initialBiopsyId);
+    const requestedBiopsySeries = findSeriesForBiopsy(
+      displaySeries,
+      initialBiopsyId,
+      diagnosticStudies,
+    );
     const preferred =
       requestedBiopsySeries ??
-      findSeriesForBiopsy(renderableSeries, "biopsy-2026-04-10") ??
+      findSeriesForBiopsy(renderableSeries, "biopsy-2026-04-10", diagnosticStudies) ??
       renderableSeries[0];
     return preferred?.id ?? null;
-  }, [displaySeries, initialBiopsyId, renderableSeries]);
+  }, [diagnosticStudies, displaySeries, initialBiopsyId, renderableSeries]);
 
   const selectedSeries = useMemo(() => {
     const id = selectedSeriesId ?? preferredSeriesId;
@@ -225,8 +255,8 @@ export function DicomViewerClient({
   }, [displaySeries, preferredSeriesId, selectedSeriesId]);
 
   const selectedBiopsy = useMemo(
-    () => findBiopsyForSeries(selectedSeries) ?? requestedBiopsy,
-    [requestedBiopsy, selectedSeries],
+    () => findBiopsyForSeries(selectedSeries, diagnosticStudies) ?? requestedBiopsy,
+    [diagnosticStudies, requestedBiopsy, selectedSeries],
   );
   const selectedReportLink = selectedBiopsy
     ? getPrimaryReportLink(selectedBiopsy)
@@ -1162,14 +1192,7 @@ function isRenderableSeries(series: DicomSeries) {
   return !new Set(["PR", "SR", "OT"]).has((series.modality ?? "").toUpperCase());
 }
 
-function getPrimaryReportLink(biopsy: DiagnosticBiopsy) {
-  return biopsy.reportLinks?.[0] ?? {
-    label: "Pathology report",
-    href: biopsy.pathologyReportHref,
-  };
-}
-
-function matchesBiopsySeries(series: DicomSeries, biopsy: DiagnosticBiopsy) {
+function matchesBiopsySeries(series: DicomSeries, biopsy: DiagnosticStudy) {
   return (
     series.studyDate === biopsy.isoDate &&
     series.relativeDirectory
@@ -1179,15 +1202,22 @@ function matchesBiopsySeries(series: DicomSeries, biopsy: DiagnosticBiopsy) {
   );
 }
 
-function findBiopsyForSeries(series: DicomSeries | null) {
+function findBiopsyForSeries(
+  series: DicomSeries | null,
+  diagnosticStudies: DiagnosticStudy[],
+) {
   if (!series) return null;
   return (
-    DIAGNOSTIC_BIOPSIES.find((biopsy) => matchesBiopsySeries(series, biopsy)) ?? null
+    diagnosticStudies.find((biopsy) => matchesBiopsySeries(series, biopsy)) ?? null
   );
 }
 
-function findSeriesForBiopsy(series: DicomSeries[], biopsyId: string | null | undefined) {
-  const biopsy = getDiagnosticBiopsyById(biopsyId);
+function findSeriesForBiopsy(
+  series: DicomSeries[],
+  biopsyId: string | null | undefined,
+  diagnosticStudies: DiagnosticStudy[],
+) {
+  const biopsy = diagnosticStudies.find((study) => study.id === biopsyId) ?? null;
   if (!biopsy) return null;
 
   return (

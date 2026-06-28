@@ -1,5 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
-import { DIAGNOSTIC_BIOPSIES } from "../src/lib/diagnostic-biopsies";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+
+import { diagnosticStudiesSeed } from "../scripts/fixtures/diagnostic-studies-seed";
 
 /**
  * Verifies the DICOM viewer contract documented in
@@ -63,17 +64,21 @@ const biopsyLinks = [
   },
 ];
 const breastMriReportPath = "sources/diagnostics/401-breast-mri.pdf";
+const isProdRun = process.env.TEST_ENV === "prod";
+const seededStudySet = `playwright-dicom-${Date.now()}`;
+const seededStudySetQuery = isProdRun ? "" : `?studySet=${seededStudySet}`;
+const seededStudySetParam = isProdRun ? "" : `&studySet=${seededStudySet}`;
 const liveDiagnosticsReportLinks = Array.from(
   new Set(
-    DIAGNOSTIC_BIOPSIES.flatMap((biopsy) => [
-      biopsy.pathologyReportHref,
-      ...(biopsy.reportLinks?.map((link) => link.href) ?? []),
+    diagnosticStudiesSeed.studies.flatMap((study) => [
+      study.pathologyReportHref,
+      ...(study.reportLinks?.map((link) => link.href) ?? []),
     ]),
   ),
 );
 
 async function gotoViewer(page: Page, biopsyId = "biopsy-2026-04-10") {
-  await page.goto(`/tools/dicom-viewer?id=${biopsyId}`, {
+  await page.goto(`/tools/dicom-viewer?id=${biopsyId}${seededStudySetParam}`, {
     waitUntil: "domcontentloaded",
   });
   await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
@@ -84,6 +89,19 @@ async function gotoViewer(page: Page, biopsyId = "biopsy-2026-04-10") {
   await expect(page.getByTestId("dicom-image-loading")).toBeHidden({
     timeout: 30_000,
   });
+}
+
+async function seedDiagnosticStudies(
+  request: APIRequestContext,
+  baseURL: string | undefined,
+  studySet: string,
+  studies: unknown,
+) {
+  const appBaseURL = baseURL ?? "http://localhost:3000";
+  const response = await request.post(`${appBaseURL}/api/test/diagnostic-studies`, {
+    data: { studySet, studies },
+  });
+  expect(response.ok()).toBe(true);
 }
 
 async function expectToolState(
@@ -230,8 +248,18 @@ function holdDicomFileRequest(page: Page, fileName: string) {
 test.describe.configure({ mode: "serial" });
 
 test.describe("DICOM viewer", () => {
+  test.beforeAll(async ({ request, baseURL }) => {
+    if (isProdRun) return;
+    await seedDiagnosticStudies(
+      request,
+      baseURL,
+      seededStudySet,
+      diagnosticStudiesSeed.studies,
+    );
+  });
+
   test("diagnostics imaging page links each biopsy shortcut to the viewer", async ({ page }) => {
-    await page.goto("/diagnostics/imaging");
+    await page.goto(`/diagnostics/imaging${seededStudySetQuery}`);
 
     await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible();
     const desktopTable = page.getByTestId("diagnostics-desktop-table");
@@ -241,14 +269,14 @@ test.describe("DICOM viewer", () => {
     await expect(desktopTable.getByRole("link", { name: "Download" })).toHaveCount(6);
     for (const biopsy of biopsyLinks) {
       const viewerLink = desktopTable.locator(
-        `a[href="/tools/dicom-viewer?id=${biopsy.id}"]`
+        `a[href="/tools/dicom-viewer?id=${biopsy.id}${seededStudySetParam}"]`
       );
 
       await expect(viewerLink).toBeVisible();
       await expect(viewerLink).toContainText("View images");
       await expect(viewerLink).toHaveAttribute(
         "href",
-        `/tools/dicom-viewer?id=${biopsy.id}`,
+        `/tools/dicom-viewer?id=${biopsy.id}${seededStudySetParam}`,
       );
     }
 
@@ -270,7 +298,7 @@ test.describe("DICOM viewer", () => {
 
   test("diagnostics imaging page uses a compact mobile study list", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/diagnostics/imaging");
+    await page.goto(`/diagnostics/imaging${seededStudySetQuery}`);
 
     const mobileList = page.getByTestId("diagnostics-mobile-list");
     await expect(mobileList).toBeVisible();
@@ -280,7 +308,55 @@ test.describe("DICOM viewer", () => {
     ).toHaveCount(biopsyLinks.length);
     await expect(
       mobileList.getByRole("link", { name: /View images/ }).first(),
-    ).toHaveAttribute("href", "/tools/dicom-viewer?id=diagnostic-2026-06-10-petct");
+    ).toHaveAttribute(
+      "href",
+      `/tools/dicom-viewer?id=diagnostic-2026-06-26-breast-mri${seededStudySetParam}`,
+    );
+  });
+
+  test("diagnostics imaging reflects local test DB metadata changes without a deploy", async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    test.skip(isProdRun, "Local-only DB mutation route is not available in production.");
+
+    const studySet = `playwright-dynamic-${Date.now()}`;
+    const study = {
+      id: "diagnostic-playwright-dynamic-petct",
+      shortLabel: "PW",
+      title: "Playwright DB title before",
+      dateLabel: "Jun 10, 2026",
+      isoDate: "2026-06-10",
+      modality: "PET/CT",
+      focus: "Dynamic test stack",
+      directoryIncludes: "05-10-petct",
+      pathologyReportHref: "/sources/diagnostics/06-10-cu-grip-petct",
+      reportLinks: [
+        {
+          label: "PET/CT report",
+          href: "/sources/diagnostics/06-10-cu-grip-petct",
+        },
+      ],
+    };
+
+    await seedDiagnosticStudies(request, baseURL, studySet, [study]);
+    await page.goto(`/diagnostics/imaging?studySet=${studySet}`);
+    const desktopTable = page.getByTestId("diagnostics-desktop-table");
+    await expect(desktopTable.getByText("Playwright DB title before")).toBeVisible();
+    await expect(desktopTable.getByText("Playwright DB title after")).toHaveCount(0);
+
+    await seedDiagnosticStudies(request, baseURL, studySet, [
+      { ...study, title: "Playwright DB title after" },
+    ]);
+    await page.reload();
+    await expect(desktopTable.getByText("Playwright DB title after")).toBeVisible();
+    await expect(desktopTable.getByText("Playwright DB title before")).toHaveCount(0);
+    await expect(
+      desktopTable.locator(
+        `a[href="/tools/dicom-viewer?id=diagnostic-playwright-dynamic-petct&studySet=${studySet}"]`,
+      ),
+    ).toBeVisible();
   });
 
   test("diagnostics report links stay live and surfaced PDFs support password-gated byte-range loading", async ({
@@ -322,7 +398,7 @@ test.describe("DICOM viewer", () => {
   test("diagnostics imaging page uses the normal sidebar and viewer uses biopsy shortcuts", async ({
     page,
   }) => {
-    await page.goto("/diagnostics/imaging");
+    await page.goto(`/diagnostics/imaging${seededStudySetQuery}`);
 
     const sidebar = page.getByTestId("sidebar");
     await expect(sidebar).toBeVisible();
@@ -338,14 +414,17 @@ test.describe("DICOM viewer", () => {
     await expect(sidebar.getByRole("link", { name: "March 13 biopsy" })).toHaveCount(0);
     await expect(sidebar).toContainText("project management");
 
-    await page.goto("/tools/dicom-viewer?id=biopsy-2026-03-23");
+    await page.goto(`/tools/dicom-viewer?id=biopsy-2026-03-23${seededStudySetParam}`);
     await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
     const viewerSidebar = page.getByTestId("diagnostics-sidebar");
     await expect(viewerSidebar).toBeVisible();
     await expect(viewerSidebar.getByRole("link")).toHaveCount(biopsyLinks.length);
     await expect(
       viewerSidebar.getByRole("link", { name: "March 13 biopsy" }),
-    ).toHaveAttribute("href", "/tools/dicom-viewer?id=biopsy-2026-03-13");
+    ).toHaveAttribute(
+      "href",
+      `/tools/dicom-viewer?id=biopsy-2026-03-13${seededStudySetParam}`,
+    );
 
     const seriesPanel = page.getByTestId("dicom-series-panel");
     await expect(seriesPanel).toContainText("2026-03-23");

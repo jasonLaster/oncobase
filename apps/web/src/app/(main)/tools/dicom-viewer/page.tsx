@@ -9,6 +9,7 @@ interface DicomViewerPageProps {
     id?: string;
     biopsyId?: string;
     seriesId?: string;
+    studySet?: string;
   }>;
 }
 
@@ -18,6 +19,7 @@ export default async function DicomViewerPage({ searchParams }: DicomViewerPageP
     <DicomViewerClient
       initialBiopsyId={params.biopsyId ?? params.id ?? null}
       initialSeriesId={params.seriesId ?? null}
+      initialStudySet={params.studySet ?? null}
     />
   );
 }

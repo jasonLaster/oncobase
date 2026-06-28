@@ -20,8 +20,12 @@ The viewer also accepts `biopsyId` and `seriesId` query parameters. `id` and
 
 ## Diagnostic Imaging Page Contract
 
-The diagnostics imaging page must show the known imaging/test rows used by the
-DICOM viewer, including these biopsy IDs:
+The diagnostics imaging page must show the diagnostic study metadata returned by
+`/api/diagnostic-studies`. That metadata is stored in Convex under the
+site-scoped `diagnosticStudies:data` key, so adding a new study does not require
+a web deploy after the DB metadata is seeded.
+
+The default production study set includes these biopsy IDs:
 
 - `biopsy-2026-04-10`
 - `biopsy-2026-03-23`
@@ -35,6 +39,9 @@ DICOM viewer, including these biopsy IDs:
 - Each row exposes `Reports`, `View images`, and `Download` as separate actions.
 - Each card or row links to the DICOM viewer with `id=<biopsy-id>` or
   `id=<diagnostic-id>` for non-biopsy imaging studies.
+- In local development only, `?studySet=<test-key>` reads
+  `diagnosticStudies:test:<test-key>` from Convex. Production ignores test study
+  sets so Playwright-only metadata is not user-visible.
 - The page uses the normal app sidebar because the table itself lists the
   imaging tests.
 - The DICOM viewer uses the biopsy shortcut sidebar.
@@ -109,6 +116,8 @@ surface real image-load errors.
 
 - `/diagnostics/imaging` links each imaging shortcut to the viewer.
 - `/diagnostics/imaging` renders a compact mobile study list.
+- local-only test metadata updates in Convex are visible after a reload without
+  a rebuild or deploy.
 - Diagnostic report links stay live and PDF byte-range loading works when the
   underlying source asset is a real PDF.
 - `/diagnostics/imaging` uses the normal app sidebar.

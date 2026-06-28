@@ -7,9 +7,14 @@ import { api } from "../convex/_generated/api";
 import { sitePut } from "../src/lib/blob";
 import { resolveServerConvexUrl } from "../src/lib/convex-url";
 import { getDicomCatalog, resolveDicomPath } from "../src/lib/dicom-local";
+import {
+  DIAGNOSTIC_STUDIES_META_KEY,
+  normalizeDiagnosticStudiesPayload,
+} from "../src/lib/diagnostic-studies";
 
 const SITE_SLUG = process.env.DICOM_SITE_SLUG ?? "diana";
 const DRY_RUN = process.argv.includes("--dry-run");
+const STUDIES_FILE = argValue("--studies-file");
 
 const convexUrl = resolveServerConvexUrl();
 if (!convexUrl) {
@@ -88,9 +93,29 @@ async function main() {
     );
   }
 
+  if (STUDIES_FILE) {
+    const source = JSON.parse(await fs.readFile(STUDIES_FILE, "utf8"));
+    const payload = normalizeDiagnosticStudiesPayload(source);
+    if (!DRY_RUN) {
+      await convex.mutation(api.documents.setMeta, {
+        key: DIAGNOSTIC_STUDIES_META_KEY,
+        siteSlug: SITE_SLUG,
+        value: JSON.stringify(payload),
+      });
+    }
+    console.log(
+      `${DRY_RUN ? "Would seed" : "Seeded"} ${payload.studies.length} diagnostic study metadata rows from ${STUDIES_FILE}`,
+    );
+  }
+
   console.log(
     `${DRY_RUN ? "Dry run complete" : "Done"}: ${uploaded} image(s), ${skipped} skipped, root=${catalog.root}`,
   );
+}
+
+function argValue(name: string) {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
 main().catch((error) => {

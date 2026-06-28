@@ -33,6 +33,7 @@
     "wiki:site:lock-clear": "bun scripts/admin/clear-publish-lock.ts",
     "wiki:site:backfill": "bun scripts/admin/backfill-site-ids.ts",
     "dicom:upload": "bun scripts/upload-dicom-assets.ts",
+    "diagnostic-studies:seed": "bun scripts/seed-diagnostic-studies.ts",
     "timeline:seed": "bun scripts/seed-diagnostic-timeline.ts"
   },
   "dependencies": {

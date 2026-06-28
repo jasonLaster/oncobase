@@ -3,13 +3,21 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import useSWR from "swr";
 
 import {
-  DIAGNOSTIC_BIOPSIES,
+  DIAGNOSTIC_STUDY_SET_PARAM,
+  type DiagnosticStudiesPayload,
   getDicomViewerHref,
-} from "@/lib/diagnostic-biopsies";
+} from "@/lib/diagnostic-studies";
 
 const ROW_HEIGHT = 32;
+
+async function fetchDiagnosticStudies(url: string) {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Diagnostic studies request failed: ${response.status}`);
+  return (await response.json()) as DiagnosticStudiesPayload;
+}
 
 export function DiagnosticsSidebar() {
   return (
@@ -26,11 +34,30 @@ function DiagnosticsSidebarContent() {
     pathname.startsWith("/tools/dicom-viewer")
       ? searchParams.get("id") ?? searchParams.get("biopsyId")
       : null;
+  const studySet = searchParams.get(DIAGNOSTIC_STUDY_SET_PARAM);
 
-  return <DiagnosticsSidebarFrame activeBiopsyId={activeBiopsyId} />;
+  return <DiagnosticsSidebarFrame activeBiopsyId={activeBiopsyId} studySet={studySet} />;
 }
 
-function DiagnosticsSidebarFrame({ activeBiopsyId }: { activeBiopsyId: string | null }) {
+function DiagnosticsSidebarFrame({
+  activeBiopsyId,
+  studySet = null,
+}: {
+  activeBiopsyId: string | null;
+  studySet?: string | null;
+}) {
+  const params = new URLSearchParams();
+  if (studySet) params.set(DIAGNOSTIC_STUDY_SET_PARAM, studySet);
+  const query = params.toString();
+  const { data } = useSWR<DiagnosticStudiesPayload>(
+    `/api/diagnostic-studies${query ? `?${query}` : ""}`,
+    fetchDiagnosticStudies,
+    {
+      revalidateOnFocus: false,
+    },
+  );
+  const studies = data?.studies ?? [];
+
   return (
     <aside
       className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
@@ -41,10 +68,10 @@ function DiagnosticsSidebarFrame({ activeBiopsyId }: { activeBiopsyId: string | 
         data-test-id="sidebar-tree"
       >
         <div className="space-y-1">
-          {DIAGNOSTIC_BIOPSIES.map((biopsy) => (
+          {studies.map((biopsy) => (
             <Link
               key={biopsy.id}
-              href={getDicomViewerHref(biopsy.id)}
+              href={getDicomViewerHref(biopsy.id, studySet)}
               data-selected-file-tree-item={
                 activeBiopsyId === biopsy.id ? "true" : undefined
               }

@@ -43,6 +43,25 @@ const sampleTimeline: DiagnosticTimelineData = {
     },
   ],
 };
+const sampleStudies = [
+  {
+    id: "diagnostic-2026-04-01-breast-mri",
+    shortLabel: "4/1",
+    title: "April 1 breast MRI",
+    dateLabel: "Apr 1, 2026",
+    isoDate: "2026-04-01",
+    modality: "MR",
+    focus: "Breast MRI stack",
+    directoryIncludes: "04-01-breast-mri",
+    pathologyReportHref: "/api/file?path=sources%2Fdiagnostics%2F401-breast-mri.pdf",
+    reportLinks: [
+      {
+        label: "MRI report",
+        href: "/api/file?path=sources%2Fdiagnostics%2F401-breast-mri.pdf",
+      },
+    ],
+  },
+];
 
 describe("diagnostic timeline data", () => {
   it("prepares Convex timeline data with the default visible window", () => {
@@ -59,7 +78,11 @@ describe("diagnostic timeline data", () => {
   });
 
   it("enriches diagnostic events with report and viewer links", () => {
-    const timeline = prepareDiagnosticTimeline(sampleTimeline, "2026-06-24");
+    const timeline = prepareDiagnosticTimeline(
+      sampleTimeline,
+      "2026-06-24",
+      sampleStudies,
+    );
     const mri = timeline.sleeves
       .flatMap((sleeve) => sleeve.tracks)
       .flatMap((track) => track.events)
@@ -72,5 +95,31 @@ describe("diagnostic timeline data", () => {
       ]),
     );
     expect(mri?.links?.some((link) => link.label === "MRI report")).toBe(true);
+  });
+
+  it("adds missing imaging events from diagnostic study metadata", () => {
+    const timeline = prepareDiagnosticTimeline(
+      {
+        ...sampleTimeline,
+        sleeves: sampleTimeline.sleeves.map((sleeve) => ({
+          ...sleeve,
+          tracks: sleeve.tracks.map((track) => ({ ...track, events: [] })),
+        })),
+      },
+      "2026-06-24",
+      sampleStudies,
+    );
+    const mri = timeline.sleeves
+      .flatMap((sleeve) => sleeve.tracks)
+      .flatMap((track) => track.events)
+      .find((event) => event.diagnosticId === "diagnostic-2026-04-01-breast-mri");
+
+    expect(mri?.date).toBe("2026-04-01");
+    expect(mri?.links?.map((link) => link.href)).toEqual(
+      expect.arrayContaining([
+        "/diagnostics/imaging",
+        "/tools/dicom-viewer?id=diagnostic-2026-04-01-breast-mri",
+      ]),
+    );
   });
 });
