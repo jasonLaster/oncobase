@@ -293,14 +293,13 @@ function DiagnosticsComparisonsMenu({
           <Button
             variant="outline"
             size={compact ? "sm" : "default"}
-            className={cn("w-full justify-between", compact && "text-xs")}
+            className="h-8 w-8 justify-center px-0"
+            aria-label="Comparisons"
+            title="Comparisons"
           />
         }
       >
-        <span className="inline-flex min-w-0 items-center gap-1.5">
-          <Columns2 className="size-4 shrink-0" />
-          <span className="truncate">Comparisons</span>
-        </span>
+        <Columns2 className="size-4 shrink-0" />
         <ChevronDown className="size-4 shrink-0" data-icon="inline-end" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
@@ -339,14 +338,14 @@ function DiagnosticsActionLink({
   return (
     <Link
       href={href}
+      aria-label={label}
+      title={label}
       className={cn(
-        "inline-flex h-8 w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-2.5 text-sm font-medium whitespace-nowrap text-neutral-950 transition-colors hover:border-primary/40 hover:bg-white/90 hover:text-neutral-950 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
-        compact && "px-2 text-xs",
+        "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-white text-neutral-950 transition-colors hover:border-primary/40 hover:bg-white/90 hover:text-neutral-950 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+        compact && "text-xs",
       )}
     >
       {icon}
-      {label}
-      <ArrowUpRight className="size-4" />
     </Link>
   );
 }

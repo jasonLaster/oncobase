@@ -296,7 +296,8 @@ test.describe("DICOM viewer", () => {
       );
 
       await expect(viewerLink).toBeVisible();
-      await expect(viewerLink).toContainText("Images");
+      await expect(viewerLink).toHaveAttribute("aria-label", "Images");
+      await expect(viewerLink).not.toContainText("Images");
       await expect(viewerLink).toHaveAttribute(
         "href",
         `/tools/dicom-viewer?id=${biopsy.id}${seededStudySetParam}`,
@@ -316,7 +317,9 @@ test.describe("DICOM viewer", () => {
     await page.keyboard.press("Escape");
 
     if (!isProdRun) {
-      await expect(desktopTable.getByRole("button", { name: "Comparisons" })).toHaveCount(2);
+      const comparisonButtons = desktopTable.getByRole("button", { name: "Comparisons" });
+      await expect(comparisonButtons).toHaveCount(2);
+      await expect(comparisonButtons.first()).not.toContainText("Comparisons");
       await breastMriRow.getByRole("button", { name: "Comparisons" }).click();
       await expect(
         page.getByRole("menuitem", { name: "April 1 vs June 26 breast MRI" }),
@@ -505,6 +508,13 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByTestId("dicom-pathology-report-link")).toContainText(
       "Pathology report",
     );
+    const backLink = page.getByTestId("dicom-back-to-imaging");
+    await expect(backLink).toHaveAttribute(
+      "href",
+      `/diagnostics/imaging${seededStudySetQuery}`,
+    );
+    await backLink.click();
+    await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible();
   });
 
   for (const biopsy of biopsyLinks) {

@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -200,6 +202,12 @@ export function DicomViewerClient({
     if (initialStudySet) params.set(DIAGNOSTIC_STUDY_SET_PARAM, initialStudySet);
     const query = params.toString();
     return `/api/diagnostic-studies${query ? `?${query}` : ""}`;
+  }, [initialStudySet]);
+  const diagnosticsImagingHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (initialStudySet) params.set(DIAGNOSTIC_STUDY_SET_PARAM, initialStudySet);
+    const query = params.toString();
+    return `/diagnostics/imaging${query ? `?${query}` : ""}`;
   }, [initialStudySet]);
   const { data: diagnosticStudiesPayload } = useSWR<DiagnosticStudiesPayload>(
     diagnosticStudiesUrl,
@@ -780,6 +788,14 @@ export function DicomViewerClient({
               className="flex shrink-0 items-center gap-1 overflow-x-auto"
               data-test-id="dicom-tools-row"
             >
+              <Link
+                href={diagnosticsImagingHref}
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:outline-none"
+                data-test-id="dicom-back-to-imaging"
+              >
+                <ArrowLeft className="size-4" />
+                Imaging
+              </Link>
               <ToolButton
                 active={toolMode === "window"}
                 icon={<SlidersHorizontal className="size-4" />}
