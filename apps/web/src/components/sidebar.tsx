@@ -464,7 +464,8 @@ export function DiagnosticsTreeLink({
 }) {
   const isActive =
     activePathname.startsWith("/diagnostics") ||
-    activePathname.startsWith("/tools/dicom-viewer");
+    activePathname.startsWith("/tools/dicom-viewer") ||
+    activePathname.startsWith("/tools/dicom-compare");
 
   return (
     <Link

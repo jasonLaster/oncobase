@@ -38,7 +38,9 @@ export function NavigationShell({
     return <div className="h-full min-h-0 overflow-hidden">{children}</div>;
   }
 
-  const usesDiagnosticsSidebar = pathname.startsWith("/tools/dicom-viewer");
+  const usesDiagnosticsSidebar =
+    pathname.startsWith("/tools/dicom-viewer") ||
+    pathname.startsWith("/tools/dicom-compare");
   const hasFileTree =
     fileTree.ready && fileTree.tree.length > 0 && !pathname.startsWith("/chat");
   const navigationTree = hasFileTree ? fileTree.tree : [];

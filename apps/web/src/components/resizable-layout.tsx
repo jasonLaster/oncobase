@@ -46,7 +46,9 @@ function ResizableSidebarLayout({
     getResizableSidebarServerSnapshot
   );
   const collapsed = width === 0;
-  const isDicomViewerRoute = pathname.startsWith("/tools/dicom-viewer");
+  const isDicomViewerRoute =
+    pathname.startsWith("/tools/dicom-viewer") ||
+    pathname.startsWith("/tools/dicom-compare");
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);

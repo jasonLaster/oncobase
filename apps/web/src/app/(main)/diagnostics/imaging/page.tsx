@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import {
   ArrowUpRight,
   ChevronDown,
+  Columns2,
   Download,
   FileText,
   ImageIcon,
@@ -23,6 +24,8 @@ import {
   type DiagnosticReportLink,
   type DiagnosticStudy,
 } from "@/lib/diagnostic-studies";
+import { getDicomCompareHref, type DiagnosticComparisonManifest } from "@/lib/dicom-comparisons";
+import { getDiagnosticComparisonsForCurrentSite } from "@/lib/dicom-comparisons-server";
 import { getDiagnosticStudiesForCurrentSite } from "@/lib/diagnostic-studies-server";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +43,10 @@ export default async function DiagnosticImagingPage({
   searchParams,
 }: DiagnosticImagingPageProps) {
   const params = await searchParams;
-  const studies = await getDiagnosticStudiesForCurrentSite(params.studySet);
+  const [studies, comparisons] = await Promise.all([
+    getDiagnosticStudiesForCurrentSite(params.studySet),
+    getDiagnosticComparisonsForCurrentSite(params.studySet),
+  ]);
 
   return (
     <div className="h-full overflow-y-auto bg-background text-foreground">
@@ -67,6 +73,7 @@ export default async function DiagnosticImagingPage({
                 <col className="w-36" />
                 <col className="w-20" />
                 <col className="w-32" />
+                <col className="w-32" />
               </colgroup>
               <thead className="border-b border-border bg-muted/40 text-xs font-medium uppercase tracking-normal text-muted-foreground">
                 <tr>
@@ -85,6 +92,9 @@ export default async function DiagnosticImagingPage({
                   <th scope="col" className="px-3 py-3 sm:px-4">
                     View images
                   </th>
+                  <th scope="col" className="px-3 py-3 sm:px-4">
+                    Compare
+                  </th>
                   <th scope="col" className="px-3 py-3 text-right sm:px-4">
                     Download
                   </th>
@@ -93,6 +103,7 @@ export default async function DiagnosticImagingPage({
               <tbody className="divide-y divide-border">
                 {studies.map((study) => {
                   const reportLinks = getReportLinks(study);
+                  const studyComparisons = getComparisonsForStudy(study, comparisons);
                   return (
                     <tr key={study.id} className="align-top transition-colors hover:bg-muted/30">
                       <th
@@ -119,6 +130,16 @@ export default async function DiagnosticImagingPage({
                           label="View images"
                         />
                       </td>
+                      <td className="px-3 py-3 sm:px-4">
+                        {studyComparisons.length ? (
+                          <DiagnosticsComparisonsMenu
+                            comparisons={studyComparisons}
+                            studySet={params.studySet}
+                          />
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className="px-3 py-3 text-right sm:px-4">
                         <DiagnosticsDownloadLink href={study.downloadHref} />
                       </td>
@@ -132,6 +153,7 @@ export default async function DiagnosticImagingPage({
           <div className="divide-y divide-border md:hidden" data-test-id="diagnostics-mobile-list">
             {studies.map((study) => {
               const reportLinks = getReportLinks(study);
+              const studyComparisons = getComparisonsForStudy(study, comparisons);
               return (
                 <article key={study.id} className="p-3">
                   <div className="flex items-start justify-between gap-3">
@@ -155,7 +177,16 @@ export default async function DiagnosticImagingPage({
                   </div>
                   <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                     <DiagnosticsReportsMenu links={reportLinks} compact />
-                    <DiagnosticsDownloadLink href={study.downloadHref} compact />
+                    <div className="flex gap-2">
+                      {studyComparisons.length ? (
+                        <DiagnosticsComparisonsMenu
+                          comparisons={studyComparisons}
+                          studySet={params.studySet}
+                          compact
+                        />
+                      ) : null}
+                      <DiagnosticsDownloadLink href={study.downloadHref} compact />
+                    </div>
                   </div>
                 </article>
               );
@@ -178,6 +209,21 @@ function getStudyLabel(study: DiagnosticStudy) {
 
 function getReportLinks(study: DiagnosticStudy) {
   return study.reportLinks ?? [{ label: "Pathology report", href: study.pathologyReportHref }];
+}
+
+function getComparisonsForStudy(
+  study: DiagnosticStudy,
+  comparisons: DiagnosticComparisonManifest[],
+) {
+  if (!isMriStudy(study)) return [];
+  return comparisons.filter(
+    (comparison) =>
+      comparison.leftStudyId === study.id || comparison.rightStudyId === study.id,
+  );
+}
+
+function isMriStudy(study: DiagnosticStudy) {
+  return study.modality.toUpperCase().includes("MR");
 }
 
 function DiagnosticsReportsMenu({
@@ -217,6 +263,54 @@ function DiagnosticsReportsMenu({
             >
               <FileText className="size-4 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate">{link.label}</span>
+              <ArrowUpRight className="ml-auto size-3.5 text-muted-foreground" />
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function DiagnosticsComparisonsMenu({
+  comparisons,
+  studySet,
+  compact = false,
+}: {
+  comparisons: DiagnosticComparisonManifest[];
+  studySet?: string | null;
+  compact?: boolean;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="outline"
+            size={compact ? "sm" : "default"}
+            className={cn("w-full justify-between", compact && "text-xs")}
+          />
+        }
+      >
+        <span className="inline-flex min-w-0 items-center gap-1.5">
+          <Columns2 className="size-4 shrink-0" />
+          <span className="truncate">Compare</span>
+        </span>
+        <ChevronDown className="size-4 shrink-0" data-icon="inline-end" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-72">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>
+            {comparisons.length === 1 ? "Comparison" : "Comparisons"}
+          </DropdownMenuLabel>
+          {comparisons.map((comparison) => (
+            <DropdownMenuItem
+              key={comparison.id}
+              render={<Link href={getDicomCompareHref(comparison.id, studySet)} />}
+              className="gap-2"
+            >
+              <Columns2 className="size-4 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{comparison.label}</span>
               <ArrowUpRight className="ml-auto size-3.5 text-muted-foreground" />
             </DropdownMenuItem>
           ))}

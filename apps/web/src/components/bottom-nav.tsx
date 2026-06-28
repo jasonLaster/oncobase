@@ -30,7 +30,13 @@ function getPageTitle(pathname: string): string {
   if (pathname === "/") return "Home";
   if (pathname.startsWith("/chat")) return "Chat with wiki";
   if (pathname.startsWith("/comments")) return "View comments";
-  if (pathname.startsWith("/diagnostics") || pathname.startsWith("/tools/dicom-viewer")) return "Diagnostics";
+  if (
+    pathname.startsWith("/diagnostics") ||
+    pathname.startsWith("/tools/dicom-viewer") ||
+    pathname.startsWith("/tools/dicom-compare")
+  ) {
+    return "Diagnostics";
+  }
   if (pathname.startsWith("/search")) return "Search";
   if (pathname.startsWith("/tags/")) {
     const tag = decodeURIComponent(pathname.split("/tags/")[1] || "");
@@ -82,7 +88,9 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
   );
   const title = getPageTitle(pathname);
   const isChatRoute = pathname.startsWith("/chat");
-  const isDicomViewerRoute = pathname.startsWith("/tools/dicom-viewer");
+  const isDicomViewerRoute =
+    pathname.startsWith("/tools/dicom-viewer") ||
+    pathname.startsWith("/tools/dicom-compare");
   const isDocumentRoute =
     !isChatRoute &&
     !pathname.startsWith("/comments") &&

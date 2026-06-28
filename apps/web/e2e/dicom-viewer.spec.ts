@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
+import { diagnosticComparisonsSeed } from "../scripts/fixtures/diagnostic-comparisons-seed";
 import { diagnosticStudiesSeed } from "../scripts/fixtures/diagnostic-studies-seed";
 
 /**
@@ -100,6 +101,19 @@ async function seedDiagnosticStudies(
   const appBaseURL = baseURL ?? "http://localhost:3000";
   const response = await request.post(`${appBaseURL}/api/test/diagnostic-studies`, {
     data: { studySet, studies },
+  });
+  expect(response.ok()).toBe(true);
+}
+
+async function seedDiagnosticComparisons(
+  request: APIRequestContext,
+  baseURL: string | undefined,
+  comparisonSet: string,
+  comparisons: unknown,
+) {
+  const appBaseURL = baseURL ?? "http://localhost:3000";
+  const response = await request.post(`${appBaseURL}/api/test/dicom-comparisons`, {
+    data: { comparisonSet, comparisons },
   });
   expect(response.ok()).toBe(true);
 }
@@ -256,6 +270,12 @@ test.describe("DICOM viewer", () => {
       seededStudySet,
       diagnosticStudiesSeed.studies,
     );
+    await seedDiagnosticComparisons(
+      request,
+      baseURL,
+      seededStudySet,
+      diagnosticComparisonsSeed.comparisons,
+    );
   });
 
   test("diagnostics imaging page links each biopsy shortcut to the viewer", async ({ page }) => {
@@ -265,6 +285,7 @@ test.describe("DICOM viewer", () => {
     const desktopTable = page.getByTestId("diagnostics-desktop-table");
     await expect(desktopTable.getByRole("columnheader", { name: "Reports" })).toBeVisible();
     await expect(desktopTable.getByRole("columnheader", { name: "View images" })).toBeVisible();
+    await expect(desktopTable.getByRole("columnheader", { name: "Compare" })).toBeVisible();
     await expect(desktopTable.getByRole("columnheader", { name: "Download" })).toBeVisible();
     await expect(
       desktopTable.getByRole("link", { name: "Download source bundle" }),
@@ -296,6 +317,21 @@ test.describe("DICOM viewer", () => {
     await expect(
       page.getByRole("menuitem", { name: "Axilla biopsy report" }),
     ).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    if (!isProdRun) {
+      await expect(desktopTable.getByRole("button", { name: "Compare" })).toHaveCount(2);
+      await breastMriRow.getByRole("button", { name: "Compare" }).click();
+      await expect(
+        page.getByRole("menuitem", { name: "April 1 vs June 26 breast MRI" }),
+      ).toHaveAttribute(
+        "href",
+        `/tools/dicom-compare?comparison=mri-comparison-2026-04-01-vs-2026-06-26&studySet=${seededStudySet}`,
+      );
+      await expect(
+        desktopTable.getByRole("row", { name: /PET\/CT/ }).first().getByText("—"),
+      ).toBeVisible();
+    }
   });
 
   test("diagnostics imaging page uses a compact mobile study list", async ({ page }) => {
@@ -361,6 +397,41 @@ test.describe("DICOM viewer", () => {
     ).toBeVisible();
   });
 
+  test("comparison viewer renders paired MRI stacks from dynamic metadata", async ({ page }) => {
+    test.skip(isProdRun, "Local seeded comparison metadata is not available in production.");
+
+    await page.goto(
+      `/tools/dicom-compare?comparison=mri-comparison-2026-04-01-vs-2026-06-26${seededStudySetParam}`,
+      { waitUntil: "domcontentloaded" },
+    );
+
+    await expect(page.getByRole("heading", { name: "April 1 vs June 26 breast MRI" })).toBeVisible();
+    await expect(page.getByTestId("dicom-compare-pair-phase-2-subtraction")).toContainText(
+      "Phase-2 subtraction",
+    );
+    await expect(page.getByTestId("dicom-compare-left-viewport")).toBeVisible();
+    await expect(page.getByTestId("dicom-compare-right-viewport")).toBeVisible();
+    await expect(
+      page.locator('[data-test-id="dicom-compare-left-viewport"] canvas'),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.locator('[data-test-id="dicom-compare-right-viewport"] canvas'),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("dicom-compare-left-loading")).toBeHidden({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("dicom-compare-right-loading")).toBeHidden({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("dicom-compare-left-counter")).toContainText("/ 246");
+    await expect(page.getByTestId("dicom-compare-right-counter")).toContainText("/ 254");
+    await expect(page.getByTestId("dicom-compare-match-state")).toContainText(/z|fallback/i);
+    await expect(page.getByText("Marked overall improvement")).toBeVisible();
+    await expect(page.getByTestId("dicom-compare-precomputed-panel")).toContainText(
+      "Annotated subtraction report slices",
+    );
+  });
+
   test("diagnostics report links stay live and surfaced PDFs support password-gated byte-range loading", async ({
     request,
     baseURL,
@@ -402,7 +473,7 @@ test.describe("DICOM viewer", () => {
   }) => {
     await page.goto(`/diagnostics/imaging${seededStudySetQuery}`);
 
-    const sidebar = page.getByTestId("sidebar");
+    const sidebar = page.getByTestId("app-shell").getByTestId("sidebar");
     await expect(sidebar).toBeVisible();
     await expect(page.getByTestId("diagnostics-sidebar")).toHaveCount(0);
     await expect(sidebar.getByTestId("sidebar-view-diagnostics")).toHaveAttribute(
