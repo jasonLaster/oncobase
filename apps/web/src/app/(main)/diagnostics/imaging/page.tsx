@@ -90,10 +90,10 @@ export default async function DiagnosticImagingPage({
                     Reports
                   </th>
                   <th scope="col" className="px-3 py-3 sm:px-4">
-                    View images
+                    Images
                   </th>
                   <th scope="col" className="px-3 py-3 sm:px-4">
-                    Compare
+                    Comparisons
                   </th>
                   <th scope="col" className="px-3 py-3 text-right sm:px-4">
                     Download
@@ -127,7 +127,7 @@ export default async function DiagnosticImagingPage({
                         <DiagnosticsActionLink
                           href={getDicomViewerHref(study.id, params.studySet)}
                           icon={<ImageIcon className="size-4" />}
-                          label="View images"
+                          label="Images"
                         />
                       </td>
                       <td className="px-3 py-3 sm:px-4">
@@ -171,7 +171,7 @@ export default async function DiagnosticImagingPage({
                     <DiagnosticsActionLink
                       href={getDicomViewerHref(study.id, params.studySet)}
                       icon={<ImageIcon className="size-4" />}
-                      label="View images"
+                      label="Images"
                       compact
                     />
                   </div>
@@ -252,9 +252,7 @@ function DiagnosticsReportsMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>
-            {links.length === 1 ? "Report" : "Reports"}
-          </DropdownMenuLabel>
+          <DropdownMenuLabel>Reports</DropdownMenuLabel>
           {links.map((link) => (
             <DropdownMenuItem
               key={link.href}
@@ -262,7 +260,9 @@ function DiagnosticsReportsMenu({
               className="gap-2"
             >
               <FileText className="size-4 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{link.label}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {getReportMenuLabel(link.label)}
+              </span>
               <ArrowUpRight className="ml-auto size-3.5 text-muted-foreground" />
             </DropdownMenuItem>
           ))}
@@ -270,6 +270,11 @@ function DiagnosticsReportsMenu({
       </DropdownMenuContent>
     </DropdownMenu>
   );
+}
+
+function getReportMenuLabel(label: string) {
+  const withoutSuffix = label.replace(/\s+report$/i, "").trim();
+  return withoutSuffix || label;
 }
 
 function DiagnosticsComparisonsMenu({
@@ -294,7 +299,7 @@ function DiagnosticsComparisonsMenu({
       >
         <span className="inline-flex min-w-0 items-center gap-1.5">
           <Columns2 className="size-4 shrink-0" />
-          <span className="truncate">Compare</span>
+          <span className="truncate">Comparisons</span>
         </span>
         <ChevronDown className="size-4 shrink-0" data-icon="inline-end" />
       </DropdownMenuTrigger>

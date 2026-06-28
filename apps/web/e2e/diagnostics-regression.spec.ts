@@ -92,7 +92,7 @@ test.describe("diagnostics regressions", () => {
 
     const table = page.getByTestId("diagnostics-desktop-table");
     await expect(table.getByRole("columnheader", { name: "Reports" })).toBeVisible();
-    await expect(table.getByRole("columnheader", { name: "View images" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Images" })).toBeVisible();
     await expect(table.getByRole("columnheader", { name: "Download" })).toBeVisible();
     await expect(
       table.locator('a[href="/tools/dicom-viewer?id=diagnostic-2026-06-10-petct"]'),

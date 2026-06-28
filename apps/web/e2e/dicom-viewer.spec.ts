@@ -284,8 +284,8 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible();
     const desktopTable = page.getByTestId("diagnostics-desktop-table");
     await expect(desktopTable.getByRole("columnheader", { name: "Reports" })).toBeVisible();
-    await expect(desktopTable.getByRole("columnheader", { name: "View images" })).toBeVisible();
-    await expect(desktopTable.getByRole("columnheader", { name: "Compare" })).toBeVisible();
+    await expect(desktopTable.getByRole("columnheader", { name: "Images" })).toBeVisible();
+    await expect(desktopTable.getByRole("columnheader", { name: "Comparisons" })).toBeVisible();
     await expect(desktopTable.getByRole("columnheader", { name: "Download" })).toBeVisible();
     await expect(
       desktopTable.getByRole("link", { name: "Download source bundle" }),
@@ -296,7 +296,7 @@ test.describe("DICOM viewer", () => {
       );
 
       await expect(viewerLink).toBeVisible();
-      await expect(viewerLink).toContainText("View images");
+      await expect(viewerLink).toContainText("Images");
       await expect(viewerLink).toHaveAttribute(
         "href",
         `/tools/dicom-viewer?id=${biopsy.id}${seededStudySetParam}`,
@@ -307,21 +307,17 @@ test.describe("DICOM viewer", () => {
       name: /Apr 1, 2026.*Breast MRI/,
     });
     await breastMriRow.getByRole("button", { name: "Reports" }).click();
-    await expect(page.getByRole("menuitem", { name: "MRI report" })).toHaveAttribute(
+    await expect(page.getByRole("menuitem", { name: "MRI" })).toHaveAttribute(
       "href",
       "/api/file?path=sources%2Fdiagnostics%2F401-breast-mri.pdf",
     );
-    await expect(
-      page.getByRole("menuitem", { name: "Breast biopsy report" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("menuitem", { name: "Axilla biopsy report" }),
-    ).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Breast biopsy" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Axilla biopsy" })).toBeVisible();
     await page.keyboard.press("Escape");
 
     if (!isProdRun) {
-      await expect(desktopTable.getByRole("button", { name: "Compare" })).toHaveCount(2);
-      await breastMriRow.getByRole("button", { name: "Compare" }).click();
+      await expect(desktopTable.getByRole("button", { name: "Comparisons" })).toHaveCount(2);
+      await breastMriRow.getByRole("button", { name: "Comparisons" }).click();
       await expect(
         page.getByRole("menuitem", { name: "April 1 vs June 26 breast MRI" }),
       ).toHaveAttribute(
@@ -342,10 +338,10 @@ test.describe("DICOM viewer", () => {
     await expect(mobileList).toBeVisible();
     await expect(page.getByRole("table")).toBeHidden();
     await expect(
-      mobileList.getByRole("link", { name: /View images/ }),
+      mobileList.getByRole("link", { name: /Images/ }),
     ).toHaveCount(biopsyLinks.length);
     await expect(
-      mobileList.getByRole("link", { name: /View images/ }).first(),
+      mobileList.getByRole("link", { name: /Images/ }).first(),
     ).toHaveAttribute(
       "href",
       `/tools/dicom-viewer?id=diagnostic-2026-06-26-breast-mri${seededStudySetParam}`,
