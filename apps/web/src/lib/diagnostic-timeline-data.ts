@@ -1,7 +1,7 @@
 import {
-  getDiagnosticBiopsyById,
   getDicomViewerHref,
-} from "@/lib/diagnostic-biopsies";
+  type DiagnosticStudy,
+} from "@/lib/diagnostic-studies";
 
 export type DiagnosticTimelineStatus = "reported" | "flagged" | "planned";
 export type DiagnosticTimelineTrackKind = "events" | "series";
@@ -68,42 +68,129 @@ const PACIFIC_TIME_ZONE = "America/Los_Angeles";
 export function prepareDiagnosticTimeline(
   timeline: DiagnosticTimelineData,
   today = todayInPacificTime(),
+  diagnosticStudies: DiagnosticStudy[] = [],
 ): DiagnosticTimelineData {
   const rangeEnd = maxIsoDate(timeline.metadata.range.end, today);
 
-  return enrichDiagnosticTimeline({
-    ...timeline,
-    metadata: {
-      ...timeline.metadata,
-      asOf: today,
-      range: {
-        ...timeline.metadata.range,
-        end: rangeEnd,
-      },
-      defaultRange: {
-        start: DEFAULT_WINDOW_START,
-        end: today,
+  return enrichDiagnosticTimeline(
+    {
+      ...timeline,
+      metadata: {
+        ...timeline.metadata,
+        asOf: today,
+        range: {
+          ...timeline.metadata.range,
+          end: rangeEnd,
+        },
+        defaultRange: {
+          start: DEFAULT_WINDOW_START,
+          end: today,
+        },
       },
     },
-  });
+    diagnosticStudies,
+  );
 }
 
 export function enrichDiagnosticTimeline(
   timeline: DiagnosticTimelineData,
+  diagnosticStudies: DiagnosticStudy[] = [],
 ): DiagnosticTimelineData {
+  const timelineWithDiagnosticStudies = appendDiagnosticStudyEvents(
+    timeline,
+    diagnosticStudies,
+  );
+
   return {
-    ...timeline,
-    sleeves: timeline.sleeves.map((sleeve) => ({
+    ...timelineWithDiagnosticStudies,
+    sleeves: timelineWithDiagnosticStudies.sleeves.map((sleeve) => ({
       ...sleeve,
       tracks: sleeve.tracks.map((track) => ({
         ...track,
         events: track.events.map((event) => ({
           ...event,
-          links: mergeLinks(event.links ?? [], diagnosticLinksForEvent(event)),
+          links: mergeLinks(
+            event.links ?? [],
+            diagnosticLinksForEvent(event, diagnosticStudies),
+          ),
         })),
       })),
     })),
   };
+}
+
+function appendDiagnosticStudyEvents(
+  timeline: DiagnosticTimelineData,
+  diagnosticStudies: DiagnosticStudy[],
+): DiagnosticTimelineData {
+  if (!diagnosticStudies.length) return timeline;
+
+  const existingDiagnosticIds = new Set(
+    timeline.sleeves.flatMap((sleeve) =>
+      sleeve.tracks.flatMap((track) =>
+        track.events.flatMap((event) =>
+          event.diagnosticId ? [event.diagnosticId] : [],
+        ),
+      ),
+    ),
+  );
+  const missingStudies = diagnosticStudies.filter(
+    (study) => !existingDiagnosticIds.has(study.id) && isImagingStudy(study),
+  );
+  if (!missingStudies.length) return timeline;
+
+  return {
+    ...timeline,
+    sleeves: timeline.sleeves.map((sleeve) => {
+      if (sleeve.id !== "imaging") return sleeve;
+      return {
+        ...sleeve,
+        tracks: sleeve.tracks.map((track) => {
+          const studyEvents = missingStudies
+            .filter((study) => track.id === trackIdForStudy(study))
+            .map(eventForDiagnosticStudy);
+          if (!studyEvents.length) return track;
+          return {
+            ...track,
+            events: [...track.events, ...studyEvents].sort((a, b) =>
+              a.date.localeCompare(b.date),
+            ),
+          };
+        }),
+      };
+    }),
+  };
+}
+
+function eventForDiagnosticStudy(study: DiagnosticStudy): DiagnosticTimelineEvent {
+  return {
+    id: `diagnostic-study-${study.id}`,
+    date: study.isoDate,
+    label: study.title.replace(
+      /^(January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2} /,
+      "",
+    ),
+    result: study.focus,
+    status: "reported",
+    diagnosticId: study.id,
+    details: ["DICOM stack and report metadata are available from Convex."],
+  };
+}
+
+function isImagingStudy(study: DiagnosticStudy) {
+  return ["MR", "MRI", "PET/CT", "PT", "US", "ULTRASOUND"].includes(
+    study.modality.toUpperCase(),
+  );
+}
+
+function trackIdForStudy(study: DiagnosticStudy) {
+  const modality = study.modality.toUpperCase();
+  if (modality.includes("PET") || modality === "PT") return "petct";
+  if (modality.includes("MR")) return "mri";
+  if (modality.includes("US") || modality.includes("ULTRASOUND")) {
+    return "us-mammogram";
+  }
+  return "mri";
 }
 
 export function countDiagnosticTimelineEvents(data: DiagnosticTimelineData) {
@@ -115,8 +202,11 @@ export function countDiagnosticTimelineEvents(data: DiagnosticTimelineData) {
   );
 }
 
-function diagnosticLinksForEvent(event: DiagnosticTimelineEvent): DiagnosticTimelineLink[] {
-  const biopsy = getDiagnosticBiopsyById(event.diagnosticId);
+function diagnosticLinksForEvent(
+  event: DiagnosticTimelineEvent,
+  diagnosticStudies: DiagnosticStudy[],
+): DiagnosticTimelineLink[] {
+  const biopsy = diagnosticStudies.find((study) => study.id === event.diagnosticId);
   if (!biopsy) return [];
 
   const reportLinks = biopsy.reportLinks ?? [

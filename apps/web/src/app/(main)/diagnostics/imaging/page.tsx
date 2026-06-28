@@ -19,18 +19,29 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  DIAGNOSTIC_BIOPSIES,
   getDicomViewerHref,
-  type DiagnosticBiopsy,
   type DiagnosticReportLink,
-} from "@/lib/diagnostic-biopsies";
+  type DiagnosticStudy,
+} from "@/lib/diagnostic-studies";
+import { getDiagnosticStudiesForCurrentSite } from "@/lib/diagnostic-studies-server";
 import { cn } from "@/lib/utils";
 
 export const metadata = {
   title: "Diagnostic Imaging",
 };
 
-export default function DiagnosticImagingPage() {
+interface DiagnosticImagingPageProps {
+  searchParams: Promise<{
+    studySet?: string;
+  }>;
+}
+
+export default async function DiagnosticImagingPage({
+  searchParams,
+}: DiagnosticImagingPageProps) {
+  const params = await searchParams;
+  const studies = await getDiagnosticStudiesForCurrentSite(params.studySet);
+
   return (
     <div className="h-full overflow-y-auto bg-background text-foreground">
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -42,7 +53,7 @@ export default function DiagnosticImagingPage() {
             </p>
           </div>
           <Badge variant="outline" className="w-fit">
-            {DIAGNOSTIC_BIOPSIES.length} studies
+            {studies.length} studies
           </Badge>
         </header>
 
@@ -80,36 +91,36 @@ export default function DiagnosticImagingPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {DIAGNOSTIC_BIOPSIES.map((biopsy) => {
-                  const reportLinks = getReportLinks(biopsy);
+                {studies.map((study) => {
+                  const reportLinks = getReportLinks(study);
                   return (
-                    <tr key={biopsy.id} className="align-top transition-colors hover:bg-muted/30">
+                    <tr key={study.id} className="align-top transition-colors hover:bg-muted/30">
                       <th
                         scope="row"
                         className="whitespace-nowrap px-3 py-3 font-medium text-foreground sm:px-4"
                       >
-                        {biopsy.dateLabel}
+                        {study.dateLabel}
                       </th>
                       <td className="px-3 py-3 sm:px-4">
                         <div className="font-medium text-foreground">
-                          {getStudyLabel(biopsy)}
+                          {getStudyLabel(study)}
                         </div>
                       </td>
                       <td className="px-3 py-3 sm:px-4">
-                        <Badge variant="outline">{biopsy.modality}</Badge>
+                        <Badge variant="outline">{study.modality}</Badge>
                       </td>
                       <td className="px-3 py-3 sm:px-4">
                         <DiagnosticsReportsMenu links={reportLinks} />
                       </td>
                       <td className="px-3 py-3 sm:px-4">
                         <DiagnosticsActionLink
-                          href={getDicomViewerHref(biopsy.id)}
+                          href={getDicomViewerHref(study.id, params.studySet)}
                           icon={<ImageIcon className="size-4" />}
                           label="View images"
                         />
                       </td>
                       <td className="px-3 py-3 text-right sm:px-4">
-                        <DiagnosticsDownloadLink href={biopsy.downloadHref} />
+                        <DiagnosticsDownloadLink href={study.downloadHref} />
                       </td>
                     </tr>
                   );
@@ -119,24 +130,24 @@ export default function DiagnosticImagingPage() {
           </div>
 
           <div className="divide-y divide-border md:hidden" data-test-id="diagnostics-mobile-list">
-            {DIAGNOSTIC_BIOPSIES.map((biopsy) => {
-              const reportLinks = getReportLinks(biopsy);
+            {studies.map((study) => {
+              const reportLinks = getReportLinks(study);
               return (
-                <article key={biopsy.id} className="p-3">
+                <article key={study.id} className="p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-foreground">
-                        {biopsy.title}
+                        {study.title}
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span>{biopsy.dateLabel}</span>
+                        <span>{study.dateLabel}</span>
                         <Badge variant="outline" className="h-5 px-1.5 text-[11px]">
-                          {biopsy.modality}
+                          {study.modality}
                         </Badge>
                       </div>
                     </div>
                     <DiagnosticsActionLink
-                      href={getDicomViewerHref(biopsy.id)}
+                      href={getDicomViewerHref(study.id, params.studySet)}
                       icon={<ImageIcon className="size-4" />}
                       label="View images"
                       compact
@@ -144,7 +155,7 @@ export default function DiagnosticImagingPage() {
                   </div>
                   <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                     <DiagnosticsReportsMenu links={reportLinks} compact />
-                    <DiagnosticsDownloadLink href={biopsy.downloadHref} compact />
+                    <DiagnosticsDownloadLink href={study.downloadHref} compact />
                   </div>
                 </article>
               );
@@ -156,8 +167,8 @@ export default function DiagnosticImagingPage() {
   );
 }
 
-function getStudyLabel(biopsy: DiagnosticBiopsy) {
-  const withoutDate = biopsy.title.replace(
+function getStudyLabel(study: DiagnosticStudy) {
+  const withoutDate = study.title.replace(
     /^(January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2} /,
     "",
   );
@@ -165,8 +176,8 @@ function getStudyLabel(biopsy: DiagnosticBiopsy) {
   return withoutDate.charAt(0).toUpperCase() + withoutDate.slice(1);
 }
 
-function getReportLinks(biopsy: DiagnosticBiopsy) {
-  return biopsy.reportLinks ?? [{ label: "Pathology report", href: biopsy.pathologyReportHref }];
+function getReportLinks(study: DiagnosticStudy) {
+  return study.reportLinks ?? [{ label: "Pathology report", href: study.pathologyReportHref }];
 }
 
 function DiagnosticsReportsMenu({

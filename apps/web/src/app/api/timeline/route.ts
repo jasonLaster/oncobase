@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import type { DiagnosticTimelineData } from "@/lib/diagnostic-timeline-data";
 import { prepareDiagnosticTimeline } from "@/lib/diagnostic-timeline-data";
+import { getDiagnosticStudiesFromSiteData } from "@/lib/diagnostic-studies-server";
 import { siteDataFromRequest } from "@/lib/site-data";
 
 const TIMELINE_META_KEY = "diagnosticTimeline:data";
@@ -20,8 +21,9 @@ export async function GET(request: Request) {
   }
 
   const timeline = JSON.parse(value) as DiagnosticTimelineData;
+  const diagnosticStudies = await getDiagnosticStudiesFromSiteData(siteData);
 
-  return NextResponse.json(prepareDiagnosticTimeline(timeline), {
+  return NextResponse.json(prepareDiagnosticTimeline(timeline, undefined, diagnosticStudies), {
     headers: {
       "Cache-Control": "no-store",
       Vary: "x-site-slug",

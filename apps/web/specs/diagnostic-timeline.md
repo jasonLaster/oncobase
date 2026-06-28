@@ -42,8 +42,13 @@ redirect, and diagnostics subpage regressions are covered by
 
 - Timeline content is backed by the site-scoped Convex `meta` key
   `diagnosticTimeline:data` and fetched by the page through `/api/timeline`.
-- The local seed command `bun --cwd apps/web run timeline:seed`
+- Diagnostic study metadata is backed by the site-scoped Convex `meta` key
+  `diagnosticStudies:data` and fetched through `/api/diagnostic-studies`.
+- The local seed command `bun run --cwd apps/web timeline:seed`
   writes the current timeline results into Convex.
+- The local seed command `bun run --cwd apps/web diagnostic-studies:seed`
+  writes the current diagnostic study metadata into Convex. Operators can also
+  pass `--file <path>` to seed metadata from an external JSON artifact.
 - Each sleeve groups related diagnostic activity:
   - imaging and staging
   - pathology and tissue
