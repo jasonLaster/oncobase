@@ -266,7 +266,9 @@ test.describe("DICOM viewer", () => {
     await expect(desktopTable.getByRole("columnheader", { name: "Reports" })).toBeVisible();
     await expect(desktopTable.getByRole("columnheader", { name: "View images" })).toBeVisible();
     await expect(desktopTable.getByRole("columnheader", { name: "Download" })).toBeVisible();
-    await expect(desktopTable.getByRole("link", { name: "Download" })).toHaveCount(6);
+    await expect(
+      desktopTable.getByRole("link", { name: "Download source bundle" }),
+    ).toHaveCount(6);
     for (const biopsy of biopsyLinks) {
       const viewerLink = desktopTable.locator(
         `a[href="/tools/dicom-viewer?id=${biopsy.id}${seededStudySetParam}"]`

@@ -65,7 +65,7 @@ export default async function DiagnosticImagingPage({
                 <col />
                 <col className="w-20 sm:w-24" />
                 <col className="w-36" />
-                <col className="w-32" />
+                <col className="w-20" />
                 <col className="w-32" />
               </colgroup>
               <thead className="border-b border-border bg-muted/40 text-xs font-medium uppercase tracking-normal text-muted-foreground">
@@ -276,13 +276,13 @@ function DiagnosticsDownloadLink({
     <a
       href={href}
       download
+      aria-label="Download source bundle"
+      title="Download source bundle"
       className={cn(
-        "inline-flex h-8 w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-medium whitespace-nowrap transition-colors hover:border-primary/40 hover:bg-accent hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
-        compact && "px-2 text-xs",
+        "inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-sm font-medium transition-colors hover:border-primary/40 hover:bg-accent hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
       )}
     >
       <Download className="size-4" />
-      Download
     </a>
   );
 }
