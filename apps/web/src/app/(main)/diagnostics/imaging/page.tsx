@@ -292,15 +292,14 @@ function DiagnosticsComparisonsMenu({
         render={
           <Button
             variant="outline"
-            size={compact ? "sm" : "default"}
-            className="h-8 w-8 justify-center px-0"
+            size="icon"
+            className={cn(compact && "size-7")}
             aria-label="Comparisons"
             title="Comparisons"
           />
         }
       >
         <Columns2 className="size-4 shrink-0" />
-        <ChevronDown className="size-4 shrink-0" data-icon="inline-end" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
         <DropdownMenuGroup>
