@@ -626,6 +626,15 @@ export function DicomViewerClient({
           data-test-id="dicom-series-panel"
         >
           <div className="space-y-3 p-2.5 sm:p-3">
+            <Link
+              href={diagnosticsImagingHref}
+              className="flex items-center gap-2 border-b border-white/10 pb-3 text-xs font-medium tracking-wide text-zinc-400 uppercase transition-colors hover:text-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:outline-none"
+              data-test-id="dicom-back-to-imaging"
+            >
+              <ArrowLeft className="size-4" />
+              Imaging
+            </Link>
+
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold tracking-wide text-zinc-300 uppercase">
                 Series
@@ -782,14 +791,6 @@ export function DicomViewerClient({
               className="flex shrink-0 items-center gap-1 overflow-x-auto"
               data-test-id="dicom-tools-row"
             >
-              <Link
-                href={diagnosticsImagingHref}
-                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:outline-none"
-                data-test-id="dicom-back-to-imaging"
-              >
-                <ArrowLeft className="size-4" />
-                Imaging
-              </Link>
               <ToolButton
                 active={toolMode === "window"}
                 icon={<SlidersHorizontal className="size-4" />}

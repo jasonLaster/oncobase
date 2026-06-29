@@ -512,11 +512,14 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByTestId("dicom-pathology-report-link")).toContainText(
       "Pathology report",
     );
-    const backLink = page.getByTestId("dicom-back-to-imaging");
+    const backLink = seriesPanel.getByTestId("dicom-back-to-imaging");
     await expect(backLink).toHaveAttribute(
       "href",
       `/diagnostics/imaging${seededStudySetQuery}`,
     );
+    await expect(
+      page.getByTestId("dicom-tools-row").getByTestId("dicom-back-to-imaging"),
+    ).toHaveCount(0);
     await backLink.click();
     await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible();
   });
