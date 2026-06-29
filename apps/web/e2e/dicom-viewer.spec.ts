@@ -499,8 +499,8 @@ test.describe("DICOM viewer", () => {
     );
 
     const seriesPanel = page.getByTestId("dicom-series-panel");
-    await expect(seriesPanel).toContainText("2026-03-23");
-    await expect(seriesPanel).not.toContainText("2026-04-10");
+    await expect(seriesPanel).toContainText("3-23 - US Axilla biopsy");
+    await expect(seriesPanel).not.toContainText("4-10 biopsy");
     await expect(page.getByTestId("dicom-pathology-report-link")).toHaveAttribute(
       "href",
       "/sources/diagnostics/03-23-us-axilla-core-biopsy",

@@ -667,20 +667,12 @@ export function DicomViewerClient({
                     <div className="flex items-start gap-2">
                       <ImageIcon className="mt-0.5 size-4 shrink-0 text-zinc-400" />
                       <div className="min-w-0 flex-1">
-                        <div className="line-clamp-2 text-sm font-medium text-zinc-100">
-                          {series.label}
-                        </div>
-                        <div className="mt-1 truncate text-xs text-zinc-500">
+                        <div className="truncate text-sm font-medium text-zinc-100">
                           {series.relativeDirectory}
                         </div>
                       </div>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {series.modality ? (
-                        <Badge variant="secondary" className="bg-white/10 text-zinc-200">
-                          {series.modality}
-                        </Badge>
-                      ) : null}
                       <Badge variant="outline" className="border-white/15 text-zinc-300">
                         {series.images.length} images
                       </Badge>
@@ -1106,10 +1098,7 @@ export function DicomViewerClient({
                       />
                       <ImageIcon className="size-4 shrink-0 text-zinc-500" />
                       <span className="min-w-0 flex-1">
-                        <span className="line-clamp-2 text-sm font-medium text-zinc-100">
-                          {series.label}
-                        </span>
-                        <span className="mt-1 block truncate text-xs text-zinc-500">
+                        <span className="block truncate text-sm font-medium text-zinc-100">
                           {series.relativeDirectory}
                         </span>
                       </span>
@@ -1118,11 +1107,6 @@ export function DicomViewerClient({
                           {series.images.length}
                         </span>
                         <span className="block">images</span>
-                        {series.modality ? (
-                          <span className="mt-1 block text-zinc-500">
-                            {series.modality}
-                          </span>
-                        ) : null}
                       </span>
                     </button>
                   );
