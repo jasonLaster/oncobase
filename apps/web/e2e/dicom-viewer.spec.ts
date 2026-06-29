@@ -493,7 +493,7 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
     const viewerSidebar = page.getByTestId("diagnostics-sidebar");
     await expect(viewerSidebar).toBeVisible();
-    await expect(viewerSidebar.getByRole("link")).toHaveCount(biopsyLinks.length);
+    await expect(viewerSidebar.getByRole("link")).toHaveCount(biopsyLinks.length + 1);
     await expect(
       viewerSidebar.getByRole("link", { name: "March 13 biopsy" }),
     ).toHaveAttribute(
@@ -512,11 +512,12 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByTestId("dicom-pathology-report-link")).toContainText(
       "Pathology report",
     );
-    const backLink = seriesPanel.getByTestId("dicom-back-to-imaging");
+    const backLink = viewerSidebar.getByTestId("dicom-back-to-imaging");
     await expect(backLink).toHaveAttribute(
       "href",
       `/diagnostics/imaging${seededStudySetQuery}`,
     );
+    await expect(seriesPanel.getByTestId("dicom-back-to-imaging")).toHaveCount(0);
     await expect(
       page.getByTestId("dicom-tools-row").getByTestId("dicom-back-to-imaging"),
     ).toHaveCount(0);

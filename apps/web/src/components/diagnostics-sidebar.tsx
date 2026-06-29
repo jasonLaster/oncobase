@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import useSWR from "swr";
 
 import {
@@ -49,6 +50,7 @@ function DiagnosticsSidebarFrame({
   const params = new URLSearchParams();
   if (studySet) params.set(DIAGNOSTIC_STUDY_SET_PARAM, studySet);
   const query = params.toString();
+  const imagingHref = `/diagnostics/imaging${query ? `?${query}` : ""}`;
   const { data } = useSWR<DiagnosticStudiesPayload>(
     `/api/diagnostic-studies${query ? `?${query}` : ""}`,
     fetchDiagnosticStudies,
@@ -67,6 +69,14 @@ function DiagnosticsSidebarFrame({
         className="min-h-0 flex-1 select-none overflow-y-auto p-2"
         data-test-id="sidebar-tree"
       >
+        <Link
+          href={imagingHref}
+          className="mb-2 flex items-center gap-2 border-b border-[var(--sidebar-border)] px-2 pb-2 pt-1 text-xs font-medium tracking-wide text-[var(--text-muted)] uppercase transition-colors hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none"
+          data-test-id="dicom-back-to-imaging"
+        >
+          <ArrowLeft className="size-4" />
+          Imaging
+        </Link>
         <div className="space-y-1">
           {studies.map((biopsy) => (
             <Link

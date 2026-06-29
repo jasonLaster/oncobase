@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import {
-  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -203,12 +201,6 @@ export function DicomViewerClient({
     if (initialStudySet) params.set(DIAGNOSTIC_STUDY_SET_PARAM, initialStudySet);
     const query = params.toString();
     return `/api/diagnostic-studies${query ? `?${query}` : ""}`;
-  }, [initialStudySet]);
-  const diagnosticsImagingHref = useMemo(() => {
-    const params = new URLSearchParams();
-    if (initialStudySet) params.set(DIAGNOSTIC_STUDY_SET_PARAM, initialStudySet);
-    const query = params.toString();
-    return `/diagnostics/imaging${query ? `?${query}` : ""}`;
   }, [initialStudySet]);
   const { data: diagnosticStudiesPayload } = useSWR<DiagnosticStudiesPayload>(
     diagnosticStudiesUrl,
@@ -626,15 +618,6 @@ export function DicomViewerClient({
           data-test-id="dicom-series-panel"
         >
           <div className="space-y-3 p-2.5 sm:p-3">
-            <Link
-              href={diagnosticsImagingHref}
-              className="flex items-center gap-2 border-b border-white/10 pb-3 text-xs font-medium tracking-wide text-zinc-400 uppercase transition-colors hover:text-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:outline-none"
-              data-test-id="dicom-back-to-imaging"
-            >
-              <ArrowLeft className="size-4" />
-              Imaging
-            </Link>
-
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold tracking-wide text-zinc-300 uppercase">
                 Series
