@@ -104,6 +104,7 @@ function splitSlug(slug: string) {
   return slug.split("/").filter(Boolean);
 }
 
+const HIDDEN_FILE_TREE_ROOT_DIRECTORIES = new Set(["diagnostics"]);
 const HIDDEN_FILE_TREE_DIRECTORIES = new Set(["images"]);
 const HIDDEN_FILE_TREE_FILENAMES = new Set(["package.json"]);
 const HIDDEN_FILE_TREE_FILE_EXTENSIONS = new Set([
@@ -117,7 +118,12 @@ const HIDDEN_FILE_TREE_FILE_EXTENSIONS = new Set([
 ]);
 
 export function isHiddenFileTreePath(path: string): boolean {
-  return splitSlug(path).some((segment) => {
+  const segments = splitSlug(path);
+  if (HIDDEN_FILE_TREE_ROOT_DIRECTORIES.has((segments[0] ?? "").toLowerCase())) {
+    return true;
+  }
+
+  return segments.some((segment) => {
     const lower = segment.toLowerCase();
     return (
       HIDDEN_FILE_TREE_DIRECTORIES.has(lower) ||

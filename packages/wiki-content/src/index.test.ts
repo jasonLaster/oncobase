@@ -75,6 +75,9 @@ describe("wiki content contracts", () => {
   });
 
   test("hides image asset directories from the navigation tree only", () => {
+    expect(isHiddenFileTreePath("diagnostics/viewer-upload/report.pdf")).toBe(true);
+    expect(isHiddenFileTreePath("wiki/diagnostics/index")).toBe(false);
+    expect(isHiddenFileTreePath("sources/diagnostics/report")).toBe(false);
     expect(isHiddenFileTreePath("images/scan.png")).toBe(true);
     expect(isHiddenFileTreePath("wiki/media/images/scan.png")).toBe(true);
     expect(isHiddenFileTreePath("wiki/image-analysis/notes")).toBe(false);
@@ -94,16 +97,25 @@ describe("wiki content contracts", () => {
           { slug: "wiki/config/tsconfig.json" },
         ],
         [
+          { kind: "pdf", path: "diagnostics/viewer-upload/report.pdf" },
           { kind: "file", path: "wiki/media/images/scan.png" },
           { kind: "file", path: "wiki/config/package.json" },
           { kind: "file", path: "wiki/config/tsconfig.json" },
           { kind: "file", path: "sources/paper-images/img-000.jpg" },
+          { kind: "pdf", path: "sources/diagnostics/report.pdf" },
           { kind: "pdf", path: "sources/images/pathology-slide.pdf" },
           { kind: "pdf", path: "sources/people/providers/stanford/telli.pdf" },
         ],
       ),
     ).toEqual([
-      ["d", "sources", [["d", "people", [["d", "providers", [["d", "stanford", [["p", "telli"]]]]]]]]],
+      [
+        "d",
+        "sources",
+        [
+          ["d", "diagnostics", [["p", "report"]]],
+          ["d", "people", [["d", "providers", [["d", "stanford", [["p", "telli"]]]]]]],
+        ],
+      ],
       ["d", "wiki", [["d", "image-analysis", [["f", "notes"]]]]],
     ]);
   });
