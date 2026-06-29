@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -37,6 +46,33 @@ type CornerstoneTools = typeof import("@cornerstonejs/tools");
 type DicomImageLoader = typeof import("@cornerstonejs/dicom-image-loader");
 
 type ToolMode = "window" | "pan" | "zoom";
+type DicomRail = "series" | "stack";
+
+const DICOM_SERIES_RAIL_MIN_WIDTH = 240;
+const DICOM_SERIES_RAIL_MAX_WIDTH = 460;
+const DICOM_SERIES_RAIL_DEFAULT_WIDTH = 320;
+const DICOM_STACK_RAIL_MIN_WIDTH = 220;
+const DICOM_STACK_RAIL_MAX_WIDTH = 420;
+const DICOM_STACK_RAIL_DEFAULT_WIDTH = 280;
+const DICOM_STACK_RAIL_COLLAPSED_WIDTH = 44;
+const DICOM_RAIL_WIDTH_STEP = 16;
+
+const DICOM_RAIL_STORAGE_KEYS: Record<DicomRail, string> = {
+  series: "dicom-viewer-series-rail-width",
+  stack: "dicom-viewer-stack-rail-width",
+};
+
+interface DicomRailBounds {
+  min: number;
+  max: number;
+  defaultWidth: number;
+}
+
+interface DicomRailResizeState {
+  rail: DicomRail;
+  startX: number;
+  startWidth: number;
+}
 
 interface DicomCatalog {
   root: string | null;
@@ -153,6 +189,50 @@ function safeAddTool(tools: CornerstoneTools, ToolClass: unknown) {
   }
 }
 
+function dicomRailBounds(rail: DicomRail): DicomRailBounds {
+  if (rail === "series") {
+    return {
+      min: DICOM_SERIES_RAIL_MIN_WIDTH,
+      max: DICOM_SERIES_RAIL_MAX_WIDTH,
+      defaultWidth: DICOM_SERIES_RAIL_DEFAULT_WIDTH,
+    };
+  }
+
+  return {
+    min: DICOM_STACK_RAIL_MIN_WIDTH,
+    max: DICOM_STACK_RAIL_MAX_WIDTH,
+    defaultWidth: DICOM_STACK_RAIL_DEFAULT_WIDTH,
+  };
+}
+
+function clampDicomRailWidth(rail: DicomRail, width: number) {
+  const bounds = dicomRailBounds(rail);
+  return Math.min(bounds.max, Math.max(bounds.min, width));
+}
+
+function readStoredDicomRailWidth(rail: DicomRail) {
+  const bounds = dicomRailBounds(rail);
+  if (typeof window === "undefined") return bounds.defaultWidth;
+
+  const stored = window.localStorage.getItem(DICOM_RAIL_STORAGE_KEYS[rail]);
+  if (!stored) return bounds.defaultWidth;
+
+  const width = Number.parseInt(stored, 10);
+  if (!Number.isFinite(width)) return bounds.defaultWidth;
+  return clampDicomRailWidth(rail, width);
+}
+
+function persistDicomRailWidth(rail: DicomRail, width: number) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(DICOM_RAIL_STORAGE_KEYS[rail], String(width));
+}
+
+function nextDicomRailWidth(state: DicomRailResizeState, clientX: number) {
+  const delta = clientX - state.startX;
+  const directedDelta = state.rail === "series" ? delta : -delta;
+  return clampDicomRailWidth(state.rail, state.startWidth + directedDelta);
+}
+
 interface DicomViewerClientProps {
   initialBiopsyId?: string | null;
   initialSeriesId?: string | null;
@@ -173,6 +253,7 @@ export function DicomViewerClient({
   const sliceIndexRef = useRef(0);
   const imageRequestIdRef = useRef(0);
   const toolModeRef = useRef<ToolMode>("window");
+  const railResizeRef = useRef<DicomRailResizeState | null>(null);
 
   const renderingEngineId = useRef(`oncobase-dicom-engine-${crypto.randomUUID()}`);
   const viewportId = useRef(`oncobase-dicom-viewport-${crypto.randomUUID()}`);
@@ -188,6 +269,12 @@ export function DicomViewerClient({
   const [isInverted, setIsInverted] = useState(false);
   const [loadingImageIndex, setLoadingImageIndex] = useState<number | null>(null);
   const [stackRailOpen, setStackRailOpen] = useState(true);
+  const [seriesRailWidth, setSeriesRailWidth] = useState(() =>
+    readStoredDicomRailWidth("series"),
+  );
+  const [stackRailWidth, setStackRailWidth] = useState(() =>
+    readStoredDicomRailWidth("stack"),
+  );
   const [mobileStudySheetOpen, setMobileStudySheetOpen] = useState(false);
   const [mobileStudyTab, setMobileStudyTab] = useState<"series" | "report">("series");
   const {
@@ -546,11 +633,88 @@ export function DicomViewerClient({
     setIsInverted(next);
   }
 
+  const setDicomRailWidth = useCallback(
+    (rail: DicomRail, width: number, options?: { persist?: boolean }) => {
+      const next = clampDicomRailWidth(rail, width);
+      if (rail === "series") {
+        setSeriesRailWidth(next);
+      } else {
+        setStackRailWidth(next);
+      }
+      if (options?.persist ?? true) {
+        persistDicomRailWidth(rail, next);
+      }
+      return next;
+    },
+    [],
+  );
+
+  const beginRailResize = useCallback(
+    (rail: DicomRail, event: PointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      railResizeRef.current = {
+        rail,
+        startX: event.clientX,
+        startWidth: rail === "series" ? seriesRailWidth : stackRailWidth,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [seriesRailWidth, stackRailWidth],
+  );
+
+  const resizeRail = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const state = railResizeRef.current;
+      if (!state) return;
+      event.preventDefault();
+      setDicomRailWidth(state.rail, nextDicomRailWidth(state, event.clientX), {
+        persist: false,
+      });
+    },
+    [setDicomRailWidth],
+  );
+
+  const endRailResize = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const state = railResizeRef.current;
+      if (!state) return;
+      event.preventDefault();
+      setDicomRailWidth(state.rail, nextDicomRailWidth(state, event.clientX));
+      railResizeRef.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    },
+    [setDicomRailWidth],
+  );
+
+  const nudgeRailWidth = useCallback(
+    (rail: DicomRail, event: ReactKeyboardEvent<HTMLDivElement>) => {
+      const bounds = dicomRailBounds(rail);
+      const currentWidth = rail === "series" ? seriesRailWidth : stackRailWidth;
+      const step = event.shiftKey ? DICOM_RAIL_WIDTH_STEP * 2 : DICOM_RAIL_WIDTH_STEP;
+      let nextWidth: number | null = null;
+
+      if (event.key === "ArrowLeft") nextWidth = currentWidth - step;
+      if (event.key === "ArrowRight") nextWidth = currentWidth + step;
+      if (event.key === "Home") nextWidth = bounds.min;
+      if (event.key === "End") nextWidth = bounds.max;
+      if (nextWidth === null) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      setDicomRailWidth(rail, nextWidth);
+    },
+    [seriesRailWidth, setDicomRailWidth, stackRailWidth],
+  );
+
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     const target = event.target;
     if (
       target instanceof HTMLElement &&
-      (target.closest("a, button, input, select, textarea") || target.isContentEditable)
+      (target.closest("a, button, input, select, textarea, [role='separator']") ||
+        target.isContentEditable)
     ) {
       return;
     }
@@ -601,22 +765,29 @@ export function DicomViewerClient({
     setResizableSidebarWidth(0);
     setStackRailOpen(false);
   };
+  const viewerLayoutStyle = useMemo(
+    () =>
+      ({
+        "--dicom-series-rail-width": `${seriesRailWidth}px`,
+        "--dicom-stack-rail-column-width": `${
+          stackRailOpen ? stackRailWidth : DICOM_STACK_RAIL_COLLAPSED_WIDTH
+        }px`,
+      }) as CSSProperties,
+    [seriesRailWidth, stackRailOpen, stackRailWidth],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0b0d0f] text-zinc-100">
       <div
-        className={cn(
-          "grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] lg:grid-cols-[300px_minmax(0,1fr)] lg:grid-rows-none",
-          stackRailOpen
-            ? "xl:grid-cols-[320px_minmax(0,1fr)_280px]"
-            : "xl:grid-cols-[320px_minmax(0,1fr)_44px]",
-        )}
+        className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)]"
+        style={viewerLayoutStyle}
         data-dicom-viewer-layout
       >
         <aside
-          className="hidden min-h-0 overflow-y-auto border-r border-white/10 bg-[#11151a] lg:block"
+          className="relative hidden min-h-0 border-r border-white/10 bg-[#11151a] lg:block"
           data-test-id="dicom-series-panel"
         >
+          <div className="h-full min-h-0 overflow-y-auto">
           <div className="space-y-3 p-2.5 sm:p-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold tracking-wide text-zinc-300 uppercase">
@@ -707,6 +878,18 @@ export function DicomViewerClient({
               </div>
             ) : null}
           </div>
+          </div>
+          <DicomRailResizeHandle
+            rail="series"
+            label="Resize series rail"
+            value={seriesRailWidth}
+            min={DICOM_SERIES_RAIL_MIN_WIDTH}
+            max={DICOM_SERIES_RAIL_MAX_WIDTH}
+            onPointerDown={beginRailResize}
+            onPointerMove={resizeRail}
+            onPointerUp={endRailResize}
+            onKeyDown={nudgeRailWidth}
+          />
         </aside>
 
         <main className="flex min-h-0 flex-col bg-black">
@@ -878,9 +1061,10 @@ export function DicomViewerClient({
 
         {stackRailOpen ? (
           <aside
-            className="hidden min-h-0 overflow-y-auto border-t border-white/10 bg-[#11151a] xl:block xl:border-t-0 xl:border-l"
+            className="relative hidden min-h-0 border-t border-white/10 bg-[#11151a] xl:block xl:border-t-0 xl:border-l"
             data-test-id="dicom-stack-panel"
           >
+            <div className="h-full min-h-0 overflow-y-auto">
             <div className="space-y-5 p-4">
               <section>
                 <div className="mb-3 flex items-center justify-between gap-2">
@@ -943,6 +1127,18 @@ export function DicomViewerClient({
                 <div>Arrow keys step through images. Space toggles cine.</div>
               </section>
             </div>
+            </div>
+            <DicomRailResizeHandle
+              rail="stack"
+              label="Resize stack rail"
+              value={stackRailWidth}
+              min={DICOM_STACK_RAIL_MIN_WIDTH}
+              max={DICOM_STACK_RAIL_MAX_WIDTH}
+              onPointerDown={beginRailResize}
+              onPointerMove={resizeRail}
+              onPointerUp={endRailResize}
+              onKeyDown={nudgeRailWidth}
+            />
           </aside>
         ) : (
           <div className="hidden min-h-0 border-l border-white/10 bg-[#11151a] xl:flex xl:items-start xl:justify-center xl:pt-3">
@@ -1133,6 +1329,52 @@ export function DicomViewerClient({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DicomRailResizeHandle({
+  rail,
+  label,
+  value,
+  min,
+  max,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onKeyDown,
+}: {
+  rail: DicomRail;
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onPointerDown: (rail: DicomRail, event: PointerEvent<HTMLDivElement>) => void;
+  onPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
+  onPointerUp: (event: PointerEvent<HTMLDivElement>) => void;
+  onKeyDown: (rail: DicomRail, event: ReactKeyboardEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <div
+      role="separator"
+      aria-label={label}
+      aria-orientation="vertical"
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={value}
+      tabIndex={0}
+      data-test-id={`dicom-${rail}-rail-resize-handle`}
+      className={cn(
+        "group absolute top-0 bottom-0 z-20 hidden w-3 cursor-col-resize touch-none justify-center outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70",
+        rail === "series" ? "-right-1.5 lg:flex" : "-left-1.5 xl:flex",
+      )}
+      onPointerDown={(event) => onPointerDown(rail, event)}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onKeyDown={(event) => onKeyDown(rail, event)}
+    >
+      <span className="my-3 w-px flex-1 rounded-full bg-white/15 transition-colors group-hover:bg-emerald-300/70 group-focus-visible:bg-emerald-300" />
     </div>
   );
 }

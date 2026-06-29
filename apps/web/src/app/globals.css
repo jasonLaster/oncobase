@@ -135,6 +135,22 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+@media (min-width: 1024px) {
+  [data-dicom-viewer-layout] {
+    grid-template-columns: var(--dicom-series-rail-width, 300px) minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+}
+
+@media (min-width: 1280px) {
+  [data-dicom-viewer-layout] {
+    grid-template-columns:
+      var(--dicom-series-rail-width, 320px)
+      minmax(0, 1fr)
+      var(--dicom-stack-rail-column-width, 280px);
+  }
+}
+
 @media (max-width: 1023px) and (orientation: landscape) {
   [data-sidebar-layout][data-immersive-route="dicom-viewer"] [data-sidebar-collapsed-rail],
   [data-sidebar-layout][data-immersive-route="dicom-viewer"] [data-sidebar-expanded-rail],

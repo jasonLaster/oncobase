@@ -1,4 +1,10 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 
 import { diagnosticComparisonsSeed } from "../scripts/fixtures/diagnostic-comparisons-seed";
 import { diagnosticStudiesSeed } from "../scripts/fixtures/diagnostic-studies-seed";
@@ -231,6 +237,20 @@ async function dispatchTouchDrag(
     touchPoints: [],
   });
   await client.detach();
+}
+
+async function dragResizeHandle(page: Page, handle: Locator, deltaX: number) {
+  const box = await handle.boundingBox();
+  expect(box).not.toBeNull();
+  const start = {
+    x: (box?.x ?? 0) + (box?.width ?? 0) / 2,
+    y: (box?.y ?? 0) + (box?.height ?? 0) / 2,
+  };
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + deltaX, start.y, { steps: 6 });
+  await page.mouse.up();
 }
 
 function holdDicomFileRequest(page: Page, fileName: string) {
@@ -569,6 +589,32 @@ test.describe("DICOM viewer", () => {
 
     await page.getByTestId("dicom-toggle-stack-rail").click();
     await expect(page.getByTestId("dicom-stack-panel")).toBeVisible();
+  });
+
+  test("resizes the desktop series and stack rails", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoViewer(page);
+
+    const seriesPanel = page.getByTestId("dicom-series-panel");
+    const stackPanel = page.getByTestId("dicom-stack-panel");
+    const seriesHandle = page.getByTestId("dicom-series-rail-resize-handle");
+    const stackHandle = page.getByTestId("dicom-stack-rail-resize-handle");
+
+    await expect(seriesHandle).toBeVisible();
+    await expect(stackHandle).toBeVisible();
+
+    const initialSeriesWidth = (await seriesPanel.boundingBox())?.width ?? 0;
+    await dragResizeHandle(page, seriesHandle, 72);
+    await expect
+      .poll(async () => (await seriesPanel.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(initialSeriesWidth + 50);
+
+    const initialStackWidth = (await stackPanel.boundingBox())?.width ?? 0;
+    await dragResizeHandle(page, stackHandle, -64);
+    await expect
+      .poll(async () => (await stackPanel.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(initialStackWidth + 40);
+    await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
   });
 
   test("gives the image viewport the full width in mobile landscape", async ({
