@@ -2,7 +2,7 @@ import type { CompactFileNode } from "@/lib/file-tree-compact";
 
 type FileTreeScope = "public" | "session";
 
-const FILE_TREE_CACHE_VERSION = "v2";
+const FILE_TREE_CACHE_VERSION = "v3";
 const fileTreeMemoryCache = new Map<string, CompactFileNode[]>();
 
 function originPrefix() {

@@ -20,6 +20,17 @@ describe("isHiddenFileTreePath", () => {
     expect(isHiddenFileTreePath("education/image-analysis/notes.md")).toBe(false);
   });
 
+  test("hides root diagnostics viewer uploads without hiding diagnostics content pages", () => {
+    expect(isHiddenFileTreePath("diagnostics/viewer-upload/report.pdf")).toBe(true);
+    expect(
+      isHiddenFileTreePath(
+        "diagnostics/viewer-upload/019f10c4-3a56-7d51-a992-8a05f17c7e22/report.pdf",
+      ),
+    ).toBe(true);
+    expect(isHiddenFileTreePath("wiki/diagnostics/index")).toBe(false);
+    expect(isHiddenFileTreePath("sources/diagnostics/report")).toBe(false);
+  });
+
   test("hides image file assets outside literal images directories", () => {
     expect(isHiddenFileTreeAssetPath("sources/paper-images/img-000.jpg")).toBe(true);
     expect(isHiddenFileTreeAssetPath("sources/paper-images/figure.svg")).toBe(true);
