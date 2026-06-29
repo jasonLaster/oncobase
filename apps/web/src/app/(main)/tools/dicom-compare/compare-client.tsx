@@ -15,8 +15,6 @@ import {
   FileText,
   ImageIcon,
   LinkIcon,
-  Lock,
-  LockOpen,
   Move,
   RotateCcw,
   ScanSearch,
@@ -218,9 +216,9 @@ export function DicomCompareClient({
     index: 0,
     state: "not comparable",
   });
-  const [syncSlices, setSyncSlices] = useState(true);
-  const [syncWindow, setSyncWindow] = useState(true);
-  const [syncZoomPan, setSyncZoomPan] = useState(true);
+  const syncSlices = true;
+  const syncWindow = true;
+  const syncZoomPan = true;
   const [toolMode, setToolMode] = useState<ToolMode>("window");
   const [error, setError] = useState<string | null>(null);
 
@@ -714,10 +712,6 @@ export function DicomCompareClient({
         event.preventDefault();
         void showSyncedImage(event.shiftKey ? "right" : "left", sliceIndexesRef.current.left - 1);
       }
-      if (event.key.toLowerCase() === "l") {
-        event.preventDefault();
-        setSyncSlices((value) => !value);
-      }
       if (event.key.toLowerCase() === "r") {
         event.preventDefault();
         resetViewports();
@@ -760,23 +754,6 @@ export function DicomCompareClient({
               {comparison?.caveat ??
                 "Computational comparison and clinical context, not a diagnostic radiology report."}
             </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-            <SyncButton
-              active={syncSlices}
-              label="Slices"
-              onClick={() => setSyncSlices((value) => !value)}
-            />
-            <SyncButton
-              active={syncZoomPan}
-              label="Zoom"
-              onClick={() => setSyncZoomPan((value) => !value)}
-            />
-            <SyncButton
-              active={syncWindow}
-              label="W/L"
-              onClick={() => setSyncWindow((value) => !value)}
-            />
           </div>
         </div>
       </header>
@@ -1245,32 +1222,6 @@ function sameTuple(
 ) {
   if (!left || !right) return true;
   return Math.abs(left[0] - right[0]) <= 0.001 && Math.abs(left[1] - right[1]) <= 0.001;
-}
-
-function SyncButton({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      className={cn(
-        "h-8 gap-1.5 border-white/15 bg-white/5 px-2 text-zinc-300 hover:bg-white/10",
-        active && "border-emerald-300/50 bg-emerald-300/15 text-emerald-100",
-      )}
-      onClick={onClick}
-      aria-pressed={active}
-    >
-      {active ? <Lock className="size-3.5" /> : <LockOpen className="size-3.5" />}
-      <span>{label}</span>
-    </Button>
-  );
 }
 
 function ToolButton({

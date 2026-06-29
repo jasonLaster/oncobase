@@ -174,6 +174,7 @@ export function DicomViewerClient({
   const modulesRef = useRef<CornerstoneModules | null>(null);
   const sliceIndexRef = useRef(0);
   const imageRequestIdRef = useRef(0);
+  const toolModeRef = useRef<ToolMode>("window");
 
   const renderingEngineId = useRef(`oncobase-dicom-engine-${crypto.randomUUID()}`);
   const viewportId = useRef(`oncobase-dicom-viewport-${crypto.randomUUID()}`);
@@ -359,6 +360,7 @@ export function DicomViewerClient({
   }, []);
 
   useEffect(() => {
+    toolModeRef.current = toolMode;
     applyToolMode(toolMode);
   }, [applyToolMode, toolMode]);
 
@@ -404,7 +406,7 @@ export function DicomViewerClient({
           toolGroup?.addViewport(viewportId.current, renderingEngineId.current);
         }
 
-        applyToolMode(toolMode);
+        applyToolMode(toolModeRef.current);
 
         const viewport = renderingEngine.getViewport(
           viewportId.current,
@@ -459,7 +461,7 @@ export function DicomViewerClient({
       cancelled = true;
       removeListener?.();
     };
-  }, [activeStack, applyToolMode, toolMode]);
+  }, [activeStack, applyToolMode]);
 
   useEffect(() => {
     const element = viewportElementRef.current;

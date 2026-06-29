@@ -667,6 +667,50 @@ test.describe("DICOM viewer", () => {
     await expectToolState(page, { window: false, pan: true, zoom: false });
   });
 
+  test("tool switches preserve the current viewport position", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoViewer(page);
+    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9", {
+      timeout: 30_000,
+    });
+
+    await page.getByRole("button", { name: "Next image" }).click();
+    await expect(page.getByTestId("dicom-image-loading")).toBeHidden({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("6 / 9");
+    await installInteractionProbe(page);
+
+    const switches = [
+      {
+        name: "Pan",
+        state: { window: false, pan: true, zoom: false },
+      },
+      {
+        name: "Zoom",
+        state: { window: false, pan: false, zoom: true },
+      },
+      {
+        name: "W/L",
+        state: { window: true, pan: false, zoom: false },
+      },
+    ];
+
+    for (const switchTo of switches) {
+      await resetInteractionProbe(page);
+      await page.getByRole("button", { name: switchTo.name, exact: true }).click();
+      await expectToolState(page, switchTo.state);
+      await page.waitForTimeout(300);
+
+      await expect(page.getByTestId("dicom-image-loading")).toBeHidden();
+      await expect(page.getByTestId("dicom-slice-counter")).toHaveText("6 / 9");
+      expect(await interactionProbe(page)).toEqual({
+        cameraModified: 0,
+        voiModified: 0,
+      });
+    }
+  });
+
   test("mobile touch drags drive the selected pan and zoom tools", async ({
     page,
   }) => {
