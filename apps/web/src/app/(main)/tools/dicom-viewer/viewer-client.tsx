@@ -667,8 +667,8 @@ export function DicomViewerClient({
                     <div className="flex items-start gap-2">
                       <ImageIcon className="mt-0.5 size-4 shrink-0 text-zinc-400" />
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium text-zinc-100">
-                          {series.relativeDirectory}
+                        <div className="line-clamp-2 text-sm font-medium text-zinc-100">
+                          {formatSeriesCardLabel(series)}
                         </div>
                       </div>
                     </div>
@@ -1098,8 +1098,8 @@ export function DicomViewerClient({
                       />
                       <ImageIcon className="size-4 shrink-0 text-zinc-500" />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-zinc-100">
-                          {series.relativeDirectory}
+                        <span className="line-clamp-2 text-sm font-medium text-zinc-100">
+                          {formatSeriesCardLabel(series)}
                         </span>
                       </span>
                       <span className="shrink-0 text-right text-xs text-zinc-400">
@@ -1192,6 +1192,15 @@ function MetaRow({ label, value }: { label: string; value: string | null | undef
 
 function isRenderableSeries(series: DicomSeries) {
   return !new Set(["PR", "SR", "OT"]).has((series.modality ?? "").toUpperCase());
+}
+
+function formatSeriesCardLabel(series: DicomSeries) {
+  const description = series.seriesDescription ?? series.studyDescription ?? series.label;
+  const seriesNumber = series.seriesNumber ? `Series ${series.seriesNumber}` : null;
+  if (!seriesNumber || description.toLowerCase().includes(seriesNumber.toLowerCase())) {
+    return description;
+  }
+  return `${description} · ${seriesNumber}`;
 }
 
 function matchesBiopsySeries(series: DicomSeries, biopsy: DiagnosticStudy) {

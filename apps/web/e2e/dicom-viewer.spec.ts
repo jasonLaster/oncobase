@@ -502,7 +502,8 @@ test.describe("DICOM viewer", () => {
     );
 
     const seriesPanel = page.getByTestId("dicom-series-panel");
-    await expect(seriesPanel).toContainText("3-23 - US Axilla biopsy");
+    await expect(seriesPanel).toContainText("45 images");
+    await expect(seriesPanel).not.toContainText("3-23 - US Axilla biopsy");
     await expect(seriesPanel).not.toContainText("4-10 biopsy");
     await expect(page.getByTestId("dicom-pathology-report-link")).toHaveAttribute(
       "href",
@@ -529,6 +530,9 @@ test.describe("DICOM viewer", () => {
         { timeout: 30_000 },
       );
       await expect(page.locator("dd", { hasText: biopsy.directory }).first()).toBeVisible();
+      await expect(page.getByTestId("dicom-series-panel")).not.toContainText(
+        biopsy.directory.split("/")[0],
+      );
     });
   }
 
