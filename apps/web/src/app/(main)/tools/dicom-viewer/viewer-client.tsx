@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import {
+  Check,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -24,12 +25,14 @@ import {
   Play,
   RotateCcw,
   ScanSearch,
+  Share2,
   SlidersHorizontal,
   X,
   ZoomIn,
 } from "lucide-react";
 import useSWR from "swr";
 
+import { copyTextToClipboard } from "@oncobase/wiki-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { setResizableSidebarWidth } from "@/components/resizable-sidebar-store";
@@ -222,6 +225,18 @@ function readStoredDicomRailWidth(rail: DicomRail) {
   return clampDicomRailWidth(rail, width);
 }
 
+function readInitialSearchParam(name: string) {
+  if (typeof window === "undefined") return null;
+  return new URL(window.location.href).searchParams.get(name);
+}
+
+function readInitialImageIndexFromLocation() {
+  const value = readInitialSearchParam("image") ?? readInitialSearchParam("slice");
+  if (!value) return null;
+  const imageNumber = Number.parseInt(value, 10);
+  return Number.isFinite(imageNumber) && imageNumber > 0 ? imageNumber - 1 : null;
+}
+
 function persistDicomRailWidth(rail: DicomRail, width: number) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(DICOM_RAIL_STORAGE_KEYS[rail], String(width));
@@ -235,12 +250,14 @@ function nextDicomRailWidth(state: DicomRailResizeState, clientX: number) {
 
 interface DicomViewerClientProps {
   initialBiopsyId?: string | null;
+  initialImageNumber?: number | null;
   initialSeriesId?: string | null;
   initialStudySet?: string | null;
 }
 
 export function DicomViewerClient({
   initialBiopsyId = null,
+  initialImageNumber = null,
   initialSeriesId = null,
   initialStudySet = null,
 }: DicomViewerClientProps) {
@@ -252,6 +269,11 @@ export function DicomViewerClient({
   const modulesRef = useRef<CornerstoneModules | null>(null);
   const sliceIndexRef = useRef(0);
   const imageRequestIdRef = useRef(0);
+  const initialImageIndexRef = useRef(
+    initialImageNumber !== null
+      ? Math.max(0, initialImageNumber - 1)
+      : readInitialImageIndexFromLocation(),
+  );
   const toolModeRef = useRef<ToolMode>("window");
   const railResizeRef = useRef<DicomRailResizeState | null>(null);
 
@@ -260,7 +282,7 @@ export function DicomViewerClient({
   const toolGroupId = useRef(`oncobase-dicom-tools-${crypto.randomUUID()}`);
 
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(
-    initialSeriesId,
+    () => initialSeriesId ?? readInitialSearchParam("seriesId"),
   );
   const [sliceIndex, setSliceIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -268,6 +290,8 @@ export function DicomViewerClient({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isInverted, setIsInverted] = useState(false);
   const [loadingImageIndex, setLoadingImageIndex] = useState<number | null>(null);
+  const [loadedStackId, setLoadedStackId] = useState<string | null>(null);
+  const [shareState, setShareState] = useState<"idle" | "copied" | "error">("idle");
   const [stackRailOpen, setStackRailOpen] = useState(true);
   const [seriesRailWidth, setSeriesRailWidth] = useState(() =>
     readStoredDicomRailWidth("series"),
@@ -376,6 +400,11 @@ export function DicomViewerClient({
   const currentImage = activeStack?.images[sliceIndex] ?? activeStack?.images[0] ?? null;
   const loadingImage =
     loadingImageIndex !== null ? activeStack?.images[loadingImageIndex] : null;
+  const activeStackId = activeStack?.id ?? null;
+  const activeStackImageCount = activeStack?.images.length ?? 0;
+  const activeStackLoaded = Boolean(
+    activeStackId && activeStackImageCount > 0 && loadedStackId === activeStackId,
+  );
   const displayError =
     error ??
     (catalogError instanceof Error
@@ -439,6 +468,13 @@ export function DicomViewerClient({
   }, []);
 
   useEffect(() => {
+    const initialImageIndex = readInitialImageIndexFromLocation();
+    if (initialImageIndexRef.current === null && initialImageIndex !== null) {
+      initialImageIndexRef.current = initialImageIndex;
+    }
+  }, []);
+
+  useEffect(() => {
     toolModeRef.current = toolMode;
     applyToolMode(toolMode);
   }, [applyToolMode, toolMode]);
@@ -455,6 +491,7 @@ export function DicomViewerClient({
 
     async function loadStack() {
       setError(null);
+      setLoadedStackId(null);
       try {
         const modules = await ensureCornerstone();
         if (cancelled) return;
@@ -493,7 +530,14 @@ export function DicomViewerClient({
         viewportRef.current = viewport;
 
         const imageIds = currentStack.images.map((image) => image.imageId);
-        const initialIndex = imageIds.length > 1 ? Math.floor(imageIds.length / 2) : 0;
+        const requestedInitialIndex =
+          initialImageIndexRef.current ?? readInitialImageIndexFromLocation();
+        const initialIndex =
+          requestedInitialIndex !== null
+            ? clampImageIndex(requestedInitialIndex, imageIds.length)
+            : imageIds.length > 1
+              ? Math.floor(imageIds.length / 2)
+              : 0;
         await waitForElementSize(viewportElement);
         setLoadingImageIndex(initialIndex);
         await viewport.setStack(imageIds, initialIndex);
@@ -512,6 +556,8 @@ export function DicomViewerClient({
         setSliceIndex(initialIndex);
         sliceIndexRef.current = initialIndex;
         setLoadingImageIndex(null);
+        setLoadedStackId(currentStack.id);
+        initialImageIndexRef.current = null;
         setIsInverted(false);
         prefetchNearbyImages(modules.core, currentStack.images, initialIndex);
 
@@ -605,6 +651,14 @@ export function DicomViewerClient({
     },
     [activeStack],
   );
+
+  useEffect(() => {
+    if (!activeStackLoaded || !activeStackId) return;
+    const nextUrl = currentImageShareUrl(activeStackId, sliceIndex);
+    if (nextUrl !== window.location.href) {
+      window.history.replaceState(window.history.state, "", nextUrl);
+    }
+  }, [activeStackId, activeStackLoaded, sliceIndex]);
 
   useEffect(() => {
     if (!isPlaying || !activeStack?.images.length) return;
@@ -765,6 +819,18 @@ export function DicomViewerClient({
     setResizableSidebarWidth(0);
     setStackRailOpen(false);
   };
+  const shareCurrentImage = useCallback(async () => {
+    if (!activeStackLoaded || !activeStackId) return;
+    const shareUrl = currentImageShareUrl(activeStackId, sliceIndex);
+    try {
+      await copyTextToClipboard(shareUrl);
+      setShareState("copied");
+      window.setTimeout(() => setShareState("idle"), 1600);
+    } catch {
+      setShareState("error");
+      window.setTimeout(() => setShareState("idle"), 2200);
+    }
+  }, [activeStackId, activeStackLoaded, sliceIndex]);
   const viewerLayoutStyle = useMemo(
     () =>
       ({
@@ -905,6 +971,32 @@ export function DicomViewerClient({
               data-test-id="dicom-cornerstone-viewport"
               data-testid="dicom-cornerstone-viewport"
             />
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute top-3 right-3 z-10 border-white/15 bg-black/70 text-zinc-100 shadow-lg backdrop-blur hover:bg-black/85"
+              onClick={shareCurrentImage}
+              disabled={!activeStackLoaded}
+              title={
+                shareState === "copied"
+                  ? "Copied current image URL"
+                  : shareState === "error"
+                    ? "Unable to copy current image URL"
+                    : "Copy current image URL"
+              }
+              aria-label={
+                shareState === "copied"
+                  ? "Copied current image URL"
+                  : "Copy current image URL"
+              }
+              data-test-id="dicom-share-current-image"
+            >
+              {shareState === "copied" ? (
+                <Check className="size-4" />
+              ) : (
+                <Share2 className="size-4" />
+              )}
+            </Button>
             {!catalog && !displayError ? (
               <div className="absolute inset-0 flex items-center justify-center bg-black/80 px-6 text-center">
                 <div className="max-w-sm">
@@ -1485,6 +1577,19 @@ function waitForElementSize(element: HTMLElement) {
     };
     window.requestAnimationFrame(tick);
   });
+}
+
+function clampImageIndex(index: number, imageCount: number) {
+  if (imageCount <= 0) return 0;
+  return Math.max(0, Math.min(index, imageCount - 1));
+}
+
+function currentImageShareUrl(seriesId: string, imageIndex: number) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("seriesId", seriesId);
+  url.searchParams.set("image", String(imageIndex + 1));
+  url.searchParams.delete("slice");
+  return url.toString();
 }
 
 function prefetchNearbyImages(

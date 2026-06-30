@@ -545,6 +545,50 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible();
   });
 
+  test("stores the current image in the URL and copies a shareable image link", async ({
+    page,
+  }) => {
+    await page.goto(
+      `/tools/dicom-viewer?id=biopsy-2026-04-10&image=6${seededStudySetParam}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
+    await expect(
+      page.locator('[data-test-id="dicom-cornerstone-viewport"] canvas'),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("dicom-image-loading")).toBeHidden({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("6 / 9", {
+      timeout: 30_000,
+    });
+
+    const initialUrl = new URL(page.url());
+    expect(initialUrl.searchParams.get("image")).toBe("6");
+    expect(initialUrl.searchParams.get("seriesId")).toBeTruthy();
+
+    await page.getByRole("button", { name: "Previous image" }).click();
+    await expect(page.getByTestId("dicom-image-loading")).toBeHidden({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9");
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("image"))
+      .toBe("5");
+
+    const shareButton = page.getByTestId("dicom-share-current-image");
+    await expect(shareButton).toBeVisible();
+    await expect(shareButton).toHaveAttribute("title", "Copy current image URL");
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
+      origin: new URL(page.url()).origin,
+    });
+    await shareButton.click();
+    await expect(shareButton).toHaveAttribute("aria-label", "Copied current image URL");
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe(page.url());
+  });
+
   for (const biopsy of biopsyLinks) {
     test(`viewer selects the ${biopsy.id} image stack`, async ({ page }) => {
       await gotoViewer(page, biopsy.id);

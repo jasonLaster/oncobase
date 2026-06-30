@@ -15,8 +15,11 @@ also covered by
   table.
 - `/timeline` redirects to `/diagnostics`.
 
-The viewer also accepts `biopsyId` and `seriesId` query parameters. `id` and
-`biopsyId` are human-facing biopsy IDs. `seriesId` is the raw DICOM series id.
+The viewer also accepts `biopsyId`, `seriesId`, and `image` query parameters.
+`id` and `biopsyId` are human-facing biopsy IDs. `seriesId` is the raw DICOM
+series id. `image` is a 1-based index into the selected stack. The legacy
+`slice` query parameter is accepted as an alias on initial load, but the viewer
+normalizes current-image URLs back to `image`.
 
 ## Diagnostic Imaging Page Contract
 
@@ -52,6 +55,11 @@ When a biopsy ID is present, the viewer selects the largest renderable DICOM
 series matching that biopsy date and directory. Renderable means image-bearing
 modalities only; `SR`, `PR`, and `OT` objects are excluded from the selectable
 series list.
+
+When an `image` query parameter is present, the viewer opens that image number
+within the selected stack. The browser URL is kept current as the user steps
+through images, and the top-right share button copies the current
+`seriesId`/`image` URL.
 
 Expected stacks:
 
@@ -122,7 +130,8 @@ surface real image-load errors.
   underlying source asset is a real PDF.
 - `/diagnostics/imaging` uses the normal app sidebar.
 - `/tools/dicom-viewer` uses the DICOM biopsy shortcut sidebar, selects the
-  expected image stack, and preserves viewer tool/loading behavior.
+  expected image stack, stores the selected image in the URL, copies current
+  image links, and preserves viewer tool/loading behavior.
 
 `apps/web/e2e/diagnostics-regression.spec.ts` verifies the route-level split
 between `/diagnostics`, `/diagnostics/imaging`, `/timeline`, and the DICOM
