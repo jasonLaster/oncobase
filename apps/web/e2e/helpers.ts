@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 
@@ -48,6 +48,24 @@ export function chatSubmitButton(page: Page) {
 
 export function chatLog(page: Page) {
   return page.getByTestId("chat-message-log");
+}
+
+export async function gotoChatOrSkip(page: Page, path = "/chat") {
+  await page.goto(path, { waitUntil: "domcontentloaded" });
+  await Promise.race([
+    chatComposer(page).waitFor({ state: "visible", timeout: 10_000 }).catch(() => {}),
+    page
+      .waitForURL((url) => !url.pathname.startsWith("/chat"), {
+        timeout: 10_000,
+      })
+      .catch(() => {}),
+  ]);
+
+  test.skip(
+    !new URL(page.url()).pathname.startsWith("/chat"),
+    "Chat is disabled (redirected to /)",
+  );
+  await expect(chatComposer(page)).toBeVisible({ timeout: 10_000 });
 }
 
 export async function openCommandPalette(page: Page) {

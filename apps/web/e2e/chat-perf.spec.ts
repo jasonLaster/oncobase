@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { chatComposer } from "./helpers";
+import { chatComposer, gotoChatOrSkip } from "./helpers";
 
 /**
  * Chat performance scenarios — Phase 0 baseline + per-phase regression.
@@ -39,9 +39,7 @@ async function setup(page: Page) {
       },
     };
   });
-  await page.goto("/chat");
-  const url = page.url();
-  test.skip(!url.includes("/chat"), "Chat is disabled (redirected to /)");
+  await gotoChatOrSkip(page);
 }
 
 async function readPerf(page: Page, scenario: string): Promise<PerfSample> {

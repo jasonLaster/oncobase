@@ -14,7 +14,7 @@
 
 import { test, expect } from "@playwright/test";
 import { mockChatApi } from "./chat-mock";
-import { chatComposer, chatLog, chatSubmitButton } from "./helpers";
+import { chatComposer, chatLog, chatSubmitButton, gotoChatOrSkip } from "./helpers";
 
 // Each test in this file owns the full Playwright budget — they exercise a
 // real model round-trip and need elbow room.
@@ -25,11 +25,7 @@ test.describe("Chat navigation resilience", () => {
 
   test.beforeEach(async ({ page }) => {
     chatMock = await mockChatApi(page, { delayMs: 750 });
-    await page.goto("/chat");
-    test.skip(
-      !new URL(page.url()).pathname.startsWith("/chat"),
-      "Chat is disabled"
-    );
+    await gotoChatOrSkip(page);
   });
 
   test.afterEach(async () => {

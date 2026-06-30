@@ -1,17 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { mockChatApi } from "./chat-mock";
-import { chatComposer, chatSubmitButton } from "./helpers";
+import { chatComposer, chatSubmitButton, gotoChatOrSkip } from "./helpers";
 
 test.describe("Chat", () => {
   let chatMock: Awaited<ReturnType<typeof mockChatApi>> | null = null;
 
   test.beforeEach(async ({ page }) => {
     chatMock = await mockChatApi(page);
-    await page.goto("/chat");
-    test.skip(
-      !new URL(page.url()).pathname.startsWith("/chat"),
-      "Chat is disabled (redirected to /)"
-    );
+    await gotoChatOrSkip(page);
   });
 
   test.afterEach(async () => {
