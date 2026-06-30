@@ -656,6 +656,7 @@ async function openMobileCommentsPanel(page: Page) {
           document
             .querySelector('[data-test-id="mobile-comments-panel"]')
             ?.getAttribute("data-state") === "open",
+        undefined,
         { timeout: 500 }
       )
       .catch(() => {});
@@ -931,7 +932,7 @@ test.describe("Document comments sidebar", () => {
     const panel = await openMobileCommentsPanel(page);
     const aside = panel.locator("aside");
     const heightBefore = (await aside.boundingBox())?.height ?? 0;
-    const resizer = panel.getByRole("separator", { name: "Resize comments panel" });
+    const resizer = panel.locator('[aria-label="Resize comments panel"]').first();
     const box = await resizer.boundingBox();
     expect(box).toBeTruthy();
     const dragX = box!.x + box!.width / 2;

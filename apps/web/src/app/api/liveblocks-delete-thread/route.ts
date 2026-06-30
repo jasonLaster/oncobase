@@ -7,11 +7,6 @@ import {
 } from "@/lib/liveblocks-site";
 
 export async function POST(request: Request) {
-  const config = await resolveLiveblocksConfig(request);
-  if (!config.ok) {
-    return liveblocksDisabledResponse(config);
-  }
-
   const { roomId, threadId } = (await request.json()) as {
     roomId?: string;
     threadId?: string;
@@ -22,6 +17,11 @@ export async function POST(request: Request) {
       { error: "roomId and threadId are required" },
       { status: 400 }
     );
+  }
+
+  const config = await resolveLiveblocksConfig(request);
+  if (!config.ok) {
+    return liveblocksDisabledResponse(config);
   }
 
   const sessionUser = await getSessionUserFromRequest(request);

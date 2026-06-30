@@ -1760,6 +1760,226 @@ function getRoomId(slug: string) {
   return `markdown:${slug}`;
 }
 
+function OutlineMobileCommentsPanel({ onActivate }: { onActivate?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [height, setHeight] = useState<number | null>(null);
+  const [handoffStarted, setHandoffStarted] = useState(false);
+  const panelRef = useRef<HTMLElement | null>(null);
+  const dragging = useRef(false);
+  const startY = useRef(0);
+  const startHeight = useRef(0);
+
+  const close = useCallback(() => {
+    delete document.documentElement.dataset.mobileCommentsPanelRequested;
+    setOpen(false);
+  }, []);
+
+  const openPanel = useCallback(() => {
+    setHeight((current) => current ?? getDefaultMobileCommentsHeight());
+    setOpen(true);
+  }, []);
+
+  const updateHeight = useCallback((clientY: number) => {
+    const delta = startY.current - clientY;
+    setHeight(clampMobileCommentsHeight(startHeight.current + delta));
+  }, []);
+
+  const beginResize = useCallback((clientY: number) => {
+    dragging.current = true;
+    startY.current = clientY;
+    startHeight.current =
+      panelRef.current?.getBoundingClientRect().height ??
+      height ??
+      getDefaultMobileCommentsHeight();
+  }, [height]);
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    beginResize(e.clientY);
+
+    const pointerId = e.pointerId;
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!dragging.current || event.pointerId !== pointerId) return;
+      updateHeight(event.clientY);
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      dragging.current = false;
+      updateHeight(event.clientY);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!dragging.current) return;
+      updateHeight(event.clientY);
+    };
+    const handleMouseUp = (event: MouseEvent) => {
+      dragging.current = false;
+      updateHeight(event.clientY);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // Synthetic pointer drags used in tests may not register as active pointers.
+    }
+  }, [beginResize, updateHeight]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    updateHeight(e.clientY);
+  }, [updateHeight]);
+
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    const target = e.currentTarget as HTMLElement;
+    if (target.hasPointerCapture(e.pointerId)) {
+      target.releasePointerCapture(e.pointerId);
+    }
+    updateHeight(e.clientY);
+  }, [updateHeight]);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    beginResize(e.clientY);
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!dragging.current) return;
+      updateHeight(event.clientY);
+    };
+    const handleMouseUp = (event: MouseEvent) => {
+      dragging.current = false;
+      updateHeight(event.clientY);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  }, [beginResize, updateHeight]);
+
+  useEffect(() => {
+    const handleOpen = () => {
+      if (onActivate) {
+        setHandoffStarted(true);
+        onActivate();
+        return;
+      }
+
+      delete document.documentElement.dataset.mobileCommentsPanelRequested;
+      openPanel();
+    };
+
+    window.addEventListener(MOBILE_COMMENTS_PANEL_EVENT, handleOpen);
+    let frameId: number | null = null;
+    if (document.documentElement.dataset.mobileCommentsPanelRequested === "true") {
+      frameId = window.requestAnimationFrame(() => {
+        if (!onActivate) {
+          delete document.documentElement.dataset.mobileCommentsPanelRequested;
+          openPanel();
+        }
+      });
+    }
+
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+      window.removeEventListener(MOBILE_COMMENTS_PANEL_EVENT, handleOpen);
+    };
+  }, [onActivate, openPanel]);
+
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
+  if (handoffStarted) return null;
+
+  return (
+    <div
+      className={cn(
+        "fixed inset-0 z-50 transition-opacity duration-300 md:hidden",
+        open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+      )}
+      data-test-id="mobile-comments-panel"
+      data-state={open ? "open" : "closed"}
+    >
+      <button
+        aria-label="Close comments backdrop"
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+        onClick={close}
+        type="button"
+      />
+      <aside
+        ref={panelRef}
+        aria-label="Document comments"
+        className={cn(
+          "absolute bottom-0 left-0 right-0 flex h-[min(88dvh,46rem)] flex-col rounded-t-2xl bg-[var(--sidebar-bg)] shadow-2xl transition-transform duration-300 ease-out",
+          open ? "translate-y-0" : "translate-y-full"
+        )}
+        style={{
+          paddingBottom: "env(safe-area-inset-bottom)",
+          height: height ?? undefined,
+        }}
+      >
+        <div className="shrink-0 pt-2">
+          <button
+            aria-label="Resize comments panel"
+            className="flex h-6 w-full cursor-row-resize touch-none items-center justify-center border-0 bg-transparent p-0"
+            onMouseDown={onMouseDown}
+            onPointerCancel={onPointerUp}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            type="button"
+          >
+            <span className="h-1 w-10 rounded-full bg-[var(--text-muted)]/30 transition-colors hover:bg-[var(--brand)] active:bg-[var(--brand)]" />
+          </button>
+          <div className="border-b border-[var(--sidebar-border)] px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 text-sm font-semibold text-[var(--foreground)]">
+                Comments
+              </span>
+              <SidebarButton
+                onClick={close}
+                aria-label="Close comments panel"
+                className="h-auto w-auto px-2 py-1"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                  <line x1="4" y1="4" x2="12" y2="12" />
+                  <line x1="12" y1="4" x2="4" y2="12" />
+                </svg>
+              </SidebarButton>
+            </div>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 text-sm text-[var(--text-muted)]">
+          Loading comments...
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 /**
  * Outline-only sidebar shell. Always rendered — provides document outline
  * without any Liveblocks/comments dependency.
@@ -1901,7 +2121,7 @@ export function OutlineShell({
                       <SidebarButton
                         variant="tab"
                         active
-                        onClick={toggleSidebar}
+                        onClick={() => setSidebarOpen(true)}
                       >
                         Outline
                       </SidebarButton>
@@ -1985,6 +2205,8 @@ export function OutlineShell({
           </>
         )}
       </aside>
+
+      <OutlineMobileCommentsPanel onActivate={onActivate} />
     </div>
   );
 }

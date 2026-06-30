@@ -84,6 +84,14 @@ const liveDiagnosticsReportLinks = Array.from(
   ),
 );
 
+type AnnotationApiMock = Awaited<ReturnType<typeof installAnnotationApiMock>>;
+type TestBox = {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+};
+
 async function gotoViewer(page: Page, biopsyId = "biopsy-2026-04-10") {
   await page.goto(`/tools/dicom-viewer?id=${biopsyId}${seededStudySetParam}`, {
     waitUntil: "domcontentloaded",
@@ -372,6 +380,33 @@ async function setRangeValue(page: Page, testId: string, value: string) {
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
   }, value);
+}
+
+function pointInBox(box: TestBox, x: number, y: number) {
+  return {
+    x: box.x + box.width * x,
+    y: box.y + box.height * y,
+  };
+}
+
+function latestSavedAnnotation(annotationApi: AnnotationApiMock) {
+  const annotation = annotationApi.saves.at(-1)?.annotations[0];
+  expect(annotation).toBeTruthy();
+  return annotation!;
+}
+
+function expectNumberCloseTo(
+  value: number | undefined,
+  expected: number,
+  tolerance = 0.008,
+) {
+  expect(value).toBeDefined();
+  expect(Math.abs(value! - expected)).toBeLessThanOrEqual(tolerance);
+}
+
+function requireNumber(value: number | undefined, label: string) {
+  expect(value, label).toBeDefined();
+  return value!;
 }
 
 test.describe.configure({ mode: "serial" });
@@ -888,9 +923,11 @@ test.describe("DICOM viewer", () => {
     const canvas = page.getByTestId("dicom-annotation-canvas");
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
-    await page.mouse.move(box!.x + box!.width * 0.34, box!.y + box!.height * 0.34);
+    const drawStart = pointInBox(box!, 0.34, 0.34);
+    const drawEnd = pointInBox(box!, 0.58, 0.48);
+    await page.mouse.move(drawStart.x, drawStart.y);
     await page.mouse.down();
-    await page.mouse.move(box!.x + box!.width * 0.58, box!.y + box!.height * 0.48);
+    await page.mouse.move(drawEnd.x, drawEnd.y);
     await page.mouse.up();
 
     await expect(page.getByTestId("dicom-annotation-shape-arrow")).toBeVisible();
@@ -899,6 +936,19 @@ test.describe("DICOM viewer", () => {
       "stroke-dasharray",
       /.+/,
     );
+    await expect(page.getByTestId("dicom-annotation-selection")).toHaveAttribute(
+      "stroke",
+      "#2f80ed",
+    );
+    await expect(page.getByTestId("dicom-annotation-handle-start")).toHaveAttribute(
+      "fill",
+      "#f8fafc",
+    );
+    await expect(page.getByTestId("dicom-annotation-handle-start")).toHaveAttribute(
+      "stroke",
+      "#2f80ed",
+    );
+    await expect(page.getByTestId("dicom-annotation-handle-move")).toBeVisible();
     await expect(page.getByTestId("dicom-annotation-handle-end")).toBeVisible();
     await expect(page.getByTestId("dicom-annotation-editor-rail")).toBeVisible();
     await expect(page.getByTestId("dicom-annotation-editor-rail")).toContainText(
@@ -911,34 +961,132 @@ test.describe("DICOM viewer", () => {
       kind: "arrow",
       thickness: 6,
     });
+    const initialArrow = latestSavedAnnotation(annotationApi);
+    expectNumberCloseTo(initialArrow.x, 0.34);
+    expectNumberCloseTo(initialArrow.y, 0.34);
+    expectNumberCloseTo(initialArrow.endX, 0.58);
+    expectNumberCloseTo(initialArrow.endY, 0.48);
+    const initialStartX = requireNumber(initialArrow.x, "initial arrow start x");
+    const initialStartY = requireNumber(initialArrow.y, "initial arrow start y");
+    const initialEndX = requireNumber(initialArrow.endX, "initial arrow end x");
+    const initialEndY = requireNumber(initialArrow.endY, "initial arrow end y");
 
-    const originalStart = {
-      x: annotationApi.saves[0]?.annotations[0]?.x,
-      y: annotationApi.saves[0]?.annotations[0]?.y,
+    const endDragDelta = {
+      x: 60,
+      y: 35,
     };
-    const originalEndX = annotationApi.saves[0]?.annotations[0]?.endX ?? 0;
+    const savesBeforeEndDrag = annotationApi.saves.length;
     const endHandle = await page.getByTestId("dicom-annotation-handle-end").boundingBox();
     expect(endHandle).not.toBeNull();
-    await page.mouse.move(
-      endHandle!.x + endHandle!.width / 2,
-      endHandle!.y + endHandle!.height / 2,
-    );
+    const endHandleCenter = {
+      x: endHandle!.x + endHandle!.width / 2,
+      y: endHandle!.y + endHandle!.height / 2,
+    };
+    await page.mouse.move(endHandleCenter.x, endHandleCenter.y);
     await page.mouse.down();
     await page.mouse.move(
-      endHandle!.x + endHandle!.width / 2 + 60,
-      endHandle!.y + endHandle!.height / 2 + 35,
+      endHandleCenter.x + endDragDelta.x,
+      endHandleCenter.y + endDragDelta.y,
     );
+    await expect(page.getByTestId("dicom-annotation-handle-end-active")).toBeVisible();
     await page.mouse.up();
-    await expect.poll(() => annotationApi.saves.length).toBe(2);
-    expect(annotationApi.saves.at(-1)?.annotations[0]?.endX).toBeGreaterThan(
-      originalEndX,
+    await expect.poll(() => annotationApi.saves.length).toBe(savesBeforeEndDrag + 1);
+    const afterEndDrag = latestSavedAnnotation(annotationApi);
+    expectNumberCloseTo(afterEndDrag.x, initialStartX);
+    expectNumberCloseTo(afterEndDrag.y, initialStartY);
+    expectNumberCloseTo(
+      afterEndDrag.endX,
+      initialEndX + endDragDelta.x / box!.width,
     );
-    expect(annotationApi.saves.at(-1)?.annotations[0]).toMatchObject(originalStart);
+    expectNumberCloseTo(
+      afterEndDrag.endY,
+      initialEndY + endDragDelta.y / box!.height,
+    );
+    const afterEndStartX = requireNumber(afterEndDrag.x, "tip drag keeps start x");
+    const afterEndStartY = requireNumber(afterEndDrag.y, "tip drag keeps start y");
+    const afterEndX = requireNumber(afterEndDrag.endX, "tip drag end x");
+    const afterEndY = requireNumber(afterEndDrag.endY, "tip drag end y");
+
+    const startDragDelta = {
+      x: -45,
+      y: -30,
+    };
+    const savesBeforeStartDrag = annotationApi.saves.length;
+    const startHandle = await page
+      .getByTestId("dicom-annotation-handle-start")
+      .boundingBox();
+    expect(startHandle).not.toBeNull();
+    const startHandleCenter = {
+      x: startHandle!.x + startHandle!.width / 2,
+      y: startHandle!.y + startHandle!.height / 2,
+    };
+    await page.mouse.move(startHandleCenter.x, startHandleCenter.y);
+    await page.mouse.down();
+    await page.mouse.move(
+      startHandleCenter.x + startDragDelta.x,
+      startHandleCenter.y + startDragDelta.y,
+    );
+    await expect(page.getByTestId("dicom-annotation-handle-start-active")).toBeVisible();
+    await page.mouse.up();
+    await expect.poll(() => annotationApi.saves.length).toBe(savesBeforeStartDrag + 1);
+    const afterStartDrag = latestSavedAnnotation(annotationApi);
+    expectNumberCloseTo(
+      afterStartDrag.x,
+      afterEndStartX + startDragDelta.x / box!.width,
+    );
+    expectNumberCloseTo(
+      afterStartDrag.y,
+      afterEndStartY + startDragDelta.y / box!.height,
+    );
+    expectNumberCloseTo(afterStartDrag.endX, afterEndX);
+    expectNumberCloseTo(afterStartDrag.endY, afterEndY);
+    const afterStartX = requireNumber(afterStartDrag.x, "anchor drag start x");
+    const afterStartY = requireNumber(afterStartDrag.y, "anchor drag start y");
+    const afterStartEndX = requireNumber(afterStartDrag.endX, "anchor drag end x");
+    const afterStartEndY = requireNumber(afterStartDrag.endY, "anchor drag end y");
+
+    const wholeArrowDelta = {
+      x: 10,
+      y: 12,
+    };
+    const grabPoint = {
+      x: afterStartX + (afterStartEndX - afterStartX) * 0.35,
+      y: afterStartY + (afterStartEndY - afterStartY) * 0.35,
+    };
+    const grabPixel = pointInBox(box!, grabPoint.x, grabPoint.y);
+    const savesBeforeWholeDrag = annotationApi.saves.length;
+    await page.mouse.move(grabPixel.x, grabPixel.y);
+    await page.mouse.down();
+    await page.mouse.move(
+      grabPixel.x + wholeArrowDelta.x,
+      grabPixel.y + wholeArrowDelta.y,
+    );
+    await expect(page.getByTestId("dicom-annotation-handle-move-active")).toBeVisible();
+    await page.mouse.up();
+    await expect.poll(() => annotationApi.saves.length).toBe(savesBeforeWholeDrag + 1);
+    const afterWholeDrag = latestSavedAnnotation(annotationApi);
+    expectNumberCloseTo(
+      afterWholeDrag.x,
+      afterStartX + wholeArrowDelta.x / box!.width,
+    );
+    expectNumberCloseTo(
+      afterWholeDrag.y,
+      afterStartY + wholeArrowDelta.y / box!.height,
+    );
+    expectNumberCloseTo(
+      afterWholeDrag.endX,
+      afterStartEndX + wholeArrowDelta.x / box!.width,
+    );
+    expectNumberCloseTo(
+      afterWholeDrag.endY,
+      afterStartEndY + wholeArrowDelta.y / box!.height,
+    );
 
     await expect(page.getByTestId("dicom-annotation-layers-panel")).toHaveCount(0);
     await expect(page.getByTestId("dicom-annotation-style-panel")).toBeVisible();
+    const savesBeforeStyleChange = annotationApi.saves.length;
     await setRangeValue(page, "dicom-annotation-thickness", "8");
-    await expect.poll(() => annotationApi.saves.length).toBe(3);
+    await expect.poll(() => annotationApi.saves.length).toBe(savesBeforeStyleChange + 1);
     expect(annotationApi.saves.at(-1)?.annotations[0]).toMatchObject({
       kind: "arrow",
       thickness: 8,

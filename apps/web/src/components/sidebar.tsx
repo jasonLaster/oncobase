@@ -273,6 +273,9 @@ export function TreeNode({
         <button
           type="button"
           aria-expanded={open}
+          data-file-tree-slug={node.slug}
+          data-file-tree-type={node.type}
+          data-file-tree-truncated={isTruncated ? "true" : undefined}
           onClick={() => {
             const nextOpen = !open;
             if (onDirectoryToggle) {
@@ -333,6 +336,8 @@ export function TreeNode({
         href={`/api/file?path=${encodeURIComponent(node.pdfPath!)}`}
         target="_blank"
         rel="noopener noreferrer"
+        data-file-tree-slug={node.slug}
+        data-file-tree-type={node.type}
         onClick={onNavigate}
         className={`group flex items-center rounded-md text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] ${topLevelSpacing}`}
         style={{
@@ -360,6 +365,8 @@ export function TreeNode({
         }
         onNavigate?.();
       }}
+      data-file-tree-slug={node.slug}
+      data-file-tree-type={node.type}
       data-selected-file-tree-item={isActive ? "true" : undefined}
       className={`group flex items-center rounded-md text-sm transition-colors ${
         isActive

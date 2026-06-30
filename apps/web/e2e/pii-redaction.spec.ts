@@ -228,8 +228,16 @@ test.describe("PII redaction", () => {
       await expect(textSearchButton).toBeVisible({ timeout: 10_000 });
       await textSearchButton.click();
 
+      await expect
+        .poll(
+          async () =>
+            (await page.getByTestId("search-text-summary").count()) +
+            (await page.getByTestId("search-text-empty").count()),
+          { timeout: 60_000 }
+        )
+        .toBeGreaterThan(0);
       await expect(page.getByTestId("search-text-empty")).toBeVisible({
-        timeout: 30_000,
+        timeout: 5_000,
       });
     }
   });

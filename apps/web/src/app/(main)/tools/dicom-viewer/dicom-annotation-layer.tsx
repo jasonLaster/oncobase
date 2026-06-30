@@ -125,6 +125,10 @@ const colors = [
   "#dc2626",
 ];
 const MIN_DRAW_DISTANCE = 0.008;
+const SELECTED_STROKE_COLOR = "#2f80ed";
+const HANDLE_FILL_COLOR = "#f8fafc";
+const HANDLE_ACTIVE_FILL_COLOR = "#bfdbfe";
+const HANDLE_STROKE_COLOR = "#2f80ed";
 
 const toolOptions: Array<{
   icon: ReactNode;
@@ -252,10 +256,10 @@ function annotationIsDrawable(annotation: DicomAnnotation) {
   );
 }
 
-function svgPoint(point: Point) {
+function svgPoint(point: Point, layerSize: LayerSize) {
   return {
-    x: point.x * 1000,
-    y: point.y * 1000,
+    x: point.x * Math.max(1, layerSize.width),
+    y: point.y * Math.max(1, layerSize.height),
   };
 }
 
@@ -263,14 +267,19 @@ function cssPercent(value: number) {
   return `${clampUnit(value) * 100}%`;
 }
 
-function textBounds(annotation: DicomAnnotation): RectBounds {
-  const fontUnit = Math.max(12, annotation.fontSize) / 1000;
+function textBounds(
+  annotation: DicomAnnotation,
+  layerSize: LayerSize = { height: 1000, width: 1000 },
+): RectBounds {
+  const fontPixelSize = Math.max(12, annotation.fontSize);
+  const fontUnitX = fontPixelSize / Math.max(1, layerSize.width);
+  const fontUnitY = fontPixelSize / Math.max(1, layerSize.height);
   const textLength = Math.max(4, (annotation.text || "Text").length);
   return {
-    height: Math.max(annotation.height ?? 0, fontUnit * 1.25),
-    width: Math.max(annotation.width ?? 0, textLength * fontUnit * 0.62),
+    height: Math.max(annotation.height ?? 0, fontUnitY * 1.25),
+    width: Math.max(annotation.width ?? 0, textLength * fontUnitX * 0.62),
     x: annotation.x,
-    y: Math.max(0, annotation.y - fontUnit),
+    y: Math.max(0, annotation.y - fontUnitY),
   };
 }
 
@@ -962,12 +971,13 @@ export function DicomAnnotationLayer({
   const activeFontSize = selectedAnnotation?.fontSize ?? fontSize;
   const activeText = selectedAnnotation?.kind === "text" ? selectedAnnotation.text || "" : text;
   const editingBounds = editingTextAnnotation
-    ? textBounds(editingTextAnnotation)
+    ? textBounds(editingTextAnnotation, layerSize)
     : null;
-  const inlineFontSize =
-    editingTextAnnotation && layerSize.height > 0
-      ? Math.max(12, (editingTextAnnotation.fontSize / 1000) * layerSize.height)
-      : undefined;
+  const inlineFontSize = editingTextAnnotation
+    ? Math.max(12, editingTextAnnotation.fontSize)
+    : undefined;
+  const svgWidth = Math.max(1, layerSize.width);
+  const svgHeight = Math.max(1, layerSize.height);
 
   return (
     <div
@@ -989,13 +999,18 @@ export function DicomAnnotationLayer({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        viewBox="0 0 1000 1000"
+        preserveAspectRatio="none"
+        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
       >
         {visibleAnnotations.map((annotation) => (
           <AnnotationShape
+            activeDragHandle={
+              dragEdit?.annotation.id === annotation.id ? dragEdit.mode : null
+            }
             annotation={annotation}
             editable={editMode && !activeTool && !disabled}
             key={annotation.id}
+            layerSize={layerSize}
             onStartEditDrag={startEditDrag}
             onTextEdit={editTextAnnotation}
             selected={annotation.id === selectedAnnotationId}
@@ -1367,12 +1382,16 @@ function AnnotationStyleControls({
   );
 }
 
-function arrowVisualGeometry(annotation: DicomAnnotation) {
-  const start = svgPoint(annotation);
+function arrowVisualGeometry(
+  annotation: DicomAnnotation,
+  layerSize: LayerSize,
+  strokeWidth = annotation.thickness,
+) {
+  const start = svgPoint(annotation, layerSize);
   const end = svgPoint({
     x: annotation.endX ?? annotation.x,
     y: annotation.endY ?? annotation.y,
-  });
+  }, layerSize);
   const dx = end.x - start.x;
   const dy = end.y - start.y;
   const length = Math.hypot(dx, dy);
@@ -1387,8 +1406,8 @@ function arrowVisualGeometry(annotation: DicomAnnotation) {
 
   const unitX = dx / length;
   const unitY = dy / length;
-  const headLength = Math.min(Math.max(18, annotation.thickness * 4 + 10), length * 0.55);
-  const headWidth = Math.max(14, annotation.thickness * 3 + 8);
+  const headLength = Math.min(Math.max(18, strokeWidth * 4 + 10), length * 0.55);
+  const headWidth = Math.max(14, strokeWidth * 3 + 8);
   const base = {
     x: end.x - unitX * headLength,
     y: end.y - unitY * headLength,
@@ -1410,14 +1429,18 @@ function arrowVisualGeometry(annotation: DicomAnnotation) {
 }
 
 function AnnotationShape({
+  activeDragHandle,
   annotation,
   editable,
+  layerSize,
   onStartEditDrag,
   onTextEdit,
   selected,
 }: {
+  activeDragHandle: EditHandle | null;
   annotation: DicomAnnotation;
   editable: boolean;
+  layerSize: LayerSize;
   onStartEditDrag: (
     event: PointerEvent<SVGElement>,
     annotation: DicomAnnotation,
@@ -1426,11 +1449,13 @@ function AnnotationShape({
   onTextEdit: (annotation: DicomAnnotation) => void;
   selected: boolean;
 }) {
-  const start = svgPoint(annotation);
+  const start = svgPoint(annotation, layerSize);
   const strokeWidth = annotation.thickness;
   const handle = (mode: EditHandle, point: Point) => (
     <AnnotationHandle
+      active={activeDragHandle === mode}
       key={mode}
+      layerSize={layerSize}
       mode={mode}
       onPointerDown={(event) => onStartEditDrag(event, annotation, mode)}
       point={point}
@@ -1442,7 +1467,16 @@ function AnnotationShape({
       x: annotation.endX ?? annotation.x,
       y: annotation.endY ?? annotation.y,
     };
-    const arrow = arrowVisualGeometry(annotation);
+    const arrow = arrowVisualGeometry(annotation, layerSize);
+    const selectedArrow = arrowVisualGeometry(
+      annotation,
+      layerSize,
+      annotation.thickness + 2,
+    );
+    const middle = {
+      x: (annotation.x + end.x) / 2,
+      y: (annotation.y + end.y) / 2,
+    };
     return (
       <g>
         {selected ? (
@@ -1450,21 +1484,19 @@ function AnnotationShape({
             <line
               data-test-id="dicom-annotation-selection"
               pointerEvents="none"
-              stroke={annotation.color}
+              stroke={SELECTED_STROKE_COLOR}
               strokeLinecap="round"
-              strokeOpacity={0.36}
-              strokeWidth={Math.max(8, strokeWidth + 8)}
+              strokeWidth={Math.max(5, strokeWidth + 4)}
               vectorEffect="non-scaling-stroke"
               x1={start.x}
-              x2={arrow.lineEnd.x}
+              x2={selectedArrow.lineEnd.x}
               y1={start.y}
-              y2={arrow.lineEnd.y}
+              y2={selectedArrow.lineEnd.y}
             />
             <polygon
-              fill={annotation.color}
-              opacity={0.36}
+              fill={SELECTED_STROKE_COLOR}
               pointerEvents="none"
-              points={arrow.points}
+              points={selectedArrow.points}
             />
           </>
         ) : null}
@@ -1499,6 +1531,7 @@ function AnnotationShape({
         {selected && editable
           ? [
               handle("start", annotation),
+              handle("move", middle),
               handle("end", end),
             ]
           : null}
@@ -1513,15 +1546,19 @@ function AnnotationShape({
       x: annotation.x,
       y: annotation.y,
     };
+    const centerX = (bounds.x + bounds.width / 2) * layerSize.width;
+    const centerY = (bounds.y + bounds.height / 2) * layerSize.height;
+    const radiusX = (bounds.width * layerSize.width) / 2;
+    const radiusY = (bounds.height * layerSize.height) / 2;
     return (
       <g>
         <ellipse
-          cx={(bounds.x + bounds.width / 2) * 1000}
-          cy={(bounds.y + bounds.height / 2) * 1000}
+          cx={centerX}
+          cy={centerY}
           data-test-id="dicom-annotation-shape-circle"
           fill="transparent"
-          rx={(bounds.width * 1000) / 2}
-          ry={(bounds.height * 1000) / 2}
+          rx={radiusX}
+          ry={radiusY}
           stroke={annotation.color}
           strokeWidth={strokeWidth}
           vectorEffect="non-scaling-stroke"
@@ -1529,31 +1566,31 @@ function AnnotationShape({
         {editable ? (
           <ellipse
             cursor="move"
+            cx={centerX}
+            cy={centerY}
             fill="transparent"
             onPointerDown={(event) => onStartEditDrag(event, annotation, "move")}
             pointerEvents="all"
-            rx={(bounds.width * 1000) / 2}
-            ry={(bounds.height * 1000) / 2}
+            rx={radiusX}
+            ry={radiusY}
             stroke="transparent"
             strokeWidth={Math.max(16, strokeWidth + 12)}
             vectorEffect="non-scaling-stroke"
-            cx={(bounds.x + bounds.width / 2) * 1000}
-            cy={(bounds.y + bounds.height / 2) * 1000}
           />
         ) : null}
         {selected ? (
           <rect
             data-test-id="dicom-annotation-selection"
             fill="transparent"
-            height={bounds.height * 1000}
+            height={bounds.height * layerSize.height}
             pointerEvents="none"
             stroke={annotation.color}
             strokeOpacity={0.42}
             strokeWidth={Math.max(3, strokeWidth + 4)}
             vectorEffect="non-scaling-stroke"
-            width={bounds.width * 1000}
-            x={bounds.x * 1000}
-            y={bounds.y * 1000}
+            width={bounds.width * layerSize.width}
+            x={bounds.x * layerSize.width}
+            y={bounds.y * layerSize.height}
           />
         ) : null}
         {selected && editable
@@ -1564,7 +1601,7 @@ function AnnotationShape({
   }
 
   if (annotation.kind === "text") {
-    const bounds = textBounds(annotation);
+    const bounds = textBounds(annotation, layerSize);
     return (
       <g>
         <text
@@ -1596,7 +1633,7 @@ function AnnotationShape({
             cursor="move"
             data-test-id="dicom-annotation-text-hit-target"
             fill="transparent"
-            height={bounds.height * 1000}
+            height={bounds.height * layerSize.height}
             onClick={(event) => {
               if (event.detail >= 2) {
                 event.stopPropagation();
@@ -1610,24 +1647,24 @@ function AnnotationShape({
             onPointerDown={(event) => onStartEditDrag(event, annotation, "move")}
             pointerEvents="all"
             stroke="transparent"
-            width={bounds.width * 1000}
-            x={bounds.x * 1000}
-            y={bounds.y * 1000}
+            width={bounds.width * layerSize.width}
+            x={bounds.x * layerSize.width}
+            y={bounds.y * layerSize.height}
           />
         ) : null}
         {selected ? (
           <rect
             data-test-id="dicom-annotation-selection"
             fill="transparent"
-            height={bounds.height * 1000}
+            height={bounds.height * layerSize.height}
             pointerEvents="none"
             stroke={annotation.color}
             strokeOpacity={0.42}
             strokeWidth={Math.max(3, annotation.thickness + 4)}
             vectorEffect="non-scaling-stroke"
-            width={bounds.width * 1000}
-            x={bounds.x * 1000}
-            y={bounds.y * 1000}
+            width={bounds.width * layerSize.width}
+            x={bounds.x * layerSize.width}
+            y={bounds.y * layerSize.height}
           />
         ) : null}
         {selected && editable ? handle("move", annotation) : null}
@@ -1641,47 +1678,51 @@ function AnnotationShape({
     x: annotation.x,
     y: annotation.y,
   };
+  const rectX = bounds.x * layerSize.width;
+  const rectY = bounds.y * layerSize.height;
+  const rectWidth = bounds.width * layerSize.width;
+  const rectHeight = bounds.height * layerSize.height;
   return (
     <g>
       <rect
         data-test-id="dicom-annotation-shape-box"
         fill="transparent"
-        height={bounds.height * 1000}
+        height={rectHeight}
         stroke={annotation.color}
         strokeWidth={strokeWidth}
         vectorEffect="non-scaling-stroke"
-        width={bounds.width * 1000}
-        x={bounds.x * 1000}
-        y={bounds.y * 1000}
+        width={rectWidth}
+        x={rectX}
+        y={rectY}
       />
       {editable ? (
         <rect
           cursor="move"
           fill="transparent"
-          height={bounds.height * 1000}
+          height={rectHeight}
           onPointerDown={(event) => onStartEditDrag(event, annotation, "move")}
           pointerEvents="all"
           stroke="transparent"
           strokeWidth={Math.max(16, strokeWidth + 12)}
           vectorEffect="non-scaling-stroke"
-          width={bounds.width * 1000}
-          x={bounds.x * 1000}
-          y={bounds.y * 1000}
+          width={rectWidth}
+          x={rectX}
+          y={rectY}
         />
       ) : null}
       {selected ? (
         <rect
           data-test-id="dicom-annotation-selection"
           fill="transparent"
-          height={bounds.height * 1000}
+          height={rectHeight}
           pointerEvents="none"
           stroke={annotation.color}
           strokeOpacity={0.42}
           strokeWidth={Math.max(3, strokeWidth + 4)}
           vectorEffect="non-scaling-stroke"
-          width={bounds.width * 1000}
-          x={bounds.x * 1000}
-          y={bounds.y * 1000}
+          width={rectWidth}
+          x={rectX}
+          y={rectY}
         />
       ) : null}
       {selected && editable
@@ -1707,27 +1748,46 @@ function cornerHandles(
 }
 
 function AnnotationHandle({
+  active,
+  layerSize,
   mode,
   onPointerDown,
   point,
 }: {
+  active: boolean;
+  layerSize: LayerSize;
   mode: EditHandle;
   onPointerDown: (event: PointerEvent<SVGCircleElement>) => void;
   point: Point;
 }) {
-  const handlePoint = svgPoint(point);
+  const handlePoint = svgPoint(point, layerSize);
   return (
-    <circle
-      className="cursor-grab"
-      cx={handlePoint.x}
-      cy={handlePoint.y}
-      data-test-id={`dicom-annotation-handle-${mode}`}
-      fill="#38bdf8"
-      onPointerDown={onPointerDown}
-      r={7}
-      stroke="rgba(2,6,23,0.75)"
-      strokeWidth={1.5}
-      vectorEffect="non-scaling-stroke"
-    />
+    <g>
+      {active ? (
+        <circle
+          cx={handlePoint.x}
+          cy={handlePoint.y}
+          data-test-id={`dicom-annotation-handle-${mode}-active`}
+          fill={HANDLE_ACTIVE_FILL_COLOR}
+          opacity={0.72}
+          pointerEvents="none"
+          r={19}
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
+      <circle
+        className={active ? "cursor-grabbing" : "cursor-grab"}
+        cx={handlePoint.x}
+        cy={handlePoint.y}
+        data-active={active ? "true" : undefined}
+        data-test-id={`dicom-annotation-handle-${mode}`}
+        fill={HANDLE_FILL_COLOR}
+        onPointerDown={onPointerDown}
+        r={7}
+        stroke={HANDLE_STROKE_COLOR}
+        strokeWidth={2}
+        vectorEffect="non-scaling-stroke"
+      />
+    </g>
   );
 }

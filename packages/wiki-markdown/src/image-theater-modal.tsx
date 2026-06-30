@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useEffectEvent, useMemo } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { DefaultWikiImage, type WikiImageComponent } from "./image-renderer";
 import { getDownloadName, type TheaterImageState } from "./image-theater-state";
@@ -16,6 +16,7 @@ export function ImageTheaterModal({
   onImageChange?: (image: TheaterImageState) => void;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
   const downloadName = useMemo(() => getDownloadName(image.src), [image.src]);
   const slideImages = Array.isArray(image.images) ? image.images : null;
   const slideIndex = typeof image.index === "number" ? image.index : null;
@@ -49,8 +50,15 @@ export function ImageTheaterModal({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onModalKeyDown);
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+    }
 
     return () => {
+      if (dialog?.open) {
+        dialog.close();
+      }
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onModalKeyDown);
     };
@@ -58,10 +66,14 @@ export function ImageTheaterModal({
 
   return createPortal(
     <dialog
+      ref={dialogRef}
       aria-label={image.alt}
       aria-modal="true"
       className="wiki-image-theater"
-      open
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
     >
       <button
         aria-label="Dismiss image preview"

@@ -14,10 +14,6 @@ type FileNode = {
   children?: FileNode[];
 };
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function findNode(nodes: FileNode[], slug: string): FileNode | null {
   for (const node of nodes) {
     if (node.slug === slug) return node;
@@ -27,18 +23,27 @@ function findNode(nodes: FileNode[], slug: string): FileNode | null {
   return null;
 }
 
+function cssStringLiteral(value: string) {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
 /** Open a directory button only if it is currently collapsed. */
-async function expandIfCollapsed(nav: ReturnType<import("@playwright/test").Page["locator"]>, name: string) {
-  const btn = nav
-    .getByRole("button", {
-      name: new RegExp(`^(?:${escapeRegExp(name)}|Expand ${escapeRegExp(name)}|Collapse ${escapeRegExp(name)})$`),
-    })
-    .first();
-  if ((await btn.count()) === 0) return;
+async function expandSlugIfCollapsed(
+  nav: ReturnType<import("@playwright/test").Page["locator"]>,
+  slug: string,
+) {
+  const btn = nav.locator(`button[data-file-tree-slug=${cssStringLiteral(slug)}]`);
+  await expect(btn).toBeVisible({ timeout: 30_000 });
   await expect(btn).toHaveAttribute("aria-expanded", /^(true|false)$/);
   if ((await btn.getAttribute("aria-expanded")) !== "true") {
     await btn.click();
     await expect(btn).toHaveAttribute("aria-expanded", "true");
+  }
+}
+
+async function expandSlugs(nav: ReturnType<import("@playwright/test").Page["locator"]>, slugs: string[]) {
+  for (const slug of slugs) {
+    await expandSlugIfCollapsed(nav, slug);
   }
 }
 
@@ -182,11 +187,13 @@ test.describe("Sidebar source files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
-    await expandIfCollapsed(nav, "sources");
-    await expandIfCollapsed(nav, "people");
-    await expandIfCollapsed(nav, "providers");
-    await expandIfCollapsed(nav, "stanford");
-    await expandIfCollapsed(nav, "telli");
+    await expandSlugs(nav, [
+      "sources",
+      "sources/people",
+      "sources/people/providers",
+      "sources/people/providers/stanford",
+      sourceRoot,
+    ]);
     await expandFirstPdfSet(nav);
 
     const sourceLinks = nav.locator(`a[href^="/${sourceRoot}/"]`);
@@ -200,9 +207,7 @@ test.describe("Sidebar source files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
-    await expandIfCollapsed(nav, "sources");
-    await expandIfCollapsed(nav, "wiki");
-    await expandIfCollapsed(nav, "research");
+    await expandSlugs(nav, ["sources", "sources/research"]);
 
     const mdLinks = nav.locator('a[href^="/sources/research/"]');
     await expect(mdLinks.first()).toBeVisible();
@@ -223,11 +228,13 @@ test.describe("Sidebar PDF files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
-    await expandIfCollapsed(nav, "sources");
-    await expandIfCollapsed(nav, "people");
-    await expandIfCollapsed(nav, "providers");
-    await expandIfCollapsed(nav, "stanford");
-    await expandIfCollapsed(nav, "telli");
+    await expandSlugs(nav, [
+      "sources",
+      "sources/people",
+      "sources/people/providers",
+      "sources/people/providers/stanford",
+      sourceRoot,
+    ]);
     await expandFirstPdfSet(nav);
 
     const pdfLinks = nav.locator('a[href*="/api/file?path="]');
@@ -240,11 +247,13 @@ test.describe("Sidebar PDF files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
-    await expandIfCollapsed(nav, "sources");
-    await expandIfCollapsed(nav, "people");
-    await expandIfCollapsed(nav, "providers");
-    await expandIfCollapsed(nav, "stanford");
-    await expandIfCollapsed(nav, "telli");
+    await expandSlugs(nav, [
+      "sources",
+      "sources/people",
+      "sources/people/providers",
+      "sources/people/providers/stanford",
+      sourceRoot,
+    ]);
     await expandFirstPdfSet(nav);
 
     const firstPdf = nav.locator('a[href*="/api/file?path="]').first();
@@ -258,11 +267,13 @@ test.describe("Sidebar PDF files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
-    await expandIfCollapsed(nav, "sources");
-    await expandIfCollapsed(nav, "people");
-    await expandIfCollapsed(nav, "providers");
-    await expandIfCollapsed(nav, "stanford");
-    await expandIfCollapsed(nav, "telli");
+    await expandSlugs(nav, [
+      "sources",
+      "sources/people",
+      "sources/people/providers",
+      "sources/people/providers/stanford",
+      sourceRoot,
+    ]);
     await expandFirstPdfSet(nav);
 
     const firstPdf = nav.locator('a[href*="/api/file?path="]').first();
@@ -275,11 +286,13 @@ test.describe("Sidebar PDF files", () => {
     const nav = page.locator(sidebar);
 
     await waitForSidebarTree(nav);
-    await expandIfCollapsed(nav, "sources");
-    await expandIfCollapsed(nav, "people");
-    await expandIfCollapsed(nav, "providers");
-    await expandIfCollapsed(nav, "stanford");
-    await expandIfCollapsed(nav, "telli");
+    await expandSlugs(nav, [
+      "sources",
+      "sources/people",
+      "sources/people/providers",
+      "sources/people/providers/stanford",
+      sourceRoot,
+    ]);
     await expandFirstPdfSet(nav);
 
     const firstPdf = nav.locator('a[href*="/api/file?path="]').first();

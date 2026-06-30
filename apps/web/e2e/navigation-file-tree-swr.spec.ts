@@ -67,7 +67,7 @@ test.describe("Navigation file tree SWR", () => {
         const originalGetItem = sessionStorage.getItem.bind(sessionStorage);
         sessionStorage.getItem = (key: string) => {
           if (
-            key.startsWith(`${window.location.origin}:file-tree:v2:`) &&
+            key.startsWith(`${window.location.origin}:file-tree:v3:`) &&
             key.endsWith(":public")
           ) {
             return JSON.stringify({ version: "v2", tree: JSON.parse(treeJson) });
@@ -106,6 +106,6 @@ test.describe("Navigation file tree SWR", () => {
     );
     expect(
       fileTreeApi.requests.find((request) => request.includes("scope=public")),
-    ).toEqual(expect.stringMatching(/cacheKey=.*%3Afile-tree%3Av2%3A.*%3Apublic/));
+    ).toEqual(expect.stringMatching(/cacheKey=.*%3Afile-tree%3Av3%3A.*%3Apublic/));
   });
 });

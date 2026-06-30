@@ -449,12 +449,13 @@
   display: flex;
   inset: 0;
   margin: 0;
+  height: 100dvh;
   max-height: none;
   max-width: none;
   padding: 0;
   position: fixed;
   width: 100%;
-  z-index: 80;
+  z-index: 2147483000;
 }
 
 .wiki-image-theater::backdrop {
@@ -474,6 +475,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  pointer-events: none;
   position: relative;
   width: 100%;
   z-index: 1;
@@ -486,6 +488,7 @@
   height: 4rem;
   justify-content: space-between;
   padding: 0 1rem;
+  pointer-events: auto;
 }
 
 .wiki-image-theater__actions,
@@ -544,4 +547,5 @@
   max-height: 100%;
   max-width: 100%;
   object-fit: contain;
+  pointer-events: auto;
 }
