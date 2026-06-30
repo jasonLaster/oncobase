@@ -20,124 +20,60 @@ import {
   Type,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type AnnotationKind = "arrow" | "circle" | "box" | "text";
-type SaveStatus = "idle" | "loading" | "saving" | "saved" | "error";
-type AnnotationPanel = "draw" | null;
-type EditHandle = "move" | "start" | "end" | "nw" | "ne" | "sw" | "se";
+import {
+  AnnotationEditorRail,
+  AnnotationPanelFrame,
+  AnnotationSelectionRail,
+  AnnotationToolbarButton,
+} from "./dicom-annotation-controls";
+import { imageKey, loadAnnotationsMap } from "./dicom-annotation-data";
+import {
+  annotationBounds,
+  annotationGroupBounds,
+  annotationIsDrawable,
+  boundsIntersectRect,
+  cssPercent,
+  dragSelectionAfterPointerUp,
+  drawDistance,
+  editAnnotationsForDrag,
+  makeAnnotation,
+  rectFromPoints,
+  replaceAnnotationId,
+  textBounds,
+  uniqueIds,
+} from "./dicom-annotation-geometry";
+import {
+  isTextInputTarget,
+  pointFromSvgPointer,
+} from "./dicom-annotation-interaction";
+import {
+  MIN_DRAW_DISTANCE,
+  SELECTED_STROKE_COLOR,
+  annotationKindLabel,
+  type AnnotationKind,
+  type AnnotationPanel,
+  type AnnotationSeriesResponse,
+  type CommitOptions,
+  type DicomAnnotation,
+  type DicomAnnotationImage,
+  type DicomAnnotationSeries,
+  type DraftAnnotation,
+  type DragEdit,
+  type EditHandle,
+  type HistoryEntry,
+  type LayerSize,
+  type SaveStatus,
+  type SelectionMarquee,
+} from "./dicom-annotation-model";
+import { AnnotationShape } from "./dicom-annotation-shapes";
 
-export type DicomAnnotationImage = {
-  fileName: string;
-  relativePath: string;
-};
-
-export type DicomAnnotationSeries = {
-  id: string;
-  title: string;
-  images: DicomAnnotationImage[];
-};
-
-export type DicomAnnotation = {
-  id: string;
-  kind: AnnotationKind;
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-  endX?: number;
-  endY?: number;
-  text?: string;
-  color: string;
-  thickness: number;
-  fontSize: number;
-};
-
-type AnnotationSeriesResponse = {
-  images?: Array<{
-    annotations?: DicomAnnotation[];
-    imageKey?: string;
-    imagePath?: string;
-  }>;
-};
-
-type Point = {
-  x: number;
-  y: number;
-};
-
-type RectBounds = {
-  height: number;
-  width: number;
-  x: number;
-  y: number;
-};
-
-type DraftAnnotation = {
-  annotation: DicomAnnotation;
-  imageKey: string;
-  pointerId: number;
-  start: Point;
-};
-
-type DragEdit = {
-  annotation: DicomAnnotation;
-  imageKey: string;
-  mode: EditHandle;
-  originalAnnotations: DicomAnnotation[];
-  pointerId: number;
-  selectedAnnotationIds: string[];
-  selectionBeforeIds: string[];
-  shiftKey: boolean;
-  start: Point;
-  wasSelected: boolean;
-};
-
-type SelectionMarquee = {
-  additive: boolean;
-  current: Point;
-  pointerId: number;
-  start: Point;
-};
-
-type HistoryEntry = {
-  annotations: DicomAnnotation[];
-  imageKey: string;
-  selectedAnnotationIds: string[];
-};
-
-type CommitOptions = {
-  historyAnnotations?: DicomAnnotation[];
-  historySelectionIds?: string[];
-  skipHistory?: boolean;
-};
-
-type LayerSize = {
-  height: number;
-  width: number;
-};
-
-const colors = [
-  "#f8fafc",
-  "#171717",
-  "#a8b3bf",
-  "#d86ef0",
-  "#a83dcc",
-  "#4361ee",
-  "#45a6e8",
-  "#f2a83b",
-  "#e66012",
-  "#0f9f75",
-  "#4caf62",
-  "#f87171",
-  "#dc2626",
-];
-const MIN_DRAW_DISTANCE = 0.008;
-const SELECTED_STROKE_COLOR = "#2f80ed";
-const HANDLE_FILL_COLOR = "#f8fafc";
-const HANDLE_ACTIVE_FILL_COLOR = "#bfdbfe";
-const HANDLE_STROKE_COLOR = "#2f80ed";
+export type {
+  DicomAnnotation,
+  DicomAnnotationImage,
+  DicomAnnotationSeries,
+} from "./dicom-annotation-model";
 
 const toolOptions: Array<{
   icon: ReactNode;
@@ -149,390 +85,6 @@ const toolOptions: Array<{
   { icon: <Circle className="size-4" />, kind: "circle", label: "Circle" },
   { icon: <Type className="size-4" />, kind: "text", label: "Text" },
 ];
-
-function clampUnit(value: number) {
-  return Math.max(0, Math.min(1, value));
-}
-
-function clampDelta(delta: number, min: number, max: number) {
-  return Math.max(-min, Math.min(1 - max, delta));
-}
-
-function imageKey(image: DicomAnnotationImage) {
-  return image.relativePath;
-}
-
-function randomId() {
-  return globalThis.crypto?.randomUUID?.() ?? `annotation-${Date.now()}-${Math.random()}`;
-}
-
-function pointFromPointer(event: PointerEvent<SVGElement>): Point {
-  const svg =
-    event.currentTarget instanceof SVGSVGElement
-      ? event.currentTarget
-      : event.currentTarget.ownerSVGElement;
-  const rect = svg?.getBoundingClientRect();
-  if (!rect) return { x: 0, y: 0 };
-  return {
-    x: clampUnit((event.clientX - rect.left) / Math.max(1, rect.width)),
-    y: clampUnit((event.clientY - rect.top) / Math.max(1, rect.height)),
-  };
-}
-
-function drawDistance(a: Point, b: Point) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
-function uniqueIds(ids: string[]) {
-  return Array.from(new Set(ids));
-}
-
-function makeAnnotation({
-  color,
-  current,
-  fontSize,
-  kind,
-  start,
-  text,
-  thickness,
-}: {
-  color: string;
-  current: Point;
-  fontSize: number;
-  kind: AnnotationKind;
-  start: Point;
-  text: string;
-  thickness: number;
-}): DicomAnnotation {
-  if (kind === "arrow") {
-    return {
-      id: randomId(),
-      kind,
-      x: start.x,
-      y: start.y,
-      endX: current.x,
-      endY: current.y,
-      color,
-      thickness,
-      fontSize,
-    };
-  }
-
-  if (kind === "text") {
-    return {
-      id: randomId(),
-      kind,
-      x: start.x,
-      y: start.y,
-      width: Math.max(0.08, Math.abs(current.x - start.x)),
-      height: Math.max(0.04, Math.abs(current.y - start.y)),
-      text: text.trim() || "Text",
-      color,
-      thickness,
-      fontSize,
-    };
-  }
-
-  return {
-    id: randomId(),
-    kind,
-    x: Math.min(start.x, current.x),
-    y: Math.min(start.y, current.y),
-    width: Math.abs(current.x - start.x),
-    height: Math.abs(current.y - start.y),
-    color,
-    thickness,
-    fontSize,
-  };
-}
-
-function replaceAnnotationId(
-  annotation: DicomAnnotation,
-  id: string,
-): DicomAnnotation {
-  return { ...annotation, id };
-}
-
-function annotationIsDrawable(annotation: DicomAnnotation) {
-  if (annotation.kind === "text") return true;
-  if (annotation.kind === "arrow") {
-    return (
-      annotation.endX !== undefined &&
-      annotation.endY !== undefined &&
-      drawDistance(annotation, { x: annotation.endX, y: annotation.endY }) >=
-        MIN_DRAW_DISTANCE
-    );
-  }
-  return (
-    (annotation.width ?? 0) >= MIN_DRAW_DISTANCE &&
-    (annotation.height ?? 0) >= MIN_DRAW_DISTANCE
-  );
-}
-
-function svgPoint(point: Point, layerSize: LayerSize) {
-  return {
-    x: point.x * Math.max(1, layerSize.width),
-    y: point.y * Math.max(1, layerSize.height),
-  };
-}
-
-function cssPercent(value: number) {
-  return `${clampUnit(value) * 100}%`;
-}
-
-function textBounds(
-  annotation: DicomAnnotation,
-  layerSize: LayerSize = { height: 1000, width: 1000 },
-): RectBounds {
-  const fontPixelSize = Math.max(12, annotation.fontSize);
-  const fontUnitX = fontPixelSize / Math.max(1, layerSize.width);
-  const fontUnitY = fontPixelSize / Math.max(1, layerSize.height);
-  const textLength = Math.max(4, (annotation.text || "Text").length);
-  return {
-    height: Math.max(annotation.height ?? 0, fontUnitY * 1.25),
-    width: Math.max(annotation.width ?? 0, textLength * fontUnitX * 0.62),
-    x: annotation.x,
-    y: Math.max(0, annotation.y - fontUnitY),
-  };
-}
-
-function annotationBounds(
-  annotation: DicomAnnotation,
-  layerSize?: LayerSize,
-): { maxX: number; maxY: number; minX: number; minY: number } {
-  if (annotation.kind === "arrow") {
-    const endX = annotation.endX ?? annotation.x;
-    const endY = annotation.endY ?? annotation.y;
-    return {
-      maxX: Math.max(annotation.x, endX),
-      maxY: Math.max(annotation.y, endY),
-      minX: Math.min(annotation.x, endX),
-      minY: Math.min(annotation.y, endY),
-    };
-  }
-
-  if (annotation.kind === "text") {
-    const bounds = textBounds(annotation, layerSize);
-    return {
-      maxX: bounds.x + bounds.width,
-      maxY: bounds.y + bounds.height,
-      minX: bounds.x,
-      minY: bounds.y,
-    };
-  }
-
-  return {
-    maxX: annotation.x + (annotation.width ?? 0),
-    maxY: annotation.y + (annotation.height ?? 0),
-    minX: annotation.x,
-    minY: annotation.y,
-  };
-}
-
-function rectFromPoints(start: Point, current: Point): RectBounds {
-  return {
-    height: Math.abs(current.y - start.y),
-    width: Math.abs(current.x - start.x),
-    x: Math.min(start.x, current.x),
-    y: Math.min(start.y, current.y),
-  };
-}
-
-function boundsIntersectRect(
-  bounds: { maxX: number; maxY: number; minX: number; minY: number },
-  rect: RectBounds,
-) {
-  return (
-    bounds.maxX >= rect.x &&
-    bounds.minX <= rect.x + rect.width &&
-    bounds.maxY >= rect.y &&
-    bounds.minY <= rect.y + rect.height
-  );
-}
-
-function annotationGroupBounds(
-  annotations: DicomAnnotation[],
-  layerSize?: LayerSize,
-) {
-  if (annotations.length === 0) return null;
-  const bounds = annotations.map((annotation) =>
-    annotationBounds(annotation, layerSize),
-  );
-  return {
-    maxX: Math.max(...bounds.map((bound) => bound.maxX)),
-    maxY: Math.max(...bounds.map((bound) => bound.maxY)),
-    minX: Math.min(...bounds.map((bound) => bound.minX)),
-    minY: Math.min(...bounds.map((bound) => bound.minY)),
-  };
-}
-
-function translateAnnotation(
-  annotation: DicomAnnotation,
-  dx: number,
-  dy: number,
-) {
-  if (annotation.kind === "arrow") {
-    return {
-      ...annotation,
-      endX: clampUnit((annotation.endX ?? annotation.x) + dx),
-      endY: clampUnit((annotation.endY ?? annotation.y) + dy),
-      x: clampUnit(annotation.x + dx),
-      y: clampUnit(annotation.y + dy),
-    };
-  }
-
-  return {
-    ...annotation,
-    x: clampUnit(annotation.x + dx),
-    y: clampUnit(annotation.y + dy),
-  };
-}
-
-function moveAnnotation(annotation: DicomAnnotation, dx: number, dy: number) {
-  const bounds = annotationBounds(annotation);
-  const boundedDx = clampDelta(dx, bounds.minX, bounds.maxX);
-  const boundedDy = clampDelta(dy, bounds.minY, bounds.maxY);
-
-  return translateAnnotation(annotation, boundedDx, boundedDy);
-}
-
-function moveAnnotationGroup(
-  annotations: DicomAnnotation[],
-  selectedIds: string[],
-  dx: number,
-  dy: number,
-  layerSize: LayerSize,
-) {
-  const selectedIdSet = new Set(selectedIds);
-  const selectedAnnotations = annotations.filter((annotation) =>
-    selectedIdSet.has(annotation.id),
-  );
-  const bounds = annotationGroupBounds(selectedAnnotations, layerSize);
-  if (!bounds) return annotations;
-  const boundedDx = clampDelta(dx, bounds.minX, bounds.maxX);
-  const boundedDy = clampDelta(dy, bounds.minY, bounds.maxY);
-  return annotations.map((annotation) =>
-    selectedIdSet.has(annotation.id)
-      ? translateAnnotation(annotation, boundedDx, boundedDy)
-      : annotation,
-  );
-}
-
-function resizeBoxAnnotation(
-  annotation: DicomAnnotation,
-  handle: Exclude<EditHandle, "move" | "start" | "end">,
-  point: Point,
-) {
-  const left = annotation.x;
-  const right = annotation.x + (annotation.width ?? 0);
-  const top = annotation.y;
-  const bottom = annotation.y + (annotation.height ?? 0);
-  let nextLeft = left;
-  let nextRight = right;
-  let nextTop = top;
-  let nextBottom = bottom;
-
-  if (handle.includes("w")) nextLeft = point.x;
-  if (handle.includes("e")) nextRight = point.x;
-  if (handle.includes("n")) nextTop = point.y;
-  if (handle.includes("s")) nextBottom = point.y;
-
-  return {
-    ...annotation,
-    height: Math.abs(nextBottom - nextTop),
-    width: Math.abs(nextRight - nextLeft),
-    x: Math.min(nextLeft, nextRight),
-    y: Math.min(nextTop, nextBottom),
-  };
-}
-
-function editAnnotation(
-  annotation: DicomAnnotation,
-  mode: EditHandle,
-  start: Point,
-  current: Point,
-) {
-  if (mode === "move") {
-    return moveAnnotation(annotation, current.x - start.x, current.y - start.y);
-  }
-
-  if (annotation.kind === "arrow") {
-    if (mode === "start") {
-      return { ...annotation, x: current.x, y: current.y };
-    }
-    if (mode === "end") {
-      return { ...annotation, endX: current.x, endY: current.y };
-    }
-    return annotation;
-  }
-
-  if (annotation.kind === "box" || annotation.kind === "circle") {
-    if (mode === "nw" || mode === "ne" || mode === "sw" || mode === "se") {
-      return resizeBoxAnnotation(annotation, mode, current);
-    }
-  }
-
-  return annotation;
-}
-
-function editAnnotationsForDrag(
-  dragEdit: DragEdit,
-  current: Point,
-  layerSize: LayerSize,
-) {
-  if (dragEdit.mode === "move") {
-    return moveAnnotationGroup(
-      dragEdit.originalAnnotations,
-      dragEdit.selectedAnnotationIds,
-      current.x - dragEdit.start.x,
-      current.y - dragEdit.start.y,
-      layerSize,
-    );
-  }
-
-  const nextAnnotation = editAnnotation(
-    dragEdit.annotation,
-    dragEdit.mode,
-    dragEdit.start,
-    current,
-  );
-  return dragEdit.originalAnnotations.map((annotation) =>
-    annotation.id === dragEdit.annotation.id ? nextAnnotation : annotation,
-  );
-}
-
-function dragSelectionAfterPointerUp(dragEdit: DragEdit, moved: boolean) {
-  if (moved || dragEdit.mode !== "move") return dragEdit.selectedAnnotationIds;
-  if (!dragEdit.shiftKey) return [dragEdit.annotation.id];
-  if (dragEdit.wasSelected) {
-    return dragEdit.selectionBeforeIds.filter((id) => id !== dragEdit.annotation.id);
-  }
-  return uniqueIds([...dragEdit.selectionBeforeIds, dragEdit.annotation.id]);
-}
-
-function isTextInputTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false;
-  return (
-    target.isContentEditable ||
-    target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
-    target.tagName === "SELECT"
-  );
-}
-
-function loadAnnotationsMap(response: AnnotationSeriesResponse) {
-  const next: Record<string, DicomAnnotation[]> = {};
-  for (const image of response.images ?? []) {
-    const key = image.imageKey ?? image.imagePath;
-    if (!key) continue;
-    next[key] = image.annotations ?? [];
-  }
-  return next;
-}
-
-function toolLabel(kind: AnnotationKind | null) {
-  return toolOptions.find((tool) => tool.kind === kind)?.label ?? "Draw";
-}
 
 export function DicomAnnotationLayer({
   currentImage,
@@ -793,7 +345,7 @@ export function DicomAnnotationLayer({
     (event: PointerEvent<SVGSVGElement>) => {
       if (!activeTool) {
         if (editMode && !disabled && currentImageKey) {
-          const start = pointFromPointer(event);
+          const start = pointFromSvgPointer(event);
           event.currentTarget.setPointerCapture(event.pointerId);
           event.preventDefault();
           setSelectionMarquee({
@@ -808,7 +360,7 @@ export function DicomAnnotationLayer({
         return;
       }
       if (disabled || !currentImage || !currentImageKey) return;
-      const start = pointFromPointer(event);
+      const start = pointFromSvgPointer(event);
       const annotation = makeAnnotation({
         color,
         current: start,
@@ -844,7 +396,7 @@ export function DicomAnnotationLayer({
     (event: PointerEvent<SVGSVGElement>) => {
       if (dragEdit) {
         if (dragEdit.pointerId !== event.pointerId) return;
-        const current = pointFromPointer(event);
+        const current = pointFromSvgPointer(event);
         const nextAnnotations = editAnnotationsForDrag(dragEdit, current, layerSize);
         setAnnotationsByImage((currentByImage) => ({
           ...currentByImage,
@@ -855,13 +407,13 @@ export function DicomAnnotationLayer({
 
       if (selectionMarquee) {
         if (selectionMarquee.pointerId !== event.pointerId) return;
-        const current = pointFromPointer(event);
+        const current = pointFromSvgPointer(event);
         setSelectionMarquee({ ...selectionMarquee, current });
         return;
       }
 
       if (!draft || !activeTool) return;
-      const current = pointFromPointer(event);
+      const current = pointFromSvgPointer(event);
       const next = replaceAnnotationId(
         makeAnnotation({
           color,
@@ -896,7 +448,7 @@ export function DicomAnnotationLayer({
         if (event.currentTarget.hasPointerCapture(event.pointerId)) {
           event.currentTarget.releasePointerCapture(event.pointerId);
         }
-        const current = pointFromPointer(event);
+        const current = pointFromSvgPointer(event);
         const moved = drawDistance(dragEdit.start, current) >= MIN_DRAW_DISTANCE;
         const nextSelectedIds = dragSelectionAfterPointerUp(dragEdit, moved);
         setDragEdit(null);
@@ -918,7 +470,7 @@ export function DicomAnnotationLayer({
         if (event.currentTarget.hasPointerCapture(event.pointerId)) {
           event.currentTarget.releasePointerCapture(event.pointerId);
         }
-        const current = pointFromPointer(event);
+        const current = pointFromSvgPointer(event);
         const moved = drawDistance(selectionMarquee.start, current) >=
           MIN_DRAW_DISTANCE;
         if (moved) {
@@ -1004,7 +556,7 @@ export function DicomAnnotationLayer({
       svg?.setPointerCapture(event.pointerId);
       event.preventDefault();
       event.stopPropagation();
-      const pointer = pointFromPointer(event);
+      const pointer = pointFromSvgPointer(event);
       const originalAnnotations = annotationsByImage[currentImageKey] ?? [];
       const selectionBeforeIds = selectedAnnotationIds;
       const wasSelected = selectionBeforeIds.includes(annotation.id);
@@ -1290,7 +842,7 @@ export function DicomAnnotationLayer({
             compact
             disabled={disabled}
             icon={<PencilLine className="size-4" />}
-            label={activeTool ? toolLabel(activeTool) : "Draw"}
+            label={activeTool ? annotationKindLabel(activeTool) : "Draw"}
             onClick={() =>
               setOpenPanel((current) => (current === "draw" ? null : "draw"))
             }
@@ -1385,677 +937,5 @@ export function DicomAnnotationLayer({
         />
       ) : null}
     </div>
-  );
-}
-
-function AnnotationToolbarButton({
-  active,
-  children,
-  compact,
-  disabled,
-  icon,
-  label,
-  onClick,
-}: {
-  active?: boolean;
-  children?: ReactNode;
-  compact?: boolean;
-  disabled?: boolean;
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      aria-pressed={active}
-      className={cn(
-        "h-8 rounded-md border-white/15 bg-white/5 text-xs text-zinc-300 hover:bg-white/10",
-        compact ? (children ? "w-10 px-0" : "w-8 px-0") : "gap-1 px-2",
-        active && "border-sky-300/60 bg-sky-300/20 text-sky-50",
-      )}
-      data-test-id={`dicom-annotation-tool-${label.toLowerCase()}`}
-      disabled={disabled}
-      onClick={onClick}
-      size={compact ? "icon-sm" : "sm"}
-      title={label}
-      type="button"
-      variant="outline"
-    >
-      {icon}
-      {compact ? (
-        <span className="sr-only">{label}</span>
-      ) : (
-        <span className="max-w-16 truncate">{label}</span>
-      )}
-      {children}
-    </Button>
-  );
-}
-
-function AnnotationPanelFrame({
-  children,
-  testId,
-}: {
-  children: ReactNode;
-  testId: string;
-}) {
-  return (
-    <div
-      className="mt-2 w-64 rounded-md border border-white/15 bg-black/85 p-2 shadow-xl backdrop-blur"
-      data-test-id={testId}
-    >
-      {children}
-    </div>
-  );
-}
-
-function AnnotationEditorRail({
-  activeColor,
-  activeFontSize,
-  activeText,
-  activeThickness,
-  disabled,
-  kind,
-  onChooseColor,
-  onChooseFontSize,
-  onChooseText,
-  onChooseThickness,
-}: {
-  activeColor: string;
-  activeFontSize: number;
-  activeText: string;
-  activeThickness: number;
-  disabled?: boolean;
-  kind: AnnotationKind;
-  onChooseColor: (color: string) => void;
-  onChooseFontSize: (fontSize: number) => void;
-  onChooseText: (text: string) => void;
-  onChooseThickness: (thickness: number) => void;
-}) {
-  const label = toolLabel(kind);
-  return (
-    <div className="space-y-5" data-test-id="dicom-annotation-style-panel">
-      <section>
-        <div className="text-xs font-semibold tracking-wide text-zinc-300 uppercase">
-          Annotation
-        </div>
-        <div className="mt-2 flex items-center gap-2 text-sm text-zinc-100">
-          <span
-            className="size-3 rounded-full border border-white/20"
-            style={{ backgroundColor: activeColor }}
-          />
-          <span>{label}</span>
-        </div>
-      </section>
-
-      <AnnotationStyleControls
-        activeColor={activeColor}
-        activeFontSize={activeFontSize}
-        activeThickness={activeThickness}
-        disabled={disabled}
-        onChooseColor={onChooseColor}
-        onChooseFontSize={onChooseFontSize}
-        onChooseThickness={onChooseThickness}
-        rail
-        showFontSize={kind === "text"}
-      />
-
-      {kind === "text" ? (
-        <label className="grid gap-2 text-xs text-zinc-300">
-          <span className="font-medium">Text</span>
-          <input
-            aria-label="Annotation text"
-            className="h-9 rounded-md border border-white/15 bg-black/35 px-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-sky-300/70"
-            data-test-id="dicom-annotation-text"
-            disabled={disabled}
-            onChange={(event) => onChooseText(event.currentTarget.value)}
-            value={activeText}
-          />
-        </label>
-      ) : null}
-    </div>
-  );
-}
-
-function AnnotationSelectionRail({
-  activeColor,
-  activeThickness,
-  disabled,
-  onChooseColor,
-  onChooseThickness,
-  selectedCount,
-}: {
-  activeColor: string;
-  activeThickness: number;
-  disabled?: boolean;
-  onChooseColor: (color: string) => void;
-  onChooseThickness: (thickness: number) => void;
-  selectedCount: number;
-}) {
-  return (
-    <div className="space-y-5" data-test-id="dicom-annotation-style-panel">
-      <section>
-        <div className="text-xs font-semibold tracking-wide text-zinc-300 uppercase">
-          Selection
-        </div>
-        <div className="mt-2 text-sm text-zinc-100">
-          {selectedCount} annotations
-        </div>
-      </section>
-
-      <AnnotationStyleControls
-        activeColor={activeColor}
-        activeFontSize={22}
-        activeThickness={activeThickness}
-        disabled={disabled}
-        onChooseColor={onChooseColor}
-        onChooseFontSize={() => undefined}
-        onChooseThickness={onChooseThickness}
-        rail
-        showFontSize={false}
-      />
-    </div>
-  );
-}
-
-function AnnotationStyleControls({
-  activeColor,
-  activeFontSize,
-  activeThickness,
-  disabled,
-  onChooseColor,
-  onChooseFontSize,
-  onChooseThickness,
-  rail,
-  showFontSize,
-}: {
-  activeColor: string;
-  activeFontSize: number;
-  activeThickness: number;
-  disabled?: boolean;
-  onChooseColor: (color: string) => void;
-  onChooseFontSize: (fontSize: number) => void;
-  onChooseThickness: (thickness: number) => void;
-  rail: boolean;
-  showFontSize: boolean;
-}) {
-  return (
-    <div className={cn(rail ? "space-y-5" : "grid gap-2")}>
-      <div
-        className={cn(rail ? "grid grid-cols-4 gap-3" : "flex flex-wrap gap-1")}
-        aria-label="Annotation colors"
-      >
-        {colors.map((candidate) => (
-          <button
-            aria-label={`Color ${candidate}`}
-            className={cn(
-              rail
-                ? "size-10 rounded-xl border border-white/10 bg-white/[0.04] p-1.5"
-                : "size-6 rounded border border-white/20",
-              candidate === activeColor &&
-                (rail
-                  ? "bg-white/15 ring-2 ring-sky-300/80"
-                  : "ring-2 ring-white/75 ring-offset-1 ring-offset-black"),
-            )}
-            data-test-id={`dicom-annotation-color-${candidate.slice(1)}`}
-            disabled={disabled}
-            key={candidate}
-            onClick={() => onChooseColor(candidate)}
-            type="button"
-          >
-            <span
-              className="block size-full rounded-full border border-black/20"
-              style={{ backgroundColor: candidate }}
-            />
-          </button>
-        ))}
-      </div>
-
-      <label className={cn("grid gap-2", rail ? "text-xs text-zinc-300" : "")}>
-        {rail ? <span className="font-medium">Thickness</span> : null}
-        <input
-          aria-label="Annotation thickness"
-          className="w-full accent-sky-300"
-          data-test-id="dicom-annotation-thickness"
-          disabled={disabled}
-          max={12}
-          min={1}
-          onChange={(event) => onChooseThickness(Number(event.currentTarget.value))}
-          title="Thickness"
-          type="range"
-          value={activeThickness}
-        />
-      </label>
-
-      {showFontSize ? (
-        <label className={cn("grid gap-2", rail ? "text-xs text-zinc-300" : "")}>
-          {rail ? <span className="font-medium">Font size</span> : null}
-          <input
-            aria-label="Annotation font size"
-            className="w-full accent-sky-300"
-            data-test-id="dicom-annotation-font-size"
-            disabled={disabled}
-            max={48}
-            min={12}
-            onChange={(event) => onChooseFontSize(Number(event.currentTarget.value))}
-            title="Font size"
-            type="range"
-            value={activeFontSize}
-          />
-        </label>
-      ) : null}
-    </div>
-  );
-}
-
-function arrowVisualGeometry(
-  annotation: DicomAnnotation,
-  layerSize: LayerSize,
-  strokeWidth = annotation.thickness,
-) {
-  const start = svgPoint(annotation, layerSize);
-  const end = svgPoint({
-    x: annotation.endX ?? annotation.x,
-    y: annotation.endY ?? annotation.y,
-  }, layerSize);
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const length = Math.hypot(dx, dy);
-
-  if (length < 1) {
-    return {
-      end,
-      lineEnd: end,
-      points: `${end.x},${end.y}`,
-    };
-  }
-
-  const unitX = dx / length;
-  const unitY = dy / length;
-  const headLength = Math.min(Math.max(18, strokeWidth * 4 + 10), length * 0.55);
-  const headWidth = Math.max(14, strokeWidth * 3 + 8);
-  const base = {
-    x: end.x - unitX * headLength,
-    y: end.y - unitY * headLength,
-  };
-  const perp = {
-    x: -unitY * (headWidth / 2),
-    y: unitX * (headWidth / 2),
-  };
-
-  return {
-    end,
-    lineEnd: length > headLength ? base : end,
-    points: [
-      `${end.x},${end.y}`,
-      `${base.x + perp.x},${base.y + perp.y}`,
-      `${base.x - perp.x},${base.y - perp.y}`,
-    ].join(" "),
-  };
-}
-
-function AnnotationShape({
-  activeDragHandle,
-  annotation,
-  editable,
-  layerSize,
-  onStartEditDrag,
-  onTextEdit,
-  primarySelected,
-  selected,
-}: {
-  activeDragHandle: EditHandle | null;
-  annotation: DicomAnnotation;
-  editable: boolean;
-  layerSize: LayerSize;
-  onStartEditDrag: (
-    event: PointerEvent<SVGElement>,
-    annotation: DicomAnnotation,
-    mode: EditHandle,
-  ) => void;
-  onTextEdit: (annotation: DicomAnnotation) => void;
-  primarySelected: boolean;
-  selected: boolean;
-}) {
-  const start = svgPoint(annotation, layerSize);
-  const strokeWidth = annotation.thickness;
-  const handle = (mode: EditHandle, point: Point) => (
-    <AnnotationHandle
-      active={activeDragHandle === mode}
-      key={mode}
-      layerSize={layerSize}
-      mode={mode}
-      onPointerDown={(event) => onStartEditDrag(event, annotation, mode)}
-      point={point}
-    />
-  );
-
-  if (annotation.kind === "arrow") {
-    const end = {
-      x: annotation.endX ?? annotation.x,
-      y: annotation.endY ?? annotation.y,
-    };
-    const arrow = arrowVisualGeometry(annotation, layerSize);
-    const selectedArrow = arrowVisualGeometry(
-      annotation,
-      layerSize,
-      annotation.thickness + 2,
-    );
-    const middle = {
-      x: (annotation.x + end.x) / 2,
-      y: (annotation.y + end.y) / 2,
-    };
-    return (
-      <g>
-        {selected ? (
-          <>
-            <line
-              data-test-id="dicom-annotation-selection"
-              pointerEvents="none"
-              stroke={SELECTED_STROKE_COLOR}
-              strokeLinecap="round"
-              strokeWidth={Math.max(5, strokeWidth + 4)}
-              vectorEffect="non-scaling-stroke"
-              x1={start.x}
-              x2={selectedArrow.lineEnd.x}
-              y1={start.y}
-              y2={selectedArrow.lineEnd.y}
-            />
-            <polygon
-              fill={SELECTED_STROKE_COLOR}
-              pointerEvents="none"
-              points={selectedArrow.points}
-            />
-          </>
-        ) : null}
-        <line
-          data-test-id="dicom-annotation-shape-arrow"
-          stroke={annotation.color}
-          strokeLinecap="round"
-          strokeWidth={strokeWidth}
-          vectorEffect="non-scaling-stroke"
-          x1={start.x}
-          x2={arrow.lineEnd.x}
-          y1={start.y}
-          y2={arrow.lineEnd.y}
-        />
-        <polygon fill={annotation.color} points={arrow.points} />
-        {editable ? (
-          <line
-            cursor="move"
-            data-test-id="dicom-annotation-hit-target"
-            onPointerDown={(event) => onStartEditDrag(event, annotation, "move")}
-            pointerEvents="stroke"
-            stroke="transparent"
-            strokeLinecap="round"
-            strokeWidth={Math.max(16, strokeWidth + 12)}
-            vectorEffect="non-scaling-stroke"
-            x1={start.x}
-            x2={arrow.end.x}
-            y1={start.y}
-            y2={arrow.end.y}
-          />
-        ) : null}
-        {selected && primarySelected && editable
-          ? [
-              handle("start", annotation),
-              handle("move", middle),
-              handle("end", end),
-            ]
-          : null}
-      </g>
-    );
-  }
-
-  if (annotation.kind === "circle") {
-    const bounds = {
-      height: annotation.height ?? 0,
-      width: annotation.width ?? 0,
-      x: annotation.x,
-      y: annotation.y,
-    };
-    const centerX = (bounds.x + bounds.width / 2) * layerSize.width;
-    const centerY = (bounds.y + bounds.height / 2) * layerSize.height;
-    const radiusX = (bounds.width * layerSize.width) / 2;
-    const radiusY = (bounds.height * layerSize.height) / 2;
-    return (
-      <g>
-        <ellipse
-          cx={centerX}
-          cy={centerY}
-          data-test-id="dicom-annotation-shape-circle"
-          fill="transparent"
-          rx={radiusX}
-          ry={radiusY}
-          stroke={annotation.color}
-          strokeWidth={strokeWidth}
-          vectorEffect="non-scaling-stroke"
-        />
-        {editable ? (
-          <ellipse
-            cursor="move"
-            cx={centerX}
-            cy={centerY}
-            fill="transparent"
-            onPointerDown={(event) => onStartEditDrag(event, annotation, "move")}
-            pointerEvents="all"
-            rx={radiusX}
-            ry={radiusY}
-            stroke="transparent"
-            strokeWidth={Math.max(16, strokeWidth + 12)}
-            vectorEffect="non-scaling-stroke"
-          />
-        ) : null}
-        {selected ? (
-          <rect
-            data-test-id="dicom-annotation-selection"
-            fill="transparent"
-            height={bounds.height * layerSize.height}
-            pointerEvents="none"
-            stroke={annotation.color}
-            strokeOpacity={0.42}
-            strokeWidth={Math.max(3, strokeWidth + 4)}
-            vectorEffect="non-scaling-stroke"
-            width={bounds.width * layerSize.width}
-            x={bounds.x * layerSize.width}
-            y={bounds.y * layerSize.height}
-          />
-        ) : null}
-        {selected && primarySelected && editable
-          ? cornerHandles(bounds, handle)
-          : null}
-      </g>
-    );
-  }
-
-  if (annotation.kind === "text") {
-    const bounds = textBounds(annotation, layerSize);
-    return (
-      <g>
-        <text
-          data-test-id="dicom-annotation-shape-text"
-          fill={annotation.color}
-          fontSize={annotation.fontSize}
-          fontWeight={700}
-          onClick={(event) => {
-            if (event.detail >= 2) {
-              event.stopPropagation();
-              onTextEdit(annotation);
-            }
-          }}
-          onDoubleClick={(event) => {
-            event.stopPropagation();
-            onTextEdit(annotation);
-          }}
-          paintOrder="stroke"
-          stroke="rgba(0,0,0,0.72)"
-          strokeWidth={Math.max(2, annotation.thickness)}
-          vectorEffect="non-scaling-stroke"
-          x={start.x}
-          y={start.y}
-        >
-          {annotation.text || "Text"}
-        </text>
-        {editable ? (
-          <rect
-            cursor="move"
-            data-test-id="dicom-annotation-text-hit-target"
-            fill="transparent"
-            height={bounds.height * layerSize.height}
-            onClick={(event) => {
-              if (event.detail >= 2) {
-                event.stopPropagation();
-                onTextEdit(annotation);
-              }
-            }}
-            onDoubleClick={(event) => {
-              event.stopPropagation();
-              onTextEdit(annotation);
-            }}
-            onPointerDown={(event) => onStartEditDrag(event, annotation, "move")}
-            pointerEvents="all"
-            stroke="transparent"
-            width={bounds.width * layerSize.width}
-            x={bounds.x * layerSize.width}
-            y={bounds.y * layerSize.height}
-          />
-        ) : null}
-        {selected ? (
-          <rect
-            data-test-id="dicom-annotation-selection"
-            fill="transparent"
-            height={bounds.height * layerSize.height}
-            pointerEvents="none"
-            stroke={annotation.color}
-            strokeOpacity={0.42}
-            strokeWidth={Math.max(3, annotation.thickness + 4)}
-            vectorEffect="non-scaling-stroke"
-            width={bounds.width * layerSize.width}
-            x={bounds.x * layerSize.width}
-            y={bounds.y * layerSize.height}
-          />
-        ) : null}
-        {selected && primarySelected && editable ? handle("move", annotation) : null}
-      </g>
-    );
-  }
-
-  const bounds = {
-    height: annotation.height ?? 0,
-    width: annotation.width ?? 0,
-    x: annotation.x,
-    y: annotation.y,
-  };
-  const rectX = bounds.x * layerSize.width;
-  const rectY = bounds.y * layerSize.height;
-  const rectWidth = bounds.width * layerSize.width;
-  const rectHeight = bounds.height * layerSize.height;
-  return (
-    <g>
-      <rect
-        data-test-id="dicom-annotation-shape-box"
-        fill="transparent"
-        height={rectHeight}
-        stroke={annotation.color}
-        strokeWidth={strokeWidth}
-        vectorEffect="non-scaling-stroke"
-        width={rectWidth}
-        x={rectX}
-        y={rectY}
-      />
-      {editable ? (
-        <rect
-          cursor="move"
-          fill="transparent"
-          height={rectHeight}
-          onPointerDown={(event) => onStartEditDrag(event, annotation, "move")}
-          pointerEvents="all"
-          stroke="transparent"
-          strokeWidth={Math.max(16, strokeWidth + 12)}
-          vectorEffect="non-scaling-stroke"
-          width={rectWidth}
-          x={rectX}
-          y={rectY}
-        />
-      ) : null}
-      {selected ? (
-        <rect
-          data-test-id="dicom-annotation-selection"
-          fill="transparent"
-          height={rectHeight}
-          pointerEvents="none"
-          stroke={annotation.color}
-          strokeOpacity={0.42}
-          strokeWidth={Math.max(3, strokeWidth + 4)}
-          vectorEffect="non-scaling-stroke"
-          width={rectWidth}
-          x={rectX}
-          y={rectY}
-        />
-      ) : null}
-      {selected && primarySelected && editable
-        ? cornerHandles(bounds, handle)
-        : null}
-    </g>
-  );
-}
-
-function cornerHandles(
-  bounds: RectBounds,
-  render: (mode: EditHandle, point: Point) => ReactNode,
-) {
-  return [
-    render("nw", { x: bounds.x, y: bounds.y }),
-    render("ne", { x: bounds.x + bounds.width, y: bounds.y }),
-    render("sw", { x: bounds.x, y: bounds.y + bounds.height }),
-    render("se", {
-      x: bounds.x + bounds.width,
-      y: bounds.y + bounds.height,
-    }),
-  ];
-}
-
-function AnnotationHandle({
-  active,
-  layerSize,
-  mode,
-  onPointerDown,
-  point,
-}: {
-  active: boolean;
-  layerSize: LayerSize;
-  mode: EditHandle;
-  onPointerDown: (event: PointerEvent<SVGCircleElement>) => void;
-  point: Point;
-}) {
-  const handlePoint = svgPoint(point, layerSize);
-  return (
-    <g>
-      {active ? (
-        <circle
-          cx={handlePoint.x}
-          cy={handlePoint.y}
-          data-test-id={`dicom-annotation-handle-${mode}-active`}
-          fill={HANDLE_ACTIVE_FILL_COLOR}
-          opacity={0.72}
-          pointerEvents="none"
-          r={19}
-          vectorEffect="non-scaling-stroke"
-        />
-      ) : null}
-      <circle
-        className={active ? "cursor-grabbing" : "cursor-grab"}
-        cx={handlePoint.x}
-        cy={handlePoint.y}
-        data-active={active ? "true" : undefined}
-        data-test-id={`dicom-annotation-handle-${mode}`}
-        fill={HANDLE_FILL_COLOR}
-        onPointerDown={onPointerDown}
-        r={7}
-        stroke={HANDLE_STROKE_COLOR}
-        strokeWidth={2}
-        vectorEffect="non-scaling-stroke"
-      />
-    </g>
   );
 }
