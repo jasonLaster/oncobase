@@ -279,6 +279,101 @@ function holdDicomFileRequest(page: Page, fileName: string) {
   };
 }
 
+async function installAnnotationApiMock(page: Page) {
+  const savedByImage = new Map<string, unknown[]>();
+  const saves: Array<{
+    annotations: Array<{
+      color?: string;
+      endX?: number;
+      endY?: number;
+      fontSize?: number;
+      kind?: string;
+      text?: string;
+      thickness?: number;
+      width?: number;
+      x?: number;
+      y?: number;
+    }>;
+    imageKey: string;
+    imagePath: string;
+    seriesKey: string;
+  }> = [];
+
+  await page.route("**/api/dicom/annotations**", async (route) => {
+    const request = route.request();
+    if (request.method() === "GET") {
+      const url = new URL(request.url());
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          seriesKey: url.searchParams.get("seriesKey") ?? "",
+          images: Array.from(savedByImage.entries()).map(
+            ([imageKey, annotations]) => ({
+              annotations,
+              imageKey,
+              imagePath: imageKey,
+            }),
+          ),
+        }),
+      });
+      return;
+    }
+
+    if (request.method() === "PUT") {
+      const body = request.postDataJSON() as {
+        annotations?: unknown[];
+        imageKey?: string;
+        imagePath?: string;
+        seriesKey?: string;
+      };
+      if (body.imageKey && Array.isArray(body.annotations)) {
+        savedByImage.set(body.imageKey, body.annotations);
+        saves.push({
+          annotations: body.annotations as Array<{
+            color?: string;
+            endX?: number;
+            endY?: number;
+            fontSize?: number;
+            kind?: string;
+            text?: string;
+            thickness?: number;
+            width?: number;
+            x?: number;
+            y?: number;
+          }>,
+          imageKey: body.imageKey,
+          imagePath: body.imagePath ?? body.imageKey,
+          seriesKey: body.seriesKey ?? "",
+        });
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ updatedAt: Date.now() }),
+      });
+      return;
+    }
+
+    await route.fulfill({ status: 405 });
+  });
+
+  return { savedByImage, saves };
+}
+
+async function setRangeValue(page: Page, testId: string, value: string) {
+  await page.getByTestId(testId).evaluate((element, nextValue) => {
+    const input = element as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(input, nextValue);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }, value);
+}
+
 test.describe.configure({ mode: "serial" });
 
 test.describe("DICOM viewer", () => {
@@ -766,6 +861,198 @@ test.describe("DICOM viewer", () => {
     await page.getByRole("button", { name: "Zoom", exact: true }).click();
     await page.getByRole("button", { name: "Pan", exact: true }).click();
     await expectToolState(page, { window: false, pan: true, zoom: false });
+  });
+
+  test("draws and reloads annotations for an image inside a DICOM series", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const annotationApi = await installAnnotationApiMock(page);
+    await gotoViewer(page);
+
+    const toolbarBox = await page.getByTestId("dicom-annotation-toolbar").boundingBox();
+    expect(toolbarBox?.height).toBeLessThan(52);
+    expect(toolbarBox?.width).toBeLessThan(280);
+    await expect(page.getByTestId("dicom-annotation-tool-layers")).toHaveCount(0);
+    await expect(page.getByTestId("dicom-annotation-tool-delete")).toHaveCount(0);
+    await expect(page.getByTestId("dicom-annotation-tool-undo")).toHaveCount(0);
+    await expect(page.getByTestId("dicom-annotation-save-status")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Style" }).click();
+    await expect(page.getByTestId("dicom-annotation-style-panel")).toBeVisible();
+    await page.getByTestId("dicom-annotation-color-f87171").click();
+    await setRangeValue(page, "dicom-annotation-thickness", "6");
+    await page.getByRole("button", { name: "Draw" }).click();
+    await page.getByRole("button", { name: "Arrow" }).click();
+
+    const canvas = page.getByTestId("dicom-annotation-canvas");
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move(box!.x + box!.width * 0.34, box!.y + box!.height * 0.34);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + box!.width * 0.58, box!.y + box!.height * 0.48);
+    await page.mouse.up();
+
+    await expect(page.getByTestId("dicom-annotation-shape-arrow")).toBeVisible();
+    await expect(page.getByTestId("dicom-annotation-selection")).toBeVisible();
+    await expect(page.getByTestId("dicom-annotation-selection")).not.toHaveAttribute(
+      "stroke-dasharray",
+      /.+/,
+    );
+    await expect(page.getByTestId("dicom-annotation-handle-end")).toBeVisible();
+    await expect(page.getByTestId("dicom-annotation-editor-rail")).toBeVisible();
+    await expect(page.getByTestId("dicom-annotation-editor-rail")).toContainText(
+      "Arrow",
+    );
+    await expect(page.getByTestId("dicom-stack-metadata")).toHaveCount(0);
+    await expect.poll(() => annotationApi.saves.length).toBe(1);
+    expect(annotationApi.saves[0]?.annotations[0]).toMatchObject({
+      color: "#f87171",
+      kind: "arrow",
+      thickness: 6,
+    });
+
+    const originalStart = {
+      x: annotationApi.saves[0]?.annotations[0]?.x,
+      y: annotationApi.saves[0]?.annotations[0]?.y,
+    };
+    const originalEndX = annotationApi.saves[0]?.annotations[0]?.endX ?? 0;
+    const endHandle = await page.getByTestId("dicom-annotation-handle-end").boundingBox();
+    expect(endHandle).not.toBeNull();
+    await page.mouse.move(
+      endHandle!.x + endHandle!.width / 2,
+      endHandle!.y + endHandle!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      endHandle!.x + endHandle!.width / 2 + 60,
+      endHandle!.y + endHandle!.height / 2 + 35,
+    );
+    await page.mouse.up();
+    await expect.poll(() => annotationApi.saves.length).toBe(2);
+    expect(annotationApi.saves.at(-1)?.annotations[0]?.endX).toBeGreaterThan(
+      originalEndX,
+    );
+    expect(annotationApi.saves.at(-1)?.annotations[0]).toMatchObject(originalStart);
+
+    await expect(page.getByTestId("dicom-annotation-layers-panel")).toHaveCount(0);
+    await expect(page.getByTestId("dicom-annotation-style-panel")).toBeVisible();
+    await setRangeValue(page, "dicom-annotation-thickness", "8");
+    await expect.poll(() => annotationApi.saves.length).toBe(3);
+    expect(annotationApi.saves.at(-1)?.annotations[0]).toMatchObject({
+      kind: "arrow",
+      thickness: 8,
+    });
+
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("6 / 9");
+    await expect(page.getByTestId("dicom-annotation-shape-arrow")).toHaveCount(0);
+
+    await page.keyboard.press("ArrowLeft");
+    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9");
+    await expect(page.getByTestId("dicom-annotation-shape-arrow")).toBeVisible();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
+    await expect(
+      page.locator('[data-test-id="dicom-cornerstone-viewport"] canvas'),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9", {
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("dicom-annotation-shape-arrow")).toBeVisible();
+  });
+
+  test("edits text annotations, deletes selections, and restores with keyboard undo", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const annotationApi = await installAnnotationApiMock(page);
+    await gotoViewer(page);
+
+    await page.getByRole("button", { name: "Draw" }).click();
+    await page.getByRole("button", { name: "Text" }).click();
+
+    const canvas = page.getByTestId("dicom-annotation-canvas");
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move(box!.x + box!.width * 0.42, box!.y + box!.height * 0.42);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + box!.width * 0.56, box!.y + box!.height * 0.5);
+    await page.mouse.up();
+
+    const textShape = page.getByTestId("dicom-annotation-shape-text");
+    await expect(textShape).toBeVisible();
+    const inlineText = page.getByTestId("dicom-annotation-inline-text");
+    await expect(inlineText).toBeVisible();
+    await expect(page.getByTestId("dicom-annotation-editor-rail")).toBeVisible();
+    await expect(page.getByTestId("dicom-annotation-editor-rail")).toContainText(
+      "Text",
+    );
+    await expect(page.getByTestId("dicom-annotation-style-panel")).toBeVisible();
+    await expect(page.getByTestId("dicom-annotation-text")).toHaveValue("Note");
+    await expect(page.getByTestId("dicom-stack-metadata")).toHaveCount(0);
+    await expect.poll(() => annotationApi.saves.length).toBe(1);
+    expect(annotationApi.saves.at(-1)?.annotations[0]).toMatchObject({
+      kind: "text",
+      text: "Note",
+    });
+
+    await inlineText.fill("Edited MRI note");
+    await expect(textShape).toContainText("Edited MRI note");
+    await expect(page.getByTestId("dicom-annotation-text")).toHaveValue(
+      "Edited MRI note",
+    );
+    await expect.poll(() => annotationApi.saves.length).toBe(2);
+    expect(annotationApi.saves.at(-1)?.annotations[0]).toMatchObject({
+      kind: "text",
+      text: "Edited MRI note",
+    });
+
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
+    await page.keyboard.press("Backspace");
+    await expect(textShape).toHaveCount(0);
+    await expect.poll(() => annotationApi.saves.length).toBe(3);
+    expect(annotationApi.saves.at(-1)?.annotations).toHaveLength(0);
+
+    const modifier = process.platform === "darwin" ? "Meta" : "Control";
+    await page.keyboard.press(`${modifier}+Z`);
+    await expect(textShape).toBeVisible();
+    await expect(textShape).toContainText("Edited MRI note");
+    await expect.poll(() => annotationApi.saves.length).toBe(4);
+    expect(annotationApi.saves.at(-1)?.annotations[0]).toMatchObject({
+      kind: "text",
+      text: "Edited MRI note",
+    });
+
+    await page.getByTestId("dicom-annotation-text-hit-target").dblclick();
+    await expect(inlineText).toBeVisible();
+    await inlineText.fill("Second inline note");
+    await expect(textShape).toContainText("Second inline note");
+    await expect.poll(() => annotationApi.saves.length).toBe(5);
+    expect(annotationApi.saves.at(-1)?.annotations[0]).toMatchObject({
+      kind: "text",
+      text: "Second inline note",
+    });
+
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
+    await page.keyboard.press("Delete");
+    await expect(textShape).toHaveCount(0);
+    await expect.poll(() => annotationApi.saves.length).toBe(6);
+    expect(annotationApi.saves.at(-1)?.annotations).toHaveLength(0);
   });
 
   test("tool switches preserve the current viewport position", async ({ page }) => {

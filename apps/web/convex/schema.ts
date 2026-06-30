@@ -174,6 +174,38 @@ export default defineSchema({
     .index("by_site_path", ["siteId", "path"])
     .index("by_site_series", ["siteId", "seriesKey"]),
 
+  imageAnnotations: defineTable({
+    siteId: v.optional(v.id("sites")),
+    seriesKey: v.string(),
+    imageKey: v.string(),
+    imagePath: v.string(),
+    annotations: v.array(
+      v.object({
+        id: v.string(),
+        kind: v.union(
+          v.literal("arrow"),
+          v.literal("circle"),
+          v.literal("box"),
+          v.literal("text"),
+        ),
+        x: v.number(),
+        y: v.number(),
+        width: v.optional(v.number()),
+        height: v.optional(v.number()),
+        endX: v.optional(v.number()),
+        endY: v.optional(v.number()),
+        text: v.optional(v.string()),
+        color: v.string(),
+        thickness: v.number(),
+        fontSize: v.number(),
+      }),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_site_series", ["siteId", "seriesKey"])
+    .index("by_site_image", ["siteId", "seriesKey", "imageKey"]),
+
   conversations: defineTable({
     siteId: v.optional(v.id("sites")),
     title: v.string(),

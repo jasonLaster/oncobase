@@ -43,6 +43,7 @@ import {
   type DiagnosticStudy,
 } from "@/lib/diagnostic-studies";
 import { cn } from "@/lib/utils";
+import { DicomAnnotationLayer } from "./dicom-annotation-layer";
 
 type CornerstoneCore = typeof import("@cornerstonejs/core");
 type CornerstoneTools = typeof import("@cornerstonejs/tools");
@@ -85,6 +86,7 @@ interface DicomCatalog {
 
 interface DicomSeries {
   id: string;
+  seriesKey?: string;
   label: string;
   root: string;
   directory: string;
@@ -299,6 +301,9 @@ export function DicomViewerClient({
   const [stackRailWidth, setStackRailWidth] = useState(() =>
     readStoredDicomRailWidth("stack"),
   );
+  const [annotationEditorOpen, setAnnotationEditorOpen] = useState(false);
+  const [annotationEditorPortalElement, setAnnotationEditorPortalElement] =
+    useState<HTMLDivElement | null>(null);
   const [mobileStudySheetOpen, setMobileStudySheetOpen] = useState(false);
   const [mobileStudyTab, setMobileStudyTab] = useState<"series" | "report">("series");
   const {
@@ -378,7 +383,7 @@ export function DicomViewerClient({
     if (!selectedSeries) return null;
 
     return {
-      id: selectedSeries.id,
+      id: selectedSeries.seriesKey ?? selectedSeries.id,
       title: selectedSeries.label,
       source: selectedSeries.root === "vercel-blob" ? "blob" : "local",
       modality: selectedSeries.modality,
@@ -504,7 +509,7 @@ export function DicomViewerClient({
           renderingEngine.enableElement({
             viewportId: viewportId.current,
             type: core.Enums.ViewportType.STACK,
-              element: viewportElement,
+            element: viewportElement,
             defaultOptions: {
               background: [0, 0, 0],
             },
@@ -815,6 +820,13 @@ export function DicomViewerClient({
     setMobileStudyTab(tab);
     setMobileStudySheetOpen(true);
   }, []);
+  const handleAnnotationEditorOpenChange = useCallback((open: boolean) => {
+    setAnnotationEditorOpen(open);
+    if (open) setStackRailOpen(true);
+  }, []);
+  const setAnnotationEditorRailNode = useCallback((node: HTMLDivElement | null) => {
+    setAnnotationEditorPortalElement(node);
+  }, []);
   const collapseGuardrails = () => {
     setResizableSidebarWidth(0);
     setStackRailOpen(false);
@@ -845,7 +857,7 @@ export function DicomViewerClient({
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0b0d0f] text-zinc-100">
       <div
-        className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)]"
+        className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] lg:grid-cols-[var(--dicom-series-rail-width,300px)_minmax(0,1fr)] xl:grid-cols-[var(--dicom-series-rail-width,320px)_minmax(0,1fr)_var(--dicom-stack-rail-column-width,280px)]"
         style={viewerLayoutStyle}
         data-dicom-viewer-layout
       >
@@ -854,96 +866,99 @@ export function DicomViewerClient({
           data-test-id="dicom-series-panel"
         >
           <div className="h-full min-h-0 overflow-y-auto">
-          <div className="space-y-3 p-2.5 sm:p-3">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-xs font-semibold tracking-wide text-zinc-300 uppercase">
-                Series
-              </h2>
-              <div className="flex items-center gap-1.5">
-                <Badge variant="outline" className="border-white/15 text-zinc-300">
-                  {displaySeries.length}
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1.5 px-2 text-zinc-300 hover:bg-white/10"
-                  onClick={collapseGuardrails}
-                  title="Collapse diagnostics and stack rails"
-                  data-test-id="dicom-collapse-guardrails"
-                >
-                  <PanelLeftClose className="size-4" />
-                  Rails
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-2 lg:overflow-visible lg:pb-0">
-              {displaySeries.map((series) => {
-                const selected = selectedSeries?.id === series.id;
-                return (
-                  <button
-                    key={series.id}
-                    className={cn(
-                      "w-64 shrink-0 rounded-lg border p-2.5 text-left transition-colors sm:w-72 lg:w-full lg:p-3",
-                      selected
-                        ? "border-sky-400/50 bg-sky-400/10"
-                        : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]",
-                    )}
-                    onClick={() => {
-                      selectSeries(series.id);
-                    }}
+            <div className="space-y-3 p-2.5 sm:p-3">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-xs font-semibold tracking-wide text-zinc-300 uppercase">
+                  Series
+                </h2>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="outline" className="border-white/15 text-zinc-300">
+                    {displaySeries.length}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1.5 px-2 text-zinc-300 hover:bg-white/10"
+                    onClick={collapseGuardrails}
+                    title="Collapse diagnostics and stack rails"
+                    data-test-id="dicom-collapse-guardrails"
                   >
-                    <div className="flex items-start gap-2">
-                      <ImageIcon className="mt-0.5 size-4 shrink-0 text-zinc-400" />
-                      <div className="min-w-0 flex-1">
-                        <div className="line-clamp-2 text-sm font-medium text-zinc-100">
-                          {formatSeriesCardLabel(series)}
+                    <PanelLeftClose className="size-4" />
+                    Rails
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-2 lg:overflow-visible lg:pb-0">
+                {displaySeries.map((series) => {
+                  const selected = selectedSeries?.id === series.id;
+                  return (
+                    <button
+                      key={series.id}
+                      className={cn(
+                        "w-64 shrink-0 rounded-lg border p-2.5 text-left transition-colors sm:w-72 lg:w-full lg:p-3",
+                        selected
+                          ? "border-sky-400/50 bg-sky-400/10"
+                          : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]",
+                      )}
+                      onClick={() => {
+                        selectSeries(series.id);
+                      }}
+                    >
+                      <div className="flex items-start gap-2">
+                        <ImageIcon className="mt-0.5 size-4 shrink-0 text-zinc-400" />
+                        <div className="min-w-0 flex-1">
+                          <div className="line-clamp-2 text-sm font-medium text-zinc-100">
+                            {formatSeriesCardLabel(series)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      <Badge variant="outline" className="border-white/15 text-zinc-300">
-                        {series.images.length} images
-                      </Badge>
-                    </div>
-                  </button>
-                );
-              })}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <Badge
+                          variant="outline"
+                          className="border-white/15 text-zinc-300"
+                        >
+                          {series.images.length} images
+                        </Badge>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selectedReportLink && selectedBiopsy ? (
+                <a
+                  href={selectedReportLink.href}
+                  className="block w-64 shrink-0 rounded-lg border border-emerald-300/35 bg-emerald-300/10 p-3 text-left transition-colors hover:border-emerald-200/60 hover:bg-emerald-300/15 sm:w-72 lg:w-auto"
+                  data-test-id="dicom-pathology-report-link"
+                >
+                  <div className="flex items-center gap-2 text-sm font-semibold text-emerald-50">
+                    <FileText className="size-4 shrink-0 text-emerald-200" />
+                    <span>{selectedReportLink.label}</span>
+                  </div>
+                  <div className="mt-2 text-xs leading-5 text-emerald-100/80">
+                    {selectedBiopsy.title}
+                  </div>
+                  <div className="mt-1 text-xs font-medium text-emerald-100">
+                    Open canonical report
+                  </div>
+                </a>
+              ) : null}
+
+              {catalog?.root && catalog.series.length > 0 && displaySeries.length === 0 ? (
+                <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
+                  {requestedBiopsy
+                    ? "No image series matched this biopsy."
+                    : "The catalog only has non-image DICOM objects right now."}
+                </div>
+              ) : null}
+
+              {!catalog?.root ? (
+                <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
+                  No DICOM catalog was found.
+                </div>
+              ) : null}
             </div>
-
-            {selectedReportLink && selectedBiopsy ? (
-              <a
-                href={selectedReportLink.href}
-                className="block w-64 shrink-0 rounded-lg border border-emerald-300/35 bg-emerald-300/10 p-3 text-left transition-colors hover:border-emerald-200/60 hover:bg-emerald-300/15 sm:w-72 lg:w-auto"
-                data-test-id="dicom-pathology-report-link"
-              >
-                <div className="flex items-center gap-2 text-sm font-semibold text-emerald-50">
-                  <FileText className="size-4 shrink-0 text-emerald-200" />
-                  <span>{selectedReportLink.label}</span>
-                </div>
-                <div className="mt-2 text-xs leading-5 text-emerald-100/80">
-                  {selectedBiopsy.title}
-                </div>
-                <div className="mt-1 text-xs font-medium text-emerald-100">
-                  Open canonical report
-                </div>
-              </a>
-            ) : null}
-
-            {catalog?.root && catalog.series.length > 0 && displaySeries.length === 0 ? (
-              <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
-                {requestedBiopsy
-                  ? "No image series matched this biopsy."
-                  : "The catalog only has non-image DICOM objects right now."}
-              </div>
-            ) : null}
-
-            {!catalog?.root ? (
-              <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
-                No DICOM catalog was found.
-              </div>
-            ) : null}
-          </div>
           </div>
           <DicomRailResizeHandle
             rail="series"
@@ -997,6 +1012,13 @@ export function DicomViewerClient({
                 <Share2 className="size-4" />
               )}
             </Button>
+            <DicomAnnotationLayer
+              currentImage={currentImage}
+              disabled={!hasStack || loadingImageIndex !== null}
+              editorPortalElement={annotationEditorPortalElement}
+              onEditorOpenChange={handleAnnotationEditorOpenChange}
+              series={activeStack}
+            />
             {!catalog && !displayError ? (
               <div className="absolute inset-0 flex items-center justify-center bg-black/80 px-6 text-center">
                 <div className="max-w-sm">
@@ -1157,68 +1179,97 @@ export function DicomViewerClient({
             data-test-id="dicom-stack-panel"
           >
             <div className="h-full min-h-0 overflow-y-auto">
-            <div className="space-y-5 p-4">
-              <section>
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
-                    <Info className="size-4" />
-                    Stack
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-zinc-300 hover:bg-white/10"
-                    onClick={() => setStackRailOpen(false)}
-                    title="Collapse stack rail"
-                    aria-label="Collapse stack rail"
-                    aria-pressed={stackRailOpen}
-                    data-test-id="dicom-toggle-stack-rail"
-                  >
-                    <PanelRightClose className="size-4" />
-                  </Button>
-                </div>
-                <dl className="space-y-3 text-sm">
-                  <MetaRow label="Title" value={activeStack?.title} />
-                  <MetaRow label="Source" value={activeStack?.source} />
-                  <MetaRow label="Date" value={activeStack?.studyDate} />
-                  <MetaRow label="Modality" value={activeStack?.modality} />
-                  <MetaRow label="Directory" value={activeStack?.directory} />
-                </dl>
-              </section>
+              <div className="space-y-5 p-4">
+                {annotationEditorOpen ? (
+                  <section data-test-id="dicom-annotation-editor-rail">
+                    <div className="mb-4 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
+                        <SlidersHorizontal className="size-4" />
+                        Edit
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-zinc-300 hover:bg-white/10"
+                        onClick={() => setStackRailOpen(false)}
+                        title="Collapse editor rail"
+                        aria-label="Collapse editor rail"
+                        aria-pressed={stackRailOpen}
+                        data-test-id="dicom-toggle-stack-rail"
+                      >
+                        <PanelRightClose className="size-4" />
+                      </Button>
+                    </div>
+                    <div ref={setAnnotationEditorRailNode} />
+                  </section>
+                ) : (
+                  <>
+                    <section data-test-id="dicom-stack-metadata">
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
+                          <Info className="size-4" />
+                          Stack
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-zinc-300 hover:bg-white/10"
+                          onClick={() => setStackRailOpen(false)}
+                          title="Collapse stack rail"
+                          aria-label="Collapse stack rail"
+                          aria-pressed={stackRailOpen}
+                          data-test-id="dicom-toggle-stack-rail"
+                        >
+                          <PanelRightClose className="size-4" />
+                        </Button>
+                      </div>
+                      <dl className="space-y-3 text-sm">
+                        <MetaRow label="Title" value={activeStack?.title} />
+                        <MetaRow label="Source" value={activeStack?.source} />
+                        <MetaRow label="Date" value={activeStack?.studyDate} />
+                        <MetaRow label="Modality" value={activeStack?.modality} />
+                        <MetaRow label="Directory" value={activeStack?.directory} />
+                      </dl>
+                    </section>
 
-              <section>
-                <div className="mb-3 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
-                  Current Image
-                </div>
-                <dl className="space-y-3 text-sm">
-                  <MetaRow label="File" value={currentImage?.fileName} />
-                  <MetaRow label="Instance" value={currentImage?.instanceNumber?.toString()} />
-                  <MetaRow label="Dimensions" value={currentImage?.dimensions} />
-                  <MetaRow
-                    label="Size"
-                    value={
-                      currentImage?.byteLength
-                        ? formatBytes(currentImage.byteLength)
-                        : undefined
-                    }
-                  />
-                </dl>
-                <div className="mt-3 break-all rounded-lg border border-white/10 bg-black/30 p-2 font-mono text-[11px] text-zinc-500">
-                  {currentImage?.relativePath ?? "No image selected"}
-                </div>
-              </section>
+                    <section>
+                      <div className="mb-3 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
+                        Current Image
+                      </div>
+                      <dl className="space-y-3 text-sm">
+                        <MetaRow label="File" value={currentImage?.fileName} />
+                        <MetaRow
+                          label="Instance"
+                          value={currentImage?.instanceNumber?.toString()}
+                        />
+                        <MetaRow label="Dimensions" value={currentImage?.dimensions} />
+                        <MetaRow
+                          label="Size"
+                          value={
+                            currentImage?.byteLength
+                              ? formatBytes(currentImage.byteLength)
+                              : undefined
+                          }
+                        />
+                      </dl>
+                      <div className="mt-3 break-all rounded-lg border border-white/10 bg-black/30 p-2 font-mono text-[11px] text-zinc-500">
+                        {currentImage?.relativePath ?? "No image selected"}
+                      </div>
+                    </section>
 
-              <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-zinc-400">
-                <div className="font-medium text-zinc-200">Mouse</div>
-                <div>Left drag uses the selected tool.</div>
-                <div>Right drag pans. Middle drag zooms. Wheel scrolls slices.</div>
-                <div className="mt-2 font-medium text-zinc-200">Touch</div>
-                <div>One-finger drag uses the selected tool.</div>
-                <div>Two-finger pinch or drag zooms and pans.</div>
-                <div className="mt-2 font-medium text-zinc-200">Keyboard</div>
-                <div>Arrow keys step through images. Space toggles cine.</div>
-              </section>
-            </div>
+                    <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-zinc-400">
+                      <div className="font-medium text-zinc-200">Mouse</div>
+                      <div>Left drag uses the selected tool.</div>
+                      <div>Right drag pans. Middle drag zooms. Wheel scrolls slices.</div>
+                      <div className="mt-2 font-medium text-zinc-200">Touch</div>
+                      <div>One-finger drag uses the selected tool.</div>
+                      <div>Two-finger pinch or drag zooms and pans.</div>
+                      <div className="mt-2 font-medium text-zinc-200">Keyboard</div>
+                      <div>Arrow keys step through images. Space toggles cine.</div>
+                    </section>
+                  </>
+                )}
+              </div>
             </div>
             <DicomRailResizeHandle
               rail="stack"
