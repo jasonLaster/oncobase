@@ -14,9 +14,7 @@ import {
   ArrowUpRight,
   ChevronDown,
   Circle,
-  Eraser,
   MousePointer2,
-  Palette,
   PencilLine,
   Square,
   Type,
@@ -27,7 +25,7 @@ import { cn } from "@/lib/utils";
 
 type AnnotationKind = "arrow" | "circle" | "box" | "text";
 type SaveStatus = "idle" | "loading" | "saving" | "saved" | "error";
-type AnnotationPanel = "draw" | "style" | null;
+type AnnotationPanel = "draw" | null;
 type EditHandle = "move" | "start" | "end" | "nw" | "ne" | "sw" | "se";
 
 export type DicomAnnotationImage = {
@@ -853,12 +851,6 @@ export function DicomAnnotationLayer({
     commitAnnotations(currentImage, entry.annotations, { skipHistory: true });
   }, [commitAnnotations, currentImage]);
 
-  const clearCurrent = useCallback(() => {
-    if (!currentImage) return;
-    setSelectedAnnotationId(null);
-    commitAnnotations(currentImage, []);
-  }, [commitAnnotations, currentImage]);
-
   const deleteSelected = useCallback(() => {
     if (!currentImage || !currentImageKey || !selectedAnnotationId) return;
     const nextAnnotations = (annotationsByImage[currentImageKey] ?? []).filter(
@@ -1049,26 +1041,6 @@ export function DicomAnnotationLayer({
             <ChevronDown className="size-3.5" />
           </AnnotationToolbarButton>
 
-          <AnnotationToolbarButton
-            active={openPanel === "style"}
-            compact
-            disabled={disabled}
-            icon={<Palette className="size-4" />}
-            label="Style"
-            onClick={() =>
-              setOpenPanel((current) => (current === "style" ? null : "style"))
-            }
-          />
-
-          <div className="mx-0.5 h-6 w-px bg-white/15" />
-
-          <AnnotationToolbarButton
-            compact
-            disabled={disabled || annotations.length === 0}
-            icon={<Eraser className="size-4" />}
-            label="Clear"
-            onClick={clearCurrent}
-          />
         </div>
 
         {openPanel === "draw" ? (
@@ -1094,21 +1066,6 @@ export function DicomAnnotationLayer({
           </AnnotationPanelFrame>
         ) : null}
 
-        {openPanel === "style" && !selectedAnnotation ? (
-          <AnnotationPanelFrame testId="dicom-annotation-style-panel">
-            <AnnotationStyleControls
-              activeColor={activeColor}
-              activeFontSize={activeFontSize}
-              activeThickness={activeThickness}
-              disabled={disabled}
-              onChooseColor={chooseColor}
-              onChooseFontSize={chooseFontSize}
-              onChooseThickness={chooseThickness}
-              rail={false}
-              showFontSize
-            />
-          </AnnotationPanelFrame>
-        ) : null}
       </div>
 
       {selectedAnnotation && editorPortalElement

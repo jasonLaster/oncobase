@@ -911,12 +911,10 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByTestId("dicom-annotation-tool-layers")).toHaveCount(0);
     await expect(page.getByTestId("dicom-annotation-tool-delete")).toHaveCount(0);
     await expect(page.getByTestId("dicom-annotation-tool-undo")).toHaveCount(0);
+    await expect(page.getByTestId("dicom-annotation-tool-style")).toHaveCount(0);
+    await expect(page.getByTestId("dicom-annotation-tool-clear")).toHaveCount(0);
     await expect(page.getByTestId("dicom-annotation-save-status")).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Style" }).click();
-    await expect(page.getByTestId("dicom-annotation-style-panel")).toBeVisible();
-    await page.getByTestId("dicom-annotation-color-f87171").click();
-    await setRangeValue(page, "dicom-annotation-thickness", "6");
     await page.getByRole("button", { name: "Draw" }).click();
     await page.getByRole("button", { name: "Arrow" }).click();
 
@@ -957,6 +955,21 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByTestId("dicom-stack-metadata")).toHaveCount(0);
     await expect.poll(() => annotationApi.saves.length).toBe(1);
     expect(annotationApi.saves[0]?.annotations[0]).toMatchObject({
+      color: "#45a6e8",
+      kind: "arrow",
+      thickness: 3,
+    });
+
+    const savesBeforeInitialStyleChange = annotationApi.saves.length;
+    await page.getByTestId("dicom-annotation-color-f87171").click();
+    await expect.poll(() => annotationApi.saves.length).toBe(
+      savesBeforeInitialStyleChange + 1,
+    );
+    await setRangeValue(page, "dicom-annotation-thickness", "6");
+    await expect.poll(() => annotationApi.saves.length).toBe(
+      savesBeforeInitialStyleChange + 2,
+    );
+    expect(annotationApi.saves.at(-1)?.annotations[0]).toMatchObject({
       color: "#f87171",
       kind: "arrow",
       thickness: 6,
