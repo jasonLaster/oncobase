@@ -86,6 +86,20 @@ The primary left-drag tool is selected by the toolbar:
 Each tool button exposes `aria-pressed` so tests and assistive technology can
 read the active state.
 
+## Annotation Selection Contract
+
+When annotation Select mode is active:
+
+- Clicking a shape selects that shape for editing.
+- Shift-clicking a shape adds it to the current selection, or removes it from
+  the selection when the pointer is released without dragging.
+- Dragging any selected shape moves the selected group together.
+- Dragging on empty image space draws a selection marquee. Releasing the
+  marquee selects all annotations intersecting it; holding Shift adds those
+  annotations to the current selection.
+- Backspace/Delete removes the current selection, and Cmd/Ctrl+Z restores the
+  previous annotation state.
+
 ## Slice Loading Contract
 
 Slice navigation must distinguish between the currently rendered image and the
@@ -132,6 +146,9 @@ surface real image-load errors.
 - `/tools/dicom-viewer` uses the DICOM biopsy shortcut sidebar, selects the
   expected image stack, stores the selected image in the URL, copies current
   image links, and preserves viewer tool/loading behavior.
+- DICOM annotations can be drawn, edited inline, persisted, selected as a
+  group with Shift or drag-select, moved as a group, deleted, and restored with
+  keyboard undo.
 
 `apps/web/e2e/diagnostics-regression.spec.ts` verifies the route-level split
 between `/diagnostics`, `/diagnostics/imaging`, `/timeline`, and the DICOM

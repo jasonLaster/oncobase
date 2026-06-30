@@ -389,10 +389,33 @@ function pointInBox(box: TestBox, x: number, y: number) {
   };
 }
 
+async function drawAnnotation(
+  page: Page,
+  kind: "Arrow" | "Box" | "Circle" | "Text",
+  box: TestBox,
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+) {
+  await page.getByRole("button", { name: "Draw" }).click();
+  await page.getByRole("button", { name: kind }).click();
+  const drawStart = pointInBox(box, start.x, start.y);
+  const drawEnd = pointInBox(box, end.x, end.y);
+  await page.mouse.move(drawStart.x, drawStart.y);
+  await page.mouse.down();
+  await page.mouse.move(drawEnd.x, drawEnd.y);
+  await page.mouse.up();
+}
+
 function latestSavedAnnotation(annotationApi: AnnotationApiMock) {
   const annotation = annotationApi.saves.at(-1)?.annotations[0];
   expect(annotation).toBeTruthy();
   return annotation!;
+}
+
+function latestSavedAnnotations(annotationApi: AnnotationApiMock) {
+  const annotations = annotationApi.saves.at(-1)?.annotations;
+  expect(annotations).toBeTruthy();
+  return annotations!;
 }
 
 function expectNumberCloseTo(
@@ -1127,6 +1150,116 @@ test.describe("DICOM viewer", () => {
       timeout: 30_000,
     });
     await expect(page.getByTestId("dicom-annotation-shape-arrow")).toBeVisible();
+  });
+
+  test("multi-selects annotations with shift and drag-selects before group moves", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const annotationApi = await installAnnotationApiMock(page);
+    await gotoViewer(page);
+
+    const canvas = page.getByTestId("dicom-annotation-canvas");
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+
+    await drawAnnotation(
+      page,
+      "Arrow",
+      box!,
+      { x: 0.24, y: 0.28 },
+      { x: 0.37, y: 0.36 },
+    );
+    await expect(page.getByTestId("dicom-annotation-shape-arrow")).toBeVisible();
+    await expect.poll(() => annotationApi.saves.length).toBe(1);
+
+    await drawAnnotation(
+      page,
+      "Box",
+      box!,
+      { x: 0.52, y: 0.46 },
+      { x: 0.65, y: 0.62 },
+    );
+    await expect(page.getByTestId("dicom-annotation-shape-box")).toBeVisible();
+    await expect.poll(() => annotationApi.saves.length).toBe(2);
+
+    const arrowMidpoint = pointInBox(box!, 0.305, 0.32);
+    await page.keyboard.down("Shift");
+    await page.mouse.click(arrowMidpoint.x, arrowMidpoint.y);
+    await page.keyboard.up("Shift");
+
+    await expect(page.getByTestId("dicom-annotation-group-selection")).toBeVisible();
+    await expect(page.getByTestId("dicom-annotation-selection")).toHaveCount(2);
+    await expect(page.getByTestId("dicom-annotation-editor-rail")).toContainText(
+      "2 annotations",
+    );
+    await expect(page.getByTestId("dicom-stack-metadata")).toHaveCount(0);
+
+    const beforeGroupDrag = latestSavedAnnotations(annotationApi);
+    const beforeArrow = beforeGroupDrag.find((annotation) => annotation.kind === "arrow");
+    const beforeBox = beforeGroupDrag.find((annotation) => annotation.kind === "box");
+    expect(beforeArrow).toBeTruthy();
+    expect(beforeBox).toBeTruthy();
+
+    const dragDelta = { x: 48, y: 36 };
+    const savesBeforeGroupDrag = annotationApi.saves.length;
+    await page.mouse.move(arrowMidpoint.x, arrowMidpoint.y);
+    await page.mouse.down();
+    await page.mouse.move(
+      arrowMidpoint.x + dragDelta.x,
+      arrowMidpoint.y + dragDelta.y,
+      { steps: 6 },
+    );
+    await page.mouse.up();
+
+    await expect.poll(() => annotationApi.saves.length).toBe(savesBeforeGroupDrag + 1);
+    const afterGroupDrag = latestSavedAnnotations(annotationApi);
+    const afterArrow = afterGroupDrag.find((annotation) => annotation.kind === "arrow");
+    const afterBox = afterGroupDrag.find((annotation) => annotation.kind === "box");
+    expect(afterArrow).toBeTruthy();
+    expect(afterBox).toBeTruthy();
+    const dx = dragDelta.x / box!.width;
+    const dy = dragDelta.y / box!.height;
+    expectNumberCloseTo(afterArrow?.x, requireNumber(beforeArrow?.x, "before arrow x") + dx);
+    expectNumberCloseTo(afterArrow?.y, requireNumber(beforeArrow?.y, "before arrow y") + dy);
+    expectNumberCloseTo(
+      afterArrow?.endX,
+      requireNumber(beforeArrow?.endX, "before arrow end x") + dx,
+    );
+    expectNumberCloseTo(
+      afterArrow?.endY,
+      requireNumber(beforeArrow?.endY, "before arrow end y") + dy,
+    );
+    expectNumberCloseTo(afterBox?.x, requireNumber(beforeBox?.x, "before box x") + dx);
+    expectNumberCloseTo(afterBox?.y, requireNumber(beforeBox?.y, "before box y") + dy);
+
+    const marqueeStart = pointInBox(box!, 0.18, 0.2);
+    const marqueeEnd = pointInBox(box!, 0.72, 0.72);
+    await page.mouse.move(marqueeStart.x, marqueeStart.y);
+    await page.mouse.down();
+    await page.mouse.move(marqueeEnd.x, marqueeEnd.y, { steps: 6 });
+    await expect(page.getByTestId("dicom-annotation-selection-marquee")).toBeVisible();
+    await page.mouse.up();
+
+    await expect(page.getByTestId("dicom-annotation-group-selection")).toBeVisible();
+    await expect(page.getByTestId("dicom-annotation-selection")).toHaveCount(2);
+    await expect(page.getByTestId("dicom-annotation-editor-rail")).toContainText(
+      "2 annotations",
+    );
+
+    const savesBeforeDelete = annotationApi.saves.length;
+    await page.keyboard.press("Backspace");
+    await expect(page.getByTestId("dicom-annotation-shape-arrow")).toHaveCount(0);
+    await expect(page.getByTestId("dicom-annotation-shape-box")).toHaveCount(0);
+    await expect.poll(() => annotationApi.saves.length).toBe(savesBeforeDelete + 1);
+    expect(annotationApi.saves.at(-1)?.annotations).toHaveLength(0);
+
+    const modifier = process.platform === "darwin" ? "Meta" : "Control";
+    await page.keyboard.press(`${modifier}+Z`);
+    await expect(page.getByTestId("dicom-annotation-shape-arrow")).toBeVisible();
+    await expect(page.getByTestId("dicom-annotation-shape-box")).toBeVisible();
+    await expect.poll(() => annotationApi.saves.length).toBe(savesBeforeDelete + 2);
+    expect(annotationApi.saves.at(-1)?.annotations).toHaveLength(2);
   });
 
   test("edits text annotations, deletes selections, and restores with keyboard undo", async ({
