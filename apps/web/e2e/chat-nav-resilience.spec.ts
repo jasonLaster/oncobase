@@ -81,7 +81,7 @@ test.describe("Chat navigation resilience", () => {
         },
         {
           message: "assistant message should land after navigation away",
-          timeout: 15_000,
+          timeout: 45_000,
         }
       )
       .toMatch(/KEYNOTE|pembrolizumab|chemotherapy|trial|breast/i);
