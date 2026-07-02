@@ -50,6 +50,13 @@ setup("authenticate", async ({ request, baseURL }) => {
       );
     }
 
+    if (!bypassRes.ok()) {
+      const body = (await bypassRes.text()).trim().slice(0, 200);
+      throw new Error(
+        `Failed to reach prod target with bypass headers: ${bypassRes.status()} ${bypassRes.statusText()}${body ? ` - ${body}` : ""}`
+      );
+    }
+
     if (isProd) {
       await saveDianaPreviewAuthState(request, appBaseURL);
       return;
