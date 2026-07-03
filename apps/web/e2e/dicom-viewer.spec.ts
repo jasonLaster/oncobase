@@ -92,8 +92,12 @@ type TestBox = {
   y: number;
 };
 
-async function gotoViewer(page: Page, biopsyId = "biopsy-2026-04-10") {
-  await page.goto(`/tools/dicom-viewer?id=${biopsyId}${seededStudySetParam}`, {
+async function gotoViewer(
+  page: Page,
+  biopsyId = "biopsy-2026-04-10",
+  extraQuery = "",
+) {
+  await page.goto(`/tools/dicom-viewer?id=${biopsyId}${extraQuery}${seededStudySetParam}`, {
     waitUntil: "domcontentloaded",
   });
   await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
@@ -761,7 +765,7 @@ test.describe("DICOM viewer", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await gotoViewer(page);
+    await gotoViewer(page, "biopsy-2026-04-10", "&image=5");
 
     await expect(page.locator("[data-sidebar-layout]")).toHaveAttribute(
       "data-sidebar-state",
