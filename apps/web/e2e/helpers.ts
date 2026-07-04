@@ -74,7 +74,7 @@ export async function openCommandPalette(page: Page) {
 
   for (let attempt = 0; attempt < 4; attempt += 1) {
     if (await input.isVisible().catch(() => false)) break;
-    await sidebar(page).getByTestId("sidebar-search").click();
+    await sidebar(page).getByTestId("sidebar-search").first().click();
     await input.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
   }
 

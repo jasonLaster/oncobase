@@ -280,7 +280,7 @@ test.describe("Page viewing & sidebar navigation", () => {
 
   test("command palette opens with Ctrl+K", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByTestId("sidebar-search")).toBeVisible();
+    await expect(page.locator('[data-test-id="sidebar"]:visible').first().getByTestId("sidebar-search")).toBeVisible();
     const commandInput = page.locator('[role="dialog"] [role="combobox"]').first();
 
     await expect

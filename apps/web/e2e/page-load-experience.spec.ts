@@ -126,9 +126,9 @@ async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
   await expect(sb.getByTestId("sidebar-ask-wiki")).toBeVisible();
   await expect(sb).not.toContainText("File tree");
 
-  const sidebarBox = await sb.boundingBox();
-  expect(sidebarBox).not.toBeNull();
-  expect(sidebarBox!.width).toBeGreaterThan(120);
+  await expect
+    .poll(async () => (await sb.boundingBox())?.width ?? 0)
+    .toBeGreaterThan(120);
 }
 
 test.describe("Page load experience", () => {

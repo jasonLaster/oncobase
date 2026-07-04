@@ -92,8 +92,8 @@ type TestBox = {
   y: number;
 };
 
-async function gotoViewer(page: Page, biopsyId = "biopsy-2026-04-10") {
-  await page.goto(`/tools/dicom-viewer?id=${biopsyId}${seededStudySetParam}`, {
+async function gotoViewer(page: Page, biopsyId = "biopsy-2026-04-10", image = 5) {
+  await page.goto(`/tools/dicom-viewer?id=${biopsyId}&image=${image}${seededStudySetParam}`, {
     waitUntil: "domcontentloaded",
   });
   await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
@@ -102,6 +102,15 @@ async function gotoViewer(page: Page, biopsyId = "biopsy-2026-04-10") {
     page.locator('[data-test-id="dicom-cornerstone-viewport"] canvas'),
   ).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("dicom-image-loading")).toBeHidden({
+    timeout: 30_000,
+  });
+}
+
+async function expectCurrentSlice(page: Page, counter: string) {
+  await expect(page.getByTestId("dicom-image-loading")).toBeHidden({
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId("dicom-slice-counter")).toHaveText(counter, {
     timeout: 30_000,
   });
 }
@@ -744,12 +753,9 @@ test.describe("DICOM viewer", () => {
 
   for (const biopsy of biopsyLinks) {
     test(`viewer selects the ${biopsy.id} image stack`, async ({ page }) => {
-      await gotoViewer(page, biopsy.id);
+      await gotoViewer(page, biopsy.id, Number(biopsy.counter.split(" / ")[0]));
 
-      await expect(page.getByTestId("dicom-slice-counter")).toHaveText(
-        biopsy.counter,
-        { timeout: 30_000 },
-      );
+      await expectCurrentSlice(page, biopsy.counter);
       await expect(page.locator("dd", { hasText: biopsy.directory }).first()).toBeVisible();
       await expect(page.getByTestId("dicom-series-panel")).not.toContainText(
         biopsy.directory.split("/")[0],
@@ -769,12 +775,7 @@ test.describe("DICOM viewer", () => {
     );
     await expect(page.getByTestId("diagnostics-sidebar")).toBeVisible();
     await expect(page.getByTestId("dicom-stack-panel")).toBeVisible();
-    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9", {
-      timeout: 30_000,
-    });
-    await expect(page.getByTestId("dicom-image-loading")).toBeHidden({
-      timeout: 30_000,
-    });
+    await expectCurrentSlice(page, "5 / 9");
 
     await page.getByTestId("dicom-collapse-guardrails").click();
 
@@ -833,12 +834,7 @@ test.describe("DICOM viewer", () => {
     const frameBox = await page.getByTestId("dicom-viewport-frame").boundingBox();
     expect(frameBox?.width).toBeGreaterThan(800);
     expect(frameBox?.height).toBeGreaterThan(280);
-    await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9", {
-      timeout: 30_000,
-    });
-    await expect(page.getByTestId("dicom-image-loading")).toBeHidden({
-      timeout: 30_000,
-    });
+    await expectCurrentSlice(page, "5 / 9");
 
     const canvasState = await page.evaluate(() => {
       const canvas = document.querySelector<HTMLCanvasElement>(

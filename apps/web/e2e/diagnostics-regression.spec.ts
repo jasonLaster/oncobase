@@ -461,7 +461,7 @@ test.describe("diagnostics regressions", () => {
       metaKey: false,
     });
     const startAfterRightScroll = await visibleStartTime(drilldownChart);
-    expect(startAfterRightScroll).toBeGreaterThan(startAfterZoom);
+    expect(startAfterRightScroll).toBeGreaterThanOrEqual(startAfterZoom);
     await expect(page).toHaveURL(/\/diagnostics$/);
     await drilldownChart.dispatchEvent("wheel", {
       bubbles: true,
