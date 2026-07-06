@@ -148,8 +148,8 @@ test.describe("diagnostics regressions", () => {
       "/sources/diagnostics/ucsf-mychart-test-results/04-may-26-2026-cbc-w-auto-diff-lab-only",
     );
 
-    await mobileTimeline.getByRole("button", { name: /ANC: 0\.79/ }).focus();
-    await page.keyboard.press("Enter");
+    const ancPoint = mobileTimeline.getByRole("button", { name: /ANC: 0\.79/ });
+    await ancPoint.press("Enter");
     await expect(bottomSheet).toContainText("ANC");
     await expect(bottomSheet).toContainText("0.79 x10E9/L low");
   });
