@@ -63,11 +63,23 @@ export interface WikiPageRecord {
   size: number;
 }
 
+export interface WikiUnavailablePage {
+  slug: string;
+  title: string;
+  tags: string[];
+  description: string | null;
+  contentHash: string | null;
+  sensitive: true;
+  size: number;
+  reason: "sensitive-unavailable";
+}
+
 export interface WikiPageBatch {
   siteSlug: string;
   generatedAt: string;
   scope: WikiScope;
   pages: WikiPageRecord[];
+  unavailable?: WikiUnavailablePage[];
   isDone: boolean;
   continueCursor: string | null;
 }
@@ -548,15 +560,38 @@ function parsePageRecord(value: unknown): WikiPageRecord {
   };
 }
 
+function parseUnavailablePage(value: unknown): WikiUnavailablePage {
+  const object = assertObject(value, "unavailable page");
+  const reason = object.reason;
+  if (reason !== "sensitive-unavailable") {
+    throw new Error("unavailable.reason must be sensitive-unavailable");
+  }
+  return {
+    slug: asString(object.slug, "unavailable.slug"),
+    title: asString(object.title, "unavailable.title"),
+    tags: asStringArray(object.tags, "unavailable.tags"),
+    description: asNullableString(object.description, "unavailable.description"),
+    contentHash: asNullableString(object.contentHash, "unavailable.contentHash"),
+    sensitive: true,
+    size: asNumber(object.size, "unavailable.size"),
+    reason,
+  };
+}
+
 export function parseWikiPageBatch(value: unknown): WikiPageBatch {
   const object = assertObject(value, "page batch");
   const pages = object.pages;
+  const unavailable = object.unavailable;
   if (!Array.isArray(pages)) throw new Error("page batch pages must be an array");
+  if (unavailable != null && !Array.isArray(unavailable)) {
+    throw new Error("page batch unavailable must be an array");
+  }
   return {
     siteSlug: asString(object.siteSlug, "pageBatch.siteSlug"),
     generatedAt: asString(object.generatedAt, "pageBatch.generatedAt"),
     scope: asScope(object.scope),
     pages: pages.map(parsePageRecord),
+    ...(unavailable ? { unavailable: unavailable.map(parseUnavailablePage) } : {}),
     isDone: asBoolean(object.isDone, "pageBatch.isDone"),
     continueCursor: asNullableString(object.continueCursor, "pageBatch.continueCursor"),
   };

@@ -9,6 +9,7 @@ import {
   createWikiPagesResponse,
   createWikiSessionResponse,
   type PageWithContent,
+  type WikiApiAccessAdapter,
   type WikiApiDocumentsGateway,
 } from "@oncobase/wiki-content/server";
 import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
@@ -59,6 +60,12 @@ type ResolvedSite = {
 type PiiPatternEntry = {
   patterns: PiiPattern[] | undefined;
   expires: number;
+};
+
+type SessionUser = {
+  _id: Id<"users">;
+  email: string;
+  name?: string | null;
 };
 
 const hostCache = new Map<string, ResolvedSite>();
@@ -399,6 +406,106 @@ async function getSessionUser(
   );
 }
 
+function createAccessAdapter(
+  client: ConvexHttpClient,
+  siteSlug: string,
+): WikiApiAccessAdapter {
+  return {
+    canUserAccessSlug: (user, slug) =>
+      client.query(
+        api.access.canUserAccessSlug,
+        withSiteSlug(siteSlug, { userId: user._id as Id<"users">, slug }),
+      ),
+    getAllowedSlugs: async (user) => {
+      const allowed: string[] = [];
+      let cursor: string | null = null;
+      let isDone = false;
+
+      while (!isDone) {
+        const result = await client.query(
+          api.documents.listManifestPage,
+          withSiteSlug(siteSlug, {
+            cursor,
+            numItems: 100,
+            includeSensitive: true,
+          }),
+        );
+        const checks = await Promise.all(
+          result.page.map(async (page) => {
+            if (page.sensitive !== true) return null;
+            const canAccess = await client.query(
+              api.access.canUserAccessSlug,
+              withSiteSlug(siteSlug, {
+                userId: user._id as Id<"users">,
+                slug: page.slug,
+              }),
+            );
+            return canAccess ? page.slug : null;
+          }),
+        );
+        allowed.push(...checks.filter((slug): slug is string => slug !== null));
+        isDone = result.isDone;
+        cursor = result.continueCursor;
+      }
+
+      return allowed;
+    },
+  };
+}
+
+async function canUserAccessSlug(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  user: SessionUser | null,
+  slug: string,
+) {
+  if (!user) return false;
+  return client.query(
+    api.access.canUserAccessSlug,
+    withSiteSlug(siteSlug, { userId: user._id, slug }),
+  );
+}
+
+async function filterAccessiblePages<T extends { slug: string; sensitive?: boolean }>(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  user: SessionUser | null,
+  pages: T[],
+) {
+  const filtered = await Promise.all(
+    pages.map(async (page) => {
+      if (page.sensitive !== true) return page;
+      return (await canUserAccessSlug(client, siteSlug, user, page.slug)) ? page : null;
+    }),
+  );
+  return filtered.filter((page): page is T => page !== null);
+}
+
+async function filterPotentiallySensitivePages<T extends { slug: string; sensitive?: boolean }>(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  user: SessionUser | null,
+  pages: T[],
+) {
+  const filtered = await Promise.all(
+    pages.map(async (page) => {
+      if (page.sensitive === false) return page;
+      const doc = page.sensitive === true
+        ? page
+        : await client.query(
+            api.documents.getBySlug,
+            withSiteSlug(siteSlug, {
+              slug: page.slug,
+              includeSensitive: true,
+            }),
+          );
+      if (doc?.sensitive !== true) return page;
+      return (await canUserAccessSlug(client, siteSlug, user, page.slug)) ? page : null;
+    }),
+  );
+  return filtered.filter((page): page is T => page !== null);
+}
+
 async function isValidPassword(
   client: ConvexHttpClient,
   siteSlug: string,
@@ -660,12 +767,17 @@ async function handleFileRequest(
   const mimeType = getMimeType(normalized);
   if (!mimeType) return new Response("File type not supported", { status: 400 });
 
-  const includeSensitive = Boolean(await getSessionUser(request, client, siteSlug));
+  const sessionUser = await getSessionUser(request, client, siteSlug);
   const siblingDoc = await client.query(
     api.documents.getBySlug,
     withSiteSlug(siteSlug, { slug: assetPathToSiblingSlug(normalized), includeSensitive: true }),
   );
-  if (!includeSensitive && siblingDoc?.sensitive) {
+  const includeSensitive = Boolean(
+    sessionUser &&
+      siblingDoc?.sensitive === true &&
+      (await canUserAccessSlug(client, siteSlug, sessionUser, siblingDoc.slug)),
+  );
+  if (siblingDoc?.sensitive && !includeSensitive) {
     return new Response("File not found", { status: 404 });
   }
 
@@ -737,6 +849,12 @@ async function handlePageCopyRequest(
     withSiteSlug(siteSlug, { slug, includeSensitive: true }),
   );
   if (!privatePage) return new Response("Not found", { status: 404 });
+  if (
+    privatePage.sensitive === true &&
+    !(await canUserAccessSlug(client, siteSlug, sessionUser, privatePage.slug))
+  ) {
+    return new Response("Not found", { status: 404 });
+  }
 
   return new Response(await redactText(client, siteSlug, privatePage.content), {
     headers: {
@@ -784,6 +902,7 @@ async function appendMarkdownToArchive(
   client: ConvexHttpClient,
   siteSlug: string,
   includeSensitive: boolean,
+  sessionUser: SessionUser | null,
   maxPages: number,
 ) {
   let cursor: string | null = null;
@@ -800,7 +919,8 @@ async function appendMarkdownToArchive(
       withSiteSlug(siteSlug, args),
     );
 
-    for (const page of result.page) {
+    const visiblePages = await filterAccessiblePages(client, siteSlug, sessionUser, result.page);
+    for (const page of visiblePages) {
       if (!page.content) continue;
       const content = await redactText(client, siteSlug, page.content);
       arc.append(Buffer.from(content, "utf-8"), { name: `${page.slug}.md` });
@@ -821,6 +941,7 @@ async function appendAssetsToArchive(
   client: ConvexHttpClient,
   siteSlug: string,
   includeSensitive: boolean,
+  sessionUser: SessionUser | null,
   maxAssets: number,
 ) {
   const args = withSiteSlug(
@@ -831,7 +952,21 @@ async function appendAssetsToArchive(
     client.query(api.documents.listPdfAssets, args) as Promise<DownloadAsset[]>,
     client.query(api.documents.listFileAssets, args) as Promise<DownloadAsset[]>,
   ]);
-  const assets = [...pdfAssets, ...fileAssets];
+  const assets = await Promise.all(
+    [...pdfAssets, ...fileAssets].map(async (asset) => {
+      const sibling = await client.query(
+        api.documents.getBySlug,
+        withSiteSlug(siteSlug, {
+          slug: asset.path.replace(/\.[^/.]+$/, ""),
+          includeSensitive: true,
+        }),
+      );
+      if (!sibling?.sensitive) return asset;
+      return (await canUserAccessSlug(client, siteSlug, sessionUser, sibling.slug))
+        ? asset
+        : null;
+    }),
+  ).then((items) => items.filter((asset): asset is DownloadAsset => asset !== null));
 
   for (const asset of assets.slice(0, maxAssets)) {
     if (!asset.blobUrl) continue;
@@ -858,9 +993,10 @@ async function handleDownloadRequest(
   const url = new URL(request.url);
   const type = url.searchParams.get("type") === "markdown" ? "markdown" : "full";
   const scope = url.searchParams.get("scope");
-  const includeSensitive = scope === "public"
-    ? false
-    : Boolean(await getSessionUser(request, client, siteSlug));
+  const sessionUser = scope === "public"
+    ? null
+    : await getSessionUser(request, client, siteSlug);
+  const includeSensitive = Boolean(sessionUser);
   const rawLimit = Number(url.searchParams.get("limit") ?? 0);
   const maxPages = Number.isFinite(rawLimit) && rawLimit > 0
     ? Math.min(5000, Math.floor(rawLimit))
@@ -872,9 +1008,9 @@ async function handleDownloadRequest(
 
   const stream = archiverToStream(type, async (arc) => {
     if (type === "full") {
-      await appendAssetsToArchive(arc, client, siteSlug, includeSensitive, maxAssets);
+      await appendAssetsToArchive(arc, client, siteSlug, includeSensitive, sessionUser, maxAssets);
     }
-    await appendMarkdownToArchive(arc, client, siteSlug, includeSensitive, maxPages);
+    await appendMarkdownToArchive(arc, client, siteSlug, includeSensitive, sessionUser, maxPages);
     await arc.finalize();
   });
 
@@ -916,15 +1052,22 @@ async function handleSearchRequest(
     );
   }
 
-  const includeSensitive = Boolean(await getSessionUser(request, client, siteSlug));
+  const sessionUser = await getSessionUser(request, client, siteSlug);
+  const includeSensitive = Boolean(sessionUser);
   const results = await client.query(
     api.documents.search,
     withSiteSlug(siteSlug, { query, limit, includeSensitive }),
   );
+  const visibleResults = await filterPotentiallySensitivePages(
+    client,
+    siteSlug,
+    sessionUser,
+    results,
+  );
   const patterns = await getPiiPatterns(client, siteSlug);
   const redact = (value: string | undefined) =>
     value == null ? value : applyPiiRedactions(value, { patterns });
-  const redactedResults = results.map((result) => ({
+  const redactedResults = visibleResults.map((result) => ({
     ...result,
     title: redact(result.title) ?? result.title,
     excerpt: redact(result.excerpt),
@@ -952,11 +1095,17 @@ async function readToolPage(
   client: ConvexHttpClient,
   siteSlug: string,
   slug: string,
+  sessionUser: SessionUser | null,
 ) {
   return readChatPageFromDocuments(
     {
-      getBySlug: (args) =>
-        client.query(api.documents.getBySlug, withSiteSlug(siteSlug, args)),
+      getBySlug: async (args) => {
+        const page = await client.query(api.documents.getBySlug, withSiteSlug(siteSlug, args));
+        if (!page?.sensitive) return page;
+        return (await canUserAccessSlug(client, siteSlug, sessionUser, page.slug))
+          ? page
+          : null;
+      },
     },
     slug,
     { patterns: await getPiiPatterns(client, siteSlug) },
@@ -982,18 +1131,25 @@ async function handleToolsRequest(
     tool?: string;
     args?: Record<string, unknown>;
   };
+  const sessionUser = await getSessionUser(request, client, siteSlug);
+  const includeSensitive = Boolean(sessionUser);
 
   switch (tool) {
     case "search_wiki": {
       const query = String(args.query ?? "");
       const patterns = await getPiiPatterns(client, siteSlug);
+      const results = await client.query(
+        api.documents.search,
+        withSiteSlug(siteSlug, { query, limit: 8, includeSensitive }),
+      );
+      const visibleResults = await filterPotentiallySensitivePages(
+        client,
+        siteSlug,
+        sessionUser,
+        results,
+      );
       return Response.json(
-        (
-          await client.query(
-            api.documents.search,
-            withSiteSlug(siteSlug, { query, limit: 8 }),
-          )
-        ).map((result) => ({
+        visibleResults.map((result) => ({
           ...result,
           title: applyPiiRedactions(result.title, { patterns }),
           excerpt: result.excerpt
@@ -1009,7 +1165,7 @@ async function handleToolsRequest(
       );
     }
     case "read_page": {
-      return Response.json(await readToolPage(client, siteSlug, String(args.slug ?? "")), {
+      return Response.json(await readToolPage(client, siteSlug, String(args.slug ?? ""), sessionUser), {
         headers: {
           "Cache-Control": "private, no-store",
           "X-Wiki-Cache-Scope": "session",
@@ -1017,7 +1173,11 @@ async function handleToolsRequest(
       });
     }
     case "list_pages": {
-      return Response.json(await client.action(api.documents.list, withSiteSlug(siteSlug, {})), {
+      const pages = await client.action(
+        api.documents.list,
+        withSiteSlug(siteSlug, { includeSensitive }),
+      );
+      return Response.json(await filterAccessiblePages(client, siteSlug, sessionUser, pages), {
         headers: {
           "Cache-Control": "private, no-store",
           "X-Wiki-Cache-Scope": "session",
@@ -1025,11 +1185,15 @@ async function handleToolsRequest(
       });
     }
     case "get_pages_by_tag": {
+      const pages = await client.action(
+        api.documents.getByTag,
+        withSiteSlug(siteSlug, {
+          tag: String(args.tag ?? ""),
+          includeSensitive,
+        }),
+      );
       return Response.json(
-        await client.action(
-          api.documents.getByTag,
-          withSiteSlug(siteSlug, { tag: String(args.tag ?? "") }),
-        ),
+        await filterAccessiblePages(client, siteSlug, sessionUser, pages),
         {
           headers: {
             "Cache-Control": "private, no-store",
@@ -1039,8 +1203,13 @@ async function handleToolsRequest(
       );
     }
     case "list_tags": {
+      const pages = await client.action(
+        api.documents.list,
+        withSiteSlug(siteSlug, { includeSensitive }),
+      );
+      const visiblePages = await filterAccessiblePages(client, siteSlug, sessionUser, pages);
       return Response.json(
-        await client.action(api.documents.listTags, withSiteSlug(siteSlug, {})),
+        Array.from(new Set(visiblePages.flatMap((page) => page.tags))).sort(),
         {
           headers: {
             "Cache-Control": "private, no-store",
@@ -1094,6 +1263,7 @@ export function createWikiApiHandler(client = createClient()) {
       documents: createDocumentsGateway(client, siteSlug),
       getSessionUser: (nextRequest: Request) =>
         getSessionUser(nextRequest, client, siteSlug),
+      access: createAccessAdapter(client, siteSlug),
       manifestPrioritySlugs: MANIFEST_PRIORITY_SLUGS,
       decorateHeaders: decorateViteHeaders,
       logger: console,
@@ -1140,20 +1310,25 @@ export function createWikiApiHandler(client = createClient()) {
     }
 
     if (pathname === "/api/ai-search") {
+      const sessionUser = await getSessionUser(request, client, siteSlug);
       return handleAiSearchRequest({
         request,
         client,
         siteSlug,
-        includeSensitive: Boolean(await getSessionUser(request, client, siteSlug)),
+        includeSensitive: Boolean(sessionUser),
+        canAccessSlug: (slug) => canUserAccessSlug(client, siteSlug, sessionUser, slug),
       });
     }
 
     if (pathname === "/api/chat") {
+      const sessionUser = await getSessionUser(request, client, siteSlug);
       return handleChatRequest({
         request,
         client,
         siteSlug,
-        includeSensitive: Boolean(await getSessionUser(request, client, siteSlug)),
+        includeSensitive: Boolean(sessionUser),
+        canAccessSlug: (slug) => canUserAccessSlug(client, siteSlug, sessionUser, slug),
+        accessCacheKey: sessionUser ? String(sessionUser._id) : "public",
       });
     }
 
