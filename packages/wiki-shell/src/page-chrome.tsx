@@ -58,7 +58,7 @@ export function WikiBreadcrumbs({
   );
 }
 
-export type WikiPageHeaderProps = Omit<ComponentProps<"header">, "children"> & {
+export type WikiPageHeaderProps = Omit<ComponentProps<"header">, "children" | "title"> & {
   actions?: ReactNode;
   badges?: ReactNode;
   description?: ReactNode;
