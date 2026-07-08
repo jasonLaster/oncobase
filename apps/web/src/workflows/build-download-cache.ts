@@ -90,11 +90,22 @@ async function collectArchivePlan(
     return { assetBatches: [] };
   }
 
-  const [pdfAssets, fileAssets] = await Promise.all([
-    siteData.documents.listPdfAssets(),
-    siteData.documents.listFileAssets(),
-  ]);
-  const assets = ([...pdfAssets, ...fileAssets] as ArchiveAsset[]).sort(
+  const collected: ArchiveAsset[] = [];
+  for (const fetchPage of [
+    siteData.documents.listPdfAssetsPage,
+    siteData.documents.listFileAssetsPage,
+  ]) {
+    let cursor: string | null = null;
+    let isDone = false;
+    while (!isDone) {
+      const result = await fetchPage({ cursor, numItems: 500 });
+      collected.push(...(result.page as ArchiveAsset[]));
+      isDone = result.isDone;
+      cursor = result.continueCursor;
+      if (!isDone && !cursor) break;
+    }
+  }
+  const assets = collected.sort(
     (a, b) => a.path.localeCompare(b.path),
   );
   console.log(

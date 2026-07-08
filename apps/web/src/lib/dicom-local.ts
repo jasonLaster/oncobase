@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { parseDicom } from "dicom-parser";
+import { diagnosticsRootCandidates } from "./local-diagnostics-paths";
 
 const DICOM_EXTENSIONS = new Set([".dcm", ".dicom", ".ima"]);
 const SKIPPED_DIRECTORIES = new Set([".git", ".next", "node_modules"]);
@@ -60,7 +61,7 @@ interface CandidateFile {
 }
 
 export async function getDicomCatalog(): Promise<LocalDicomCatalog> {
-  const rootsTried = getDiagnosticsRootCandidates();
+  const rootsTried = diagnosticsRootCandidates();
   const root = await findFirstDirectory(rootsTried);
 
   if (!root) {
@@ -127,7 +128,7 @@ export async function getDicomCatalog(): Promise<LocalDicomCatalog> {
 export async function resolveDicomPath(relativePath: string) {
   if (!relativePath || path.isAbsolute(relativePath)) return null;
 
-  const root = await findFirstDirectory(getDiagnosticsRootCandidates());
+  const root = await findFirstDirectory(diagnosticsRootCandidates());
   if (!root) return null;
 
   const absolutePath = path.resolve(root, relativePath);
@@ -140,26 +141,6 @@ export async function resolveDicomPath(relativePath: string) {
   if (!DICOM_EXTENSIONS.has(ext)) return null;
 
   return { root, absolutePath };
-}
-
-function getDiagnosticsRootCandidates() {
-  const envRoots = [
-    process.env.ONCOBASE_DICOM_ROOT,
-    process.env.DIANA_DIAGNOSTICS_PATH,
-    process.env.DICOM_VIEWER_ROOT,
-  ]
-    .flatMap((value) => (value ? value.split(":") : []))
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-  const cwd = process.cwd();
-  return unique([
-    ...envRoots,
-    path.resolve(cwd, "../diana-tnbc/diagnostics"),
-    path.resolve(cwd, "../../..", "diana-tnbc/diagnostics"),
-    path.resolve(cwd, "../../../..", "diana-tnbc/diagnostics"),
-    "/Users/jasonlaster/src/projects/diana-tnbc/diagnostics",
-  ]);
 }
 
 async function findFirstDirectory(candidates: string[]) {
@@ -287,8 +268,4 @@ function normalizePath(value: string) {
 
 function encodePath(value: string) {
   return Buffer.from(value).toString("base64url");
-}
-
-function unique(values: string[]) {
-  return [...new Set(values)];
 }
