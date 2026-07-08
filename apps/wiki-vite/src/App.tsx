@@ -109,7 +109,6 @@ export function App({
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/search" element={<SearchPage />} />
-                <Route path="/tags/:tag" element={<TagPage />} />
                 <Route path="/table-examples" element={<TableExamplesPage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/chat/:id" element={<ChatPage />} />
