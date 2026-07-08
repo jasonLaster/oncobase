@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { cn } from "./utils";
+import { cn } from "./utils.ts";
 
 export type WikiActionsMenuUser = {
   email: string;

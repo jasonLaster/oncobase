@@ -8,12 +8,12 @@
 /* Tailwind v4 needs to scan Streamdown's compiled output to pick up the
    utility classes used internally by its components. Only takes effect when
    NEXT_PUBLIC_CHAT_STREAMDOWN=1 — otherwise the bundle never imports it. */
-@source "../../../node_modules/streamdown/dist";
-@source "../../../packages/chat/src";
+@source "../../../../node_modules/streamdown/dist";
+@source "../../../../packages/chat/src";
 @source "../../../../packages/diagnostics/src";
-@source "../../../packages/wiki-comments/src";
-@source "../../../packages/wiki-markdown/src";
-@source "../../../packages/wiki-shell/src";
+@source "../../../../packages/wiki-comments/src";
+@source "../../../../packages/wiki-markdown/src";
+@source "../../../../packages/wiki-shell/src";
 
 @custom-variant dark (&:is(.dark *));
 

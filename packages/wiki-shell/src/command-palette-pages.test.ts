@@ -6,7 +6,7 @@ import {
   getCommandPalettePageGroup,
   prepareCommandPalettePages,
   type CommandPalettePageEntry,
-} from "./command-palette-pages";
+} from "./command-palette-pages.ts";
 
 const pages: CommandPalettePageEntry[] = [
   { name: "Insurance", slug: "wiki/logistics/insurance", path: "wiki/logistics" },

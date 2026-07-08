@@ -22,20 +22,20 @@ import {
 } from "@oncobase/smart-table";
 import "@oncobase/smart-table/styles.css";
 import "./styles.css";
-import { preprocessCitationMarkdown, preprocessCitations } from "./citations";
+import { preprocessCitationMarkdown, preprocessCitations } from "./citations.ts";
 import {
   MarkdownHeadingAnchors,
   RoutedAnchorLinks,
   type WikiMarkdownNotificationAdapter,
   type WikiMarkdownRouteAdapter,
-} from "./heading-anchors";
-import { ImageTheater } from "./image-theater";
-import { type WikiImageComponent } from "./image-renderer";
-import { TheaterImage } from "./theater-image";
-import { markdownRehypePlugins, markdownRemarkPlugins } from "./math";
-import { expandSlidesMarkdown } from "./slides-markdown";
-import { SlidesViewer, SlidesViewerControls } from "./slides-viewer";
-import { WikiMarkdownFrame } from "./frame";
+} from "./heading-anchors.tsx";
+import { ImageTheater } from "./image-theater.tsx";
+import { type WikiImageComponent } from "./image-renderer.tsx";
+import { TheaterImage } from "./theater-image.tsx";
+import { markdownRehypePlugins, markdownRemarkPlugins } from "./math.ts";
+import { expandSlidesMarkdown } from "./slides-markdown.ts";
+import { SlidesViewer, SlidesViewerControls } from "./slides-viewer.tsx";
+import { WikiMarkdownFrame } from "./frame.tsx";
 import {
   isInternalWikiHref,
   resolveAssetPath,
@@ -43,7 +43,13 @@ import {
   resolveImageSrc,
   resolveWikilinks,
   splitWikilinkAlias,
-} from "./paths";
+} from "./paths.ts";
+
+export {
+  MarkdownTitle,
+  type MarkdownTitleLinkProps,
+} from "./title-react.tsx";
+export { markdownTitleToText } from "./title.ts";
 
 export type WikiMarkdownLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
   href?: string;
@@ -276,4 +282,4 @@ export type {
   WikiMarkdownNotificationAdapter,
   WikiMarkdownRouteAdapter,
 };
-export { normalizeMathValue, remarkCleanMath } from "./math";
+export { normalizeMathValue, remarkCleanMath } from "./math.ts";

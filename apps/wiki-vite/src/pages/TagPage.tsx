@@ -1,52 +1,94 @@
 import { useStore } from "@livestore/react";
-import { WikiBreadcrumbs, WikiEmptyState } from "@oncobase/wiki-shell";
+import {
+  buildTaggedPageTree,
+  type TaggedPageTreeNode,
+} from "@oncobase/wiki-content/tag-page-groups";
+import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
+import { WikiPageLoading } from "@oncobase/wiki-shell";
+import { ChevronRight } from "lucide-react";
+import { useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { pageIndex$ } from "../livestore/queries";
+import { pageIndex$, siteState$ } from "../livestore/queries";
 import type { PageIndexRow } from "../types";
 import { hrefForSlug, parseJsonArray } from "../wiki-utils";
 
-function formatCount(count: number) {
-  return `${count} ${count === 1 ? "page" : "pages"}`;
+function pageHasTag(page: PageIndexRow, tag: string) {
+  return parseJsonArray<string>(page.tagsJson).some(
+    (candidate) => candidate.toLowerCase() === tag.toLowerCase(),
+  );
+}
+
+function TaggedPageTree({
+  node,
+  level = 0,
+}: {
+  node: TaggedPageTreeNode;
+  level?: number;
+}) {
+  return (
+    <ul className={level === 0 ? "tag-tree-root" : "tag-tree-branch"}>
+      {node.pages.map((page) => (
+        <li key={page.slug}>
+          <Link to={hrefForSlug(page.slug)}>{page.title}</Link>
+        </li>
+      ))}
+      {node.children.map((child) => (
+        <li key={child.path}>
+          <details open className="tag-tree-folder">
+            <summary>
+              <ChevronRight size={14} aria-hidden="true" />
+              {formatFileLabel(child.name)}
+            </summary>
+            <TaggedPageTree node={child} level={level + 1} />
+          </details>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export function TagPage() {
   const { tag = "" } = useParams();
   const decodedTag = decodeURIComponent(tag);
-  const pageIndex = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
-  const pages = pageIndex
-    .filter((page) => parseJsonArray<string>(page.tagsJson).includes(decodedTag))
-    .sort((a, b) => a.title.localeCompare(b.title));
+  const siteState = useStore().store.useQuery(siteState$);
+  const pages = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
+  const waitingForManifest = pages.length === 0 && !siteState;
+  const taggedPages = useMemo(
+    () =>
+      pages
+        .filter((page) => pageHasTag(page, decodedTag))
+        .map((page) => ({ slug: page.slug, title: page.title })),
+    [decodedTag, pages],
+  );
+  const pageTree = useMemo(() => buildTaggedPageTree(taggedPages), [taggedPages]);
+
+  if (waitingForManifest) {
+    return (
+      <article className="page-shell tag-page-shell" data-test-id="tag-page">
+        <WikiPageLoading
+          data-test-id="page-loading"
+          label={`Loading ${decodedTag} pages`}
+        />
+      </article>
+    );
+  }
 
   return (
-    <article className="page-shell" data-test-id="document-article">
-      <WikiBreadcrumbs
-        items={[
-          { href: "/", key: "home", label: "Home" },
-          { current: true, key: "tag", label: `Tag: ${decodedTag}` },
-        ]}
-        renderLink={(item) => <Link to={item.href ?? "#"}>{item.label}</Link>}
-      />
+    <article className="page-shell tag-page-shell" data-test-id="tag-page">
       <header className="page-header">
         <div className="wiki-shell-page-header-main">
           <div className="wiki-shell-page-title-row">
             <h1>Tag: {decodedTag}</h1>
           </div>
-          <p>{formatCount(pages.length)}</p>
+          <p>
+            {taggedPages.length} {taggedPages.length === 1 ? "page" : "pages"}
+          </p>
         </div>
       </header>
-      {pages.length === 0 ? (
-        <WikiEmptyState
-          title="No pages found"
-          description={`No visible pages are tagged ${decodedTag}.`}
-        />
+      {taggedPages.length === 0 ? (
+        <p className="muted">No pages found with this tag.</p>
       ) : (
-        <ul className="wiki-vite-tag-page-list">
-          {pages.map((page) => (
-            <li key={page.slug}>
-              <Link to={hrefForSlug(page.slug)}>{page.title}</Link>
-            </li>
-          ))}
-        </ul>
+        <TaggedPageTree node={pageTree} />
       )}
     </article>
   );

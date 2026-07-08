@@ -8,6 +8,8 @@ export interface FileNode {
   children?: FileNode[];
 }
 
+export { formatFileLabel } from "./file-labels.ts";
+
 export type CompactFileNode =
   | ["d", string, CompactFileNode[], (string | null)?, string?]
   | ["f", string, string?]
@@ -347,6 +349,29 @@ export function compareFileTreeNodes(
   return a.name.localeCompare(b.name);
 }
 
+function isArchivedDirectory(node: Pick<FileNode, "name" | "type">) {
+  return node.type === "directory" && node.name === "archived";
+}
+
+function isUpdatesDirectory(slug: string) {
+  return slug === "wiki/updates";
+}
+
+function compareFileTreeNodesForParent(
+  a: Pick<FileNode, "name" | "type">,
+  b: Pick<FileNode, "name" | "type">,
+  parentSlug: string,
+) {
+  if (isUpdatesDirectory(parentSlug)) {
+    return compareFileTreeNodes(a, b);
+  }
+  if (a.name === "index" && b.name !== "index") return -1;
+  if (b.name === "index" && a.name !== "index") return 1;
+  if (isArchivedDirectory(a) && !isArchivedDirectory(b)) return 1;
+  if (isArchivedDirectory(b) && !isArchivedDirectory(a)) return -1;
+  return a.name.localeCompare(b.name);
+}
+
 function insertFileNode(
   nodes: FileNode[],
   segments: string[],
@@ -391,9 +416,9 @@ function insertFileNode(
   insertFileNode(directory.children, rest, type, pdfPath, slug);
 }
 
-function sortFileTree(nodes: FileNode[]) {
-  nodes.sort(compareFileTreeNodes);
-  for (const node of nodes) sortFileTree(node.children ?? []);
+function sortFileTree(nodes: FileNode[], parentSlug = "") {
+  nodes.sort((a, b) => compareFileTreeNodesForParent(a, b, parentSlug));
+  for (const node of nodes) sortFileTree(node.children ?? [], node.slug);
 }
 
 export function reconcilePageContent(
