@@ -42,6 +42,12 @@ const TableExamplesPage = lazy(() =>
 const ChatPage = lazy(() =>
   import("./chat/ChatPage").then((module) => ({ default: module.ChatPage })),
 );
+const AdminPage = lazy(() =>
+  import("./admin/AdminPage").then((module) => ({ default: module.AdminPage })),
+);
+const PiiViewPage = lazy(() =>
+  import("./pages/PiiViewPage").then((module) => ({ default: module.PiiViewPage })),
+);
 
 function PageFallback() {
   return (
@@ -98,6 +104,10 @@ export function App({
                 <Route path="/table-examples" element={<TableExamplesPage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/chat/:id" element={<ChatPage />} />
+                <Route path="/access" element={<AdminPage />} />
+                <Route path="/admin" element={<AdminPage />} />
+                <Route path="/admin/*" element={<AdminPage />} />
+                <Route path="/pii-view/*" element={<PiiViewPage />} />
                 <Route path="*" element={<WikiPage metrics={metrics} onMetrics={bumpMetrics} />} />
               </Routes>
             </Suspense>
