@@ -6,6 +6,7 @@ import { Readable } from "node:stream";
 import { siteDataFromRequest } from "@/lib/site-data";
 import { DEFAULT_SITE_SLUG } from "@/lib/site";
 import { getSessionUserFromRequest } from "@/lib/session-user";
+import { diagnosticsRootCandidates } from "@/lib/local-diagnostics-paths";
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf":  "application/pdf",
@@ -65,28 +66,6 @@ function hasSitePasswordSession(request: NextRequest, siteSlug: string) {
 function blobRequestHeaders(request: NextRequest) {
   const range = request.headers.get("Range");
   return range ? { Range: range } : undefined;
-}
-
-function diagnosticsRootCandidates() {
-  const envRoots = [
-    process.env.DIANA_DIAGNOSTICS_PATH,
-    process.env.ONCOBASE_DICOM_ROOT,
-    process.env.DICOM_VIEWER_ROOT,
-  ]
-    .flatMap((value) => (value ? value.split(":") : []))
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-  const cwd = process.cwd();
-  return [
-    ...new Set([
-      ...envRoots,
-      path.resolve(cwd, "../diana-tnbc/diagnostics"),
-      path.resolve(cwd, "../../..", "diana-tnbc/diagnostics"),
-      path.resolve(cwd, "../../../..", "diana-tnbc/diagnostics"),
-      "/Users/jasonlaster/src/projects/diana-tnbc/diagnostics",
-    ]),
-  ];
 }
 
 async function findDiagnosticsRoot() {

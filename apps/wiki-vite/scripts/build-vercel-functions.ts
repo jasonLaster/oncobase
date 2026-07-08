@@ -4,7 +4,6 @@ const outdir = `${appDir}/dist/.vercel-functions`;
 const result = await Bun.build({
   entrypoints: [
     `${appDir}/api-runtime/index.ts`,
-    `${appDir}/api-runtime/app-shell.ts`,
     `${appDir}/api-runtime/root-app-shell.ts`,
   ],
   outdir,
@@ -22,7 +21,7 @@ if (!result.success) {
   process.exit(1);
 }
 
-for (const name of ["index", "app-shell", "root-app-shell"]) {
+for (const name of ["index", "root-app-shell"]) {
   const source = `${outdir}/${name}.js`;
   const target = `${outdir}/${name}.mjs`;
   await Bun.write(target, Bun.file(source));
