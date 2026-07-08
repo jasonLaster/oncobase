@@ -158,7 +158,6 @@ function getDiagnosticsRootCandidates() {
     path.resolve(cwd, "../diana-tnbc/diagnostics"),
     path.resolve(cwd, "../../..", "diana-tnbc/diagnostics"),
     path.resolve(cwd, "../../../..", "diana-tnbc/diagnostics"),
-    "/Users/jasonlaster/src/projects/diana-tnbc/diagnostics",
   ]);
 }
 
