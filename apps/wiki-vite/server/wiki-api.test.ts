@@ -25,6 +25,12 @@ type FakePage = {
   sensitive?: boolean;
 };
 
+type FakeAsset = {
+  blobUrl: string;
+  path: string;
+  sizeBytes?: number;
+};
+
 function request(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   headers.set("Host", "127.0.0.1");
@@ -56,6 +62,13 @@ function createFakeConvexClient() {
       tags: ["private"],
       content: "# Private Plan\n\nSensitive note for Diana Laster and MRN 88855655.",
       sensitive: true,
+    },
+  ];
+  const assets: FakeAsset[] = [
+    {
+      path: "sources/public/source.pdf",
+      blobUrl: "https://blob.example/source.pdf",
+      sizeBytes: 9,
     },
   ];
 
@@ -179,6 +192,11 @@ function createFakeConvexClient() {
               : []),
           ];
         }
+        case "documents:getBySlug":
+          return pages.find((page) => page.slug === args.slug) ?? null;
+        case "documents:getPdfAssetByPath":
+        case "documents:getFileAssetByPath":
+          return assets.find((asset) => asset.path === args.path) ?? null;
         default:
           throw new Error(`Unexpected query ${getFunctionName(ref)}`);
       }
@@ -311,5 +329,40 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     );
     const sessionFullZip = await JSZip.loadAsync(await sessionFullArchive!.arrayBuffer());
     expect(Object.keys(sessionFullZip.files)).toContain("private/plan.zip");
+  });
+
+  test("passes Range through /api/file and streams 206 responses", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchCalls: RequestInfo[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      fetchCalls.push(input as RequestInfo);
+      expect(new Headers(init?.headers).get("Range")).toBe("bytes=0-3");
+      return new Response("abcd", {
+        status: 206,
+        headers: {
+          "Accept-Ranges": "bytes",
+          "Content-Length": "4",
+          "Content-Range": "bytes 0-3/9",
+        },
+      });
+    }) as typeof fetch;
+
+    try {
+      const handler = createWikiApiHandler(createFakeConvexClient() as never);
+      const response = await handler(
+        request("/api/file?path=sources/public/source.pdf", {
+          headers: { Range: "bytes=0-3" },
+        }),
+      );
+
+      expect(fetchCalls).toHaveLength(1);
+      expect(response?.status).toBe(206);
+      expect(response!.headers.get("accept-ranges")).toBe("bytes");
+      expect(response!.headers.get("content-range")).toBe("bytes 0-3/9");
+      expect(response!.headers.get("content-length")).toBe("4");
+      expect(await response!.text()).toBe("abcd");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

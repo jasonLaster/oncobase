@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import type { ComponentProps } from "react";
-import { DefaultWikiImage, type WikiImageComponent } from "./image-renderer";
-import { ImageTheaterModal } from "./image-theater-modal";
+import { DefaultWikiImage, type WikiImageComponent } from "./image-renderer.tsx";
+import { ImageTheaterModal } from "./image-theater-modal.tsx";
 import {
   classNames,
   imageStateFromElement,
   type TheaterImageState,
-} from "./image-theater-state";
-import { resolveImageSrc } from "./paths";
+} from "./image-theater-state.ts";
+import { resolveImageSrc } from "./paths.ts";
 
 export function TheaterImage({
   className,

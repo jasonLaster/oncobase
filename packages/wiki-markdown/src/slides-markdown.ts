@@ -1,4 +1,4 @@
-import { sortSlidesNewestFirst } from "./slides-sort";
+import { sortSlidesNewestFirst } from "./slides-sort.ts";
 
 type SlideImage = {
   src: string;

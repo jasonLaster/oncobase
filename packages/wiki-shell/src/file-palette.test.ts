@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildWikiFilePaletteState,
   formatWikiFilePalettePath,
-} from "./file-palette";
+} from "./file-palette.tsx";
 
 const pages = [
   {

@@ -5,7 +5,7 @@ import {
   type Key,
   type ReactNode,
 } from "react";
-import { cn } from "./utils";
+import { cn } from "./utils.ts";
 
 export type WikiBreadcrumbItem = {
   current?: boolean;
@@ -58,7 +58,7 @@ export function WikiBreadcrumbs({
   );
 }
 
-export type WikiPageHeaderProps = Omit<ComponentProps<"header">, "children"> & {
+export type WikiPageHeaderProps = Omit<ComponentProps<"header">, "children" | "title"> & {
   actions?: ReactNode;
   badges?: ReactNode;
   description?: ReactNode;

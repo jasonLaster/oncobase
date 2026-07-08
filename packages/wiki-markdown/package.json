@@ -36,6 +36,16 @@
       "import": "./src/paths.ts",
       "default": "./src/paths.ts"
     },
+    "./title": {
+      "types": "./src/title.ts",
+      "import": "./src/title.ts",
+      "default": "./src/title.ts"
+    },
+    "./title-react": {
+      "types": "./src/title-react.tsx",
+      "import": "./src/title-react.tsx",
+      "default": "./src/title-react.tsx"
+    },
     "./mermaid": {
       "types": "./src/mermaid.tsx",
       "import": "./src/mermaid.tsx",

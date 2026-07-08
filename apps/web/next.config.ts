@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
   transpilePackages: [
     "@oncobase/chat",
     "@oncobase/smart-table",
+    "@oncobase/wiki-content",
     "@oncobase/wiki-markdown",
   ],
   outputFileTracingRoot: path.join(__dirname, "..", ".."),
