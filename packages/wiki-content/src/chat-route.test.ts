@@ -4,7 +4,7 @@ import {
   chatTextModel,
   compactChatToolResult,
   generateChatSearchPatterns,
-} from "./chat-route";
+} from "./chat-route.ts";
 
 describe("chatTextModel", () => {
   test("uses GLM 5.2 in production", () => {

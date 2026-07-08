@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { extractWikiChatSources } from "./wiki-chat";
+import { extractWikiChatSources } from "./wiki-chat.tsx";
 
 describe("wiki chat tooling", () => {
   test("extracts wiki chat sources from read and search tools", () => {

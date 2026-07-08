@@ -1,5 +1,6 @@
 import { useStore } from "@livestore/react";
 import {
+  MarkdownTitle,
   WikiMarkdown,
   type WikiMarkdownLinkProps,
   type WikiMarkdownNotificationAdapter,
@@ -396,7 +397,21 @@ export function WikiPage({
     <>
       {toast ? <WikiToast>{toast}</WikiToast> : null}
       <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />
-      <WikiPageHeader title={page.title} description={description ?? slug} badges={pageBadges} />
+      <WikiPageHeader
+        title={
+          <MarkdownTitle
+            title={page.title}
+            currentSlug={page.slug}
+            LinkComponent={({ href, children, ...props }) => (
+              <Link to={href} {...props}>
+                {children}
+              </Link>
+            )}
+          />
+        }
+        description={description ?? slug}
+        badges={pageBadges}
+      />
       {stale ? (
         <WikiStatusNotice>
           Showing cached markdown while a newer version is fetched in the background.
@@ -426,7 +441,7 @@ export function WikiPage({
       <WikiTagList
         tags={tags}
         renderTag={(tag) => (
-          <Link key={tag} to={`/?q=${encodeURIComponent(tag)}`}>
+          <Link key={tag} to={`/tags/${encodeURIComponent(tag)}`}>
             {tag}
           </Link>
         )}

@@ -6,7 +6,7 @@ import {
   type Key,
   type ReactNode,
 } from "react";
-import { cn } from "./utils";
+import { cn } from "./utils.ts";
 
 export type WikiSearchPageProps = ComponentProps<"article">;
 

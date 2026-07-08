@@ -1,6 +1,7 @@
 import { useStore } from "@livestore/react";
 import {
   BugIcon,
+  CalculatorIcon,
   DownloadIcon,
   FileIcon,
   FileTextIcon,
@@ -244,6 +245,13 @@ export function CommandPalette({
         description: "Download the current scoped markdown as a zip archive",
         href: backendHref("/api/download", { type: "markdown", scope }),
         icon: <DownloadIcon size={15} aria-hidden="true" />,
+      },
+      {
+        group: "Tools",
+        label: "Medical deduction calculator",
+        description: "Estimate medical expense deduction timing and tax benefit",
+        href: "/tools/medical-deduction",
+        icon: <CalculatorIcon size={15} aria-hidden="true" />,
       },
       {
         group: "Tools",

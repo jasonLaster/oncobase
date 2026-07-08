@@ -443,6 +443,116 @@ a {
   color: var(--muted);
 }
 
+.wiki-vite-sidebar-workspace {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.wiki-vite-sidebar-logo {
+  align-items: center;
+  background: var(--brand);
+  border-radius: 6px;
+  color: #fff;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.wiki-shell-tree-icon {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+.wiki-shell-tree-icon.active,
+.tree-link:hover .wiki-shell-tree-icon,
+.tree-directory:hover .wiki-shell-tree-icon {
+  opacity: 0.95;
+}
+
+.wiki-vite-sidebar-footer {
+  border-top: 1px solid var(--sidebar-border);
+  display: flex;
+  gap: 0;
+  margin: 0 10px 10px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.wiki-vite-sidebar-footer a {
+  align-items: center;
+  border: 1px solid var(--sidebar-border);
+  display: inline-flex;
+  flex: 1;
+  gap: 6px;
+  justify-content: center;
+  min-height: 34px;
+  text-decoration: none;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.wiki-vite-sidebar-footer a + a {
+  border-left: 0;
+}
+
+.wiki-vite-sidebar-footer a:hover {
+  background: var(--accent-light);
+  color: var(--foreground);
+}
+
+.tag-page-shell {
+  max-width: 860px;
+}
+
+.tag-tree-root,
+.tag-tree-branch {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tag-tree-root {
+  display: grid;
+  gap: 10px;
+}
+
+.tag-tree-branch {
+  border-left: 1px solid var(--border);
+  margin: 8px 0 0 8px;
+  padding-left: 14px;
+}
+
+.tag-tree-root a,
+.tag-tree-branch a {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+.tag-tree-root a:hover,
+.tag-tree-branch a:hover {
+  text-decoration: underline;
+}
+
+.tag-tree-folder summary {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  list-style: none;
+}
+
+.tag-tree-folder[open] > summary svg {
+  transform: rotate(90deg);
+}
+
 .app-error {
   color: var(--red);
 }

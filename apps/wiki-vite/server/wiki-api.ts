@@ -5,6 +5,7 @@ import archiver from "archiver";
 import { ConvexHttpClient } from "convex/browser";
 import { Liveblocks, WebhookHandler } from "@liveblocks/node";
 import type { Plugin } from "vite";
+import { legacyRedirectResponse } from "./redirects.ts";
 import {
   createWikiManifestResponse,
   createWikiPagesResponse,
@@ -324,8 +325,18 @@ function getMimeType(filePath: string) {
   return MIME_TYPES[path.extname(filePath).toLowerCase()] ?? null;
 }
 
+function blobRequestHeaders(request: Request) {
+  const range = request.headers.get("Range");
+  return range ? { Range: range } : undefined;
+}
+
 function assetPathToSiblingSlug(assetPath: string) {
   return assetPath.replace(/\.[^/.]+$/, "");
+}
+
+function contentDisposition(ext: string, filename: string) {
+  const disposition = ext === ".zip" ? "attachment" : "inline";
+  return `${disposition}; filename="${filename}"`;
 }
 
 function markdownFilename(slug: string) {
@@ -808,6 +819,7 @@ async function handleFileRequest(
   }
 
   const ext = path.extname(normalized).toLowerCase();
+  const filename = path.basename(normalized);
   const asset = await client.query(
     ext === ".pdf" ? api.documents.getPdfAssetByPath : api.documents.getFileAssetByPath,
     withSiteSlug(
@@ -819,20 +831,31 @@ async function handleFileRequest(
   );
 
   if (!asset?.blobUrl) return new Response("File not found", { status: 404 });
-  const upstream = await fetch(asset.blobUrl);
+  const upstream = await fetch(asset.blobUrl, {
+    headers: blobRequestHeaders(request),
+  });
   if (!upstream.ok) return new Response("Blob fetch failed", { status: 502 });
 
   const cacheScope = includeSensitive ? "session" : "public";
-  return new Response(await upstream.arrayBuffer(), {
-    headers: {
+  const headers = new Headers({
       "Content-Type": mimeType,
-      "Content-Disposition": `inline; filename="${path.basename(normalized)}"`,
+      "Content-Disposition": contentDisposition(ext, filename),
       "Cache-Control": includeSensitive
         ? "private, max-age=300"
         : "public, max-age=86400",
-      Vary: includeSensitive ? "Accept, Cookie, Host" : "Accept, Host",
+      Vary: includeSensitive ? "Accept, Cookie, Host, Range" : "Accept, Host, Range",
       "X-Wiki-Cache-Scope": cacheScope,
-    },
+    });
+  const contentLength = upstream.headers.get("content-length");
+  if (contentLength) headers.set("Content-Length", contentLength);
+  const acceptRanges = upstream.headers.get("accept-ranges");
+  if (acceptRanges) headers.set("Accept-Ranges", acceptRanges);
+  const contentRange = upstream.headers.get("content-range");
+  if (contentRange) headers.set("Content-Range", contentRange);
+
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers,
   });
 }
 
@@ -2193,6 +2216,8 @@ export function wikiApiPlugin(): Plugin {
       server.middlewares.use(async (req, res, next) => {
         try {
           const request = await requestFromIncoming(req);
+          const redirect = legacyRedirectResponse(request);
+          if (redirect) return void (await sendWebResponse(res, redirect));
           const response = await handleWikiApiRequest(request);
           if (!response) return next();
           await sendWebResponse(res, response);

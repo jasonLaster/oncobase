@@ -11,8 +11,8 @@ import {
   scrollElementIntoContainerView,
   useDocumentOutline,
   type OutlineItem,
-} from "./outline";
-import { cn } from "./utils";
+} from "./outline.ts";
+import { cn } from "./utils.ts";
 
 export const COMMENTS_PANE_STORAGE_KEY = "comments-pane-open";
 export const COMMENTS_WIDTH_STORAGE_KEY = "comments-pane-width";

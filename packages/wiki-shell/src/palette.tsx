@@ -6,7 +6,7 @@ import {
   type ReactNode,
   forwardRef,
 } from "react";
-import { cn } from "./utils";
+import { cn } from "./utils.ts";
 
 export type WikiCommandBackdropProps = ComponentProps<"div">;
 

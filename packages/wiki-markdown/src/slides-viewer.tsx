@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { DefaultWikiImage, type WikiImageComponent } from "./image-renderer";
-import { ImageTheaterModal } from "./image-theater-modal";
+import { DefaultWikiImage, type WikiImageComponent } from "./image-renderer.tsx";
+import { ImageTheaterModal } from "./image-theater-modal.tsx";
 import {
   type TheaterImageState,
-} from "./image-theater-state";
-import { resolveImageSrc } from "./paths";
-import { sortSlidesNewestFirst } from "./slides-sort";
+} from "./image-theater-state.ts";
+import { resolveImageSrc } from "./paths.ts";
+import { sortSlidesNewestFirst } from "./slides-sort.ts";
 
 export type SlidesViewerImage = {
   src: string;

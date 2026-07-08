@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { applyPiiRedactions, parseSitePiiPatterns, shouldShowPii } from "./pii";
+import { applyPiiRedactions, parseSitePiiPatterns, shouldShowPii } from "./pii.ts";
 
 describe("PII redaction", () => {
   test("redacts fallback Diana identifiers", () => {
@@ -59,6 +59,26 @@ After`;
     const patterns = parseSitePiiPatterns(["/Friend Name/g=>the friend"]);
     expect(applyPiiRedactions("Friend Name met Diana", { patterns })).toBe(
       "the friend met Diana",
+    );
+  });
+
+  test("preserves inline and reference-style link destinations while redacting link text", () => {
+    const input = [
+      "[Diana Laster](https://example.test/Diana%20Laster)",
+      "",
+      "[MRN 88855655][patient-record]",
+      "",
+      "[patient-record]: https://example.test/files/88855655.pdf",
+    ].join("\n");
+
+    expect(applyPiiRedactions(input)).toBe(
+      [
+        "[the patient](https://example.test/Diana%20Laster)",
+        "",
+        "[MRN [redacted MRN]][patient-record]",
+        "",
+        "[patient-record]: https://example.test/files/88855655.pdf",
+      ].join("\n"),
     );
   });
 
