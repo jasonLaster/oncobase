@@ -3,6 +3,7 @@
 @import "tw-animate-css";
 @import "@oncobase/wiki-shell/styles.css";
 @source "../../../packages/chat/src";
+@source "../../../packages/diagnostics/src";
 
 :root {
   color-scheme: light;

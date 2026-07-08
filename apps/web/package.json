@@ -44,6 +44,7 @@
     "@cornerstonejs/dicom-image-loader": "^4.22.13",
     "@cornerstonejs/tools": "^4.22.13",
     "@oncobase/chat": "workspace:*",
+    "@oncobase/diagnostics": "workspace:*",
     "@oncobase/smart-table": "workspace:*",
     "@oncobase/oncobase": "workspace:*",
     "@oncobase/wiki-comments": "workspace:*",

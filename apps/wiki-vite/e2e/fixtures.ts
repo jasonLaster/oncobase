@@ -13,6 +13,9 @@ import {
   parseSitePiiPatterns,
   type PiiPattern,
 } from "@oncobase/wiki-content/pii";
+import { prepareDiagnosticTimeline } from "@oncobase/diagnostics/timeline";
+import { diagnosticStudiesSeed } from "../../web/scripts/fixtures/diagnostic-studies-seed";
+import { diagnosticTimelineSeed } from "../../web/scripts/fixtures/diagnostic-timeline-seed";
 
 type FixturePage = {
   title: string;
@@ -451,6 +454,18 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
         isDone: nextCursor >= records.length,
         continueCursor: nextCursor >= records.length ? null : String(nextCursor),
       }),
+    );
+  });
+
+  await page.route("**/api/timeline**", async (route) => {
+    await route.fulfill(
+      json(
+        prepareDiagnosticTimeline(
+          diagnosticTimelineSeed,
+          undefined,
+          diagnosticStudiesSeed.studies,
+        ),
+      ),
     );
   });
 

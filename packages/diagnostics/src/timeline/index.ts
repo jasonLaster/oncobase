@@ -1,3 +1,4 @@
+export { DiagnosticTimeline } from "./diagnostic-timeline";
 export type {
   DiagnosticTimelineData,
   DiagnosticTimelineEvent,
@@ -7,10 +8,10 @@ export type {
   DiagnosticTimelineStatus,
   DiagnosticTimelineTrack,
   DiagnosticTimelineTrackKind,
-} from "@oncobase/diagnostics/timeline";
+} from "./data";
 export {
   countDiagnosticTimelineEvents,
   enrichDiagnosticTimeline,
   prepareDiagnosticTimeline,
   prepareDiagnosticTimelineResponse,
-} from "@oncobase/diagnostics/timeline";
+} from "./data";
