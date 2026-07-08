@@ -66,6 +66,13 @@ const lazyChunkPatterns: RegExp[] = [
   // `import` grep against the dist tree.
   /^chunk-[\w-]+\.js$/,
   /^(?:dist|isEmpty|reduce|highlighted-body|_baseFor|development|c4Diagram)-[\w-]+\.js$/,
+  // Liveblocks-backed comments are loaded from document and comments routes
+  // through React.lazy. Keep the package and Liveblocks runtime out of the
+  // eager shell budget.
+  /^comments-liveblocks-[\w-]+\.js$/,
+  /^wrapper-[\w-]+\.js$/,
+  /^page-client-[\w-]+\.js$/,
+  /^threads-[\w-]+\.js$/,
 ];
 const lazyChunkGzipBudget = 1_200_000;
 

@@ -16,6 +16,7 @@ import { useThreads } from "@liveblocks/react";
 import { Comment, Composer, Thread } from "@liveblocks/react-ui";
 import { cn } from "./utils.ts";
 import { LiveblocksRoom } from "./room.tsx";
+import { commentsEnabled } from "./feature.ts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1686,12 +1687,7 @@ export function OutlineShell({
   );
 }
 
-function readCommentsEnabledFlag() {
-  const viteEnv = (import.meta as { env?: Record<string, string | undefined> }).env;
-  return viteEnv?.VITE_NEXT_PUBLIC_ENABLE_COMMENTS ?? viteEnv?.VITE_ENABLE_COMMENTS;
-}
-
-export const commentsEnabled = readCommentsEnabledFlag() !== "false";
+export { commentsEnabled } from "./feature.ts";
 
 export function ActiveDocumentComments({
   documentSlug,

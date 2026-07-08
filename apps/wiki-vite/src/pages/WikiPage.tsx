@@ -4,8 +4,8 @@ import {
   type WikiMarkdownLinkProps,
   type WikiMarkdownNotificationAdapter,
 } from "@oncobase/wiki-markdown";
-import { DocumentComments } from "@oncobase/wiki-comments";
 import {
+  DocumentOutlineShell,
   WikiBadge,
   WikiBreadcrumbs,
   WikiEmptyState,
@@ -71,6 +71,11 @@ const MERMAID_FENCE_PATTERN = /^\s*```mermaid\s*$/m;
 const LazyMermaidRenderer = lazy(() =>
   import("@oncobase/wiki-markdown/mermaid").then((module) => ({
     default: module.WikiMermaidRenderer,
+  })),
+);
+const LazyDocumentComments = lazy(() =>
+  import("@oncobase/wiki-comments/wrapper").then((module) => ({
+    default: module.DocumentComments,
   })),
 );
 
@@ -360,20 +365,11 @@ export function WikiPage({
     </>
   );
 
-  return (
-    <DocumentComments
-      documentSlug={page.slug}
-      documentTitle={page.title}
-    >
-      {toast ? (
-        <WikiToast>{toast}</WikiToast>
-      ) : null}
+  const pageBody = (
+    <>
+      {toast ? <WikiToast>{toast}</WikiToast> : null}
       <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />
-      <WikiPageHeader
-        title={page.title}
-        description={description ?? slug}
-        badges={pageBadges}
-      />
+      <WikiPageHeader title={page.title} description={description ?? slug} badges={pageBadges} />
       {stale ? (
         <WikiStatusNotice>
           Showing cached markdown while a newer version is fetched in the background.
@@ -426,6 +422,32 @@ export function WikiPage({
             : null,
         ].filter(Boolean)}
       />
-    </DocumentComments>
+    </>
+  );
+
+  const commentsFallback = (
+    <DocumentOutlineShell
+      articleClassName="page-shell"
+      contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
+      documentSlug={page.slug}
+      documentTitle={page.title}
+      pathname={location.pathname}
+    >
+      {pageBody}
+    </DocumentOutlineShell>
+  );
+
+  return (
+    <Suspense fallback={commentsFallback}>
+      <LazyDocumentComments
+        articleClassName="page-shell"
+        contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
+        documentSlug={page.slug}
+        documentTitle={page.title}
+        pathname={location.pathname}
+      >
+        {pageBody}
+      </LazyDocumentComments>
+    </Suspense>
   );
 }

@@ -51,6 +51,11 @@
       "import": "./src/page-client.tsx",
       "default": "./src/page-client.tsx"
     },
+    "./wrapper": {
+      "types": "./src/wrapper.tsx",
+      "import": "./src/wrapper.tsx",
+      "default": "./src/wrapper.tsx"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
