@@ -39,6 +39,11 @@ const TableExamplesPage = lazy(() =>
     default: module.TableExamplesPage,
   })),
 );
+const TimelinePage = lazy(() =>
+  import("./pages/TimelinePage").then((module) => ({
+    default: module.TimelinePage,
+  })),
+);
 const ChatPage = lazy(() =>
   import("./chat/ChatPage").then((module) => ({ default: module.ChatPage })),
 );
@@ -104,6 +109,8 @@ export function App({
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/table-examples" element={<TableExamplesPage />} />
+                <Route path="/timeline" element={<TimelinePage />} />
+                <Route path="/diagnostics" element={<TimelinePage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/chat/:id" element={<ChatPage />} />
                 <Route path="/tags/:tag" element={<TagPage />} />
