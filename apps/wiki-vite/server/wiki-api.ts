@@ -422,14 +422,18 @@ function createAccessAdapter(
       let isDone = false;
 
       while (!isDone) {
-        const result = await client.query(
+        const result = (await client.query(
           api.documents.listManifestPage,
           withSiteSlug(siteSlug, {
             cursor,
             numItems: 100,
             includeSensitive: true,
           }),
-        );
+        )) as {
+          page: Array<{ slug: string; sensitive?: boolean }>;
+          isDone: boolean;
+          continueCursor: string | null;
+        };
         const checks = await Promise.all(
           result.page.map(async (page) => {
             if (page.sensitive !== true) return null;
@@ -470,27 +474,32 @@ async function filterAccessiblePages<T extends { slug: string; sensitive?: boole
   client: ConvexHttpClient,
   siteSlug: string,
   user: SessionUser | null,
-  pages: T[],
-) {
-  const filtered = await Promise.all(
-    pages.map(async (page) => {
-      if (page.sensitive !== true) return page;
-      return (await canUserAccessSlug(client, siteSlug, user, page.slug)) ? page : null;
-    }),
-  );
-  return filtered.filter((page): page is T => page !== null);
+  pages: Array<T | null>,
+): Promise<T[]> {
+  const visible: T[] = [];
+  for (const page of pages) {
+    if (!page) continue;
+    if (page.sensitive !== true || (await canUserAccessSlug(client, siteSlug, user, page.slug))) {
+      visible.push(page);
+    }
+  }
+  return visible;
 }
 
 async function filterPotentiallySensitivePages<T extends { slug: string; sensitive?: boolean }>(
   client: ConvexHttpClient,
   siteSlug: string,
   user: SessionUser | null,
-  pages: T[],
-) {
-  const filtered = await Promise.all(
-    pages.map(async (page) => {
-      if (page.sensitive === false) return page;
-      const doc = page.sensitive === true
+  pages: Array<T | null>,
+): Promise<T[]> {
+  const visible: T[] = [];
+  for (const page of pages) {
+    if (!page) continue;
+    if (page.sensitive === false) {
+      visible.push(page);
+      continue;
+    }
+    const doc = page.sensitive === true
         ? page
         : await client.query(
             api.documents.getBySlug,
@@ -499,11 +508,11 @@ async function filterPotentiallySensitivePages<T extends { slug: string; sensiti
               includeSensitive: true,
             }),
           );
-      if (doc?.sensitive !== true) return page;
-      return (await canUserAccessSlug(client, siteSlug, user, page.slug)) ? page : null;
-    }),
-  );
-  return filtered.filter((page): page is T => page !== null);
+    if (doc?.sensitive !== true || (await canUserAccessSlug(client, siteSlug, user, page.slug))) {
+      visible.push(page);
+    }
+  }
+  return visible;
 }
 
 async function isValidPassword(

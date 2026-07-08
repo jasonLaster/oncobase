@@ -95,21 +95,32 @@ function documentsGateway(
     if (!page?.sensitive) return page;
     return canAccessSlug && (await canAccessSlug(page.slug)) ? page : null;
   };
-  const filterPages = async <T extends { slug: string; sensitive?: boolean }>(pages: T[]) =>
-    (
-      await Promise.all(
-        pages.map(async (page) => {
-          if (page.sensitive === true) return filterPage(page);
-          if (page.sensitive === false) return page;
-          const doc = await client.query(
+  const filterPages = async <T extends { slug: string; sensitive?: boolean }>(
+    pages: Array<T | null>,
+  ): Promise<T[]> => {
+    const visible: T[] = [];
+    for (const page of pages) {
+      if (!page) continue;
+      if (page.sensitive === false) {
+        visible.push(page);
+        continue;
+      }
+      const doc = page.sensitive === true
+        ? page
+        : await client.query(
             api.documents.getBySlug,
             withSiteSlug(siteSlug, { slug: page.slug, includeSensitive: true }),
           );
-          if (doc?.sensitive !== true) return page;
-          return canAccessSlug && (await canAccessSlug(page.slug)) ? page : null;
-        }),
-      )
-    ).filter((page): page is T => page !== null);
+      if (doc?.sensitive !== true) {
+        visible.push(page);
+        continue;
+      }
+      if (canAccessSlug && (await canAccessSlug(page.slug))) {
+        visible.push(page);
+      }
+    }
+    return visible;
+  };
 
   return {
     search: (args: { query: string; limit?: number }) =>
@@ -347,17 +358,20 @@ export async function handleChatRequest({
 
           for (const results of textResults) {
             for (const result of results) {
+              if (!result?.slug || !result.title || !Array.isArray(result.tags)) continue;
               if (seen.has(result.slug)) continue;
               seen.add(result.slug);
               merged.push({
-                ...result,
+                slug: result.slug,
                 title: redact(result.title),
+                tags: result.tags,
                 excerpt: result.excerpt ? redact(result.excerpt) : undefined,
               });
             }
           }
 
           for (const result of vectorResults) {
+            if (!result?.slug || !result.title || !Array.isArray(result.tags)) continue;
             if (seen.has(result.slug)) continue;
             seen.add(result.slug);
             merged.push({

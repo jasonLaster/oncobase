@@ -358,11 +358,15 @@ export function createSiteData(
         let isDone = false;
 
         while (!isDone) {
-          const result = await withPreviewIncludeSensitiveFallback(
+          const result = (await withPreviewIncludeSensitiveFallback(
             { cursor, numItems: 100, includeSensitive: true },
             (nextArgs) =>
               convex.query(api.documents.listManifestPage, nextArgs),
-          );
+          )) as {
+            page: Array<{ slug: string; sensitive?: boolean }>;
+            isDone: boolean;
+            continueCursor: string | null;
+          };
           const checks = await Promise.all(
             result.page.map(async (page) => {
               if (page.sensitive !== true) return null;

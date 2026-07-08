@@ -297,11 +297,14 @@ async function filterReadablePages<T extends Pick<PageWithContent | WikiManifest
   context: WikiApiContext,
   user: WikiApiSessionUser | null,
   pages: T[],
-) {
-  const allowed = await Promise.all(
-    pages.map(async (page) => ((await canReadPage(context, user, page)) ? page : null)),
-  );
-  return allowed.filter((page): page is T => page !== null);
+): Promise<T[]> {
+  const allowed: T[] = [];
+  for (const page of pages) {
+    if (await canReadPage(context, user, page)) {
+      allowed.push(page);
+    }
+  }
+  return allowed;
 }
 
 async function filterAssetsForUser(
