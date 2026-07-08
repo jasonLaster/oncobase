@@ -4,7 +4,7 @@ import {
   countDiagnosticTimelineEvents,
   prepareDiagnosticTimeline,
   type DiagnosticTimelineData,
-} from "./data";
+} from "./data.ts";
 
 const sampleTimeline: DiagnosticTimelineData = {
   metadata: {

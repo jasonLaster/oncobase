@@ -8,9 +8,9 @@ export {
   normalizeDiagnosticStudySet,
   parseDiagnosticStudiesPayload,
   sortDiagnosticStudies,
-} from "./data";
+} from "./data.ts";
 export type {
   DiagnosticReportLink,
   DiagnosticStudiesPayload,
   DiagnosticStudy,
-} from "./data";
+} from "./data.ts";

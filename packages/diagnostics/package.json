@@ -16,6 +16,11 @@
       "import": "./src/timeline/index.ts",
       "default": "./src/timeline/index.ts"
     },
+    "./timeline/data": {
+      "types": "./src/timeline/data.ts",
+      "import": "./src/timeline/data.ts",
+      "default": "./src/timeline/data.ts"
+    },
     "./studies": {
       "types": "./src/studies/index.ts",
       "import": "./src/studies/index.ts",

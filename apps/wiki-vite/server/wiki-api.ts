@@ -16,7 +16,7 @@ import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@onco
 import {
   prepareDiagnosticTimelineResponse,
   type DiagnosticTimelineData,
-} from "@oncobase/diagnostics/timeline";
+} from "@oncobase/diagnostics/timeline/data";
 import {
   diagnosticStudiesMetaKeyForSet,
   parseDiagnosticStudiesPayload,

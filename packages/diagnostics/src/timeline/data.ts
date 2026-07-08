@@ -1,7 +1,7 @@
 import {
   getDicomViewerHref,
   type DiagnosticStudy,
-} from "../studies/data";
+} from "../studies/data.ts";
 
 export type DiagnosticTimelineStatus = "reported" | "flagged" | "planned";
 export type DiagnosticTimelineTrackKind = "events" | "series";

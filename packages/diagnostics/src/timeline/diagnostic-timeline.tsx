@@ -34,14 +34,14 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "./ui";
+} from "./ui.tsx";
 import type {
   DiagnosticTimelineData,
   DiagnosticTimelineEvent,
   DiagnosticTimelineLink,
   DiagnosticTimelineSleeve,
   DiagnosticTimelineTrack,
-} from "./data";
+} from "./data.ts";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MIN_RANGE_MS = 10 * MS_PER_DAY;
