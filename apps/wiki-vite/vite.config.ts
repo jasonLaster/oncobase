@@ -51,25 +51,8 @@ function commentsChunk(id: string): boolean {
   return (
     normalized.includes("/packages/wiki-comments/") ||
     normalized.includes("/node_modules/@liveblocks/") ||
-    normalized.includes("/node_modules/@radix-ui/") ||
-    normalized.includes("/node_modules/radix-ui/") ||
-    normalized.includes("/node_modules/@juggle/resize-observer/") ||
-    normalized.includes("/node_modules/aria-hidden/") ||
-    normalized.includes("/node_modules/compute-scroll-into-view/") ||
-    normalized.includes("/node_modules/direction/") ||
     normalized.includes("/node_modules/frimousse/") ||
-    normalized.includes("/node_modules/immer/") ||
-    normalized.includes("/node_modules/is-hotkey/") ||
-    normalized.includes("/node_modules/lodash.debounce/") ||
-    normalized.includes("/node_modules/react-remove-scroll/") ||
-    normalized.includes("/node_modules/react-remove-scroll-bar/") ||
-    normalized.includes("/node_modules/react-style-singleton/") ||
-    normalized.includes("/node_modules/scroll-into-view-if-needed/") ||
-    normalized.includes("/node_modules/slate") ||
-    normalized.includes("/node_modules/marked/") ||
-    normalized.includes("/node_modules/tslib/") ||
-    normalized.includes("/node_modules/use-callback-ref/") ||
-    normalized.includes("/node_modules/use-sidecar/")
+    normalized.includes("/node_modules/slate")
   );
 }
 
