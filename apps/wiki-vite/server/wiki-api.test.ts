@@ -110,6 +110,38 @@ function createFakeConvexClient() {
             continueCursor: null,
           };
         }
+        case "documents:listPdfAssetsPage":
+          return {
+            page: [
+              {
+                path: "sources/public/source.pdf",
+                blobUrl: "data:application/pdf;base64,JVBERi0xLjQKJUVPRgo=",
+              },
+            ],
+            isDone: true,
+            continueCursor: null,
+          };
+        case "documents:listFileAssetsPage": {
+          const includeSensitive = args.includeSensitive === true;
+          return {
+            page: [
+              {
+                path: "biopsy/raw/dicom.zip",
+                blobUrl: "data:application/zip;base64,UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==",
+              },
+              ...(includeSensitive
+                ? [
+                    {
+                      path: "private/plan.zip",
+                      blobUrl: "data:application/zip;base64,UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==",
+                    },
+                  ]
+                : []),
+            ],
+            isDone: true,
+            continueCursor: null,
+          };
+        }
         case "documents:getBySlug": {
           const includeSensitive = args.includeSensitive === true;
           const page = pages.find((candidate) => candidate.slug === args.slug);
