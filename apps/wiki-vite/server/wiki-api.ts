@@ -4,6 +4,7 @@ import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "node:
 import archiver from "archiver";
 import { ConvexHttpClient } from "convex/browser";
 import type { Plugin } from "vite";
+import { legacyRedirectResponse } from "./redirects.ts";
 import {
   createWikiManifestResponse,
   createWikiPagesResponse,
@@ -1241,6 +1242,8 @@ export function wikiApiPlugin(): Plugin {
       server.middlewares.use(async (req, res, next) => {
         try {
           const request = await requestFromIncoming(req);
+          const redirect = legacyRedirectResponse(request);
+          if (redirect) return void (await sendWebResponse(res, redirect));
           const response = await handleWikiApiRequest(request);
           if (!response) return next();
           await sendWebResponse(res, response);

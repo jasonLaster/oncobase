@@ -184,7 +184,7 @@ test.describe("Page viewing and sidebar navigation", () => {
   });
 
   test("tag pages group visible tagged pages", async ({ page }) => {
-    await gotoWiki(page, "/tags/logistics");
+    await page.goto("/tags/logistics", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByTestId("tag-page")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Tag: logistics" })).toBeVisible();
