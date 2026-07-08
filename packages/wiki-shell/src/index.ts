@@ -99,10 +99,12 @@ export {
   WikiEmptyState,
   WikiPageLoading,
   WikiPageSkeleton,
+  WikiSensitiveUnavailable,
   type WikiEmptyAction,
   type WikiEmptyStateProps,
   type WikiPageLoadingProps,
   type WikiPageSkeletonProps,
+  type WikiSensitiveUnavailableProps,
 } from "./page-states";
 export {
   WikiSearchForm,

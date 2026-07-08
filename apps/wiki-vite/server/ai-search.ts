@@ -85,6 +85,7 @@ async function fetchCandidateDocs(
   siteSlug: string,
   slugs: string[],
   includeSensitive: boolean,
+  canAccessSlug?: (slug: string) => Promise<boolean>,
 ) {
   const docs = await Promise.all(
     compactSlugs(slugs).map((slug) =>
@@ -94,7 +95,14 @@ async function fetchCandidateDocs(
       ),
     ),
   );
-  return docs.filter((doc): doc is NonNullable<(typeof docs)[number]> => doc !== null);
+  const existingDocs = docs.filter((doc): doc is NonNullable<(typeof docs)[number]> => doc !== null);
+  const filtered = await Promise.all(
+    existingDocs.map(async (doc) => {
+      if (doc.sensitive !== true) return doc;
+      return canAccessSlug && (await canAccessSlug(doc.slug)) ? doc : null;
+    }),
+  );
+  return filtered.filter((doc): doc is NonNullable<(typeof docs)[number]> => doc !== null);
 }
 
 export async function handleAiSearchRequest({
@@ -102,11 +110,13 @@ export async function handleAiSearchRequest({
   client,
   siteSlug,
   includeSensitive,
+  canAccessSlug,
 }: {
   request: Request;
   client: ConvexHttpClient;
   siteSlug: string;
   includeSensitive: boolean;
+  canAccessSlug?: (slug: string) => Promise<boolean>;
 }) {
   if (request.method !== "POST") {
     return Response.json(
@@ -156,14 +166,19 @@ export async function handleAiSearchRequest({
       siteSlug,
       [...textSlugs, ...semanticSlugs],
       includeSensitive,
+      canAccessSlug,
     );
 
     if (candidateDocs.length === 0) {
       return Response.json({ results: [] });
     }
 
-    const diagnosisContext = diagnosisDoc
-      ? redact(diagnosisDoc.content).slice(0, 1500)
+    const visibleDiagnosisDoc =
+      diagnosisDoc?.sensitive === true && !(await canAccessSlug?.(diagnosisDoc.slug))
+        ? null
+        : diagnosisDoc;
+    const diagnosisContext = visibleDiagnosisDoc
+      ? redact(visibleDiagnosisDoc.content).slice(0, 1500)
       : "Stage III TNBC, IDC Grade 3, KEYNOTE-522 protocol";
 
     const scored: Array<{

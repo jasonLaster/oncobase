@@ -112,3 +112,29 @@ export function WikiEmptyState({
     </article>
   );
 }
+
+export type WikiSensitiveUnavailableProps = Omit<WikiEmptyStateProps, "title"> & {
+  signedIn?: boolean;
+};
+
+export function WikiSensitiveUnavailable({
+  actions,
+  description,
+  signedIn = false,
+  ...props
+}: WikiSensitiveUnavailableProps) {
+  return (
+    <WikiEmptyState
+      eyebrow="Private page"
+      title="Sensitive page unavailable"
+      description={
+        description ??
+        (signedIn
+          ? "Your account is signed in, but it does not have access to this sensitive page."
+          : "Sign in with an account that has access to view this sensitive page.")
+      }
+      actions={actions}
+      {...props}
+    />
+  );
+}

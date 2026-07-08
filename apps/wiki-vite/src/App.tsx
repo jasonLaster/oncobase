@@ -34,6 +34,9 @@ const LoginPage = lazy(() =>
 const SearchPage = lazy(() =>
   import("./pages/SearchPage").then((module) => ({ default: module.SearchPage })),
 );
+const TagPage = lazy(() =>
+  import("./pages/TagPage").then((module) => ({ default: module.TagPage })),
+);
 const TableExamplesPage = lazy(() =>
   import("./pages/TableExamplesPage").then((module) => ({
     default: module.TableExamplesPage,
@@ -46,6 +49,12 @@ const CommentsPage = lazy(() =>
   import("./pages/CommentsPage").then((module) => ({
     default: module.CommentsPage,
   })),
+);
+const AdminPage = lazy(() =>
+  import("./admin/AdminPage").then((module) => ({ default: module.AdminPage })),
+);
+const PiiViewPage = lazy(() =>
+  import("./pages/PiiViewPage").then((module) => ({ default: module.PiiViewPage })),
 );
 
 function PageFallback() {
@@ -100,10 +109,15 @@ export function App({
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/search" element={<SearchPage />} />
+                <Route path="/tags/:tag" element={<TagPage />} />
                 <Route path="/table-examples" element={<TableExamplesPage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/chat/:id" element={<ChatPage />} />
                 <Route path="/comments" element={<CommentsPage />} />
+                <Route path="/access" element={<AdminPage />} />
+                <Route path="/admin" element={<AdminPage />} />
+                <Route path="/admin/*" element={<AdminPage />} />
+                <Route path="/pii-view/*" element={<PiiViewPage />} />
                 <Route path="*" element={<WikiPage metrics={metrics} onMetrics={bumpMetrics} />} />
               </Routes>
             </Suspense>

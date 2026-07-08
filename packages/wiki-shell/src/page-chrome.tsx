@@ -92,7 +92,28 @@ export type WikiBadgeProps = ComponentProps<"span"> & {
 };
 
 export function WikiBadge({ className, variant = "default", ...props }: WikiBadgeProps) {
-  return <span className={cn("badge", variant !== "default" && variant, className)} {...props} />;
+  return (
+    <span className={cn("badge", variant !== "default" && variant, className)} {...props}>
+      {variant === "sensitive" ? (
+        <svg
+          aria-hidden="true"
+          className="wiki-shell-badge-lock"
+          fill="none"
+          height="12"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.8"
+          viewBox="0 0 24 24"
+          width="12"
+        >
+          <rect x="5" y="11" width="14" height="10" rx="2" />
+          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+        </svg>
+      ) : null}
+      {props.children}
+    </span>
+  );
 }
 
 export type WikiPageActionsProps = ComponentProps<"div">;

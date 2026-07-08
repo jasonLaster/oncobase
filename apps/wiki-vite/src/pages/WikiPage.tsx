@@ -13,6 +13,7 @@ import {
   WikiPageFooter,
   WikiPageHeader,
   WikiPageLoading,
+  WikiSensitiveUnavailable,
   WikiSourceLinks,
   WikiStatusNotice,
   WikiTagList,
@@ -53,7 +54,7 @@ import {
   slugFromPath,
   storageSnapshot,
 } from "../wiki-utils";
-import { useWikiScope } from "../wiki-context";
+import { useWikiScope, useWikiSession } from "../wiki-context";
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
@@ -154,6 +155,7 @@ export function WikiPage({
   const location = useLocation();
   const navigate = useNavigate();
   const scope = useWikiScope();
+  const identity = useWikiSession();
   const [toast, setToast] = useState<string | null>(null);
   const slug = slugFromPath(location.pathname);
   const deferredSlug = useDeferredValue(slug);
@@ -302,6 +304,31 @@ export function WikiPage({
             >
               Retry
             </WikiPageActionButton>
+          </>
+        }
+      />
+    );
+  }
+
+  if (page?.contentStatus === "sensitive-unavailable") {
+    return (
+      <WikiSensitiveUnavailable
+        before={<Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />}
+        data-test-id="document-article"
+        signedIn={identity?.authenticated === true}
+        actions={
+          <>
+            {identity?.authenticated !== true ? (
+              <Link
+                className="wiki-shell-page-action page-action"
+                to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search + location.hash)}`}
+              >
+                Sign in
+              </Link>
+            ) : null}
+            <Link className="wiki-shell-page-action page-action" to="/">
+              Go home
+            </Link>
           </>
         }
       />
