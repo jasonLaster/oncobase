@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import {
   expect,
   test,
@@ -6,8 +7,12 @@ import {
   type Page,
 } from "@playwright/test";
 
-import { diagnosticComparisonsSeed } from "../../web/scripts/fixtures/diagnostic-comparisons-seed";
-import { diagnosticStudiesSeed } from "../../web/scripts/fixtures/diagnostic-studies-seed";
+const { diagnosticComparisonsSeed } = createRequire(import.meta.url)(
+  "../../web/scripts/fixtures/diagnostic-comparisons-seed.ts",
+) as typeof import("../../web/scripts/fixtures/diagnostic-comparisons-seed");
+const { diagnosticStudiesSeed } = createRequire(import.meta.url)(
+  "../../web/scripts/fixtures/diagnostic-studies-seed.ts",
+) as typeof import("../../web/scripts/fixtures/diagnostic-studies-seed");
 
 /**
  * Verifies the DICOM viewer contract documented in

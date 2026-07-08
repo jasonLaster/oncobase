@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import crypto from "node:crypto";
 import { expect, type Locator, type Page } from "@playwright/test";
 import {
@@ -14,8 +15,12 @@ import {
   type PiiPattern,
 } from "@oncobase/wiki-content/pii";
 import { prepareDiagnosticTimeline } from "@oncobase/diagnostics/timeline";
-import { diagnosticStudiesSeed } from "../../web/scripts/fixtures/diagnostic-studies-seed";
-import { diagnosticTimelineSeed } from "../../web/scripts/fixtures/diagnostic-timeline-seed";
+const { diagnosticStudiesSeed } = createRequire(import.meta.url)(
+  "../../web/scripts/fixtures/diagnostic-studies-seed.ts",
+) as typeof import("../../web/scripts/fixtures/diagnostic-studies-seed");
+const { diagnosticTimelineSeed } = createRequire(import.meta.url)(
+  "../../web/scripts/fixtures/diagnostic-timeline-seed.ts",
+) as typeof import("../../web/scripts/fixtures/diagnostic-timeline-seed");
 
 type FixturePage = {
   title: string;
