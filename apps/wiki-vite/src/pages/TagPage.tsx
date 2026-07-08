@@ -4,10 +4,11 @@ import {
   type TaggedPageTreeNode,
 } from "@oncobase/wiki-content/tag-page-groups";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
+import { WikiPageLoading } from "@oncobase/wiki-shell";
 import { ChevronRight } from "lucide-react";
 import { useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { pageIndex$ } from "../livestore/queries";
+import { pageIndex$, siteState$ } from "../livestore/queries";
 import type { PageIndexRow } from "../types";
 import { hrefForSlug, parseJsonArray } from "../wiki-utils";
 
@@ -49,7 +50,9 @@ function TaggedPageTree({
 export function TagPage() {
   const { tag = "" } = useParams();
   const decodedTag = decodeURIComponent(tag);
+  const siteState = useStore().store.useQuery(siteState$);
   const pages = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
+  const waitingForManifest = pages.length === 0 && !siteState;
   const taggedPages = useMemo(
     () =>
       pages
@@ -58,6 +61,17 @@ export function TagPage() {
     [decodedTag, pages],
   );
   const pageTree = useMemo(() => buildTaggedPageTree(taggedPages), [taggedPages]);
+
+  if (waitingForManifest) {
+    return (
+      <article className="page-shell tag-page-shell" data-test-id="tag-page">
+        <WikiPageLoading
+          data-test-id="page-loading"
+          label={`Loading ${decodedTag} pages`}
+        />
+      </article>
+    );
+  }
 
   return (
     <article className="page-shell tag-page-shell" data-test-id="tag-page">

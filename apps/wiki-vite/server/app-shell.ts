@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../apps/web/convex/_generated/api.js";
-import redirects from "../../../apps/web/redirects.json";
+import { legacyRedirectResponse } from "./redirects.ts";
 import {
   authedCookieName,
   createClient,
@@ -19,11 +19,6 @@ const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml
 const LINK_PREVIEW_BOT_RE =
   /\b(slackbot|twitterbot|facebookexternalhit|linkedinbot|discordbot|whatsapp|telegrambot|skypeuripreview|googlebot|bingbot|applebot)\b/i;
 
-type RedirectEntry = {
-  source: string;
-  destination: string;
-  permanent?: boolean;
-};
 
 type PasswordGateEntry = {
   enabled: boolean;
@@ -92,28 +87,6 @@ function isLinkPreviewRequest(request: Request) {
   return accept.includes("text/html") && LINK_PREVIEW_BOT_RE.test(userAgent);
 }
 
-function matchRedirect(pathname: string, entry: RedirectEntry) {
-  if (!entry.source.includes(":path*")) {
-    return pathname === entry.source ? entry.destination : null;
-  }
-
-  const sourcePrefix = entry.source.slice(0, entry.source.indexOf(":path*"));
-  if (!pathname.startsWith(sourcePrefix)) return null;
-  const rest = pathname.slice(sourcePrefix.length);
-  return entry.destination.replace(":path*", rest);
-}
-
-function legacyRedirectResponse(request: Request) {
-  const url = new URL(request.url);
-  for (const entry of redirects as RedirectEntry[]) {
-    const destination = matchRedirect(url.pathname, entry);
-    if (!destination) continue;
-    const target = new URL(destination, request.url);
-    target.search = url.search;
-    return Response.redirect(target, entry.permanent ? 308 : 307);
-  }
-  return null;
-}
 
 async function isPasswordGateEnabled(client: ConvexHttpClient, siteSlug: string) {
   const now = Date.now();
