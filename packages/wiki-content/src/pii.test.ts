@@ -62,6 +62,26 @@ After`;
     );
   });
 
+  test("preserves inline and reference-style link destinations while redacting link text", () => {
+    const input = [
+      "[Diana Laster](https://example.test/Diana%20Laster)",
+      "",
+      "[MRN 88855655][patient-record]",
+      "",
+      "[patient-record]: https://example.test/files/88855655.pdf",
+    ].join("\n");
+
+    expect(applyPiiRedactions(input)).toBe(
+      [
+        "[the patient](https://example.test/Diana%20Laster)",
+        "",
+        "[MRN [redacted MRN]][patient-record]",
+        "",
+        "[patient-record]: https://example.test/files/88855655.pdf",
+      ].join("\n"),
+    );
+  });
+
   test("parses truthy showPII query values", () => {
     expect(shouldShowPii("true")).toBe(true);
     expect(shouldShowPii(["1"])).toBe(true);

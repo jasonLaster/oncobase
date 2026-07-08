@@ -3,18 +3,55 @@ import {
   expandCompactFileTree,
   type CompactFileNode,
 } from "@oncobase/wiki-content";
+import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
+import { MarkdownTitle } from "@oncobase/wiki-markdown/title-react";
 import {
   WikiMobileNavigation,
   WikiMobileNavigationSheet,
   WikiSidebar,
   collectActiveAncestors,
-  formatTreeNodeName,
   type WikiNavigationNode,
   type WikiTreePageLinkRenderArgs,
 } from "@oncobase/wiki-shell";
 import {
+  Activity,
+  Archive,
+  Beaker,
+  BookOpen,
+  Briefcase,
+  Building2,
+  Calendar,
+  ClipboardCheck,
+  Crosshair,
+  Dna,
+  FileText,
+  Flame,
+  Folder,
+  FolderOpen,
+  GraduationCap,
+  HelpCircle,
+  Inbox,
+  Info,
+  Landmark,
+  ListChecks,
+  ListTodo,
+  Mail,
+  MessageCircle,
+  Microscope,
+  NotebookPen,
+  Package,
+  Pill,
+  ScrollText,
+  Search,
+  ShieldCheck,
+  Syringe,
+  Target,
+  TrendingUp,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+import {
   useCallback,
-  useEffect,
   useMemo,
   useState,
   type MouseEvent,
@@ -31,6 +68,63 @@ import {
 } from "./navigation-intent";
 
 const TREE_EXPANSION_KEY = "wiki-vite-expanded-directories";
+const ICON_SIZE = 14;
+
+const SECTION_ICONS: Record<string, LucideIcon> = {
+  about: Info,
+  "project-management": ListTodo,
+  sources: BookOpen,
+  wiki: BookOpen,
+  overview: Activity,
+  "echo-immune": Activity,
+  emails: Mail,
+  institutions: Building2,
+  insurance: ShieldCheck,
+  "meeting-notes": NotebookPen,
+  "research-analyses": Beaker,
+  "research-articles": BookOpen,
+  "test-results": Microscope,
+  archived: Archive,
+  companies: Briefcase,
+  diagnostics: ClipboardCheck,
+  education: GraduationCap,
+  logistics: Package,
+  people: Users,
+  prognosis: TrendingUp,
+  questions: HelpCircle,
+  research: Beaker,
+  strategy: Target,
+  summary: ScrollText,
+  treatment: Pill,
+  updates: Calendar,
+  "designing-a-vaccine": Syringe,
+  "molecular-profiling": Dna,
+  "oncology-101": Landmark,
+  "reading-a-tumor": Microscope,
+  "targeted-therapy-modalities": Crosshair,
+};
+
+const FILE_ICONS: Record<string, LucideIcon> = {
+  "1-inbox": Inbox,
+  "2-urgent": Flame,
+  "3-completed": ListChecks,
+};
+
+const FILE_ICONS_BY_SLUG: Record<string, LucideIcon> = {
+  "about/About": Info,
+  "about/Index": Info,
+  "about/Journal": NotebookPen,
+  "about/Log": ScrollText,
+  "about/Terminology": BookOpen,
+  "about/overview/index": Activity,
+  "about/overview/active-workstreams": ListChecks,
+  "about/overview/current-status": ClipboardCheck,
+  "about/overview/for-experts": GraduationCap,
+  "about/overview/for-friends-and-family": Users,
+  "about/overview/for-peers": Users,
+  "about/overview/key-context": Target,
+  "about/overview/test-tracker": Microscope,
+};
 
 function useWikiTree() {
   const fileTreeRow = useStore().store.useQuery(fileTree$) as { treeJson: string } | null;
@@ -77,6 +171,69 @@ function writeExpandedDirectories(slugs: Map<string, boolean>) {
   }
 }
 
+function lastPathSegment(slug: string) {
+  return slug.split("/").filter(Boolean).at(-1) ?? slug;
+}
+
+function defaultDirectoryOpen({
+  activeAncestorSlugs,
+  depth,
+  node,
+}: {
+  activeAncestorSlugs: Set<string>;
+  depth: number;
+  node: WikiNavigationNode;
+}) {
+  return activeAncestorSlugs.has(node.slug) || (depth === 0 && node.slug === "wiki");
+}
+
+function nodeIcon({
+  active,
+  node,
+  open,
+}: {
+  active: boolean;
+  depth: number;
+  node: WikiNavigationNode;
+  open?: boolean;
+}) {
+  const Icon =
+    node.type === "directory"
+      ? SECTION_ICONS[lastPathSegment(node.slug)] ?? (open ? FolderOpen : Folder)
+      : FILE_ICONS_BY_SLUG[node.slug] ?? FILE_ICONS[node.name] ?? FileText;
+  return (
+    <Icon
+      size={ICON_SIZE}
+      className={active ? "wiki-shell-tree-icon active" : "wiki-shell-tree-icon"}
+      aria-hidden="true"
+    />
+  );
+}
+
+function WorkspaceHeader() {
+  return (
+    <div className="wiki-vite-sidebar-workspace" data-test-id="sidebar-workspace-trigger">
+      <span className="wiki-vite-sidebar-logo" aria-hidden="true">D</span>
+      <span>Diana TNBC</span>
+    </div>
+  );
+}
+
+function SidebarFooter() {
+  return (
+    <div className="wiki-vite-sidebar-footer">
+      <Link to="/chat" data-test-id="sidebar-ask-wiki">
+        <MessageCircle size={ICON_SIZE} aria-hidden="true" />
+        <span>Ask wiki</span>
+      </Link>
+      <Link to="/search" data-test-id="sidebar-search">
+        <Search size={ICON_SIZE} aria-hidden="true" />
+        <span>Search</span>
+      </Link>
+    </div>
+  );
+}
+
 function useTreeExpansion(tree: WikiNavigationNode[]) {
   const location = useLocation();
   const locationSlug = slugFromPath(location.pathname);
@@ -110,11 +267,16 @@ export function Sidebar() {
       activeAncestorSlugs={activeAncestorSlugs}
       activeSlug={activeSlug}
       data-test-id="wiki-sidebar"
+      defaultDirectoryOpen={defaultDirectoryOpen}
       expandedSlugs={expandedSlugs}
+      footer={<SidebarFooter />}
+      formatNodeName={(name) => formatFileLabel(name)}
       getFileHref={fileHrefForNode}
-      heading={null}
+      heading={<WorkspaceHeader />}
       onToggleDirectory={toggleDirectory}
+      renderNodeIcon={nodeIcon}
       renderPageLink={renderPageLink}
+      treeTestId="sidebar-tree"
       tree={tree}
     />
   );
@@ -123,7 +285,7 @@ export function Sidebar() {
 function pageTitleFromPath(pathname: string) {
   if (pathname === "/") return "Home";
   const slug = slugFromPath(pathname);
-  return formatTreeNodeName(slug.split("/").at(-1) ?? slug);
+  return formatFileLabel(slug.split("/").at(-1) ?? slug);
 }
 
 function fileHrefForNode(node: WikiNavigationNode) {
@@ -158,6 +320,7 @@ function usePageLinkRenderer() {
         <Link
           className={className}
           aria-current={active ? "page" : undefined}
+          data-selected-file-tree-item={active ? "true" : undefined}
           style={style}
           to={href}
           onClick={(event) => {
@@ -218,13 +381,16 @@ export function MobileNav() {
     <WikiMobileNavigation
       activeAncestorSlugs={activeAncestorSlugs}
       activeSlug={activeSlug}
+      defaultDirectoryOpen={defaultDirectoryOpen}
       expandedSlugs={expandedSlugs}
+      formatNodeName={(name) => formatFileLabel(name)}
       getFileHref={fileHrefForNode}
       onOpenChange={setOpen}
       onToggleDirectory={toggleDirectory}
       open={open}
+      renderNodeIcon={nodeIcon}
       renderPageLink={renderPageLink}
-      title={pageTitleFromPath(pathname)}
+      title={<MarkdownTitle title={pageTitleFromPath(pathname)} />}
       tree={tree}
     />
   );

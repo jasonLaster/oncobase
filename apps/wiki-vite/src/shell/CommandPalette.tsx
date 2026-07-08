@@ -1,6 +1,7 @@
 import { useStore } from "@livestore/react";
 import {
   BugIcon,
+  CalculatorIcon,
   DownloadIcon,
   FileIcon,
   FileTextIcon,
@@ -247,6 +248,13 @@ export function CommandPalette({
       },
       {
         group: "Tools",
+        label: "Medical deduction calculator",
+        description: "Estimate medical expense deduction timing and tax benefit",
+        href: "/tools/medical-deduction",
+        icon: <CalculatorIcon size={15} aria-hidden="true" />,
+      },
+      {
+        group: "Tools",
         label: "Local cache tools",
         description: "Warm, reset, or toggle the optional LiveStore inspector",
         icon: <BugIcon size={15} aria-hidden="true" />,
@@ -399,8 +407,8 @@ export function CommandPalette({
       );
     }
     if (mode === "tags" && tagResults[activeIndex]) {
-      setPageInitialQuery(tagResults[activeIndex].tag);
-      setMode("pages");
+      navigate(`/tags/${encodeURIComponent(tagResults[activeIndex].tag)}`);
+      onOpenChange(false);
     }
     if (mode === "actions" && actionResults[activeIndex]) {
       const action = actionResults[activeIndex];
@@ -544,8 +552,8 @@ export function CommandPalette({
                   key={result.tag}
                   label={result.tag}
                   onClick={() => {
-                    setPageInitialQuery(result.tag);
-                    setMode("pages");
+                    navigate(`/tags/${encodeURIComponent(result.tag)}`);
+                    onOpenChange(false);
                   }}
                 />
               ))

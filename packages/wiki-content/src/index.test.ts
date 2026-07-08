@@ -37,12 +37,12 @@ describe("wiki content contracts", () => {
         ],
       ),
     ).toEqual([
+      ["f", "index"],
       [
         "d",
         "research",
         [["d", "papers", [["f", "index"], ["p", "trial"]]]],
       ],
-      ["f", "index"],
     ]);
   });
 

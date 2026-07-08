@@ -28,15 +28,27 @@ export type WikiTreePageLinkRenderArgs = {
 export type WikiTreeProps = {
   activeAncestorSlugs: Set<string>;
   activeSlug: string;
+  defaultDirectoryOpen?: (args: {
+    activeAncestorSlugs: Set<string>;
+    depth: number;
+    node: WikiNavigationNode;
+  }) => boolean;
   directoryAriaLabel?: (args: {
     formattedName: string;
     node: WikiNavigationNode;
     open: boolean;
   }) => string;
   expandedSlugs: Map<string, boolean>;
+  formatNodeName?: (name: string, node: WikiNavigationNode) => string;
   getFileHref?: (node: WikiNavigationNode) => string;
   onNavigate?: () => void;
   onToggleDirectory: (slug: string, open: boolean) => void;
+  renderNodeIcon?: (args: {
+    active: boolean;
+    depth: number;
+    node: WikiNavigationNode;
+    open?: boolean;
+  }) => ReactNode;
   renderPageLink: (args: WikiTreePageLinkRenderArgs) => ReactNode;
   tree: WikiNavigationNode[];
 };
@@ -100,13 +112,16 @@ export function WikiSidebar({
   activeAncestorSlugs,
   activeSlug,
   className,
+  defaultDirectoryOpen,
   directoryAriaLabel,
   expandedSlugs,
+  formatNodeName,
   footer,
   getFileHref,
   heading = "File tree",
   onNavigate,
   onToggleDirectory,
+  renderNodeIcon,
   renderPageLink,
   tree,
   treeTestId,
@@ -128,11 +143,14 @@ export function WikiSidebar({
         <WikiTree
           activeAncestorSlugs={activeAncestorSlugs}
           activeSlug={activeSlug}
+          defaultDirectoryOpen={defaultDirectoryOpen}
           directoryAriaLabel={directoryAriaLabel}
           expandedSlugs={expandedSlugs}
+          formatNodeName={formatNodeName}
           getFileHref={getFileHref}
           onNavigate={onNavigate}
           onToggleDirectory={onToggleDirectory}
+          renderNodeIcon={renderNodeIcon}
           renderPageLink={renderPageLink}
           tree={tree}
         />
@@ -145,11 +163,14 @@ export function WikiSidebar({
 export function WikiTree({
   activeAncestorSlugs,
   activeSlug,
+  defaultDirectoryOpen,
   directoryAriaLabel,
   expandedSlugs,
+  formatNodeName,
   getFileHref,
   onNavigate,
   onToggleDirectory,
+  renderNodeIcon,
   renderPageLink,
   tree,
 }: WikiTreeProps) {
@@ -160,12 +181,15 @@ export function WikiTree({
           key={treeNodeKey(node)}
           activeAncestorSlugs={activeAncestorSlugs}
           activeSlug={activeSlug}
+          defaultDirectoryOpen={defaultDirectoryOpen}
           directoryAriaLabel={directoryAriaLabel}
           expandedSlugs={expandedSlugs}
+          formatNodeName={formatNodeName}
           getFileHref={getFileHref}
           node={node}
           onNavigate={onNavigate}
           onToggleDirectory={onToggleDirectory}
+          renderNodeIcon={renderNodeIcon}
           renderPageLink={renderPageLink}
         />
       ))}
@@ -181,21 +205,27 @@ type WikiTreeNodeProps = Omit<WikiTreeProps, "tree"> & {
 function WikiTreeNode({
   activeAncestorSlugs,
   activeSlug,
+  defaultDirectoryOpen,
   depth = 0,
   directoryAriaLabel,
   expandedSlugs,
+  formatNodeName = formatTreeNodeName,
   getFileHref,
   node,
   onNavigate,
   onToggleDirectory,
+  renderNodeIcon,
   renderPageLink,
 }: WikiTreeNodeProps) {
   const indent = depth * 12;
-  const formattedName = formatTreeNodeName(node.name);
+  const formattedName = formatNodeName(node.name, node);
 
   if (node.type === "directory") {
     const userOpen = expandedSlugs.get(node.slug);
-    const open = userOpen ?? (depth < 1 || activeAncestorSlugs.has(node.slug));
+    const open =
+      userOpen ??
+      defaultDirectoryOpen?.({ activeAncestorSlugs, depth, node }) ??
+      (depth < 1 || activeAncestorSlugs.has(node.slug));
     const accessibleName = node.badge
       ? `${open ? "Collapse" : "Expand"} ${formattedName} ${node.badge}`
       : `${open ? "Collapse" : "Expand"} ${formattedName}`;
@@ -217,7 +247,7 @@ function WikiTreeNode({
           <span className="wiki-shell-tree-disclosure-text" aria-hidden="true">
             {open ? "▼" : "▶"}
           </span>
-          <ChevronIcon open={open} />
+          {renderNodeIcon?.({ active: false, depth, node, open }) ?? <ChevronIcon open={open} />}
           <span>{formattedName}</span>
           {node.badge ? <span className="wiki-shell-tree-badge tree-badge">{node.badge}</span> : null}
         </button>
@@ -227,13 +257,16 @@ function WikiTreeNode({
                 key={treeNodeKey(child)}
                 activeAncestorSlugs={activeAncestorSlugs}
                 activeSlug={activeSlug}
+                defaultDirectoryOpen={defaultDirectoryOpen}
                 directoryAriaLabel={directoryAriaLabel}
                 depth={depth + 1}
                 expandedSlugs={expandedSlugs}
+                formatNodeName={formatNodeName}
                 getFileHref={getFileHref}
                 node={child}
                 onNavigate={onNavigate}
                 onToggleDirectory={onToggleDirectory}
+                renderNodeIcon={renderNodeIcon}
                 renderPageLink={renderPageLink}
               />
             ))
@@ -252,7 +285,7 @@ function WikiTreeNode({
         rel="noreferrer"
         onClick={onNavigate}
       >
-        <FileIcon />
+        {renderNodeIcon?.({ active: false, depth, node }) ?? <FileIcon />}
         {formattedName}.pdf
       </a>
     );
@@ -261,7 +294,12 @@ function WikiTreeNode({
   const active = node.slug === activeSlug;
   return renderPageLink({
     active,
-    children: formattedName,
+    children: (
+      <>
+        {renderNodeIcon?.({ active, depth, node })}
+        {formattedName}
+      </>
+    ),
     className: cn("wiki-shell-tree-link tree-link", active && "active"),
     node,
     onNavigate,
@@ -364,11 +402,15 @@ export function WikiMobileNavigation({
   activeAncestorSlugs,
   activeSlug,
   className,
+  defaultDirectoryOpen,
+  directoryAriaLabel,
   expandedSlugs,
+  formatNodeName,
   getFileHref,
   onNavigate,
   onOpenChange,
   onToggleDirectory,
+  renderNodeIcon,
   open,
   renderPageLink,
   title,
@@ -393,10 +435,14 @@ export function WikiMobileNavigation({
             <WikiTree
               activeAncestorSlugs={activeAncestorSlugs}
               activeSlug={activeSlug}
+              defaultDirectoryOpen={defaultDirectoryOpen}
+              directoryAriaLabel={directoryAriaLabel}
               expandedSlugs={expandedSlugs}
+              formatNodeName={formatNodeName}
               getFileHref={getFileHref}
               onNavigate={close}
               onToggleDirectory={onToggleDirectory}
+              renderNodeIcon={renderNodeIcon}
               renderPageLink={renderPageLink}
               tree={tree}
             />

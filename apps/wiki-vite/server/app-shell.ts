@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../apps/web/convex/_generated/api.js";
+import redirects from "../../../apps/web/redirects.json";
 import {
   authedCookieName,
   createClient,
@@ -17,6 +18,12 @@ const PASSWORD_GATE_CACHE_TTL_MS = 15_000;
 const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml|map)$/i;
 const LINK_PREVIEW_BOT_RE =
   /\b(slackbot|twitterbot|facebookexternalhit|linkedinbot|discordbot|whatsapp|telegrambot|skypeuripreview|googlebot|bingbot|applebot)\b/i;
+
+type RedirectEntry = {
+  source: string;
+  destination: string;
+  permanent?: boolean;
+};
 
 type PasswordGateEntry = {
   enabled: boolean;
@@ -83,6 +90,29 @@ function isLinkPreviewRequest(request: Request) {
   const accept = request.headers.get("accept") ?? "";
   const userAgent = request.headers.get("user-agent") ?? "";
   return accept.includes("text/html") && LINK_PREVIEW_BOT_RE.test(userAgent);
+}
+
+function matchRedirect(pathname: string, entry: RedirectEntry) {
+  if (!entry.source.includes(":path*")) {
+    return pathname === entry.source ? entry.destination : null;
+  }
+
+  const sourcePrefix = entry.source.slice(0, entry.source.indexOf(":path*"));
+  if (!pathname.startsWith(sourcePrefix)) return null;
+  const rest = pathname.slice(sourcePrefix.length);
+  return entry.destination.replace(":path*", rest);
+}
+
+function legacyRedirectResponse(request: Request) {
+  const url = new URL(request.url);
+  for (const entry of redirects as RedirectEntry[]) {
+    const destination = matchRedirect(url.pathname, entry);
+    if (!destination) continue;
+    const target = new URL(destination, request.url);
+    target.search = url.search;
+    return Response.redirect(target, entry.permanent ? 308 : 307);
+  }
+  return null;
 }
 
 async function isPasswordGateEnabled(client: ConvexHttpClient, siteSlug: string) {
@@ -278,6 +308,8 @@ export function createWikiViteHandler({
   return async function handleWikiViteRequest(request: Request): Promise<Response> {
     const apiResponse = await handleWikiApiRequest(request);
     if (apiResponse) return apiResponse;
+    const redirectResponse = legacyRedirectResponse(request);
+    if (redirectResponse) return redirectResponse;
     const pathname = new URL(request.url).pathname;
     if (isLinkPreviewRequest(request) && !isAppAssetRequest(pathname)) {
       return handleAppShellRequest(request);

@@ -45,6 +45,12 @@ import {
   splitWikilinkAlias,
 } from "./paths";
 
+export {
+  MarkdownTitle,
+  type MarkdownTitleLinkProps,
+} from "./title-react";
+export { markdownTitleToText } from "./title";
+
 export type WikiMarkdownLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
   href?: string;
   children?: ReactNode;

@@ -23,6 +23,16 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(nextErrorOverlay(page)).toHaveCount(0);
   });
 
+  test("serves legacy redirect entries before the SPA catch-all", async ({ request }) => {
+    const response = await request.get("/wiki/education/reading-a-tumor", {
+      maxRedirects: 0,
+    });
+    expect([307, 308]).toContain(response.status());
+    expect(response.headers()["location"]).toContain(
+      "/wiki/education/reading-a-tumor/index",
+    );
+  });
+
   test("shared actions menu exposes command, theme, account, and archive actions", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
@@ -171,6 +181,21 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(documentArticle(page).locator(".tag-row").getByRole("link", { name: "insurance" })).toBeVisible();
     await expect(documentArticle(page).locator(".page-footer")).toContainText("Content hash:");
     await expect(page.getByTestId("scope-switcher").getByRole("link", { name: "Public" })).toHaveClass(/active/);
+  });
+
+  test("tag pages group visible tagged pages", async ({ page }) => {
+    await gotoWiki(page, "/tags/logistics");
+
+    await expect(page.getByTestId("tag-page")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tag: logistics" })).toBeVisible();
+    await expect(page.getByTestId("tag-page").getByRole("link", { name: "Insurance" })).toBeVisible();
+  });
+
+  test("medical deduction tool route loads", async ({ page }) => {
+    await page.goto("/tools/medical-deduction", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByTestId("medical-deduction-page")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Medical Expense Deduction Calculator" })).toBeVisible();
   });
 
   test("local quick switcher opens with Ctrl+K and navigates on Enter", async ({ page }) => {

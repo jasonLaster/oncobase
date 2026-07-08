@@ -31,6 +31,16 @@
       "import": "./src/pii.ts",
       "default": "./src/pii.ts"
     },
+    "./file-labels": {
+      "types": "./src/file-labels.ts",
+      "import": "./src/file-labels.ts",
+      "default": "./src/file-labels.ts"
+    },
+    "./tag-page-groups": {
+      "types": "./src/tag-page-groups.ts",
+      "import": "./src/tag-page-groups.ts",
+      "default": "./src/tag-page-groups.ts"
+    },
     "./embeddings": {
       "types": "./src/embeddings.ts",
       "import": "./src/embeddings.ts",

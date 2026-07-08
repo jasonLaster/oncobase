@@ -42,6 +42,14 @@ const TableExamplesPage = lazy(() =>
 const ChatPage = lazy(() =>
   import("./chat/ChatPage").then((module) => ({ default: module.ChatPage })),
 );
+const TagPage = lazy(() =>
+  import("./pages/TagPage").then((module) => ({ default: module.TagPage })),
+);
+const MedicalDeductionPage = lazy(() =>
+  import("./pages/MedicalDeductionPage").then((module) => ({
+    default: module.MedicalDeductionPage,
+  })),
+);
 
 function PageFallback() {
   return (
@@ -98,6 +106,8 @@ export function App({
                 <Route path="/table-examples" element={<TableExamplesPage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/chat/:id" element={<ChatPage />} />
+                <Route path="/tags/:tag" element={<TagPage />} />
+                <Route path="/tools/medical-deduction" element={<MedicalDeductionPage />} />
                 <Route path="*" element={<WikiPage metrics={metrics} onMetrics={bumpMetrics} />} />
               </Routes>
             </Suspense>
