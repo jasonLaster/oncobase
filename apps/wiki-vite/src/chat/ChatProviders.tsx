@@ -4,6 +4,7 @@ import {
   extractWikiChatSources,
 } from "@oncobase/wiki-shell/wiki-chat";
 import { WikiMarkdown } from "@oncobase/wiki-markdown";
+import { PROD_CONVEX_FALLBACK_URL } from "@oncobase/wiki-content/convex-url";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { useEffect, useMemo, type ReactNode } from "react";
 import { Link } from "react-router";
@@ -11,8 +12,6 @@ import { api } from "../../../../apps/web/convex/_generated/api.js";
 import { publishChatPerfSnapshot } from "../observability";
 import { useWikiSession } from "../wiki-context";
 import { hrefForSlug } from "../wiki-utils";
-
-const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
 
 let convexClient: ConvexReactClient | null = null;
 

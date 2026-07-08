@@ -5,7 +5,7 @@ import {
   resolvePublicConvexUrl,
   resolveServerConvexUrl,
   shouldSkipConvexReads,
-} from "@/lib/convex-url";
+} from "./convex-url";
 
 const originalConvexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 const originalServerConvexUrl = process.env.CONVEX_URL;
@@ -25,7 +25,7 @@ afterEach(() => {
   restoreEnv("NEXT_PUBLIC_USE_PROD_CONVEX", originalUseProdConvex);
 });
 
-describe("Convex URL resolution", () => {
+describe("shared Convex URL resolution", () => {
   test("defaults public and server clients to the production Convex deployment", () => {
     delete process.env.NEXT_PUBLIC_CONVEX_URL;
     delete process.env.CONVEX_URL;
@@ -45,11 +45,20 @@ describe("Convex URL resolution", () => {
     expect(resolveServerConvexUrl()).toBe(PROD_CONVEX_FALLBACK_URL);
   });
 
-  test("allows explicit Convex deployments to override the production default", () => {
-    process.env.NEXT_PUBLIC_CONVEX_URL = "https://example.convex.cloud";
+  test("allows explicit public Convex deployments to override the production default", () => {
+    process.env.NEXT_PUBLIC_CONVEX_URL = "https://public.convex.cloud";
+    process.env.CONVEX_URL = "https://server.convex.cloud";
 
-    expect(resolvePublicConvexUrl()).toBe("https://example.convex.cloud");
-    expect(resolveServerConvexUrl()).toBe("https://example.convex.cloud");
+    expect(resolvePublicConvexUrl()).toBe("https://public.convex.cloud");
+    expect(resolveServerConvexUrl()).toBe("https://public.convex.cloud");
+  });
+
+  test("keeps public resolution on the production fallback when only server URL is set", () => {
+    delete process.env.NEXT_PUBLIC_CONVEX_URL;
+    process.env.CONVEX_URL = "https://server.convex.cloud";
+
+    expect(resolvePublicConvexUrl()).toBe(PROD_CONVEX_FALLBACK_URL);
+    expect(resolveServerConvexUrl()).toBe("https://server.convex.cloud");
   });
 
   test("can explicitly disable the production fallback", () => {
