@@ -89,29 +89,81 @@ function documentsGateway(
   client: ConvexHttpClient,
   siteSlug: string,
   includeSensitive: boolean,
+  canAccessSlug?: (slug: string) => Promise<boolean>,
 ) {
+  const filterPage = async <T extends { slug: string; sensitive?: boolean }>(page: T | null) => {
+    if (!page?.sensitive) return page;
+    return canAccessSlug && (await canAccessSlug(page.slug)) ? page : null;
+  };
+  const filterPages = async <T extends { slug: string; sensitive?: boolean }>(
+    pages: Array<T | null>,
+  ): Promise<T[]> => {
+    const visible: T[] = [];
+    for (const page of pages) {
+      if (!page) continue;
+      if (page.sensitive === false) {
+        visible.push(page);
+        continue;
+      }
+      const doc = page.sensitive === true
+        ? page
+        : await client.query(
+            api.documents.getBySlug,
+            withSiteSlug(siteSlug, { slug: page.slug, includeSensitive: true }),
+          );
+      if (doc?.sensitive !== true) {
+        visible.push(page);
+        continue;
+      }
+      if (canAccessSlug && (await canAccessSlug(page.slug))) {
+        visible.push(page);
+      }
+    }
+    return visible;
+  };
+
   return {
     search: (args: { query: string; limit?: number }) =>
-      client.query(
-        api.documents.search,
-        withSiteSlug(siteSlug, { ...args, includeSensitive }),
-      ),
-    getBySlug: (args: { slug: string }) =>
-      client.query(
-        api.documents.getBySlug,
-        withSiteSlug(siteSlug, { ...args, includeSensitive }),
-      ),
+      client
+        .query(
+          api.documents.search,
+          withSiteSlug(siteSlug, { ...args, includeSensitive }),
+        )
+        .then(filterPages),
+    getBySlug: (args: { slug: string; includeSensitive?: boolean }) =>
+      client
+        .query(
+          api.documents.getBySlug,
+          withSiteSlug(siteSlug, {
+            ...args,
+            includeSensitive: args.includeSensitive ?? includeSensitive,
+          }),
+        )
+        .then(filterPage),
     list: () =>
-      client.action(api.documents.list, withSiteSlug(siteSlug, { includeSensitive })),
+      client
+        .action(api.documents.list, withSiteSlug(siteSlug, { includeSensitive }))
+        .then(filterPages),
     getByTag: (args: { tag: string }) =>
-      client.action(api.documents.getByTag, withSiteSlug(siteSlug, args)),
-    listTags: () =>
-      client.action(api.documents.listTags, withSiteSlug(siteSlug, {})),
+      client
+        .action(
+          api.documents.getByTag,
+          withSiteSlug(siteSlug, { ...args, includeSensitive }),
+        )
+        .then(filterPages),
+    listTags: async () => {
+      const pages = await client
+        .action(api.documents.list, withSiteSlug(siteSlug, { includeSensitive }))
+        .then(filterPages);
+      return Array.from(new Set(pages.flatMap((page) => page.tags))).sort();
+    },
     vectorSearch: (args: { embedding: number[]; limit?: number }) =>
-      client.action(
-        api.documents.vectorSearch,
-        withSiteSlug(siteSlug, { ...args, includeSensitive }),
-      ),
+      client
+        .action(
+          api.documents.vectorSearch,
+          withSiteSlug(siteSlug, { ...args, includeSensitive }),
+        )
+        .then(filterPages),
   };
 }
 
@@ -138,8 +190,9 @@ async function loadSystemPrompt(
   client: ConvexHttpClient,
   siteSlug: string,
   includeSensitive: boolean,
+  canAccessSlug?: (slug: string) => Promise<boolean>,
 ) {
-  const documents = documentsGateway(client, siteSlug, includeSensitive);
+  const documents = documentsGateway(client, siteSlug, includeSensitive, canAccessSlug);
   const piiPatterns = await getPiiPatterns(client, siteSlug);
   const redact = (value: string) => applyPiiRedactions(value, { patterns: piiPatterns });
   const [indexDoc, diagnosisDoc] = await Promise.all([
@@ -161,9 +214,13 @@ async function buildSystemPrompt(
   client: ConvexHttpClient,
   siteSlug: string,
   includeSensitive: boolean,
+  canAccessSlug?: (slug: string) => Promise<boolean>,
+  accessCacheKey = "public",
 ) {
-  const cacheKey = `${siteSlug}:${includeSensitive ? "session" : "public"}`;
-  return getCachedSystemPrompt(cacheKey, () => loadSystemPrompt(client, siteSlug, includeSensitive));
+  const cacheKey = `${siteSlug}:${includeSensitive ? "session" : "public"}:${accessCacheKey}`;
+  return getCachedSystemPrompt(cacheKey, () =>
+    loadSystemPrompt(client, siteSlug, includeSensitive, canAccessSlug),
+  );
 }
 
 export async function handleChatRequest({
@@ -171,11 +228,15 @@ export async function handleChatRequest({
   client,
   siteSlug,
   includeSensitive,
+  canAccessSlug,
+  accessCacheKey,
 }: {
   request: Request;
   client: ConvexHttpClient;
   siteSlug: string;
   includeSensitive: boolean;
+  canAccessSlug?: (slug: string) => Promise<boolean>;
+  accessCacheKey?: string;
 }) {
   installClosedControllerGuard();
 
@@ -212,7 +273,7 @@ export async function handleChatRequest({
   const modelMessages = await convertToModelMessages(messages);
   const convId = parsedBody.conversationId as Id<"conversations"> | undefined;
   const runId = generateRunId();
-  const documents = documentsGateway(client, siteSlug, includeSensitive);
+  const documents = documentsGateway(client, siteSlug, includeSensitive, canAccessSlug);
 
   if (convId) {
     await client
@@ -252,7 +313,13 @@ export async function handleChatRequest({
     runId,
     siteSlug,
   });
-  const systemPrompt = await buildSystemPrompt(client, siteSlug, includeSensitive);
+  const systemPrompt = await buildSystemPrompt(
+    client,
+    siteSlug,
+    includeSensitive,
+    canAccessSlug,
+    accessCacheKey,
+  );
   const piiPatterns = await getPiiPatterns(client, siteSlug);
   const redact = (value: string) => applyPiiRedactions(value, { patterns: piiPatterns });
 
@@ -291,17 +358,20 @@ export async function handleChatRequest({
 
           for (const results of textResults) {
             for (const result of results) {
+              if (!result?.slug || !result.title || !Array.isArray(result.tags)) continue;
               if (seen.has(result.slug)) continue;
               seen.add(result.slug);
               merged.push({
-                ...result,
+                slug: result.slug,
                 title: redact(result.title),
+                tags: result.tags,
                 excerpt: result.excerpt ? redact(result.excerpt) : undefined,
               });
             }
           }
 
           for (const result of vectorResults) {
+            if (!result?.slug || !result.title || !Array.isArray(result.tags)) continue;
             if (seen.has(result.slug)) continue;
             seen.add(result.slug);
             merged.push({

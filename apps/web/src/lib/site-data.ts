@@ -364,6 +364,39 @@ export function createSiteData(
           ...args,
           siteSlug: scope.siteSlug,
         } as any),
+      getAllowedSlugs: async (args: { userId: string }) => {
+        const allowed: string[] = [];
+        let cursor: string | null = null;
+        let isDone = false;
+
+        while (!isDone) {
+          const result = (await withPreviewIncludeSensitiveFallback(
+            { cursor, numItems: 100, includeSensitive: true },
+            (nextArgs) =>
+              convex.query(api.documents.listManifestPage, nextArgs),
+          )) as {
+            page: Array<{ slug: string; sensitive?: boolean }>;
+            isDone: boolean;
+            continueCursor: string | null;
+          };
+          const checks = await Promise.all(
+            result.page.map(async (page) => {
+              if (page.sensitive !== true) return null;
+              const canAccess = await convex.query((api as any).access.canUserAccessSlug, {
+                userId: args.userId,
+                slug: page.slug,
+                siteSlug: scope.siteSlug,
+              } as any);
+              return canAccess ? page.slug : null;
+            }),
+          );
+          allowed.push(...checks.filter((slug): slug is string => slug !== null));
+          isDone = result.isDone;
+          cursor = result.continueCursor;
+        }
+
+        return allowed;
+      },
     },
   };
 }

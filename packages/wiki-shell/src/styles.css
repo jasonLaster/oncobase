@@ -944,11 +944,14 @@ html[data-initial-sidebar-state="collapsed"]
 }
 
 .badge {
+  align-items: center;
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--muted);
+  display: inline-flex;
   font-size: 0.6875rem;
   font-weight: 650;
+  gap: 4px;
   padding: 1px 7px;
 }
 
@@ -960,6 +963,10 @@ html[data-initial-sidebar-state="collapsed"]
 .badge.sensitive {
   border-color: color-mix(in srgb, var(--red) 35%, white);
   color: var(--red);
+}
+
+.wiki-shell-badge-lock {
+  flex: 0 0 auto;
 }
 
 .wiki-shell-search-page {

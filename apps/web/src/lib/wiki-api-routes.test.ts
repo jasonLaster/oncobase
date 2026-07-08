@@ -81,6 +81,12 @@ function mockSiteData() {
   return {
     siteSlug: "diana",
     manifestPrioritySlugs,
+    access: {
+      canUserAccessSlug: async ({ slug }: { userId: string; slug: string }) =>
+        mockPages.some((page) => page.slug === slug),
+      getAllowedSlugs: async () =>
+        mockPages.filter((page) => page.sensitive).map((page) => page.slug),
+    },
     documents: {
       listManifestPage: async ({
         cursor,
