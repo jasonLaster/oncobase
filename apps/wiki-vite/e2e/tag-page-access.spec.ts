@@ -6,7 +6,9 @@ import { createRequire } from "node:module";
 const { api } = createRequire(import.meta.url)(
   "../../web/convex/_generated/api.js",
 ) as typeof import("../../web/convex/_generated/api");
-import { cleanupSiteUsers } from "../../web/e2e/helpers";
+const { cleanupSiteUsers } = createRequire(import.meta.url)(
+  "../../web/e2e/helpers.ts",
+) as typeof import("../../web/e2e/helpers");
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 const RUN_NONCE = `${Date.now().toString(36)}${crypto.randomBytes(2).toString("hex")}`;
