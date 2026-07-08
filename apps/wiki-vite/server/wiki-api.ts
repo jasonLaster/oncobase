@@ -20,11 +20,23 @@ import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
 import { handleAiSearchRequest } from "./ai-search.js";
 import { handleChatRequest } from "./chat-route.js";
 import {
+  createRole,
+  deleteRole,
+  deleteUsers,
+  getAccessPagesData,
+  getAccessUsersAndRoles,
+  requireAdminUser,
+  setUserRole,
+  setUsersRole,
+  updateRole,
+} from "./admin-data.js";
+import {
   handleEpicAuthorizeRequest,
   handleEpicCallbackRequest,
   handleEpicSyncRequest,
   isAdminSessionUser,
 } from "./epic-fhir.js";
+import { handlePostDeployRequest, handlePublishRequest } from "./publish-api.js";
 
 const DEFAULT_SITE_SLUG = "diana";
 const HOST_CACHE_TTL_MS = 15_000;
@@ -1236,11 +1248,125 @@ async function handleToolsRequest(
   }
 }
 
+async function requireAdminForRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  return requireAdminUser({
+    client,
+    siteSlug,
+    sessionUser: await getSessionUser(request, client, siteSlug),
+  });
+}
+
+async function handleAdminRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  const adminUser = await requireAdminForRequest(request, client, siteSlug);
+  if (!adminUser) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const url = new URL(request.url);
+  if (request.method === "GET" && url.pathname === "/api/admin/session") {
+    return Response.json(
+      {
+        user: {
+          _id: adminUser._id,
+          ...publicSessionUser(adminUser),
+        },
+        isAdmin: true,
+      },
+      { headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" } },
+    );
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/admin/access") {
+    const view = url.searchParams.get("view");
+    if (view === "users") {
+      return Response.json(await getAccessUsersAndRoles(client, siteSlug), {
+        headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" },
+      });
+    }
+    return Response.json(await getAccessPagesData(client, siteSlug), {
+      headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" },
+    });
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/admin/roles") {
+    const body = await request.json();
+    if (typeof body.roleId === "string") {
+      return Response.json(await updateRole(client, siteSlug, body.roleId, body.values));
+    }
+    return Response.json(await createRole(client, siteSlug, body.values));
+  }
+
+  if (request.method === "DELETE" && url.pathname === "/api/admin/roles") {
+    const body = await request.json();
+    return Response.json(await deleteRole(client, siteSlug, String(body.roleId ?? "")));
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/admin/users/role") {
+    const body = await request.json();
+    if (Array.isArray(body.userIds)) {
+      return Response.json(
+        await setUsersRole(
+          client,
+          siteSlug,
+          body.userIds.map(String),
+          typeof body.roleId === "string" ? body.roleId : undefined,
+        ),
+      );
+    }
+    return Response.json(
+      await setUserRole(
+        client,
+        siteSlug,
+        String(body.userId ?? ""),
+        typeof body.roleId === "string" ? body.roleId : undefined,
+      ),
+    );
+  }
+
+  if (request.method === "DELETE" && url.pathname === "/api/admin/users") {
+    const body = await request.json();
+    return Response.json(
+      await deleteUsers(
+        client,
+        siteSlug,
+        Array.isArray(body.userIds) ? body.userIds.map(String) : [],
+      ),
+    );
+  }
+
+  if (request.method === "GET" && url.pathname.startsWith("/api/admin/pii/")) {
+    const slug = decodeURIComponent(url.pathname.slice("/api/admin/pii/".length));
+    const token = sessionTokenFromCookie(request.headers.get("cookie") ?? "");
+    const page = await client.query(
+      api.documents.getBySlug,
+      withSiteSlug(siteSlug, {
+        slug,
+        includeSensitive: true,
+        rawContentSessionTokenHash: token ? hashSessionToken(token) : undefined,
+      }),
+    );
+    if (!page) return new Response("Not found", { status: 404 });
+    return Response.json(page, {
+      headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" },
+    });
+  }
+
+  return new Response("Not found", { status: 404 });
+}
+
 export function createWikiApiHandler(client = createClient()) {
   return async function handleWikiApiRequest(request: Request): Promise<Response | null> {
     const pathname = new URL(request.url).pathname;
     const handled =
       pathname.startsWith("/api/wiki/") ||
+      pathname.startsWith("/api/admin/") ||
+      pathname.startsWith("/api/publish/") ||
       pathname === "/api/login" ||
       pathname === "/api/auth/session" ||
       pathname === "/api/auth/signin" ||
@@ -1253,6 +1379,7 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/download" ||
       pathname === "/api/file" ||
       pathname === "/api/page-copy" ||
+      pathname === "/api/post-deploy" ||
       pathname === "/api/integrations/epic/authorize" ||
       pathname === "/api/integrations/epic/callback" ||
       pathname === "/api/integrations/epic/sync";
@@ -1286,12 +1413,35 @@ export function createWikiApiHandler(client = createClient()) {
       return new Response(null, { status: 204 });
     }
 
+    if (pathname.startsWith("/api/publish/")) {
+      return handlePublishRequest({
+        request,
+        client,
+        step: pathname.slice("/api/publish/".length),
+      });
+    }
+
+    if (pathname === "/api/post-deploy") {
+      return handlePostDeployRequest(request);
+    }
+
+    if (pathname.startsWith("/api/admin/")) {
+      return handleAdminRequest(request, client, siteSlug);
+    }
+
     if (pathname === "/api/wiki/session") {
       return createWikiSessionResponse(request, context);
     }
 
     if (pathname === "/api/wiki/manifest") {
-      return createWikiManifestResponse(request, context);
+      const response = await createWikiManifestResponse(request, context);
+      const headers = new Headers(response.headers);
+      headers.set("Cache-Control", "no-store");
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
     }
 
     if (pathname === "/api/wiki/pages") {
