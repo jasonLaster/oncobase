@@ -156,7 +156,7 @@ function DiagnosticStudyRow({
             menuId={`comparisons-${study.id}`}
           />
         ) : (
-          <span className="diagnostics-empty-cell">-</span>
+          <span className="diagnostics-empty-cell">—</span>
         )}
       </td>
       <td>
@@ -227,11 +227,11 @@ function DiagnosticsMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={buttonLabel}
+        title={buttonLabel}
         onClick={() => setOpen((value) => !value)}
         type="button"
       >
         {icon}
-        <span>{buttonLabel}</span>
       </button>
       {open ? (
         <span className="diagnostics-menu-popover" id={menuId} role="menu">

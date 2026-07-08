@@ -1,6 +1,8 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { parseDicom } from "dicom-parser";
+import dicomParser from "dicom-parser";
+
+const { parseDicom } = dicomParser;
 
 const DICOM_EXTENSIONS = new Set([".dcm", ".dicom", ".ima"]);
 const SKIPPED_DIRECTORIES = new Set([".git", ".next", "node_modules"]);

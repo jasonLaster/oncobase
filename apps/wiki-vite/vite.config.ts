@@ -1,7 +1,8 @@
 import { livestoreDevtoolsPlugin } from "@livestore/devtools-vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig } from "vite";
+import { wikiApiPlugin } from "./server/wiki-api.ts";
 
 const apiOrigin = process.env.VITE_WIKI_API_ORIGIN ?? "";
 
@@ -48,32 +49,7 @@ function vendorChunk(id: string): string | null {
   return null;
 }
 
-function lazyWikiApiPlugin(): Plugin {
-  return {
-    name: "diana-wiki-api-lazy",
-    async configureServer(server) {
-      const importServer = new Function("specifier", "return import(specifier)") as (
-        specifier: string,
-      ) => Promise<typeof import("./server/wiki-api")>;
-      const { createWikiApiHandler, requestFromIncoming, sendWebResponse } =
-        await importServer("./server/wiki-api");
-      const handleWikiApiRequest = createWikiApiHandler();
-      server.middlewares.use(async (req, res, next) => {
-        try {
-          const request = await requestFromIncoming(req);
-          const response = await handleWikiApiRequest(request);
-          if (!response) return next();
-          await sendWebResponse(res, response);
-        } catch (error) {
-          server.config.logger.error(`[wiki-api] ${String(error)}`);
-          await sendWebResponse(res, Response.json({ error: "Wiki API failed" }, { status: 500 }));
-        }
-      });
-    },
-  };
-}
-
-export default defineConfig(({ command }) => ({
+export default defineConfig({
   build: {
     // Keep all styles in a single entry stylesheet. Per-chunk CSS files are
     // preloaded via `<link rel="stylesheet">` before a lazy chunk executes, and
@@ -121,9 +97,9 @@ export default defineConfig(({ command }) => ({
   },
   worker: { format: "es" },
   plugins: [
-    !apiOrigin && command === "serve" ? lazyWikiApiPlugin() : null,
+    !apiOrigin ? wikiApiPlugin() : null,
     tailwindcss(),
     react(),
     livestoreDevtoolsPlugin({ schemaPath: "./src/livestore/schema.ts" }),
   ],
-}));
+});
