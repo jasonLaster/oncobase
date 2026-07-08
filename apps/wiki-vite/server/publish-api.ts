@@ -31,6 +31,39 @@ type AssetChange = {
   reason: AssetChangeReason;
 };
 
+type DocumentHashPage = {
+  page: Array<{
+    slug: string;
+    contentHash?: string;
+    hasRawContent?: boolean;
+    hashFunctionVersion?: number;
+    sensitive?: boolean;
+  }>;
+  isDone: boolean;
+  continueCursor: string | null;
+};
+
+type AssetHashPage = {
+  page: Array<{
+    kind: "pdf" | "file";
+    path: string;
+    contentHash?: string;
+    blobUrl?: string;
+  }>;
+  isDone: boolean;
+  continueCursor: string | null;
+};
+
+type PageWithContentPage = {
+  page: Array<{
+    slug: string;
+    contentHash?: string | null;
+    [key: string]: unknown;
+  }>;
+  isDone: boolean;
+  continueCursor: string | null;
+};
+
 function hashToken(token: string) {
   return `sha256:${crypto.createHash("sha256").update(token).digest("hex")}`;
 }
@@ -130,7 +163,7 @@ async function currentDocumentHashes(client: ConvexHttpClient, siteSlug: string)
   let cursor: string | null = null;
   let isDone = false;
   while (!isDone) {
-    const page = await client.query(
+    const page: DocumentHashPage = await client.query(
       api.documents.embeddingStatusPage,
       withSiteSlug(siteSlug, { cursor, numItems: 100, includeSensitive: true }),
     );
@@ -161,7 +194,7 @@ async function currentAssetHashes(client: ConvexHttpClient, siteSlug: string) {
   let cursor: string | null = null;
   let isDone = false;
   while (!isDone) {
-    const page = await client.query(
+    const page: AssetHashPage = await client.query(
       api.documents.assetHashesPage,
       withSiteSlug(siteSlug, { cursor, numItems: 1000, includeSensitive: true }),
     );
@@ -391,7 +424,7 @@ export async function handlePublishRequest({
       let docCursor: string | null = null;
       let docsDone = false;
       while (!docsDone) {
-        const page = await client.query(
+        const page: PageWithContentPage = await client.query(
           api.documents.listPageWithContent,
           withSiteSlug(siteSlug, {
             cursor: docCursor,
@@ -414,7 +447,7 @@ export async function handlePublishRequest({
       let assetCursor: string | null = null;
       let assetsDone = false;
       while (!assetsDone) {
-        const page = await client.query(
+        const page: AssetHashPage = await client.query(
           api.documents.assetHashesPage,
           withSiteSlug(siteSlug, {
             cursor: assetCursor,

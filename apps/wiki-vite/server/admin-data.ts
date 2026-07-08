@@ -42,6 +42,17 @@ export type AccessPreviewPage = {
   sourceSensitive?: boolean;
 };
 
+type RoleMutationValues = {
+  name: string;
+  description?: string | null;
+  pathPatterns?: string[];
+  includePathPatterns?: string[];
+  excludePathPatterns?: string[];
+  includeTags?: string[];
+  excludeTags?: string[];
+  emailPatterns?: string[];
+};
+
 const hiddenUserDomains = new Set(["example.test", "example.com"]);
 
 export function normalizeRole(role: AccessRole) {
@@ -168,12 +179,28 @@ function readSensitiveMarkdownSlugs(dir: string, basePath = ""): string[] {
   return slugs;
 }
 
+function roleMutationArgs(values: RoleMutationValues) {
+  return {
+    name: values.name,
+    description: values.description ?? undefined,
+    pathPatterns: values.pathPatterns,
+    includePathPatterns: values.includePathPatterns,
+    excludePathPatterns: values.excludePathPatterns,
+    includeTags: values.includeTags,
+    excludeTags: values.excludeTags,
+    emailPatterns: values.emailPatterns,
+  };
+}
+
 export async function createRole(
   client: ConvexHttpClient,
   siteSlug: string,
-  values: Omit<AccessRole, "_id" | "permissions" | "pathPatterns">,
+  values: RoleMutationValues,
 ) {
-  await client.mutation(api.access.createRole, withSiteSlug(siteSlug, values));
+  await client.mutation(
+    api.access.createRole,
+    withSiteSlug(siteSlug, roleMutationArgs(values)),
+  );
   return { ok: true };
 }
 
@@ -181,11 +208,14 @@ export async function updateRole(
   client: ConvexHttpClient,
   siteSlug: string,
   roleId: string,
-  values: Omit<AccessRole, "_id" | "permissions" | "pathPatterns">,
+  values: RoleMutationValues,
 ) {
   await client.mutation(
     api.access.updateRole,
-    withSiteSlug(siteSlug, { roleId, ...values }),
+    withSiteSlug(siteSlug, {
+      roleId: roleId as Id<"roles">,
+      ...roleMutationArgs(values),
+    }),
   );
   return { ok: true };
 }
@@ -195,7 +225,10 @@ export async function deleteRole(
   siteSlug: string,
   roleId: string,
 ) {
-  await client.mutation(api.access.deleteRole, withSiteSlug(siteSlug, { roleId }));
+  await client.mutation(
+    api.access.deleteRole,
+    withSiteSlug(siteSlug, { roleId: roleId as Id<"roles"> }),
+  );
   return { ok: true };
 }
 
@@ -207,7 +240,10 @@ export async function setUserRole(
 ) {
   await client.mutation(
     api.access.setRoleForUser,
-    withSiteSlug(siteSlug, { userId, roleId: roleId || undefined }),
+    withSiteSlug(siteSlug, {
+      userId: userId as Id<"users">,
+      roleId: roleId ? (roleId as Id<"roles">) : undefined,
+    }),
   );
   return { ok: true };
 }
@@ -220,7 +256,10 @@ export async function setUsersRole(
 ) {
   await client.mutation(
     api.access.setRoleForUsers,
-    withSiteSlug(siteSlug, { userIds, roleId: roleId || undefined }),
+    withSiteSlug(siteSlug, {
+      userIds: userIds.map((userId) => userId as Id<"users">),
+      roleId: roleId ? (roleId as Id<"roles">) : undefined,
+    }),
   );
   return { ok: true };
 }
@@ -230,6 +269,11 @@ export async function deleteUsers(
   siteSlug: string,
   userIds: string[],
 ) {
-  await client.mutation(api.access.deleteUsers, withSiteSlug(siteSlug, { userIds }));
+  await client.mutation(
+    api.access.deleteUsers,
+    withSiteSlug(siteSlug, {
+      userIds: userIds.map((userId) => userId as Id<"users">),
+    }),
+  );
   return { ok: true };
 }
