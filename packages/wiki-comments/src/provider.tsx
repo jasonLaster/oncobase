@@ -9,8 +9,8 @@ import {
   parseGuestUser,
   serializeGuestUser,
   type GuestUser,
-} from "./guest-user";
-import { formatLiveblocksUserId } from "./user-format";
+} from "./guest-user.ts";
+import { formatLiveblocksUserId } from "./user-format.ts";
 
 const FALLBACK_PUBLIC_API_KEY =
   "pk_dev_HXZfdhC5pUVp1uUoX4mp31GEwMiYRKXXF5uoiZugexxsNV65JmHUqcRN__UFGQ05";

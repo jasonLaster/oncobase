@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import {
   LiveblocksProviderShell,
   type LiveblocksProviderShellProps,
-} from "./provider";
+} from "./provider.tsx";
 
 export function LiveblocksRoom({
   roomId,

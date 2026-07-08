@@ -7,8 +7,8 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { getCommentPlainText } from "./threads";
-import { formatLiveblocksUserId } from "./user-format";
+import { getCommentPlainText } from "./threads.ts";
+import { formatLiveblocksUserId } from "./user-format.ts";
 
 type ServerComment = {
   id: string;

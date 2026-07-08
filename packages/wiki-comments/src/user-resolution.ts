@@ -1,8 +1,8 @@
-import type { GuestUser } from "./guest-user";
+import type { GuestUser } from "./guest-user.ts";
 import {
   formatLiveblocksUserId,
   type ResolvedLiveblocksUser,
-} from "./user-format";
+} from "./user-format.ts";
 
 const CONVEX_USER_ID_RE = /^[a-z0-9]{32}$/;
 

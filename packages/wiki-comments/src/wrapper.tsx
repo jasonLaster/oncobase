@@ -1,11 +1,11 @@
 "use client";
 
 import { type ReactNode, useEffect, useState, lazy, Suspense } from "react";
-import { OutlineShell, commentsEnabled } from "./index";
-import type { LiveblocksProviderShellProps } from "./provider";
+import { OutlineShell, commentsEnabled } from "./index.tsx";
+import type { LiveblocksProviderShellProps } from "./provider.tsx";
 
 const ActiveComments = lazy(
-  () => import("./index").then((m) => ({ default: m.ActiveDocumentComments }))
+  () => import("./index.tsx").then((m) => ({ default: m.ActiveDocumentComments }))
 );
 
 export function DocumentComments({

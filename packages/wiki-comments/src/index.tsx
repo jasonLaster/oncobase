@@ -14,15 +14,15 @@ import {
 import type { ThreadData } from "@liveblocks/client";
 import { useThreads } from "@liveblocks/react";
 import { Comment, Composer, Thread } from "@liveblocks/react-ui";
-import { cn } from "./utils";
-import { LiveblocksRoom } from "./room";
+import { cn } from "./utils.ts";
+import { LiveblocksRoom } from "./room.tsx";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "./menu";
-import type { LiveblocksProviderShellProps } from "./provider";
+} from "./menu.tsx";
+import type { LiveblocksProviderShellProps } from "./provider.tsx";
 import {
   buildCommentListItems,
   createThreadMetadata,
@@ -31,7 +31,7 @@ import {
   type CommentThreadMetadata,
   type SelectionAnchor,
   sortThreads,
-} from "./threads";
+} from "./threads.ts";
 
 type HighlightRect = {
   id: string;
@@ -1720,4 +1720,4 @@ export function ActiveDocumentComments({
 }
 
 // Re-export the wrapper component for callers using the package barrel.
-export { DocumentComments } from "./wrapper";
+export { DocumentComments } from "./wrapper.tsx";

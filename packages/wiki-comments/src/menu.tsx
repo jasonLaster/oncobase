@@ -11,7 +11,7 @@ import {
   type HTMLAttributes,
   type ReactNode,
 } from "react";
-import { cn } from "./utils";
+import { cn } from "./utils.ts";
 
 type DropdownMenuContextValue = {
   contentId: string;
