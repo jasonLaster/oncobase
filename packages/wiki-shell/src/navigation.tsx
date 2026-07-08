@@ -241,7 +241,7 @@ function WikiTreeNode({
           className="wiki-shell-tree-directory tree-directory"
           type="button"
           title={`${open ? "Collapse" : "Expand"} ${formattedName}`}
-          onClick={() => onToggleDirectory(node.slug, open)}
+          onClick={() => onToggleDirectory(node.slug, !open)}
           style={{ paddingLeft: indent + 8 }}
         >
           <span className="wiki-shell-tree-disclosure-text" aria-hidden="true">

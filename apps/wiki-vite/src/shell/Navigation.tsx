@@ -243,10 +243,10 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
     () => collectActiveAncestors(tree, activeSlug),
     [activeSlug, tree],
   );
-  const toggleDirectory = useCallback((slug: string, open: boolean) => {
+  const toggleDirectory = useCallback((slug: string, nextOpen: boolean) => {
     setExpandedSlugs((current) => {
       const next = new Map(current);
-      next.set(slug, !open);
+      next.set(slug, nextOpen);
       writeExpandedDirectories(next);
       return next;
     });
