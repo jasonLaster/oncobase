@@ -16,6 +16,7 @@ import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
 import {
   ChatRequestSchema,
   WIKI_CHAT_SYSTEM_PROMPT_BASE,
+  chatTextModel,
   compactChatToolResult,
   generateChatSearchPatterns,
 } from "@oncobase/wiki-content/chat-route";
@@ -25,7 +26,6 @@ import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
 
 const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 });
 const generateRunId = createIdGenerator({ prefix: "run", size: 16 });
-const TEXT_MODEL = "openai/gpt-5.4-mini";
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const CANCEL_POLL_INTERVAL_MS = 1000;
 const PII_PATTERN_CACHE_TTL_MS = 15_000;
@@ -257,7 +257,7 @@ export async function handleChatRequest({
   const redact = (value: string) => applyPiiRedactions(value, { patterns: piiPatterns });
 
   const result = streamText({
-    model: TEXT_MODEL,
+    model: chatTextModel(),
     maxOutputTokens: 50000,
     system: systemPrompt,
     messages: modelMessages,

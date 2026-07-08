@@ -12,7 +12,6 @@ import { z } from "zod";
 import { ConvexHttpClient } from "convex/browser";
 import type { Id } from "@convex/_generated/dataModel";
 import { embed } from "@/lib/embeddings";
-import { fastTextModel } from "@/lib/ai";
 import { applyPiiRedactions } from "@/lib/pii-redaction";
 import { resolveServerConvexUrl } from "@/lib/convex-url";
 import {
@@ -22,6 +21,7 @@ import {
 import {
   ChatRequestSchema,
   WIKI_CHAT_SYSTEM_PROMPT_BASE,
+  chatTextModel,
   compactChatToolResult,
   generateChatSearchPatterns,
 } from "@oncobase/wiki-content/chat-route";
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
   const systemPrompt = await buildSystemPrompt(siteSlug);
 
   const result = streamText({
-    model: fastTextModel(), // see scripts/eval-chat.ts for model leaderboard
+    model: chatTextModel(), // prod: GLM 5.2; preview/dev: DeepSeek for Playwright.
     maxOutputTokens: 50000,
     system: systemPrompt,
     messages: modelMessages,

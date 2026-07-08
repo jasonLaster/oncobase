@@ -1,5 +1,22 @@
 import { z } from "zod";
 
+export const PRODUCTION_CHAT_MODEL = "zai/glm-5.2";
+export const NON_PRODUCTION_CHAT_MODEL = "deepseek/deepseek-v4-flash";
+
+export type ChatTextModel =
+  | typeof PRODUCTION_CHAT_MODEL
+  | typeof NON_PRODUCTION_CHAT_MODEL;
+
+type ChatModelEnvironment = Record<string, string | undefined>;
+
+export function chatTextModel(
+  env: ChatModelEnvironment = process.env,
+): ChatTextModel {
+  return env.VERCEL_ENV === "production"
+    ? PRODUCTION_CHAT_MODEL
+    : NON_PRODUCTION_CHAT_MODEL;
+}
+
 /**
  * Canonical wiki chat system prompt used by both the Next chat route and
  * the Vite standalone chat route. Hosts that need a different prompt should

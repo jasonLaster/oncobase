@@ -1,9 +1,26 @@
 import { describe, expect, test } from "bun:test";
 import {
   ChatRequestSchema,
+  chatTextModel,
   compactChatToolResult,
   generateChatSearchPatterns,
 } from "./chat-route";
+
+describe("chatTextModel", () => {
+  test("uses GLM 5.2 in production", () => {
+    expect(chatTextModel({ VERCEL_ENV: "production" })).toBe("zai/glm-5.2");
+  });
+
+  test("uses DeepSeek outside production", () => {
+    expect(chatTextModel({ VERCEL_ENV: "preview" })).toBe(
+      "deepseek/deepseek-v4-flash",
+    );
+    expect(chatTextModel({ VERCEL_ENV: "development" })).toBe(
+      "deepseek/deepseek-v4-flash",
+    );
+    expect(chatTextModel({})).toBe("deepseek/deepseek-v4-flash");
+  });
+});
 
 describe("ChatRequestSchema", () => {
   test("accepts a minimal valid body", () => {
