@@ -2,7 +2,7 @@ import {
   seriesPairsFromSeriesSummary,
   type DiagnosticComparisonsPayload,
   type SeriesSummaryInput,
-} from "../comparisons";
+} from "../comparisons.ts";
 
 const leftStudyId = "diagnostic-2026-04-01-breast-mri";
 const rightStudyId = "diagnostic-2026-06-26-breast-mri";

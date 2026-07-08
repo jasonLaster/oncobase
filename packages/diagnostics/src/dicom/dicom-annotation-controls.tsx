@@ -2,13 +2,13 @@
 
 import type { ReactNode } from "react";
 
-import { Button, cn } from "./ui";
+import { Button, cn } from "./ui.tsx";
 
 import {
   annotationColors,
   annotationKindLabel,
   type AnnotationKind,
-} from "./dicom-annotation-model";
+} from "./dicom-annotation-model.ts";
 
 export function AnnotationToolbarButton({
   active,

@@ -23,25 +23,25 @@ import {
 } from "lucide-react";
 import useSWR from "swr";
 
-import { Badge, Button, cn } from "./ui";
+import { Badge, Button, cn } from "./ui.tsx";
 import {
   DIAGNOSTIC_COMPARISON_SET_PARAM,
   type DiagnosticComparisonManifest,
   type DiagnosticComparisonsPayload,
   type SeriesPair,
   type SeriesSelector,
-} from "./comparisons";
+} from "./comparisons.ts";
 import {
   findMatchedImageIndex,
   type ComparisonSide,
   type MatchResult,
   type MatchState,
-} from "./comparison-matching";
+} from "./comparison-matching.ts";
 import {
   DIAGNOSTIC_STUDY_SET_PARAM,
   type DiagnosticStudiesPayload,
   type DiagnosticStudy,
-} from "../studies";
+} from "../studies/index.ts";
 
 type CornerstoneCore = typeof import("@cornerstonejs/core");
 type CornerstoneTools = typeof import("@cornerstonejs/tools");

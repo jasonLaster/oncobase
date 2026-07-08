@@ -33,14 +33,14 @@ import {
 import useSWR from "swr";
 
 import { copyTextToClipboard } from "@oncobase/wiki-shell";
-import { Badge, Button, cn, setResizableSidebarWidth } from "./ui";
+import { Badge, Button, cn, setResizableSidebarWidth } from "./ui.tsx";
 import {
   DIAGNOSTIC_STUDY_SET_PARAM,
   getPrimaryReportLink,
   type DiagnosticStudiesPayload,
   type DiagnosticStudy,
-} from "../studies";
-import { DicomAnnotationLayer } from "./dicom-annotation-layer";
+} from "../studies/index.ts";
+import { DicomAnnotationLayer } from "./dicom-annotation-layer.tsx";
 
 type CornerstoneCore = typeof import("@cornerstonejs/core");
 type CornerstoneTools = typeof import("@cornerstonejs/tools");

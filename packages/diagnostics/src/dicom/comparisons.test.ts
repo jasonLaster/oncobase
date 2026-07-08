@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { aprilJuneMriSeriesSummary } from "./fixtures/diagnostic-comparisons-seed";
+import { aprilJuneMriSeriesSummary } from "./fixtures/diagnostic-comparisons-seed.ts";
 import {
   normalizeDiagnosticComparisonsPayload,
   seriesPairsFromSeriesSummary,
-} from "./comparisons";
+} from "./comparisons.ts";
 
 const leftStudyId = "diagnostic-2026-04-01-breast-mri";
 const rightStudyId = "diagnostic-2026-06-26-breast-mri";

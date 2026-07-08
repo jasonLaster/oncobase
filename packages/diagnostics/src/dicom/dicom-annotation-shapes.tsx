@@ -12,8 +12,8 @@ import {
   type LayerSize,
   type Point,
   type RectBounds,
-} from "./dicom-annotation-model";
-import { svgPoint, textBounds } from "./dicom-annotation-geometry";
+} from "./dicom-annotation-model.ts";
+import { svgPoint, textBounds } from "./dicom-annotation-geometry.ts";
 
 function arrowVisualGeometry(
   annotation: DicomAnnotation,

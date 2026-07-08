@@ -8,7 +8,7 @@ import {
   DIAGNOSTIC_STUDY_SET_PARAM,
   getDicomViewerHref,
   type DiagnosticStudiesPayload,
-} from "../studies";
+} from "../studies/index.ts";
 
 const ROW_HEIGHT = 32;
 

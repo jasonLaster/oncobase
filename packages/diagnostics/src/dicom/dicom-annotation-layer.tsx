@@ -20,15 +20,15 @@ import {
   Type,
 } from "lucide-react";
 
-import { cn } from "./ui";
+import { cn } from "./ui.tsx";
 
 import {
   AnnotationEditorRail,
   AnnotationPanelFrame,
   AnnotationSelectionRail,
   AnnotationToolbarButton,
-} from "./dicom-annotation-controls";
-import { imageKey, loadAnnotationsMap } from "./dicom-annotation-data";
+} from "./dicom-annotation-controls.tsx";
+import { imageKey, loadAnnotationsMap } from "./dicom-annotation-data.ts";
 import {
   annotationBounds,
   annotationGroupBounds,
@@ -43,11 +43,11 @@ import {
   replaceAnnotationId,
   textBounds,
   uniqueIds,
-} from "./dicom-annotation-geometry";
+} from "./dicom-annotation-geometry.ts";
 import {
   isTextInputTarget,
   pointFromSvgPointer,
-} from "./dicom-annotation-interaction";
+} from "./dicom-annotation-interaction.ts";
 import {
   MIN_DRAW_DISTANCE,
   SELECTED_STROKE_COLOR,
@@ -66,14 +66,14 @@ import {
   type LayerSize,
   type SaveStatus,
   type SelectionMarquee,
-} from "./dicom-annotation-model";
-import { AnnotationShape } from "./dicom-annotation-shapes";
+} from "./dicom-annotation-model.ts";
+import { AnnotationShape } from "./dicom-annotation-shapes.tsx";
 
 export type {
   DicomAnnotation,
   DicomAnnotationImage,
   DicomAnnotationSeries,
-} from "./dicom-annotation-model";
+} from "./dicom-annotation-model.ts";
 
 const toolOptions: Array<{
   icon: ReactNode;

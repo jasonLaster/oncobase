@@ -1,7 +1,7 @@
 import type { PointerEvent } from "react";
 
-import { clampUnit } from "./dicom-annotation-geometry";
-import type { Point } from "./dicom-annotation-model";
+import { clampUnit } from "./dicom-annotation-geometry.ts";
+import type { Point } from "./dicom-annotation-model.ts";
 
 export function pointFromSvgPointer(event: PointerEvent<SVGElement>): Point {
   const svg =

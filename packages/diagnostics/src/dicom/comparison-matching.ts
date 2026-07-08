@@ -1,4 +1,4 @@
-import type { SeriesPair } from "./comparisons";
+import type { SeriesPair } from "./comparisons.ts";
 
 export type ComparisonSide = "left" | "right";
 

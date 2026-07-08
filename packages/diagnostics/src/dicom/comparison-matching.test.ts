@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import type { SeriesPair } from "./comparisons";
-import { findMatchedImageIndex } from "./comparison-matching";
+import type { SeriesPair } from "./comparisons.ts";
+import { findMatchedImageIndex } from "./comparison-matching.ts";
 
 const basePair: SeriesPair = {
   id: "phase-2-subtraction",

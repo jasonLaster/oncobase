@@ -2,7 +2,7 @@ import type {
   AnnotationSeriesResponse,
   DicomAnnotation,
   DicomAnnotationImage,
-} from "./dicom-annotation-model";
+} from "./dicom-annotation-model.ts";
 
 export function imageKey(image: DicomAnnotationImage) {
   return image.relativePath;

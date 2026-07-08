@@ -7,7 +7,7 @@ import {
   type LayerSize,
   type Point,
   type RectBounds,
-} from "./dicom-annotation-model";
+} from "./dicom-annotation-model.ts";
 
 export function clampUnit(value: number) {
   return Math.max(0, Math.min(1, value));
