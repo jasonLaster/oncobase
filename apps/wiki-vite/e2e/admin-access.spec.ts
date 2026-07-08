@@ -1,7 +1,11 @@
 import crypto from "node:crypto";
 import { expect, request as playwrightRequest, test } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "../../web/convex/_generated/api";
+import { createRequire } from "node:module";
+
+const { api } = createRequire(import.meta.url)(
+  "../../web/convex/_generated/api.js",
+) as typeof import("../../web/convex/_generated/api");
 import { cleanupSiteUsers } from "./admin-helpers";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;

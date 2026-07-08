@@ -1,5 +1,9 @@
 import type { ConvexHttpClient } from "convex/browser";
-import { api } from "../../web/convex/_generated/api";
+import { createRequire } from "node:module";
+
+const { api } = createRequire(import.meta.url)(
+  "../../web/convex/_generated/api.js",
+) as typeof import("../../web/convex/_generated/api");
 
 export async function cleanupSiteUsers(
   convex: ConvexHttpClient,
