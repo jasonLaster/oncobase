@@ -307,14 +307,14 @@ function WikiTreeNode({
   });
 }
 
-export type WikiMobileNavigationProps = Omit<ComponentProps<"div">, "children"> &
+export type WikiMobileNavigationProps = Omit<ComponentProps<"div">, "children" | "title"> &
   WikiTreeProps & {
     onOpenChange: (open: boolean) => void;
     open: boolean;
     title: ReactNode;
   };
 
-export type WikiMobileNavigationSheetProps = ComponentProps<"div"> & {
+export type WikiMobileNavigationSheetProps = Omit<ComponentProps<"div">, "title"> & {
   heading?: ReactNode;
   onNavigate?: () => void;
   onOpenChange: (open: boolean) => void;

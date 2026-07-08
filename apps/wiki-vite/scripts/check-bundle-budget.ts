@@ -24,6 +24,7 @@ const budgets: Budget[] = [
   { label: "livestore vendor", pattern: /^vendor-livestore-[\w-]+\.js$/, maxGzipBytes: 95_000 },
   { label: "effect vendor", pattern: /^vendor-effect-[\w-]+\.js$/, maxGzipBytes: 140_000 },
   { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 150_000 },
+  { label: "cornerstone vendor", pattern: /^vendor-cornerstone-[\w-]+\.js$/, maxGzipBytes: 1_400_000 },
   { label: "page chunk", pattern: /^WikiPage-[\w-]+\.js$/, maxGzipBytes: 125_000 },
   { label: "chat chunk", pattern: /^ChatPage-[\w-]+\.js$/, maxGzipBytes: 110_000 },
   { label: "sync/shared shell chunks", pattern: /^(?:WikiSync|outline|src)-[\w-]+\.js$/, maxGzipBytes: 45_000 },
@@ -33,7 +34,7 @@ const budgets: Budget[] = [
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },
 ];
 
-const totalGzipBudget = 1_300_000;
+const totalGzipBudget = 1_330_000;
 
 /**
  * Lazy on-demand chunks that should not count against the initial-load budget.
@@ -47,6 +48,15 @@ const totalGzipBudget = 1_300_000;
  */
 const lazyChunkPatterns: RegExp[] = [
   /^mermaid[\w.-]*\.js$/,
+  /^vendor-cornerstone-[\w-]+\.js$/,
+  /^Dicom(?:Viewer|Compare)Page-[\w-]+\.js$/,
+  /^(?:viewer-client|compare-client)-[\w-]+\.js$/,
+  /^dicom-[\w-]+\.js$/,
+  /^browser-[\w-]+\.js$/,
+  /^decodeImageFrameWorker-[\w-]+\.js$/,
+  /^computeWorker-[\w-]+\.js$/,
+  /^(?:jpeg|lossless)-[\w-]+\.js$/,
+  /^(?:openjpe?gwasm_decode|libjpegturbowasm_decode|charlswasm_decode|openjphjs)-[\w-]+\.wasm$/,
   /^mermaid-parser\.core-[\w-]+\.js$/,
   // Mermaid diagram-kind splits, including ones whose prefix mixes digits
   // (e.g. `c4Diagram`).
@@ -67,7 +77,7 @@ const lazyChunkPatterns: RegExp[] = [
   /^chunk-[\w-]+\.js$/,
   /^(?:dist|isEmpty|reduce|highlighted-body|_baseFor|development|c4Diagram)-[\w-]+\.js$/,
 ];
-const lazyChunkGzipBudget = 1_200_000;
+const lazyChunkGzipBudget = 3_200_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

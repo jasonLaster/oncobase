@@ -44,6 +44,21 @@ const TimelinePage = lazy(() =>
     default: module.TimelinePage,
   })),
 );
+const DiagnosticImagingPage = lazy(() =>
+  import("./pages/DiagnosticImagingPage").then((module) => ({
+    default: module.DiagnosticImagingPage,
+  })),
+);
+const DicomViewerPage = lazy(() =>
+  import("./pages/DicomViewerPage").then((module) => ({
+    default: module.DicomViewerPage,
+  })),
+);
+const DicomComparePage = lazy(() =>
+  import("./pages/DicomComparePage").then((module) => ({
+    default: module.DicomComparePage,
+  })),
+);
 const ChatPage = lazy(() =>
   import("./chat/ChatPage").then((module) => ({ default: module.ChatPage })),
 );
@@ -111,6 +126,9 @@ export function App({
                 <Route path="/table-examples" element={<TableExamplesPage />} />
                 <Route path="/timeline" element={<TimelinePage />} />
                 <Route path="/diagnostics" element={<TimelinePage />} />
+                <Route path="/diagnostics/imaging" element={<DiagnosticImagingPage />} />
+                <Route path="/tools/dicom-viewer" element={<DicomViewerPage />} />
+                <Route path="/tools/dicom-compare" element={<DicomComparePage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/chat/:id" element={<ChatPage />} />
                 <Route path="/tags/:tag" element={<TagPage />} />

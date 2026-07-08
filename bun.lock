@@ -184,6 +184,29 @@
         "react-dom": "^19.0.0",
       },
     },
+    "packages/diagnostics": {
+      "name": "@oncobase/diagnostics",
+      "version": "0.1.0",
+      "dependencies": {
+        "@cornerstonejs/core": "^4.22.13",
+        "@cornerstonejs/dicom-image-loader": "^4.22.13",
+        "@cornerstonejs/tools": "^4.22.13",
+        "@oncobase/wiki-shell": "workspace:*",
+        "dicom-parser": "^1.8.21",
+        "lucide-react": "^1.11.0",
+        "swr": "^2.4.1",
+      },
+      "devDependencies": {
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "bun-types": "^1.3.12",
+        "typescript": "^5",
+      },
+      "peerDependencies": {
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+      },
+    },
     "packages/oncobase": {
       "name": "@oncobase/oncobase",
       "version": "0.1.4",
@@ -202,23 +225,6 @@
         "bun-types": "^1.3.12",
         "tsup": "^8.5.0",
         "typescript": "^5",
-      },
-    },
-    "packages/diagnostics": {
-      "name": "@oncobase/diagnostics",
-      "version": "0.1.0",
-      "dependencies": {
-        "lucide-react": "^1.11.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19",
-        "@types/react-dom": "^19",
-        "bun-types": "^1.3.12",
-        "typescript": "^5",
-      },
-      "peerDependencies": {
-        "react": "^19.0.0",
-        "react-dom": "^19.0.0",
       },
     },
     "packages/smart-table": {

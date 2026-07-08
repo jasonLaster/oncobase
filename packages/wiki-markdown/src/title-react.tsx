@@ -1,4 +1,4 @@
-import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { createElement, type AnchorHTMLAttributes, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -22,15 +22,21 @@ export function MarkdownTitle({
   currentSlug?: string;
   title: string;
 }) {
-  return (
-    <ReactMarkdown
-      skipHtml
-      unwrapDisallowed
-      allowedElements={["p", "a", "strong", "em", "code", "del", "br"]}
-      remarkPlugins={[remarkGfm]}
-      components={{
-        p: ({ children }) => <>{children}</>,
-        a: ({ href, children, node: _node, ...props }) => {
+  return createElement(
+    ReactMarkdown as unknown as (props: Record<string, unknown>) => ReactNode,
+    {
+      allowedElements: ["p", "a", "strong", "em", "code", "del", "br"],
+      components: {
+        p: ({ children }: { children?: ReactNode }) => <>{children}</>,
+        a: ({
+          href,
+          children,
+          node: _node,
+          ...props
+        }: AnchorHTMLAttributes<HTMLAnchorElement> & {
+          children?: ReactNode;
+          node?: unknown;
+        }) => {
           const resolvedHref = resolveHref(href, currentSlug);
           const className =
             "text-[var(--brand)] underline decoration-[var(--brand)]/30 underline-offset-4 transition-colors hover:decoration-[var(--brand)]";
@@ -49,9 +55,11 @@ export function MarkdownTitle({
             </a>
           );
         },
-      }}
-    >
-      {resolveWikilinks(title, currentSlug)}
-    </ReactMarkdown>
+      },
+      remarkPlugins: [remarkGfm],
+      skipHtml: true,
+      unwrapDisallowed: true,
+    },
+    resolveWikilinks(title, currentSlug),
   );
 }
