@@ -1,4 +1,4 @@
-export { DiagnosticTimeline } from "./diagnostic-timeline";
+export { DiagnosticTimeline } from "./diagnostic-timeline.tsx";
 export type {
   DiagnosticTimelineData,
   DiagnosticTimelineEvent,
@@ -8,10 +8,10 @@ export type {
   DiagnosticTimelineStatus,
   DiagnosticTimelineTrack,
   DiagnosticTimelineTrackKind,
-} from "./data";
+} from "./data.ts";
 export {
   countDiagnosticTimelineEvents,
   enrichDiagnosticTimeline,
   prepareDiagnosticTimeline,
   prepareDiagnosticTimelineResponse,
-} from "./data";
+} from "./data.ts";

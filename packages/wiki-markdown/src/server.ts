@@ -5,9 +5,9 @@ import rehypeStringify from "rehype-stringify";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
-import { preprocessCitationMarkdown } from "./citations";
-import { markdownRehypePlugins, markdownRemarkPlugins } from "./math";
-import { expandSlidesMarkdown } from "./slides-markdown";
+import { preprocessCitationMarkdown } from "./citations.ts";
+import { markdownRehypePlugins, markdownRemarkPlugins } from "./math.ts";
+import { expandSlidesMarkdown } from "./slides-markdown.ts";
 
 const processor = unified()
   .use(remarkParse)

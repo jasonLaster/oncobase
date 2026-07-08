@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
-import { DefaultWikiImage, type WikiImageComponent } from "./image-renderer";
-import { getDownloadName, type TheaterImageState } from "./image-theater-state";
+import { DefaultWikiImage, type WikiImageComponent } from "./image-renderer.tsx";
+import { getDownloadName, type TheaterImageState } from "./image-theater-state.ts";
 
 export function ImageTheaterModal({
   image,

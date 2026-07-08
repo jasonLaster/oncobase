@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DefaultWikiImage, type WikiImageComponent } from "./image-renderer";
-import { ImageTheaterModal } from "./image-theater-modal";
+import { DefaultWikiImage, type WikiImageComponent } from "./image-renderer.tsx";
+import { ImageTheaterModal } from "./image-theater-modal.tsx";
 import {
   imageStateFromElement,
   type TheaterImageState,
-} from "./image-theater-state";
+} from "./image-theater-state.ts";
 
 export function ImageTheater({
   ImageComponent = DefaultWikiImage,

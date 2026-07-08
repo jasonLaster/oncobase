@@ -6,7 +6,7 @@ export {
   useDocumentOutline,
   type OutlineItem,
   type UseDocumentOutlineOptions,
-} from "./outline";
+} from "./outline.ts";
 export {
   COMMAND_PALETTE_HEADING_HEIGHT,
   COMMAND_PALETTE_MAX_RECENT,
@@ -25,7 +25,7 @@ export {
   type CommandPalettePreparedPage,
   type CommandPaletteRow,
   type CommandPaletteRowSet,
-} from "./command-palette-pages";
+} from "./command-palette-pages.ts";
 export {
   getCommandPaletteOutlineElement,
   getCommandPaletteOutlineHeadings,
@@ -33,11 +33,11 @@ export {
   observeCommandPaletteOutline,
   scrollCommandPaletteHeadingIntoView,
   type CommandPaletteOutlineHeading,
-} from "./command-palette-outline";
+} from "./command-palette-outline.ts";
 export {
   installCommandPaletteChords,
   type CommandPaletteChordHandlers,
-} from "./command-palette-chords";
+} from "./command-palette-chords.ts";
 export {
   WikiHeader,
   WikiHeaderButton,
@@ -49,14 +49,14 @@ export {
   type WikiHeaderProps,
   type WikiHeaderSearchFormProps,
   type WikiLogoProps,
-} from "./header";
+} from "./header.tsx";
 export {
   WikiActionsMenu,
   type WikiActionsMenuAuthInput,
   type WikiActionsMenuAuthMode,
   type WikiActionsMenuProps,
   type WikiActionsMenuUser,
-} from "./actions-menu";
+} from "./actions-menu.tsx";
 export {
   applyWikiTheme,
   cycleWikiThemePreference,
@@ -67,7 +67,7 @@ export {
   wikiThemeLabel,
   type WikiResolvedTheme,
   type WikiThemePreference,
-} from "./theme";
+} from "./theme.ts";
 export {
   WikiBadge,
   WikiBreadcrumbs,
@@ -94,7 +94,7 @@ export {
   type WikiStatusNoticeProps,
   type WikiTagListProps,
   type WikiToastProps,
-} from "./page-chrome";
+} from "./page-chrome.tsx";
 export {
   WikiEmptyState,
   WikiPageLoading,
@@ -103,7 +103,7 @@ export {
   type WikiEmptyStateProps,
   type WikiPageLoadingProps,
   type WikiPageSkeletonProps,
-} from "./page-states";
+} from "./page-states.tsx";
 export {
   WikiSearchForm,
   WikiSearchHeader,
@@ -123,7 +123,7 @@ export {
   type WikiSearchResultLinkRenderProps,
   type WikiSearchResultsProps,
   type WikiSearchSubmitButtonProps,
-} from "./search";
+} from "./search.tsx";
 export {
   WikiCommandBackdrop,
   WikiCommandEmpty,
@@ -148,7 +148,7 @@ export {
   type WikiCommandPanelProps,
   type WikiCommandSearchProps,
   type WikiCommandTabsProps,
-} from "./palette";
+} from "./palette.tsx";
 export {
   WikiChatList,
   WikiChatListLink,
@@ -165,7 +165,7 @@ export {
   type WikiChatPageProps,
   type WikiChatSidebarProps,
   type WikiChatStateProps,
-} from "./chat";
+} from "./chat.tsx";
 export {
   WikiMobileNavigation,
   WikiMobileNavigationSheet,
@@ -180,7 +180,7 @@ export {
   type WikiSidebarProps,
   type WikiTreePageLinkRenderArgs,
   type WikiTreeProps,
-} from "./navigation";
+} from "./navigation.tsx";
 export {
   COMMENTS_COLLAPSED_WIDTH,
   COMMENTS_DEFAULT_WIDTH,
@@ -197,10 +197,10 @@ export {
   type DocumentOutlineShellProps,
   type OutlineRailButtonProps,
   type PaneStateSnapshot,
-} from "./right-rail";
+} from "./right-rail.tsx";
 export {
   ResizableLayout,
   setResizableSidebarWidth,
   useResizableSidebarWidth,
   type ResizableLayoutProps,
-} from "./resizable-layout";
+} from "./resizable-layout.tsx";

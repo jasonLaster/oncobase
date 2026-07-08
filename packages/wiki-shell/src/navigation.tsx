@@ -5,7 +5,7 @@ import {
   type ReactNode,
   useEffect,
 } from "react";
-import { cn } from "./utils";
+import { cn } from "./utils.ts";
 
 export type WikiNavigationNode = {
   badge?: string;

@@ -9,7 +9,7 @@ import {
   SlidesViewer,
   splitWikilinkAlias,
   WikiMarkdown,
-} from "./index";
+} from "./index.tsx";
 
 describe("wiki markdown helpers", () => {
   test("splits wikilink aliases", () => {

@@ -188,13 +188,7 @@
       "name": "@oncobase/diagnostics",
       "version": "0.1.0",
       "dependencies": {
-        "@cornerstonejs/core": "^4.22.13",
-        "@cornerstonejs/dicom-image-loader": "^4.22.13",
-        "@cornerstonejs/tools": "^4.22.13",
-        "@oncobase/wiki-shell": "workspace:*",
-        "dicom-parser": "^1.8.21",
         "lucide-react": "^1.11.0",
-        "swr": "^2.4.1",
       },
       "devDependencies": {
         "@types/react": "^19",

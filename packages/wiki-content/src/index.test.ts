@@ -10,7 +10,7 @@ import {
   parseWikiPageBatch,
   parseWikiSessionIdentity,
   reconcilePageContent,
-} from "./index";
+} from "./index.ts";
 
 describe("wiki content contracts", () => {
   test("expands compact file trees", () => {
