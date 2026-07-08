@@ -863,7 +863,14 @@ export const listPdfAssets = query({
     for (const row of rows) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
       if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
-      out.push(row);
+      // Trim to the fields consumers use; full rows for the ~11k assets on
+      // large sites exceed the Convex query response size limit.
+      out.push({
+        path: row.path,
+        blobUrl: row.blobUrl,
+        sizeBytes: row.sizeBytes,
+        contentHash: row.contentHash,
+      });
     }
     return out;
   },
@@ -1032,7 +1039,14 @@ export const listFileAssets = query({
     for (const row of rows) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
       if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
-      out.push(row);
+      // Trim to the fields consumers use; full rows for the ~11k assets on
+      // large sites exceed the Convex query response size limit.
+      out.push({
+        path: row.path,
+        blobUrl: row.blobUrl,
+        sizeBytes: row.sizeBytes,
+        contentHash: row.contentHash,
+      });
     }
     return out;
   },
@@ -1161,6 +1175,82 @@ export const listFileAssetPathsPage = query({
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
       if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
       page.push(row.path);
+    }
+    return {
+      page,
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  },
+});
+
+
+export const listPdfAssetsPage = query({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const sensitiveSlugs = includeSensitive
+      ? null
+      : await sensitiveSiblingSlugSet(ctx, site);
+    const result = site.siteId
+      ? await ctx.db
+          .query("pdfAssets")
+          .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
+          .paginate({ cursor, numItems })
+      : await ctx.db.query("pdfAssets").paginate({ cursor, numItems });
+    const page = [];
+    for (const row of result.page) {
+      if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+      if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
+      page.push({
+        path: row.path,
+        blobUrl: row.blobUrl,
+        sizeBytes: row.sizeBytes,
+        contentHash: row.contentHash,
+      });
+    }
+    return {
+      page,
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  },
+});
+
+
+export const listFileAssetsPage = query({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const sensitiveSlugs = includeSensitive
+      ? null
+      : await sensitiveSiblingSlugSet(ctx, site);
+    const result = site.siteId
+      ? await ctx.db
+          .query("fileAssets")
+          .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
+          .paginate({ cursor, numItems })
+      : await ctx.db.query("fileAssets").paginate({ cursor, numItems });
+    const page = [];
+    for (const row of result.page) {
+      if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+      if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
+      page.push({
+        path: row.path,
+        blobUrl: row.blobUrl,
+        sizeBytes: row.sizeBytes,
+        contentHash: row.contentHash,
+      });
     }
     return {
       page,

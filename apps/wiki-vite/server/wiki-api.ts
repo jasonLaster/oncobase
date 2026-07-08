@@ -11,6 +11,7 @@ import {
   type PageWithContent,
   type WikiApiDocumentsGateway,
 } from "@oncobase/wiki-content/server";
+import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
 import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
 import { api } from "../../../apps/web/convex/_generated/api.js";
@@ -37,7 +38,6 @@ import {
 import { handlePostDeployRequest, handlePublishRequest } from "./publish-api.js";
 
 const DEFAULT_SITE_SLUG = "diana";
-const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
 const HOST_CACHE_TTL_MS = 15_000;
 const VERCEL_PROJECT_HOST_PREFIX = "diana-tnbc";
 const USER_SESSION_COOKIE = "wiki_user_session";
@@ -104,14 +104,6 @@ const MIME_TYPES: Record<string, string> = {
   ".xml": "application/xml",
   ".zip": "application/zip",
 };
-
-function resolveConvexUrl() {
-  return (
-    process.env.NEXT_PUBLIC_CONVEX_URL?.trim() ||
-    process.env.CONVEX_URL?.trim() ||
-    PROD_CONVEX_FALLBACK_URL
-  );
-}
 
 function normalizeHost(host: string | null) {
   return host?.trim().toLowerCase().split(":")[0] ?? null;
@@ -361,7 +353,7 @@ async function redactPageContent(
 }
 
 export function createClient() {
-  return new ConvexHttpClient(resolveConvexUrl());
+  return new ConvexHttpClient(resolveServerConvexUrl());
 }
 
 export function withSiteSlug<TArgs extends object>(siteSlug: string, args: TArgs): TArgs & { siteSlug: string } {
@@ -839,11 +831,22 @@ async function appendAssetsToArchive(
     siteSlug,
     includeSensitive ? { includeSensitive: true as const } : {},
   );
-  const [pdfAssets, fileAssets] = await Promise.all([
-    client.query(api.documents.listPdfAssets, args) as Promise<DownloadAsset[]>,
-    client.query(api.documents.listFileAssets, args) as Promise<DownloadAsset[]>,
-  ]);
-  const assets = [...pdfAssets, ...fileAssets];
+  const assets: DownloadAsset[] = [];
+  for (const queryRef of [api.documents.listPdfAssetsPage, api.documents.listFileAssetsPage]) {
+    let cursor: string | null = null;
+    let isDone = false;
+    while (!isDone && assets.length < maxAssets) {
+      const result = (await client.query(queryRef, {
+        ...args,
+        cursor,
+        numItems: Math.min(500, maxAssets - assets.length),
+      })) as { page: DownloadAsset[]; isDone: boolean; continueCursor: string | null };
+      assets.push(...result.page);
+      isDone = result.isDone;
+      cursor = result.continueCursor;
+      if (!isDone && !cursor) break;
+    }
+  }
 
   for (const asset of assets.slice(0, maxAssets)) {
     if (!asset.blobUrl) continue;
