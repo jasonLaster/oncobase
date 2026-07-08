@@ -36,6 +36,11 @@
       "import": "./src/embeddings.ts",
       "default": "./src/embeddings.ts"
     },
+    "./convex-url": {
+      "types": "./src/convex-url.ts",
+      "import": "./src/convex-url.ts",
+      "default": "./src/convex-url.ts"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {

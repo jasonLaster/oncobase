@@ -11,6 +11,7 @@ import {
   type PageWithContent,
   type WikiApiDocumentsGateway,
 } from "@oncobase/wiki-content/server";
+import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
 import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
 import { api } from "../../../apps/web/convex/_generated/api.js";
@@ -25,7 +26,6 @@ import {
 } from "./epic-fhir.js";
 
 const DEFAULT_SITE_SLUG = "diana";
-const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
 const HOST_CACHE_TTL_MS = 15_000;
 const VERCEL_PROJECT_HOST_PREFIX = "diana-tnbc";
 const USER_SESSION_COOKIE = "wiki_user_session";
@@ -92,14 +92,6 @@ const MIME_TYPES: Record<string, string> = {
   ".xml": "application/xml",
   ".zip": "application/zip",
 };
-
-function resolveConvexUrl() {
-  return (
-    process.env.NEXT_PUBLIC_CONVEX_URL?.trim() ||
-    process.env.CONVEX_URL?.trim() ||
-    PROD_CONVEX_FALLBACK_URL
-  );
-}
 
 function normalizeHost(host: string | null) {
   return host?.trim().toLowerCase().split(":")[0] ?? null;
@@ -349,7 +341,7 @@ async function redactPageContent(
 }
 
 export function createClient() {
-  return new ConvexHttpClient(resolveConvexUrl());
+  return new ConvexHttpClient(resolveServerConvexUrl());
 }
 
 export function withSiteSlug<TArgs extends object>(siteSlug: string, args: TArgs): TArgs & { siteSlug: string } {
