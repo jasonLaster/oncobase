@@ -36,7 +36,7 @@ export type AssetIndexRow = {
   size: number | null;
 };
 
-export type PageContentStatus = "fresh" | "stale" | "missing" | "deleted";
+export type PageContentStatus = "fresh" | "stale" | "missing" | "deleted" | "sensitive-unavailable";
 
 export type PageContentRow = {
   slug: string;
