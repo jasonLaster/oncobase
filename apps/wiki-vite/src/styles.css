@@ -46,6 +46,313 @@
   color: var(--foreground);
 }
 
+.admin-shell {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  min-height: calc(100dvh - 64px);
+}
+
+.admin-sidebar {
+  background: var(--panel-alt);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+}
+
+.admin-sidebar a {
+  border-radius: 6px;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+  min-height: 32px;
+  padding: 6px 8px;
+  text-decoration: none;
+}
+
+.admin-sidebar a:hover {
+  background: var(--accent);
+}
+
+.admin-main {
+  min-width: 0;
+  overflow: auto;
+}
+
+.admin-section {
+  margin: 0 auto;
+  max-width: 1120px;
+  padding: 24px;
+}
+
+.admin-section h1 {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.admin-muted,
+.admin-section small {
+  color: var(--muted);
+}
+
+.admin-error,
+.app-error {
+  color: var(--red);
+}
+
+.admin-card-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-top: 24px;
+}
+
+.admin-card-link {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  min-height: 112px;
+  padding: 16px;
+  text-decoration: none;
+}
+
+.admin-card-link:hover {
+  border-color: var(--brand);
+  background: var(--accent);
+}
+
+.admin-heading-row,
+.admin-toolbar,
+.admin-filter-row,
+.admin-dialog-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-heading-row {
+  justify-content: space-between;
+}
+
+.admin-toolbar {
+  justify-content: flex-end;
+  margin: 16px 0;
+}
+
+.admin-pages-toolbar {
+  justify-content: stretch;
+}
+
+.admin-pages-toolbar label:first-child {
+  flex: 1 1 280px;
+}
+
+.admin-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.admin-table-wrap table {
+  border-collapse: collapse;
+  min-width: 780px;
+  width: 100%;
+}
+
+#roles .admin-table-wrap table {
+  min-width: 1120px;
+}
+
+#pages .admin-table-wrap table {
+  min-width: 920px;
+}
+
+.admin-table-wrap th,
+.admin-table-wrap td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-table-wrap th {
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.admin-table-wrap small {
+  display: block;
+}
+
+.admin-action-cell {
+  position: relative;
+}
+
+.admin-menu {
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 12px 32px rgb(17 24 39 / 0.14);
+  display: grid;
+  min-width: 120px;
+  padding: 4px;
+  position: absolute;
+  right: 8px;
+  z-index: 40;
+}
+
+.admin-modal-backdrop {
+  align-items: center;
+  background: rgb(0 0 0 / 0.35);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 16px;
+  position: fixed;
+  z-index: 80;
+}
+
+.admin-modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 24px 72px rgb(17 24 39 / 0.22);
+  max-height: calc(100dvh - 32px);
+  max-width: 560px;
+  overflow: auto;
+  padding: 20px;
+  width: min(100%, 560px);
+}
+
+.admin-role-modal {
+  max-width: 760px;
+  width: min(100%, 760px);
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 12px 0;
+}
+
+.admin-tabs [aria-selected="true"],
+.admin-filter-row [aria-pressed="true"] {
+  background: var(--foreground);
+  border-color: var(--foreground);
+  color: var(--background);
+}
+
+.admin-form-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-form-grid label,
+.admin-preview label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.admin-dialog-actions {
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.admin-preview {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-preview-table {
+  max-height: min(52dvh, 32rem);
+  overflow: auto;
+}
+
+.admin-shell input,
+.admin-shell select,
+.admin-shell textarea,
+.admin-modal input,
+.admin-modal select,
+.admin-modal textarea {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--foreground);
+  min-height: 34px;
+  padding: 6px 8px;
+}
+
+.admin-shell textarea,
+.admin-modal textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.admin-shell button,
+.admin-modal button {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--foreground);
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.admin-shell button:hover,
+.admin-modal button:hover {
+  background: var(--accent);
+}
+
+.admin-shell button:disabled,
+.admin-modal button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.sr-only {
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.pii-view-content {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: auto;
+  padding: 16px;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 760px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    border-bottom: 1px solid var(--border);
+    border-right: 0;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+}
+
 .dark {
   color-scheme: dark;
   --sidebar-bg: #161625;
@@ -521,13 +828,26 @@ a {
   overflow: auto;
 }
 
+.wiki-vite-tag-page-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wiki-vite-tag-page-list li + li {
+  margin-top: 10px;
+}
+
 .scope-pill,
 .badge {
+  align-items: center;
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--muted);
+  display: inline-flex;
   font-size: 0.6875rem;
   font-weight: 650;
+  gap: 4px;
   padding: 1px 7px;
 }
 

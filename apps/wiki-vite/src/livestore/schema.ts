@@ -52,7 +52,7 @@ export const tables = {
       contentStatus: State.SQLite.text({
         default: "fresh",
         nullable: false,
-        schema: Schema.Literal("fresh", "stale", "missing", "deleted"),
+        schema: Schema.Literal("fresh", "stale", "missing", "deleted", "sensitive-unavailable"),
       }),
     },
     indexes: [{ name: "pageContent_status", columns: ["contentStatus"] }],
@@ -121,6 +121,18 @@ export const events = {
       slug: Schema.String,
       contentHash: Schema.NullOr(Schema.String),
       missingAt: Schema.Number,
+    }),
+  }),
+  pageContentUnavailable: Events.clientOnly({
+    name: "v1.PageContentUnavailable",
+    schema: Schema.Struct({
+      slug: Schema.String,
+      title: Schema.String,
+      tags: Schema.Array(Schema.String),
+      contentHash: Schema.NullOr(Schema.String),
+      sensitive: Schema.Boolean,
+      size: Schema.Number,
+      unavailableAt: Schema.Number,
     }),
   }),
   cacheResetRequested: Events.clientOnly({
@@ -279,6 +291,30 @@ const materializers = State.SQLite.materializers(events, {
       staleAt: null,
       deletedAt: null,
       contentStatus: "missing",
+    }).onConflict("slug", "replace"),
+  "v1.PageContentUnavailable": ({
+    slug,
+    title,
+    tags,
+    contentHash,
+    sensitive,
+    size,
+    unavailableAt,
+  }) =>
+    tables.pageContent.insert({
+      slug,
+      title,
+      content: "",
+      tagsJson: JSON.stringify(tags),
+      contentHash,
+      expectedContentHash: contentHash,
+      sensitive,
+      size,
+      fetchedAt: unavailableAt,
+      missingAt: unavailableAt,
+      staleAt: null,
+      deletedAt: null,
+      contentStatus: "sensitive-unavailable",
     }).onConflict("slug", "replace"),
   "v1.CacheResetRequested": () => [
     tables.siteState.delete(),

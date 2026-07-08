@@ -106,6 +106,23 @@ function createFakeConvexClient() {
             continueCursor: null,
           };
         }
+        case "documents:listManifestPage": {
+          const includeSensitive = args.includeSensitive === true;
+          const visiblePages = pages.filter((page) => includeSensitive || !page.sensitive);
+          return {
+            page: visiblePages.map((page) => ({
+              slug: page.slug,
+              title: page.title,
+              tags: page.tags,
+              description: null,
+              contentHash: page.slug,
+              sensitive: page.sensitive === true,
+              size: page.content.length,
+            })),
+            isDone: true,
+            continueCursor: null,
+          };
+        }
         case "documents:listPdfAssetsPage":
           return {
             page: [
@@ -138,6 +155,19 @@ function createFakeConvexClient() {
             continueCursor: null,
           };
         }
+        case "documents:getBySlug": {
+          const includeSensitive = args.includeSensitive === true;
+          const page = pages.find((candidate) => candidate.slug === args.slug);
+          if (!page || (page.sensitive && !includeSensitive)) return null;
+          return {
+            ...page,
+            description: null,
+            contentHash: page.slug,
+            sensitive: page.sensitive === true,
+          };
+        }
+        case "access:canUserAccessSlug":
+          return true;
         case "documents:listPdfAssets":
           return [
             {

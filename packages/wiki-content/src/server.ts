@@ -8,6 +8,7 @@ import type {
   WikiPageRecord,
   WikiScope,
   WikiSessionIdentity,
+  WikiUnavailablePage,
 } from "./index.ts";
 import {
   compareFileTreeNodes,
@@ -29,6 +30,11 @@ const MAX_PAGE_LIMIT = 100;
 
 export type WikiApiSessionUser = {
   _id: string;
+};
+
+export type WikiApiAccessAdapter = {
+  canUserAccessSlug(user: WikiApiSessionUser, slug: string): Promise<boolean>;
+  getAllowedSlugs(user: WikiApiSessionUser): Promise<string[]>;
 };
 
 export type ManifestPageResult = {
@@ -90,6 +96,7 @@ export type WikiApiContext = {
   siteSlug: string;
   documents: WikiApiDocumentsGateway;
   getSessionUser(request: Request): Promise<WikiApiSessionUser | null>;
+  access?: WikiApiAccessAdapter;
   manifestPrioritySlugs?: string[];
   decorateHeaders?: (headers: HeadersInit) => HeadersInit;
   logger?: Pick<Console, "error" | "warn">;
@@ -150,6 +157,19 @@ function manifestPageFromContent(page: PageWithContent): WikiManifestPage {
     contentHash: page.contentHash ?? null,
     sensitive: page.sensitive === true,
     size: page.content.length,
+  };
+}
+
+function unavailablePageFromContent(page: PageWithContent): WikiUnavailablePage {
+  return {
+    slug: page.slug,
+    title: "Private page",
+    tags: [],
+    description: null,
+    contentHash: null,
+    sensitive: true,
+    size: 0,
+    reason: "sensitive-unavailable",
   };
 }
 
@@ -261,6 +281,48 @@ async function requireSessionIfNeeded(
 ) {
   if (scope === "public") return null;
   return await context.getSessionUser(request);
+}
+
+async function canReadPage(
+  context: WikiApiContext,
+  user: WikiApiSessionUser | null,
+  page: Pick<PageWithContent | WikiManifestPage, "sensitive" | "slug">,
+) {
+  if (page.sensitive !== true) return true;
+  if (!user || !context.access) return false;
+  return context.access.canUserAccessSlug(user, page.slug);
+}
+
+async function filterReadablePages<T extends Pick<PageWithContent | WikiManifestPage, "sensitive" | "slug">>(
+  context: WikiApiContext,
+  user: WikiApiSessionUser | null,
+  pages: T[],
+): Promise<T[]> {
+  const allowed: T[] = [];
+  for (const page of pages) {
+    if (await canReadPage(context, user, page)) {
+      allowed.push(page);
+    }
+  }
+  return allowed;
+}
+
+async function filterAssetsForUser(
+  context: WikiApiContext,
+  user: WikiApiSessionUser | null,
+  assets: WikiManifestAsset[],
+) {
+  const filtered = await Promise.all(
+    assets.map(async (asset) => {
+      const sibling = await context.documents.getBySlug({
+        slug: asset.path.replace(/\.[^/.]+$/, ""),
+        includeSensitive: true,
+      });
+      if (!sibling) return asset;
+      return (await canReadPage(context, user, sibling)) ? asset : null;
+    }),
+  );
+  return filtered.filter((asset): asset is WikiManifestAsset => asset !== null);
 }
 
 async function listManifestPages(
@@ -427,6 +489,7 @@ async function listManifestPageFromContent(
 async function listAssets(
   context: WikiApiContext,
   includeSensitive: boolean,
+  user: WikiApiSessionUser | null,
 ) {
   const listPaths = async (
     kind: WikiManifestAsset["kind"],
@@ -463,7 +526,10 @@ async function listAssets(
     listPaths("pdf", (args) => context.documents.listPdfAssetPathsPage(args)),
     listPaths("file", (args) => context.documents.listFileAssetPathsPage(args)),
   ]);
-  return [...pdfAssets, ...fileAssets];
+  const assets = [...pdfAssets, ...fileAssets];
+  if (!includeSensitive) return assets;
+
+  return filterAssetsForUser(context, user, assets);
 }
 
 function parseLimit(url: URL) {
@@ -531,7 +597,14 @@ export async function createWikiSessionResponse(
     );
   }
 
-  const hash = userHash(context.siteSlug, sessionUser._id);
+  const allowedSlugs = context.access
+    ? await context.access.getAllowedSlugs(sessionUser).catch((error) => {
+        context.logger?.warn("[wiki session] Failed to compute access-aware cache key", error);
+        return [] as string[];
+      })
+    : [];
+  const accessHash = hashJson([...allowedSlugs].sort());
+  const hash = userHash(context.siteSlug, `${sessionUser._id}:${accessHash}`);
   const identity: WikiSessionIdentity = {
     siteSlug: context.siteSlug,
     scope,
@@ -574,8 +647,8 @@ export async function createWikiManifestResponse(
   try {
     [pageResult, assets] = await withTimeout(
       Promise.all([
-        listManifestPages(context, includeSensitive),
-        listAssets(context, includeSensitive),
+        listManifestPages(context, includeSensitive && Boolean(context.access)),
+        listAssets(context, includeSensitive && Boolean(context.access), sessionUser),
       ]),
       MANIFEST_TIMEOUT_MS,
       "Wiki manifest generation",
@@ -583,9 +656,11 @@ export async function createWikiManifestResponse(
   } catch (error) {
     context.logger?.warn("[wiki manifest] Full manifest unavailable; using bounded fallback", error);
     try {
-      const fallback = await boundedManifestFallback(context, includeSensitive);
+      const fallback = await boundedManifestFallback(context, includeSensitive && Boolean(context.access));
       pageResult = { pages: fallback.pages, source: fallback.source };
-      assets = fallback.assets;
+      assets = includeSensitive && context.access
+        ? await filterAssetsForUser(context, sessionUser, fallback.assets)
+        : fallback.assets;
       partialManifest = true;
     } catch (fallbackError) {
       context.logger?.error("[wiki manifest] Reliable manifest metadata unavailable", fallbackError);
@@ -595,7 +670,8 @@ export async function createWikiManifestResponse(
       );
     }
   }
-  const { pages, source } = pageResult;
+  const { source } = pageResult;
+  const pages = await filterReadablePages(context, sessionUser, pageResult.pages);
   const compactTree = buildCompactTreeFromManifest(pages, assets);
 
   const manifestCore = {
@@ -646,29 +722,40 @@ export async function createWikiPagesResponse(
     );
   }
 
-  const includeSensitive = scope === "session" && Boolean(sessionUser);
+  const includeSensitive = scope === "session" && Boolean(sessionUser) && Boolean(context.access);
   const slugs = parseSlugs(url);
   let pages: WikiPageRecord[] = [];
+  let unavailable: WikiUnavailablePage[] = [];
   let isDone = true;
   let continueCursor: string | null = null;
 
   if (slugs.length > 0) {
     const records = await Promise.all(
       slugs.map(async (slug) => {
-        const exact = await context.documents.getBySlug(
-          includeSensitive ? { slug, includeSensitive: true } : { slug },
-        );
-        if (exact || slug.endsWith("/index")) return exact;
-        return await context.documents.getBySlug(
-          includeSensitive
-            ? { slug: `${slug}/index`, includeSensitive: true }
-            : { slug: `${slug}/index` },
-        );
+        const candidates = slug.endsWith("/index") ? [slug] : [slug, `${slug}/index`];
+        for (const candidate of candidates) {
+          const publicPage = await context.documents.getBySlug({ slug: candidate });
+          if (publicPage) return { page: publicPage, unavailable: null };
+          const sensitivePage = await context.documents.getBySlug({
+            slug: candidate,
+            includeSensitive: true,
+          });
+          if (!sensitivePage) continue;
+          if (await canReadPage(context, sessionUser, sensitivePage)) {
+            return { page: sensitivePage, unavailable: null };
+          }
+          return { page: null, unavailable: unavailablePageFromContent(sensitivePage) };
+        }
+        return { page: null, unavailable: null };
       }),
     );
     pages = records
-      .filter((page): page is NonNullable<typeof page> => Boolean(page))
+      .map((record) => record.page)
+      .filter((page): page is PageWithContent => Boolean(page))
       .map(pageRecord);
+    unavailable = records
+      .map((record) => record.unavailable)
+      .filter((page): page is WikiUnavailablePage => Boolean(page));
   } else {
     const limit = parseLimit(url);
     let cursor = url.searchParams.get("cursor");
@@ -681,7 +768,8 @@ export async function createWikiPagesResponse(
         ...(includeSensitive ? { includeSensitive: true } : {}),
       });
 
-      pages.push(...result.page.map(pageRecord));
+      const readable = await filterReadablePages(context, sessionUser, result.page);
+      pages.push(...readable.map(pageRecord));
       isDone = result.isDone;
       cursor = result.continueCursor;
 
@@ -698,6 +786,7 @@ export async function createWikiPagesResponse(
     generatedAt: new Date().toISOString(),
     scope,
     pages,
+    ...(unavailable.length > 0 ? { unavailable } : {}),
     isDone,
     continueCursor,
   };
@@ -706,6 +795,7 @@ export async function createWikiPagesResponse(
     scope,
     slugs,
     pages: pages.map((page) => [page.slug, page.contentHash, page.size]),
+    unavailable: unavailable.map((page) => [page.slug, page.contentHash, page.size, page.reason]),
     isDone,
     continueCursor,
   });

@@ -177,6 +177,22 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
             eventCount: 1,
           });
         } else {
+          const unavailable = batch.unavailable?.find((item) => item.slug === slug);
+          if (unavailable) {
+            store.commit(
+              events.pageContentUnavailable({
+                slug: unavailable.slug,
+                title: unavailable.title,
+                tags: unavailable.tags,
+                contentHash: unavailable.contentHash,
+                sensitive: unavailable.sensitive,
+                size: unavailable.size,
+                unavailableAt: Date.now(),
+              }),
+            );
+            onMetrics({ eventCount: 1 });
+            return;
+          }
           store.commit(
             events.pageContentMissing({
               slug,
@@ -254,14 +270,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         if (currentPage) {
           void fetchSlug(currentSlug, currentPage).catch(() => undefined);
         } else {
-          store.commit(
-            events.pageContentMissing({
-              slug: currentSlug,
-              contentHash: null,
-              missingAt: Date.now(),
-            }),
-          );
-          onMetrics({ eventCount: 1 });
+          void fetchSlug(currentSlug).catch(() => undefined);
         }
 
         if (shouldFetchInBackground()) {

@@ -10,6 +10,7 @@ import {
   createWikiPagesResponse,
   createWikiSessionResponse,
   type PageWithContent,
+  type WikiApiAccessAdapter,
   type WikiApiDocumentsGateway,
 } from "@oncobase/wiki-content/server";
 import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
@@ -20,11 +21,23 @@ import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
 import { handleAiSearchRequest } from "./ai-search.js";
 import { handleChatRequest } from "./chat-route.js";
 import {
+  createRole,
+  deleteRole,
+  deleteUsers,
+  getAccessPagesData,
+  getAccessUsersAndRoles,
+  requireAdminUser,
+  setUserRole,
+  setUsersRole,
+  updateRole,
+} from "./admin-data.js";
+import {
   handleEpicAuthorizeRequest,
   handleEpicCallbackRequest,
   handleEpicSyncRequest,
   isAdminSessionUser,
 } from "./epic-fhir.js";
+import { handlePostDeployRequest, handlePublishRequest } from "./publish-api.js";
 
 const DEFAULT_SITE_SLUG = "diana";
 const HOST_CACHE_TTL_MS = 15_000;
@@ -60,6 +73,12 @@ type ResolvedSite = {
 type PiiPatternEntry = {
   patterns: PiiPattern[] | undefined;
   expires: number;
+};
+
+type SessionUser = {
+  _id: Id<"users">;
+  email: string;
+  name?: string | null;
 };
 
 const hostCache = new Map<string, ResolvedSite>();
@@ -402,6 +421,115 @@ async function getSessionUser(
   );
 }
 
+function createAccessAdapter(
+  client: ConvexHttpClient,
+  siteSlug: string,
+): WikiApiAccessAdapter {
+  return {
+    canUserAccessSlug: (user, slug) =>
+      client.query(
+        api.access.canUserAccessSlug,
+        withSiteSlug(siteSlug, { userId: user._id as Id<"users">, slug }),
+      ),
+    getAllowedSlugs: async (user) => {
+      const allowed: string[] = [];
+      let cursor: string | null = null;
+      let isDone = false;
+
+      while (!isDone) {
+        const result = (await client.query(
+          api.documents.listManifestPage,
+          withSiteSlug(siteSlug, {
+            cursor,
+            numItems: 100,
+            includeSensitive: true,
+          }),
+        )) as {
+          page: Array<{ slug: string; sensitive?: boolean }>;
+          isDone: boolean;
+          continueCursor: string | null;
+        };
+        const checks = await Promise.all(
+          result.page.map(async (page) => {
+            if (page.sensitive !== true) return null;
+            const canAccess = await client.query(
+              api.access.canUserAccessSlug,
+              withSiteSlug(siteSlug, {
+                userId: user._id as Id<"users">,
+                slug: page.slug,
+              }),
+            );
+            return canAccess ? page.slug : null;
+          }),
+        );
+        allowed.push(...checks.filter((slug): slug is string => slug !== null));
+        isDone = result.isDone;
+        cursor = result.continueCursor;
+      }
+
+      return allowed;
+    },
+  };
+}
+
+async function canUserAccessSlug(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  user: SessionUser | null,
+  slug: string,
+) {
+  if (!user) return false;
+  return client.query(
+    api.access.canUserAccessSlug,
+    withSiteSlug(siteSlug, { userId: user._id, slug }),
+  );
+}
+
+async function filterAccessiblePages<T extends { slug: string; sensitive?: boolean }>(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  user: SessionUser | null,
+  pages: Array<T | null>,
+): Promise<T[]> {
+  const visible: T[] = [];
+  for (const page of pages) {
+    if (!page) continue;
+    if (page.sensitive !== true || (await canUserAccessSlug(client, siteSlug, user, page.slug))) {
+      visible.push(page);
+    }
+  }
+  return visible;
+}
+
+async function filterPotentiallySensitivePages<T extends { slug: string; sensitive?: boolean }>(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  user: SessionUser | null,
+  pages: Array<T | null>,
+): Promise<T[]> {
+  const visible: T[] = [];
+  for (const page of pages) {
+    if (!page) continue;
+    if (page.sensitive === false) {
+      visible.push(page);
+      continue;
+    }
+    const doc = page.sensitive === true
+        ? page
+        : await client.query(
+            api.documents.getBySlug,
+            withSiteSlug(siteSlug, {
+              slug: page.slug,
+              includeSensitive: true,
+            }),
+          );
+    if (doc?.sensitive !== true || (await canUserAccessSlug(client, siteSlug, user, page.slug))) {
+      visible.push(page);
+    }
+  }
+  return visible;
+}
+
 async function isValidPassword(
   client: ConvexHttpClient,
   siteSlug: string,
@@ -663,12 +791,17 @@ async function handleFileRequest(
   const mimeType = getMimeType(normalized);
   if (!mimeType) return new Response("File type not supported", { status: 400 });
 
-  const includeSensitive = Boolean(await getSessionUser(request, client, siteSlug));
+  const sessionUser = await getSessionUser(request, client, siteSlug);
   const siblingDoc = await client.query(
     api.documents.getBySlug,
     withSiteSlug(siteSlug, { slug: assetPathToSiblingSlug(normalized), includeSensitive: true }),
   );
-  if (!includeSensitive && siblingDoc?.sensitive) {
+  const includeSensitive = Boolean(
+    sessionUser &&
+      siblingDoc?.sensitive === true &&
+      (await canUserAccessSlug(client, siteSlug, sessionUser, siblingDoc.slug)),
+  );
+  if (siblingDoc?.sensitive && !includeSensitive) {
     return new Response("File not found", { status: 404 });
   }
 
@@ -752,6 +885,12 @@ async function handlePageCopyRequest(
     withSiteSlug(siteSlug, { slug, includeSensitive: true }),
   );
   if (!privatePage) return new Response("Not found", { status: 404 });
+  if (
+    privatePage.sensitive === true &&
+    !(await canUserAccessSlug(client, siteSlug, sessionUser, privatePage.slug))
+  ) {
+    return new Response("Not found", { status: 404 });
+  }
 
   return new Response(await redactText(client, siteSlug, privatePage.content), {
     headers: {
@@ -799,6 +938,7 @@ async function appendMarkdownToArchive(
   client: ConvexHttpClient,
   siteSlug: string,
   includeSensitive: boolean,
+  sessionUser: SessionUser | null,
   maxPages: number,
 ) {
   let cursor: string | null = null;
@@ -815,7 +955,8 @@ async function appendMarkdownToArchive(
       withSiteSlug(siteSlug, args),
     );
 
-    for (const page of result.page) {
+    const visiblePages = await filterAccessiblePages(client, siteSlug, sessionUser, result.page);
+    for (const page of visiblePages) {
       if (!page.content) continue;
       const content = await redactText(client, siteSlug, page.content);
       arc.append(Buffer.from(content, "utf-8"), { name: `${page.slug}.md` });
@@ -836,28 +977,44 @@ async function appendAssetsToArchive(
   client: ConvexHttpClient,
   siteSlug: string,
   includeSensitive: boolean,
+  sessionUser: SessionUser | null,
   maxAssets: number,
 ) {
   const args = withSiteSlug(
     siteSlug,
     includeSensitive ? { includeSensitive: true as const } : {},
   );
-  const assets: DownloadAsset[] = [];
+  const collected: DownloadAsset[] = [];
   for (const queryRef of [api.documents.listPdfAssetsPage, api.documents.listFileAssetsPage]) {
     let cursor: string | null = null;
     let isDone = false;
-    while (!isDone && assets.length < maxAssets) {
+    while (!isDone && collected.length < maxAssets) {
       const result = (await client.query(queryRef, {
         ...args,
         cursor,
-        numItems: Math.min(500, maxAssets - assets.length),
+        numItems: Math.min(500, maxAssets - collected.length),
       })) as { page: DownloadAsset[]; isDone: boolean; continueCursor: string | null };
-      assets.push(...result.page);
+      collected.push(...result.page);
       isDone = result.isDone;
       cursor = result.continueCursor;
       if (!isDone && !cursor) break;
     }
   }
+  const assets = await Promise.all(
+    collected.map(async (asset) => {
+      const sibling = await client.query(
+        api.documents.getBySlug,
+        withSiteSlug(siteSlug, {
+          slug: asset.path.replace(/\.[^/.]+$/, ""),
+          includeSensitive: true,
+        }),
+      );
+      if (!sibling?.sensitive) return asset;
+      return (await canUserAccessSlug(client, siteSlug, sessionUser, sibling.slug))
+        ? asset
+        : null;
+    }),
+  ).then((items) => items.filter((asset): asset is DownloadAsset => asset !== null));
 
   for (const asset of assets.slice(0, maxAssets)) {
     if (!asset.blobUrl) continue;
@@ -884,9 +1041,10 @@ async function handleDownloadRequest(
   const url = new URL(request.url);
   const type = url.searchParams.get("type") === "markdown" ? "markdown" : "full";
   const scope = url.searchParams.get("scope");
-  const includeSensitive = scope === "public"
-    ? false
-    : Boolean(await getSessionUser(request, client, siteSlug));
+  const sessionUser = scope === "public"
+    ? null
+    : await getSessionUser(request, client, siteSlug);
+  const includeSensitive = Boolean(sessionUser);
   const rawLimit = Number(url.searchParams.get("limit") ?? 0);
   const maxPages = Number.isFinite(rawLimit) && rawLimit > 0
     ? Math.min(5000, Math.floor(rawLimit))
@@ -898,9 +1056,9 @@ async function handleDownloadRequest(
 
   const stream = archiverToStream(type, async (arc) => {
     if (type === "full") {
-      await appendAssetsToArchive(arc, client, siteSlug, includeSensitive, maxAssets);
+      await appendAssetsToArchive(arc, client, siteSlug, includeSensitive, sessionUser, maxAssets);
     }
-    await appendMarkdownToArchive(arc, client, siteSlug, includeSensitive, maxPages);
+    await appendMarkdownToArchive(arc, client, siteSlug, includeSensitive, sessionUser, maxPages);
     await arc.finalize();
   });
 
@@ -942,15 +1100,22 @@ async function handleSearchRequest(
     );
   }
 
-  const includeSensitive = Boolean(await getSessionUser(request, client, siteSlug));
+  const sessionUser = await getSessionUser(request, client, siteSlug);
+  const includeSensitive = Boolean(sessionUser);
   const results = await client.query(
     api.documents.search,
     withSiteSlug(siteSlug, { query, limit, includeSensitive }),
   );
+  const visibleResults = await filterPotentiallySensitivePages(
+    client,
+    siteSlug,
+    sessionUser,
+    results,
+  );
   const patterns = await getPiiPatterns(client, siteSlug);
   const redact = (value: string | undefined) =>
     value == null ? value : applyPiiRedactions(value, { patterns });
-  const redactedResults = results.map((result) => ({
+  const redactedResults = visibleResults.map((result) => ({
     ...result,
     title: redact(result.title) ?? result.title,
     excerpt: redact(result.excerpt),
@@ -978,11 +1143,17 @@ async function readToolPage(
   client: ConvexHttpClient,
   siteSlug: string,
   slug: string,
+  sessionUser: SessionUser | null,
 ) {
   return readChatPageFromDocuments(
     {
-      getBySlug: (args) =>
-        client.query(api.documents.getBySlug, withSiteSlug(siteSlug, args)),
+      getBySlug: async (args) => {
+        const page = await client.query(api.documents.getBySlug, withSiteSlug(siteSlug, args));
+        if (!page?.sensitive) return page;
+        return (await canUserAccessSlug(client, siteSlug, sessionUser, page.slug))
+          ? page
+          : null;
+      },
     },
     slug,
     { patterns: await getPiiPatterns(client, siteSlug) },
@@ -1008,18 +1179,25 @@ async function handleToolsRequest(
     tool?: string;
     args?: Record<string, unknown>;
   };
+  const sessionUser = await getSessionUser(request, client, siteSlug);
+  const includeSensitive = Boolean(sessionUser);
 
   switch (tool) {
     case "search_wiki": {
       const query = String(args.query ?? "");
       const patterns = await getPiiPatterns(client, siteSlug);
+      const results = await client.query(
+        api.documents.search,
+        withSiteSlug(siteSlug, { query, limit: 8, includeSensitive }),
+      );
+      const visibleResults = await filterPotentiallySensitivePages(
+        client,
+        siteSlug,
+        sessionUser,
+        results,
+      );
       return Response.json(
-        (
-          await client.query(
-            api.documents.search,
-            withSiteSlug(siteSlug, { query, limit: 8 }),
-          )
-        ).map((result) => ({
+        visibleResults.map((result) => ({
           ...result,
           title: applyPiiRedactions(result.title, { patterns }),
           excerpt: result.excerpt
@@ -1035,7 +1213,7 @@ async function handleToolsRequest(
       );
     }
     case "read_page": {
-      return Response.json(await readToolPage(client, siteSlug, String(args.slug ?? "")), {
+      return Response.json(await readToolPage(client, siteSlug, String(args.slug ?? ""), sessionUser), {
         headers: {
           "Cache-Control": "private, no-store",
           "X-Wiki-Cache-Scope": "session",
@@ -1043,7 +1221,11 @@ async function handleToolsRequest(
       });
     }
     case "list_pages": {
-      return Response.json(await client.action(api.documents.list, withSiteSlug(siteSlug, {})), {
+      const pages = await client.action(
+        api.documents.list,
+        withSiteSlug(siteSlug, { includeSensitive }),
+      );
+      return Response.json(await filterAccessiblePages(client, siteSlug, sessionUser, pages), {
         headers: {
           "Cache-Control": "private, no-store",
           "X-Wiki-Cache-Scope": "session",
@@ -1051,11 +1233,15 @@ async function handleToolsRequest(
       });
     }
     case "get_pages_by_tag": {
+      const pages = await client.action(
+        api.documents.getByTag,
+        withSiteSlug(siteSlug, {
+          tag: String(args.tag ?? ""),
+          includeSensitive,
+        }),
+      );
       return Response.json(
-        await client.action(
-          api.documents.getByTag,
-          withSiteSlug(siteSlug, { tag: String(args.tag ?? "") }),
-        ),
+        await filterAccessiblePages(client, siteSlug, sessionUser, pages),
         {
           headers: {
             "Cache-Control": "private, no-store",
@@ -1065,8 +1251,13 @@ async function handleToolsRequest(
       );
     }
     case "list_tags": {
+      const pages = await client.action(
+        api.documents.list,
+        withSiteSlug(siteSlug, { includeSensitive }),
+      );
+      const visiblePages = await filterAccessiblePages(client, siteSlug, sessionUser, pages);
       return Response.json(
-        await client.action(api.documents.listTags, withSiteSlug(siteSlug, {})),
+        Array.from(new Set(visiblePages.flatMap((page) => page.tags))).sort(),
         {
           headers: {
             "Cache-Control": "private, no-store",
@@ -1080,11 +1271,125 @@ async function handleToolsRequest(
   }
 }
 
+async function requireAdminForRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  return requireAdminUser({
+    client,
+    siteSlug,
+    sessionUser: await getSessionUser(request, client, siteSlug),
+  });
+}
+
+async function handleAdminRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  const adminUser = await requireAdminForRequest(request, client, siteSlug);
+  if (!adminUser) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const url = new URL(request.url);
+  if (request.method === "GET" && url.pathname === "/api/admin/session") {
+    return Response.json(
+      {
+        user: {
+          _id: adminUser._id,
+          ...publicSessionUser(adminUser),
+        },
+        isAdmin: true,
+      },
+      { headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" } },
+    );
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/admin/access") {
+    const view = url.searchParams.get("view");
+    if (view === "users") {
+      return Response.json(await getAccessUsersAndRoles(client, siteSlug), {
+        headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" },
+      });
+    }
+    return Response.json(await getAccessPagesData(client, siteSlug), {
+      headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" },
+    });
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/admin/roles") {
+    const body = await request.json();
+    if (typeof body.roleId === "string") {
+      return Response.json(await updateRole(client, siteSlug, body.roleId, body.values));
+    }
+    return Response.json(await createRole(client, siteSlug, body.values));
+  }
+
+  if (request.method === "DELETE" && url.pathname === "/api/admin/roles") {
+    const body = await request.json();
+    return Response.json(await deleteRole(client, siteSlug, String(body.roleId ?? "")));
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/admin/users/role") {
+    const body = await request.json();
+    if (Array.isArray(body.userIds)) {
+      return Response.json(
+        await setUsersRole(
+          client,
+          siteSlug,
+          body.userIds.map(String),
+          typeof body.roleId === "string" ? body.roleId : undefined,
+        ),
+      );
+    }
+    return Response.json(
+      await setUserRole(
+        client,
+        siteSlug,
+        String(body.userId ?? ""),
+        typeof body.roleId === "string" ? body.roleId : undefined,
+      ),
+    );
+  }
+
+  if (request.method === "DELETE" && url.pathname === "/api/admin/users") {
+    const body = await request.json();
+    return Response.json(
+      await deleteUsers(
+        client,
+        siteSlug,
+        Array.isArray(body.userIds) ? body.userIds.map(String) : [],
+      ),
+    );
+  }
+
+  if (request.method === "GET" && url.pathname.startsWith("/api/admin/pii/")) {
+    const slug = decodeURIComponent(url.pathname.slice("/api/admin/pii/".length));
+    const token = sessionTokenFromCookie(request.headers.get("cookie") ?? "");
+    const page = await client.query(
+      api.documents.getBySlug,
+      withSiteSlug(siteSlug, {
+        slug,
+        includeSensitive: true,
+        rawContentSessionTokenHash: token ? hashSessionToken(token) : undefined,
+      }),
+    );
+    if (!page) return new Response("Not found", { status: 404 });
+    return Response.json(page, {
+      headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" },
+    });
+  }
+
+  return new Response("Not found", { status: 404 });
+}
+
 export function createWikiApiHandler(client = createClient()) {
   return async function handleWikiApiRequest(request: Request): Promise<Response | null> {
     const pathname = new URL(request.url).pathname;
     const handled =
       pathname.startsWith("/api/wiki/") ||
+      pathname.startsWith("/api/admin/") ||
+      pathname.startsWith("/api/publish/") ||
       pathname === "/api/login" ||
       pathname === "/api/auth/session" ||
       pathname === "/api/auth/signin" ||
@@ -1097,6 +1402,7 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/download" ||
       pathname === "/api/file" ||
       pathname === "/api/page-copy" ||
+      pathname === "/api/post-deploy" ||
       pathname === "/api/integrations/epic/authorize" ||
       pathname === "/api/integrations/epic/callback" ||
       pathname === "/api/integrations/epic/sync";
@@ -1120,6 +1426,7 @@ export function createWikiApiHandler(client = createClient()) {
       documents: createDocumentsGateway(client, siteSlug),
       getSessionUser: (nextRequest: Request) =>
         getSessionUser(nextRequest, client, siteSlug),
+      access: createAccessAdapter(client, siteSlug),
       manifestPrioritySlugs: MANIFEST_PRIORITY_SLUGS,
       decorateHeaders: decorateViteHeaders,
       logger: console,
@@ -1129,12 +1436,35 @@ export function createWikiApiHandler(client = createClient()) {
       return new Response(null, { status: 204 });
     }
 
+    if (pathname.startsWith("/api/publish/")) {
+      return handlePublishRequest({
+        request,
+        client,
+        step: pathname.slice("/api/publish/".length),
+      });
+    }
+
+    if (pathname === "/api/post-deploy") {
+      return handlePostDeployRequest(request);
+    }
+
+    if (pathname.startsWith("/api/admin/")) {
+      return handleAdminRequest(request, client, siteSlug);
+    }
+
     if (pathname === "/api/wiki/session") {
       return createWikiSessionResponse(request, context);
     }
 
     if (pathname === "/api/wiki/manifest") {
-      return createWikiManifestResponse(request, context);
+      const response = await createWikiManifestResponse(request, context);
+      const headers = new Headers(response.headers);
+      headers.set("Cache-Control", "no-store");
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
     }
 
     if (pathname === "/api/wiki/pages") {
@@ -1166,20 +1496,25 @@ export function createWikiApiHandler(client = createClient()) {
     }
 
     if (pathname === "/api/ai-search") {
+      const sessionUser = await getSessionUser(request, client, siteSlug);
       return handleAiSearchRequest({
         request,
         client,
         siteSlug,
-        includeSensitive: Boolean(await getSessionUser(request, client, siteSlug)),
+        includeSensitive: Boolean(sessionUser),
+        canAccessSlug: (slug) => canUserAccessSlug(client, siteSlug, sessionUser, slug),
       });
     }
 
     if (pathname === "/api/chat") {
+      const sessionUser = await getSessionUser(request, client, siteSlug);
       return handleChatRequest({
         request,
         client,
         siteSlug,
-        includeSensitive: Boolean(await getSessionUser(request, client, siteSlug)),
+        includeSensitive: Boolean(sessionUser),
+        canAccessSlug: (slug) => canUserAccessSlug(client, siteSlug, sessionUser, slug),
+        accessCacheKey: sessionUser ? String(sessionUser._id) : "public",
       });
     }
 
