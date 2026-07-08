@@ -3,7 +3,7 @@ import {
   CHAT_UNAVAILABLE_CONTENT,
   readChatPageFromDocuments,
   type ChatPageDocumentsGateway,
-} from "./chat-tools";
+} from "./chat-tools.ts";
 
 function createDocumentsGateway(
   docs: Array<{

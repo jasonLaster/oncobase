@@ -8,7 +8,7 @@ export interface FileNode {
   children?: FileNode[];
 }
 
-export { formatFileLabel } from "./file-labels";
+export { formatFileLabel } from "./file-labels.ts";
 
 export type CompactFileNode =
   | ["d", string, CompactFileNode[], (string | null)?, string?]

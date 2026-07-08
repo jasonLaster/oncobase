@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { applyPiiRedactions, parseSitePiiPatterns, shouldShowPii } from "./pii";
+import { applyPiiRedactions, parseSitePiiPatterns, shouldShowPii } from "./pii.ts";
 
 describe("PII redaction", () => {
   test("redacts fallback Diana identifiers", () => {

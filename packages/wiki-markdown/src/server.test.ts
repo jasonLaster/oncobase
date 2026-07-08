@@ -4,8 +4,8 @@ import {
   exampleTables,
   renderExampleTableSection,
 } from "@oncobase/smart-table/examples";
-import { normalizeMathValue } from "./math";
-import { renderWikiMarkdownHtml } from "./server";
+import { normalizeMathValue } from "./math.ts";
+import { renderWikiMarkdownHtml } from "./server.ts";
 
 function countMatches(source: string, pattern: RegExp) {
   return source.match(pattern)?.length ?? 0;

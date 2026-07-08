@@ -1,5 +1,5 @@
 import { type ComponentProps, type ReactNode } from "react";
-import { cn } from "./utils";
+import { cn } from "./utils.ts";
 
 export type WikiPageLoadingProps = ComponentProps<"div"> & {
   label?: ReactNode;

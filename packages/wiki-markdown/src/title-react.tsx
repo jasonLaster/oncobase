@@ -5,8 +5,8 @@ import {
   isInternalWikiHref,
   resolveHref,
   resolveWikilinks,
-} from "./paths";
-export { markdownTitleToText } from "./title";
+} from "./paths.ts";
+export { markdownTitleToText } from "./title.ts";
 
 export type MarkdownTitleLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
   href: string;

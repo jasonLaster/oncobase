@@ -16,8 +16,8 @@ import {
   WikiCommandList,
   WikiCommandPanel,
   WikiCommandSearch,
-} from "./palette";
-import { cn } from "./utils";
+} from "./palette.tsx";
+import { cn } from "./utils.ts";
 
 export type WikiFilePalettePage = {
   name: string;
