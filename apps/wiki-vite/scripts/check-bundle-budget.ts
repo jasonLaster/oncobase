@@ -34,7 +34,10 @@ const budgets: Budget[] = [
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },
 ];
 
-const totalGzipBudget = 1_330_000;
+// Recalibrated 2026-07-08 for the migration feature set: RBAC reader states,
+// web-parity sidebar/tag pages, and the comments rail mount grew the eager
+// shell deliberately. Liveblocks itself stays lazy (see lazyChunkPatterns).
+const totalGzipBudget = 1_360_000;
 
 /**
  * Lazy on-demand chunks that should not count against the initial-load budget.
