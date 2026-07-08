@@ -25,6 +25,18 @@
       "@convex/*": ["./convex/*"],
       "@oncobase/chat": ["../../packages/chat/src/index.ts"],
       "@oncobase/chat/*": ["../../packages/chat/src/*"],
+      "@oncobase/diagnostics": [
+        "../../packages/diagnostics/src/index.ts"
+      ],
+      "@oncobase/diagnostics/timeline": [
+        "../../packages/diagnostics/src/timeline/index.ts"
+      ],
+      "@oncobase/diagnostics/studies": [
+        "../../packages/diagnostics/src/studies/index.ts"
+      ],
+      "@oncobase/diagnostics/*": [
+        "../../packages/diagnostics/src/*"
+      ],
       "@oncobase/smart-table": ["../../packages/smart-table/src/index.ts"],
       "@oncobase/smart-table/examples": [
         "../../packages/smart-table/src/example-tables.ts"

@@ -4,6 +4,7 @@ Reusable Oncobase code lives at the repository top level under `packages/`. Apps
 
 | Package | Purpose |
 | --- | --- |
+| [`@oncobase/diagnostics`](diagnostics/README.md) | Shared diagnostics timeline UI, timeline data shaping, and diagnostic study metadata helpers. |
 | [`@oncobase/oncobase`](oncobase/README.md) | CLI for vault initialization, sync, check, publish, skills, and asset hash backfills. |
 | [`@oncobase/wiki-content`](wiki-content/README.md) | Content API contracts, file-tree helpers, client fetch helpers, chat tool helpers, PII utilities, and embeddings. |
 | [`@oncobase/wiki-markdown`](wiki-markdown/README.md) | Shared markdown renderer, wikilinks, citations, math, Mermaid, image theater, and smart-table integration. |

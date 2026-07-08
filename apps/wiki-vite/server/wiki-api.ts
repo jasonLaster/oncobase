@@ -16,6 +16,14 @@ import {
 import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
 import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
+import {
+  prepareDiagnosticTimelineResponse,
+  type DiagnosticTimelineData,
+} from "@oncobase/diagnostics/timeline/data";
+import {
+  diagnosticStudiesMetaKeyForSet,
+  parseDiagnosticStudiesPayload,
+} from "@oncobase/diagnostics/studies";
 import { api } from "../../../apps/web/convex/_generated/api.js";
 import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
 import { handleAiSearchRequest } from "./ai-search.js";
@@ -47,6 +55,7 @@ const USER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const DIANA_PASSWORDS = new Set(["wallify", "diana"]);
 const DEFAULT_SEARCH_LIMIT = 10;
 const MAX_SEARCH_LIMIT = 50;
+const TIMELINE_META_KEY = "diagnosticTimeline:data";
 const MANIFEST_PRIORITY_SLUGS = [
   "index",
   "wiki/logistics/insurance",
@@ -1271,6 +1280,57 @@ async function handleToolsRequest(
   }
 }
 
+async function handleTimelineRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: { Allow: "GET, HEAD" },
+    });
+  }
+
+  const url = new URL(request.url);
+  const timelineValue = await client.query(
+    api.documents.getMeta,
+    withSiteSlug(siteSlug, { key: TIMELINE_META_KEY }),
+  );
+
+  if (!timelineValue) {
+    return Response.json(
+      { error: `Diagnostic timeline not found for site '${siteSlug}'` },
+      {
+        status: 404,
+        headers: {
+          "Cache-Control": "private, no-store",
+          Vary: "Host",
+        },
+      },
+    );
+  }
+
+  const diagnosticStudiesValue = await client.query(
+    api.documents.getMeta,
+    withSiteSlug(siteSlug, {
+      key: diagnosticStudiesMetaKeyForSet(url.searchParams.get("studySet")),
+    }),
+  );
+  const diagnosticStudies = parseDiagnosticStudiesPayload(diagnosticStudiesValue);
+  const timeline = prepareDiagnosticTimelineResponse(
+    timelineValue,
+    diagnosticStudies,
+  ) satisfies DiagnosticTimelineData;
+
+  return Response.json(timeline, {
+    headers: {
+      "Cache-Control": "private, no-store",
+      Vary: "Host",
+    },
+  });
+}
+
 async function requireAdminForRequest(
   request: Request,
   client: ConvexHttpClient,
@@ -1398,6 +1458,7 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/ai-search" ||
       pathname === "/api/chat" ||
       pathname === "/api/search" ||
+      pathname === "/api/timeline" ||
       pathname === "/api/tools" ||
       pathname === "/api/download" ||
       pathname === "/api/file" ||
@@ -1493,6 +1554,10 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/search") {
       return handleSearchRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/timeline") {
+      return handleTimelineRequest(request, client, siteSlug);
     }
 
     if (pathname === "/api/ai-search") {
