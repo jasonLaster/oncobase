@@ -1,12 +1,22 @@
-import type { Id } from "../../../apps/web/convex/_generated/dataModel";
-import type { GuestUser } from "../../../apps/web/src/lib/guest-user";
-import type { SiteData } from "../../../apps/web/src/lib/site-data";
+import type { GuestUser } from "./guest-user";
 import {
   formatLiveblocksUserId,
   type ResolvedLiveblocksUser,
 } from "./user-format";
 
 const CONVEX_USER_ID_RE = /^[a-z0-9]{32}$/;
+
+export type LiveblocksUserRecord = {
+  id: string;
+  name: string | null;
+  email: string;
+};
+
+export type LiveblocksUserResolutionAdapter = {
+  getUsersByIds: (ids: string[]) => Promise<LiveblocksUserRecord[]>;
+  getGuestNamesByIds: (guestIds: string[]) => Promise<Record<string, string>>;
+  upsertGuestName: (guest: GuestUser) => Promise<unknown>;
+};
 
 function uniqueUserIds(userIds: readonly string[]) {
   return [
@@ -20,7 +30,7 @@ function uniqueUserIds(userIds: readonly string[]) {
 
 export async function persistLiveblocksGuestName(
   guest: GuestUser | null,
-  siteData: SiteData,
+  adapter: Pick<LiveblocksUserResolutionAdapter, "upsertGuestName">,
 ) {
   if (!guest) return;
 
@@ -28,12 +38,15 @@ export async function persistLiveblocksGuestName(
   const name = guest.name.trim();
   if (!guestId || !name) return;
 
-  await siteData.guestNames.upsert({ guestId, name });
+  await adapter.upsertGuestName({ id: guestId, name });
 }
 
 export async function resolveLiveblocksUsers(
   userIds: readonly string[],
-  siteData: SiteData,
+  adapter: Pick<
+    LiveblocksUserResolutionAdapter,
+    "getUsersByIds" | "getGuestNamesByIds"
+  >,
 ): Promise<Record<string, ResolvedLiveblocksUser>> {
   const ids = uniqueUserIds(userIds);
   const resolvedUsers: Record<string, ResolvedLiveblocksUser> = {};
@@ -44,10 +57,8 @@ export async function resolveLiveblocksUsers(
 
     await Promise.allSettled([
       convexIds.length > 0
-        ? siteData.users
-            .getUsersByIds({
-              ids: convexIds as Id<"users">[],
-            })
+        ? adapter
+            .getUsersByIds(convexIds)
             .then((users) => {
               for (const user of users) {
                 resolvedUsers[user.id] = {
@@ -58,8 +69,8 @@ export async function resolveLiveblocksUsers(
             })
         : Promise.resolve(),
       guestIds.length > 0
-        ? siteData.guestNames
-            .getByIds({ guestIds })
+        ? adapter
+            .getGuestNamesByIds(guestIds)
             .then((guestNameMap) => {
               for (const [id, name] of Object.entries(guestNameMap)) {
                 resolvedUsers[id] = { name };

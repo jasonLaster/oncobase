@@ -13,11 +13,7 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "types": ["bun-types"],
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["../../apps/web/src/*"],
-      "@convex/*": ["../../apps/web/convex/*"]
-    }
+    "baseUrl": "."
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules"]

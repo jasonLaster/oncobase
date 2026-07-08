@@ -114,6 +114,10 @@
       "name": "@oncobase/wiki-vite",
       "version": "0.1.0",
       "dependencies": {
+        "@liveblocks/client": "^3.18.1",
+        "@liveblocks/node": "^3.18.1",
+        "@liveblocks/react": "^3.18.1",
+        "@liveblocks/react-ui": "^3.18.1",
         "@livestore/adapter-web": "0.3.1",
         "@livestore/livestore": "0.3.1",
         "@livestore/peer-deps": "0.3.1",
@@ -121,6 +125,7 @@
         "@livestore/wa-sqlite": "1.0.5-dev.2",
         "@oncobase/chat": "workspace:*",
         "@oncobase/smart-table": "workspace:*",
+        "@oncobase/wiki-comments": "workspace:*",
         "@oncobase/wiki-content": "workspace:*",
         "@oncobase/wiki-markdown": "workspace:*",
         "@oncobase/wiki-shell": "workspace:*",

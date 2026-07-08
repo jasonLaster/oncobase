@@ -20,6 +20,7 @@ import {
   type MouseEvent,
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
+import { MessageSquareText } from "lucide-react";
 import { ChatConversationList } from "../chat/ChatConversationList";
 import { ChatProviders } from "../chat/ChatProviders";
 import { fileTree$, pageIndex$ } from "../livestore/queries";
@@ -110,6 +111,7 @@ export function Sidebar() {
       activeAncestorSlugs={activeAncestorSlugs}
       activeSlug={activeSlug}
       data-test-id="wiki-sidebar"
+      beforeTree={<CommentsTreeLink activePathname={pathname} />}
       expandedSlugs={expandedSlugs}
       getFileHref={fileHrefForNode}
       heading={null}
@@ -117,6 +119,29 @@ export function Sidebar() {
       renderPageLink={renderPageLink}
       tree={tree}
     />
+  );
+}
+
+function CommentsTreeLink({
+  activePathname,
+  onNavigate,
+}: {
+  activePathname: string;
+  onNavigate?: () => void;
+}) {
+  const active = activePathname.startsWith("/comments");
+  return (
+    <Link
+      aria-current={active ? "page" : undefined}
+      className={`wiki-shell-tree-link tree-link comments-tree-link${active ? " active" : ""}`}
+      data-test-id="sidebar-view-comments"
+      to="/comments"
+      onClick={onNavigate}
+      style={{ paddingLeft: 24 }}
+    >
+      <MessageSquareText size={14} aria-hidden="true" />
+      Comments
+    </Link>
   );
 }
 
@@ -218,6 +243,12 @@ export function MobileNav() {
     <WikiMobileNavigation
       activeAncestorSlugs={activeAncestorSlugs}
       activeSlug={activeSlug}
+      beforeTree={
+        <CommentsTreeLink
+          activePathname={pathname}
+          onNavigate={() => setOpen(false)}
+        />
+      }
       expandedSlugs={expandedSlugs}
       getFileHref={fileHrefForNode}
       onOpenChange={setOpen}

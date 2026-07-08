@@ -14,14 +14,15 @@ import {
 import type { ThreadData } from "@liveblocks/client";
 import { useThreads } from "@liveblocks/react";
 import { Comment, Composer, Thread } from "@liveblocks/react-ui";
-import { cn } from "../../../apps/web/src/lib/utils";
+import { cn } from "./utils";
 import { LiveblocksRoom } from "./room";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../../../apps/web/src/components/ui/dropdown-menu";
+} from "./menu";
+import type { LiveblocksProviderShellProps } from "./provider";
 import {
   buildCommentListItems,
   createThreadMetadata,
@@ -1685,20 +1686,32 @@ export function OutlineShell({
   );
 }
 
-export const commentsEnabled =
-  process.env.NEXT_PUBLIC_ENABLE_COMMENTS === "true";
+function readCommentsEnabledFlag() {
+  const viteEnv = (import.meta as { env?: Record<string, string | undefined> }).env;
+  return viteEnv?.VITE_NEXT_PUBLIC_ENABLE_COMMENTS ?? viteEnv?.VITE_ENABLE_COMMENTS;
+}
+
+export const commentsEnabled = readCommentsEnabledFlag() !== "false";
 
 export function ActiveDocumentComments({
   documentSlug,
   documentTitle,
+  provider,
+  fallback,
   children,
 }: {
   documentSlug: string;
   documentTitle: string;
+  provider?: Omit<LiveblocksProviderShellProps, "children" | "fallback">;
+  fallback?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <LiveblocksRoom roomId={getRoomId(documentSlug)}>
+    <LiveblocksRoom
+      roomId={getRoomId(documentSlug)}
+      provider={provider}
+      fallback={fallback}
+    >
       <CommentsShell documentSlug={documentSlug} documentTitle={documentTitle}>
         {children}
       </CommentsShell>

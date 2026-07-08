@@ -2,6 +2,7 @@
 
 import { type ReactNode, useEffect, useState, lazy, Suspense } from "react";
 import { OutlineShell, commentsEnabled } from "./index";
+import type { LiveblocksProviderShellProps } from "./provider";
 
 const ActiveComments = lazy(
   () => import("./index").then((m) => ({ default: m.ActiveDocumentComments }))
@@ -10,10 +11,12 @@ const ActiveComments = lazy(
 export function DocumentComments({
   documentSlug,
   documentTitle,
+  provider,
   children,
 }: {
   documentSlug: string;
   documentTitle: string;
+  provider?: Omit<LiveblocksProviderShellProps, "children" | "fallback">;
   children: ReactNode;
 }) {
   const [liveblocksActive, setLiveblocksActive] = useState(false);
@@ -59,6 +62,7 @@ export function DocumentComments({
       <ActiveComments
         documentSlug={documentSlug}
         documentTitle={documentTitle}
+        provider={provider}
       >
         {children}
       </ActiveComments>

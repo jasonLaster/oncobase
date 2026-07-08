@@ -4,8 +4,8 @@ import {
   type WikiMarkdownLinkProps,
   type WikiMarkdownNotificationAdapter,
 } from "@oncobase/wiki-markdown";
+import { DocumentComments } from "@oncobase/wiki-comments";
 import {
-  DocumentOutlineShell,
   WikiBadge,
   WikiBreadcrumbs,
   WikiEmptyState,
@@ -361,12 +361,9 @@ export function WikiPage({
   );
 
   return (
-    <DocumentOutlineShell
-      articleClassName="page-shell"
-      contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
+    <DocumentComments
       documentSlug={page.slug}
       documentTitle={page.title}
-      pathname={location.pathname}
     >
       {toast ? (
         <WikiToast>{toast}</WikiToast>
@@ -429,6 +426,6 @@ export function WikiPage({
             : null,
         ].filter(Boolean)}
       />
-    </DocumentOutlineShell>
+    </DocumentComments>
   );
 }
