@@ -68,11 +68,21 @@ function buildFullArchiveStream(
     `[download] Building full archive from public Blob+Convex for site=${siteData.siteSlug}`,
   );
   return archiverToStream("full", async (arc) => {
-    const [pdfAssets, fileAssets] = await Promise.all([
-      siteData.documents.listPdfAssets(),
-      siteData.documents.listFileAssets(),
-    ]);
-    const assets = [...pdfAssets, ...fileAssets] as DownloadAsset[];
+    const assets: DownloadAsset[] = [];
+    for (const fetchPage of [
+      siteData.documents.listPdfAssetsPage,
+      siteData.documents.listFileAssetsPage,
+    ]) {
+      let cursor: string | null = null;
+      let isDone = false;
+      while (!isDone) {
+        const result = await fetchPage({ cursor, numItems: 500 });
+        assets.push(...(result.page as DownloadAsset[]));
+        isDone = result.isDone;
+        cursor = result.continueCursor;
+        if (!isDone && !cursor) break;
+      }
+    }
     console.log(`[download] Full archive: ${assets.length} binary assets to fetch`);
 
     const BATCH = 20;

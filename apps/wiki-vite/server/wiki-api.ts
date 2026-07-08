@@ -819,11 +819,22 @@ async function appendAssetsToArchive(
     siteSlug,
     includeSensitive ? { includeSensitive: true as const } : {},
   );
-  const [pdfAssets, fileAssets] = await Promise.all([
-    client.query(api.documents.listPdfAssets, args) as Promise<DownloadAsset[]>,
-    client.query(api.documents.listFileAssets, args) as Promise<DownloadAsset[]>,
-  ]);
-  const assets = [...pdfAssets, ...fileAssets];
+  const assets: DownloadAsset[] = [];
+  for (const queryRef of [api.documents.listPdfAssetsPage, api.documents.listFileAssetsPage]) {
+    let cursor: string | null = null;
+    let isDone = false;
+    while (!isDone && assets.length < maxAssets) {
+      const result = (await client.query(queryRef, {
+        ...args,
+        cursor,
+        numItems: Math.min(500, maxAssets - assets.length),
+      })) as { page: DownloadAsset[]; isDone: boolean; continueCursor: string | null };
+      assets.push(...result.page);
+      isDone = result.isDone;
+      cursor = result.continueCursor;
+      if (!isDone && !cursor) break;
+    }
+  }
 
   for (const asset of assets.slice(0, maxAssets)) {
     if (!asset.blobUrl) continue;
