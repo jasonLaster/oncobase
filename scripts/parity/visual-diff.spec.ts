@@ -155,7 +155,9 @@ test("captures manifest-pinned visual parity report", async ({ browser }) => {
   ]);
 
   const manifestDiff = diffManifests(legacyManifest, viteManifest);
-  if (!manifestDiff.manifestHashEqual) {
+  // PARITY_SKIP_PIN=1 permits captures across intentionally-different builds
+  // (dev burn-down loops); the gate run must NOT set it.
+  if (!manifestDiff.manifestHashEqual && !process.env.PARITY_SKIP_PIN) {
     await writeFile(
       path.join(OUTPUT_DIR, "report.md"),
       [

@@ -7,6 +7,7 @@ import {
   buildCompactTreeFromManifest,
   compareFileTreeNodes,
   expandCompactFileTree,
+  transformFileTreeForSidebar,
   type CompactFileNode,
   type FileNode,
 } from "@/lib/file-tree-compact";
@@ -495,7 +496,9 @@ export async function getFileTreeForSite(
   siteSlug: SiteSlug,
   options: MarkdownDiscoveryOptions = {},
 ): Promise<FileNode[]> {
-  return expandCompactFileTree(await getCompactFileTreeForSite(siteSlug, options));
+  return transformFileTreeForSidebar(
+    expandCompactFileTree(await getCompactFileTreeForSite(siteSlug, options)),
+  );
 }
 
 /** Build a shallow cached tree for the server-rendered wiki shell. */

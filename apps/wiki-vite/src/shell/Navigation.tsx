@@ -1,6 +1,7 @@
 import { useStore } from "@livestore/react";
 import {
   expandCompactFileTree,
+  transformFileTreeForSidebar,
   type CompactFileNode,
 } from "@oncobase/wiki-content";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
@@ -137,13 +138,17 @@ function useWikiTree() {
   const pages = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
   return useMemo<WikiNavigationNode[]>(() => {
     if (fileTreeRow) {
-      return expandCompactFileTree(parseJsonArray<CompactFileNode>(fileTreeRow.treeJson));
+      return transformFileTreeForSidebar(
+        expandCompactFileTree(parseJsonArray<CompactFileNode>(fileTreeRow.treeJson)),
+      );
     }
-    return pages.map((page) => ({
-      name: page.slug.split("/").at(-1) ?? page.slug,
-      slug: page.slug,
-      type: "file" as const,
-    }));
+    return transformFileTreeForSidebar(
+      pages.map((page) => ({
+        name: page.slug.split("/").at(-1) ?? page.slug,
+        slug: page.slug,
+        type: "file" as const,
+      })),
+    );
   }, [fileTreeRow, pages]);
 }
 
