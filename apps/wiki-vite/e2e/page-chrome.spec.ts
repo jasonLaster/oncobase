@@ -69,9 +69,11 @@ test.describe("Page chrome parity", () => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
     await expect(page.getByTestId("page-outline")).toBeHidden();
-    const mobileOutline = page.getByTestId("mobile-page-outline");
-    await expect(mobileOutline).toContainText("3 headings");
-    await mobileOutline.getByRole("button", { name: "Expand outline rail" }).click();
+    await expect(page.getByTestId("mobile-page-outline")).toHaveCount(0);
+    await page.getByTestId("bottom-nav-trigger").click();
+    await page.getByRole("button", { name: "Outline" }).click();
+    const mobileOutline = page.getByTestId("bottom-nav-outline");
+    await expect(mobileOutline.getByRole("button", { name: "Claims follow-up" })).toBeVisible();
     await mobileOutline.getByRole("button", { name: "Claims follow-up" }).click();
 
     await expect(page).toHaveURL(/#claims-follow-up$/);

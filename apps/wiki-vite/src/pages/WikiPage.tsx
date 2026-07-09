@@ -380,6 +380,7 @@ export function WikiPage({
       contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
       documentSlug={page.slug}
       documentTitle={page.title}
+      mobileRail={false}
       pathname={location.pathname}
     >
       {toast ? (

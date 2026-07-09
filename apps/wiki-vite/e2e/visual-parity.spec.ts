@@ -43,7 +43,7 @@ test.describe("Visual parity", () => {
 
     await expect(page.getByTestId("mobile-page-header")).toBeVisible();
     await expect(page.getByTestId("bottom-nav-trigger")).toBeVisible();
-    await expect(page.getByTestId("mobile-page-outline")).toBeVisible();
+    await expect(page.getByTestId("mobile-page-outline")).toHaveCount(0);
     await expect(page.locator(".wiki-shell-header")).toHaveCount(0);
     await expect(page.locator(".page-shell")).toBeVisible();
 

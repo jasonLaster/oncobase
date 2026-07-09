@@ -13,6 +13,9 @@ import {
   WikiSidebarSignInPrompt,
   WikiTree,
   collectActiveAncestors,
+  collectOutline,
+  scrollToOutlineItem,
+  type OutlineItem,
   type WikiNavigationNode,
   type WikiTreePageLinkRenderArgs,
 } from "@oncobase/wiki-shell";
@@ -59,6 +62,7 @@ import {
   useCallback,
   useMemo,
   useState,
+  type CSSProperties,
   type MouseEvent,
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
@@ -75,6 +79,9 @@ import { ViteActionsMenu, openCommandPalette, useWikiViteAuth } from "./Header";
 
 const TREE_EXPANSION_KEY = "wiki-vite-expanded-directories";
 const ICON_SIZE = 14;
+const MOBILE_OUTLINE_SELECTOR = "h2[id], h3[id], h4[id]";
+
+type MobileNavTab = "pages" | "outline";
 
 const SECTION_ICONS: Record<string, LucideIcon> = {
   about: Info,
@@ -180,6 +187,11 @@ function writeExpandedDirectories(slugs: Map<string, boolean>) {
   } catch {
     // Sidebar expansion is a convenience, not critical cache state.
   }
+}
+
+function collectMobileOutlineItems() {
+  const root = document.querySelector<HTMLElement>('[data-test-id="document-article"]');
+  return collectOutline(root ?? document, MOBILE_OUTLINE_SELECTOR);
 }
 
 function lastPathSegment(slug: string) {
@@ -389,11 +401,30 @@ export function MobileNav() {
   const activeSlug = slugFromPath(pathname);
   const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
   const [navState, setNavState] = useState({ open: false, pathname });
+  const [activeTab, setActiveTab] = useState<MobileNavTab>("pages");
+  const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
   const { sessionLoading, sessionUser, setSessionUser, submitAuth } = useWikiViteAuth();
   const open = navState.pathname === pathname ? navState.open : false;
   const setOpen = useCallback(
     (nextOpen: boolean) => setNavState({ open: nextOpen, pathname }),
     [pathname],
+  );
+  const openPageNavigation = useCallback(() => {
+    setActiveTab("pages");
+    setOutlineItems(collectMobileOutlineItems());
+    setOpen(true);
+  }, [setOpen]);
+  const showOutlineTab = useCallback(() => {
+    setOutlineItems(collectMobileOutlineItems());
+    setActiveTab("outline");
+  }, []);
+  const jumpToMobileOutlineItem = useCallback(
+    (item: OutlineItem) => {
+      const root = document.querySelector<HTMLElement>('[data-test-id="document-article"]');
+      scrollToOutlineItem(item, pathname, root ?? document);
+      setOpen(false);
+    },
+    [pathname, setOpen],
   );
 
   if (isChatRoute) {
@@ -417,16 +448,51 @@ export function MobileNav() {
 
   return (
     <>
-      <MobilePageHeader title={pageTitleFromPath(pathname)} onOpenNavigation={() => setOpen(true)} />
+      <MobilePageHeader title={pageTitleFromPath(pathname)} onOpenNavigation={openPageNavigation} />
       <WikiMobileNavigationSheet
-        heading="Pages"
+        heading={activeTab === "outline" ? "Outline" : "Pages"}
         onOpenChange={setOpen}
         open={open}
         sheetId="mobile-page-navigation"
         title={<MarkdownTitle title={pageTitleFromPath(pathname)} />}
         trigger={false}
       >
-        <nav data-test-id="bottom-nav-page-tree">
+        <div className="wiki-vite-mobile-sheet-tabs">
+          <button
+            type="button"
+            className={activeTab === "pages" ? "active" : undefined}
+            onClick={() => setActiveTab("pages")}
+          >
+            Page nav
+          </button>
+          <button
+            type="button"
+            className={activeTab === "outline" ? "active" : undefined}
+            onClick={showOutlineTab}
+          >
+            Outline
+          </button>
+        </div>
+        <nav data-test-id={activeTab === "outline" ? "bottom-nav-outline" : "bottom-nav-page-tree"}>
+          {activeTab === "outline" ? (
+            outlineItems.length > 0 ? (
+              <div className="wiki-vite-mobile-outline-list">
+                {outlineItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => jumpToMobileOutlineItem(item)}
+                    style={{ "--outline-depth": Math.max(0, item.level - 2) } as CSSProperties}
+                  >
+                    {item.text}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="wiki-vite-mobile-outline-empty">No headings found on this page.</p>
+            )
+          ) : (
+            <>
           <WikiSidebarSignInPrompt
             onAuthSubmit={submitAuth}
             onSessionChange={setSessionUser}
@@ -446,6 +512,8 @@ export function MobileNav() {
             renderPageLink={renderPageLink}
             tree={tree}
           />
+            </>
+          )}
         </nav>
       </WikiMobileNavigationSheet>
       <Link to="/chat" aria-label="Ask wiki" title="Ask wiki" className="wiki-vite-mobile-ask" data-test-id="mobile-ask-wiki">
@@ -492,7 +560,19 @@ function MobilePageHeader({
         data-test-id="bottom-nav-trigger"
         onClick={onOpenNavigation}
       >
-        <ListChecks size={17} aria-hidden="true" />
+        <svg
+          width="17"
+          height="17"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 4h10M3 8h10M3 12h7" />
+        </svg>
       </button>
     </header>
   );

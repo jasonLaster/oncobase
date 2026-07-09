@@ -1340,6 +1340,72 @@ a {
     outline: none;
   }
 
+  .wiki-vite-mobile-sheet-tabs {
+    background: color-mix(in srgb, var(--background) 70%, transparent);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 6px;
+    display: flex;
+    gap: 2px;
+    margin: 0.25rem 0.75rem 0.5rem;
+    padding: 2px;
+  }
+
+  .wiki-vite-mobile-sheet-tabs button {
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex: 1;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-height: 30px;
+  }
+
+  .wiki-vite-mobile-sheet-tabs button:hover,
+  .wiki-vite-mobile-sheet-tabs button:focus-visible,
+  .wiki-vite-mobile-sheet-tabs button.active {
+    background: var(--accent-light);
+    color: var(--brand);
+    outline: none;
+  }
+
+  .wiki-vite-mobile-outline-list {
+    display: grid;
+    gap: 2px;
+  }
+
+  .wiki-vite-mobile-outline-list button {
+    background: transparent;
+    border: 0;
+    border-radius: 5px;
+    color: var(--foreground);
+    cursor: pointer;
+    font-size: 0.8125rem;
+    min-height: 34px;
+    overflow: hidden;
+    padding: 6px 8px 6px calc(8px + (var(--outline-depth) * 12px));
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wiki-vite-mobile-outline-list button:hover,
+  .wiki-vite-mobile-outline-list button:focus-visible {
+    background: var(--accent-light);
+    color: var(--brand);
+    outline: none;
+  }
+
+  .wiki-vite-mobile-outline-empty {
+    border: 1px dashed var(--sidebar-border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    margin: 0;
+    padding: 1rem;
+  }
+
   .wiki-vite-mobile-ask {
     align-items: center;
     background: var(--brand);

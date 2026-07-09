@@ -60,6 +60,18 @@ async function openCapturePage(browser: Browser, origin: string, viewport: typeo
   return { context, page };
 }
 
+async function recoverIfSnagged(page: Page) {
+  if ((await page.getByText("This reader hit a snag").count()) === 0) return false;
+  const reset = page.getByRole("button", { name: "Reset local data & reload" });
+  if (await reset.isVisible().catch(() => false)) {
+    await reset.click();
+  } else {
+    await page.reload({ waitUntil: "domcontentloaded" });
+  }
+  await page.waitForTimeout(5_000);
+  return true;
+}
+
 async function capture(page: Page, slug: string) {
   // networkidle never settles on the vite reader (LiveStore keeps sync
   // connections open); wait for rendered content plus a short settle instead.
@@ -74,6 +86,15 @@ async function capture(page: Page, slug: string) {
     .waitFor({ state: "hidden", timeout: 60_000 })
     .catch(() => {});
   await page.waitForTimeout(750);
+  if (await recoverIfSnagged(page)) {
+    await page.goto(pagePath(slug), { waitUntil: "domcontentloaded" });
+    await page
+      .locator(".page-header h1, .page-shell h1, article h1")
+      .first()
+      .waitFor({ timeout: 60_000 })
+      .catch(() => {});
+    await page.waitForTimeout(750);
+  }
   return page.screenshot({
     fullPage: true,
     animations: "disabled",

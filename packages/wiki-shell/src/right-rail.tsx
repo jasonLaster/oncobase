@@ -243,6 +243,7 @@ export type DocumentOutlineShellProps = {
   defaultOpen?: boolean;
   documentSlug?: string;
   documentTitle?: string;
+  mobileRail?: boolean;
   onActivateComments?: () => void;
   pathname?: string;
   scrollRootSelector?: string;
@@ -290,6 +291,7 @@ export function DocumentOutlineShell({
   defaultOpen = false,
   documentSlug,
   documentTitle,
+  mobileRail = true,
   onActivateComments,
   pathname,
   scrollRootSelector,
@@ -392,75 +394,77 @@ export function DocumentOutlineShell({
         </div>
       </div>
 
-      <aside
-        className={cn(
-          "wiki-shell-mobile-outline-rail",
-          sidebarOpen && "expanded",
-        )}
-        data-comments-bottom-rail
-        data-test-id="mobile-page-outline"
-        aria-label="Document outline"
-      >
-        {sidebarOpen ? (
-          <>
-            <div className="wiki-shell-mobile-outline-header">
-              <div className="wiki-shell-mobile-outline-grip" aria-hidden="true" />
-              <div className="wiki-shell-mobile-outline-title-row">
-                {onActivateComments ? (
-                  <div className="wiki-shell-outline-tabs">
-                    <OutlineRailButton variant="tab" onClick={onActivateComments}>
-                      Comments
-                    </OutlineRailButton>
-                    <OutlineRailButton variant="tab" active onClick={toggleSidebar}>
-                      Outline
-                    </OutlineRailButton>
-                  </div>
-                ) : (
-                  <span className="wiki-shell-outline-title">Outline</span>
-                )}
-                <OutlineRailButton
-                  className="wiki-shell-outline-icon-button"
-                  onClick={toggleSidebar}
-                  aria-label="Collapse outline rail"
-                >
-                  <RailToggleIcon direction="down" />
-                </OutlineRailButton>
+      {mobileRail ? (
+        <aside
+          className={cn(
+            "wiki-shell-mobile-outline-rail",
+            sidebarOpen && "expanded",
+          )}
+          data-comments-bottom-rail
+          data-test-id="mobile-page-outline"
+          aria-label="Document outline"
+        >
+          {sidebarOpen ? (
+            <>
+              <div className="wiki-shell-mobile-outline-header">
+                <div className="wiki-shell-mobile-outline-grip" aria-hidden="true" />
+                <div className="wiki-shell-mobile-outline-title-row">
+                  {onActivateComments ? (
+                    <div className="wiki-shell-outline-tabs">
+                      <OutlineRailButton variant="tab" onClick={onActivateComments}>
+                        Comments
+                      </OutlineRailButton>
+                      <OutlineRailButton variant="tab" active onClick={toggleSidebar}>
+                        Outline
+                      </OutlineRailButton>
+                    </div>
+                  ) : (
+                    <span className="wiki-shell-outline-title">Outline</span>
+                  )}
+                  <OutlineRailButton
+                    className="wiki-shell-outline-icon-button"
+                    onClick={toggleSidebar}
+                    aria-label="Collapse outline rail"
+                  >
+                    <RailToggleIcon direction="down" />
+                  </OutlineRailButton>
+                </div>
+                <p className="wiki-shell-outline-count">
+                  {items.length} heading{items.length === 1 ? "" : "s"}
+                </p>
               </div>
-              <p className="wiki-shell-outline-count">
+              <div className="wiki-shell-mobile-outline-body">
+                <OutlineList activeId={activeId} items={items} onJump={jumpToHeading} />
+              </div>
+            </>
+          ) : (
+            <div className="wiki-shell-mobile-outline-collapsed">
+              {onActivateComments ? (
+                <div className="wiki-shell-outline-tabs">
+                  <OutlineRailButton variant="tab" onClick={onActivateComments}>
+                    Comments
+                  </OutlineRailButton>
+                  <OutlineRailButton variant="tab" active onClick={openSidebar}>
+                    Outline
+                  </OutlineRailButton>
+                </div>
+              ) : (
+                <span className="wiki-shell-outline-title">Outline</span>
+              )}
+              <span className="wiki-shell-outline-count">
                 {items.length} heading{items.length === 1 ? "" : "s"}
-              </p>
+              </span>
+              <OutlineRailButton
+                className="wiki-shell-outline-icon-button"
+                onClick={openSidebar}
+                aria-label="Expand outline rail"
+              >
+                <RailToggleIcon direction="up" />
+              </OutlineRailButton>
             </div>
-            <div className="wiki-shell-mobile-outline-body">
-              <OutlineList activeId={activeId} items={items} onJump={jumpToHeading} />
-            </div>
-          </>
-        ) : (
-          <div className="wiki-shell-mobile-outline-collapsed">
-            {onActivateComments ? (
-              <div className="wiki-shell-outline-tabs">
-                <OutlineRailButton variant="tab" onClick={onActivateComments}>
-                  Comments
-                </OutlineRailButton>
-                <OutlineRailButton variant="tab" active onClick={openSidebar}>
-                  Outline
-                </OutlineRailButton>
-              </div>
-            ) : (
-              <span className="wiki-shell-outline-title">Outline</span>
-            )}
-            <span className="wiki-shell-outline-count">
-              {items.length} heading{items.length === 1 ? "" : "s"}
-            </span>
-            <OutlineRailButton
-              className="wiki-shell-outline-icon-button"
-              onClick={openSidebar}
-              aria-label="Expand outline rail"
-            >
-              <RailToggleIcon direction="up" />
-            </OutlineRailButton>
-          </div>
-        )}
-      </aside>
+          )}
+        </aside>
+      ) : null}
 
       <aside
         className={cn(
