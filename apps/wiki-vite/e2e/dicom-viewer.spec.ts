@@ -76,7 +76,11 @@ const biopsyLinks = [
   },
 ];
 const breastMriReportPath = "sources/diagnostics/401-breast-mri.pdf";
-const isProdRun = process.env.TEST_ENV === "prod";
+// Deployed targets (preview shards set PLAYWRIGHT_BASE_URL) run production
+// builds, which strip test studySet params from hrefs by design — seeded
+// local-mode assertions only hold against the local dev server.
+const isProdRun =
+  process.env.TEST_ENV === "prod" || Boolean(process.env.PLAYWRIGHT_BASE_URL);
 const seededStudySet = `playwright-dicom-${Date.now()}`;
 const seededStudySetQuery = isProdRun ? "" : `?studySet=${seededStudySet}`;
 const seededStudySetParam = isProdRun ? "" : `&studySet=${seededStudySet}`;
