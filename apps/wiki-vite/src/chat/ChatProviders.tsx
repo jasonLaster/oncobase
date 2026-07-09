@@ -3,10 +3,9 @@ import {
   WikiChatToolRenderer,
   extractWikiChatSources,
 } from "@oncobase/wiki-shell/wiki-chat";
-import { WikiMarkdown } from "@oncobase/wiki-markdown";
 import { PROD_CONVEX_FALLBACK_URL } from "@oncobase/wiki-content/convex-url";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { useEffect, useMemo, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, useMemo, type ReactNode } from "react";
 import { Link } from "react-router";
 import { api } from "../../../../apps/web/convex/_generated/api.js";
 import { publishChatPerfSnapshot } from "../observability";
@@ -73,6 +72,16 @@ function ChatLink({
   );
 }
 
+// ChatProviders is part of the eager reader shell (the mobile navigation
+// renders the chat sheet through it), so pulling WikiMarkdown in statically
+// would drag react-markdown and its remark/vfile graph into the shell bundle.
+// Chat transcripts only need the renderer once a conversation is on screen.
+const LazyWikiMarkdown = lazy(() =>
+  import("@oncobase/wiki-markdown").then((module) => ({
+    default: module.WikiMarkdown,
+  })),
+);
+
 function ChatMarkdownRenderer({
   content,
   disableAnchors,
@@ -82,22 +91,24 @@ function ChatMarkdownRenderer({
   isStreaming?: boolean;
 }) {
   return (
-    <WikiMarkdown
-      content={content}
-      disableAnchors={disableAnchors}
-      LinkComponent={({ href = "", children, ...props }) => (
-        <Link to={hrefForSlug(href.replace(/^\/+/, ""))} {...props}>
-          {children}
-        </Link>
-      )}
-      resolveLinkHref={(href) => {
-        if (!href) return href;
-        if (href.startsWith("/wiki/") || href.startsWith("/sources/") || href.startsWith("/about/")) {
+    <Suspense fallback={<p className="whitespace-pre-wrap">{content}</p>}>
+      <LazyWikiMarkdown
+        content={content}
+        disableAnchors={disableAnchors}
+        LinkComponent={({ href = "", children, ...props }) => (
+          <Link to={hrefForSlug(href.replace(/^\/+/, ""))} {...props}>
+            {children}
+          </Link>
+        )}
+        resolveLinkHref={(href) => {
+          if (!href) return href;
+          if (href.startsWith("/wiki/") || href.startsWith("/sources/") || href.startsWith("/about/")) {
+            return href;
+          }
           return href;
-        }
-        return href;
-      }}
-    />
+        }}
+      />
+    </Suspense>
   );
 }
 

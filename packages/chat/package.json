@@ -105,6 +105,11 @@
       "import": "./src/components/messages.tsx",
       "default": "./src/components/messages.tsx"
     },
+    "./components/tool-call-core": {
+      "types": "./src/components/tool-call-core.tsx",
+      "import": "./src/components/tool-call-core.tsx",
+      "default": "./src/components/tool-call-core.tsx"
+    },
     "./components/streaming-markdown": {
       "types": "./src/components/streaming-markdown.tsx",
       "import": "./src/components/streaming-markdown.tsx",

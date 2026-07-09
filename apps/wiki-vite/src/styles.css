@@ -5,6 +5,7 @@
 @import "@liveblocks/react-ui/styles.css";
 @source "../../../packages/wiki-comments/src";
 @source "../../../packages/chat/src";
+@source "../../../packages/diagnostics/src";
 
 :root {
   color-scheme: light;
