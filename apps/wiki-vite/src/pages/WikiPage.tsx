@@ -317,7 +317,7 @@ export function WikiPage({
             {identity?.authenticated !== true ? (
               <Link
                 className="wiki-shell-page-action page-action"
-                to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search + location.hash)}`}
+                to={`/login?redirect=${encodeURIComponent(location.pathname + location.search + location.hash)}`}
               >
                 Sign in
               </Link>

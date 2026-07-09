@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { Route, Routes } from "react-router";
+import { Route, Routes, useLocation } from "react-router";
 import { publishMetrics } from "./observability";
 import { Header } from "./shell/Header";
 import { LiveStoreDevtoolsFooter } from "./shell/LiveStoreDevtoolsFooter";
@@ -80,6 +80,7 @@ export function App({
   storeId: string;
 }) {
   const scope = useWikiScope();
+  const location = useLocation();
   const [metrics, setMetrics] = useState<Metrics>(initialMetrics);
 
   useEffect(() => {
@@ -102,6 +103,14 @@ export function App({
           : current.markdownBytes + patch.markdownBytes,
     }));
   }, []);
+
+  if (location.pathname === "/login") {
+    return (
+      <Suspense fallback={<PageFallback />}>
+        <LoginPage />
+      </Suspense>
+    );
+  }
 
   return (
     <>

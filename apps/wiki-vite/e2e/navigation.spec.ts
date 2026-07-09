@@ -33,7 +33,7 @@ test.describe("Page viewing and sidebar navigation", () => {
     );
   });
 
-  test("shared actions menu exposes command, theme, account, and archive actions", async ({ page }) => {
+  test("shared actions menu exposes command, theme, and archive actions when signed out", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
     const actions = page.getByRole("button", { name: "Actions" });
@@ -48,10 +48,43 @@ test.describe("Page viewing and sidebar navigation", () => {
       /\/api\/download\?type=markdown&scope=public$/,
     );
     await expect(menu.getByRole("menuitem", { name: /Theme:/ })).toBeVisible();
-    await expect(menu.getByRole("menuitem", { name: "Sign in" })).toBeVisible();
+    await expect(menu.getByText("Account")).toHaveCount(0);
+    await expect(menu.getByRole("menuitem", { name: "Sign in" })).toHaveCount(0);
 
     await menu.getByRole("menuitem", { name: /Command palette/ }).click();
     await expect(page.getByTestId("command-palette")).toBeVisible();
+  });
+
+  test("shared actions menu exposes account actions when signed in", async ({ page }) => {
+    await page.route("**/api/auth/session", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            email: "admin@example.test",
+            isAdmin: true,
+            name: "Admin Example",
+          },
+        }),
+      });
+    });
+    await page.route("**/api/auth/signout", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      });
+    });
+
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    await page.getByRole("button", { name: "Actions" }).click();
+    const menu = page.getByRole("menu", { name: "Actions" });
+    await expect(menu.getByText("Account")).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Admin Example" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Admin" })).toHaveAttribute("href", "/admin");
+    await expect(menu.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
   });
 
   test("navigates to a page via sidebar", async ({ page }) => {

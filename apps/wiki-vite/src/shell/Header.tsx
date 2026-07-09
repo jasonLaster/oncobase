@@ -220,9 +220,11 @@ export function Header() {
         }
         actions={
           <WikiActionsMenu
+            adminHref="/admin"
             currentTheme={currentTheme}
             downloadFullHref={backendHref("/api/download", { type: "full", scope })}
             downloadMarkdownHref={backendHref("/api/download", { type: "markdown", scope })}
+            hideSignedOutAccountActions
             onAuthSubmit={submitAuth}
             onOpenCommandPalette={() => openPalette("actions")}
             onSessionChange={setSessionUser}
