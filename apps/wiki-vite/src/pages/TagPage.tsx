@@ -67,7 +67,7 @@ export function TagPage() {
       <article className="page-shell tag-page-shell" data-test-id="tag-page">
         <WikiPageLoading
           data-test-id="page-loading"
-          label={`Loading ${decodedTag} pages`}
+          label="Loading page"
         />
       </article>
     );

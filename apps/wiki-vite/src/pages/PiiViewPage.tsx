@@ -1,3 +1,4 @@
+import { WikiEmptyState, WikiPageLoading } from "@oncobase/wiki-shell";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router";
 
@@ -32,14 +33,24 @@ export function PiiViewPage() {
   }, [slug, location.key]);
 
   if (error) {
-    return <article className="page-shell"><p className="app-error">{error}</p></article>;
+    return (
+      <WikiEmptyState
+        data-test-id="document-article"
+        title="Markdown unavailable"
+        description={error}
+      />
+    );
   }
   if (!page) {
-    return <article className="page-shell"><div className="loading-line">Loading page</div></article>;
+    return (
+      <article className="page-shell page-shell-loading" data-test-id="document-article">
+        <WikiPageLoading data-test-id="page-loading" includeTags label="Loading page" />
+      </article>
+    );
   }
 
   return (
-    <article className="page-shell">
+    <article className="page-shell" data-test-id="document-article">
       <h1>{page.title}</h1>
       <pre className="pii-view-content">{page.rawContent ?? page.content}</pre>
     </article>

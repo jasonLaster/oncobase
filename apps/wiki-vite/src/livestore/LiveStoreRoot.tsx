@@ -2,6 +2,7 @@ import { makePersistedAdapter } from "@livestore/adapter-web";
 import LiveStoreSharedWorker from "@livestore/adapter-web/shared-worker?sharedworker";
 import { LiveStoreProvider } from "@livestore/react";
 import { makeWikiStoreId, type WikiScope, type WikiSessionIdentity } from "@oncobase/wiki-content";
+import { WikiPageLoading } from "@oncobase/wiki-shell";
 import { useMemo } from "react";
 import { unstable_batchedUpdates as batchUpdates } from "react-dom";
 import { BrowserRouter } from "react-router";
@@ -45,10 +46,23 @@ export function LiveStoreRoot({
       storeId={storeId}
       disableDevtools={!liveStoreDevtoolsEnabled}
       renderLoading={({ stage }) => (
-        <div className="app-loading">Opening local wiki cache ({stage})...</div>
+        <WikiPageLoading
+          data-test-id="page-loading"
+          includeTags
+          label={`Loading page (${stage})`}
+        />
       )}
       renderError={(error) => (
-        <div className="app-loading app-error">LiveStore failed: {String(error)}</div>
+        <main className="app-loading app-auth-shell" data-test-id="app-recovery">
+          <section>
+            <h1>This reader hit a snag</h1>
+            <p>
+              The local wiki cache could not be opened. Resetting clears the offline copy
+              stored in this browser and reloads the latest content.
+            </p>
+            <p className="auth-error">{String(error)}</p>
+          </section>
+        </main>
       )}
     >
       <WikiSessionProvider identity={identity}>

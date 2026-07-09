@@ -561,6 +561,7 @@ a {
 }
 
 .app-auth-shell section {
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 18px 44px rgb(17 24 39 / 0.1);
@@ -595,10 +596,10 @@ a {
 .auth-actions button,
 .auth-actions a {
   align-items: center;
-  background: var(--foreground);
-  border: 1px solid var(--foreground);
+  background: var(--brand);
+  border: 1px solid var(--brand);
   border-radius: 5px;
-  color: var(--background);
+  color: white;
   cursor: pointer;
   display: inline-flex;
   font-weight: 600;
@@ -607,10 +608,17 @@ a {
   text-decoration: none;
 }
 
-.auth-actions a {
+.auth-actions a,
+.auth-actions button + button {
   background: var(--panel);
   border-color: var(--border);
   color: var(--foreground);
+}
+
+.auth-actions button:disabled,
+.auth-actions a[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .login-shell {
@@ -957,6 +965,10 @@ a {
   overflow: visible;
   padding: 28px 0 0;
   position: relative;
+}
+
+.page-shell-loading {
+  padding-top: 0;
 }
 
 .muted {
