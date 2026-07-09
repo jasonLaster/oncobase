@@ -208,9 +208,11 @@ export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["t
 
   return (
     <WikiActionsMenu
+      adminHref="/admin"
       currentTheme={currentTheme}
       downloadFullHref={backendHref("/api/download", { type: "full", scope })}
       downloadMarkdownHref={backendHref("/api/download", { type: "markdown", scope })}
+      hideSignedOutAccountActions
       onAuthSubmit={submitAuth}
       onOpenCommandPalette={() => openCommandPalette("actions")}
       onSessionChange={setSessionUser}
@@ -222,7 +224,7 @@ export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["t
       textSearchHref={backendHref("/search", { returnTo, tab: "text" })}
       themeLabel={wikiThemeLabel(preference)}
       trigger={trigger}
-      />
+    />
   );
 }
 

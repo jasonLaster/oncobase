@@ -38,21 +38,46 @@ test.describe("Session scope recovery", () => {
     );
   });
 
-  test("login page describes and preserves the redirect target", async ({ page }) => {
+  test("login page matches the web password gate and preserves the redirect target", async ({ page }) => {
     test.skip(runsWithPreviewAuth, "Preview e2e starts authenticated to exercise protected wiki pages.");
 
     await installWikiApiMocks(page);
+    await page.route("**/api/login", async (route) => {
+      const body = route.request().postDataJSON() as { password?: string };
+      if (body.password === "diana") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ ok: true }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Invalid password" }),
+      });
+    });
     await page.goto(
       "/login?redirect=%2Fwiki%2Flogistics%2Finsurance%3Fscope%3Dsession%23claims-follow-up",
       { waitUntil: "domcontentloaded" },
     );
 
-    await expect(page.getByTestId("login-page")).toContainText(
-      "/wiki/logistics/insurance?scope=session#claims-follow-up",
-    );
-    await expect(page.getByRole("link", { name: "Back to reader" })).toHaveAttribute(
-      "href",
-      "/wiki/logistics/insurance?scope=session#claims-follow-up",
+    await expect(page.getByRole("heading", { name: "TNBC Knowledge Base" })).toBeVisible();
+    await expect(page.getByPlaceholder("Password")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Enter" })).toBeVisible();
+    await expect(page.getByTestId("app-header")).toHaveCount(0);
+    await expect(page.getByTestId("wiki-sidebar")).toHaveCount(0);
+
+    await page.getByPlaceholder("Password").fill("wrong-password");
+    await page.getByRole("button", { name: "Enter" }).click();
+    await expect(page.getByText("Incorrect password")).toBeVisible();
+    await expect(page.getByPlaceholder("Password")).toHaveValue("");
+
+    await page.getByPlaceholder("Password").fill("diana");
+    await page.getByRole("button", { name: "Enter" }).click();
+    await expect(page).toHaveURL(
+      /\/wiki\/logistics\/insurance\?scope=session#claims-follow-up$/,
     );
   });
 

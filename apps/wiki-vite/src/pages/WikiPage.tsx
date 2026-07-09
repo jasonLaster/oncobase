@@ -52,7 +52,7 @@ import {
   slugFromPath,
   storageSnapshot,
 } from "../wiki-utils";
-import { useWikiScope } from "../wiki-context";
+import { useWikiScope, useWikiSession } from "../wiki-context";
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
@@ -153,6 +153,7 @@ export function WikiPage({
   const location = useLocation();
   const navigate = useNavigate();
   const scope = useWikiScope();
+  const identity = useWikiSession();
   const [toast, setToast] = useState<string | null>(null);
   const slug = slugFromPath(location.pathname);
   const deferredSlug = useDeferredValue(slug);
@@ -312,9 +313,19 @@ export function WikiPage({
         data-test-id="document-article"
         slug={page.slug}
         actions={
-          <Link className="wiki-shell-page-action page-action" to="/">
-            Back to the wiki
-          </Link>
+          <>
+            {identity?.authenticated !== true ? (
+              <Link
+                className="wiki-shell-page-action page-action"
+                to={`/login?redirect=${encodeURIComponent(location.pathname + location.search + location.hash)}`}
+              >
+                Sign in
+              </Link>
+            ) : null}
+            <Link className="wiki-shell-page-action page-action" to="/">
+              Back to the wiki
+            </Link>
+          </>
         }
       />
     );

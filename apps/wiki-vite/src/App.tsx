@@ -101,7 +101,8 @@ export function App({
   storeId: string;
 }) {
   const scope = useWikiScope();
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   const isImmersiveDicomRoute =
     pathname.startsWith("/tools/dicom-viewer") ||
     pathname.startsWith("/tools/dicom-compare");
@@ -127,6 +128,14 @@ export function App({
           : current.markdownBytes + patch.markdownBytes,
     }));
   }, []);
+
+  if (location.pathname === "/login") {
+    return (
+      <Suspense fallback={<PageFallback />}>
+        <LoginPage />
+      </Suspense>
+    );
+  }
 
   return (
     <>

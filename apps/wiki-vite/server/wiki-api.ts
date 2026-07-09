@@ -648,9 +648,10 @@ async function handleLoginRequest(
   );
 }
 
-function publicSessionUser(user: { email: string; name?: string | null }) {
+function publicSessionUser(user: { email: string; isAdmin?: boolean; name?: string | null }) {
   return {
     email: user.email,
+    ...(user.isAdmin === undefined ? {} : { isAdmin: user.isAdmin }),
     name: user.name ?? null,
   };
 }
@@ -695,8 +696,9 @@ async function handleAuthSessionRequest(
   }
 
   const user = await getSessionUser(request, client, siteSlug);
+  const isAdmin = user ? await isAdminSessionUser(client, siteSlug, user) : false;
   return Response.json(
-    { user: user ? publicSessionUser(user) : null },
+    { user: user ? publicSessionUser({ ...user, isAdmin }) : null },
     {
       headers: {
         "Cache-Control": "private, no-store",

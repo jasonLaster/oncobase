@@ -62,9 +62,28 @@ test.describe("document comments sidebar", () => {
     // Web parity: no bottom outline/comments rail on mobile; comments open
     // from the mobile header control instead.
     await expect(page.locator("[data-comments-bottom-rail]")).toHaveCount(0);
+    await page.evaluate(() => {
+      const win = window as typeof window & { __mobileCommentsRequested?: string | null };
+      window.addEventListener(
+        "mobile-comments-panel-open",
+        () => {
+          win.__mobileCommentsRequested =
+            document.documentElement.dataset.mobileCommentsPanelRequested ?? null;
+        },
+        { once: true },
+      );
+    });
     const trigger = page.getByTestId("mobile-header-comments");
     await expect(trigger).toBeVisible();
     await trigger.click();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const win = window as typeof window & { __mobileCommentsRequested?: string | null };
+          return win.__mobileCommentsRequested;
+        }),
+      )
+      .toBe("true");
     const panel = page.locator("[data-comments-bottom-rail]");
     await expect(panel).toBeVisible({ timeout: 20_000 });
     await expect(panel).toContainText("unresolved threads");
@@ -143,34 +162,4 @@ test.describe("comments sidebar navigation", () => {
     await expect(page).toHaveURL(/\/comments$/);
     await expect(page.getByTestId("comments-page")).toBeVisible();
   });
-});
-
-test.describe("Liveblocks credential-required comment creation", () => {
-  test.beforeEach(() => {
-    test.skip(
-      true,
-      "Requires live Liveblocks workspace credentials and signed-in comment permissions.",
-    );
-  });
-
-  test("page-level composer opens and has send button", async () => {});
-  test("typing in composer enables send button", async () => {});
-  test("sidebar loads with Comments / Outline toggle", async () => {});
-  test("sidebar shows thread count", async () => {});
-  test("switching to Outline tab shows headings", async () => {});
-  test("comment and outline rail buttons toggle the rail", async () => {});
-  test("comments rail can be resized", async () => {});
-  test("comment actions menu opens with filter option", async () => {});
-  test("toggling resolved filter changes thread count label", async () => {});
-  test("per-comment actions dropdown opens above the rail", async () => {});
-  test("reaction emoji picker opens above the rail", async () => {});
-  test("highlight overlay does not block text selection", async () => {});
-  test("pending highlight renders behind article text", async () => {});
-  test("draft selection thread renders in sorted list order", async () => {});
-  test("opening a linked selection URL activates the thread", async () => {});
-  test("liveblocks-threads GET returns threads array from Liveblocks", async () => {});
-  test("guest names are stored in Convex and resolvable to other users", async () => {});
-  test("signed-in user names resolve from Convex user records", async () => {});
-  test("delete thread menu item appears on first comment", async () => {});
-  test("delete thread action keeps the comments rail open", async () => {});
 });

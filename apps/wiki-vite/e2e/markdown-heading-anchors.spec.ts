@@ -101,24 +101,23 @@ test.describe("Markdown heading anchors", () => {
   test("login page preserves the hash so anchors resolve after sign-in", async ({ page }) => {
     test.skip(runsWithPreviewAuth, "Preview e2e starts authenticated to exercise protected wiki pages.");
 
-    // The web counterpart drives the password gate end-to-end (gate → /login →
-    // password submit → redirect with hash → scroll-to-anchor). In Vite the
-    // password gate lives in the standalone Bun server and is exercised by
-    // `verify:wiki-vite:server`, which boots the gate and proves the redirect
-    // round-trip. At the dev-server layer we verify only the contract: the
-    // login page surfaces the redirect target including the hash so the
-    // post-login navigation can restore it.
     await installWikiApiMocks(page);
+    await page.route("**/api/login", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      });
+    });
     const target = "/wiki/updates/week-5-april-12-to-18#saturday-april-12";
     await page.goto(`/login?redirect=${encodeURIComponent(target)}`, {
       waitUntil: "domcontentloaded",
     });
 
-    await expect(page.getByTestId("login-page")).toContainText(target);
-    await expect(page.getByRole("link", { name: "Back to reader" })).toHaveAttribute(
-      "href",
-      target,
-    );
+    await expect(page.getByRole("heading", { name: "TNBC Knowledge Base" })).toBeVisible();
+    await page.getByPlaceholder("Password").fill("diana");
+    await page.getByRole("button", { name: "Enter" }).click();
+    await expect(page).toHaveURL(new RegExp(`${target}$`));
   });
 
   test("command palette navigation wires anchors on the destination page", async ({ page }) => {
