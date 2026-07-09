@@ -2,6 +2,7 @@ import { makePersistedAdapter } from "@livestore/adapter-web";
 import LiveStoreSharedWorker from "@livestore/adapter-web/shared-worker?sharedworker";
 import { LiveStoreProvider } from "@livestore/react";
 import { makeWikiStoreId, type WikiScope, type WikiSessionIdentity } from "@oncobase/wiki-content";
+import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { Component, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { unstable_batchedUpdates as batchUpdates } from "react-dom";
 import { BrowserRouter } from "react-router";
@@ -24,9 +25,11 @@ const adapter = makePersistedAdapter({
 
 function BootRetryPending() {
   return (
-    <div className="app-loading" data-test-id="store-boot-retry">
-      Opening local wiki cache (retrying)...
-    </div>
+    <WikiPageLoading
+      data-test-id="store-boot-retry"
+      includeTags
+      label="Loading page"
+    />
   );
 }
 
@@ -123,7 +126,11 @@ export function LiveStoreRoot({
         storeId={storeId}
         disableDevtools={!liveStoreDevtoolsEnabled}
         renderLoading={({ stage }) => (
-          <div className="app-loading">Opening local wiki cache ({stage})...</div>
+          <WikiPageLoading
+            data-test-id="page-loading"
+            includeTags
+            label={`Loading page (${stage})`}
+          />
         )}
         renderError={(error) => (
           <StoreBootError error={error} attempt={bootAttempt} onRetry={retryBoot} />

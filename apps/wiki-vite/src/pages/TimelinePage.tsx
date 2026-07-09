@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { ArrowUpRight } from "lucide-react";
 import {
+  WikiEmptyState,
+  WikiMarkdownBodySkeleton,
+} from "@oncobase/wiki-shell/page-states";
+import {
   DiagnosticTimeline,
   type DiagnosticTimelineData,
   type DiagnosticTimelineLink,
@@ -79,14 +83,14 @@ export function TimelinePage() {
         </header>
 
         {state.status === "loading" ? (
-          <div className="loading-line" data-test-id="timeline-loading">
-            Loading diagnostic timeline
-          </div>
+          <WikiMarkdownBodySkeleton data-test-id="timeline-loading" />
         ) : null}
         {state.status === "error" ? (
-          <div className="app-error" data-test-id="timeline-error">
-            {state.error}
-          </div>
+          <WikiEmptyState
+            data-test-id="timeline-error"
+            title="Timeline unavailable"
+            description={state.error}
+          />
         ) : null}
         {state.data ? <DiagnosticTimeline data={state.data} /> : null}
       </main>

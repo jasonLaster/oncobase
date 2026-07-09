@@ -2,31 +2,34 @@ import { type ComponentProps, type ReactNode } from "react";
 import { cn } from "./utils.ts";
 
 export type WikiPageLoadingProps = ComponentProps<"div"> & {
+  "data-test-id"?: string;
   label?: ReactNode;
+  includeTags?: boolean;
 };
 
 export function WikiPageLoading({
   className,
+  includeTags = false,
   label = "Loading page",
   ...props
 }: WikiPageLoadingProps) {
+  const testId = props["data-test-id"];
   return (
-    <div className={cn("wiki-shell-loading-line loading-line", className)} role="status" {...props}>
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        aria-hidden="true"
-        className="wiki-shell-loading-icon"
-      >
-        <path d="M13.5 8a5.5 5.5 0 0 1-9.36 3.93" />
-        <path d="M2.5 8a5.5 5.5 0 0 1 9.36-3.93" />
-        <path d="M12 1.75v2.5h-2.5" />
-        <path d="M4 14.25v-2.5h2.5" />
-      </svg>
-      {label}
+    <div
+      aria-label={typeof label === "string" ? label : "Loading page"}
+      className={cn("wiki-shell-page-loading", className)}
+      role="status"
+      {...props}
+    >
+      <div className="wiki-shell-page-loading-inner">
+        <div className="wiki-shell-page-loading-main">
+          <WikiPageSkeleton
+            data-test-id={typeof testId === "string" ? `${testId}-article` : undefined}
+            includeTags={includeTags}
+            label={typeof label === "string" ? label : "Loading page"}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -77,6 +80,27 @@ export function WikiPageSkeleton({
   );
 }
 
+export type WikiMarkdownBodySkeletonProps = ComponentProps<"output">;
+
+export function WikiMarkdownBodySkeleton({
+  className,
+  ...props
+}: WikiMarkdownBodySkeletonProps) {
+  return (
+    <output
+      aria-label="Loading page body"
+      className={cn("wiki-shell-markdown-body-skeleton", className)}
+      data-test-id="markdown-body-loading"
+      {...props}
+    >
+      <div />
+      <div />
+      <div />
+      <strong />
+    </output>
+  );
+}
+
 export type WikiEmptyAction = {
   key?: string;
   node: ReactNode;
@@ -113,28 +137,44 @@ export function WikiEmptyState({
   );
 }
 
-export type WikiSensitiveUnavailableProps = Omit<WikiEmptyStateProps, "title"> & {
-  signedIn?: boolean;
+export type WikiSensitiveUnavailableProps = Omit<ComponentProps<"main">, "title"> & {
+  actions?: ReactNode;
+  description?: ReactNode;
+  slug?: ReactNode;
 };
 
 export function WikiSensitiveUnavailable({
   actions,
+  className,
   description,
-  signedIn = false,
+  slug,
   ...props
 }: WikiSensitiveUnavailableProps) {
   return (
-    <WikiEmptyState
-      eyebrow="Private page"
-      title="Sensitive page unavailable"
-      description={
-        description ??
-        (signedIn
-          ? "Your account is signed in, but it does not have access to this sensitive page."
-          : "Sign in with an account that has access to view this sensitive page.")
-      }
-      actions={actions}
-      {...props}
-    />
+    <main className={cn("wiki-shell-sensitive-unavailable", className)} {...props}>
+      <div className="wiki-shell-sensitive-unavailable-icon">
+        <svg
+          aria-hidden="true"
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.8"
+        >
+          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+      </div>
+      <h1>This page is private</h1>
+      <p>
+        {description ??
+          "The page exists, but it is marked sensitive, so it is only available to signed-in readers with access. We keep these pages out of the public reader to avoid exposing private medical details, logistics, or confidential source material."}
+      </p>
+      {slug ? <p className="wiki-shell-sensitive-unavailable-slug">{slug}</p> : null}
+      {actions ? <div className="wiki-shell-sensitive-unavailable-actions">{actions}</div> : null}
+    </main>
   );
 }

@@ -8,17 +8,19 @@ import {
 import {
   DocumentOutlineShell,
   WikiBreadcrumbs,
-  WikiEmptyState,
   WikiPageActionButton,
   WikiPageHeader,
-  WikiPageLoading,
-  WikiSensitiveUnavailable,
   WikiSourceLinks,
   WikiStatusNotice,
   WikiTagList,
   WikiToast,
   type WikiBreadcrumbItem,
 } from "@oncobase/wiki-shell";
+import {
+  WikiEmptyState,
+  WikiPageLoading,
+  WikiSensitiveUnavailable,
+} from "@oncobase/wiki-shell/page-states";
 import {
   Suspense,
   lazy,
@@ -50,7 +52,7 @@ import {
   slugFromPath,
   storageSnapshot,
 } from "../wiki-utils";
-import { useWikiScope, useWikiSession } from "../wiki-context";
+import { useWikiScope } from "../wiki-context";
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
@@ -151,7 +153,6 @@ export function WikiPage({
   const location = useLocation();
   const navigate = useNavigate();
   const scope = useWikiScope();
-  const identity = useWikiSession();
   const [toast, setToast] = useState<string | null>(null);
   const slug = slugFromPath(location.pathname);
   const deferredSlug = useDeferredValue(slug);
@@ -259,14 +260,14 @@ export function WikiPage({
   if (routePending) {
     return (
       <article
-        className="page-shell"
+        className="page-shell page-shell-loading"
         data-navigation-pending="true"
         data-test-id="document-article"
       >
-        <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={routeIndex?.title} />
         <WikiPageLoading
           data-test-id="page-loading"
-          label={`Opening ${routeIndex?.title ?? slug}`}
+          includeTags={Boolean(routeIndex?.tagsJson)}
+          label="Loading page"
         />
       </article>
     );
@@ -308,23 +309,12 @@ export function WikiPage({
   if (page?.contentStatus === "sensitive-unavailable") {
     return (
       <WikiSensitiveUnavailable
-        before={<Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />}
         data-test-id="document-article"
-        signedIn={identity?.authenticated === true}
+        slug={page.slug}
         actions={
-          <>
-            {identity?.authenticated !== true ? (
-              <Link
-                className="wiki-shell-page-action page-action"
-                to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search + location.hash)}`}
-              >
-                Sign in
-              </Link>
-            ) : null}
-            <Link className="wiki-shell-page-action page-action" to="/">
-              Go home
-            </Link>
-          </>
+          <Link className="wiki-shell-page-action page-action" to="/">
+            Back to the wiki
+          </Link>
         }
       />
     );
@@ -370,10 +360,11 @@ export function WikiPage({
     }
 
     return (
-      <article className="page-shell" data-test-id="document-article">
+      <article className="page-shell page-shell-loading" data-test-id="document-article">
         <WikiPageLoading
           data-test-id="page-loading"
-          label={`Loading markdown for ${index?.title ?? slug}`}
+          includeTags={Boolean(index?.tagsJson)}
+          label="Loading page"
         />
       </article>
     );

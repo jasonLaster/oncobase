@@ -104,7 +104,7 @@ export function WikiSearchModeToggle({
 export type WikiSearchResultsProps = ComponentProps<"section"> & {
   emptyMessage?: ReactNode;
   error?: ReactNode;
-  statusLabel: ReactNode;
+  statusLabel?: ReactNode;
 };
 
 export function WikiSearchResults({
@@ -117,9 +117,11 @@ export function WikiSearchResults({
 }: WikiSearchResultsProps) {
   return (
     <section className={cn("wiki-shell-search-results search-page-results", className)} {...props}>
-      <div className="wiki-shell-search-status search-page-status" role="status">
-        {statusLabel}
-      </div>
+      {statusLabel ? (
+        <div className="wiki-shell-search-status search-page-status" role="status">
+          {statusLabel}
+        </div>
+      ) : null}
       {error ? <p className="wiki-shell-search-error auth-error">{error}</p> : null}
       {emptyMessage ? (
         <p className="wiki-shell-search-empty search-page-empty">{emptyMessage}</p>

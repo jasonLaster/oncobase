@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { Route, Routes, useLocation } from "react-router";
 import { publishMetrics } from "./observability";
 import { HeaderCommandPaletteHost } from "./shell/Header";
@@ -84,8 +85,8 @@ const PiiViewPage = lazy(() =>
 
 function PageFallback() {
   return (
-    <article className="page-shell">
-      <div className="loading-line">Preparing markdown renderer</div>
+    <article className="page-shell page-shell-loading" data-test-id="document-article">
+      <WikiPageLoading data-test-id="page-loading" includeTags label="Loading page" />
     </article>
   );
 }
