@@ -287,16 +287,18 @@ export function Sidebar() {
 function CommentsTreeLink({
   activePathname,
   onNavigate,
+  testId = "sidebar-view-comments",
 }: {
   activePathname: string;
   onNavigate?: () => void;
+  testId?: string;
 }) {
   const active = activePathname.startsWith("/comments");
   return (
     <Link
       aria-current={active ? "page" : undefined}
       className={`wiki-shell-tree-link tree-link comments-tree-link${active ? " active" : ""}`}
-      data-test-id="sidebar-view-comments"
+      data-test-id={testId}
       to="/comments"
       onClick={onNavigate}
       style={{ paddingLeft: 24 }}
@@ -410,6 +412,7 @@ export function MobileNav() {
         <CommentsTreeLink
           activePathname={pathname}
           onNavigate={() => setOpen(false)}
+          testId="mobile-view-comments"
         />
       }
       defaultDirectoryOpen={defaultDirectoryOpen}

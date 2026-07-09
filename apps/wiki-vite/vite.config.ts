@@ -40,21 +40,6 @@ function vendorChunk(id: string): string | null {
   return null;
 }
 
-function commentsChunk(id: string): boolean {
-  const normalized = id.replace(/\\/g, "/");
-  if (
-    normalized.includes("/packages/wiki-comments/src/wrapper.tsx") ||
-    normalized.includes("/packages/wiki-comments/src/feature.ts")
-  ) {
-    return false;
-  }
-  return (
-    normalized.includes("/packages/wiki-comments/") ||
-    normalized.includes("/node_modules/@liveblocks/") ||
-    normalized.includes("/node_modules/frimousse/") ||
-    normalized.includes("/node_modules/slate")
-  );
-}
 
 export default defineConfig({
   build: {
@@ -79,11 +64,6 @@ export default defineConfig({
         codeSplitting: {
           includeDependenciesRecursively: false,
           groups: [
-            {
-              name: "comments-liveblocks",
-              test: commentsChunk,
-              priority: 20,
-            },
             {
               name: vendorChunk,
               test: (id) => vendorChunk(id) != null,

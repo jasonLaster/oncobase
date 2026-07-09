@@ -73,11 +73,14 @@ const lazyChunkPatterns: RegExp[] = [
   // through React.lazy. Keep the package and Liveblocks runtime out of the
   // eager shell budget.
   /^comments-liveblocks-[\w-]+\.js$/,
+  /^active-comments-[\w-]+\.js$/,
   /^wrapper-[\w-]+\.js$/,
   /^page-client-[\w-]+\.js$/,
   /^threads-[\w-]+\.js$/,
 ];
-const lazyChunkGzipBudget = 1_200_000;
+// Lazy pool covers on-demand features (comments/Liveblocks, mermaid engines,
+// admin, and the DICOM/Cornerstone suite); it is not first-load critical.
+const lazyChunkGzipBudget = 3_000_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

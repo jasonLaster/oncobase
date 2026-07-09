@@ -5,9 +5,7 @@ import { DocumentOutlineShell } from "@oncobase/wiki-shell";
 import { commentsEnabled } from "./feature.ts";
 import type { LiveblocksProviderShellProps } from "./provider.tsx";
 
-const ActiveComments = lazy(
-  () => import("./index.tsx").then((m) => ({ default: m.ActiveDocumentComments }))
-);
+const ActiveComments = lazy(() => import("./active-comments.tsx"));
 
 export function DocumentComments({
   articleClassName,
