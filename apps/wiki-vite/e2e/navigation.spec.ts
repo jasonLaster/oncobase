@@ -8,6 +8,43 @@ import {
   waitForPageTitle,
 } from "./fixtures";
 
+const runsAgainstProductionServer = Boolean(process.env.PLAYWRIGHT_BASE_URL);
+
+test.describe("Production server redirects", () => {
+  test.skip(
+    !runsAgainstProductionServer,
+    "Server redirects are owned by the standalone/Vercel server, not the Vite dev server.",
+  );
+
+  test("serves the about index canonical redirect before rendering", async ({ request }) => {
+    const response = await request.get("/about/index?token=diana", {
+      maxRedirects: 0,
+    });
+
+    expect(response.status()).toBe(307);
+    expect(response.headers()["location"]).toMatch(/\/about\/Index\?token=diana$/);
+  });
+
+  test("redirects the about directory to its canonical index page", async ({ request }) => {
+    const response = await request.get("/about?token=diana", {
+      maxRedirects: 0,
+    });
+
+    expect(response.status()).toBe(307);
+    expect(response.headers()["location"]).toMatch(/\/about\/Index\?token=diana$/);
+  });
+
+  test("redirects mixed-case wiki paths to canonical casing", async ({ request }) => {
+    const response = await request.get("/wiki/Logistics/Insurance", {
+      headers: { Cookie: "authed=true" },
+      maxRedirects: 0,
+    });
+
+    expect(response.status()).toBe(307);
+    expect(response.headers()["location"]).toMatch(/\/wiki\/logistics\/insurance$/);
+  });
+});
+
 test.describe("Page viewing and sidebar navigation", () => {
   test.beforeEach(async ({ page }) => {
     await installWikiApiMocks(page);

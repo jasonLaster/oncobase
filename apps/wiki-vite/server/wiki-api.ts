@@ -81,8 +81,9 @@ const DIANA_PASSWORDS = new Set(["wallify", "diana"]);
 const DEFAULT_SEARCH_LIMIT = 10;
 const MAX_SEARCH_LIMIT = 50;
 const TIMELINE_META_KEY = "diagnosticTimeline:data";
+const SITE_NAME = "TNBC Knowledge Base";
 const DEFAULT_SITE_DESCRIPTION =
-  "A patient-authored knowledge base for treatment history, diagnostics, and care decisions.";
+  "Breast cancer research and treatment knowledge base";
 const MANIFEST_PRIORITY_SLUGS = [
   "index",
   "wiki/logistics/insurance",
@@ -1281,7 +1282,16 @@ async function handleDicomAnnotationsRequest(
   }
 }
 
-async function handleSharePreviewRequest(
+function formatDocumentTitle(title: string) {
+  return `${title} \u2014 ${SITE_NAME}`;
+}
+
+function pageDescription(page: { title: string; description?: string | null }) {
+  const description = page.description?.trim();
+  return description || `${page.title} notes in ${SITE_NAME}`;
+}
+
+export async function handleSharePreviewRequest(
   request: Request,
   client: ConvexHttpClient,
   siteSlug: string,
@@ -1305,10 +1315,23 @@ async function handleSharePreviewRequest(
       .query(api.documents.getBySlug, withSiteSlug(siteSlug, { slug }))
       .catch(() => null),
   ]);
-  const siteName = site?.config.title ?? site?.name ?? "TNBC Knowledge Base";
-  const description = site?.config.description ?? DEFAULT_SITE_DESCRIPTION;
-  const ogTitle = page?.title ?? siteName;
-  const title = page?.title ? `${page.title} - ${siteName}` : siteName;
+  const isDiana = siteSlug === DEFAULT_SITE_SLUG;
+  let siteName: string;
+  let title: string;
+  let description: string;
+  let ogTitle: string;
+
+  if (isDiana) {
+    siteName = SITE_NAME;
+    title = page ? formatDocumentTitle(page.title) : SITE_NAME;
+    description = page ? pageDescription(page) : DEFAULT_SITE_DESCRIPTION;
+    ogTitle = page?.title ?? SITE_NAME;
+  } else {
+    siteName = site?.config.title ?? site?.name ?? siteSlug;
+    title = siteName;
+    description = site?.config.description ?? DEFAULT_SITE_DESCRIPTION;
+    ogTitle = siteName;
+  }
   const canonicalPath = routePath.startsWith("/") ? routePath : `/${routePath}`;
   const canonicalUrl = new URL(canonicalPath, url.origin).toString();
 
