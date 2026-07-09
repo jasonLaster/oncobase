@@ -3,7 +3,7 @@
 import {
   DefaultToolCallBlock,
   getChatToolInfo,
-} from "@oncobase/chat/components/messages";
+} from "@oncobase/chat/components/tool-call-core";
 import { useChatRuntime } from "@oncobase/chat/runtime";
 import type {
   ChatSourceExtractor,
