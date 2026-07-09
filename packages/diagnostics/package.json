@@ -26,6 +26,37 @@
       "import": "./src/studies/index.ts",
       "default": "./src/studies/index.ts"
     },
+    "./studies/data": {
+      "types": "./src/studies/data.ts",
+      "import": "./src/studies/data.ts",
+      "default": "./src/studies/data.ts"
+    },
+    "./dicom/comparisons": {
+      "types": "./src/dicom/comparisons.ts",
+      "import": "./src/dicom/comparisons.ts",
+      "default": "./src/dicom/comparisons.ts"
+    },
+    "./dicom/comparison-matching": {
+      "types": "./src/dicom/comparison-matching.ts",
+      "import": "./src/dicom/comparison-matching.ts",
+      "default": "./src/dicom/comparison-matching.ts"
+    },
+    "./dicom/local": {
+      "types": "./src/dicom/local.ts",
+      "import": "./src/dicom/local.ts",
+      "default": "./src/dicom/local.ts"
+    },
+    "./dicom": {
+      "types": "./src/dicom/index.ts",
+      "import": "./src/dicom/index.ts",
+      "default": "./src/dicom/index.ts"
+    },
+    "./imaging": {
+      "types": "./src/imaging/index.tsx",
+      "import": "./src/imaging/index.tsx",
+      "default": "./src/imaging/index.tsx"
+    },
+    "./imaging/styles.css": "./src/imaging/styles.css",
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -34,8 +65,13 @@
     "test:unit": "bun test src/**/*.test.ts"
   },
   "dependencies": {
+    "@cornerstonejs/core": "^4.22.13",
+    "@cornerstonejs/dicom-image-loader": "^4.22.13",
+    "@cornerstonejs/tools": "^4.22.13",
+    "@oncobase/wiki-shell": "workspace:*",
+    "dicom-parser": "^1.8.21",
     "lucide-react": "^1.11.0",
-    "tailwind-merge": "^3.5.0"
+    "swr": "^2.4.1"
   },
   "peerDependencies": {
     "react": "^19.0.0",

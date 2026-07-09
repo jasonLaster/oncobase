@@ -1,7 +1,10 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "tw-animate-css";
+@import "@oncobase/diagnostics/imaging/styles.css";
 @import "@oncobase/wiki-shell/styles.css";
+@import "@liveblocks/react-ui/styles.css";
+@source "../../../packages/wiki-comments/src";
 @source "../../../packages/chat/src";
 @source "../../../packages/diagnostics/src";
 
@@ -442,14 +445,48 @@ a {
   color: var(--muted);
 }
 
-.wiki-vite-sidebar-workspace {
+.wiki-vite-sidebar-workspace-row {
   align-items: center;
   display: flex;
+  min-height: 48px;
+  padding: 0 8px;
+}
+
+.wiki-vite-sidebar-workspace-row .wiki-shell-actions-menu {
+  min-width: 0;
+  width: 100%;
+}
+
+.wiki-vite-sidebar-workspace {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--foreground);
+  cursor: pointer;
+  display: flex;
+  flex: 1;
   gap: 8px;
-  min-height: 44px;
-  padding: 8px 10px;
+  min-height: 36px;
+  min-width: 0;
+  padding: 0 8px;
   font-size: 0.875rem;
   font-weight: 650;
+  text-align: left;
+}
+
+.wiki-vite-sidebar-workspace:hover,
+.wiki-vite-sidebar-workspace:focus-visible {
+  background: var(--accent-light);
+  outline: none;
+}
+
+.wiki-vite-sidebar-workspace span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wiki-vite-sidebar-logo {
@@ -475,34 +512,60 @@ a {
 }
 
 .wiki-vite-sidebar-footer {
-  border-top: 1px solid var(--sidebar-border);
-  display: flex;
-  gap: 0;
-  margin: 0 10px 10px;
-  overflow: hidden;
-  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 4px 12px 12px;
 }
 
-.wiki-vite-sidebar-footer a {
-  align-items: center;
+.wiki-vite-sidebar-footer-pills {
+  background: var(--popover);
   border: 1px solid var(--sidebar-border);
+  border-radius: 8px;
+  display: flex;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+}
+
+.wiki-vite-sidebar-footer-pills a,
+.wiki-vite-sidebar-footer-pills button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  cursor: pointer;
   display: inline-flex;
   flex: 1;
-  gap: 6px;
-  justify-content: center;
-  min-height: 34px;
-  text-decoration: none;
-  color: var(--text-muted);
+  font: inherit;
   font-size: 0.8125rem;
+  gap: 8px;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 0;
+  padding: 0 10px;
+  text-decoration: none;
 }
 
-.wiki-vite-sidebar-footer a + a {
-  border-left: 0;
+.wiki-vite-sidebar-footer-pills a + button {
+  border-left: 1px solid var(--sidebar-border);
 }
 
-.wiki-vite-sidebar-footer a:hover {
+.wiki-vite-sidebar-footer-pills a:hover,
+.wiki-vite-sidebar-footer-pills button:hover,
+.wiki-vite-sidebar-footer-pills button:focus-visible {
   background: var(--accent-light);
   color: var(--foreground);
+  outline: none;
+}
+
+.wiki-vite-sidebar-footer-pills kbd {
+  background: var(--background);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 5px;
 }
 
 .tag-page-shell {
@@ -561,6 +624,7 @@ a {
 }
 
 .app-auth-shell section {
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 18px 44px rgb(17 24 39 / 0.1);
@@ -595,10 +659,10 @@ a {
 .auth-actions button,
 .auth-actions a {
   align-items: center;
-  background: var(--foreground);
-  border: 1px solid var(--foreground);
+  background: var(--brand);
+  border: 1px solid var(--brand);
   border-radius: 5px;
-  color: var(--background);
+  color: white;
   cursor: pointer;
   display: inline-flex;
   font-weight: 600;
@@ -607,10 +671,17 @@ a {
   text-decoration: none;
 }
 
-.auth-actions a {
+.auth-actions a,
+.auth-actions button + button {
   background: var(--panel);
   border-color: var(--border);
   color: var(--foreground);
+}
+
+.auth-actions button:disabled,
+.auth-actions a[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .auth-page {
@@ -683,7 +754,7 @@ a {
 
 .prototype-shell {
   display: grid;
-  grid-template-rows: 48px minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   height: 100dvh;
   overflow: hidden;
 }
@@ -907,8 +978,51 @@ a {
 
 .page-shell {
   overflow: visible;
-  padding: 28px 0 0;
+  padding: 0;
   position: relative;
+}
+
+.page-shell-loading {
+  padding-top: 0;
+}
+
+.wiki-vite-title-copy .wiki-shell-page-action {
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  min-height: 1.75rem;
+  padding: 0.375rem;
+}
+
+.wiki-vite-title-copy .wiki-shell-page-action:hover,
+.wiki-vite-title-copy .wiki-shell-page-action:focus-visible {
+  background: var(--accent-light);
+  color: var(--foreground);
+}
+
+.wiki-vite-mobile-page-header,
+.wiki-vite-mobile-ask {
+  display: none;
+}
+
+.comments-page-shell {
+  margin: 0 auto;
+  max-width: 896px;
+  padding: 28px 24px 96px;
+}
+
+.comments-page-header {
+  margin-bottom: 20px;
+}
+
+.comments-page-header h1 {
+  font-size: 1.75rem;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.comments-tree-link {
+  gap: 8px;
 }
 
 .muted {
@@ -1119,14 +1233,18 @@ a {
 
 @media (max-width: 860px) {
   .prototype-shell {
-    display: block;
-    height: auto;
-    min-height: 100vh;
-    overflow: visible;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .app-shell {
-    display: block;
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .sidebar-collapsed-rail,
@@ -1136,11 +1254,14 @@ a {
   }
 
   .app-content {
-    overflow: visible;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .content-shell {
-    padding-bottom: 48px;
+    height: 100%;
+    overflow: auto;
+    padding-top: calc(48px + env(safe-area-inset-top));
   }
 
   .livestore-devtools-footer {
@@ -1157,7 +1278,136 @@ a {
   }
 
   .page-shell {
-    padding-top: 24px;
+    padding-top: 0;
+  }
+
+  .wiki-vite-mobile-page-header {
+    align-items: center;
+    background: color-mix(in srgb, var(--sidebar-bg) 95%, transparent);
+    border-bottom: 1px solid var(--sidebar-border);
+    display: flex;
+    gap: 8px;
+    height: calc(48px + env(safe-area-inset-top));
+    inset: 0 0 auto;
+    padding: env(safe-area-inset-top) 12px 0;
+    position: fixed;
+    z-index: 40;
+    backdrop-filter: blur(8px);
+  }
+
+  .wiki-vite-mobile-title {
+    color: var(--foreground);
+    flex: 1;
+    font-size: 0.875rem;
+    font-weight: 650;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wiki-vite-mobile-page-header button {
+    align-items: center;
+    background: var(--background);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 auto;
+    height: 36px;
+    justify-content: center;
+    width: 36px;
+  }
+
+  .wiki-vite-mobile-page-header button:hover,
+  .wiki-vite-mobile-page-header button:focus-visible {
+    border-color: var(--brand);
+    color: var(--foreground);
+    outline: none;
+  }
+
+  .wiki-vite-mobile-sheet-tabs {
+    background: color-mix(in srgb, var(--background) 70%, transparent);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 6px;
+    display: flex;
+    gap: 2px;
+    margin: 0.25rem 0.75rem 0.5rem;
+    padding: 2px;
+  }
+
+  .wiki-vite-mobile-sheet-tabs button {
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex: 1;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-height: 30px;
+  }
+
+  .wiki-vite-mobile-sheet-tabs button:hover,
+  .wiki-vite-mobile-sheet-tabs button:focus-visible,
+  .wiki-vite-mobile-sheet-tabs button.active {
+    background: var(--accent-light);
+    color: var(--brand);
+    outline: none;
+  }
+
+  .wiki-vite-mobile-outline-list {
+    display: grid;
+    gap: 2px;
+  }
+
+  .wiki-vite-mobile-outline-list button {
+    background: transparent;
+    border: 0;
+    border-radius: 5px;
+    color: var(--foreground);
+    cursor: pointer;
+    font-size: 0.8125rem;
+    min-height: 34px;
+    overflow: hidden;
+    padding: 6px 8px 6px calc(8px + (var(--outline-depth) * 12px));
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wiki-vite-mobile-outline-list button:hover,
+  .wiki-vite-mobile-outline-list button:focus-visible {
+    background: var(--accent-light);
+    color: var(--brand);
+    outline: none;
+  }
+
+  .wiki-vite-mobile-outline-empty {
+    border: 1px dashed var(--sidebar-border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    margin: 0;
+    padding: 1rem;
+  }
+
+  .wiki-vite-mobile-ask {
+    align-items: center;
+    background: var(--brand);
+    border: 1px solid color-mix(in srgb, var(--brand) 75%, white);
+    border-radius: 999px;
+    bottom: calc(2rem + env(safe-area-inset-bottom));
+    box-shadow: 0 10px 24px rgb(15 23 42 / 0.18);
+    color: #fff;
+    display: inline-flex;
+    height: 48px;
+    justify-content: center;
+    position: fixed;
+    right: 16px;
+    width: 48px;
+    z-index: 50;
   }
 
   .page-outline {
@@ -1223,4 +1473,56 @@ a {
     color: var(--brand);
   }
 
+}
+
+/* Immersive DICOM viewer on mobile — mirrors web's chrome rules
+   (apps/web/src/app/globals.css + resizable-layout): at max-lg the viewer
+   owns the full viewport with no top chrome; landscape additionally drops
+   the sidebar rails and series panel. Wins over the 860px mobile-flow block
+   above via the attribute selector and source order. */
+@media (max-width: 1023px) {
+  .prototype-shell[data-immersive-route="dicom-viewer"] {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .prototype-shell[data-immersive-route="dicom-viewer"] .wiki-shell-header,
+  .prototype-shell[data-immersive-route="dicom-viewer"] .wiki-vite-mobile-page-header,
+  .prototype-shell[data-immersive-route="dicom-viewer"] .wiki-vite-mobile-ask {
+    display: none;
+  }
+
+  .prototype-shell[data-immersive-route="dicom-viewer"] .app-shell {
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .prototype-shell[data-immersive-route="dicom-viewer"] .content-shell {
+    height: 100%;
+    overflow: hidden;
+    padding-bottom: 0;
+    padding-top: 0;
+  }
+}
+
+@media (max-width: 1023px) and (orientation: landscape) {
+  .prototype-shell[data-immersive-route="dicom-viewer"] [data-sidebar-collapsed-rail],
+  .prototype-shell[data-immersive-route="dicom-viewer"] [data-sidebar-expanded-rail],
+  .prototype-shell[data-immersive-route="dicom-viewer"] .sidebar-resize-handle,
+  [data-dicom-viewer-layout] [data-test-id="dicom-series-panel"] {
+    display: none !important;
+  }
+
+  [data-dicom-viewer-layout] [data-test-id="dicom-viewport-frame"] {
+    min-height: 0 !important;
+    padding-top: 0 !important;
+  }
+
+  [data-dicom-viewer-layout] {
+    grid-template-rows: minmax(0, 1fr) !important;
+  }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { LiveblocksProvider } from "@liveblocks/react/suspense";
 import {
   createGuestUser,
@@ -8,8 +8,9 @@ import {
   LIVEBLOCKS_GUEST_STORAGE_KEY,
   parseGuestUser,
   serializeGuestUser,
-} from "../../../apps/web/src/lib/guest-user";
-import { formatLiveblocksUserId } from "./user-format";
+  type GuestUser,
+} from "./guest-user.ts";
+import { formatLiveblocksUserId } from "./user-format.ts";
 
 const FALLBACK_PUBLIC_API_KEY =
   "pk_dev_HXZfdhC5pUVp1uUoX4mp31GEwMiYRKXXF5uoiZugexxsNV65JmHUqcRN__UFGQ05";
@@ -30,13 +31,55 @@ type ResolvedUsersResponse = {
   users?: Record<string, { name?: string; email?: string }>;
 };
 
-export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
-  const publicApiKey =
-    process.env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY ?? FALLBACK_PUBLIC_API_KEY;
+export type LiveblocksProviderEndpoints = {
+  auth: string;
+  session: string;
+  users: string;
+  guest: string;
+};
+
+export type LiveblocksProviderShellProps = {
+  children: ReactNode;
+  endpoints?: Partial<LiveblocksProviderEndpoints>;
+  fallback?: ReactNode;
+  publicApiKey?: string;
+  resolveGuestUser?: () => GuestUser;
+};
+
+const DEFAULT_ENDPOINTS: LiveblocksProviderEndpoints = {
+  auth: "/api/liveblocks-auth",
+  session: "/api/auth/session",
+  users: "/api/liveblocks-users",
+  guest: "/api/liveblocks-guest",
+};
+
+function configuredPublicApiKey(explicitPublicApiKey?: string) {
+  const viteEnv = (import.meta as { env?: Record<string, string | undefined> }).env;
+  return (
+    explicitPublicApiKey ??
+    viteEnv?.VITE_LIVEBLOCKS_PUBLIC_KEY ??
+    viteEnv?.VITE_NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY ??
+    FALLBACK_PUBLIC_API_KEY
+  );
+}
+
+export function LiveblocksProviderShell({
+  children,
+  endpoints: endpointOverrides,
+  fallback = null,
+  publicApiKey,
+  resolveGuestUser = createGuestUser,
+}: LiveblocksProviderShellProps) {
+  const endpoints = useMemo(
+    () => ({ ...DEFAULT_ENDPOINTS, ...endpointOverrides }),
+    [endpointOverrides],
+  );
+  const configuredPublicKey = configuredPublicApiKey(publicApiKey);
   const [providerMode, setProviderMode] = useState<"auth" | "public">(
     "public"
   );
   const [identity, setIdentity] = useState<Identity | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const cookieValue = document.cookie
@@ -48,7 +91,7 @@ export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
     const storageValue = window.localStorage.getItem(LIVEBLOCKS_GUEST_STORAGE_KEY);
     const storageGuest = parseGuestUser(storageValue);
 
-    const guest = cookieGuest ?? storageGuest ?? createGuestUser();
+    const guest = cookieGuest ?? storageGuest ?? resolveGuestUser();
     const serialized = serializeGuestUser(guest);
 
     window.localStorage.setItem(LIVEBLOCKS_GUEST_STORAGE_KEY, serialized);
@@ -58,8 +101,8 @@ export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
     async function resolveProvider() {
       try {
         const [authConfigResponse, sessionResponse] = await Promise.all([
-          fetch("/api/liveblocks-auth"),
-          fetch("/api/auth/session"),
+          fetch(endpoints.auth),
+          fetch(endpoints.session),
         ]);
 
         const authConfig = authConfigResponse.ok
@@ -85,17 +128,19 @@ export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
               }
         );
         setProviderMode(authConfig.configured ? "auth" : "public");
+        setReady(true);
       } catch {
         if (cancelled) return;
         setIdentity({ name: guest.name });
         setProviderMode("public");
+        setReady(true);
       }
     }
 
     resolveProvider();
 
     // Persist guest name to Convex so the server can resolve it later
-    fetch("/api/liveblocks-guest", {
+    fetch(endpoints.guest, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guestId: guest.id, name: guest.name }),
@@ -104,17 +149,21 @@ export function LiveblocksProviderShell({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [endpoints.auth, endpoints.guest, endpoints.session, resolveGuestUser]);
+
+  if (!ready) {
+    return <>{fallback}</>;
+  }
 
   return (
     <LiveblocksProvider
       key={`${providerMode}:${identity?.email ?? identity?.name ?? "anonymous"}`}
       {...(providerMode === "auth"
-        ? { authEndpoint: "/api/liveblocks-auth" }
-        : { publicApiKey })}
+        ? { authEndpoint: endpoints.auth }
+        : { publicApiKey: configuredPublicKey })}
       resolveUsers={async ({ userIds }) => {
         try {
-          const response = await fetch("/api/liveblocks-users", {
+          const response = await fetch(endpoints.users, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ userIds }),

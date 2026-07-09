@@ -7,20 +7,20 @@ import {
 } from "@oncobase/wiki-markdown";
 import {
   DocumentOutlineShell,
-  WikiBadge,
   WikiBreadcrumbs,
-  WikiEmptyState,
   WikiPageActionButton,
-  WikiPageFooter,
   WikiPageHeader,
-  WikiPageLoading,
-  WikiSensitiveUnavailable,
   WikiSourceLinks,
   WikiStatusNotice,
   WikiTagList,
   WikiToast,
   type WikiBreadcrumbItem,
 } from "@oncobase/wiki-shell";
+import {
+  WikiEmptyState,
+  WikiPageLoading,
+  WikiSensitiveUnavailable,
+} from "@oncobase/wiki-shell/page-states";
 import {
   Suspense,
   lazy,
@@ -38,7 +38,6 @@ import {
   pageContentBySlug$,
   pageIndex$,
   pageIndexBySlug$,
-  siteState$,
 } from "../livestore/queries";
 import type {
   AssetIndexRow,
@@ -46,10 +45,8 @@ import type {
   MetricsPatch,
   PageContentRow,
   PageIndexRow,
-  SiteStateRow,
 } from "../types";
 import {
-  formatBytes,
   hrefForSlug,
   parseJsonArray,
   slugFromPath,
@@ -73,6 +70,11 @@ const MERMAID_FENCE_PATTERN = /^\s*```mermaid\s*$/m;
 const LazyMermaidRenderer = lazy(() =>
   import("@oncobase/wiki-markdown/mermaid").then((module) => ({
     default: module.WikiMermaidRenderer,
+  })),
+);
+const LazyDocumentComments = lazy(() =>
+  import("@oncobase/wiki-comments/wrapper").then((module) => ({
+    default: module.DocumentComments,
   })),
 );
 
@@ -161,7 +163,6 @@ export function WikiPage({
   const routeIndex = useStore().store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;
   const pageIndex = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
   const assets = useStore().store.useQuery(assets$) as AssetIndexRow[];
-  const siteState = useStore().store.useQuery(siteState$) as SiteStateRow | null;
   const stale = page?.contentStatus === "stale";
   const deleted = page?.contentStatus === "deleted";
   const failedCurrentFetch =
@@ -260,14 +261,14 @@ export function WikiPage({
   if (routePending) {
     return (
       <article
-        className="page-shell"
+        className="page-shell page-shell-loading"
         data-navigation-pending="true"
         data-test-id="document-article"
       >
-        <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={routeIndex?.title} />
         <WikiPageLoading
           data-test-id="page-loading"
-          label={`Opening ${routeIndex?.title ?? slug}`}
+          includeTags={Boolean(routeIndex?.tagsJson)}
+          label="Loading page"
         />
       </article>
     );
@@ -309,9 +310,8 @@ export function WikiPage({
   if (page?.contentStatus === "sensitive-unavailable") {
     return (
       <WikiSensitiveUnavailable
-        before={<Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />}
         data-test-id="document-article"
-        signedIn={identity?.authenticated === true}
+        slug={page.slug}
         actions={
           <>
             {identity?.authenticated !== true ? (
@@ -323,7 +323,7 @@ export function WikiPage({
               </Link>
             ) : null}
             <Link className="wiki-shell-page-action page-action" to="/">
-              Go home
+              Back to the wiki
             </Link>
           </>
         }
@@ -371,35 +371,19 @@ export function WikiPage({
     }
 
     return (
-      <article className="page-shell" data-test-id="document-article">
+      <article className="page-shell page-shell-loading" data-test-id="document-article">
         <WikiPageLoading
           data-test-id="page-loading"
-          label={`Loading markdown for ${index?.title ?? slug}`}
+          includeTags={Boolean(index?.tagsJson)}
+          label="Loading page"
         />
       </article>
     );
   }
 
-  const pageBadges = (
+  const pageBody = (
     <>
-      {stale ? <WikiBadge variant="updating">updating</WikiBadge> : null}
-      {page.sensitive ? <WikiBadge variant="sensitive">sensitive</WikiBadge> : null}
-      <WikiBadge>{formatBytes(page.size)}</WikiBadge>
-    </>
-  );
-
-  return (
-    <DocumentOutlineShell
-      articleClassName="page-shell"
-      contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
-      documentSlug={page.slug}
-      documentTitle={page.title}
-      pathname={location.pathname}
-    >
-      {toast ? (
-        <WikiToast>{toast}</WikiToast>
-      ) : null}
-      <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />
+      {toast ? <WikiToast>{toast}</WikiToast> : null}
       <WikiPageHeader
         title={
           <MarkdownTitle
@@ -412,21 +396,21 @@ export function WikiPage({
             )}
           />
         }
-        description={description ?? slug}
-        badges={pageBadges}
+        actions={
+          <PageActions
+            content={page.content}
+            contentHash={page.contentHash}
+            scope={scope}
+            slug={page.slug}
+            title={page.title}
+          />
+        }
       />
       {stale ? (
         <WikiStatusNotice>
           Showing cached markdown while a newer version is fetched in the background.
         </WikiStatusNotice>
       ) : null}
-      <PageActions
-        content={page.content}
-        contentHash={page.contentHash}
-        scope={scope}
-        slug={page.slug}
-        title={page.title}
-      />
       <WikiSourceLinks
         data-test-id="source-links"
         items={relatedAssets.map((asset) => ({
@@ -458,15 +442,34 @@ export function WikiPage({
         tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
       />
       <MermaidRendererSlot content={page.content} />
-      <WikiPageFooter
-        items={[
-          `Manifest: ${siteState?.generatedAt ?? "pending"}`,
-          `Content hash: ${page.contentHash ?? "none"}`,
-          page.expectedContentHash && page.expectedContentHash !== page.contentHash
-            ? `Expected hash: ${page.expectedContentHash}`
-            : null,
-        ].filter(Boolean)}
-      />
+    </>
+  );
+
+  const commentsFallback = (
+    <DocumentOutlineShell
+      articleClassName="page-shell"
+      contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
+      documentSlug={page.slug}
+      documentTitle={page.title}
+      mobileRail={false}
+      pathname={location.pathname}
+    >
+      {pageBody}
     </DocumentOutlineShell>
+  );
+
+  return (
+    <Suspense fallback={commentsFallback}>
+      <LazyDocumentComments
+        articleClassName="page-shell"
+        contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
+        documentSlug={page.slug}
+        documentTitle={page.title}
+        mobileRail={false}
+        pathname={location.pathname}
+      >
+        {pageBody}
+      </LazyDocumentComments>
+    </Suspense>
   );
 }

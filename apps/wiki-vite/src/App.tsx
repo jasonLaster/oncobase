@@ -1,7 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { Route, Routes, useLocation } from "react-router";
 import { publishMetrics } from "./observability";
-import { Header } from "./shell/Header";
+import { HeaderCommandPaletteHost } from "./shell/Header";
 import { LiveStoreDevtoolsFooter } from "./shell/LiveStoreDevtoolsFooter";
 import { MobileNav, Sidebar } from "./shell/Navigation";
 import { ResizableAppShell } from "./shell/ResizableAppShell";
@@ -44,8 +45,28 @@ const TimelinePage = lazy(() =>
     default: module.TimelinePage,
   })),
 );
+const DiagnosticImagingPage = lazy(() =>
+  import("./pages/DiagnosticImagingPage").then((module) => ({
+    default: module.DiagnosticImagingPage,
+  })),
+);
+const DicomViewerPage = lazy(() =>
+  import("./pages/DicomViewerPage").then((module) => ({
+    default: module.DicomViewerPage,
+  })),
+);
+const DicomComparePage = lazy(() =>
+  import("./pages/DicomComparePage").then((module) => ({
+    default: module.DicomComparePage,
+  })),
+);
 const ChatPage = lazy(() =>
   import("./chat/ChatPage").then((module) => ({ default: module.ChatPage })),
+);
+const CommentsPage = lazy(() =>
+  import("./pages/CommentsPage").then((module) => ({
+    default: module.CommentsPage,
+  })),
 );
 const TagPage = lazy(() =>
   import("./pages/TagPage").then((module) => ({ default: module.TagPage })),
@@ -64,8 +85,8 @@ const PiiViewPage = lazy(() =>
 
 function PageFallback() {
   return (
-    <article className="page-shell">
-      <div className="loading-line">Preparing markdown renderer</div>
+    <article className="page-shell page-shell-loading" data-test-id="document-article">
+      <WikiPageLoading data-test-id="page-loading" includeTags label="Loading page" />
     </article>
   );
 }
@@ -81,6 +102,10 @@ export function App({
 }) {
   const scope = useWikiScope();
   const location = useLocation();
+  const { pathname } = location;
+  const isImmersiveDicomRoute =
+    pathname.startsWith("/tools/dicom-viewer") ||
+    pathname.startsWith("/tools/dicom-compare");
   const [metrics, setMetrics] = useState<Metrics>(initialMetrics);
 
   useEffect(() => {
@@ -115,8 +140,11 @@ export function App({
   return (
     <>
       <WikiSync onMetrics={bumpMetrics} />
-      <div className="prototype-shell">
-        <Header />
+      <div
+        className="prototype-shell"
+        data-immersive-route={isImmersiveDicomRoute ? "dicom-viewer" : undefined}
+      >
+        <HeaderCommandPaletteHost />
         <ResizableAppShell sidebar={<Sidebar />}>
           <main className="content-shell">
             <Suspense fallback={<PageFallback />}>
@@ -126,8 +154,12 @@ export function App({
                 <Route path="/table-examples" element={<TableExamplesPage />} />
                 <Route path="/timeline" element={<TimelinePage />} />
                 <Route path="/diagnostics" element={<TimelinePage />} />
+                <Route path="/diagnostics/imaging" element={<DiagnosticImagingPage />} />
+                <Route path="/tools/dicom-viewer" element={<DicomViewerPage />} />
+                <Route path="/tools/dicom-compare" element={<DicomComparePage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/chat/:id" element={<ChatPage />} />
+                <Route path="/comments" element={<CommentsPage />} />
                 <Route path="/tags/:tag" element={<TagPage />} />
                 <Route path="/tools/medical-deduction" element={<MedicalDeductionPage />} />
                 <Route path="/access" element={<AdminPage />} />

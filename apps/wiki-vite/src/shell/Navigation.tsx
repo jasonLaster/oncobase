@@ -1,15 +1,21 @@
 import { useStore } from "@livestore/react";
+import { DiagnosticsSidebar } from "@oncobase/diagnostics/dicom";
 import {
   expandCompactFileTree,
+  transformFileTreeForSidebar,
   type CompactFileNode,
 } from "@oncobase/wiki-content";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { MarkdownTitle } from "@oncobase/wiki-markdown/title-react";
 import {
-  WikiMobileNavigation,
   WikiMobileNavigationSheet,
   WikiSidebar,
+  WikiSidebarSignInPrompt,
+  WikiTree,
   collectActiveAncestors,
+  collectOutline,
+  scrollToOutlineItem,
+  type OutlineItem,
   type WikiNavigationNode,
   type WikiTreePageLinkRenderArgs,
 } from "@oncobase/wiki-shell";
@@ -21,6 +27,7 @@ import {
   Briefcase,
   Building2,
   Calendar,
+  ChevronDown,
   ClipboardCheck,
   Crosshair,
   Dna,
@@ -37,6 +44,7 @@ import {
   ListTodo,
   Mail,
   MessageCircle,
+  MessageSquareText,
   Microscope,
   NotebookPen,
   Package,
@@ -48,12 +56,14 @@ import {
   Target,
   TrendingUp,
   Users,
+  WandSparkles,
   type LucideIcon,
 } from "lucide-react";
 import {
   useCallback,
   useMemo,
   useState,
+  type CSSProperties,
   type MouseEvent,
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
@@ -66,9 +76,13 @@ import {
   setNavigationIntentForSlug,
   useNavigationSlug,
 } from "./navigation-intent";
+import { ViteActionsMenu, openCommandPalette, useWikiViteAuth } from "./Header";
 
 const TREE_EXPANSION_KEY = "wiki-vite-expanded-directories";
 const ICON_SIZE = 14;
+const MOBILE_OUTLINE_SELECTOR = "h2[id], h3[id], h4[id]";
+
+type MobileNavTab = "pages" | "outline";
 
 const SECTION_ICONS: Record<string, LucideIcon> = {
   about: Info,
@@ -108,6 +122,7 @@ const FILE_ICONS: Record<string, LucideIcon> = {
   "1-inbox": Inbox,
   "2-urgent": Flame,
   "3-completed": ListChecks,
+  "4-backlog": ListChecks,
 };
 
 const FILE_ICONS_BY_SLUG: Record<string, LucideIcon> = {
@@ -131,13 +146,17 @@ function useWikiTree() {
   const pages = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
   return useMemo<WikiNavigationNode[]>(() => {
     if (fileTreeRow) {
-      return expandCompactFileTree(parseJsonArray<CompactFileNode>(fileTreeRow.treeJson));
+      return transformFileTreeForSidebar(
+        expandCompactFileTree(parseJsonArray<CompactFileNode>(fileTreeRow.treeJson)),
+      );
     }
-    return pages.map((page) => ({
-      name: page.slug.split("/").at(-1) ?? page.slug,
-      slug: page.slug,
-      type: "file" as const,
-    }));
+    return transformFileTreeForSidebar(
+      pages.map((page) => ({
+        name: page.slug.split("/").at(-1) ?? page.slug,
+        slug: page.slug,
+        type: "file" as const,
+      })),
+    );
   }, [fileTreeRow, pages]);
 }
 
@@ -169,6 +188,18 @@ function writeExpandedDirectories(slugs: Map<string, boolean>) {
   } catch {
     // Sidebar expansion is a convenience, not critical cache state.
   }
+}
+
+function collectMobileOutlineItems() {
+  const root = document.querySelector<HTMLElement>('[data-test-id="document-article"]');
+  return collectOutline(root ?? document, MOBILE_OUTLINE_SELECTOR);
+}
+
+function usesDiagnosticsSidebar(pathname: string) {
+  return (
+    pathname.startsWith("/tools/dicom-viewer") ||
+    pathname.startsWith("/tools/dicom-compare")
+  );
 }
 
 function lastPathSegment(slug: string) {
@@ -210,26 +241,82 @@ function nodeIcon({
   );
 }
 
-function WorkspaceHeader() {
+function DiagnosticsTreeLink({
+  activePathname,
+  onNavigate,
+  testId = "sidebar-view-diagnostics",
+}: {
+  activePathname: string;
+  onNavigate?: () => void;
+  testId?: string;
+}) {
+  const active =
+    activePathname.startsWith("/diagnostics") ||
+    activePathname.startsWith("/tools/dicom-viewer") ||
+    activePathname.startsWith("/tools/dicom-compare");
   return (
-    <div className="wiki-vite-sidebar-workspace" data-test-id="sidebar-workspace-trigger">
+    <Link
+      aria-current={active ? "page" : undefined}
+      className={`wiki-shell-tree-link tree-link diagnostics-tree-link${active ? " active" : ""}`}
+      data-selected-file-tree-item={active ? "true" : undefined}
+      data-test-id={testId}
+      to="/diagnostics"
+      onClick={onNavigate}
+      style={{ paddingLeft: 24 }}
+      title="Diagnostics"
+    >
+      <Activity size={14} aria-hidden="true" />
+      Diagnostics
+    </Link>
+  );
+}
+
+function WorkspaceHeader() {
+  const trigger = (
+    <button
+      type="button"
+      aria-label="Workspace menu"
+      className="wiki-vite-sidebar-workspace"
+      data-test-id="sidebar-workspace-trigger"
+    >
       <span className="wiki-vite-sidebar-logo" aria-hidden="true">D</span>
       <span>Diana TNBC</span>
+      <ChevronDown size={14} aria-hidden="true" />
+    </button>
+  );
+
+  return (
+    <div className="wiki-vite-sidebar-workspace-row">
+      <ViteActionsMenu trigger={trigger} />
     </div>
   );
 }
 
 function SidebarFooter() {
+  const { sessionLoading, sessionUser, setSessionUser, submitAuth } = useWikiViteAuth();
   return (
     <div className="wiki-vite-sidebar-footer">
-      <Link to="/chat" data-test-id="sidebar-ask-wiki">
-        <MessageCircle size={ICON_SIZE} aria-hidden="true" />
-        <span>Ask wiki</span>
-      </Link>
-      <Link to="/search" data-test-id="sidebar-search">
-        <Search size={ICON_SIZE} aria-hidden="true" />
-        <span>Search</span>
-      </Link>
+      <WikiSidebarSignInPrompt
+        onAuthSubmit={submitAuth}
+        onSessionChange={setSessionUser}
+        sessionLoading={sessionLoading}
+        sessionUser={sessionUser}
+      />
+      <div className="wiki-vite-sidebar-footer-pills">
+        <Link to="/chat" data-test-id="sidebar-ask-wiki">
+          <WandSparkles size={ICON_SIZE} aria-hidden="true" />
+          <span>Ask wiki</span>
+        </Link>
+        <button
+          type="button"
+          data-test-id="sidebar-search"
+          onClick={() => openCommandPalette("pages")}
+        >
+          <Search size={ICON_SIZE} aria-hidden="true" />
+          <span>Search</span>
+          <kbd>⌘K</kbd>
+        </button>
+      </div>
     </div>
   );
 }
@@ -256,6 +343,14 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
 }
 
 export function Sidebar() {
+  const { pathname } = useLocation();
+  if (usesDiagnosticsSidebar(pathname)) {
+    return <DiagnosticsSidebar />;
+  }
+  return <WikiNavigationSidebar />;
+}
+
+function WikiNavigationSidebar() {
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const activeSlug = slugFromPath(pathname);
@@ -266,6 +361,12 @@ export function Sidebar() {
     <WikiSidebar
       activeAncestorSlugs={activeAncestorSlugs}
       activeSlug={activeSlug}
+      beforeTree={
+        <>
+          <CommentsTreeLink activePathname={pathname} />
+          <DiagnosticsTreeLink activePathname={pathname} />
+        </>
+      }
       data-test-id="wiki-sidebar"
       defaultDirectoryOpen={defaultDirectoryOpen}
       expandedSlugs={expandedSlugs}
@@ -282,8 +383,36 @@ export function Sidebar() {
   );
 }
 
+function CommentsTreeLink({
+  activePathname,
+  onNavigate,
+  testId = "sidebar-view-comments",
+}: {
+  activePathname: string;
+  onNavigate?: () => void;
+  testId?: string;
+}) {
+  const active = activePathname.startsWith("/comments");
+  return (
+    <Link
+      aria-current={active ? "page" : undefined}
+      className={`wiki-shell-tree-link tree-link comments-tree-link${active ? " active" : ""}`}
+      data-test-id={testId}
+      to="/comments"
+      onClick={onNavigate}
+      style={{ paddingLeft: 24 }}
+    >
+      <MessageSquareText size={14} aria-hidden="true" />
+      Comments
+    </Link>
+  );
+}
+
 function pageTitleFromPath(pathname: string) {
   if (pathname === "/") return "Home";
+  if (usesDiagnosticsSidebar(pathname) || pathname.startsWith("/diagnostics")) {
+    return "Diagnostics";
+  }
   const slug = slugFromPath(pathname);
   return formatFileLabel(slug.split("/").at(-1) ?? slug);
 }
@@ -345,6 +474,14 @@ function usePageLinkRenderer() {
 }
 
 export function MobileNav() {
+  const { pathname } = useLocation();
+  if (usesDiagnosticsSidebar(pathname)) {
+    return null;
+  }
+  return <WikiMobileNav />;
+}
+
+function WikiMobileNav() {
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const renderPageLink = usePageLinkRenderer();
@@ -352,10 +489,30 @@ export function MobileNav() {
   const activeSlug = slugFromPath(pathname);
   const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
   const [navState, setNavState] = useState({ open: false, pathname });
+  const [activeTab, setActiveTab] = useState<MobileNavTab>("pages");
+  const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
+  const { sessionLoading, sessionUser, setSessionUser, submitAuth } = useWikiViteAuth();
   const open = navState.pathname === pathname ? navState.open : false;
   const setOpen = useCallback(
     (nextOpen: boolean) => setNavState({ open: nextOpen, pathname }),
     [pathname],
+  );
+  const openPageNavigation = useCallback(() => {
+    setActiveTab("pages");
+    setOutlineItems(collectMobileOutlineItems());
+    setOpen(true);
+  }, [setOpen]);
+  const showOutlineTab = useCallback(() => {
+    setOutlineItems(collectMobileOutlineItems());
+    setActiveTab("outline");
+  }, []);
+  const jumpToMobileOutlineItem = useCallback(
+    (item: OutlineItem) => {
+      const root = document.querySelector<HTMLElement>('[data-test-id="document-article"]');
+      scrollToOutlineItem(item, pathname, root ?? document);
+      setOpen(false);
+    },
+    [pathname, setOpen],
   );
 
   if (isChatRoute) {
@@ -378,20 +535,146 @@ export function MobileNav() {
   }
 
   return (
-    <WikiMobileNavigation
-      activeAncestorSlugs={activeAncestorSlugs}
-      activeSlug={activeSlug}
-      defaultDirectoryOpen={defaultDirectoryOpen}
-      expandedSlugs={expandedSlugs}
-      formatNodeName={(name) => formatFileLabel(name)}
-      getFileHref={fileHrefForNode}
-      onOpenChange={setOpen}
-      onToggleDirectory={toggleDirectory}
-      open={open}
-      renderNodeIcon={nodeIcon}
-      renderPageLink={renderPageLink}
-      title={<MarkdownTitle title={pageTitleFromPath(pathname)} />}
-      tree={tree}
-    />
+    <>
+      <MobilePageHeader title={pageTitleFromPath(pathname)} onOpenNavigation={openPageNavigation} />
+      <WikiMobileNavigationSheet
+        heading={activeTab === "outline" ? "Outline" : "Pages"}
+        onOpenChange={setOpen}
+        open={open}
+        sheetId="mobile-page-navigation"
+        title={<MarkdownTitle title={pageTitleFromPath(pathname)} />}
+        trigger={false}
+      >
+        <div className="wiki-vite-mobile-sheet-tabs">
+          <button
+            type="button"
+            className={activeTab === "pages" ? "active" : undefined}
+            onClick={() => setActiveTab("pages")}
+          >
+            Page nav
+          </button>
+          <button
+            type="button"
+            className={activeTab === "outline" ? "active" : undefined}
+            onClick={showOutlineTab}
+          >
+            Outline
+          </button>
+        </div>
+        <nav data-test-id={activeTab === "outline" ? "bottom-nav-outline" : "bottom-nav-page-tree"}>
+          {activeTab === "outline" ? (
+            outlineItems.length > 0 ? (
+              <div className="wiki-vite-mobile-outline-list">
+                {outlineItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => jumpToMobileOutlineItem(item)}
+                    style={{ "--outline-depth": Math.max(0, item.level - 2) } as CSSProperties}
+                  >
+                    {item.text}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="wiki-vite-mobile-outline-empty">No headings found on this page.</p>
+            )
+          ) : (
+            <>
+              <CommentsTreeLink
+                activePathname={pathname}
+                onNavigate={() => setOpen(false)}
+                testId="mobile-view-comments"
+              />
+              <DiagnosticsTreeLink
+                activePathname={pathname}
+                onNavigate={() => setOpen(false)}
+                testId="mobile-view-diagnostics"
+              />
+              <WikiSidebarSignInPrompt
+                onAuthSubmit={submitAuth}
+                onSessionChange={setSessionUser}
+                sessionLoading={sessionLoading}
+                sessionUser={sessionUser}
+              />
+              <WikiTree
+                activeAncestorSlugs={activeAncestorSlugs}
+                activeSlug={activeSlug}
+                defaultDirectoryOpen={defaultDirectoryOpen}
+                expandedSlugs={expandedSlugs}
+                formatNodeName={(name) => formatFileLabel(name)}
+                getFileHref={fileHrefForNode}
+                onNavigate={() => setOpen(false)}
+                onToggleDirectory={toggleDirectory}
+                renderNodeIcon={nodeIcon}
+                renderPageLink={renderPageLink}
+                tree={tree}
+              />
+            </>
+          )}
+        </nav>
+      </WikiMobileNavigationSheet>
+      <Link to="/chat" aria-label="Ask wiki" title="Ask wiki" className="wiki-vite-mobile-ask" data-test-id="mobile-ask-wiki">
+        <MessageCircle size={19} aria-hidden="true" />
+      </Link>
+    </>
+  );
+}
+
+function MobilePageHeader({
+  onOpenNavigation,
+  title,
+}: {
+  onOpenNavigation: () => void;
+  title: string;
+}) {
+  return (
+    <header className="wiki-vite-mobile-page-header" data-test-id="mobile-page-header">
+      <div className="wiki-vite-mobile-title">
+        <MarkdownTitle title={title} />
+      </div>
+      <button
+        type="button"
+        aria-label="Search files"
+        title="Search files"
+        data-test-id="mobile-header-search"
+        onClick={() => openCommandPalette("pages")}
+      >
+        <Search size={18} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        aria-label="Open comments"
+        title="Open comments"
+        data-test-id="mobile-header-comments"
+        onClick={() => {
+          document.documentElement.dataset.mobileCommentsPanelRequested = "true";
+          window.dispatchEvent(new CustomEvent("mobile-comments-panel-open"));
+        }}
+      >
+        <MessageCircle size={18} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        aria-label="Open page navigation"
+        title="Open page navigation"
+        data-test-id="bottom-nav-trigger"
+        onClick={onOpenNavigation}
+      >
+        <svg
+          width="17"
+          height="17"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 4h10M3 8h10M3 12h7" />
+        </svg>
+      </button>
+    </header>
   );
 }

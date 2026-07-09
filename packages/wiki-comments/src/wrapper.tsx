@@ -1,19 +1,30 @@
 "use client";
 
 import { type ReactNode, useEffect, useState, lazy, Suspense } from "react";
-import { OutlineShell, commentsEnabled } from "./index";
+import { DocumentOutlineShell } from "@oncobase/wiki-shell";
+import { commentsEnabled } from "./feature.ts";
+import type { LiveblocksProviderShellProps } from "./provider.tsx";
 
-const ActiveComments = lazy(
-  () => import("./index").then((m) => ({ default: m.ActiveDocumentComments }))
-);
+const ActiveComments = lazy(() => import("./active-comments.tsx"));
+const MOBILE_COMMENTS_PANEL_EVENT = "mobile-comments-panel-open";
 
 export function DocumentComments({
+  articleClassName,
+  contentKey,
   documentSlug,
   documentTitle,
+  mobileRail,
+  pathname,
+  provider,
   children,
 }: {
+  articleClassName?: string;
+  contentKey?: string;
   documentSlug: string;
   documentTitle: string;
+  mobileRail?: boolean;
+  pathname?: string;
+  provider?: Omit<LiveblocksProviderShellProps, "children" | "fallback">;
   children: ReactNode;
 }) {
   const [liveblocksActive, setLiveblocksActive] = useState(false);
@@ -28,37 +39,73 @@ export function DocumentComments({
     }
   }, []);
 
+  useEffect(() => {
+    if (!commentsEnabled) return;
+
+    const activateComments = () => {
+      setLiveblocksActive(true);
+    };
+
+    window.addEventListener(MOBILE_COMMENTS_PANEL_EVENT, activateComments);
+    if (document.documentElement.dataset.mobileCommentsPanelRequested === "true") {
+      activateComments();
+    }
+
+    return () => {
+      window.removeEventListener(MOBILE_COMMENTS_PANEL_EVENT, activateComments);
+    };
+  }, []);
+
   if (!commentsEnabled) {
     return (
-      <OutlineShell documentSlug={documentSlug} documentTitle={documentTitle}>
+      <DocumentOutlineShell
+        articleClassName={articleClassName}
+        contentKey={contentKey ?? documentSlug}
+        documentSlug={documentSlug}
+        documentTitle={documentTitle}
+        mobileRail={mobileRail}
+        pathname={pathname}
+      >
         {children}
-      </OutlineShell>
+      </DocumentOutlineShell>
     );
   }
 
   if (!liveblocksActive) {
     return (
-      <OutlineShell
+      <DocumentOutlineShell
+        articleClassName={articleClassName}
+        contentKey={contentKey ?? documentSlug}
         documentSlug={documentSlug}
         documentTitle={documentTitle}
-        onActivate={() => setLiveblocksActive(true)}
+        mobileRail={mobileRail}
+        onActivateComments={() => setLiveblocksActive(true)}
+        pathname={pathname}
       >
         {children}
-      </OutlineShell>
+      </DocumentOutlineShell>
     );
   }
 
   return (
     <Suspense
       fallback={
-        <OutlineShell documentSlug={documentSlug} documentTitle={documentTitle}>
+        <DocumentOutlineShell
+          articleClassName={articleClassName}
+          contentKey={contentKey ?? documentSlug}
+          documentSlug={documentSlug}
+          documentTitle={documentTitle}
+          mobileRail={mobileRail}
+          pathname={pathname}
+        >
           {children}
-        </OutlineShell>
+        </DocumentOutlineShell>
       }
     >
       <ActiveComments
         documentSlug={documentSlug}
         documentTitle={documentTitle}
+        provider={provider}
       >
         {children}
       </ActiveComments>

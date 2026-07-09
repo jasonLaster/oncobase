@@ -550,12 +550,19 @@ export function nextErrorOverlay(page: Page) {
 
 export async function gotoWiki(page: Page, path = "/") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await expect(documentArticle(page)).toBeVisible();
+  const article = documentArticle(page);
+  await expect(article).toBeVisible();
+  await expect(article.getByText(/Loading markdown for/i)).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByTestId("page-loading")).toHaveCount(0, { timeout: 15_000 });
+  await expect(article.locator("h1").first()).toBeVisible({ timeout: 15_000 });
 }
 
 export async function waitForPageTitle(page: Page, title: string | RegExp) {
-  await expect(documentArticle(page).locator(".page-header h1")).toHaveText(title, {
+  const article = documentArticle(page);
+  await expect(article.getByText(/Loading markdown for/i)).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByTestId("page-loading")).toHaveCount(0, { timeout: 15_000 });
+  await expect(article.locator(".page-header h1")).toBeVisible({ timeout: 15_000 });
+  await expect(article.locator(".page-header h1")).toHaveText(title, {
     timeout: 15_000,
   });
 }

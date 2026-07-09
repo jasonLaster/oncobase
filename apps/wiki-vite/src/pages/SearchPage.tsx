@@ -41,11 +41,18 @@ export function SearchPage() {
   );
   const [error, setError] = useState<string | null>(null);
   const trimmedQuery = query.trim();
+  const emptyMessage = useMemo(() => {
+    if (status === "idle") return "Type a query to search across all wiki pages";
+    if (status !== "ready" || results.length > 0) return undefined;
+    return mode === "ai"
+      ? `No relevant results for "${trimmedQuery}"`
+      : `No results for "${trimmedQuery}"`;
+  }, [mode, results.length, status, trimmedQuery]);
   const resultLabel = useMemo(() => {
-    if (status === "loading") return "Searching";
-    if (status === "ranking") return "Ranking with AI";
+    if (status === "loading") return "Searching...";
+    if (status === "ranking") return "Analyzing results with AI...";
     if (status === "ready") return `${results.length} result${results.length === 1 ? "" : "s"}`;
-    return "Search wiki";
+    return null;
   }, [results.length, status]);
 
   useEffect(() => {
@@ -209,8 +216,8 @@ export function SearchPage() {
         aria-activedescendant={results[activeIndex] ? `search-result-${activeIndex}` : undefined}
         aria-label="Search results"
         data-test-id="search-results"
-        emptyMessage={status === "ready" && results.length === 0 ? "No results" : undefined}
-        error={error}
+        emptyMessage={emptyMessage}
+        error={error ? `Search failed: ${error}` : undefined}
         onKeyDown={onResultsKeyDown}
         statusLabel={resultLabel}
         tabIndex={results.length > 0 ? 0 : -1}

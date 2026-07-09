@@ -3,6 +3,7 @@ import { ChatInterface } from "@oncobase/chat/components/chat-interface";
 import { useChatRuntime } from "@oncobase/chat/runtime";
 import {
   WikiChatMain,
+  WikiChatLoadingSkeleton,
   WikiChatPage,
   WikiChatSidebar,
   WikiChatState,
@@ -55,11 +56,7 @@ function ChatRouteContent() {
   }
   if (!id) return <ChatInterface conversationId={null} />;
   if (conversation === undefined) {
-    return (
-      <WikiChatState data-test-id="chat-conversation-loading">
-        Loading conversation...
-      </WikiChatState>
-    );
+    return <WikiChatLoadingSkeleton data-test-id="chat-conversation-loading" />;
   }
   if (conversation === null) {
     return (

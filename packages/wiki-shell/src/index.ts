@@ -52,10 +52,12 @@ export {
 } from "./header.tsx";
 export {
   WikiActionsMenu,
+  WikiSidebarSignInPrompt,
   type WikiActionsMenuAuthInput,
   type WikiActionsMenuAuthMode,
   type WikiActionsMenuProps,
   type WikiActionsMenuUser,
+  type WikiSidebarSignInPromptProps,
 } from "./actions-menu.tsx";
 export {
   applyWikiTheme,
@@ -97,11 +99,13 @@ export {
 } from "./page-chrome.tsx";
 export {
   WikiEmptyState,
+  WikiMarkdownBodySkeleton,
   WikiPageLoading,
   WikiPageSkeleton,
   WikiSensitiveUnavailable,
   type WikiEmptyAction,
   type WikiEmptyStateProps,
+  type WikiMarkdownBodySkeletonProps,
   type WikiPageLoadingProps,
   type WikiPageSkeletonProps,
   type WikiSensitiveUnavailableProps,
@@ -154,6 +158,7 @@ export {
 export {
   WikiChatList,
   WikiChatListLink,
+  WikiChatLoadingSkeleton,
   WikiChatMain,
   WikiChatMuted,
   WikiChatPage,
@@ -162,6 +167,7 @@ export {
   type WikiChatListLinkProps,
   type WikiChatListLinkRenderProps,
   type WikiChatListProps,
+  type WikiChatLoadingSkeletonProps,
   type WikiChatMainProps,
   type WikiChatMutedProps,
   type WikiChatPageProps,

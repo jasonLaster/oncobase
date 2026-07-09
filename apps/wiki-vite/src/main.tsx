@@ -3,6 +3,7 @@ import {
   type WikiScope,
   type WikiSessionIdentity,
 } from "@oncobase/wiki-content";
+import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { createElement, lazy, StrictMode, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
@@ -144,7 +145,11 @@ function WikiViteRoot() {
   }, []);
 
   if (state.status === "loading") {
-    return createElement("div", { className: "app-loading" }, "Opening wiki session...");
+    return createElement(WikiPageLoading, {
+      "data-test-id": "page-loading",
+      includeTags: true,
+      label: "Loading page",
+    });
   }
 
   if (state.status === "error") {
@@ -153,9 +158,17 @@ function WikiViteRoot() {
     }
 
     return createElement(
-      "div",
-      { className: "app-loading app-error" },
-      `Wiki session failed: ${state.message}`,
+      "main",
+      { className: "app-loading app-auth-shell", "data-test-id": "session-recovery" },
+      createElement("section", null, [
+        createElement("h1", { key: "title" }, "Wiki session failed"),
+        createElement(
+          "p",
+          { key: "body" },
+          "The reader could not verify the current wiki session.",
+        ),
+        createElement("p", { key: "error", className: "auth-error" }, state.message),
+      ]),
     );
   }
 
@@ -163,9 +176,12 @@ function WikiViteRoot() {
     Suspense,
     {
       fallback: createElement(
-        "div",
-        { className: "app-loading" },
-        "Opening local wiki cache...",
+        WikiPageLoading,
+        {
+          "data-test-id": "page-loading",
+          includeTags: true,
+          label: "Loading page",
+        },
       ),
     },
     createElement(LiveStoreRoot, { identity: state.identity, scope: state.scope }),

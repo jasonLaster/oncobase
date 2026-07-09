@@ -100,3 +100,27 @@ export function WikiChatState({
     </section>
   );
 }
+
+export type WikiChatLoadingSkeletonProps = ComponentProps<"div">;
+
+export function WikiChatLoadingSkeleton({
+  className,
+  ...props
+}: WikiChatLoadingSkeletonProps) {
+  return (
+    <div
+      aria-label="Loading chat"
+      className={cn("wiki-shell-chat-loading-skeleton", className)}
+      data-test-id="chat-loading"
+      role="status"
+      {...props}
+    >
+      <div className="wiki-shell-chat-loading-title" />
+      <div className="wiki-shell-chat-loading-messages">
+        <div />
+        <div />
+        <div />
+      </div>
+    </div>
+  );
+}
