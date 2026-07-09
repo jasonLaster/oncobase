@@ -2,7 +2,7 @@ import { livestoreDevtoolsPlugin } from "@livestore/devtools-vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import { wikiApiPlugin } from "./server/wiki-api";
+import { wikiApiPlugin } from "./server/wiki-api.ts";
 
 const apiOrigin = process.env.VITE_WIKI_API_ORIGIN ?? "";
 
@@ -37,6 +37,9 @@ function vendorChunk(id: string): string | null {
   if (normalized.includes("/node_modules/lucide-react/")) {
     return "vendor-icons";
   }
+  // Cornerstone and its deps split naturally behind the ensureCornerstone
+  // dynamic-import boundary; forcing them into one chunk deadlocked module
+  // evaluation (same class as the earlier comments chunk bug).
   return null;
 }
 

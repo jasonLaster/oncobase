@@ -4,6 +4,7 @@ export {
   diagnosticStudiesMetaKeyForSet,
   diagnosticStudiesTestMetaKey,
   getDicomViewerHref,
+  getPrimaryReportLink,
   normalizeDiagnosticStudiesPayload,
   normalizeDiagnosticStudySet,
   parseDiagnosticStudiesPayload,

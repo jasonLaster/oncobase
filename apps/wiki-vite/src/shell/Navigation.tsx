@@ -1,4 +1,5 @@
 import { useStore } from "@livestore/react";
+import { DiagnosticsSidebar } from "@oncobase/diagnostics/dicom";
 import {
   expandCompactFileTree,
   type CompactFileNode,
@@ -172,6 +173,13 @@ function writeExpandedDirectories(slugs: Map<string, boolean>) {
   }
 }
 
+function usesDiagnosticsSidebar(pathname: string) {
+  return (
+    pathname.startsWith("/tools/dicom-viewer") ||
+    pathname.startsWith("/tools/dicom-compare")
+  );
+}
+
 function lastPathSegment(slug: string) {
   return slug.split("/").filter(Boolean).at(-1) ?? slug;
 }
@@ -208,6 +216,36 @@ function nodeIcon({
       className={active ? "wiki-shell-tree-icon active" : "wiki-shell-tree-icon"}
       aria-hidden="true"
     />
+  );
+}
+
+function DiagnosticsTreeLink({
+  activePathname,
+  onNavigate,
+  testId = "sidebar-view-diagnostics",
+}: {
+  activePathname: string;
+  onNavigate?: () => void;
+  testId?: string;
+}) {
+  const active =
+    activePathname.startsWith("/diagnostics") ||
+    activePathname.startsWith("/tools/dicom-viewer") ||
+    activePathname.startsWith("/tools/dicom-compare");
+  return (
+    <Link
+      aria-current={active ? "page" : undefined}
+      className={`wiki-shell-tree-link tree-link diagnostics-tree-link${active ? " active" : ""}`}
+      data-selected-file-tree-item={active ? "true" : undefined}
+      data-test-id={testId}
+      to="/diagnostics"
+      onClick={onNavigate}
+      style={{ paddingLeft: 24 }}
+      title="Diagnostics"
+    >
+      <Activity size={14} aria-hidden="true" />
+      Diagnostics
+    </Link>
   );
 }
 
@@ -257,6 +295,14 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
 }
 
 export function Sidebar() {
+  const { pathname } = useLocation();
+  if (usesDiagnosticsSidebar(pathname)) {
+    return <DiagnosticsSidebar />;
+  }
+  return <WikiNavigationSidebar />;
+}
+
+function WikiNavigationSidebar() {
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const activeSlug = slugFromPath(pathname);
@@ -267,8 +313,13 @@ export function Sidebar() {
     <WikiSidebar
       activeAncestorSlugs={activeAncestorSlugs}
       activeSlug={activeSlug}
+      beforeTree={
+        <>
+          <CommentsTreeLink activePathname={pathname} />
+          <DiagnosticsTreeLink activePathname={pathname} />
+        </>
+      }
       data-test-id="wiki-sidebar"
-      beforeTree={<CommentsTreeLink activePathname={pathname} />}
       defaultDirectoryOpen={defaultDirectoryOpen}
       expandedSlugs={expandedSlugs}
       footer={<SidebarFooter />}
@@ -311,6 +362,9 @@ function CommentsTreeLink({
 
 function pageTitleFromPath(pathname: string) {
   if (pathname === "/") return "Home";
+  if (usesDiagnosticsSidebar(pathname) || pathname.startsWith("/diagnostics")) {
+    return "Diagnostics";
+  }
   const slug = slugFromPath(pathname);
   return formatFileLabel(slug.split("/").at(-1) ?? slug);
 }
@@ -372,6 +426,14 @@ function usePageLinkRenderer() {
 }
 
 export function MobileNav() {
+  const { pathname } = useLocation();
+  if (usesDiagnosticsSidebar(pathname)) {
+    return null;
+  }
+  return <WikiMobileNav />;
+}
+
+function WikiMobileNav() {
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const renderPageLink = usePageLinkRenderer();
@@ -409,11 +471,18 @@ export function MobileNav() {
       activeAncestorSlugs={activeAncestorSlugs}
       activeSlug={activeSlug}
       beforeTree={
-        <CommentsTreeLink
-          activePathname={pathname}
-          onNavigate={() => setOpen(false)}
-          testId="mobile-view-comments"
-        />
+        <>
+          <CommentsTreeLink
+            activePathname={pathname}
+            onNavigate={() => setOpen(false)}
+            testId="mobile-view-comments"
+          />
+          <DiagnosticsTreeLink
+            activePathname={pathname}
+            onNavigate={() => setOpen(false)}
+            testId="mobile-view-diagnostics"
+          />
+        </>
       }
       defaultDirectoryOpen={defaultDirectoryOpen}
       expandedSlugs={expandedSlugs}

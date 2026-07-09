@@ -1,6 +1,7 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "tw-animate-css";
+@import "@oncobase/diagnostics/imaging/styles.css";
 @import "@oncobase/wiki-shell/styles.css";
 @import "@liveblocks/react-ui/styles.css";
 @source "../../../packages/wiki-comments/src";
@@ -1293,4 +1294,53 @@ a {
     color: var(--brand);
   }
 
+}
+
+/* Immersive DICOM viewer on mobile — mirrors web's chrome rules
+   (apps/web/src/app/globals.css + resizable-layout): at max-lg the viewer
+   owns the full viewport with no top chrome; landscape additionally drops
+   the sidebar rails and series panel. Wins over the 860px mobile-flow block
+   above via the attribute selector and source order. */
+@media (max-width: 1023px) {
+  .prototype-shell[data-immersive-route="dicom-viewer"] {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .prototype-shell[data-immersive-route="dicom-viewer"] .wiki-shell-header {
+    display: none;
+  }
+
+  .prototype-shell[data-immersive-route="dicom-viewer"] .app-shell {
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .prototype-shell[data-immersive-route="dicom-viewer"] .content-shell {
+    height: 100%;
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 1023px) and (orientation: landscape) {
+  .prototype-shell[data-immersive-route="dicom-viewer"] [data-sidebar-collapsed-rail],
+  .prototype-shell[data-immersive-route="dicom-viewer"] [data-sidebar-expanded-rail],
+  .prototype-shell[data-immersive-route="dicom-viewer"] .sidebar-resize-handle,
+  [data-dicom-viewer-layout] [data-test-id="dicom-series-panel"] {
+    display: none !important;
+  }
+
+  [data-dicom-viewer-layout] [data-test-id="dicom-viewport-frame"] {
+    min-height: 0 !important;
+    padding-top: 0 !important;
+  }
+
+  [data-dicom-viewer-layout] {
+    grid-template-rows: minmax(0, 1fr) !important;
+  }
 }
