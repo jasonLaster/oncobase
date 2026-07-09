@@ -275,6 +275,13 @@ export function authedCookieName(siteSlug: string) {
   return siteSlug === DEFAULT_SITE_SLUG ? "authed" : `authed_${siteSlug}`;
 }
 
+function hasAuthedCookie(request: Request, siteSlug: string) {
+  const cookieName = authedCookieName(siteSlug);
+  return (request.headers.get("cookie") ?? "")
+    .split(/;\s*/)
+    .some((part) => part === `${cookieName}=true`);
+}
+
 function sessionTokenFromCookie(cookieHeader: string) {
   const rawToken = cookieHeader
     .split(/;\s*/)
@@ -860,13 +867,17 @@ async function handleFileRequest(
   if (!upstream.ok) return new Response("Blob fetch failed", { status: 502 });
 
   const cacheScope = includeSensitive ? "session" : "public";
+  // Cache privacy mirrors apps/web: any password-gated or signed-in request
+  // gets a private response varying on Cookie, independent of RBAC scope.
+  const privateCache =
+    includeSensitive || Boolean(sessionUser) || hasAuthedCookie(request, siteSlug);
   const headers = new Headers({
       "Content-Type": mimeType,
       "Content-Disposition": contentDisposition(ext, filename),
-      "Cache-Control": includeSensitive
-        ? "private, max-age=300"
+      "Cache-Control": privateCache
+        ? "private, max-age=60, stale-while-revalidate=3600"
         : "public, max-age=86400",
-      Vary: includeSensitive ? "Accept, Cookie, Host, Range" : "Accept, Host, Range",
+      Vary: privateCache ? "Accept, Cookie, Host, Range" : "Accept, Host, Range",
       "X-Wiki-Cache-Scope": cacheScope,
     });
   const contentLength = upstream.headers.get("content-length");
