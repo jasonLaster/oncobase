@@ -536,6 +536,9 @@ test.describe("DICOM viewer", () => {
   test("diagnostics imaging page uses the normal sidebar and viewer uses biopsy shortcuts", async ({
     page,
   }) => {
+    // Store-boot recovery plus post-reset re-sync can legitimately take
+    // minutes on loaded runners; the default 45s budget kills the recovery.
+    test.setTimeout(240_000);
     await page.goto(`/diagnostics/imaging${seededStudySetQuery}`);
 
     const sidebar = page.locator('[data-test-id="wiki-sidebar"]:visible').first();
