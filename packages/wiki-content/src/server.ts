@@ -20,7 +20,7 @@ const PUBLIC_CACHE_CONTROL =
   "public, max-age=60, s-maxage=300, stale-while-revalidate=3600";
 const PRIVATE_CACHE_CONTROL = "private, max-age=30, stale-while-revalidate=300";
 const SESSION_CACHE_VERSION = "v1";
-const MANIFEST_PAGE_SIZE = 100;
+const MANIFEST_PAGE_SIZE = 500;
 const MANIFEST_FALLBACK_PAGE_SIZE = 25;
 const ASSET_PAGE_SIZE = 1000;
 const MANIFEST_TIMEOUT_MS = 20_000;
@@ -32,8 +32,18 @@ export type WikiApiSessionUser = {
   _id: string;
 };
 
+export type WikiApiSlugAccess = {
+  slug: string;
+  allowed: boolean;
+  hasDocument: boolean;
+};
+
 export type WikiApiAccessAdapter = {
   canUserAccessSlug(user: WikiApiSessionUser, slug: string): Promise<boolean>;
+  filterAccessibleSlugs(
+    user: WikiApiSessionUser,
+    slugs: string[],
+  ): Promise<WikiApiSlugAccess[]>;
   getAllowedSlugs(user: WikiApiSessionUser): Promise<string[]>;
 };
 
@@ -293,18 +303,46 @@ async function canReadPage(
   return context.access.canUserAccessSlug(user, page.slug);
 }
 
+const ACCESS_CHECK_CHUNK_SIZE = 100;
+
+async function accessBySlug(
+  context: WikiApiContext,
+  user: WikiApiSessionUser | null,
+  slugs: string[],
+): Promise<Map<string, WikiApiSlugAccess>> {
+  const access = new Map<string, WikiApiSlugAccess>();
+  if (slugs.length === 0) return access;
+  if (!user || !context.access) {
+    for (const slug of slugs) {
+      access.set(slug, { slug, allowed: false, hasDocument: false });
+    }
+    return access;
+  }
+  const unique = [...new Set(slugs)];
+  for (let i = 0; i < unique.length; i += ACCESS_CHECK_CHUNK_SIZE) {
+    const chunk = unique.slice(i, i + ACCESS_CHECK_CHUNK_SIZE);
+    const results = await context.access.filterAccessibleSlugs(user, chunk);
+    for (const result of results) access.set(result.slug, result);
+  }
+  return access;
+}
+
 async function filterReadablePages<T extends Pick<PageWithContent | WikiManifestPage, "sensitive" | "slug">>(
   context: WikiApiContext,
   user: WikiApiSessionUser | null,
   pages: T[],
 ): Promise<T[]> {
-  const allowed: T[] = [];
-  for (const page of pages) {
-    if (await canReadPage(context, user, page)) {
-      allowed.push(page);
-    }
-  }
-  return allowed;
+  const sensitiveSlugs = pages
+    .filter((page) => page.sensitive === true)
+    .map((page) => page.slug);
+  const access = await accessBySlug(context, user, sensitiveSlugs);
+  return pages.filter(
+    (page) => page.sensitive !== true || access.get(page.slug)?.allowed === true,
+  );
+}
+
+function assetSiblingSlug(asset: WikiManifestAsset) {
+  return asset.path.replace(/\.[^/.]+$/, "");
 }
 
 async function filterAssetsForUser(
@@ -312,17 +350,19 @@ async function filterAssetsForUser(
   user: WikiApiSessionUser | null,
   assets: WikiManifestAsset[],
 ) {
-  const filtered = await Promise.all(
-    assets.map(async (asset) => {
-      const sibling = await context.documents.getBySlug({
-        slug: asset.path.replace(/\.[^/.]+$/, ""),
-        includeSensitive: true,
-      });
-      if (!sibling) return asset;
-      return (await canReadPage(context, user, sibling)) ? asset : null;
-    }),
+  // Batched grant evaluation: the user's roles resolve once per chunk instead
+  // of one query per asset. Assets without a sibling document stay included,
+  // matching the previous per-asset getBySlug behavior.
+  const access = await accessBySlug(
+    context,
+    user,
+    assets.map((asset) => assetSiblingSlug(asset)),
   );
-  return filtered.filter((asset): asset is WikiManifestAsset => asset !== null);
+  return assets.filter((asset) => {
+    const result = access.get(assetSiblingSlug(asset));
+    if (!result) return true;
+    return !result.hasDocument || result.allowed;
+  });
 }
 
 async function listManifestPages(
@@ -522,14 +562,66 @@ async function listAssets(
     return assets;
   };
 
-  const [pdfAssets, fileAssets] = await Promise.all([
+  if (!includeSensitive) {
+    const [pdfAssets, fileAssets] = await Promise.all([
+      listPaths("pdf", (args) => context.documents.listPdfAssetPathsPage(args)),
+      listPaths("file", (args) => context.documents.listFileAssetPathsPage(args)),
+    ]);
+    return [...pdfAssets, ...fileAssets];
+  }
+
+  // Session scope: public assets are readable by definition, so only the
+  // sensitive-extra assets (present with includeSensitive, absent without)
+  // need per-user access checks.
+  const publicListPaths = async (
+    kind: WikiManifestAsset["kind"],
+    fetchPage: (args: {
+      cursor: string | null;
+      numItems: number;
+      includeSensitive?: boolean;
+    }) => Promise<AssetPathResult>,
+  ) => {
+    const assets: WikiManifestAsset[] = [];
+    let cursor: string | null = null;
+    let isDone = false;
+    while (!isDone) {
+      const result = await fetchPage({ cursor, numItems: ASSET_PAGE_SIZE });
+      assets.push(
+        ...result.page.map((path) => ({
+          kind,
+          path,
+          contentHash: null,
+          size: null,
+        })),
+      );
+      isDone = result.isDone;
+      cursor = result.continueCursor;
+    }
+    return assets;
+  };
+
+  const [pdfAssets, fileAssets, publicPdfAssets, publicFileAssets] = await Promise.all([
     listPaths("pdf", (args) => context.documents.listPdfAssetPathsPage(args)),
     listPaths("file", (args) => context.documents.listFileAssetPathsPage(args)),
+    publicListPaths("pdf", (args) => context.documents.listPdfAssetPathsPage(args)),
+    publicListPaths("file", (args) => context.documents.listFileAssetPathsPage(args)),
   ]);
   const assets = [...pdfAssets, ...fileAssets];
-  if (!includeSensitive) return assets;
-
-  return filterAssetsForUser(context, user, assets);
+  const publicPaths = new Set(
+    [...publicPdfAssets, ...publicFileAssets].map((asset) => asset.path),
+  );
+  const sensitiveExtras = assets.filter((asset) => !publicPaths.has(asset.path));
+  const access = await accessBySlug(
+    context,
+    user,
+    sensitiveExtras.map((asset) => assetSiblingSlug(asset)),
+  );
+  return assets.filter((asset) => {
+    if (publicPaths.has(asset.path)) return true;
+    const result = access.get(assetSiblingSlug(asset));
+    if (!result) return true;
+    return !result.hasDocument || result.allowed;
+  });
 }
 
 function parseLimit(url: URL) {

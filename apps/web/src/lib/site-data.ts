@@ -364,6 +364,11 @@ export function createSiteData(
           ...args,
           siteSlug: scope.siteSlug,
         } as any),
+      filterAccessibleSlugs: (args: { userId: string; slugs: string[] }) =>
+        convex.query((api as any).access.filterAccessibleSlugs, {
+          ...args,
+          siteSlug: scope.siteSlug,
+        } as any),
       getAllowedSlugs: async (args: { userId: string }) => {
         const allowed: string[] = [];
         let cursor: string | null = null;
@@ -379,18 +384,17 @@ export function createSiteData(
             isDone: boolean;
             continueCursor: string | null;
           };
-          const checks = await Promise.all(
-            result.page.map(async (page) => {
-              if (page.sensitive !== true) return null;
-              const canAccess = await convex.query((api as any).access.canUserAccessSlug, {
-                userId: args.userId,
-                slug: page.slug,
-                siteSlug: scope.siteSlug,
-              } as any);
-              return canAccess ? page.slug : null;
-            }),
-          );
-          allowed.push(...checks.filter((slug): slug is string => slug !== null));
+          const sensitiveSlugs = result.page
+            .filter((page) => page.sensitive === true)
+            .map((page) => page.slug);
+          if (sensitiveSlugs.length > 0) {
+            const checks = (await convex.query((api as any).access.filterAccessibleSlugs, {
+              userId: args.userId,
+              slugs: sensitiveSlugs,
+              siteSlug: scope.siteSlug,
+            } as any)) as Array<{ slug: string; allowed: boolean }>;
+            allowed.push(...checks.filter((c) => c.allowed).map((c) => c.slug));
+          }
           isDone = result.isDone;
           cursor = result.continueCursor;
         }
