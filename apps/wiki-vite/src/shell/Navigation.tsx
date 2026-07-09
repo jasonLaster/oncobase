@@ -1,4 +1,5 @@
 import { useStore } from "@livestore/react";
+import { DiagnosticsSidebar } from "@oncobase/diagnostics/dicom";
 import {
   expandCompactFileTree,
   type CompactFileNode,
@@ -172,6 +173,13 @@ function writeExpandedDirectories(slugs: Map<string, boolean>) {
   }
 }
 
+function usesDiagnosticsSidebar(pathname: string) {
+  return (
+    pathname.startsWith("/tools/dicom-viewer") ||
+    pathname.startsWith("/tools/dicom-compare")
+  );
+}
+
 function lastPathSegment(slug: string) {
   return slug.split("/").filter(Boolean).at(-1) ?? slug;
 }
@@ -287,6 +295,14 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
 }
 
 export function Sidebar() {
+  const { pathname } = useLocation();
+  if (usesDiagnosticsSidebar(pathname)) {
+    return <DiagnosticsSidebar />;
+  }
+  return <WikiNavigationSidebar />;
+}
+
+function WikiNavigationSidebar() {
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const activeSlug = slugFromPath(pathname);
@@ -346,6 +362,9 @@ function CommentsTreeLink({
 
 function pageTitleFromPath(pathname: string) {
   if (pathname === "/") return "Home";
+  if (usesDiagnosticsSidebar(pathname) || pathname.startsWith("/diagnostics")) {
+    return "Diagnostics";
+  }
   const slug = slugFromPath(pathname);
   return formatFileLabel(slug.split("/").at(-1) ?? slug);
 }
@@ -407,6 +426,14 @@ function usePageLinkRenderer() {
 }
 
 export function MobileNav() {
+  const { pathname } = useLocation();
+  if (usesDiagnosticsSidebar(pathname)) {
+    return null;
+  }
+  return <WikiMobileNav />;
+}
+
+function WikiMobileNav() {
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const renderPageLink = usePageLinkRenderer();
