@@ -1,57 +1,27 @@
-import type { AnchorHTMLAttributes, ReactNode } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import {
-  isInternalWikiHref,
-  resolveHref,
-  resolveWikilinks,
-} from "./paths.ts";
+import { Suspense, lazy } from "react";
+import { markdownTitleToText } from "./title.ts";
+import type { MarkdownTitleProps } from "./title-react-impl.tsx";
+
+export type {
+  MarkdownTitleLinkProps,
+  MarkdownTitleProps,
+} from "./title-react-impl.tsx";
 export { markdownTitleToText } from "./title.ts";
 
-export type MarkdownTitleLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
-  href: string;
-  children: ReactNode;
-};
+// Rendering markdown titles pulls in react-markdown and the remark/vfile
+// dependency graph (~180 KiB gzip). Titles render in the eager reader shell
+// (sidebar, mobile navigation), so the renderer loads lazily and falls back to
+// the plain-text title until the chunk arrives.
+const LazyMarkdownTitle = lazy(() =>
+  import("./title-react-impl.tsx").then((module) => ({
+    default: module.MarkdownTitle,
+  })),
+);
 
-export function MarkdownTitle({
-  LinkComponent,
-  currentSlug,
-  title,
-}: {
-  LinkComponent?: (props: MarkdownTitleLinkProps) => ReactNode;
-  currentSlug?: string;
-  title: string;
-}) {
+export function MarkdownTitle(props: MarkdownTitleProps) {
   return (
-    <ReactMarkdown
-      skipHtml
-      unwrapDisallowed
-      allowedElements={["p", "a", "strong", "em", "code", "del", "br"]}
-      remarkPlugins={[remarkGfm]}
-      components={{
-        p: ({ children }) => <>{children}</>,
-        a: ({ href, children, node: _node, ...props }) => {
-          const resolvedHref = resolveHref(href, currentSlug);
-          const className =
-            "text-[var(--brand)] underline decoration-[var(--brand)]/30 underline-offset-4 transition-colors hover:decoration-[var(--brand)]";
-
-          if (isInternalWikiHref(resolvedHref) && LinkComponent) {
-            return (
-              <LinkComponent href={resolvedHref} {...props} className={className}>
-                {children}
-              </LinkComponent>
-            );
-          }
-
-          return (
-            <a href={resolvedHref} {...props} className={className}>
-              {children}
-            </a>
-          );
-        },
-      }}
-    >
-      {resolveWikilinks(title, currentSlug)}
-    </ReactMarkdown>
+    <Suspense fallback={markdownTitleToText(props.title)}>
+      <LazyMarkdownTitle {...props} />
+    </Suspense>
   );
 }
