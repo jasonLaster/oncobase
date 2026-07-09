@@ -31,6 +31,11 @@
       "import": "./src/site.ts",
       "default": "./src/site.ts"
     },
+    "./guest-user": {
+      "types": "./src/guest-user.ts",
+      "import": "./src/guest-user.ts",
+      "default": "./src/guest-user.ts"
+    },
     "./user-resolution": {
       "types": "./src/user-resolution.ts",
       "import": "./src/user-resolution.ts",
@@ -45,6 +50,11 @@
       "types": "./src/page-client.tsx",
       "import": "./src/page-client.tsx",
       "default": "./src/page-client.tsx"
+    },
+    "./wrapper": {
+      "types": "./src/wrapper.tsx",
+      "import": "./src/wrapper.tsx",
+      "default": "./src/wrapper.tsx"
     },
     "./package.json": "./package.json"
   },

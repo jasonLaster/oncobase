@@ -312,6 +312,7 @@ function WikiTreeNode({
 
 export type WikiMobileNavigationProps = Omit<ComponentProps<"div">, "children" | "title"> &
   WikiTreeProps & {
+    beforeTree?: ReactNode;
     onOpenChange: (open: boolean) => void;
     open: boolean;
     title: ReactNode;
@@ -404,6 +405,7 @@ export function WikiMobileNavigationSheet({
 export function WikiMobileNavigation({
   activeAncestorSlugs,
   activeSlug,
+  beforeTree,
   className,
   defaultDirectoryOpen,
   directoryAriaLabel,
@@ -435,6 +437,7 @@ export function WikiMobileNavigation({
       {...props}
     >
           <nav>
+            {beforeTree}
             <WikiTree
               activeAncestorSlugs={activeAncestorSlugs}
               activeSlug={activeSlug}

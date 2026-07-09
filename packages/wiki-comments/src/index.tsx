@@ -14,14 +14,16 @@ import {
 import type { ThreadData } from "@liveblocks/client";
 import { useThreads } from "@liveblocks/react";
 import { Comment, Composer, Thread } from "@liveblocks/react-ui";
-import { cn } from "../../../apps/web/src/lib/utils";
-import { LiveblocksRoom } from "./room";
+import { cn } from "./utils.ts";
+import { LiveblocksRoom } from "./room.tsx";
+import { commentsEnabled } from "./feature.ts";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../../../apps/web/src/components/ui/dropdown-menu";
+} from "./menu.tsx";
+import type { LiveblocksProviderShellProps } from "./provider.tsx";
 import {
   buildCommentListItems,
   createThreadMetadata,
@@ -30,7 +32,7 @@ import {
   type CommentThreadMetadata,
   type SelectionAnchor,
   sortThreads,
-} from "./threads";
+} from "./threads.ts";
 
 type HighlightRect = {
   id: string;
@@ -1685,20 +1687,27 @@ export function OutlineShell({
   );
 }
 
-export const commentsEnabled =
-  process.env.NEXT_PUBLIC_ENABLE_COMMENTS === "true";
+export { commentsEnabled } from "./feature.ts";
 
 export function ActiveDocumentComments({
   documentSlug,
   documentTitle,
+  provider,
+  fallback,
   children,
 }: {
   documentSlug: string;
   documentTitle: string;
+  provider?: Omit<LiveblocksProviderShellProps, "children" | "fallback">;
+  fallback?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <LiveblocksRoom roomId={getRoomId(documentSlug)}>
+    <LiveblocksRoom
+      roomId={getRoomId(documentSlug)}
+      provider={provider}
+      fallback={fallback}
+    >
       <CommentsShell documentSlug={documentSlug} documentTitle={documentTitle}>
         {children}
       </CommentsShell>
@@ -1707,4 +1716,4 @@ export function ActiveDocumentComments({
 }
 
 // Re-export the wrapper component for callers using the package barrel.
-export { DocumentComments } from "./wrapper";
+export { DocumentComments } from "./wrapper.tsx";

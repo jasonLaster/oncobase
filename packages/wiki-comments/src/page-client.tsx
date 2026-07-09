@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
-import Link from "next/link";
-import { getCommentPlainText } from "./threads";
-import { formatLiveblocksUserId } from "./user-format";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  type ReactNode,
+} from "react";
+import { getCommentPlainText } from "./threads.ts";
+import { formatLiveblocksUserId } from "./user-format.ts";
 
 type ServerComment = {
   id: string;
@@ -168,10 +173,12 @@ function ThreadCard({
   item,
   expanded,
   onToggle,
+  renderDocumentLink,
 }: {
   item: ThreadItem;
   expanded: boolean;
   onToggle: () => void;
+  renderDocumentLink: (href: string, label: string) => ReactNode;
 }) {
   const [comments, setComments] = useState(item.comments);
   const firstComment = comments[0];
@@ -205,12 +212,7 @@ function ThreadCard({
           )}
         </div>
         {item.documentSlug ? (
-          <Link
-            href={`/${item.documentSlug}`}
-            className="shrink-0 text-[var(--brand)] hover:underline"
-          >
-            {item.documentPath}
-          </Link>
+          renderDocumentLink(`/${item.documentSlug}`, item.documentPath)
         ) : (
           <span className="shrink-0 text-[var(--text-muted)]">{item.documentPath}</span>
         )}
@@ -285,7 +287,11 @@ function ThreadCard({
   );
 }
 
-function CommentsTimeline() {
+function CommentsTimeline({
+  renderDocumentLink,
+}: {
+  renderDocumentLink: (href: string, label: string) => ReactNode;
+}) {
   const [threads, setThreads] = useState<ServerThread[]>([]);
   const [userNames, setUserNames] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -400,12 +406,21 @@ function CommentsTimeline() {
           item={item}
           expanded={expandedThreads.has(item.id)}
           onToggle={() => toggleThread(item.id)}
+          renderDocumentLink={renderDocumentLink}
         />
       ))}
     </div>
   );
 }
 
-export function CommentsPageClient() {
-  return <CommentsTimeline />;
+export function CommentsPageClient({
+  renderDocumentLink = (href, label) => (
+    <a className="shrink-0 text-[var(--brand)] hover:underline" href={href}>
+      {label}
+    </a>
+  ),
+}: {
+  renderDocumentLink?: (href: string, label: string) => ReactNode;
+}) {
+  return <CommentsTimeline renderDocumentLink={renderDocumentLink} />;
 }

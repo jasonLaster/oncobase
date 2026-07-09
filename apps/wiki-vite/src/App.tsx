@@ -62,6 +62,11 @@ const DicomComparePage = lazy(() =>
 const ChatPage = lazy(() =>
   import("./chat/ChatPage").then((module) => ({ default: module.ChatPage })),
 );
+const CommentsPage = lazy(() =>
+  import("./pages/CommentsPage").then((module) => ({
+    default: module.CommentsPage,
+  })),
+);
 const TagPage = lazy(() =>
   import("./pages/TagPage").then((module) => ({ default: module.TagPage })),
 );
@@ -137,6 +142,7 @@ export function App({
                 <Route path="/tools/dicom-compare" element={<DicomComparePage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/chat/:id" element={<ChatPage />} />
+                <Route path="/comments" element={<CommentsPage />} />
                 <Route path="/tags/:tag" element={<TagPage />} />
                 <Route path="/tools/medical-deduction" element={<MedicalDeductionPage />} />
                 <Route path="/access" element={<AdminPage />} />

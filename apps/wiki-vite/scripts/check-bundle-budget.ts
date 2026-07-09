@@ -63,7 +63,9 @@ const eagerLoaderPatterns = [
   /\.css$/,
 ];
 
-const eagerGzipBudget = 1_180_000;
+// Comments adds a small eager sliver (lazy-mount wrapper + pinned sidebar
+// link); Liveblocks itself stays lazy.
+const eagerGzipBudget = 1_220_000;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
 const lazyGzipBudget = 3_100_000;

@@ -49,6 +49,7 @@ function vendorChunk(id: string): string | null {
   return null;
 }
 
+
 export default defineConfig({
   build: {
     // Keep all styles in a single entry stylesheet. Per-chunk CSS files are
