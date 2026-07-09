@@ -84,6 +84,15 @@ function mockSiteData() {
     access: {
       canUserAccessSlug: async ({ slug }: { userId: string; slug: string }) =>
         mockPages.some((page) => page.slug === slug),
+      filterAccessibleSlugs: async ({ slugs }: { userId: string; slugs: string[] }) =>
+        slugs.map((slug) => {
+          const page = mockPages.find((candidate) => candidate.slug === slug);
+          return {
+            slug,
+            allowed: Boolean(page),
+            hasDocument: Boolean(page),
+          };
+        }),
       getAllowedSlugs: async () =>
         mockPages.filter((page) => page.sensitive).map((page) => page.slug),
     },

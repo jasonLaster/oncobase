@@ -474,6 +474,11 @@ function createAccessAdapter(
         api.access.canUserAccessSlug,
         withSiteSlug(siteSlug, { userId: user._id as Id<"users">, slug }),
       ),
+    filterAccessibleSlugs: (user, slugs) =>
+      client.query(
+        api.access.filterAccessibleSlugs,
+        withSiteSlug(siteSlug, { userId: user._id as Id<"users">, slugs }),
+      ),
     getAllowedSlugs: async (user) => {
       const allowed: string[] = [];
       let cursor: string | null = null;
@@ -492,20 +497,19 @@ function createAccessAdapter(
           isDone: boolean;
           continueCursor: string | null;
         };
-        const checks = await Promise.all(
-          result.page.map(async (page) => {
-            if (page.sensitive !== true) return null;
-            const canAccess = await client.query(
-              api.access.canUserAccessSlug,
-              withSiteSlug(siteSlug, {
-                userId: user._id as Id<"users">,
-                slug: page.slug,
-              }),
-            );
-            return canAccess ? page.slug : null;
-          }),
-        );
-        allowed.push(...checks.filter((slug): slug is string => slug !== null));
+        const sensitiveSlugs = result.page
+          .filter((page) => page.sensitive === true)
+          .map((page) => page.slug);
+        if (sensitiveSlugs.length > 0) {
+          const checks = (await client.query(
+            api.access.filterAccessibleSlugs,
+            withSiteSlug(siteSlug, {
+              userId: user._id as Id<"users">,
+              slugs: sensitiveSlugs,
+            }),
+          )) as Array<{ slug: string; allowed: boolean }>;
+          allowed.push(...checks.filter((c) => c.allowed).map((c) => c.slug));
+        }
         isDone = result.isDone;
         cursor = result.continueCursor;
       }

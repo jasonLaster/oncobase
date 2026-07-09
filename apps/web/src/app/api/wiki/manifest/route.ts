@@ -12,6 +12,8 @@ export async function GET(request: Request) {
     ? {
         canUserAccessSlug: (user: { _id: string }, slug: string) =>
           siteData.access.canUserAccessSlug({ userId: user._id, slug }),
+        filterAccessibleSlugs: (user: { _id: string }, slugs: string[]) =>
+          siteData.access.filterAccessibleSlugs({ userId: user._id, slugs }),
         getAllowedSlugs: (user: { _id: string }) =>
           siteData.access.getAllowedSlugs({ userId: user._id }),
       }
