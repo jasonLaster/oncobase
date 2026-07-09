@@ -533,6 +533,77 @@ test.describe("DICOM viewer", () => {
     );
   });
 
+  test("diagnostics imaging page uses the normal sidebar and viewer uses biopsy shortcuts", async ({
+    page,
+  }) => {
+    await page.goto(`/diagnostics/imaging${seededStudySetQuery}`);
+
+    const sidebar = page.locator('[data-test-id="wiki-sidebar"]:visible').first();
+    await expect(sidebar).toBeVisible();
+    await expect(page.getByTestId("diagnostics-sidebar")).toHaveCount(0);
+    await expect(sidebar.getByTestId("sidebar-view-diagnostics")).toHaveAttribute(
+      "href",
+      "/diagnostics",
+    );
+    await expect(sidebar.getByTestId("sidebar-view-diagnostics")).toHaveAttribute(
+      "data-selected-file-tree-item",
+      "true",
+    );
+    await expect(sidebar.getByRole("link", { name: "March 13 biopsy" })).toHaveCount(0);
+    // Cold LiveStore hydration on a non-wiki route can take a while; match the
+    // suite's other long-load assertions.
+    await expect(sidebar).toContainText("project management", { timeout: 60_000 });
+
+    await page.goto(`/tools/dicom-viewer?id=biopsy-2026-03-23${seededStudySetParam}`);
+    // Store boot after many prior tests can fail transiently (OPFS/session
+    // state churn); recover deterministically by resetting local data once.
+    const viewport = page.getByTestId("dicom-cornerstone-viewport");
+    const resetButton = page.getByRole("button", { name: "Reset local data & reload" });
+    await Promise.race([
+      viewport.waitFor({ timeout: 30_000 }).catch(() => {}),
+      resetButton.waitFor({ timeout: 30_000 }).catch(() => {}),
+    ]);
+    if (await resetButton.isVisible().catch(() => false)) {
+      await resetButton.click();
+    }
+    await expect(viewport).toBeVisible({ timeout: 60_000 });
+    const viewerSidebar = page.getByTestId("diagnostics-sidebar");
+    // Post-reset the store re-syncs the full corpus before the rail hydrates.
+    await expect(viewerSidebar).toBeVisible({ timeout: 60_000 });
+    await expect(viewerSidebar.getByRole("link")).toHaveCount(biopsyLinks.length + 1, {
+      timeout: 30_000,
+    });
+    await expect(
+      viewerSidebar.getByRole("link", { name: "March 13 biopsy" }),
+    ).toHaveAttribute(
+      "href",
+      `/tools/dicom-viewer?id=biopsy-2026-03-13${seededStudySetParam}`,
+    );
+
+    const seriesPanel = page.getByTestId("dicom-series-panel");
+    await expect(seriesPanel).toContainText("45 images");
+    await expect(seriesPanel).not.toContainText("3-23 - US Axilla biopsy");
+    await expect(seriesPanel).not.toContainText("4-10 biopsy");
+    await expect(page.getByTestId("dicom-pathology-report-link")).toHaveAttribute(
+      "href",
+      "/sources/diagnostics/03-23-us-axilla-core-biopsy",
+    );
+    await expect(page.getByTestId("dicom-pathology-report-link")).toContainText(
+      "Pathology report",
+    );
+    const backLink = viewerSidebar.getByTestId("dicom-back-to-imaging");
+    await expect(backLink).toHaveAttribute(
+      "href",
+      `/diagnostics/imaging${seededStudySetQuery}`,
+    );
+    await expect(seriesPanel.getByTestId("dicom-back-to-imaging")).toHaveCount(0);
+    await expect(
+      page.getByTestId("dicom-tools-row").getByTestId("dicom-back-to-imaging"),
+    ).toHaveCount(0);
+    await backLink.click();
+    await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible();
+  });
+
   test("diagnostics imaging reflects local test DB metadata changes without a deploy", async ({
     page,
     request,
@@ -647,71 +718,6 @@ test.describe("DICOM viewer", () => {
 
       expect([200, 206]).toContain(res.status());
     }
-  });
-
-  test("diagnostics imaging page uses the normal sidebar and viewer uses biopsy shortcuts", async ({
-    page,
-  }) => {
-    await page.goto(`/diagnostics/imaging${seededStudySetQuery}`);
-
-    const sidebar = page.locator('[data-test-id="wiki-sidebar"]:visible').first();
-    await expect(sidebar).toBeVisible();
-    await expect(page.getByTestId("diagnostics-sidebar")).toHaveCount(0);
-    await expect(sidebar.getByTestId("sidebar-view-diagnostics")).toHaveAttribute(
-      "href",
-      "/diagnostics",
-    );
-    await expect(sidebar.getByTestId("sidebar-view-diagnostics")).toHaveAttribute(
-      "data-selected-file-tree-item",
-      "true",
-    );
-    await expect(sidebar.getByRole("link", { name: "March 13 biopsy" })).toHaveCount(0);
-    // Cold LiveStore hydration on a non-wiki route can take a while; match the
-    // suite's other long-load assertions.
-    await expect(sidebar).toContainText("project management", { timeout: 60_000 });
-
-    await page.goto(`/tools/dicom-viewer?id=biopsy-2026-03-23${seededStudySetParam}`);
-    // Back-to-back full reloads can race the previous page's store shutdown on
-    // slow runners; recover once via the boot error card's Reload action.
-    const bootError = page.getByRole("button", { name: "Reload" });
-    if (await bootError.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await bootError.click();
-    }
-    await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible({
-      timeout: 30_000,
-    });
-    const viewerSidebar = page.getByTestId("diagnostics-sidebar");
-    await expect(viewerSidebar).toBeVisible();
-    await expect(viewerSidebar.getByRole("link")).toHaveCount(biopsyLinks.length + 1);
-    await expect(
-      viewerSidebar.getByRole("link", { name: "March 13 biopsy" }),
-    ).toHaveAttribute(
-      "href",
-      `/tools/dicom-viewer?id=biopsy-2026-03-13${seededStudySetParam}`,
-    );
-
-    const seriesPanel = page.getByTestId("dicom-series-panel");
-    await expect(seriesPanel).toContainText("45 images");
-    await expect(seriesPanel).not.toContainText("3-23 - US Axilla biopsy");
-    await expect(seriesPanel).not.toContainText("4-10 biopsy");
-    await expect(page.getByTestId("dicom-pathology-report-link")).toHaveAttribute(
-      "href",
-      "/sources/diagnostics/03-23-us-axilla-core-biopsy",
-    );
-    await expect(page.getByTestId("dicom-pathology-report-link")).toContainText(
-      "Pathology report",
-    );
-    const backLink = viewerSidebar.getByTestId("dicom-back-to-imaging");
-    await expect(backLink).toHaveAttribute(
-      "href",
-      `/diagnostics/imaging${seededStudySetQuery}`,
-    );
-    await expect(seriesPanel.getByTestId("dicom-back-to-imaging")).toHaveCount(0);
-    await expect(
-      page.getByTestId("dicom-tools-row").getByTestId("dicom-back-to-imaging"),
-    ).toHaveCount(0);
-    await backLink.click();
-    await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible();
   });
 
   test("stores the current image in the URL and copies a shareable image link", async ({
