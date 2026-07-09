@@ -1,19 +1,27 @@
 "use client";
 
 import { type ReactNode, useEffect, useState, lazy, Suspense } from "react";
-import { OutlineShell, commentsEnabled } from "./index";
+import { DocumentOutlineShell } from "@oncobase/wiki-shell";
+import { commentsEnabled } from "./feature.ts";
+import type { LiveblocksProviderShellProps } from "./provider.tsx";
 
-const ActiveComments = lazy(
-  () => import("./index").then((m) => ({ default: m.ActiveDocumentComments }))
-);
+const ActiveComments = lazy(() => import("./active-comments.tsx"));
 
 export function DocumentComments({
+  articleClassName,
+  contentKey,
   documentSlug,
   documentTitle,
+  pathname,
+  provider,
   children,
 }: {
+  articleClassName?: string;
+  contentKey?: string;
   documentSlug: string;
   documentTitle: string;
+  pathname?: string;
+  provider?: Omit<LiveblocksProviderShellProps, "children" | "fallback">;
   children: ReactNode;
 }) {
   const [liveblocksActive, setLiveblocksActive] = useState(false);
@@ -30,35 +38,51 @@ export function DocumentComments({
 
   if (!commentsEnabled) {
     return (
-      <OutlineShell documentSlug={documentSlug} documentTitle={documentTitle}>
+      <DocumentOutlineShell
+        articleClassName={articleClassName}
+        contentKey={contentKey ?? documentSlug}
+        documentSlug={documentSlug}
+        documentTitle={documentTitle}
+        pathname={pathname}
+      >
         {children}
-      </OutlineShell>
+      </DocumentOutlineShell>
     );
   }
 
   if (!liveblocksActive) {
     return (
-      <OutlineShell
+      <DocumentOutlineShell
+        articleClassName={articleClassName}
+        contentKey={contentKey ?? documentSlug}
         documentSlug={documentSlug}
         documentTitle={documentTitle}
-        onActivate={() => setLiveblocksActive(true)}
+        onActivateComments={() => setLiveblocksActive(true)}
+        pathname={pathname}
       >
         {children}
-      </OutlineShell>
+      </DocumentOutlineShell>
     );
   }
 
   return (
     <Suspense
       fallback={
-        <OutlineShell documentSlug={documentSlug} documentTitle={documentTitle}>
+        <DocumentOutlineShell
+          articleClassName={articleClassName}
+          contentKey={contentKey ?? documentSlug}
+          documentSlug={documentSlug}
+          documentTitle={documentTitle}
+          pathname={pathname}
+        >
           {children}
-        </OutlineShell>
+        </DocumentOutlineShell>
       }
     >
       <ActiveComments
         documentSlug={documentSlug}
         documentTitle={documentTitle}
+        provider={provider}
       >
         {children}
       </ActiveComments>

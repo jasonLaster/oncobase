@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatLiveblocksUserId } from "./user-format";
+import { formatLiveblocksUserId } from "./user-format.ts";
 
 describe("formatLiveblocksUserId", () => {
   test("formats anonymous and guest users for display", () => {

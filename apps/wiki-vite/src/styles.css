@@ -2,6 +2,8 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "tw-animate-css";
 @import "@oncobase/wiki-shell/styles.css";
+@import "@liveblocks/react-ui/styles.css";
+@source "../../../packages/wiki-comments/src";
 @source "../../../packages/chat/src";
 @source "../../../packages/diagnostics/src";
 
@@ -957,6 +959,26 @@ a {
   overflow: visible;
   padding: 28px 0 0;
   position: relative;
+}
+
+.comments-page-shell {
+  margin: 0 auto;
+  max-width: 896px;
+  padding: 28px 24px 96px;
+}
+
+.comments-page-header {
+  margin-bottom: 20px;
+}
+
+.comments-page-header h1 {
+  font-size: 1.75rem;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.comments-tree-link {
+  gap: 8px;
 }
 
 .muted {

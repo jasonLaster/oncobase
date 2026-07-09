@@ -55,6 +55,7 @@ export type WikiTreeProps = {
 
 export type WikiSidebarProps = Omit<ComponentProps<"aside">, "children"> &
   WikiTreeProps & {
+    beforeTree?: ReactNode;
     footer?: ReactNode;
     heading?: ReactNode;
     treeTestId?: string;
@@ -111,6 +112,7 @@ function FileIcon() {
 export function WikiSidebar({
   activeAncestorSlugs,
   activeSlug,
+  beforeTree,
   className,
   defaultDirectoryOpen,
   directoryAriaLabel,
@@ -140,6 +142,7 @@ export function WikiSidebar({
         </div>
       ) : null}
       <nav className="wiki-shell-sidebar-nav" data-test-id={treeTestId}>
+        {beforeTree}
         <WikiTree
           activeAncestorSlugs={activeAncestorSlugs}
           activeSlug={activeSlug}
@@ -309,6 +312,7 @@ function WikiTreeNode({
 
 export type WikiMobileNavigationProps = Omit<ComponentProps<"div">, "children" | "title"> &
   WikiTreeProps & {
+    beforeTree?: ReactNode;
     onOpenChange: (open: boolean) => void;
     open: boolean;
     title: ReactNode;
@@ -401,6 +405,7 @@ export function WikiMobileNavigationSheet({
 export function WikiMobileNavigation({
   activeAncestorSlugs,
   activeSlug,
+  beforeTree,
   className,
   defaultDirectoryOpen,
   directoryAriaLabel,
@@ -432,6 +437,7 @@ export function WikiMobileNavigation({
       {...props}
     >
           <nav>
+            {beforeTree}
             <WikiTree
               activeAncestorSlugs={activeAncestorSlugs}
               activeSlug={activeSlug}
