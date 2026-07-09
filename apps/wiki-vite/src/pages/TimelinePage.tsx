@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { ArrowUpRight } from "lucide-react";
-import { WikiEmptyState, WikiMarkdownBodySkeleton } from "@oncobase/wiki-shell";
+import {
+  WikiEmptyState,
+  WikiMarkdownBodySkeleton,
+} from "@oncobase/wiki-shell/page-states";
 import {
   DiagnosticTimeline,
   type DiagnosticTimelineData,

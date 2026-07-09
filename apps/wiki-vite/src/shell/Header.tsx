@@ -1,11 +1,6 @@
 import type { WikiScope } from "@oncobase/wiki-content";
 import {
   WikiActionsMenu,
-  WikiHeader,
-  WikiHeaderButton,
-  WikiHeaderLink,
-  WikiHeaderSearchForm,
-  WikiLogo,
   applyWikiTheme,
   cycleWikiThemePreference,
   getWikiThemePreference,
@@ -13,21 +8,22 @@ import {
   subscribeWikiThemePreference,
   wikiThemeLabel,
   type WikiActionsMenuAuthInput,
+  type WikiActionsMenuProps,
   type WikiActionsMenuUser,
 } from "@oncobase/wiki-shell";
-import { CommandIcon, MessageCircleIcon } from "lucide-react";
 import {
   Suspense,
   lazy,
-  type FormEvent,
   useCallback,
   useEffect,
   useState,
   useSyncExternalStore,
 } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
+import { useLocation } from "react-router";
 import { backendHref, returnToHref } from "../wiki-utils";
 import type { PaletteMode } from "./CommandPalette";
+
+const OPEN_COMMAND_PALETTE_EVENT = "wiki-vite-open-command-palette";
 
 const CommandPalette = lazy(() =>
   import("./CommandPalette").then((module) => ({
@@ -35,42 +31,31 @@ const CommandPalette = lazy(() =>
   })),
 );
 
-export function Header() {
+export function openCommandPalette(mode: PaletteMode = "pages") {
+  window.dispatchEvent(
+    new CustomEvent<{ mode: PaletteMode }>(OPEN_COMMAND_PALETTE_EVENT, {
+      detail: { mode },
+    }),
+  );
+}
+
+export function HeaderCommandPaletteHost() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteMode, setPaletteMode] = useState<PaletteMode>("pages");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sessionUser, setSessionUser] = useState<WikiActionsMenuUser | null>(null);
-  const [sessionLoading, setSessionLoading] = useState(true);
-  const preference = useSyncExternalStore(
-    subscribeWikiThemePreference,
-    getWikiThemePreference,
-    () => null,
-  );
-  const currentTheme = useSyncExternalStore<"dark" | "light">(
-    useCallback(
-      (callback: () => void) =>
-        subscribeWikiSystemTheme(() => {
-          applyWikiTheme();
-          callback();
-        }),
-      [],
-    ),
-    applyWikiTheme,
-    () => "light",
-  );
-  const location = useLocation();
-  const navigate = useNavigate();
-  const returnTo = returnToHref(location.pathname, location.search, location.hash);
-  const scope = (() => {
-    const urlScope = new URLSearchParams(location.search).get("scope");
-    if (urlScope === "session" || urlScope === "public") return urlScope;
-    return window.localStorage.getItem("wiki-vite-scope") === "session" ? "session" : "public";
-  })();
 
-  const openPalette = (mode: PaletteMode) => {
+  const openPalette = useCallback((mode: PaletteMode) => {
     setPaletteMode(mode);
     setPaletteOpen(true);
-  };
+  }, []);
+
+  useEffect(() => {
+    const onOpenPalette = (event: Event) => {
+      const customEvent = event as CustomEvent<{ mode?: PaletteMode }>;
+      openPalette(customEvent.detail?.mode ?? "pages");
+    };
+    window.addEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpenPalette);
+    return () => window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpenPalette);
+  }, [openPalette]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -104,7 +89,22 @@ export function Header() {
 
     document.addEventListener("keydown", onKeyDown, { capture: true });
     return () => document.removeEventListener("keydown", onKeyDown, { capture: true });
-  }, []);
+  }, [openPalette]);
+
+  return paletteOpen ? (
+    <Suspense fallback={null}>
+      <CommandPalette
+        open={paletteOpen}
+        initialMode={paletteMode}
+        onOpenChange={setPaletteOpen}
+      />
+    </Suspense>
+  ) : null;
+}
+
+export function useWikiViteAuth() {
+  const [sessionUser, setSessionUser] = useState<WikiActionsMenuUser | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,83 +169,60 @@ export function Header() {
     window.dispatchEvent(new CustomEvent("wiki-auth-session-change"));
   }
 
-  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const params = new URLSearchParams({ returnTo });
-    const trimmed = searchQuery.trim();
-    if (trimmed) params.set("q", trimmed);
-    navigate(`/search?${params.toString()}`);
+  return {
+    sessionLoading,
+    sessionUser,
+    setSessionUser,
+    signOut,
+    submitAuth,
   };
+}
+
+export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["trigger"] } = {}) {
+  const { sessionLoading, sessionUser, setSessionUser, signOut, submitAuth } =
+    useWikiViteAuth();
+  const preference = useSyncExternalStore(
+    subscribeWikiThemePreference,
+    getWikiThemePreference,
+    () => null,
+  );
+  const currentTheme = useSyncExternalStore<"dark" | "light">(
+    useCallback(
+      (callback: () => void) =>
+        subscribeWikiSystemTheme(() => {
+          applyWikiTheme();
+          callback();
+        }),
+      [],
+    ),
+    applyWikiTheme,
+    () => "light",
+  );
+  const location = useLocation();
+  const returnTo = returnToHref(location.pathname, location.search, location.hash);
+  const scope = (() => {
+    const urlScope = new URLSearchParams(location.search).get("scope");
+    if (urlScope === "session" || urlScope === "public") return urlScope;
+    return window.localStorage.getItem("wiki-vite-scope") === "session" ? "session" : "public";
+  })();
 
   return (
-    <>
-      <WikiHeader
-        data-test-id="app-header"
-        home={
-          <Link to="/" aria-label="Home" data-test-id="header-home">
-            <WikiLogo />
-          </Link>
-        }
-        search={
-          <div className="wiki-shell-header-primary-controls">
-            <WikiHeaderSearchForm
-              action={backendHref("/search")}
-              method="get"
-              onSubmit={submitSearch}
-              inputProps={{
-                value: searchQuery,
-                onChange: (event) => setSearchQuery(event.currentTarget.value),
-                onKeyDown: (event) => event.stopPropagation(),
-              }}
-            >
-              <input type="hidden" name="returnTo" value={returnTo} />
-            </WikiHeaderSearchForm>
-            <WikiHeaderLink
-              data-test-id="header-new-chat"
-              href={backendHref("/chat", { returnTo })}
-            >
-              <MessageCircleIcon size={14} aria-hidden="true" />
-              <span>New chat</span>
-            </WikiHeaderLink>
-            <WikiHeaderButton
-              aria-label="Find files (⌘K)"
-              title="Find files (⌘K)"
-              data-test-id="command-palette-trigger"
-              onClick={() => openPalette("pages")}
-            >
-              <CommandIcon size={14} aria-hidden="true" />
-              <span>Find files</span>
-            </WikiHeaderButton>
-          </div>
-        }
-        actions={
-          <WikiActionsMenu
-            currentTheme={currentTheme}
-            downloadFullHref={backendHref("/api/download", { type: "full", scope })}
-            downloadMarkdownHref={backendHref("/api/download", { type: "markdown", scope })}
-            onAuthSubmit={submitAuth}
-            onOpenCommandPalette={() => openPalette("actions")}
-            onSessionChange={setSessionUser}
-            onSignOut={signOut}
-            onThemeToggle={cycleWikiThemePreference}
-            searchHref={backendHref("/search", { returnTo })}
-            sessionLoading={sessionLoading}
-            sessionUser={sessionUser}
-            textSearchHref={backendHref("/search", { returnTo, tab: "text" })}
-            themeLabel={wikiThemeLabel(preference)}
-          />
-        }
+    <WikiActionsMenu
+      currentTheme={currentTheme}
+      downloadFullHref={backendHref("/api/download", { type: "full", scope })}
+      downloadMarkdownHref={backendHref("/api/download", { type: "markdown", scope })}
+      onAuthSubmit={submitAuth}
+      onOpenCommandPalette={() => openCommandPalette("actions")}
+      onSessionChange={setSessionUser}
+      onSignOut={signOut}
+      onThemeToggle={cycleWikiThemePreference}
+      searchHref={backendHref("/search", { returnTo })}
+      sessionLoading={sessionLoading}
+      sessionUser={sessionUser}
+      textSearchHref={backendHref("/search", { returnTo, tab: "text" })}
+      themeLabel={wikiThemeLabel(preference)}
+      trigger={trigger}
       />
-      {paletteOpen ? (
-        <Suspense fallback={null}>
-          <CommandPalette
-            open={paletteOpen}
-            initialMode={paletteMode}
-            onOpenChange={setPaletteOpen}
-          />
-        </Suspense>
-      ) : null}
-    </>
   );
 }
 

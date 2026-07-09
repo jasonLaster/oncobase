@@ -2,7 +2,7 @@
 
 Liveblocks-backed document comments for Oncobase wiki apps.
 
-The package currently carries the production comments rail extracted from `apps/web`. It is reusable for the current app and documents the remaining dependency surface before comments can be considered fully framework-neutral.
+The package carries the production comments rail extracted from `apps/web` with host-owned adapters for routing, user resolution, guest identity persistence, and site-scoped Liveblocks credential lookup.
 
 ## Main Features
 
@@ -23,23 +23,21 @@ The package currently carries the production comments rail extracted from `apps/
 - `@oncobase/wiki-comments` - document comments component
 - `@oncobase/wiki-comments/room` - Liveblocks room wrapper
 - `@oncobase/wiki-comments/provider` - provider shell
+- `@oncobase/wiki-comments/guest-user` - framework-neutral guest identity helpers
 - `@oncobase/wiki-comments/threads` - thread metadata, sorting, anchors, and plain-text helpers
 - `@oncobase/wiki-comments/site` - site-scoped Liveblocks credential resolution
 - `@oncobase/wiki-comments/user-resolution` - user lookup helpers
 - `@oncobase/wiki-comments/user-format` - display-name helpers
 - `@oncobase/wiki-comments/page-client` - global comments page client
 
-## Current Boundary Notes
+## Boundary Notes
 
-This package still imports a small set of generated Convex, site, auth, and UI helpers from [`../../apps/web`](../../apps/web/README.md). That is intentional for the current production extraction, but it is not the final package boundary.
+This package does not import app internals. Hosts provide adapters for:
 
-Before using this package in another host, extract or adapterize:
-
-- generated Convex API references
-- site slug resolution
-- Convex server client access
-- app-local utility and dropdown-menu components
-- any Diana migration fallback logic in Liveblocks credential resolution
+- Liveblocks API endpoint URLs and optional public key overrides
+- site slug lookup and site config reads
+- user and guest-name persistence
+- document links on the global comments page
 
 ## Related Docs
 

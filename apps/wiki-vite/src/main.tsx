@@ -3,7 +3,7 @@ import {
   type WikiScope,
   type WikiSessionIdentity,
 } from "@oncobase/wiki-content";
-import { WikiPageLoading } from "@oncobase/wiki-shell";
+import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { createElement, lazy, StrictMode, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";

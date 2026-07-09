@@ -70,7 +70,7 @@ test.describe("Session scope recovery", () => {
     await gotoWiki(page, "/private/plan?scope=public&devtools=1");
     await expect(documentArticle(page).locator("h1")).toHaveText("Page not found");
     await expect(documentArticle(page)).not.toContainText("Sensitive session-only planning note");
-    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("sidebar-search").click();
     await page.getByTestId("command-palette-input").fill("private plan");
     await expect(page.getByText("No pages found")).toBeVisible();
     await page.keyboard.press("Escape");

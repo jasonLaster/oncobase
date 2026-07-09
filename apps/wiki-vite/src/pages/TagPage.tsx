@@ -4,7 +4,7 @@ import {
   type TaggedPageTreeNode,
 } from "@oncobase/wiki-content/tag-page-groups";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
-import { WikiPageLoading } from "@oncobase/wiki-shell";
+import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { ChevronRight } from "lucide-react";
 import { useMemo } from "react";
 import { Link, useParams } from "react-router";

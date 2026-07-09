@@ -5,6 +5,7 @@ import useSWR, { mutate } from "swr";
 import type { FileNode } from "@/lib/markdown";
 import {
   expandCompactFileTree,
+  transformFileTreeForSidebar,
   type CompactFileNode,
 } from "@/lib/file-tree-compact";
 import { useHasHydrated } from "@/components/use-has-hydrated";
@@ -79,9 +80,11 @@ export function resolveNavigationFileTree({
 
   return {
     ready,
-    tree: Array.isArray(compactTree)
-      ? expandCompactFileTree(compactTree)
-      : initialTree,
+    tree: transformFileTreeForSidebar(
+      Array.isArray(compactTree)
+        ? expandCompactFileTree(compactTree)
+        : initialTree,
+    ),
   };
 }
 

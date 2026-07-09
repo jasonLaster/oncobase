@@ -1,4 +1,4 @@
-import { WikiEmptyState, WikiPageLoading } from "@oncobase/wiki-shell";
+import { WikiEmptyState, WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router";
 

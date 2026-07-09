@@ -7,7 +7,7 @@ import {
   isSelectionAnchor,
   sortThreads,
   type SelectionAnchor,
-} from "./threads";
+} from "./threads.ts";
 
 function thread(start: number, createdAt: string) {
   return {

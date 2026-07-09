@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@oncobase/wiki-content": "workspace:*",
+    "@oncobase/wiki-comments": "workspace:*",
     "@oncobase/wiki-markdown": "workspace:*",
     "@oncobase/wiki-shell": "workspace:*",
     "@oncobase/chat": "workspace:*",
@@ -28,6 +29,10 @@
     "@livestore/peer-deps": "0.3.1",
     "@livestore/react": "0.3.1",
     "@livestore/wa-sqlite": "1.0.5-dev.2",
+    "@liveblocks/client": "^3.18.1",
+    "@liveblocks/node": "^3.18.1",
+    "@liveblocks/react": "^3.18.1",
+    "@liveblocks/react-ui": "^3.18.1",
     "ai": "^6.0.168",
     "archiver": "^7.0.1",
     "convex": "^1.34.1",

@@ -13,13 +13,13 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
     "types": [
       "bun-types"
-    ],
-    "allowImportingTsExtensions": true
+    ]
   },
   "include": [
     "src/**/*.ts",
