@@ -55,6 +55,7 @@ export type WikiTreeProps = {
 
 export type WikiSidebarProps = Omit<ComponentProps<"aside">, "children"> &
   WikiTreeProps & {
+    beforeTree?: ReactNode;
     footer?: ReactNode;
     heading?: ReactNode;
     treeTestId?: string;
@@ -111,6 +112,7 @@ function FileIcon() {
 export function WikiSidebar({
   activeAncestorSlugs,
   activeSlug,
+  beforeTree,
   className,
   defaultDirectoryOpen,
   directoryAriaLabel,
@@ -140,6 +142,7 @@ export function WikiSidebar({
         </div>
       ) : null}
       <nav className="wiki-shell-sidebar-nav" data-test-id={treeTestId}>
+        {beforeTree}
         <WikiTree
           activeAncestorSlugs={activeAncestorSlugs}
           activeSlug={activeSlug}

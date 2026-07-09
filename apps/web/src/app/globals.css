@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@oncobase/smart-table/styles.css";
+@import "@oncobase/diagnostics/imaging/styles.css";
 @import "@oncobase/wiki-shell/styles.css";
 @import "@oncobase/wiki-markdown/styles.css";
 
@@ -10,6 +11,7 @@
    NEXT_PUBLIC_CHAT_STREAMDOWN=1 — otherwise the bundle never imports it. */
 @source "../../../../node_modules/streamdown/dist";
 @source "../../../../packages/chat/src";
+@source "../../../../packages/diagnostics/src";
 @source "../../../../packages/wiki-comments/src";
 @source "../../../../packages/wiki-markdown/src";
 @source "../../../../packages/wiki-shell/src";

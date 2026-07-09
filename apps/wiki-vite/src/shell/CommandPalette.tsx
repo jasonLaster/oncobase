@@ -407,8 +407,8 @@ export function CommandPalette({
       );
     }
     if (mode === "tags" && tagResults[activeIndex]) {
-      navigate(`/tags/${encodeURIComponent(tagResults[activeIndex].tag)}`);
-      onOpenChange(false);
+      setPageInitialQuery(tagResults[activeIndex].tag);
+      setMode("pages");
     }
     if (mode === "actions" && actionResults[activeIndex]) {
       const action = actionResults[activeIndex];
@@ -552,8 +552,8 @@ export function CommandPalette({
                   key={result.tag}
                   label={result.tag}
                   onClick={() => {
-                    navigate(`/tags/${encodeURIComponent(result.tag)}`);
-                    onOpenChange(false);
+                    setPageInitialQuery(result.tag);
+                    setMode("pages");
                   }}
                 />
               ))

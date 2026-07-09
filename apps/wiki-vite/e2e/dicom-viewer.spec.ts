@@ -650,10 +650,7 @@ test.describe("DICOM viewer", () => {
   }) => {
     await page.goto(`/diagnostics/imaging${seededStudySetQuery}`);
 
-    const sidebar = page
-      .getByTestId("app-shell")
-      .locator('[data-test-id="sidebar"]:visible')
-      .first();
+    const sidebar = page.locator('[data-test-id="wiki-sidebar"]:visible').first();
     await expect(sidebar).toBeVisible();
     await expect(page.getByTestId("diagnostics-sidebar")).toHaveCount(0);
     await expect(sidebar.getByTestId("sidebar-view-diagnostics")).toHaveAttribute(
@@ -665,7 +662,9 @@ test.describe("DICOM viewer", () => {
       "true",
     );
     await expect(sidebar.getByRole("link", { name: "March 13 biopsy" })).toHaveCount(0);
-    await expect(sidebar).toContainText("project management");
+    // Cold LiveStore hydration on a non-wiki route can take a while; match the
+    // suite's other long-load assertions.
+    await expect(sidebar).toContainText("project management", { timeout: 60_000 });
 
     await page.goto(`/tools/dicom-viewer?id=biopsy-2026-03-23${seededStudySetParam}`);
     await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();

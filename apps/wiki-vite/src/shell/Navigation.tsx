@@ -210,6 +210,36 @@ function nodeIcon({
   );
 }
 
+function DiagnosticsTreeLink({
+  activePathname,
+  onNavigate,
+  testId = "sidebar-view-diagnostics",
+}: {
+  activePathname: string;
+  onNavigate?: () => void;
+  testId?: string;
+}) {
+  const active =
+    activePathname.startsWith("/diagnostics") ||
+    activePathname.startsWith("/tools/dicom-viewer") ||
+    activePathname.startsWith("/tools/dicom-compare");
+  return (
+    <Link
+      aria-current={active ? "page" : undefined}
+      className={`wiki-shell-tree-link tree-link diagnostics-tree-link${active ? " active" : ""}`}
+      data-selected-file-tree-item={active ? "true" : undefined}
+      data-test-id={testId}
+      to="/diagnostics"
+      onClick={onNavigate}
+      style={{ paddingLeft: 24 }}
+      title="Diagnostics"
+    >
+      <Activity size={14} aria-hidden="true" />
+      Diagnostics
+    </Link>
+  );
+}
+
 function WorkspaceHeader() {
   return (
     <div className="wiki-vite-sidebar-workspace" data-test-id="sidebar-workspace-trigger">
@@ -266,6 +296,7 @@ export function Sidebar() {
     <WikiSidebar
       activeAncestorSlugs={activeAncestorSlugs}
       activeSlug={activeSlug}
+      beforeTree={<DiagnosticsTreeLink activePathname={pathname} />}
       data-test-id="wiki-sidebar"
       defaultDirectoryOpen={defaultDirectoryOpen}
       expandedSlugs={expandedSlugs}

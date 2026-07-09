@@ -51,6 +51,12 @@
       "import": "./src/dicom/index.ts",
       "default": "./src/dicom/index.ts"
     },
+    "./imaging": {
+      "types": "./src/imaging/index.tsx",
+      "import": "./src/imaging/index.tsx",
+      "default": "./src/imaging/index.tsx"
+    },
+    "./imaging/styles.css": "./src/imaging/styles.css",
     "./package.json": "./package.json"
   },
   "scripts": {

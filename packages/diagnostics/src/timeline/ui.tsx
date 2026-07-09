@@ -9,9 +9,10 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { XIcon } from "lucide-react";
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: Array<string | false | null | undefined>) {
-  return inputs.filter(Boolean).join(" ");
+  return twMerge(inputs.filter(Boolean).join(" "));
 }
 
 export function Badge({
