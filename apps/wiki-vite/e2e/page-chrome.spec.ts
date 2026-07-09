@@ -6,16 +6,15 @@ test.describe("Page chrome parity", () => {
     await installWikiApiMocks(page);
   });
 
-  test("renders breadcrumbs, description, and page action affordances", async ({ page }) => {
+  test("renders the web-parity document header chrome", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
-    const breadcrumbs = page.getByTestId("breadcrumbs");
-    await expect(breadcrumbs.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
-    await expect(breadcrumbs).toContainText("wiki/logistics/Insurance");
-    await expect(breadcrumbs.locator('[aria-current="page"]')).toHaveText("Insurance");
-    await expect(documentArticle(page).locator(".page-header")).toContainText(
+    await expect(page.getByTestId("breadcrumbs")).toHaveCount(0);
+    await expect(documentArticle(page).locator(".page-header h1")).toHaveText("Insurance");
+    await expect(documentArticle(page).locator(".page-header")).not.toContainText(
       "Insurance planning notes.",
     );
+    await expect(documentArticle(page).locator(".page-header")).not.toContainText("KB");
     await expect(page).toHaveTitle("Insurance - Diana Wiki");
     await expect
       .poll(() =>
@@ -25,39 +24,18 @@ test.describe("Page chrome parity", () => {
 
     const actions = page.getByTestId("page-actions");
     await expect(actions.getByRole("button", { name: "Copy page as markdown" })).toBeVisible();
-    await expect(actions.getByRole("button", { name: "Copy page link" })).toBeVisible();
-    await expect(actions.getByRole("button", { name: "Print page" })).toBeVisible();
-    await expect(actions.getByRole("link", { name: "Markdown", exact: true })).toHaveAttribute(
-      "href",
-      /\/api\/page-copy\?slug=wiki%2Flogistics%2Finsurance&cacheKey=.*&scope=public/,
-    );
-    await expect(actions.getByRole("link", { name: "Markdown zip" })).toHaveAttribute(
-      "href",
-      /\/api\/download\?type=markdown&scope=public$/,
-    );
-    await expect(actions.getByRole("link", { name: "Full wiki" })).toHaveAttribute(
-      "href",
-      /\/api\/download\?type=full&scope=public$/,
-    );
-    await expect(actions.getByRole("link", { name: "Main app" })).toHaveAttribute(
-      "href",
-      /\/wiki\/logistics\/insurance$/,
-    );
+    await expect(actions.getByRole("button")).toHaveCount(1);
+    await expect(actions.getByRole("link")).toHaveCount(0);
   });
 
-  test("page markdown downloads are served by the Vite API boundary", async ({ page, request }) => {
+  test("page markdown copy payloads are served by the Vite API boundary", async ({ page, request }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
-    const href = await page
-      .getByTestId("page-actions")
-      .getByRole("link", { name: "Markdown", exact: true })
-      .getAttribute("href");
-    expect(href).toBeTruthy();
-
-    const response = await request.get(href!);
+    const response = await request.get(
+      "/api/page-copy?slug=wiki%2Flogistics%2Finsurance&cacheKey=latest&scope=public",
+    );
     expect(response.ok(), await response.text()).toBe(true);
     expect(response.headers()["content-type"]).toContain("text/markdown");
-    expect(response.headers()["content-disposition"]).toContain("insurance.md");
     expect(response.headers()["x-wiki-cache-scope"]).toBe("public");
     expect((await response.text()).length).toBeGreaterThan(100);
   });
@@ -68,9 +46,6 @@ test.describe("Page chrome parity", () => {
 
     await page.getByRole("button", { name: "Copy page as markdown" }).click();
 
-    await expect(page.getByRole("button", { name: "Copy page as markdown" })).toContainText(
-      "Copied",
-    );
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(
       "Prior authorization",
     );
@@ -94,9 +69,11 @@ test.describe("Page chrome parity", () => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
     await expect(page.getByTestId("page-outline")).toBeHidden();
-    const mobileOutline = page.getByTestId("mobile-page-outline");
-    await expect(mobileOutline).toContainText("3 headings");
-    await mobileOutline.getByRole("button", { name: "Expand outline rail" }).click();
+    await expect(page.getByTestId("mobile-page-outline")).toHaveCount(0);
+    await page.getByTestId("bottom-nav-trigger").click();
+    await page.getByRole("button", { name: "Outline" }).click();
+    const mobileOutline = page.getByTestId("bottom-nav-outline");
+    await expect(mobileOutline.getByRole("button", { name: "Claims follow-up" })).toBeVisible();
     await mobileOutline.getByRole("button", { name: "Claims follow-up" }).click();
 
     await expect(page).toHaveURL(/#claims-follow-up$/);

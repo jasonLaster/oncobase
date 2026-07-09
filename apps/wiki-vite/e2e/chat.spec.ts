@@ -57,11 +57,11 @@ test.describe("Chat", () => {
     }
   });
 
-  test("new chat button in header navigates to chat", async ({ page }) => {
+  test("sidebar ask wiki navigates to chat", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/logistics/insurance");
 
-    await page.getByRole("link", { name: "New chat" }).click();
+    await page.getByTestId("sidebar-ask-wiki").click();
 
     await expect(page).toHaveURL(/\/chat/);
     await expect(page.getByTestId("chat-interface")).toBeVisible();

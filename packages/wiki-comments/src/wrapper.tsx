@@ -6,12 +6,14 @@ import { commentsEnabled } from "./feature.ts";
 import type { LiveblocksProviderShellProps } from "./provider.tsx";
 
 const ActiveComments = lazy(() => import("./active-comments.tsx"));
+const MOBILE_COMMENTS_PANEL_EVENT = "mobile-comments-panel-open";
 
 export function DocumentComments({
   articleClassName,
   contentKey,
   documentSlug,
   documentTitle,
+  mobileRail,
   pathname,
   provider,
   children,
@@ -20,6 +22,7 @@ export function DocumentComments({
   contentKey?: string;
   documentSlug: string;
   documentTitle: string;
+  mobileRail?: boolean;
   pathname?: string;
   provider?: Omit<LiveblocksProviderShellProps, "children" | "fallback">;
   children: ReactNode;
@@ -36,6 +39,23 @@ export function DocumentComments({
     }
   }, []);
 
+  useEffect(() => {
+    if (!commentsEnabled) return;
+
+    const activateComments = () => {
+      setLiveblocksActive(true);
+    };
+
+    window.addEventListener(MOBILE_COMMENTS_PANEL_EVENT, activateComments);
+    if (document.documentElement.dataset.mobileCommentsPanelRequested === "true") {
+      activateComments();
+    }
+
+    return () => {
+      window.removeEventListener(MOBILE_COMMENTS_PANEL_EVENT, activateComments);
+    };
+  }, []);
+
   if (!commentsEnabled) {
     return (
       <DocumentOutlineShell
@@ -43,6 +63,7 @@ export function DocumentComments({
         contentKey={contentKey ?? documentSlug}
         documentSlug={documentSlug}
         documentTitle={documentTitle}
+        mobileRail={mobileRail}
         pathname={pathname}
       >
         {children}
@@ -57,6 +78,7 @@ export function DocumentComments({
         contentKey={contentKey ?? documentSlug}
         documentSlug={documentSlug}
         documentTitle={documentTitle}
+        mobileRail={mobileRail}
         onActivateComments={() => setLiveblocksActive(true)}
         pathname={pathname}
       >
@@ -73,6 +95,7 @@ export function DocumentComments({
           contentKey={contentKey ?? documentSlug}
           documentSlug={documentSlug}
           documentTitle={documentTitle}
+          mobileRail={mobileRail}
           pathname={pathname}
         >
           {children}

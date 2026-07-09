@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Route, Routes, useLocation } from "react-router";
 import { publishMetrics } from "./observability";
-import { Header } from "./shell/Header";
+import { HeaderCommandPaletteHost } from "./shell/Header";
 import { LiveStoreDevtoolsFooter } from "./shell/LiveStoreDevtoolsFooter";
 import { MobileNav, Sidebar } from "./shell/Navigation";
 import { ResizableAppShell } from "./shell/ResizableAppShell";
@@ -134,7 +134,7 @@ export function App({
         className="prototype-shell"
         data-immersive-route={isImmersiveDicomRoute ? "dicom-viewer" : undefined}
       >
-        <Header />
+        <HeaderCommandPaletteHost />
         <ResizableAppShell sidebar={<Sidebar />}>
           <main className="content-shell">
             <Suspense fallback={<PageFallback />}>

@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { gotoWiki, installWikiApiMocks, waitForPageTitle } from "./fixtures";
+import { documentArticle, gotoWiki, installWikiApiMocks, waitForPageTitle } from "./fixtures";
 
 test.describe("Search and local page finding", () => {
   test("Find files opens local page navigation", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/");
 
-    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("sidebar-search").click();
     await page.getByTestId("command-palette-input").fill("diagnosis");
     await page.getByRole("option", { name: /Diagnosis/ }).click();
 
@@ -18,7 +18,7 @@ test.describe("Search and local page finding", () => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/");
 
-    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("sidebar-search").click();
     await page.getByTestId("command-palette-input").fill("zzzznonexistentquery999");
 
     await expect(page.getByText("No pages found.")).toBeVisible();
@@ -28,7 +28,7 @@ test.describe("Search and local page finding", () => {
     await installWikiApiMocks(page, { sessionAuthenticated: true });
     await gotoWiki(page, "/");
 
-    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("sidebar-search").click();
     await page.getByTestId("command-palette-input").fill("private plan");
 
     await expect(page.getByText("No pages found.")).toBeVisible();
@@ -38,31 +38,24 @@ test.describe("Search and local page finding", () => {
     await installWikiApiMocks(page, { sessionAuthenticated: true });
     await gotoWiki(page, "/?scope=session");
 
-    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("sidebar-search").click();
     await page.getByTestId("command-palette-input").fill("private plan");
     await page.getByRole("option", { name: /Private Plan/ }).click();
 
     await expect(page).toHaveURL(/\/private\/plan$/);
     await waitForPageTitle(page, "Private Plan");
-    await expect(page.locator(".badge.sensitive")).toHaveText("sensitive");
+    await expect(documentArticle(page)).toContainText("Sensitive session-only planning note");
   });
 
-  test("header search submits to backend search and exposes chat/files handoffs", async ({ page }) => {
+  test("sidebar search and ask affordances expose files and chat handoffs", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/logistics/insurance");
 
-    await page.getByTestId("header-search-input").fill("prior auth");
-    await page.getByTestId("header-search-input").press("Enter");
-    await expect(page).toHaveURL(
-      /\/search\?returnTo=%2Fwiki%2Flogistics%2Finsurance&q=prior\+auth$/,
-    );
-
-    await gotoWiki(page, "/wiki/logistics/insurance");
-    await expect(page.getByRole("link", { name: "New chat" })).toHaveAttribute(
-      "href",
-      /\/chat\?returnTo=%2Fwiki%2Flogistics%2Finsurance$/,
-    );
-    await expect(page.getByRole("button", { name: /Find files/ })).toBeVisible();
+    await page.getByTestId("sidebar-search").click();
+    await expect(page.getByTestId("command-palette")).toBeVisible();
+    await expect(page.getByTestId("command-palette-input")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("sidebar-ask-wiki")).toHaveAttribute("href", "/chat");
   });
 
   test("search route runs backend text search and opens results", async ({ page }) => {

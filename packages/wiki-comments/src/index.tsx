@@ -136,6 +136,7 @@ const COMMENTS_DEFAULT_WIDTH = 384; // 24rem
 const COMMENTS_COLLAPSED_WIDTH = 64; // w-16
 const DESKTOP_SIDEBAR_TOP_OFFSET = 24;
 const COMMENTS_PANE_EVENT = "comments-pane-state-change";
+const MOBILE_COMMENTS_PANEL_EVENT = "mobile-comments-panel-open";
 
 type PaneStateSnapshot = {
   open: boolean;
@@ -613,6 +614,22 @@ function CommentsShell({
     },
     [commentsOpen, setCommentsOpen, sidebarMode]
   );
+  const openMobileCommentsPanel = useCallback(() => {
+    delete document.documentElement.dataset.mobileCommentsPanelRequested;
+    setSidebarMode("comments");
+    setCommentsOpen(true);
+  }, [setCommentsOpen]);
+
+  useEffect(() => {
+    window.addEventListener(MOBILE_COMMENTS_PANEL_EVENT, openMobileCommentsPanel);
+    if (document.documentElement.dataset.mobileCommentsPanelRequested === "true") {
+      openMobileCommentsPanel();
+    }
+
+    return () => {
+      window.removeEventListener(MOBILE_COMMENTS_PANEL_EVENT, openMobileCommentsPanel);
+    };
+  }, [openMobileCommentsPanel]);
 
   useEffect(() => {
     const root = articleRef.current;

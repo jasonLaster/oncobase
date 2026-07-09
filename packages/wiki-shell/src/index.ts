@@ -52,10 +52,12 @@ export {
 } from "./header.tsx";
 export {
   WikiActionsMenu,
+  WikiSidebarSignInPrompt,
   type WikiActionsMenuAuthInput,
   type WikiActionsMenuAuthMode,
   type WikiActionsMenuProps,
   type WikiActionsMenuUser,
+  type WikiSidebarSignInPromptProps,
 } from "./actions-menu.tsx";
 export {
   applyWikiTheme,

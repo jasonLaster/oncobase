@@ -4,9 +4,11 @@ import { siteDataFromSlug } from "@/lib/site-data";
 import { DEFAULT_SITE_SLUG, toSiteSlug, type SiteSlug } from "@/lib/site";
 import { shouldSkipConvexReads } from "@/lib/convex-url";
 import {
-  compareFileTreeNodes,
-  compactFileTree,
+  buildCompactTreeFromManifest,
   expandCompactFileTree,
+  groupFileTreeCollectionsDeep,
+  sortTree,
+  transformFileTreeForSidebar,
   type CompactFileNode,
   type FileNode,
 } from "@/lib/file-tree-compact";
@@ -41,7 +43,12 @@ async function readSiteSlug(): Promise<SiteSlug> {
 // - apps/web/specs/multi-site.md
 
 export type { CompactFileNode, FileNode };
-export { isHiddenFileTreeAssetPath, isHiddenFileTreePath };
+export {
+  groupFileTreeCollectionsDeep,
+  isHiddenFileTreeAssetPath,
+  isHiddenFileTreePath,
+  sortTree,
+};
 
 export interface MarkdownFile {
   slug: string;
@@ -481,24 +488,13 @@ export async function getCompactFileTreeForSite(
     fetchAllFilePathsForSite(siteSlug, includeSensitive),
   ]);
 
-  const root: FileNode[] = [];
-
-  for (const doc of docs) {
-    if (isHiddenFileTreePath(doc.slug)) continue;
-    insertSlug(root, canonicalizePublishedSlug(doc.slug), "file");
-  }
-  for (const pdfPath of pdfPaths) {
-    if (isHiddenFileTreePath(pdfPath)) continue;
-    insertPdf(root, pdfPath);
-  }
-  for (const filePath of filePaths) {
-    if (isHiddenFileTreeAssetPath(filePath)) continue;
-    insertSlug(root, filePath, "file");
-  }
-
-  const grouped = groupFileTreeCollectionsDeep(root);
-  sortTree(grouped);
-  return compactFileTree(grouped);
+  return buildCompactTreeFromManifest(
+    docs.map((doc) => ({ slug: canonicalizePublishedSlug(doc.slug) })),
+    [
+      ...pdfPaths.map((path) => ({ kind: "pdf" as const, path })),
+      ...filePaths.map((path) => ({ kind: "file" as const, path })),
+    ],
+  );
 }
 
 /** Build the sidebar file tree from Convex documents + assets. */
@@ -506,7 +502,9 @@ export async function getFileTreeForSite(
   siteSlug: SiteSlug,
   options: MarkdownDiscoveryOptions = {},
 ): Promise<FileNode[]> {
-  return expandCompactFileTree(await getCompactFileTreeForSite(siteSlug, options));
+  return transformFileTreeForSidebar(
+    expandCompactFileTree(await getCompactFileTreeForSite(siteSlug, options)),
+  );
 }
 
 /** Build a shallow cached tree for the server-rendered wiki shell. */
@@ -691,262 +689,4 @@ export async function getPagesByTag(
     return getPagesByTagIncludingSensitiveForSite(siteSlug, tag);
   }
   return getPagesByTagForSite(siteSlug, tag);
-}
-
-// ── Tree construction ────────────────────────────────────────────────────────
-
-function ensureDirectory(
-  parent: FileNode[],
-  segments: string[],
-  pathSoFar: string[],
-): FileNode[] {
-  if (segments.length === 0) return parent;
-  const [head, ...rest] = segments;
-  const slug = [...pathSoFar, head].join("/");
-  let dir = parent.find((n) => n.type === "directory" && n.name === head);
-  if (!dir) {
-    dir = { name: head, slug, type: "directory", children: [] };
-    parent.push(dir);
-  }
-  if (!dir.children) dir.children = [];
-  return ensureDirectory(dir.children, rest, [...pathSoFar, head]);
-}
-
-function insertSlug(root: FileNode[], slug: string, type: "file") {
-  const segments = slug.split("/");
-  const fileName = segments.pop()!;
-  const dir = ensureDirectory(root, segments, []);
-  if (dir.find((n) => n.slug === slug)) return;
-  dir.push({ name: fileName, slug, type });
-}
-
-function insertPdf(root: FileNode[], pdfPath: string) {
-  const segments = pdfPath.split("/");
-  const fileName = segments.pop()!;
-  const nameWithoutExt = fileName.replace(/\.pdf$/i, "");
-  const dir = ensureDirectory(root, segments, []);
-  if (dir.find((n) => n.type === "pdf" && n.pdfPath === pdfPath)) return;
-  dir.push({
-    name: nameWithoutExt,
-    slug: pdfPath,
-    type: "pdf",
-    pdfPath,
-  });
-}
-
-// ── Paper-collection grouping (carried over from the fs-backed version) ───────
-
-type CollectionPart = "markdown" | "analysis" | "pdf";
-
-function getCollectionPart(
-  node: FileNode,
-): { baseName: string; part: CollectionPart } | null {
-  if (node.type === "pdf") return { baseName: node.name, part: "pdf" };
-  if (node.type !== "file") return null;
-  if (node.name.endsWith("-analysis")) {
-    return { baseName: node.name.replace(/-analysis$/, ""), part: "analysis" };
-  }
-  if (node.name.endsWith("-overview")) {
-    return { baseName: node.name.replace(/-overview$/, ""), part: "analysis" };
-  }
-  return { baseName: node.name, part: "markdown" };
-}
-
-function getCollectionChildName(node: FileNode, part: CollectionPart): string {
-  if (part === "pdf") return "PDF";
-  if (part === "markdown") return "Markdown";
-  if (node.name.endsWith("-overview")) return "Overview";
-  return "Analysis";
-}
-
-function groupPaperCollections(nodes: FileNode[]): FileNode[] {
-  const groups = new Map<string, Partial<Record<CollectionPart, FileNode[]>>>();
-
-  for (const node of nodes) {
-    const collectionPart = getCollectionPart(node);
-    if (!collectionPart) continue;
-
-    const group = groups.get(collectionPart.baseName) ?? {};
-    const partNodes = group[collectionPart.part] ?? [];
-    partNodes.push(node);
-    group[collectionPart.part] = partNodes;
-    groups.set(collectionPart.baseName, group);
-  }
-
-  const groupedNodes = new Set<FileNode>();
-  const collectionNodes: FileNode[] = [];
-
-  for (const [baseName, group] of groups) {
-    if (!group.markdown?.length || !group.analysis?.length || !group.pdf?.length) {
-      continue;
-    }
-
-    const children = [
-      ...group.pdf.map((node) => ({ node, part: "pdf" as const })),
-      ...group.analysis.map((node) => ({ node, part: "analysis" as const })),
-      ...group.markdown.map((node) => ({ node, part: "markdown" as const })),
-    ].map(({ node, part }) => {
-      groupedNodes.add(node);
-      return {
-        ...node,
-        name: getCollectionChildName(node, part),
-      };
-    });
-    const firstChild = children[0];
-    const parentSlug = firstChild.slug.includes("/")
-      ? firstChild.slug.split("/").slice(0, -1).join("/")
-      : "";
-
-    collectionNodes.push({
-      name: baseName,
-      slug: parentSlug
-        ? `${parentSlug}/${baseName}__paper-set`
-        : `${baseName}__paper-set`,
-      type: "directory",
-      badge: "PDF set",
-      children,
-    });
-  }
-
-  if (collectionNodes.length === 0) return nodes;
-  return [...nodes.filter((node) => !groupedNodes.has(node)), ...collectionNodes];
-}
-
-function groupPaperCollectionsDeep(nodes: FileNode[]): FileNode[] {
-  const withGroupedChildren = nodes.map((node) => {
-    if (!node.children) return node;
-    return {
-      ...node,
-      children: groupPaperCollectionsDeep(node.children),
-    };
-  });
-
-  return groupPaperCollections(withGroupedChildren);
-}
-
-// ── Meeting-note grouping ────────────────────────────────────────────────────
-
-type MeetingNotePart = "overview" | "formatted" | "raw";
-
-function getMeetingNotePart(
-  node: FileNode,
-): { baseName: string; part: MeetingNotePart } | null {
-  if (node.type !== "file") return null;
-
-  if (node.name.endsWith("-transcript-formatted")) {
-    return {
-      baseName: node.name.replace(/-transcript-formatted$/, ""),
-      part: "formatted",
-    };
-  }
-  if (node.name.endsWith("-overview")) {
-    return { baseName: node.name.replace(/-overview$/, ""), part: "overview" };
-  }
-  if (node.name.endsWith("-formatted")) {
-    return { baseName: node.name.replace(/-formatted$/, ""), part: "formatted" };
-  }
-  if (node.name.endsWith("-raw")) {
-    return { baseName: node.name.replace(/-raw$/, ""), part: "raw" };
-  }
-
-  return null;
-}
-
-function getMeetingNoteChildName(part: MeetingNotePart): string {
-  if (part === "overview") return "Overview";
-  if (part === "formatted") return "Formatted";
-  return "Raw";
-}
-
-function groupMeetingNoteSets(nodes: FileNode[]): FileNode[] {
-  const groups = new Map<string, Partial<Record<MeetingNotePart, FileNode[]>>>();
-
-  for (const node of nodes) {
-    const meetingNotePart = getMeetingNotePart(node);
-    if (!meetingNotePart) continue;
-
-    const group = groups.get(meetingNotePart.baseName) ?? {};
-    const partNodes = group[meetingNotePart.part] ?? [];
-    partNodes.push(node);
-    group[meetingNotePart.part] = partNodes;
-    groups.set(meetingNotePart.baseName, group);
-  }
-
-  const groupedNodes = new Set<FileNode>();
-  const collectionNodes: FileNode[] = [];
-
-  for (const [baseName, group] of groups) {
-    if (!group.overview?.length || !group.formatted?.length || !group.raw?.length) {
-      continue;
-    }
-
-    const children = [
-      ...group.overview.map((node) => ({ node, part: "overview" as const })),
-      ...group.formatted.map((node) => ({ node, part: "formatted" as const })),
-      ...group.raw.map((node) => ({ node, part: "raw" as const })),
-    ].map(({ node, part }) => {
-      groupedNodes.add(node);
-      return {
-        ...node,
-        name: getMeetingNoteChildName(part),
-      };
-    });
-    const firstChild = children[0];
-    const parentSlug = firstChild.slug.includes("/")
-      ? firstChild.slug.split("/").slice(0, -1).join("/")
-      : "";
-
-    collectionNodes.push({
-      name: baseName,
-      slug: parentSlug
-        ? `${parentSlug}/${baseName}__meeting-set`
-        : `${baseName}__meeting-set`,
-      type: "directory",
-      badge: "Notes set",
-      children,
-    });
-  }
-
-  if (collectionNodes.length === 0) return nodes;
-  return [...nodes.filter((node) => !groupedNodes.has(node)), ...collectionNodes];
-}
-
-function groupMeetingNoteSetsDeep(nodes: FileNode[]): FileNode[] {
-  const withGroupedChildren = nodes.map((node) => {
-    if (!node.children) return node;
-    return {
-      ...node,
-      children: groupMeetingNoteSetsDeep(node.children),
-    };
-  });
-
-  return groupMeetingNoteSets(withGroupedChildren);
-}
-
-export function groupFileTreeCollectionsDeep(nodes: FileNode[]): FileNode[] {
-  return groupPaperCollectionsDeep(groupMeetingNoteSetsDeep(nodes));
-}
-
-function isArchivedDirectory(node: FileNode) {
-  return node.type === "directory" && node.name === "archived";
-}
-
-function isUpdatesDirectory(slug: string) {
-  return slug === "wiki/updates";
-}
-
-export function sortTree(nodes: FileNode[], parentSlug = "") {
-  nodes.sort((a, b) => {
-    if (isUpdatesDirectory(parentSlug)) {
-      return compareFileTreeNodes(a, b);
-    }
-    if (a.name === "index" && b.name !== "index") return -1;
-    if (b.name === "index" && a.name !== "index") return 1;
-    if (isArchivedDirectory(a) && !isArchivedDirectory(b)) return 1;
-    if (isArchivedDirectory(b) && !isArchivedDirectory(a)) return -1;
-    return a.name.localeCompare(b.name);
-  });
-  for (const node of nodes) {
-    if (node.children) sortTree(node.children, node.slug);
-  }
 }

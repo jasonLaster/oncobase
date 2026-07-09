@@ -326,6 +326,7 @@ export type WikiMobileNavigationSheetProps = Omit<ComponentProps<"div">, "title"
   sheetAriaLabel?: string;
   sheetId?: string;
   title: ReactNode;
+  trigger?: ReactNode | false;
 };
 
 export function WikiMobileNavigationSheet({
@@ -338,6 +339,7 @@ export function WikiMobileNavigationSheet({
   sheetAriaLabel = "Page navigation",
   sheetId = "mobile-page-navigation",
   title,
+  trigger,
   ...props
 }: WikiMobileNavigationSheetProps) {
   useEffect(() => {
@@ -356,19 +358,23 @@ export function WikiMobileNavigationSheet({
 
   return (
     <>
-      <button
-        className="wiki-shell-bottom-nav-trigger bottom-nav-trigger"
-        data-test-id="bottom-nav-trigger"
-        type="button"
-        aria-expanded={open}
-        aria-controls={sheetId}
-        onClick={() => onOpenChange(true)}
-      >
-        <span>{title}</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
-          <path d="M4 10l4-4 4 4" />
-        </svg>
-      </button>
+      {trigger === false ? null : (
+        trigger ?? (
+          <button
+            className="wiki-shell-bottom-nav-trigger bottom-nav-trigger"
+            data-test-id="bottom-nav-trigger"
+            type="button"
+            aria-expanded={open}
+            aria-controls={sheetId}
+            onClick={() => onOpenChange(true)}
+          >
+            <span>{title}</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="M4 10l4-4 4 4" />
+            </svg>
+          </button>
+        )
+      )}
       <div
         className={cn("wiki-shell-bottom-nav-sheet bottom-nav-sheet", open && "open", className)}
         data-test-id="bottom-nav-sheet"

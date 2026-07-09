@@ -12,7 +12,8 @@ test("preview loads a public wiki page from the configured backend", async ({ pa
 
   const article = page.getByTestId("document-article").first();
   await expect(page).toHaveTitle(/Insurance|Diana Wiki/i);
-  await expect(page.getByTestId("app-header")).toBeVisible();
+  await expect(page.getByTestId("app-header")).toHaveCount(0);
+  await expect(page.getByTestId("sidebar-workspace-trigger")).toBeVisible();
   await expect(page.getByTestId("wiki-sidebar")).toBeVisible();
   await expect(article).toBeVisible();
   await expect(page.getByTestId("page-loading")).toHaveCount(0);

@@ -53,14 +53,21 @@ test.describe("document comments sidebar", () => {
     await expect(page.getByRole("button", { name: "Open comments" })).toBeVisible();
   });
 
-  test("mobile bottom rail exposes comments activation", async ({ page }) => {
+  test("mobile comments activate from the mobile header control", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await installWikiApiMocks(page);
     await mockCommentsApi(page);
     await gotoWiki(page, "/wiki/logistics/insurance");
 
-    await expect(page.locator("[data-comments-bottom-rail]")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Comments" })).toBeVisible();
+    // Web parity: no bottom outline/comments rail on mobile; comments open
+    // from the mobile header control instead.
+    await expect(page.locator("[data-comments-bottom-rail]")).toHaveCount(0);
+    const trigger = page.getByTestId("mobile-header-comments");
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+    const panel = page.locator("[data-comments-bottom-rail]");
+    await expect(panel).toBeVisible({ timeout: 20_000 });
+    await expect(panel).toContainText("unresolved threads");
   });
 });
 
