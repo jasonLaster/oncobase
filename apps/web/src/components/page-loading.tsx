@@ -1,6 +1,6 @@
 "use client";
 
-import { WikiPageLoading } from "@oncobase/wiki-shell";
+import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 
 type PageLoadingSkeletonProps = {
   label?: string;

@@ -7,7 +7,7 @@ import { LockIcon } from "lucide-react";
 import {
   WikiMarkdownBodySkeleton,
   WikiSensitiveUnavailable,
-} from "@oncobase/wiki-shell";
+} from "@oncobase/wiki-shell/page-states";
 import {
   getAllSlugs,
   getMarkdownFileForSite,
