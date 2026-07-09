@@ -297,9 +297,13 @@ export function Sidebar() {
     <WikiSidebar
       activeAncestorSlugs={activeAncestorSlugs}
       activeSlug={activeSlug}
-      beforeTree={<DiagnosticsTreeLink activePathname={pathname} />}
+      beforeTree={
+        <>
+          <CommentsTreeLink activePathname={pathname} />
+          <DiagnosticsTreeLink activePathname={pathname} />
+        </>
+      }
       data-test-id="wiki-sidebar"
-      beforeTree={<CommentsTreeLink activePathname={pathname} />}
       defaultDirectoryOpen={defaultDirectoryOpen}
       expandedSlugs={expandedSlugs}
       footer={<SidebarFooter />}
@@ -440,11 +444,18 @@ export function MobileNav() {
       activeAncestorSlugs={activeAncestorSlugs}
       activeSlug={activeSlug}
       beforeTree={
-        <CommentsTreeLink
-          activePathname={pathname}
-          onNavigate={() => setOpen(false)}
-          testId="mobile-view-comments"
-        />
+        <>
+          <CommentsTreeLink
+            activePathname={pathname}
+            onNavigate={() => setOpen(false)}
+            testId="mobile-view-comments"
+          />
+          <DiagnosticsTreeLink
+            activePathname={pathname}
+            onNavigate={() => setOpen(false)}
+            testId="mobile-view-diagnostics"
+          />
+        </>
       }
       defaultDirectoryOpen={defaultDirectoryOpen}
       expandedSlugs={expandedSlugs}
