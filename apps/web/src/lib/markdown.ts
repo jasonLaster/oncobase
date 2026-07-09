@@ -4,8 +4,8 @@ import { siteDataFromSlug } from "@/lib/site-data";
 import { DEFAULT_SITE_SLUG, toSiteSlug, type SiteSlug } from "@/lib/site";
 import { shouldSkipConvexReads } from "@/lib/convex-url";
 import {
+  buildCompactTreeFromManifest,
   compareFileTreeNodes,
-  compactFileTree,
   expandCompactFileTree,
   type CompactFileNode,
   type FileNode,
@@ -481,24 +481,13 @@ export async function getCompactFileTreeForSite(
     fetchAllFilePathsForSite(siteSlug, includeSensitive),
   ]);
 
-  const root: FileNode[] = [];
-
-  for (const doc of docs) {
-    if (isHiddenFileTreePath(doc.slug)) continue;
-    insertSlug(root, canonicalizePublishedSlug(doc.slug), "file");
-  }
-  for (const pdfPath of pdfPaths) {
-    if (isHiddenFileTreePath(pdfPath)) continue;
-    insertPdf(root, pdfPath);
-  }
-  for (const filePath of filePaths) {
-    if (isHiddenFileTreeAssetPath(filePath)) continue;
-    insertSlug(root, filePath, "file");
-  }
-
-  const grouped = groupFileTreeCollectionsDeep(root);
-  sortTree(grouped);
-  return compactFileTree(grouped);
+  return buildCompactTreeFromManifest(
+    docs.map((doc) => ({ slug: canonicalizePublishedSlug(doc.slug) })),
+    [
+      ...pdfPaths.map((path) => ({ kind: "pdf" as const, path })),
+      ...filePaths.map((path) => ({ kind: "file" as const, path })),
+    ],
+  );
 }
 
 /** Build the sidebar file tree from Convex documents + assets. */
@@ -691,47 +680,6 @@ export async function getPagesByTag(
     return getPagesByTagIncludingSensitiveForSite(siteSlug, tag);
   }
   return getPagesByTagForSite(siteSlug, tag);
-}
-
-// ── Tree construction ────────────────────────────────────────────────────────
-
-function ensureDirectory(
-  parent: FileNode[],
-  segments: string[],
-  pathSoFar: string[],
-): FileNode[] {
-  if (segments.length === 0) return parent;
-  const [head, ...rest] = segments;
-  const slug = [...pathSoFar, head].join("/");
-  let dir = parent.find((n) => n.type === "directory" && n.name === head);
-  if (!dir) {
-    dir = { name: head, slug, type: "directory", children: [] };
-    parent.push(dir);
-  }
-  if (!dir.children) dir.children = [];
-  return ensureDirectory(dir.children, rest, [...pathSoFar, head]);
-}
-
-function insertSlug(root: FileNode[], slug: string, type: "file") {
-  const segments = slug.split("/");
-  const fileName = segments.pop()!;
-  const dir = ensureDirectory(root, segments, []);
-  if (dir.find((n) => n.slug === slug)) return;
-  dir.push({ name: fileName, slug, type });
-}
-
-function insertPdf(root: FileNode[], pdfPath: string) {
-  const segments = pdfPath.split("/");
-  const fileName = segments.pop()!;
-  const nameWithoutExt = fileName.replace(/\.pdf$/i, "");
-  const dir = ensureDirectory(root, segments, []);
-  if (dir.find((n) => n.type === "pdf" && n.pdfPath === pdfPath)) return;
-  dir.push({
-    name: nameWithoutExt,
-    slug: pdfPath,
-    type: "pdf",
-    pdfPath,
-  });
 }
 
 // ── Paper-collection grouping (carried over from the fs-backed version) ───────

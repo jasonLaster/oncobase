@@ -9,7 +9,7 @@ test.describe("Command palette parity", () => {
   test("palette trigger opens local page navigation", async ({ page }) => {
     await gotoWiki(page, "/");
 
-    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("sidebar-search").click();
     await page.getByTestId("command-palette-input").fill("about");
     await page.getByRole("option", { name: /About This Wiki/ }).click();
 
@@ -34,7 +34,7 @@ test.describe("Command palette parity", () => {
   test("palette exposes active result semantics for keyboard users", async ({ page }) => {
     await gotoWiki(page, "/");
 
-    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("sidebar-search").click();
     const input = page.getByTestId("command-palette-input");
     await input.fill("wiki/");
     await expect(input).toHaveAttribute("role", "combobox");
@@ -53,7 +53,7 @@ test.describe("Command palette parity", () => {
       localStorage.removeItem("cmd-palette-recent");
     });
 
-    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("sidebar-search").click();
 
     const palette = page.getByTestId("command-palette");
     await expect(palette.getByText("No pages found.")).toHaveCount(0);
@@ -70,7 +70,7 @@ test.describe("Command palette parity", () => {
       localStorage.setItem("cmd-palette-recent", JSON.stringify(["wiki/logistics/insurance"]));
     });
 
-    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("sidebar-search").click();
 
     const palette = page.getByTestId("command-palette");
     await expect(palette.getByText("Recent pages")).toBeVisible();
@@ -85,7 +85,7 @@ test.describe("Command palette parity", () => {
       localStorage.removeItem("cmd-palette-recent");
     });
 
-    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("sidebar-search").click();
     const listbox = page.locator("#page-palette-list");
     await expect(listbox).toBeVisible();
     await expect(listbox.getByRole("option").first()).toBeVisible();
@@ -103,7 +103,7 @@ test.describe("Command palette parity", () => {
 
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("command-palette")).toHaveCount(0);
-    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("sidebar-search").click();
 
     await expect
       .poll(() => page.locator("#page-palette-list").evaluate((element) => element.scrollTop))
@@ -196,10 +196,10 @@ test.describe("Command palette parity", () => {
   test("recent palette opens pages remembered by local navigation", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
     await waitForPageTitle(page, "Insurance");
-    await page.getByTestId("app-header").getByRole("link", { name: "Home" }).click();
+    await page.getByTestId("wiki-sidebar").getByRole("link", { name: "Diana Wiki Home" }).click();
     await waitForPageTitle(page, "Diana Wiki Home");
 
-    await page.getByTestId("command-palette-trigger").click();
+    await page.getByTestId("sidebar-search").click();
     await expect(page.getByTestId("command-palette")).toContainText("Recent pages");
     await page.getByTestId("command-palette").getByRole("option", { name: /Insurance/ }).click();
 

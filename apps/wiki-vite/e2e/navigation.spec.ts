@@ -17,7 +17,7 @@ test.describe("Page viewing and sidebar navigation", () => {
     await gotoWiki(page, "/");
 
     await waitForPageTitle(page, "Diana Wiki Home");
-    await expect(page.getByTestId("app-header")).toBeVisible();
+    await expect(page.getByTestId("app-header")).toHaveCount(0);
     await expect(page.getByTestId("wiki-sidebar")).toBeVisible();
     await expect(documentArticle(page)).toContainText("local Vite reader fixture");
     await expect(nextErrorOverlay(page)).toHaveCount(0);
@@ -36,7 +36,7 @@ test.describe("Page viewing and sidebar navigation", () => {
   test("shared actions menu exposes command, theme, account, and archive actions", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
-    const actions = page.getByRole("button", { name: "Actions" });
+    const actions = page.getByRole("button", { name: "Workspace menu" });
     await actions.click();
     const menu = page.getByRole("menu", { name: "Actions" });
     await expect(menu.getByRole("menuitem", { name: /Download wiki \(full\)/ })).toHaveAttribute(
@@ -174,12 +174,12 @@ test.describe("Page viewing and sidebar navigation", () => {
       .toBeGreaterThan(340);
   });
 
-  test("page shows tags, sensitive scope, and cache metadata", async ({ page }) => {
+  test("page shows tags and sensitive scope without debug cache footer", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
 
     await expect(documentArticle(page).locator(".tag-row").getByRole("link", { name: "logistics" })).toBeVisible();
     await expect(documentArticle(page).locator(".tag-row").getByRole("link", { name: "insurance" })).toBeVisible();
-    await expect(documentArticle(page).locator(".page-footer")).toContainText("Content hash:");
+    await expect(documentArticle(page).locator(".page-footer")).toHaveCount(0);
     await expect(page.getByTestId("scope-switcher").getByRole("link", { name: "Public" })).toHaveClass(/active/);
   });
 

@@ -7,11 +7,9 @@ import {
 } from "@oncobase/wiki-markdown";
 import {
   DocumentOutlineShell,
-  WikiBadge,
   WikiBreadcrumbs,
   WikiEmptyState,
   WikiPageActionButton,
-  WikiPageFooter,
   WikiPageHeader,
   WikiPageLoading,
   WikiSensitiveUnavailable,
@@ -38,7 +36,6 @@ import {
   pageContentBySlug$,
   pageIndex$,
   pageIndexBySlug$,
-  siteState$,
 } from "../livestore/queries";
 import type {
   AssetIndexRow,
@@ -46,10 +43,8 @@ import type {
   MetricsPatch,
   PageContentRow,
   PageIndexRow,
-  SiteStateRow,
 } from "../types";
 import {
-  formatBytes,
   hrefForSlug,
   parseJsonArray,
   slugFromPath,
@@ -161,7 +156,6 @@ export function WikiPage({
   const routeIndex = useStore().store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;
   const pageIndex = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
   const assets = useStore().store.useQuery(assets$) as AssetIndexRow[];
-  const siteState = useStore().store.useQuery(siteState$) as SiteStateRow | null;
   const stale = page?.contentStatus === "stale";
   const deleted = page?.contentStatus === "deleted";
   const failedCurrentFetch =
@@ -380,14 +374,6 @@ export function WikiPage({
     );
   }
 
-  const pageBadges = (
-    <>
-      {stale ? <WikiBadge variant="updating">updating</WikiBadge> : null}
-      {page.sensitive ? <WikiBadge variant="sensitive">sensitive</WikiBadge> : null}
-      <WikiBadge>{formatBytes(page.size)}</WikiBadge>
-    </>
-  );
-
   return (
     <DocumentOutlineShell
       articleClassName="page-shell"
@@ -399,7 +385,6 @@ export function WikiPage({
       {toast ? (
         <WikiToast>{toast}</WikiToast>
       ) : null}
-      <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />
       <WikiPageHeader
         title={
           <MarkdownTitle
@@ -412,21 +397,21 @@ export function WikiPage({
             )}
           />
         }
-        description={description ?? slug}
-        badges={pageBadges}
+        actions={
+          <PageActions
+            content={page.content}
+            contentHash={page.contentHash}
+            scope={scope}
+            slug={page.slug}
+            title={page.title}
+          />
+        }
       />
       {stale ? (
         <WikiStatusNotice>
           Showing cached markdown while a newer version is fetched in the background.
         </WikiStatusNotice>
       ) : null}
-      <PageActions
-        content={page.content}
-        contentHash={page.contentHash}
-        scope={scope}
-        slug={page.slug}
-        title={page.title}
-      />
       <WikiSourceLinks
         data-test-id="source-links"
         items={relatedAssets.map((asset) => ({
@@ -458,15 +443,6 @@ export function WikiPage({
         tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
       />
       <MermaidRendererSlot content={page.content} />
-      <WikiPageFooter
-        items={[
-          `Manifest: ${siteState?.generatedAt ?? "pending"}`,
-          `Content hash: ${page.contentHash ?? "none"}`,
-          page.expectedContentHash && page.expectedContentHash !== page.contentHash
-            ? `Expected hash: ${page.expectedContentHash}`
-            : null,
-        ].filter(Boolean)}
-      />
     </DocumentOutlineShell>
   );
 }

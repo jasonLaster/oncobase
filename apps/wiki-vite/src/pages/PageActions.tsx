@@ -1,29 +1,13 @@
 import type { WikiScope } from "@oncobase/wiki-content";
 import {
   WikiPageActionButton,
-  WikiPageActionLink,
-  WikiPageActions,
   copyTextToClipboard,
 } from "@oncobase/wiki-shell";
 import {
   CheckIcon,
   ClipboardIcon,
-  DownloadIcon,
-  ExternalLinkIcon,
-  LinkIcon,
-  PrinterIcon,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { backendHref, hrefForSlug } from "../wiki-utils";
-
-function pageCopyHref(slug: string, contentHash: string | null, scope: WikiScope) {
-  const params = new URLSearchParams({
-    slug,
-    cacheKey: contentHash ?? "latest",
-    scope,
-  });
-  return backendHref(`/api/page-copy?${params.toString()}`);
-}
 
 function ActionButton({
   children,
@@ -43,9 +27,6 @@ function ActionButton({
 
 export function PageActions({
   content,
-  contentHash,
-  scope,
-  slug,
   title,
 }: {
   content: string;
@@ -54,12 +35,8 @@ export function PageActions({
   slug: string;
   title: string;
 }) {
-  const [copied, setCopied] = useState<"markdown" | "link" | null>(null);
+  const [copied, setCopied] = useState(false);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const copyHref = pageCopyHref(slug, contentHash, scope);
-  const fullDownloadHref = backendHref("/api/download", { type: "full", scope });
-  const markdownDownloadHref = backendHref("/api/download", { type: "markdown", scope });
-  const mainAppHref = backendHref(hrefForSlug(slug));
 
   useEffect(() => {
     return () => {
@@ -67,52 +44,22 @@ export function PageActions({
     };
   }, []);
 
-  const markCopied = (kind: "markdown" | "link") => {
+  const markCopied = () => {
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-    setCopied(kind);
-    resetTimerRef.current = setTimeout(() => setCopied(null), 1800);
+    setCopied(true);
+    resetTimerRef.current = setTimeout(() => setCopied(false), 1800);
   };
 
   const copyMarkdown = async () => {
     await copyTextToClipboard(`# ${title}\n\n${content}`);
-    markCopied("markdown");
-  };
-
-  const copyLink = async () => {
-    await copyTextToClipboard(window.location.href);
-    markCopied("link");
+    markCopied();
   };
 
   return (
-    <WikiPageActions data-test-id="page-actions">
+    <div className="wiki-vite-title-copy" data-test-id="page-actions">
       <ActionButton label="Copy page as markdown" onClick={copyMarkdown}>
-        {copied === "markdown" ? <CheckIcon size={15} /> : <ClipboardIcon size={15} />}
-        <span>{copied === "markdown" ? "Copied" : "Copy"}</span>
+        {copied ? <CheckIcon size={16} /> : <ClipboardIcon size={16} />}
       </ActionButton>
-      <ActionButton label="Copy page link" onClick={copyLink}>
-        {copied === "link" ? <CheckIcon size={15} /> : <LinkIcon size={15} />}
-        <span>{copied === "link" ? "Copied" : "Link"}</span>
-      </ActionButton>
-      <ActionButton label="Print page" onClick={() => window.print()}>
-        <PrinterIcon size={15} />
-        <span>Print</span>
-      </ActionButton>
-      <WikiPageActionLink href={copyHref} download={`${slug.split("/").at(-1) ?? slug}.md`}>
-        <DownloadIcon size={15} />
-        <span>Markdown</span>
-      </WikiPageActionLink>
-      <WikiPageActionLink href={markdownDownloadHref} download={`wiki-${scope}-markdown.zip`}>
-        <DownloadIcon size={15} />
-        <span>Markdown zip</span>
-      </WikiPageActionLink>
-      <WikiPageActionLink href={fullDownloadHref} download={`wiki-${scope}-full.zip`}>
-        <DownloadIcon size={15} />
-        <span>Full wiki</span>
-      </WikiPageActionLink>
-      <WikiPageActionLink href={mainAppHref}>
-        <ExternalLinkIcon size={15} />
-        <span>Main app</span>
-      </WikiPageActionLink>
-    </WikiPageActions>
+    </div>
   );
 }

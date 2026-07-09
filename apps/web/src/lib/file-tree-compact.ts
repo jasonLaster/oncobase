@@ -1,4 +1,5 @@
 export {
+  buildCompactTreeFromManifest,
   compareFileTreeNodes,
   compactFileTree,
   expandCompactFileTree,

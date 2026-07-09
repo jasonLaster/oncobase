@@ -9,6 +9,8 @@ import {
   WikiMobileNavigation,
   WikiMobileNavigationSheet,
   WikiSidebar,
+  WikiSidebarSignInPrompt,
+  WikiTree,
   collectActiveAncestors,
   type WikiNavigationNode,
   type WikiTreePageLinkRenderArgs,
@@ -21,6 +23,7 @@ import {
   Briefcase,
   Building2,
   Calendar,
+  ChevronDown,
   ClipboardCheck,
   Crosshair,
   Dna,
@@ -48,6 +51,7 @@ import {
   Target,
   TrendingUp,
   Users,
+  WandSparkles,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -66,6 +70,7 @@ import {
   setNavigationIntentForSlug,
   useNavigationSlug,
 } from "./navigation-intent";
+import { ViteActionsMenu, openCommandPalette, useWikiViteAuth } from "./Header";
 
 const TREE_EXPANSION_KEY = "wiki-vite-expanded-directories";
 const ICON_SIZE = 14;
@@ -108,6 +113,7 @@ const FILE_ICONS: Record<string, LucideIcon> = {
   "1-inbox": Inbox,
   "2-urgent": Flame,
   "3-completed": ListChecks,
+  "4-backlog": ListChecks,
 };
 
 const FILE_ICONS_BY_SLUG: Record<string, LucideIcon> = {
@@ -211,25 +217,51 @@ function nodeIcon({
 }
 
 function WorkspaceHeader() {
-  return (
-    <div className="wiki-vite-sidebar-workspace" data-test-id="sidebar-workspace-trigger">
+  const trigger = (
+    <button
+      type="button"
+      aria-label="Workspace menu"
+      className="wiki-vite-sidebar-workspace"
+      data-test-id="sidebar-workspace-trigger"
+    >
       <span className="wiki-vite-sidebar-logo" aria-hidden="true">D</span>
       <span>Diana TNBC</span>
+      <ChevronDown size={14} aria-hidden="true" />
+    </button>
+  );
+
+  return (
+    <div className="wiki-vite-sidebar-workspace-row">
+      <ViteActionsMenu trigger={trigger} />
     </div>
   );
 }
 
 function SidebarFooter() {
+  const { sessionLoading, sessionUser, setSessionUser, submitAuth } = useWikiViteAuth();
   return (
     <div className="wiki-vite-sidebar-footer">
-      <Link to="/chat" data-test-id="sidebar-ask-wiki">
-        <MessageCircle size={ICON_SIZE} aria-hidden="true" />
-        <span>Ask wiki</span>
-      </Link>
-      <Link to="/search" data-test-id="sidebar-search">
-        <Search size={ICON_SIZE} aria-hidden="true" />
-        <span>Search</span>
-      </Link>
+      <WikiSidebarSignInPrompt
+        onAuthSubmit={submitAuth}
+        onSessionChange={setSessionUser}
+        sessionLoading={sessionLoading}
+        sessionUser={sessionUser}
+      />
+      <div className="wiki-vite-sidebar-footer-pills">
+        <Link to="/chat" data-test-id="sidebar-ask-wiki">
+          <WandSparkles size={ICON_SIZE} aria-hidden="true" />
+          <span>Ask wiki</span>
+        </Link>
+        <button
+          type="button"
+          data-test-id="sidebar-search"
+          onClick={() => openCommandPalette("pages")}
+        >
+          <Search size={ICON_SIZE} aria-hidden="true" />
+          <span>Search</span>
+          <kbd>⌘K</kbd>
+        </button>
+      </div>
     </div>
   );
 }
@@ -352,6 +384,7 @@ export function MobileNav() {
   const activeSlug = slugFromPath(pathname);
   const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
   const [navState, setNavState] = useState({ open: false, pathname });
+  const { sessionLoading, sessionUser, setSessionUser, submitAuth } = useWikiViteAuth();
   const open = navState.pathname === pathname ? navState.open : false;
   const setOpen = useCallback(
     (nextOpen: boolean) => setNavState({ open: nextOpen, pathname }),
@@ -378,20 +411,84 @@ export function MobileNav() {
   }
 
   return (
-    <WikiMobileNavigation
-      activeAncestorSlugs={activeAncestorSlugs}
-      activeSlug={activeSlug}
-      defaultDirectoryOpen={defaultDirectoryOpen}
-      expandedSlugs={expandedSlugs}
-      formatNodeName={(name) => formatFileLabel(name)}
-      getFileHref={fileHrefForNode}
-      onOpenChange={setOpen}
-      onToggleDirectory={toggleDirectory}
-      open={open}
-      renderNodeIcon={nodeIcon}
-      renderPageLink={renderPageLink}
-      title={<MarkdownTitle title={pageTitleFromPath(pathname)} />}
-      tree={tree}
-    />
+    <>
+      <MobilePageHeader title={pageTitleFromPath(pathname)} onOpenNavigation={() => setOpen(true)} />
+      <WikiMobileNavigationSheet
+        heading="Pages"
+        onOpenChange={setOpen}
+        open={open}
+        sheetId="mobile-page-navigation"
+        title={<MarkdownTitle title={pageTitleFromPath(pathname)} />}
+        trigger={false}
+      >
+        <nav data-test-id="bottom-nav-page-tree">
+          <WikiSidebarSignInPrompt
+            onAuthSubmit={submitAuth}
+            onSessionChange={setSessionUser}
+            sessionLoading={sessionLoading}
+            sessionUser={sessionUser}
+          />
+          <WikiTree
+            activeAncestorSlugs={activeAncestorSlugs}
+            activeSlug={activeSlug}
+            defaultDirectoryOpen={defaultDirectoryOpen}
+            expandedSlugs={expandedSlugs}
+            formatNodeName={(name) => formatFileLabel(name)}
+            getFileHref={fileHrefForNode}
+            onNavigate={() => setOpen(false)}
+            onToggleDirectory={toggleDirectory}
+            renderNodeIcon={nodeIcon}
+            renderPageLink={renderPageLink}
+            tree={tree}
+          />
+        </nav>
+      </WikiMobileNavigationSheet>
+      <Link to="/chat" aria-label="Ask wiki" title="Ask wiki" className="wiki-vite-mobile-ask" data-test-id="mobile-ask-wiki">
+        <MessageCircle size={19} aria-hidden="true" />
+      </Link>
+    </>
+  );
+}
+
+function MobilePageHeader({
+  onOpenNavigation,
+  title,
+}: {
+  onOpenNavigation: () => void;
+  title: string;
+}) {
+  return (
+    <header className="wiki-vite-mobile-page-header" data-test-id="mobile-page-header">
+      <div className="wiki-vite-mobile-title">
+        <MarkdownTitle title={title} />
+      </div>
+      <button
+        type="button"
+        aria-label="Search files"
+        title="Search files"
+        data-test-id="mobile-header-search"
+        onClick={() => openCommandPalette("pages")}
+      >
+        <Search size={18} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        aria-label="Open comments"
+        title="Open comments"
+        data-test-id="mobile-header-comments"
+        onClick={() => window.dispatchEvent(new CustomEvent("mobile-comments-panel-open"))}
+      >
+        <MessageCircle size={18} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        aria-label="Open page navigation"
+        title="Open page navigation"
+        data-test-id="bottom-nav-trigger"
+        onClick={onOpenNavigation}
+      >
+        <ListChecks size={17} aria-hidden="true" />
+      </button>
+    </header>
   );
 }

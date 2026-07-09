@@ -57,14 +57,14 @@ test.describe("Page load experience", () => {
     await expect(article).toContainText("LOG_TOP_SENTINEL");
     await expect(article).toContainText("LOG_MIDDLE_SENTINEL");
     await expect(article).toContainText("LOG_TAIL_SENTINEL");
-    await expect(article.locator(".page-footer")).toContainText("Content hash:");
+    await expect(article.locator(".page-footer")).toHaveCount(0);
   });
 
-  test("initial paint keeps header, sidebar, and article chrome without diagnostics", async ({ page }) => {
+  test("initial paint keeps sidebar and article chrome without diagnostics", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/logistics/insurance");
 
-    await expect(page.getByTestId("app-header")).toBeVisible();
+    await expect(page.getByTestId("app-header")).toHaveCount(0);
     await expect(page.getByTestId("wiki-sidebar")).toBeVisible();
     await expect(page.getByTestId("metrics-panel")).toHaveCount(0);
     await expect(page.getByTestId("livestore-devtools-footer")).toHaveCount(0);
@@ -82,9 +82,9 @@ test.describe("Page load experience", () => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/logistics/insurance");
 
-    await expect(page.getByTestId("app-header")).toBeVisible();
+    await expect(page.getByTestId("mobile-page-header")).toBeVisible();
     await expect(page.getByTestId("bottom-nav-trigger")).toBeVisible();
-    await expect(page.getByTestId("bottom-nav-trigger")).toContainText("insurance");
+    await expect(page.getByTestId("mobile-page-header")).toContainText("insurance");
   });
 
   test("warm navigation reuses the local page body cache", async ({ page }) => {
@@ -93,7 +93,7 @@ test.describe("Page load experience", () => {
     await waitForPageTitle(page, "Insurance");
 
     requests.pages.length = 0;
-    await page.getByTestId("app-header").getByRole("link", { name: "Home" }).click();
+    await page.getByTestId("wiki-sidebar").getByRole("link", { name: "Diana Wiki Home" }).click();
     await waitForPageTitle(page, "Diana Wiki Home");
     await openDirectory(page, "logistics");
     await page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" }).click();

@@ -18,13 +18,10 @@ test.describe("Visual parity", () => {
     await gotoWiki(page, "/wiki/logistics/insurance");
     await waitForPageTitle(page, "Insurance");
 
-    await expect(page.getByTestId("header-home")).toBeVisible();
-    await expect(page.locator(".wiki-shell-header")).toHaveCSS("border-bottom-width", "1px");
-    await expect(page.getByTestId("header-new-chat")).toHaveCSS(
-      "background-color",
-      "rgba(0, 0, 0, 0)",
-    );
-    await expect(page.locator(".page-action").first()).toHaveCSS("border-radius", "5px");
+    await expect(page.locator(".wiki-shell-header")).toHaveCount(0);
+    await expect(page.getByTestId("sidebar-workspace-trigger")).toBeVisible();
+    await expect(page.getByTestId("sidebar-search")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copy page as markdown" })).toBeVisible();
     await expect(page.locator(".wiki-shell-outline-root")).toBeVisible();
     await expect(page.locator(".sidebar-expanded-rail")).toBeVisible();
     await expect(page.getByTestId("wiki-sidebar")).not.toContainText("File tree");
@@ -44,9 +41,10 @@ test.describe("Visual parity", () => {
     await gotoWiki(page, "/wiki/logistics/insurance");
     await waitForPageTitle(page, "Insurance");
 
+    await expect(page.getByTestId("mobile-page-header")).toBeVisible();
     await expect(page.getByTestId("bottom-nav-trigger")).toBeVisible();
     await expect(page.getByTestId("mobile-page-outline")).toBeVisible();
-    await expect(page.locator(".wiki-shell-header")).toBeVisible();
+    await expect(page.locator(".wiki-shell-header")).toHaveCount(0);
     await expect(page.locator(".page-shell")).toBeVisible();
 
     if (hasLocalSnapshotBaseline) {

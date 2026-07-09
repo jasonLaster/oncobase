@@ -515,3 +515,44 @@ export function WikiActionsMenu({
     </>
   );
 }
+
+export type WikiSidebarSignInPromptProps = {
+  onAuthSubmit?: (input: WikiActionsMenuAuthInput) => Promise<WikiActionsMenuUser>;
+  onSessionChange?: (user: WikiActionsMenuUser | null) => void;
+  sessionLoading?: boolean;
+  sessionUser?: WikiActionsMenuUser | null;
+};
+
+export function WikiSidebarSignInPrompt({
+  onAuthSubmit,
+  onSessionChange,
+  sessionLoading = false,
+  sessionUser = null,
+}: WikiSidebarSignInPromptProps) {
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+
+  if (sessionLoading || sessionUser) return null;
+
+  return (
+    <>
+      <div className="wiki-shell-sidebar-sign-in">
+        <p>Sign in to comment and view additional content</p>
+        <button
+          type="button"
+          data-test-id="sidebar-sign-in"
+          onClick={() => setAuthDialogOpen(true)}
+        >
+          <SignInIcon />
+          <span>Sign in</span>
+        </button>
+      </div>
+      <AuthDialog
+        initialMode="signin"
+        onAuthSubmit={onAuthSubmit}
+        onClose={() => setAuthDialogOpen(false)}
+        onSessionChange={onSessionChange}
+        open={authDialogOpen}
+      />
+    </>
+  );
+}

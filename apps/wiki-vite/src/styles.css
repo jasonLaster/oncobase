@@ -442,14 +442,48 @@ a {
   color: var(--muted);
 }
 
-.wiki-vite-sidebar-workspace {
+.wiki-vite-sidebar-workspace-row {
   align-items: center;
   display: flex;
+  min-height: 48px;
+  padding: 0 8px;
+}
+
+.wiki-vite-sidebar-workspace-row .wiki-shell-actions-menu {
+  min-width: 0;
+  width: 100%;
+}
+
+.wiki-vite-sidebar-workspace {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--foreground);
+  cursor: pointer;
+  display: flex;
+  flex: 1;
   gap: 8px;
-  min-height: 44px;
-  padding: 8px 10px;
+  min-height: 36px;
+  min-width: 0;
+  padding: 0 8px;
   font-size: 0.875rem;
   font-weight: 650;
+  text-align: left;
+}
+
+.wiki-vite-sidebar-workspace:hover,
+.wiki-vite-sidebar-workspace:focus-visible {
+  background: var(--accent-light);
+  outline: none;
+}
+
+.wiki-vite-sidebar-workspace span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wiki-vite-sidebar-logo {
@@ -475,34 +509,60 @@ a {
 }
 
 .wiki-vite-sidebar-footer {
-  border-top: 1px solid var(--sidebar-border);
-  display: flex;
-  gap: 0;
-  margin: 0 10px 10px;
-  overflow: hidden;
-  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 4px 12px 12px;
 }
 
-.wiki-vite-sidebar-footer a {
-  align-items: center;
+.wiki-vite-sidebar-footer-pills {
+  background: var(--popover);
   border: 1px solid var(--sidebar-border);
+  border-radius: 8px;
+  display: flex;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+}
+
+.wiki-vite-sidebar-footer-pills a,
+.wiki-vite-sidebar-footer-pills button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  cursor: pointer;
   display: inline-flex;
   flex: 1;
-  gap: 6px;
-  justify-content: center;
-  min-height: 34px;
-  text-decoration: none;
-  color: var(--text-muted);
+  font: inherit;
   font-size: 0.8125rem;
+  gap: 8px;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 0;
+  padding: 0 10px;
+  text-decoration: none;
 }
 
-.wiki-vite-sidebar-footer a + a {
-  border-left: 0;
+.wiki-vite-sidebar-footer-pills a + button {
+  border-left: 1px solid var(--sidebar-border);
 }
 
-.wiki-vite-sidebar-footer a:hover {
+.wiki-vite-sidebar-footer-pills a:hover,
+.wiki-vite-sidebar-footer-pills button:hover,
+.wiki-vite-sidebar-footer-pills button:focus-visible {
   background: var(--accent-light);
   color: var(--foreground);
+  outline: none;
+}
+
+.wiki-vite-sidebar-footer-pills kbd {
+  background: var(--background);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 5px;
 }
 
 .tag-page-shell {
@@ -731,7 +791,7 @@ a {
 
 .prototype-shell {
   display: grid;
-  grid-template-rows: 48px minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   height: 100dvh;
   overflow: hidden;
 }
@@ -955,8 +1015,27 @@ a {
 
 .page-shell {
   overflow: visible;
-  padding: 28px 0 0;
+  padding: 0;
   position: relative;
+}
+
+.wiki-vite-title-copy .wiki-shell-page-action {
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  min-height: 1.75rem;
+  padding: 0.375rem;
+}
+
+.wiki-vite-title-copy .wiki-shell-page-action:hover,
+.wiki-vite-title-copy .wiki-shell-page-action:focus-visible {
+  background: var(--accent-light);
+  color: var(--foreground);
+}
+
+.wiki-vite-mobile-page-header,
+.wiki-vite-mobile-ask {
+  display: none;
 }
 
 .muted {
@@ -1167,14 +1246,18 @@ a {
 
 @media (max-width: 860px) {
   .prototype-shell {
-    display: block;
-    height: auto;
-    min-height: 100vh;
-    overflow: visible;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .app-shell {
-    display: block;
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .sidebar-collapsed-rail,
@@ -1184,11 +1267,14 @@ a {
   }
 
   .app-content {
-    overflow: visible;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .content-shell {
-    padding-bottom: 48px;
+    height: 100%;
+    overflow: auto;
+    padding-top: calc(48px + env(safe-area-inset-top));
   }
 
   .livestore-devtools-footer {
@@ -1205,7 +1291,70 @@ a {
   }
 
   .page-shell {
-    padding-top: 24px;
+    padding-top: 0;
+  }
+
+  .wiki-vite-mobile-page-header {
+    align-items: center;
+    background: color-mix(in srgb, var(--sidebar-bg) 95%, transparent);
+    border-bottom: 1px solid var(--sidebar-border);
+    display: flex;
+    gap: 8px;
+    height: calc(48px + env(safe-area-inset-top));
+    inset: 0 0 auto;
+    padding: env(safe-area-inset-top) 12px 0;
+    position: fixed;
+    z-index: 40;
+    backdrop-filter: blur(8px);
+  }
+
+  .wiki-vite-mobile-title {
+    color: var(--foreground);
+    flex: 1;
+    font-size: 0.875rem;
+    font-weight: 650;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wiki-vite-mobile-page-header button {
+    align-items: center;
+    background: var(--background);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 auto;
+    height: 36px;
+    justify-content: center;
+    width: 36px;
+  }
+
+  .wiki-vite-mobile-page-header button:hover,
+  .wiki-vite-mobile-page-header button:focus-visible {
+    border-color: var(--brand);
+    color: var(--foreground);
+    outline: none;
+  }
+
+  .wiki-vite-mobile-ask {
+    align-items: center;
+    background: var(--brand);
+    border: 1px solid color-mix(in srgb, var(--brand) 75%, white);
+    border-radius: 999px;
+    bottom: calc(2rem + env(safe-area-inset-bottom));
+    box-shadow: 0 10px 24px rgb(15 23 42 / 0.18);
+    color: #fff;
+    display: inline-flex;
+    height: 48px;
+    justify-content: center;
+    position: fixed;
+    right: 16px;
+    width: 48px;
+    z-index: 50;
   }
 
   .page-outline {

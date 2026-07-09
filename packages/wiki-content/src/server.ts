@@ -1,6 +1,5 @@
 import crypto from "node:crypto";
 import type {
-  CompactFileNode,
   WikiManifest,
   WikiManifestAsset,
   WikiManifestPage,
@@ -11,9 +10,7 @@ import type {
   WikiUnavailablePage,
 } from "./index.ts";
 import {
-  compareFileTreeNodes,
-  isHiddenFileTreeAssetPath,
-  isHiddenFileTreePath,
+  buildCompactTreeFromManifest,
 } from "./index.ts";
 
 const PUBLIC_CACHE_CONTROL =
@@ -173,106 +170,7 @@ function unavailablePageFromContent(page: PageWithContent): WikiUnavailablePage 
   };
 }
 
-type ApiFileNode = {
-  name: string;
-  slug: string;
-  type: "directory" | "file" | "pdf";
-  pdfPath?: string;
-  children?: ApiFileNode[];
-};
-
 type ManifestSource = "manifest" | "content-fallback" | "bounded-content-fallback";
-
-function splitSlug(slug: string) {
-  return slug.split("/").filter(Boolean);
-}
-
-function insertFileNode(
-  nodes: ApiFileNode[],
-  segments: string[],
-  type: "file" | "pdf",
-  pdfPath?: string,
-  parentSlug = "",
-) {
-  if (segments.length === 0) return;
-  const [name, ...rest] = segments;
-  const slug = parentSlug ? `${parentSlug}/${name}` : name;
-
-  if (rest.length === 0) {
-    const existing = nodes.find((node) => node.name === name);
-    const nextNode: ApiFileNode =
-      type === "pdf"
-        ? { name, slug: pdfPath ?? slug, type: "pdf", pdfPath: pdfPath ?? slug }
-        : { name, slug, type: "file" };
-
-    if (!existing) {
-      nodes.push(nextNode);
-      return;
-    }
-
-    if (existing.type === "directory") {
-      existing.children = existing.children ?? [];
-      existing.children.unshift(nextNode);
-      return;
-    }
-
-    Object.assign(existing, nextNode);
-    return;
-  }
-
-  let directory = nodes.find(
-    (node) => node.name === name && node.type === "directory",
-  );
-  if (!directory) {
-    directory = { name, slug, type: "directory", children: [] };
-    nodes.push(directory);
-  }
-  directory.children = directory.children ?? [];
-  insertFileNode(directory.children, rest, type, pdfPath, slug);
-}
-
-function sortFileTree(nodes: ApiFileNode[]) {
-  nodes.sort(compareFileTreeNodes);
-  for (const node of nodes) sortFileTree(node.children ?? []);
-}
-
-function compactFileTree(nodes: ApiFileNode[], parentSlug = ""): CompactFileNode[] {
-  return nodes.map((node) => {
-    if (node.type === "directory") {
-      return ["d", node.name, compactFileTree(node.children ?? [], node.slug)];
-    }
-    if (node.type === "pdf") {
-      const expectedPath = `${parentSlug ? `${parentSlug}/` : ""}${node.name}.pdf`;
-      return node.pdfPath === expectedPath ? ["p", node.name] : ["p", node.name, node.pdfPath];
-    }
-    const expectedSlug = `${parentSlug ? `${parentSlug}/` : ""}${node.name}`;
-    return node.slug === expectedSlug ? ["f", node.name] : ["f", node.name, node.slug];
-  });
-}
-
-function buildCompactTreeFromManifest(
-  pages: Array<Pick<WikiManifestPage, "slug">>,
-  assets: Array<Pick<WikiManifestAsset, "kind" | "path">>,
-) {
-  const root: ApiFileNode[] = [];
-  for (const page of pages) {
-    if (isHiddenFileTreePath(page.slug)) continue;
-    insertFileNode(root, splitSlug(page.slug), "file");
-  }
-  for (const asset of assets) {
-    if (isHiddenFileTreeAssetPath(asset.path)) continue;
-    const segments = splitSlug(asset.path);
-    if (segments.length === 0) continue;
-    if (asset.kind === "pdf" || asset.path.toLowerCase().endsWith(".pdf")) {
-      const name = segments[segments.length - 1]!.replace(/\.pdf$/i, "");
-      insertFileNode(root, [...segments.slice(0, -1), name], "pdf", asset.path);
-    } else {
-      insertFileNode(root, segments, "file");
-    }
-  }
-  sortFileTree(root);
-  return compactFileTree(root);
-}
 
 async function requireSessionIfNeeded(
   request: Request,

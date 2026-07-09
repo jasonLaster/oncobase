@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Route, Routes } from "react-router";
 import { publishMetrics } from "./observability";
-import { Header } from "./shell/Header";
+import { HeaderCommandPaletteHost } from "./shell/Header";
 import { LiveStoreDevtoolsFooter } from "./shell/LiveStoreDevtoolsFooter";
 import { MobileNav, Sidebar } from "./shell/Navigation";
 import { ResizableAppShell } from "./shell/ResizableAppShell";
@@ -107,7 +107,7 @@ export function App({
     <>
       <WikiSync onMetrics={bumpMetrics} />
       <div className="prototype-shell">
-        <Header />
+        <HeaderCommandPaletteHost />
         <ResizableAppShell sidebar={<Sidebar />}>
           <main className="content-shell">
             <Suspense fallback={<PageFallback />}>

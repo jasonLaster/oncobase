@@ -50,15 +50,31 @@ async function login(page: Page, origin: string) {
   await page.context().addCookies(storage.cookies.filter((cookie) => cookie.domain));
 }
 
-async function capture(browser: Browser, origin: string, slug: string, viewport: typeof VIEWPORTS[number]) {
+async function openCapturePage(browser: Browser, origin: string, viewport: typeof VIEWPORTS[number]) {
   const context = await browser.newContext({
     baseURL: origin,
     viewport,
   });
   const page = await context.newPage();
   await login(page, origin);
-  await page.goto(pagePath(slug), { waitUntil: "networkidle" });
-  const buffer = await page.screenshot({
+  return { context, page };
+}
+
+async function capture(page: Page, slug: string) {
+  // networkidle never settles on the vite reader (LiveStore keeps sync
+  // connections open); wait for rendered content plus a short settle instead.
+  await page.goto(pagePath(slug), { waitUntil: "domcontentloaded" });
+  await page
+    .locator(".page-header h1, .page-shell h1, article h1")
+    .first()
+    .waitFor({ timeout: 60_000 })
+    .catch(() => {});
+  await page
+    .getByText(/^Loading markdown for/)
+    .waitFor({ state: "hidden", timeout: 60_000 })
+    .catch(() => {});
+  await page.waitForTimeout(750);
+  return page.screenshot({
     fullPage: true,
     animations: "disabled",
     mask: [
@@ -67,8 +83,6 @@ async function capture(browser: Browser, origin: string, slug: string, viewport:
       page.locator(".page-footer"),
     ],
   });
-  await context.close();
-  return buffer;
 }
 
 function selectedSlugs(manifest: WikiManifest) {
@@ -167,14 +181,18 @@ test("captures manifest-pinned visual parity report", async ({ browser }) => {
     byteEqual: boolean;
   }> = [];
 
-  for (const slug of selectedSlugs(legacyManifest)) {
-    for (const viewport of VIEWPORTS) {
+  const slugs = selectedSlugs(legacyManifest);
+  for (const viewport of VIEWPORTS) {
+    // One warm context per origin so LiveStore hydrates once, not per page.
+    const legacySession = await openCapturePage(browser, LEGACY_ORIGIN, viewport);
+    const viteSession = await openCapturePage(browser, VITE_ORIGIN, viewport);
+    for (const slug of slugs) {
       const prefix = `${safeName(slug)}-${viewport.name}`;
       const legacyFile = `${prefix}-legacy.png`;
       const viteFile = `${prefix}-vite.png`;
       const [legacyShot, viteShot] = await Promise.all([
-        capture(browser, LEGACY_ORIGIN, slug, viewport),
-        capture(browser, VITE_ORIGIN, slug, viewport),
+        capture(legacySession.page, slug),
+        capture(viteSession.page, slug),
       ]);
       await writeFile(path.join(OUTPUT_DIR, legacyFile), legacyShot);
       await writeFile(path.join(OUTPUT_DIR, viteFile), viteShot);
@@ -186,6 +204,8 @@ test("captures manifest-pinned visual parity report", async ({ browser }) => {
         byteEqual: Buffer.compare(legacyShot, viteShot) === 0,
       });
     }
+    await legacySession.context.close();
+    await viteSession.context.close();
   }
 
   await writeReport(rows);
