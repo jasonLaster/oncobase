@@ -196,7 +196,7 @@ test.describe("Command palette parity", () => {
   test("recent palette opens pages remembered by local navigation", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
     await waitForPageTitle(page, "Insurance");
-    await page.getByTestId("wiki-sidebar").getByRole("link", { name: "Diana Wiki Home" }).click();
+    await page.getByTestId("wiki-sidebar").getByRole("link", { name: "index", exact: true }).click();
     await waitForPageTitle(page, "Diana Wiki Home");
 
     await page.getByTestId("sidebar-search").click();

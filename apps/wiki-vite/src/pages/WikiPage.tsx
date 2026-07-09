@@ -70,6 +70,11 @@ const LazyMermaidRenderer = lazy(() =>
     default: module.WikiMermaidRenderer,
   })),
 );
+const LazyDocumentComments = lazy(() =>
+  import("@oncobase/wiki-comments/wrapper").then((module) => ({
+    default: module.DocumentComments,
+  })),
+);
 
 function MermaidRendererSlot({ content }: { content: string }) {
   if (!MERMAID_FENCE_PATTERN.test(content)) return null;
@@ -374,18 +379,9 @@ export function WikiPage({
     );
   }
 
-  return (
-    <DocumentOutlineShell
-      articleClassName="page-shell"
-      contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
-      documentSlug={page.slug}
-      documentTitle={page.title}
-      mobileRail={false}
-      pathname={location.pathname}
-    >
-      {toast ? (
-        <WikiToast>{toast}</WikiToast>
-      ) : null}
+  const pageBody = (
+    <>
+      {toast ? <WikiToast>{toast}</WikiToast> : null}
       <WikiPageHeader
         title={
           <MarkdownTitle
@@ -444,6 +440,34 @@ export function WikiPage({
         tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
       />
       <MermaidRendererSlot content={page.content} />
+    </>
+  );
+
+  const commentsFallback = (
+    <DocumentOutlineShell
+      articleClassName="page-shell"
+      contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
+      documentSlug={page.slug}
+      documentTitle={page.title}
+      mobileRail={false}
+      pathname={location.pathname}
+    >
+      {pageBody}
     </DocumentOutlineShell>
+  );
+
+  return (
+    <Suspense fallback={commentsFallback}>
+      <LazyDocumentComments
+        articleClassName="page-shell"
+        contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
+        documentSlug={page.slug}
+        documentTitle={page.title}
+        mobileRail={false}
+        pathname={location.pathname}
+      >
+        {pageBody}
+      </LazyDocumentComments>
+    </Suspense>
   );
 }

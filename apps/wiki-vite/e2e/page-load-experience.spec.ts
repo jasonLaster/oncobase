@@ -93,7 +93,7 @@ test.describe("Page load experience", () => {
     await waitForPageTitle(page, "Insurance");
 
     requests.pages.length = 0;
-    await page.getByTestId("wiki-sidebar").getByRole("link", { name: "Diana Wiki Home" }).click();
+    await page.getByTestId("wiki-sidebar").getByRole("link", { name: "index", exact: true }).click();
     await waitForPageTitle(page, "Diana Wiki Home");
     await openDirectory(page, "logistics");
     await page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" }).click();

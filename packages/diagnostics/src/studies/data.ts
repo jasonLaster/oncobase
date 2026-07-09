@@ -50,6 +50,15 @@ export function getDicomViewerHref(studyId: string, studySet?: string | null) {
   return `/tools/dicom-viewer?${params.toString()}`;
 }
 
+export function getPrimaryReportLink(study: DiagnosticStudy) {
+  return (
+    study.reportLinks?.[0] ?? {
+      label: "Pathology report",
+      href: study.pathologyReportHref,
+    }
+  );
+}
+
 export function sortDiagnosticStudies(studies: DiagnosticStudy[]) {
   return [...studies].sort((a, b) => b.isoDate.localeCompare(a.isoDate));
 }

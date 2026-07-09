@@ -433,7 +433,7 @@ describe("wiki content contracts", () => {
     ]);
   });
 
-  test("sidebar transform matches current web render-time behavior", () => {
+  test("sidebar transform builds meeting-note set folders for display only", () => {
     const tree = expandCompactFileTree(
       buildCompactTreeFromManifest(
         [
@@ -460,12 +460,32 @@ describe("wiki content contracts", () => {
     );
 
     const transformed = transformFileTreeForSidebar(tree);
+    const sources = transformed.find((node) => node.slug === "sources");
+    const meetingNotes = sources?.children?.find(
+      (node) => node.slug === "sources/meeting-notes",
+    );
+    const meetingSet = meetingNotes?.children?.find(
+      (node) =>
+        node.type === "directory" &&
+        node.slug === "sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync__meeting-set",
+    );
 
-    expect(transformed).toBe(tree);
-    expect(JSON.stringify(transformed)).not.toContain("Notes set");
-    expect(JSON.stringify(transformed)).not.toContain("__meeting-set");
-    expect(JSON.stringify(transformed)).not.toContain("PDF set");
-    expect(JSON.stringify(transformed)).not.toContain("__paper-set");
+    expect(meetingSet).toMatchObject({
+      name: "05-13---echo-kernis-phm-tissue-sync",
+      type: "directory",
+      badge: "Notes set",
+    });
+    expect(meetingSet?.children?.map((child) => [child.name, child.slug]).sort()).toEqual([
+      ["Formatted", "sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-formatted"],
+      ["Overview", "sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-overview"],
+      ["Raw", "sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-raw"],
+    ]);
+    expect(
+      meetingNotes?.children?.some(
+        (node) =>
+          node.slug === "sources/meeting-notes/05-13---echo-kernis-phm-tissue-sync-overview",
+      ),
+    ).toBe(false);
   });
 
   test("sorts weekly update pages by descending week number", () => {
