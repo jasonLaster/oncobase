@@ -33,7 +33,7 @@ import {
 import useSWR from "swr";
 
 import { copyTextToClipboard } from "@oncobase/wiki-shell";
-import { Badge, Button, cn, setResizableSidebarWidth } from "./ui.tsx";
+import { Badge, Button, cn } from "./ui.tsx";
 import {
   DIAGNOSTIC_STUDY_SET_PARAM,
   getPrimaryReportLink,
@@ -252,6 +252,8 @@ interface DicomViewerClientProps {
   initialImageNumber?: number | null;
   initialSeriesId?: string | null;
   initialStudySet?: string | null;
+  /** Host hook for the collapse-guardrails control to shrink the app sidebar. */
+  setSidebarWidth?: (width: number) => void;
 }
 
 export function DicomViewerClient({
@@ -259,6 +261,7 @@ export function DicomViewerClient({
   initialImageNumber = null,
   initialSeriesId = null,
   initialStudySet = null,
+  setSidebarWidth,
 }: DicomViewerClientProps) {
   const viewportElementRef = useRef<HTMLDivElement | null>(null);
   const renderingEngineRef = useRef<InstanceType<CornerstoneCore["RenderingEngine"]> | null>(
@@ -825,7 +828,7 @@ export function DicomViewerClient({
     setAnnotationEditorPortalElement(node);
   }, []);
   const collapseGuardrails = () => {
-    setResizableSidebarWidth(0);
+    setSidebarWidth?.(0);
     setStackRailOpen(false);
   };
   const shareCurrentImage = useCallback(async () => {

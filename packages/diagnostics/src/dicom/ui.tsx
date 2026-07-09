@@ -68,4 +68,3 @@ export function Badge({
   return <span className={cn(badgeBase, badgeVariants[variant], className)} {...props} />;
 }
 
-export function setResizableSidebarWidth(_width: number) {}

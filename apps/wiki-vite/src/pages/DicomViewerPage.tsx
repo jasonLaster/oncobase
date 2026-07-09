@@ -1,10 +1,12 @@
 import { DicomViewerClient } from "@oncobase/diagnostics/dicom";
+import { setResizableSidebarWidth } from "@oncobase/wiki-shell";
 import { useSearchParams } from "react-router";
 
 export function DicomViewerPage() {
   const [searchParams] = useSearchParams();
   return (
     <DicomViewerClient
+      setSidebarWidth={setResizableSidebarWidth}
       initialBiopsyId={searchParams.get("biopsyId") ?? searchParams.get("id")}
       initialImageNumber={parsePositiveInteger(
         searchParams.get("image") ?? searchParams.get("slice"),
