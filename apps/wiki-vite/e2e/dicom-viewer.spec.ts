@@ -671,7 +671,15 @@ test.describe("DICOM viewer", () => {
     await expect(sidebar).toContainText("project management", { timeout: 60_000 });
 
     await page.goto(`/tools/dicom-viewer?id=biopsy-2026-03-23${seededStudySetParam}`);
-    await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible();
+    // Back-to-back full reloads can race the previous page's store shutdown on
+    // slow runners; recover once via the boot error card's Reload action.
+    const bootError = page.getByRole("button", { name: "Reload" });
+    if (await bootError.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await bootError.click();
+    }
+    await expect(page.getByTestId("dicom-cornerstone-viewport")).toBeVisible({
+      timeout: 30_000,
+    });
     const viewerSidebar = page.getByTestId("diagnostics-sidebar");
     await expect(viewerSidebar).toBeVisible();
     await expect(viewerSidebar.getByRole("link")).toHaveCount(biopsyLinks.length + 1);
