@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { Route, Routes } from "react-router";
+import { Route, Routes, useLocation } from "react-router";
 import { publishMetrics } from "./observability";
 import { Header } from "./shell/Header";
 import { LiveStoreDevtoolsFooter } from "./shell/LiveStoreDevtoolsFooter";
@@ -100,6 +100,10 @@ export function App({
   storeId: string;
 }) {
   const scope = useWikiScope();
+  const { pathname } = useLocation();
+  const isImmersiveDicomRoute =
+    pathname.startsWith("/tools/dicom-viewer") ||
+    pathname.startsWith("/tools/dicom-compare");
   const [metrics, setMetrics] = useState<Metrics>(initialMetrics);
 
   useEffect(() => {
@@ -126,7 +130,10 @@ export function App({
   return (
     <>
       <WikiSync onMetrics={bumpMetrics} />
-      <div className="prototype-shell">
+      <div
+        className="prototype-shell"
+        data-immersive-route={isImmersiveDicomRoute ? "dicom-viewer" : undefined}
+      >
         <Header />
         <ResizableAppShell sidebar={<Sidebar />}>
           <main className="content-shell">

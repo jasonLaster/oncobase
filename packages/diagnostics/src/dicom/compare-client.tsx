@@ -42,10 +42,12 @@ import {
   type DiagnosticStudiesPayload,
   type DiagnosticStudy,
 } from "../studies/index.ts";
+import {
+  ensureCornerstoneModules,
+  type CornerstoneModules,
+} from "./cornerstone-runtime.ts";
 
 type CornerstoneCore = typeof import("@cornerstonejs/core");
-type CornerstoneTools = typeof import("@cornerstonejs/tools");
-type DicomImageLoader = typeof import("@cornerstonejs/dicom-image-loader");
 type StackViewport = InstanceType<CornerstoneCore["StackViewport"]>;
 type ToolMode = "window" | "pan" | "zoom";
 
@@ -117,65 +119,15 @@ interface ResolvedPair {
   warnings: string[];
 }
 
-interface CornerstoneModules {
-  core: CornerstoneCore;
-  tools: CornerstoneTools;
-  dicomLoader: DicomImageLoader;
-}
-
 interface DicomCompareClientProps {
   initialComparisonId?: string | null;
   initialStudySet?: string | null;
 }
 
-let cornerstoneModulesPromise: Promise<CornerstoneModules> | null = null;
-
 async function fetchJson<T>(url: string) {
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
   return (await response.json()) as T;
-}
-
-async function ensureCornerstone() {
-  if (cornerstoneModulesPromise) return cornerstoneModulesPromise;
-
-  cornerstoneModulesPromise = Promise.all([
-    import("@cornerstonejs/core"),
-    import("@cornerstonejs/tools"),
-    import("@cornerstonejs/dicom-image-loader"),
-  ]).then(async ([core, tools, dicomLoader]) => {
-    if (!core.isCornerstoneInitialized()) {
-      await core.init({
-        debug: {},
-        rendering: {
-          renderingEngineMode: "contextPool",
-          webGlContextCount: 3,
-        },
-      });
-    }
-
-    dicomLoader.init({
-      maxWebWorkers: Math.max(1, Math.min(navigator.hardwareConcurrency || 2, 4)),
-    });
-
-    tools.init();
-    safeAddTool(tools, tools.WindowLevelTool);
-    safeAddTool(tools, tools.PanTool);
-    safeAddTool(tools, tools.ZoomTool);
-    safeAddTool(tools, tools.StackScrollTool);
-
-    return { core, tools, dicomLoader };
-  });
-
-  return cornerstoneModulesPromise;
-}
-
-function safeAddTool(tools: CornerstoneTools, ToolClass: unknown) {
-  try {
-    tools.addTool(ToolClass);
-  } catch {
-    // Tool registration is global; remounts can safely reuse existing tools.
-  }
 }
 
 export function DicomCompareClient({
@@ -482,7 +434,7 @@ export function DicomCompareClient({
     async function loadStacks() {
       setError(null);
       try {
-        const modules = await ensureCornerstone();
+        const modules = await ensureCornerstoneModules();
         if (cancelled) return;
         modulesRef.current = modules;
 

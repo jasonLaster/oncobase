@@ -37,15 +37,9 @@ function vendorChunk(id: string): string | null {
   if (normalized.includes("/node_modules/lucide-react/")) {
     return "vendor-icons";
   }
-  if (
-    normalized.includes("/node_modules/@cornerstonejs/") ||
-    normalized.includes("/node_modules/@kitware/vtk.js/") ||
-    normalized.includes("/node_modules/dicom-parser/") ||
-    normalized.includes("/node_modules/gl-matrix/") ||
-    normalized.includes("/node_modules/comlink/")
-  ) {
-    return "vendor-cornerstone";
-  }
+  // Cornerstone and its deps split naturally behind the ensureCornerstone
+  // dynamic-import boundary; forcing them into one chunk deadlocked module
+  // evaluation (same class as the earlier comments chunk bug).
   return null;
 }
 

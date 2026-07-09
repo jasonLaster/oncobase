@@ -40,11 +40,13 @@ import {
   type DiagnosticStudiesPayload,
   type DiagnosticStudy,
 } from "../studies/index.ts";
+import {
+  ensureCornerstoneModules,
+  type CornerstoneModules,
+} from "./cornerstone-runtime.ts";
 import { DicomAnnotationLayer } from "./dicom-annotation-layer.tsx";
 
 type CornerstoneCore = typeof import("@cornerstonejs/core");
-type CornerstoneTools = typeof import("@cornerstonejs/tools");
-type DicomImageLoader = typeof import("@cornerstonejs/dicom-image-loader");
 
 type ToolMode = "window" | "pan" | "zoom";
 type DicomRail = "series" | "stack";
@@ -129,14 +131,6 @@ interface ActiveStack {
   images: ViewerImage[];
 }
 
-interface CornerstoneModules {
-  core: CornerstoneCore;
-  tools: CornerstoneTools;
-  dicomLoader: DicomImageLoader;
-}
-
-let cornerstoneModulesPromise: Promise<CornerstoneModules> | null = null;
-
 async function fetchDicomCatalog(url: string) {
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) throw new Error(`Catalog request failed: ${response.status}`);
@@ -147,48 +141,6 @@ async function fetchDiagnosticStudies(url: string) {
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) throw new Error(`Diagnostic studies request failed: ${response.status}`);
   return (await response.json()) as DiagnosticStudiesPayload;
-}
-
-async function ensureCornerstone() {
-  if (cornerstoneModulesPromise) return cornerstoneModulesPromise;
-
-  cornerstoneModulesPromise = Promise.all([
-    import("@cornerstonejs/core"),
-    import("@cornerstonejs/tools"),
-    import("@cornerstonejs/dicom-image-loader"),
-  ]).then(async ([core, tools, dicomLoader]) => {
-    if (!core.isCornerstoneInitialized()) {
-      await core.init({
-        debug: {},
-        rendering: {
-          renderingEngineMode: "contextPool",
-          webGlContextCount: 3,
-        },
-      });
-    }
-
-    dicomLoader.init({
-      maxWebWorkers: Math.max(1, Math.min(navigator.hardwareConcurrency || 2, 4)),
-    });
-
-    tools.init();
-    safeAddTool(tools, tools.WindowLevelTool);
-    safeAddTool(tools, tools.PanTool);
-    safeAddTool(tools, tools.ZoomTool);
-    safeAddTool(tools, tools.StackScrollTool);
-
-    return { core, tools, dicomLoader };
-  });
-
-  return cornerstoneModulesPromise;
-}
-
-function safeAddTool(tools: CornerstoneTools, ToolClass: unknown) {
-  try {
-    tools.addTool(ToolClass);
-  } catch {
-    // Global tool registration is process-wide; repeated client mounts are fine.
-  }
 }
 
 function dicomRailBounds(rail: DicomRail): DicomRailBounds {
@@ -306,6 +258,9 @@ export function DicomViewerClient({
     useState<HTMLDivElement | null>(null);
   const [mobileStudySheetOpen, setMobileStudySheetOpen] = useState(false);
   const [mobileStudyTab, setMobileStudyTab] = useState<"series" | "report">("series");
+  const [cornerstoneModules, setCornerstoneModules] =
+    useState<CornerstoneModules | null>(null);
+  const [viewportNode, setViewportNode] = useState<HTMLDivElement | null>(null);
   const {
     data: catalog,
     error: catalogError,
@@ -375,6 +330,18 @@ export function DicomViewerClient({
     () => findBiopsyForSeries(selectedSeries, diagnosticStudies) ?? requestedBiopsy,
     [diagnosticStudies, requestedBiopsy, selectedSeries],
   );
+  // The image deep-link applies only once the route-target stack is the one
+  // loading; provisional stacks picked before study metadata resolves must not
+  // consume it or rewrite the URL.
+  const selectedSeriesBiopsy = useMemo(
+    () => findBiopsyForSeries(selectedSeries, diagnosticStudies),
+    [diagnosticStudies, selectedSeries],
+  );
+  const deepLinkTargetReady =
+    initialBiopsyId === null ||
+    (requestedBiopsy !== null && selectedSeriesBiopsy?.id === requestedBiopsy.id);
+  const deepLinkTargetReadyRef = useRef(deepLinkTargetReady);
+  deepLinkTargetReadyRef.current = deepLinkTargetReady;
   const selectedReportLink = selectedBiopsy
     ? getPrimaryReportLink(selectedBiopsy)
     : null;
@@ -485,11 +452,40 @@ export function DicomViewerClient({
   }, [applyToolMode, toolMode]);
 
   useEffect(() => {
-    const element = viewportElementRef.current;
+    let cancelled = false;
+
+    async function loadRuntime() {
+      try {
+        const modules = await ensureCornerstoneModules();
+        if (cancelled) return;
+        modulesRef.current = modules;
+        setCornerstoneModules(modules);
+      } catch (caught) {
+        if (cancelled) return;
+        setError(caught instanceof Error ? caught.message : "Could not initialize viewer");
+      }
+    }
+
+    void loadRuntime();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const setViewportElementNode = useCallback((node: HTMLDivElement | null) => {
+    viewportElementRef.current = node;
+    setViewportNode(node);
+  }, []);
+
+  useEffect(() => {
+    const element = viewportNode;
     const stack = activeStack;
-    if (!element || !stack?.images.length) return;
+    const loadedModules = cornerstoneModules;
+    if (!element || !stack?.images.length || !loadedModules) return;
     const viewportElement = element;
     const currentStack = stack;
+    const modules = loadedModules;
 
     let cancelled = false;
     let removeListener: (() => void) | null = null;
@@ -498,10 +494,6 @@ export function DicomViewerClient({
       setError(null);
       setLoadedStackId(null);
       try {
-        const modules = await ensureCornerstone();
-        if (cancelled) return;
-        modulesRef.current = modules;
-
         const { core, tools } = modules;
         let renderingEngine = renderingEngineRef.current;
         if (!renderingEngine) {
@@ -535,8 +527,9 @@ export function DicomViewerClient({
         viewportRef.current = viewport;
 
         const imageIds = currentStack.images.map((image) => image.imageId);
-        const requestedInitialIndex =
-          initialImageIndexRef.current ?? readInitialImageIndexFromLocation();
+        const requestedInitialIndex = deepLinkTargetReadyRef.current
+          ? (initialImageIndexRef.current ?? readInitialImageIndexFromLocation())
+          : null;
         const initialIndex =
           requestedInitialIndex !== null
             ? clampImageIndex(requestedInitialIndex, imageIds.length)
@@ -562,7 +555,9 @@ export function DicomViewerClient({
         sliceIndexRef.current = initialIndex;
         setLoadingImageIndex(null);
         setLoadedStackId(currentStack.id);
-        initialImageIndexRef.current = null;
+        if (deepLinkTargetReadyRef.current) {
+          initialImageIndexRef.current = null;
+        }
         setIsInverted(false);
         prefetchNearbyImages(modules.core, currentStack.images, initialIndex);
 
@@ -591,10 +586,10 @@ export function DicomViewerClient({
       cancelled = true;
       removeListener?.();
     };
-  }, [activeStack, applyToolMode]);
+  }, [activeStack, applyToolMode, cornerstoneModules, viewportNode]);
 
   useEffect(() => {
-    const element = viewportElementRef.current;
+    const element = viewportNode;
     if (!element) return;
 
     let resizeFrame = 0;
@@ -610,7 +605,7 @@ export function DicomViewerClient({
       if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
       observer.disconnect();
     };
-  }, []);
+  }, [viewportNode]);
 
   useEffect(() => {
     const currentToolGroupId = toolGroupId.current;
@@ -657,8 +652,19 @@ export function DicomViewerClient({
     [activeStack],
   );
 
+  // Apply a still-pending deep-link index once the target stack is loaded —
+  // covers the ordering where the provisional stack was already the target.
+  useEffect(() => {
+    if (!deepLinkTargetReady || !activeStackLoaded) return;
+    const pending = initialImageIndexRef.current;
+    if (pending === null) return;
+    initialImageIndexRef.current = null;
+    void showImage(pending);
+  }, [activeStackLoaded, deepLinkTargetReady, requestedBiopsy, selectedSeriesBiopsy, showImage]);
+
   useEffect(() => {
     if (!activeStackLoaded || !activeStackId) return;
+    if (initialImageIndexRef.current !== null) return;
     const nextUrl = currentImageShareUrl(activeStackId, sliceIndex);
     if (nextUrl !== window.location.href) {
       window.history.replaceState(window.history.state, "", nextUrl);
@@ -981,7 +987,7 @@ export function DicomViewerClient({
             data-test-id="dicom-viewport-frame"
           >
             <div
-              ref={viewportElementRef}
+              ref={setViewportElementNode}
               className="absolute inset-0 touch-none bg-black select-none"
               data-test-id="dicom-cornerstone-viewport"
               data-testid="dicom-cornerstone-viewport"
