@@ -65,8 +65,16 @@ test.describe("production page metadata", () => {
     try {
       const insurance = await getHtml(botRequest, "/wiki/logistics/insurance");
 
-      expect(readTitle(insurance)).toBe("Insurance \u2014 TNBC Knowledge Base");
-      expect(readMetaContent(insurance, "og:title")).toBe("Insurance");
+      // The page title is the document's own title (matching web), not a
+      // slug-derived label. Assert the structure rather than the exact copy
+      // so content edits don't break the parity check.
+      const insuranceTitle = readTitle(insurance);
+      const insuranceOgTitle = readMetaContent(insurance, "og:title");
+      expect(insuranceTitle).toMatch(/Insurance/);
+      expect(insuranceTitle.endsWith(" \u2014 TNBC Knowledge Base")).toBe(true);
+      expect(insuranceOgTitle).toBeTruthy();
+      expect(insuranceOgTitle).not.toBe("TNBC Knowledge Base");
+      expect(insuranceTitle).toBe(`${insuranceOgTitle} \u2014 TNBC Knowledge Base`);
       expect(readMetaContent(insurance, "og:description")).toBeTruthy();
       expect(readMetaContent(insurance, "description")).not.toBe(DEFAULT_DESCRIPTION);
       expect(readMetaContent(insurance, "robots")).toBe("noindex,nofollow");
