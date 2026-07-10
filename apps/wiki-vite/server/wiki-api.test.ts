@@ -168,6 +168,12 @@ function createFakeConvexClient() {
         }
         case "access:canUserAccessSlug":
           return true;
+        case "access:filterAccessibleSlugs":
+          return (args.slugs as string[]).map((slug) => ({
+            slug,
+            allowed: true,
+            hasDocument: pages.some((candidate) => candidate.slug === slug),
+          }));
         case "documents:listPdfAssets":
           return [
             {

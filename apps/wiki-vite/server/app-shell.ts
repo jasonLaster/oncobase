@@ -3,11 +3,14 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../apps/web/convex/_generated/api.js";
+import { canonicalSlugLookupEntriesFromSlugs } from "@oncobase/wiki-content/canonical-slugs";
+import { isLinkPreviewBotUserAgent } from "@oncobase/wiki-content/link-preview";
 import { legacyRedirectResponse } from "./redirects.ts";
 import {
   authedCookieName,
   createClient,
   createWikiApiHandler,
+  handleSharePreviewRequest,
   resolveSiteSlug,
   withSiteSlug,
 } from "./wiki-api.js";
@@ -15,17 +18,32 @@ import {
 const DEFAULT_SITE_SLUG = "diana";
 const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
 const PASSWORD_GATE_CACHE_TTL_MS = 15_000;
+const CANONICAL_SLUG_CACHE_TTL_MS = 60_000;
+const CANONICAL_SLUG_PAGE_SIZE = 512;
 const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml|map)$/i;
-const LINK_PREVIEW_BOT_RE =
-  /\b(slackbot|twitterbot|facebookexternalhit|linkedinbot|discordbot|whatsapp|telegrambot|skypeuripreview|googlebot|bingbot|applebot)\b/i;
-
+const CANONICAL_PATHS = new Map([
+  ["/about", "/about/Index"],
+  ["/about/index", "/about/Index"],
+]);
 
 type PasswordGateEntry = {
   enabled: boolean;
   expires: number;
 };
 
+type CanonicalSlugCacheEntry = {
+  expires: number;
+  map: Map<string, string>;
+};
+
+type ManifestPageResult = {
+  page: Array<{ slug?: unknown }>;
+  isDone: boolean;
+  continueCursor: string | null;
+};
+
 const passwordGateCache = new Map<string, PasswordGateEntry>();
+const canonicalSlugCache = new Map<string, CanonicalSlugCacheEntry>();
 
 const STATIC_MIME_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -53,9 +71,19 @@ function safeStaticPath(distDir: string, pathname: string) {
   return path.join(distDir, normalized);
 }
 
+function safeDecodePathname(pathname: string) {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return pathname;
+  }
+}
+
 function slugFromPathname(pathname: string) {
   if (pathname === "/login") return null;
-  const decoded = decodeURIComponent(pathname).replace(/^\/+/, "").replace(/\.md$/, "");
+  const decoded = safeDecodePathname(pathname)
+    .replace(/^\/+/, "")
+    .replace(/\.(?:md|mdx)$/i, "");
   return decoded || "index";
 }
 
@@ -82,9 +110,95 @@ function isAppAssetRequest(pathname: string) {
 
 function isLinkPreviewRequest(request: Request) {
   if (request.method !== "GET" && request.method !== "HEAD") return false;
-  const accept = request.headers.get("accept") ?? "";
-  const userAgent = request.headers.get("user-agent") ?? "";
-  return accept.includes("text/html") && LINK_PREVIEW_BOT_RE.test(userAgent);
+  return isLinkPreviewBotUserAgent(request.headers.get("user-agent"));
+}
+
+function sharePreviewRequestFor(request: Request) {
+  const url = new URL(request.url);
+  const previewUrl = new URL("/api/share-preview", request.url);
+  previewUrl.searchParams.set("path", url.pathname);
+  const headers = new Headers(request.headers);
+  headers.set("x-share-preview-path", url.pathname);
+  return new Request(previewUrl, {
+    headers,
+    method: request.method,
+  });
+}
+
+function redirectToPath(request: Request, pathname: string) {
+  const target = new URL(request.url);
+  target.pathname = pathname;
+  return Response.redirect(target, 307);
+}
+
+function explicitCanonicalRedirectResponse(request: Request) {
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  const url = new URL(request.url);
+  const canonicalPath = CANONICAL_PATHS.get(url.pathname);
+  if (!canonicalPath || canonicalPath === url.pathname) return null;
+  return redirectToPath(request, canonicalPath);
+}
+
+async function publicCanonicalSlugMap(client: ConvexHttpClient, siteSlug: string) {
+  const now = Date.now();
+  const cached = canonicalSlugCache.get(siteSlug);
+  if (cached && cached.expires > now) return cached.map;
+
+  const slugs: string[] = [];
+  let cursor: string | null = null;
+  let isDone = false;
+
+  while (!isDone) {
+    const result = await client.query(
+      api.documents.listManifestPage,
+      withSiteSlug(siteSlug, {
+        cursor,
+        numItems: CANONICAL_SLUG_PAGE_SIZE,
+      }),
+    ) as ManifestPageResult;
+    for (const page of result.page) {
+      if (typeof page.slug === "string") {
+        slugs.push(page.slug);
+      }
+    }
+    cursor = result.continueCursor;
+    isDone = result.isDone || !cursor;
+  }
+
+  const map = new Map(canonicalSlugLookupEntriesFromSlugs(slugs));
+  canonicalSlugCache.set(siteSlug, {
+    expires: now + CANONICAL_SLUG_CACHE_TTL_MS,
+    map,
+  });
+  return map;
+}
+
+async function canonicalSlugRedirectResponse(
+  request: Request,
+  client: ConvexHttpClient,
+) {
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  const url = new URL(request.url);
+  if (url.pathname === "/login" || url.pathname.startsWith("/api/") || isAppAssetRequest(url.pathname)) {
+    return null;
+  }
+
+  const slug = slugFromPathname(url.pathname);
+  if (!slug || slug === "index") return null;
+
+  const siteSlug = await resolveSiteSlug(request, client);
+  if (!siteSlug) return null;
+
+  try {
+    const canonicalSlug = (await publicCanonicalSlugMap(client, siteSlug)).get(
+      slug.toLowerCase(),
+    );
+    if (!canonicalSlug || canonicalSlug === slug) return null;
+    return redirectToPath(request, `/${canonicalSlug}`);
+  } catch (error) {
+    console.warn("[wiki-vite-server] canonical slug lookup failed", error);
+    return null;
+  }
 }
 
 
@@ -143,6 +257,10 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
     loginUrl.searchParams.set("token", token);
     loginUrl.searchParams.set("redirect", `${clean.pathname}${clean.search}`);
     return Response.redirect(loginUrl, 302);
+  }
+
+  if (isLinkPreviewRequest(request) && !isAppAssetRequest(url.pathname)) {
+    return handleSharePreviewRequest(sharePreviewRequestFor(request), client, siteSlug);
   }
 
   const loginUrl = new URL("/login", request.url);
@@ -283,12 +401,12 @@ export function createWikiViteHandler({
     if (apiResponse) return apiResponse;
     const redirectResponse = legacyRedirectResponse(request);
     if (redirectResponse) return redirectResponse;
-    const pathname = new URL(request.url).pathname;
-    if (isLinkPreviewRequest(request) && !isAppAssetRequest(pathname)) {
-      return handleAppShellRequest(request);
-    }
+    const explicitCanonicalRedirect = explicitCanonicalRedirectResponse(request);
+    if (explicitCanonicalRedirect) return explicitCanonicalRedirect;
     const gateResponse = await enforcePasswordGate(request, client);
     if (gateResponse) return gateResponse;
+    const canonicalRedirect = await canonicalSlugRedirectResponse(request, client);
+    if (canonicalRedirect) return canonicalRedirect;
     return handleAppShellRequest(request);
   };
 }
