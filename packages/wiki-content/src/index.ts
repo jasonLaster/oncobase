@@ -1,3 +1,4 @@
+export { wikiChatCopy } from "./chat-copy.ts";
 export interface FileNode {
   name: string;
   slug: string;

@@ -26,3 +26,4 @@ export function resolveChatCopy(copy: ChatCopy | undefined): ResolvedChatCopy {
       copy?.suggestedPrompts ?? defaultChatCopy.suggestedPrompts,
   };
 }
+

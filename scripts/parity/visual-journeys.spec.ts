@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   test,
@@ -29,6 +29,11 @@ const VIEWPORTS = [
 const NAVIGATION_TIMEOUT_MS = 60_000;
 const READY_TIMEOUT_MS = 45_000;
 const SETTLE_MS = 750;
+// Comma-separated checkpoint keys for focused reruns (empty = all).
+const KEY_FILTER = (process.env.PARITY_JOURNEY_KEYS || "")
+  .split(",")
+  .map((key) => key.trim())
+  .filter(Boolean);
 
 type Viewport = typeof VIEWPORTS[number];
 type CaptureMode = "fullPage" | "viewport";
@@ -237,13 +242,23 @@ function dicomMasks(page: Page) {
 }
 
 async function captureCheckpoint(page: Page, checkpoint: Checkpoint, viewport: Viewport) {
-  const filename = `${safeName(checkpoint.key)}-${viewport.name}.png`;
+  const basename = `${safeName(checkpoint.key)}-${viewport.name}`;
   await page.screenshot({
-    path: path.join(OUTPUT_DIR, filename),
+    path: path.join(OUTPUT_DIR, `${basename}.png`),
     fullPage: checkpoint.captureMode !== "viewport",
     animations: "disabled",
     mask: [...alwaysMasks(page), ...(checkpoint.masks?.(page) ?? [])],
   });
+
+  try {
+    const text = await page.evaluate(() => {
+      const root = (document.querySelector("main") as HTMLElement | null) ?? document.body;
+      return root.innerText.replace(/\s+/g, " ").trim();
+    });
+    await writeFile(path.join(OUTPUT_DIR, `${basename}.txt`), text);
+  } catch (error) {
+    console.warn(`[visual-journeys] skipped text sidecar ${basename}: ${errorMessage(error)}`);
+  }
 }
 
 async function closeOverlay(page: Page) {
@@ -597,6 +612,7 @@ test("captures app-route visual journey checkpoints", async ({ browser }) => {
     try {
       for (const checkpoint of checkpoints) {
         if (checkpoint.viewports && !checkpoint.viewports.includes(viewport.name)) continue;
+        if (KEY_FILTER.length > 0 && !KEY_FILTER.includes(checkpoint.key)) continue;
         try {
           await checkpoint.run(session.page, viewport);
           await captureCheckpoint(session.page, checkpoint, viewport);
