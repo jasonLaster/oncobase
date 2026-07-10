@@ -1,5 +1,10 @@
 import { headers } from "next/headers";
 import { cacheLife, cacheTag } from "next/cache";
+import {
+  canonicalizePublishedSlug,
+  canonicalSlugLookupEntriesFromSlugs,
+  legacyPublishedSlug,
+} from "@oncobase/wiki-content/canonical-slugs";
 import { siteDataFromSlug } from "@/lib/site-data";
 import { DEFAULT_SITE_SLUG, toSiteSlug, type SiteSlug } from "@/lib/site";
 import { shouldSkipConvexReads } from "@/lib/convex-url";
@@ -95,58 +100,9 @@ interface MarkdownDiscoveryOptions {
   includeSensitive?: boolean;
 }
 
-const PROJECT_MANAGEMENT_VIEW_FILES = new Set([
-  "1-inbox",
-  "2-urgent",
-  "3-completed",
-  "4-backlog",
-]);
 const CANONICAL_SLUG_LOOKUP_VERSION = "2";
 
-export function canonicalizePublishedSlug(slug: string): string {
-  const prefix = "project-management/";
-  if (!slug.startsWith(prefix)) return slug;
-  const rest = slug.slice(prefix.length);
-  if (!PROJECT_MANAGEMENT_VIEW_FILES.has(rest)) return slug;
-  return `${prefix}views/${rest}`;
-}
-
-function routeSlugAliasKey(slug: string): string {
-  return slug.toLowerCase().replace(/\s+/g, "-");
-}
-
-export function canonicalSlugLookupEntriesFromSlugs(
-  slugs: string[],
-): Array<[string, string]> {
-  const canonicalSlugs = slugs.map(canonicalizePublishedSlug);
-  const entries: Array<[string, string]> = [];
-  const seen = new Set<string>();
-
-  for (const canonicalSlug of canonicalSlugs) {
-    const lower = canonicalSlug.toLowerCase();
-    if (seen.has(lower)) continue;
-    entries.push([lower, canonicalSlug]);
-    seen.add(lower);
-  }
-
-  for (const canonicalSlug of canonicalSlugs) {
-    const lower = canonicalSlug.toLowerCase();
-    const alias = routeSlugAliasKey(canonicalSlug);
-    if (alias === lower || seen.has(alias)) continue;
-    entries.push([alias, canonicalSlug]);
-    seen.add(alias);
-  }
-
-  return entries;
-}
-
-function legacyPublishedSlug(slug: string): string | null {
-  const prefix = "project-management/views/";
-  if (!slug.startsWith(prefix)) return null;
-  const rest = slug.slice(prefix.length);
-  if (!PROJECT_MANAGEMENT_VIEW_FILES.has(rest)) return null;
-  return `project-management/${rest}`;
-}
+export { canonicalizePublishedSlug, canonicalSlugLookupEntriesFromSlugs };
 
 // ── Convex fetchers (tagged Cache Components entries) ────────────────────────
 // Publish invalidates these tags so the PPR shell, document body, and sidebar

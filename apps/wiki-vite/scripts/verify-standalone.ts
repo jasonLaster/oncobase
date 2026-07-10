@@ -76,13 +76,13 @@ try {
   ) {
     throw new Error("Standalone bot metadata smoke did not inject Twitter card tags");
   }
-  if (!/name="robots" content="index, follow"/.test(botMetadataHtml)) {
+  if (!/name="robots" content="noindex,nofollow"/.test(botMetadataHtml)) {
     throw new Error(
-      "Standalone bot metadata smoke did not include a robots tag for a public page",
+      "Standalone bot metadata smoke did not include the share-preview robots tag",
     );
   }
-  if (!botMetadataResponse.headers.get("cache-control")?.includes("s-maxage")) {
-    throw new Error("Standalone bot metadata smoke did not use production cache headers");
+  if (!botMetadataResponse.headers.get("cache-control")?.includes("no-store")) {
+    throw new Error("Standalone bot metadata smoke did not use share-preview cache headers");
   }
 
   const sessionResponse = await fetch(`${origin}/api/wiki/session`);

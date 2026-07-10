@@ -51,6 +51,16 @@
       "import": "./src/convex-url.ts",
       "default": "./src/convex-url.ts"
     },
+    "./canonical-slugs": {
+      "types": "./src/canonical-slugs.ts",
+      "import": "./src/canonical-slugs.ts",
+      "default": "./src/canonical-slugs.ts"
+    },
+    "./link-preview": {
+      "types": "./src/link-preview.ts",
+      "import": "./src/link-preview.ts",
+      "default": "./src/link-preview.ts"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {

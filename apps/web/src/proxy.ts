@@ -1,5 +1,6 @@
 import { ConvexHttpClient } from "convex/browser";
 import { NextRequest, NextResponse } from "next/server";
+import { isLinkPreviewBotUserAgent } from "@oncobase/wiki-content/link-preview";
 import { api } from "@convex/_generated/api";
 import { resolveServerConvexUrl } from "@/lib/convex-url";
 import localHosts from "../.local-hosts.json";
@@ -12,8 +13,6 @@ const PASSWORDS = ["wallify", "diana"];
 const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
 const USER_SESSION_COOKIE = "wiki_user_session";
 const CANONICAL_PATHS = new Map([["/about/index", "/about/Index"]]);
-const LINK_PREVIEW_BOT_RE =
-  /\b(slackbot|twitterbot|facebookexternalhit|facebot|linkedinbot|discordbot|whatsapp|telegrambot|skypeuripreview|microsoftpreview|teamsbot|pinterest|redditbot|applebot)\b/i;
 
 const DEFAULT_SITE_SLUG = "diana";
 const HOST_CACHE_TTL_MS = 15_000;
@@ -322,7 +321,7 @@ export async function proxy(request: NextRequest) {
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isSharePreviewRequest =
     (request.method === "GET" || request.method === "HEAD") &&
-    LINK_PREVIEW_BOT_RE.test(request.headers.get("user-agent") ?? "");
+    isLinkPreviewBotUserAgent(request.headers.get("user-agent"));
 
   // Magic link: ?token=<password> auto-logs in and strips the param.
   const token = request.nextUrl.searchParams.get("token");
