@@ -1,4 +1,5 @@
 import { ChatRuntimeProvider } from "@oncobase/chat/runtime";
+import { wikiChatCopy } from "@oncobase/wiki-content";
 import {
   WikiChatToolRenderer,
   extractWikiChatSources,
@@ -14,29 +15,6 @@ import { hrefForSlug } from "../wiki-utils";
 
 let convexClient: ConvexReactClient | null = null;
 
-const chatCopy = {
-  emptyStateTitle: "What questions do you have?",
-  emptyStateDescription: "",
-  suggestedPrompts: [
-    {
-      badge: "Rx",
-      label: "When does AC chemo start, and how long is the immune-suppression window after the last cycle?",
-    },
-    {
-      badge: "DNA",
-      label: "What's the optimal timing to start a personalized mRNA neoantigen vaccine relative to AC and pembrolizumab?",
-    },
-    {
-      badge: "Trial",
-      label: "Which mRNA vaccine trials are currently enrolling for TNBC, and when would Diana be eligible?",
-    },
-    {
-      badge: "MRD",
-      label: "How does ctDNA clearance timing during NACT predict pCR and inform vaccine sequencing?",
-    },
-  ],
-  promptPlaceholder: "Ask a question...",
-};
 
 function convexUrl() {
   return (
@@ -144,7 +122,7 @@ function ChatRuntime({ children }: { children: ReactNode }) {
     <ChatRuntimeProvider
       apiPath="/api/chat"
       convexApi={{ conversations: api.conversations }}
-      copy={chatCopy}
+      copy={wikiChatCopy}
       LinkComponent={ChatLink}
       MarkdownRenderer={ChatMarkdownRenderer}
       ToolCallRenderer={WikiChatToolRenderer}

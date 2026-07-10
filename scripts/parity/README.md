@@ -81,11 +81,29 @@ bun scripts/parity/journey-diff.ts \
   --threshold 0.02
 ```
 
-Outputs are named `<checkpoint>-<viewport>.png` for captures and
-`<checkpoint>-<viewport>-DIFF.png` for pixelmatch diffs. The diff report is
-written to `report.md` and `report.html`, sorted by perceptual diff percentage.
+Outputs are named `<checkpoint>-<viewport>.png` for captures. Each capture also
+tries to write `<checkpoint>-<viewport>.txt` containing normalized
+`innerText` from `main` when present, otherwise `body`; emoji are preserved.
+Text sidecars are best-effort, and `journey-diff.ts` remains compatible with
+older PNG-only capture directories.
+
+Diff outputs are named `<checkpoint>-<viewport>-DIFF.png`. The diff report is
+written to `report.md` and `report.html`, sorted by perceptual diff percentage
+in the main table. Before the main table, both reports include a
+`Semantic differences below pixel threshold` section for pairs below the pixel
+review threshold that still have text-token drift or a localized diff cluster.
+The reports include `text Δ` (added plus removed token count, with
+`+added/-removed` detail), cluster count, largest cluster pixel count, largest
+cluster bounds as `x,y,w,h`, and a localized flag. The HTML report also shows
+up to eight added and removed sample tokens for each text diff.
+
 The diff script crops both images to the common top-left dimensions and runs
-`pixelmatch` with `threshold: 0.15` and `includeAA: false`.
+`pixelmatch` with `threshold: 0.15` and `includeAA: false`. It labels connected
+diff-pixel clusters with 4-connectivity and flags a pair as localized when the
+largest cluster is at least `2500` px by default. Override the localized floor
+with `--localized-floor` or `PARITY_JOURNEY_LOCALIZED_CLUSTER_FLOOR`.
+Override the global pixel review threshold with `--threshold` or
+`PARITY_JOURNEY_REVIEW_THRESHOLD`.
 
 Set `PARITY_COOKIE_HEADER` instead of `PARITY_LOGIN_PASSWORD` when reusing a
 logged-in browser session. Label-specific cookie overrides are also supported
