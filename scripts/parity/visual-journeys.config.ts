@@ -18,9 +18,12 @@ export default defineConfig({
   testDir: ".",
   testMatch: /visual-journeys\.spec\.ts/,
   // Playwright clears its outputDir at run start. Scope it away from the
-  // capture dirs (test-results/parity-journeys/<label>) so running the two
-  // origin captures concurrently doesn't wipe the other run's screenshots.
-  outputDir: "test-results/visual-journeys-artifacts",
+  // capture dirs (test-results/parity-journeys/<label>) AND per origin label,
+  // so concurrent origin captures neither wipe each other's screenshots nor
+  // race on each other's trace files.
+  outputDir: `test-results/visual-journeys-artifacts/${
+    (process.env.PARITY_ORIGIN_LABEL || "origin").replace(/[^a-z0-9._-]+/gi, "_")
+  }`,
   timeout: Number(process.env.PARITY_JOURNEY_TIMEOUT_MS ?? 1_800_000),
   expect: { timeout: 20_000 },
   fullyParallel: false,

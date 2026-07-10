@@ -50,9 +50,11 @@ function TaggedPageTree({
 export function TagPage() {
   const { tag = "" } = useParams();
   const decodedTag = decodeURIComponent(tag);
-  const siteState = useStore().store.useQuery(siteState$);
   const pages = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
-  const waitingForManifest = pages.length === 0 && !siteState;
+  // An empty local page index means the manifest hasn't synced yet — show the
+  // loading state, never a false "no pages found". (siteState can land before
+  // the page-index rows, so it is not a reliable sync signal here.)
+  const waitingForManifest = pages.length === 0;
   const taggedPages = useMemo(
     () =>
       pages
