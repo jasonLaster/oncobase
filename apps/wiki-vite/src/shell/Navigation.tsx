@@ -347,6 +347,20 @@ export function Sidebar() {
   if (usesDiagnosticsSidebar(pathname)) {
     return <DiagnosticsSidebar />;
   }
+  if (pathname.startsWith("/chat")) {
+    return (
+      <ChatProviders>
+        <aside
+          className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
+          data-test-id="chat-sidebar"
+        >
+          <nav className="flex-1 min-h-0 overflow-y-auto p-2">
+            <ChatConversationList />
+          </nav>
+        </aside>
+      </ChatProviders>
+    );
+  }
   return <WikiNavigationSidebar />;
 }
 

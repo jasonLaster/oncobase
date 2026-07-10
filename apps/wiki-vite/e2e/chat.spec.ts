@@ -14,10 +14,16 @@ test.describe("Chat", () => {
   test("chat page loads the full composer UI", async ({ page }) => {
     await page.goto("/chat", { waitUntil: "domcontentloaded" });
     const desktopChat = page.getByTestId("chat-page");
+    const chatSidebar = page.getByTestId("chat-sidebar");
 
     await expect(desktopChat).toBeVisible();
-    await expect(desktopChat.getByTestId("conversation-list")).toBeVisible();
-    await expect(desktopChat.getByTestId("conversation-list-archived")).toBeVisible();
+    await expect(chatSidebar).toBeVisible();
+    await expect(chatSidebar.getByTestId("conversation-list")).toBeVisible();
+    await expect(chatSidebar.getByTestId("conversation-list-archived")).toBeVisible();
+    await expect(desktopChat.getByTestId("conversation-list")).toHaveCount(0);
+    // The mobile chat sheet keeps a second (hidden) list in the DOM; exactly
+    // one conversation list may be visible.
+    await expect(page.locator('[data-test-id="conversation-list"]:visible')).toHaveCount(1);
     await expect(page.getByTestId("chat-interface")).toBeVisible();
     await expect(page.getByTestId("chat-composer-textarea")).toBeVisible();
     await expect(page.getByTestId("chat-suggested-prompts")).toBeVisible();
@@ -26,7 +32,7 @@ test.describe("Chat", () => {
   test("conversation list uses shared archived navigation", async ({ page }) => {
     await page.goto("/chat", { waitUntil: "domcontentloaded" });
 
-    await page.getByTestId("chat-page").getByTestId("conversation-list-archived").click();
+    await page.getByTestId("chat-sidebar").getByTestId("conversation-list-archived").click();
 
     await expect(page).toHaveURL(/\/chat\/archived$/);
     await expect(page.getByTestId("chat-archived-page")).toBeVisible();
@@ -87,8 +93,8 @@ test.describe("Chat", () => {
     await page.goto("/chat", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("chat-interface")).toBeVisible();
 
-    const sidebar = page.locator(".wiki-shell-chat-sidebar").first();
-    await expect(sidebar).toBeHidden();
+    await expect(page.getByTestId("chat-sidebar")).toBeHidden();
+    await expect(page.locator(".wiki-shell-chat-sidebar")).toHaveCount(0);
 
     const main = page.locator(".wiki-shell-chat-main").first();
     const mainWidth = await main.evaluate((element) => element.getBoundingClientRect().width);

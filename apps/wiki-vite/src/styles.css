@@ -1,12 +1,18 @@
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
+@import "tailwindcss";
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@oncobase/smart-table/styles.css";
 @import "@oncobase/diagnostics/imaging/styles.css";
 @import "@oncobase/wiki-shell/styles.css";
+@import "@oncobase/wiki-markdown/styles.css";
 @import "@liveblocks/react-ui/styles.css";
 @source "../../../packages/wiki-comments/src";
 @source "../../../packages/chat/src";
 @source "../../../packages/diagnostics/src";
+@source "../../../packages/wiki-markdown/src";
+@source "../../../packages/wiki-shell/src";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
   color-scheme: light;
@@ -17,7 +23,8 @@
   --text-muted: #6b7280;
   --background: #ffffff;
   --foreground: #1a1a2e;
-  --muted: var(--text-muted);
+  /* muted is a background tint (web: #f3f4f6), not the muted text color */
+  --muted: #f3f4f6;
   --muted-foreground: var(--text-muted);
   --border: var(--sidebar-border);
   --input: var(--sidebar-border);
@@ -366,7 +373,8 @@
   --text-muted: #9ca3af;
   --background: #0f0f1a;
   --foreground: #e5e5e5;
-  --muted: var(--text-muted);
+  /* muted is a background tint (web dark: #2d2d44), not the muted text color */
+  --muted: #2d2d44;
   --muted-foreground: var(--text-muted);
   --border: var(--sidebar-border);
   --input: var(--sidebar-border);
@@ -390,8 +398,6 @@
   --red: #f87171;
   --violet: var(--brand);
 }
-
-@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
@@ -435,6 +441,10 @@ input {
 
 a {
   color: inherit;
+}
+
+.wiki-vite-chat-page {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .app-loading {
@@ -1524,5 +1534,11 @@ a {
 
   [data-dicom-viewer-layout] {
     grid-template-rows: minmax(0, 1fr) !important;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
 }
