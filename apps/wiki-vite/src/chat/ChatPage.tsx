@@ -5,7 +5,6 @@ import {
   WikiChatMain,
   WikiChatLoadingSkeleton,
   WikiChatPage,
-  WikiChatSidebar,
   WikiChatState,
 } from "@oncobase/wiki-shell";
 import { useMutation, useQuery } from "convex/react";
@@ -13,7 +12,6 @@ import { Link, useParams } from "react-router";
 import { api } from "../../../../apps/web/convex/_generated/api.js";
 import type { Id } from "../../../../apps/web/convex/_generated/dataModel.js";
 import { useWikiSession } from "../wiki-context";
-import { ChatConversationList } from "./ChatConversationList";
 import { ChatProviders } from "./ChatProviders";
 
 function ArchivedChatsRoute() {
@@ -82,10 +80,7 @@ function ChatRouteContent() {
 export function ChatPage() {
   return (
     <ChatProviders>
-      <WikiChatPage data-test-id="chat-page">
-        <WikiChatSidebar>
-          <ChatConversationList />
-        </WikiChatSidebar>
+      <WikiChatPage className="wiki-vite-chat-page" data-test-id="chat-page">
         <WikiChatMain>
           <ChatRouteContent />
         </WikiChatMain>

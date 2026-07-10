@@ -20,6 +20,8 @@
     "test:e2e:wiki-vite:preview": "bun --cwd apps/wiki-vite test:e2e:preview"
   },
   "devDependencies": {
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0",
     "turbo": "^2"
   },
   "packageManager": "bun@1.3.12",
