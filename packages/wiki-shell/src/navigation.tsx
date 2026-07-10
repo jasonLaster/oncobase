@@ -251,7 +251,7 @@ function WikiTreeNode({
             {open ? "▼" : "▶"}
           </span>
           {renderNodeIcon?.({ active: false, depth, node, open }) ?? <ChevronIcon open={open} />}
-          <span>{formattedName}</span>
+          <span className="wiki-shell-tree-label">{formattedName}</span>
           {node.badge ? <span className="wiki-shell-tree-badge tree-badge">{node.badge}</span> : null}
         </button>
         {open

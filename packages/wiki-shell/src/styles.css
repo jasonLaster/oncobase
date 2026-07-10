@@ -664,6 +664,16 @@ html[data-initial-sidebar-state="collapsed"]
   padding-block: 0.25rem;
 }
 
+/* Directory labels truncate to a single line like file links (and like web);
+   without this the bare label span wraps long folder names to several lines. */
+.wiki-shell-tree-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .wiki-shell-tree-disclosure-text {
   clip: rect(0 0 0 0);
   border: 0;
