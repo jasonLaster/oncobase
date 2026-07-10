@@ -138,6 +138,12 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const scope = useWikiScope();
   const location = useLocation();
   const currentSlug = slugFromPath(location.pathname);
+  // Track the active slug in a ref so fetchSlug and the manifest-sync effect
+  // can read it without listing currentSlug as a dependency — otherwise both
+  // are re-created on every navigation, and the manifest effect re-fetches the
+  // whole corpus index per page view instead of once per boot/scope/reconnect.
+  const currentSlugRef = useRef(currentSlug);
+  currentSlugRef.current = currentSlug;
   const [networkTick, setNetworkTick] = useState(0);
   const manifestRef = useRef<WikiManifest | null>(null);
   const inFlight = useRef(new Set<string>());
@@ -213,7 +219,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           });
         } else {
           onMetrics({
-            ...(slug === currentSlug
+            ...(slug === currentSlugRef.current
               ? {
                   status: "error" as const,
                   message: `Failed to fetch markdown for ${slug}`,
@@ -227,7 +233,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         inFlight.current.delete(cacheKey);
       }
     },
-    [client, currentSlug, onMetrics, scope, store],
+    [client, onMetrics, scope, store],
   );
 
   useEffect(() => {
@@ -253,8 +259,9 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         manifestRef.current = manifest;
         const receivedAt = Date.now();
         store.commit(manifestToEvent(manifest, receivedAt));
-        const { manifestBySlug, queue, queuedBytes } = buildEagerQueue(currentSlug, manifest);
-        const currentPage = manifestBySlug.get(currentSlug);
+        const activeSlug = currentSlugRef.current;
+        const { manifestBySlug, queue, queuedBytes } = buildEagerQueue(activeSlug, manifest);
+        const currentPage = manifestBySlug.get(activeSlug);
         const storage = await storageSnapshot();
         onMetrics({
           status: "ready",
@@ -268,9 +275,9 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         });
 
         if (currentPage) {
-          void fetchSlug(currentSlug, currentPage).catch(() => undefined);
+          void fetchSlug(activeSlug, currentPage).catch(() => undefined);
         } else {
-          void fetchSlug(currentSlug).catch(() => undefined);
+          void fetchSlug(activeSlug).catch(() => undefined);
         }
 
         if (shouldFetchInBackground()) {
@@ -305,7 +312,10 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
     return () => {
       cancelled = true;
     };
-  }, [client, currentSlug, fetchSlug, networkTick, onMetrics, scope, store]);
+    // Deliberately excludes currentSlug: the manifest is synced on boot, scope
+    // change, and reconnect — not per navigation. The effect below fetches the
+    // current page's body on navigation from the already-cached manifest.
+  }, [client, fetchSlug, networkTick, onMetrics, scope, store]);
 
   useEffect(() => {
     const manifest = manifestRef.current;

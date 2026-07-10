@@ -108,6 +108,25 @@ test.describe("Page load experience", () => {
     await expect(documentArticle(page)).toContainText("Claims follow-up");
   });
 
+  test("client-side navigation does not refetch the manifest", async ({ page }) => {
+    const requests = await installWikiApiMocks(page);
+    await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");
+    await waitForPageTitle(page, "Insurance");
+
+    // The manifest is synced on boot; navigating between pages must serve from
+    // the local store without re-fetching the whole corpus index.
+    const bootManifestCount = requests.manifest.length;
+    expect(bootManifestCount).toBeGreaterThan(0);
+
+    await page.getByTestId("wiki-sidebar").getByRole("link", { name: "index", exact: true }).click();
+    await waitForPageTitle(page, "Diana Wiki Home");
+    await openDirectory(page, "logistics");
+    await page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" }).click();
+    await waitForPageTitle(page, "Insurance");
+
+    expect(requests.manifest.length).toBe(bootManifestCount);
+  });
+
   test("cold route fetches the current page body before eager markdown", async ({ page }) => {
     const requests = await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/logistics/insurance");
