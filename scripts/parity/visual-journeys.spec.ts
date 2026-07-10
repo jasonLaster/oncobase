@@ -252,8 +252,10 @@ async function captureCheckpoint(page: Page, checkpoint: Checkpoint, viewport: V
 
   try {
     const text = await page.evaluate(() => {
-      const root = (document.querySelector("main") as HTMLElement | null) ?? document.body;
-      return root.innerText.replace(/\s+/g, " ").trim();
+      // Always capture body-level text: the two origins nest <main>
+      // differently (web's sidebar sits inside it, vite's outside), so a
+      // main-scoped capture produces phantom cross-origin text diffs.
+      return document.body.innerText.replace(/\s+/g, " ").trim();
     });
     await writeFile(path.join(OUTPUT_DIR, `${basename}.txt`), text);
   } catch (error) {
