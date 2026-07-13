@@ -4,6 +4,27 @@ This page tracks recurring failure modes from CI and the heuristics we use to de
 
 ## Current Failure Modes
 
+### Responsive sidebar readiness under production stress
+
+Observed in the July 10-13, 2026 scheduled `E2E Stress Test` runs on `main`:
+
+- [July 10](https://github.com/jasonLaster/oncobase/actions/runs/29085299209): success after 4 flaky retries (`command palette opens with Ctrl+K` twice and `desktop initial paint keeps chrome` twice).
+- [July 11](https://github.com/jasonLaster/oncobase/actions/runs/29147848382): success after 1 flaky desktop-first-paint retry.
+- [July 12](https://github.com/jasonLaster/oncobase/actions/runs/29187658769): success after 3 flaky desktop-first-paint retries.
+- [July 13](https://github.com/jasonLaster/oncobase/actions/runs/29241502133): success after 2 flaky retries (`actions menu opens with theme and download` and one desktop-first-paint case).
+
+Symptoms and suspected causes:
+
+- `desktop initial paint keeps chrome` samples `sidebar.boundingBox()` during a transient detached or hidden state and receives `null`, even though the sidebar becomes visible on retry.
+- Responsive shell transitions can briefly expose both desktop and mobile sidebar controls. Unscoped `sidebar-search` and `sidebar-workspace-trigger` locators then fail strict mode because they match two elements.
+- These are retry-masked test-readiness and locator-scope failures; the workflow conclusion is green, but the affected runs are not flake-free.
+
+Fix and verification:
+
+- [PR #63](https://github.com/jasonLaster/oncobase/pull/63) polls visible sidebar width and scopes workspace/search controls to the visible sidebar.
+- The focused production stress loop passed 71/71 runs across the affected navigation and first-paint assertions.
+- Current status: fix is in draft review; keep watching scheduled stress runs after merge before closing this category.
+
 ### Static shell versus streamed content
 
 Observed in the May 4, May 7, and May 8, 2026 scheduled `E2E Stress Test` runs on `main`.
