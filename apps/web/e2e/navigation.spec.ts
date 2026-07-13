@@ -262,7 +262,10 @@ test.describe("Page viewing & sidebar navigation", () => {
 
   test("actions menu opens with theme and download", async ({ page }) => {
     await page.goto("/");
-    const actions = page.getByTestId("sidebar-workspace-trigger");
+    const actions = page
+      .locator('[data-test-id="sidebar"]:visible')
+      .first()
+      .getByTestId("sidebar-workspace-trigger");
     const themeItem = page.getByRole("menuitem", {
       name: /Theme: (System|Dark|Light)/,
     });
