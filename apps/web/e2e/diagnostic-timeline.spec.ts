@@ -147,7 +147,10 @@ test.describe("diagnostic timeline", () => {
       `2026-04-02:${todayInPacificTime()}`,
     );
 
-    const rangeAfterReset = await timeline.getAttribute("data-visible-range");
+    await toolbar.getByRole("button", { name: "Zoom in" }).click();
+    const rangeBeforeOverviewDrag = await timeline.getAttribute(
+      "data-visible-range",
+    );
     const overviewWindow = stickyHeader.getByTestId("timeline-overview-window");
     const overviewBox = await overviewWindow.boundingBox();
     expect(overviewBox).not.toBeNull();
@@ -164,7 +167,7 @@ test.describe("diagnostic timeline", () => {
     await page.mouse.up();
     await expect(timeline).not.toHaveAttribute(
       "data-visible-range",
-      rangeAfterReset ?? "",
+      rangeBeforeOverviewDrag ?? "",
     );
 
     const rangeBeforeLeftResize = await timeline.getAttribute("data-visible-range");
