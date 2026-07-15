@@ -64,6 +64,7 @@ test.describe("diagnostic timeline", () => {
     );
     const rangeBefore = await timeline.getAttribute("data-visible-range");
     const zoomInButton = toolbar.getByRole("button", { name: "Zoom in" });
+    await page.waitForLoadState("networkidle");
     await expect
       .poll(async () => {
         await zoomInButton.click();

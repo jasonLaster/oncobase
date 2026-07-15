@@ -25,6 +25,21 @@ Fix and verification:
 - The focused production stress loop passed 71/71 runs across the affected navigation and first-paint assertions.
 - Current status: fix is in draft review; keep watching scheduled stress runs after merge before closing this category.
 
+### Diagnostic timeline interaction readiness
+
+Observed in the [July 15, 2026 scheduled stress run](https://github.com/jasonLaster/oncobase/actions/runs/29405128254):
+
+- `diagnostic timeline › renders sleeves, week ticks, hover tooltips, diagnostics links, and zoom state` failed all 10 repeats and its retry because the first zoom click raced production hydration.
+- A focused production reproduction confirmed that waiting for network idle makes the initial zoom transition observable.
+- The test already zooms after reset before dragging the overview window, which avoids the date-sensitive full-range clamp where a full-width window cannot pan.
+- The same run retained three known retry-masked flakes: one duplicate responsive workspace trigger and two transient null sidebar bounds. Those remain covered by PR #63's visible-sidebar scoping and width polling.
+
+Fix and verification:
+
+- Wait for production network activity to settle before exercising timeline controls.
+- Keep the post-reset zoom as the precondition for overview-window panning.
+- Current status: fix is on PR #63; targeted production stress evidence is recorded in the PR.
+
 ### Static shell versus streamed content
 
 Observed in the May 4, May 7, and May 8, 2026 scheduled `E2E Stress Test` runs on `main`.
