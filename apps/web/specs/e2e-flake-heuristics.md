@@ -4,6 +4,44 @@ This page tracks recurring failure modes from CI and the heuristics we use to de
 
 ## Current Failure Modes
 
+### Responsive sidebar readiness under production stress
+
+Observed in the July 10-13, 2026 scheduled `E2E Stress Test` runs on `main`:
+
+- [July 10](https://github.com/jasonLaster/oncobase/actions/runs/29085299209): success after 4 flaky retries (`command palette opens with Ctrl+K` twice and `desktop initial paint keeps chrome` twice).
+- [July 11](https://github.com/jasonLaster/oncobase/actions/runs/29147848382): success after 1 flaky desktop-first-paint retry.
+- [July 12](https://github.com/jasonLaster/oncobase/actions/runs/29187658769): success after 3 flaky desktop-first-paint retries.
+- [July 13](https://github.com/jasonLaster/oncobase/actions/runs/29241502133): success after 2 flaky retries (`actions menu opens with theme and download` and one desktop-first-paint case).
+- [July 16](https://github.com/jasonLaster/oncobase/actions/runs/29487999523): one hard desktop-first-paint failure and one retry-masked failure; both sampled a transient null sidebar bound while the page snapshot already showed the sidebar content.
+
+Symptoms and suspected causes:
+
+- `desktop initial paint keeps chrome` samples `sidebar.boundingBox()` during a transient detached or hidden state and receives `null`, even though the sidebar becomes visible on retry.
+- Responsive shell transitions can briefly expose both desktop and mobile sidebar controls. Unscoped `sidebar-search` and `sidebar-workspace-trigger` locators then fail strict mode because they match two elements.
+- These are retry-masked test-readiness and locator-scope failures; the workflow conclusion is green, but the affected runs are not flake-free.
+
+Fix and verification:
+
+- [PR #63](https://github.com/jasonLaster/oncobase/pull/63) polls visible sidebar width and scopes workspace/search controls to the visible sidebar.
+- The focused production stress loop passed 71/71 runs across the affected navigation and first-paint assertions.
+- Current status: fix is in draft review; keep watching scheduled stress runs after merge before closing this category.
+
+### Diagnostic timeline interaction readiness
+
+Observed in the [July 15](https://github.com/jasonLaster/oncobase/actions/runs/29405128254) and [July 16, 2026](https://github.com/jasonLaster/oncobase/actions/runs/29487999523) scheduled stress runs:
+
+- `diagnostic timeline › renders sleeves, week ticks, hover tooltips, diagnostics links, and zoom state` failed all 10 repeats and its retry because the first zoom click raced production hydration.
+- July 16 reproduced the same 10/10 hard-failure signature on the unchanged `main` SHA. Fresh [Playwright results](https://github.com/jasonLaster/oncobase/actions/runs/29487999523/artifacts/8371554876) and [report](https://github.com/jasonLaster/oncobase/actions/runs/29487999523/artifacts/8371554438) artifacts expire July 30.
+- A focused production reproduction confirmed that waiting for network idle makes the initial zoom transition observable.
+- The test already zooms after reset before dragging the overview window, which avoids the date-sensitive full-range clamp where a full-width window cannot pan.
+- The same run retained three known retry-masked flakes: one duplicate responsive workspace trigger and two transient null sidebar bounds. Those remain covered by PR #63's visible-sidebar scoping and width polling.
+
+Fix and verification:
+
+- Wait for production network activity to settle before exercising timeline controls.
+- Keep the post-reset zoom as the precondition for overview-window panning.
+- Current status: fix is on green PR #63 but is not merged, so scheduled `main` remains red; targeted production stress evidence is recorded in the PR.
+
 ### Static shell versus streamed content
 
 Observed in the May 4, May 7, and May 8, 2026 scheduled `E2E Stress Test` runs on `main`.
