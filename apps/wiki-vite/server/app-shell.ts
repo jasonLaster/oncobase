@@ -20,6 +20,7 @@ import {
   legacyRouteMetadata,
   tagFromPathname,
 } from "./legacy-route-metadata.js";
+import { safeLocalRedirect } from "../src/safe-redirect.js";
 
 const DEFAULT_SITE_SLUG = "diana";
 const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
@@ -281,7 +282,7 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
   const isLoginPage = url.pathname === "/login";
 
   if (isLoginPage && (isAuthed || !gateEnabled)) {
-    const redirect = url.searchParams.get("redirect") || "/";
+    const redirect = safeLocalRedirect(url.searchParams.get("redirect"));
     return privateRedirect(request, redirect);
   }
 

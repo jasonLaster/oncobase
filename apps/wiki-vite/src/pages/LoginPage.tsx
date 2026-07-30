@@ -1,13 +1,18 @@
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { WIKI_SITE_NAME } from "../document-title";
+import { safeLocalRedirect } from "../safe-redirect";
 
 export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const redirect = useMemo(() => {
     const value = new URL(window.location.href).searchParams.get("redirect");
-    return value && value.startsWith("/") ? value : "/";
+    const target = safeLocalRedirect(value, "");
+    if (!target) return "/";
+
+    const hash = window.location.hash;
+    return hash && !target.includes("#") ? `${target}${hash}` : target;
   }, []);
 
   useEffect(() => {

@@ -77,6 +77,7 @@ import {
   legacyRouteMetadata,
   tagFromPathname,
 } from "./legacy-route-metadata.js";
+import { safeLocalRedirect } from "../src/safe-redirect.js";
 
 const DEFAULT_SITE_SLUG = "diana";
 const HOST_CACHE_TTL_MS = 15_000;
@@ -615,7 +616,7 @@ async function handleLoginRequest(
 
   if (request.method === "GET") {
     const token = url.searchParams.get("token") ?? "";
-    const redirect = url.searchParams.get("redirect") || "/";
+    const redirect = safeLocalRedirect(url.searchParams.get("redirect"));
     if (!token || !(await isValidPassword(client, siteSlug, token))) {
       return new Response(null, {
         status: 302,

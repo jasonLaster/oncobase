@@ -98,6 +98,30 @@ describe("wiki Vite app-shell password gate", () => {
     }
   });
 
+  test("keeps authenticated login redirects on the current origin", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+    const headers = { Cookie: "authed=true" };
+
+    const local = await handler(
+      request("/login?redirect=%2Fwiki%2Fpublic%3Fview%3Dcompact", { headers }),
+    );
+    expect(local.status).toBe(302);
+    expect(local.headers.get("location")).toBe(
+      "http://127.0.0.1/wiki/public?view=compact",
+    );
+
+    for (const redirect of ["https://evil.example/phish", "//evil.example/phish"]) {
+      const unsafe = await handler(
+        request(`/login?redirect=${encodeURIComponent(redirect)}`, { headers }),
+      );
+      expect(unsafe.status).toBe(302);
+      expect(unsafe.headers.get("location")).toBe("http://127.0.0.1/");
+    }
+  });
+
   test("serves authenticated HTML privately while keeping hashed assets immutable", async () => {
     const handler = createWikiViteHandler({
       client: fakeClient() as never,

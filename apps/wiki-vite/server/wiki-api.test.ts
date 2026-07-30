@@ -288,6 +288,17 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(tokenLogin!.headers.get("cache-control")).toBe("private, no-store");
     expect(tokenLogin!.headers.get("set-cookie")).toContain("authed=true");
     expect(tokenLogin!.headers.get("vary")).toContain("Cookie");
+    expect(tokenLogin!.headers.get("location")).toBe("http://127.0.0.1/wiki/public");
+
+    for (const redirect of ["https://evil.example/phish", "//evil.example/phish"]) {
+      const unsafeTokenLogin = await handler(
+        request(
+          `/api/login?token=diana&redirect=${encodeURIComponent(redirect)}`,
+        ),
+      );
+      expect(unsafeTokenLogin?.status).toBe(302);
+      expect(unsafeTokenLogin!.headers.get("location")).toBe("http://127.0.0.1/");
+    }
 
     const passwordLogin = await handler(
       request("/api/login", {

@@ -97,6 +97,56 @@ test.describe("Session scope recovery", () => {
     );
   });
 
+  test("login navigation preserves a raw same-origin hash", async ({ page }) => {
+    test.skip(runsWithPreviewAuth, "Preview e2e starts authenticated to exercise protected wiki pages.");
+
+    await installWikiApiMocks(page);
+    await page.route("**/api/login", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      });
+    });
+    await page.goto(
+      "/login?redirect=%2Fwiki%2Flogistics%2Finsurance#raw-heading",
+      { waitUntil: "domcontentloaded" },
+    );
+
+    await page.getByPlaceholder("Password").fill("diana");
+    await page.getByRole("button", { name: "Enter" }).click();
+    await expect(page).toHaveURL(
+      /\/wiki\/logistics\/insurance#raw-heading$/,
+    );
+  });
+
+  test("login navigation rejects absolute and protocol-relative redirect targets", async ({
+    page,
+  }) => {
+    test.skip(runsWithPreviewAuth, "Preview e2e starts authenticated to exercise protected wiki pages.");
+
+    await installWikiApiMocks(page);
+    await page.route("**/api/login", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      });
+    });
+
+    for (const redirect of [
+      "https://evil.example/phish",
+      "//evil.example/phish",
+    ]) {
+      await page.goto(`/login?redirect=${encodeURIComponent(redirect)}`, {
+        waitUntil: "domcontentloaded",
+      });
+      await page.getByPlaceholder("Password").fill("diana");
+      await page.getByRole("button", { name: "Enter" }).click();
+      await expect(page).toHaveURL(/\/$/);
+    }
+  });
+
   test("public and session scopes use different stores and do not leak sensitive pages", async ({ page }) => {
     await installWikiApiMocks(page, { sessionAuthenticated: true });
     await gotoWiki(page, "/private/plan?scope=session&devtools=1");
