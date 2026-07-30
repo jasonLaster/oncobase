@@ -333,7 +333,7 @@ export function worldDistanceMm(annotation: DicomAnnotation) {
 
 export function formatDistanceMm(distance: number | null) {
   if (distance === null || !Number.isFinite(distance)) return "Uncalibrated";
-  return distance < 10 ? `${distance.toFixed(1)} mm` : `${Math.round(distance)} mm`;
+  return `${distance.toFixed(1)} mm`;
 }
 
 export function editAnnotationsForDrag(

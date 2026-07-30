@@ -44,7 +44,8 @@ describe("DICOM ruler annotations", () => {
 
     expect(distance).toBe(5);
     expect(formatDistanceMm(distance)).toBe("5.0 mm");
-    expect(formatDistanceMm(57.04)).toBe("57 mm");
+    expect(formatDistanceMm(11.57)).toBe("11.6 mm");
+    expect(formatDistanceMm(57.04)).toBe("57.0 mm");
     expect(formatDistanceMm(null)).toBe("Uncalibrated");
   });
 });
