@@ -3,6 +3,7 @@
 import type { KeyboardEvent } from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { safeLoginRedirect } from "@/lib/safe-redirect";
 
 function handlePasswordKeyDown(e: KeyboardEvent<HTMLInputElement>) {
   if (e.key !== "Enter" || e.nativeEvent.isComposing) {
@@ -28,9 +29,10 @@ export function LoginForm() {
 
     if (res.ok) {
       const searchParams = new URLSearchParams(window.location.search);
-      const redirect = searchParams.get("redirect") || "/";
-      const hash = window.location.hash;
-      const destination = hash && !redirect.includes("#") ? `${redirect}${hash}` : redirect;
+      const destination = safeLoginRedirect(
+        searchParams.get("redirect"),
+        window.location.hash,
+      );
       router.push(destination);
       router.refresh();
     } else {

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isLinkPreviewBotUserAgent } from "@oncobase/wiki-content/link-preview";
 import { api } from "@convex/_generated/api";
 import { resolveServerConvexUrl } from "@/lib/convex-url";
+import { safeLocalRedirect } from "@/lib/safe-redirect";
 import localHosts from "../.local-hosts.json";
 
 // Phase 3 multi-tenant: resolve the active site from the Host header
@@ -342,7 +343,9 @@ export async function proxy(request: NextRequest) {
 
   if (isLoginPage) {
     if (isAuthed || !site.passwordGate) {
-      const redirect = request.nextUrl.searchParams.get("redirect") || "/";
+      const redirect = safeLocalRedirect(
+        request.nextUrl.searchParams.get("redirect"),
+      );
       return NextResponse.redirect(new URL(redirect, request.url));
     }
     return NextResponse.next({ request: { headers: requestHeaders } });

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@convex/_generated/api";
 import { siteSlugFromRequest, DEFAULT_SITE_SLUG } from "@/lib/site";
+import { safeLocalRedirect } from "@/lib/safe-redirect";
 
 // Multi-site login. Reads the active site from the proxy-set
 // x-site-slug header and validates the password against:
@@ -42,7 +43,9 @@ async function isValidPassword(siteSlug: string, password: string) {
 /** GET /api/login?token=<password>&redirect=<path> — magic link auto-login. */
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
-  const redirect = request.nextUrl.searchParams.get("redirect") || "/";
+  const redirect = safeLocalRedirect(
+    request.nextUrl.searchParams.get("redirect"),
+  );
   const siteSlug = siteSlugFromRequest(request);
 
   if (!token || !(await isValidPassword(siteSlug, token))) {
