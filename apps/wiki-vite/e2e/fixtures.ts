@@ -124,6 +124,7 @@ This page exists so cross-page markdown links can prove app navigation resets sc
 
 The Vite prototype reads markdown from a local LiveStore cache and refreshes content in the background.
 <redact label="the patient">Diana Laster</redact> keeps raw identifiers out of rendered pages.
+Contact [[redacted email]](mailto:diana@example.com) for help.
 
 ## Reading goals
 

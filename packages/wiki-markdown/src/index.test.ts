@@ -34,6 +34,15 @@ describe("wiki markdown helpers", () => {
     );
   });
 
+  test("does not rewrite bracketed labels on standard protocol links", () => {
+    expect(resolveWikilinks("[[redacted email]](mailto:diana@example.com)")).toBe(
+      "[[redacted email]](mailto:diana@example.com)",
+    );
+    expect(resolveWikilinks("[[redacted phone]](tel:+14155550123)")).toBe(
+      "[[redacted phone]](tel:+14155550123)",
+    );
+  });
+
   test("rewrites relative asset paths", () => {
     expect(resolveAssetPath("images/scan.png", "wiki/diagnostics/index")).toBe(
       "wiki/diagnostics/images/scan.png",
@@ -105,6 +114,17 @@ gantt
 
     expect(html).toContain('<router-link href="/wiki/diagnostics/diagnosis">Diagnosis</router-link>');
     expect(html).toContain('href="/api/file?path=wiki%2Fresearch%2Fpaper.pdf"');
+  });
+
+  test("renders bracketed mail labels with their protocol href intact", () => {
+    const html = renderToStaticMarkup(
+      createElement(WikiMarkdown, {
+        content: "Contact [[redacted email]](mailto:diana@example.com).",
+      }),
+    );
+
+    expect(html).toContain('href="mailto:diana@example.com"');
+    expect(html).not.toContain('href="/redacted%20email"');
   });
 
   test("renders a reusable slides viewer from an image list", () => {

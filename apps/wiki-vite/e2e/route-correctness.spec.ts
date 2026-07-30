@@ -1,0 +1,36 @@
+import { expect, test } from "@playwright/test";
+import {
+  documentArticle,
+  gotoWiki,
+  installWikiApiMocks,
+  waitForPageTitle,
+} from "./fixtures";
+
+test.describe("Route-owned metadata and links", () => {
+  test.beforeEach(async ({ page }) => {
+    await installWikiApiMocks(page);
+  });
+
+  test("tag navigation replaces the previous article title", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await waitForPageTitle(page, "Insurance");
+
+    await documentArticle(page)
+      .locator(".tag-row")
+      .getByRole("link", { name: "logistics" })
+      .click();
+
+    await expect(page).toHaveURL(/\/tags\/logistics$/);
+    await expect(page).toHaveTitle("Tag: logistics - Diana Wiki");
+  });
+
+  test("bracketed redacted labels preserve mail protocol links", async ({ page }) => {
+    await gotoWiki(page, "/about/About");
+
+    const mailLink = documentArticle(page).getByRole("link", {
+      name: /redacted email/,
+    });
+    await expect(mailLink).toHaveAttribute("href", "mailto:diana@example.com");
+    await expect(documentArticle(page).locator('a[href="/redacted%20email"]')).toHaveCount(0);
+  });
+});

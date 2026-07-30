@@ -6,7 +6,7 @@ import {
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { ChevronRight } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Link, useParams } from "react-router";
 import { pageIndex$, siteState$ } from "../livestore/queries";
 import type { PageIndexRow } from "../types";
@@ -61,6 +61,10 @@ export function TagPage() {
     [decodedTag, pages],
   );
   const pageTree = useMemo(() => buildTaggedPageTree(taggedPages), [taggedPages]);
+
+  useEffect(() => {
+    document.title = `Tag: ${decodedTag} - Diana Wiki`;
+  }, [decodedTag]);
 
   if (waitingForManifest) {
     return (

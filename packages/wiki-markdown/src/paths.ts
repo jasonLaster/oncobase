@@ -77,7 +77,7 @@ export function resolveWikilinks(
 ): string {
   const currentDir = currentDirectory(currentSlug);
 
-  return content.replace(/\[\[([^\]]+)]]/g, (_match, inner: string) => {
+  return content.replace(/\[\[([^\]]+)]](?!\()/g, (_match, inner: string) => {
     const { target, display } = splitWikilinkAlias(inner);
     const isBare = !target.includes("/");
 
