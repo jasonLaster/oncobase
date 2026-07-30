@@ -294,6 +294,58 @@ function escapeHtml(value: string) {
     .replace(/"/g, "&quot;");
 }
 
+function appShellRouteMetadata({
+  page,
+  siteName,
+  slug,
+  url,
+}: {
+  page: { description?: string | null; title: string } | null;
+  siteName: string;
+  slug: string | null;
+  url: URL;
+}) {
+  if (slug === "index") {
+    return {
+      description: page?.description ?? DEFAULT_SITE_DESCRIPTION,
+      socialTitle: siteName,
+      title: `Home — ${siteName}`,
+    };
+  }
+
+  if (url.pathname.startsWith("/tags/")) {
+    const tag = safeDecodePathname(url.pathname.slice("/tags/".length));
+    const routeTitle = `Tag: ${tag}`;
+    return {
+      description: `Pages tagged ${tag} in ${siteName}`,
+      socialTitle: routeTitle,
+      title: `${routeTitle} — ${siteName}`,
+    };
+  }
+
+  if (url.pathname === "/search") {
+    return {
+      description: `Search the ${siteName}`,
+      socialTitle: "Search",
+      title: `Search — ${siteName}`,
+    };
+  }
+
+  if (url.pathname === "/login" || !page) {
+    return {
+      description: DEFAULT_SITE_DESCRIPTION,
+      socialTitle: siteName,
+      title: siteName,
+    };
+  }
+
+  return {
+    description: page.description ?? page.title,
+    socialTitle: page.title,
+    title: `${page.title} — ${siteName}`,
+  };
+}
+
 function injectHeadMetadata(
   html: string,
   metadata: {
@@ -358,18 +410,22 @@ async function staticIndexHtml(
   if (!page && !gateEnabled) return html;
 
   const siteName = siteSlug === DEFAULT_SITE_SLUG ? DIANA_SITE_NAME : siteSlug;
-  const isHome = slug === "index";
-  const title = page?.title ?? siteName;
+  const routeMetadata = appShellRouteMetadata({
+    page,
+    siteName,
+    slug,
+    url,
+  });
 
   return injectHeadMetadata(html, {
-    title,
-    description: page?.description ?? DEFAULT_SITE_DESCRIPTION,
+    title: routeMetadata.title,
+    description: routeMetadata.description,
     canonicalUrl: gateEnabled
       ? undefined
       : new URL(url.pathname, request.url).toString(),
     noIndex: gateEnabled,
     sensitive: page?.sensitive === true,
-    socialTitle: isHome || !page ? siteName : page.title,
+    socialTitle: routeMetadata.socialTitle,
   });
 }
 

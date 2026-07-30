@@ -149,6 +149,72 @@ describe("wiki Vite app-shell password gate", () => {
     expect(loginHtml).not.toContain('rel="canonical"');
   });
 
+  test("renders route-specific titles, descriptions, and social metadata before hydration", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+    const authenticated = { headers: { Cookie: "authed=true" } };
+    const cases = [
+      {
+        path: "/",
+        title: "Home — TNBC Knowledge Base",
+        description: "Public page",
+        socialTitle: "TNBC Knowledge Base",
+      },
+      {
+        path: "/index",
+        title: "Home — TNBC Knowledge Base",
+        description: "Public page",
+        socialTitle: "TNBC Knowledge Base",
+      },
+      {
+        path: "/wiki/public",
+        title: "Public — TNBC Knowledge Base",
+        description: "Public page",
+        socialTitle: "Public",
+      },
+      {
+        path: "/tags/summary",
+        title: "Tag: summary — TNBC Knowledge Base",
+        description: "Pages tagged summary in TNBC Knowledge Base",
+        socialTitle: "Tag: summary",
+      },
+      {
+        path: "/search",
+        title: "Search — TNBC Knowledge Base",
+        description: "Search the TNBC Knowledge Base",
+        socialTitle: "Search",
+      },
+    ];
+
+    for (const route of cases) {
+      const response = await handler(request(route.path, authenticated));
+      const html = await response.text();
+
+      expect(html).toContain(`<title>${route.title}</title>`);
+      expect(html).toContain(
+        `<meta name="description" content="${route.description}" />`,
+      );
+      expect(html).toContain(
+        `<meta property="og:title" content="${route.socialTitle}" />`,
+      );
+      expect(html).toContain(
+        `<meta name="twitter:title" content="${route.socialTitle}" />`,
+      );
+    }
+
+    const login = await handler(request("/login?redirect=%2F"));
+    const loginHtml = await login.text();
+    expect(loginHtml).toContain("<title>TNBC Knowledge Base</title>");
+    expect(loginHtml).toContain(
+      '<meta name="description" content="Breast cancer research and treatment knowledge base" />',
+    );
+    expect(loginHtml).toContain(
+      '<meta property="og:title" content="TNBC Knowledge Base" />',
+    );
+  });
+
   test("serves a function-embedded shell when no static root index exists", async () => {
     await rm(path.join(distDir, "index.html"));
     const handler = createWikiViteHandler({

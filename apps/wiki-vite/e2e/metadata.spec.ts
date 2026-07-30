@@ -116,10 +116,30 @@ test.describe("production page metadata", () => {
     }
 
     const home = await getHtml(request, "/");
+    expect(readTitle(home)).toBe("Home — TNBC Knowledge Base");
     expect(readMetaContent(home, "og:title")).toBe("TNBC Knowledge Base");
     expect(readMetaContent(home, "twitter:title")).toBe("TNBC Knowledge Base");
 
     const about = await getHtml(request, "/about/About");
+    expect(readTitle(about)).toBe("About This Wiki — TNBC Knowledge Base");
     expect(readMetaContent(about, "twitter:title")).toBe("About This Wiki");
+
+    const tag = await getHtml(request, "/tags/summary");
+    expect(readTitle(tag)).toBe("Tag: summary — TNBC Knowledge Base");
+    expect(readMetaContent(tag, "description")).toBe(
+      "Pages tagged summary in TNBC Knowledge Base",
+    );
+    expect(readMetaContent(tag, "og:title")).toBe("Tag: summary");
+
+    const search = await getHtml(request, "/search");
+    expect(readTitle(search)).toBe("Search — TNBC Knowledge Base");
+    expect(readMetaContent(search, "description")).toBe(
+      "Search the TNBC Knowledge Base",
+    );
+    expect(readMetaContent(search, "og:title")).toBe("Search");
+
+    const login = await getHtml(request, "/login");
+    expect(readTitle(login)).toBe("TNBC Knowledge Base");
+    expect(readMetaContent(login, "og:title")).toBe("TNBC Knowledge Base");
   });
 });
