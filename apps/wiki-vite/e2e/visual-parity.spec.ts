@@ -39,8 +39,34 @@ test.describe("Visual parity", () => {
     ).toHaveCSS("min-height", "42px");
     await expect(page.locator(".wiki-shell-tree-directory").first()).toHaveCSS(
       "font-size",
-      "16px",
+      "14px",
     );
+    const sidebar = page.getByTestId("wiki-sidebar");
+    const sidebarNav = page.getByTestId("sidebar-tree");
+    const commentsLink = page.getByTestId("sidebar-view-comments");
+    const workspaceLogo = page.locator(".wiki-vite-sidebar-logo");
+    await expect(commentsLink).toHaveCSS("font-size", "14px");
+    const [sidebarBox, sidebarNavBox, commentsLinkBox, commentsIconBox, logoBox] =
+      await Promise.all([
+        sidebar.boundingBox(),
+        sidebarNav.boundingBox(),
+        commentsLink.boundingBox(),
+        commentsLink.locator("svg").boundingBox(),
+        workspaceLogo.boundingBox(),
+      ]);
+    expect(sidebarBox).not.toBeNull();
+    expect(sidebarNavBox).not.toBeNull();
+    expect(commentsLinkBox).not.toBeNull();
+    expect(commentsIconBox).not.toBeNull();
+    expect(logoBox).not.toBeNull();
+    expect(commentsLinkBox!.x - sidebarBox!.x).toBe(6);
+    expect(commentsLinkBox!.width).toBe(sidebarBox!.width - 12);
+    expect(commentsIconBox!.x - sidebarBox!.x).toBe(18);
+    expect(commentsIconBox!.width).toBe(16);
+    expect(commentsIconBox!.height).toBe(16);
+    expect(logoBox!.x - sidebarBox!.x).toBe(16);
+    expect(logoBox!.width).toBe(22);
+    expect(logoBox!.height).toBe(22);
     const collapseButton = page.locator(".sidebar-collapse-button");
     await expect(collapseButton).toHaveCSS("width", "24px");
     await expect(collapseButton).toHaveCSS("border-radius", "8px");

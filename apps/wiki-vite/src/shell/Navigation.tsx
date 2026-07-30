@@ -80,7 +80,7 @@ import {
 import { ViteActionsMenu, openCommandPalette, useWikiViteAuth } from "./Header";
 
 const TREE_EXPANSION_KEY = "wiki-vite-expanded-directories";
-const ICON_SIZE = 14;
+const ICON_SIZE = 16;
 const MOBILE_OUTLINE_SELECTOR = "h2[id], h3[id], h4[id]";
 const NON_DOCUMENT_ROUTE_PREFIXES = [
   "/access",
@@ -289,10 +289,10 @@ function DiagnosticsTreeLink({
       data-test-id={testId}
       to="/diagnostics"
       onClick={onNavigate}
-      style={{ paddingLeft: 24 }}
+      style={{ paddingLeft: 12 }}
       title="Diagnostics"
     >
-      <Activity size={14} aria-hidden="true" />
+      <Activity size={ICON_SIZE} aria-hidden="true" />
       Diagnostics
     </Link>
   );
@@ -306,7 +306,26 @@ function WorkspaceHeader() {
       className="wiki-vite-sidebar-workspace"
       data-test-id="sidebar-workspace-trigger"
     >
-      <span className="wiki-vite-sidebar-logo" aria-hidden="true">D</span>
+      <svg
+        aria-hidden="true"
+        className="wiki-vite-sidebar-logo"
+        height="22"
+        viewBox="0 0 32 32"
+        width="22"
+      >
+        <rect width="32" height="32" rx="6" fill="#4f46e5" />
+        <text
+          x="16"
+          y="23"
+          fill="white"
+          fontFamily="system-ui, -apple-system, sans-serif"
+          fontSize="22"
+          fontWeight="700"
+          textAnchor="middle"
+        >
+          D
+        </text>
+      </svg>
       <span>Diana TNBC</span>
       <ChevronDown size={14} aria-hidden="true" />
     </button>
@@ -441,9 +460,9 @@ function CommentsTreeLink({
       data-test-id={testId}
       to="/comments"
       onClick={onNavigate}
-      style={{ paddingLeft: 24 }}
+      style={{ paddingLeft: 12 }}
     >
-      <MessageSquareText size={14} aria-hidden="true" />
+      <MessageSquareText size={ICON_SIZE} aria-hidden="true" />
       Comments
     </Link>
   );

@@ -521,14 +521,23 @@ a {
 }
 
 .wiki-vite-sidebar-logo {
-  align-items: center;
-  background: var(--brand);
-  border-radius: 6px;
-  color: #fff;
-  display: inline-flex;
-  height: 24px;
-  justify-content: center;
-  width: 24px;
+  display: block;
+  flex: 0 0 auto;
+  height: 22px;
+  width: 22px;
+}
+
+.sidebar-expanded-rail .wiki-shell-sidebar-nav {
+  padding-inline: 6px;
+}
+
+.sidebar-expanded-rail .wiki-shell-tree-root {
+  margin-top: 4px;
+}
+
+.sidebar-expanded-rail .wiki-shell-tree-directory,
+.sidebar-expanded-rail .wiki-shell-tree-link {
+  font-size: 0.875rem;
 }
 
 .wiki-shell-tree-icon {
