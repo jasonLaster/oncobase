@@ -35,7 +35,11 @@ import {
 import { ImageTheater } from "./image-theater.tsx";
 import { type WikiImageComponent } from "./image-renderer.tsx";
 import { TheaterImage } from "./theater-image.tsx";
-import { markdownRehypePlugins, markdownRemarkPlugins } from "./math.ts";
+import {
+  markdownRehypePlugins,
+  markdownRemarkPlugins,
+  protectCurrencyFromMath,
+} from "./math.ts";
 import { expandSlidesMarkdown } from "./slides-markdown.ts";
 import { SlidesViewer, SlidesViewerControls } from "./slides-viewer.tsx";
 import { WikiMarkdownFrame } from "./frame.tsx";
@@ -196,8 +200,12 @@ export function WikiMarkdown({
   resolveLinkHref,
   isInternalHref = isInternalWikiHref,
 }: WikiMarkdownProps) {
-  const prepared = expandSlidesMarkdown(
-    preprocessCitationMarkdown(resolveWikilinks(content, currentSlug, apiBasePath)),
+  const prepared = protectCurrencyFromMath(
+    expandSlidesMarkdown(
+      preprocessCitationMarkdown(
+        resolveWikilinks(content, currentSlug, apiBasePath),
+      ),
+    ),
   );
 
   return (
@@ -293,4 +301,8 @@ export type {
   WikiMarkdownNotificationAdapter,
   WikiMarkdownRouteAdapter,
 };
-export { normalizeMathValue, remarkCleanMath } from "./math.ts";
+export {
+  normalizeMathValue,
+  protectCurrencyFromMath,
+  remarkCleanMath,
+} from "./math.ts";

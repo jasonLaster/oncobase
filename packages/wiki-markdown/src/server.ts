@@ -6,7 +6,11 @@ import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
 import { preprocessCitationMarkdown } from "./citations.ts";
-import { markdownRehypePlugins, markdownRemarkPlugins } from "./math.ts";
+import {
+  markdownRehypePlugins,
+  markdownRemarkPlugins,
+  protectCurrencyFromMath,
+} from "./math.ts";
 import { expandSlidesMarkdown } from "./slides-markdown.ts";
 
 const processor = unified()
@@ -37,74 +41,6 @@ function extractMermaidBlocks(md: string): string {
 
 function stripLegacyTableDirectives(md: string): string {
   return md.replace(/^\s*<!--\s*table-cols:\s*.*?-->\s*$/gm, "");
-}
-
-function isCurrencyDollar(md: string, dollarIndex: number): boolean {
-  const rest = md.slice(dollarIndex + 1);
-  const placeholder = rest.match(/^X\b/);
-
-  if (placeholder) {
-    return rest[placeholder[0].length] !== "$";
-  }
-
-  const amount = rest.match(/^\d[\d,]*(?:\.\d+)?[KMBTkmbt]?/);
-
-  if (!amount) {
-    return false;
-  }
-
-  const value = amount[0];
-  const next = rest.slice(value.length);
-
-  if (next.startsWith("$")) {
-    return false;
-  }
-
-  const operator = next.match(/^\s*([-+*/=<>–—])/);
-
-  if (operator) {
-    const afterOperator = next.slice(operator[0].length);
-
-    if (
-      (operator[1] === "-" || operator[1] === "–" || operator[1] === "—") &&
-      /^\s*\$?\d/.test(afterOperator)
-    ) {
-      return true;
-    }
-
-    return (
-      value.includes(",") ||
-      /[KMBTkmbt]$/.test(value) ||
-      /^\d{4,}/.test(value) ||
-      /^\d+\.\d{2}$/.test(value)
-    );
-  }
-
-  return (
-    value.includes(",") ||
-    /[KMBTkmbt]$/.test(value) ||
-    /^\d{4,}/.test(value) ||
-    /^\d+\.\d{2}$/.test(value) ||
-    next.length === 0 ||
-    /^[\s,.;:)\]}*_]/.test(next)
-  );
-}
-
-function escapeCurrencyDollars(md: string): string {
-  return md.replace(/(^|[^\\])\$/g, (match, prefix: string, offset: number) => {
-    const dollarIndex = offset + prefix.length;
-
-    return isCurrencyDollar(md, dollarIndex) ? `${prefix}\\$` : match;
-  });
-}
-
-function normalizeCurrencyTypos(md: string): string {
-  return md
-    .replace(/\\(\d[\d,]*(?:\.\d+)?[KMBTkmbt])(?=\s*[-–—]\s*\$?\d)/g, "$$$1")
-    .replace(
-      /\$(\d[\d,]*(?:\.\d+)?[KMBTkmbt])\s*([-–—])\s*(?!\$)(\d[\d,]*(?:\.\d+)?[KMBTkmbt])/g,
-      "$$$1$2$$$3",
-    );
 }
 
 type TagDecoration = {
@@ -350,8 +286,8 @@ export function renderWikiMarkdownHtml(md: string, currentSlug?: string): string
   const citationLinked = preprocessCitationMarkdown(md);
   const slidesExpanded = expandSlidesMarkdown(citationLinked);
   const mermaidExtracted = extractMermaidBlocks(slidesExpanded);
-  const cleanMd = escapeCurrencyDollars(
-    normalizeCurrencyTypos(stripLegacyTableDirectives(mermaidExtracted)),
+  const cleanMd = protectCurrencyFromMath(
+    stripLegacyTableDirectives(mermaidExtracted),
   );
   const raw = processor.processSync(cleanMd).toString();
   const wrapped = decorateRenderedTables(raw);
@@ -367,8 +303,8 @@ export async function renderWikiMarkdownHtmlAsync(
   const citationLinked = preprocessCitationMarkdown(md);
   const slidesExpanded = expandSlidesMarkdown(citationLinked);
   const mermaidExtracted = extractMermaidBlocks(slidesExpanded);
-  const cleanMd = escapeCurrencyDollars(
-    normalizeCurrencyTypos(stripLegacyTableDirectives(mermaidExtracted)),
+  const cleanMd = protectCurrencyFromMath(
+    stripLegacyTableDirectives(mermaidExtracted),
   );
   const raw = (await processor.process(cleanMd)).toString();
   const wrapped = decorateRenderedTables(raw);

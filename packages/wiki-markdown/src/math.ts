@@ -10,6 +10,90 @@ type MarkdownNode = {
   children?: MarkdownNode[];
 };
 
+function isCurrencyDollar(markdown: string, dollarIndex: number) {
+  const rest = markdown.slice(dollarIndex + 1);
+  const placeholder = rest.match(/^X\b/);
+
+  if (placeholder) {
+    return rest[placeholder[0].length] !== "$";
+  }
+
+  const amount = rest.match(/^\d[\d,]*(?:\.\d+)?[KMBTkmbt]?/);
+
+  if (!amount) {
+    return false;
+  }
+
+  const value = amount[0];
+  const next = rest.slice(value.length);
+
+  if (next.startsWith("$")) {
+    return false;
+  }
+
+  if (/^\/[A-Za-z]/.test(next)) {
+    return true;
+  }
+
+  const operator = next.match(/^\s*([-+*/=<>–—])/);
+
+  if (operator) {
+    const afterOperator = next.slice(operator[0].length);
+
+    if (
+      (operator[1] === "-" || operator[1] === "–" || operator[1] === "—") &&
+      /^\s*\$?\d/.test(afterOperator)
+    ) {
+      return true;
+    }
+
+    return (
+      value.includes(",") ||
+      /[KMBTkmbt]$/.test(value) ||
+      /^\d{4,}/.test(value) ||
+      /^\d+\.\d{2}$/.test(value)
+    );
+  }
+
+  return (
+    value.includes(",") ||
+    /[KMBTkmbt]$/.test(value) ||
+    /^\d{4,}/.test(value) ||
+    /^\d+\.\d{2}$/.test(value) ||
+    next.length === 0 ||
+    /^[\s,.;:)\]}*_]/.test(next)
+  );
+}
+
+function escapeCurrencyDollars(markdown: string) {
+  return markdown.replace(
+    /(^|[^\\])\$/g,
+    (match, prefix: string, offset: number) => {
+      const dollarIndex = offset + prefix.length;
+
+      return isCurrencyDollar(markdown, dollarIndex)
+        ? `${prefix}\\$`
+        : match;
+    },
+  );
+}
+
+function normalizeCurrencyTypos(markdown: string) {
+  return markdown
+    .replace(
+      /\\(\d[\d,]*(?:\.\d+)?[KMBTkmbt])(?=\s*[-–—]\s*\$?\d)/g,
+      "$$$1",
+    )
+    .replace(
+      /\$(\d[\d,]*(?:\.\d+)?[KMBTkmbt])\s*([-–—])\s*(?!\$)(\d[\d,]*(?:\.\d+)?[KMBTkmbt])/g,
+      "$$$1$2$$$3",
+    );
+}
+
+export function protectCurrencyFromMath(markdown: string) {
+  return escapeCurrencyDollars(normalizeCurrencyTypos(markdown));
+}
+
 function walkMarkdownTree(node: MarkdownNode, visit: (child: MarkdownNode) => void) {
   visit(node);
 

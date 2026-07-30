@@ -74,6 +74,26 @@ describe("wiki markdown helpers", () => {
     );
   });
 
+  test("renders ordinary monthly currency ranges without consuming math delimiters", () => {
+    const html = renderToStaticMarkup(
+      createElement(WikiMarkdown, {
+        content: [
+          "### What It Costs You",
+          "",
+          "- **A Claude subscription** (~$20–$200/month depending on plan).",
+          "",
+          "Intentional math remains rendered: $x^2$.",
+        ].join("\n"),
+      }),
+    );
+
+    expect(html).toContain("(~$20–$200/month depending on plan)");
+    expect(html).toContain('class="katex"');
+    expect(html).not.toContain(
+      '<annotation encoding="application/x-tex">200/month',
+    );
+  });
+
   test("renders Mermaid fences with a client-safe fallback", () => {
     const html = renderToStaticMarkup(
       createElement(WikiMarkdown, {

@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import {
   markdownRehypePlugins,
   markdownRemarkPlugins,
+  protectCurrencyFromMath,
 } from "@oncobase/wiki-markdown";
 import { recordSearchMetric } from "../observability";
 import { useWikiScope } from "../wiki-context";
@@ -319,7 +320,9 @@ function FileMatches({
                   rehypePlugins={markdownRehypePlugins}
                   remarkPlugins={markdownRemarkPlugins}
                 >
-                  {highlightQuery(match.lineContent, query)}
+                  {protectCurrencyFromMath(
+                    highlightQuery(match.lineContent, query),
+                  )}
                 </ReactMarkdown>
               </div>
             </Link>

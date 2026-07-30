@@ -246,13 +246,18 @@ CD4^{+} T cells expand, while ^{68}Ga tracers stay unchanged.
     const html = renderWikiMarkdownHtml([
       "Cost is $1.5M and math is $x^2$.",
       "Budget range: $350K-$600K and $1M-1.5M.",
+      "A Claude subscription (~$20–$200/month depending on plan).",
       "Dose: $50 - \\mu \\mathrm{g}$ and $1 + 2 = 3$.",
     ].join("\n\n"));
 
     expect(html).toContain("$1.5M");
     expect(html).toContain("$350K-$600K");
     expect(html).toContain("$1M-$1.5M");
+    expect(html).toContain("(~$20–$200/month depending on plan)");
     expect(countMatches(html, /class="katex"/g)).toBeGreaterThanOrEqual(2);
+    expect(html).not.toContain(
+      '<annotation encoding="application/x-tex">200/month',
+    );
     expect(html).not.toContain("$50 - \\mu \\mathrm{g}$");
   });
 
