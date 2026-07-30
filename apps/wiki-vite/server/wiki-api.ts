@@ -720,40 +720,17 @@ async function handleLoginRequest(
   const url = new URL(request.url);
 
   if (request.method === "GET") {
-    const token = url.searchParams.get("token") ?? "";
     const redirect = safeLocalRedirect(url.searchParams.get("redirect"));
-    if (!token || !(await isValidPassword(client, siteSlug, token))) {
-      return new Response(null, {
-        status: 302,
-        headers: {
-          "Cache-Control": "private, no-store",
-          Location: new URL("/login", request.url).toString(),
-          Vary: "Cookie, Host",
-        },
-      });
-    }
-    try {
-      return new Response(null, {
-        status: 302,
-        headers: {
-          Location: new URL(redirect, request.url).toString(),
-          "Cache-Control": "private, no-store",
-          "Set-Cookie": await authCookieHeader(siteSlug),
-          Vary: "Cookie, Host",
-        },
-      });
-    } catch {
-      return Response.json(
-        { error: "Password gate session is not configured" },
-        {
-          status: 503,
-          headers: {
-            "Cache-Control": "private, no-store",
-            Vary: "Cookie, Host",
-          },
-        },
-      );
-    }
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", redirect);
+    return new Response(null, {
+      status: 302,
+      headers: {
+        "Cache-Control": "private, no-store",
+        Location: loginUrl.toString(),
+        Vary: "Cookie, Host",
+      },
+    });
   }
 
   if (request.method !== "POST") {

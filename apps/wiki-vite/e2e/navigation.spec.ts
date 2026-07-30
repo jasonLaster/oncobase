@@ -18,21 +18,25 @@ test.describe("Production server redirects", () => {
   );
 
   test("serves the about index canonical redirect before rendering", async ({ request }) => {
-    const response = await request.get("/about/index?token=diana", {
+    const cookie = await passwordGateCookie(request);
+    const response = await request.get("/about/index", {
+      headers: { Cookie: cookie },
       maxRedirects: 0,
     });
 
     expect(response.status()).toBe(307);
-    expect(response.headers()["location"]).toMatch(/\/about\/Index\?token=diana$/);
+    expect(response.headers()["location"]).toMatch(/\/about\/Index$/);
   });
 
   test("redirects the about directory to its canonical index page", async ({ request }) => {
-    const response = await request.get("/about?token=diana", {
+    const cookie = await passwordGateCookie(request);
+    const response = await request.get("/about", {
+      headers: { Cookie: cookie },
       maxRedirects: 0,
     });
 
     expect(response.status()).toBe(307);
-    expect(response.headers()["location"]).toMatch(/\/about\/Index\?token=diana$/);
+    expect(response.headers()["location"]).toMatch(/\/about\/Index$/);
   });
 
   test("serves markdown article aliases through the app shell", async ({ request }) => {

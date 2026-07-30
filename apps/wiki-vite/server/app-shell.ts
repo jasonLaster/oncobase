@@ -276,22 +276,14 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
     return null;
   }
 
-  const token = url.searchParams.get("token");
-  if (token) {
-    const clean = new URL(request.url);
-    clean.searchParams.delete("token");
-    const loginUrl = new URL("/api/login", request.url);
-    loginUrl.searchParams.set("token", token);
-    loginUrl.searchParams.set("redirect", `${clean.pathname}${clean.search}`);
-    return privateRedirect(request, loginUrl.toString());
-  }
-
   if (isLinkPreviewRequest(request) && !isAppAssetRequest(url.pathname)) {
     return handleSharePreviewRequest(sharePreviewRequestFor(request), client, siteSlug);
   }
 
+  const clean = new URL(request.url);
+  clean.searchParams.delete("token");
   const loginUrl = new URL("/login", request.url);
-  loginUrl.searchParams.set("redirect", `${url.pathname}${url.search}`);
+  loginUrl.searchParams.set("redirect", `${clean.pathname}${clean.search}`);
   return privateRedirect(request, loginUrl.toString());
 }
 

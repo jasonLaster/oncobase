@@ -6,6 +6,9 @@ loadPlaywrightEnv();
 
 const port = process.env.PLAYWRIGHT_PORT || "61001";
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${port}`;
+const localGatePasswordHash =
+  "sha256:1b2fc9341a16ae4e30082965d537ae47c21a0f27fd43eab78330ed81751ae6db";
+const localGateSessionSecret = "wiki-vite-playwright-gate-secret";
 const previewBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 const extraHTTPHeaders = previewBypassSecret
   ? {
@@ -21,6 +24,13 @@ const webServer = process.env.PLAYWRIGHT_BASE_URL
       url: baseURL,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
+      env: {
+        ...process.env,
+        DIANA_WIKI_PASSWORD_HASH:
+          process.env.DIANA_WIKI_PASSWORD_HASH || localGatePasswordHash,
+        WIKI_GATE_SESSION_SECRET:
+          process.env.WIKI_GATE_SESSION_SECRET || localGateSessionSecret,
+      },
     };
 const previewAuthState = process.env.PLAYWRIGHT_BASE_URL && process.env.WIKI_VITE_PREVIEW_LOGIN_PASSWORD
   ? previewAuthStatePath

@@ -507,15 +507,22 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(missingToken?.status).toBe(302);
     expect(missingToken!.headers.get("cache-control")).toBe("private, no-store");
     expect(missingToken!.headers.get("vary")).toContain("Cookie");
+    expect(missingToken!.headers.get("location")).toBe(
+      "http://127.0.0.1/login?redirect=%2Fwiki%2Fpublic",
+    );
+    expect(missingToken!.headers.get("set-cookie")).toBeNull();
 
     const tokenLogin = await handler(
       request("/api/login?token=diana&redirect=%2Fwiki%2Fpublic"),
     );
     expect(tokenLogin?.status).toBe(302);
     expect(tokenLogin!.headers.get("cache-control")).toBe("private, no-store");
-    expect(tokenLogin!.headers.get("set-cookie")).toContain("authed=v1.");
+    expect(tokenLogin!.headers.get("set-cookie")).toBeNull();
     expect(tokenLogin!.headers.get("vary")).toContain("Cookie");
-    expect(tokenLogin!.headers.get("location")).toBe("http://127.0.0.1/wiki/public");
+    expect(tokenLogin!.headers.get("location")).toBe(
+      "http://127.0.0.1/login?redirect=%2Fwiki%2Fpublic",
+    );
+    expect(tokenLogin!.headers.get("location")).not.toContain("token");
 
     for (const redirect of ["https://evil.example/phish", "//evil.example/phish"]) {
       const unsafeTokenLogin = await handler(
@@ -524,7 +531,10 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
         ),
       );
       expect(unsafeTokenLogin?.status).toBe(302);
-      expect(unsafeTokenLogin!.headers.get("location")).toBe("http://127.0.0.1/");
+      expect(unsafeTokenLogin!.headers.get("location")).toBe(
+        "http://127.0.0.1/login?redirect=%2F",
+      );
+      expect(unsafeTokenLogin!.headers.get("set-cookie")).toBeNull();
     }
 
     const passwordLogin = await handler(
@@ -724,14 +734,11 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
 
     try {
       const handler = createWikiApiHandler(createFakeConvexClient() as never);
-      const login = await handler(
-        request("/api/login?token=diana&redirect=%2F"),
-      );
-      const gateCookie = cookieFrom(login!);
+      const gateCookieValue = await gateCookie(handler);
 
       const sensitive = await handler(
         request("/api/file?path=private%2Fimages%2Fscan.png", {
-          headers: { Cookie: gateCookie },
+          headers: { Cookie: gateCookieValue },
         }),
       );
       expect(sensitive?.status).toBe(404);
@@ -743,7 +750,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
 
       const publicFile = await handler(
         request("/api/file?path=sources%2Fpublic%2Fsource.pdf", {
-          headers: { Cookie: gateCookie },
+          headers: { Cookie: gateCookieValue },
         }),
       );
       expect(publicFile?.status).toBe(200);
@@ -837,14 +844,11 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
 
       try {
         const handler = createWikiApiHandler(createFakeConvexClient() as never);
-        const login = await handler(
-          request("/api/login?token=diana&redirect=%2F"),
-        );
-        const gateCookie = cookieFrom(login!);
+        const gateCookieValue = await gateCookie(handler);
         const response = await handler(
           request("/api/file?path=sources/public/source.pdf", {
             headers: {
-              Cookie: gateCookie,
+              Cookie: gateCookieValue,
               Range: "bytes=0-2",
             },
           }),

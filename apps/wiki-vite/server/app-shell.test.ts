@@ -165,6 +165,25 @@ describe("wiki Vite app-shell password gate", () => {
     expect(response.headers.get("vary")).toContain("Host");
   });
 
+  test("never exchanges a password-bearing query for a gate session", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    const response = await handler(
+      request("/wiki/public?token=diana&view=compact"),
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "http://127.0.0.1/login?redirect=%2Fwiki%2Fpublic%3Fview%3Dcompact",
+    );
+    expect(response.headers.get("location")).not.toContain("token");
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
   test("keeps authenticated login redirects on the current origin", async () => {
     const handler = createWikiViteHandler({
       client: fakeClient() as never,
