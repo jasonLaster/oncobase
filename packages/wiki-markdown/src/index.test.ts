@@ -116,15 +116,18 @@ gantt
     expect(html).toContain('href="/api/file?path=wiki%2Fresearch%2Fpaper.pdf"');
   });
 
-  test("renders bracketed mail labels with their protocol href intact", () => {
+  test("renders mail and telephone links while rejecting unsafe protocols", () => {
     const html = renderToStaticMarkup(
       createElement(WikiMarkdown, {
-        content: "Contact [[redacted email]](mailto:diana@example.com).",
+        content:
+          "Contact [[redacted email]](mailto:diana@example.com), call [support](tel:+14155550123), or avoid [unsafe](javascript:alert(1)).",
       }),
     );
 
     expect(html).toContain('href="mailto:diana@example.com"');
+    expect(html).toContain('href="tel:+14155550123"');
     expect(html).not.toContain('href="/redacted%20email"');
+    expect(html).not.toContain('href="javascript:');
   });
 
   test("renders a reusable slides viewer from an image list", () => {

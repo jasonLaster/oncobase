@@ -9,7 +9,10 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, {
+  defaultUrlTransform,
+  type UrlTransform,
+} from "react-markdown";
 import {
   MdTable,
   MdTbody,
@@ -154,6 +157,13 @@ function MarkdownPre({ children, ...props }: ComponentProps<"pre">) {
   return <pre {...props}>{children}</pre>;
 }
 
+const wikiUrlTransform: UrlTransform = (value, key) => {
+  if (key === "href" && /^tel:/i.test(value)) {
+    return value;
+  }
+  return defaultUrlTransform(value);
+};
+
 export function WikiMarkdownTableEnhancer({
   layoutAdapter,
   persistenceScope,
@@ -195,6 +205,7 @@ export function WikiMarkdown({
       <ReactMarkdown
         remarkPlugins={markdownRemarkPlugins}
         rehypePlugins={markdownRehypePlugins}
+        urlTransform={wikiUrlTransform}
         components={{
           pre: MarkdownPre,
           a: ({ href, children, ...props }: WikiMarkdownLinkProps) => {

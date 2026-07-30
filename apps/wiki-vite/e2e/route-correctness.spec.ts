@@ -24,13 +24,19 @@ test.describe("Route-owned metadata and links", () => {
     await expect(page).toHaveTitle("Tag: logistics - Diana Wiki");
   });
 
-  test("bracketed redacted labels preserve mail protocol links", async ({ page }) => {
+  test("bracketed redacted labels preserve mail and telephone protocol links", async ({
+    page,
+  }) => {
     await gotoWiki(page, "/about/About");
 
     const mailLink = documentArticle(page).getByRole("link", {
       name: /redacted email/,
     });
+    const phoneLink = documentArticle(page).getByRole("link", {
+      name: /redacted phone/,
+    });
     await expect(mailLink).toHaveAttribute("href", "mailto:diana@example.com");
+    await expect(phoneLink).toHaveAttribute("href", "tel:+14155550123");
     await expect(documentArticle(page).locator('a[href="/redacted%20email"]')).toHaveCount(0);
   });
 });
