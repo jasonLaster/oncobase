@@ -92,6 +92,13 @@ test.describe("Visual parity", () => {
     await expect(page.locator(".wiki-shell-header")).toHaveCount(0);
     await expect(page.locator(".page-shell")).toBeVisible();
     await expect(page.getByTestId("document-article")).toHaveCSS("padding-right", "16px");
+    await expect(page.locator(".wiki-vite-mobile-title")).toHaveCSS("font-size", "16px");
+    for (const testId of ["mobile-header-search", "mobile-header-comments"]) {
+      const iconBox = await page.getByTestId(testId).locator("svg").boundingBox();
+      expect(iconBox).not.toBeNull();
+      expect(iconBox!.width).toBe(18);
+      expect(iconBox!.height).toBe(18);
+    }
 
     if (hasLocalSnapshotBaseline) {
       await expect(page.locator(".page-shell")).toHaveScreenshot("mobile-reader-shell.png", {
@@ -176,6 +183,19 @@ test.describe("Visual parity", () => {
       "font-size",
       "16px",
     );
+    const panelBox = await sheet.locator(".wiki-shell-bottom-nav-panel").boundingBox();
+    const closeBox = await sheet.getByRole("button", { name: "Close navigation" }).boundingBox();
+    const pageNavBox = await sheet.getByRole("button", { name: "Page nav" }).boundingBox();
+    expect(panelBox).not.toBeNull();
+    expect(closeBox).not.toBeNull();
+    expect(pageNavBox).not.toBeNull();
+    expect(closeBox!.x).toBe(352);
+    expect(closeBox!.y - panelBox!.y).toBe(20);
+    expect(closeBox!.width).toBe(28);
+    expect(closeBox!.height).toBe(28);
+    expect(pageNavBox!.x).toBe(19);
+    expect(pageNavBox!.y - panelBox!.y).toBe(63);
+    expect(Math.abs(pageNavBox!.width - 175)).toBeLessThanOrEqual(1);
 
     if (hasLocalSnapshotBaseline) {
       await expect(sheet).toHaveScreenshot("mobile-navigation-sheet.png", {
@@ -191,7 +211,12 @@ test.describe("Visual parity", () => {
 
     const header = page.getByTestId("mobile-page-header");
     await expect(header.locator(".wiki-vite-mobile-title")).toHaveText("Search");
+    await expect(header.locator(".wiki-vite-mobile-title")).toHaveCSS("font-size", "16px");
     await expect(header.getByRole("button")).toHaveCount(2);
+    const searchIconBox = await page.getByTestId("mobile-header-search").locator("svg").boundingBox();
+    expect(searchIconBox).not.toBeNull();
+    expect(searchIconBox!.width).toBe(18);
+    expect(searchIconBox!.height).toBe(18);
 
     if (hasLocalSnapshotBaseline) {
       await expect(header).toHaveScreenshot("mobile-search-header.png", {

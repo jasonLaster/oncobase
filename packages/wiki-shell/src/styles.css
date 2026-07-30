@@ -2210,7 +2210,7 @@ html[data-initial-sidebar-state="collapsed"]
     align-items: center;
     display: flex;
     justify-content: space-between;
-    padding: 0 0.75rem 0.375rem 1rem;
+    padding: 0 1rem 0.375rem;
   }
 
   .wiki-shell-bottom-nav-header strong {
@@ -2225,10 +2225,11 @@ html[data-initial-sidebar-state="collapsed"]
     color: var(--text-muted);
     display: inline-flex;
     font-size: 1.25rem;
-    height: 2rem;
+    height: 1.75rem;
     justify-content: center;
     margin-left: auto;
-    width: 2rem;
+    margin-right: -0.375rem;
+    width: 1.75rem;
   }
 
   .wiki-shell-bottom-nav-header button:hover,

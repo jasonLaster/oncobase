@@ -666,13 +666,13 @@ function MobilePageHeader({
         <svg
           aria-hidden="true"
           fill="none"
-          height="16"
+          height="18"
           stroke="currentColor"
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeWidth="1.5"
           viewBox="0 0 16 16"
-          width="16"
+          width="18"
         >
           <circle cx="7" cy="7" r="4.25" />
           <path d="m10.25 10.25 3.5 3.5" />
@@ -692,13 +692,13 @@ function MobilePageHeader({
           <svg
             aria-hidden="true"
             fill="none"
-            height="16"
+            height="18"
             stroke="currentColor"
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth="1.5"
             viewBox="0 0 16 16"
-            width="16"
+            width="18"
           >
             <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
           </svg>
