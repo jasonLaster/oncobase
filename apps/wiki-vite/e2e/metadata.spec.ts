@@ -105,4 +105,21 @@ test.describe("production page metadata", () => {
       await anonymousRequest.dispose();
     }
   });
+
+  test("keeps authenticated gated routes noindex with site-level home social metadata", async ({
+    request,
+  }) => {
+    for (const path of ["/", "/index", "/about/About", "/search", "/login"]) {
+      const html = await getHtml(request, path);
+      expect(readMetaContent(html, "robots")).toBe("noindex, nofollow");
+      expect(html).not.toContain('rel="canonical"');
+    }
+
+    const home = await getHtml(request, "/");
+    expect(readMetaContent(home, "og:title")).toBe("TNBC Knowledge Base");
+    expect(readMetaContent(home, "twitter:title")).toBe("TNBC Knowledge Base");
+
+    const about = await getHtml(request, "/about/About");
+    expect(readMetaContent(about, "twitter:title")).toBe("About This Wiki");
+  });
 });

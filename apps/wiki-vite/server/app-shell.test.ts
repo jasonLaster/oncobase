@@ -30,9 +30,15 @@ function fakeClient() {
             continueCursor: null,
           };
         case "documents:getBySlug":
+          if (args.slug === "search") return null;
           return {
             slug: args.slug,
-            title: args.slug === "index" ? "Index" : "Public",
+            title:
+              args.slug === "index"
+                ? "Index"
+                : args.slug === "about/About"
+                  ? "About This Wiki"
+                  : "Public",
             description: "Public page",
             sensitive: false,
           };
@@ -98,6 +104,49 @@ describe("wiki Vite app-shell password gate", () => {
     expect(asset.headers.get("cache-control")).toBe(
       "public, max-age=31536000, immutable",
     );
+  });
+
+  test("keeps every password-gated shell out of indexes without exposing canonicals", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    for (const pathname of ["/", "/index", "/about/About", "/search"]) {
+      const response = await handler(
+        request(pathname, { headers: { Cookie: "authed=true" } }),
+      );
+      const html = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(html).toContain('<meta name="robots" content="noindex, nofollow" />');
+      expect(html).not.toContain('rel="canonical"');
+      expect(html).not.toContain('property="og:url"');
+    }
+
+    const home = await handler(request("/", { headers: { Cookie: "authed=true" } }));
+    const homeHtml = await home.text();
+    expect(homeHtml).toContain(
+      '<meta name="twitter:title" content="TNBC Knowledge Base" />',
+    );
+    expect(homeHtml).toContain(
+      '<meta property="og:title" content="TNBC Knowledge Base" />',
+    );
+
+    const about = await handler(
+      request("/about/About", { headers: { Cookie: "authed=true" } }),
+    );
+    expect(await about.text()).toContain(
+      '<meta name="twitter:title" content="About This Wiki" />',
+    );
+
+    const login = await handler(request("/login?redirect=%2F"));
+    const loginHtml = await login.text();
+    expect(loginHtml).toContain('<meta name="robots" content="noindex, nofollow" />');
+    expect(loginHtml).toContain(
+      '<meta name="twitter:title" content="TNBC Knowledge Base" />',
+    );
+    expect(loginHtml).not.toContain('rel="canonical"');
   });
 
   test("serves a function-embedded shell when no static root index exists", async () => {

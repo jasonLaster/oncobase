@@ -16,6 +16,8 @@ import {
 } from "./wiki-api.js";
 
 const DEFAULT_SITE_SLUG = "diana";
+const DIANA_SITE_NAME = "TNBC Knowledge Base";
+const DEFAULT_SITE_DESCRIPTION = "Breast cancer research and treatment knowledge base";
 const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
 const PASSWORD_GATE_CACHE_TTL_MS = 15_000;
 const CANONICAL_SLUG_CACHE_TTL_MS = 60_000;
@@ -297,26 +299,34 @@ function injectHeadMetadata(
   metadata: {
     title: string;
     description?: string | null;
-    canonicalUrl: string;
+    canonicalUrl?: string;
+    noIndex?: boolean;
     sensitive?: boolean;
+    socialTitle?: string;
   },
 ) {
   const title = escapeHtml(metadata.title);
+  const socialTitle = escapeHtml(metadata.socialTitle ?? metadata.title);
   const description = escapeHtml(metadata.description || metadata.title);
-  const canonicalUrl = escapeHtml(metadata.canonicalUrl);
-  const robotsContent = metadata.sensitive ? "noindex, nofollow" : "index, follow";
+  const canonicalUrl = metadata.canonicalUrl
+    ? escapeHtml(metadata.canonicalUrl)
+    : null;
+  const robotsContent =
+    metadata.noIndex || metadata.sensitive ? "noindex, nofollow" : "index, follow";
   const tags = [
-    `<link rel="canonical" href="${canonicalUrl}" />`,
+    canonicalUrl ? `<link rel="canonical" href="${canonicalUrl}" />` : null,
     `<meta name="description" content="${description}" />`,
     `<meta name="robots" content="${robotsContent}" />`,
-    `<meta property="og:title" content="${title}" />`,
+    `<meta property="og:title" content="${socialTitle}" />`,
     `<meta property="og:description" content="${description}" />`,
-    `<meta property="og:url" content="${canonicalUrl}" />`,
+    canonicalUrl ? `<meta property="og:url" content="${canonicalUrl}" />` : null,
     `<meta property="og:type" content="article" />`,
     `<meta name="twitter:card" content="summary" />`,
-    `<meta name="twitter:title" content="${title}" />`,
+    `<meta name="twitter:title" content="${socialTitle}" />`,
     `<meta name="twitter:description" content="${description}" />`,
-  ].join("\n    ");
+  ]
+    .filter((tag): tag is string => tag !== null)
+    .join("\n    ");
 
   return html
     .replace(/<title>.*?<\/title>/, `<title>${title}</title>`)
@@ -332,22 +342,34 @@ async function staticIndexHtml(
   const html = providedHtml ?? await readFile(filePath, "utf8");
   const url = new URL(request.url);
   const slug = slugFromPathname(url.pathname);
-  if (!slug) return html;
 
   const siteSlug = await resolveSiteSlug(request, client);
   if (!siteSlug) return html;
 
-  const page = await client.query(
-    api.documents.getBySlug,
-    withSiteSlug(siteSlug, { slug }),
-  );
-  if (!page) return html;
+  const [page, gateEnabled] = await Promise.all([
+    slug
+      ? client.query(
+          api.documents.getBySlug,
+          withSiteSlug(siteSlug, { slug }),
+        )
+      : Promise.resolve(null),
+    isPasswordGateEnabled(client, siteSlug),
+  ]);
+  if (!page && !gateEnabled) return html;
+
+  const siteName = siteSlug === DEFAULT_SITE_SLUG ? DIANA_SITE_NAME : siteSlug;
+  const isHome = slug === "index";
+  const title = page?.title ?? siteName;
 
   return injectHeadMetadata(html, {
-    title: page.title,
-    description: page.description,
-    canonicalUrl: new URL(url.pathname, request.url).toString(),
-    sensitive: page.sensitive === true,
+    title,
+    description: page?.description ?? DEFAULT_SITE_DESCRIPTION,
+    canonicalUrl: gateEnabled
+      ? undefined
+      : new URL(url.pathname, request.url).toString(),
+    noIndex: gateEnabled,
+    sensitive: page?.sensitive === true,
+    socialTitle: isHome || !page ? siteName : page.title,
   });
 }
 
