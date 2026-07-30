@@ -164,25 +164,12 @@ test.describe("Command palette parity", () => {
     await expect(input).toHaveCSS("font-size", "14px");
   });
 
-  test("Vite loads the same self-hosted Geist family as the production reader", async ({
-    page,
-  }) => {
+  test("Vite uses the same system font stack as the production reader", async ({ page }) => {
     await gotoWiki(page, "/");
-    await page.evaluate(() => document.fonts.ready);
-
-    await expect
-      .poll(() =>
-        page.evaluate(() => ({
-          family: getComputedStyle(document.documentElement).fontFamily.includes(
-            '"Geist Variable"',
-          ),
-          loaded: document.fonts.check('14px "Geist Variable"'),
-        })),
-      )
-      .toEqual({
-        family: true,
-        loaded: true,
-      });
+    await expect(page.locator("html")).toHaveCSS(
+      "font-family",
+      "ui-sans-serif, system-ui, sans-serif",
+    );
   });
 
   test("file palette resets scroll position when reopened", async ({ page }) => {

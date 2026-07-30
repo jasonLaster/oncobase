@@ -12,15 +12,6 @@
 @source "../../../packages/wiki-markdown/src";
 @source "../../../packages/wiki-shell/src";
 
-@font-face {
-  font-display: swap;
-  font-family: "Geist Variable";
-  font-style: normal;
-  font-weight: 100 900;
-  src: url("@fontsource-variable/geist/files/geist-latin-wght-normal.woff2")
-    format("woff2-variations");
-}
-
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -57,9 +48,7 @@
   --amber: #b45309;
   --red: #dc2626;
   --violet: var(--brand);
-  font-family:
-    "Geist Variable", Geist, "Geist Fallback", ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: ui-sans-serif, system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   background: var(--background);
@@ -480,7 +469,7 @@ a {
   align-items: center;
   background: transparent;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--foreground);
   cursor: pointer;
   display: flex;
@@ -489,8 +478,8 @@ a {
   min-height: 36px;
   min-width: 0;
   padding: 0 8px;
-  font-size: 0.875rem;
-  font-weight: 650;
+  font-size: 1rem;
+  font-weight: 400;
   text-align: left;
 }
 
@@ -812,13 +801,13 @@ a {
   align-items: center;
   background: var(--sidebar-bg);
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-muted);
   cursor: pointer;
   display: inline-flex;
-  height: 30px;
+  height: 24px;
   justify-content: center;
-  width: 30px;
+  width: 24px;
 }
 
 .sidebar-rail-button:hover,
@@ -997,7 +986,7 @@ a {
 
 .page-shell {
   overflow: visible;
-  padding: 0;
+  padding: 0 32px 0 0;
   position: relative;
 }
 
@@ -1297,7 +1286,7 @@ a {
   }
 
   .page-shell {
-    padding-top: 0;
+    padding: 0 16px 0 0;
   }
 
   .wiki-vite-mobile-page-header {

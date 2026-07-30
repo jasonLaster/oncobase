@@ -26,6 +26,18 @@ test.describe("Visual parity", () => {
     await expect(page.locator(".sidebar-expanded-rail")).toBeVisible();
     await expect(page.getByTestId("wiki-sidebar")).not.toContainText("File tree");
     await expect(page.getByTestId("document-article")).toBeVisible();
+    await expect(page.getByTestId("document-article")).toHaveCSS("padding-right", "32px");
+    await expect(page.getByTestId("sidebar-workspace-trigger")).toHaveCSS("font-size", "16px");
+    await expect(
+      page.getByTestId("wiki-sidebar").getByTestId("sidebar-sign-in"),
+    ).toHaveCSS("min-height", "42px");
+    await expect(page.locator(".wiki-shell-tree-directory").first()).toHaveCSS(
+      "font-size",
+      "16px",
+    );
+    const collapseButton = page.locator(".sidebar-collapse-button");
+    await expect(collapseButton).toHaveCSS("width", "24px");
+    await expect(collapseButton).toHaveCSS("border-radius", "8px");
 
     if (hasLocalSnapshotBaseline) {
       await expect(page.locator(".wiki-shell-outline-root")).toHaveScreenshot("desktop-reader-shell.png", {
@@ -46,6 +58,7 @@ test.describe("Visual parity", () => {
     await expect(page.getByTestId("mobile-page-outline")).toHaveCount(0);
     await expect(page.locator(".wiki-shell-header")).toHaveCount(0);
     await expect(page.locator(".page-shell")).toBeVisible();
+    await expect(page.getByTestId("document-article")).toHaveCSS("padding-right", "16px");
 
     if (hasLocalSnapshotBaseline) {
       await expect(page.locator(".page-shell")).toHaveScreenshot("mobile-reader-shell.png", {
