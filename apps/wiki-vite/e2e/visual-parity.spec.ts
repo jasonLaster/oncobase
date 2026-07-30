@@ -54,6 +54,20 @@ test.describe("Visual parity", () => {
     }
   });
 
+  test("markdown lists keep the production reader line height", async ({ page }) => {
+    await gotoWiki(page, "/");
+    await waitForPageTitle(page, "Diana Wiki Home");
+
+    const listItems = page.locator(".wiki-markdown li");
+    await expect(listItems).toHaveCount(5);
+    await expect(listItems.first()).toHaveCSS("font-size", "16px");
+    await expect(listItems.first()).toHaveCSS("line-height", "25.6px");
+    const itemHeights = await listItems.evaluateAll((items) =>
+      items.map((item) => item.getBoundingClientRect().height),
+    );
+    expect(itemHeights).toEqual([25.59375, 25.59375, 25.59375, 25.59375, 25.59375]);
+  });
+
   test("collapsed desktop sidebar keeps its expand control at the top", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
     await waitForPageTitle(page, "Insurance");

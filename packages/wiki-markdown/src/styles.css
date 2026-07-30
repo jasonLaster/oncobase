@@ -39,8 +39,12 @@
 }
 
 .wiki-markdown p,
-.wiki-markdown li {
+.wiki-markdown p {
   line-height: 1.7;
+}
+
+.wiki-markdown li {
+  line-height: 1.6;
 }
 
 .wiki-markdown ul,
