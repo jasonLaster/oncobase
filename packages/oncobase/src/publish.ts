@@ -65,6 +65,7 @@ const LARGE_ASSET_UPLOAD_DOC_LIMIT = readPositiveIntEnv(
 type AssetChangeReason =
   | "missingRemoteAssetRow"
   | "missingRemoteContentHash"
+  | "metadataMismatch"
   | "hashMismatch"
   | "forced";
 
@@ -130,6 +131,10 @@ async function uploadAsset(
       contentHash: asset.hash,
       blobUrl: blob.url,
       sizeBytes: asset.sizeBytes,
+      ownerSlugs: asset.ownerSlugs,
+      sensitive: asset.sensitive,
+      sensitiveInclude: asset.sensitiveInclude,
+      visibilityHash: asset.visibilityHash,
     }),
   });
   if (!response.ok) {
@@ -154,6 +159,10 @@ async function backfillAssetHashes(
         path: asset.relativePath,
         kind: asset.kind,
         contentHash: asset.hash,
+        ownerSlugs: asset.ownerSlugs,
+        sensitive: asset.sensitive,
+        sensitiveInclude: asset.sensitiveInclude,
+        visibilityHash: asset.visibilityHash,
       })),
     })) as { patched?: number; missing?: string[] };
     patched += result.patched ?? 0;
@@ -262,11 +271,19 @@ const begin = (await post(`${config.publishUrl}/begin`, token, {
       hash,
       sensitive,
     })),
-    assets: assets.map(({ relativePath, hash, kind }) => ({
-      path: relativePath,
-      hash,
-      kind,
-    })),
+    assets: assets.map(
+      ({
+        relativePath,
+        hash,
+        kind,
+        visibilityHash,
+      }) => ({
+        path: relativePath,
+        hash,
+        kind,
+        visibilityHash,
+      }),
+    ),
   },
   force,
   dryRun,
@@ -325,6 +342,7 @@ function assetChangeCounts(assetChanges: AssetChange[]): AssetChangeCounts {
     {
       missingRemoteAssetRow: 0,
       missingRemoteContentHash: 0,
+      metadataMismatch: 0,
       hashMismatch: 0,
       forced: 0,
     },
@@ -334,7 +352,7 @@ function assetChangeCounts(assetChanges: AssetChange[]): AssetChangeCounts {
 function printAssetChangeBreakdown(assetChanges: AssetChange[]) {
   const counts = assetChangeCounts(assetChanges);
   console.log(
-    `  asset diff: ${counts.missingRemoteAssetRow} missing rows, ${counts.missingRemoteContentHash} metadata-only hash backfills, ${counts.hashMismatch} hash mismatches, ${counts.forced} forced`,
+    `  asset diff: ${counts.missingRemoteAssetRow} missing rows, ${counts.missingRemoteContentHash} metadata-only hash backfills, ${counts.metadataMismatch} visibility metadata changes, ${counts.hashMismatch} hash mismatches, ${counts.forced} forced`,
   );
 }
 
@@ -362,7 +380,11 @@ const assetChanges =
 const missingAssetPathSet = new Set(begin.missingAssetPaths);
 const uploadAssetKeys = new Set(
   assetChanges
-    .filter((asset) => asset.reason !== "missingRemoteContentHash")
+    .filter(
+      (asset) =>
+        asset.reason !== "missingRemoteContentHash" &&
+        asset.reason !== "metadataMismatch",
+    )
     .map((asset) => assetKey(asset.kind, asset.path)),
 );
 const changedAssets = force
@@ -372,8 +394,12 @@ const changedAssets = force
         uploadAssetKeys.has(assetKey(asset.kind, asset.relativePath)),
       )
     : assets.filter((asset) => missingAssetPathSet.has(asset.relativePath));
-const hashBackfillAssets = assetChanges
-  .filter((asset) => asset.reason === "missingRemoteContentHash")
+const metadataBackfillAssets = assetChanges
+  .filter(
+    (asset) =>
+      asset.reason === "missingRemoteContentHash" ||
+      asset.reason === "metadataMismatch",
+  )
   .map((asset) => assetsByKey.get(assetKey(asset.kind, asset.path)))
   .filter((asset): asset is PublishAsset => Boolean(asset));
 
@@ -399,7 +425,7 @@ if (!dryRun && !confirmTombstone && (staleDocCount > 0 || staleAssetCount > 0)) 
 if (dryRun) {
   const rawContentBackfillCount = begin.rawContentBackfillSlugs?.length ?? 0;
   console.log(
-    `Dry run: ${changedDocs.length} documents changed (${rawContentBackfillCount} raw-content backfills), ${changedAssets.length} assets need upload, ${hashBackfillAssets.length} asset hashes need metadata-only backfill, ${
+    `Dry run: ${changedDocs.length} documents changed (${rawContentBackfillCount} raw-content backfills), ${changedAssets.length} assets need upload, ${metadataBackfillAssets.length} asset rows need metadata-only backfill, ${
       begin.staleDocumentSlugs?.length ?? 0
     } documents stale, ${begin.staleAssetPaths?.length ?? 0} assets stale`,
   );
@@ -423,15 +449,15 @@ if (
   process.exit(1);
 }
 
-if (hashBackfillAssets.length > 0) {
+if (metadataBackfillAssets.length > 0) {
   const result = await backfillAssetHashes(
     config.publishUrl,
     token,
     config.site,
-    hashBackfillAssets,
+    metadataBackfillAssets,
   );
   console.log(
-    `  backfilled ${result.patched}/${hashBackfillAssets.length} asset hashes without uploading bytes${
+    `  backfilled ${result.patched}/${metadataBackfillAssets.length} asset rows without uploading bytes${
       result.missing ? ` (${result.missing} rows missing)` : ""
     }`,
   );
@@ -512,7 +538,7 @@ lockHeld = false; // /finish releases the lock; don't double-abort.
 const tombstonedDocSlugs = begin.staleDocumentSlugs ?? [];
 const tombstonedAssetPaths = begin.staleAssetPaths ?? [];
 console.log(
-  `Published ${changedDocs.length} documents, uploaded ${uploaded} assets, backfilled ${hashBackfillAssets.length} asset hashes, tombstoned ${
+  `Published ${changedDocs.length} documents, uploaded ${uploaded} assets, backfilled ${metadataBackfillAssets.length} asset rows, tombstoned ${
     tombstonedDocSlugs.length
   } documents and ${tombstonedAssetPaths.length} assets for ${config.site}.`,
 );

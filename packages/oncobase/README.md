@@ -34,6 +34,24 @@ The publish token can be provided with `WIKI_PUBLISH_TOKEN_<SITE>`, `WIKI_PUBLIS
 - `oncobase transcription record --site <slug> --context <file>` records audio until Ctrl-C, then transcribes and drafts an enriched note with Vercel AI Gateway.
 - `oncobase transcription transcribe --site <slug> --audio <file> --context <file>` transcribes an existing recording and drafts the note after the fact.
 
+## Asset visibility and exclusions
+
+The publisher derives asset ownership from Markdown, Obsidian, and HTML links.
+Assets referenced by a sensitive document are stored as sensitive and are not
+served by `/api/file` without an authenticated session. Shared assets fail
+closed: if any owning document is sensitive, the asset is sensitive.
+
+Git-ignored files are excluded from publish manifests. To retain a tracked
+source file in the vault without publishing it, add its vault-relative path to
+`.oncobaseignore`. Directory entries end with `/`; `*`, `**`, and `?` are
+supported.
+
+```text
+# Hold back one attachment and an archival render directory.
+sources/emails/images/private-screenshot.png
+sources/archive/slides/
+```
+
 ## Transcription
 
 Transcription uses the Vercel AI Gateway by default with `openai/gpt-realtime-2`. Set `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN` before running it. The recording command requires `ffmpeg`.

@@ -133,18 +133,28 @@ async function findAssetByPath(
   return null;
 }
 
-async function isSensitiveAssetPath(ctx: AnyCtx, site: SiteCtx, assetPath: string) {
-  const doc = await findDocBySlug(ctx, site, assetPathToSiblingSlug(assetPath));
+type AssetVisibilityRow = {
+  path: string;
+  sensitive?: boolean;
+};
+
+async function isSensitiveAsset(
+  ctx: AnyCtx,
+  site: SiteCtx,
+  asset: AssetVisibilityRow,
+) {
+  if (asset.sensitive !== undefined) return asset.sensitive;
+  const doc = await findDocBySlug(ctx, site, assetPathToSiblingSlug(asset.path));
   return doc?.sensitive === true;
 }
 
-async function canReadAssetPath(
+async function canReadAsset(
   ctx: AnyCtx,
   site: SiteCtx,
-  assetPath: string,
+  asset: AssetVisibilityRow,
   includeSensitive?: boolean,
 ) {
-  return includeSensitive || !(await isSensitiveAssetPath(ctx, site, assetPath));
+  return includeSensitive || !(await isSensitiveAsset(ctx, site, asset));
 }
 
 async function sensitiveSiblingSlugSet(ctx: QueryCtx, site: SiteCtx) {
@@ -163,10 +173,13 @@ async function sensitiveSiblingSlugSet(ctx: QueryCtx, site: SiteCtx) {
 }
 
 function canReadAssetWithSensitiveSlugs(
-  assetPath: string,
+  asset: AssetVisibilityRow,
   sensitiveSlugs: Set<string> | null,
 ) {
-  return !sensitiveSlugs?.has(assetPathToSiblingSlug(assetPath));
+  if (asset.sensitive !== undefined) {
+    return asset.sensitive !== true || sensitiveSlugs === null;
+  }
+  return !sensitiveSlugs?.has(assetPathToSiblingSlug(asset.path));
 }
 
 export const search = query({
@@ -862,7 +875,7 @@ export const listPdfAssets = query({
     const out = [];
     for (const row of rows) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-      if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
+      if (!canReadAssetWithSensitiveSlugs(row, sensitiveSlugs)) continue;
       // Trim to the fields consumers use; full rows for the ~11k assets on
       // large sites exceed the Convex query response size limit.
       out.push({
@@ -899,7 +912,7 @@ export const listPdfAssetPathsPage = query({
     const page = [];
     for (const row of result.page) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-      if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
+      if (!canReadAssetWithSensitiveSlugs(row, sensitiveSlugs)) continue;
       page.push(row.path);
     }
     return {
@@ -922,7 +935,7 @@ export const getPdfAssetByPath = query({
     if (
       !row ||
       row.deletedAt ||
-      !(await canReadAssetPath(ctx, site, row.path, includeSensitive))
+      !(await canReadAsset(ctx, site, row, includeSensitive))
     ) {
       return null;
     }
@@ -937,8 +950,25 @@ export const upsertPdfAsset = mutation({
     blobUrl: v.string(),
     sizeBytes: v.number(),
     contentHash: v.optional(v.string()),
+    ownerSlugs: v.optional(v.array(v.string())),
+    sensitive: v.optional(v.boolean()),
+    sensitiveInclude: v.optional(v.array(v.string())),
+    visibilityHash: v.optional(v.string()),
   },
-  handler: async (ctx, { siteSlug, path, blobUrl, sizeBytes, contentHash }) => {
+  handler: async (
+    ctx,
+    {
+      siteSlug,
+      path,
+      blobUrl,
+      sizeBytes,
+      contentHash,
+      ownerSlugs,
+      sensitive,
+      sensitiveInclude,
+      visibilityHash,
+    },
+  ) => {
     const site = await requireSite(ctx, siteSlug);
     const existing = await findAssetByPath(ctx, "pdfAssets", site, path);
     if (existing) {
@@ -946,6 +976,10 @@ export const upsertPdfAsset = mutation({
         blobUrl,
         sizeBytes,
         contentHash,
+        ownerSlugs,
+        sensitive,
+        sensitiveInclude,
+        visibilityHash,
         siteId: site.siteId ?? existing.siteId,
         deletedAt: undefined,
         uploadedAt: Date.now(),
@@ -957,6 +991,10 @@ export const upsertPdfAsset = mutation({
         blobUrl,
         sizeBytes,
         contentHash,
+        ownerSlugs,
+        sensitive,
+        sensitiveInclude,
+        visibilityHash,
         uploadedAt: Date.now(),
       });
     }
@@ -971,6 +1009,10 @@ export const backfillAssetHashes = mutation({
         kind: v.union(v.literal("pdf"), v.literal("file")),
         path: v.string(),
         contentHash: v.string(),
+        ownerSlugs: v.array(v.string()),
+        sensitive: v.boolean(),
+        sensitiveInclude: v.array(v.string()),
+        visibilityHash: v.string(),
       }),
     ),
   },
@@ -992,13 +1034,24 @@ export const backfillAssetHashes = mutation({
       }
 
       result.found++;
-      if (row.contentHash === entry.contentHash) {
+      if (
+        row.contentHash === entry.contentHash &&
+        row.sensitive === entry.sensitive &&
+        JSON.stringify(row.ownerSlugs ?? []) === JSON.stringify(entry.ownerSlugs) &&
+        JSON.stringify(row.sensitiveInclude ?? []) ===
+          JSON.stringify(entry.sensitiveInclude) &&
+        row.visibilityHash === entry.visibilityHash
+      ) {
         result.unchanged++;
         continue;
       }
 
       await ctx.db.patch(row._id, {
         contentHash: entry.contentHash,
+        ownerSlugs: entry.ownerSlugs,
+        sensitive: entry.sensitive,
+        sensitiveInclude: entry.sensitiveInclude,
+        visibilityHash: entry.visibilityHash,
         siteId: site.siteId ?? row.siteId,
       });
       result.patched++;
@@ -1038,7 +1091,7 @@ export const listFileAssets = query({
     const out = [];
     for (const row of rows) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-      if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
+      if (!canReadAssetWithSensitiveSlugs(row, sensitiveSlugs)) continue;
       // Trim to the fields consumers use; full rows for the ~11k assets on
       // large sites exceed the Convex query response size limit.
       out.push({
@@ -1086,6 +1139,10 @@ export const assetHashesPage = query({
       contentHash: string | undefined;
       sizeBytes?: number;
       blobUrl: string;
+      ownerSlugs?: string[];
+      sensitive?: boolean;
+      sensitiveInclude?: string[];
+      visibilityHash?: string;
     }> = [];
 
     let pdfState = { cursor: parsed.pdf, done: parsed.pdfDone };
@@ -1102,13 +1159,17 @@ export const assetHashesPage = query({
           });
       for (const row of result.page) {
         if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-        if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
+        if (!canReadAssetWithSensitiveSlugs(row, sensitiveSlugs)) continue;
         out.push({
           kind: "pdf",
           path: row.path,
           contentHash: row.contentHash,
           sizeBytes: row.sizeBytes,
           blobUrl: row.blobUrl,
+          ownerSlugs: row.ownerSlugs,
+          sensitive: row.sensitive,
+          sensitiveInclude: row.sensitiveInclude,
+          visibilityHash: row.visibilityHash,
         });
       }
       pdfState = { cursor: result.continueCursor, done: result.isDone };
@@ -1124,13 +1185,17 @@ export const assetHashesPage = query({
           });
       for (const row of result.page) {
         if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-        if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
+        if (!canReadAssetWithSensitiveSlugs(row, sensitiveSlugs)) continue;
         out.push({
           kind: "file",
           path: row.path,
           contentHash: row.contentHash,
           sizeBytes: row.sizeBytes,
           blobUrl: row.blobUrl,
+          ownerSlugs: row.ownerSlugs,
+          sensitive: row.sensitive,
+          sensitiveInclude: row.sensitiveInclude,
+          visibilityHash: row.visibilityHash,
         });
       }
       fileState = { cursor: result.continueCursor, done: result.isDone };
@@ -1173,7 +1238,7 @@ export const listFileAssetPathsPage = query({
     const page = [];
     for (const row of result.page) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-      if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
+      if (!canReadAssetWithSensitiveSlugs(row, sensitiveSlugs)) continue;
       page.push(row.path);
     }
     return {
@@ -1206,7 +1271,7 @@ export const listPdfAssetsPage = query({
     const page = [];
     for (const row of result.page) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-      if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
+      if (!canReadAssetWithSensitiveSlugs(row, sensitiveSlugs)) continue;
       page.push({
         path: row.path,
         blobUrl: row.blobUrl,
@@ -1244,7 +1309,7 @@ export const listFileAssetsPage = query({
     const page = [];
     for (const row of result.page) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-      if (!canReadAssetWithSensitiveSlugs(row.path, sensitiveSlugs)) continue;
+      if (!canReadAssetWithSensitiveSlugs(row, sensitiveSlugs)) continue;
       page.push({
         path: row.path,
         blobUrl: row.blobUrl,
@@ -1272,7 +1337,7 @@ export const getFileAssetByPath = query({
     if (
       !row ||
       row.deletedAt ||
-      !(await canReadAssetPath(ctx, site, row.path, includeSensitive))
+      !(await canReadAsset(ctx, site, row, includeSensitive))
     ) {
       return null;
     }
@@ -1287,8 +1352,25 @@ export const upsertFileAsset = mutation({
     blobUrl: v.string(),
     sizeBytes: v.number(),
     contentHash: v.optional(v.string()),
+    ownerSlugs: v.optional(v.array(v.string())),
+    sensitive: v.optional(v.boolean()),
+    sensitiveInclude: v.optional(v.array(v.string())),
+    visibilityHash: v.optional(v.string()),
   },
-  handler: async (ctx, { siteSlug, path, blobUrl, sizeBytes, contentHash }) => {
+  handler: async (
+    ctx,
+    {
+      siteSlug,
+      path,
+      blobUrl,
+      sizeBytes,
+      contentHash,
+      ownerSlugs,
+      sensitive,
+      sensitiveInclude,
+      visibilityHash,
+    },
+  ) => {
     const site = await requireSite(ctx, siteSlug);
     const existing = await findAssetByPath(ctx, "fileAssets", site, path);
     if (existing) {
@@ -1296,6 +1378,10 @@ export const upsertFileAsset = mutation({
         blobUrl,
         sizeBytes,
         contentHash,
+        ownerSlugs,
+        sensitive,
+        sensitiveInclude,
+        visibilityHash,
         siteId: site.siteId ?? existing.siteId,
         deletedAt: undefined,
         uploadedAt: Date.now(),
@@ -1307,6 +1393,10 @@ export const upsertFileAsset = mutation({
         blobUrl,
         sizeBytes,
         contentHash,
+        ownerSlugs,
+        sensitive,
+        sensitiveInclude,
+        visibilityHash,
         uploadedAt: Date.now(),
       });
     }

@@ -32,12 +32,18 @@ const MAX_POST_PUBLISH_PRIORITY_SLUGS = 64;
 
 type Manifest = {
   documents?: Array<{ slug: string; hash: string; sensitive?: boolean }>;
-  assets?: Array<{ path: string; hash: string; kind?: "pdf" | "file" }>;
+  assets?: Array<{
+    path: string;
+    hash: string;
+    kind?: "pdf" | "file";
+    visibilityHash?: string;
+  }>;
 };
 
 type AssetChangeReason =
   | "missingRemoteAssetRow"
   | "missingRemoteContentHash"
+  | "metadataMismatch"
   | "hashMismatch"
   | "forced";
 
@@ -181,6 +187,10 @@ async function currentAssetHashes(siteData: SiteData) {
       path: string;
       contentHash: string | undefined;
       blobUrl?: string | undefined;
+      ownerSlugs?: string[] | undefined;
+      sensitive?: boolean | undefined;
+      sensitiveInclude?: string[] | undefined;
+      visibilityHash?: string | undefined;
     }
   >();
   let cursor: string | null = null;
@@ -196,6 +206,10 @@ async function currentAssetHashes(siteData: SiteData) {
         path: string;
         contentHash: string | undefined;
         blobUrl?: string | undefined;
+        ownerSlugs?: string[] | undefined;
+        sensitive?: boolean | undefined;
+        sensitiveInclude?: string[] | undefined;
+        visibilityHash?: string | undefined;
       }>;
       isDone: boolean;
       continueCursor: string;
@@ -220,6 +234,10 @@ async function handleAssetUpload(request: Request) {
     contentHash?: string;
     blobUrl?: string;
     sizeBytes?: number;
+    ownerSlugs?: string[];
+    sensitive?: boolean;
+    sensitiveInclude?: string[];
+    visibilityHash?: string;
   };
 
   const siteSlug = body.siteSlug ?? "";
@@ -241,6 +259,14 @@ async function handleAssetUpload(request: Request) {
   if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
     return new Response("sizeBytes required", { status: 400 });
   }
+  if (
+    !Array.isArray(body.ownerSlugs) ||
+    typeof body.sensitive !== "boolean" ||
+    !Array.isArray(body.sensitiveInclude) ||
+    !body.visibilityHash
+  ) {
+    return new Response("asset visibility metadata required", { status: 400 });
+  }
 
   const expectedKey = siteBlobKey(siteSlug, `${kind}s/${assetPath}`);
   if (!blobUrl.includes(expectedKey)) {
@@ -248,6 +274,12 @@ async function handleAssetUpload(request: Request) {
   }
 
   const { siteData } = await requirePublishSite(request, siteSlug);
+  const ownerSlugs = Array.from(new Set(body.ownerSlugs ?? [])).sort();
+  const sensitive = body.sensitive === true;
+  const sensitiveInclude = Array.from(
+    new Set(body.sensitiveInclude ?? []),
+  ).sort();
+  const visibilityHash = body.visibilityHash ?? "";
 
   if (kind === "pdf") {
     await siteData.documents.upsertPdfAsset({
@@ -255,6 +287,10 @@ async function handleAssetUpload(request: Request) {
       blobUrl,
       sizeBytes,
       contentHash,
+      ownerSlugs,
+      sensitive,
+      sensitiveInclude,
+      visibilityHash,
     });
   } else {
     await siteData.documents.upsertFileAsset({
@@ -262,6 +298,10 @@ async function handleAssetUpload(request: Request) {
       blobUrl,
       sizeBytes,
       contentHash,
+      ownerSlugs,
+      sensitive,
+      sensitiveInclude,
+      visibilityHash,
     });
   }
 
@@ -276,24 +316,47 @@ async function handleAssetHashBackfill(request: Request) {
       path?: string;
       kind?: string;
       contentHash?: string;
+      ownerSlugs?: string[];
+      sensitive?: boolean;
+      sensitiveInclude?: string[];
+      visibilityHash?: string;
     }>;
   };
 
   const siteSlug = body.siteSlug ?? "";
   if (!siteSlug) return new Response("siteSlug required", { status: 400 });
 
-  const entries = (body.entries ?? []).map((entry) => ({
+  const rawEntries = body.entries ?? [];
+  if (
+    rawEntries.some(
+      (entry) =>
+        !entry.path ||
+        !entry.contentHash ||
+        !Array.isArray(entry.ownerSlugs) ||
+        typeof entry.sensitive !== "boolean" ||
+        !Array.isArray(entry.sensitiveInclude) ||
+        !entry.visibilityHash,
+    )
+  ) {
+    return new Response(
+      "entry path, content hash, and visibility metadata required",
+      { status: 400 },
+    );
+  }
+  const entries = rawEntries.map((entry) => ({
     path: entry.path ?? "",
     kind: entry.kind === "pdf" ? ("pdf" as const) : ("file" as const),
     contentHash: entry.contentHash ?? "",
+    ownerSlugs: Array.from(new Set(entry.ownerSlugs ?? [])).sort(),
+    sensitive: entry.sensitive === true,
+    sensitiveInclude: Array.from(
+      new Set(entry.sensitiveInclude ?? []),
+    ).sort(),
+    visibilityHash: entry.visibilityHash ?? "",
   }));
   if (entries.length === 0) {
     return new Response("entries required", { status: 400 });
   }
-  if (entries.some((entry) => !entry.path || !entry.contentHash)) {
-    return new Response("entry path and contentHash required", { status: 400 });
-  }
-
   const { siteData } = await requirePublishSite(request, siteSlug);
   const result = await siteData.documents.backfillAssetHashes({ entries });
   revalidatePublishedAsset(siteSlug);
@@ -608,17 +671,32 @@ export async function POST(
           });
         } else if (existing.contentHash !== asset.hash) {
           assetChanges.push({ path: asset.path, kind, reason: "hashMismatch" });
+        } else if (existing.visibilityHash !== asset.visibilityHash) {
+          assetChanges.push({
+            path: asset.path,
+            kind,
+            reason: "metadataMismatch",
+          });
         }
       }
-      const missingAssetPaths = assetChanges
-        .filter((asset) => asset.reason !== "missingRemoteContentHash")
-        .map((asset) => asset.path);
+      const missingAssetPaths: string[] = [];
+      for (const asset of assetChanges) {
+        if (
+          asset.reason !== "missingRemoteContentHash" &&
+          asset.reason !== "metadataMismatch"
+        ) {
+          missingAssetPaths.push(asset.path);
+        }
+      }
       const manifestAssetKeys = new Set(
         (manifest.assets ?? []).map((asset) => assetKey(asset)),
       );
-      const staleAssetPaths = Array.from(existingAssetHashes.keys())
-        .filter((key) => !manifestAssetKeys.has(key))
-        .map(pathFromAssetKey);
+      const staleAssetPaths: string[] = [];
+      for (const key of existingAssetHashes.keys()) {
+        if (!manifestAssetKeys.has(key)) {
+          staleAssetPaths.push(pathFromAssetKey(key));
+        }
+      }
 
       return NextResponse.json({
         runId: crypto.randomUUID(),

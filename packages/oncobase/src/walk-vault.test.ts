@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { afterEach, describe, expect, test } from "bun:test";
 import { readVaultAssets, readVaultDocuments } from "./walk-vault";
 
@@ -119,6 +120,102 @@ describe("readVaultDocuments", () => {
       kind: "file",
       contentType: "application/dicom",
     });
+    expect(assets.find((asset) => asset.relativePath === "private.pdf")).toMatchObject({
+      ownerSlugs: ["private"],
+      sensitive: true,
+      sensitiveInclude: [],
+    });
+  });
+
+  test("inherits visibility from documents that reference nested assets", () => {
+    const vault = makeVault();
+    fs.mkdirSync(path.join(vault, "private", "images"), { recursive: true });
+    fs.writeFileSync(
+      path.join(vault, "private.md"),
+      [
+        "---",
+        "sensitive: true",
+        "sensitive-include: [research-partner]",
+        "---",
+        "# Private",
+        "![[private/images/scan.png]]",
+        "",
+      ].join("\n"),
+    );
+    fs.writeFileSync(path.join(vault, "private", "images", "scan.png"), Buffer.alloc(256));
+
+    expect(readVaultAssets(vault)).toEqual([
+      expect.objectContaining({
+        relativePath: "private/images/scan.png",
+        ownerSlugs: ["private"],
+        sensitive: true,
+        sensitiveInclude: ["research-partner"],
+      }),
+    ]);
+  });
+
+  test("marks a shared asset sensitive when any owner is sensitive", () => {
+    const vault = makeVault();
+    fs.mkdirSync(path.join(vault, "images"), { recursive: true });
+    fs.writeFileSync(path.join(vault, "images", "shared.png"), Buffer.alloc(256));
+    fs.writeFileSync(path.join(vault, "public.md"), "# Public\n![[images/shared.png]]\n");
+    fs.writeFileSync(
+      path.join(vault, "private.md"),
+      "---\nsensitive: true\n---\n# Private\n![[images/shared.png]]\n",
+    );
+
+    expect(readVaultAssets(vault)[0]).toMatchObject({
+      ownerSlugs: ["private", "public"],
+      sensitive: true,
+    });
+  });
+
+  test("changes the compact visibility hash when ownership becomes sensitive", () => {
+    const vault = makeVault();
+    fs.mkdirSync(path.join(vault, "images"), { recursive: true });
+    fs.writeFileSync(path.join(vault, "images", "scan.png"), Buffer.alloc(256));
+    fs.writeFileSync(path.join(vault, "scan.md"), "# Scan\n![[images/scan.png]]\n");
+    const publicHash = readVaultAssets(vault)[0].visibilityHash;
+
+    fs.writeFileSync(
+      path.join(vault, "scan.md"),
+      "---\nsensitive: true\n---\n# Scan\n![[images/scan.png]]\n",
+    );
+    const sensitiveAsset = readVaultAssets(vault)[0];
+
+    expect(sensitiveAsset.sensitive).toBe(true);
+    expect(sensitiveAsset.visibilityHash).not.toBe(publicHash);
+    expect(sensitiveAsset.visibilityHash).toHaveLength(16);
+  });
+
+  test("honors .oncobaseignore without deleting source files", () => {
+    const vault = makeVault();
+    fs.mkdirSync(path.join(vault, "archive", "slides"), { recursive: true });
+    fs.writeFileSync(path.join(vault, "keep.png"), Buffer.alloc(256));
+    fs.writeFileSync(path.join(vault, "hold-back.png"), Buffer.alloc(256));
+    fs.writeFileSync(path.join(vault, "archive", "slides", "slide-01.png"), Buffer.alloc(256));
+    fs.writeFileSync(
+      path.join(vault, ".oncobaseignore"),
+      "hold-back.png\narchive/slides/\n",
+    );
+
+    expect(readVaultAssets(vault).map((asset) => asset.relativePath)).toEqual(["keep.png"]);
+  });
+
+  test("does not publish files ignored by git", () => {
+    const vault = makeVault();
+    execFileSync("git", ["init"], { cwd: vault, stdio: "ignore" });
+    fs.writeFileSync(path.join(vault, ".gitignore"), "ignored.png\n");
+    fs.writeFileSync(path.join(vault, "tracked.png"), Buffer.alloc(256));
+    fs.writeFileSync(path.join(vault, "ignored.png"), Buffer.alloc(256));
+    execFileSync("git", ["add", ".gitignore", "tracked.png"], {
+      cwd: vault,
+      stdio: "ignore",
+    });
+
+    expect(readVaultAssets(vault).map((asset) => asset.relativePath)).toEqual([
+      "tracked.png",
+    ]);
   });
 
   test("rejects unresolved Git LFS pointer assets", () => {

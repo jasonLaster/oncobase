@@ -13,6 +13,7 @@ import { ensureCleanVault } from "./working-tree";
 type AssetChangeReason =
   | "missingRemoteAssetRow"
   | "missingRemoteContentHash"
+  | "metadataMismatch"
   | "hashMismatch"
   | "forced";
 
@@ -47,10 +48,16 @@ const response = await fetch(`${config.publishUrl}/begin`, {
         hash,
         sensitive,
       })),
-      assets: assets.map(({ relativePath, hash, kind }) => ({
+      assets: assets.map(({
+        relativePath,
+        hash,
+        kind,
+        visibilityHash,
+      }) => ({
         path: relativePath,
         hash,
         kind,
+        visibilityHash,
       })),
     },
   }),
@@ -105,12 +112,13 @@ if (result.assetChanges) {
     {
       missingRemoteAssetRow: 0,
       missingRemoteContentHash: 0,
+      metadataMismatch: 0,
       hashMismatch: 0,
       forced: 0,
     },
   );
   console.log(
-    `Asset diff: ${counts.missingRemoteAssetRow} missing rows, ${counts.missingRemoteContentHash} metadata-only hash backfills, ${counts.hashMismatch} hash mismatches`,
+    `Asset diff: ${counts.missingRemoteAssetRow} missing rows, ${counts.missingRemoteContentHash} metadata-only hash backfills, ${counts.metadataMismatch} visibility metadata changes, ${counts.hashMismatch} hash mismatches`,
   );
 }
 console.log(

@@ -11,6 +11,7 @@ type AssetChange = {
   reason:
     | "missingRemoteAssetRow"
     | "missingRemoteContentHash"
+    | "metadataMismatch"
     | "hashMismatch"
     | "forced";
 };
@@ -53,6 +54,10 @@ async function backfillAssetHashes(
         path: asset.relativePath,
         kind: asset.kind,
         contentHash: asset.hash,
+        ownerSlugs: asset.ownerSlugs,
+        sensitive: asset.sensitive,
+        sensitiveInclude: asset.sensitiveInclude,
+        visibilityHash: asset.visibilityHash,
       })),
     })) as { patched?: number; unchanged?: number; missing?: string[] };
     patched += result.patched ?? 0;
@@ -83,10 +88,16 @@ const begin = (await post(`${config.publishUrl}/begin`, token, {
   hashFunctionVersion: HASH_FUNCTION_VERSION,
   manifest: {
     documents: [],
-    assets: assets.map(({ relativePath, hash, kind }) => ({
+    assets: assets.map(({
+      relativePath,
+      hash,
+      kind,
+      visibilityHash,
+    }) => ({
       path: relativePath,
       hash,
       kind,
+      visibilityHash,
     })),
   },
   force: false,
@@ -100,13 +111,17 @@ if (!begin.assetChanges) {
 }
 
 const backfillAssets = begin.assetChanges
-  .filter((asset) => asset.reason === "missingRemoteContentHash")
+  .filter(
+    (asset) =>
+      asset.reason === "missingRemoteContentHash" ||
+      asset.reason === "metadataMismatch",
+  )
   .map((asset) => assetsByKey.get(`${asset.kind}:${asset.path}`))
   .filter((asset): asset is PublishAsset => Boolean(asset));
 
 const uploadRequired = begin.assetChanges.length - backfillAssets.length;
 console.log(
-  `${backfillAssets.length} asset hashes can be backfilled without uploading bytes; ${uploadRequired} assets still require upload.`,
+  `${backfillAssets.length} asset rows can be backfilled without uploading bytes; ${uploadRequired} assets still require upload.`,
 );
 
 if (dryRun || backfillAssets.length === 0) {
@@ -120,5 +135,5 @@ const result = await backfillAssetHashes(
   backfillAssets,
 );
 console.log(
-  `Backfilled ${result.patched} asset hashes (${result.unchanged} unchanged, ${result.missing} missing rows).`,
+  `Backfilled ${result.patched} asset rows (${result.unchanged} unchanged, ${result.missing} missing rows).`,
 );

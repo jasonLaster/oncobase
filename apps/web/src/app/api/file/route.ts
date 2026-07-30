@@ -6,6 +6,7 @@ import { Readable } from "node:stream";
 import { siteDataFromRequest } from "@/lib/site-data";
 import { DEFAULT_SITE_SLUG } from "@/lib/site";
 import { getSessionUserFromRequest } from "@/lib/session-user";
+import { isStoredAssetSensitive } from "@/lib/asset-visibility";
 import { diagnosticsRootCandidates } from "@/lib/local-diagnostics-paths";
 
 const MIME_TYPES: Record<string, string> = {
@@ -308,24 +309,21 @@ export async function GET(request: NextRequest) {
     slug: assetPathToSiblingSlug(normalized),
     includeSensitive: true,
   });
-  if (!includeSensitive && siblingDoc?.sensitive) {
-    return new NextResponse("File not found", { status: 404 });
-  }
-
+  let storedAssetWasSensitive = false;
   try {
     const asset = ext === ".pdf"
       ? await siteData.documents.getPdfAssetByPath(
-          includeSensitive
-            ? { path: normalized, includeSensitive: true }
-            : { path: normalized },
+          { path: normalized, includeSensitive: true },
         )
       : await siteData.documents.getFileAssetByPath(
-          includeSensitive
-            ? { path: normalized, includeSensitive: true }
-            : { path: normalized },
+          { path: normalized, includeSensitive: true },
         );
 
     if (asset?.blobUrl) {
+      storedAssetWasSensitive = isStoredAssetSensitive(asset, siblingDoc);
+      if (!includeSensitive && storedAssetWasSensitive) {
+        return new NextResponse("File not found", { status: 404 });
+      }
       const upstream = await fetch(asset.blobUrl, {
         headers: blobRequestHeaders(request),
       });
@@ -343,6 +341,10 @@ export async function GET(request: NextRequest) {
     }
   } catch (err) {
     console.error("[file] Convex lookup failed:", err);
+  }
+
+  if (!includeSensitive && (storedAssetWasSensitive || siblingDoc?.sensitive)) {
+    return new NextResponse("File not found", { status: 404 });
   }
 
   try {

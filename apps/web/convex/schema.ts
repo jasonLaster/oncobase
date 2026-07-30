@@ -118,6 +118,10 @@ export default defineSchema({
     blobUrl: v.string(),
     sizeBytes: v.number(),
     contentHash: v.optional(v.string()),
+    ownerSlugs: v.optional(v.array(v.string())),
+    sensitive: v.optional(v.boolean()),
+    sensitiveInclude: v.optional(v.array(v.string())),
+    visibilityHash: v.optional(v.string()),
     uploadedAt: v.number(),
     deletedAt: v.optional(v.number()),
   })
@@ -130,6 +134,10 @@ export default defineSchema({
     blobUrl: v.string(),
     sizeBytes: v.number(),
     contentHash: v.optional(v.string()),
+    ownerSlugs: v.optional(v.array(v.string())),
+    sensitive: v.optional(v.boolean()),
+    sensitiveInclude: v.optional(v.array(v.string())),
+    visibilityHash: v.optional(v.string()),
     uploadedAt: v.number(),
     deletedAt: v.optional(v.number()),
   })
