@@ -1538,9 +1538,11 @@ html[data-initial-sidebar-state="collapsed"]
 }
 
 .wiki-shell-file-palette .wiki-shell-command-list {
+  margin-inline: 0.25rem;
   max-height: min(60dvh, 18rem);
   overflow-x: hidden;
   overflow-y: auto;
+  padding-inline: 0.5rem;
   position: relative;
   scrollbar-width: none;
   top: -0.25rem;
@@ -2114,9 +2116,7 @@ html[data-initial-sidebar-state="collapsed"]
 
 @media (max-width: 860px) {
   .wiki-shell-file-palette .wiki-shell-command-list {
-    margin-inline: 0.25rem;
-    max-height: min(60dvh, 31.625rem);
-    padding-inline: 0.5rem;
+    max-height: min(60dvh, 31.65625rem);
   }
 
   .wiki-shell-page-header {

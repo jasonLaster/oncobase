@@ -139,6 +139,8 @@ test.describe("Command palette parity", () => {
     expect(Math.abs(desktopBox!.x - (page.viewportSize()!.width - desktopBox!.width) / 2))
       .toBeLessThan(1);
     expect(Math.abs(desktopBox!.y - page.viewportSize()!.height * 0.25)).toBeLessThan(1);
+    expect(desktopListBox!.x - desktopBox!.x).toBe(4);
+    expect(desktopListBox!.width).toBe(568);
     expect(desktopSelectedBox!.x - desktopBox!.x).toBe(12);
     expect(desktopSelectedBox!.y - desktopBox!.y).toBe(96);
     expect(desktopSelectedBox!.width).toBe(552);
@@ -147,7 +149,7 @@ test.describe("Command palette parity", () => {
         clientWidth: element.clientWidth,
         offsetWidth: element.offsetWidth,
       })),
-    ).toEqual({ clientWidth: 576, offsetWidth: 576 });
+    ).toEqual({ clientWidth: 568, offsetWidth: 568 });
 
     await page.getByRole("combobox", { name: "Search pages" }).press("Escape");
     await page.setViewportSize({ width: 390, height: 844 });
@@ -159,10 +161,11 @@ test.describe("Command palette parity", () => {
     expect(mobileListBox).not.toBeNull();
     expect(mobileBox!.x).toBe(8);
     expect(mobileBox!.width).toBe(374);
-    expect(mobileBox!.height).toBe(574);
+    expect(Math.abs(mobileBox!.height - 574.390625)).toBeLessThan(0.1);
     expect(Math.abs(mobileBox!.y - page.viewportSize()!.height * 0.1)).toBeLessThan(1);
     expect(mobileListBox!.x).toBe(12);
     expect(mobileListBox!.width).toBe(366);
+    expect(Math.abs(mobileListBox!.height - 506.390625)).toBeLessThan(0.1);
 
     const selectedBox = await page.getByRole("option").first().boundingBox();
     expect(selectedBox).not.toBeNull();
