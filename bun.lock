@@ -133,6 +133,7 @@
         "@oncobase/wiki-content": "workspace:*",
         "@oncobase/wiki-markdown": "workspace:*",
         "@oncobase/wiki-shell": "workspace:*",
+        "@vercel/blob": "^2.3.3",
         "ai": "^6.0.168",
         "archiver": "^7.0.1",
         "convex": "^1.34.1",

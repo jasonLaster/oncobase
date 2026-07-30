@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { getFunctionName, type FunctionReference } from "convex/server";
 import JSZip from "jszip";
 import { createWikiApiHandler } from "./wiki-api";
@@ -6,6 +6,29 @@ import { createWikiApiHandler } from "./wiki-api";
 process.env.WIKI_GATE_SESSION_SECRET = "wiki-api-test-gate-secret";
 process.env.DIANA_WIKI_PASSWORD_HASH =
   "sha256:1b2fc9341a16ae4e30082965d537ae47c21a0f27fd43eab78330ed81751ae6db";
+
+let fallbackBlobPath: string | null = null;
+let fallbackBlobUrl: string | null = null;
+let blobListCalls: Array<{ prefix: string; token: string }> = [];
+
+mock.module("@vercel/blob", () => ({
+  list: async ({
+    prefix,
+    token,
+  }: {
+    limit: number;
+    prefix: string;
+    token: string;
+  }) => {
+    blobListCalls.push({ prefix, token });
+    return {
+      blobs:
+        fallbackBlobPath === prefix && fallbackBlobUrl
+          ? [{ pathname: prefix, url: fallbackBlobUrl }]
+          : [],
+    };
+  },
+}));
 
 type FakeUser = {
   _id: string;
@@ -684,7 +707,12 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
 
   test("does not fetch a tombstoned or unknown asset", async () => {
     const originalFetch = globalThis.fetch;
+    const originalBlobToken = process.env.BLOB_READ_WRITE_TOKEN;
     const fetchCalls: RequestInfo[] = [];
+    process.env.BLOB_READ_WRITE_TOKEN = "test-blob-token";
+    fallbackBlobPath = "sites/diana/files/deleted/scan.png";
+    fallbackBlobUrl = "https://blob.example/recovered-scan.png";
+    blobListCalls = [];
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       fetchCalls.push(input as RequestInfo);
       return new Response("unexpected");
@@ -707,8 +735,164 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
         "private, no-store",
       );
       expect(fetchCalls).toEqual([]);
+      expect(blobListCalls).toEqual([]);
     } finally {
       globalThis.fetch = originalFetch;
+      if (originalBlobToken === undefined) {
+        delete process.env.BLOB_READ_WRITE_TOKEN;
+      } else {
+        process.env.BLOB_READ_WRITE_TOKEN = originalBlobToken;
+      }
+      fallbackBlobPath = null;
+      fallbackBlobUrl = null;
+      blobListCalls = [];
+    }
+  });
+
+  for (const fallbackPath of [
+    "sites/diana/files/sources/public/source.pdf",
+    "files/sources/public/source.pdf",
+  ]) {
+    test(`recovers a stale active Blob URL from ${fallbackPath}`, async () => {
+      const originalFetch = globalThis.fetch;
+      const originalBlobToken = process.env.BLOB_READ_WRITE_TOKEN;
+      const fetchCalls: Array<{
+        input: RequestInfo | URL;
+        range: string | null;
+      }> = [];
+      process.env.BLOB_READ_WRITE_TOKEN = "test-blob-token";
+      fallbackBlobPath = fallbackPath;
+      fallbackBlobUrl = "https://blob.example/recovered-source.pdf";
+      blobListCalls = [];
+      globalThis.fetch = (async (
+        input: RequestInfo | URL,
+        init?: RequestInit,
+      ) => {
+        fetchCalls.push({
+          input,
+          range: new Headers(init?.headers).get("Range"),
+        });
+        if (input === "https://blob.example/source.pdf") {
+          return new Response("stale", { status: 404 });
+        }
+        return new Response("abc", {
+          status: 206,
+          headers: {
+            "Accept-Ranges": "bytes",
+            "Content-Length": "3",
+            "Content-Range": "bytes 0-2/9",
+          },
+        });
+      }) as typeof fetch;
+
+      try {
+        const handler = createWikiApiHandler(createFakeConvexClient() as never);
+        const login = await handler(
+          request("/api/login?token=diana&redirect=%2F"),
+        );
+        const gateCookie = cookieFrom(login!);
+        const response = await handler(
+          request("/api/file?path=sources/public/source.pdf", {
+            headers: {
+              Cookie: gateCookie,
+              Range: "bytes=0-2",
+            },
+          }),
+        );
+
+        expect(response?.status).toBe(206);
+        expect(response!.headers.get("accept-ranges")).toBe("bytes");
+        expect(response!.headers.get("content-range")).toBe("bytes 0-2/9");
+        expect(response!.headers.get("content-length")).toBe("3");
+        expect(response!.headers.get("cache-control")).toContain("private");
+        expect(response!.headers.get("vary")).toContain("Cookie");
+        expect(response!.headers.get("x-wiki-cache-scope")).toBe("public");
+        expect(await response!.text()).toBe("abc");
+        expect(fetchCalls).toEqual([
+          {
+            input: "https://blob.example/source.pdf",
+            range: "bytes=0-2",
+          },
+          {
+            input: "https://blob.example/recovered-source.pdf",
+            range: "bytes=0-2",
+          },
+        ]);
+        expect(blobListCalls).toEqual(
+          fallbackPath.startsWith("sites/")
+            ? [
+                {
+                  prefix: "sites/diana/files/sources/public/source.pdf",
+                  token: "test-blob-token",
+                },
+              ]
+            : [
+                {
+                  prefix: "sites/diana/files/sources/public/source.pdf",
+                  token: "test-blob-token",
+                },
+                {
+                  prefix: "files/sources/public/source.pdf",
+                  token: "test-blob-token",
+                },
+              ],
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+        if (originalBlobToken === undefined) {
+          delete process.env.BLOB_READ_WRITE_TOKEN;
+        } else {
+          process.env.BLOB_READ_WRITE_TOKEN = originalBlobToken;
+        }
+        fallbackBlobPath = null;
+        fallbackBlobUrl = null;
+        blobListCalls = [];
+      }
+    });
+  }
+
+  test("preserves a recovered Blob 416 response and range metadata", async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBlobToken = process.env.BLOB_READ_WRITE_TOKEN;
+    process.env.BLOB_READ_WRITE_TOKEN = "test-blob-token";
+    fallbackBlobPath = "sites/diana/files/sources/public/source.pdf";
+    fallbackBlobUrl = "https://blob.example/recovered-source.pdf";
+    blobListCalls = [];
+    globalThis.fetch = (async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => {
+      expect(new Headers(init?.headers).get("Range")).toBe("bytes=99-100");
+      if (input === "https://blob.example/source.pdf") {
+        return new Response("stale", { status: 404 });
+      }
+      return new Response(null, {
+        status: 416,
+        headers: { "Content-Range": "bytes */9" },
+      });
+    }) as typeof fetch;
+
+    try {
+      const handler = createWikiApiHandler(createFakeConvexClient() as never);
+      const response = await handler(
+        request("/api/file?path=sources/public/source.pdf", {
+          headers: { Range: "bytes=99-100" },
+        }),
+      );
+
+      expect(response?.status).toBe(416);
+      expect(response!.headers.get("content-range")).toBe("bytes */9");
+      expect(response!.headers.get("x-wiki-cache-scope")).toBe("public");
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBlobToken === undefined) {
+        delete process.env.BLOB_READ_WRITE_TOKEN;
+      } else {
+        process.env.BLOB_READ_WRITE_TOKEN = originalBlobToken;
+      }
+      fallbackBlobPath = null;
+      fallbackBlobUrl = null;
+      blobListCalls = [];
     }
   });
 

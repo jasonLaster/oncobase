@@ -392,6 +392,43 @@ function blobRequestHeaders(request: Request) {
   return range ? { Range: range } : undefined;
 }
 
+function getBlobToken() {
+  return process.env.PUBLIC_BLOB_READ_WRITE_TOKEN ??
+    process.env.BLOB_READ_WRITE_TOKEN;
+}
+
+async function recoverActiveFileAsset(
+  request: Request,
+  normalizedPath: string,
+  siteSlug: string,
+) {
+  const token = getBlobToken();
+  if (!token) return null;
+
+  const { list } = await import("@vercel/blob");
+  const pathnames = [
+    `sites/${siteSlug}/files/${normalizedPath}`,
+    `files/${normalizedPath}`,
+  ];
+
+  for (const pathname of pathnames) {
+    const { blobs } = await list({
+      limit: 1,
+      prefix: pathname,
+      token,
+    });
+    const blob = blobs.find((candidate) => candidate.pathname === pathname);
+    if (!blob) continue;
+
+    const upstream = await fetch(blob.url, {
+      headers: blobRequestHeaders(request),
+    });
+    if (upstream.ok || upstream.status === 416) return upstream;
+  }
+
+  return null;
+}
+
 function assetPathToSiblingSlug(assetPath: string) {
   return assetPath.replace(/\.[^/.]+$/, "");
 }
@@ -1003,18 +1040,6 @@ async function handleFileRequest(
     if (!canAccessEveryOwner) return privateFileNotFound();
   }
 
-  const upstream = await fetch(asset.blobUrl, {
-    headers: blobRequestHeaders(request),
-  });
-  if (!upstream.ok && upstream.status !== 416) {
-    return new Response("Blob fetch failed", {
-      status: 502,
-      headers: hasPasswordSession || sessionUser
-        ? PRIVATE_FILE_DENIAL_HEADERS
-        : undefined,
-    });
-  }
-
   const cacheScope = assetIsSensitive ? "session" : "public";
   // Cache privacy mirrors apps/web: any password-gated or signed-in request
   // gets a private response varying on Cookie, independent of RBAC scope.
@@ -1022,6 +1047,32 @@ async function handleFileRequest(
     assetIsSensitive ||
     Boolean(sessionUser) ||
     hasPasswordSession;
+
+  let upstream: Response | null = null;
+  try {
+    upstream = await fetch(asset.blobUrl, {
+      headers: blobRequestHeaders(request),
+    });
+  } catch (error) {
+    console.error("[file] Active Blob URL fetch failed:", error);
+  }
+
+  if (!upstream || (!upstream.ok && upstream.status !== 416)) {
+    try {
+      upstream = await recoverActiveFileAsset(request, normalized, siteSlug);
+    } catch (error) {
+      console.error("[file] Blob fallback failed:", error);
+      upstream = null;
+    }
+  }
+
+  if (!upstream || (!upstream.ok && upstream.status !== 416)) {
+    return new Response("Blob fetch failed", {
+      status: 502,
+      headers: privateCache ? PRIVATE_FILE_DENIAL_HEADERS : undefined,
+    });
+  }
+
   const headers = new Headers({
       "Content-Type": mimeType,
       "Content-Disposition": contentDisposition(ext, filename),
