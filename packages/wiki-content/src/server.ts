@@ -144,6 +144,16 @@ function cacheHeaders(scope: WikiScope, etag: string) {
   };
 }
 
+function provisionalManifestHeaders(scope: WikiScope, etag: string) {
+  return {
+    "Cache-Control": scope === "session" ? "private, no-store" : "no-store",
+    Vary: scope === "public" ? "Accept, x-site-slug" : "Accept, Cookie, x-site-slug",
+    ETag: `W/"${etag}"`,
+    "X-Wiki-Cache-Scope": scope,
+    "X-Wiki-Manifest-Partial": "true",
+  };
+}
+
 function decorate(context: WikiApiContext, headers: HeadersInit) {
   return context.decorateHeaders ? context.decorateHeaders(headers) : headers;
 }
@@ -751,10 +761,13 @@ export async function createWikiManifestResponse(
     assets,
   };
   const manifestHash = hashJson(manifestCore);
+  const responseCacheHeaders = partialManifest
+    ? provisionalManifestHeaders(scope, manifestHash)
+    : cacheHeaders(scope, manifestHash);
   if (request.headers.get("if-none-match")?.includes(manifestHash)) {
     return new Response(null, {
       status: 304,
-      headers: decorate(context, cacheHeaders(scope, manifestHash)),
+      headers: decorate(context, responseCacheHeaders),
     });
   }
 
@@ -766,9 +779,8 @@ export async function createWikiManifestResponse(
 
   return Response.json(manifest, {
     headers: decorate(context, {
-      ...cacheHeaders(scope, manifestHash),
+      ...responseCacheHeaders,
       "X-Wiki-Manifest-Source": source,
-      ...(partialManifest ? { "X-Wiki-Manifest-Partial": "true" } : {}),
     }),
   });
 }

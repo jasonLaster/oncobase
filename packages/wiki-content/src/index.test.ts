@@ -801,6 +801,7 @@ describe("wiki content contracts", () => {
 
     await expect(client.validateManifest("manifest-hash")).resolves.toEqual({
       status: "unchanged",
+      partial: false,
     });
     expect(new Headers(requestInit?.headers).get("if-none-match")).toBe(
       'W/"manifest-hash"',
@@ -826,7 +827,32 @@ describe("wiki content contracts", () => {
     expect(result.status).toBe("modified");
     if (result.status === "modified") {
       expect(result.manifest.manifestHash).toBe("new-hash");
+      expect(result.partial).toBe(false);
     }
+  });
+
+  test("preserves the server's provisional-manifest signal", async () => {
+    const client = createWikiContentClient({
+      fetch: (async () =>
+        Response.json(
+          {
+            siteSlug: "diana",
+            manifestHash: "partial-hash",
+            generatedAt: "2026-05-10T00:00:00.000Z",
+            scope: "public",
+            compactTree: [],
+            pages: [],
+            assets: [],
+          },
+          { headers: { "X-Wiki-Manifest-Partial": "true" } },
+        )) as unknown as typeof fetch,
+    });
+
+    await expect(client.validateManifest("complete-hash")).resolves.toEqual({
+      status: "modified",
+      partial: true,
+      manifest: expect.objectContaining({ manifestHash: "partial-hash" }),
+    });
   });
 
   test("client helpers time out stalled wiki requests", async () => {

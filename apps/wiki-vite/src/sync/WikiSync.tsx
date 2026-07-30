@@ -375,7 +375,20 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         }
         if (cancelled) return;
         const validatedAt = Date.now();
+        const hasCompleteSnapshot =
+          Boolean(cachedManifest) && (cachedState?.lastValidatedAt ?? 0) > 0;
         if (validation.status === "unchanged" && cachedManifest) {
+          if (validation.partial) {
+            onMetrics({
+              status: "ready",
+              message: hasCompleteSnapshot
+                ? "Partial refresh ignored; using complete cached manifest"
+                : "Provisional manifest loaded; retrying full manifest",
+              manifestBytes: cachedState?.manifestSize ?? 0,
+            });
+            scheduleRefresh(MANIFEST_RETRY_MS);
+            return;
+          }
           store.commit(
             events.manifestValidated({
               manifestHash: cachedManifest.manifestHash,
@@ -396,11 +409,29 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         if (validation.status !== "modified") {
           throw new Error("Manifest validation returned no replacement snapshot");
         }
+        if (validation.partial && hasCompleteSnapshot) {
+          onMetrics({
+            status: "ready",
+            message: "Partial refresh ignored; using complete cached manifest",
+            manifestBytes: cachedState?.manifestSize ?? 0,
+          });
+          scheduleRefresh(MANIFEST_RETRY_MS);
+          return;
+        }
         const manifest = validation.manifest;
         manifestRef.current = manifest;
         // A manifest is one LiveStore event, so its tree and indexes replace
         // the prior snapshot in the materializer's single transaction.
-        store.commit(manifestToEvent(manifest, validatedAt));
+        if (validation.partial) {
+          store.commit(
+            manifestToEvent(manifest, validatedAt),
+            events.manifestMarkedProvisional({
+              manifestHash: manifest.manifestHash,
+            }),
+          );
+        } else {
+          store.commit(manifestToEvent(manifest, validatedAt));
+        }
         const { manifestBySlug, queue, queuedBytes } = buildEagerQueue(
           currentSlugRef.current,
           manifest,
@@ -411,7 +442,9 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         const storage = await storageSnapshot();
         onMetrics({
           status: "ready",
-          message: `Manifest ${manifest.manifestHash.slice(0, 8)} loaded`,
+          message: validation.partial
+            ? "Provisional manifest loaded; retrying full manifest"
+            : `Manifest ${manifest.manifestHash.slice(0, 8)} loaded`,
           manifestBytes: byteSize(JSON.stringify(manifest)),
           eventCount: 1,
           lastSyncMs: performance.now() - syncStart,
@@ -419,7 +452,9 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           storageQuotaBytes: storage.quota,
           storagePressure: storage.pressure,
         });
-        scheduleRefresh(freshnessMs);
+        scheduleRefresh(validation.partial ? MANIFEST_RETRY_MS : freshnessMs);
+
+        if (validation.partial) return;
 
         if (shouldFetchInBackground()) {
           onMetrics({

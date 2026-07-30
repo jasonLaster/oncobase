@@ -114,6 +114,34 @@ describe("wiki vite LiveStore schema", () => {
     expect(store.query(pageIndex$)).toHaveLength(1);
   });
 
+  test("marks a first-boot partial manifest as provisional", async () => {
+    const store = await makeStore();
+    store.commit(
+      events.manifestApplied({
+        siteSlug: "diana",
+        scope: "public",
+        manifestHash: "partial-hash",
+        generatedAt: "2026-05-09T12:00:00.000Z",
+        receivedAt: 5,
+        manifestSize: 20,
+        compactTreeJson: JSON.stringify([["f", "index"]]),
+        pagesJson: JSON.stringify([]),
+        assetsJson: JSON.stringify([]),
+      }),
+      events.manifestMarkedProvisional({
+        manifestHash: "partial-hash",
+      }),
+    );
+
+    expect(store.query(siteState$)).toEqual(
+      expect.objectContaining({
+        manifestHash: "partial-hash",
+        lastSyncAt: 5,
+        lastValidatedAt: 0,
+      }),
+    );
+  });
+
   test("marks stale and deleted page bodies during manifest reconciliation", async () => {
     const store = await makeStore();
     const manifest = (pages: Array<{ slug: string; title: string; hash: string }>) =>

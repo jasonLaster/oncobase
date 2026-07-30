@@ -125,6 +125,12 @@ export const events = {
       validatedAt: Schema.Number,
     }),
   }),
+  manifestMarkedProvisional: Events.clientOnly({
+    name: "v1.ManifestMarkedProvisional",
+    schema: Schema.Struct({
+      manifestHash: Schema.String,
+    }),
+  }),
   pageContentFetched: Events.clientOnly({
     name: "v1.PageContentFetched",
     schema: pageContentSchema,
@@ -270,6 +276,10 @@ const materializers = State.SQLite.materializers(events, {
   "v1.ManifestValidated": ({ manifestHash, validatedAt }) =>
     tables.siteState.update({
       lastValidatedAt: validatedAt,
+    }).where({ id: "current", manifestHash }),
+  "v1.ManifestMarkedProvisional": ({ manifestHash }) =>
+    tables.siteState.update({
+      lastValidatedAt: 0,
     }).where({ id: "current", manifestHash }),
   "v1.PageContentFetched": ({
     slug,

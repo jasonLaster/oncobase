@@ -4,16 +4,18 @@ import {
   type WikiApiContext,
 } from "./server";
 
-function manifestContext() {
+function manifestContext({ failFullManifest = false } = {}) {
   const manifestPageSizes: number[] = [];
   let pdfCalls = 0;
   let fileCalls = 0;
 
   const context: WikiApiContext = {
     siteSlug: "diana",
+    ...(failFullManifest ? { manifestPrioritySlugs: ["index"] } : {}),
     getSessionUser: async () => null,
     documents: {
       listManifestPage: async ({ numItems }) => {
+        if (failFullManifest) throw new Error("fixture full manifest timeout");
         manifestPageSizes.push(numItems);
         return {
           page: [
@@ -106,5 +108,31 @@ describe("wiki manifest server", () => {
     ]);
     expect(JSON.stringify(body.compactTree)).toContain("one");
     expect(JSON.stringify(body.compactTree)).not.toContain("package.json");
+  });
+
+  test("never caches a bounded partial manifest or its validators", async () => {
+    const { context } = manifestContext({ failFullManifest: true });
+    const first = await createWikiManifestResponse(
+      new Request("https://example.test/api/wiki/manifest?scope=public"),
+      context,
+    );
+    const etag = first.headers.get("etag");
+
+    expect(first.status).toBe(200);
+    expect(first.headers.get("x-wiki-manifest-partial")).toBe("true");
+    expect(first.headers.get("cache-control")).toBe("no-store");
+    expect(first.headers.get("cdn-cache-control")).toBeNull();
+    expect(etag).toBeTruthy();
+
+    const validated = await createWikiManifestResponse(
+      new Request("https://example.test/api/wiki/manifest?scope=public", {
+        headers: { "If-None-Match": etag ?? "" },
+      }),
+      context,
+    );
+    expect(validated.status).toBe(304);
+    expect(validated.headers.get("x-wiki-manifest-partial")).toBe("true");
+    expect(validated.headers.get("cache-control")).toBe("no-store");
+    expect(validated.headers.get("cdn-cache-control")).toBeNull();
   });
 });

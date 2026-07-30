@@ -3,6 +3,7 @@ import {
   documentArticle,
   gotoWiki,
   installWikiApiMocks,
+  openDirectory,
   waitForPageTitle,
 } from "./fixtures";
 
@@ -77,5 +78,57 @@ test.describe("durable manifest refresh", () => {
       .toBe("Refresh failed; using cached manifest");
     await expect(documentArticle(page)).toContainText("FALLBACK SNAPSHOT");
     await expect(page.getByTestId("page-loading")).toHaveCount(0);
+  });
+
+  test("ignores a partial refresh when a complete snapshot is persisted", async ({
+    page,
+  }) => {
+    const requests = await installWikiApiMocks(page);
+    await gotoWiki(page, `/${slug}?devtools=1`);
+    await expect(documentArticle(page)).toContainText("Claims follow-up");
+
+    requests.setManifestPartial(true);
+    await page.evaluate((eventName) => {
+      window.dispatchEvent(new Event(eventName));
+    }, REFRESH_MANIFEST_EVENT);
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.__WIKI_VITE_OBSERVABILITY__?.metrics?.message),
+      )
+      .toBe("Partial refresh ignored; using complete cached manifest");
+    await expect(documentArticle(page)).toContainText("Claims follow-up");
+    await expect(
+      page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" }),
+    ).toBeVisible();
+  });
+
+  test("uses a first-boot partial manifest provisionally and keeps retrying", async ({
+    page,
+  }) => {
+    const requests = await installWikiApiMocks(page, { manifestPartial: true });
+    await gotoWiki(page, "/?devtools=1");
+    await waitForPageTitle(page, "Diana Wiki Home");
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.__WIKI_VITE_OBSERVABILITY__?.metrics?.message),
+      )
+      .toBe("Provisional manifest loaded; retrying full manifest");
+    expect(requests.manifest).toHaveLength(1);
+
+    await page.reload();
+    await waitForPageTitle(page, "Diana Wiki Home");
+    await expect.poll(() => requests.manifest.length).toBe(2);
+
+    requests.setManifestPartial(false);
+    await page.evaluate((eventName) => {
+      window.dispatchEvent(new Event(eventName));
+    }, REFRESH_MANIFEST_EVENT);
+    await expect.poll(() => requests.manifest.length).toBe(3);
+    await expect(page.getByRole("button", { name: "Expand logistics" })).toBeVisible();
+    await openDirectory(page, "logistics");
+    await expect(
+      page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" }),
+    ).toBeVisible();
   });
 });

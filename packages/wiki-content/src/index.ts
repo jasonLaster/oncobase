@@ -52,8 +52,8 @@ export interface WikiManifest {
 }
 
 export type WikiManifestValidation =
-  | { status: "unchanged" }
-  | { status: "modified"; manifest: WikiManifest };
+  | { status: "unchanged"; partial: boolean }
+  | { status: "modified"; manifest: WikiManifest; partial: boolean };
 
 export interface WikiSessionIdentity {
   siteSlug: string;
@@ -895,13 +895,15 @@ async function fetchManifestValidation(
       },
       signal: controller.signal,
     });
-    if (response.status === 304) return { status: "unchanged" };
+    const partial = response.headers.get("x-wiki-manifest-partial") === "true";
+    if (response.status === 304) return { status: "unchanged", partial };
     if (!response.ok) {
       throw new Error(`Wiki request failed: ${response.status} ${response.statusText}`);
     }
     return {
       status: "modified",
       manifest: parseWikiManifest(await response.json()),
+      partial,
     };
   } catch (error) {
     if (controller.signal.aborted) {

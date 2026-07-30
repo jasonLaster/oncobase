@@ -36,6 +36,7 @@ type MockOptions = {
   sessionCacheKey?: string;
   sessionUserHash?: string;
   manifestFailure?: boolean;
+  manifestPartial?: boolean;
   pageDelays?: Partial<Record<string, number>>;
   pageFailures?: Partial<Record<string, number | true>>;
   pageOverrides?: Partial<Record<string, Partial<FixturePage>>>;
@@ -302,19 +303,22 @@ function visibleRecords(scope: WikiScope, options: MockOptions) {
     .filter((page) => scope === "session" || !page.sensitive);
 }
 
-function manifest(scope: WikiScope, options: MockOptions): WikiManifest {
+function manifest(scope: WikiScope, options: MockOptions, partial = false): WikiManifest {
   const siteSlug = options.siteSlug ?? defaultSiteSlug;
-  const pages: WikiManifestPage[] = visibleRecords(scope, options).map((page) => ({
-    slug: page.slug,
-    title: page.title,
-    tags: page.tags,
-    description: pagesForOptions(options)[page.slug]?.description ?? null,
-    contentHash: page.contentHash,
-    sensitive: page.sensitive,
-    size: page.size,
-  }));
-  const compactTree = buildCompactTreeFromManifest(pages, assets);
-  const core = { siteSlug, scope, compactTree, pages, assets };
+  const pages: WikiManifestPage[] = visibleRecords(scope, options)
+    .filter((page) => !partial || page.slug === "index")
+    .map((page) => ({
+      slug: page.slug,
+      title: page.title,
+      tags: page.tags,
+      description: pagesForOptions(options)[page.slug]?.description ?? null,
+      contentHash: page.contentHash,
+      sensitive: page.sensitive,
+      size: page.size,
+    }));
+  const manifestAssets = partial ? [] : assets;
+  const compactTree = buildCompactTreeFromManifest(pages, manifestAssets);
+  const core = { siteSlug, scope, compactTree, pages, assets: manifestAssets };
   return {
     ...core,
     generatedAt,
@@ -343,6 +347,7 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
   options.pageOverrides = { ...options.pageOverrides };
   const siteSlug = options.siteSlug ?? defaultSiteSlug;
   let manifestFailure = options.manifestFailure === true;
+  let manifestPartial = options.manifestPartial === true;
   let manifestDelayMs = 0;
   const sessionState = {
     authenticated: options.sessionAuthenticated === true,
@@ -372,6 +377,9 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
     },
     setManifestFailure(failing: boolean) {
       manifestFailure = failing;
+    },
+    setManifestPartial(partial: boolean) {
+      manifestPartial = partial;
     },
     setManifestDelay(delayMs: number) {
       manifestDelayMs = Math.max(0, delayMs);
@@ -418,20 +426,26 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
       await route.fulfill(json({ error: "Fixture manifest failure" }, 503));
       return;
     }
-    const currentManifest = manifest(scope, options);
+    const currentManifest = manifest(scope, options, manifestPartial);
     const etag = `W/"${currentManifest.manifestHash}"`;
     if (route.request().headers()["if-none-match"] === etag) {
       await route.fulfill({
         status: 304,
-        headers: { ETag: etag },
+        headers: {
+          ETag: etag,
+          ...(manifestPartial ? { "X-Wiki-Manifest-Partial": "true" } : {}),
+        },
       });
       return;
     }
     await route.fulfill({
       ...json(currentManifest),
       headers: {
-        "Cache-Control": "public, max-age=60, stale-while-revalidate=3600",
+        "Cache-Control": manifestPartial
+          ? "no-store"
+          : "public, max-age=60, stale-while-revalidate=3600",
         ETag: etag,
+        ...(manifestPartial ? { "X-Wiki-Manifest-Partial": "true" } : {}),
       },
     });
   });
