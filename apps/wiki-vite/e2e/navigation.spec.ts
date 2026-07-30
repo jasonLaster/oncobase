@@ -92,6 +92,36 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(page.getByTestId("command-palette")).toBeVisible();
   });
 
+  test("same-origin actions menu navigation stays in the client router", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await page.evaluate(() => {
+      document.documentElement.dataset.navigationProbe = "alive";
+    });
+
+    await page.getByRole("button", { name: "Workspace menu" }).click();
+    await page
+      .getByRole("menu", { name: "Actions" })
+      .getByRole("menuitem", { name: "Text Search" })
+      .click();
+
+    await expect(page).toHaveURL(/\/search\?.*tab=text/);
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.navigationProbe))
+      .toBe("alive");
+  });
+
+  test("fresh sidebar state expands wiki only", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.removeItem("wiki-vite-expanded-directories");
+    });
+    await gotoWiki(page, "/");
+
+    const sidebar = page.getByTestId("wiki-sidebar");
+    await expect(sidebar.getByRole("button", { name: "Collapse wiki" })).toBeVisible();
+    await expect(sidebar.getByRole("button", { name: "Expand about" })).toBeVisible();
+    await expect(sidebar.getByRole("button", { name: "Expand sources" })).toBeVisible();
+  });
+
   test("shared actions menu exposes account actions when signed in", async ({ page }) => {
     await page.route("**/api/auth/session", async (route) => {
       await route.fulfill({
@@ -198,18 +228,16 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(sidebar.getByRole("link", { name: "insurance" })).toBeVisible();
   });
 
-  test("sidebar hides image-only asset directories while asset tools keep images available", async ({ page }) => {
+  test("sidebar and source palette omit non-reader image assets", async ({ page }) => {
     await gotoWiki(page, "/");
 
     await expect(page.getByTestId("wiki-sidebar").getByRole("button", { name: /images/i })).toHaveCount(0);
     await expect(page.getByTestId("wiki-sidebar").getByRole("link", { name: /pathology-slide/ })).toHaveCount(0);
 
     await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+K" : "Control+Shift+K");
-    await page.getByRole("button", { name: /Browse source assets/ }).click();
+    await page.getByRole("button", { name: /Browse source PDFs/ }).click();
     await page.getByTestId("command-palette-input").fill("pathology");
-    await expect(
-      page.getByTestId("command-palette").getByRole("link", { name: /pathology-slide.png/ }),
-    ).toBeVisible();
+    await expect(page.getByTestId("command-palette")).toContainText("No source PDFs found");
   });
 
   test("sidebar rail can collapse, expand, resize, and persist width", async ({ page }) => {

@@ -66,11 +66,17 @@ test.describe("Chat", () => {
   test("sidebar ask wiki navigates to chat", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/logistics/insurance");
+    await page.evaluate(() => {
+      document.documentElement.dataset.navigationProbe = "alive";
+    });
 
     await page.getByTestId("sidebar-ask-wiki").click();
 
     await expect(page).toHaveURL(/\/chat/);
     await expect(page.getByTestId("chat-interface")).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.navigationProbe))
+      .toBe("alive");
   });
 
   test("mobile bottom sheet shows chat history navigation", async ({ page }) => {

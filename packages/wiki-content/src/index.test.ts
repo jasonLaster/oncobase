@@ -121,9 +121,7 @@ function referenceIsHiddenFileTreePath(path: string): boolean {
 function referenceIsHiddenFileTreeAssetPath(path: string): boolean {
   if (referenceIsHiddenFileTreePath(path)) return true;
   const lower = path.toLowerCase();
-  return [".avif", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"].some((extension) =>
-    lower.endsWith(extension),
-  );
+  return !lower.endsWith(".pdf");
 }
 
 function referenceWeekNumberFromName(name: string) {
@@ -516,7 +514,7 @@ describe("wiki content contracts", () => {
     ]);
   });
 
-  test("hides image asset directories from the navigation tree only", () => {
+  test("keeps only reader-navigable PDF assets in the navigation tree", () => {
     expect(isHiddenFileTreePath("diagnostics/viewer-upload/report.pdf")).toBe(true);
     expect(isHiddenFileTreePath("wiki/diagnostics/index")).toBe(false);
     expect(isHiddenFileTreePath("sources/diagnostics/report")).toBe(false);
@@ -529,7 +527,10 @@ describe("wiki content contracts", () => {
     expect(isHiddenFileTreePath("wiki/config/tsconfig-notes")).toBe(false);
     expect(isHiddenFileTreeAssetPath("sources/paper-images/img-000.jpg")).toBe(true);
     expect(isHiddenFileTreeAssetPath("sources/paper-images/diagram.svg")).toBe(true);
-    expect(isHiddenFileTreeAssetPath("sources/paper-images/table.csv")).toBe(false);
+    expect(isHiddenFileTreeAssetPath("sources/paper-images/table.csv")).toBe(true);
+    expect(isHiddenFileTreeAssetPath("package.json")).toBe(true);
+    expect(isHiddenFileTreeAssetPath("tsconfig.json")).toBe(true);
+    expect(isHiddenFileTreeAssetPath("sources/paper.pdf")).toBe(false);
     expect(
       buildCompactTreeFromManifest(
         [
@@ -544,6 +545,7 @@ describe("wiki content contracts", () => {
           { kind: "file", path: "wiki/config/package.json" },
           { kind: "file", path: "wiki/config/tsconfig.json" },
           { kind: "file", path: "sources/paper-images/img-000.jpg" },
+          { kind: "file", path: "sources/paper-images/table.csv" },
           { kind: "pdf", path: "sources/diagnostics/report.pdf" },
           { kind: "pdf", path: "sources/images/pathology-slide.pdf" },
           { kind: "pdf", path: "sources/people/providers/stanford/telli.pdf" },

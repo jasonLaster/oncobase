@@ -47,6 +47,18 @@ describe("wiki markdown helpers", () => {
     );
   });
 
+  test("preserves external pdf hrefs", () => {
+    expect(resolveHref("https://example.com/reports/paper.pdf")).toBe(
+      "https://example.com/reports/paper.pdf",
+    );
+    expect(resolveHref("http://example.com/reports/paper.pdf")).toBe(
+      "http://example.com/reports/paper.pdf",
+    );
+    expect(resolveHref("//cdn.example.com/reports/paper.pdf")).toBe(
+      "//cdn.example.com/reports/paper.pdf",
+    );
+  });
+
   test("turns citations into markdown links", () => {
     expect(preprocessCitations("Finding [1] and gene^{2-3}")).toContain(
       "[[1]](#references)",

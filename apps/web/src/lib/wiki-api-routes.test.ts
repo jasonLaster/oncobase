@@ -46,6 +46,7 @@ let contentFallbackFails = false;
 let filterPageBatchesAfterPagination = false;
 let manifestPrioritySlugs: string[] | undefined;
 let extraMockPages: MockPage[] = [];
+let fileAssetListCalls = 0;
 const originalWikiViteAllowedOrigins = process.env.WIKI_VITE_ALLOWED_ORIGINS;
 
 function allPages() {
@@ -126,11 +127,14 @@ function mockSiteData() {
         isDone: true,
         continueCursor: null,
       }),
-      listFileAssetPathsPage: async () => ({
-        page: ["images/scan.png"],
-        isDone: true,
-        continueCursor: null,
-      }),
+      listFileAssetPathsPage: async () => {
+        fileAssetListCalls += 1;
+        return {
+          page: ["images/scan.png", "package.json", "tsconfig.json"],
+          isDone: true,
+          continueCursor: null,
+        };
+      },
       getBySlug: async ({
         slug,
         includeSensitive,
@@ -173,6 +177,7 @@ describe("wiki prototype API routes", () => {
     filterPageBatchesAfterPagination = false;
     manifestPrioritySlugs = undefined;
     extraMockPages = [];
+    fileAssetListCalls = 0;
     if (originalWikiViteAllowedOrigins == null) {
       delete process.env.WIKI_VITE_ALLOWED_ORIGINS;
     } else {
@@ -187,13 +192,17 @@ describe("wiki prototype API routes", () => {
     const body = await response.json();
 
     expect(response.headers.get("x-wiki-cache-scope")).toBe("public");
+    expect(response.headers.get("cdn-cache-control")).toContain("s-maxage=300");
     expect(body.pages.map((page: { slug: string }) => page.slug)).toEqual([
       "index",
       "research/paper",
     ]);
     expect(JSON.stringify(body.compactTree)).not.toContain("private");
     expect(JSON.stringify(body.compactTree)).not.toContain("images");
-    expect(body.assets.map((asset: { path: string }) => asset.path)).toContain("images/scan.png");
+    expect(body.assets.map((asset: { path: string }) => asset.path)).toEqual([
+      "research/paper.pdf",
+    ]);
+    expect(fileAssetListCalls).toBe(0);
   });
 
   test("session manifest uses private cache headers and includes sensitive pages", async () => {
@@ -204,6 +213,7 @@ describe("wiki prototype API routes", () => {
     const body = await response.json();
 
     expect(response.headers.get("cache-control")).toContain("private");
+    expect(response.headers.get("cdn-cache-control")).toBeNull();
     expect(response.headers.get("vary")).toContain("Cookie");
     expect(body.pages.map((page: { slug: string }) => page.slug)).toContain(
       "private/plan",
@@ -381,6 +391,12 @@ describe("wiki prototype API routes", () => {
 
   test("wiki APIs expose CORS only to explicit Vite preview origins", async () => {
     process.env.WIKI_VITE_ALLOWED_ORIGINS = "https://wiki-vite.example";
+
+    const sameOriginManifest = await manifestRoute.GET(
+      new Request("https://example.test/api/wiki/manifest"),
+    );
+    expect(sameOriginManifest.headers.get("vary")).toContain("Origin");
+    expect(sameOriginManifest.headers.get("access-control-allow-origin")).toBeNull();
 
     const preflight = await manifestRoute.OPTIONS(
       new Request("https://example.test/api/wiki/manifest", {

@@ -178,7 +178,7 @@ export function WikiTree({
   tree,
 }: WikiTreeProps) {
   return (
-    <>
+    <div className="wiki-shell-tree-root">
       {tree.map((node) => (
         <WikiTreeNode
           key={treeNodeKey(node)}
@@ -196,7 +196,7 @@ export function WikiTree({
           renderPageLink={renderPageLink}
         />
       ))}
-    </>
+    </div>
   );
 }
 
@@ -377,13 +377,14 @@ export function WikiMobileNavigationSheet({
       )}
       <div
         className={cn("wiki-shell-bottom-nav-sheet bottom-nav-sheet", open && "open", className)}
+        {...props}
         data-test-id="bottom-nav-sheet"
         id={sheetId}
+        inert={!open}
         role={open ? "dialog" : undefined}
         aria-hidden={open ? undefined : true}
         aria-modal={open ? true : undefined}
         aria-label={sheetAriaLabel}
-        {...props}
       >
         <button
           className="wiki-shell-bottom-nav-backdrop bottom-nav-backdrop"

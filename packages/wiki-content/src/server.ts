@@ -18,6 +18,7 @@ import {
 
 const PUBLIC_CACHE_CONTROL =
   "public, max-age=60, s-maxage=300, stale-while-revalidate=3600";
+const PUBLIC_CDN_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
 const PRIVATE_CACHE_CONTROL = "private, max-age=30, stale-while-revalidate=300";
 const SESSION_CACHE_VERSION = "v1";
 const MANIFEST_PAGE_SIZE = 500;
@@ -136,6 +137,7 @@ function userHash(siteSlug: string, userId: string) {
 function cacheHeaders(scope: WikiScope, etag: string) {
   return {
     "Cache-Control": scope === "public" ? PUBLIC_CACHE_CONTROL : PRIVATE_CACHE_CONTROL,
+    ...(scope === "public" ? { "CDN-Cache-Control": PUBLIC_CDN_CACHE_CONTROL } : {}),
     Vary: scope === "public" ? "Accept, x-site-slug" : "Accept, Cookie, x-site-slug",
     ETag: `W/"${etag}"`,
     "X-Wiki-Cache-Scope": scope,
@@ -427,35 +429,18 @@ async function boundedManifestFallback(
     ...(includeSensitive ? { includeSensitive: true } : {}),
   };
   const assets = await withTimeout(
-    Promise.allSettled([
-      context.documents.listPdfAssetPathsPage(assetArgs),
-      context.documents.listFileAssetPathsPage(assetArgs),
-    ]),
+    context.documents.listPdfAssetPathsPage(assetArgs),
     MANIFEST_BOUNDED_FALLBACK_TIMEOUT_MS,
     "Wiki bounded manifest asset fallback",
   )
-    .then((results) => {
-      const [pdfResult, fileResult] = results;
-      const pdfAssets =
-        pdfResult.status === "fulfilled"
-          ? pdfResult.value.page.map((path) => ({
-              kind: "pdf" as const,
-              path,
-              contentHash: null,
-              size: null,
-            }))
-          : [];
-      const fileAssets =
-        fileResult.status === "fulfilled"
-          ? fileResult.value.page.map((path) => ({
-              kind: "file" as const,
-              path,
-              contentHash: null,
-              size: null,
-            }))
-          : [];
-      return [...pdfAssets, ...fileAssets];
-    })
+    .then((result) =>
+      result.page.map((path) => ({
+        kind: "pdf" as const,
+        path,
+        contentHash: null,
+        size: null,
+      })),
+    )
     .catch((error) => {
       context.logger?.warn("[wiki manifest] Bounded asset fallback unavailable", error);
       return [] as WikiManifestAsset[];
@@ -563,11 +548,7 @@ async function listAssets(
   };
 
   if (!includeSensitive) {
-    const [pdfAssets, fileAssets] = await Promise.all([
-      listPaths("pdf", (args) => context.documents.listPdfAssetPathsPage(args)),
-      listPaths("file", (args) => context.documents.listFileAssetPathsPage(args)),
-    ]);
-    return [...pdfAssets, ...fileAssets];
+    return listPaths("pdf", (args) => context.documents.listPdfAssetPathsPage(args));
   }
 
   // Session scope: public assets are readable by definition, so only the
@@ -600,16 +581,12 @@ async function listAssets(
     return assets;
   };
 
-  const [pdfAssets, fileAssets, publicPdfAssets, publicFileAssets] = await Promise.all([
+  const [pdfAssets, publicPdfAssets] = await Promise.all([
     listPaths("pdf", (args) => context.documents.listPdfAssetPathsPage(args)),
-    listPaths("file", (args) => context.documents.listFileAssetPathsPage(args)),
     publicListPaths("pdf", (args) => context.documents.listPdfAssetPathsPage(args)),
-    publicListPaths("file", (args) => context.documents.listFileAssetPathsPage(args)),
   ]);
-  const assets = [...pdfAssets, ...fileAssets];
-  const publicPaths = new Set(
-    [...publicPdfAssets, ...publicFileAssets].map((asset) => asset.path),
-  );
+  const assets = pdfAssets;
+  const publicPaths = new Set(publicPdfAssets.map((asset) => asset.path));
   const sensitiveExtras = assets.filter((asset) => !publicPaths.has(asset.path));
   const access = await accessBySlug(
     context,

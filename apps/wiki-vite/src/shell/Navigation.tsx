@@ -162,7 +162,9 @@ function useWikiTree() {
 
 function readExpandedDirectories() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(TREE_EXPANSION_KEY) ?? "[]") as unknown;
+    const stored = localStorage.getItem(TREE_EXPANSION_KEY);
+    if (stored == null) return new Map([["wiki", true]]);
+    const parsed = JSON.parse(stored) as unknown;
     if (Array.isArray(parsed)) {
       return new Map(
         parsed

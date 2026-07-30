@@ -105,7 +105,7 @@
 
 .admin-muted,
 .admin-section small {
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .admin-error,
@@ -192,7 +192,7 @@
 
 .admin-table-wrap th {
   background: var(--surface-muted);
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.75rem;
   text-transform: uppercase;
 }
@@ -452,7 +452,7 @@ a {
   display: flex;
   min-height: 100vh;
   justify-content: center;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .wiki-vite-sidebar-workspace-row {
@@ -650,7 +650,7 @@ a {
 }
 
 .app-auth-shell p {
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin: 0 0 12px;
 }
 
@@ -877,7 +877,7 @@ a {
   align-items: center;
   border: 1px solid var(--border);
   border-radius: 999px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   display: inline-flex;
   font-size: 0.6875rem;
   font-weight: 650;
@@ -896,7 +896,7 @@ a {
 }
 
 .scope-switcher a {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.6875rem;
   font-weight: 650;
   line-height: 1;
@@ -910,7 +910,7 @@ a {
 }
 
 .sync-dot {
-  background: var(--muted);
+  background: var(--muted-foreground);
   border-radius: 999px;
   height: 8px;
   width: 8px;
@@ -954,7 +954,7 @@ a {
 }
 
 .metrics-panel span {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.6875rem;
 }
 
@@ -1036,13 +1036,13 @@ a {
 }
 
 .muted {
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin: 0;
 }
 
 .page-outline {
   align-self: start;
-  color: var(--muted);
+  color: var(--muted-foreground);
   max-height: calc(100dvh - 96px);
   overflow: auto;
   padding-top: 30px;
@@ -1073,7 +1073,7 @@ a {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 5px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   cursor: pointer;
   font-size: 0.6875rem;
   font-weight: 650;
@@ -1107,7 +1107,7 @@ a {
   background: transparent;
   border: 0;
   border-left: 2px solid transparent;
-  color: var(--muted);
+  color: var(--muted-foreground);
   cursor: pointer;
   font-size: 0.75rem;
   line-height: 1.25;
@@ -1136,7 +1136,7 @@ a {
 .livestore-devtools-footer {
   background: color-mix(in srgb, var(--sidebar-bg) 96%, white);
   border-top: 1px solid var(--sidebar-border);
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.75rem;
   min-width: 0;
   padding: 4px 12px;
@@ -1165,7 +1165,7 @@ a {
 .devtools-state {
   border: 1px solid var(--border);
   border-radius: 999px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.6875rem;
   font-weight: 650;
   line-height: 1;
@@ -1208,7 +1208,7 @@ a {
 }
 
 .devtools-note {
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .devtools-action {
@@ -1451,7 +1451,7 @@ a {
   }
 
   .mobile-page-outline summary span:last-child {
-    color: var(--muted);
+    color: var(--muted-foreground);
     font-size: 0.75rem;
     font-weight: 550;
   }

@@ -79,6 +79,66 @@ test.describe("Command palette parity", () => {
     await expect(palette.getByRole("option").nth(1)).toBeVisible();
   });
 
+  test("file palette keeps muted surfaces and muted text as separate theme tokens", async ({
+    page,
+  }) => {
+    await gotoWiki(page, "/");
+    await page.evaluate(() => {
+      localStorage.setItem("cmd-palette-recent", JSON.stringify(["wiki/logistics/insurance"]));
+    });
+
+    await page.getByTestId("sidebar-search").click();
+
+    const palette = page.getByTestId("command-palette");
+    const recentHeading = palette.getByText("Recent pages");
+    const recentPath = palette.getByRole("option").first().locator("small");
+    await expect(recentHeading).toHaveCSS("color", "rgb(107, 114, 128)");
+    await expect(recentPath).toHaveCSS("color", "rgb(107, 114, 128)");
+    await expect(palette.locator("footer")).toHaveCSS("color", "rgb(107, 114, 128)");
+
+    const themeTokens = await page.evaluate(() => {
+      const styles = getComputedStyle(document.documentElement);
+      return {
+        muted: styles.getPropertyValue("--muted").trim(),
+        mutedForeground: styles.getPropertyValue("--muted-foreground").trim(),
+      };
+    });
+    expect(themeTokens).toEqual({
+      muted: "#f3f4f6",
+      mutedForeground: "#6b7280",
+    });
+
+    await page.evaluate(() => {
+      document.documentElement.classList.add("dark");
+    });
+    await expect(recentHeading).toHaveCSS("color", "rgb(156, 163, 175)");
+    await expect(recentPath).toHaveCSS("color", "rgb(156, 163, 175)");
+    await expect(palette.locator("footer")).toHaveCSS("color", "rgb(156, 163, 175)");
+  });
+
+  test("file palette matches the compact centered desktop and mobile geometry", async ({
+    page,
+  }) => {
+    await gotoWiki(page, "/");
+    await page.getByTestId("sidebar-search").click();
+
+    const desktopBox = await page.getByTestId("command-palette").boundingBox();
+    expect(desktopBox).not.toBeNull();
+    expect(desktopBox!.width).toBe(576);
+    expect(Math.abs(desktopBox!.x - (page.viewportSize()!.width - desktopBox!.width) / 2))
+      .toBeLessThan(1);
+
+    await page.getByRole("combobox", { name: "Search pages" }).press("Escape");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByTestId("mobile-header-search").click();
+
+    const mobileBox = await page.getByTestId("command-palette").boundingBox();
+    expect(mobileBox).not.toBeNull();
+    expect(mobileBox!.x).toBe(8);
+    expect(mobileBox!.width).toBe(374);
+    expect(mobileBox!.height).toBeGreaterThan(500);
+  });
+
   test("file palette resets scroll position when reopened", async ({ page }) => {
     await gotoWiki(page, "/");
     await page.evaluate(() => {
@@ -162,11 +222,11 @@ test.describe("Command palette parity", () => {
     );
   });
 
-  test("asset palette opens PDF and file assets through the backend file route", async ({ page }) => {
+  test("source PDF palette opens manifest PDFs through the backend file route", async ({ page }) => {
     await gotoWiki(page, "/");
 
     await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+K" : "Control+Shift+K");
-    await page.getByRole("button", { name: /Browse source assets/ }).click();
+    await page.getByRole("button", { name: /Browse source PDFs/ }).click();
     await page.getByTestId("command-palette-input").fill("telli");
 
     await expect(
@@ -174,9 +234,7 @@ test.describe("Command palette parity", () => {
     ).toHaveAttribute("href", /\/api\/file\?path=sources%2Fpeople%2Fproviders%2Fstanford/);
 
     await page.getByTestId("command-palette-input").fill("pathology");
-    await expect(
-      page.getByTestId("command-palette").getByRole("link", { name: /pathology-slide.png/ }),
-    ).toHaveAttribute("href", /\/api\/file\?path=sources%2Fimages%2Fpathology-slide.png/);
+    await expect(page.getByTestId("command-palette")).toContainText("No source PDFs found");
   });
 
   test("tag palette filters the local page index without backend search", async ({ page }) => {

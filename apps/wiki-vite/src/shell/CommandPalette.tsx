@@ -188,8 +188,8 @@ export function CommandPalette({
       },
       {
         group: "Navigate",
-        label: "Browse source assets",
-        description: "Find PDFs, images, and source files from the manifest",
+        label: "Browse source PDFs",
+        description: "Find source PDFs from the local manifest",
         icon: <PaperclipIcon size={15} aria-hidden="true" />,
         run: () => {
           setQuery("");
@@ -469,7 +469,7 @@ export function CommandPalette({
               mode === "outline"
                 ? "Find a heading"
                 : mode === "assets"
-                  ? "Find a source or file"
+                  ? "Find a source PDF"
                   : mode === "tags"
                     ? "Filter local tags"
                     : mode === "actions"
@@ -516,7 +516,7 @@ export function CommandPalette({
           ) : null}
           {mode === "assets" ? (
             assetResults.length === 0 ? (
-              <WikiCommandEmpty>No assets found</WikiCommandEmpty>
+              <WikiCommandEmpty>No source PDFs found</WikiCommandEmpty>
             ) : (
               assetResults.map((asset, index) => (
                 <WikiCommandItemLink

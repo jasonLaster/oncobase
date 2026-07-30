@@ -122,15 +122,7 @@ function splitSlug(slug: string) {
 const HIDDEN_FILE_TREE_ROOT_DIRECTORIES = new Set(["diagnostics"]);
 const HIDDEN_FILE_TREE_DIRECTORIES = new Set(["images"]);
 const HIDDEN_FILE_TREE_FILENAMES = new Set(["package.json"]);
-const HIDDEN_FILE_TREE_FILE_EXTENSIONS = new Set([
-  ".avif",
-  ".gif",
-  ".jpeg",
-  ".jpg",
-  ".png",
-  ".svg",
-  ".webp",
-]);
+const NAVIGABLE_FILE_TREE_ASSET_EXTENSIONS = new Set([".pdf"]);
 
 export function isHiddenFileTreePath(path: string): boolean {
   const segments = splitSlug(path);
@@ -152,7 +144,7 @@ export function isHiddenFileTreePath(path: string): boolean {
 export function isHiddenFileTreeAssetPath(path: string): boolean {
   if (isHiddenFileTreePath(path)) return true;
   const lower = path.toLowerCase();
-  return Array.from(HIDDEN_FILE_TREE_FILE_EXTENSIONS).some((extension) =>
+  return !Array.from(NAVIGABLE_FILE_TREE_ASSET_EXTENSIONS).some((extension) =>
     lower.endsWith(extension),
   );
 }

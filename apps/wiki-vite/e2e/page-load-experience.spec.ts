@@ -83,8 +83,14 @@ test.describe("Page load experience", () => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
     await expect(page.getByTestId("mobile-page-header")).toBeVisible();
-    await expect(page.getByTestId("bottom-nav-trigger")).toBeVisible();
+    const navigationTrigger = page.getByTestId("bottom-nav-trigger");
+    const navigationSheet = page.getByTestId("bottom-nav-sheet");
+    await expect(navigationTrigger).toBeVisible();
     await expect(page.getByTestId("mobile-page-header")).toContainText("insurance");
+    await expect(navigationSheet).toHaveAttribute("inert", "");
+
+    await navigationTrigger.click();
+    await expect(navigationSheet).not.toHaveAttribute("inert", "");
   });
 
   test("warm navigation reuses the local page body cache", async ({ page }) => {

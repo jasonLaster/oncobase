@@ -134,6 +134,9 @@ export function resolveImageSrc(src: string, currentSlug?: string, apiBasePath =
 
 export function resolveHref(href: string | undefined, currentSlug?: string, apiBasePath = "") {
   if (!href) return href;
+  if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//")) {
+    return href;
+  }
   if (/\.(?:md|mdx)(?:#|$)/.test(href)) {
     return href.replace(/\.(?:md|mdx)(#|$)/, "$1");
   }

@@ -24,11 +24,12 @@ function appendVary(headers: Headers, value: string) {
 export function wikiApiHeaders(request: Request, init: HeadersInit = {}) {
   const headers = new Headers(init);
   const origin = request.headers.get("origin");
-  if (!origin || !allowedOrigins().has(origin)) return headers;
+  const origins = allowedOrigins();
+  if (origins.size > 0) appendVary(headers, "Origin");
+  if (!origin || !origins.has(origin)) return headers;
 
   headers.set("Access-Control-Allow-Origin", origin);
   headers.set("Access-Control-Allow-Credentials", "true");
-  appendVary(headers, "Origin");
   return headers;
 }
 

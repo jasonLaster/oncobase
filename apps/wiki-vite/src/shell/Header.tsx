@@ -19,7 +19,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { backendHref, returnToHref } from "../wiki-utils";
 import type { PaletteMode } from "./CommandPalette";
 
@@ -199,6 +199,7 @@ export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["t
     () => "light",
   );
   const location = useLocation();
+  const navigate = useNavigate();
   const returnTo = returnToHref(location.pathname, location.search, location.hash);
   const scope = (() => {
     const urlScope = new URLSearchParams(location.search).get("scope");
@@ -214,6 +215,14 @@ export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["t
       downloadMarkdownHref={backendHref("/api/download", { type: "markdown", scope })}
       hideSignedOutAccountActions
       onAuthSubmit={submitAuth}
+      onNavigate={(href) => {
+        const url = new URL(href, window.location.href);
+        if (url.origin === window.location.origin) {
+          navigate(`${url.pathname}${url.search}${url.hash}`);
+          return;
+        }
+        window.location.assign(url);
+      }}
       onOpenCommandPalette={() => openCommandPalette("actions")}
       onSessionChange={setSessionUser}
       onSignOut={signOut}
