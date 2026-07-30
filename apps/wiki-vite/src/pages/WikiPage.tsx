@@ -7,6 +7,7 @@ import {
 } from "@oncobase/wiki-markdown";
 import {
   DocumentOutlineShell,
+  openWikiAuthDialog,
   WikiBreadcrumbs,
   WikiPageActionButton,
   WikiPageHeader,
@@ -512,6 +513,7 @@ export function WikiPage({
         documentSlug={page.slug}
         documentTitle={page.title}
         mobileRail={false}
+        onSignIn={() => openWikiAuthDialog("signin")}
         pathname={location.pathname}
       >
         {pageBody}

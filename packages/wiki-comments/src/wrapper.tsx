@@ -14,6 +14,7 @@ export function DocumentComments({
   documentSlug,
   documentTitle,
   mobileRail,
+  onSignIn,
   pathname,
   provider,
   children,
@@ -23,6 +24,7 @@ export function DocumentComments({
   documentSlug: string;
   documentTitle: string;
   mobileRail?: boolean;
+  onSignIn?: () => void;
   pathname?: string;
   provider?: Omit<LiveblocksProviderShellProps, "children" | "fallback">;
   children: ReactNode;
@@ -105,6 +107,7 @@ export function DocumentComments({
       <ActiveComments
         documentSlug={documentSlug}
         documentTitle={documentTitle}
+        onSignIn={onSignIn}
         provider={provider}
       >
         {children}

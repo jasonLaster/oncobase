@@ -220,7 +220,7 @@ function MenuButton({
   );
 }
 
-function AuthDialog({
+export function WikiAuthDialog({
   initialMode,
   onAuthSubmit,
   onClose,
@@ -586,7 +586,7 @@ export function WikiActionsMenu({
           </div>
         ) : null}
       </div>
-      <AuthDialog
+      <WikiAuthDialog
         initialMode={authMode}
         onAuthSubmit={onAuthSubmit}
         onClose={() => setAuthDialogOpen(false)}
@@ -627,7 +627,7 @@ export function WikiSidebarSignInPrompt({
           <span>Sign in</span>
         </button>
       </div>
-      <AuthDialog
+      <WikiAuthDialog
         initialMode="signin"
         onAuthSubmit={onAuthSubmit}
         onClose={() => setAuthDialogOpen(false)}

@@ -2,7 +2,10 @@ import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { Route, Routes, useLocation } from "react-router";
 import { publishMetrics } from "./observability";
-import { HeaderCommandPaletteHost } from "./shell/Header";
+import {
+  HeaderAuthDialogHost,
+  HeaderCommandPaletteHost,
+} from "./shell/Header";
 import { LiveStoreDevtoolsFooter } from "./shell/LiveStoreDevtoolsFooter";
 import { MobileNav, Sidebar } from "./shell/Navigation";
 import { ResizableAppShell } from "./shell/ResizableAppShell";
@@ -159,6 +162,7 @@ export function App({
         data-immersive-route={isImmersiveDicomRoute ? "dicom-viewer" : undefined}
       >
         <SpecialRouteMetadata />
+        <HeaderAuthDialogHost />
         <HeaderCommandPaletteHost />
         <ResizableAppShell sidebar={<Sidebar />}>
           <main className="content-shell">

@@ -89,10 +89,7 @@ test.describe("document comments sidebar", () => {
     await expect(panel).toHaveAttribute("aria-label", "Document comments");
     await expect(panel).toContainText("0 unresolved threads");
     await expect(panel.getByText("Sign in to leave a comment")).toBeVisible();
-    await expect(panel.getByRole("link", { name: "Sign in" })).toHaveAttribute(
-      "href",
-      /\/login\?redirect=/,
-    );
+    await expect(panel.getByRole("button", { name: "Sign in" })).toBeVisible();
     const closeButton = page.getByRole("button", {
       name: "Close comments panel",
       exact: true,
@@ -124,7 +121,7 @@ test.describe("document comments sidebar", () => {
     await expect(panel).toHaveCount(0);
   });
 
-  test("signed-out mobile comments continue through the password gate", async ({ page }) => {
+  test("signed-out mobile comments open account sign-in in place", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await installWikiApiMocks(page);
     await mockCommentsApi(page);
@@ -133,14 +130,18 @@ test.describe("document comments sidebar", () => {
     await page.getByTestId("mobile-header-comments").click();
     const signIn = page
       .locator("[data-comments-bottom-rail]")
-      .getByRole("link", { name: "Sign in" });
+      .getByRole("button", { name: "Sign in" });
     await expect(signIn).toBeVisible({ timeout: 20_000 });
     await signIn.click();
 
-    await expect(page).toHaveURL(
-      /\/login\?redirect=%2Fwiki%2Flogistics%2Finsurance$/,
+    await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
+    const dialog = page.getByRole("dialog", { name: "Sign in" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel("Email")).toBeVisible();
+    await expect(dialog.getByLabel("Password")).toBeVisible();
+    await expect(dialog).toContainText(
+      "Sign in to comment and view additional content.",
     );
-    await expect(page.getByTestId("login-page").getByLabel("Password")).toBeVisible();
   });
 
   test("expanded desktop comments keep the production rail surface", async ({ page }) => {

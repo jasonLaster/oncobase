@@ -1,6 +1,8 @@
 import type { WikiScope } from "@oncobase/wiki-content";
 import {
   WikiActionsMenu,
+  WikiAuthDialog,
+  WIKI_AUTH_DIALOG_EVENT,
   applyWikiTheme,
   cycleWikiThemePreference,
   getWikiThemePreference,
@@ -8,6 +10,7 @@ import {
   subscribeWikiThemePreference,
   wikiThemeLabel,
   type WikiActionsMenuAuthInput,
+  type WikiActionsMenuAuthMode,
   type WikiActionsMenuProps,
   type WikiActionsMenuUser,
 } from "@oncobase/wiki-shell";
@@ -102,6 +105,37 @@ export function HeaderCommandPaletteHost() {
       />
     </Suspense>
   ) : null;
+}
+
+export function HeaderAuthDialogHost() {
+  const { setSessionUser, submitAuth } = useWikiViteAuth();
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [authMode, setAuthMode] =
+    useState<WikiActionsMenuAuthMode>("signin");
+
+  useEffect(() => {
+    const onOpenAuthDialog = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        mode?: WikiActionsMenuAuthMode;
+      }>;
+      setAuthMode(customEvent.detail?.mode ?? "signin");
+      setAuthDialogOpen(true);
+    };
+
+    window.addEventListener(WIKI_AUTH_DIALOG_EVENT, onOpenAuthDialog);
+    return () =>
+      window.removeEventListener(WIKI_AUTH_DIALOG_EVENT, onOpenAuthDialog);
+  }, []);
+
+  return (
+    <WikiAuthDialog
+      initialMode={authMode}
+      onAuthSubmit={submitAuth}
+      onClose={() => setAuthDialogOpen(false)}
+      onSessionChange={setSessionUser}
+      open={authDialogOpen}
+    />
+  );
 }
 
 export function useWikiViteAuth() {

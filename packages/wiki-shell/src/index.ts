@@ -51,7 +51,12 @@ export {
   type WikiLogoProps,
 } from "./header.tsx";
 export {
+  openWikiAuthDialog,
+  WIKI_AUTH_DIALOG_EVENT,
+} from "./auth-dialog-events.ts";
+export {
   WikiActionsMenu,
+  WikiAuthDialog,
   WikiSidebarSignInPrompt,
   type WikiActionsMenuAuthInput,
   type WikiActionsMenuAuthMode,

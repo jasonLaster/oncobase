@@ -510,10 +510,12 @@ function DraftSelectionThreadCard({
 function CommentsShell({
   documentSlug,
   documentTitle,
+  onSignIn,
   children,
 }: {
   documentSlug: string;
   documentTitle: string;
+  onSignIn?: () => void;
   children: ReactNode;
 }) {
   const threadsResult = useThreads();
@@ -1041,12 +1043,22 @@ function CommentsShell({
             <p className="font-medium text-[var(--foreground)]">
               Sign in to leave a comment
             </p>
-            <a
-              href={signInHref}
-              className="mt-3 inline-flex w-full items-center justify-center rounded-md border border-indigo-600 bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:border-indigo-700 hover:bg-indigo-700"
-            >
-              Sign in
-            </a>
+            {onSignIn ? (
+              <button
+                type="button"
+                onClick={onSignIn}
+                className="mt-3 inline-flex w-full items-center justify-center rounded-md border border-indigo-600 bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:border-indigo-700 hover:bg-indigo-700"
+              >
+                Sign in
+              </button>
+            ) : (
+              <a
+                href={signInHref}
+                className="mt-3 inline-flex w-full items-center justify-center rounded-md border border-indigo-600 bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:border-indigo-700 hover:bg-indigo-700"
+              >
+                Sign in
+              </a>
+            )}
           </div>
         ) : null}
 
@@ -1841,12 +1853,14 @@ export { commentsEnabled } from "./feature.ts";
 export function ActiveDocumentComments({
   documentSlug,
   documentTitle,
+  onSignIn,
   provider,
   fallback,
   children,
 }: {
   documentSlug: string;
   documentTitle: string;
+  onSignIn?: () => void;
   provider?: Omit<LiveblocksProviderShellProps, "children" | "fallback">;
   fallback?: ReactNode;
   children: ReactNode;
@@ -1857,7 +1871,11 @@ export function ActiveDocumentComments({
       provider={provider}
       fallback={fallback}
     >
-      <CommentsShell documentSlug={documentSlug} documentTitle={documentTitle}>
+      <CommentsShell
+        documentSlug={documentSlug}
+        documentTitle={documentTitle}
+        onSignIn={onSignIn}
+      >
         {children}
       </CommentsShell>
     </LiveblocksRoom>
