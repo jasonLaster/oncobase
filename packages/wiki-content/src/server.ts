@@ -17,9 +17,12 @@ import {
 
 const PUBLIC_CACHE_CONTROL =
   "public, max-age=60, s-maxage=300, stale-while-revalidate=3600";
+const PUBLIC_CDN_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
 const PRIVATE_CACHE_CONTROL = "private, max-age=30, stale-while-revalidate=300";
 const SESSION_CACHE_VERSION = "v1";
-const MANIFEST_PAGE_SIZE = 100;
+// Manifest rows contain metadata rather than markdown bodies, so larger pages
+// avoid dozens of sequential round trips for large vaults.
+const MANIFEST_PAGE_SIZE = 1000;
 const MANIFEST_FALLBACK_PAGE_SIZE = 25;
 const ASSET_PAGE_SIZE = 1000;
 const MANIFEST_TIMEOUT_MS = 20_000;
@@ -119,6 +122,7 @@ function userHash(siteSlug: string, userId: string) {
 function cacheHeaders(scope: WikiScope, etag: string) {
   return {
     "Cache-Control": scope === "public" ? PUBLIC_CACHE_CONTROL : PRIVATE_CACHE_CONTROL,
+    ...(scope === "public" ? { "CDN-Cache-Control": PUBLIC_CDN_CACHE_CONTROL } : {}),
     Vary: scope === "public" ? "Accept, x-site-slug" : "Accept, Cookie, x-site-slug",
     ETag: `W/"${etag}"`,
     "X-Wiki-Cache-Scope": scope,
@@ -325,35 +329,18 @@ async function boundedManifestFallback(
     ...(includeSensitive ? { includeSensitive: true } : {}),
   };
   const assets = await withTimeout(
-    Promise.allSettled([
-      context.documents.listPdfAssetPathsPage(assetArgs),
-      context.documents.listFileAssetPathsPage(assetArgs),
-    ]),
+    context.documents.listPdfAssetPathsPage(assetArgs),
     MANIFEST_BOUNDED_FALLBACK_TIMEOUT_MS,
     "Wiki bounded manifest asset fallback",
   )
-    .then((results) => {
-      const [pdfResult, fileResult] = results;
-      const pdfAssets =
-        pdfResult.status === "fulfilled"
-          ? pdfResult.value.page.map((path) => ({
-              kind: "pdf" as const,
-              path,
-              contentHash: null,
-              size: null,
-            }))
-          : [];
-      const fileAssets =
-        fileResult.status === "fulfilled"
-          ? fileResult.value.page.map((path) => ({
-              kind: "file" as const,
-              path,
-              contentHash: null,
-              size: null,
-            }))
-          : [];
-      return [...pdfAssets, ...fileAssets];
-    })
+    .then((result) =>
+      result.page.map((path) => ({
+        kind: "pdf" as const,
+        path,
+        contentHash: null,
+        size: null,
+      })),
+    )
     .catch((error) => {
       context.logger?.warn("[wiki manifest] Bounded asset fallback unavailable", error);
       return [] as WikiManifestAsset[];
@@ -428,42 +415,30 @@ async function listAssets(
   context: WikiApiContext,
   includeSensitive: boolean,
 ) {
-  const listPaths = async (
-    kind: WikiManifestAsset["kind"],
-    fetchPage: (args: {
-      cursor: string | null;
-      numItems: number;
-      includeSensitive?: boolean;
-    }) => Promise<AssetPathResult>,
-  ) => {
-    const assets: WikiManifestAsset[] = [];
-    let cursor: string | null = null;
-    let isDone = false;
-    while (!isDone) {
-      const result = await fetchPage({
-        cursor,
-        numItems: ASSET_PAGE_SIZE,
-        ...(includeSensitive ? { includeSensitive: true } : {}),
-      });
-      assets.push(
-        ...result.page.map((path) => ({
-          kind,
-          path,
-          contentHash: null,
-          size: null,
-        })),
-      );
-      isDone = result.isDone;
-      cursor = result.continueCursor;
-    }
-    return assets;
-  };
-
-  const [pdfAssets, fileAssets] = await Promise.all([
-    listPaths("pdf", (args) => context.documents.listPdfAssetPathsPage(args)),
-    listPaths("file", (args) => context.documents.listFileAssetPathsPage(args)),
-  ]);
-  return [...pdfAssets, ...fileAssets];
+  // PDFs are reader navigation entries. Other file assets remain available via
+  // direct /api/file links, but scanning thousands of images here would block
+  // every cold manifest request and duplicate data the page can load on demand.
+  const assets: WikiManifestAsset[] = [];
+  let cursor: string | null = null;
+  let isDone = false;
+  while (!isDone) {
+    const result = await context.documents.listPdfAssetPathsPage({
+      cursor,
+      numItems: ASSET_PAGE_SIZE,
+      ...(includeSensitive ? { includeSensitive: true } : {}),
+    });
+    assets.push(
+      ...result.page.map((path) => ({
+        kind: "pdf" as const,
+        path,
+        contentHash: null,
+        size: null,
+      })),
+    );
+    isDone = result.isDone;
+    cursor = result.continueCursor;
+  }
+  return assets;
 }
 
 function parseLimit(url: URL) {

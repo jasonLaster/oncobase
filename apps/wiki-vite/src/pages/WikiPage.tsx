@@ -6,7 +6,6 @@ import {
 } from "@oncobase/wiki-markdown";
 import {
   DocumentOutlineShell,
-  WikiBadge,
   WikiBreadcrumbs,
   WikiEmptyState,
   WikiPageActionButton,
@@ -47,7 +46,6 @@ import type {
   SiteStateRow,
 } from "../types";
 import {
-  formatBytes,
   hrefForSlug,
   parseJsonArray,
   slugFromPath,
@@ -352,13 +350,7 @@ export function WikiPage({
     );
   }
 
-  const pageBadges = (
-    <>
-      {stale ? <WikiBadge variant="updating">updating</WikiBadge> : null}
-      {page.sensitive ? <WikiBadge variant="sensitive">sensitive</WikiBadge> : null}
-      <WikiBadge>{formatBytes(page.size)}</WikiBadge>
-    </>
-  );
+  const isIndexPage = page.slug === "index";
 
   return (
     <DocumentOutlineShell
@@ -371,24 +363,28 @@ export function WikiPage({
       {toast ? (
         <WikiToast>{toast}</WikiToast>
       ) : null}
-      <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />
-      <WikiPageHeader
-        title={page.title}
-        description={description ?? slug}
-        badges={pageBadges}
-      />
+      {!isIndexPage ? (
+        <Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={page.title} />
+      ) : null}
+      {!isIndexPage ? (
+        <WikiPageHeader
+          title={page.title}
+          actions={
+            <PageActions
+              content={page.content}
+              contentHash={page.contentHash}
+              scope={scope}
+              slug={page.slug}
+              title={page.title}
+            />
+          }
+        />
+      ) : null}
       {stale ? (
         <WikiStatusNotice>
           Showing cached markdown while a newer version is fetched in the background.
         </WikiStatusNotice>
       ) : null}
-      <PageActions
-        content={page.content}
-        contentHash={page.contentHash}
-        scope={scope}
-        slug={page.slug}
-        title={page.title}
-      />
       <WikiSourceLinks
         data-test-id="source-links"
         items={relatedAssets.map((asset) => ({
@@ -403,14 +399,16 @@ export function WikiPage({
           </a>
         )}
       />
-      <WikiTagList
-        tags={tags}
-        renderTag={(tag) => (
-          <Link key={tag} to={`/?q=${encodeURIComponent(tag)}`}>
-            {tag}
-          </Link>
-        )}
-      />
+      {!isIndexPage ? (
+        <WikiTagList
+          tags={tags}
+          renderTag={(tag) => (
+            <Link key={tag} to={`/tags/${encodeURIComponent(tag)}`}>
+              {tag}
+            </Link>
+          )}
+        />
+      ) : null}
       <WikiMarkdown
         content={page.content}
         currentSlug={page.slug}

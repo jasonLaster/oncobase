@@ -6,14 +6,15 @@ test.describe("Page chrome parity", () => {
     await installWikiApiMocks(page);
   });
 
-  test("renders breadcrumbs, description, and page action affordances", async ({ page }) => {
+  test("renders breadcrumbs and compact page action affordances", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
     const breadcrumbs = page.getByTestId("breadcrumbs");
     await expect(breadcrumbs.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
     await expect(breadcrumbs).toContainText("wiki/logistics/Insurance");
     await expect(breadcrumbs.locator('[aria-current="page"]')).toHaveText("Insurance");
-    await expect(documentArticle(page).locator(".page-header")).toContainText(
+    await expect(documentArticle(page).locator(".page-header")).toContainText("Insurance");
+    await expect(documentArticle(page).locator(".page-header")).not.toContainText(
       "Insurance planning notes.",
     );
     await expect(page).toHaveTitle("Insurance - Diana Wiki");
@@ -25,6 +26,8 @@ test.describe("Page chrome parity", () => {
 
     const actions = page.getByTestId("page-actions");
     await expect(actions.getByRole("button", { name: "Copy page as markdown" })).toBeVisible();
+    await expect(actions.getByRole("button", { name: "More page actions" })).toBeVisible();
+    await actions.getByRole("button", { name: "More page actions" }).click();
     await expect(actions.getByRole("button", { name: "Copy page link" })).toBeVisible();
     await expect(actions.getByRole("button", { name: "Print page" })).toBeVisible();
     await expect(actions.getByRole("link", { name: "Markdown", exact: true })).toHaveAttribute(
@@ -45,8 +48,19 @@ test.describe("Page chrome parity", () => {
     );
   });
 
+  test("root page avoids duplicate title chrome", async ({ page }) => {
+    await gotoWiki(page, "/");
+
+    await expect(documentArticle(page).locator(".page-header")).toHaveCount(0);
+    await expect(page.getByTestId("page-actions")).toHaveCount(0);
+    await expect(
+      documentArticle(page).getByRole("heading", { name: "Diana Wiki Home", level: 1 }),
+    ).toBeVisible();
+  });
+
   test("page markdown downloads are served by the Vite API boundary", async ({ page, request }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
+    await page.getByRole("button", { name: "More page actions" }).click();
 
     const href = await page
       .getByTestId("page-actions")

@@ -225,12 +225,6 @@ const assets: WikiManifestAsset[] = [
     contentHash: "pdf-hash",
     size: 256,
   },
-  {
-    kind: "file",
-    path: "sources/images/pathology-slide.png",
-    contentHash: "image-hash",
-    size: 96,
-  },
 ];
 
 function hash(value: string) {
@@ -535,7 +529,7 @@ export async function gotoWiki(page: Page, path = "/") {
 }
 
 export async function waitForPageTitle(page: Page, title: string | RegExp) {
-  await expect(documentArticle(page).locator(".page-header h1")).toHaveText(title, {
+  await expect(documentArticle(page).getByRole("heading", { level: 1 }).first()).toContainText(title, {
     timeout: 15_000,
   });
 }

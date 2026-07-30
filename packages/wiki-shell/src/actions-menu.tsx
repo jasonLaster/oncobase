@@ -32,6 +32,7 @@ export type WikiActionsMenuProps = {
   currentTheme?: "dark" | "light";
   downloadFullHref?: string;
   downloadMarkdownHref?: string;
+  onNavigate?: (href: string) => void;
   searchHref?: string;
   onAuthSubmit?: (input: WikiActionsMenuAuthInput) => Promise<WikiActionsMenuUser>;
   onOpenCommandPalette?: () => void;
@@ -357,6 +358,7 @@ export function WikiActionsMenu({
   downloadFullHref = "/api/download?type=full",
   downloadMarkdownHref = "/api/download?type=markdown",
   onAuthSubmit,
+  onNavigate,
   onOpenCommandPalette,
   onSessionChange,
   onSignOut,
@@ -436,13 +438,25 @@ export function WikiActionsMenu({
               <>
                 <div className="wiki-shell-actions-label">Search</div>
                 {searchHref ? (
-                  <MenuButton href={searchHref} onClick={() => setOpen(false)}>
+                  <MenuButton
+                    href={onNavigate ? undefined : searchHref}
+                    onClick={() => {
+                      setOpen(false);
+                      onNavigate?.(searchHref);
+                    }}
+                  >
                     <SparklesIcon />
                     <span>AI Search</span>
                   </MenuButton>
                 ) : null}
                 {textSearchHref ? (
-                  <MenuButton href={textSearchHref} onClick={() => setOpen(false)}>
+                  <MenuButton
+                    href={onNavigate ? undefined : textSearchHref}
+                    onClick={() => {
+                      setOpen(false);
+                      onNavigate?.(textSearchHref);
+                    }}
+                  >
                     <FileTextIcon />
                     <span>Text Search</span>
                   </MenuButton>

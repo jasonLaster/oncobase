@@ -2,7 +2,6 @@ import type { WikiScope } from "@oncobase/wiki-content";
 import {
   WikiPageActionButton,
   WikiPageActionLink,
-  WikiPageActions,
   copyTextToClipboard,
 } from "@oncobase/wiki-shell";
 import {
@@ -11,6 +10,7 @@ import {
   DownloadIcon,
   ExternalLinkIcon,
   LinkIcon,
+  MoreHorizontalIcon,
   PrinterIcon,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -84,35 +84,53 @@ export function PageActions({
   };
 
   return (
-    <WikiPageActions data-test-id="page-actions">
+    <div className="wiki-vite-page-actions" data-test-id="page-actions">
       <ActionButton label="Copy page as markdown" onClick={copyMarkdown}>
         {copied === "markdown" ? <CheckIcon size={15} /> : <ClipboardIcon size={15} />}
         <span>{copied === "markdown" ? "Copied" : "Copy"}</span>
       </ActionButton>
-      <ActionButton label="Copy page link" onClick={copyLink}>
-        {copied === "link" ? <CheckIcon size={15} /> : <LinkIcon size={15} />}
-        <span>{copied === "link" ? "Copied" : "Link"}</span>
-      </ActionButton>
-      <ActionButton label="Print page" onClick={() => window.print()}>
-        <PrinterIcon size={15} />
-        <span>Print</span>
-      </ActionButton>
-      <WikiPageActionLink href={copyHref} download={`${slug.split("/").at(-1) ?? slug}.md`}>
-        <DownloadIcon size={15} />
-        <span>Markdown</span>
-      </WikiPageActionLink>
-      <WikiPageActionLink href={markdownDownloadHref} download={`wiki-${scope}-markdown.zip`}>
-        <DownloadIcon size={15} />
-        <span>Markdown zip</span>
-      </WikiPageActionLink>
-      <WikiPageActionLink href={fullDownloadHref} download={`wiki-${scope}-full.zip`}>
-        <DownloadIcon size={15} />
-        <span>Full wiki</span>
-      </WikiPageActionLink>
-      <WikiPageActionLink href={mainAppHref}>
-        <ExternalLinkIcon size={15} />
-        <span>Main app</span>
-      </WikiPageActionLink>
-    </WikiPageActions>
+      <details className="wiki-vite-page-action-overflow">
+        <summary
+          className="wiki-shell-page-action"
+          aria-label="More page actions"
+          role="button"
+        >
+          <MoreHorizontalIcon size={15} />
+          <span>More</span>
+        </summary>
+        <div className="wiki-vite-page-action-menu">
+          <ActionButton label="Copy page link" onClick={copyLink}>
+            {copied === "link" ? <CheckIcon size={15} /> : <LinkIcon size={15} />}
+            <span>{copied === "link" ? "Copied" : "Copy link"}</span>
+          </ActionButton>
+          <ActionButton label="Print page" onClick={() => window.print()}>
+            <PrinterIcon size={15} />
+            <span>Print</span>
+          </ActionButton>
+          <WikiPageActionLink
+            href={copyHref}
+            download={`${slug.split("/").at(-1) ?? slug}.md`}
+          >
+            <DownloadIcon size={15} />
+            <span>Markdown</span>
+          </WikiPageActionLink>
+          <WikiPageActionLink
+            href={markdownDownloadHref}
+            download={`wiki-${scope}-markdown.zip`}
+          >
+            <DownloadIcon size={15} />
+            <span>Markdown zip</span>
+          </WikiPageActionLink>
+          <WikiPageActionLink href={fullDownloadHref} download={`wiki-${scope}-full.zip`}>
+            <DownloadIcon size={15} />
+            <span>Full wiki</span>
+          </WikiPageActionLink>
+          <WikiPageActionLink href={mainAppHref}>
+            <ExternalLinkIcon size={15} />
+            <span>Main app</span>
+          </WikiPageActionLink>
+        </div>
+      </details>
+    </div>
   );
 }

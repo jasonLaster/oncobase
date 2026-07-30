@@ -20,6 +20,7 @@ import {
   Suspense,
   lazy,
   type FormEvent,
+  type MouseEvent,
   useCallback,
   useEffect,
   useState,
@@ -177,6 +178,35 @@ export function Header() {
     navigate(`/search?${params.toString()}`);
   };
 
+  const navigateHref = useCallback(
+    (href: string) => {
+      const url = new URL(href, window.location.href);
+      if (url.origin === window.location.origin) {
+        navigate(`${url.pathname}${url.search}${url.hash}`);
+        return;
+      }
+      window.location.assign(url);
+    },
+    [navigate],
+  );
+
+  const navigateLink = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (
+      event.button !== 0 ||
+      event.defaultPrevented ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+    const url = new URL(href, window.location.href);
+    if (url.origin !== window.location.origin) return;
+    event.preventDefault();
+    navigateHref(href);
+  };
+
   return (
     <>
       <WikiHeader
@@ -201,8 +231,12 @@ export function Header() {
               <input type="hidden" name="returnTo" value={returnTo} />
             </WikiHeaderSearchForm>
             <WikiHeaderLink
+              aria-label="New chat"
               data-test-id="header-new-chat"
               href={backendHref("/chat", { returnTo })}
+              onClick={(event) =>
+                navigateLink(event, backendHref("/chat", { returnTo }))
+              }
             >
               <MessageCircleIcon size={14} aria-hidden="true" />
               <span>New chat</span>
@@ -224,6 +258,7 @@ export function Header() {
             downloadFullHref={backendHref("/api/download", { type: "full", scope })}
             downloadMarkdownHref={backendHref("/api/download", { type: "markdown", scope })}
             onAuthSubmit={submitAuth}
+            onNavigate={navigateHref}
             onOpenCommandPalette={() => openPalette("actions")}
             onSessionChange={setSessionUser}
             onSignOut={signOut}

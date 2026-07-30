@@ -412,7 +412,7 @@ export function WikiFilePalette({
   return (
     <WikiCommandBackdrop role="presentation" onMouseDown={() => closePalette()}>
       <WikiCommandPanel
-        aria-label="Command palette"
+        aria-label="Go to page"
         aria-modal="true"
         className="wiki-shell-file-palette"
         data-test-id={testId}
@@ -436,7 +436,7 @@ export function WikiFilePalette({
               rowVirtualizer.scrollToIndex(0, { align: "start" });
             }}
             onKeyDown={onInputKeyDown}
-            placeholder="Search pages..."
+            placeholder="Search pages…"
             ref={inputRef}
             role="combobox"
             value={search}

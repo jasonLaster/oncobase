@@ -154,7 +154,7 @@ export function WikiTree({
   tree,
 }: WikiTreeProps) {
   return (
-    <>
+    <div className="wiki-shell-tree-root">
       {tree.map((node) => (
         <WikiTreeNode
           key={treeNodeKey(node)}
@@ -169,7 +169,7 @@ export function WikiTree({
           renderPageLink={renderPageLink}
         />
       ))}
-    </>
+    </div>
   );
 }
 
@@ -190,12 +190,12 @@ function WikiTreeNode({
   onToggleDirectory,
   renderPageLink,
 }: WikiTreeNodeProps) {
-  const indent = depth * 12;
+  const indent = depth === 0 ? 12 : 40 + (depth - 1) * 18;
   const formattedName = formatTreeNodeName(node.name);
 
   if (node.type === "directory") {
     const userOpen = expandedSlugs.get(node.slug);
-    const open = userOpen ?? (depth < 1 || activeAncestorSlugs.has(node.slug));
+    const open = userOpen ?? activeAncestorSlugs.has(node.slug);
     const accessibleName = node.badge
       ? `${open ? "Collapse" : "Expand"} ${formattedName} ${node.badge}`
       : `${open ? "Collapse" : "Expand"} ${formattedName}`;
@@ -212,7 +212,7 @@ function WikiTreeNode({
           type="button"
           title={`${open ? "Collapse" : "Expand"} ${formattedName}`}
           onClick={() => onToggleDirectory(node.slug, open)}
-          style={{ paddingLeft: indent + 8 }}
+          style={{ paddingLeft: indent }}
         >
           <span className="wiki-shell-tree-disclosure-text" aria-hidden="true">
             {open ? "▼" : "▶"}
@@ -247,7 +247,7 @@ function WikiTreeNode({
       <a
         className="wiki-shell-tree-link tree-link pdf"
         href={getFileHref?.(node) ?? `/api/file?path=${encodeURIComponent(node.pdfPath ?? node.slug)}`}
-        style={{ paddingLeft: indent + 24 }}
+        style={{ paddingLeft: indent }}
         target="_blank"
         rel="noreferrer"
         onClick={onNavigate}
@@ -265,7 +265,7 @@ function WikiTreeNode({
     className: cn("wiki-shell-tree-link tree-link", active && "active"),
     node,
     onNavigate,
-    style: { paddingLeft: indent + 24 },
+    style: { paddingLeft: indent },
   });
 }
 
@@ -329,13 +329,14 @@ export function WikiMobileNavigationSheet({
       </button>
       <div
         className={cn("wiki-shell-bottom-nav-sheet bottom-nav-sheet", open && "open", className)}
+        {...props}
         data-test-id="bottom-nav-sheet"
         id={sheetId}
+        inert={!open}
         role={open ? "dialog" : undefined}
         aria-hidden={open ? undefined : true}
         aria-modal={open ? true : undefined}
         aria-label={sheetAriaLabel}
-        {...props}
       >
         <button
           className="wiki-shell-bottom-nav-backdrop bottom-nav-backdrop"

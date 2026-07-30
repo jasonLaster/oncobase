@@ -1,10 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { documentArticle, nextErrorOverlay } from "./fixtures";
 
-const hiddenAssetPattern = /(^|\/)images\/|\.(avif|gif|jpe?g|png|svg|webp)$/i;
-
 test.describe("Live backend P0 smokes", () => {
-  test("clean browser renders a real route and keeps image-only asset paths out of the sidebar", async ({
+  test("clean browser renders a real route with a PDF-only bootstrap asset index", async ({
     page,
     request,
   }, testInfo) => {
@@ -15,10 +13,11 @@ test.describe("Live backend P0 smokes", () => {
     const manifestResponse = await request.get("/api/wiki/manifest", { timeout: 60_000 });
     expect(manifestResponse.ok(), await manifestResponse.text()).toBe(true);
     const manifest = await manifestResponse.json();
-    const hiddenAssets = (manifest.assets as Array<{ path: string }>).filter((asset) =>
-      hiddenAssetPattern.test(asset.path),
-    );
-    expect(hiddenAssets.length).toBeGreaterThan(0);
+    const manifestAssets = manifest.assets as Array<{ kind: string; path: string }>;
+    expect(manifestAssets.length).toBeGreaterThan(0);
+    expect(
+      manifestAssets.every((asset) => asset.kind === "pdf" && asset.path.endsWith(".pdf")),
+    ).toBe(true);
 
     await page.goto("/wiki/logistics/insurance?devtools=1", {
       waitUntil: "domcontentloaded",
@@ -34,7 +33,7 @@ test.describe("Live backend P0 smokes", () => {
       page.getByTestId("wiki-sidebar").getByRole("button", { name: /images/i }),
     ).toHaveCount(0);
     await expect(
-      page.getByTestId("wiki-sidebar").getByRole("link", { name: hiddenAssetPattern }),
+      page.getByTestId("wiki-sidebar").getByRole("link", { name: /\.png$/i }),
     ).toHaveCount(0);
     await expect(nextErrorOverlay(page)).toHaveCount(0);
   });

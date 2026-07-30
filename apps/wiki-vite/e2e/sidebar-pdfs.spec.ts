@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { gotoWiki, installWikiApiMocks, openDirectory, waitForPageTitle } from "./fixtures";
 
 async function openSourcePath(page: Page) {
+  await openDirectory(page, "sources");
   await openDirectory(page, "people");
   await openDirectory(page, "providers");
   await openDirectory(page, "stanford");
