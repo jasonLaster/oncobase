@@ -251,7 +251,15 @@ async function handleAssetUpload(request: Request, client: ConvexHttpClient) {
 async function handleAssetHashBackfill(request: Request, client: ConvexHttpClient) {
   const body = (await request.json()) as {
     siteSlug?: string;
-    entries?: Array<{ path?: string; kind?: string; contentHash?: string }>;
+    entries?: Array<{
+      path?: string;
+      kind?: string;
+      contentHash?: string;
+      ownerSlugs?: string[];
+      sensitive?: boolean;
+      sensitiveInclude?: string[];
+      visibilityHash?: string;
+    }>;
   };
   const siteSlug = body.siteSlug ?? "";
   if (!siteSlug) return new Response("siteSlug required", { status: 400 });
@@ -259,15 +267,34 @@ async function handleAssetHashBackfill(request: Request, client: ConvexHttpClien
     path: entry.path ?? "",
     kind: entry.kind === "pdf" ? ("pdf" as const) : ("file" as const),
     contentHash: entry.contentHash ?? "",
+    ownerSlugs: Array.isArray(entry.ownerSlugs) ? entry.ownerSlugs : [],
+    sensitive: entry.sensitive ?? false,
+    hasSensitive: typeof entry.sensitive === "boolean",
+    sensitiveInclude: Array.isArray(entry.sensitiveInclude)
+      ? entry.sensitiveInclude
+      : [],
+    visibilityHash: entry.visibilityHash ?? "",
   }));
   if (entries.length === 0) return new Response("entries required", { status: 400 });
-  if (entries.some((entry) => !entry.path || !entry.contentHash)) {
-    return new Response("entry path and contentHash required", { status: 400 });
+  if (
+    entries.some(
+      (entry) =>
+        !entry.path ||
+        !entry.contentHash ||
+        !entry.hasSensitive ||
+        !entry.visibilityHash,
+    )
+  ) {
+    return new Response(
+      "entry path, contentHash, sensitive, and visibilityHash required",
+      { status: 400 },
+    );
   }
   await requirePublishSite(request, client, siteSlug);
+  const validatedEntries = entries.map(({ hasSensitive: _, ...entry }) => entry);
   const result = await client.mutation(
     api.documents.backfillAssetHashes,
-    withSiteSlug(siteSlug, { entries }),
+    withSiteSlug(siteSlug, { entries: validatedEntries }),
   );
   return Response.json(result);
 }
