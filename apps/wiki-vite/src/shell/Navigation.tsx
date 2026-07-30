@@ -61,6 +61,7 @@ import {
 } from "lucide-react";
 import {
   useCallback,
+  useEffect,
   useMemo,
   useState,
   type CSSProperties,
@@ -81,6 +82,20 @@ import { ViteActionsMenu, openCommandPalette, useWikiViteAuth } from "./Header";
 const TREE_EXPANSION_KEY = "wiki-vite-expanded-directories";
 const ICON_SIZE = 14;
 const MOBILE_OUTLINE_SELECTOR = "h2[id], h3[id], h4[id]";
+const NON_DOCUMENT_ROUTE_PREFIXES = [
+  "/access",
+  "/admin",
+  "/chat",
+  "/comments",
+  "/diagnostics",
+  "/login",
+  "/pii-view",
+  "/search",
+  "/table-examples",
+  "/tags",
+  "/timeline",
+  "/tools",
+] as const;
 
 type MobileNavTab = "pages" | "outline";
 
@@ -195,6 +210,16 @@ function writeExpandedDirectories(slugs: Map<string, boolean>) {
 function collectMobileOutlineItems() {
   const root = document.querySelector<HTMLElement>('[data-test-id="document-article"]');
   return collectOutline(root ?? document, MOBILE_OUTLINE_SELECTOR);
+}
+
+function pathnameMatchesRoutePrefix(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+function isDocumentRoute(pathname: string) {
+  return !NON_DOCUMENT_ROUTE_PREFIXES.some((prefix) =>
+    pathnameMatchesRoutePrefix(pathname, prefix),
+  );
 }
 
 function usesDiagnosticsSidebar(pathname: string) {
@@ -508,6 +533,7 @@ function WikiMobileNav() {
   const [navState, setNavState] = useState({ open: false, pathname });
   const [activeTab, setActiveTab] = useState<MobileNavTab>("pages");
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const { sessionLoading, sessionUser, setSessionUser, submitAuth } = useWikiViteAuth();
   const open = navState.pathname === pathname ? navState.open : false;
   const setOpen = useCallback(
@@ -532,6 +558,30 @@ function WikiMobileNav() {
     [pathname, setOpen],
   );
 
+  useEffect(() => {
+    const headings = outlineItems
+      .map((item) => document.getElementById(item.id))
+      .filter((heading): heading is HTMLElement => Boolean(heading));
+    if (headings.length === 0) {
+      setActiveHeadingId(null);
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible?.target.id) {
+          setActiveHeadingId(visible.target.id);
+        }
+      },
+      { rootMargin: "-20% 0px -65% 0px", threshold: [0, 1] },
+    );
+
+    headings.forEach((heading) => observer.observe(heading));
+    return () => observer.disconnect();
+  }, [outlineItems]);
+
   if (isChatRoute) {
     return (
       <ChatProviders>
@@ -555,7 +605,7 @@ function WikiMobileNav() {
     <>
       <MobilePageHeader
         onOpenNavigation={openPageNavigation}
-        showComments={!pathname.startsWith("/search")}
+        showComments={isDocumentRoute(pathname)}
         title={pageTitleFromPath(pathname)}
       />
       <WikiMobileNavigationSheet
@@ -586,16 +636,21 @@ function WikiMobileNav() {
           {activeTab === "outline" ? (
             outlineItems.length > 0 ? (
               <div className="wiki-vite-mobile-outline-list">
-                {outlineItems.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => jumpToMobileOutlineItem(item)}
-                    style={{ "--outline-depth": Math.max(0, item.level - 2) } as CSSProperties}
-                  >
-                    {item.text}
-                  </button>
-                ))}
+                {outlineItems.map((item) => {
+                  const active = item.id === activeHeadingId;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      aria-current={active ? "location" : undefined}
+                      data-active-outline-heading={active ? "true" : undefined}
+                      onClick={() => jumpToMobileOutlineItem(item)}
+                      style={{ "--outline-depth": Math.max(0, item.level - 2) } as CSSProperties}
+                    >
+                      {item.text}
+                    </button>
+                  );
+                })}
               </div>
             ) : (
               <p className="wiki-vite-mobile-outline-empty">No headings found on this page.</p>

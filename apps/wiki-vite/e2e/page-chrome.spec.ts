@@ -79,6 +79,72 @@ test.describe("Page chrome parity", () => {
     await expect(page).toHaveURL(/#claims-follow-up$/);
   });
 
+  test("tracks the active mobile outline heading while the document scrolls", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoWiki(page, "/wiki/updates/week-5-april-12-to-18");
+
+    await page.getByTestId("bottom-nav-trigger").click();
+    await page.getByRole("button", { name: "Outline" }).click();
+    await page.getByRole("button", { name: "Close navigation" }).click();
+    await page.locator("#saturday-april-12").evaluate((heading) => heading.scrollIntoView());
+    await page
+      .locator(".content-shell")
+      .evaluate((scroller) => scroller.scrollBy(0, -Math.round(window.innerHeight * 0.25)));
+    await page.getByTestId("bottom-nav-trigger").click();
+    await page.getByRole("button", { name: "Outline" }).click();
+    const mobileOutline = page.getByTestId("bottom-nav-outline");
+    const saturdayHeading = mobileOutline.getByRole("button", {
+      name: "Saturday, April 12",
+    });
+    await expect(saturdayHeading).toHaveAttribute("aria-current", "location");
+    await expect(saturdayHeading).toHaveAttribute("data-active-outline-heading", "true");
+
+    await page.getByRole("button", { name: "Close navigation" }).click();
+    await page.locator("#treatment-note").evaluate((heading) => heading.scrollIntoView());
+    await page
+      .locator(".content-shell")
+      .evaluate((scroller) => scroller.scrollBy(0, -Math.round(window.innerHeight * 0.25)));
+    await page.getByTestId("bottom-nav-trigger").click();
+    await page.getByRole("button", { name: "Outline" }).click();
+    const treatmentHeading = page
+      .getByTestId("bottom-nav-outline")
+      .getByRole("button", { name: "Treatment note" });
+    await expect(treatmentHeading).toHaveAttribute("aria-current", "location");
+    await expect(
+      page
+        .getByTestId("bottom-nav-outline")
+        .getByRole("button", { name: "Saturday, April 12" }),
+    ).not.toHaveAttribute("aria-current", "location");
+  });
+
+  test("shows the mobile comments action only on document routes", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    for (const pathname of [
+      "/",
+      "/wiki/logistics/insurance",
+      "/about/About",
+      "/sources/people/providers/stanford/telli",
+    ]) {
+      await gotoWiki(page, pathname);
+      await expect(page.getByTestId("mobile-header-comments")).toBeVisible();
+    }
+
+    for (const pathname of [
+      "/comments",
+      "/admin",
+      "/tags/logistics",
+      "/search",
+      "/timeline",
+      "/diagnostics",
+      "/tools/medical-deduction",
+    ]) {
+      await page.goto(pathname);
+      await expect(page.getByTestId("mobile-page-header")).toBeVisible();
+      await expect(page.getByTestId("mobile-header-comments")).toHaveCount(0);
+    }
+  });
+
   test("surfaces source file provenance from the local asset index", async ({ page }) => {
     await gotoWiki(page, "/sources/people/providers/stanford/telli");
 

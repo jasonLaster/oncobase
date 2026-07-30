@@ -1416,7 +1416,8 @@ a {
   }
 
   .wiki-vite-mobile-outline-list button:hover,
-  .wiki-vite-mobile-outline-list button:focus-visible {
+  .wiki-vite-mobile-outline-list button:focus-visible,
+  .wiki-vite-mobile-outline-list button[aria-current="location"] {
     background: var(--accent-light);
     color: var(--brand);
     outline: none;
