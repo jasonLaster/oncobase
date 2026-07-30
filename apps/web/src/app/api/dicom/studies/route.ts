@@ -58,6 +58,7 @@ async function getBlobCatalog(siteSlug: string | undefined) {
           imagePosition: image.imagePosition ?? null,
           rows: image.rows ?? null,
           columns: image.columns ?? null,
+          pixelSpacing: image.pixelSpacing ?? null,
           sortIndex: index,
         })),
       })),

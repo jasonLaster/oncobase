@@ -15,11 +15,15 @@ also covered by
   table.
 - `/timeline` redirects to `/diagnostics`.
 
-The viewer also accepts `biopsyId`, `seriesId`, and `image` query parameters.
+The viewer also accepts `biopsyId`, `seriesId`, `image`, and `annotation` query
+parameters.
 `id` and `biopsyId` are human-facing biopsy IDs. `seriesId` is the raw DICOM
 series id. `image` is a 1-based index into the selected stack. The legacy
 `slice` query parameter is accepted as an alias on initial load, but the viewer
 normalizes current-image URLs back to `image`.
+`annotation` identifies a persisted annotation on that exact image. When found,
+the viewer opens Select mode and highlights it, so audit reports can link
+directly to the evidence markup rather than only to a nearby slice.
 
 ## Diagnostic Imaging Page Contract
 
@@ -99,6 +103,20 @@ When annotation Select mode is active:
   annotations to the current selection.
 - Backspace/Delete removes the current selection, and Cmd/Ctrl+Z restores the
   previous annotation state.
+
+## Calibrated Ruler Contract
+
+- Ruler endpoints are converted from canvas positions to DICOM patient-space
+  coordinates through the active Cornerstone viewport.
+- The persisted annotation retains those 3D world endpoints and displays their
+  Euclidean distance in millimeters.
+- Rulers are reprojected after pan, zoom, viewport resize, and image rendering,
+  so they stay attached to image anatomy.
+- A ruler that cannot be calibrated is not saved.
+- The share button includes the selected annotation ID. Opening that URL returns
+  to the exact series, image, and highlighted annotation.
+- Older arrow, circle, box, and text annotations remain viewport-relative;
+  they are visual callouts, not calibrated measurements.
 
 ## Slice Loading Contract
 

@@ -44,7 +44,10 @@ import {
   ensureCornerstoneModules,
   type CornerstoneModules,
 } from "./cornerstone-runtime.ts";
-import { DicomAnnotationLayer } from "./dicom-annotation-layer.tsx";
+import {
+  DicomAnnotationLayer,
+  type AnnotationCoordinateAdapter,
+} from "./dicom-annotation-layer.tsx";
 
 type CornerstoneCore = typeof import("@cornerstonejs/core");
 
@@ -109,6 +112,7 @@ interface DicomImage {
   imagePosition: number | null;
   rows: number | null;
   columns: number | null;
+  pixelSpacing: [number, number] | null;
 }
 
 interface ViewerImage {
@@ -230,6 +234,7 @@ export function DicomViewerClient({
   );
   const toolModeRef = useRef<ToolMode>("window");
   const railResizeRef = useRef<DicomRailResizeState | null>(null);
+  const viewportRevisionFrameRef = useRef(0);
 
   const renderingEngineId = useRef(`oncobase-dicom-engine-${crypto.randomUUID()}`);
   const viewportId = useRef(`oncobase-dicom-viewport-${crypto.randomUUID()}`);
@@ -246,6 +251,10 @@ export function DicomViewerClient({
   const [loadingImageIndex, setLoadingImageIndex] = useState<number | null>(null);
   const [loadedStackId, setLoadedStackId] = useState<string | null>(null);
   const [shareState, setShareState] = useState<"idle" | "copied" | "error">("idle");
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(
+    () => readInitialSearchParam("annotation"),
+  );
+  const [viewportRevision, setViewportRevision] = useState(0);
   const [stackRailOpen, setStackRailOpen] = useState(true);
   const [seriesRailWidth, setSeriesRailWidth] = useState(() =>
     readStoredDicomRailWidth("series"),
@@ -491,7 +500,34 @@ export function DicomViewerClient({
     const modules = loadedModules;
 
     let cancelled = false;
-    let removeListener: (() => void) | null = null;
+    const onNewImage = (event: Event) => {
+      const detail = (event as CustomEvent<{ imageIdIndex: number }>).detail;
+      if (typeof detail?.imageIdIndex === "number") {
+        sliceIndexRef.current = detail.imageIdIndex;
+        setSliceIndex(detail.imageIdIndex);
+        setLoadingImageIndex(null);
+        prefetchNearbyImages(modules.core, currentStack.images, detail.imageIdIndex);
+      }
+    };
+    const onViewportChanged = () => {
+      if (viewportRevisionFrameRef.current) return;
+      viewportRevisionFrameRef.current = window.requestAnimationFrame(() => {
+        viewportRevisionFrameRef.current = 0;
+        setViewportRevision((current) => current + 1);
+      });
+    };
+    viewportElement.addEventListener(
+      modules.core.Enums.Events.STACK_NEW_IMAGE,
+      onNewImage,
+    );
+    viewportElement.addEventListener(
+      modules.core.Enums.Events.CAMERA_MODIFIED,
+      onViewportChanged,
+    );
+    viewportElement.addEventListener(
+      modules.core.Enums.Events.IMAGE_RENDERED,
+      onViewportChanged,
+    );
 
     async function loadStack() {
       setError(null);
@@ -564,19 +600,6 @@ export function DicomViewerClient({
         setIsInverted(false);
         prefetchNearbyImages(modules.core, currentStack.images, initialIndex);
 
-        const onNewImage = (event: Event) => {
-          const detail = (event as CustomEvent<{ imageIdIndex: number }>).detail;
-          if (typeof detail?.imageIdIndex === "number") {
-            sliceIndexRef.current = detail.imageIdIndex;
-            setSliceIndex(detail.imageIdIndex);
-            setLoadingImageIndex(null);
-            prefetchNearbyImages(modules.core, currentStack.images, detail.imageIdIndex);
-          }
-        };
-        viewportElement.addEventListener(core.Enums.Events.STACK_NEW_IMAGE, onNewImage);
-        removeListener = () => {
-          viewportElement.removeEventListener(core.Enums.Events.STACK_NEW_IMAGE, onNewImage);
-        };
       } catch (caught) {
         if (cancelled) return;
         setError(caught instanceof Error ? caught.message : "Could not initialize viewer");
@@ -587,7 +610,22 @@ export function DicomViewerClient({
 
     return () => {
       cancelled = true;
-      removeListener?.();
+      if (viewportRevisionFrameRef.current) {
+        window.cancelAnimationFrame(viewportRevisionFrameRef.current);
+        viewportRevisionFrameRef.current = 0;
+      }
+      viewportElement.removeEventListener(
+        modules.core.Enums.Events.STACK_NEW_IMAGE,
+        onNewImage,
+      );
+      viewportElement.removeEventListener(
+        modules.core.Enums.Events.CAMERA_MODIFIED,
+        onViewportChanged,
+      );
+      viewportElement.removeEventListener(
+        modules.core.Enums.Events.IMAGE_RENDERED,
+        onViewportChanged,
+      );
     };
   }, [activeStack, applyToolMode, cornerstoneModules, viewportNode]);
 
@@ -668,11 +706,15 @@ export function DicomViewerClient({
   useEffect(() => {
     if (!activeStackLoaded || !activeStackId) return;
     if (initialImageIndexRef.current !== null) return;
-    const nextUrl = currentImageShareUrl(activeStackId, sliceIndex);
+    const nextUrl = currentImageShareUrl(
+      activeStackId,
+      sliceIndex,
+      selectedAnnotationId,
+    );
     if (nextUrl !== window.location.href) {
       window.history.replaceState(window.history.state, "", nextUrl);
     }
-  }, [activeStackId, activeStackLoaded, sliceIndex]);
+  }, [activeStackId, activeStackLoaded, selectedAnnotationId, sliceIndex]);
 
   useEffect(() => {
     if (!isPlaying || !activeStack?.images.length) return;
@@ -842,7 +884,11 @@ export function DicomViewerClient({
   };
   const shareCurrentImage = useCallback(async () => {
     if (!activeStackLoaded || !activeStackId) return;
-    const shareUrl = currentImageShareUrl(activeStackId, sliceIndex);
+    const shareUrl = currentImageShareUrl(
+      activeStackId,
+      sliceIndex,
+      selectedAnnotationId,
+    );
     try {
       await copyTextToClipboard(shareUrl);
       setShareState("copied");
@@ -851,7 +897,38 @@ export function DicomViewerClient({
       setShareState("error");
       window.setTimeout(() => setShareState("idle"), 2200);
     }
-  }, [activeStackId, activeStackLoaded, sliceIndex]);
+  }, [activeStackId, activeStackLoaded, selectedAnnotationId, sliceIndex]);
+  const annotationCoordinateAdapter = useMemo<AnnotationCoordinateAdapter | null>(
+    () => {
+      // Refresh after Cornerstone camera, resize, and image-render events.
+      void viewportRevision;
+      const viewport = viewportRef.current;
+      const element = viewportElementRef.current;
+      if (!viewport || !element) return null;
+      return {
+        canvasToWorld(point) {
+          const rect = element.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) return null;
+          const world = viewport.canvasToWorld([
+            point.x * rect.width,
+            point.y * rect.height,
+          ]);
+          return world && world.length === 3
+            ? [world[0], world[1], world[2]]
+            : null;
+        },
+        worldToCanvas(world) {
+          const rect = element.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) return null;
+          const canvas = viewport.worldToCanvas(world);
+          return canvas && canvas.length === 2
+            ? { x: canvas[0] / rect.width, y: canvas[1] / rect.height }
+            : null;
+        },
+      };
+    },
+    [viewportRevision],
+  );
   const viewerLayoutStyle = useMemo(
     () =>
       ({
@@ -1035,10 +1112,13 @@ export function DicomViewerClient({
               )}
             </Button>
             <DicomAnnotationLayer
+              coordinateAdapter={annotationCoordinateAdapter}
               currentImage={currentImage}
               disabled={!hasStack || loadingImageIndex !== null}
               editorPortalElement={annotationEditorPortalElement}
+              onSelectedAnnotationChange={setSelectedAnnotationId}
               onEditorOpenChange={handleAnnotationEditorOpenChange}
+              requestedAnnotationId={selectedAnnotationId}
               series={activeStack}
             />
             {catalogLoading ? (
@@ -1669,11 +1749,20 @@ function clampImageIndex(index: number, imageCount: number) {
   return Math.max(0, Math.min(index, imageCount - 1));
 }
 
-function currentImageShareUrl(seriesId: string, imageIndex: number) {
+function currentImageShareUrl(
+  seriesId: string,
+  imageIndex: number,
+  annotationId?: string | null,
+) {
   const url = new URL(window.location.href);
   url.searchParams.set("seriesId", seriesId);
   url.searchParams.set("image", String(imageIndex + 1));
   url.searchParams.delete("slice");
+  if (annotationId) {
+    url.searchParams.set("annotation", annotationId);
+  } else {
+    url.searchParams.delete("annotation");
+  }
   return url.toString();
 }
 

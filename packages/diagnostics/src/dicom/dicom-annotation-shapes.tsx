@@ -13,7 +13,12 @@ import {
   type Point,
   type RectBounds,
 } from "./dicom-annotation-model.ts";
-import { svgPoint, textBounds } from "./dicom-annotation-geometry.ts";
+import {
+  formatDistanceMm,
+  svgPoint,
+  textBounds,
+  worldDistanceMm,
+} from "./dicom-annotation-geometry.ts";
 
 function arrowVisualGeometry(
   annotation: DicomAnnotation,
@@ -99,6 +104,101 @@ export function AnnotationShape({
       point={point}
     />
   );
+
+  if (annotation.kind === "ruler") {
+    const end = {
+      x: annotation.endX ?? annotation.x,
+      y: annotation.endY ?? annotation.y,
+    };
+    const endPoint = svgPoint(end, layerSize);
+    const dx = endPoint.x - start.x;
+    const dy = endPoint.y - start.y;
+    const length = Math.max(1, Math.hypot(dx, dy));
+    const tickX = (-dy / length) * 7;
+    const tickY = (dx / length) * 7;
+    const middle = {
+      x: (annotation.x + end.x) / 2,
+      y: (annotation.y + end.y) / 2,
+    };
+    const label = formatDistanceMm(worldDistanceMm(annotation));
+    const labelX = (start.x + endPoint.x) / 2 + tickX * 1.8;
+    const labelY = (start.y + endPoint.y) / 2 + tickY * 1.8;
+    return (
+      <g>
+        {selected ? (
+          <line
+            data-test-id="dicom-annotation-selection"
+            pointerEvents="none"
+            stroke={SELECTED_STROKE_COLOR}
+            strokeLinecap="round"
+            strokeWidth={Math.max(5, strokeWidth + 4)}
+            vectorEffect="non-scaling-stroke"
+            x1={start.x}
+            x2={endPoint.x}
+            y1={start.y}
+            y2={endPoint.y}
+          />
+        ) : null}
+        <g
+          data-distance-mm={worldDistanceMm(annotation) ?? undefined}
+          data-test-id="dicom-annotation-shape-ruler"
+          stroke={annotation.color}
+          strokeLinecap="round"
+          strokeWidth={strokeWidth}
+        >
+          <line x1={start.x} x2={endPoint.x} y1={start.y} y2={endPoint.y} />
+          <line
+            x1={start.x - tickX}
+            x2={start.x + tickX}
+            y1={start.y - tickY}
+            y2={start.y + tickY}
+          />
+          <line
+            x1={endPoint.x - tickX}
+            x2={endPoint.x + tickX}
+            y1={endPoint.y - tickY}
+            y2={endPoint.y + tickY}
+          />
+        </g>
+        <text
+          data-test-id="dicom-annotation-ruler-label"
+          fill={annotation.color}
+          fontSize={14}
+          fontWeight={700}
+          paintOrder="stroke"
+          pointerEvents="none"
+          stroke="rgba(0,0,0,0.9)"
+          strokeWidth={4}
+          textAnchor="middle"
+          x={labelX}
+          y={labelY}
+        >
+          {label}
+        </text>
+        {editable ? (
+          <line
+            cursor="move"
+            data-test-id="dicom-annotation-hit-target"
+            onPointerDown={(event) => onStartEditDrag(event, annotation, "move")}
+            pointerEvents="stroke"
+            stroke="transparent"
+            strokeWidth={Math.max(18, strokeWidth + 12)}
+            x1={start.x}
+            x2={endPoint.x}
+            y1={start.y}
+            y2={endPoint.y}
+          />
+        ) : null}
+        {selected && primarySelected && editable
+          ? [
+              handle("start", annotation),
+              handle("move", middle),
+              handle("end", end),
+            ]
+          : null}
+      </g>
+    );
+  }
 
   if (annotation.kind === "arrow") {
     const end = {

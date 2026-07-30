@@ -1,4 +1,4 @@
-export type AnnotationKind = "arrow" | "circle" | "box" | "text";
+export type AnnotationKind = "arrow" | "circle" | "box" | "ruler" | "text";
 export type SaveStatus = "idle" | "loading" | "saving" | "saved" | "error";
 export type AnnotationPanel = "draw" | null;
 export type EditHandle = "move" | "start" | "end" | "nw" | "ne" | "sw" | "se";
@@ -23,10 +23,19 @@ export type DicomAnnotation = {
   height?: number;
   endX?: number;
   endY?: number;
+  worldStart?: WorldPoint;
+  worldEnd?: WorldPoint;
   text?: string;
   color: string;
   thickness: number;
   fontSize: number;
+};
+
+export type WorldPoint = [number, number, number];
+
+export type AnnotationCoordinateAdapter = {
+  canvasToWorld: (point: Point) => WorldPoint | null;
+  worldToCanvas: (point: WorldPoint) => Point | null;
 };
 
 export type AnnotationSeriesResponse = {
@@ -123,6 +132,8 @@ export function annotationKindLabel(kind: AnnotationKind | null) {
       return "Box";
     case "circle":
       return "Circle";
+    case "ruler":
+      return "Ruler";
     case "text":
       return "Text";
     default:

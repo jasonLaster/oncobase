@@ -49,7 +49,7 @@ export function makeAnnotation({
   text: string;
   thickness: number;
 }): DicomAnnotation {
-  if (kind === "arrow") {
+  if (kind === "arrow" || kind === "ruler") {
     return {
       id: randomId(),
       kind,
@@ -100,7 +100,7 @@ export function replaceAnnotationId(
 
 export function annotationIsDrawable(annotation: DicomAnnotation) {
   if (annotation.kind === "text") return true;
-  if (annotation.kind === "arrow") {
+  if (annotation.kind === "arrow" || annotation.kind === "ruler") {
     return (
       annotation.endX !== undefined &&
       annotation.endY !== undefined &&
@@ -145,7 +145,7 @@ export function annotationBounds(
   annotation: DicomAnnotation,
   layerSize?: LayerSize,
 ): { maxX: number; maxY: number; minX: number; minY: number } {
-  if (annotation.kind === "arrow") {
+  if (annotation.kind === "arrow" || annotation.kind === "ruler") {
     const endX = annotation.endX ?? annotation.x;
     const endY = annotation.endY ?? annotation.y;
     return {
@@ -216,7 +216,7 @@ function translateAnnotation(
   dx: number,
   dy: number,
 ) {
-  if (annotation.kind === "arrow") {
+  if (annotation.kind === "arrow" || annotation.kind === "ruler") {
     return {
       ...annotation,
       endX: clampUnit((annotation.endX ?? annotation.x) + dx),
@@ -301,7 +301,7 @@ function editAnnotation(
     return moveAnnotation(annotation, current.x - start.x, current.y - start.y);
   }
 
-  if (annotation.kind === "arrow") {
+  if (annotation.kind === "arrow" || annotation.kind === "ruler") {
     if (mode === "start") {
       return { ...annotation, x: current.x, y: current.y };
     }
@@ -318,6 +318,22 @@ function editAnnotation(
   }
 
   return annotation;
+}
+
+export function worldDistanceMm(annotation: DicomAnnotation) {
+  const start = annotation.worldStart;
+  const end = annotation.worldEnd;
+  if (!start || !end) return null;
+  return Math.hypot(
+    end[0] - start[0],
+    end[1] - start[1],
+    end[2] - start[2],
+  );
+}
+
+export function formatDistanceMm(distance: number | null) {
+  if (distance === null || !Number.isFinite(distance)) return "Uncalibrated";
+  return distance < 10 ? `${distance.toFixed(1)} mm` : `${Math.round(distance)} mm`;
 }
 
 export function editAnnotationsForDrag(

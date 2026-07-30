@@ -337,6 +337,8 @@ async function installAnnotationApiMock(page: Page) {
       text?: string;
       thickness?: number;
       width?: number;
+      worldEnd?: number[];
+      worldStart?: number[];
       x?: number;
       y?: number;
     }>;
@@ -385,6 +387,8 @@ async function installAnnotationApiMock(page: Page) {
             text?: string;
             thickness?: number;
             width?: number;
+            worldEnd?: number[];
+            worldStart?: number[];
             x?: number;
             y?: number;
           }>,
@@ -429,7 +433,7 @@ function pointInBox(box: TestBox, x: number, y: number) {
 
 async function drawAnnotation(
   page: Page,
-  kind: "Arrow" | "Box" | "Circle" | "Text",
+  kind: "Arrow" | "Box" | "Circle" | "Ruler" | "Text",
   box: TestBox,
   start: { x: number; y: number },
   end: { x: number; y: number },
@@ -1247,6 +1251,38 @@ test.describe("DICOM viewer", () => {
       timeout: 30_000,
     });
     await expect(page.getByTestId("dicom-annotation-shape-arrow")).toBeVisible();
+  });
+
+  test("creates a calibrated ruler and deep-links its exact annotation", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const annotationApi = await installAnnotationApiMock(page);
+    await gotoViewer(page);
+
+    const canvas = page.getByTestId("dicom-annotation-canvas");
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    await drawAnnotation(
+      page,
+      "Ruler",
+      box!,
+      { x: 0.4, y: 0.45 },
+      { x: 0.57, y: 0.45 },
+    );
+
+    await expect(page.getByTestId("dicom-annotation-shape-ruler")).toBeVisible();
+    await expect(page.getByTestId("dicom-annotation-ruler-label")).toContainText(
+      "mm",
+    );
+    await expect.poll(() => annotationApi.saves.length).toBe(1);
+    const ruler = latestSavedAnnotation(annotationApi);
+    expect(ruler.kind).toBe("ruler");
+    expect(ruler.worldStart).toHaveLength(3);
+    expect(ruler.worldEnd).toHaveLength(3);
+    await expect(page).toHaveURL(
+      new RegExp(`annotation=${encodeURIComponent(String((ruler as { id?: string }).id))}`),
+    );
   });
 
   test("multi-selects annotations with shift and drag-selects before group moves", async ({

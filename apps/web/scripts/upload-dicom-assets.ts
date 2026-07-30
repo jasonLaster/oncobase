@@ -128,6 +128,7 @@ async function main() {
         imagePosition: image.imagePosition ?? undefined,
         rows: image.rows ?? undefined,
         columns: image.columns ?? undefined,
+        pixelSpacing: image.pixelSpacing ?? undefined,
       });
       uploaded += 1;
     }

@@ -4,7 +4,8 @@ import { api } from "@convex/_generated/api";
 import { getConvexServerClient } from "@/lib/convex-server";
 import { siteSlugFromRequest } from "@/lib/site";
 
-type AnnotationKind = "arrow" | "circle" | "box" | "text";
+type AnnotationKind = "arrow" | "circle" | "box" | "ruler" | "text";
+type WorldPoint = [number, number, number];
 
 type DicomAnnotation = {
   id: string;
@@ -15,13 +16,21 @@ type DicomAnnotation = {
   height?: number;
   endX?: number;
   endY?: number;
+  worldStart?: WorldPoint;
+  worldEnd?: WorldPoint;
   text?: string;
   color: string;
   thickness: number;
   fontSize: number;
 };
 
-const annotationKinds = new Set<AnnotationKind>(["arrow", "circle", "box", "text"]);
+const annotationKinds = new Set<AnnotationKind>([
+  "arrow",
+  "circle",
+  "box",
+  "ruler",
+  "text",
+]);
 const MAX_ANNOTATIONS_PER_IMAGE = 250;
 
 function isFiniteUnitNumber(value: unknown): value is number {
@@ -40,6 +49,21 @@ function optionalUnitNumber(value: unknown) {
   return value === undefined || isFiniteUnitNumber(value);
 }
 
+function isWorldPoint(value: unknown): value is WorldPoint {
+  return (
+    Array.isArray(value) &&
+    value.length === 3 &&
+    value.every(
+      (coordinate) =>
+        typeof coordinate === "number" && Number.isFinite(coordinate),
+    )
+  );
+}
+
+function optionalWorldPoint(value: unknown) {
+  return value === undefined || isWorldPoint(value);
+}
+
 function validateAnnotation(value: unknown): DicomAnnotation | null {
   if (!value || typeof value !== "object") return null;
   const annotation = value as Partial<DicomAnnotation>;
@@ -55,6 +79,15 @@ function validateAnnotation(value: unknown): DicomAnnotation | null {
   if (!isFiniteUnitNumber(x) || !isFiniteUnitNumber(y)) return null;
   if (!optionalUnitNumber(annotation.width) || !optionalUnitNumber(annotation.height)) return null;
   if (!optionalUnitNumber(annotation.endX) || !optionalUnitNumber(annotation.endY)) return null;
+  if (!optionalWorldPoint(annotation.worldStart) || !optionalWorldPoint(annotation.worldEnd)) {
+    return null;
+  }
+  if (
+    kind === "ruler" &&
+    (!isWorldPoint(annotation.worldStart) || !isWorldPoint(annotation.worldEnd))
+  ) {
+    return null;
+  }
   if (!isHexColor(color)) return null;
   if (!isFinitePositiveNumber(thickness) || thickness > 32) return null;
   if (!isFinitePositiveNumber(fontSize) || fontSize > 96) return null;
@@ -69,6 +102,8 @@ function validateAnnotation(value: unknown): DicomAnnotation | null {
     ...(annotation.height !== undefined ? { height: annotation.height } : {}),
     ...(annotation.endX !== undefined ? { endX: annotation.endX } : {}),
     ...(annotation.endY !== undefined ? { endY: annotation.endY } : {}),
+    ...(annotation.worldStart !== undefined ? { worldStart: annotation.worldStart } : {}),
+    ...(annotation.worldEnd !== undefined ? { worldEnd: annotation.worldEnd } : {}),
     ...(annotation.text !== undefined ? { text: annotation.text.slice(0, 400) } : {}),
     color,
     thickness,

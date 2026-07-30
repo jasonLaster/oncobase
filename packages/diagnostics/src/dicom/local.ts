@@ -18,6 +18,7 @@ export interface LocalDicomImage {
   imagePosition: number | null;
   rows: number | null;
   columns: number | null;
+  pixelSpacing: [number, number] | null;
 }
 
 export interface LocalDicomSeries {
@@ -53,6 +54,7 @@ interface ParsedDicom {
   imagePosition: number | null;
   rows: number | null;
   columns: number | null;
+  pixelSpacing: [number, number] | null;
 }
 
 interface CandidateFile {
@@ -92,6 +94,7 @@ export async function getDicomCatalog(): Promise<LocalDicomCatalog> {
       imagePosition: parsed?.imagePosition ?? null,
       rows: parsed?.rows ?? null,
       columns: parsed?.columns ?? null,
+      pixelSpacing: parsed?.pixelSpacing ?? null,
     };
 
     if (existing) {
@@ -222,10 +225,23 @@ async function parseDicomMetadata(absolutePath: string): Promise<ParsedDicom | n
       imagePosition: parseImagePosition(cleanText(dataSet.string("x00200032"))),
       rows: dataSet.uint16("x00280010") ?? null,
       columns: dataSet.uint16("x00280011") ?? null,
+      pixelSpacing: parsePixelSpacing(cleanText(dataSet.string("x00280030"))),
     };
   } catch {
     return null;
   }
+}
+
+function parsePixelSpacing(value: string | null): [number, number] | null {
+  if (!value) return null;
+  const values = value.split("\\").map((item) => Number.parseFloat(item));
+  if (
+    values.length !== 2 ||
+    values.some((item) => !Number.isFinite(item) || item <= 0)
+  ) {
+    return null;
+  }
+  return [values[0], values[1]];
 }
 
 function buildSeriesLabel(parsed: ParsedDicom | null, fallback: string) {

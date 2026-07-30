@@ -16,6 +16,7 @@ import {
   Circle,
   MousePointer2,
   PencilLine,
+  Ruler,
   Square,
   Type,
 } from "lucide-react";
@@ -52,6 +53,7 @@ import {
   MIN_DRAW_DISTANCE,
   SELECTED_STROKE_COLOR,
   annotationKindLabel,
+  type AnnotationCoordinateAdapter,
   type AnnotationKind,
   type AnnotationPanel,
   type AnnotationSeriesResponse,
@@ -73,6 +75,8 @@ export type {
   DicomAnnotation,
   DicomAnnotationImage,
   DicomAnnotationSeries,
+  AnnotationCoordinateAdapter,
+  WorldPoint,
 } from "./dicom-annotation-model.ts";
 
 const toolOptions: Array<{
@@ -83,20 +87,66 @@ const toolOptions: Array<{
   { icon: <ArrowUpRight className="size-4" />, kind: "arrow", label: "Arrow" },
   { icon: <Square className="size-4" />, kind: "box", label: "Box" },
   { icon: <Circle className="size-4" />, kind: "circle", label: "Circle" },
+  { icon: <Ruler className="size-4" />, kind: "ruler", label: "Ruler" },
   { icon: <Type className="size-4" />, kind: "text", label: "Text" },
 ];
 
+function projectWorldRuler(
+  annotation: DicomAnnotation,
+  coordinateAdapter?: AnnotationCoordinateAdapter | null,
+) {
+  if (
+    annotation.kind !== "ruler" ||
+    !annotation.worldStart ||
+    !annotation.worldEnd ||
+    !coordinateAdapter
+  ) {
+    return annotation;
+  }
+  const start = coordinateAdapter.worldToCanvas(annotation.worldStart);
+  const end = coordinateAdapter.worldToCanvas(annotation.worldEnd);
+  if (!start || !end) return annotation;
+  return {
+    ...annotation,
+    x: start.x,
+    y: start.y,
+    endX: end.x,
+    endY: end.y,
+  };
+}
+
+function calibrateWorldRuler(
+  annotation: DicomAnnotation,
+  coordinateAdapter?: AnnotationCoordinateAdapter | null,
+) {
+  if (annotation.kind !== "ruler" || !coordinateAdapter) return annotation;
+  const end = {
+    x: annotation.endX ?? annotation.x,
+    y: annotation.endY ?? annotation.y,
+  };
+  const worldStart = coordinateAdapter.canvasToWorld(annotation);
+  const worldEnd = coordinateAdapter.canvasToWorld(end);
+  if (!worldStart || !worldEnd) return null;
+  return { ...annotation, worldStart, worldEnd };
+}
+
 export function DicomAnnotationLayer({
+  coordinateAdapter,
   currentImage,
   disabled,
   editorPortalElement,
+  onSelectedAnnotationChange,
   onEditorOpenChange,
+  requestedAnnotationId,
   series,
 }: {
+  coordinateAdapter?: AnnotationCoordinateAdapter | null;
   currentImage: DicomAnnotationImage | null;
   disabled?: boolean;
   editorPortalElement?: HTMLElement | null;
+  onSelectedAnnotationChange?: (annotationId: string | null) => void;
   onEditorOpenChange?: (open: boolean) => void;
+  requestedAnnotationId?: string | null;
   series: DicomAnnotationSeries | null;
 }) {
   const [activeTool, setActiveTool] = useState<AnnotationKind | null>(null);
@@ -125,8 +175,22 @@ export function DicomAnnotationLayer({
   const lastTextPointerDownRef = useRef<{ annotationId: string; time: number } | null>(
     null,
   );
+  const requestedAnnotationIdRef = useRef(requestedAnnotationId);
   const layerRef = useRef<HTMLDivElement | null>(null);
   const saveTimers = useRef<Record<string, number>>({});
+  const changeSelection = useCallback(
+    (nextIds: string[]) => {
+      setSelectedAnnotationIds(nextIds);
+      onSelectedAnnotationChange?.(
+        nextIds.length === 1 ? nextIds[0] : null,
+      );
+    },
+    [onSelectedAnnotationChange],
+  );
+
+  useEffect(() => {
+    requestedAnnotationIdRef.current = requestedAnnotationId;
+  }, [requestedAnnotationId]);
 
   useEffect(() => {
     return () => {
@@ -144,9 +208,15 @@ export function DicomAnnotationLayer({
     setEditingTextId(null);
     setOpenPanel(null);
     setSelectedAnnotationIds([]);
+    if (!requestedAnnotationId) onSelectedAnnotationChange?.(null);
     setSelectionMarquee(null);
     historyRef.current = [];
-  }, [currentImageKey, seriesId]);
+  }, [
+    currentImageKey,
+    onSelectedAnnotationChange,
+    requestedAnnotationId,
+    seriesId,
+  ]);
 
   useEffect(() => {
     const node = layerRef.current;
@@ -180,9 +250,23 @@ export function DicomAnnotationLayer({
         if (!response.ok) throw new Error(`annotations ${response.status}`);
         const body = (await response.json()) as AnnotationSeriesResponse;
         if (cancelled) return;
-        setAnnotationsByImage(loadAnnotationsMap(body));
+        const loadedAnnotations = loadAnnotationsMap(body);
+        setAnnotationsByImage(loadedAnnotations);
         setLoadedSeriesId(seriesId);
         setSaveStatus("idle");
+        const requestedId = requestedAnnotationIdRef.current;
+        if (
+          requestedId &&
+          Object.values(loadedAnnotations).some((imageAnnotations) =>
+            imageAnnotations.some(
+              (annotation) => annotation.id === requestedId,
+            ),
+          )
+        ) {
+          setActiveTool(null);
+          setEditMode(true);
+          changeSelection([requestedId]);
+        }
       } catch {
         if (cancelled) return;
         setLoadedSeriesId(seriesId);
@@ -196,7 +280,7 @@ export function DicomAnnotationLayer({
     return () => {
       cancelled = true;
     };
-  }, [seriesId]);
+  }, [changeSelection, seriesId]);
 
   const annotations = useMemo(
     () =>
@@ -205,6 +289,13 @@ export function DicomAnnotationLayer({
         : [],
     [annotationsByImage, currentImageKey, loadedSeriesId, seriesId],
   );
+  const projectedAnnotations = useMemo(
+    () =>
+      annotations.map((annotation) =>
+        projectWorldRuler(annotation, coordinateAdapter),
+      ),
+    [annotations, coordinateAdapter],
+  );
   const selectedIdSet = useMemo(
     () => new Set(selectedAnnotationIds),
     [selectedAnnotationIds],
@@ -212,9 +303,11 @@ export function DicomAnnotationLayer({
   const selectedAnnotations = useMemo(
     () =>
       selectedAnnotationIds
-        .map((id) => annotations.find((annotation) => annotation.id === id))
+        .map((id) =>
+          projectedAnnotations.find((annotation) => annotation.id === id),
+        )
         .filter((annotation): annotation is DicomAnnotation => Boolean(annotation)),
-    [annotations, selectedAnnotationIds],
+    [projectedAnnotations, selectedAnnotationIds],
   );
   const primarySelectedAnnotation = selectedAnnotations.at(-1) ?? null;
   const selectedAnnotation =
@@ -234,9 +327,9 @@ export function DicomAnnotationLayer({
       annotationIds.has(id),
     );
     if (nextSelectedIds.length !== selectedAnnotationIds.length) {
-      setSelectedAnnotationIds(nextSelectedIds);
+      changeSelection(nextSelectedIds);
     }
-  }, [annotations, selectedAnnotationIds]);
+  }, [annotations, changeSelection, selectedAnnotationIds]);
 
   useEffect(() => {
     if (!editingTextId) return;
@@ -397,7 +490,15 @@ export function DicomAnnotationLayer({
       if (dragEdit) {
         if (dragEdit.pointerId !== event.pointerId) return;
         const current = pointFromSvgPointer(event);
-        const nextAnnotations = editAnnotationsForDrag(dragEdit, current, layerSize);
+          const editedAnnotations = editAnnotationsForDrag(
+            dragEdit,
+            current,
+            layerSize,
+          );
+          const nextAnnotations = editedAnnotations.map((annotation) => {
+            const calibrated = calibrateWorldRuler(annotation, coordinateAdapter);
+            return calibrated ?? annotation;
+          });
         setAnnotationsByImage((currentByImage) => ({
           ...currentByImage,
           [dragEdit.imageKey]: nextAnnotations,
@@ -452,7 +553,7 @@ export function DicomAnnotationLayer({
         const moved = drawDistance(dragEdit.start, current) >= MIN_DRAW_DISTANCE;
         const nextSelectedIds = dragSelectionAfterPointerUp(dragEdit, moved);
         setDragEdit(null);
-        setSelectedAnnotationIds(nextSelectedIds);
+        changeSelection(nextSelectedIds);
         if (!moved) return;
         const nextAnnotations = editAnnotationsForDrag(dragEdit, current, layerSize);
         if (currentImage && imageKey(currentImage) === dragEdit.imageKey) {
@@ -475,7 +576,7 @@ export function DicomAnnotationLayer({
           MIN_DRAW_DISTANCE;
         if (moved) {
           const rect = rectFromPoints(selectionMarquee.start, current);
-          const marqueeIds = annotations
+          const marqueeIds = projectedAnnotations
             .filter((annotation) =>
               boundsIntersectRect(
                 annotationBounds(annotation, layerSize),
@@ -483,13 +584,13 @@ export function DicomAnnotationLayer({
               ),
             )
             .map((annotation) => annotation.id);
-          setSelectedAnnotationIds(
+          changeSelection(
             selectionMarquee.additive
               ? uniqueIds([...selectedAnnotationIds, ...marqueeIds])
               : marqueeIds,
           );
         } else if (!selectionMarquee.additive) {
-          setSelectedAnnotationIds([]);
+          changeSelection([]);
         }
         setSelectionMarquee(null);
         return;
@@ -503,24 +604,34 @@ export function DicomAnnotationLayer({
       if (!annotationIsDrawable(draft.annotation)) return;
 
       const key = imageKey(currentImage);
-      const nextAnnotations = [...(annotationsByImage[key] ?? []), draft.annotation];
+      const committedDraft = calibrateWorldRuler(
+        draft.annotation,
+        coordinateAdapter,
+      );
+      if (!committedDraft) return;
+      const nextAnnotations = [
+        ...(annotationsByImage[key] ?? []),
+        committedDraft,
+      ];
       commitAnnotations(currentImage, nextAnnotations);
       setActiveTool(null);
       setEditMode(true);
-      setSelectedAnnotationIds([draft.annotation.id]);
-      if (draft.annotation.kind === "text") {
-        setEditingTextId(draft.annotation.id);
+      changeSelection([committedDraft.id]);
+      if (committedDraft.kind === "text") {
+        setEditingTextId(committedDraft.id);
         setOpenPanel(null);
       }
     },
     [
-      annotations,
       annotationsByImage,
+      changeSelection,
       commitAnnotations,
+      coordinateAdapter,
       currentImage,
       dragEdit,
       draft,
       layerSize,
+      projectedAnnotations,
       selectedAnnotationIds,
       selectionMarquee,
     ],
@@ -547,7 +658,7 @@ export function DicomAnnotationLayer({
           setEditMode(true);
           setOpenPanel(null);
           setEditingTextId(annotation.id);
-          setSelectedAnnotationIds([annotation.id]);
+          changeSelection([annotation.id]);
           return;
         }
         lastTextPointerDownRef.current = { annotationId: annotation.id, time: now };
@@ -557,7 +668,9 @@ export function DicomAnnotationLayer({
       event.preventDefault();
       event.stopPropagation();
       const pointer = pointFromSvgPointer(event);
-      const originalAnnotations = annotationsByImage[currentImageKey] ?? [];
+      const originalAnnotations = (annotationsByImage[currentImageKey] ?? []).map(
+        (candidate) => projectWorldRuler(candidate, coordinateAdapter),
+      );
       const selectionBeforeIds = selectedAnnotationIds;
       const wasSelected = selectionBeforeIds.includes(annotation.id);
       const nextSelectedIds =
@@ -574,7 +687,7 @@ export function DicomAnnotationLayer({
       setEditMode(true);
       setOpenPanel(null);
       setEditingTextId(null);
-      setSelectedAnnotationIds(nextSelectedIds);
+      changeSelection(nextSelectedIds);
       setDragEdit({
         annotation,
         imageKey: currentImageKey,
@@ -588,7 +701,14 @@ export function DicomAnnotationLayer({
         wasSelected,
       });
     },
-    [annotationsByImage, currentImageKey, disabled, selectedAnnotationIds],
+    [
+      annotationsByImage,
+      changeSelection,
+      coordinateAdapter,
+      currentImageKey,
+      disabled,
+      selectedAnnotationIds,
+    ],
   );
 
   const undoLast = useCallback(() => {
@@ -610,7 +730,7 @@ export function DicomAnnotationLayer({
     const restoredAnnotationIds = new Set(
       entry.annotations.map((annotation) => annotation.id),
     );
-    setSelectedAnnotationIds(
+    changeSelection(
       entry.selectedAnnotationIds.filter((id) => restoredAnnotationIds.has(id)),
     );
     commitAnnotations(currentImage, entry.annotations, { skipHistory: true });
@@ -624,7 +744,7 @@ export function DicomAnnotationLayer({
     const nextAnnotations = (annotationsByImage[currentImageKey] ?? []).filter(
       (annotation) => !selectedIds.has(annotation.id),
     );
-    setSelectedAnnotationIds([]);
+    changeSelection([]);
     commitAnnotations(currentImage, nextAnnotations);
   }, [
     annotationsByImage,
@@ -667,7 +787,7 @@ export function DicomAnnotationLayer({
     setEditMode(false);
     setEditingTextId(null);
     setOpenPanel(null);
-    setSelectedAnnotationIds([]);
+    changeSelection([]);
   }, []);
 
   const chooseColor = useCallback(
@@ -709,7 +829,7 @@ export function DicomAnnotationLayer({
     setEditMode(true);
     setOpenPanel(null);
     setEditingTextId(annotation.id);
-    setSelectedAnnotationIds([annotation.id]);
+    changeSelection([annotation.id]);
   }, []);
 
   useEffect(() => {
@@ -723,8 +843,8 @@ export function DicomAnnotationLayer({
 
   const visibleAnnotations =
     draft && draft.imageKey === currentImageKey
-      ? [...annotations, draft.annotation]
-      : annotations;
+      ? [...projectedAnnotations, draft.annotation]
+      : projectedAnnotations;
   const canvasInteractive = !disabled &&
     Boolean(activeTool || editMode || dragEdit || selectionMarquee);
   const activeColor = primarySelectedAnnotation?.color ?? color;

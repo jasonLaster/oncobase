@@ -131,6 +131,7 @@ export const upsertSeriesWithImages = mutation({
         imagePosition: optionalNumber,
         rows: optionalNumber,
         columns: optionalNumber,
+        pixelSpacing: v.optional(v.array(v.number())),
       }),
     ),
   },
