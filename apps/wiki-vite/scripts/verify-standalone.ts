@@ -108,38 +108,24 @@ try {
     throw new Error("Standalone bot metadata smoke did not use share-preview cache headers");
   }
 
-  const sessionResponse = await fetch(`${origin}/api/wiki/session`);
-  if (!sessionResponse.ok) {
-    throw new Error(`Standalone session smoke failed: ${sessionResponse.status}`);
-  }
-
-  const searchResponse = await fetch(`${origin}/api/search?q=diagnosis&limit=3`);
-  if (!searchResponse.ok) {
-    throw new Error(`Standalone search smoke failed: ${searchResponse.status}`);
-  }
-
-  const searchBody = await searchResponse.json();
-  if (!Array.isArray(searchBody.results) || searchBody.results.length === 0) {
-    throw new Error("Standalone search smoke returned no results");
-  }
-
-  const toolResponse = await fetch(`${origin}/api/tools`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tool: "search_wiki", args: { query: "diagnosis" } }),
-  });
-  if (!toolResponse.ok) {
-    throw new Error(`Standalone tools smoke failed: ${toolResponse.status}`);
-  }
-
-  const toolBody = await toolResponse.json();
-  if (!Array.isArray(toolBody) || toolBody.length === 0) {
-    throw new Error("Standalone tools smoke returned no search results");
-  }
-
-  const chatMethodResponse = await fetch(`${origin}/api/chat`);
-  if (chatMethodResponse.status !== 405 || chatMethodResponse.headers.get("allow") !== "POST") {
-    throw new Error(`Standalone chat method smoke failed: ${chatMethodResponse.status}`);
+  for (const pathname of [
+    "/api/wiki/manifest",
+    "/api/wiki/pages?slugs=wiki/logistics/insurance",
+    "/api/search?q=diagnosis&limit=3",
+    "/api/download?type=markdown",
+    "/api/file?path=sources/example.pdf",
+  ]) {
+    const response = await fetch(`${origin}${pathname}`);
+    if (response.status !== 401) {
+      throw new Error(`Standalone API gate failed for ${pathname}: ${response.status}`);
+    }
+    if (
+      response.headers.get("cache-control") !== "private, no-store" ||
+      !response.headers.get("vary")?.includes("Cookie") ||
+      !response.headers.get("vary")?.includes("Host")
+    ) {
+      throw new Error(`Standalone API gate used unsafe cache headers for ${pathname}`);
+    }
   }
 
   const loginResponse = await fetch(`${origin}/api/login`, {
@@ -151,6 +137,49 @@ try {
     throw new Error(`Standalone login smoke failed: ${loginResponse.status}`);
   }
   const authCookie = loginResponse.headers.get("set-cookie")?.split(";")[0] ?? "";
+
+  const sessionResponse = await fetch(`${origin}/api/wiki/session`, {
+    headers: { Cookie: authCookie },
+  });
+  if (!sessionResponse.ok) {
+    throw new Error(`Standalone session smoke failed: ${sessionResponse.status}`);
+  }
+
+  const searchResponse = await fetch(`${origin}/api/search?q=diagnosis&limit=3`, {
+    headers: { Cookie: authCookie },
+  });
+  if (!searchResponse.ok) {
+    throw new Error(`Standalone search smoke failed: ${searchResponse.status}`);
+  }
+
+  const searchBody = await searchResponse.json();
+  if (!Array.isArray(searchBody.results) || searchBody.results.length === 0) {
+    throw new Error("Standalone search smoke returned no results");
+  }
+
+  const toolResponse = await fetch(`${origin}/api/tools`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: authCookie,
+    },
+    body: JSON.stringify({ tool: "search_wiki", args: { query: "diagnosis" } }),
+  });
+  if (!toolResponse.ok) {
+    throw new Error(`Standalone tools smoke failed: ${toolResponse.status}`);
+  }
+
+  const toolBody = await toolResponse.json();
+  if (!Array.isArray(toolBody) || toolBody.length === 0) {
+    throw new Error("Standalone tools smoke returned no search results");
+  }
+
+  const chatMethodResponse = await fetch(`${origin}/api/chat`, {
+    headers: { Cookie: authCookie },
+  });
+  if (chatMethodResponse.status !== 405 || chatMethodResponse.headers.get("allow") !== "POST") {
+    throw new Error(`Standalone chat method smoke failed: ${chatMethodResponse.status}`);
+  }
 
   const htmlResponse = await fetch(`${origin}/wiki/logistics/insurance`, {
     headers: { Cookie: authCookie },
@@ -166,7 +195,9 @@ try {
     throw new Error("Standalone authed HTML smoke did not use private no-store cache headers");
   }
 
-  const fileErrorResponse = await fetch(`${origin}/api/file`);
+  const fileErrorResponse = await fetch(`${origin}/api/file`, {
+    headers: { Cookie: authCookie },
+  });
   if (fileErrorResponse.status !== 400) {
     throw new Error(`Standalone file validation smoke failed: ${fileErrorResponse.status}`);
   }

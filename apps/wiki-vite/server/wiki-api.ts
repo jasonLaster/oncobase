@@ -86,7 +86,9 @@ import { safeLocalRedirect } from "../src/safe-redirect.js";
 
 const DEFAULT_SITE_SLUG = "diana";
 const HOST_CACHE_TTL_MS = 15_000;
+const PASSWORD_GATE_CACHE_TTL_MS = 15_000;
 const VERCEL_PROJECT_HOST_PREFIX = "diana-tnbc";
+const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
 const USER_SESSION_COOKIE = "wiki_user_session";
 const USER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const DEV_GATE_SESSION_SECRET = "oncobase-wiki-gate-development-only";
@@ -121,6 +123,11 @@ type ResolvedSite = {
   expires: number;
 };
 
+type PasswordGateEntry = {
+  enabled: boolean;
+  expires: number;
+};
+
 type PiiPatternEntry = {
   patterns: PiiPattern[] | undefined;
   expires: number;
@@ -134,6 +141,10 @@ type SessionUser = {
 
 const hostCache = new Map<string, ResolvedSite>();
 const piiPatternCache = new Map<string, PiiPatternEntry>();
+const passwordGateCaches = new WeakMap<
+  object,
+  Map<string, PasswordGateEntry>
+>();
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -228,6 +239,72 @@ export async function resolveSiteSlug(request: Request, client: ConvexHttpClient
   const slug = site?.slug ?? null;
   hostCache.set(host, { slug, expires: now + HOST_CACHE_TTL_MS });
   return slug;
+}
+
+export async function isPasswordGateEnabled(
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  const now = Date.now();
+  let cache = passwordGateCaches.get(client);
+  if (!cache) {
+    cache = new Map<string, PasswordGateEntry>();
+    passwordGateCaches.set(client, cache);
+  }
+  const cached = cache.get(siteSlug);
+  if (cached && cached.expires > now) return cached.enabled;
+
+  let enabled = siteSlug === DEFAULT_SITE_SLUG;
+  try {
+    const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
+    enabled = site?.config?.passwordGate ?? enabled;
+  } catch (error) {
+    console.warn("[wiki-vite-server] password gate lookup failed", error);
+  }
+
+  cache.set(siteSlug, {
+    enabled,
+    expires: now + PASSWORD_GATE_CACHE_TTL_MS,
+  });
+  return enabled;
+}
+
+export function isDianaPreviewTestAuth(request: Request, siteSlug: string) {
+  const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  return (
+    process.env.VERCEL_ENV === "preview" &&
+    siteSlug === DEFAULT_SITE_SLUG &&
+    Boolean(secret) &&
+    request.headers.get(DIANA_TEST_AUTH_HEADER) === secret
+  );
+}
+
+function passwordGateRequiredResponse() {
+  return Response.json(
+    { error: "Password gate authentication required" },
+    {
+      status: 401,
+      headers: {
+        "Cache-Control": "private, no-store",
+        Vary: "Cookie, Host",
+      },
+    },
+  );
+}
+
+async function enforceApiPasswordGate(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  if (!(await isPasswordGateEnabled(client, siteSlug))) return null;
+  if (
+    (await hasValidAuthCookie(request, siteSlug)) ||
+    isDianaPreviewTestAuth(request, siteSlug)
+  ) {
+    return null;
+  }
+  return passwordGateRequiredResponse();
 }
 
 function decorateViteHeaders(headers: HeadersInit) {
@@ -3004,6 +3081,25 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204 });
+    }
+
+    const passwordGateExempt =
+      pathname === "/api/login" ||
+      pathname.startsWith("/api/auth/") ||
+      pathname.startsWith("/api/admin/") ||
+      pathname.startsWith("/api/publish/") ||
+      pathname === "/api/post-deploy" ||
+      pathname === "/api/wiki/session" ||
+      pathname === "/api/share-preview" ||
+      pathname === "/api/liveblocks-webhook" ||
+      pathname.startsWith("/api/integrations/epic/");
+    if (!passwordGateExempt) {
+      const gateResponse = await enforceApiPasswordGate(
+        request,
+        client,
+        siteSlug,
+      );
+      if (gateResponse) return gateResponse;
     }
 
     if (pathname.startsWith("/api/publish/")) {

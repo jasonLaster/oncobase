@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 import JSZip from "jszip";
 
 const hasAiGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
@@ -6,6 +6,14 @@ const hasOpenAi = Boolean(process.env.OPENAI_API_KEY);
 const runsLiveAiSearchSmoke = process.env.WIKI_VITE_RUN_LIVE_AI_SEARCH === "1";
 const runsAgainstPreview = Boolean(process.env.PLAYWRIGHT_BASE_URL);
 const rawPiiPattern = /Diana Laster|88855655|jason\.laster\.11@gmail\.com/i;
+
+async function authenticatePasswordGate(request: APIRequestContext) {
+  if (runsAgainstPreview) return;
+  const response = await request.post("/api/login", {
+    data: { password: "diana" },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
 
 test.describe("Vite backend API", () => {
   test("serves public session identity with public cache headers", async ({ request }) => {
@@ -45,6 +53,7 @@ test.describe("Vite backend API", () => {
   });
 
   test("serves public manifest without sensitive pages", async ({ request }) => {
+    await authenticatePasswordGate(request);
     const response = await request.get("/api/wiki/manifest");
     expect(response.ok()).toBe(true);
     expect(response.headers()["x-wiki-cache-scope"]).toBe("public");
@@ -60,6 +69,7 @@ test.describe("Vite backend API", () => {
   });
 
   test("serves backend text search from the Vite API route", async ({ request }) => {
+    await authenticatePasswordGate(request);
     const response = await request.get("/api/search?q=diagnosis&limit=5");
     expect(response.ok()).toBe(true);
     expect(response.headers()["x-wiki-cache-scope"]).toBe("public");
@@ -83,6 +93,7 @@ test.describe("Vite backend API", () => {
   });
 
   test("validates backend AI search route without model credentials", async ({ request }) => {
+    await authenticatePasswordGate(request);
     const method = await request.get("/api/ai-search");
     expect(method.status()).toBe(405);
     expect(method.headers()["allow"]).toBe("POST");
@@ -97,6 +108,7 @@ test.describe("Vite backend API", () => {
   test("serves live AI search rankings when credentials are configured", async ({ request }) => {
     test.skip(!runsLiveAiSearchSmoke, "Live AI search smoke is opt-in with WIKI_VITE_RUN_LIVE_AI_SEARCH=1");
     test.skip(!hasAiGateway || !hasOpenAi, "AI search live smoke requires AI_GATEWAY_API_KEY and OPENAI_API_KEY");
+    await authenticatePasswordGate(request);
 
     const response = await request.post("/api/ai-search", {
       data: {
@@ -122,6 +134,7 @@ test.describe("Vite backend API", () => {
   });
 
   test("validates backend file error cases", async ({ request }) => {
+    await authenticatePasswordGate(request);
     const missingPath = await request.get("/api/file");
     expect(missingPath.status()).toBe(400);
     expect(await missingPath.text()).toContain("Missing path");
@@ -132,6 +145,7 @@ test.describe("Vite backend API", () => {
   });
 
   test("serves scoped markdown and archive downloads from the Vite API route", async ({ request }) => {
+    await authenticatePasswordGate(request);
     const pageCopy = await request.get(
       "/api/page-copy?slug=wiki/logistics/insurance&scope=public",
     );
@@ -171,6 +185,17 @@ test.describe("Vite backend API", () => {
   });
 
   test("serves the standalone login API", async ({ request }) => {
+    const legacyMagicLogin = await request.get(
+      "/api/login?token=diana&redirect=%2Fwiki%2Flogistics%2Finsurance",
+      { maxRedirects: 0 },
+    );
+    expect(legacyMagicLogin.status()).toBe(302);
+    expect(legacyMagicLogin.headers()["set-cookie"]).toBeUndefined();
+    expect(legacyMagicLogin.headers().location).toMatch(
+      /\/login\?redirect=%2Fwiki%2Flogistics%2Finsurance$/,
+    );
+    expect(legacyMagicLogin.headers().location).not.toContain("token");
+
     const invalid = await request.post("/api/login", {
       data: { password: "wrong-password" },
     });
@@ -186,6 +211,7 @@ test.describe("Vite backend API", () => {
   });
 
   test("serves chat tool calls from the Vite API route", async ({ request }) => {
+    await authenticatePasswordGate(request);
     const search = await request.post("/api/tools", {
       data: { tool: "search_wiki", args: { query: "diagnosis" } },
     });
@@ -230,6 +256,7 @@ test.describe("Vite backend API", () => {
   });
 
   test("validates full chat API route ownership and live streaming", async ({ request }) => {
+    await authenticatePasswordGate(request);
     const method = await request.get("/api/chat");
     expect(method.status()).toBe(405);
     expect(method.headers()["allow"]).toBe("POST");
@@ -261,6 +288,7 @@ test.describe("Vite backend API", () => {
   });
 
   test("validates unknown chat tools", async ({ request }) => {
+    await authenticatePasswordGate(request);
     const response = await request.post("/api/tools", {
       data: { tool: "nope", args: {} },
     });

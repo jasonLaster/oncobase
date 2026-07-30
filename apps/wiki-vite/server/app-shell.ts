@@ -19,6 +19,8 @@ import {
   getSessionUser,
   hasValidAuthCookie,
   handleSharePreviewRequest,
+  isDianaPreviewTestAuth,
+  isPasswordGateEnabled,
   resolveSiteSlug,
   withSiteSlug,
 } from "./wiki-api.js";
@@ -31,18 +33,11 @@ import {
 import { safeLocalRedirect } from "../src/safe-redirect.js";
 
 const DEFAULT_SITE_SLUG = "diana";
-const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
-const PASSWORD_GATE_CACHE_TTL_MS = 15_000;
 const CANONICAL_SLUG_CACHE_TTL_MS = 60_000;
 const CANONICAL_SLUG_PAGE_SIZE = 512;
 const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml|map)$/i;
 const MARKDOWN_ALIAS_PATH_RE = /\.(?:md|mdx)$/i;
 const PUBLIC_PAGES = new Set(["/terms-and-conditions"]);
-
-type PasswordGateEntry = {
-  enabled: boolean;
-  expires: number;
-};
 
 type CanonicalSlugCacheEntry = {
   expires: number;
@@ -55,7 +50,6 @@ type ManifestPageResult = {
   continueCursor: string | null;
 };
 
-const passwordGateCache = new Map<string, PasswordGateEntry>();
 const canonicalSlugCache = new Map<string, CanonicalSlugCacheEntry>();
 
 const STATIC_MIME_TYPES: Record<string, string> = {
@@ -87,16 +81,6 @@ function safeStaticPath(distDir: string, pathname: string) {
 
 function slugFromPathname(pathname: string) {
   return slugFromRoutePathname(pathname);
-}
-
-function isDianaPreviewTestAuth(request: Request, siteSlug: string) {
-  const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
-  return (
-    process.env.VERCEL_ENV === "preview" &&
-    siteSlug === DEFAULT_SITE_SLUG &&
-    Boolean(secret) &&
-    request.headers.get(DIANA_TEST_AUTH_HEADER) === secret
-  );
 }
 
 function isAppAssetRequest(pathname: string) {
@@ -220,26 +204,6 @@ async function canonicalSlugRedirectResponse(
   }
 }
 
-
-async function isPasswordGateEnabled(client: ConvexHttpClient, siteSlug: string) {
-  const now = Date.now();
-  const cached = passwordGateCache.get(siteSlug);
-  if (cached && cached.expires > now) return cached.enabled;
-
-  let enabled = siteSlug === DEFAULT_SITE_SLUG;
-  try {
-    const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
-    enabled = site?.config?.passwordGate ?? enabled;
-  } catch (error) {
-    console.warn("[wiki-vite-server] password gate lookup failed", error);
-  }
-
-  passwordGateCache.set(siteSlug, {
-    enabled,
-    expires: now + PASSWORD_GATE_CACHE_TTL_MS,
-  });
-  return enabled;
-}
 
 async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
   const url = new URL(request.url);

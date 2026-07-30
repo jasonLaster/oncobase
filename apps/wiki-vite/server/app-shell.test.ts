@@ -45,6 +45,12 @@ function fakeClient({ canAccessSensitive = true } = {}) {
             isDone: true,
             continueCursor: null,
           };
+        case "documents:listPdfAssetPathsPage":
+          return {
+            page: [],
+            isDone: true,
+            continueCursor: null,
+          };
         case "documents:getBySlug":
           if (args.slug === "search") return null;
           if (args.slug === "private/plan") {
@@ -52,6 +58,7 @@ function fakeClient({ canAccessSensitive = true } = {}) {
             return {
               slug: "private/plan",
               title: "Private Plan",
+              content: "# Private Plan",
               description: "Sensitive treatment planning details.",
               sensitive: true,
             };
@@ -67,6 +74,7 @@ function fakeClient({ canAccessSensitive = true } = {}) {
                     ? "Long Article"
                   : "Public",
             description: args.slug === "wiki/long" ? LONG_DESCRIPTION : "Public page",
+            content: `# ${String(args.slug)}`,
             sensitive: false,
           };
         case "users:getSessionUser":
@@ -128,6 +136,36 @@ describe("wiki Vite app-shell password gate", () => {
       expect(response.headers.get("vary")).toContain("Cookie");
       expect(response.headers.get("vary")).toContain("Host");
     }
+  });
+
+  test("gates standalone content APIs but accepts a signed gate cookie", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    for (const pathname of [
+      "/api/wiki/manifest",
+      "/api/wiki/pages?slugs=wiki/public",
+      "/api/search?q=public",
+      "/api/download?type=markdown",
+      "/api/file?path=sources/public/source.pdf",
+    ]) {
+      const response = await handler(request(pathname));
+      expect(response.status, pathname).toBe(401);
+      expect(response.headers.get("cache-control"), pathname).toBe(
+        "private, no-store",
+      );
+      expect(response.headers.get("vary"), pathname).toContain("Cookie");
+      expect(response.headers.get("vary"), pathname).toContain("Host");
+    }
+
+    const authenticated = await handler(
+      request("/api/wiki/pages?slugs=wiki/public", {
+        headers: await authenticatedHeaders(),
+      }),
+    );
+    expect(authenticated.status).toBe(200);
   });
 
   test("serves terms publicly with legal metadata while the wiki remains gated", async () => {

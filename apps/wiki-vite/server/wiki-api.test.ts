@@ -113,8 +113,10 @@ async function signupCookie(
 
 function createFakeConvexClient({
   deniedSlugs = [],
+  passwordGate = false,
 }: {
   deniedSlugs?: string[];
+  passwordGate?: boolean;
 } = {}) {
   const deniedSlugSet = new Set(deniedSlugs);
   const users = new Map<string, FakeUser>();
@@ -167,7 +169,7 @@ function createFakeConvexClient({
     async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
       switch (getFunctionName(ref)) {
         case "sites:getBySlug":
-          return { slug: args.slug, config: { passwordGate: true } };
+          return { slug: args.slug, config: { passwordGate } };
         case "users:getByEmailForAuth":
           return users.get(String(args.email)) ?? null;
         case "users:getSessionUser": {
@@ -251,6 +253,12 @@ function createFakeConvexClient({
                 blobUrl: "data:application/pdf;base64,JVBERi0xLjQKJUVPRgo=",
               },
             ],
+            isDone: true,
+            continueCursor: null,
+          };
+        case "documents:listPdfAssetPathsPage":
+          return {
+            page: ["sources/public/source.pdf"],
             isDone: true,
             continueCursor: null,
           };
@@ -369,6 +377,112 @@ function createFakeConvexClient({
 }
 
 describe("wiki Vite API auth and scoped archive behavior", () => {
+  test("gates every reader-facing content API with private responses", async () => {
+    const handler = createWikiApiHandler(
+      createFakeConvexClient({ passwordGate: true }) as never,
+    );
+    const readerPaths = [
+      "/api/wiki/manifest",
+      "/api/wiki/pages?slugs=wiki/public",
+      "/api/search?q=public",
+      "/api/timeline",
+      "/api/diagnostic-studies",
+      "/api/dicom/file?path=example.dcm",
+      "/api/dicom/studies",
+      "/api/dicom/annotations",
+      "/api/dicom/comparisons",
+      "/api/test/diagnostic-studies",
+      "/api/test/dicom-comparisons",
+      "/api/ai-search",
+      "/api/chat",
+      "/api/tools",
+      "/api/liveblocks-auth",
+      "/api/liveblocks-threads",
+      "/api/liveblocks-add-comment",
+      "/api/liveblocks-delete-thread",
+      "/api/liveblocks-users",
+      "/api/liveblocks-guest",
+      "/api/download",
+      "/api/file?path=sources/public/source.pdf",
+      "/api/page-copy?slug=wiki/public",
+    ];
+
+    for (const path of readerPaths) {
+      const response = await handler(request(path));
+      expect(response?.status, path).toBe(401);
+      expect(response!.headers.get("cache-control"), path).toBe(
+        "private, no-store",
+      );
+      expect(response!.headers.get("vary"), path).toContain("Cookie");
+      expect(response!.headers.get("vary"), path).toContain("Host");
+      expect(await response!.json(), path).toEqual({
+        error: "Password gate authentication required",
+      });
+    }
+  });
+
+  test("allows a valid signed gate cookie across core content APIs", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (_input: RequestInfo | URL) =>
+      new Response("%PDF-1.4", {
+        headers: { "Content-Length": "8" },
+      })) as typeof fetch;
+
+    try {
+      const handler = createWikiApiHandler(
+        createFakeConvexClient({ passwordGate: true }) as never,
+      );
+      const gateCookieValue = await gateCookie(handler);
+      const coreRequests = [
+        request("/api/wiki/session", { headers: { Cookie: gateCookieValue } }),
+        request("/api/wiki/manifest", { headers: { Cookie: gateCookieValue } }),
+        request("/api/wiki/pages?slugs=wiki/public", {
+          headers: { Cookie: gateCookieValue },
+        }),
+        request("/api/search?q=public", {
+          headers: { Cookie: gateCookieValue },
+        }),
+        request("/api/download?type=markdown&scope=public", {
+          headers: { Cookie: gateCookieValue },
+        }),
+        request("/api/file?path=sources/public/source.pdf", {
+          headers: { Cookie: gateCookieValue },
+        }),
+      ];
+
+      for (const gatedRequest of coreRequests) {
+        const response = await handler(gatedRequest);
+        expect(response?.status, gatedRequest.url).toBe(200);
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("keeps login, auth, share previews, and service endpoints outside the API gate", async () => {
+    const handler = createWikiApiHandler(
+      createFakeConvexClient({ passwordGate: true }) as never,
+    );
+    const requests = [
+      request("/api/login"),
+      request("/api/auth/session"),
+      request("/api/wiki/session"),
+      request("/api/share-preview?path=%2Fwiki%2Fpublic"),
+      request("/api/liveblocks-webhook"),
+      request("/api/publish/unknown"),
+      request("/api/post-deploy"),
+      request("/api/integrations/epic/callback"),
+    ];
+
+    for (const exemptRequest of requests) {
+      const response = await handler(exemptRequest);
+      expect(response, exemptRequest.url).not.toBeNull();
+      expect(await response!.clone().text(), exemptRequest.url).not.toContain(
+        "Password gate authentication required",
+      );
+    }
+  });
+
   test("returns redacted line-level text search matches with source locations", async () => {
     const handler = createWikiApiHandler(createFakeConvexClient() as never);
     const response = await handler(request("/api/search?q=public"));
@@ -550,7 +664,9 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
   });
 
   test("signs up, reads the session, rejects bad sign-in, and signs out without live Convex writes", async () => {
-    const handler = createWikiApiHandler(createFakeConvexClient() as never);
+    const handler = createWikiApiHandler(
+      createFakeConvexClient({ passwordGate: true }) as never,
+    );
     const email = "reader@example.com";
     const password = "correct horse battery";
 
