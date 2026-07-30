@@ -104,6 +104,14 @@ test.describe("Page load experience", () => {
     const navigationSheet = page.getByTestId("bottom-nav-sheet");
     await navigationTrigger.click();
     await expect(navigationSheet.getByRole("button", { name: "Close navigation" })).toBeFocused();
+    await expect(navigationSheet.locator(".wiki-shell-bottom-nav-panel")).toHaveCSS(
+      "transform",
+      "matrix(1, 0, 0, 1, 0, 0)",
+    );
+    const panelBox = await navigationSheet.locator(".wiki-shell-bottom-nav-panel").boundingBox();
+    expect(panelBox).not.toBeNull();
+    expect(Math.abs(panelBox!.height - Math.min(844 * 0.88, 736))).toBeLessThan(1);
+    expect(Math.abs(panelBox!.y + panelBox!.height - 844)).toBeLessThan(1);
     await expect
       .poll(() => page.evaluate(() => document.body.style.overflow))
       .toBe("hidden");

@@ -453,7 +453,6 @@ export function CommandPalette({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <WikiCommandSearch>
-          <SearchIcon size={16} aria-hidden="true" />
           <input
             ref={inputRef}
             aria-activedescendant={activeCount > 0 ? `command-${mode}-${activeIndex}` : undefined}
@@ -477,6 +476,7 @@ export function CommandPalette({
                       : "Run a cache tool"
             }
           />
+          <SearchIcon size={16} aria-hidden="true" />
           <button
             type="button"
             aria-label="Close command palette"

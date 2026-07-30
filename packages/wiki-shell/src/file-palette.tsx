@@ -463,7 +463,6 @@ export function WikiFilePalette({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <WikiCommandSearch>
-          {searchIcon}
           <input
             aria-activedescendant={
               visibleEntries[activeIndex] ? `page-palette-${activeIndex}` : undefined
@@ -484,6 +483,7 @@ export function WikiFilePalette({
             role="combobox"
             value={search}
           />
+          {searchIcon}
         </WikiCommandSearch>
         <WikiCommandList
           aria-label="pages results"

@@ -55,4 +55,63 @@ test.describe("Visual parity", () => {
       });
     }
   });
+
+  for (const theme of ["light", "dark"] as const) {
+    test(`file palette matches production ${theme} surfaces`, async ({ page }) => {
+      await page.addInitScript((nextTheme) => {
+        localStorage.setItem("theme", nextTheme);
+      }, theme);
+      await gotoWiki(page, "/");
+      await page.getByTestId("sidebar-search").click();
+
+      const palette = page.getByTestId("command-palette");
+      await expect(palette).toBeVisible();
+      await expect(palette.getByRole("option").first()).toHaveCSS(
+        "box-shadow",
+        "none",
+      );
+
+      if (hasLocalSnapshotBaseline) {
+        await expect(palette).toHaveScreenshot(`file-palette-${theme}.png`, {
+          animations: "disabled",
+          maxDiffPixelRatio: 0.01,
+        });
+      }
+    });
+  }
+
+  test("workspace menu keeps production density and elevation", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await page.getByRole("button", { name: "Workspace menu" }).click();
+
+    const menu = page.getByRole("menu", { name: "Actions" });
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole("menuitem").first()).toHaveCSS("min-height", "28px");
+
+    if (hasLocalSnapshotBaseline) {
+      await expect(menu).toHaveScreenshot("workspace-actions-menu.png", {
+        animations: "disabled",
+        maxDiffPixelRatio: 0.01,
+      });
+    }
+  });
+
+  test("mobile navigation sheet matches production height", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await page.getByTestId("bottom-nav-trigger").click();
+
+    const sheet = page.getByTestId("bottom-nav-sheet");
+    await expect(sheet.locator(".wiki-shell-bottom-nav-panel")).toHaveCSS(
+      "transform",
+      "matrix(1, 0, 0, 1, 0, 0)",
+    );
+
+    if (hasLocalSnapshotBaseline) {
+      await expect(sheet).toHaveScreenshot("mobile-navigation-sheet.png", {
+        animations: "disabled",
+        maxDiffPixelRatio: 0.01,
+      });
+    }
+  });
 });

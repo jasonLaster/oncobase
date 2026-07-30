@@ -127,6 +127,7 @@ test.describe("Command palette parity", () => {
     expect(desktopBox!.width).toBe(576);
     expect(Math.abs(desktopBox!.x - (page.viewportSize()!.width - desktopBox!.width) / 2))
       .toBeLessThan(1);
+    expect(Math.abs(desktopBox!.y - page.viewportSize()!.height * 0.25)).toBeLessThan(1);
 
     await page.getByRole("combobox", { name: "Search pages" }).press("Escape");
     await page.setViewportSize({ width: 390, height: 844 });
@@ -137,6 +138,51 @@ test.describe("Command palette parity", () => {
     expect(mobileBox!.x).toBe(8);
     expect(mobileBox!.width).toBe(374);
     expect(mobileBox!.height).toBeGreaterThan(500);
+    expect(Math.abs(mobileBox!.y - page.viewportSize()!.height * 0.1)).toBeLessThan(1);
+  });
+
+  test("file palette uses production typography and neutral selection in light and dark themes", async ({
+    page,
+  }) => {
+    await gotoWiki(page, "/");
+    await page.getByTestId("sidebar-search").click();
+
+    const palette = page.getByTestId("command-palette");
+    const input = page.getByTestId("command-palette-input");
+    const selected = palette.getByRole("option").first();
+    await expect(input).toHaveCSS("font-size", "14px");
+    await expect(selected).toHaveCSS("background-color", "rgb(243, 244, 246)");
+    await expect(selected).toHaveCSS("box-shadow", "none");
+    await expect(selected.locator("strong")).toHaveCSS("font-weight", "400");
+    await expect(page.locator(".wiki-shell-command-backdrop")).toHaveCSS(
+      "background-color",
+      "rgba(0, 0, 0, 0.1)",
+    );
+
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await expect(selected).toHaveCSS("background-color", "rgb(45, 45, 68)");
+    await expect(input).toHaveCSS("font-size", "14px");
+  });
+
+  test("Vite loads the same self-hosted Geist family as the production reader", async ({
+    page,
+  }) => {
+    await gotoWiki(page, "/");
+    await page.evaluate(() => document.fonts.ready);
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => ({
+          family: getComputedStyle(document.documentElement).fontFamily.includes(
+            '"Geist Variable"',
+          ),
+          loaded: document.fonts.check('14px "Geist Variable"'),
+        })),
+      )
+      .toEqual({
+        family: true,
+        loaded: true,
+      });
   });
 
   test("file palette resets scroll position when reopened", async ({ page }) => {
