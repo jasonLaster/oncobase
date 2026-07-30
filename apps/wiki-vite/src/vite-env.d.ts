@@ -3,6 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_WIKI_API_ORIGIN?: string;
   readonly VITE_WIKI_APP_ORIGIN?: string;
+  readonly VITE_WIKI_SITE_SLUG?: string;
 }
 
 interface Window {

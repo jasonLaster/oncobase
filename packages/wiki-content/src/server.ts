@@ -14,13 +14,14 @@ import {
   compareFileTreeNodes,
   isHiddenFileTreeAssetPath,
   isHiddenFileTreePath,
+  makePublicWikiSessionIdentity,
+  WIKI_SESSION_CACHE_VERSION,
 } from "./index.ts";
 
 const PUBLIC_CACHE_CONTROL =
   "public, max-age=60, s-maxage=300, stale-while-revalidate=3600";
 const PUBLIC_CDN_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
 const PRIVATE_CACHE_CONTROL = "private, max-age=30, stale-while-revalidate=300";
-const SESSION_CACHE_VERSION = "v1";
 const MANIFEST_PAGE_SIZE = 500;
 const MANIFEST_FALLBACK_PAGE_SIZE = 25;
 const ASSET_PAGE_SIZE = 1000;
@@ -129,7 +130,7 @@ function hashJson(value: unknown) {
 function userHash(siteSlug: string, userId: string) {
   return crypto
     .createHash("sha256")
-    .update(`${siteSlug}:${userId}:${SESSION_CACHE_VERSION}`)
+    .update(`${siteSlug}:${userId}:${WIKI_SESSION_CACHE_VERSION}`)
     .digest("hex")
     .slice(0, 24);
 }
@@ -645,14 +646,7 @@ export async function createWikiSessionResponse(
   const scope = requestedScope(request);
 
   if (scope === "public") {
-    const identity: WikiSessionIdentity = {
-      siteSlug: context.siteSlug,
-      scope,
-      authenticated: false,
-      cacheVersion: SESSION_CACHE_VERSION,
-      cacheKey: `${context.siteSlug}:public:${SESSION_CACHE_VERSION}`,
-      userHash: null,
-    };
+    const identity = makePublicWikiSessionIdentity(context.siteSlug);
     return Response.json(identity, {
       headers: decorate(context, {
         "Cache-Control": "public, max-age=300",
@@ -688,8 +682,8 @@ export async function createWikiSessionResponse(
     siteSlug: context.siteSlug,
     scope,
     authenticated: true,
-    cacheVersion: SESSION_CACHE_VERSION,
-    cacheKey: `${context.siteSlug}:session:${hash}:${SESSION_CACHE_VERSION}`,
+    cacheVersion: WIKI_SESSION_CACHE_VERSION,
+    cacheKey: `${context.siteSlug}:session:${hash}:${WIKI_SESSION_CACHE_VERSION}`,
     userHash: hash,
   };
 

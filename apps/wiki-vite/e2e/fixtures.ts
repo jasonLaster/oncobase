@@ -3,11 +3,13 @@ import crypto from "node:crypto";
 import { expect, type Locator, type Page } from "@playwright/test";
 import {
   buildCompactTreeFromManifest,
+  makePublicWikiSessionIdentity,
   type WikiManifest,
   type WikiManifestAsset,
   type WikiManifestPage,
   type WikiPageRecord,
   type WikiScope,
+  WIKI_SESSION_CACHE_VERSION,
 } from "@oncobase/wiki-content";
 import {
   applyPiiRedactions,
@@ -348,6 +350,7 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
   const siteSlug = options.siteSlug ?? defaultSiteSlug;
   let manifestFailure = options.manifestFailure === true;
   let manifestPartial = options.manifestPartial === true;
+  let sessionIdentityFailure = false;
   let manifestDelayMs = 0;
   const sessionState = {
     authenticated: options.sessionAuthenticated === true,
@@ -365,6 +368,7 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
     pages: [] as string[],
     files: [] as string[],
     downloads: [] as string[],
+    sessionIdentities: [] as string[],
     setSessionAuthenticated(authenticated: boolean) {
       sessionState.authenticated = authenticated;
     },
@@ -377,6 +381,9 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
     },
     setManifestFailure(failing: boolean) {
       manifestFailure = failing;
+    },
+    setSessionIdentityFailure(failing: boolean) {
+      sessionIdentityFailure = failing;
     },
     setManifestPartial(partial: boolean) {
       manifestPartial = partial;
@@ -398,20 +405,29 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
   await page.route("**/api/wiki/session**", async (route) => {
     const url = new URL(route.request().url());
     const scope = scopeFromUrl(url);
+    requests.sessionIdentities.push(url.toString());
+    if (sessionIdentityFailure) {
+      await route.fulfill(json({ error: "Fixture identity failure" }, 503));
+      return;
+    }
     if (scope === "session" && !sessionState.authenticated) {
       await route.fulfill(json({ error: "Session required" }, 401));
       return;
     }
 
     await route.fulfill(
-      json({
-        siteSlug,
-        scope,
-        authenticated: scope === "session",
-        cacheVersion: "e2e",
-        cacheKey: scope === "session" ? sessionState.cacheKey : `${siteSlug}:public:e2e`,
-        userHash: scope === "session" ? sessionState.userHash : null,
-      }),
+      json(
+        scope === "public"
+          ? makePublicWikiSessionIdentity(siteSlug)
+          : {
+              siteSlug,
+              scope,
+              authenticated: true,
+              cacheVersion: WIKI_SESSION_CACHE_VERSION,
+              cacheKey: sessionState.cacheKey,
+              userHash: sessionState.userHash,
+            },
+      ),
     );
   });
 

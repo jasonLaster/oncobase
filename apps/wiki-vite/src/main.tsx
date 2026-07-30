@@ -8,6 +8,10 @@ import { createElement, lazy, StrictMode, Suspense, useEffect, useState } from "
 import { createRoot } from "react-dom/client";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { publishRuntimeEnvironment } from "./observability";
+import {
+  persistPublicIdentity,
+  resolvePublicIdentityFallback,
+} from "./public-identity";
 import "./styles.css";
 
 // Vite throws this when a dynamic import's JS/CSS fails to load — most often a
@@ -62,6 +66,27 @@ function apiBaseUrl() {
   return import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
 }
 
+function publicIdentityPartition() {
+  const apiOrigin = new URL(
+    apiBaseUrl() || window.location.origin,
+    window.location.origin,
+  ).origin;
+  return `${window.location.origin}|${apiOrigin}`;
+}
+
+function publicIdentityFallback(scope: WikiScope) {
+  if (scope !== "public") return null;
+  try {
+    return resolvePublicIdentityFallback({
+      storage: window.localStorage,
+      partition: publicIdentityPartition(),
+      configuredSiteSlug: import.meta.env.VITE_WIKI_SITE_SLUG,
+    });
+  } catch {
+    return null;
+  }
+}
+
 function switchToPublicScope() {
   window.localStorage.setItem("wiki-vite-scope", "public");
   const url = new URL(window.location.href);
@@ -108,15 +133,19 @@ function SessionRecovery({ message }: { message: string }) {
 }
 
 function WikiViteRoot() {
-  const [state, setState] = useState<BootstrapState>(() => ({
-    status: "loading",
-    scope: readScope(),
-  }));
+  const [state, setState] = useState<BootstrapState>(() => {
+    const scope = readScope();
+    const fallback = publicIdentityFallback(scope);
+    return fallback
+      ? { status: "ready", scope, identity: fallback }
+      : { status: "loading", scope };
+  });
 
   useEffect(() => {
     let cancelled = false;
     const scope = readScope();
-    setState({ status: "loading", scope });
+    const fallback = publicIdentityFallback(scope);
+    if (!fallback) setState({ status: "loading", scope });
     const baseUrl = apiBaseUrl();
     const client = createWikiContentClient({
       scope,
@@ -127,10 +156,27 @@ function WikiViteRoot() {
 
     void client.fetchSessionIdentity()
       .then((identity) => {
-        if (!cancelled) setState({ status: "ready", scope, identity });
+        if (!cancelled) {
+          if (scope === "public") {
+            try {
+              persistPublicIdentity(
+                window.localStorage,
+                publicIdentityPartition(),
+                identity,
+              );
+            } catch {
+              // localStorage can be disabled independently of OPFS.
+            }
+          }
+          setState({ status: "ready", scope, identity });
+        }
       })
       .catch((error) => {
         if (!cancelled) {
+          if (scope === "public" && fallback) {
+            setState({ status: "ready", scope, identity: fallback });
+            return;
+          }
           setState({
             status: "error",
             scope,

@@ -6,6 +6,22 @@ const runsWithPreviewAuth = Boolean(
 );
 
 test.describe("Session scope recovery", () => {
+  test("public scope reopens its persisted store when identity validation fails", async ({
+    page,
+  }) => {
+    const requests = await installWikiApiMocks(page);
+    await gotoWiki(page, "/wiki/logistics/insurance?scope=public&devtools=1");
+    await expect(documentArticle(page)).toContainText("Claims follow-up");
+    expect(requests.sessionIdentities.length).toBeGreaterThan(0);
+
+    requests.setSessionIdentityFailure(true);
+    await page.reload();
+
+    await waitForPageTitle(page, "Insurance");
+    await expect(documentArticle(page)).toContainText("Claims follow-up");
+    await expect(page.getByTestId("session-recovery")).toHaveCount(0);
+  });
+
   test("session identity failure can fall back to the public store", async ({ page }) => {
     await installWikiApiMocks(page);
     await page.goto("/wiki/logistics/insurance?scope=session&devtools=1#claims-follow-up", {

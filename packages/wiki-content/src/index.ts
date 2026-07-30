@@ -18,6 +18,8 @@ export type CompactFileNode =
 
 export type WikiScope = "public" | "session";
 
+export const WIKI_SESSION_CACHE_VERSION = "v1";
+
 // Bump this whenever the persisted LiveStore projection changes incompatibly.
 // Reader v4 adds explicit manifest validation metadata. Keeping the version in
 // the store id makes an N-1 database unreachable instead of letting a stale
@@ -62,6 +64,19 @@ export interface WikiSessionIdentity {
   cacheKey: string;
   cacheVersion: string;
   userHash: string | null;
+}
+
+export function makePublicWikiSessionIdentity(
+  siteSlug: string,
+): WikiSessionIdentity {
+  return {
+    siteSlug,
+    scope: "public",
+    authenticated: false,
+    cacheVersion: WIKI_SESSION_CACHE_VERSION,
+    cacheKey: `${siteSlug}:public:${WIKI_SESSION_CACHE_VERSION}`,
+    userHash: null,
+  };
 }
 
 export interface WikiPageRecord {
