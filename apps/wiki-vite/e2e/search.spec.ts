@@ -167,6 +167,28 @@ test.describe("Search and local page finding", () => {
     await expect(searchInput).toHaveValue(SEARCH_QUERY);
   });
 
+  test("mobile search header matches the compact production controls", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockTextSearch(page);
+    await mockAISearch(page);
+    await installWikiApiMocks(page);
+    await page.goto("/search", { waitUntil: "domcontentloaded" });
+
+    const header = page.getByTestId("mobile-page-header");
+    await expect(header.locator(".wiki-vite-mobile-title")).toHaveText("Search");
+    await expect(header.getByRole("button")).toHaveCount(2);
+    await expect(header.getByRole("button", { name: "Search files" })).toBeVisible();
+    await expect(header.getByRole("button", { name: "Open comments" })).toHaveCount(0);
+    await expect(header.getByRole("button", { name: "Open page navigation" })).toBeVisible();
+    await expect(header.getByRole("button", { name: "Search files" })).toHaveCSS(
+      "border-radius",
+      "8px",
+    );
+    await expect(
+      header.getByRole("button", { name: "Search files" }).locator("svg"),
+    ).toHaveAttribute("width", "16");
+  });
+
   test("mode toggle matches web labels and default order", async ({ page }) => {
     await mockTextSearch(page);
     await mockAISearch(page);

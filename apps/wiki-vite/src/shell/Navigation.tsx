@@ -426,6 +426,7 @@ function CommentsTreeLink({
 
 function pageTitleFromPath(pathname: string) {
   if (pathname === "/") return "Home";
+  if (pathname.startsWith("/search")) return "Search";
   if (usesDiagnosticsSidebar(pathname) || pathname.startsWith("/diagnostics")) {
     return "Diagnostics";
   }
@@ -552,7 +553,11 @@ function WikiMobileNav() {
 
   return (
     <>
-      <MobilePageHeader title={pageTitleFromPath(pathname)} onOpenNavigation={openPageNavigation} />
+      <MobilePageHeader
+        onOpenNavigation={openPageNavigation}
+        showComments={!pathname.startsWith("/search")}
+        title={pageTitleFromPath(pathname)}
+      />
       <WikiMobileNavigationSheet
         heading={null}
         onOpenChange={setOpen}
@@ -639,9 +644,11 @@ function WikiMobileNav() {
 
 function MobilePageHeader({
   onOpenNavigation,
+  showComments,
   title,
 }: {
   onOpenNavigation: () => void;
+  showComments: boolean;
   title: string;
 }) {
   return (
@@ -656,20 +663,47 @@ function MobilePageHeader({
         data-test-id="mobile-header-search"
         onClick={() => openCommandPalette("pages")}
       >
-        <Search size={18} aria-hidden="true" />
+        <svg
+          aria-hidden="true"
+          fill="none"
+          height="16"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.5"
+          viewBox="0 0 16 16"
+          width="16"
+        >
+          <circle cx="7" cy="7" r="4.25" />
+          <path d="m10.25 10.25 3.5 3.5" />
+        </svg>
       </button>
-      <button
-        type="button"
-        aria-label="Open comments"
-        title="Open comments"
-        data-test-id="mobile-header-comments"
-        onClick={() => {
-          document.documentElement.dataset.mobileCommentsPanelRequested = "true";
-          window.dispatchEvent(new CustomEvent("mobile-comments-panel-open"));
-        }}
-      >
-        <MessageCircle size={18} aria-hidden="true" />
-      </button>
+      {showComments ? (
+        <button
+          type="button"
+          aria-label="Open comments"
+          title="Open comments"
+          data-test-id="mobile-header-comments"
+          onClick={() => {
+            document.documentElement.dataset.mobileCommentsPanelRequested = "true";
+            window.dispatchEvent(new CustomEvent("mobile-comments-panel-open"));
+          }}
+        >
+          <svg
+            aria-hidden="true"
+            fill="none"
+            height="16"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.5"
+            viewBox="0 0 16 16"
+            width="16"
+          >
+            <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
+          </svg>
+        </button>
+      ) : null}
       <button
         type="button"
         aria-label="Open page navigation"

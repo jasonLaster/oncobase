@@ -1339,7 +1339,7 @@ a {
     align-items: center;
     background: var(--background);
     border: 1px solid var(--sidebar-border);
-    border-radius: 6px;
+    border-radius: 8px;
     color: var(--text-muted);
     cursor: pointer;
     display: inline-flex;

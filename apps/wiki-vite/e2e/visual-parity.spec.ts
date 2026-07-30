@@ -150,4 +150,20 @@ test.describe("Visual parity", () => {
       });
     }
   });
+
+  test("mobile search header matches production controls", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/search", { waitUntil: "domcontentloaded" });
+
+    const header = page.getByTestId("mobile-page-header");
+    await expect(header.locator(".wiki-vite-mobile-title")).toHaveText("Search");
+    await expect(header.getByRole("button")).toHaveCount(2);
+
+    if (hasLocalSnapshotBaseline) {
+      await expect(header).toHaveScreenshot("mobile-search-header.png", {
+        animations: "disabled",
+        maxDiffPixelRatio: 0.01,
+      });
+    }
+  });
 });
