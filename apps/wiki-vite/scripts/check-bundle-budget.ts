@@ -66,7 +66,9 @@ const eagerLoaderPatterns = [
 // Comments adds a small eager sliver (lazy-mount wrapper + pinned sidebar
 // link); Liveblocks itself stays lazy. The public first-frame snapshot bridge
 // adds a bounded ~3 KiB so warm reloads paint before OPFS replay completes.
-const eagerGzipBudget = 1_225_000;
+// Client route metadata replacement adds less than 0.5 KiB across the default
+// page and shared title helper.
+const eagerGzipBudget = 1_225_512;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
 const lazyGzipBudget = 3_400_000;

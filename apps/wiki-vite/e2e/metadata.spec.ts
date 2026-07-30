@@ -3,7 +3,13 @@ import {
   request as playwrightRequest,
   test,
   type APIRequestContext,
+  type Page,
 } from "@playwright/test";
+import {
+  documentArticle,
+  gotoWiki,
+  installWikiApiMocks,
+} from "./fixtures";
 
 const DEFAULT_DESCRIPTION = "Breast cancer research and treatment knowledge base";
 const INSURANCE_DESCRIPTION =
@@ -48,6 +54,120 @@ async function getHtml(request: APIRequestContext, path: string) {
   expect(response.ok(), html).toBeTruthy();
   return html;
 }
+
+async function expectClientMetadata(
+  page: Page,
+  expected: {
+    description: string;
+    openGraphDescription: string;
+    openGraphTitle: string;
+    title: string;
+    twitterDescription: string;
+    twitterTitle: string;
+  },
+) {
+  await expect(page).toHaveTitle(expected.title);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    "content",
+    expected.description,
+  );
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+    "content",
+    expected.openGraphTitle,
+  );
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute(
+    "content",
+    expected.openGraphDescription,
+  );
+  await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute(
+    "content",
+    expected.twitterTitle,
+  );
+  await expect(page.locator('meta[name="twitter:description"]')).toHaveAttribute(
+    "content",
+    expected.twitterDescription,
+  );
+}
+
+test.describe("client route metadata", () => {
+  test.beforeEach(async ({ page }) => {
+    await installWikiApiMocks(page);
+  });
+
+  test("replaces every route-specific field across article, tag, and search navigation", async ({
+    page,
+  }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await expectClientMetadata(page, {
+      title: "Insurance — TNBC Knowledge Base",
+      description: "Insurance planning notes.",
+      openGraphTitle: "Insurance",
+      openGraphDescription: "Insurance planning notes.",
+      twitterTitle: "Insurance",
+      twitterDescription: "Insurance planning notes.",
+    });
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute(
+      "content",
+      "article",
+    );
+    await page.evaluate(() => {
+      document.documentElement.dataset.metadataNavigationProbe = "alive";
+    });
+
+    await documentArticle(page)
+      .locator(".tag-row")
+      .getByRole("link", { name: "insurance", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/tags\/insurance$/);
+    await expectClientMetadata(page, {
+      title: "Tag: insurance — TNBC Knowledge Base",
+      description: '1 pages tagged "insurance"',
+      openGraphTitle: "Tag: insurance",
+      openGraphDescription: '1 pages tagged "insurance"',
+      twitterTitle: "TNBC Knowledge Base",
+      twitterDescription: DEFAULT_DESCRIPTION,
+    });
+    await expect(page.locator('meta[property="og:type"]')).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Workspace menu" }).click();
+    await page
+      .getByRole("menu", { name: "Actions" })
+      .getByRole("menuitem", { name: "Text Search" })
+      .click();
+    await expect(page).toHaveURL(/\/search(?:\?|$)/);
+    await expectClientMetadata(page, {
+      title: "Search — TNBC Knowledge Base",
+      description: "Search across all wiki pages",
+      openGraphTitle: "Search",
+      openGraphDescription: "Search across all wiki pages",
+      twitterTitle: "TNBC Knowledge Base",
+      twitterDescription: DEFAULT_DESCRIPTION,
+    });
+    await expect(page.locator('meta[property="og:type"]')).toHaveCount(0);
+
+    await page.getByTestId("wiki-sidebar").locator('a[href="/"]').click();
+    await expect(page).toHaveURL(/\/$/);
+    await expectClientMetadata(page, {
+      title: "Home — TNBC Knowledge Base",
+      description: DEFAULT_DESCRIPTION,
+      openGraphTitle: "Home",
+      openGraphDescription: DEFAULT_DESCRIPTION,
+      twitterTitle: "TNBC Knowledge Base",
+      twitterDescription: DEFAULT_DESCRIPTION,
+    });
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute(
+      "content",
+      "website",
+    );
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.documentElement.dataset.metadataNavigationProbe,
+        ),
+      )
+      .toBe("alive");
+  });
+});
 
 test.describe("production page metadata", () => {
   test.skip(

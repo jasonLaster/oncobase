@@ -460,7 +460,7 @@ function createDocumentsGateway(
   };
 }
 
-async function getSessionUser(
+export async function getSessionUser(
   request: Request,
   client: ConvexHttpClient,
   siteSlug: string,
@@ -528,7 +528,7 @@ function createAccessAdapter(
   };
 }
 
-async function canUserAccessSlug(
+export async function canUserAccessSlug(
   client: ConvexHttpClient,
   siteSlug: string,
   user: SessionUser | null,

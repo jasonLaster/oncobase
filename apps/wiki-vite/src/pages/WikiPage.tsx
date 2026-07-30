@@ -46,7 +46,13 @@ import type {
   PageContentRow,
   PageIndexRow,
 } from "../types";
-import { wikiDocumentTitle } from "../document-title";
+import {
+  truncateWikiDescription,
+  updateClientRouteMetadata,
+  wikiDocumentTitle,
+  WIKI_SITE_DESCRIPTION,
+  WIKI_SITE_NAME,
+} from "../document-title";
 import {
   hrefForSlug,
   parseJsonArray,
@@ -199,7 +205,11 @@ export function WikiPage({
     () => new Set(pageIndex.map((page) => page.slug)),
     [pageIndex],
   );
-  const description = index?.description ?? null;
+  const pageMatchesRoute = page?.slug === slug;
+  const metadataPageAvailable = Boolean(routeIndex) || pageMatchesRoute;
+  const metadataPageTitle =
+    routeIndex?.title ?? (pageMatchesRoute ? page.title : null);
+  const metadataPageDescription = routeIndex?.description ?? null;
   const routeAdapter = useMemo(
     () => ({
       push: (href: string) => navigate(href),
@@ -234,17 +244,44 @@ export function WikiPage({
   }, [onMetrics, page?.content, page?.size]);
 
   useEffect(() => {
-    document.title =
-      slug === "index"
-        ? wikiDocumentTitle("Home")
-        : wikiDocumentTitle(page?.title);
-    const descriptionMeta =
-      document.querySelector<HTMLMetaElement>('meta[name="description"]') ??
-      document.head.appendChild(document.createElement("meta"));
-    descriptionMeta.name = "description";
-    descriptionMeta.content =
-      description ?? page?.title ?? "Diana TNBC wiki reader";
-  }, [description, page?.title, slug]);
+    if (slug !== "index" && !metadataPageAvailable && pageIndex.length === 0) {
+      return;
+    }
+
+    if (slug === "index") {
+      updateClientRouteMetadata({
+        description: WIKI_SITE_DESCRIPTION,
+        openGraphDescription: WIKI_SITE_DESCRIPTION,
+        openGraphTitle: "Home",
+        openGraphType: "website",
+        title: wikiDocumentTitle("Home"),
+        twitterDescription: WIKI_SITE_DESCRIPTION,
+        twitterTitle: WIKI_SITE_NAME,
+      });
+      return;
+    }
+
+    const title = metadataPageTitle ?? WIKI_SITE_NAME;
+    const description = metadataPageAvailable
+      ? truncateWikiDescription(metadataPageDescription ?? "") ||
+        `${title} notes in ${WIKI_SITE_NAME}`
+      : WIKI_SITE_DESCRIPTION;
+    updateClientRouteMetadata({
+      description,
+      openGraphDescription: description,
+      openGraphTitle: title,
+      openGraphType: metadataPageAvailable ? "article" : "website",
+      title: metadataPageAvailable ? wikiDocumentTitle(title) : WIKI_SITE_NAME,
+      twitterDescription: description,
+      twitterTitle: title,
+    });
+  }, [
+    metadataPageAvailable,
+    metadataPageDescription,
+    metadataPageTitle,
+    pageIndex.length,
+    slug,
+  ]);
 
   useEffect(() => {
     const routeRender = routeRenderRef.current;

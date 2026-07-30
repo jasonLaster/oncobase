@@ -21,7 +21,7 @@ function request(pathname: string, init: RequestInit = {}) {
   });
 }
 
-function fakeClient() {
+function fakeClient({ canAccessSensitive = true } = {}) {
   return {
     async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
       switch (getFunctionName(ref)) {
@@ -35,6 +35,15 @@ function fakeClient() {
           };
         case "documents:getBySlug":
           if (args.slug === "search") return null;
+          if (args.slug === "private/plan") {
+            if (args.includeSensitive !== true) return null;
+            return {
+              slug: "private/plan",
+              title: "Private Plan",
+              description: "Sensitive treatment planning details.",
+              sensitive: true,
+            };
+          }
           return {
             slug: args.slug,
             title:
@@ -48,6 +57,10 @@ function fakeClient() {
             description: args.slug === "wiki/long" ? LONG_DESCRIPTION : "Public page",
             sensitive: false,
           };
+        case "users:getSessionUser":
+          return { _id: "user-1" };
+        case "access:canUserAccessSlug":
+          return canAccessSensitive;
         default:
           throw new Error(`Unexpected query ${getFunctionName(ref)}`);
       }
@@ -268,6 +281,58 @@ describe("wiki Vite app-shell password gate", () => {
     expect(loginHtml).toContain(
       '<meta property="og:title" content="TNBC Knowledge Base" />',
     );
+  });
+
+  test("renders sensitive metadata only for an authorized user session", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+    const authenticated = {
+      headers: {
+        Cookie: "authed=true; wiki_user_session=session-token",
+      },
+    };
+
+    const authorized = await handler(request("/private/plan", authenticated));
+    const authorizedHtml = await authorized.text();
+
+    expect(authorized.status).toBe(200);
+    expect(authorized.headers.get("cache-control")).toBe("private, no-store");
+    expect(authorized.headers.get("vary")).toContain("Cookie");
+    expect(authorizedHtml).toContain(
+      "<title>Private Plan — TNBC Knowledge Base</title>",
+    );
+    expect(authorizedHtml).toContain(
+      '<meta name="description" content="Sensitive treatment planning details." />',
+    );
+    expect(authorizedHtml).toContain(
+      '<meta name="robots" content="noindex, nofollow" />',
+    );
+    expect(authorizedHtml).not.toContain('rel="canonical"');
+    expect(authorizedHtml).not.toContain('property="og:url"');
+  });
+
+  test("does not expose sensitive metadata without per-slug session access", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient({ canAccessSensitive: false }) as never,
+      distDir,
+    });
+
+    const anonymousHeaders: Array<Record<string, string>> = [
+      { Cookie: "authed=true" },
+      { Cookie: "authed=true; wiki_user_session=session-token" },
+      { "User-Agent": "Slackbot-LinkExpanding 1.0" },
+    ];
+    for (const headers of anonymousHeaders) {
+      const response = await handler(request("/private/plan", { headers }));
+      const html = await response.text();
+
+      expect(html).not.toContain("Private Plan");
+      expect(html).not.toContain("Sensitive treatment planning details.");
+      expect(html).not.toContain('rel="canonical"');
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+    }
   });
 
   test("serves the same route metadata to preview bots without exposing canonicals", async () => {

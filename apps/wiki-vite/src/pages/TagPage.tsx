@@ -10,7 +10,11 @@ import { useEffect, useMemo } from "react";
 import { Link, useParams } from "react-router";
 import { pageIndex$, siteState$ } from "../livestore/queries";
 import type { PageIndexRow } from "../types";
-import { wikiDocumentTitle } from "../document-title";
+import {
+  updateClientRouteMetadata,
+  WIKI_SITE_DESCRIPTION,
+  WIKI_SITE_NAME,
+} from "../document-title";
 import { hrefForSlug, parseJsonArray } from "../wiki-utils";
 
 function pageHasTag(page: PageIndexRow, tag: string) {
@@ -66,8 +70,18 @@ export function TagPage() {
   const pageTree = useMemo(() => buildTaggedPageTree(taggedPages), [taggedPages]);
 
   useEffect(() => {
-    document.title = wikiDocumentTitle(`Tag: ${decodedTag}`);
-  }, [decodedTag]);
+    if (waitingForManifest) return;
+    const routeTitle = `Tag: ${decodedTag}`;
+    const description = `${taggedPages.length} pages tagged "${decodedTag}"`;
+    updateClientRouteMetadata({
+      description,
+      openGraphDescription: description,
+      openGraphTitle: routeTitle,
+      title: `${routeTitle} — ${WIKI_SITE_NAME}`,
+      twitterDescription: WIKI_SITE_DESCRIPTION,
+      twitterTitle: WIKI_SITE_NAME,
+    });
+  }, [decodedTag, taggedPages.length, waitingForManifest]);
 
   if (waitingForManifest) {
     return (

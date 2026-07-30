@@ -8,7 +8,11 @@ import {
 import { recordSearchMetric } from "../observability";
 import { useWikiScope } from "../wiki-context";
 import { hrefForSlug } from "../wiki-utils";
-import { wikiDocumentTitle } from "../document-title";
+import {
+  updateClientRouteMetadata,
+  WIKI_SITE_DESCRIPTION,
+  WIKI_SITE_NAME,
+} from "../document-title";
 
 type TextSearchMatch = {
   lineContent: string;
@@ -652,7 +656,15 @@ export function SearchPage() {
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
-    document.title = wikiDocumentTitle("Search");
+    const description = "Search across all wiki pages";
+    updateClientRouteMetadata({
+      description,
+      openGraphDescription: description,
+      openGraphTitle: "Search",
+      title: `Search — ${WIKI_SITE_NAME}`,
+      twitterDescription: WIKI_SITE_DESCRIPTION,
+      twitterTitle: WIKI_SITE_NAME,
+    });
   }, []);
 
   useEffect(() => {

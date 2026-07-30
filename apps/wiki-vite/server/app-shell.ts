@@ -14,8 +14,10 @@ import {
 } from "../src/route-canonicalization.ts";
 import {
   authedCookieName,
+  canUserAccessSlug,
   createClient,
   createWikiApiHandler,
+  getSessionUser,
   handleSharePreviewRequest,
   resolveSiteSlug,
   withSiteSlug,
@@ -368,7 +370,7 @@ async function staticIndexHtml(
   const siteSlug = await resolveSiteSlug(request, client);
   if (!siteSlug) return html;
 
-  const [page, gateEnabled, taggedPages] = await Promise.all([
+  const [publicPage, gateEnabled, taggedPages] = await Promise.all([
     slug
       ? client.query(
           api.documents.getBySlug,
@@ -385,6 +387,30 @@ async function staticIndexHtml(
           .catch(() => null)
       : Promise.resolve(null),
   ]);
+  let page = publicPage;
+  if (!page && slug) {
+    const sessionUser = await getSessionUser(request, client, siteSlug).catch(
+      () => null,
+    );
+    if (sessionUser) {
+      const sessionPage = await client.query(
+        api.documents.getBySlug,
+        withSiteSlug(siteSlug, { slug, includeSensitive: true }),
+      ).catch(() => null);
+      if (
+        sessionPage &&
+        (sessionPage.sensitive !== true ||
+          (await canUserAccessSlug(
+            client,
+            siteSlug,
+            sessionUser,
+            sessionPage.slug,
+          ).catch(() => false)))
+      ) {
+        page = sessionPage;
+      }
+    }
+  }
   if (!page && !gateEnabled) return html;
 
   const siteName = siteSlug === DEFAULT_SITE_SLUG ? DIANA_SITE_NAME : siteSlug;
@@ -398,7 +424,7 @@ async function staticIndexHtml(
 
   return injectHeadMetadata(html, {
     ...routeMetadata,
-    canonicalUrl: gateEnabled
+    canonicalUrl: gateEnabled || page?.sensitive === true
       ? undefined
       : new URL(url.pathname, request.url).toString(),
     noIndex: gateEnabled,
@@ -409,8 +435,11 @@ async function staticIndexHtml(
 async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath: string) {
   const siteSlug = (await resolveSiteSlug(request, client)) ?? DEFAULT_SITE_SLUG;
   const authed = hasAuthCookie(request, siteSlug) || isDianaPreviewTestAuth(request, siteSlug);
-  const gateEnabled = await isPasswordGateEnabled(client, siteSlug);
-  const privateResponse = authed || gateEnabled;
+  const [gateEnabled, sessionUser] = await Promise.all([
+    isPasswordGateEnabled(client, siteSlug),
+    getSessionUser(request, client, siteSlug).catch(() => null),
+  ]);
+  const privateResponse = authed || gateEnabled || Boolean(sessionUser);
   return {
     ...staticHeaders(filePath),
     "Cache-Control": privateResponse
