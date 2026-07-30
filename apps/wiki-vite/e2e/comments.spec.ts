@@ -123,6 +123,52 @@ test.describe("document comments sidebar", () => {
     await closeButton.click();
     await expect(panel).toHaveCount(0);
   });
+
+  test("signed-out mobile comments continue through the password gate", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await installWikiApiMocks(page);
+    await mockCommentsApi(page);
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    await page.getByTestId("mobile-header-comments").click();
+    const signIn = page
+      .locator("[data-comments-bottom-rail]")
+      .getByRole("link", { name: "Sign in" });
+    await expect(signIn).toBeVisible({ timeout: 20_000 });
+    await signIn.click();
+
+    await expect(page).toHaveURL(
+      /\/login\?redirect=%2Fwiki%2Flogistics%2Finsurance$/,
+    );
+    await expect(page.getByTestId("login-page").getByLabel("Password")).toBeVisible();
+  });
+
+  test("expanded desktop comments keep the production rail surface", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await installWikiApiMocks(page);
+    await mockCommentsApi(page);
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    await page.getByRole("button", { name: "Open comments" }).click();
+    const rail = page.locator("[data-wiki-shell-right-rail]").last();
+    await expect(rail.getByText("Sign in to leave a comment")).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(rail).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    expect(await rail.evaluate((element) => getComputedStyle(element).boxShadow)).toContain(
+      "rgba(0, 0, 0, 0.12) -4px 0px 12px 0px",
+    );
+    const box = await rail.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y).toBe(0);
+    expect(box!.height).toBe(720);
+
+    await rail.getByRole("button", { name: "Outline" }).click();
+    const firstHeading = rail.getByRole("button", { name: "Insurance", exact: true });
+    await expect(firstHeading).toHaveClass(/active/);
+    await expect(firstHeading).toHaveCSS("font-size", "16px");
+    await expect(firstHeading).toHaveCSS("min-height", "40px");
+  });
 });
 
 test.describe("global comments page", () => {
