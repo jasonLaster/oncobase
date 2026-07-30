@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { makePublicWikiSessionIdentity } from "@oncobase/wiki-content";
-import type { PageContentRow, SiteStateRow } from "../types";
+import type { PageContentRow, PageIndexRow, SiteStateRow } from "../types";
 import {
   isCurrentReaderHydrated,
+  isCurrentReaderManifestValidated,
+  isRouteUnavailableInCurrentReader,
   previousReaderStoreDirectoryPrefix,
   retirePreviousReaderStore,
 } from "./cache-retirement";
@@ -33,6 +35,15 @@ const page: PageContentRow = {
   deletedAt: null,
   contentStatus: "fresh",
 };
+const index: PageIndexRow = {
+  slug: page.slug,
+  title: page.title,
+  tagsJson: page.tagsJson,
+  description: null,
+  contentHash: page.contentHash,
+  sensitive: false,
+  size: page.size,
+};
 
 describe("reader cache retirement", () => {
   test("requires a validated current projection and a fresh current page", () => {
@@ -53,6 +64,43 @@ describe("reader cache retirement", () => {
         scope: "public",
       }),
     ).toBe(false);
+  });
+
+  test("only treats route availability as authoritative after manifest validation", () => {
+    expect(
+      isCurrentReaderManifestValidated({
+        identity,
+        state,
+        scope: "public",
+      }),
+    ).toBe(true);
+    expect(
+      isCurrentReaderManifestValidated({
+        identity,
+        state: { ...state, lastValidatedAt: 0 },
+        scope: "public",
+      }),
+    ).toBe(false);
+    expect(isRouteUnavailableInCurrentReader({ index, page })).toBe(false);
+    expect(isRouteUnavailableInCurrentReader({ index: null, page })).toBe(true);
+    expect(
+      isRouteUnavailableInCurrentReader({
+        index: { ...index, sensitive: true },
+        page,
+      }),
+    ).toBe(true);
+    expect(
+      isRouteUnavailableInCurrentReader({
+        index,
+        page: { ...page, contentStatus: "deleted" },
+      }),
+    ).toBe(true);
+    expect(
+      isRouteUnavailableInCurrentReader({
+        index,
+        page: { ...page, contentStatus: "sensitive-unavailable" },
+      }),
+    ).toBe(true);
   });
 
   test("removes only the matching reader-v3 namespace", async () => {

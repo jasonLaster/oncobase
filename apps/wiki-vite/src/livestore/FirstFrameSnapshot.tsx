@@ -5,18 +5,26 @@ import type {
 } from "@oncobase/wiki-content";
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router";
-import type { PageContentRow, SiteStateRow } from "../types";
+import type { PageContentRow, PageIndexRow, SiteStateRow } from "../types";
 import { slugFromPath } from "../wiki-utils";
 import {
   isCurrentReaderHydrated,
+  isCurrentReaderManifestValidated,
+  isRouteUnavailableInCurrentReader,
   retirePreviousReaderStore,
 } from "./cache-retirement";
 import {
   dismissFirstFrameSnapshot,
   persistFirstFrameSnapshot,
+  retireFirstFrameSnapshotsForPath,
   retirePreviousFirstFrameSnapshot,
 } from "./first-frame-snapshot";
-import { fileTree$, pageContentBySlug$, siteState$ } from "./queries";
+import {
+  fileTree$,
+  pageContentBySlug$,
+  pageIndexBySlug$,
+  siteState$,
+} from "./queries";
 
 function snapshotSafeShell(shell: HTMLElement) {
   const clone = shell.cloneNode(true) as HTMLElement;
@@ -53,8 +61,35 @@ export function FirstFrameSnapshotSync({
   const slug = slugFromPath(location.pathname);
   const state = store.useQuery(siteState$) as SiteStateRow | null;
   const page = store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
+  const index = store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;
   const fileTree = store.useQuery(fileTree$) as { treeJson: string } | null;
   const retirementStarted = useRef(false);
+
+  useEffect(() => {
+    if (
+      scope !== "public" ||
+      !fileTree ||
+      !isCurrentReaderManifestValidated({ identity, scope, state }) ||
+      !isRouteUnavailableInCurrentReader({ index, page })
+    ) {
+      return;
+    }
+
+    retireFirstFrameSnapshotsForPath(
+      window.localStorage,
+      window.location.origin,
+      location.pathname,
+    );
+    dismissFirstFrameSnapshot();
+    if (!retirementStarted.current) {
+      retirementStarted.current = true;
+      void retirePreviousReaderStore({
+        identity,
+        origin: window.location.origin,
+        scope,
+      });
+    }
+  }, [fileTree, identity, index, location.pathname, page, scope, state]);
 
   useEffect(() => {
     if (

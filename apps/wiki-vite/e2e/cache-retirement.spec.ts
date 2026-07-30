@@ -234,3 +234,114 @@ test("keeps a validated N-1 first frame offline until current hydration retires 
     )
     .toContain(matchingDirectory);
 });
+
+test("retires stale first-frame HTML when the refreshed public manifest makes the route sensitive", async ({
+  baseURL,
+  page,
+}) => {
+  const origin = new URL(baseURL ?? "http://127.0.0.1:60001").origin;
+  const identity = makePublicWikiSessionIdentity("diana");
+  const pathname = "/wiki/logistics/insurance";
+  const previousSnapshotKey = firstFrameSnapshotKey(
+    origin,
+    WIKI_PREVIOUS_READER_CACHE_VERSION,
+  );
+  const identityKey = publicIdentityStorageKey(`${origin}|${origin}`);
+  const previousStoreId = makeWikiStoreId({
+    siteSlug: identity.siteSlug,
+    scope: "public",
+    origin,
+    cacheKey: identity.cacheKey,
+    readerCacheVersion: WIKI_PREVIOUS_READER_CACHE_VERSION,
+  });
+  const matchingDirectory = `livestore-${previousStoreId}@4`;
+  const previousHtml = [
+    '<div class="prototype-shell">',
+    '<aside data-test-id="wiki-sidebar">N-1 navigation</aside>',
+    '<article data-test-id="document-article">',
+    "<h1>Insurance from N-1</h1>",
+    "<p>FORMERLY PUBLIC CONTENT must disappear.</p>",
+    "</article>",
+    "</div>",
+  ].join("");
+
+  await page.addInitScript(
+    ({
+      identityKey: seededIdentityKey,
+      matching,
+      pathname: seededPathname,
+      previousHtml: seededPreviousHtml,
+      previousKey,
+      previousReader,
+      publicIdentity,
+    }) => {
+      localStorage.setItem(seededIdentityKey, JSON.stringify(publicIdentity));
+      localStorage.setItem(
+        previousKey,
+        JSON.stringify({
+          html: seededPreviousHtml,
+          pathname: seededPathname,
+          readerCacheVersion: previousReader,
+          validatedAt: 1,
+        }),
+      );
+
+      const originalGetDirectory = navigator.storage.getDirectory.bind(
+        navigator.storage,
+      );
+      const removed: string[] = [];
+      Object.defineProperty(window, "__WIKI_RETIRED_DIRECTORIES__", {
+        value: removed,
+        configurable: true,
+      });
+      navigator.storage.getDirectory = async () => {
+        const directory = await originalGetDirectory();
+        await directory.getDirectoryHandle(matching, { create: true });
+        const originalRemoveEntry = directory.removeEntry.bind(directory);
+        directory.removeEntry = async (name, options) => {
+          removed.push(name);
+          return originalRemoveEntry(name, options);
+        };
+        return directory;
+      };
+    },
+    {
+      identityKey,
+      matching: matchingDirectory,
+      pathname,
+      previousHtml,
+      previousKey: previousSnapshotKey,
+      previousReader: WIKI_PREVIOUS_READER_CACHE_VERSION,
+      publicIdentity: identity,
+    },
+  );
+
+  const requests = await installWikiApiMocks(page, {
+    pageOverrides: {
+      "wiki/logistics/insurance": { sensitive: true },
+    },
+  });
+  await page.goto(pathname, { waitUntil: "domcontentloaded" });
+
+  const firstFrame = page.locator("#wiki-first-frame-snapshot");
+  await expect(firstFrame).toContainText("FORMERLY PUBLIC CONTENT must disappear.");
+  await expect.poll(() => requests.manifest.length).toBe(1);
+  await expect(firstFrame).toHaveCount(0);
+  await expect(page.locator("#root")).toHaveCSS("visibility", "visible");
+  await expect(documentArticle(page).getByText("Page not found")).toBeVisible();
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), previousSnapshotKey),
+  ).toBeNull();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as typeof window & {
+              __WIKI_RETIRED_DIRECTORIES__?: string[];
+            }
+          ).__WIKI_RETIRED_DIRECTORIES__ ?? [],
+      ),
+    )
+    .toContain(matchingDirectory);
+});

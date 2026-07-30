@@ -152,6 +152,29 @@ export function retirePreviousFirstFrameSnapshot(
   }
 }
 
+export function retireFirstFrameSnapshotsForPath(
+  storage: Pick<Storage, "getItem" | "removeItem">,
+  origin: string,
+  pathname: string,
+) {
+  for (const readerCacheVersion of [
+    WIKI_READER_CACHE_VERSION,
+    WIKI_PREVIOUS_READER_CACHE_VERSION,
+  ]) {
+    const key = firstFrameSnapshotKey(origin, readerCacheVersion);
+    try {
+      const serialized = storage.getItem(key);
+      if (!serialized) continue;
+      const snapshot = JSON.parse(serialized) as Partial<PersistedFirstFrameSnapshot>;
+      if (snapshot.pathname === pathname) {
+        storage.removeItem(key);
+      }
+    } catch {
+      // An unreadable entry cannot be displayed by the synchronous boot path.
+    }
+  }
+}
+
 export function dismissFirstFrameSnapshot(documentNode: Document = document) {
   documentNode.getElementById("wiki-first-frame-snapshot")?.remove();
   delete documentNode.documentElement.dataset.wikiFirstFrame;

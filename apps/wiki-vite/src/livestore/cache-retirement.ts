@@ -4,7 +4,7 @@ import {
   type WikiSessionIdentity,
   WIKI_PREVIOUS_READER_CACHE_VERSION,
 } from "@oncobase/wiki-content";
-import type { PageContentRow, SiteStateRow } from "../types";
+import type { PageContentRow, PageIndexRow, SiteStateRow } from "../types";
 import { WIKI_CACHE_SCHEMA_VERSION } from "./schema";
 
 type DirectoryWithKeys = FileSystemDirectoryHandle & {
@@ -42,16 +42,46 @@ export function isCurrentReaderHydrated({
   state: SiteStateRow | null;
 }) {
   return Boolean(
-    state?.schemaVersion === WIKI_CACHE_SCHEMA_VERSION &&
-      state.siteSlug === identity.siteSlug &&
-      state.scope === scope &&
-      state.manifestHash &&
-      state.lastValidatedAt > 0 &&
+    isCurrentReaderManifestValidated({ identity, scope, state }) &&
       page?.fetchedAt &&
       page.contentStatus === "fresh" &&
       page.deletedAt === null &&
       page.missingAt === null &&
       page.contentHash === page.expectedContentHash,
+  );
+}
+
+export function isCurrentReaderManifestValidated({
+  identity,
+  scope,
+  state,
+}: {
+  identity: WikiSessionIdentity;
+  scope: WikiScope;
+  state: SiteStateRow | null;
+}) {
+  return Boolean(
+    state?.schemaVersion === WIKI_CACHE_SCHEMA_VERSION &&
+      state.siteSlug === identity.siteSlug &&
+      state.scope === scope &&
+      state.manifestHash &&
+      state.lastValidatedAt > 0,
+  );
+}
+
+export function isRouteUnavailableInCurrentReader({
+  index,
+  page,
+}: {
+  index: PageIndexRow | null;
+  page: PageContentRow | null;
+}) {
+  return Boolean(
+    !index ||
+      index.sensitive ||
+      page?.sensitive ||
+      page?.contentStatus === "deleted" ||
+      page?.contentStatus === "sensitive-unavailable",
   );
 }
 

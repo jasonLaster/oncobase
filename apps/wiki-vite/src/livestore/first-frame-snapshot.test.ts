@@ -8,6 +8,7 @@ import {
   persistFirstFrameSnapshot,
   readFirstFrameSnapshot,
   readFirstFrameSnapshotFallback,
+  retireFirstFrameSnapshotsForPath,
   retirePreviousFirstFrameSnapshot,
 } from "./first-frame-snapshot";
 
@@ -158,5 +159,28 @@ describe("first-frame snapshots", () => {
     expect(
       storage.values.has(firstFrameSnapshotKey("https://wiki.example")),
     ).toBe(true);
+  });
+
+  test("retires current and N-1 snapshots only when they match the unavailable route", () => {
+    const storage = memoryStorage();
+    const currentKey = firstFrameSnapshotKey("https://wiki.example");
+    const previousKey = firstFrameSnapshotKey(
+      "https://wiki.example",
+      WIKI_PREVIOUS_READER_CACHE_VERSION,
+    );
+    storage.setItem(currentKey, JSON.stringify(snapshot));
+    storage.setItem(
+      previousKey,
+      JSON.stringify({ ...snapshot, pathname: "/wiki/other" }),
+    );
+
+    retireFirstFrameSnapshotsForPath(
+      storage,
+      "https://wiki.example",
+      snapshot.pathname,
+    );
+
+    expect(storage.values.has(currentKey)).toBe(false);
+    expect(storage.values.has(previousKey)).toBe(true);
   });
 });
