@@ -3,6 +3,26 @@ import type { DiagnosticStudiesPayload } from "../../src/lib/diagnostic-studies"
 export const diagnosticStudiesSeed = {
   studies: [
     {
+      id: "diagnostic-2026-07-27-ct-chest",
+      shortLabel: "7/27",
+      title: "July 27 CT chest",
+      dateLabel: "Jul 27, 2026",
+      isoDate: "2026-07-27",
+      modality: "CT",
+      focus: "Chest CT stack",
+      directoryIncludes: "07-27-ct-chest",
+      pathologyReportHref: sourcePageHref("07-27-ct-chest-with-contrast"),
+      reportLinks: [
+        {
+          label: "CT chest report",
+          href: sourcePageHref("07-27-ct-chest-with-contrast"),
+        },
+      ],
+      downloadHref: fileAssetHref(
+        "diagnostics/viewer-upload/07-27-ct-chest/source-files.zip",
+      ),
+    },
+    {
       id: "diagnostic-2026-06-26-breast-mri",
       shortLabel: "6/26",
       title: "June 26 breast MRI",

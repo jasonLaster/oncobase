@@ -15,6 +15,8 @@ import {
 const SITE_SLUG = process.env.DICOM_SITE_SLUG ?? "diana";
 const DRY_RUN = process.argv.includes("--dry-run");
 const STUDIES_FILE = argValue("--studies-file");
+const INCLUDE_PREFIX = normalizePrefix(argValue("--include-prefix"));
+const ALLOW_OVERWRITE = process.argv.includes("--allow-overwrite");
 
 const convexUrl = resolveServerConvexUrl();
 if (!convexUrl) {
@@ -32,7 +34,19 @@ async function main() {
   let uploaded = 0;
   let skipped = 0;
 
-  for (const series of catalog.series) {
+  const selectedSeries = INCLUDE_PREFIX
+    ? catalog.series.filter(
+        (series) =>
+          series.relativeDirectory === INCLUDE_PREFIX ||
+          series.relativeDirectory.startsWith(`${INCLUDE_PREFIX}/`),
+      )
+    : catalog.series;
+
+  if (INCLUDE_PREFIX && !selectedSeries.length) {
+    throw new Error(`No DICOM series matched --include-prefix ${INCLUDE_PREFIX}`);
+  }
+
+  for (const series of selectedSeries) {
     const images = [];
 
     for (const image of series.images) {
@@ -50,6 +64,7 @@ async function main() {
       if (!DRY_RUN) {
         const blob = await sitePut(SITE_SLUG, blobKey, body, {
           addRandomSuffix: false,
+          allowOverwrite: ALLOW_OVERWRITE,
           contentType: "application/dicom",
         });
         blobUrl = blob.url;
@@ -109,13 +124,18 @@ async function main() {
   }
 
   console.log(
-    `${DRY_RUN ? "Dry run complete" : "Done"}: ${uploaded} image(s), ${skipped} skipped, root=${catalog.root}`,
+    `${DRY_RUN ? "Dry run complete" : "Done"}: ${uploaded} image(s), ${skipped} skipped, root=${catalog.root}, prefix=${INCLUDE_PREFIX ?? "all"}`,
   );
 }
 
 function argValue(name: string) {
   const index = process.argv.indexOf(name);
   return index >= 0 ? process.argv[index + 1] : undefined;
+}
+
+function normalizePrefix(value: string | undefined) {
+  const normalized = value?.replace(/^\/+|\/+$/g, "");
+  return normalized || undefined;
 }
 
 main().catch((error) => {

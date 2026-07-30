@@ -16,6 +16,12 @@ import { diagnosticStudiesSeed } from "../scripts/fixtures/diagnostic-studies-se
 
 const biopsyLinks = [
   {
+    id: "diagnostic-2026-07-27-ct-chest",
+    title: "July 27 CT chest",
+    directory: "07-27-ct-chest/dicoms",
+    counter: "285 / 568",
+  },
+  {
     id: "diagnostic-2026-06-26-breast-mri",
     title: "June 26 breast MRI",
     directory: "06-26-breast-mri/dicoms",
@@ -462,7 +468,7 @@ test.describe("DICOM viewer", () => {
     await expect(desktopTable.getByRole("columnheader", { name: "Download" })).toBeVisible();
     await expect(
       desktopTable.getByRole("link", { name: "Download source bundle" }),
-    ).toHaveCount(6);
+    ).toHaveCount(7);
     for (const biopsy of biopsyLinks) {
       const viewerLink = desktopTable.locator(
         `a[href="/tools/dicom-viewer?id=${biopsy.id}${seededStudySetParam}"]`
@@ -520,7 +526,7 @@ test.describe("DICOM viewer", () => {
       mobileList.getByRole("link", { name: /Images/ }).first(),
     ).toHaveAttribute(
       "href",
-      `/tools/dicom-viewer?id=diagnostic-2026-06-26-breast-mri${seededStudySetParam}`,
+      `/tools/dicom-viewer?id=diagnostic-2026-07-27-ct-chest${seededStudySetParam}`,
     );
   });
 
