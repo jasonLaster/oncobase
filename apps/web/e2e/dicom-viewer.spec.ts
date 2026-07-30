@@ -1293,6 +1293,15 @@ test.describe("DICOM viewer", () => {
     await expect(page).toHaveURL(
       new RegExp(`annotation=${encodeURIComponent(rulerId)}`),
     );
+
+    await page.getByRole("button", { name: "Zoom", exact: true }).click();
+    await expect(page.getByTestId("dicom-annotation-canvas")).toHaveClass(
+      /pointer-events-none/,
+    );
+    await expect(page.getByTestId("dicom-annotation-selection")).toHaveCount(1);
+    await expect(page).toHaveURL(
+      new RegExp(`annotation=${encodeURIComponent(rulerId)}`),
+    );
   });
 
   test("multi-selects annotations with shift and drag-selects before group moves", async ({

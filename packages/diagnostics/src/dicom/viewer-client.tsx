@@ -1115,7 +1115,12 @@ export function DicomViewerClient({
             <DicomAnnotationLayer
               coordinateAdapter={annotationCoordinateAdapter}
               currentImage={currentImage}
-              disabled={!hasStack || loadingImageIndex !== null}
+              disabled={
+                !hasStack ||
+                loadingImageIndex !== null ||
+                toolMode === "pan" ||
+                toolMode === "zoom"
+              }
               editorPortalElement={annotationEditorPortalElement}
               onSelectedAnnotationChange={setSelectedAnnotationId}
               onEditorOpenChange={handleAnnotationEditorOpenChange}
