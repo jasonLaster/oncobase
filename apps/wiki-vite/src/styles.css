@@ -474,11 +474,12 @@ a {
 }
 
 .wiki-vite-sidebar-workspace-row .wiki-shell-actions-popover {
+  border-radius: 0.625rem;
   left: 0;
   padding-block: 1px;
   right: auto;
   top: calc(100% + 0.25rem);
-  width: 15rem;
+  width: 14rem;
 }
 
 .wiki-vite-sidebar-workspace-row .wiki-shell-actions-label {

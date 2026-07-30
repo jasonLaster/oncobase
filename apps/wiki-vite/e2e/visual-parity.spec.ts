@@ -106,8 +106,9 @@ test.describe("Visual parity", () => {
     expect(menuBox).not.toBeNull();
     expect(menuBox!.x).toBe(8);
     expect(menuBox!.y).toBe(46);
-    expect(menuBox!.width).toBe(240);
+    expect(menuBox!.width).toBe(224);
     expect(menuBox!.height).toBe(218);
+    await expect(menu).toHaveCSS("border-radius", "10px");
 
     if (hasLocalSnapshotBaseline) {
       await expect(menu).toHaveScreenshot("workspace-actions-menu.png", {
