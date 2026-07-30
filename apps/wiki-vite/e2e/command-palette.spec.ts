@@ -11,7 +11,10 @@ test.describe("Command palette parity", () => {
 
     await page.getByTestId("sidebar-search").click();
     await page.getByTestId("command-palette-input").fill("about");
-    await page.getByRole("option", { name: /About This Wiki/ }).click();
+    const aboutOption = page.getByRole("option", { name: /About/ });
+    await expect(aboutOption.locator("strong")).toHaveText("About");
+    await expect(aboutOption).not.toContainText("About This Wiki");
+    await aboutOption.click();
 
     await expect(page).toHaveURL(/\/about\/About$/);
     await waitForPageTitle(page, "About This Wiki");
@@ -59,7 +62,7 @@ test.describe("Command palette parity", () => {
     await expect(palette.getByText("No pages found.")).toHaveCount(0);
     const firstOption = palette.getByRole("option").first();
     await expect(firstOption).toBeVisible();
-    await expect(palette.getByRole("option", { name: /Diana Wiki Home/ }).locator("small")).toHaveText(
+    await expect(palette.getByRole("option", { name: /index/ }).locator("small")).toHaveText(
       "/",
     );
   });
@@ -75,7 +78,7 @@ test.describe("Command palette parity", () => {
     const palette = page.getByTestId("command-palette");
     await expect(palette.getByText("Recent pages")).toBeVisible();
     await expect(palette.getByText("All pages")).toBeVisible();
-    await expect(palette.getByRole("option").first()).toHaveAttribute("data-value", /Insurance/);
+    await expect(palette.getByRole("option").first()).toHaveAttribute("data-value", /insurance/);
     await expect(palette.getByRole("option").nth(1)).toBeVisible();
   });
 
@@ -120,32 +123,59 @@ test.describe("Command palette parity", () => {
     page,
   }) => {
     await gotoWiki(page, "/");
+    await page.evaluate(() => {
+      localStorage.setItem("cmd-palette-recent", JSON.stringify(["wiki/logistics/insurance"]));
+    });
     await page.getByTestId("sidebar-search").click();
 
     const desktopBox = await page.getByTestId("command-palette").boundingBox();
+    const desktopListBox = await page.locator("#page-palette-list").boundingBox();
+    const desktopSelectedBox = await page.getByRole("option").first().boundingBox();
     expect(desktopBox).not.toBeNull();
+    expect(desktopListBox).not.toBeNull();
+    expect(desktopSelectedBox).not.toBeNull();
     expect(desktopBox!.width).toBe(576);
     expect(desktopBox!.height).toBe(356);
     expect(Math.abs(desktopBox!.x - (page.viewportSize()!.width - desktopBox!.width) / 2))
       .toBeLessThan(1);
     expect(Math.abs(desktopBox!.y - page.viewportSize()!.height * 0.25)).toBeLessThan(1);
+    expect(desktopSelectedBox!.x - desktopBox!.x).toBe(12);
+    expect(desktopSelectedBox!.y - desktopBox!.y).toBe(96);
+    expect(desktopSelectedBox!.width).toBe(552);
+    expect(
+      await page.locator("#page-palette-list").evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        offsetWidth: element.offsetWidth,
+      })),
+    ).toEqual({ clientWidth: 576, offsetWidth: 576 });
 
     await page.getByRole("combobox", { name: "Search pages" }).press("Escape");
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByTestId("mobile-header-search").click();
 
     const mobileBox = await page.getByTestId("command-palette").boundingBox();
+    const mobileListBox = await page.locator("#page-palette-list").boundingBox();
     expect(mobileBox).not.toBeNull();
+    expect(mobileListBox).not.toBeNull();
     expect(mobileBox!.x).toBe(8);
     expect(mobileBox!.width).toBe(374);
     expect(mobileBox!.height).toBe(574);
     expect(Math.abs(mobileBox!.y - page.viewportSize()!.height * 0.1)).toBeLessThan(1);
+    expect(mobileListBox!.x).toBe(12);
+    expect(mobileListBox!.width).toBe(366);
 
     const selectedBox = await page.getByRole("option").first().boundingBox();
     expect(selectedBox).not.toBeNull();
     expect(selectedBox!.x).toBe(20);
+    expect(Math.abs(selectedBox!.y - mobileBox!.y - 96)).toBeLessThan(1);
     expect(selectedBox!.width).toBe(350);
     expect(selectedBox!.height).toBe(56);
+    expect(
+      await page.locator("#page-palette-list").evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        offsetWidth: element.offsetWidth,
+      })),
+    ).toEqual({ clientWidth: 366, offsetWidth: 366 });
   });
 
   test("file palette uses production typography and neutral selection in light and dark themes", async ({
@@ -312,7 +342,7 @@ test.describe("Command palette parity", () => {
 
     await expect(page.getByTestId("command-palette-input")).toHaveValue("logistics");
     await expect(
-      page.getByTestId("command-palette").getByRole("option", { name: /Insurance/ }),
+      page.getByTestId("command-palette").getByRole("option", { name: /insurance/i }),
     ).toBeVisible();
   });
 
@@ -324,7 +354,7 @@ test.describe("Command palette parity", () => {
 
     await page.getByTestId("sidebar-search").click();
     await expect(page.getByTestId("command-palette")).toContainText("Recent pages");
-    await page.getByTestId("command-palette").getByRole("option", { name: /Insurance/ }).click();
+    await page.getByTestId("command-palette").getByRole("option", { name: /insurance/i }).click();
 
     await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
     await waitForPageTitle(page, "Insurance");

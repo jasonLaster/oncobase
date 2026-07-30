@@ -41,6 +41,7 @@ import {
   WikiFilePalette,
   type WikiFilePalettePage,
 } from "@oncobase/wiki-shell/file-palette";
+import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { readLiveStoreDevtoolsEnabled, reloadWithLiveStoreDevtools } from "../livestore/devtools";
 import { assets$, pageIndex$ } from "../livestore/queries";
 import { events } from "../livestore/schema";
@@ -141,7 +142,7 @@ export function CommandPalette({
       pages.map((page) => {
         const segments = page.slug.split("/");
         return {
-          name: page.title,
+          name: formatFileLabel(segments.at(-1) ?? page.slug),
           path: segments.join(" / "),
           slug: page.slug,
         };
