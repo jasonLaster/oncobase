@@ -175,7 +175,7 @@ export function DicomAnnotationLayer({
   const lastTextPointerDownRef = useRef<{ annotationId: string; time: number } | null>(
     null,
   );
-  const requestedAnnotationIdRef = useRef(requestedAnnotationId);
+  const pendingRequestedAnnotationIdRef = useRef(requestedAnnotationId);
   const layerRef = useRef<HTMLDivElement | null>(null);
   const saveTimers = useRef<Record<string, number>>({});
   const changeSelection = useCallback(
@@ -189,7 +189,7 @@ export function DicomAnnotationLayer({
   );
 
   useEffect(() => {
-    requestedAnnotationIdRef.current = requestedAnnotationId;
+    pendingRequestedAnnotationIdRef.current = requestedAnnotationId;
   }, [requestedAnnotationId]);
 
   useEffect(() => {
@@ -208,7 +208,9 @@ export function DicomAnnotationLayer({
     setEditingTextId(null);
     setOpenPanel(null);
     setSelectedAnnotationIds([]);
-    if (!requestedAnnotationId) onSelectedAnnotationChange?.(null);
+    if (!pendingRequestedAnnotationIdRef.current) {
+      onSelectedAnnotationChange?.(null);
+    }
     setSelectionMarquee(null);
     historyRef.current = [];
   }, [
@@ -254,19 +256,6 @@ export function DicomAnnotationLayer({
         setAnnotationsByImage(loadedAnnotations);
         setLoadedSeriesId(seriesId);
         setSaveStatus("idle");
-        const requestedId = requestedAnnotationIdRef.current;
-        if (
-          requestedId &&
-          Object.values(loadedAnnotations).some((imageAnnotations) =>
-            imageAnnotations.some(
-              (annotation) => annotation.id === requestedId,
-            ),
-          )
-        ) {
-          setActiveTool(null);
-          setEditMode(true);
-          changeSelection([requestedId]);
-        }
       } catch {
         if (cancelled) return;
         setLoadedSeriesId(seriesId);
@@ -319,6 +308,20 @@ export function DicomAnnotationLayer({
         annotation.id === editingTextId && annotation.kind === "text",
     ) ?? null;
   const editingTextAnnotationId = editingTextAnnotation?.id ?? null;
+
+  useEffect(() => {
+    const requestedId = pendingRequestedAnnotationIdRef.current;
+    if (
+      !requestedId ||
+      !annotations.some((annotation) => annotation.id === requestedId)
+    ) {
+      return;
+    }
+    pendingRequestedAnnotationIdRef.current = null;
+    setActiveTool(null);
+    setEditMode(true);
+    changeSelection([requestedId]);
+  }, [annotations, changeSelection]);
 
   useEffect(() => {
     if (selectedAnnotationIds.length === 0) return;

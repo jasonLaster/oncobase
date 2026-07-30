@@ -1280,8 +1280,18 @@ test.describe("DICOM viewer", () => {
     expect(ruler.kind).toBe("ruler");
     expect(ruler.worldStart).toHaveLength(3);
     expect(ruler.worldEnd).toHaveLength(3);
+    const rulerId = String((ruler as { id?: string }).id);
     await expect(page).toHaveURL(
-      new RegExp(`annotation=${encodeURIComponent(String((ruler as { id?: string }).id))}`),
+      new RegExp(`annotation=${encodeURIComponent(rulerId)}`),
+    );
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("dicom-annotation-shape-ruler")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("dicom-annotation-selection")).toHaveCount(1);
+    await expect(page).toHaveURL(
+      new RegExp(`annotation=${encodeURIComponent(rulerId)}`),
     );
   });
 
