@@ -26,6 +26,10 @@ function tokenHash() {
   return `sha256:${crypto.createHash("sha256").update(token).digest("hex")}`;
 }
 
+function passwordHash() {
+  return `sha256:${crypto.createHash("sha256").update(PASSWORD).digest("hex")}`;
+}
+
 function siteBaseURL(baseURL: string) {
   const url = new URL(baseURL);
   url.hostname = SITE_HOST;
@@ -48,6 +52,7 @@ test.describe("admin access management", () => {
       ownerEmail: OWNER_EMAIL,
       domain: SITE_HOST,
       publishTokenHash: tokenHash(),
+      passwordHash: passwordHash(),
     });
     await Promise.all([
       convex.mutation(api.documents.upsert, {
@@ -102,6 +107,10 @@ test.describe("admin access management", () => {
       baseURL: url,
       storageState: { cookies: [], origins: [] },
     });
+    const targetGateLogin = await targetRequest.post("/api/login", {
+      data: { password: PASSWORD },
+    });
+    expect(targetGateLogin.ok(), await targetGateLogin.text()).toBeTruthy();
     const targetSignup = await targetRequest.post("/api/auth/signup", {
       data: { email: targetEmail, password: PASSWORD, name: "Target User" },
     });
@@ -112,6 +121,10 @@ test.describe("admin access management", () => {
       baseURL: url,
       storageState: { cookies: [], origins: [] },
     });
+    const operatorGateLogin = await context.request.post("/api/login", {
+      data: { password: PASSWORD },
+    });
+    expect(operatorGateLogin.ok(), await operatorGateLogin.text()).toBeTruthy();
     const operatorSignup = await context.request.post("/api/auth/signup", {
       data: { email: OWNER_EMAIL, password: PASSWORD, name: "Operator User" },
     });

@@ -75,14 +75,32 @@ function cookieFrom(response: Response) {
   return cookie!;
 }
 
+async function gateCookie(
+  handler: ReturnType<typeof createWikiApiHandler>,
+) {
+  const login = await handler(
+    request("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "diana" }),
+    }),
+  );
+  expect(login?.status).toBe(200);
+  return cookieFrom(login!);
+}
+
 async function signupCookie(
   handler: ReturnType<typeof createWikiApiHandler>,
   email: string,
 ) {
+  const passwordGateCookie = await gateCookie(handler);
   const signup = await handler(
     request("/api/auth/signup", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: passwordGateCookie,
+      },
       body: JSON.stringify({
         email,
         password: "correct horse battery",
@@ -90,7 +108,7 @@ async function signupCookie(
     }),
   );
   expect(signup?.status).toBe(200);
-  return cookieFrom(signup!);
+  return `${passwordGateCookie}; ${cookieFrom(signup!)}`;
 }
 
 function createFakeConvexClient({
@@ -355,17 +373,10 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
 
   test("keeps text and AI search in the explicit reader scope", async () => {
     const handler = createWikiApiHandler(createFakeConvexClient() as never);
-    const signup = await handler(
-      request("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "search-reader@example.com",
-          password: "correct horse battery",
-        }),
-      }),
+    const cookie = await signupCookie(
+      handler,
+      "search-reader@example.com",
     );
-    const cookie = cookieFrom(signup!);
 
     const publicText = await handler(
       request("/api/search?q=sensitive&scope=public", {
@@ -504,15 +515,32 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     const email = "reader@example.com";
     const password = "correct horse battery";
 
-    const signup = await handler(
+    const deniedSignup = await handler(
       request("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name: "Reader", password }),
       }),
     );
+    expect(deniedSignup?.status).toBe(403);
+    expect(deniedSignup!.headers.get("cache-control")).toBe(
+      "private, no-store",
+    );
+    expect(deniedSignup!.headers.get("vary")).toContain("Cookie");
+
+    const passwordGateCookie = await gateCookie(handler);
+    const signup = await handler(
+      request("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: passwordGateCookie,
+        },
+        body: JSON.stringify({ email, name: "Reader", password }),
+      }),
+    );
     expect(signup?.status).toBe(200);
-    const cookie = cookieFrom(signup!);
+    const cookie = `${passwordGateCookie}; ${cookieFrom(signup!)}`;
     expect(await signup!.json()).toEqual({
       ok: true,
       user: { email, name: "Reader" },
@@ -546,17 +574,10 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
 
   test("keeps public and session zip archives scoped and redacted", async () => {
     const handler = createWikiApiHandler(createFakeConvexClient() as never);
-    const signup = await handler(
-      request("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "archive-reader@example.com",
-          password: "correct horse battery",
-        }),
-      }),
+    const cookie = await signupCookie(
+      handler,
+      "archive-reader@example.com",
     );
-    const cookie = cookieFrom(signup!);
 
     const publicArchive = await handler(request("/api/download?type=markdown&scope=public"));
     expect(publicArchive?.status).toBe(200);

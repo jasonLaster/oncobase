@@ -900,6 +900,37 @@ async function handleAuthSignupRequest(
     );
   }
 
+  let gateEnabled: boolean;
+  try {
+    const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
+    gateEnabled =
+      site?.config?.passwordGate ??
+      (siteSlug === DEFAULT_SITE_SLUG);
+  } catch {
+    return Response.json(
+      { error: "Unable to verify signup access" },
+      {
+        status: 503,
+        headers: {
+          "Cache-Control": "private, no-store",
+          Vary: "Cookie, Host",
+        },
+      },
+    );
+  }
+  if (gateEnabled && !(await hasValidAuthCookie(request, siteSlug))) {
+    return Response.json(
+      { error: "Password gate access is required to create an account" },
+      {
+        status: 403,
+        headers: {
+          "Cache-Control": "private, no-store",
+          Vary: "Cookie, Host",
+        },
+      },
+    );
+  }
+
   const body = (await request.json().catch(() => null)) as {
     email?: string;
     name?: string;

@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 import type { Doc, Id } from "./_generated/dataModel";
+import { canAccessWithoutProtectedRule } from "./lib/access-policy";
 
 function pathAllowed(path: string, patterns: string[]) {
   return patterns.some((pattern) => {
@@ -637,7 +638,10 @@ export const canUserAccessSlug = query({
         ruleMatchesSlug(rule, slug, documentTags, documentSensitiveInclude),
       )
     ) {
-      return true;
+      return canAccessWithoutProtectedRule({
+        documentExists: doc !== null,
+        sensitive: doc?.sensitive === true,
+      });
     }
 
     const assignments = site.siteId
@@ -762,9 +766,13 @@ export const filterAccessibleSlugs = query({
     const results: { slug: string; allowed: boolean; hasDocument: boolean }[] = [];
     for (const slug of slugs) {
       const doc = await findDocumentBySlug(ctx, site, slug);
+      if (!doc) {
+        results.push({ slug, allowed: false, hasDocument: false });
+        continue;
+      }
       // Non-sensitive documents are readable without rule evaluation,
       // mirroring the sensitive shortcut in canReadPage.
-      if (doc && doc.sensitive !== true) {
+      if (doc.sensitive !== true) {
         results.push({ slug, allowed: true, hasDocument: true });
         continue;
       }
@@ -774,11 +782,11 @@ export const filterAccessibleSlugs = query({
         ruleMatchesSlug(rule, slug, documentTags, documentSensitiveInclude),
       );
       const allowed =
-        !isProtected ||
+        isProtected &&
         rules.some((rule) =>
           ruleMatchesSlug(rule, slug, documentTags, documentSensitiveInclude),
         );
-      results.push({ slug, allowed, hasDocument: doc !== null });
+      results.push({ slug, allowed, hasDocument: true });
     }
     return results;
   },

@@ -27,12 +27,20 @@ function tokenHash() {
   return `sha256:${crypto.createHash("sha256").update(token).digest("hex")}`;
 }
 
+function passwordHash() {
+  return `sha256:${crypto.createHash("sha256").update(PASSWORD).digest("hex")}`;
+}
+
 async function newSiteUserContext(baseURL: string, email: string) {
   const context = await playwrightRequest.newContext({
     baseURL,
     extraHTTPHeaders: { Host: SITE_HOST },
     storageState: { cookies: [], origins: [] },
   });
+  const gateLogin = await context.post("/api/login", {
+    data: { password: PASSWORD },
+  });
+  expect(gateLogin.ok(), await gateLogin.text()).toBeTruthy();
   const response = await context.post("/api/auth/signup", {
     data: { email, password: PASSWORD, name: email.split("@")[0] },
   });
@@ -68,6 +76,7 @@ test.describe("Vite role-based reader access", () => {
       ownerEmail: "rbac@test",
       domain: SITE_HOST,
       publishTokenHash: tokenHash(),
+      passwordHash: passwordHash(),
     });
 
     await Promise.all([

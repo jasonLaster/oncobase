@@ -30,6 +30,10 @@ function tokenHash() {
   return `sha256:${crypto.createHash("sha256").update(token).digest("hex")}`;
 }
 
+function passwordHash() {
+  return `sha256:${crypto.createHash("sha256").update(PASSWORD).digest("hex")}`;
+}
+
 function siteBaseURL(baseURL: string) {
   const url = new URL(baseURL);
   url.hostname = SITE_HOST;
@@ -37,6 +41,10 @@ function siteBaseURL(baseURL: string) {
 }
 
 async function signUp(context: BrowserContext, email: string) {
+  const gateLogin = await context.request.post("/api/login", {
+    data: { password: PASSWORD },
+  });
+  expect(gateLogin.ok(), await gateLogin.text()).toBeTruthy();
   const response = await context.request.post("/api/auth/signup", {
     data: { email, password: PASSWORD, name: email.split("@")[0] },
   });
@@ -57,6 +65,7 @@ test.describe("Vite tag page access", () => {
       ownerEmail: OWNER_EMAIL,
       domain: SITE_HOST,
       publishTokenHash: tokenHash(),
+      passwordHash: passwordHash(),
     });
 
     await Promise.all([
