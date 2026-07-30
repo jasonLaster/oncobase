@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { MarkdownTitle, type MarkdownTitleLinkProps } from "@oncobase/wiki-markdown";
 import { recordSearchMetric } from "../observability";
 import { hrefForSlug } from "../wiki-utils";
+import { wikiDocumentTitle } from "../document-title";
 
 type TextSearchMatch = {
   lineContent: string;
@@ -97,7 +98,7 @@ function SearchInput({
         data-test-id="search-form-input"
         name="q"
         onChange={(event) => setDraft(event.currentTarget.value)}
-        placeholder="Search the wiki..."
+        placeholder="Search the wiki…"
         type="text"
         value={draft}
       />
@@ -443,6 +444,10 @@ export function SearchPage() {
   const [aiStatus, setAiStatus] = useState<SearchStatus>(query ? "loading" : "idle");
   const [aiError, setAiError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    document.title = wikiDocumentTitle("Search");
+  }, []);
 
   useEffect(() => {
     if (explicitModeParam === "text") setMode("text");

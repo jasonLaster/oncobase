@@ -46,6 +46,7 @@ import type {
   PageContentRow,
   PageIndexRow,
 } from "../types";
+import { wikiDocumentTitle } from "../document-title";
 import {
   hrefForSlug,
   parseJsonArray,
@@ -233,14 +234,17 @@ export function WikiPage({
   }, [onMetrics, page?.content, page?.size]);
 
   useEffect(() => {
-    document.title = page?.title ? `${page.title} - Diana Wiki` : "Diana Wiki";
+    document.title =
+      slug === "index"
+        ? wikiDocumentTitle("Home")
+        : wikiDocumentTitle(page?.title);
     const descriptionMeta =
       document.querySelector<HTMLMetaElement>('meta[name="description"]') ??
       document.head.appendChild(document.createElement("meta"));
     descriptionMeta.name = "description";
     descriptionMeta.content =
       description ?? page?.title ?? "Diana TNBC wiki reader";
-  }, [description, page?.title]);
+  }, [description, page?.title, slug]);
 
   useEffect(() => {
     const routeRender = routeRenderRef.current;

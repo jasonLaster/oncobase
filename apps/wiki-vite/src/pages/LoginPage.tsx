@@ -1,5 +1,6 @@
 import type { FormEvent, KeyboardEvent } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { WIKI_SITE_NAME } from "../document-title";
 
 export function LoginPage() {
   const [password, setPassword] = useState("");
@@ -7,6 +8,10 @@ export function LoginPage() {
   const redirect = useMemo(() => {
     const value = new URL(window.location.href).searchParams.get("redirect");
     return value && value.startsWith("/") ? value : "/";
+  }, []);
+
+  useEffect(() => {
+    document.title = WIKI_SITE_NAME;
   }, []);
 
   function handlePasswordKeyDown(event: KeyboardEvent<HTMLInputElement>) {

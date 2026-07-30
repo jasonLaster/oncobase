@@ -10,6 +10,7 @@ import { useEffect, useMemo } from "react";
 import { Link, useParams } from "react-router";
 import { pageIndex$, siteState$ } from "../livestore/queries";
 import type { PageIndexRow } from "../types";
+import { wikiDocumentTitle } from "../document-title";
 import { hrefForSlug, parseJsonArray } from "../wiki-utils";
 
 function pageHasTag(page: PageIndexRow, tag: string) {
@@ -65,7 +66,7 @@ export function TagPage() {
   const pageTree = useMemo(() => buildTaggedPageTree(taggedPages), [taggedPages]);
 
   useEffect(() => {
-    document.title = `Tag: ${decodedTag} - Diana Wiki`;
+    document.title = wikiDocumentTitle(`Tag: ${decodedTag}`);
   }, [decodedTag]);
 
   if (waitingForManifest) {

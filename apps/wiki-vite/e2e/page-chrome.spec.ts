@@ -15,7 +15,7 @@ test.describe("Page chrome parity", () => {
       "Insurance planning notes.",
     );
     await expect(documentArticle(page).locator(".page-header")).not.toContainText("KB");
-    await expect(page).toHaveTitle("Insurance - Diana Wiki");
+    await expect(page).toHaveTitle("Insurance — TNBC Knowledge Base");
     await expect
       .poll(() =>
         page.locator('meta[name="description"]').getAttribute("content"),
