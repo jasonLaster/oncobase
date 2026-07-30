@@ -6,7 +6,6 @@ import {
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { createElement, lazy, StrictMode, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import "@fontsource-variable/geist";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { publishRuntimeEnvironment } from "./observability";
 import "./styles.css";

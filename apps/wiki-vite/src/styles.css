@@ -12,6 +12,15 @@
 @source "../../../packages/wiki-markdown/src";
 @source "../../../packages/wiki-shell/src";
 
+@font-face {
+  font-display: swap;
+  font-family: "Geist Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/geist/files/geist-latin-wght-normal.woff2")
+    format("woff2-variations");
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
