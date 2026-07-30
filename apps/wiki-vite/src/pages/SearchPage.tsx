@@ -68,10 +68,6 @@ function SearchInput({
 }) {
   const [draft, setDraft] = useState(query);
 
-  useEffect(() => {
-    setDraft(query);
-  }, [query]);
-
   return (
     <form
       className="relative mb-6 px-2"
@@ -604,6 +600,7 @@ export function SearchPage() {
     >
       <div className="px-2 py-4 md:px-4 md:py-6">
         <SearchInput
+          key={query}
           onSubmit={(nextQuery) => navigate(searchPath(nextQuery, returnTo))}
           query={query}
         />
@@ -617,7 +614,6 @@ export function SearchPage() {
           />
         ) : null}
         <section
-          aria-activedescendant={(mode === "ai" ? aiResults : textResults)[activeIndex] ? `search-result-${activeIndex}` : undefined}
           aria-label="Search results"
           data-test-id="search-results"
           onKeyDown={onResultsKeyDown}

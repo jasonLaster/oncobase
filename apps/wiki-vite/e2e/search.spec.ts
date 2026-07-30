@@ -164,6 +164,7 @@ test.describe("Search and local page finding", () => {
       "aria-pressed",
       "true",
     );
+    await expect(searchInput).toHaveValue(SEARCH_QUERY);
   });
 
   test("mode toggle matches web labels and default order", async ({ page }) => {
