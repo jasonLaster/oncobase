@@ -14,6 +14,7 @@ import {
 import { unstable_batchedUpdates as batchUpdates } from "react-dom";
 import { BrowserRouter } from "react-router";
 import { App } from "../App";
+import { CanonicalRouteBoundary } from "../CanonicalRouteBoundary";
 import { WikiScopeProvider, WikiSessionProvider } from "../wiki-context";
 import { FirstFrameSnapshotSync } from "./FirstFrameSnapshot";
 import { readDevtoolsFooterVisible, readLiveStoreDevtoolsEnabled } from "./devtools";
@@ -148,11 +149,13 @@ export function LiveStoreRoot({
           <WikiScopeProvider scope={scope}>
             <BrowserRouter>
               <FirstFrameSnapshotSync identity={identity} scope={scope} />
-              <App
-                devtoolsFooterVisible={devtoolsFooterVisible}
-                liveStoreDevtoolsEnabled={liveStoreDevtoolsEnabled}
-                storeId={storeId}
-              />
+              <CanonicalRouteBoundary>
+                <App
+                  devtoolsFooterVisible={devtoolsFooterVisible}
+                  liveStoreDevtoolsEnabled={liveStoreDevtoolsEnabled}
+                  storeId={storeId}
+                />
+              </CanonicalRouteBoundary>
             </BrowserRouter>
           </WikiScopeProvider>
         </WikiSessionProvider>

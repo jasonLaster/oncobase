@@ -3,9 +3,15 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../apps/web/convex/_generated/api.js";
-import { canonicalSlugLookupEntriesFromSlugs } from "@oncobase/wiki-content/canonical-slugs";
 import { isLinkPreviewBotUserAgent } from "@oncobase/wiki-content/link-preview";
 import { legacyRedirectResponse } from "./redirects.ts";
+import {
+  canonicalSlugMap,
+  canonicalSlugPathname,
+  explicitCanonicalPathname,
+  slugFromRoutePathname,
+  trailingSlashCanonicalPathname,
+} from "../src/route-canonicalization.ts";
 import {
   authedCookieName,
   createClient,
@@ -29,10 +35,6 @@ const CANONICAL_SLUG_CACHE_TTL_MS = 60_000;
 const CANONICAL_SLUG_PAGE_SIZE = 512;
 const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml|map)$/i;
 const MARKDOWN_ALIAS_PATH_RE = /\.(?:md|mdx)$/i;
-const CANONICAL_PATHS = new Map([
-  ["/about", "/about/Index"],
-  ["/about/index", "/about/Index"],
-]);
 
 type PasswordGateEntry = {
   enabled: boolean;
@@ -79,20 +81,8 @@ function safeStaticPath(distDir: string, pathname: string) {
   return path.join(distDir, normalized);
 }
 
-function safeDecodePathname(pathname: string) {
-  try {
-    return decodeURIComponent(pathname);
-  } catch {
-    return pathname;
-  }
-}
-
 function slugFromPathname(pathname: string) {
-  if (pathname === "/login") return null;
-  const decoded = safeDecodePathname(pathname)
-    .replace(/^\/+/, "")
-    .replace(/\.(?:md|mdx)$/i, "");
-  return decoded || "index";
+  return slugFromRoutePathname(pathname);
 }
 
 function hasAuthCookie(request: Request, siteSlug: string) {
@@ -133,27 +123,20 @@ function sharePreviewRequestFor(request: Request) {
   });
 }
 
-function redirectToPath(request: Request, pathname: string) {
+function redirectToPath(request: Request, pathname: string, status = 307) {
   const target = new URL(request.url);
   target.pathname = pathname;
-  return Response.redirect(target, 307);
+  return Response.redirect(target, status);
 }
 
 function trailingSlashRedirectResponse(request: Request) {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
   const url = new URL(request.url);
-  if (
-    url.pathname === "/" ||
-    !url.pathname.endsWith("/") ||
-    url.pathname.startsWith("/api/") ||
-    isAppAssetRequest(url.pathname)
-  ) {
-    return null;
-  }
-
-  const target = new URL(request.url);
-  target.pathname = url.pathname.replace(/\/+$/, "");
-  return Response.redirect(target, 308);
+  if (isAppAssetRequest(url.pathname)) return null;
+  const canonicalPathname = trailingSlashCanonicalPathname(url.pathname);
+  return canonicalPathname
+    ? redirectToPath(request, canonicalPathname, 308)
+    : null;
 }
 
 function privateRedirect(request: Request, pathname: string, status = 302) {
@@ -171,8 +154,8 @@ function privateRedirect(request: Request, pathname: string, status = 302) {
 function explicitCanonicalRedirectResponse(request: Request) {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
   const url = new URL(request.url);
-  const canonicalPath = CANONICAL_PATHS.get(url.pathname);
-  if (!canonicalPath || canonicalPath === url.pathname) return null;
+  const canonicalPath = explicitCanonicalPathname(url.pathname);
+  if (!canonicalPath) return null;
   return redirectToPath(request, canonicalPath);
 }
 
@@ -202,7 +185,7 @@ async function publicCanonicalSlugMap(client: ConvexHttpClient, siteSlug: string
     isDone = result.isDone || !cursor;
   }
 
-  const map = new Map(canonicalSlugLookupEntriesFromSlugs(slugs));
+  const map = canonicalSlugMap(slugs);
   canonicalSlugCache.set(siteSlug, {
     expires: now + CANONICAL_SLUG_CACHE_TTL_MS,
     map,
@@ -227,11 +210,13 @@ async function canonicalSlugRedirectResponse(
   if (!siteSlug) return null;
 
   try {
-    const canonicalSlug = (await publicCanonicalSlugMap(client, siteSlug)).get(
-      slug.toLowerCase(),
+    const canonicalPathname = canonicalSlugPathname(
+      url.pathname,
+      await publicCanonicalSlugMap(client, siteSlug),
     );
-    if (!canonicalSlug || canonicalSlug === slug) return null;
-    return redirectToPath(request, `/${canonicalSlug}`);
+    return canonicalPathname
+      ? redirectToPath(request, canonicalPathname)
+      : null;
   } catch (error) {
     console.warn("[wiki-vite-server] canonical slug lookup failed", error);
     return null;

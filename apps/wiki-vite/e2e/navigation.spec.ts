@@ -212,6 +212,72 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(documentArticle(page)).toContainText("Prior authorization");
   });
 
+  test("canonicalizes rendered mixed-case and legacy links without reloading", async ({ page }) => {
+    await installWikiApiMocks(page, {
+      pageOverrides: {
+        "wiki/logistics/insurance": {
+          content: `# Insurance
+
+This page covers authorization and coverage notes.
+
+[Mixed-case insurance](/wiki/Logistics/Insurance?view=compact#claims-follow-up)
+
+[Legacy tumor reading](/wiki/education/reading-a-tumor?source=legacy#interpretation)
+
+## Claims follow-up
+
+Keep payer follow-up current.
+`,
+        },
+        "wiki/education/reading-a-tumor/index": {
+          title: "Reading a Tumor",
+          tags: ["education"],
+          content: `# Reading a Tumor
+
+The canonical tumor-reading guide is loaded through the local page cache.
+
+## Interpretation
+
+Review morphology and biomarkers together.
+`,
+        },
+      },
+    });
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await page.evaluate(() => {
+      document.documentElement.dataset.navigationProbe = "alive";
+    });
+
+    await documentArticle(page)
+      .getByRole("link", { name: "Mixed-case insurance" })
+      .click();
+
+    await expect(page).toHaveURL(
+      /\/wiki\/logistics\/insurance\?view=compact#claims-follow-up$/,
+    );
+    await waitForPageTitle(page, "Insurance");
+    await expect(documentArticle(page)).toContainText("Keep payer follow-up current");
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.navigationProbe))
+      .toBe("alive");
+
+    await documentArticle(page)
+      .getByRole("link", { name: "Legacy tumor reading" })
+      .click();
+
+    await expect(page).toHaveURL(
+      /\/wiki\/education\/reading-a-tumor\/index\?source=legacy#interpretation$/,
+    );
+    await waitForPageTitle(page, "Reading a Tumor");
+    await expect(documentArticle(page)).toContainText(
+      "The canonical tumor-reading guide is loaded through the local page cache.",
+    );
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.navigationProbe))
+      .toBe("alive");
+    await expect(nextErrorOverlay(page)).toHaveCount(0);
+  });
+
   test("sidebar navigation commits the route before delayed markdown resolves", async ({ page }) => {
     await page.unroute("**/api/wiki/pages**");
     await installWikiApiMocks(page, {
