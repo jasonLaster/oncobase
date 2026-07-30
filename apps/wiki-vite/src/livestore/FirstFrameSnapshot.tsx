@@ -87,7 +87,6 @@ export function FirstFrameSnapshotSync({
         persistFirstFrameSnapshot(window.localStorage, window.location.origin, {
           html: snapshotSafeShell(shell),
           pathname: location.pathname,
-          title: `${page?.title ?? "Diana Wiki"} - Diana Wiki`,
         });
       } catch {
         // The hydrated app remains authoritative when storage is unavailable.

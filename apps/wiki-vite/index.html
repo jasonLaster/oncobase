@@ -46,7 +46,6 @@
           var snapshot = JSON.parse(serialized);
           if (
             snapshot.pathname !== window.location.pathname ||
-            typeof snapshot.title !== "string" ||
             typeof snapshot.html !== "string" ||
             snapshot.html.indexOf('data-test-id="document-article"') === -1 ||
             snapshot.html.indexOf('data-test-id="wiki-sidebar"') === -1 ||
@@ -57,7 +56,6 @@
           var host = document.getElementById("wiki-first-frame-snapshot");
           host.innerHTML = snapshot.html;
           host.hidden = false;
-          document.title = snapshot.title;
           document.documentElement.dataset.wikiFirstFrame = "true";
         } catch (error) {
           // localStorage may be disabled or contain a partially-written value.

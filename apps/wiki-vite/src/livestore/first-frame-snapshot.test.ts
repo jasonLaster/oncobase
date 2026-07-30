@@ -16,7 +16,6 @@ function memoryStorage() {
 
 const snapshot = {
   pathname: "/about",
-  title: "About - Diana Wiki",
   html:
     '<div data-test-id="wiki-sidebar">nav</div><article data-test-id="document-article"><h1>About</h1></article>',
 };
@@ -42,6 +41,22 @@ describe("first-frame snapshots", () => {
     expect([...storage.values.keys()]).toEqual([
       firstFrameSnapshotKey("https://wiki.example"),
     ]);
+  });
+
+  test("ignores obsolete persisted titles while retaining valid shell markup", () => {
+    const storage = memoryStorage();
+    storage.setItem(
+      firstFrameSnapshotKey("https://wiki.example"),
+      JSON.stringify({ ...snapshot, title: "About - Diana Wiki" }),
+    );
+
+    expect(
+      readFirstFrameSnapshot(
+        storage,
+        "https://wiki.example",
+        snapshot.pathname,
+      ),
+    ).toEqual(snapshot);
   });
 
   test("rejects incomplete and oversized shell snapshots", () => {

@@ -6,7 +6,6 @@ const MAX_FIRST_FRAME_BYTES = 2 * 1024 * 1024;
 export type FirstFrameSnapshot = {
   html: string;
   pathname: string;
-  title: string;
 };
 
 export function firstFrameSnapshotKey(origin: string) {
@@ -24,7 +23,6 @@ export function readFirstFrameSnapshot(
     const value = JSON.parse(serialized) as Partial<FirstFrameSnapshot>;
     if (
       value.pathname !== pathname ||
-      typeof value.title !== "string" ||
       typeof value.html !== "string" ||
       !value.html.includes("data-test-id=\"document-article\"") ||
       !value.html.includes("data-test-id=\"wiki-sidebar\"") ||
@@ -35,7 +33,6 @@ export function readFirstFrameSnapshot(
     return {
       html: value.html,
       pathname,
-      title: value.title,
     };
   } catch {
     return null;

@@ -168,7 +168,7 @@ test.describe("durable manifest refresh", () => {
       "insurance",
       { timeout: 250 },
     );
-    await expect(page).toHaveTitle("Insurance - Diana Wiki", { timeout: 250 });
+    expect(await page.title()).toBe("TNBC Knowledge Base");
 
     await expect
       .poll(() =>
@@ -186,5 +186,6 @@ test.describe("durable manifest refresh", () => {
       "NEW FIRST FRAME arrived after refresh.",
       { timeout: 10_000 },
     );
+    await expect(page).toHaveTitle("Insurance — TNBC Knowledge Base");
   });
 });
