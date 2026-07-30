@@ -20,6 +20,15 @@ html[data-wiki-first-frame="true"] #root {
 @source "../../../packages/wiki-markdown/src";
 @source "../../../packages/wiki-shell/src";
 
+@font-face {
+  font-display: swap;
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/geist/files/geist-latin-wght-normal.woff2")
+    format("woff2-variations");
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -56,7 +65,7 @@ html[data-wiki-first-frame="true"] #root {
   --amber: #b45309;
   --red: #dc2626;
   --violet: var(--brand);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   background: var(--background);
@@ -787,6 +796,10 @@ a {
   grid-template-rows: minmax(0, 1fr) auto;
   height: 100dvh;
   overflow: hidden;
+}
+
+.prototype-shell .wiki-shell-page-header {
+  min-height: 3rem;
 }
 
 .app-shell {

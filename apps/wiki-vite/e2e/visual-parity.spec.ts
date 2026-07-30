@@ -27,6 +27,22 @@ test.describe("Visual parity", () => {
     await expect(page.getByTestId("wiki-sidebar")).not.toContainText("File tree");
     await expect(page.getByTestId("document-article")).toBeVisible();
     await expect(page.getByTestId("document-article")).toHaveCSS("padding-right", "32px");
+    await expect(page.locator(":root")).toHaveCSS(
+      "font-family",
+      'Geist, "Geist Fallback", ui-sans-serif, system-ui, sans-serif',
+    );
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          await document.fonts.ready;
+          return [...document.fonts].some(
+            (font) => font.family === "Geist" && font.status === "loaded",
+          );
+        }),
+      )
+      .toBe(true);
+    await expect(page.locator(".wiki-shell-page-header")).toHaveCSS("min-height", "48px");
+    expect((await page.locator(".wiki-shell-page-header").boundingBox())?.height).toBe(48);
     await expect(page.getByTestId("sidebar-workspace-trigger")).toHaveCSS("font-size", "16px");
     await expect(
       page.getByTestId("wiki-sidebar").getByTestId("sidebar-sign-in"),
