@@ -30,6 +30,7 @@ const ASSET_BATCH_TARGET_BYTES = 64 * 1024 * 1024;
 const MIN_MULTIPART_PART_BYTES = 5 * 1024 * 1024;
 const ZIP_MAX_UINT32 = 0xffffffff;
 const ZIP_MAX_UINT16 = 0xffff;
+const ZIP64_VERSION = 45;
 const ZIP_UTF8_FLAG = 0x0800;
 const ZIP_STORE_METHOD = 0;
 const DEFAULT_DOS_TIME = 0;
@@ -392,37 +393,71 @@ function buildLocalFileHeader(name: string, size: number, crc: number) {
   return header;
 }
 
-function buildCentralDirectory(entries: ZipEntryMetadata[], centralOffset: number) {
-  assertZip16Size(entries.length, "ZIP entry count");
-  assertZip32Size(centralOffset, "central directory offset");
+export function buildCentralDirectory(
+  entries: ZipEntryMetadata[],
+  centralOffset: number,
+) {
   const records = entries.map(buildCentralDirectoryRecord);
   const centralSize = records.reduce((total, record) => total + record.byteLength, 0);
-  assertZip32Size(centralSize, "central directory size");
+  const needsZip64 =
+    entries.length > ZIP_MAX_UINT16 ||
+    centralOffset > ZIP_MAX_UINT32 ||
+    centralSize > ZIP_MAX_UINT32 ||
+    entries.some((entry) => entry.localHeaderOffset > ZIP_MAX_UINT32);
 
   const end = Buffer.alloc(22);
   end.writeUInt32LE(0x06054b50, 0);
   end.writeUInt16LE(0, 4);
   end.writeUInt16LE(0, 6);
-  end.writeUInt16LE(entries.length, 8);
-  end.writeUInt16LE(entries.length, 10);
-  end.writeUInt32LE(centralSize, 12);
-  end.writeUInt32LE(centralOffset, 16);
+  end.writeUInt16LE(Math.min(entries.length, ZIP_MAX_UINT16), 8);
+  end.writeUInt16LE(Math.min(entries.length, ZIP_MAX_UINT16), 10);
+  end.writeUInt32LE(Math.min(centralSize, ZIP_MAX_UINT32), 12);
+  end.writeUInt32LE(Math.min(centralOffset, ZIP_MAX_UINT32), 16);
   end.writeUInt16LE(0, 20);
 
-  return Buffer.concat([...records, end]);
+  if (!needsZip64) {
+    return Buffer.concat([...records, end]);
+  }
+
+  const zip64EndOffset = centralOffset + centralSize;
+  const zip64End = Buffer.alloc(56);
+  zip64End.writeUInt32LE(0x06064b50, 0);
+  zip64End.writeBigUInt64LE(BigInt(44), 4);
+  zip64End.writeUInt16LE(ZIP64_VERSION, 12);
+  zip64End.writeUInt16LE(ZIP64_VERSION, 14);
+  zip64End.writeUInt32LE(0, 16);
+  zip64End.writeUInt32LE(0, 20);
+  zip64End.writeBigUInt64LE(BigInt(entries.length), 24);
+  zip64End.writeBigUInt64LE(BigInt(entries.length), 32);
+  zip64End.writeBigUInt64LE(BigInt(centralSize), 40);
+  zip64End.writeBigUInt64LE(BigInt(centralOffset), 48);
+
+  const locator = Buffer.alloc(20);
+  locator.writeUInt32LE(0x07064b50, 0);
+  locator.writeUInt32LE(0, 4);
+  locator.writeBigUInt64LE(BigInt(zip64EndOffset), 8);
+  locator.writeUInt32LE(1, 16);
+
+  return Buffer.concat([...records, zip64End, locator, end]);
 }
 
 function buildCentralDirectoryRecord(entry: ZipEntryMetadata) {
   assertZip32Size(entry.compressedSize, "compressed size");
   assertZip32Size(entry.uncompressedSize, "uncompressed size");
-  assertZip32Size(entry.localHeaderOffset, "local header offset");
   const nameBuffer = Buffer.from(entry.name, "utf-8");
   assertZip16Size(nameBuffer.byteLength, "entry name length");
+  const usesZip64Offset = entry.localHeaderOffset > ZIP_MAX_UINT32;
+  const extra = usesZip64Offset ? Buffer.alloc(12) : Buffer.alloc(0);
+  if (usesZip64Offset) {
+    extra.writeUInt16LE(0x0001, 0);
+    extra.writeUInt16LE(8, 2);
+    extra.writeBigUInt64LE(BigInt(entry.localHeaderOffset), 4);
+  }
 
-  const record = Buffer.alloc(46 + nameBuffer.byteLength);
+  const record = Buffer.alloc(46 + nameBuffer.byteLength + extra.byteLength);
   record.writeUInt32LE(0x02014b50, 0);
-  record.writeUInt16LE(20, 4);
-  record.writeUInt16LE(20, 6);
+  record.writeUInt16LE(usesZip64Offset ? ZIP64_VERSION : 20, 4);
+  record.writeUInt16LE(usesZip64Offset ? ZIP64_VERSION : 20, 6);
   record.writeUInt16LE(ZIP_UTF8_FLAG, 8);
   record.writeUInt16LE(ZIP_STORE_METHOD, 10);
   record.writeUInt16LE(entry.dosTime, 12);
@@ -431,13 +466,17 @@ function buildCentralDirectoryRecord(entry: ZipEntryMetadata) {
   record.writeUInt32LE(entry.compressedSize, 20);
   record.writeUInt32LE(entry.uncompressedSize, 24);
   record.writeUInt16LE(nameBuffer.byteLength, 28);
-  record.writeUInt16LE(0, 30);
+  record.writeUInt16LE(extra.byteLength, 30);
   record.writeUInt16LE(0, 32);
   record.writeUInt16LE(0, 34);
   record.writeUInt16LE(0, 36);
   record.writeUInt32LE(0, 38);
-  record.writeUInt32LE(entry.localHeaderOffset, 42);
+  record.writeUInt32LE(
+    usesZip64Offset ? ZIP_MAX_UINT32 : entry.localHeaderOffset,
+    42,
+  );
   nameBuffer.copy(record, 46);
+  extra.copy(record, 46 + nameBuffer.byteLength);
   return record;
 }
 
