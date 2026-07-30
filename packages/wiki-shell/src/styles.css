@@ -2218,6 +2218,7 @@ html[data-initial-sidebar-state="collapsed"]
     font-size: 1.25rem;
     height: 2rem;
     justify-content: center;
+    margin-left: auto;
     width: 2rem;
   }
 

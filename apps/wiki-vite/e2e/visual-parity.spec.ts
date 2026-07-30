@@ -127,6 +127,21 @@ test.describe("Visual parity", () => {
       "transform",
       "matrix(1, 0, 0, 1, 0, 0)",
     );
+    await expect(sheet.getByText("Pages", { exact: true })).toHaveCount(0);
+    await expect(sheet.getByText("Outline", { exact: true })).toHaveCount(1);
+    await expect(sheet.getByRole("button", { name: "Page nav" })).toHaveCSS(
+      "font-size",
+      "16px",
+    );
+    await expect(sheet.getByRole("button", { name: "Page nav" })).toHaveCSS(
+      "min-height",
+      "36px",
+    );
+    await expect(sheet.getByTestId("sidebar-sign-in")).toHaveCSS("font-size", "16px");
+    await expect(sheet.locator(".wiki-shell-tree-directory").first()).toHaveCSS(
+      "font-size",
+      "16px",
+    );
 
     if (hasLocalSnapshotBaseline) {
       await expect(sheet).toHaveScreenshot("mobile-navigation-sheet.png", {

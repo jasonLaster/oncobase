@@ -554,7 +554,7 @@ function WikiMobileNav() {
     <>
       <MobilePageHeader title={pageTitleFromPath(pathname)} onOpenNavigation={openPageNavigation} />
       <WikiMobileNavigationSheet
-        heading={activeTab === "outline" ? "Outline" : "Pages"}
+        heading={null}
         onOpenChange={setOpen}
         open={open}
         sheetId="mobile-page-navigation"

@@ -447,7 +447,7 @@ export function WikiMobileNavigationSheet({
         >
           <div className="wiki-shell-bottom-nav-handle bottom-nav-handle" aria-hidden="true" />
           <div className="wiki-shell-bottom-nav-header bottom-nav-header">
-            <strong>{heading}</strong>
+            {heading ? <strong>{heading}</strong> : null}
             <button type="button" onClick={close} aria-label="Close navigation">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
                 <path d="M4 4l8 8M12 4l-8 8" />
