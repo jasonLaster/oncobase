@@ -23,6 +23,7 @@ const PASSWORD_GATE_CACHE_TTL_MS = 15_000;
 const CANONICAL_SLUG_CACHE_TTL_MS = 60_000;
 const CANONICAL_SLUG_PAGE_SIZE = 512;
 const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml|map)$/i;
+const MARKDOWN_ALIAS_PATH_RE = /\.(?:md|mdx)$/i;
 const CANONICAL_PATHS = new Map([
   ["/about", "/about/Index"],
   ["/about/index", "/about/Index"],
@@ -131,6 +132,23 @@ function redirectToPath(request: Request, pathname: string) {
   const target = new URL(request.url);
   target.pathname = pathname;
   return Response.redirect(target, 307);
+}
+
+function trailingSlashRedirectResponse(request: Request) {
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  const url = new URL(request.url);
+  if (
+    url.pathname === "/" ||
+    !url.pathname.endsWith("/") ||
+    url.pathname.startsWith("/api/") ||
+    isAppAssetRequest(url.pathname)
+  ) {
+    return null;
+  }
+
+  const target = new URL(request.url);
+  target.pathname = url.pathname.replace(/\/+$/, "");
+  return Response.redirect(target, 308);
 }
 
 function privateRedirect(request: Request, pathname: string, status = 302) {
@@ -458,6 +476,7 @@ export function createAppShellHandler({
     const url = new URL(request.url);
     const directPath = safeStaticPath(distDir, url.pathname === "/" ? "/index.html" : url.pathname);
     const hasExtension = path.extname(url.pathname) !== "";
+    const isMarkdownAlias = MARKDOWN_ALIAS_PATH_RE.test(url.pathname);
     const directFileExists = existsSync(directPath) && !directPath.endsWith(path.sep);
     const filePath = directFileExists ? directPath : path.join(distDir, "index.html");
 
@@ -469,7 +488,7 @@ export function createAppShellHandler({
       });
     }
 
-    if (!directFileExists && hasExtension) {
+    if (!directFileExists && hasExtension && !isMarkdownAlias) {
       return new Response("Not found", {
         status: 404,
         headers: { "Content-Type": "text/plain; charset=utf-8" },
@@ -507,6 +526,8 @@ export function createWikiViteHandler({
     if (gateResponse) return gateResponse;
     const redirectResponse = legacyRedirectResponse(request);
     if (redirectResponse) return redirectResponse;
+    const trailingSlashRedirect = trailingSlashRedirectResponse(request);
+    if (trailingSlashRedirect) return trailingSlashRedirect;
     const explicitCanonicalRedirect = explicitCanonicalRedirectResponse(request);
     if (explicitCanonicalRedirect) return explicitCanonicalRedirect;
     const canonicalRedirect = await canonicalSlugRedirectResponse(request, client);

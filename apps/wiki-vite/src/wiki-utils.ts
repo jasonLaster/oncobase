@@ -6,7 +6,10 @@ const RECENT_KEY = "cmd-palette-recent";
 const LEGACY_RECENT_KEY = "wiki-vite-recent-slugs";
 
 export function slugFromPath(pathname: string) {
-  const decoded = decodeURIComponent(pathname).replace(/^\/+/, "").replace(/\/+$/, "");
+  const decoded = decodeURIComponent(pathname)
+    .replace(/^\/+/, "")
+    .replace(/\/+$/, "")
+    .replace(/\.(?:md|mdx)$/i, "");
   return decoded || "index";
 }
 

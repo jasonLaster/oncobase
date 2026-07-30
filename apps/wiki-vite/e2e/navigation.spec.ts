@@ -34,6 +34,28 @@ test.describe("Production server redirects", () => {
     expect(response.headers()["location"]).toMatch(/\/about\/Index\?token=diana$/);
   });
 
+  test("serves markdown article aliases through the app shell", async ({ request }) => {
+    const response = await request.get("/wiki/logistics/insurance.md", {
+      headers: { Cookie: "authed=true" },
+    });
+
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("text/html");
+    await expect(response.text()).resolves.toContain('<div id="root">');
+  });
+
+  test("permanently removes article trailing slashes", async ({ request }) => {
+    const response = await request.get("/wiki/logistics/insurance/?view=compact", {
+      headers: { Cookie: "authed=true" },
+      maxRedirects: 0,
+    });
+
+    expect(response.status()).toBe(308);
+    expect(response.headers()["location"]).toMatch(
+      /\/wiki\/logistics\/insurance\?view=compact$/,
+    );
+  });
+
   test("redirects mixed-case wiki paths to canonical casing", async ({ request }) => {
     const response = await request.get("/wiki/Logistics/Insurance", {
       headers: { Cookie: "authed=true" },
@@ -60,6 +82,15 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(documentArticle(page).locator(".wiki-shell-page-header")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Copy page as markdown" })).toHaveCount(0);
     await expect(documentArticle(page).locator(".tag-row")).toHaveCount(0);
+    await expect(nextErrorOverlay(page)).toHaveCount(0);
+  });
+
+  test("renders a markdown article alias without changing its URL", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance.md");
+
+    await expect(page).toHaveURL(/\/wiki\/logistics\/insurance\.md$/);
+    await waitForPageTitle(page, "Insurance");
+    await expect(documentArticle(page)).toContainText("Prior authorization");
     await expect(nextErrorOverlay(page)).toHaveCount(0);
   });
 

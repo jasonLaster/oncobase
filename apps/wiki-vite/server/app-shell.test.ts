@@ -215,6 +215,61 @@ describe("wiki Vite app-shell password gate", () => {
     );
   });
 
+  test("serves markdown article aliases through the app shell", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    for (const pathname of ["/wiki/public.md", "/wiki/public.mdx"]) {
+      const response = await handler(
+        request(pathname, { headers: { Cookie: "authed=true" } }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toContain("text/html");
+      expect(await response.text()).toContain(
+        "<title>Public — TNBC Knowledge Base</title>",
+      );
+    }
+  });
+
+  test("permanently removes trailing slashes while preserving query parameters", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    const response = await handler(
+      request("/wiki/public/?view=compact", {
+        headers: { Cookie: "authed=true" },
+      }),
+    );
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      "http://127.0.0.1/wiki/public?view=compact",
+    );
+  });
+
+  test("preserves the explicit about directory canonical redirect", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    const response = await handler(
+      request("/about?view=compact", {
+        headers: { Cookie: "authed=true" },
+      }),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "http://127.0.0.1/about/Index?view=compact",
+    );
+  });
+
   test("serves a function-embedded shell when no static root index exists", async () => {
     await rm(path.join(distDir, "index.html"));
     const handler = createWikiViteHandler({
