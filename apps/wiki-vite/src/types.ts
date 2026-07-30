@@ -60,5 +60,7 @@ export type SiteStateRow = {
   manifestHash: string;
   generatedAt: string;
   lastSyncAt: number;
+  lastValidatedAt: number;
   manifestSize: number;
+  schemaVersion: number;
 };

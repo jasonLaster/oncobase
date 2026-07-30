@@ -3,15 +3,29 @@ import {
   createWikiContentClient,
   expandCompactFileTree,
   flattenFileTree,
+  type CompactFileNode,
   type WikiManifest,
+  type WikiManifestValidation,
   type WikiManifestPage,
   type WikiScope,
 } from "@oncobase/wiki-content";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
-import { pageContentBySlug$ } from "../livestore/queries";
+import {
+  assets$,
+  fileTree$,
+  pageContentBySlug$,
+  pageIndex$,
+  siteState$,
+} from "../livestore/queries";
 import { events } from "../livestore/schema";
-import type { MetricsPatch, PageContentRow } from "../types";
+import type {
+  AssetIndexRow,
+  MetricsPatch,
+  PageContentRow,
+  PageIndexRow,
+  SiteStateRow,
+} from "../types";
 import { useWikiScope } from "../wiki-context";
 import {
   byteSize,
@@ -19,6 +33,7 @@ import {
   manifestToEvent,
   normalizeFetchedPageSlug,
   pageToEvent,
+  parseJsonArray,
   readRecentSlugs,
   rememberSlug,
   slugFromPath,
@@ -34,6 +49,13 @@ const EAGER_FETCH_BUDGET = {
 
 export const WARM_CACHE_EVENT = "wiki-vite:warm-cache";
 export const RETRY_PAGE_EVENT = "wiki-vite:retry-page";
+export const REFRESH_MANIFEST_EVENT = "wiki-vite:refresh-manifest";
+
+const MANIFEST_FRESH_MS: Record<WikiScope, number> = {
+  public: 60_000,
+  session: 30_000,
+};
+const MANIFEST_RETRY_MS = 30_000;
 
 function shouldFetchInBackground() {
   if (!navigator.onLine) return false;
@@ -140,7 +162,16 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const currentSlug = slugFromPath(location.pathname);
   const [networkTick, setNetworkTick] = useState(0);
   const manifestRef = useRef<WikiManifest | null>(null);
+  const currentSlugRef = useRef(currentSlug);
+  const forceValidationRef = useRef(false);
+  const validationInFlight = useRef<{
+    key: string;
+    promise: Promise<WikiManifestValidation>;
+  } | null>(null);
   const inFlight = useRef(new Set<string>());
+  useEffect(() => {
+    currentSlugRef.current = currentSlug;
+  }, [currentSlug]);
   const client = useMemo(() => {
     const baseUrl = import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
     return createWikiContentClient({
@@ -150,6 +181,32 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
       requestTimeoutMs: 30_000,
     });
   }, [scope]);
+
+  const readCachedManifest = useCallback((): WikiManifest | null => {
+    const state = store.query(siteState$) as SiteStateRow | null;
+    const fileTree = store.query(fileTree$) as { treeJson: string } | null;
+    if (!state?.manifestHash || state.scope !== scope || !fileTree) return null;
+
+    const pages = store.query(pageIndex$) as PageIndexRow[];
+    const assets = store.query(assets$) as AssetIndexRow[];
+    return {
+      siteSlug: state.siteSlug,
+      scope: state.scope,
+      manifestHash: state.manifestHash,
+      generatedAt: state.generatedAt,
+      compactTree: parseJsonArray<CompactFileNode>(fileTree.treeJson),
+      pages: pages.map((page) => ({
+        slug: page.slug,
+        title: page.title,
+        tags: parseJsonArray<string>(page.tagsJson),
+        description: page.description,
+        contentHash: page.contentHash,
+        sensitive: page.sensitive,
+        size: page.size,
+      })),
+      assets: assets.map((asset) => ({ ...asset })),
+    };
+  }, [scope, store]);
 
   const fetchSlug = useCallback(
     async (slug: string, pageIndex?: WikiManifestPage) => {
@@ -213,7 +270,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           });
         } else {
           onMetrics({
-            ...(slug === currentSlug
+            ...(slug === currentSlugRef.current
               ? {
                   status: "error" as const,
                   message: `Failed to fetch markdown for ${slug}`,
@@ -227,34 +284,130 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         inFlight.current.delete(cacheKey);
       }
     },
-    [client, currentSlug, onMetrics, scope, store],
+    [client, onMetrics, scope, store],
   );
 
   useEffect(() => {
     const onOnline = () => setNetworkTick((value) => value + 1);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        setNetworkTick((value) => value + 1);
+      }
+    };
     window.addEventListener("online", onOnline);
-    return () => window.removeEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onRefreshManifest = () => {
+      forceValidationRef.current = true;
+      setNetworkTick((value) => value + 1);
+    };
+    window.addEventListener(REFRESH_MANIFEST_EVENT, onRefreshManifest);
+    return () => window.removeEventListener(REFRESH_MANIFEST_EVENT, onRefreshManifest);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
+    let refreshTimer: number | undefined;
+
+    const scheduleRefresh = (delayMs: number) => {
+      refreshTimer = window.setTimeout(
+        () => setNetworkTick((value) => value + 1),
+        Math.max(0, delayMs),
+      );
+    };
 
     async function run() {
+      const cachedManifest =
+        manifestRef.current?.scope === scope
+          ? manifestRef.current
+          : readCachedManifest();
+      manifestRef.current = cachedManifest;
+      const cachedState = store.query(siteState$) as SiteStateRow | null;
+      const now = Date.now();
+      const forceValidation = forceValidationRef.current;
+      forceValidationRef.current = false;
+      const freshnessMs = MANIFEST_FRESH_MS[scope];
+      const cacheAge = cachedState ? now - cachedState.lastValidatedAt : Number.POSITIVE_INFINITY;
+
+      if (cachedManifest && !forceValidation && cacheAge < freshnessMs) {
+        onMetrics({
+          status: "ready",
+          message: `Using fresh manifest ${cachedManifest.manifestHash.slice(0, 8)}`,
+          manifestBytes: cachedState?.manifestSize ?? 0,
+        });
+        scheduleRefresh(freshnessMs - cacheAge);
+        return;
+      }
+
       if (!navigator.onLine) {
         onMetrics({ status: "offline", message: "Offline: using local cache" });
         return;
       }
 
       const syncStart = performance.now();
-      onMetrics({ status: "syncing", message: "Refreshing manifest" });
+      onMetrics({
+        status: "syncing",
+        message: cachedManifest ? "Checking for wiki updates" : "Loading manifest",
+      });
       try {
-        const manifest = await client.fetchManifest();
+        const validationKey = `${scope}:${cachedManifest?.manifestHash ?? "empty"}`;
+        const validationPromise =
+          validationInFlight.current?.key === validationKey
+            ? validationInFlight.current.promise
+            : client.validateManifest(cachedManifest?.manifestHash);
+        validationInFlight.current = {
+          key: validationKey,
+          promise: validationPromise,
+        };
+        let validation: WikiManifestValidation;
+        try {
+          validation = await validationPromise;
+        } finally {
+          if (validationInFlight.current?.promise === validationPromise) {
+            validationInFlight.current = null;
+          }
+        }
         if (cancelled) return;
+        const validatedAt = Date.now();
+        if (validation.status === "unchanged" && cachedManifest) {
+          store.commit(
+            events.manifestValidated({
+              manifestHash: cachedManifest.manifestHash,
+              validatedAt,
+            }),
+          );
+          onMetrics({
+            status: "ready",
+            message: `Manifest ${cachedManifest.manifestHash.slice(0, 8)} is current`,
+            manifestBytes: cachedState?.manifestSize ?? 0,
+            eventCount: 1,
+            lastSyncMs: performance.now() - syncStart,
+          });
+          scheduleRefresh(freshnessMs);
+          return;
+        }
+
+        if (validation.status !== "modified") {
+          throw new Error("Manifest validation returned no replacement snapshot");
+        }
+        const manifest = validation.manifest;
         manifestRef.current = manifest;
-        const receivedAt = Date.now();
-        store.commit(manifestToEvent(manifest, receivedAt));
-        const { manifestBySlug, queue, queuedBytes } = buildEagerQueue(currentSlug, manifest);
-        const currentPage = manifestBySlug.get(currentSlug);
+        // A manifest is one LiveStore event, so its tree and indexes replace
+        // the prior snapshot in the materializer's single transaction.
+        store.commit(manifestToEvent(manifest, validatedAt));
+        const { manifestBySlug, queue, queuedBytes } = buildEagerQueue(
+          currentSlugRef.current,
+          manifest,
+        );
+        const activeSlug = currentSlugRef.current;
+        const activePage = manifestBySlug.get(activeSlug);
+        void fetchSlug(activeSlug, activePage).catch(() => undefined);
         const storage = await storageSnapshot();
         onMetrics({
           status: "ready",
@@ -266,12 +419,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           storageQuotaBytes: storage.quota,
           storagePressure: storage.pressure,
         });
-
-        if (currentPage) {
-          void fetchSlug(currentSlug, currentPage).catch(() => undefined);
-        } else {
-          void fetchSlug(currentSlug).catch(() => undefined);
-        }
+        scheduleRefresh(freshnessMs);
 
         if (shouldFetchInBackground()) {
           onMetrics({
@@ -293,10 +441,20 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
             });
             return;
           }
-          onMetrics({
-            status: navigator.onLine ? "error" : "offline",
-            message: error instanceof Error ? error.message : String(error),
-          });
+          if (cachedManifest) {
+            onMetrics({
+              status: navigator.onLine ? "ready" : "offline",
+              message: navigator.onLine
+                ? "Refresh failed; using cached manifest"
+                : "Offline: using local cache",
+            });
+            scheduleRefresh(MANIFEST_RETRY_MS);
+          } else {
+            onMetrics({
+              status: navigator.onLine ? "error" : "offline",
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
         }
       }
     }
@@ -304,15 +462,29 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
     void run();
     return () => {
       cancelled = true;
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
     };
-  }, [client, currentSlug, fetchSlug, networkTick, onMetrics, scope, store]);
+  }, [client, fetchSlug, networkTick, onMetrics, readCachedManifest, scope, store]);
 
   useEffect(() => {
     const manifest = manifestRef.current;
-    if (!manifest) return;
-    const page = manifest.pages.find((item) => item.slug === currentSlug);
+    const indexedPage = (store.query(pageIndex$) as PageIndexRow[]).find(
+      (item) => item.slug === currentSlug,
+    );
+    const page = manifest?.pages.find((item) => item.slug === currentSlug) ??
+      (indexedPage
+        ? {
+            slug: indexedPage.slug,
+            title: indexedPage.title,
+            tags: parseJsonArray<string>(indexedPage.tagsJson),
+            description: indexedPage.description,
+            contentHash: indexedPage.contentHash,
+            sensitive: indexedPage.sensitive,
+            size: indexedPage.size,
+          }
+        : undefined);
     if (page) void fetchSlug(currentSlug, page).catch(() => undefined);
-  }, [currentSlug, fetchSlug]);
+  }, [currentSlug, fetchSlug, store]);
 
   useEffect(() => {
     const onWarmCache = () => {
@@ -340,6 +512,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
       const page = manifest?.pages.find((item) => item.slug === currentSlug);
       if (!page) {
         onMetrics({ status: "syncing", message: "Refreshing manifest before retry" });
+        forceValidationRef.current = true;
         setNetworkTick((value) => value + 1);
         return;
       }

@@ -339,7 +339,10 @@ const png = Buffer.from(
 );
 
 export async function installWikiApiMocks(page: Page, options: MockOptions = {}) {
+  options.pageOverrides = { ...options.pageOverrides };
   const siteSlug = options.siteSlug ?? defaultSiteSlug;
+  let manifestFailure = options.manifestFailure === true;
+  let manifestDelayMs = 0;
   const sessionState = {
     authenticated: options.sessionAuthenticated === true,
     cacheKey: options.sessionCacheKey ?? `${siteSlug}:session:e2e-user:e2e`,
@@ -365,6 +368,21 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
     },
     setPageFailure(slug: string, count: number | true) {
       pageFailures.set(slug, count === true ? Number.POSITIVE_INFINITY : count);
+    },
+    setManifestFailure(failing: boolean) {
+      manifestFailure = failing;
+    },
+    setManifestDelay(delayMs: number) {
+      manifestDelayMs = Math.max(0, delayMs);
+    },
+    setPageOverride(slug: string, override: Partial<FixturePage>) {
+      options.pageOverrides = {
+        ...options.pageOverrides,
+        [slug]: {
+          ...options.pageOverrides?.[slug],
+          ...override,
+        },
+      };
     },
   };
 
@@ -392,11 +410,29 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
     const url = new URL(route.request().url());
     const scope = scopeFromUrl(url);
     requests.manifest.push(url.toString());
-    if (options.manifestFailure) {
+    if (manifestDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, manifestDelayMs));
+    }
+    if (manifestFailure) {
       await route.fulfill(json({ error: "Fixture manifest failure" }, 503));
       return;
     }
-    await route.fulfill(json(manifest(scope, options)));
+    const currentManifest = manifest(scope, options);
+    const etag = `W/"${currentManifest.manifestHash}"`;
+    if (route.request().headers()["if-none-match"] === etag) {
+      await route.fulfill({
+        status: 304,
+        headers: { ETag: etag },
+      });
+      return;
+    }
+    await route.fulfill({
+      ...json(currentManifest),
+      headers: {
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=3600",
+        ETag: etag,
+      },
+    });
   });
 
   await page.route("**/api/wiki/pages**", async (route) => {

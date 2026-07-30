@@ -1,0 +1,81 @@
+import { expect, test } from "@playwright/test";
+import {
+  documentArticle,
+  gotoWiki,
+  installWikiApiMocks,
+  waitForPageTitle,
+} from "./fixtures";
+
+const REFRESH_MANIFEST_EVENT = "wiki-vite:refresh-manifest";
+const slug = "wiki/logistics/insurance";
+
+test.describe("durable manifest refresh", () => {
+  test("reuses a fresh persisted manifest after reload and across route changes", async ({
+    page,
+  }) => {
+    const requests = await installWikiApiMocks(page);
+    await gotoWiki(page, `/${slug}`);
+    await waitForPageTitle(page, "Insurance");
+    expect(requests.manifest).toHaveLength(1);
+
+    await page.reload();
+    await waitForPageTitle(page, "Insurance");
+    expect(requests.manifest).toHaveLength(1);
+
+    await page.getByTestId("wiki-sidebar").getByRole("link", {
+      name: "index",
+      exact: true,
+    }).click();
+    await waitForPageTitle(page, "Diana Wiki Home");
+    expect(requests.manifest).toHaveLength(1);
+  });
+
+  test("keeps stale content visible while a changed manifest replaces it", async ({
+    page,
+  }) => {
+    const requests = await installWikiApiMocks(page, {
+      pageOverrides: {
+        [slug]: { content: "# Insurance\n\nOLD SNAPSHOT remains readable." },
+      },
+    });
+    await gotoWiki(page, `/${slug}`);
+    await expect(documentArticle(page)).toContainText("OLD SNAPSHOT");
+
+    requests.setPageOverride(slug, {
+      content: "# Insurance\n\nNEW SNAPSHOT arrived in the background.",
+    });
+    requests.setManifestDelay(500);
+    await page.evaluate((eventName) => {
+      window.dispatchEvent(new Event(eventName));
+    }, REFRESH_MANIFEST_EVENT);
+
+    await expect(documentArticle(page)).toContainText("OLD SNAPSHOT");
+    await expect(documentArticle(page)).toContainText("NEW SNAPSHOT");
+    expect(requests.manifest).toHaveLength(2);
+  });
+
+  test("retains the persisted snapshot when background validation fails", async ({
+    page,
+  }) => {
+    const requests = await installWikiApiMocks(page, {
+      pageOverrides: {
+        [slug]: { content: "# Insurance\n\nFALLBACK SNAPSHOT stays available." },
+      },
+    });
+    await gotoWiki(page, `/${slug}?devtools=1`);
+    await expect(documentArticle(page)).toContainText("FALLBACK SNAPSHOT");
+
+    requests.setManifestFailure(true);
+    await page.evaluate((eventName) => {
+      window.dispatchEvent(new Event(eventName));
+    }, REFRESH_MANIFEST_EVENT);
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.__WIKI_VITE_OBSERVABILITY__?.metrics?.message),
+      )
+      .toBe("Refresh failed; using cached manifest");
+    await expect(documentArticle(page)).toContainText("FALLBACK SNAPSHOT");
+    await expect(page.getByTestId("page-loading")).toHaveCount(0);
+  });
+});

@@ -158,9 +158,15 @@ LiveStore is used as a local read cache without a remote sync backend. The schem
 - `fileTree`, `pageIndex`, and `assetIndex` for navigation, local page finding, and link rewriting.
 - `pageContent` for fetched markdown bodies plus first-class `fresh`, `stale`, `missing`, and `deleted` states.
 
-On load the app renders whatever markdown is already in LiveStore, fetches `/api/wiki/manifest` in the background, and lets the manifest materializer mark cached pages stale or deleted. Fetch priority is current route first through an explicit page fetch, then sidebar-linked pages, recent pages, and a bounded idle queue. The idle queue skips the current route so user-visible retry state is not raced by duplicate background fetches. The queue respects browser offline/save-data signals and caps eager work by page count and payload bytes.
+On load the app renders whatever markdown is already in LiveStore. A manifest validated within the freshness window (60 seconds for public data and 30 seconds for session data) causes no network request. Once stale, the reader sends the persisted manifest hash as `If-None-Match`; a `304` records a new `lastValidatedAt` without rebuilding the indexes. A changed response is applied as one LiveStore event, so the old tree and page content remain readable during the request and the replacement tree/index snapshot becomes visible atomically. Failed validation retains the old snapshot and retries after a bounded delay. Route changes only resolve page bodies from the local index and never refresh the full manifest.
+
+Fetch priority after a changed manifest is current route first through an explicit page fetch, then sidebar-linked pages, recent pages, and a bounded idle queue. The idle queue skips the current route so user-visible retry state is not raced by duplicate background fetches. The queue respects browser offline/save-data signals and caps eager work by page count and payload bytes.
 
 Public and session data use separate LiveStore `storeId` values that include site, scope, origin, reader cache version, and session cache key. Public requests never ask for sensitive content; session requests use private cache headers, require the existing wiki session, and clear the local session cache on auth failure. The Vite backend also applies defense-in-depth PII redaction across page bodies, search, AI search, chat tools, page-copy, and downloads, even though Convex content should already be redacted at publish time.
+
+### Directory-sharded manifest follow-up
+
+The current atomic unit is intentionally the complete manifest. A safe sharded follow-up must first add a small root index containing `snapshotId`, schema version, and `{ key, hash, pageCount, bytes }` for every directory shard. The client can then fetch only changed hashes, prioritizing the current route and expanded sidebar directories. Every shard must be a complete directory replacement or include explicit tombstones for moves and deletions. Changed shards must be staged under the new `snapshotId`, validated for complete coverage and matching scope, and activated in one LiveStore transaction; readers must never combine shards from different snapshots. Root and shard cache keys must continue to include site, public/session scope, session cache key, and reader schema version.
 
 ## Bundle Shape
 

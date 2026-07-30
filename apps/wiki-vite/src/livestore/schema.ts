@@ -1,5 +1,7 @@
 import { Events, makeSchema, Schema, State } from "@livestore/livestore";
 
+export const WIKI_CACHE_SCHEMA_VERSION = 4;
+
 export const tables = {
   siteState: State.SQLite.table({
     name: "siteState",
@@ -10,7 +12,12 @@ export const tables = {
       manifestHash: State.SQLite.text({ default: "", nullable: false }),
       generatedAt: State.SQLite.text({ default: "", nullable: false }),
       lastSyncAt: State.SQLite.integer({ default: 0, nullable: false }),
+      lastValidatedAt: State.SQLite.integer({ default: 0, nullable: false }),
       manifestSize: State.SQLite.integer({ default: 0, nullable: false }),
+      schemaVersion: State.SQLite.integer({
+        default: WIKI_CACHE_SCHEMA_VERSION,
+        nullable: false,
+      }),
     },
   }),
   fileTree: State.SQLite.table({
@@ -109,6 +116,13 @@ export const events = {
       compactTreeJson: Schema.String,
       pagesJson: Schema.String,
       assetsJson: Schema.String,
+    }),
+  }),
+  manifestValidated: Events.clientOnly({
+    name: "v1.ManifestValidated",
+    schema: Schema.Struct({
+      manifestHash: Schema.String,
+      validatedAt: Schema.Number,
     }),
   }),
   pageContentFetched: Events.clientOnly({
@@ -220,7 +234,9 @@ const materializers = State.SQLite.materializers(events, {
         manifestHash,
         generatedAt,
         lastSyncAt: receivedAt,
+        lastValidatedAt: receivedAt,
         manifestSize,
+        schemaVersion: WIKI_CACHE_SCHEMA_VERSION,
       }).onConflict("id", "replace"),
       tables.fileTree.insert({
         id: "current",
@@ -251,6 +267,10 @@ const materializers = State.SQLite.materializers(events, {
       ...reconcileContent,
     ];
   },
+  "v1.ManifestValidated": ({ manifestHash, validatedAt }) =>
+    tables.siteState.update({
+      lastValidatedAt: validatedAt,
+    }).where({ id: "current", manifestHash }),
   "v1.PageContentFetched": ({
     slug,
     title,

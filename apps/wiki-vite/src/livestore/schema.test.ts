@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { makeInMemoryAdapter } from "@livestore/adapter-web";
 import { createStorePromise } from "@livestore/livestore";
-import { events, schema } from "./schema";
+import { events, schema, WIKI_CACHE_SCHEMA_VERSION } from "./schema";
 import {
   fileTree$,
   pageContentBySlug$,
@@ -65,10 +65,53 @@ describe("wiki vite LiveStore schema", () => {
     );
 
     expect(store.query(siteState$)?.manifestHash).toBe("manifest-hash");
+    expect(store.query(siteState$)?.lastValidatedAt).toBe(1);
+    expect(store.query(siteState$)?.schemaVersion).toBe(WIKI_CACHE_SCHEMA_VERSION);
     expect(store.query(fileTree$)?.treeJson).toContain("index");
     expect(store.query(pageIndex$)).toHaveLength(1);
     expect(store.query(pageContentBySlug$("index"))?.content).toBe("# Hello");
     expect(store.query(pageContentBySlug$("index"))?.contentStatus).toBe("fresh");
+  });
+
+  test("records successful validation without rebuilding the persisted snapshot", async () => {
+    const store = await makeStore();
+    store.commit(
+      events.manifestApplied({
+        siteSlug: "diana",
+        scope: "public",
+        manifestHash: "manifest-hash",
+        generatedAt: "2026-05-09T12:00:00.000Z",
+        receivedAt: 1,
+        manifestSize: 100,
+        compactTreeJson: JSON.stringify([["f", "index"]]),
+        pagesJson: JSON.stringify([
+          {
+            slug: "index",
+            title: "Index",
+            tags: [],
+            description: null,
+            contentHash: "page-hash",
+            sensitive: false,
+            size: 12,
+          },
+        ]),
+        assetsJson: JSON.stringify([]),
+      }),
+      events.manifestValidated({
+        manifestHash: "manifest-hash",
+        validatedAt: 10,
+      }),
+    );
+
+    expect(store.query(siteState$)).toEqual(
+      expect.objectContaining({
+        lastSyncAt: 1,
+        lastValidatedAt: 10,
+        manifestHash: "manifest-hash",
+      }),
+    );
+    expect(store.query(fileTree$)?.updatedAt).toBe(1);
+    expect(store.query(pageIndex$)).toHaveLength(1);
   });
 
   test("marks stale and deleted page bodies during manifest reconciliation", async () => {
