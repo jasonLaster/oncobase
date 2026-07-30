@@ -83,6 +83,8 @@ test.describe("Visual parity", () => {
     expect(railBox).not.toBeNull();
     expect(buttonBox).not.toBeNull();
     expect(buttonBox!.y - railBox!.y).toBe(8);
+    expect(buttonBox!.width).toBe(30);
+    expect(buttonBox!.height).toBe(30);
   });
 
   test("mobile reader shell keeps compact Diana navigation and outline", async ({ page }) => {

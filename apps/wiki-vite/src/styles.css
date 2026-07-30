@@ -838,6 +838,11 @@ a {
   width: 24px;
 }
 
+.sidebar-rail-button {
+  height: 30px;
+  width: 30px;
+}
+
 .sidebar-rail-button:hover,
 .sidebar-rail-button:focus-visible,
 .sidebar-collapse-button:hover,
