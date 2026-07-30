@@ -610,13 +610,22 @@ async function handleLoginRequest(
     const token = url.searchParams.get("token") ?? "";
     const redirect = url.searchParams.get("redirect") || "/";
     if (!token || !(await isValidPassword(client, siteSlug, token))) {
-      return Response.redirect(new URL("/login", request.url), 302);
+      return new Response(null, {
+        status: 302,
+        headers: {
+          "Cache-Control": "private, no-store",
+          Location: new URL("/login", request.url).toString(),
+          Vary: "Cookie, Host",
+        },
+      });
     }
     return new Response(null, {
       status: 302,
       headers: {
         Location: new URL(redirect, request.url).toString(),
+        "Cache-Control": "private, no-store",
         "Set-Cookie": authCookieHeader(siteSlug),
+        Vary: "Cookie, Host",
       },
     });
   }
@@ -639,6 +648,7 @@ async function handleLoginRequest(
         headers: {
           "Cache-Control": "private, no-store",
           "Set-Cookie": authCookieHeader(siteSlug),
+          Vary: "Cookie, Host",
         },
       },
     );
@@ -648,7 +658,10 @@ async function handleLoginRequest(
     { error: "Invalid password" },
     {
       status: 401,
-      headers: { "Cache-Control": "private, no-store" },
+      headers: {
+        "Cache-Control": "private, no-store",
+        Vary: "Cookie, Host",
+      },
     },
   );
 }

@@ -75,4 +75,5 @@ run("bun", ["run", "build"], {
   ...process.env,
   NEXT_PUBLIC_CONVEX_URL: convexUrl,
   CONVEX_URL: convexUrl,
+  WIKI_VITE_EMBED_APP_SHELL: "1",
 });

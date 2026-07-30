@@ -3,8 +3,13 @@ import path from "node:path";
 import { createWikiViteHandler } from "../server/app-shell.js";
 import { requestFromIncoming, sendWebResponse } from "../server/wiki-api.js";
 
+declare const __WIKI_VITE_INDEX_HTML__: string;
+
 const distDir = path.join(process.cwd(), "apps/wiki-vite/dist");
-const handleWikiViteRequest = createWikiViteHandler({ distDir });
+const handleWikiViteRequest = createWikiViteHandler({
+  distDir,
+  indexHtml: __WIKI_VITE_INDEX_HTML__,
+});
 
 function restoreRewrittenPath(request: Request) {
   const url = new URL(request.url);

@@ -131,6 +131,18 @@ function redirectToPath(request: Request, pathname: string) {
   return Response.redirect(target, 307);
 }
 
+function privateRedirect(request: Request, pathname: string, status = 302) {
+  const target = new URL(pathname, request.url);
+  return new Response(null, {
+    status,
+    headers: {
+      "Cache-Control": "private, no-store",
+      Location: target.toString(),
+      Vary: "Cookie, Host",
+    },
+  });
+}
+
 function explicitCanonicalRedirectResponse(request: Request) {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
   const url = new URL(request.url);
@@ -232,7 +244,11 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
   if (!siteSlug) {
     return new Response("unknown host", {
       status: 404,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
+      headers: {
+        "Cache-Control": "private, no-store",
+        "Content-Type": "text/plain; charset=utf-8",
+        Vary: "Cookie, Host",
+      },
     });
   }
 
@@ -242,7 +258,7 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
 
   if (isLoginPage && (isAuthed || !gateEnabled)) {
     const redirect = url.searchParams.get("redirect") || "/";
-    return Response.redirect(new URL(redirect, request.url), 302);
+    return privateRedirect(request, redirect);
   }
 
   if (!gateEnabled || isAuthed || isLoginPage) {
@@ -256,7 +272,7 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
     const loginUrl = new URL("/api/login", request.url);
     loginUrl.searchParams.set("token", token);
     loginUrl.searchParams.set("redirect", `${clean.pathname}${clean.search}`);
-    return Response.redirect(loginUrl, 302);
+    return privateRedirect(request, loginUrl.toString());
   }
 
   if (isLinkPreviewRequest(request) && !isAppAssetRequest(url.pathname)) {
@@ -265,7 +281,7 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
 
   const loginUrl = new URL("/login", request.url);
   loginUrl.searchParams.set("redirect", `${url.pathname}${url.search}`);
-  return Response.redirect(loginUrl, 302);
+  return privateRedirect(request, loginUrl.toString());
 }
 
 function escapeHtml(value: string) {
@@ -311,8 +327,9 @@ async function staticIndexHtml(
   request: Request,
   client: ConvexHttpClient,
   filePath: string,
+  providedHtml?: string,
 ) {
-  const html = await readFile(filePath, "utf8");
+  const html = providedHtml ?? await readFile(filePath, "utf8");
   const url = new URL(request.url);
   const slug = slugFromPathname(url.pathname);
   if (!slug) return html;
@@ -337,21 +354,27 @@ async function staticIndexHtml(
 async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath: string) {
   const siteSlug = (await resolveSiteSlug(request, client)) ?? DEFAULT_SITE_SLUG;
   const authed = hasAuthCookie(request, siteSlug) || isDianaPreviewTestAuth(request, siteSlug);
+  const gateEnabled = await isPasswordGateEnabled(client, siteSlug);
+  const privateResponse = authed || gateEnabled;
   return {
     ...staticHeaders(filePath),
-    "Cache-Control": authed
+    "Cache-Control": privateResponse
       ? "private, no-store"
       : "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
-    Vary: authed ? "Accept, Cookie, Host, User-Agent" : "Accept, Host, User-Agent",
+    Vary: privateResponse
+      ? "Accept, Cookie, Host, User-Agent"
+      : "Accept, Host, User-Agent",
   };
 }
 
 export function createAppShellHandler({
   client = createClient(),
   distDir,
+  indexHtml,
 }: {
   client?: ConvexHttpClient;
   distDir: string;
+  indexHtml?: string;
 }) {
   return async function handleAppShellRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -360,7 +383,8 @@ export function createAppShellHandler({
     const directFileExists = existsSync(directPath) && !directPath.endsWith(path.sep);
     const filePath = directFileExists ? directPath : path.join(distDir, "index.html");
 
-    if (!existsSync(filePath)) {
+    const servesIndex = path.basename(filePath) === "index.html";
+    if (!existsSync(filePath) && !(servesIndex && indexHtml !== undefined)) {
       return new Response("Vite build output not found. Run bun --cwd apps/wiki-vite build first.", {
         status: 503,
         headers: { "Content-Type": "text/plain; charset=utf-8" },
@@ -374,8 +398,8 @@ export function createAppShellHandler({
       });
     }
 
-    if (path.basename(filePath) === "index.html") {
-      return new Response(await staticIndexHtml(request, client, filePath), {
+    if (servesIndex) {
+      return new Response(await staticIndexHtml(request, client, filePath, indexHtml), {
         headers: await htmlHeaders(request, client, filePath),
       });
     }
@@ -389,22 +413,24 @@ export function createAppShellHandler({
 export function createWikiViteHandler({
   client = createClient(),
   distDir,
+  indexHtml,
 }: {
   client?: ConvexHttpClient;
   distDir: string;
+  indexHtml?: string;
 }) {
   const handleWikiApiRequest = createWikiApiHandler(client);
-  const handleAppShellRequest = createAppShellHandler({ client, distDir });
+  const handleAppShellRequest = createAppShellHandler({ client, distDir, indexHtml });
 
   return async function handleWikiViteRequest(request: Request): Promise<Response> {
     const apiResponse = await handleWikiApiRequest(request);
     if (apiResponse) return apiResponse;
+    const gateResponse = await enforcePasswordGate(request, client);
+    if (gateResponse) return gateResponse;
     const redirectResponse = legacyRedirectResponse(request);
     if (redirectResponse) return redirectResponse;
     const explicitCanonicalRedirect = explicitCanonicalRedirectResponse(request);
     if (explicitCanonicalRedirect) return explicitCanonicalRedirect;
-    const gateResponse = await enforcePasswordGate(request, client);
-    if (gateResponse) return gateResponse;
     const canonicalRedirect = await canonicalSlugRedirectResponse(request, client);
     if (canonicalRedirect) return canonicalRedirect;
     return handleAppShellRequest(request);

@@ -6,11 +6,11 @@
   "outputDirectory": "apps/wiki-vite/dist",
   "functions": {
     "api/app-shell.js": {
-      "includeFiles": "apps/wiki-vite/dist/**",
+      "includeFiles": "apps/wiki-vite/.vercel-functions/**",
       "maxDuration": 60
     },
     "api/index.js": {
-      "includeFiles": "apps/wiki-vite/dist/.vercel-functions/**",
+      "includeFiles": "apps/wiki-vite/.vercel-functions/**",
       "maxDuration": 60
     }
   },

@@ -51,6 +51,29 @@ try {
   if (!gatedLocation.includes("/login") || !gatedLocation.includes("redirect=%2Fwiki%2Flogistics%2Finsurance")) {
     throw new Error(`Standalone route gate redirected to unexpected location: ${gatedLocation}`);
   }
+  if (
+    gatedResponse.headers.get("cache-control") !== "private, no-store" ||
+    !gatedResponse.headers.get("vary")?.includes("Cookie")
+  ) {
+    throw new Error("Standalone deep route gate did not use auth-safe cache headers");
+  }
+
+  const gatedRootResponse = await fetch(`${origin}/`, {
+    redirect: "manual",
+  });
+  if (gatedRootResponse.status !== 302) {
+    throw new Error(`Standalone root gate smoke failed: ${gatedRootResponse.status}`);
+  }
+  const gatedRootLocation = gatedRootResponse.headers.get("location") ?? "";
+  if (!gatedRootLocation.includes("/login") || !gatedRootLocation.includes("redirect=%2F")) {
+    throw new Error(`Standalone root gate redirected to unexpected location: ${gatedRootLocation}`);
+  }
+  if (
+    gatedRootResponse.headers.get("cache-control") !== "private, no-store" ||
+    !gatedRootResponse.headers.get("vary")?.includes("Cookie")
+  ) {
+    throw new Error("Standalone root gate did not use auth-safe cache headers");
+  }
 
   const botMetadataResponse = await fetch(`${origin}/wiki/logistics/insurance`, {
     headers: {

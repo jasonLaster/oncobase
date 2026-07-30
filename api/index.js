@@ -2,7 +2,7 @@ let runtimeHandlerPromise;
 
 async function wikiViteApi(req, res) {
   const { default: runtimeHandler } = await (runtimeHandlerPromise ??= import(
-    "../apps/wiki-vite/dist/.vercel-functions/index.mjs"
+    "../apps/wiki-vite/.vercel-functions/index.mjs"
   ));
 
   return runtimeHandler(req, res);

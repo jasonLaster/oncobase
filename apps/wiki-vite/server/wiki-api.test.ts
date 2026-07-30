@@ -242,6 +242,34 @@ function createFakeConvexClient() {
 }
 
 describe("wiki Vite API auth and scoped archive behavior", () => {
+  test("keeps password-login redirects and responses out of shared caches", async () => {
+    const handler = createWikiApiHandler(createFakeConvexClient() as never);
+
+    const missingToken = await handler(request("/api/login?redirect=%2Fwiki%2Fpublic"));
+    expect(missingToken?.status).toBe(302);
+    expect(missingToken!.headers.get("cache-control")).toBe("private, no-store");
+    expect(missingToken!.headers.get("vary")).toContain("Cookie");
+
+    const tokenLogin = await handler(
+      request("/api/login?token=diana&redirect=%2Fwiki%2Fpublic"),
+    );
+    expect(tokenLogin?.status).toBe(302);
+    expect(tokenLogin!.headers.get("cache-control")).toBe("private, no-store");
+    expect(tokenLogin!.headers.get("set-cookie")).toContain("authed=true");
+    expect(tokenLogin!.headers.get("vary")).toContain("Cookie");
+
+    const passwordLogin = await handler(
+      request("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: "diana" }),
+      }),
+    );
+    expect(passwordLogin?.status).toBe(200);
+    expect(passwordLogin!.headers.get("cache-control")).toBe("private, no-store");
+    expect(passwordLogin!.headers.get("vary")).toContain("Cookie");
+  });
+
   test("signs up, reads the session, rejects bad sign-in, and signs out without live Convex writes", async () => {
     const handler = createWikiApiHandler(createFakeConvexClient() as never);
     const email = "reader@example.com";
