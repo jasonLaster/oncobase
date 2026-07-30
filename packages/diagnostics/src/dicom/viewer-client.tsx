@@ -48,6 +48,7 @@ import {
   DicomAnnotationLayer,
   type AnnotationCoordinateAdapter,
 } from "./dicom-annotation-layer.tsx";
+import { matchesSeriesIdentifier } from "./series-identifier.ts";
 
 type CornerstoneCore = typeof import("@cornerstonejs/core");
 
@@ -329,7 +330,7 @@ export function DicomViewerClient({
     const id = selectedSeriesId ?? preferredSeriesId;
     if (!id) return null;
     return (
-      displaySeries.find((series) => series.id === id) ??
+      displaySeries.find((series) => matchesSeriesIdentifier(series, id)) ??
       displaySeries.find((series) => series.id === preferredSeriesId) ??
       null
     );
