@@ -99,7 +99,15 @@ test.describe("Visual parity", () => {
 
     const menu = page.getByRole("menu", { name: "Actions" });
     await expect(menu).toBeVisible();
+    await expect(menu).toBeFocused();
     await expect(menu.getByRole("menuitem").first()).toHaveCSS("min-height", "28px");
+    await expect(menu.getByRole("menuitem").first()).toHaveCSS("border-radius", "8px");
+    const menuBox = await menu.boundingBox();
+    expect(menuBox).not.toBeNull();
+    expect(menuBox!.x).toBe(8);
+    expect(menuBox!.y).toBe(46);
+    expect(menuBox!.width).toBe(240);
+    expect(menuBox!.height).toBe(218);
 
     if (hasLocalSnapshotBaseline) {
       await expect(menu).toHaveScreenshot("workspace-actions-menu.png", {

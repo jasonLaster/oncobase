@@ -410,25 +410,36 @@ export function WikiActionsMenu({
   trigger,
 }: WikiActionsMenuProps) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [authMode, setAuthMode] = useState<WikiActionsMenuAuthMode>("signin");
 
   useEffect(() => {
     if (!open) return;
+    previouslyFocusedRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusTimeout = window.setTimeout(() => menuRef.current?.focus(), 0);
 
     const onPointerDown = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+      }
     };
 
     window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("keydown", onKeyDown);
     return () => {
+      window.clearTimeout(focusTimeout);
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown);
+      previouslyFocusedRef.current?.focus();
+      previouslyFocusedRef.current = null;
     };
   }, [open]);
 
@@ -473,7 +484,13 @@ export function WikiActionsMenu({
       <div className={cn("wiki-shell-actions-menu", className)} ref={rootRef}>
         {triggerElement}
         {open ? (
-          <div className="wiki-shell-actions-popover" role="menu" aria-label="Actions">
+          <div
+            aria-label="Actions"
+            className="wiki-shell-actions-popover"
+            ref={menuRef}
+            role="menu"
+            tabIndex={-1}
+          >
             {searchHref || textSearchHref ? (
               <>
                 <div className="wiki-shell-actions-label">Search</div>

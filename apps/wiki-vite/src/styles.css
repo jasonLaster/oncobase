@@ -465,6 +465,19 @@ a {
   width: 100%;
 }
 
+.wiki-vite-sidebar-workspace-row .wiki-shell-actions-popover {
+  left: 0;
+  padding-block: 1px;
+  right: auto;
+  top: calc(100% + 0.25rem);
+  width: 15rem;
+}
+
+.wiki-vite-sidebar-workspace-row .wiki-shell-actions-label {
+  line-height: 1rem;
+  padding-top: 0.25rem;
+}
+
 .wiki-vite-sidebar-workspace {
   align-items: center;
   background: transparent;

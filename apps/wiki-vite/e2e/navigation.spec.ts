@@ -90,10 +90,17 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(menu.getByRole("menuitem", { name: /Theme:/ })).toBeVisible();
     await expect(menu.getByText("Account")).toHaveCount(0);
     await expect(menu.getByRole("menuitem", { name: "Sign in" })).toHaveCount(0);
-    await expect(menu).toHaveCSS("width", "224px");
+    await expect(menu).toHaveCSS("width", "240px");
     await expect(menu).toHaveCSS("border-radius", "8px");
     await expect(menu.getByRole("menuitem").first()).toHaveCSS("min-height", "28px");
+    await expect(menu.getByRole("menuitem").first()).toHaveCSS("border-radius", "8px");
+    await expect(menu).toBeFocused();
 
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(actions).toBeFocused();
+
+    await actions.click();
     await menu.getByRole("menuitem", { name: /Command palette/ }).click();
     await expect(page.getByTestId("command-palette")).toBeVisible();
   });
