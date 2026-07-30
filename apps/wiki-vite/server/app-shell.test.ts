@@ -125,6 +125,23 @@ describe("wiki Vite app-shell password gate", () => {
     }
   });
 
+  test("serves terms publicly with legal metadata while the wiki remains gated", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    const response = await handler(request("/terms-and-conditions"));
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(html).toContain("<title>Terms and Conditions — TNBC Knowledge Base</title>");
+    expect(html).toContain(
+      '<meta name="description" content="Terms and conditions for the Diana TNBC Knowledge Base." />',
+    );
+    expect(response.headers.get("location")).toBeNull();
+  });
+
   test("rejects the unsigned legacy gate cookie", async () => {
     const handler = createWikiViteHandler({
       client: fakeClient() as never,

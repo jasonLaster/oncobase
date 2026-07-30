@@ -37,6 +37,7 @@ const CANONICAL_SLUG_CACHE_TTL_MS = 60_000;
 const CANONICAL_SLUG_PAGE_SIZE = 512;
 const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml|map)$/i;
 const MARKDOWN_ALIAS_PATH_RE = /\.(?:md|mdx)$/i;
+const PUBLIC_PAGES = new Set(["/terms-and-conditions"]);
 
 type PasswordGateEntry = {
   enabled: boolean;
@@ -256,6 +257,8 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
       },
     });
   }
+
+  if (PUBLIC_PAGES.has(url.pathname)) return null;
 
   const gateEnabled = await isPasswordGateEnabled(client, siteSlug);
   const isAuthed =

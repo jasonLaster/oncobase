@@ -36,6 +36,16 @@ test.describe("Route-owned metadata and links", () => {
     );
   });
 
+  test("terms remain public and render outside the reader shell", async ({ page }) => {
+    await page.goto("/terms-and-conditions");
+
+    await expect(page.getByTestId("terms-and-conditions")).toBeVisible();
+    await expect(page).toHaveTitle(
+      "Terms and Conditions — TNBC Knowledge Base",
+    );
+    await expect(page.getByTestId("wiki-sidebar")).toHaveCount(0);
+  });
+
   test("bracketed redacted labels preserve mail and telephone protocol links", async ({
     page,
   }) => {

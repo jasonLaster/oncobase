@@ -32,6 +32,11 @@ const WikiPage = lazy(() =>
 const LoginPage = lazy(() =>
   import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })),
 );
+const TermsAndConditionsPage = lazy(() =>
+  import("./pages/TermsAndConditionsPage").then((module) => ({
+    default: module.TermsAndConditionsPage,
+  })),
+);
 const SearchPage = lazy(() =>
   import("./pages/SearchPage").then((module) => ({ default: module.SearchPage })),
 );
@@ -133,6 +138,14 @@ export function App({
     return (
       <Suspense fallback={<PageFallback />}>
         <LoginPage />
+      </Suspense>
+    );
+  }
+
+  if (location.pathname === "/terms-and-conditions") {
+    return (
+      <Suspense fallback={<PageFallback />}>
+        <TermsAndConditionsPage />
       </Suspense>
     );
   }

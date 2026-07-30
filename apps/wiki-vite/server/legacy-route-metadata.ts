@@ -48,6 +48,19 @@ export function legacyRouteMetadata({
   slug: string | null;
   tagCount?: number | null;
 }): LegacyRouteMetadata {
+  if (pathname === "/terms-and-conditions") {
+    const description = "Terms and conditions for the Diana TNBC Knowledge Base.";
+    return {
+      description,
+      openGraphDescription: description,
+      openGraphTitle: "Terms and Conditions",
+      openGraphType: "website",
+      title: `Terms and Conditions — ${siteName}`,
+      twitterDescription: description,
+      twitterTitle: "Terms and Conditions",
+    };
+  }
+
   if (slug === "index") {
     return {
       description: DEFAULT_SITE_DESCRIPTION,
