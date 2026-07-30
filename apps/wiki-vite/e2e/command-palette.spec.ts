@@ -94,7 +94,7 @@ test.describe("Command palette parity", () => {
     const recentPath = palette.getByRole("option").first().locator("small");
     await expect(recentHeading).toHaveCSS("color", "rgb(107, 114, 128)");
     await expect(recentPath).toHaveCSS("color", "rgb(107, 114, 128)");
-    await expect(palette.locator("footer")).toHaveCSS("color", "rgb(107, 114, 128)");
+    await expect(palette.locator("footer")).toHaveCount(0);
 
     const themeTokens = await page.evaluate(() => {
       const styles = getComputedStyle(document.documentElement);
@@ -113,7 +113,7 @@ test.describe("Command palette parity", () => {
     });
     await expect(recentHeading).toHaveCSS("color", "rgb(156, 163, 175)");
     await expect(recentPath).toHaveCSS("color", "rgb(156, 163, 175)");
-    await expect(palette.locator("footer")).toHaveCSS("color", "rgb(156, 163, 175)");
+    await expect(palette.locator("footer")).toHaveCount(0);
   });
 
   test("file palette matches the compact centered desktop and mobile geometry", async ({
@@ -125,6 +125,7 @@ test.describe("Command palette parity", () => {
     const desktopBox = await page.getByTestId("command-palette").boundingBox();
     expect(desktopBox).not.toBeNull();
     expect(desktopBox!.width).toBe(576);
+    expect(desktopBox!.height).toBe(356);
     expect(Math.abs(desktopBox!.x - (page.viewportSize()!.width - desktopBox!.width) / 2))
       .toBeLessThan(1);
     expect(Math.abs(desktopBox!.y - page.viewportSize()!.height * 0.25)).toBeLessThan(1);
@@ -137,8 +138,14 @@ test.describe("Command palette parity", () => {
     expect(mobileBox).not.toBeNull();
     expect(mobileBox!.x).toBe(8);
     expect(mobileBox!.width).toBe(374);
-    expect(mobileBox!.height).toBeGreaterThan(500);
+    expect(mobileBox!.height).toBe(574);
     expect(Math.abs(mobileBox!.y - page.viewportSize()!.height * 0.1)).toBeLessThan(1);
+
+    const selectedBox = await page.getByRole("option").first().boundingBox();
+    expect(selectedBox).not.toBeNull();
+    expect(selectedBox!.x).toBe(20);
+    expect(selectedBox!.width).toBe(350);
+    expect(selectedBox!.height).toBe(56);
   });
 
   test("file palette uses production typography and neutral selection in light and dark themes", async ({
@@ -153,7 +160,10 @@ test.describe("Command palette parity", () => {
     await expect(input).toHaveCSS("font-size", "14px");
     await expect(selected).toHaveCSS("background-color", "rgb(243, 244, 246)");
     await expect(selected).toHaveCSS("box-shadow", "none");
+    await expect(selected).toHaveCSS("min-height", "56px");
+    await expect(selected.locator("strong")).toHaveCSS("font-size", "14px");
     await expect(selected.locator("strong")).toHaveCSS("font-weight", "400");
+    await expect(palette).toHaveCSS("border-radius", "14px");
     await expect(page.locator(".wiki-shell-command-backdrop")).toHaveCSS(
       "background-color",
       "rgba(0, 0, 0, 0.1)",

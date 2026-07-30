@@ -1435,7 +1435,7 @@ html[data-initial-sidebar-state="collapsed"]
 .wiki-shell-command-palette {
   background: var(--popover, var(--panel));
   border: 0;
-  border-radius: 0.75rem;
+  border-radius: 0.875rem;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent);
   color: var(--foreground);
   max-height: min(680px, calc(100vh - 96px));
@@ -1537,7 +1537,7 @@ html[data-initial-sidebar-state="collapsed"]
 }
 
 .wiki-shell-file-palette .wiki-shell-command-list {
-  max-height: min(60dvh, 15.75rem);
+  max-height: min(60dvh, 18rem);
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -1561,7 +1561,8 @@ html[data-initial-sidebar-state="collapsed"]
   width: 100%;
 }
 
-.wiki-shell-file-palette-item {
+.wiki-shell-file-palette .wiki-shell-file-palette-item {
+  height: 3.5rem;
   left: 0;
   min-height: 3.5rem;
   position: absolute;
@@ -2105,7 +2106,7 @@ html[data-initial-sidebar-state="collapsed"]
 
 @media (max-width: 860px) {
   .wiki-shell-file-palette .wiki-shell-command-list {
-    max-height: min(55dvh, 29rem);
+    max-height: min(60dvh, 31.625rem);
   }
 
   .wiki-shell-page-header {

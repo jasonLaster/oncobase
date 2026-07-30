@@ -425,12 +425,7 @@ export function CommandPalette({
   if (mode === "pages") {
     return (
       <WikiFilePalette
-        footer={
-          <>
-            <span>{commandLabel()} opens files</span>
-            <span>Recents first · fuzzy search</span>
-          </>
-        }
+        footer={false}
         initialSearch={pageInitialQuery}
         onOpenChange={onOpenChange}
         onSelectPage={openPage}

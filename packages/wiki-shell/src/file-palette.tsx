@@ -512,16 +512,18 @@ export function WikiFilePalette({
             />
           )}
         </WikiCommandList>
-        <WikiCommandFooter>
-          {footer ?? (
-            <>
-              <span>Enter opens the first result</span>
-              {recentEntries.length > 0 || searchResults ? (
-                <span>{query ? "Fuzzy search" : "Recent pages first"}</span>
-              ) : null}
-            </>
-          )}
-        </WikiCommandFooter>
+        {footer === false ? null : (
+          <WikiCommandFooter>
+            {footer ?? (
+              <>
+                <span>Enter opens the first result</span>
+                {recentEntries.length > 0 || searchResults ? (
+                  <span>{query ? "Fuzzy search" : "Recent pages first"}</span>
+                ) : null}
+              </>
+            )}
+          </WikiCommandFooter>
+        )}
       </WikiCommandPanel>
     </WikiCommandBackdrop>
   );
