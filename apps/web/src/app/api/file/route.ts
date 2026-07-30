@@ -234,7 +234,11 @@ function streamBlobResponse({
   const contentLength = upstream.headers.get("content-length");
   if (contentLength) {
     headers.set("Content-Length", contentLength);
-  } else if (sizeBytes && upstream.status !== 206) {
+  } else if (
+    sizeBytes &&
+    upstream.status !== 206 &&
+    upstream.status !== 416
+  ) {
     headers.set("Content-Length", String(sizeBytes));
   }
 
@@ -282,8 +286,13 @@ async function fetchBlobAsset(
   const upstream = await fetch(blob.url, {
     headers: blobRequestHeaders(request),
   });
-  if (!upstream.ok) {
-    return { error: new NextResponse("Blob fetch failed", { status: 502 }) };
+  if (!upstream.ok && upstream.status !== 416) {
+    return {
+      error: new NextResponse("Blob fetch failed", {
+        status: 502,
+        headers: privateCache ? PRIVATE_FILE_DENIAL_HEADERS : undefined,
+      }),
+    };
   }
 
   return {
@@ -320,17 +329,20 @@ export async function GET(request: NextRequest) {
     hasSitePasswordSession(request, siteData.siteSlug),
     getSessionUserFromRequest(request),
   ]);
-  const siblingDoc = await siteData.documents.getBySlug({
-    slug: assetPathToSiblingSlug(normalized),
-    includeSensitive: true,
-  });
   const privateCache = hasPasswordSession || Boolean(sessionUser);
 
+  let siblingDoc: Awaited<
+    ReturnType<typeof siteData.documents.getBySlug>
+  > = null;
   let asset: Awaited<
     ReturnType<typeof siteData.documents.getPdfAssetByPath>
   > = null;
   let assetLookupFailed = false;
   try {
+    siblingDoc = await siteData.documents.getBySlug({
+      slug: assetPathToSiblingSlug(normalized),
+      includeSensitive: true,
+    });
     asset = ext === ".pdf"
       ? await siteData.documents.getPdfAssetByPath(
           { path: normalized, includeSensitive: true },
@@ -373,20 +385,17 @@ export async function GET(request: NextRequest) {
     const upstream = await fetch(asset.blobUrl, {
       headers: blobRequestHeaders(request),
     });
-    if (!upstream.ok) {
-      return new NextResponse("Blob fetch failed", { status: 502 });
+    if (upstream.ok || upstream.status === 416) {
+      return streamBlobResponse({
+        ext,
+        filename,
+        mimeType,
+        privateCache,
+        sizeBytes: asset.sizeBytes,
+        upstream,
+      });
     }
-    return streamBlobResponse({
-      ext,
-      filename,
-      mimeType,
-      privateCache,
-      sizeBytes: asset.sizeBytes,
-      upstream,
-    });
-  }
 
-  if (!assetLookupFailed) {
     try {
       const blob = await fetchBlobAsset(
         request,
@@ -402,6 +411,11 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       console.error("[file] Blob fallback failed:", err);
     }
+
+    return new NextResponse("Blob fetch failed", {
+      status: 502,
+      headers: privateCache ? PRIVATE_FILE_DENIAL_HEADERS : undefined,
+    });
   }
 
   if (sessionUser) {
