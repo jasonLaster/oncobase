@@ -167,7 +167,7 @@ test.describe("P0 multi-site isolation", () => {
         }),
       });
     });
-    await page.route("**/api/ai-search", async (route) => {
+    await page.route("**/api/ai-search**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

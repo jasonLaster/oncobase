@@ -17,6 +17,22 @@ const scoreSchema = z.object({
 
 let openaiClient: OpenAI | null = null;
 
+type SearchScope = "public" | "session";
+
+function requestedSearchScope(request: Request): SearchScope {
+  return new URL(request.url).searchParams.get("scope") === "session"
+    ? "session"
+    : "public";
+}
+
+function searchHeaders(scope: SearchScope) {
+  return {
+    "Cache-Control": "private, no-store",
+    Vary: scope === "session" ? "Accept, Cookie, Host" : "Accept, Host",
+    "X-Wiki-Cache-Scope": scope,
+  };
+}
+
 function withSiteSlug<TArgs extends object>(siteSlug: string, args: TArgs): TArgs & { siteSlug: string } {
   return { ...args, siteSlug };
 }
@@ -118,12 +134,16 @@ export async function handleAiSearchRequest({
   includeSensitive: boolean;
   canAccessSlug?: (slug: string) => Promise<boolean>;
 }) {
+  const scope = requestedSearchScope(request);
+  const scopedIncludeSensitive = scope === "session" && includeSensitive;
+  const responseHeaders = searchHeaders(scope);
+
   if (request.method !== "POST") {
     return Response.json(
       { error: "Method not allowed" },
       {
         status: 405,
-        headers: { Allow: "POST" },
+        headers: { ...responseHeaders, Allow: "POST" },
       },
     );
   }
@@ -135,7 +155,7 @@ export async function handleAiSearchRequest({
     };
     const normalizedQuery = query?.trim() ?? "";
     if (!normalizedQuery) {
-      return Response.json({ results: [] });
+      return Response.json({ results: [] }, { headers: responseHeaders });
     }
 
     const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
@@ -150,13 +170,13 @@ export async function handleAiSearchRequest({
     const [textSlugs, semanticSlugs, diagnosisDoc] = await Promise.all([
       slugs.length > 0
         ? Promise.resolve(slugs)
-        : fallbackTextSlugs(client, siteSlug, normalizedQuery, includeSensitive),
-      vectorSlugs(client, siteSlug, normalizedQuery, includeSensitive),
+        : fallbackTextSlugs(client, siteSlug, normalizedQuery, scopedIncludeSensitive),
+      vectorSlugs(client, siteSlug, normalizedQuery, scopedIncludeSensitive),
       client.query(
         api.documents.getBySlug,
         withSiteSlug(siteSlug, {
           slug: "wiki/diagnostics/diagnosis",
-          includeSensitive,
+          includeSensitive: scopedIncludeSensitive,
         }),
       ),
     ]);
@@ -165,12 +185,12 @@ export async function handleAiSearchRequest({
       client,
       siteSlug,
       [...textSlugs, ...semanticSlugs],
-      includeSensitive,
+      scopedIncludeSensitive,
       canAccessSlug,
     );
 
     if (candidateDocs.length === 0) {
-      return Response.json({ results: [] });
+      return Response.json({ results: [] }, { headers: responseHeaders });
     }
 
     const visibleDiagnosisDoc =
@@ -248,19 +268,7 @@ Score this document's relevance to the query from 0 to 10. A score of 5+ means i
 
     return Response.json(
       { results },
-      {
-        headers: includeSensitive
-          ? {
-              "Cache-Control": "private, no-store",
-              Vary: "Accept, Cookie, Host",
-              "X-Wiki-Cache-Scope": "session",
-            }
-          : {
-              "Cache-Control": "private, no-store",
-              Vary: "Accept, Host",
-              "X-Wiki-Cache-Scope": "public",
-            },
-      },
+      { headers: responseHeaders },
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "AI search failed";
@@ -268,9 +276,12 @@ Score this document's relevance to the query from 0 to 10. A score of 5+ means i
     if (message.includes("limit") || message.includes("402") || message.includes("403")) {
       return Response.json(
         { results: [], error: "AI search quota or authorization failed." },
-        { status: 402 },
+        { status: 402, headers: responseHeaders },
       );
     }
-    return Response.json({ results: [], error: message }, { status: 500 });
+    return Response.json(
+      { results: [], error: message },
+      { status: 500, headers: responseHeaders },
+    );
   }
 }

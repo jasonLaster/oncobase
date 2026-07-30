@@ -72,7 +72,7 @@ test.describe("P0 PII parity", () => {
         }),
       });
     });
-    await page.route("**/api/ai-search", async (route) => {
+    await page.route("**/api/ai-search**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

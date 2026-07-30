@@ -6,6 +6,7 @@ import {
   markdownRemarkPlugins,
 } from "@oncobase/wiki-markdown";
 import { recordSearchMetric } from "../observability";
+import { useWikiScope } from "../wiki-context";
 import { hrefForSlug } from "../wiki-utils";
 import { wikiDocumentTitle } from "../document-title";
 
@@ -635,6 +636,7 @@ function AISearch({
 export function SearchPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const scope = useWikiScope();
   const query = params.get("q") ?? "";
   const returnTo = params.get("returnTo");
   const explicitModeParam = params.get("tab") ?? params.get("mode");
@@ -688,7 +690,8 @@ export function SearchPage() {
     setTextError(null);
 
     try {
-      const response = await fetch(`/api/search?q=${encodeURIComponent(normalized)}`);
+      const searchParams = new URLSearchParams({ q: normalized, scope });
+      const response = await fetch(`/api/search?${searchParams}`);
       const body = await readJsonBody<{ results?: TextSearchResult[]; error?: string }>(response);
       if (body.error) throw new Error(body.error);
       if (!response.ok) {
@@ -717,7 +720,7 @@ export function SearchPage() {
         status: "error",
       });
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     void runTextSearch(query);
@@ -737,7 +740,7 @@ export function SearchPage() {
     let cancelled = false;
     setAiStatus("loading");
 
-    fetch("/api/ai-search", {
+    fetch(`/api/ai-search?scope=${encodeURIComponent(scope)}`, {
       body: JSON.stringify({ query: normalized, slugs }),
       headers: { "Content-Type": "application/json" },
       method: "POST",
@@ -782,7 +785,7 @@ export function SearchPage() {
     // Slugs come from the slower text-search path. AI mode should begin
     // immediately and not refetch when those candidates arrive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
+  }, [query, scope]);
 
   function onResultsKeyDown(event: KeyboardEvent<HTMLElement>) {
     const activeResults = mode === "ai" ? aiResults : textResults;

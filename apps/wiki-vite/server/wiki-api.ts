@@ -1734,6 +1734,24 @@ async function handleSearchRequest(
   siteSlug: string,
 ) {
   const url = new URL(request.url);
+  const scope = url.searchParams.get("scope") === "session" ? "session" : "public";
+  const sessionUser = scope === "session"
+    ? await getSessionUser(request, client, siteSlug)
+    : null;
+  if (scope === "session" && !sessionUser) {
+    return Response.json(
+      { error: "Session scope requires a signed-in wiki session" },
+      {
+        status: 401,
+        headers: {
+          "Cache-Control": "private, no-store",
+          Vary: "Accept, Cookie, Host",
+          "X-Wiki-Cache-Scope": "session",
+        },
+      },
+    );
+  }
+
   const query = (url.searchParams.get("q") ?? "").trim();
   const limitParam = url.searchParams.get("limit");
   const rawLimit = limitParam == null ? Number.POSITIVE_INFINITY : Number(limitParam);
@@ -1741,21 +1759,26 @@ async function handleSearchRequest(
     ? Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.floor(rawLimit)))
     : Number.POSITIVE_INFINITY;
 
+  const responseHeaders = scope === "session"
+    ? {
+        "Cache-Control": "private, max-age=30, stale-while-revalidate=300",
+        Vary: "Accept, Cookie, Host",
+        "X-Wiki-Cache-Scope": "session",
+      }
+    : {
+        "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
+        Vary: "Accept, Host",
+        "X-Wiki-Cache-Scope": "public",
+      };
+
   if (query.length < 2) {
     return Response.json(
       { results: [] },
-      {
-        headers: {
-          "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
-          Vary: "Accept, Host",
-          "X-Wiki-Cache-Scope": "public",
-        },
-      },
+      { headers: responseHeaders },
     );
   }
 
-  const sessionUser = await getSessionUser(request, client, siteSlug);
-  const includeSensitive = Boolean(sessionUser);
+  const includeSensitive = scope === "session" && Boolean(sessionUser);
   const patterns = await getPiiPatterns(client, siteSlug);
   const regex = new RegExp(escapeSearchRegex(query), "gi");
   const results: Array<{
@@ -1827,19 +1850,7 @@ async function handleSearchRequest(
 
   return Response.json(
     { results: limitedResults },
-    {
-      headers: includeSensitive
-        ? {
-            "Cache-Control": "private, max-age=30, stale-while-revalidate=300",
-            Vary: "Accept, Cookie, Host",
-            "X-Wiki-Cache-Scope": "session",
-          }
-        : {
-            "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
-            Vary: "Accept, Host",
-            "X-Wiki-Cache-Scope": "public",
-          },
-    },
+    { headers: responseHeaders },
   );
 }
 
@@ -2895,12 +2906,30 @@ export function createWikiApiHandler(client = createClient()) {
     }
 
     if (pathname === "/api/ai-search") {
-      const sessionUser = await getSessionUser(request, client, siteSlug);
+      const scope = new URL(request.url).searchParams.get("scope") === "session"
+        ? "session"
+        : "public";
+      const sessionUser = scope === "session"
+        ? await getSessionUser(request, client, siteSlug)
+        : null;
+      if (request.method === "POST" && scope === "session" && !sessionUser) {
+        return Response.json(
+          { error: "Session scope requires a signed-in wiki session" },
+          {
+            status: 401,
+            headers: {
+              "Cache-Control": "private, no-store",
+              Vary: "Accept, Cookie, Host",
+              "X-Wiki-Cache-Scope": "session",
+            },
+          },
+        );
+      }
       return handleAiSearchRequest({
         request,
         client,
         siteSlug,
-        includeSensitive: Boolean(sessionUser),
+        includeSensitive: scope === "session" && Boolean(sessionUser),
         canAccessSlug: (slug) => canUserAccessSlug(client, siteSlug, sessionUser, slug),
       });
     }

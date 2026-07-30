@@ -50,13 +50,26 @@ async function mockTextSearch(
     status = 200,
   }: MockSearchOptions = {},
 ) {
-  await page.route("**/api/search?**", (route) =>
-    route.fulfill({
+  const requests: Array<{ cookie: string | undefined; url: string }> = [];
+
+  await page.route("**/api/search?**", (route) => {
+    requests.push({
+      cookie: route.request().headers()["cookie"],
+      url: route.request().url(),
+    });
+    return route.fulfill({
       body: typeof body === "string" ? body : JSON.stringify(body),
       contentType,
       status,
-    }),
-  );
+    });
+  });
+
+  return {
+    requests,
+    async waitForRequest() {
+      await expect.poll(() => requests.length, { timeout: 60_000 }).toBeGreaterThan(0);
+    },
+  };
 }
 
 async function mockAISearch(
@@ -67,10 +80,13 @@ async function mockAISearch(
     status = 200,
   }: MockSearchOptions = {},
 ) {
-  let calls = 0;
+  const requests: Array<{ cookie: string | undefined; url: string }> = [];
 
-  await page.route("**/api/ai-search", (route) => {
-    calls += 1;
+  await page.route("**/api/ai-search**", (route) => {
+    requests.push({
+      cookie: route.request().headers()["cookie"],
+      url: route.request().url(),
+    });
     return route.fulfill({
       body: typeof body === "string" ? body : JSON.stringify(body),
       contentType,
@@ -80,8 +96,9 @@ async function mockAISearch(
   });
 
   return {
+    requests,
     async waitForRequest() {
-      await expect.poll(() => calls, { timeout: 60_000 }).toBeGreaterThan(0);
+      await expect.poll(() => requests.length, { timeout: 60_000 }).toBeGreaterThan(0);
     },
   };
 }
@@ -168,6 +185,37 @@ test.describe("Search and local page finding", () => {
     );
     await expect(searchInput).toHaveValue(SEARCH_QUERY);
   });
+
+  for (const scope of ["public", "session"] as const) {
+    test(`text and AI requests preserve ${scope} reader scope with an auth cookie`, async ({
+      baseURL,
+      context,
+      page,
+    }) => {
+      await context.addCookies([
+        {
+          name: "wiki_user_session",
+          value: "valid-e2e-session",
+          url: baseURL!,
+        },
+      ]);
+      const textSearch = await mockTextSearch(page);
+      const aiSearch = await mockAISearch(page);
+      await installWikiApiMocks(page, { sessionAuthenticated: true });
+      await page.goto(`/search?q=${SEARCH_QUERY}&scope=${scope}`, {
+        waitUntil: "domcontentloaded",
+      });
+
+      await Promise.all([textSearch.waitForRequest(), aiSearch.waitForRequest()]);
+      for (const apiRequest of [
+        textSearch.requests.at(-1)!,
+        aiSearch.requests.at(-1)!,
+      ]) {
+        expect(new URL(apiRequest.url).searchParams.get("scope")).toBe(scope);
+        expect(apiRequest.cookie).toContain("wiki_user_session=valid-e2e-session");
+      }
+    });
+  }
 
   test("mobile search header matches the compact production controls", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });

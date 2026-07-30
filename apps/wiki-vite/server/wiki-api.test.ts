@@ -273,6 +273,113 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     });
   });
 
+  test("keeps text and AI search in the explicit reader scope", async () => {
+    const handler = createWikiApiHandler(createFakeConvexClient() as never);
+    const signup = await handler(
+      request("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "search-reader@example.com",
+          password: "correct horse battery",
+        }),
+      }),
+    );
+    const cookie = cookieFrom(signup!);
+
+    const publicText = await handler(
+      request("/api/search?q=sensitive&scope=public", {
+        headers: { Cookie: cookie },
+      }),
+    );
+    expect(publicText?.status).toBe(200);
+    expect(publicText!.headers.get("x-wiki-cache-scope")).toBe("public");
+    expect(publicText!.headers.get("cache-control")).toContain("public");
+    expect(publicText!.headers.get("vary")).not.toContain("Cookie");
+    expect(await publicText!.json()).toEqual({ results: [] });
+
+    const defaultText = await handler(
+      request("/api/search?q=sensitive", {
+        headers: { Cookie: cookie },
+      }),
+    );
+    expect(defaultText?.status).toBe(200);
+    expect(defaultText!.headers.get("x-wiki-cache-scope")).toBe("public");
+    expect(await defaultText!.json()).toEqual({ results: [] });
+
+    const sessionText = await handler(
+      request("/api/search?q=sensitive&scope=session", {
+        headers: { Cookie: cookie },
+      }),
+    );
+    expect(sessionText?.status).toBe(200);
+    expect(sessionText!.headers.get("x-wiki-cache-scope")).toBe("session");
+    expect(sessionText!.headers.get("cache-control")).toContain("private");
+    expect(sessionText!.headers.get("vary")).toContain("Cookie");
+    expect(await sessionText!.json()).toEqual({
+      results: [
+        expect.objectContaining({
+          slug: "private/plan",
+          matches: [
+            expect.objectContaining({
+              lineContent: expect.stringContaining("Sensitive note"),
+            }),
+          ],
+        }),
+      ],
+    });
+
+    const unauthorizedText = await handler(
+      request("/api/search?q=sensitive&scope=session"),
+    );
+    expect(unauthorizedText?.status).toBe(401);
+    expect(unauthorizedText!.headers.get("cache-control")).toBe("private, no-store");
+    expect(unauthorizedText!.headers.get("x-wiki-cache-scope")).toBe("session");
+
+    const publicAi = await handler(
+      request("/api/ai-search?scope=public", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: cookie,
+        },
+        body: JSON.stringify({ query: "" }),
+      }),
+    );
+    expect(publicAi?.status).toBe(200);
+    expect(publicAi!.headers.get("x-wiki-cache-scope")).toBe("public");
+    expect(publicAi!.headers.get("cache-control")).toBe("private, no-store");
+    expect(publicAi!.headers.get("vary")).not.toContain("Cookie");
+    expect(await publicAi!.json()).toEqual({ results: [] });
+
+    const sessionAi = await handler(
+      request("/api/ai-search?scope=session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: cookie,
+        },
+        body: JSON.stringify({ query: "" }),
+      }),
+    );
+    expect(sessionAi?.status).toBe(200);
+    expect(sessionAi!.headers.get("x-wiki-cache-scope")).toBe("session");
+    expect(sessionAi!.headers.get("cache-control")).toBe("private, no-store");
+    expect(sessionAi!.headers.get("vary")).toContain("Cookie");
+    expect(await sessionAi!.json()).toEqual({ results: [] });
+
+    const unauthorizedAi = await handler(
+      request("/api/ai-search?scope=session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: "" }),
+      }),
+    );
+    expect(unauthorizedAi?.status).toBe(401);
+    expect(unauthorizedAi!.headers.get("cache-control")).toBe("private, no-store");
+    expect(unauthorizedAi!.headers.get("x-wiki-cache-scope")).toBe("session");
+  });
+
   test("keeps password-login redirects and responses out of shared caches", async () => {
     const handler = createWikiApiHandler(createFakeConvexClient() as never);
 
