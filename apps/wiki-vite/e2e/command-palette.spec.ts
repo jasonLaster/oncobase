@@ -131,9 +131,21 @@ test.describe("Command palette parity", () => {
     const desktopBox = await page.getByTestId("command-palette").boundingBox();
     const desktopListBox = await page.locator("#page-palette-list").boundingBox();
     const desktopSelectedBox = await page.getByRole("option").first().boundingBox();
+    const desktopInputBox = await page.getByTestId("command-palette-input").boundingBox();
+    const desktopIconBox = await page
+      .getByRole("option")
+      .first()
+      .locator(".wiki-shell-file-palette-icon svg")
+      .boundingBox();
+    const desktopTitleBox = await page.getByRole("option").first().locator("strong").boundingBox();
+    const desktopPathBox = await page.getByRole("option").first().locator("small").boundingBox();
     expect(desktopBox).not.toBeNull();
     expect(desktopListBox).not.toBeNull();
     expect(desktopSelectedBox).not.toBeNull();
+    expect(desktopInputBox).not.toBeNull();
+    expect(desktopIconBox).not.toBeNull();
+    expect(desktopTitleBox).not.toBeNull();
+    expect(desktopPathBox).not.toBeNull();
     expect(desktopBox!.width).toBe(576);
     expect(desktopBox!.height).toBe(356);
     expect(Math.abs(desktopBox!.x - (page.viewportSize()!.width - desktopBox!.width) / 2))
@@ -144,6 +156,22 @@ test.describe("Command palette parity", () => {
     expect(desktopSelectedBox!.x - desktopBox!.x).toBe(12);
     expect(desktopSelectedBox!.y - desktopBox!.y).toBe(96);
     expect(desktopSelectedBox!.width).toBe(552);
+    expect(desktopInputBox!.x - desktopBox!.x).toBe(25);
+    expect(desktopInputBox!.width).toBe(510);
+    expect(desktopInputBox!.height).toBe(36);
+    expect(desktopIconBox!.x - desktopSelectedBox!.x).toBe(8);
+    expect(desktopIconBox!.y - desktopSelectedBox!.y).toBe(10);
+    expect(desktopIconBox!.width).toBe(16);
+    expect(desktopIconBox!.height).toBe(16);
+    expect(desktopTitleBox!.x - desktopSelectedBox!.x).toBe(40);
+    expect(desktopTitleBox!.y - desktopSelectedBox!.y).toBe(10);
+    expect(desktopTitleBox!.height).toBe(20);
+    expect(desktopPathBox!.x - desktopSelectedBox!.x).toBe(40);
+    expect(desktopPathBox!.y - desktopSelectedBox!.y).toBe(30);
+    expect(desktopPathBox!.height).toBe(16);
+    await expect(page.getByTestId("command-palette-input")).toHaveCSS("line-height", "20px");
+    await expect(page.getByRole("option").first()).toHaveCSS("border-radius", "10px");
+    await expect(page.getByRole("option").first()).toHaveCSS("padding", "8px");
     expect(
       await page.locator("#page-palette-list").evaluate((element) => ({
         clientWidth: element.clientWidth,

@@ -431,7 +431,7 @@ export function CommandPalette({
         onOpenChange={onOpenChange}
         onSelectPage={openPage}
         open={open}
-        pageIcon={<FileTextIcon size={15} aria-hidden="true" />}
+        pageIcon={<FileTextIcon size={16} aria-hidden="true" />}
         pages={filePalettePages}
         recentSlugs={recentSlugs}
         searchIcon={<SearchIcon size={16} aria-hidden="true" />}

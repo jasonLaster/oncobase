@@ -1469,6 +1469,7 @@ html[data-initial-sidebar-state="collapsed"]
   flex: 1 1 auto;
   font: inherit;
   font-size: 0.875rem;
+  line-height: 1.25rem;
   min-width: 0;
   outline: 0;
   padding: 0.5rem 0.25rem;
@@ -1572,12 +1573,20 @@ html[data-initial-sidebar-state="collapsed"]
 }
 
 .wiki-shell-file-palette .wiki-shell-file-palette-item {
+  border-radius: 0.625rem;
+  gap: 1rem;
+  grid-template-columns: 1rem minmax(0, 1fr);
   height: 3.5rem;
   left: 0;
   min-height: 3.5rem;
+  padding: 0.5rem;
   position: absolute;
   top: 0;
   width: 100%;
+}
+
+.wiki-shell-file-palette .wiki-shell-command-search {
+  padding-left: 0.75rem;
 }
 
 .wiki-shell-file-palette-icon {
@@ -1587,6 +1596,19 @@ html[data-initial-sidebar-state="collapsed"]
   flex: 0 0 auto;
   margin-top: 0.125rem;
   opacity: 0.7;
+}
+
+.wiki-shell-file-palette-icon svg {
+  height: 1rem;
+  width: 1rem;
+}
+
+.wiki-shell-file-palette .wiki-shell-command-item-text strong {
+  line-height: 1.25rem;
+}
+
+.wiki-shell-file-palette .wiki-shell-command-item-text small {
+  line-height: 1rem;
 }
 
 .wiki-shell-command-list button,
@@ -1611,6 +1633,10 @@ html[data-initial-sidebar-state="collapsed"]
 .wiki-shell-command-list button[style],
 .wiki-shell-command-item[style] {
   padding-left: calc(10px + (var(--outline-depth) * 12px));
+}
+
+.wiki-shell-file-palette .wiki-shell-file-palette-item[style] {
+  padding-left: 0.5rem;
 }
 
 .wiki-shell-command-list button:hover,
