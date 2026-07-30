@@ -401,6 +401,26 @@ function contentDisposition(ext: string, filename: string) {
   return `${disposition}; filename="${filename}"`;
 }
 
+const PRIVATE_FILE_DENIAL_HEADERS = {
+  "Cache-Control": "private, no-store",
+  Vary: "Accept, Cookie, Host, Range",
+};
+
+function privateFileNotFound() {
+  return new Response("File not found", {
+    status: 404,
+    headers: PRIVATE_FILE_DENIAL_HEADERS,
+  });
+}
+
+function isStoredFileAssetSensitive(
+  asset: { sensitive?: boolean } | null | undefined,
+  siblingDocument: { sensitive?: boolean } | null | undefined,
+) {
+  if (asset?.sensitive !== undefined) return asset.sensitive;
+  return siblingDocument?.sensitive === true;
+}
+
 function markdownFilename(slug: string) {
   const basename = slug.split("/").filter(Boolean).at(-1) || "index";
   return `${basename.replace(/[^a-z0-9._-]+/gi, "-")}.md`;
@@ -926,45 +946,82 @@ async function handleFileRequest(
   const mimeType = getMimeType(normalized);
   if (!mimeType) return new Response("File type not supported", { status: 400 });
 
-  const sessionUser = await getSessionUser(request, client, siteSlug);
-  const siblingDoc = await client.query(
-    api.documents.getBySlug,
-    withSiteSlug(siteSlug, { slug: assetPathToSiblingSlug(normalized), includeSensitive: true }),
-  );
-  const includeSensitive = Boolean(
-    sessionUser &&
-      siblingDoc?.sensitive === true &&
-      (await canUserAccessSlug(client, siteSlug, sessionUser, siblingDoc.slug)),
-  );
-  if (siblingDoc?.sensitive && !includeSensitive) {
-    return new Response("File not found", { status: 404 });
-  }
-
   const ext = path.extname(normalized).toLowerCase();
   const filename = path.basename(normalized);
-  const asset = await client.query(
-    ext === ".pdf" ? api.documents.getPdfAssetByPath : api.documents.getFileAssetByPath,
-    withSiteSlug(
-      siteSlug,
-      includeSensitive
-        ? { path: normalized, includeSensitive: true }
-        : { path: normalized },
-    ),
-  );
+  const [sessionUser, hasPasswordSession] = await Promise.all([
+    getSessionUser(request, client, siteSlug),
+    hasValidAuthCookie(request, siteSlug),
+  ]);
 
-  if (!asset?.blobUrl) return new Response("File not found", { status: 404 });
+  let siblingDoc;
+  let asset;
+  try {
+    [siblingDoc, asset] = await Promise.all([
+      client.query(
+        api.documents.getBySlug,
+        withSiteSlug(siteSlug, {
+          slug: assetPathToSiblingSlug(normalized),
+          includeSensitive: true,
+        }),
+      ),
+      client.query(
+        ext === ".pdf"
+          ? api.documents.getPdfAssetByPath
+          : api.documents.getFileAssetByPath,
+        withSiteSlug(siteSlug, {
+          path: normalized,
+          includeSensitive: true,
+        }),
+      ),
+    ]);
+  } catch (error) {
+    console.error("[file] Convex lookup failed:", error);
+    return privateFileNotFound();
+  }
+
+  if (!asset?.blobUrl) return privateFileNotFound();
+
+  const assetIsSensitive = isStoredFileAssetSensitive(asset, siblingDoc);
+  if (assetIsSensitive) {
+    const ownerSlugs = Array.from(
+      new Set([
+        ...(asset.ownerSlugs ?? []),
+        ...(siblingDoc?.slug ? [siblingDoc.slug] : []),
+      ]),
+    );
+    const canAccessEveryOwner = Boolean(
+      sessionUser &&
+        ownerSlugs.length > 0 &&
+        (
+          await Promise.all(
+            ownerSlugs.map((slug) =>
+              canUserAccessSlug(client, siteSlug, sessionUser, slug),
+            ),
+          )
+        ).every(Boolean),
+    );
+    if (!canAccessEveryOwner) return privateFileNotFound();
+  }
+
   const upstream = await fetch(asset.blobUrl, {
     headers: blobRequestHeaders(request),
   });
-  if (!upstream.ok) return new Response("Blob fetch failed", { status: 502 });
+  if (!upstream.ok && upstream.status !== 416) {
+    return new Response("Blob fetch failed", {
+      status: 502,
+      headers: hasPasswordSession || sessionUser
+        ? PRIVATE_FILE_DENIAL_HEADERS
+        : undefined,
+    });
+  }
 
-  const cacheScope = includeSensitive ? "session" : "public";
+  const cacheScope = assetIsSensitive ? "session" : "public";
   // Cache privacy mirrors apps/web: any password-gated or signed-in request
   // gets a private response varying on Cookie, independent of RBAC scope.
   const privateCache =
-    includeSensitive ||
+    assetIsSensitive ||
     Boolean(sessionUser) ||
-    await hasValidAuthCookie(request, siteSlug);
+    hasPasswordSession;
   const headers = new Headers({
       "Content-Type": mimeType,
       "Content-Disposition": contentDisposition(ext, filename),

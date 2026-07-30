@@ -31,7 +31,9 @@ type FakePage = {
 
 type FakeAsset = {
   blobUrl: string;
+  ownerSlugs?: string[];
   path: string;
+  sensitive?: boolean;
   sizeBytes?: number;
 };
 
@@ -50,7 +52,30 @@ function cookieFrom(response: Response) {
   return cookie!;
 }
 
-function createFakeConvexClient() {
+async function signupCookie(
+  handler: ReturnType<typeof createWikiApiHandler>,
+  email: string,
+) {
+  const signup = await handler(
+    request("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        password: "correct horse battery",
+      }),
+    }),
+  );
+  expect(signup?.status).toBe(200);
+  return cookieFrom(signup!);
+}
+
+function createFakeConvexClient({
+  deniedSlugs = [],
+}: {
+  deniedSlugs?: string[];
+} = {}) {
+  const deniedSlugSet = new Set(deniedSlugs);
   const users = new Map<string, FakeUser>();
   const sessions = new Map<string, FakeSession>();
   const pages: FakePage[] = [
@@ -67,12 +92,33 @@ function createFakeConvexClient() {
       content: "# Private Plan\n\nSensitive note for Diana Laster and MRN 88855655.",
       sensitive: true,
     },
+    {
+      slug: "private/shared",
+      title: "Shared owner",
+      tags: ["private"],
+      content: "# Shared owner",
+      sensitive: true,
+    },
   ];
   const assets: FakeAsset[] = [
     {
       path: "sources/public/source.pdf",
       blobUrl: "https://blob.example/source.pdf",
       sizeBytes: 9,
+    },
+    {
+      path: "private/images/scan.png",
+      blobUrl: "https://blob.example/private-scan.png",
+      ownerSlugs: ["private/plan"],
+      sensitive: true,
+      sizeBytes: 7,
+    },
+    {
+      path: "private/plan.pdf",
+      blobUrl: "https://blob.example/private-plan.pdf",
+      ownerSlugs: ["private/plan", "private/shared"],
+      sensitive: true,
+      sizeBytes: 7,
     },
   ];
 
@@ -171,7 +217,7 @@ function createFakeConvexClient() {
           };
         }
         case "access:canUserAccessSlug":
-          return true;
+          return !deniedSlugSet.has(String(args.slug));
         case "access:filterAccessibleSlugs":
           return (args.slugs as string[]).map((slug) => ({
             slug,
@@ -205,8 +251,15 @@ function createFakeConvexClient() {
         case "documents:getBySlug":
           return pages.find((page) => page.slug === args.slug) ?? null;
         case "documents:getPdfAssetByPath":
-        case "documents:getFileAssetByPath":
-          return assets.find((asset) => asset.path === args.path) ?? null;
+        case "documents:getFileAssetByPath": {
+          const asset = assets.find((candidate) => candidate.path === args.path);
+          if (!asset) return null;
+          const siblingSlug = asset.path.replace(/\.[^/.]+$/, "");
+          const sibling = pages.find((page) => page.slug === siblingSlug);
+          const sensitive = asset.sensitive ?? sibling?.sensitive === true;
+          if (sensitive && args.includeSensitive !== true) return null;
+          return asset;
+        }
         default:
           throw new Error(`Unexpected query ${getFunctionName(ref)}`);
       }
@@ -518,6 +571,147 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(Object.keys(sessionFullZip.files)).toContain("private/plan.zip");
   });
 
+  test("serves a nested sensitive asset when the signed-in user can access every owner", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchCalls: RequestInfo[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchCalls.push(input as RequestInfo);
+      return new Response("private", {
+        headers: { "Content-Length": "7" },
+      });
+    }) as typeof fetch;
+
+    try {
+      const handler = createWikiApiHandler(createFakeConvexClient() as never);
+      const cookie = await signupCookie(
+        handler,
+        "nested-owner@example.com",
+      );
+      const response = await handler(
+        request("/api/file?path=private%2Fimages%2Fscan.png", {
+          headers: { Cookie: cookie },
+        }),
+      );
+
+      expect(response?.status).toBe(200);
+      expect(response!.headers.get("cache-control")).toContain("private");
+      expect(response!.headers.get("x-wiki-cache-scope")).toBe("session");
+      expect(response!.headers.get("vary")).toContain("Cookie");
+      expect(fetchCalls).toEqual(["https://blob.example/private-scan.png"]);
+      expect(await response!.text()).toBe("private");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("rejects a sensitive asset when the signed-in user lacks any recorded owner", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchCalls: RequestInfo[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchCalls.push(input as RequestInfo);
+      return new Response("private");
+    }) as typeof fetch;
+
+    try {
+      const handler = createWikiApiHandler(
+        createFakeConvexClient({
+          deniedSlugs: ["private/shared"],
+        }) as never,
+      );
+      const cookie = await signupCookie(
+        handler,
+        "partial-owner@example.com",
+      );
+      const response = await handler(
+        request("/api/file?path=private%2Fplan.pdf", {
+          headers: { Cookie: cookie },
+        }),
+      );
+
+      expect(response?.status).toBe(404);
+      expect(response!.headers.get("cache-control")).toBe(
+        "private, no-store",
+      );
+      expect(response!.headers.get("vary")).toContain("Cookie");
+      expect(fetchCalls).toEqual([]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("denies gate-only sensitive assets while keeping gated public files private", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchCalls: RequestInfo[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchCalls.push(input as RequestInfo);
+      return new Response("public", {
+        headers: { "Content-Length": "6" },
+      });
+    }) as typeof fetch;
+
+    try {
+      const handler = createWikiApiHandler(createFakeConvexClient() as never);
+      const login = await handler(
+        request("/api/login?token=diana&redirect=%2F"),
+      );
+      const gateCookie = cookieFrom(login!);
+
+      const sensitive = await handler(
+        request("/api/file?path=private%2Fimages%2Fscan.png", {
+          headers: { Cookie: gateCookie },
+        }),
+      );
+      expect(sensitive?.status).toBe(404);
+      expect(sensitive!.headers.get("cache-control")).toBe(
+        "private, no-store",
+      );
+      expect(sensitive!.headers.get("vary")).toContain("Cookie");
+      expect(fetchCalls).toEqual([]);
+
+      const publicFile = await handler(
+        request("/api/file?path=sources%2Fpublic%2Fsource.pdf", {
+          headers: { Cookie: gateCookie },
+        }),
+      );
+      expect(publicFile?.status).toBe(200);
+      expect(publicFile!.headers.get("cache-control")).toContain("private");
+      expect(publicFile!.headers.get("x-wiki-cache-scope")).toBe("public");
+      expect(fetchCalls).toEqual(["https://blob.example/source.pdf"]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("does not fetch a tombstoned or unknown asset", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchCalls: RequestInfo[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchCalls.push(input as RequestInfo);
+      return new Response("unexpected");
+    }) as typeof fetch;
+
+    try {
+      const handler = createWikiApiHandler(createFakeConvexClient() as never);
+      const cookie = await signupCookie(
+        handler,
+        "missing-asset@example.com",
+      );
+      const response = await handler(
+        request("/api/file?path=deleted%2Fscan.png", {
+          headers: { Cookie: cookie },
+        }),
+      );
+
+      expect(response?.status).toBe(404);
+      expect(response!.headers.get("cache-control")).toBe(
+        "private, no-store",
+      );
+      expect(fetchCalls).toEqual([]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test("passes Range through /api/file and streams 206 responses", async () => {
     const originalFetch = globalThis.fetch;
     const fetchCalls: RequestInfo[] = [];
@@ -548,6 +742,34 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       expect(response!.headers.get("content-range")).toBe("bytes 0-3/9");
       expect(response!.headers.get("content-length")).toBe("4");
       expect(await response!.text()).toBe("abcd");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("preserves an upstream 416 response and range metadata", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(new Headers(init?.headers).get("Range")).toBe("bytes=99-100");
+      return new Response(null, {
+        status: 416,
+        headers: {
+          "Content-Range": "bytes */9",
+        },
+      });
+    }) as typeof fetch;
+
+    try {
+      const handler = createWikiApiHandler(createFakeConvexClient() as never);
+      const response = await handler(
+        request("/api/file?path=sources/public/source.pdf", {
+          headers: { Range: "bytes=99-100" },
+        }),
+      );
+
+      expect(response?.status).toBe(416);
+      expect(response!.headers.get("content-range")).toBe("bytes */9");
+      expect(response!.headers.get("x-wiki-cache-scope")).toBe("public");
     } finally {
       globalThis.fetch = originalFetch;
     }
