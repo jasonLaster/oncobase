@@ -277,8 +277,11 @@ test.describe("production page metadata", () => {
     expect(readMetaContent(search, "twitter:title")).toBe("TNBC Knowledge Base");
     expect(readMetaContent(search, "twitter:description")).toBe(DEFAULT_DESCRIPTION);
 
-    const login = await getHtml(request, "/login");
-    expect(readTitle(login)).toBe("TNBC Knowledge Base");
-    expect(readMetaContent(login, "og:title")).toBe("TNBC Knowledge Base");
+    const login = await request.get("/login", { maxRedirects: 0 });
+    expect(login.status()).toBe(302);
+    expect(login.headers().location).toMatch(/\/$/);
+    expect(login.headers()["cache-control"]).toBe("private, no-store");
+    expect(login.headers().vary).toContain("Cookie");
+    expect(login.headers().vary).toContain("Host");
   });
 });
