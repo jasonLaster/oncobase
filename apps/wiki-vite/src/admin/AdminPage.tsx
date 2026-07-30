@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router";
+import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import {
   classifyPage,
   listToText,
@@ -8,6 +9,7 @@ import {
   type PreviewPage,
   type RoleRules,
 } from "./access-rule-utils";
+import { useWikiViteAuth } from "../shell/Header";
 
 type AccessRole = RoleRules & {
   _id: string;
@@ -79,8 +81,22 @@ function useAccessData(view: "pages" | "users") {
 }
 
 export function AdminPage() {
+  const { sessionLoading, sessionUser } = useWikiViteAuth();
   const location = useLocation();
   const path = location.pathname;
+
+  if (sessionLoading) {
+    return (
+      <article
+        className="page-shell page-shell-loading"
+        data-test-id="admin-loading"
+      >
+        <WikiPageLoading includeTags={false} label="Loading admin" />
+      </article>
+    );
+  }
+  if (!sessionUser?.isAdmin) return <Navigate to="/" replace />;
+
   if (path === "/access" || path === "/admin/access") return <Navigate to="/admin/users" replace />;
   if (path === "/admin/users") return <AdminUsersPage />;
   if (path === "/admin/roles") return <AdminRolesPage />;

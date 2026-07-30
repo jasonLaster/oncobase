@@ -46,6 +46,36 @@ test.describe("Route-owned metadata and links", () => {
     await expect(page.getByTestId("wiki-sidebar")).toHaveCount(0);
   });
 
+  test("signed-out readers cannot render the admin landing route", async ({
+    page,
+  }) => {
+    await page.goto("/admin");
+
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("heading", { name: "Admin" })).toHaveCount(0);
+  });
+
+  test("admin readers can render the admin landing route", async ({ page }) => {
+    await page.route("**/api/auth/session", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            email: "admin@example.test",
+            isAdmin: true,
+            name: "Admin Example",
+          },
+        }),
+      });
+    });
+
+    await page.goto("/admin");
+
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
+  });
+
   test("bracketed redacted labels preserve mail and telephone protocol links", async ({
     page,
   }) => {
