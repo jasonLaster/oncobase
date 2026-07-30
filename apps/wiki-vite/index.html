@@ -21,7 +21,49 @@
     </script>
   </head>
   <body>
+    <div id="wiki-first-frame-snapshot" hidden></div>
     <div id="root"></div>
+    <script>
+      (function () {
+        try {
+          var url = new URL(window.location.href);
+          var requestedScope = url.searchParams.get("scope");
+          var scope =
+            requestedScope === "public" || requestedScope === "session"
+              ? requestedScope
+              : localStorage.getItem("wiki-vite-scope") === "session"
+                ? "session"
+                : "public";
+          if (scope !== "public") return;
+
+          // Keep this token aligned with WIKI_READER_CACHE_VERSION. A schema
+          // bump must never paint markup from an incompatible reader.
+          var key =
+            "wiki-vite:first-frame:reader-v4:" +
+            window.location.origin;
+          var serialized = localStorage.getItem(key);
+          if (!serialized) return;
+          var snapshot = JSON.parse(serialized);
+          if (
+            snapshot.pathname !== window.location.pathname ||
+            typeof snapshot.title !== "string" ||
+            typeof snapshot.html !== "string" ||
+            snapshot.html.indexOf('data-test-id="document-article"') === -1 ||
+            snapshot.html.indexOf('data-test-id="wiki-sidebar"') === -1 ||
+            snapshot.html.indexOf("<h1") === -1
+          ) {
+            return;
+          }
+          var host = document.getElementById("wiki-first-frame-snapshot");
+          host.innerHTML = snapshot.html;
+          host.hidden = false;
+          document.title = snapshot.title;
+          document.documentElement.dataset.wikiFirstFrame = "true";
+        } catch (error) {
+          // localStorage may be disabled or contain a partially-written value.
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

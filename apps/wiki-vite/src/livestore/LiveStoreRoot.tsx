@@ -23,6 +23,7 @@ import {
   isCurrentReaderHydrated,
   retirePreviousReaderStore,
 } from "./cache-retirement";
+import { FirstFrameSnapshotSync } from "./FirstFrameSnapshot";
 import { readDevtoolsFooterVisible, readLiveStoreDevtoolsEnabled } from "./devtools";
 import LiveStoreWorker from "./livestore.worker?worker";
 import { schema } from "./schema";
@@ -187,6 +188,7 @@ export function LiveStoreRoot({
           <WikiScopeProvider scope={scope}>
             <BrowserRouter>
               <PreviousCacheRetirement identity={identity} scope={scope} />
+              <FirstFrameSnapshotSync identity={identity} scope={scope} />
               <App
                 devtoolsFooterVisible={devtoolsFooterVisible}
                 liveStoreDevtoolsEnabled={liveStoreDevtoolsEnabled}

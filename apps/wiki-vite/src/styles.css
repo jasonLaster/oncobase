@@ -1,5 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+
+#wiki-first-frame-snapshot[hidden] {
+  display: none;
+}
+
+html[data-wiki-first-frame="true"] #root {
+  visibility: hidden;
+}
 @import "shadcn/tailwind.css";
 @import "@oncobase/smart-table/styles.css";
 @import "@oncobase/diagnostics/imaging/styles.css";

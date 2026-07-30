@@ -131,4 +131,60 @@ test.describe("durable manifest refresh", () => {
       page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" }),
     ).toBeVisible();
   });
+
+  test("paints the persisted public page and navigation before a delayed refresh", async ({
+    page,
+  }) => {
+    const requests = await installWikiApiMocks(page, {
+      pageOverrides: {
+        [slug]: { content: "# Insurance\n\nOLD FIRST FRAME remains visible." },
+      },
+    });
+    await gotoWiki(page, `/${slug}`);
+    await expect(documentArticle(page)).toContainText("OLD FIRST FRAME");
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Object.keys(localStorage).some((key) =>
+            key.startsWith("wiki-vite:first-frame:reader-v4:"),
+          ),
+        ),
+      )
+      .toBe(true);
+
+    requests.setPageOverride(slug, {
+      content: "# Insurance\n\nNEW FIRST FRAME arrived after refresh.",
+    });
+    requests.setManifestDelay(2_000);
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const firstFrame = page.locator("#wiki-first-frame-snapshot");
+    await expect(firstFrame).toBeVisible({ timeout: 250 });
+    await expect(firstFrame.getByTestId("document-article")).toContainText(
+      "OLD FIRST FRAME",
+      { timeout: 250 },
+    );
+    await expect(firstFrame.getByTestId("wiki-sidebar")).toContainText(
+      "insurance",
+      { timeout: 250 },
+    );
+    await expect(page).toHaveTitle("Insurance - Diana Wiki", { timeout: 250 });
+
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.documentElement.dataset.wikiFirstFrame ?? null,
+        ),
+      )
+      .toBeNull();
+    await page.evaluate((eventName) => {
+      window.dispatchEvent(new Event(eventName));
+    }, REFRESH_MANIFEST_EVENT);
+    await page.waitForTimeout(500);
+    await expect(documentArticle(page)).toContainText("OLD FIRST FRAME");
+    await expect(documentArticle(page)).toContainText(
+      "NEW FIRST FRAME arrived after refresh.",
+      { timeout: 10_000 },
+    );
+  });
 });
