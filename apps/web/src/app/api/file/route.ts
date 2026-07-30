@@ -66,6 +66,18 @@ function hasSitePasswordSession(request: NextRequest, siteSlug: string) {
   );
 }
 
+const PRIVATE_FILE_DENIAL_HEADERS = {
+  "Cache-Control": "private, no-store",
+  "Vary": "Cookie, Host",
+};
+
+function privateFileNotFound() {
+  return new NextResponse("File not found", {
+    status: 404,
+    headers: PRIVATE_FILE_DENIAL_HEADERS,
+  });
+}
+
 function blobRequestHeaders(request: NextRequest) {
   const range = request.headers.get("Range");
   return range ? { Range: range } : undefined;
@@ -312,76 +324,84 @@ export async function GET(request: NextRequest) {
     slug: assetPathToSiblingSlug(normalized),
     includeSensitive: true,
   });
-  const includeSensitive = Boolean(
-    sessionUser &&
-      siblingDoc?.sensitive === true &&
-      (await siteData.access.canUserAccessSlug({
-        userId: sessionUser._id,
-        slug: siblingDoc.slug,
-      })),
-  );
   const privateCache = hasPasswordSession || Boolean(sessionUser);
 
-  if (siblingDoc?.sensitive && !includeSensitive) {
-    return new NextResponse("File not found", { status: 404 });
-  }
-
-  let storedAssetWasSensitive = false;
+  let asset: Awaited<
+    ReturnType<typeof siteData.documents.getPdfAssetByPath>
+  > = null;
+  let assetLookupFailed = false;
   try {
-    const asset = ext === ".pdf"
+    asset = ext === ".pdf"
       ? await siteData.documents.getPdfAssetByPath(
-          includeSensitive
-            ? { path: normalized, includeSensitive: true }
-            : { path: normalized },
+          { path: normalized, includeSensitive: true },
         )
       : await siteData.documents.getFileAssetByPath(
-          includeSensitive
-            ? { path: normalized, includeSensitive: true }
-            : { path: normalized },
+          { path: normalized, includeSensitive: true },
         );
-
-    if (asset?.blobUrl) {
-      storedAssetWasSensitive = isStoredAssetSensitive(asset, siblingDoc);
-      if (!includeSensitive && storedAssetWasSensitive) {
-        return new NextResponse("File not found", { status: 404 });
-      }
-      const upstream = await fetch(asset.blobUrl, {
-        headers: blobRequestHeaders(request),
-      });
-      if (!upstream.ok) {
-        return new NextResponse("Blob fetch failed", { status: 502 });
-      }
-      return streamBlobResponse({
-        ext,
-        filename,
-        mimeType,
-        privateCache,
-        sizeBytes: asset.sizeBytes,
-        upstream,
-      });
-    }
   } catch (err) {
     console.error("[file] Convex lookup failed:", err);
+    assetLookupFailed = true;
   }
 
-  if (!includeSensitive && (storedAssetWasSensitive || siblingDoc?.sensitive)) {
-    return new NextResponse("File not found", { status: 404 });
+  const assetIsSensitive =
+    !assetLookupFailed && isStoredAssetSensitive(asset, siblingDoc);
+  if (assetIsSensitive) {
+    const ownerSlugs = Array.from(
+      new Set([
+        ...(asset?.ownerSlugs ?? []),
+        ...(siblingDoc?.slug ? [siblingDoc.slug] : []),
+      ]),
+    );
+    const canAccessEveryOwner = Boolean(
+      sessionUser &&
+        ownerSlugs.length > 0 &&
+        (
+          await Promise.all(
+            ownerSlugs.map((slug) =>
+              siteData.access.canUserAccessSlug({
+                userId: sessionUser._id,
+                slug,
+              }),
+            ),
+          )
+        ).every(Boolean),
+    );
+    if (!canAccessEveryOwner) return privateFileNotFound();
   }
 
-  try {
-    const blob = await fetchBlobAsset(
-      request,
-      normalized,
-      siteData.siteSlug,
+  if (!assetLookupFailed && asset?.blobUrl) {
+    const upstream = await fetch(asset.blobUrl, {
+      headers: blobRequestHeaders(request),
+    });
+    if (!upstream.ok) {
+      return new NextResponse("Blob fetch failed", { status: 502 });
+    }
+    return streamBlobResponse({
       ext,
       filename,
       mimeType,
       privateCache,
-    );
-    if (blob?.error) return blob.error;
-    if (blob?.response) return blob.response;
-  } catch (err) {
-    console.error("[file] Blob fallback failed:", err);
+      sizeBytes: asset.sizeBytes,
+      upstream,
+    });
+  }
+
+  if (!assetLookupFailed) {
+    try {
+      const blob = await fetchBlobAsset(
+        request,
+        normalized,
+        siteData.siteSlug,
+        ext,
+        filename,
+        mimeType,
+        privateCache,
+      );
+      if (blob?.error) return blob.error;
+      if (blob?.response) return blob.response;
+    } catch (err) {
+      console.error("[file] Blob fallback failed:", err);
+    }
   }
 
   if (sessionUser) {
@@ -398,5 +418,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return new NextResponse("File not found", { status: 404 });
+  return privateFileNotFound();
 }

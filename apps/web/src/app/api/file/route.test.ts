@@ -5,6 +5,7 @@ let sessionUser: { _id: string } | null = null;
 let canAccessSensitiveSlug = false;
 let sensitiveAssetLookups = 0;
 let documentSensitive = true;
+let requestedAccessSlugs: string[] = [];
 const originalFetch = globalThis.fetch;
 
 const sensitiveDocument = {
@@ -47,19 +48,20 @@ mock.module("@/lib/site-data", () => ({
   siteDataFromRequest: () => ({
     siteSlug: "diana",
     access: {
-      canUserAccessSlug: async ({
-        slug,
-        userId,
-      }: {
-        slug: string;
-        userId: string;
-      }) =>
-        userId === "authorized-user" &&
-        slug === sensitiveDocument.slug &&
-        canAccessSensitiveSlug,
+      canUserAccessSlug: async (
+        { slug, userId }: { slug: string; userId: string },
+      ) => {
+        requestedAccessSlugs.push(slug);
+        return (
+          userId === "authorized-user" &&
+          (slug === sensitiveDocument.slug || slug === "private/owner") &&
+          canAccessSensitiveSlug
+        );
+      },
     },
     documents: {
-      getBySlug: async () => sensitiveDocument,
+      getBySlug: async ({ slug }: { slug: string }) =>
+        slug === sensitiveDocument.slug ? sensitiveDocument : null,
       getPdfAssetByPath: async ({
         includeSensitive,
       }: {
@@ -76,7 +78,24 @@ mock.module("@/lib/site-data", () => ({
           sizeBytes: 7,
         };
       },
-      getFileAssetByPath: async () => null,
+      getFileAssetByPath: async ({
+        includeSensitive,
+        path,
+      }: {
+        includeSensitive?: boolean;
+        path: string;
+      }) => {
+        if (path !== "private/images/scan.png" || !includeSensitive) {
+          return null;
+        }
+        sensitiveAssetLookups += 1;
+        return {
+          blobUrl: "https://assets.example/private-scan.png",
+          ownerSlugs: ["private/owner"],
+          sensitive: true,
+          sizeBytes: 7,
+        };
+      },
     },
   }),
 }));
@@ -87,16 +106,22 @@ afterAll(() => {
   globalThis.fetch = originalFetch;
 });
 
-function request() {
+function request(path = "private/plan.pdf") {
   return {
     cookies: {
       get: () => gateAuthenticated ? { value: "valid-session" } : undefined,
     },
     headers: new Headers(),
     nextUrl: new URL(
-      "https://wiki.example/api/file?path=private%2Fplan.pdf",
+      `https://wiki.example/api/file?path=${encodeURIComponent(path)}`,
     ),
   } as never;
+}
+
+function expectPrivateDenial(response: Response) {
+  expect(response.status).toBe(404);
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
+  expect(response.headers.get("vary")).toBe("Cookie, Host");
 }
 
 describe("file route sensitive authorization", () => {
@@ -106,6 +131,7 @@ describe("file route sensitive authorization", () => {
     canAccessSensitiveSlug = false;
     sensitiveAssetLookups = 0;
     documentSensitive = true;
+    requestedAccessSlugs = [];
     globalThis.fetch = mock(async () =>
       new Response("private", {
         headers: { "Content-Length": "7" },
@@ -118,9 +144,9 @@ describe("file route sensitive authorization", () => {
 
     const response = await GET(request());
 
-    expect(response.status).toBe(404);
+    expectPrivateDenial(response);
     expect(await response.text()).toBe("File not found");
-    expect(sensitiveAssetLookups).toBe(0);
+    expect(sensitiveAssetLookups).toBe(1);
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
@@ -134,7 +160,20 @@ describe("file route sensitive authorization", () => {
     expect(response.headers.get("cache-control")).toBe(
       "private, max-age=60, stale-while-revalidate=3600",
     );
-    expect(sensitiveAssetLookups).toBe(0);
+    expect(sensitiveAssetLookups).toBe(1);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  test("keeps anonymous public assets publicly cached", async () => {
+    documentSensitive = false;
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe(
+      "public, max-age=86400",
+    );
+    expect(response.headers.get("vary")).toBe("Range");
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 
@@ -143,8 +182,8 @@ describe("file route sensitive authorization", () => {
 
     const response = await GET(request());
 
-    expect(response.status).toBe(404);
-    expect(sensitiveAssetLookups).toBe(0);
+    expectPrivateDenial(response);
+    expect(sensitiveAssetLookups).toBe(1);
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
@@ -163,5 +202,46 @@ describe("file route sensitive authorization", () => {
     expect(response.headers.get("vary")).toBe("Cookie, Range");
     expect(sensitiveAssetLookups).toBe(1);
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  test("rejects a nested sensitive asset for anonymous and gate-only requests", async () => {
+    documentSensitive = false;
+
+    const anonymous = await GET(request("private/images/scan.png"));
+    expectPrivateDenial(anonymous);
+
+    gateAuthenticated = true;
+    const gateOnly = await GET(request("private/images/scan.png"));
+    expectPrivateDenial(gateOnly);
+
+    expect(sensitiveAssetLookups).toBe(2);
+    expect(requestedAccessSlugs).toEqual([]);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  test("serves a nested sensitive asset when the signed-in user can access every owner", async () => {
+    documentSensitive = false;
+    sessionUser = { _id: "authorized-user" };
+    canAccessSensitiveSlug = true;
+
+    const response = await GET(request("private/images/scan.png"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe(
+      "private, max-age=60, stale-while-revalidate=3600",
+    );
+    expect(requestedAccessSlugs).toEqual(["private/owner"]);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  test("rejects a nested sensitive asset when the signed-in user lacks owner access", async () => {
+    documentSensitive = false;
+    sessionUser = { _id: "unauthorized-user" };
+
+    const response = await GET(request("private/images/scan.png"));
+
+    expectPrivateDenial(response);
+    expect(requestedAccessSlugs).toEqual(["private/owner"]);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 });
