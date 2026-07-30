@@ -204,11 +204,11 @@ test.describe("Command palette parity", () => {
     await expect(input).toHaveCSS("font-size", "14px");
   });
 
-  test("Vite uses the same Geist font stack as the production reader", async ({ page }) => {
+  test("Vite uses the same system font stack as the production reader", async ({ page }) => {
     await gotoWiki(page, "/");
     await expect(page.locator("html")).toHaveCSS(
       "font-family",
-      'Geist, "Geist Fallback", ui-sans-serif, system-ui, sans-serif',
+      "ui-sans-serif, system-ui, sans-serif",
     );
   });
 

@@ -29,18 +29,8 @@ test.describe("Visual parity", () => {
     await expect(page.getByTestId("document-article")).toHaveCSS("padding-right", "32px");
     await expect(page.locator(":root")).toHaveCSS(
       "font-family",
-      'Geist, "Geist Fallback", ui-sans-serif, system-ui, sans-serif',
+      "ui-sans-serif, system-ui, sans-serif",
     );
-    await expect
-      .poll(() =>
-        page.evaluate(async () => {
-          await document.fonts.ready;
-          return [...document.fonts].some(
-            (font) => font.family === "Geist" && font.status === "loaded",
-          );
-        }),
-      )
-      .toBe(true);
     await expect(page.locator(".wiki-shell-page-header")).toHaveCSS("min-height", "48px");
     expect((await page.locator(".wiki-shell-page-header").boundingBox())?.height).toBe(48);
     await expect(page.getByTestId("sidebar-workspace-trigger")).toHaveCSS("font-size", "16px");
@@ -93,6 +83,12 @@ test.describe("Visual parity", () => {
     await expect(page.locator(".page-shell")).toBeVisible();
     await expect(page.getByTestId("document-article")).toHaveCSS("padding-right", "16px");
     await expect(page.locator(".wiki-vite-mobile-title")).toHaveCSS("font-size", "16px");
+    const mobileHeaderBox = await page.getByTestId("mobile-page-header").boundingBox();
+    const mobileTitleBox = await page.locator(".wiki-vite-mobile-title").boundingBox();
+    expect(mobileHeaderBox).not.toBeNull();
+    expect(mobileTitleBox).not.toBeNull();
+    expect(mobileTitleBox!.y - mobileHeaderBox!.y).toBe(14.75);
+    expect(mobileTitleBox!.height).toBe(17.5);
     for (const testId of ["mobile-header-search", "mobile-header-comments"]) {
       const iconBox = await page.getByTestId(testId).locator("svg").boundingBox();
       expect(iconBox).not.toBeNull();
@@ -141,6 +137,7 @@ test.describe("Visual parity", () => {
     await expect(menu).toBeVisible();
     await expect(menu).toBeFocused();
     await expect(menu.getByRole("menuitem").first()).toHaveCSS("min-height", "28px");
+    await expect(menu.getByRole("menuitem").first()).toHaveCSS("line-height", "20px");
     await expect(menu.getByRole("menuitem").first()).toHaveCSS("border-radius", "8px");
     const menuBox = await menu.boundingBox();
     expect(menuBox).not.toBeNull();
@@ -148,6 +145,7 @@ test.describe("Visual parity", () => {
     expect(menuBox!.y).toBe(46);
     expect(menuBox!.width).toBe(224);
     expect(menuBox!.height).toBe(218);
+    expect((await menu.getByRole("menuitem").first().boundingBox())?.height).toBe(28);
     await expect(menu).toHaveCSS("border-radius", "10px");
 
     if (hasLocalSnapshotBaseline) {
@@ -212,6 +210,10 @@ test.describe("Visual parity", () => {
     const header = page.getByTestId("mobile-page-header");
     await expect(header.locator(".wiki-vite-mobile-title")).toHaveText("Search");
     await expect(header.locator(".wiki-vite-mobile-title")).toHaveCSS("font-size", "16px");
+    const titleBox = await header.locator(".wiki-vite-mobile-title").boundingBox();
+    expect(titleBox).not.toBeNull();
+    expect(titleBox!.y).toBe(14.75);
+    expect(titleBox!.height).toBe(17.5);
     await expect(header.getByRole("button")).toHaveCount(2);
     const searchIconBox = await page.getByTestId("mobile-header-search").locator("svg").boundingBox();
     expect(searchIconBox).not.toBeNull();
