@@ -8,7 +8,7 @@ import { createWikiViteHandler } from "./app-shell";
 
 const TEST_GATE_SECRET = "app-shell-test-gate-secret";
 const INDEX_HTML =
-  "<!doctype html><html><head><title>Diana Wiki</title></head><body><div id=\"root\"></div></body></html>";
+  "<!doctype html><html><head><link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" /><title>Diana Wiki</title></head><body><div id=\"root\"></div></body></html>";
 const LONG_DESCRIPTION =
   "Overview of fall 2026 open enrollment options for 2027 plans focusing on supplemental insurance to mitigate future financial risks for breast cancer patients and their families.";
 const TRUNCATED_DESCRIPTION =
@@ -99,6 +99,11 @@ describe("wiki Vite app-shell password gate", () => {
     await mkdir(path.join(distDir, "assets"));
     await writeFile(path.join(distDir, "index.html"), INDEX_HTML);
     await writeFile(path.join(distDir, "assets", "app-deadbeef.js"), "export {};");
+    await writeFile(
+      path.join(distDir, "favicon.svg"),
+      '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+    );
+    await writeFile(path.join(distDir, "robots.txt"), "User-agent: *\nDisallow: /\n");
   });
 
   afterEach(async () => {
@@ -205,6 +210,30 @@ describe("wiki Vite app-shell password gate", () => {
     expect(asset.status).toBe(200);
     expect(asset.headers.get("cache-control")).toBe(
       "public, max-age=31536000, immutable",
+    );
+  });
+
+  test("serves the production favicon and robots policy outside the password gate", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    const favicon = await handler(request("/favicon.svg"));
+    expect(favicon.status).toBe(200);
+    expect(favicon.headers.get("content-type")).toBe("image/svg+xml");
+    expect(favicon.headers.get("cache-control")).toBe("no-cache");
+
+    const robots = await handler(request("/robots.txt"));
+    expect(robots.status).toBe(200);
+    expect(robots.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(await robots.text()).toBe("User-agent: *\nDisallow: /\n");
+
+    const shell = await handler(
+      request("/", { headers: await authenticatedHeaders() }),
+    );
+    expect(await shell.text()).toContain(
+      '<link rel="icon" type="image/svg+xml" href="/favicon.svg" />',
     );
   });
 
