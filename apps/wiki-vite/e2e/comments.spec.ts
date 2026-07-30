@@ -86,7 +86,42 @@ test.describe("document comments sidebar", () => {
       .toBe("true");
     const panel = page.locator("[data-comments-bottom-rail]");
     await expect(panel).toBeVisible({ timeout: 20_000 });
-    await expect(panel).toContainText("unresolved threads");
+    await expect(panel).toHaveAttribute("aria-label", "Document comments");
+    await expect(panel).toContainText("0 unresolved threads");
+    await expect(panel.getByText("Sign in to leave a comment")).toBeVisible();
+    await expect(panel.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      /\/login\?redirect=/,
+    );
+    const closeButton = page.getByRole("button", {
+      name: "Close comments panel",
+      exact: true,
+    });
+    await expect(closeButton).toBeVisible();
+
+    const geometry = await panel.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        bottom: Math.round(rect.bottom),
+        height: Math.round(rect.height),
+        radius: style.borderTopLeftRadius,
+        width: Math.round(rect.width),
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+      };
+    });
+    expect(geometry).toEqual({
+      bottom: 844,
+      height: 743,
+      radius: "18px",
+      width: 390,
+      x: 0,
+      y: 101,
+    });
+
+    await closeButton.click();
+    await expect(panel).toHaveCount(0);
   });
 });
 

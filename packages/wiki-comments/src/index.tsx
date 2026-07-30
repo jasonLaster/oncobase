@@ -517,6 +517,10 @@ function CommentsShell({
   children: ReactNode;
 }) {
   const threadsResult = useThreads();
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [sessionUser, setSessionUser] = useState<{ email: string; name?: string | null } | null>(
+    null
+  );
   const threads = useMemo(
     () => (threadsResult.isLoading || threadsResult.error ? [] : threadsResult.threads),
     [threadsResult.isLoading, threadsResult.error, threadsResult.threads]
@@ -531,6 +535,7 @@ function CommentsShell({
   const [selectionTooltip, setSelectionTooltip] = useState<SelectionTooltipPosition | null>(null);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("comments");
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [showResolvedThreads, setShowResolvedThreads] = useState(false);
   const {
     open: commentsOpen,
@@ -541,6 +546,42 @@ function CommentsShell({
   const commentsDragging = useRef(false);
   const commentsStartX = useRef(0);
   const commentsStartWidth = useRef(0);
+  const canComment = Boolean(sessionUser);
+  const signInHref =
+    typeof window === "undefined"
+      ? "/login"
+      : `/login?redirect=${encodeURIComponent(
+          `${window.location.pathname}${window.location.search}${window.location.hash}`
+        )}`;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSession = async () => {
+      try {
+        const response = await fetch("/api/auth/session", {
+          credentials: "same-origin",
+        });
+        const data = response.ok
+          ? ((await response.json()) as {
+              user?: { email: string; name?: string | null } | null;
+            })
+          : { user: null };
+        if (!cancelled) setSessionUser(data.user ?? null);
+      } catch {
+        if (!cancelled) setSessionUser(null);
+      } finally {
+        if (!cancelled) setSessionLoading(false);
+      }
+    };
+
+    void loadSession();
+    window.addEventListener("wiki-auth-session-change", loadSession);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("wiki-auth-session-change", loadSession);
+    };
+  }, []);
 
   const onCommentsPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -618,6 +659,7 @@ function CommentsShell({
     delete document.documentElement.dataset.mobileCommentsPanelRequested;
     setSidebarMode("comments");
     setCommentsOpen(true);
+    setMobilePanelOpen(true);
   }, [setCommentsOpen]);
 
   useEffect(() => {
@@ -630,6 +672,15 @@ function CommentsShell({
       window.removeEventListener(MOBILE_COMMENTS_PANEL_EVENT, openMobileCommentsPanel);
     };
   }, [openMobileCommentsPanel]);
+
+  useEffect(() => {
+    if (!mobilePanelOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobilePanelOpen]);
 
   useEffect(() => {
     const root = articleRef.current;
@@ -917,6 +968,7 @@ function CommentsShell({
     <div className="bg-[var(--background)]/40 p-3">
       <div className="space-y-4">
         {sidebarMode === "comments" &&
+        canComment &&
         effectiveComposerMode !== "page" &&
         effectiveComposerMode !== "selection" ? (
           <button
@@ -937,7 +989,7 @@ function CommentsShell({
           </button>
         ) : null}
 
-        {sidebarMode === "comments" && effectiveComposerMode === "page" ? (
+        {sidebarMode === "comments" && canComment && effectiveComposerMode === "page" ? (
           <Composer
             key="page-comment-composer"
             metadata={createThreadMetadata({ documentSlug, documentTitle })}
@@ -947,6 +999,23 @@ function CommentsShell({
               setComposerMode(null);
             }}
           />
+        ) : null}
+
+        {sidebarMode === "comments" && !sessionLoading && !canComment ? (
+          <div
+            data-test-id="comments-sign-in-state"
+            className="rounded-xl border border-dashed border-[var(--sidebar-border)] bg-[var(--background)] px-4 py-5 text-sm"
+          >
+            <p className="font-medium text-[var(--foreground)]">
+              Sign in to leave a comment
+            </p>
+            <a
+              href={signInHref}
+              className="mt-3 inline-flex w-full items-center justify-center rounded-md border border-indigo-600 bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:border-indigo-700 hover:bg-indigo-700"
+            >
+              Sign in
+            </a>
+          </div>
         ) : null}
 
         {sidebarMode === "outline" ? (
@@ -983,7 +1052,7 @@ function CommentsShell({
           <div className="space-y-3">
             {commentListItems.map((item) => {
               if (item.type === "draft-selection") {
-                if (!pendingSelection) return null;
+                if (!pendingSelection || !canComment) return null;
                 return (
                   <DraftSelectionThreadCard
                     key="draft-selection"
@@ -1248,52 +1317,79 @@ function CommentsShell({
         </div>
       </div>
 
-      <aside
-        data-comments-bottom-rail
-        aria-label="Document comments and outline"
-        className={cn(
-          "fixed inset-x-0 bottom-[calc(3rem+env(safe-area-inset-bottom))] z-40 flex flex-col border-t border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-[0_-12px_28px_rgba(15,23,42,0.14)] transition-[height] duration-200 ease-out md:bottom-0 lg:hidden",
-          commentsOpen ? "h-[min(52dvh,30rem)]" : "h-14"
-        )}
-      >
-        {commentsOpen ? (
-          <>
-            <div className="shrink-0 pt-1">
-              <div className="mx-auto mb-1 h-1 w-8 rounded-full bg-[var(--text-muted)]/30" />
-              {sidebarHeader}
+      {mobilePanelOpen ? (
+        <div
+          className="fixed inset-0 z-50 md:hidden"
+          data-test-id="mobile-comments-panel"
+          data-state="open"
+        >
+          <button
+            type="button"
+            aria-label="Close comments panel backdrop"
+            className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+            onClick={() => setMobilePanelOpen(false)}
+          />
+          <aside
+            data-comments-bottom-rail
+            aria-label="Document comments"
+            className="absolute inset-x-0 bottom-0 flex h-[88dvh] flex-col rounded-t-[1.125rem] bg-[var(--sidebar-bg)] shadow-2xl"
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
+            <div className="shrink-0 pt-2">
+              <div
+                role="separator"
+                aria-label="Resize comments panel"
+                aria-orientation="horizontal"
+                className="flex h-6 w-full items-center justify-center"
+              >
+                <div className="h-1 w-10 rounded-full bg-[var(--text-muted)]/30" />
+              </div>
+              <div className="border-b border-[var(--sidebar-border)] px-3 py-2">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="min-w-0 flex-1 text-sm font-semibold text-[var(--foreground)]">
+                    Comments
+                  </span>
+                  <SidebarButton
+                    onClick={() => setMobilePanelOpen(false)}
+                    aria-label="Close comments panel"
+                    className="h-auto w-auto px-2 py-1"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                      <line x1="4" y1="4" x2="12" y2="12" />
+                      <line x1="12" y1="4" x2="4" y2="12" />
+                    </svg>
+                  </SidebarButton>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {visibleThreads.length} {showResolvedThreads ? "total" : "unresolved"} thread{visibleThreads.length === 1 ? "" : "s"}
+                  </p>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]">
+                      <span className="sr-only">Comment actions</span>
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <circle cx="3.5" cy="8" r="1" />
+                        <circle cx="8" cy="8" r="1" />
+                        <circle cx="12.5" cy="8" r="1" />
+                      </svg>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                      <DropdownMenuItem
+                        onClick={() => setShowResolvedThreads((current) => !current)}
+                      >
+                        {showResolvedThreads ? "Show unresolved only" : "View all threads"}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {sidebarContent}
             </div>
-          </>
-        ) : (
-          <div className="flex h-full items-center gap-2 px-3">
-            <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
-              <SidebarButton
-                variant="tab"
-                active={sidebarMode === "comments"}
-                onClick={() => toggleSidebarMode("comments")}
-              >
-                Comments
-              </SidebarButton>
-              <SidebarButton
-                variant="tab"
-                active={sidebarMode === "outline"}
-                onClick={() => toggleSidebarMode("outline")}
-              >
-                Outline
-              </SidebarButton>
-            </div>
-            <SidebarButton
-              onClick={() => setCommentsOpen(true)}
-              aria-label="Expand comments rail"
-              className="h-auto w-auto px-2 py-1"
-            >
-              <RailToggleIcon direction="up" />
-            </SidebarButton>
-          </div>
-        )}
-      </aside>
+          </aside>
+        </div>
+      ) : null}
 
       <aside
         className={cn(
