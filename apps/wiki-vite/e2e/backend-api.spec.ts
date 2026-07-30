@@ -72,7 +72,12 @@ test.describe("Vite backend API", () => {
       expect.objectContaining({
         slug: expect.any(String),
         title: expect.any(String),
-        excerpt: expect.any(String),
+        matches: expect.arrayContaining([
+          expect.objectContaining({
+            lineContent: expect.any(String),
+            lineNumber: expect.any(Number),
+          }),
+        ]),
       }),
     );
   });

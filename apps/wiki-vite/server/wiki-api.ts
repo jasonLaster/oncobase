@@ -78,8 +78,7 @@ const VERCEL_PROJECT_HOST_PREFIX = "diana-tnbc";
 const USER_SESSION_COOKIE = "wiki_user_session";
 const USER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const DIANA_PASSWORDS = new Set(["wallify", "diana"]);
-const DEFAULT_SEARCH_LIMIT = 10;
-const MAX_SEARCH_LIMIT = 50;
+const MAX_SEARCH_LIMIT = 5000;
 const TIMELINE_META_KEY = "diagnosticTimeline:data";
 const SITE_NAME = "TNBC Knowledge Base";
 const DEFAULT_SITE_DESCRIPTION =
@@ -92,7 +91,12 @@ const MANIFEST_PRIORITY_SLUGS = [
 ];
 
 type PageDownloadResult = {
-  page: Array<{ slug: string; content: string }>;
+  page: Array<{
+    slug: string;
+    title: string;
+    content: string;
+    sensitive?: boolean;
+  }>;
   isDone: boolean;
   continueCursor: string | null;
 };
@@ -1708,13 +1712,14 @@ async function handleSearchRequest(
   siteSlug: string,
 ) {
   const url = new URL(request.url);
-  const query = url.searchParams.get("q") ?? "";
-  const rawLimit = Number(url.searchParams.get("limit") ?? DEFAULT_SEARCH_LIMIT);
+  const query = (url.searchParams.get("q") ?? "").trim();
+  const limitParam = url.searchParams.get("limit");
+  const rawLimit = limitParam == null ? Number.POSITIVE_INFINITY : Number(limitParam);
   const limit = Number.isFinite(rawLimit)
-    ? Math.min(MAX_SEARCH_LIMIT, Math.max(1, rawLimit))
-    : DEFAULT_SEARCH_LIMIT;
+    ? Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.floor(rawLimit)))
+    : Number.POSITIVE_INFINITY;
 
-  if (!query.trim()) {
+  if (query.length < 2) {
     return Response.json(
       { results: [] },
       {
@@ -1729,27 +1734,77 @@ async function handleSearchRequest(
 
   const sessionUser = await getSessionUser(request, client, siteSlug);
   const includeSensitive = Boolean(sessionUser);
-  const results = await client.query(
-    api.documents.search,
-    withSiteSlug(siteSlug, { query, limit, includeSensitive }),
-  );
-  const visibleResults = await filterPotentiallySensitivePages(
-    client,
-    siteSlug,
-    sessionUser,
-    results,
-  );
   const patterns = await getPiiPatterns(client, siteSlug);
-  const redact = (value: string | undefined) =>
-    value == null ? value : applyPiiRedactions(value, { patterns });
-  const redactedResults = visibleResults.map((result) => ({
-    ...result,
-    title: redact(result.title) ?? result.title,
-    excerpt: redact(result.excerpt),
-  }));
+  const regex = new RegExp(escapeSearchRegex(query), "gi");
+  const results: Array<{
+    filePath: string;
+    slug: string;
+    title: string;
+    matches: Array<{
+      lineNumber: number;
+      lineContent: string;
+      matchStart: number;
+      matchEnd: number;
+    }>;
+  }> = [];
+  let cursor: string | null = null;
+  let isDone = false;
+
+  while (!isDone) {
+    const pageResult = (await client.query(
+      api.documents.listPageWithContent,
+      withSiteSlug(
+        siteSlug,
+        includeSensitive
+          ? { cursor, numItems: 100, includeSensitive: true as const }
+          : { cursor, numItems: 100 },
+      ),
+    )) as PageDownloadResult;
+    const visiblePages = await filterAccessiblePages(
+      client,
+      siteSlug,
+      sessionUser,
+      pageResult.page,
+    );
+
+    for (const page of visiblePages) {
+      const title = applyPiiRedactions(page.title, { patterns });
+      const content = applyPiiRedactions(page.content, { patterns });
+      const matches = content.split("\n").flatMap((lineContent, index) => {
+        regex.lastIndex = 0;
+        const match = regex.exec(lineContent);
+        return match
+          ? [{
+              lineNumber: index + 1,
+              lineContent,
+              matchStart: match.index,
+              matchEnd: match.index + match[0].length,
+            }]
+          : [];
+      });
+
+      if (matches.length > 0) {
+        results.push({
+          filePath: page.slug,
+          slug: page.slug,
+          title,
+          matches,
+        });
+      }
+    }
+
+    isDone = pageResult.isDone;
+    cursor = pageResult.continueCursor;
+    if (!isDone && !cursor) {
+      throw new Error("Search pagination failed");
+    }
+  }
+
+  results.sort((a, b) => b.matches.length - a.matches.length);
+  const limitedResults = Number.isFinite(limit) ? results.slice(0, limit) : results;
 
   return Response.json(
-    { results: redactedResults },
+    { results: limitedResults },
     {
       headers: includeSensitive
         ? {
@@ -1764,6 +1819,10 @@ async function handleSearchRequest(
           },
     },
   );
+}
+
+function escapeSearchRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function readToolPage(

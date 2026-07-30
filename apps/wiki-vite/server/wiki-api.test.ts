@@ -242,6 +242,37 @@ function createFakeConvexClient() {
 }
 
 describe("wiki Vite API auth and scoped archive behavior", () => {
+  test("returns redacted line-level text search matches with source locations", async () => {
+    const handler = createWikiApiHandler(createFakeConvexClient() as never);
+    const response = await handler(request("/api/search?q=public"));
+
+    expect(response?.status).toBe(200);
+    expect(response!.headers.get("x-wiki-cache-scope")).toBe("public");
+    expect(await response!.json()).toEqual({
+      results: [
+        {
+          filePath: "wiki/public",
+          slug: "wiki/public",
+          title: "Public",
+          matches: [
+            {
+              lineNumber: 1,
+              lineContent: "# Public",
+              matchStart: 2,
+              matchEnd: 8,
+            },
+            {
+              lineNumber: 3,
+              lineContent: "Public wiki body.",
+              matchStart: 0,
+              matchEnd: 6,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   test("keeps password-login redirects and responses out of shared caches", async () => {
     const handler = createWikiApiHandler(createFakeConvexClient() as never);
 

@@ -224,7 +224,7 @@ test.describe("Search and local page finding", () => {
 
     await expect(page.getByTestId("search-tab-text")).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("search-text-summary")).toContainText("1 result");
-    await page.getByRole("link", { name: /Insurance/ }).click();
+    await page.getByTestId("search-text-result").click();
 
     await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
     await waitForPageTitle(page, "Insurance");
@@ -348,6 +348,75 @@ test.describe("Search and local page finding", () => {
     await expect(result).not.toContainText("###");
     await expect(result).not.toContainText("**");
     await expect(result).not.toContainText("](");
+  });
+
+  test("text mode groups line matches with counts, highlights, and source links", async ({
+    page,
+  }) => {
+    await mockTextSearch(page, {
+      body: {
+        results: [
+          {
+            slug: "about/log/april",
+            title: "April log",
+            matches: [
+              {
+                lineNumber: 4,
+                lineContent: "The first diagnosis update.",
+                matchStart: 10,
+                matchEnd: 19,
+              },
+              {
+                lineNumber: 12,
+                lineContent: "**Diagnosis** planning continued.",
+                matchStart: 2,
+                matchEnd: 11,
+              },
+            ],
+          },
+          {
+            slug: "wiki/diagnostics/diagnosis",
+            title: "Diagnosis",
+            matches: [
+              {
+                lineNumber: 7,
+                lineContent: "Diagnosis and staging details.",
+                matchStart: 0,
+                matchEnd: 9,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    await mockAISearch(page);
+    await installWikiApiMocks(page);
+    await page.goto("/search?q=diagnosis&tab=text", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByTestId("search-text-summary")).toHaveText(
+      "3 results in 2 files",
+    );
+    await expect(
+      page.getByTestId("search-text-directory").filter({ hasText: "about" }),
+    ).toContainText("2");
+    await expect(
+      page.getByTestId("search-text-directory").filter({ hasText: "wiki" }),
+    ).toContainText("1");
+    await expect(page.locator("mark")).toHaveCount(3);
+
+    const aprilFile = page.getByTestId("search-text-file").filter({ hasText: "april" });
+    await expect(aprilFile).toContainText("2");
+    await aprilFile.click();
+    await expect(page.getByTestId("search-text-result")).toHaveCount(1);
+    await aprilFile.click();
+    await expect(page.getByTestId("search-text-result")).toHaveCount(3);
+
+    await page
+      .getByTestId("search-text-result")
+      .filter({ hasText: "Diagnosis and staging details." })
+      .click();
+    await expect(page).toHaveURL(/\/wiki\/diagnostics\/diagnosis$/);
+    await waitForPageTitle(page, "Diagnosis");
   });
 
   test("search results support keyboard selection", async ({ page }) => {
