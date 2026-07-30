@@ -90,16 +90,16 @@ test.describe("password login redirects", () => {
 
   test("authenticated login route accepts local paths and rejects external targets", async ({
     baseURL,
+    browser,
   }) => {
     const origin = new URL(baseURL!).origin;
+    const authenticated = await submitPassword(browser, origin, "/");
+    await authenticated.page.waitForURL(`${origin}/`);
     const request = await playwrightRequest.newContext({
       baseURL: origin,
-      extraHTTPHeaders: {
-        ...previewBypassHeaders(),
-        Cookie: "authed=true",
-      },
+      extraHTTPHeaders: previewBypassHeaders(),
+      storageState: await authenticated.context.storageState(),
     });
-
     try {
       for (const [redirect, expected] of [
         ["/about/About?view=compact", "/about/About?view=compact"],
@@ -111,10 +111,41 @@ test.describe("password login redirects", () => {
           { maxRedirects: 0 },
         );
         expect(response.status()).toBe(307);
+        expect(response.headers()["cache-control"]).toBe("private, no-store");
+        expect(response.headers().vary).toContain("Cookie");
+        expect(response.headers().vary).toContain("Host");
         expect(new URL(response.headers().location, origin).toString()).toBe(
           new URL(expected, origin).toString(),
         );
       }
+    } finally {
+      await request.dispose();
+      await authenticated.context.close();
+    }
+  });
+
+  test("rejects a forged legacy gate cookie with private redirect headers", async ({
+    baseURL,
+  }) => {
+    const origin = new URL(baseURL!).origin;
+    const request = await playwrightRequest.newContext({
+      baseURL: origin,
+      extraHTTPHeaders: {
+        ...previewBypassHeaders(),
+        Cookie: "authed=true",
+      },
+      storageState: { cookies: [], origins: [] },
+    });
+
+    try {
+      const response = await request.get("/", { maxRedirects: 0 });
+      expect(response.status()).toBe(307);
+      expect(new URL(response.headers().location, origin).pathname).toBe(
+        "/login",
+      );
+      expect(response.headers()["cache-control"]).toBe("private, no-store");
+      expect(response.headers().vary).toContain("Cookie");
+      expect(response.headers().vary).toContain("Host");
     } finally {
       await request.dispose();
     }

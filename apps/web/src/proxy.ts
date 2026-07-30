@@ -4,13 +4,19 @@ import { isLinkPreviewBotUserAgent } from "@oncobase/wiki-content/link-preview";
 import { api } from "@convex/_generated/api";
 import { resolveServerConvexUrl } from "@/lib/convex-url";
 import { safeLocalRedirect } from "@/lib/safe-redirect";
+import {
+  createWikiGateCookieValue,
+  hasValidWikiGateCookie,
+  isValidWikiPassword,
+  WIKI_GATE_COOKIE_MAX_AGE,
+  wikiGateCookieName,
+} from "@/lib/wiki-gate-session";
 import localHosts from "../.local-hosts.json";
 
 // Phase 3 multi-tenant: resolve the active site from the Host header
 // once per request, set `x-site-slug` on the forwarded headers, then
 // run the password gate scoped to that site.
 
-const PASSWORDS = ["wallify", "diana"];
 const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
 const USER_SESSION_COOKIE = "wiki_user_session";
 const CANONICAL_PATHS = new Map([["/about/index", "/about/Index"]]);
@@ -149,30 +155,8 @@ async function resolveHost(host: string): Promise<ResolvedSite | null> {
   }
 }
 
-function authedCookieName(siteSlug: string) {
-  // Diana keeps the legacy "authed" cookie name during the migration
-  // window so existing sessions don't get logged out. Other sites
-  // get prefixed cookies from day one.
-  return siteSlug === DEFAULT_SITE_SLUG ? "authed" : `authed_${siteSlug}`;
-}
-
-async function hashPassword(password: string) {
-  const encoded = new TextEncoder().encode(password);
-  const digest = await crypto.subtle.digest("SHA-256", encoded);
-  const hex = Array.from(new Uint8Array(digest), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-  return `sha256:${hex}`;
-}
-
 async function isValidMagicToken(token: string, site: ResolvedSite) {
-  if (site.slug === DEFAULT_SITE_SLUG) {
-    return PASSWORDS.includes(token);
-  }
-  if (site.passwordHash && (await hashPassword(token)) === site.passwordHash) {
-    return true;
-  }
-  return false;
+  return isValidWikiPassword(site.slug, token, site.passwordHash);
 }
 
 function withSiteHeader(request: NextRequest, siteSlug: string) {
@@ -181,6 +165,22 @@ function withSiteHeader(request: NextRequest, siteSlug: string) {
   // client. Header injection is defended at this single point.
   requestHeaders.set("x-site-slug", siteSlug);
   return requestHeaders;
+}
+
+const PRIVATE_GATE_HEADERS = {
+  "Cache-Control": "private, no-store",
+  Vary: "Cookie, Host",
+};
+
+function privateNext(requestHeaders: Headers) {
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+    headers: PRIVATE_GATE_HEADERS,
+  });
+}
+
+function privateRedirect(url: URL) {
+  return NextResponse.redirect(url, { headers: PRIVATE_GATE_HEADERS });
 }
 
 function getCookieValue(cookieHeader: string, name: string) {
@@ -317,9 +317,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
-  const cookieName = authedCookieName(site.slug);
+  const cookieName = wikiGateCookieName(site.slug);
   const isAuthed =
-    request.cookies.get(cookieName)?.value === "true" ||
+    await hasValidWikiGateCookie(
+      site.slug,
+      request.cookies.get(cookieName)?.value,
+    ) ||
     isDianaPreviewTestAuth(request, site);
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isSharePreviewRequest =
@@ -331,13 +334,25 @@ export async function proxy(request: NextRequest) {
   if (token && (await isValidMagicToken(token, site))) {
     const clean = new URL(request.url);
     clean.searchParams.delete("token");
-    const response = NextResponse.redirect(clean);
-    response.cookies.set(cookieName, "true", {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
-    });
+    const response = privateRedirect(clean);
+    try {
+      response.cookies.set(
+        cookieName,
+        await createWikiGateCookieValue(site.slug),
+        {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          path: "/",
+          maxAge: WIKI_GATE_COOKIE_MAX_AGE,
+        },
+      );
+    } catch {
+      return new NextResponse("password gate session unavailable", {
+        status: 503,
+        headers: PRIVATE_GATE_HEADERS,
+      });
+    }
     return response;
   }
 
@@ -346,9 +361,9 @@ export async function proxy(request: NextRequest) {
       const redirect = safeLocalRedirect(
         request.nextUrl.searchParams.get("redirect"),
       );
-      return NextResponse.redirect(new URL(redirect, request.url));
+      return privateRedirect(new URL(redirect, request.url));
     }
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    return privateNext(requestHeaders);
   }
 
   if (site.passwordGate && !isAuthed && isSharePreviewRequest) {
@@ -363,10 +378,12 @@ export async function proxy(request: NextRequest) {
   if (site.passwordGate && !isAuthed) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
+    return privateRedirect(loginUrl);
   }
 
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  return site.passwordGate || isAuthed
+    ? privateNext(requestHeaders)
+    : NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

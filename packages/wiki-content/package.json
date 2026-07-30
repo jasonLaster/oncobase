@@ -61,6 +61,11 @@
       "import": "./src/link-preview.ts",
       "default": "./src/link-preview.ts"
     },
+    "./gate-session": {
+      "types": "./src/gate-session.ts",
+      "import": "./src/gate-session.ts",
+      "default": "./src/gate-session.ts"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {

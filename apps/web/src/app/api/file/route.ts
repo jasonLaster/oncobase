@@ -4,10 +4,13 @@ import { promises as fs } from "node:fs";
 import path from "path";
 import { Readable } from "node:stream";
 import { siteDataFromRequest } from "@/lib/site-data";
-import { DEFAULT_SITE_SLUG } from "@/lib/site";
 import { getSessionUserFromRequest } from "@/lib/session-user";
 import { isStoredAssetSensitive } from "@/lib/asset-visibility";
 import { diagnosticsRootCandidates } from "@/lib/local-diagnostics-paths";
+import {
+  hasValidWikiGateCookie,
+  wikiGateCookieName,
+} from "@/lib/wiki-gate-session";
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf":  "application/pdf",
@@ -56,12 +59,11 @@ function contentDisposition(ext: string, filename: string) {
   return `${disposition}; filename="${filename}"`;
 }
 
-function authedCookieName(siteSlug: string) {
-  return siteSlug === DEFAULT_SITE_SLUG ? "authed" : `authed_${siteSlug}`;
-}
-
 function hasSitePasswordSession(request: NextRequest, siteSlug: string) {
-  return request.cookies.get(authedCookieName(siteSlug))?.value === "true";
+  return hasValidWikiGateCookie(
+    siteSlug,
+    request.cookies.get(wikiGateCookieName(siteSlug))?.value,
+  );
 }
 
 function blobRequestHeaders(request: NextRequest) {
@@ -303,7 +305,7 @@ export async function GET(request: NextRequest) {
 
   const siteData = siteDataFromRequest(request);
   const includeSensitive =
-    hasSitePasswordSession(request, siteData.siteSlug) ||
+    await hasSitePasswordSession(request, siteData.siteSlug) ||
     Boolean(await getSessionUserFromRequest(request));
   const siblingDoc = await siteData.documents.getBySlug({
     slug: assetPathToSiblingSlug(normalized),

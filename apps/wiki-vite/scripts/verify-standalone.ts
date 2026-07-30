@@ -147,7 +147,7 @@ try {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ password: "diana" }),
   });
-  if (!loginResponse.ok || !loginResponse.headers.get("set-cookie")?.includes("authed=true")) {
+  if (!loginResponse.ok || !loginResponse.headers.get("set-cookie")?.includes("authed=v1.")) {
     throw new Error(`Standalone login smoke failed: ${loginResponse.status}`);
   }
   const authCookie = loginResponse.headers.get("set-cookie")?.split(";")[0] ?? "";

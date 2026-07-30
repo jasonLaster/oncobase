@@ -6,6 +6,7 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
+import { passwordGateCookie } from "./gate-auth";
 
 const { diagnosticComparisonsSeed } = createRequire(import.meta.url)(
   "../../web/scripts/fixtures/diagnostic-comparisons-seed.ts",
@@ -705,11 +706,12 @@ test.describe("DICOM viewer", () => {
     request,
     baseURL,
   }) => {
+    const cookie = await passwordGateCookie(request);
     const pdfRes = await request.get(
       `${baseURL}/api/file?path=${encodeURIComponent(breastMriReportPath)}`,
       {
         headers: {
-          Cookie: "authed=true",
+          Cookie: cookie,
           Range: "bytes=0-99",
         },
       },
@@ -728,7 +730,7 @@ test.describe("DICOM viewer", () => {
     for (const href of liveDiagnosticsReportLinks) {
       const res = await request.get(`${baseURL}${href}`, {
         headers: {
-          Cookie: "authed=true",
+          Cookie: cookie,
           ...(href.includes("/api/file?path=") ? { Range: "bytes=0-99" } : {}),
         },
       });

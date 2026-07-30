@@ -3,8 +3,10 @@ import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { getFunctionName, type FunctionReference } from "convex/server";
+import { createWikiGateSession } from "@oncobase/wiki-content/gate-session";
 import { createWikiViteHandler } from "./app-shell";
 
+const TEST_GATE_SECRET = "app-shell-test-gate-secret";
 const INDEX_HTML =
   "<!doctype html><html><head><title>Diana Wiki</title></head><body><div id=\"root\"></div></body></html>";
 const LONG_DESCRIPTION =
@@ -19,6 +21,16 @@ function request(pathname: string, init: RequestInit = {}) {
     ...init,
     headers,
   });
+}
+
+async function authenticatedHeaders(extraCookie = "") {
+  const token = await createWikiGateSession({
+    secret: TEST_GATE_SECRET,
+    siteSlug: "diana",
+  });
+  return {
+    Cookie: `authed=${token}${extraCookie ? `; ${extraCookie}` : ""}`,
+  };
 }
 
 function fakeClient({ canAccessSensitive = true } = {}) {
@@ -82,6 +94,7 @@ describe("wiki Vite app-shell password gate", () => {
   let distDir = "";
 
   beforeEach(async () => {
+    process.env.WIKI_GATE_SESSION_SECRET = TEST_GATE_SECRET;
     distDir = await mkdtemp(path.join(tmpdir(), "wiki-vite-app-shell-"));
     await mkdir(path.join(distDir, "assets"));
     await writeFile(path.join(distDir, "index.html"), INDEX_HTML);
@@ -89,6 +102,7 @@ describe("wiki Vite app-shell password gate", () => {
   });
 
   afterEach(async () => {
+    delete process.env.WIKI_GATE_SESSION_SECRET;
     await rm(distDir, { recursive: true, force: true });
   });
 
@@ -111,12 +125,30 @@ describe("wiki Vite app-shell password gate", () => {
     }
   });
 
+  test("rejects the unsigned legacy gate cookie", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    const response = await handler(
+      request("/", { headers: { Cookie: "authed=true" } }),
+    );
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "http://127.0.0.1/login?redirect=%2F",
+    );
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("vary")).toContain("Cookie");
+    expect(response.headers.get("vary")).toContain("Host");
+  });
+
   test("keeps authenticated login redirects on the current origin", async () => {
     const handler = createWikiViteHandler({
       client: fakeClient() as never,
       distDir,
     });
-    const headers = { Cookie: "authed=true" };
+    const headers = await authenticatedHeaders();
 
     const local = await handler(
       request("/login?redirect=%2Fwiki%2Fpublic%3Fview%3Dcompact", { headers }),
@@ -143,7 +175,7 @@ describe("wiki Vite app-shell password gate", () => {
 
     for (const pathname of ["/", "/wiki/public"]) {
       const response = await handler(
-        request(pathname, { headers: { Cookie: "authed=true" } }),
+        request(pathname, { headers: await authenticatedHeaders() }),
       );
 
       expect(response.status).toBe(200);
@@ -167,7 +199,7 @@ describe("wiki Vite app-shell password gate", () => {
 
     for (const pathname of ["/", "/index", "/about/About", "/search"]) {
       const response = await handler(
-        request(pathname, { headers: { Cookie: "authed=true" } }),
+        request(pathname, { headers: await authenticatedHeaders() }),
       );
       const html = await response.text();
 
@@ -177,7 +209,7 @@ describe("wiki Vite app-shell password gate", () => {
       expect(html).not.toContain('property="og:url"');
     }
 
-    const home = await handler(request("/", { headers: { Cookie: "authed=true" } }));
+    const home = await handler(request("/", { headers: await authenticatedHeaders() }));
     const homeHtml = await home.text();
     expect(homeHtml).toContain(
       '<meta name="twitter:title" content="TNBC Knowledge Base" />',
@@ -187,7 +219,7 @@ describe("wiki Vite app-shell password gate", () => {
     );
 
     const about = await handler(
-      request("/about/About", { headers: { Cookie: "authed=true" } }),
+      request("/about/About", { headers: await authenticatedHeaders() }),
     );
     expect(await about.text()).toContain(
       '<meta name="twitter:title" content="About This Wiki" />',
@@ -207,7 +239,7 @@ describe("wiki Vite app-shell password gate", () => {
       client: fakeClient() as never,
       distDir,
     });
-    const authenticated = { headers: { Cookie: "authed=true" } };
+    const authenticated = { headers: await authenticatedHeaders() };
     const cases = [
       {
         path: "/",
@@ -290,7 +322,7 @@ describe("wiki Vite app-shell password gate", () => {
     });
     const authenticated = {
       headers: {
-        Cookie: "authed=true; wiki_user_session=session-token",
+        Cookie: (await authenticatedHeaders("wiki_user_session=session-token")).Cookie,
       },
     };
 
@@ -320,8 +352,8 @@ describe("wiki Vite app-shell password gate", () => {
     });
 
     const anonymousHeaders: Array<Record<string, string>> = [
-      { Cookie: "authed=true" },
-      { Cookie: "authed=true; wiki_user_session=session-token" },
+      await authenticatedHeaders(),
+      await authenticatedHeaders("wiki_user_session=session-token"),
       { "User-Agent": "Slackbot-LinkExpanding 1.0" },
     ];
     for (const headers of anonymousHeaders) {
@@ -402,7 +434,7 @@ describe("wiki Vite app-shell password gate", () => {
 
     for (const pathname of ["/wiki/public.md", "/wiki/public.mdx"]) {
       const response = await handler(
-        request(pathname, { headers: { Cookie: "authed=true" } }),
+        request(pathname, { headers: await authenticatedHeaders() }),
       );
 
       expect(response.status).toBe(200);
@@ -421,7 +453,7 @@ describe("wiki Vite app-shell password gate", () => {
 
     const response = await handler(
       request("/wiki/public/?view=compact", {
-        headers: { Cookie: "authed=true" },
+        headers: await authenticatedHeaders(),
       }),
     );
 
@@ -439,7 +471,7 @@ describe("wiki Vite app-shell password gate", () => {
 
     const response = await handler(
       request("/about?view=compact", {
-        headers: { Cookie: "authed=true" },
+        headers: await authenticatedHeaders(),
       }),
     );
 
@@ -461,7 +493,7 @@ describe("wiki Vite app-shell password gate", () => {
     expect(anonymous.status).toBe(302);
 
     const authenticated = await handler(
-      request("/", { headers: { Cookie: "authed=true" } }),
+      request("/", { headers: await authenticatedHeaders() }),
     );
     expect(authenticated.status).toBe(200);
     expect(await authenticated.text()).toContain('<div id="root"></div>');

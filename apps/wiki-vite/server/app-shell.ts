@@ -13,11 +13,11 @@ import {
   trailingSlashCanonicalPathname,
 } from "../src/route-canonicalization.ts";
 import {
-  authedCookieName,
   canUserAccessSlug,
   createClient,
   createWikiApiHandler,
   getSessionUser,
+  hasValidAuthCookie,
   handleSharePreviewRequest,
   resolveSiteSlug,
   withSiteSlug,
@@ -85,13 +85,6 @@ function safeStaticPath(distDir: string, pathname: string) {
 
 function slugFromPathname(pathname: string) {
   return slugFromRoutePathname(pathname);
-}
-
-function hasAuthCookie(request: Request, siteSlug: string) {
-  const cookieName = authedCookieName(siteSlug);
-  return (request.headers.get("cookie") ?? "")
-    .split(/;\s*/)
-    .some((part) => part === `${cookieName}=true`);
 }
 
 function isDianaPreviewTestAuth(request: Request, siteSlug: string) {
@@ -265,7 +258,9 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
   }
 
   const gateEnabled = await isPasswordGateEnabled(client, siteSlug);
-  const isAuthed = hasAuthCookie(request, siteSlug) || isDianaPreviewTestAuth(request, siteSlug);
+  const isAuthed =
+    await hasValidAuthCookie(request, siteSlug) ||
+    isDianaPreviewTestAuth(request, siteSlug);
   const isLoginPage = url.pathname === "/login";
 
   if (isLoginPage && (isAuthed || !gateEnabled)) {
@@ -434,7 +429,9 @@ async function staticIndexHtml(
 
 async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath: string) {
   const siteSlug = (await resolveSiteSlug(request, client)) ?? DEFAULT_SITE_SLUG;
-  const authed = hasAuthCookie(request, siteSlug) || isDianaPreviewTestAuth(request, siteSlug);
+  const authed =
+    await hasValidAuthCookie(request, siteSlug) ||
+    isDianaPreviewTestAuth(request, siteSlug);
   const [gateEnabled, sessionUser] = await Promise.all([
     isPasswordGateEnabled(client, siteSlug),
     getSessionUser(request, client, siteSlug).catch(() => null),

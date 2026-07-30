@@ -14,6 +14,11 @@ import {
   type WikiApiAccessAdapter,
   type WikiApiDocumentsGateway,
 } from "@oncobase/wiki-content/server";
+import {
+  createWikiGateSession,
+  matchesWikiPasswordHash,
+  verifyWikiGateSession,
+} from "@oncobase/wiki-content/gate-session";
 import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
 import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
@@ -84,7 +89,8 @@ const HOST_CACHE_TTL_MS = 15_000;
 const VERCEL_PROJECT_HOST_PREFIX = "diana-tnbc";
 const USER_SESSION_COOKIE = "wiki_user_session";
 const USER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
-const DIANA_PASSWORDS = new Set(["wallify", "diana"]);
+const DEV_GATE_SESSION_SECRET = "oncobase-wiki-gate-development-only";
+const GATE_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const MAX_SEARCH_LIMIT = 5000;
 const TIMELINE_META_KEY = "diagnosticTimeline:data";
 const MANIFEST_PRIORITY_SLUGS = [
@@ -243,10 +249,6 @@ function hashSessionToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-function hashSitePassword(password: string) {
-  return `sha256:${crypto.createHash("sha256").update(password).digest("hex")}`;
-}
-
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -284,11 +286,32 @@ export function authedCookieName(siteSlug: string) {
   return siteSlug === DEFAULT_SITE_SLUG ? "authed" : `authed_${siteSlug}`;
 }
 
-function hasAuthedCookie(request: Request, siteSlug: string) {
+function gateSessionSecret() {
+  const configured = process.env.WIKI_GATE_SESSION_SECRET?.trim();
+  if (configured) return configured;
+  return process.env.NODE_ENV === "production"
+    ? null
+    : DEV_GATE_SESSION_SECRET;
+}
+
+function passwordHashForSite(siteSlug: string, configured?: string | null) {
+  if (configured) return configured;
+  return siteSlug === DEFAULT_SITE_SLUG
+    ? process.env.DIANA_WIKI_PASSWORD_HASH?.trim() || null
+    : null;
+}
+
+export async function hasValidAuthCookie(request: Request, siteSlug: string) {
   const cookieName = authedCookieName(siteSlug);
-  return (request.headers.get("cookie") ?? "")
+  const token = (request.headers.get("cookie") ?? "")
     .split(/;\s*/)
-    .some((part) => part === `${cookieName}=true`);
+    .find((part) => part.startsWith(`${cookieName}=`))
+    ?.slice(cookieName.length + 1);
+  return verifyWikiGateSession({
+    secret: gateSessionSecret(),
+    siteSlug,
+    token,
+  });
 }
 
 function sessionTokenFromCookie(cookieHeader: string) {
@@ -591,20 +614,35 @@ async function isValidPassword(
   siteSlug: string,
   password: string,
 ) {
-  if (siteSlug === DEFAULT_SITE_SLUG && DIANA_PASSWORDS.has(password)) {
+  if (
+    await matchesWikiPasswordHash(
+      password,
+      passwordHashForSite(siteSlug),
+    )
+  ) {
     return true;
   }
   const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
   if (!site) return false;
-  const expected = site.config?.passwordHash;
-  if (!expected) {
+  if (!site.config?.passwordHash && !site.config?.passwordGate) {
     return !site.config?.passwordGate;
   }
-  return hashSitePassword(password) === expected;
+  return matchesWikiPasswordHash(
+    password,
+    passwordHashForSite(siteSlug, site.config?.passwordHash),
+  );
 }
 
-function authCookieHeader(siteSlug: string) {
-  return `${authedCookieName(siteSlug)}=true; HttpOnly; SameSite=Lax; Path=/; Max-Age=${60 * 60 * 24 * 30}`;
+async function authCookieHeader(siteSlug: string) {
+  const secret = gateSessionSecret();
+  if (!secret) throw new Error("WIKI_GATE_SESSION_SECRET is not configured");
+  const token = await createWikiGateSession({
+    secret,
+    siteSlug,
+    ttlSeconds: GATE_SESSION_TTL_SECONDS,
+  });
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${authedCookieName(siteSlug)}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${GATE_SESSION_TTL_SECONDS}${secure}`;
 }
 
 async function handleLoginRequest(
@@ -627,15 +665,28 @@ async function handleLoginRequest(
         },
       });
     }
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: new URL(redirect, request.url).toString(),
-        "Cache-Control": "private, no-store",
-        "Set-Cookie": authCookieHeader(siteSlug),
-        Vary: "Cookie, Host",
-      },
-    });
+    try {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: new URL(redirect, request.url).toString(),
+          "Cache-Control": "private, no-store",
+          "Set-Cookie": await authCookieHeader(siteSlug),
+          Vary: "Cookie, Host",
+        },
+      });
+    } catch {
+      return Response.json(
+        { error: "Password gate session is not configured" },
+        {
+          status: 503,
+          headers: {
+            "Cache-Control": "private, no-store",
+            Vary: "Cookie, Host",
+          },
+        },
+      );
+    }
   }
 
   if (request.method !== "POST") {
@@ -650,16 +701,29 @@ async function handleLoginRequest(
 
   const { password } = (await request.json()) as { password?: string };
   if (password && (await isValidPassword(client, siteSlug, password))) {
-    return Response.json(
-      { ok: true },
-      {
-        headers: {
-          "Cache-Control": "private, no-store",
-          "Set-Cookie": authCookieHeader(siteSlug),
-          Vary: "Cookie, Host",
+    try {
+      return Response.json(
+        { ok: true },
+        {
+          headers: {
+            "Cache-Control": "private, no-store",
+            "Set-Cookie": await authCookieHeader(siteSlug),
+            Vary: "Cookie, Host",
+          },
         },
-      },
-    );
+      );
+    } catch {
+      return Response.json(
+        { error: "Password gate session is not configured" },
+        {
+          status: 503,
+          headers: {
+            "Cache-Control": "private, no-store",
+            Vary: "Cookie, Host",
+          },
+        },
+      );
+    }
   }
 
   return Response.json(
@@ -898,7 +962,9 @@ async function handleFileRequest(
   // Cache privacy mirrors apps/web: any password-gated or signed-in request
   // gets a private response varying on Cookie, independent of RBAC scope.
   const privateCache =
-    includeSensitive || Boolean(sessionUser) || hasAuthedCookie(request, siteSlug);
+    includeSensitive ||
+    Boolean(sessionUser) ||
+    await hasValidAuthCookie(request, siteSlug);
   const headers = new Headers({
       "Content-Type": mimeType,
       "Content-Disposition": contentDisposition(ext, filename),

@@ -7,6 +7,7 @@ import {
   openDirectory,
   waitForPageTitle,
 } from "./fixtures";
+import { passwordGateCookie } from "./gate-auth";
 
 const runsAgainstProductionServer = Boolean(process.env.PLAYWRIGHT_BASE_URL);
 
@@ -35,8 +36,9 @@ test.describe("Production server redirects", () => {
   });
 
   test("serves markdown article aliases through the app shell", async ({ request }) => {
+    const cookie = await passwordGateCookie(request);
     const response = await request.get("/wiki/logistics/insurance.md", {
-      headers: { Cookie: "authed=true" },
+      headers: { Cookie: cookie },
     });
 
     expect(response.status()).toBe(200);
@@ -45,8 +47,9 @@ test.describe("Production server redirects", () => {
   });
 
   test("permanently removes article trailing slashes", async ({ request }) => {
+    const cookie = await passwordGateCookie(request);
     const response = await request.get("/wiki/logistics/insurance/?view=compact", {
-      headers: { Cookie: "authed=true" },
+      headers: { Cookie: cookie },
       maxRedirects: 0,
     });
 
@@ -57,8 +60,9 @@ test.describe("Production server redirects", () => {
   });
 
   test("redirects mixed-case wiki paths to canonical casing", async ({ request }) => {
+    const cookie = await passwordGateCookie(request);
     const response = await request.get("/wiki/Logistics/Insurance", {
-      headers: { Cookie: "authed=true" },
+      headers: { Cookie: cookie },
       maxRedirects: 0,
     });
 

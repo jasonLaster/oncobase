@@ -182,7 +182,7 @@ test.describe("Vite backend API", () => {
     });
     expect(valid.ok(), await valid.text()).toBe(true);
     expect(await valid.json()).toEqual({ ok: true });
-    expect(valid.headers()["set-cookie"]).toContain("authed=true");
+    expect(valid.headers()["set-cookie"]).toContain("authed=v1.");
   });
 
   test("serves chat tool calls from the Vite API route", async ({ request }) => {

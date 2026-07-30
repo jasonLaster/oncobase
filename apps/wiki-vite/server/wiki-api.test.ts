@@ -3,6 +3,10 @@ import { getFunctionName, type FunctionReference } from "convex/server";
 import JSZip from "jszip";
 import { createWikiApiHandler } from "./wiki-api";
 
+process.env.WIKI_GATE_SESSION_SECRET = "wiki-api-test-gate-secret";
+process.env.DIANA_WIKI_PASSWORD_HASH =
+  "sha256:1b2fc9341a16ae4e30082965d537ae47c21a0f27fd43eab78330ed81751ae6db";
+
 type FakeUser = {
   _id: string;
   email: string;
@@ -393,7 +397,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     );
     expect(tokenLogin?.status).toBe(302);
     expect(tokenLogin!.headers.get("cache-control")).toBe("private, no-store");
-    expect(tokenLogin!.headers.get("set-cookie")).toContain("authed=true");
+    expect(tokenLogin!.headers.get("set-cookie")).toContain("authed=v1.");
     expect(tokenLogin!.headers.get("vary")).toContain("Cookie");
     expect(tokenLogin!.headers.get("location")).toBe("http://127.0.0.1/wiki/public");
 
