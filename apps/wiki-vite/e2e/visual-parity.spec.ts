@@ -277,6 +277,18 @@ test.describe("Visual parity", () => {
     expect(pageNavBox!.y - panelBox!.y).toBe(63);
     expect(Math.abs(pageNavBox!.width - 175)).toBeLessThanOrEqual(1);
     expect(Math.abs(signInBox!.y - panelBox!.y - 215.5)).toBeLessThan(1);
+    await expect(sheet.locator(".wiki-shell-bottom-nav-panel")).toHaveCSS(
+      "border-top-left-radius",
+      "18px",
+    );
+    await expect(sheet.locator(".wiki-shell-bottom-nav-panel")).toHaveCSS(
+      "box-shadow",
+      "rgba(0, 0, 0, 0.25) 0px 25px 50px -12px",
+    );
+    await expect(sheet.getByRole("button", { name: "Close navigation" })).toHaveCSS(
+      "border-radius",
+      "8px",
+    );
 
     if (hasLocalSnapshotBaseline) {
       await expect(sheet).toHaveScreenshot("mobile-navigation-sheet.png", {
