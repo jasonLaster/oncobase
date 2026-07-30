@@ -96,7 +96,15 @@ test.describe("Command palette parity", () => {
     const recentHeading = palette.getByText("Recent pages");
     const recentPath = palette.getByRole("option").first().locator("small");
     await expect(recentHeading).toHaveCSS("color", "rgb(107, 114, 128)");
+    await expect(recentHeading).toHaveCSS("font-weight", "500");
+    await expect(recentHeading).toHaveCSS("line-height", "16px");
     await expect(recentPath).toHaveCSS("color", "rgb(107, 114, 128)");
+    const recentIcon = palette
+      .getByRole("option")
+      .first()
+      .locator(".wiki-shell-file-palette-icon");
+    await expect(recentIcon).toHaveCSS("color", "rgb(26, 26, 46)");
+    await expect(recentIcon).toHaveCSS("opacity", "0.5");
     await expect(palette.locator("footer")).toHaveCount(0);
 
     const themeTokens = await page.evaluate(() => {

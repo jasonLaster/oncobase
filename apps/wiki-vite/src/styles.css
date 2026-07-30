@@ -56,6 +56,7 @@ html[data-wiki-first-frame="true"] #root {
   --amber: #b45309;
   --red: #dc2626;
   --violet: var(--brand);
+  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
   font-family: ui-sans-serif, system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;

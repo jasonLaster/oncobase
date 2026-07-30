@@ -98,8 +98,7 @@
 .wiki-markdown code {
   background: var(--sidebar-bg, var(--surface-muted, #f1f5f9));
   border-radius: 0.25rem;
-  font-family: var(--font-mono, ui-monospace), SFMono-Regular, Menlo, Monaco,
-    Consolas, monospace;
+  font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 0.875em;
   padding: 0.15rem 0.4rem;
 }

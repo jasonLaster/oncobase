@@ -113,6 +113,17 @@ test.describe("Visual parity", () => {
       items.map((item) => item.getBoundingClientRect().height),
     );
     expect(itemHeights).toEqual([25.59375, 25.59375, 25.59375, 25.59375, 25.59375]);
+
+    await page.locator(".wiki-markdown").evaluate((root) => {
+      const code = document.createElement("code");
+      code.dataset.testId = "font-stack-probe";
+      code.textContent = "const parity = true";
+      root.append(code);
+    });
+    await expect(page.getByTestId("font-stack-probe")).toHaveCSS(
+      "font-family",
+      '"Geist Mono", "Geist Mono Fallback", ui-monospace, monospace',
+    );
   });
 
   test("collapsed desktop sidebar keeps its expand control at the top", async ({ page }) => {
