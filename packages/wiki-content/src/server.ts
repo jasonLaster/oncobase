@@ -598,23 +598,20 @@ async function listAssets(
     return assets;
   };
 
-  if (!includeSensitive) {
-    return (
-      await listVisibleAssets(
-        "pdf",
-        (args) => context.documents.listPdfAssetVisibilityPage(args),
-      )
-    ).map(publicManifestAsset);
-  }
-
-  return filterAssetsForUser(
-    context,
-    user,
-    await listVisibleAssets(
+  try {
+    const assets = await listVisibleAssets(
       "pdf",
       (args) => context.documents.listPdfAssetVisibilityPage(args),
-    ),
-  );
+    );
+    if (!includeSensitive) return assets.map(publicManifestAsset);
+    return filterAssetsForUser(context, user, assets);
+  } catch (error) {
+    context.logger?.warn(
+      "[wiki manifest] Asset ownership metadata unavailable; omitting assets",
+      error,
+    );
+    return [];
+  }
 }
 
 function parseLimit(url: URL) {

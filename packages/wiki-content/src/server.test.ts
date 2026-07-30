@@ -4,7 +4,10 @@ import {
   type WikiApiContext,
 } from "./server";
 
-function manifestContext({ failFullManifest = false } = {}) {
+function manifestContext({
+  failAssetVisibility = false,
+  failFullManifest = false,
+} = {}) {
   const manifestPageSizes: number[] = [];
   let pdfCalls = 0;
   let fileCalls = 0;
@@ -61,6 +64,9 @@ function manifestContext({ failFullManifest = false } = {}) {
         };
       },
       listPdfAssetVisibilityPage: async ({ cursor }) => {
+        if (failAssetVisibility) {
+          throw new Error("fixture asset visibility query unavailable");
+        }
         pdfCalls += 1;
         return cursor === null
           ? {
@@ -174,6 +180,22 @@ describe("wiki manifest server", () => {
     expect(validated.headers.get("x-wiki-manifest-partial")).toBe("true");
     expect(validated.headers.get("cache-control")).toBe("no-store");
     expect(validated.headers.get("cdn-cache-control")).toBeNull();
+  });
+
+  test("keeps the complete manifest cacheable while asset ownership metadata migrates", async () => {
+    const { context } = manifestContext({ failAssetVisibility: true });
+    const response = await createWikiManifestResponse(
+      new Request("https://example.test/api/wiki/manifest?scope=public"),
+      context,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-wiki-manifest-partial")).toBeNull();
+    expect(response.headers.get("cache-control")).toContain("max-age=60");
+    expect(response.headers.get("cdn-cache-control")).toContain("s-maxage=300");
+    expect(body.pages).toHaveLength(1);
+    expect(body.assets).toEqual([]);
   });
 
   test("exposes sensitive asset paths only when every recorded owner is accessible", async () => {
