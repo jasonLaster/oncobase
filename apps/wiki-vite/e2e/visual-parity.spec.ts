@@ -146,6 +146,12 @@ test.describe("Visual parity", () => {
     expect(menuBox!.width).toBe(224);
     expect(menuBox!.height).toBe(218);
     expect((await menu.getByRole("menuitem").first().boundingBox())?.height).toBe(28);
+    const menuItemOffsets = await menu.getByRole("menuitem").evaluateAll(
+      (items, menuTop) =>
+        items.map((item) => item.getBoundingClientRect().y - menuTop),
+      menuBox!.y,
+    );
+    expect(menuItemOffsets).toEqual([28, 56, 93, 130, 158, 186]);
     await expect(menu).toHaveCSS("border-radius", "10px");
 
     if (hasLocalSnapshotBaseline) {

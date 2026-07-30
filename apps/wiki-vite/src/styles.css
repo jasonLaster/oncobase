@@ -477,7 +477,7 @@ a {
   border-radius: 0.625rem;
   left: 0;
   min-height: 13.625rem;
-  padding-block: 1px;
+  padding-block: 4px;
   right: auto;
   top: calc(100% + 0.25rem);
   width: 14rem;
