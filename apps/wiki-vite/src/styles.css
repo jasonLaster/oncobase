@@ -807,7 +807,6 @@ a {
   border-right: 1px solid var(--sidebar-border);
   display: flex;
   flex: 0 0 48px;
-  justify-content: center;
   padding-top: 8px;
 }
 

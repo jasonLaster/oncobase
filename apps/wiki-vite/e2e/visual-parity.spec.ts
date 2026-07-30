@@ -48,6 +48,23 @@ test.describe("Visual parity", () => {
     }
   });
 
+  test("collapsed desktop sidebar keeps its expand control at the top", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await waitForPageTitle(page, "Insurance");
+    await page.locator(".sidebar-collapse-button").click();
+
+    const rail = page.locator("[data-sidebar-collapsed-rail]");
+    const expandButton = rail.getByRole("button", { name: "Expand sidebar" });
+    await expect(rail).toBeVisible();
+    await expect(expandButton).toBeVisible();
+
+    const railBox = await rail.boundingBox();
+    const buttonBox = await expandButton.boundingBox();
+    expect(railBox).not.toBeNull();
+    expect(buttonBox).not.toBeNull();
+    expect(buttonBox!.y - railBox!.y).toBe(8);
+  });
+
   test("mobile reader shell keeps compact Diana navigation and outline", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoWiki(page, "/wiki/logistics/insurance");
