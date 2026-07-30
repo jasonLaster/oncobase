@@ -93,7 +93,9 @@ test.describe("Search and local page finding", () => {
 
     await page.getByTestId("sidebar-search").click();
     await page.getByTestId("command-palette-input").fill("diagnosis");
-    await page.getByRole("option", { name: /Diagnosis/ }).click();
+    await page
+      .getByRole("option", { name: "diagnosis wiki/diagnostics" })
+      .click();
 
     await expect(page).toHaveURL(/\/wiki\/diagnostics\/diagnosis$/);
     await waitForPageTitle(page, "Diagnosis");
@@ -125,7 +127,7 @@ test.describe("Search and local page finding", () => {
 
     await page.getByTestId("sidebar-search").click();
     await page.getByTestId("command-palette-input").fill("private plan");
-    await page.getByRole("option", { name: /Private Plan/ }).click();
+    await page.getByRole("option", { name: "plan private" }).click();
 
     await expect(page).toHaveURL(/\/private\/plan$/);
     await waitForPageTitle(page, "Private Plan");
@@ -186,7 +188,7 @@ test.describe("Search and local page finding", () => {
     );
     await expect(
       header.getByRole("button", { name: "Search files" }).locator("svg"),
-    ).toHaveAttribute("width", "16");
+    ).toHaveAttribute("width", "18");
   });
 
   test("mode toggle matches web labels and default order", async ({ page }) => {
