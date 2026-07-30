@@ -184,9 +184,11 @@ test.describe("Visual parity", () => {
     const panelBox = await sheet.locator(".wiki-shell-bottom-nav-panel").boundingBox();
     const closeBox = await sheet.getByRole("button", { name: "Close navigation" }).boundingBox();
     const pageNavBox = await sheet.getByRole("button", { name: "Page nav" }).boundingBox();
+    const signInBox = await sheet.getByTestId("sidebar-sign-in").boundingBox();
     expect(panelBox).not.toBeNull();
     expect(closeBox).not.toBeNull();
     expect(pageNavBox).not.toBeNull();
+    expect(signInBox).not.toBeNull();
     expect(closeBox!.x).toBe(352);
     expect(closeBox!.y - panelBox!.y).toBe(20);
     expect(closeBox!.width).toBe(28);
@@ -194,6 +196,7 @@ test.describe("Visual parity", () => {
     expect(pageNavBox!.x).toBe(19);
     expect(pageNavBox!.y - panelBox!.y).toBe(63);
     expect(Math.abs(pageNavBox!.width - 175)).toBeLessThanOrEqual(1);
+    expect(Math.abs(signInBox!.y - panelBox!.y - 215.5)).toBeLessThan(1);
 
     if (hasLocalSnapshotBaseline) {
       await expect(sheet).toHaveScreenshot("mobile-navigation-sheet.png", {

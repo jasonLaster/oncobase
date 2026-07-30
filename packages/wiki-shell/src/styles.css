@@ -2203,6 +2203,7 @@ html[data-initial-sidebar-state="collapsed"]
     background: color-mix(in srgb, var(--text-muted) 30%, transparent);
     border-radius: 999px;
     height: 0.25rem;
+    flex-shrink: 0;
     margin: 0.5rem auto;
     width: 2rem;
   }
@@ -2210,6 +2211,7 @@ html[data-initial-sidebar-state="collapsed"]
   .wiki-shell-bottom-nav-header {
     align-items: center;
     display: flex;
+    flex-shrink: 0;
     justify-content: space-between;
     padding: 0 1rem 0.375rem;
   }
@@ -2240,9 +2242,14 @@ html[data-initial-sidebar-state="collapsed"]
   }
 
   .wiki-shell-bottom-nav-panel nav {
+    flex: 1;
     min-height: 0;
     overflow: auto;
-    padding: 0.25rem 0.5rem 0.75rem;
+    padding: 0.5rem 0.5rem 0.75rem;
+  }
+
+  .wiki-shell-bottom-nav-panel nav > * + * {
+    margin-top: 0.125rem;
   }
 
   .wiki-shell-chat-page {
