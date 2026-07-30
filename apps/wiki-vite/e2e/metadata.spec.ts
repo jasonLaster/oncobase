@@ -167,6 +167,36 @@ test.describe("client route metadata", () => {
       )
       .toBe("alive");
   });
+
+  test("replaces article metadata when navigating to special application routes", async ({
+    page,
+  }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    await page
+      .getByTestId("wiki-sidebar")
+      .getByRole("link", { name: "Comments", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/comments$/);
+    await expectClientMetadata(page, {
+      title: "Comments — TNBC Knowledge Base",
+      description: "Recent comments and discussions",
+      openGraphTitle: "Comments",
+      openGraphDescription: "Recent comments and discussions",
+      twitterTitle: "TNBC Knowledge Base",
+      twitterDescription: DEFAULT_DESCRIPTION,
+    });
+
+    await page.goto("/diagnostics/imaging");
+    await expectClientMetadata(page, {
+      title: "Diagnostic Imaging — TNBC Knowledge Base",
+      description: DEFAULT_DESCRIPTION,
+      openGraphTitle: "TNBC Knowledge Base",
+      openGraphDescription: DEFAULT_DESCRIPTION,
+      twitterTitle: "TNBC Knowledge Base",
+      twitterDescription: DEFAULT_DESCRIPTION,
+    });
+  });
 });
 
 test.describe("production page metadata", () => {

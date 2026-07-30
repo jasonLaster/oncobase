@@ -1,3 +1,5 @@
+import { specialRouteMetadata } from "../src/special-route-metadata.ts";
+
 export const DIANA_SITE_NAME = "TNBC Knowledge Base";
 export const DEFAULT_SITE_DESCRIPTION =
   "Breast cancer research and treatment knowledge base";
@@ -48,18 +50,12 @@ export function legacyRouteMetadata({
   slug: string | null;
   tagCount?: number | null;
 }): LegacyRouteMetadata {
-  if (pathname === "/terms-and-conditions") {
-    const description = "Terms and conditions for the Diana TNBC Knowledge Base.";
-    return {
-      description,
-      openGraphDescription: description,
-      openGraphTitle: "Terms and Conditions",
-      openGraphType: "website",
-      title: `Terms and Conditions — ${siteName}`,
-      twitterDescription: description,
-      twitterTitle: "Terms and Conditions",
-    };
-  }
+  const specialMetadata = specialRouteMetadata({
+    defaultDescription: DEFAULT_SITE_DESCRIPTION,
+    pathname,
+    siteName,
+  });
+  if (specialMetadata) return specialMetadata;
 
   if (slug === "index") {
     return {

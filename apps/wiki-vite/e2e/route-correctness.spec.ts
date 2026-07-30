@@ -74,6 +74,7 @@ test.describe("Route-owned metadata and links", () => {
 
     await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
+    await expect(page).toHaveTitle("Admin — TNBC Knowledge Base");
   });
 
   test("bracketed redacted labels preserve mail and telephone protocol links", async ({

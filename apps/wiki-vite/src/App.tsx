@@ -6,6 +6,7 @@ import { HeaderCommandPaletteHost } from "./shell/Header";
 import { LiveStoreDevtoolsFooter } from "./shell/LiveStoreDevtoolsFooter";
 import { MobileNav, Sidebar } from "./shell/Navigation";
 import { ResizableAppShell } from "./shell/ResizableAppShell";
+import { SpecialRouteMetadata } from "./shell/SpecialRouteMetadata";
 import { WikiSync } from "./sync/WikiSync";
 import type { Metrics } from "./types";
 import { useWikiScope } from "./wiki-context";
@@ -157,6 +158,7 @@ export function App({
         className="prototype-shell"
         data-immersive-route={isImmersiveDicomRoute ? "dicom-viewer" : undefined}
       >
+        <SpecialRouteMetadata />
         <HeaderCommandPaletteHost />
         <ResizableAppShell sidebar={<Sidebar />}>
           <main className="content-shell">

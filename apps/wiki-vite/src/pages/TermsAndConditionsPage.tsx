@@ -1,21 +1,22 @@
 import { useEffect } from "react";
 import { Link } from "react-router";
-import { updateClientRouteMetadata, wikiDocumentTitle } from "../document-title";
+import {
+  updateClientRouteMetadata,
+  WIKI_SITE_DESCRIPTION,
+  WIKI_SITE_NAME,
+} from "../document-title";
+import { specialRouteMetadata } from "../special-route-metadata";
 
-const description = "Terms and conditions for the Diana TNBC Knowledge Base.";
 const effectiveDate = "July 10, 2026";
 
 export function TermsAndConditionsPage() {
   useEffect(() => {
-    updateClientRouteMetadata({
-      title: wikiDocumentTitle("Terms and Conditions"),
-      description,
-      openGraphTitle: "Terms and Conditions",
-      openGraphDescription: description,
-      openGraphType: "website",
-      twitterTitle: "Terms and Conditions",
-      twitterDescription: description,
+    const metadata = specialRouteMetadata({
+      defaultDescription: WIKI_SITE_DESCRIPTION,
+      pathname: "/terms-and-conditions",
+      siteName: WIKI_SITE_NAME,
     });
+    if (metadata) updateClientRouteMetadata(metadata);
   }, []);
 
   return (

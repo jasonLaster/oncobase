@@ -293,6 +293,62 @@ describe("wiki Vite app-shell password gate", () => {
         openGraphTitle: "Search",
         twitterTitle: "TNBC Knowledge Base",
       },
+      {
+        path: "/comments",
+        title: "Comments — TNBC Knowledge Base",
+        description: "Recent comments and discussions",
+        openGraphTitle: "Comments",
+        twitterTitle: "TNBC Knowledge Base",
+      },
+      {
+        path: "/chat/thread-1",
+        title: "Chat — TNBC Knowledge Base",
+        description: "Ask questions about TNBC research and treatment",
+        openGraphTitle: "Chat",
+        twitterTitle: "TNBC Knowledge Base",
+      },
+      {
+        path: "/diagnostics",
+        title: "Diagnostics — TNBC Knowledge Base",
+        description: "Breast cancer research and treatment knowledge base",
+        openGraphTitle: "TNBC Knowledge Base",
+        twitterTitle: "TNBC Knowledge Base",
+      },
+      {
+        path: "/diagnostics/imaging",
+        title: "Diagnostic Imaging — TNBC Knowledge Base",
+        description: "Breast cancer research and treatment knowledge base",
+        openGraphTitle: "TNBC Knowledge Base",
+        twitterTitle: "TNBC Knowledge Base",
+      },
+      {
+        path: "/tools/dicom-viewer",
+        title: "DICOM Viewer — TNBC Knowledge Base",
+        description: "Breast cancer research and treatment knowledge base",
+        openGraphTitle: "TNBC Knowledge Base",
+        twitterTitle: "TNBC Knowledge Base",
+      },
+      {
+        path: "/tools/dicom-compare",
+        title: "DICOM Comparison — TNBC Knowledge Base",
+        description: "Breast cancer research and treatment knowledge base",
+        openGraphTitle: "TNBC Knowledge Base",
+        twitterTitle: "TNBC Knowledge Base",
+      },
+      {
+        path: "/tools/medical-deduction",
+        title: "Medical Expense Deduction Calculator — TNBC Knowledge Base",
+        description: "Breast cancer research and treatment knowledge base",
+        openGraphTitle: "TNBC Knowledge Base",
+        twitterTitle: "TNBC Knowledge Base",
+      },
+      {
+        path: "/admin/users",
+        title: "Admin Users — TNBC Knowledge Base",
+        description: "Breast cancer research and treatment knowledge base",
+        openGraphTitle: "TNBC Knowledge Base",
+        twitterTitle: "TNBC Knowledge Base",
+      },
     ];
 
     for (const route of cases) {
