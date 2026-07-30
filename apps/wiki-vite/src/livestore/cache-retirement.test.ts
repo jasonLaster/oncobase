@@ -6,7 +6,11 @@ import {
   isCurrentReaderManifestValidated,
   isRouteUnavailableInCurrentReader,
   previousReaderStoreDirectoryPrefix,
+  requestSessionCacheCleanup,
+  retireRequestedSessionReaderStores,
   retirePreviousReaderStore,
+  sessionCacheCleanupKey,
+  sessionReaderStoreDirectoryPrefixes,
 } from "./cache-retirement";
 
 const identity = makePublicWikiSessionIdentity("diana");
@@ -137,5 +141,81 @@ describe("reader cache retirement", () => {
 
     expect(retired).toEqual([matching]);
     expect(removed).toEqual([matching]);
+  });
+
+  test("clears current and N-1 session stores after sign-out without touching public caches", async () => {
+    const localValues = new Map<string, string>();
+    const localStorage = {
+      getItem: (key: string) => localValues.get(key) ?? null,
+      setItem: (key: string, value: string) => localValues.set(key, value),
+      removeItem: (key: string) => localValues.delete(key),
+    };
+    requestSessionCacheCleanup(localStorage, "diana");
+
+    const prefixes = sessionReaderStoreDirectoryPrefixes({
+      origin: "https://wiki.example",
+      siteSlug: "diana",
+    });
+    const names = [
+      `${prefixes[0]}user-current@4`,
+      `${prefixes[1]}user-previous@3`,
+      prefixes[0]!.replace("-session-", "-public-") + "public@4",
+      "unrelated",
+    ];
+    const removed: string[] = [];
+    const directory = {
+      async *keys() {
+        yield* names;
+      },
+      async removeEntry(name: string) {
+        removed.push(name);
+      },
+    };
+
+    const retired = await retireRequestedSessionReaderStores({
+      localStorage,
+      origin: "https://wiki.example",
+      siteSlug: "diana",
+      storage: {
+        getDirectory: async () => directory as unknown as FileSystemDirectoryHandle,
+      } as StorageManager,
+    });
+
+    expect(retired).toEqual(names.slice(0, 2));
+    expect(removed).toEqual(names.slice(0, 2));
+    expect(localValues.has(sessionCacheCleanupKey("diana"))).toBe(false);
+  });
+
+  test("keeps the cleanup request when an open tab blocks deletion", async () => {
+    const localValues = new Map<string, string>();
+    const localStorage = {
+      getItem: (key: string) => localValues.get(key) ?? null,
+      setItem: (key: string, value: string) => localValues.set(key, value),
+      removeItem: (key: string) => localValues.delete(key),
+    };
+    requestSessionCacheCleanup(localStorage, "diana");
+    const [prefix] = sessionReaderStoreDirectoryPrefixes({
+      origin: "https://wiki.example",
+      siteSlug: "diana",
+    });
+    const directory = {
+      async *keys() {
+        yield `${prefix}open-tab@4`;
+      },
+      async removeEntry() {
+        throw new Error("database is open");
+      },
+    };
+
+    await retireRequestedSessionReaderStores({
+      localStorage,
+      origin: "https://wiki.example",
+      siteSlug: "diana",
+      storage: {
+        getDirectory: async () => directory as unknown as FileSystemDirectoryHandle,
+      } as StorageManager,
+    });
+
+    expect(localValues.get(sessionCacheCleanupKey("diana"))).toBe("1");
   });
 });

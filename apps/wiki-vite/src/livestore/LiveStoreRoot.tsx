@@ -20,6 +20,7 @@ import { FirstFrameSnapshotSync } from "./FirstFrameSnapshot";
 import { readDevtoolsFooterVisible, readLiveStoreDevtoolsEnabled } from "./devtools";
 import LiveStoreWorker from "./livestore.worker?worker";
 import { schema } from "./schema";
+import { SessionCacheRetirement } from "./SessionCacheRetirement";
 import {
   STORE_BOOT_RETRY_DELAY_MS,
   shouldRetryStoreBoot,
@@ -148,6 +149,7 @@ export function LiveStoreRoot({
         <WikiSessionProvider identity={identity}>
           <WikiScopeProvider scope={scope}>
             <BrowserRouter>
+              <SessionCacheRetirement identity={identity} scope={scope} />
               <FirstFrameSnapshotSync identity={identity} scope={scope} />
               <CanonicalRouteBoundary>
                 <App

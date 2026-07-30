@@ -3,6 +3,7 @@ import {
   type WikiScope,
   type WikiSessionIdentity,
   WIKI_PREVIOUS_READER_CACHE_VERSION,
+  WIKI_READER_CACHE_VERSION,
 } from "@oncobase/wiki-content";
 import type { PageContentRow, PageIndexRow, SiteStateRow } from "../types";
 import { WIKI_CACHE_SCHEMA_VERSION } from "./schema";
@@ -10,6 +11,80 @@ import { WIKI_CACHE_SCHEMA_VERSION } from "./schema";
 type DirectoryWithKeys = FileSystemDirectoryHandle & {
   keys: () => AsyncIterableIterator<string>;
 };
+
+const SESSION_CACHE_CLEANUP_PREFIX = "wiki-vite:clear-session-cache";
+
+function safeStoreSegment(value: string) {
+  return value.replace(/[^A-Za-z0-9_-]/g, "_");
+}
+
+export function sessionReaderStoreDirectoryPrefixes({
+  origin,
+  siteSlug,
+}: {
+  origin: string;
+  siteSlug: string;
+}) {
+  const safeSiteSlug = safeStoreSegment(siteSlug);
+  const safeOrigin = safeStoreSegment(origin);
+  return [
+    WIKI_READER_CACHE_VERSION,
+    WIKI_PREVIOUS_READER_CACHE_VERSION,
+  ].map(
+    (readerVersion) =>
+      `livestore-wiki-vite-${readerVersion}-${safeSiteSlug}-session-${safeOrigin}-`,
+  );
+}
+
+export function sessionCacheCleanupKey(siteSlug: string) {
+  return `${SESSION_CACHE_CLEANUP_PREFIX}:${safeStoreSegment(siteSlug)}`;
+}
+
+export function requestSessionCacheCleanup(
+  storage: Pick<Storage, "setItem">,
+  siteSlug: string,
+) {
+  storage.setItem(sessionCacheCleanupKey(siteSlug), "1");
+}
+
+export async function retireRequestedSessionReaderStores({
+  localStorage,
+  origin,
+  siteSlug,
+  storage = navigator.storage,
+}: {
+  localStorage: Pick<Storage, "getItem" | "removeItem">;
+  origin: string;
+  siteSlug: string;
+  storage?: StorageManager;
+}) {
+  const cleanupKey = sessionCacheCleanupKey(siteSlug);
+  if (localStorage.getItem(cleanupKey) !== "1") return [];
+  const directory = await storage?.getDirectory?.();
+  if (!directory || typeof (directory as DirectoryWithKeys).keys !== "function") {
+    return [];
+  }
+
+  const prefixes = sessionReaderStoreDirectoryPrefixes({ origin, siteSlug });
+  const retired: string[] = [];
+  let failed = false;
+  for await (const name of (directory as DirectoryWithKeys).keys()) {
+    if (
+      !prefixes.some((prefix) => name.startsWith(prefix)) ||
+      !/@\d+$/.test(name)
+    ) {
+      continue;
+    }
+    try {
+      await directory.removeEntry(name, { recursive: true });
+      retired.push(name);
+    } catch {
+      failed = true;
+    }
+  }
+  if (!failed) localStorage.removeItem(cleanupKey);
+  return retired;
+}
 
 export function previousReaderStoreDirectoryPrefix({
   identity,

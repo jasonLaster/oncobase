@@ -21,6 +21,8 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { backendHref, returnToHref } from "../wiki-utils";
+import { requestSessionCacheCleanup } from "../livestore/cache-retirement";
+import { useWikiSession } from "../wiki-context";
 import type { PaletteMode } from "./CommandPalette";
 
 const OPEN_COMMAND_PALETTE_EVENT = "wiki-vite-open-command-palette";
@@ -200,6 +202,7 @@ export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["t
   );
   const location = useLocation();
   const navigate = useNavigate();
+  const identity = useWikiSession();
   const returnTo = returnToHref(location.pathname, location.search, location.hash);
   const scope = (() => {
     const urlScope = new URLSearchParams(location.search).get("scope");
@@ -225,7 +228,17 @@ export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["t
       }}
       onOpenCommandPalette={() => openCommandPalette("actions")}
       onSessionChange={setSessionUser}
-      onSignOut={signOut}
+      onSignOut={async () => {
+        await signOut();
+        if (identity?.siteSlug) {
+          requestSessionCacheCleanup(
+            window.localStorage,
+            identity.siteSlug,
+          );
+        }
+        window.localStorage.setItem("wiki-vite-scope", "public");
+        window.location.reload();
+      }}
       onThemeToggle={cycleWikiThemePreference}
       searchHref={backendHref("/search", { returnTo })}
       sessionLoading={sessionLoading}
