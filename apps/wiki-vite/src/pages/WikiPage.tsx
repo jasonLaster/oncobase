@@ -381,31 +381,34 @@ export function WikiPage({
     );
   }
 
+  const isIndexPage = page.slug === "index";
   const pageBody = (
     <>
       {toast ? <WikiToast>{toast}</WikiToast> : null}
-      <WikiPageHeader
-        title={
-          <MarkdownTitle
-            title={page.title}
-            currentSlug={page.slug}
-            LinkComponent={({ href, children, ...props }) => (
-              <Link to={href} {...props}>
-                {children}
-              </Link>
-            )}
-          />
-        }
-        actions={
-          <PageActions
-            content={page.content}
-            contentHash={page.contentHash}
-            scope={scope}
-            slug={page.slug}
-            title={page.title}
-          />
-        }
-      />
+      {!isIndexPage ? (
+        <WikiPageHeader
+          title={
+            <MarkdownTitle
+              title={page.title}
+              currentSlug={page.slug}
+              LinkComponent={({ href, children, ...props }) => (
+                <Link to={href} {...props}>
+                  {children}
+                </Link>
+              )}
+            />
+          }
+          actions={
+            <PageActions
+              content={page.content}
+              contentHash={page.contentHash}
+              scope={scope}
+              slug={page.slug}
+              title={page.title}
+            />
+          }
+        />
+      ) : null}
       {stale ? (
         <WikiStatusNotice>
           Showing cached markdown while a newer version is fetched in the background.
@@ -425,14 +428,16 @@ export function WikiPage({
           </a>
         )}
       />
-      <WikiTagList
-        tags={tags}
-        renderTag={(tag) => (
-          <Link key={tag} to={`/tags/${encodeURIComponent(tag)}`}>
-            {tag}
-          </Link>
-        )}
-      />
+      {!isIndexPage ? (
+        <WikiTagList
+          tags={tags}
+          renderTag={(tag) => (
+            <Link key={tag} to={`/tags/${encodeURIComponent(tag)}`}>
+              {tag}
+            </Link>
+          )}
+        />
+      ) : null}
       <WikiMarkdown
         content={page.content}
         currentSlug={page.slug}

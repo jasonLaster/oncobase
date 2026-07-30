@@ -57,6 +57,9 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(page.getByTestId("app-header")).toHaveCount(0);
     await expect(page.getByTestId("wiki-sidebar")).toBeVisible();
     await expect(documentArticle(page)).toContainText("local Vite reader fixture");
+    await expect(documentArticle(page).locator(".wiki-shell-page-header")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Copy page as markdown" })).toHaveCount(0);
+    await expect(documentArticle(page).locator(".tag-row")).toHaveCount(0);
     await expect(nextErrorOverlay(page)).toHaveCount(0);
   });
 
