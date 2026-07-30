@@ -174,6 +174,28 @@ test.describe("Command palette parity", () => {
     );
   });
 
+  test("file palette behaves as a modal and restores its trigger", async ({ page }) => {
+    await gotoWiki(page, "/");
+
+    const trigger = page.getByTestId("sidebar-search");
+    await trigger.focus();
+    await trigger.click();
+    await expect(page.getByTestId("command-palette-input")).toBeFocused();
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.overflow))
+      .toBe("hidden");
+
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.getByRole("option").last()).toBeFocused();
+    await page.keyboard.press("Escape");
+
+    await expect(page.getByTestId("command-palette")).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.overflow))
+      .toBe("");
+  });
+
   test("outline palette jumps to headings rendered from markdown", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 

@@ -93,6 +93,40 @@ test.describe("Page load experience", () => {
     await expect(navigationSheet).not.toHaveAttribute("inert", "");
   });
 
+  test("mobile navigation traps focus, closes with Escape, and restores its trigger", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await installWikiApiMocks(page);
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    const navigationTrigger = page.getByTestId("bottom-nav-trigger");
+    const navigationSheet = page.getByTestId("bottom-nav-sheet");
+    await navigationTrigger.click();
+    await expect(navigationSheet.getByRole("button", { name: "Close navigation" })).toBeFocused();
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.overflow))
+      .toBe("hidden");
+    await expect(navigationSheet.locator(".wiki-shell-bottom-nav-backdrop")).not.toHaveAttribute(
+      "tabindex",
+      /.+/,
+    );
+
+    await page.keyboard.press("Shift+Tab");
+    await expect
+      .poll(() =>
+        navigationSheet.evaluate((element) => element.contains(document.activeElement)),
+      )
+      .toBe(true);
+    await page.keyboard.press("Escape");
+
+    await expect(navigationSheet).toHaveAttribute("inert", "");
+    await expect(navigationTrigger).toBeFocused();
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.overflow))
+      .toBe("");
+  });
+
   test("warm navigation reuses the local page body cache", async ({ page }) => {
     const requests = await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/logistics/insurance?devtools=1");

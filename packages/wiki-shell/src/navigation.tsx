@@ -3,7 +3,9 @@ import {
   type ComponentProps,
   type MouseEventHandler,
   type ReactNode,
+  useCallback,
   useEffect,
+  useRef,
 } from "react";
 import { cn } from "./utils.ts";
 
@@ -342,19 +344,66 @@ export function WikiMobileNavigationSheet({
   trigger,
   ...props
 }: WikiMobileNavigationSheetProps) {
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [open]);
-
-  const close = () => {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const close = useCallback(() => {
     onNavigate?.();
     onOpenChange(false);
-  };
+  }, [onNavigate, onOpenChange]);
+
+  useEffect(() => {
+    if (!open) return;
+    previouslyFocusedRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusTimeout = window.setTimeout(() => {
+      const firstFocusable = panelRef.current?.querySelector<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      (firstFocusable ?? panelRef.current)?.focus();
+    }, 0);
+
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        close();
+        return;
+      }
+
+      if (event.key !== "Tab" || !panelRef.current) return;
+      const focusable = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        panelRef.current.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onDocumentKeyDown, { capture: true });
+    return () => {
+      window.clearTimeout(focusTimeout);
+      document.removeEventListener("keydown", onDocumentKeyDown, { capture: true });
+      document.body.style.overflow = previousOverflow;
+      previouslyFocusedRef.current?.focus();
+      previouslyFocusedRef.current = null;
+    };
+  }, [close, open]);
 
   return (
     <>
@@ -386,13 +435,16 @@ export function WikiMobileNavigationSheet({
         aria-modal={open ? true : undefined}
         aria-label={sheetAriaLabel}
       >
-        <button
+        <div
+          aria-hidden="true"
           className="wiki-shell-bottom-nav-backdrop bottom-nav-backdrop"
-          type="button"
-          aria-label="Close navigation"
           onClick={close}
         />
-        <div className="wiki-shell-bottom-nav-panel bottom-nav-panel">
+        <div
+          className="wiki-shell-bottom-nav-panel bottom-nav-panel"
+          ref={panelRef}
+          tabIndex={-1}
+        >
           <div className="wiki-shell-bottom-nav-handle bottom-nav-handle" aria-hidden="true" />
           <div className="wiki-shell-bottom-nav-header bottom-nav-header">
             <strong>{heading}</strong>

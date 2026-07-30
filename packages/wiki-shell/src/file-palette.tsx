@@ -271,9 +271,16 @@ export function WikiFilePalette({
   const [search, setSearch] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const [listElement, setListElement] = useState<HTMLDivElement | null>(null);
   const didResetScrollForOpenRef = useRef(false);
   const query = search.trim();
+
+  const closePalette = useCallback(() => {
+    onOpenChange(false);
+    setSearch("");
+    setActiveIndex(0);
+  }, [onOpenChange]);
 
   const { recentEntries, searchResults, visibleEntries, visibleRows } = useMemo(
     () => buildWikiFilePaletteState(pages, query, recentSlugs),
@@ -300,10 +307,52 @@ export function WikiFilePalette({
 
   useEffect(() => {
     if (!open) return;
+    previouslyFocusedRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     setSearch(initialSearch);
     setActiveIndex(0);
-    window.setTimeout(() => inputRef.current?.focus(), 0);
-  }, [initialSearch, open]);
+    const focusTimeout = window.setTimeout(() => inputRef.current?.focus(), 0);
+
+    const onDocumentKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closePalette();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+      const panel = inputRef.current?.closest<HTMLElement>('[role="dialog"]');
+      if (!panel) return;
+      const focusable = Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute("inert"));
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onDocumentKeyDown, { capture: true });
+    return () => {
+      window.clearTimeout(focusTimeout);
+      document.removeEventListener("keydown", onDocumentKeyDown, { capture: true });
+      document.body.style.overflow = previousOverflow;
+      previouslyFocusedRef.current?.focus();
+      previouslyFocusedRef.current = null;
+    };
+  }, [closePalette, initialSearch, open]);
 
   useEffect(() => {
     if (!open || !listElement || visibleRows.length === 0) return;
@@ -322,12 +371,6 @@ export function WikiFilePalette({
     listElement.scrollTo({ top: 0 });
     rowVirtualizer.scrollToIndex(0, { align: "start" });
   }, [listElement, open, rowVirtualizer, visibleRows.length]);
-
-  const closePalette = useCallback(() => {
-    onOpenChange(false);
-    setSearch("");
-    setActiveIndex(0);
-  }, [onOpenChange]);
 
   const moveActive = useCallback(
     (delta: number) => {
