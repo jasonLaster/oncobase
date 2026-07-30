@@ -58,7 +58,18 @@ test.describe("Page chrome parity", () => {
     await expect(outline).toHaveAttribute("data-outline-state", "collapsed");
     await outline.getByRole("button", { name: "Open outline" }).click();
     await expect(outline).toHaveAttribute("data-outline-state", "expanded");
-    await expect(outline.getByRole("button", { name: "Prior authorization" })).toBeVisible();
+    const firstHeading = outline.getByRole("button", { name: "Insurance", exact: true });
+    await expect(firstHeading).toBeVisible();
+    await expect(firstHeading).toHaveClass(/active/);
+    await expect(firstHeading).toHaveCSS("font-size", "16px");
+    await expect(firstHeading).toHaveCSS("line-height", "24px");
+    await expect(firstHeading).toHaveCSS("min-height", "40px");
+    await expect(firstHeading).toHaveCSS("border-radius", "8px");
+    await expect(outline).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(outline).toHaveCSS(
+      "box-shadow",
+      "rgba(0, 0, 0, 0.12) -4px 0px 12px 0px",
+    );
     await outline.getByRole("button", { name: "Claims follow-up" }).click();
 
     await expect(page).toHaveURL(/#claims-follow-up$/);
@@ -73,6 +84,12 @@ test.describe("Page chrome parity", () => {
     await page.getByTestId("bottom-nav-trigger").click();
     await page.getByRole("button", { name: "Outline" }).click();
     const mobileOutline = page.getByTestId("bottom-nav-outline");
+    const firstHeading = mobileOutline.getByRole("button", { name: "Prior authorization" });
+    await expect(firstHeading).toHaveAttribute("aria-current", "location");
+    await expect(firstHeading).toHaveCSS("font-size", "16px");
+    await expect(firstHeading).toHaveCSS("line-height", "24px");
+    await expect(firstHeading).toHaveCSS("min-height", "40px");
+    await expect(firstHeading).toHaveCSS("border-radius", "8px");
     await expect(mobileOutline.getByRole("button", { name: "Claims follow-up" })).toBeVisible();
     await mobileOutline.getByRole("button", { name: "Claims follow-up" }).click();
 

@@ -564,6 +564,12 @@ function WikiMobileNav() {
       .filter((heading): heading is HTMLElement => Boolean(heading));
     if (headings.length === 0) {
       setActiveHeadingId(null);
+    } else {
+      setActiveHeadingId((current) =>
+        current && headings.some((heading) => heading.id === current)
+          ? current
+          : headings[0]!.id,
+      );
     }
 
     const observer = new IntersectionObserver(

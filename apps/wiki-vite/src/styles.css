@@ -1408,13 +1408,14 @@ a {
   .wiki-vite-mobile-outline-list button {
     background: transparent;
     border: 0;
-    border-radius: 5px;
+    border-radius: 8px;
     color: var(--foreground);
     cursor: pointer;
-    font-size: 0.8125rem;
-    min-height: 34px;
+    font-size: 1rem;
+    line-height: 1.5rem;
+    min-height: 40px;
     overflow: hidden;
-    padding: 6px 8px 6px calc(8px + (var(--outline-depth) * 12px));
+    padding: 8px 8px 8px calc(12px + (var(--outline-depth) * 14px));
     text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;

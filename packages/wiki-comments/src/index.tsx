@@ -73,11 +73,11 @@ function SidebarButton({
     <button
       type={type}
       className={cn(
-        "cursor-pointer rounded transition-colors active:bg-[var(--accent-light)] active:text-[var(--brand)]",
+        "cursor-pointer rounded-lg transition-colors active:bg-[var(--accent-light)] active:text-[var(--brand)]",
         variant === "tab" && "flex-1 px-2 py-1 text-xs font-medium",
-        variant === "icon" && "flex h-7 w-7 items-center justify-center rounded-md",
+        variant === "icon" && "flex h-7 w-7 items-center justify-center rounded-lg",
         variant === "list" &&
-          "block w-full px-2 py-1.5 text-left text-sm text-[var(--text-muted)]",
+          "block min-h-10 w-full px-2 py-2 text-left text-base leading-6 text-[var(--text-muted)]",
         active
           ? "bg-[var(--accent-light)] text-[var(--brand)]"
           : "text-[var(--text-muted)] hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]",
@@ -535,6 +535,7 @@ function CommentsShell({
   const [selectionTooltip, setSelectionTooltip] = useState<SelectionTooltipPosition | null>(null);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("comments");
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [showResolvedThreads, setShowResolvedThreads] = useState(false);
   const {
@@ -781,12 +782,16 @@ function CommentsShell({
         root.querySelectorAll<HTMLHeadingElement>("h1[id], h2[id], h3[id], h4[id]")
       );
 
-      setOutlineItems(
-        headings.map((heading) => ({
+      const nextItems = headings.map((heading) => ({
           id: heading.id,
           text: getOutlineHeadingText(heading) || heading.id,
           level: Number.parseInt(heading.tagName.slice(1), 10),
-        }))
+        }));
+      setOutlineItems(nextItems);
+      setActiveHeadingId((current) =>
+        current && nextItems.some((item) => item.id === current)
+          ? current
+          : (nextItems[0]?.id ?? null)
       );
     };
 
@@ -795,6 +800,33 @@ function CommentsShell({
     observer.observe(root, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [children]);
+
+  useEffect(() => {
+    const root = articleRef.current;
+    if (!root || outlineItems.length === 0) return;
+    const headings = outlineItems
+      .map((item) => root.querySelector<HTMLElement>(`#${CSS.escape(item.id)}`))
+      .filter((heading): heading is HTMLElement => Boolean(heading));
+    const scrollRoot = document.querySelector(".content-shell");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort(
+            (left, right) =>
+              left.boundingClientRect.top - right.boundingClientRect.top,
+          );
+        if (visible[0]?.target.id) setActiveHeadingId(visible[0].target.id);
+      },
+      {
+        root: scrollRoot instanceof Element ? scrollRoot : null,
+        rootMargin: "-15% 0px -70% 0px",
+        threshold: [0, 1],
+      },
+    );
+    headings.forEach((heading) => observer.observe(heading));
+    return () => observer.disconnect();
+  }, [outlineItems]);
 
   const handlePointerUp = () => {
     window.setTimeout(() => {
@@ -1028,6 +1060,7 @@ function CommentsShell({
               {outlineItems.map((item) => (
                 <SidebarButton
                   key={item.id}
+                  active={item.id === activeHeadingId}
                   variant="list"
                   onClick={() => jumpToHeading(item.id)}
                   style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
@@ -1393,9 +1426,12 @@ function CommentsShell({
 
       <aside
         className={cn(
-          "hidden lg:flex fixed right-0 top-12 bottom-0 z-30 bg-[var(--sidebar-bg)]",
-          commentsOpen ? "flex-col" : "w-16 flex-col items-center py-3 border-l border-[var(--sidebar-border)]"
+          "hidden md:flex fixed right-0 top-0 bottom-0 z-30 bg-[var(--background)]",
+          commentsOpen
+            ? "flex-col shadow-[-4px_0_12px_rgba(0,0,0,0.12)]"
+            : "w-16 flex-col items-center py-3"
         )}
+        data-wiki-shell-right-rail
         style={commentsOpen ? { width: commentsWidth } : undefined}
       >
         {commentsOpen ? (

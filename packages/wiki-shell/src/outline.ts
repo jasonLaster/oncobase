@@ -119,7 +119,15 @@ export function useDocumentOutline({
       return;
     }
 
-    const update = () => setItems(collectOutline(root));
+    const update = () => {
+      const nextItems = collectOutline(root);
+      setItems(nextItems);
+      setActiveId((current) =>
+        current && nextItems.some((item) => item.id === current)
+          ? current
+          : (nextItems[0]?.id ?? ""),
+      );
+    };
     update();
 
     const observer = new MutationObserver(update);
@@ -145,6 +153,13 @@ export function useDocumentOutline({
     const scrollRoot = document.querySelector(scrollRootSelector);
     const observer = new IntersectionObserver(
       (entries) => {
+        if (
+          scrollRoot instanceof HTMLElement &&
+          scrollRoot.scrollTop <= 1
+        ) {
+          setActiveId(items[0]?.id ?? "");
+          return;
+        }
         const visible = entries
           .filter((entry) => entry.isIntersecting)
           .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top);
