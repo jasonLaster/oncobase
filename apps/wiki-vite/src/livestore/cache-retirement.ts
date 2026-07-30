@@ -2,11 +2,10 @@ import {
   makeWikiStoreId,
   type WikiScope,
   type WikiSessionIdentity,
+  WIKI_PREVIOUS_READER_CACHE_VERSION,
 } from "@oncobase/wiki-content";
 import type { PageContentRow, SiteStateRow } from "../types";
 import { WIKI_CACHE_SCHEMA_VERSION } from "./schema";
-
-export const PREVIOUS_READER_CACHE_VERSION = "reader-v3";
 
 type DirectoryWithKeys = FileSystemDirectoryHandle & {
   keys: () => AsyncIterableIterator<string>;
@@ -26,7 +25,7 @@ export function previousReaderStoreDirectoryPrefix({
     scope,
     origin,
     cacheKey: identity.cacheKey,
-    readerCacheVersion: PREVIOUS_READER_CACHE_VERSION,
+    readerCacheVersion: WIKI_PREVIOUS_READER_CACHE_VERSION,
   });
   return `livestore-${storeId}@`;
 }

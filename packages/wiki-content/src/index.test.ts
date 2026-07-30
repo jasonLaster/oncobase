@@ -3,6 +3,7 @@ import {
   buildCompactTreeFromManifest,
   createWikiContentClient,
   expandCompactFileTree,
+  assertWikiReaderCacheGenerations,
   isHiddenFileTreeAssetPath,
   isHiddenFileTreePath,
   makeWikiStoreId,
@@ -11,6 +12,7 @@ import {
   parseWikiSessionIdentity,
   reconcilePageContent,
   transformFileTreeForSidebar,
+  WIKI_READER_CACHE_GENERATIONS,
 } from "./index.ts";
 
 type ReferenceFileNode = {
@@ -709,6 +711,20 @@ describe("wiki content contracts", () => {
     expect(currentId).toContain("reader-v4");
     expect(nextId).toBe("wiki-vite-reader_v2-diana-public-https___example_test-public-v1");
     expect(nextId).not.toBe(currentId);
+  });
+
+  test("couples current and N-1 reader namespaces to consecutive schemas", () => {
+    expect(assertWikiReaderCacheGenerations()).toBeUndefined();
+    expect(WIKI_READER_CACHE_GENERATIONS).toEqual({
+      current: {
+        cacheVersion: "reader-v4",
+        schemaVersion: 4,
+      },
+      previous: {
+        cacheVersion: "reader-v3",
+        schemaVersion: 3,
+      },
+    });
   });
 
   test("isolates the current projection from an N-1 persisted store", () => {

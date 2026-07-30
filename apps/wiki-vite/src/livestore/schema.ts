@@ -1,6 +1,7 @@
 import { Events, makeSchema, Schema, State } from "@livestore/livestore";
+import { WIKI_READER_SCHEMA_VERSION } from "@oncobase/wiki-content";
 
-export const WIKI_CACHE_SCHEMA_VERSION = 4;
+export const WIKI_CACHE_SCHEMA_VERSION = WIKI_READER_SCHEMA_VERSION;
 
 export const tables = {
   siteState: State.SQLite.table({

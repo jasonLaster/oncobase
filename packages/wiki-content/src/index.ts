@@ -20,11 +20,52 @@ export type WikiScope = "public" | "session";
 
 export const WIKI_SESSION_CACHE_VERSION = "v1";
 
-// Bump this whenever the persisted LiveStore projection changes incompatibly.
-// Reader v4 adds explicit manifest validation metadata. Keeping the version in
-// the store id makes an N-1 database unreachable instead of letting a stale
-// SQLite projection fail while the app renders.
-export const WIKI_READER_CACHE_VERSION = "reader-v4";
+// Keep the current and N-1 reader generations together. A schema bump must
+// advance both the reader namespace and schema version, and carry the former
+// current generation into `previous`. The Vite build validates this contract
+// before injecting the same versions into the synchronous first-frame boot.
+export const WIKI_READER_CACHE_GENERATIONS = {
+  current: {
+    cacheVersion: "reader-v4",
+    schemaVersion: 4,
+  },
+  previous: {
+    cacheVersion: "reader-v3",
+    schemaVersion: 3,
+  },
+} as const;
+
+export const WIKI_READER_CACHE_VERSION =
+  WIKI_READER_CACHE_GENERATIONS.current.cacheVersion;
+export const WIKI_READER_SCHEMA_VERSION =
+  WIKI_READER_CACHE_GENERATIONS.current.schemaVersion;
+export const WIKI_PREVIOUS_READER_CACHE_VERSION =
+  WIKI_READER_CACHE_GENERATIONS.previous.cacheVersion;
+
+export function assertWikiReaderCacheGenerations() {
+  const versionNumber = (value: string) => {
+    const match = /^reader-v(\d+)$/.exec(value);
+    if (!match) {
+      throw new Error(`Invalid wiki reader cache version: ${value}`);
+    }
+    return Number(match[1]);
+  };
+  const currentReader = versionNumber(
+    WIKI_READER_CACHE_GENERATIONS.current.cacheVersion,
+  );
+  const previousReader = versionNumber(
+    WIKI_READER_CACHE_GENERATIONS.previous.cacheVersion,
+  );
+  if (
+    currentReader !== WIKI_READER_CACHE_GENERATIONS.current.schemaVersion ||
+    previousReader !== WIKI_READER_CACHE_GENERATIONS.previous.schemaVersion ||
+    previousReader !== currentReader - 1
+  ) {
+    throw new Error(
+      "Wiki reader current/previous cache and schema generations must advance together",
+    );
+  }
+}
 
 export interface WikiManifestPage {
   slug: string;

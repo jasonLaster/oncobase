@@ -36,27 +36,54 @@
                 : "public";
           if (scope !== "public") return;
 
-          // Keep this token aligned with WIKI_READER_CACHE_VERSION. A schema
-          // bump must never paint markup from an incompatible reader.
-          var key =
-            "wiki-vite:first-frame:reader-v4:" +
-            window.location.origin;
-          var serialized = localStorage.getItem(key);
-          if (!serialized) return;
-          var snapshot = JSON.parse(serialized);
-          if (
-            snapshot.pathname !== window.location.pathname ||
-            typeof snapshot.html !== "string" ||
-            snapshot.html.indexOf('data-test-id="document-article"') === -1 ||
-            snapshot.html.indexOf('data-test-id="wiki-sidebar"') === -1 ||
-            snapshot.html.indexOf("<h1") === -1
-          ) {
-            return;
+          var currentReader = "__WIKI_CURRENT_READER_CACHE_VERSION__";
+          var previousReader = "__WIKI_PREVIOUS_READER_CACHE_VERSION__";
+          var snapshot = null;
+          var snapshotReader = null;
+          var candidates = [currentReader, previousReader];
+          for (var index = 0; index < candidates.length; index += 1) {
+            var reader = candidates[index];
+            var key =
+              "wiki-vite:first-frame:" +
+              reader +
+              ":" +
+              window.location.origin;
+            var serialized = localStorage.getItem(key);
+            if (!serialized) continue;
+            var candidate = JSON.parse(serialized);
+            var validatedPrevious =
+              reader !== previousReader ||
+              (candidate.readerCacheVersion === previousReader &&
+                typeof candidate.validatedAt === "number" &&
+                candidate.validatedAt > 0);
+            if (
+              validatedPrevious &&
+              candidate.pathname === window.location.pathname &&
+              typeof candidate.html === "string" &&
+              candidate.html.indexOf('data-test-id="document-article"') !== -1 &&
+              candidate.html.indexOf('data-test-id="wiki-sidebar"') !== -1 &&
+              candidate.html.indexOf("<h1") !== -1
+            ) {
+              snapshot = candidate;
+              snapshotReader = reader;
+              break;
+            }
           }
+          if (!snapshot) return;
           var host = document.getElementById("wiki-first-frame-snapshot");
           host.innerHTML = snapshot.html;
           host.hidden = false;
+          host.dataset.readOnly = "true";
+          host.dataset.readerCacheVersion = snapshotReader;
+          var preventSnapshotAction = function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+          };
+          host.addEventListener("click", preventSnapshotAction, true);
+          host.addEventListener("submit", preventSnapshotAction, true);
           document.documentElement.dataset.wikiFirstFrame = "true";
+          document.documentElement.dataset.wikiFirstFrameVersion =
+            snapshotReader;
         } catch (error) {
           // localStorage may be disabled or contain a partially-written value.
         }

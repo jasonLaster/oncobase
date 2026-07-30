@@ -75,6 +75,7 @@ export class AppErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     document.getElementById("wiki-first-frame-snapshot")?.remove();
     delete document.documentElement.dataset.wikiFirstFrame;
+    delete document.documentElement.dataset.wikiFirstFrameVersion;
     console.error("[wiki-vite] reader crashed", error, info.componentStack);
     if (isChunkLoadError(error)) reloadOnceForLoadError();
   }

@@ -1,6 +1,6 @@
 import { makePersistedAdapter } from "@livestore/adapter-web";
 import LiveStoreSharedWorker from "@livestore/adapter-web/shared-worker?sharedworker";
-import { LiveStoreProvider, useStore } from "@livestore/react";
+import { LiveStoreProvider } from "@livestore/react";
 import { makeWikiStoreId, type WikiScope, type WikiSessionIdentity } from "@oncobase/wiki-content";
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import {
@@ -9,20 +9,12 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { unstable_batchedUpdates as batchUpdates } from "react-dom";
-import { BrowserRouter, useLocation } from "react-router";
+import { BrowserRouter } from "react-router";
 import { App } from "../App";
-import { pageContentBySlug$, siteState$ } from "./queries";
-import type { PageContentRow, SiteStateRow } from "../types";
 import { WikiScopeProvider, WikiSessionProvider } from "../wiki-context";
-import { slugFromPath } from "../wiki-utils";
-import {
-  isCurrentReaderHydrated,
-  retirePreviousReaderStore,
-} from "./cache-retirement";
 import { FirstFrameSnapshotSync } from "./FirstFrameSnapshot";
 import { readDevtoolsFooterVisible, readLiveStoreDevtoolsEnabled } from "./devtools";
 import LiveStoreWorker from "./livestore.worker?worker";
@@ -38,38 +30,6 @@ const adapter = makePersistedAdapter({
   worker: LiveStoreWorker,
   sharedWorker: LiveStoreSharedWorker,
 });
-
-function PreviousCacheRetirement({
-  identity,
-  scope,
-}: {
-  identity: WikiSessionIdentity;
-  scope: WikiScope;
-}) {
-  const { store } = useStore();
-  const location = useLocation();
-  const slug = slugFromPath(location.pathname);
-  const state = store.useQuery(siteState$) as SiteStateRow | null;
-  const page = store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
-  const retirementStarted = useRef(false);
-
-  useEffect(() => {
-    if (
-      retirementStarted.current ||
-      !isCurrentReaderHydrated({ identity, state, page, scope })
-    ) {
-      return;
-    }
-    retirementStarted.current = true;
-    void retirePreviousReaderStore({
-      identity,
-      origin: window.location.origin,
-      scope,
-    });
-  }, [identity, page, scope, state]);
-
-  return null;
-}
 
 function BootRetryPending() {
   return (
@@ -187,7 +147,6 @@ export function LiveStoreRoot({
         <WikiSessionProvider identity={identity}>
           <WikiScopeProvider scope={scope}>
             <BrowserRouter>
-              <PreviousCacheRetirement identity={identity} scope={scope} />
               <FirstFrameSnapshotSync identity={identity} scope={scope} />
               <App
                 devtoolsFooterVisible={devtoolsFooterVisible}

@@ -3,14 +3,18 @@ import type {
   WikiScope,
   WikiSessionIdentity,
 } from "@oncobase/wiki-content";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation } from "react-router";
 import type { PageContentRow, SiteStateRow } from "../types";
 import { slugFromPath } from "../wiki-utils";
-import { isCurrentReaderHydrated } from "./cache-retirement";
+import {
+  isCurrentReaderHydrated,
+  retirePreviousReaderStore,
+} from "./cache-retirement";
 import {
   dismissFirstFrameSnapshot,
   persistFirstFrameSnapshot,
+  retirePreviousFirstFrameSnapshot,
 } from "./first-frame-snapshot";
 import { fileTree$, pageContentBySlug$, siteState$ } from "./queries";
 
@@ -50,6 +54,7 @@ export function FirstFrameSnapshotSync({
   const state = store.useQuery(siteState$) as SiteStateRow | null;
   const page = store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
   const fileTree = store.useQuery(fileTree$) as { treeJson: string } | null;
+  const retirementStarted = useRef(false);
 
   useEffect(() => {
     if (
@@ -84,10 +89,27 @@ export function FirstFrameSnapshotSync({
       }
 
       try {
-        persistFirstFrameSnapshot(window.localStorage, window.location.origin, {
-          html: snapshotSafeShell(shell),
-          pathname: location.pathname,
-        });
+        const persisted = persistFirstFrameSnapshot(
+          window.localStorage,
+          window.location.origin,
+          {
+            html: snapshotSafeShell(shell),
+            pathname: location.pathname,
+          },
+          { validatedAt: state?.lastValidatedAt ?? 0 },
+        );
+        if (persisted && !retirementStarted.current) {
+          retirementStarted.current = true;
+          retirePreviousFirstFrameSnapshot(
+            window.localStorage,
+            window.location.origin,
+          );
+          void retirePreviousReaderStore({
+            identity,
+            origin: window.location.origin,
+            scope,
+          });
+        }
       } catch {
         // The hydrated app remains authoritative when storage is unavailable.
       }

@@ -1,10 +1,33 @@
 import { livestoreDevtoolsPlugin } from "@livestore/devtools-vite";
+import {
+  assertWikiReaderCacheGenerations,
+  WIKI_PREVIOUS_READER_CACHE_VERSION,
+  WIKI_READER_CACHE_VERSION,
+} from "@oncobase/wiki-content";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { wikiApiPlugin } from "./server/wiki-api.ts";
 
 const apiOrigin = process.env.VITE_WIKI_API_ORIGIN ?? "";
+
+function wikiReaderCacheVersionPlugin() {
+  assertWikiReaderCacheGenerations();
+  return {
+    name: "wiki-reader-cache-versions",
+    transformIndexHtml(html: string) {
+      return html
+        .replaceAll(
+          "__WIKI_CURRENT_READER_CACHE_VERSION__",
+          WIKI_READER_CACHE_VERSION,
+        )
+        .replaceAll(
+          "__WIKI_PREVIOUS_READER_CACHE_VERSION__",
+          WIKI_PREVIOUS_READER_CACHE_VERSION,
+        );
+    },
+  };
+}
 
 function vendorChunk(id: string): string | null {
   const normalized = id.replace(/\\/g, "/");
@@ -92,6 +115,7 @@ export default defineConfig({
   },
   worker: { format: "es" },
   plugins: [
+    wikiReaderCacheVersionPlugin(),
     !apiOrigin ? wikiApiPlugin() : null,
     tailwindcss(),
     react(),
