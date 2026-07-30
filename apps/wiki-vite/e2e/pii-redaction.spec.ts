@@ -31,6 +31,13 @@ test.describe("P0 PII parity", () => {
 
   test("text search excludes redacted identifiers", async ({ page }) => {
     await installWikiApiMocks(page);
+    await page.route("**/api/ai-search**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ results: [] }),
+      });
+    });
     await page.route("**/api/search**", async (route) => {
       await route.fulfill({
         status: 200,
@@ -48,7 +55,9 @@ test.describe("P0 PII parity", () => {
       });
     });
 
-    await page.goto("/search?q=Diana%20Laster", { waitUntil: "domcontentloaded" });
+    await page.goto("/search?q=Diana%20Laster&tab=text", {
+      waitUntil: "domcontentloaded",
+    });
 
     await expect(page.getByTestId("search-results")).toContainText("[redacted MRN]");
     await expect(page.getByTestId("search-results")).not.toContainText(RAW_IDENTIFIERS);

@@ -57,6 +57,13 @@ test.describe("P0 multi-site isolation", () => {
 
   test("invariant 3: search ranking does not leak across sites", async ({ page }) => {
     await installWikiApiMocks(page, { siteSlug: "friend" });
+    await page.route("**/api/ai-search**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ results: [] }),
+      });
+    });
     await page.route("**/api/search**", async (route) => {
       await route.fulfill({
         status: 200,
@@ -74,8 +81,8 @@ test.describe("P0 multi-site isolation", () => {
       });
     });
 
-    await page.goto("/search?q=insurance", { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("search-results")).toContainText("Friend Insurance");
+    await page.goto("/search?q=insurance&tab=text", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("search-results")).toContainText("friend scoped");
     await expect(page.getByTestId("search-results")).not.toContainText("diana scoped");
   });
 

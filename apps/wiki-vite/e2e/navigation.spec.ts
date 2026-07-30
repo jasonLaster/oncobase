@@ -417,7 +417,7 @@ Review morphology and biomarkers together.
     const input = page.getByTestId("command-palette-input");
     await expect(input).toBeFocused();
     await input.fill("insurance");
-    await expect(page.getByTestId("command-palette").getByRole("option", { name: /Insurance/ })).toBeVisible();
+    await expect(page.getByTestId("command-palette").getByRole("option", { name: /insurance/ })).toBeVisible();
     await input.press("Enter");
 
     await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
