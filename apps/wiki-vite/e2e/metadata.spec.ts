@@ -6,6 +6,9 @@ import {
 } from "@playwright/test";
 
 const DEFAULT_DESCRIPTION = "Breast cancer research and treatment knowledge base";
+const INSURANCE_DESCRIPTION =
+  "Overview of fall 2026 open enrollment options for 2027 plans focusing on supplemental insurance to mitigate future financial risks for breast cancer...";
+const INSURANCE_TITLE = "Insurance & supplemental benefits Planning";
 const LINK_PREVIEW_USER_AGENT =
   "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)";
 const runsAgainstProductionServer = Boolean(process.env.PLAYWRIGHT_BASE_URL);
@@ -63,23 +66,38 @@ test.describe("production page metadata", () => {
     });
 
     try {
+      const home = await getHtml(botRequest, "/");
       const insurance = await getHtml(botRequest, "/wiki/logistics/insurance");
+      const tag = await getHtml(botRequest, "/tags/summary");
+      const search = await getHtml(botRequest, "/search");
 
-      // The page title is the document's own title (matching web), not a
-      // slug-derived label. Assert the structure rather than the exact copy
-      // so content edits don't break the parity check.
-      const insuranceTitle = readTitle(insurance);
-      const insuranceOgTitle = readMetaContent(insurance, "og:title");
-      expect(insuranceTitle).toMatch(/Insurance/);
-      expect(insuranceTitle.endsWith(" \u2014 TNBC Knowledge Base")).toBe(true);
-      expect(insuranceOgTitle).toBeTruthy();
-      expect(insuranceOgTitle).not.toBe("TNBC Knowledge Base");
-      expect(insuranceTitle).toBe(`${insuranceOgTitle} \u2014 TNBC Knowledge Base`);
-      expect(readMetaContent(insurance, "og:description")).toBeTruthy();
-      expect(readMetaContent(insurance, "description")).not.toBe(DEFAULT_DESCRIPTION);
-      expect(readMetaContent(insurance, "robots")).toBe("noindex,nofollow");
-      expect(insurance).not.toContain("Diana Laster");
-      expect(insurance).not.toContain("MRN");
+      expect(readTitle(home)).toBe("Home — TNBC Knowledge Base");
+      expect(readMetaContent(home, "description")).toBe(DEFAULT_DESCRIPTION);
+      expect(readMetaContent(home, "og:title")).toBe("Home");
+      expect(readMetaContent(home, "twitter:title")).toBe("TNBC Knowledge Base");
+
+      expect(readTitle(insurance)).toBe(`${INSURANCE_TITLE} — TNBC Knowledge Base`);
+      expect(readMetaContent(insurance, "description")).toBe(INSURANCE_DESCRIPTION);
+      expect(readMetaContent(insurance, "og:title")).toBe(INSURANCE_TITLE);
+      expect(readMetaContent(insurance, "twitter:title")).toBe(INSURANCE_TITLE);
+
+      expect(readTitle(tag)).toBe("Tag: summary — TNBC Knowledge Base");
+      expect(readMetaContent(tag, "description")).toBe('6 pages tagged "summary"');
+      expect(readMetaContent(tag, "og:title")).toBe("Tag: summary");
+      expect(readMetaContent(tag, "twitter:title")).toBe("TNBC Knowledge Base");
+
+      expect(readTitle(search)).toBe("Search — TNBC Knowledge Base");
+      expect(readMetaContent(search, "description")).toBe("Search across all wiki pages");
+      expect(readMetaContent(search, "og:title")).toBe("Search");
+      expect(readMetaContent(search, "twitter:title")).toBe("TNBC Knowledge Base");
+
+      for (const html of [home, insurance, tag, search]) {
+        expect(readMetaContent(html, "robots")).toBe("noindex,nofollow");
+        expect(html).not.toContain('rel="canonical"');
+        expect(html).not.toContain('property="og:url"');
+        expect(html).not.toContain("Diana Laster");
+        expect(html).not.toContain("MRN");
+      }
     } finally {
       await botRequest.dispose();
     }
@@ -117,7 +135,8 @@ test.describe("production page metadata", () => {
 
     const home = await getHtml(request, "/");
     expect(readTitle(home)).toBe("Home — TNBC Knowledge Base");
-    expect(readMetaContent(home, "og:title")).toBe("TNBC Knowledge Base");
+    expect(readMetaContent(home, "description")).toBe(DEFAULT_DESCRIPTION);
+    expect(readMetaContent(home, "og:title")).toBe("Home");
     expect(readMetaContent(home, "twitter:title")).toBe("TNBC Knowledge Base");
 
     const about = await getHtml(request, "/about/About");
@@ -126,17 +145,17 @@ test.describe("production page metadata", () => {
 
     const tag = await getHtml(request, "/tags/summary");
     expect(readTitle(tag)).toBe("Tag: summary — TNBC Knowledge Base");
-    expect(readMetaContent(tag, "description")).toBe(
-      "Pages tagged summary in TNBC Knowledge Base",
-    );
+    expect(readMetaContent(tag, "description")).toBe('6 pages tagged "summary"');
     expect(readMetaContent(tag, "og:title")).toBe("Tag: summary");
+    expect(readMetaContent(tag, "twitter:title")).toBe("TNBC Knowledge Base");
+    expect(readMetaContent(tag, "twitter:description")).toBe(DEFAULT_DESCRIPTION);
 
     const search = await getHtml(request, "/search");
     expect(readTitle(search)).toBe("Search — TNBC Knowledge Base");
-    expect(readMetaContent(search, "description")).toBe(
-      "Search the TNBC Knowledge Base",
-    );
+    expect(readMetaContent(search, "description")).toBe("Search across all wiki pages");
     expect(readMetaContent(search, "og:title")).toBe("Search");
+    expect(readMetaContent(search, "twitter:title")).toBe("TNBC Knowledge Base");
+    expect(readMetaContent(search, "twitter:description")).toBe(DEFAULT_DESCRIPTION);
 
     const login = await getHtml(request, "/login");
     expect(readTitle(login)).toBe("TNBC Knowledge Base");

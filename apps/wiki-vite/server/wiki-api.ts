@@ -71,6 +71,12 @@ import {
   isAdminSessionUser,
 } from "./epic-fhir.js";
 import { handlePostDeployRequest, handlePublishRequest } from "./publish-api.js";
+import {
+  DEFAULT_SITE_DESCRIPTION,
+  DIANA_SITE_NAME as SITE_NAME,
+  legacyRouteMetadata,
+  tagFromPathname,
+} from "./legacy-route-metadata.js";
 
 const DEFAULT_SITE_SLUG = "diana";
 const HOST_CACHE_TTL_MS = 15_000;
@@ -80,9 +86,6 @@ const USER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const DIANA_PASSWORDS = new Set(["wallify", "diana"]);
 const MAX_SEARCH_LIMIT = 5000;
 const TIMELINE_META_KEY = "diagnosticTimeline:data";
-const SITE_NAME = "TNBC Knowledge Base";
-const DEFAULT_SITE_DESCRIPTION =
-  "Breast cancer research and treatment knowledge base";
 const MANIFEST_PRIORITY_SLUGS = [
   "index",
   "wiki/logistics/insurance",
@@ -1303,15 +1306,6 @@ async function handleDicomAnnotationsRequest(
   }
 }
 
-function formatDocumentTitle(title: string) {
-  return `${title} \u2014 ${SITE_NAME}`;
-}
-
-function pageDescription(page: { title: string; description?: string | null }) {
-  const description = page.description?.trim();
-  return description || `${page.title} notes in ${SITE_NAME}`;
-}
-
 export async function handleSharePreviewRequest(
   request: Request,
   client: ConvexHttpClient,
@@ -1329,32 +1323,61 @@ export async function handleSharePreviewRequest(
     request.headers.get("x-share-preview-path") ??
     url.searchParams.get("path") ??
     "/";
-  const slug = routePath.replace(/^\/+/, "") || "index";
-  const [site, page] = await Promise.all([
+  const pathname = routePath.split("?")[0] || "/";
+  const slug = pathname
+    .replace(/^\/+/, "")
+    .replace(/\.(?:md|mdx)$/i, "") || "index";
+  const tag = tagFromPathname(pathname);
+  const [site, page, taggedPages] = await Promise.all([
     client.query(api.sites.getBySlug, { slug: siteSlug }).catch(() => null),
     client
       .query(api.documents.getBySlug, withSiteSlug(siteSlug, { slug }))
       .catch(() => null),
+    tag
+      ? client
+          .action(
+            api.documents.getByTag,
+            withSiteSlug(siteSlug, { tag }),
+          )
+          .catch(() => null)
+      : Promise.resolve(null),
   ]);
   const isDiana = siteSlug === DEFAULT_SITE_SLUG;
   let siteName: string;
   let title: string;
   let description: string;
   let ogTitle: string;
+  let ogDescription: string;
+  let ogType: "article" | "website" | undefined;
+  let twitterTitle: string;
+  let twitterDescription: string;
 
   if (isDiana) {
     siteName = SITE_NAME;
-    title = page ? formatDocumentTitle(page.title) : SITE_NAME;
-    description = page ? pageDescription(page) : DEFAULT_SITE_DESCRIPTION;
-    ogTitle = page?.title ?? SITE_NAME;
+    const metadata = legacyRouteMetadata({
+      page,
+      pathname,
+      siteName,
+      slug,
+      tagCount: taggedPages?.length,
+    });
+    title = metadata.title;
+    description = metadata.description;
+    ogTitle = metadata.openGraphTitle;
+    ogDescription = metadata.openGraphDescription;
+    ogType = metadata.openGraphType;
+    twitterTitle = metadata.twitterTitle;
+    twitterDescription = metadata.twitterDescription;
   } else {
     siteName = site?.config.title ?? site?.name ?? siteSlug;
     title = siteName;
     description = site?.config.description ?? DEFAULT_SITE_DESCRIPTION;
     ogTitle = siteName;
+    ogDescription = description;
+    ogType = "website";
+    twitterTitle = siteName;
+    twitterDescription = description;
   }
-  const canonicalPath = routePath.startsWith("/") ? routePath : `/${routePath}`;
-  const canonicalUrl = new URL(canonicalPath, url.origin).toString();
 
   const html = `<!doctype html>
 <html lang="en">
@@ -1364,14 +1387,12 @@ export async function handleSharePreviewRequest(
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}">
     <meta property="og:title" content="${escapeHtml(ogTitle)}">
-    <meta property="og:description" content="${escapeHtml(description)}">
-    <meta property="og:type" content="article">
+    <meta property="og:description" content="${escapeHtml(ogDescription)}">
+    ${ogType ? `<meta property="og:type" content="${ogType}">` : ""}
     <meta property="og:site_name" content="${escapeHtml(siteName)}">
-    <meta property="og:url" content="${escapeHtml(canonicalUrl)}">
     <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="${escapeHtml(ogTitle)}">
-    <meta name="twitter:description" content="${escapeHtml(description)}">
-    <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
+    <meta name="twitter:title" content="${escapeHtml(twitterTitle)}">
+    <meta name="twitter:description" content="${escapeHtml(twitterDescription)}">
   </head>
   <body></body>
 </html>`;

@@ -14,10 +14,14 @@ import {
   resolveSiteSlug,
   withSiteSlug,
 } from "./wiki-api.js";
+import {
+  DEFAULT_SITE_DESCRIPTION,
+  DIANA_SITE_NAME,
+  legacyRouteMetadata,
+  tagFromPathname,
+} from "./legacy-route-metadata.js";
 
 const DEFAULT_SITE_SLUG = "diana";
-const DIANA_SITE_NAME = "TNBC Knowledge Base";
-const DEFAULT_SITE_DESCRIPTION = "Breast cancer research and treatment knowledge base";
 const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
 const PASSWORD_GATE_CACHE_TTL_MS = 15_000;
 const CANONICAL_SLUG_CACHE_TTL_MS = 60_000;
@@ -312,58 +316,6 @@ function escapeHtml(value: string) {
     .replace(/"/g, "&quot;");
 }
 
-function appShellRouteMetadata({
-  page,
-  siteName,
-  slug,
-  url,
-}: {
-  page: { description?: string | null; title: string } | null;
-  siteName: string;
-  slug: string | null;
-  url: URL;
-}) {
-  if (slug === "index") {
-    return {
-      description: page?.description ?? DEFAULT_SITE_DESCRIPTION,
-      socialTitle: siteName,
-      title: `Home — ${siteName}`,
-    };
-  }
-
-  if (url.pathname.startsWith("/tags/")) {
-    const tag = safeDecodePathname(url.pathname.slice("/tags/".length));
-    const routeTitle = `Tag: ${tag}`;
-    return {
-      description: `Pages tagged ${tag} in ${siteName}`,
-      socialTitle: routeTitle,
-      title: `${routeTitle} — ${siteName}`,
-    };
-  }
-
-  if (url.pathname === "/search") {
-    return {
-      description: `Search the ${siteName}`,
-      socialTitle: "Search",
-      title: `Search — ${siteName}`,
-    };
-  }
-
-  if (url.pathname === "/login" || !page) {
-    return {
-      description: DEFAULT_SITE_DESCRIPTION,
-      socialTitle: siteName,
-      title: siteName,
-    };
-  }
-
-  return {
-    description: page.description ?? page.title,
-    socialTitle: page.title,
-    title: `${page.title} — ${siteName}`,
-  };
-}
-
 function injectHeadMetadata(
   html: string,
   metadata: {
@@ -371,13 +323,24 @@ function injectHeadMetadata(
     description?: string | null;
     canonicalUrl?: string;
     noIndex?: boolean;
+    openGraphDescription?: string;
+    openGraphTitle?: string;
+    openGraphType?: "article" | "website";
     sensitive?: boolean;
-    socialTitle?: string;
+    twitterDescription?: string;
+    twitterTitle?: string;
   },
 ) {
   const title = escapeHtml(metadata.title);
-  const socialTitle = escapeHtml(metadata.socialTitle ?? metadata.title);
   const description = escapeHtml(metadata.description || metadata.title);
+  const openGraphTitle = escapeHtml(metadata.openGraphTitle ?? metadata.title);
+  const openGraphDescription = escapeHtml(
+    metadata.openGraphDescription ?? metadata.description ?? metadata.title,
+  );
+  const twitterTitle = escapeHtml(metadata.twitterTitle ?? metadata.title);
+  const twitterDescription = escapeHtml(
+    metadata.twitterDescription ?? metadata.description ?? metadata.title,
+  );
   const canonicalUrl = metadata.canonicalUrl
     ? escapeHtml(metadata.canonicalUrl)
     : null;
@@ -387,13 +350,15 @@ function injectHeadMetadata(
     canonicalUrl ? `<link rel="canonical" href="${canonicalUrl}" />` : null,
     `<meta name="description" content="${description}" />`,
     `<meta name="robots" content="${robotsContent}" />`,
-    `<meta property="og:title" content="${socialTitle}" />`,
-    `<meta property="og:description" content="${description}" />`,
+    `<meta property="og:title" content="${openGraphTitle}" />`,
+    `<meta property="og:description" content="${openGraphDescription}" />`,
     canonicalUrl ? `<meta property="og:url" content="${canonicalUrl}" />` : null,
-    `<meta property="og:type" content="article" />`,
+    metadata.openGraphType
+      ? `<meta property="og:type" content="${metadata.openGraphType}" />`
+      : null,
     `<meta name="twitter:card" content="summary" />`,
-    `<meta name="twitter:title" content="${socialTitle}" />`,
-    `<meta name="twitter:description" content="${description}" />`,
+    `<meta name="twitter:title" content="${twitterTitle}" />`,
+    `<meta name="twitter:description" content="${twitterDescription}" />`,
   ]
     .filter((tag): tag is string => tag !== null)
     .join("\n    ");
@@ -412,11 +377,12 @@ async function staticIndexHtml(
   const html = providedHtml ?? await readFile(filePath, "utf8");
   const url = new URL(request.url);
   const slug = slugFromPathname(url.pathname);
+  const tag = tagFromPathname(url.pathname);
 
   const siteSlug = await resolveSiteSlug(request, client);
   if (!siteSlug) return html;
 
-  const [page, gateEnabled] = await Promise.all([
+  const [page, gateEnabled, taggedPages] = await Promise.all([
     slug
       ? client.query(
           api.documents.getBySlug,
@@ -424,26 +390,33 @@ async function staticIndexHtml(
         )
       : Promise.resolve(null),
     isPasswordGateEnabled(client, siteSlug),
+    tag
+      ? client
+          .action(
+            api.documents.getByTag,
+            withSiteSlug(siteSlug, { tag }),
+          )
+          .catch(() => null)
+      : Promise.resolve(null),
   ]);
   if (!page && !gateEnabled) return html;
 
   const siteName = siteSlug === DEFAULT_SITE_SLUG ? DIANA_SITE_NAME : siteSlug;
-  const routeMetadata = appShellRouteMetadata({
+  const routeMetadata = legacyRouteMetadata({
     page,
+    pathname: url.pathname,
     siteName,
     slug,
-    url,
+    tagCount: taggedPages?.length,
   });
 
   return injectHeadMetadata(html, {
-    title: routeMetadata.title,
-    description: routeMetadata.description,
+    ...routeMetadata,
     canonicalUrl: gateEnabled
       ? undefined
       : new URL(url.pathname, request.url).toString(),
     noIndex: gateEnabled,
     sensitive: page?.sensitive === true,
-    socialTitle: routeMetadata.socialTitle,
   });
 }
 

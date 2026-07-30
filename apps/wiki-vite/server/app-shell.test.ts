@@ -7,6 +7,10 @@ import { createWikiViteHandler } from "./app-shell";
 
 const INDEX_HTML =
   "<!doctype html><html><head><title>Diana Wiki</title></head><body><div id=\"root\"></div></body></html>";
+const LONG_DESCRIPTION =
+  "Overview of fall 2026 open enrollment options for 2027 plans focusing on supplemental insurance to mitigate future financial risks for breast cancer patients and their families.";
+const TRUNCATED_DESCRIPTION =
+  "Overview of fall 2026 open enrollment options for 2027 plans focusing on supplemental insurance to mitigate future financial risks for breast cancer...";
 
 function request(pathname: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
@@ -38,12 +42,24 @@ function fakeClient() {
                 ? "Index"
                 : args.slug === "about/About"
                   ? "About This Wiki"
+                  : args.slug === "wiki/long"
+                    ? "Long Article"
                   : "Public",
-            description: "Public page",
+            description: args.slug === "wiki/long" ? LONG_DESCRIPTION : "Public page",
             sensitive: false,
           };
         default:
           throw new Error(`Unexpected query ${getFunctionName(ref)}`);
+      }
+    },
+    async action(ref: FunctionReference<"action">) {
+      switch (getFunctionName(ref)) {
+        case "documents:getByTag":
+          return Array.from({ length: 6 }, (_, index) => ({
+            slug: `wiki/tagged-${index}`,
+          }));
+        default:
+          throw new Error(`Unexpected action ${getFunctionName(ref)}`);
       }
     },
   };
@@ -130,7 +146,7 @@ describe("wiki Vite app-shell password gate", () => {
       '<meta name="twitter:title" content="TNBC Knowledge Base" />',
     );
     expect(homeHtml).toContain(
-      '<meta property="og:title" content="TNBC Knowledge Base" />',
+      '<meta property="og:title" content="Home" />',
     );
 
     const about = await handler(
@@ -159,50 +175,65 @@ describe("wiki Vite app-shell password gate", () => {
       {
         path: "/",
         title: "Home — TNBC Knowledge Base",
-        description: "Public page",
-        socialTitle: "TNBC Knowledge Base",
+        description: "Breast cancer research and treatment knowledge base",
+        openGraphTitle: "Home",
+        twitterTitle: "TNBC Knowledge Base",
       },
       {
         path: "/index",
         title: "Home — TNBC Knowledge Base",
-        description: "Public page",
-        socialTitle: "TNBC Knowledge Base",
+        description: "Breast cancer research and treatment knowledge base",
+        openGraphTitle: "Home",
+        twitterTitle: "TNBC Knowledge Base",
       },
       {
         path: "/wiki/public",
         title: "Public — TNBC Knowledge Base",
         description: "Public page",
-        socialTitle: "Public",
+        openGraphTitle: "Public",
+        twitterTitle: "Public",
       },
       {
         path: "/tags/summary",
         title: "Tag: summary — TNBC Knowledge Base",
-        description: "Pages tagged summary in TNBC Knowledge Base",
-        socialTitle: "Tag: summary",
+        description: '6 pages tagged "summary"',
+        openGraphTitle: "Tag: summary",
+        twitterTitle: "TNBC Knowledge Base",
       },
       {
         path: "/search",
         title: "Search — TNBC Knowledge Base",
-        description: "Search the TNBC Knowledge Base",
-        socialTitle: "Search",
+        description: "Search across all wiki pages",
+        openGraphTitle: "Search",
+        twitterTitle: "TNBC Knowledge Base",
       },
     ];
 
     for (const route of cases) {
       const response = await handler(request(route.path, authenticated));
       const html = await response.text();
+      const escapedDescription = route.description.replace(/"/g, "&quot;");
 
       expect(html).toContain(`<title>${route.title}</title>`);
       expect(html).toContain(
-        `<meta name="description" content="${route.description}" />`,
+        `<meta name="description" content="${escapedDescription}" />`,
       );
       expect(html).toContain(
-        `<meta property="og:title" content="${route.socialTitle}" />`,
+        `<meta property="og:title" content="${route.openGraphTitle}" />`,
       );
       expect(html).toContain(
-        `<meta name="twitter:title" content="${route.socialTitle}" />`,
+        `<meta name="twitter:title" content="${route.twitterTitle}" />`,
       );
     }
+
+    const article = await handler(request("/wiki/long", authenticated));
+    const articleHtml = await article.text();
+    expect(articleHtml).toContain(
+      `<meta name="description" content="${TRUNCATED_DESCRIPTION}" />`,
+    );
+    expect(articleHtml).toContain(
+      `<meta name="twitter:description" content="${TRUNCATED_DESCRIPTION}" />`,
+    );
 
     const login = await handler(request("/login?redirect=%2F"));
     const loginHtml = await login.text();
@@ -213,6 +244,65 @@ describe("wiki Vite app-shell password gate", () => {
     expect(loginHtml).toContain(
       '<meta property="og:title" content="TNBC Knowledge Base" />',
     );
+  });
+
+  test("serves the same route metadata to preview bots without exposing canonicals", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+    const botHeaders = { "User-Agent": "Slackbot-LinkExpanding 1.0" };
+    const cases = [
+      {
+        path: "/",
+        title: "Home — TNBC Knowledge Base",
+        description: "Breast cancer research and treatment knowledge base",
+        openGraphTitle: "Home",
+        twitterTitle: "TNBC Knowledge Base",
+      },
+      {
+        path: "/wiki/long",
+        title: "Long Article — TNBC Knowledge Base",
+        description: TRUNCATED_DESCRIPTION,
+        openGraphTitle: "Long Article",
+        twitterTitle: "Long Article",
+      },
+      {
+        path: "/tags/summary",
+        title: "Tag: summary — TNBC Knowledge Base",
+        description: '6 pages tagged "summary"',
+        openGraphTitle: "Tag: summary",
+        twitterTitle: "TNBC Knowledge Base",
+      },
+      {
+        path: "/search",
+        title: "Search — TNBC Knowledge Base",
+        description: "Search across all wiki pages",
+        openGraphTitle: "Search",
+        twitterTitle: "TNBC Knowledge Base",
+      },
+    ];
+
+    for (const route of cases) {
+      const response = await handler(request(route.path, { headers: botHeaders }));
+      const html = await response.text();
+      const escapedDescription = route.description.replace(/"/g, "&quot;");
+
+      expect(response.status).toBe(200);
+      expect(html).toContain(`<title>${route.title}</title>`);
+      expect(html).toContain(
+        `<meta name="description" content="${escapedDescription}">`,
+      );
+      expect(html).toContain(
+        `<meta property="og:title" content="${route.openGraphTitle}">`,
+      );
+      expect(html).toContain(
+        `<meta name="twitter:title" content="${route.twitterTitle}">`,
+      );
+      expect(html).toContain('<meta name="robots" content="noindex,nofollow">');
+      expect(html).not.toContain('rel="canonical"');
+      expect(html).not.toContain('property="og:url"');
+    }
   });
 
   test("serves markdown article aliases through the app shell", async () => {
