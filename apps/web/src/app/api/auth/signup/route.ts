@@ -1,5 +1,8 @@
-import { NextResponse } from "next/server";
+import { fetchQuery } from "convex/nextjs";
+import { NextRequest, NextResponse } from "next/server";
+import { api } from "@convex/_generated/api";
 import { siteDataFromRequest } from "@/lib/site-data";
+import { DEFAULT_SITE_SLUG, siteSlugFromRequest } from "@/lib/site";
 import {
   USER_SESSION_COOKIE,
   createPasswordSalt,
@@ -10,9 +13,46 @@ import {
   hashSessionToken,
   normalizeEmail,
 } from "@/lib/user-auth";
+import {
+  hasValidWikiGateCookie,
+  wikiGateCookieName,
+} from "@/lib/wiki-gate-session";
 
-export async function POST(request: Request) {
+const PRIVATE_SIGNUP_HEADERS = {
+  "Cache-Control": "private, no-store",
+  Vary: "Cookie, Host",
+};
+
+export async function POST(request: NextRequest) {
   try {
+    const siteSlug = siteSlugFromRequest(request);
+    let gateEnabled = siteSlug === DEFAULT_SITE_SLUG;
+    try {
+      const site = await fetchQuery(api.sites.getBySlug, { slug: siteSlug });
+      gateEnabled =
+        site?.config?.passwordGate ??
+        gateEnabled;
+    } catch {
+      if (siteSlug !== DEFAULT_SITE_SLUG) {
+        return NextResponse.json(
+          { error: "Unable to verify signup access" },
+          { status: 503, headers: PRIVATE_SIGNUP_HEADERS },
+        );
+      }
+    }
+    if (
+      gateEnabled &&
+      !(await hasValidWikiGateCookie(
+        siteSlug,
+        request.cookies.get(wikiGateCookieName(siteSlug))?.value,
+      ))
+    ) {
+      return NextResponse.json(
+        { error: "Password gate access is required to create an account" },
+        { status: 403, headers: PRIVATE_SIGNUP_HEADERS },
+      );
+    }
+
     const { email, password, name } = await request.json();
     const normalizedEmail = normalizeEmail(email ?? "");
     const trimmedName = typeof name === "string" ? name.trim() : "";

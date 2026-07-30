@@ -121,6 +121,35 @@ test.describe("password login redirects", () => {
     }
   });
 
+  test("anonymous readers cannot self-register behind the site password", async ({
+    baseURL,
+  }) => {
+    const origin = new URL(baseURL!).origin;
+    const request = await playwrightRequest.newContext({
+      baseURL: origin,
+      extraHTTPHeaders: previewBypassHeaders(),
+      storageState: { cookies: [], origins: [] },
+    });
+
+    try {
+      const response = await request.post("/api/auth/signup", {
+        data: {
+          email: "anonymous-signup@example.test",
+          name: "Anonymous Signup",
+          password: "playwright-password",
+        },
+      });
+      expect(response.status()).toBe(403);
+      expect(response.headers()["cache-control"]).toBe("private, no-store");
+      expect(response.headers().vary).toContain("Cookie");
+      expect(await response.json()).toEqual({
+        error: "Password gate access is required to create an account",
+      });
+    } finally {
+      await request.dispose();
+    }
+  });
+
   test("authenticated login route accepts local paths and rejects external targets", async ({
     baseURL,
     browser,
