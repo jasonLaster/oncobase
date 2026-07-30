@@ -27,6 +27,7 @@ const BLOB_NAMES_BY_SITE = (siteSlug: string) =>
       } as const);
 
 const ASSET_BATCH_TARGET_BYTES = 64 * 1024 * 1024;
+const ASSET_FETCH_CONCURRENCY = 32;
 const MIN_MULTIPART_PART_BYTES = 5 * 1024 * 1024;
 const ZIP_MAX_UINT32 = 0xffffffff;
 const ZIP_MAX_UINT16 = 0xffff;
@@ -276,8 +277,10 @@ function batchArchiveAssets(assets: ArchiveAsset[]): ArchiveAsset[][] {
 }
 
 async function buildAssetLocalBlocks(batch: ArchiveAsset[], startOffset: number) {
-  const buffers = await Promise.all(
-    batch.map(async (asset) => {
+  const buffers = await mapWithConcurrency(
+    batch,
+    ASSET_FETCH_CONCURRENCY,
+    async (asset) => {
       try {
         const res = await fetch(asset.blobUrl);
         if (!res.ok) {
@@ -294,7 +297,7 @@ async function buildAssetLocalBlocks(batch: ArchiveAsset[], startOffset: number)
         console.warn(`[download-cache] Failed to fetch asset ${asset.path}:`, err);
         return null;
       }
-    }),
+    },
   );
 
   const items: NonNullable<(typeof buffers)[number]>[] = [];
@@ -303,6 +306,24 @@ async function buildAssetLocalBlocks(batch: ArchiveAsset[], startOffset: number)
   }
 
   return buildLocalBlocks(items, startOffset);
+}
+
+export async function mapWithConcurrency<T, U>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<U>,
+) {
+  const results = new Array<U>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), items.length);
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await fn(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
 async function buildMarkdownLocalBlocks(siteSlug: string, startOffset: number) {

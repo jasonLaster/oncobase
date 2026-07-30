@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { buildCentralDirectory } from "../workflows/build-download-cache";
+import {
+  buildCentralDirectory,
+  mapWithConcurrency,
+} from "../workflows/build-download-cache";
 
 const entry = {
   name: "asset.bin",
@@ -54,5 +57,24 @@ describe("download archive central directory", () => {
     );
     expect(directory.readUInt32LE(endOffset)).toBe(0x06054b50);
     expect(directory.readUInt32LE(endOffset + 16)).toBe(0xffffffff);
+  });
+});
+
+describe("download archive asset fetching", () => {
+  test("bounds concurrency and preserves result order", async () => {
+    let active = 0;
+    let maxActive = 0;
+    const values = Array.from({ length: 20 }, (_, index) => index);
+
+    const results = await mapWithConcurrency(values, 3, async (value) => {
+      active++;
+      maxActive = Math.max(maxActive, active);
+      await Bun.sleep(1);
+      active--;
+      return value * 2;
+    });
+
+    expect(maxActive).toBe(3);
+    expect(results).toEqual(values.map((value) => value * 2));
   });
 });
