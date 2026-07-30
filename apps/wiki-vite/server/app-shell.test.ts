@@ -583,6 +583,30 @@ describe("wiki Vite app-shell password gate", () => {
     );
   });
 
+  test("preserves legacy application route canonicals and query parameters", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+    const headers = await authenticatedHeaders();
+
+    const timeline = await handler(
+      request("/timeline?studySet=follow-up", { headers }),
+    );
+    expect(timeline.status).toBe(307);
+    expect(timeline.headers.get("location")).toBe(
+      "http://127.0.0.1/diagnostics?studySet=follow-up",
+    );
+
+    const adminAccess = await handler(
+      request("/admin/access?view=hidden", { headers }),
+    );
+    expect(adminAccess.status).toBe(307);
+    expect(adminAccess.headers.get("location")).toBe(
+      "http://127.0.0.1/admin/pages?view=hidden",
+    );
+  });
+
   test("serves a function-embedded shell when no static root index exists", async () => {
     await rm(path.join(distDir, "index.html"));
     const handler = createWikiViteHandler({

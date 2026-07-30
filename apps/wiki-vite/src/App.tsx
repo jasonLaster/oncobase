@@ -167,7 +167,6 @@ export function App({
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/table-examples" element={<TableExamplesPage />} />
-                <Route path="/timeline" element={<TimelinePage />} />
                 <Route path="/diagnostics" element={<TimelinePage />} />
                 <Route path="/diagnostics/imaging" element={<DiagnosticImagingPage />} />
                 <Route path="/tools/dicom-viewer" element={<DicomViewerPage />} />

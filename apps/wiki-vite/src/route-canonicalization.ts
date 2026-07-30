@@ -8,8 +8,10 @@ export type RedirectEntry = {
 };
 
 const EXPLICIT_CANONICAL_PATHS = new Map([
+  ["/admin/access", "/admin/pages"],
   ["/about", "/about/Index"],
   ["/about/index", "/about/Index"],
+  ["/timeline", "/diagnostics"],
 ]);
 
 function safeDecodePathname(pathname: string) {

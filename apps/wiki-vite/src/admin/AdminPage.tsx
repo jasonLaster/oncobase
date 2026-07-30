@@ -97,7 +97,8 @@ export function AdminPage() {
   }
   if (!sessionUser?.isAdmin) return <Navigate to="/" replace />;
 
-  if (path === "/access" || path === "/admin/access") return <Navigate to="/admin/users" replace />;
+  if (path === "/access") return <Navigate to="/admin/users" replace />;
+  if (path === "/admin/access") return <Navigate to="/admin/pages" replace />;
   if (path === "/admin/users") return <AdminUsersPage />;
   if (path === "/admin/roles") return <AdminRolesPage />;
   if (path === "/admin/pages") return <AdminPagesPage />;

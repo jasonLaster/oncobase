@@ -48,5 +48,11 @@ describe("route canonicalization", () => {
       canonicalRoutePathname("/wiki/logistics/insurance.md", canonicalSlugs),
     ).toBeNull();
     expect(canonicalRoutePathname("/about", canonicalSlugs)).toBe("/about/Index");
+    expect(canonicalRoutePathname("/timeline", canonicalSlugs)).toBe(
+      "/diagnostics",
+    );
+    expect(canonicalRoutePathname("/admin/access", canonicalSlugs)).toBe(
+      "/admin/pages",
+    );
   });
 });

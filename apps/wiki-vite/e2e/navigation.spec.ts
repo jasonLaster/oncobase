@@ -108,6 +108,25 @@ test.describe("Page viewing and sidebar navigation", () => {
     );
   });
 
+  test("canonicalizes application aliases without losing query or hash", async ({
+    page,
+  }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    await page.evaluate(() => {
+      window.history.pushState(
+        {},
+        "",
+        "/timeline?studySet=follow-up#comparison",
+      );
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    await expect(page).toHaveURL(
+      /\/diagnostics\?studySet=follow-up#comparison$/,
+    );
+  });
+
   test("shared actions menu exposes command, theme, and archive actions when signed out", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
