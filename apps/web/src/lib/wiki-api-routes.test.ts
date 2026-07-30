@@ -135,6 +135,31 @@ function mockSiteData() {
           continueCursor: null,
         };
       },
+      listPdfAssetVisibilityPage: async () => ({
+        page: [
+          {
+            path: "research/paper.pdf",
+            ownerSlugs: [],
+            sensitive: false,
+          },
+        ],
+        isDone: true,
+        continueCursor: null,
+      }),
+      listFileAssetVisibilityPage: async () => {
+        fileAssetListCalls += 1;
+        return {
+          page: [
+            {
+              path: "images/scan.png",
+              ownerSlugs: [],
+              sensitive: false,
+            },
+          ],
+          isDone: true,
+          continueCursor: null,
+        };
+      },
       getBySlug: async ({
         slug,
         includeSensitive,

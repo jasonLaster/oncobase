@@ -77,6 +77,18 @@ export type AssetPathResult = {
   continueCursor: string | null;
 };
 
+export type AssetVisibilityRecord = {
+  path: string;
+  ownerSlugs: string[];
+  sensitive: boolean;
+};
+
+export type AssetVisibilityResult = {
+  page: AssetVisibilityRecord[];
+  isDone: boolean;
+  continueCursor: string | null;
+};
+
 export type WikiApiDocumentsGateway = {
   listManifestPage(args: {
     cursor: string | null;
@@ -98,6 +110,16 @@ export type WikiApiDocumentsGateway = {
     numItems: number;
     includeSensitive?: boolean;
   }): Promise<AssetPathResult>;
+  listPdfAssetVisibilityPage(args: {
+    cursor: string | null;
+    numItems: number;
+    includeSensitive?: boolean;
+  }): Promise<AssetVisibilityResult>;
+  listFileAssetVisibilityPage(args: {
+    cursor: string | null;
+    numItems: number;
+    includeSensitive?: boolean;
+  }): Promise<AssetVisibilityResult>;
   getBySlug(args: {
     slug: string;
     includeSensitive?: boolean;
@@ -354,28 +376,42 @@ async function filterReadablePages<T extends Pick<PageWithContent | WikiManifest
   );
 }
 
-function assetSiblingSlug(asset: WikiManifestAsset) {
-  return asset.path.replace(/\.[^/.]+$/, "");
+type ManifestAssetCandidate = WikiManifestAsset & {
+  ownerSlugs: string[];
+  sensitive: boolean;
+};
+
+function publicManifestAsset(
+  asset: ManifestAssetCandidate,
+): WikiManifestAsset {
+  return {
+    kind: asset.kind,
+    path: asset.path,
+    contentHash: asset.contentHash,
+    size: asset.size,
+  };
 }
 
 async function filterAssetsForUser(
   context: WikiApiContext,
   user: WikiApiSessionUser | null,
-  assets: WikiManifestAsset[],
+  assets: ManifestAssetCandidate[],
 ) {
-  // Batched grant evaluation: the user's roles resolve once per chunk instead
-  // of one query per asset. Assets without a sibling document stay included,
-  // matching the previous per-asset getBySlug behavior.
   const access = await accessBySlug(
     context,
     user,
-    assets.map((asset) => assetSiblingSlug(asset)),
+    assets.flatMap((asset) => asset.ownerSlugs),
   );
-  return assets.filter((asset) => {
-    const result = access.get(assetSiblingSlug(asset));
-    if (!result) return true;
-    return !result.hasDocument || result.allowed;
-  });
+  return assets
+    .filter((asset) => {
+      if (!asset.sensitive) return true;
+      if (asset.ownerSlugs.length === 0) return false;
+      return asset.ownerSlugs.every((slug) => {
+        const result = access.get(slug);
+        return result?.hasDocument === true && result.allowed === true;
+      });
+    })
+    .map(publicManifestAsset);
 }
 
 async function listManifestPages(
@@ -440,21 +476,23 @@ async function boundedManifestFallback(
     ...(includeSensitive ? { includeSensitive: true } : {}),
   };
   const assets = await withTimeout(
-    context.documents.listPdfAssetPathsPage(assetArgs),
+    context.documents.listPdfAssetVisibilityPage(assetArgs),
     MANIFEST_BOUNDED_FALLBACK_TIMEOUT_MS,
     "Wiki bounded manifest asset fallback",
   )
     .then((result) =>
-      result.page.map((path) => ({
+      result.page.map((asset) => ({
         kind: "pdf" as const,
-        path,
+        path: asset.path,
         contentHash: null,
         size: null,
+        ownerSlugs: asset.ownerSlugs,
+        sensitive: asset.sensitive,
       })),
     )
     .catch((error) => {
       context.logger?.warn("[wiki manifest] Bounded asset fallback unavailable", error);
-      return [] as WikiManifestAsset[];
+      return [] as ManifestAssetCandidate[];
     });
 
   return {
@@ -527,15 +565,15 @@ async function listAssets(
   includeSensitive: boolean,
   user: WikiApiSessionUser | null,
 ) {
-  const listPaths = async (
+  const listVisibleAssets = async (
     kind: WikiManifestAsset["kind"],
     fetchPage: (args: {
       cursor: string | null;
       numItems: number;
       includeSensitive?: boolean;
-    }) => Promise<AssetPathResult>,
+    }) => Promise<AssetVisibilityResult>,
   ) => {
-    const assets: WikiManifestAsset[] = [];
+    const assets: ManifestAssetCandidate[] = [];
     let cursor: string | null = null;
     let isDone = false;
     while (!isDone) {
@@ -545,11 +583,13 @@ async function listAssets(
         ...(includeSensitive ? { includeSensitive: true } : {}),
       });
       assets.push(
-        ...result.page.map((path) => ({
+        ...result.page.map((asset) => ({
           kind,
-          path,
+          path: asset.path,
           contentHash: null,
           size: null,
+          ownerSlugs: asset.ownerSlugs,
+          sensitive: asset.sensitive,
         })),
       );
       isDone = result.isDone;
@@ -559,57 +599,22 @@ async function listAssets(
   };
 
   if (!includeSensitive) {
-    return listPaths("pdf", (args) => context.documents.listPdfAssetPathsPage(args));
+    return (
+      await listVisibleAssets(
+        "pdf",
+        (args) => context.documents.listPdfAssetVisibilityPage(args),
+      )
+    ).map(publicManifestAsset);
   }
 
-  // Session scope: public assets are readable by definition, so only the
-  // sensitive-extra assets (present with includeSensitive, absent without)
-  // need per-user access checks.
-  const publicListPaths = async (
-    kind: WikiManifestAsset["kind"],
-    fetchPage: (args: {
-      cursor: string | null;
-      numItems: number;
-      includeSensitive?: boolean;
-    }) => Promise<AssetPathResult>,
-  ) => {
-    const assets: WikiManifestAsset[] = [];
-    let cursor: string | null = null;
-    let isDone = false;
-    while (!isDone) {
-      const result = await fetchPage({ cursor, numItems: ASSET_PAGE_SIZE });
-      assets.push(
-        ...result.page.map((path) => ({
-          kind,
-          path,
-          contentHash: null,
-          size: null,
-        })),
-      );
-      isDone = result.isDone;
-      cursor = result.continueCursor;
-    }
-    return assets;
-  };
-
-  const [pdfAssets, publicPdfAssets] = await Promise.all([
-    listPaths("pdf", (args) => context.documents.listPdfAssetPathsPage(args)),
-    publicListPaths("pdf", (args) => context.documents.listPdfAssetPathsPage(args)),
-  ]);
-  const assets = pdfAssets;
-  const publicPaths = new Set(publicPdfAssets.map((asset) => asset.path));
-  const sensitiveExtras = assets.filter((asset) => !publicPaths.has(asset.path));
-  const access = await accessBySlug(
+  return filterAssetsForUser(
     context,
     user,
-    sensitiveExtras.map((asset) => assetSiblingSlug(asset)),
+    await listVisibleAssets(
+      "pdf",
+      (args) => context.documents.listPdfAssetVisibilityPage(args),
+    ),
   );
-  return assets.filter((asset) => {
-    if (publicPaths.has(asset.path)) return true;
-    const result = access.get(assetSiblingSlug(asset));
-    if (!result) return true;
-    return !result.hasDocument || result.allowed;
-  });
 }
 
 function parseLimit(url: URL) {

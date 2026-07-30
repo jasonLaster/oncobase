@@ -214,6 +214,35 @@ function createFakeConvexClient({
             continueCursor: null,
           };
         }
+        case "documents:listPdfAssetVisibilityPage": {
+          const includeSensitive = args.includeSensitive === true;
+          return {
+            page: [
+              {
+                path: "sources/public/source.pdf",
+                ownerSlugs: [],
+                sensitive: false,
+              },
+              ...(includeSensitive
+                ? [
+                    {
+                      path: "private/plan.pdf",
+                      ownerSlugs: ["private/plan", "private/shared"],
+                      sensitive: true,
+                    },
+                  ]
+                : []),
+            ],
+            isDone: true,
+            continueCursor: null,
+          };
+        }
+        case "documents:listFileAssetVisibilityPage":
+          return {
+            page: [],
+            isDone: true,
+            continueCursor: null,
+          };
         case "documents:listPdfAssetsPage":
           return {
             page: [

@@ -533,6 +533,16 @@ function createDocumentsGateway(
       client.query(api.documents.listPdfAssetPathsPage, withSiteSlug(siteSlug, args)),
     listFileAssetPathsPage: (args) =>
       client.query(api.documents.listFileAssetPathsPage, withSiteSlug(siteSlug, args)),
+    listPdfAssetVisibilityPage: (args) =>
+      client.query(
+        api.documents.listPdfAssetVisibilityPage,
+        withSiteSlug(siteSlug, args),
+      ),
+    listFileAssetVisibilityPage: (args) =>
+      client.query(
+        api.documents.listFileAssetVisibilityPage,
+        withSiteSlug(siteSlug, args),
+      ),
     getBySlug: async (args) => {
       const page = await client.query(api.documents.getBySlug, withSiteSlug(siteSlug, args));
       return page ? redactPageContent(client, siteSlug, page) : null;

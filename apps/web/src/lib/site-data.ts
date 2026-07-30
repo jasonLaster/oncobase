@@ -193,6 +193,18 @@ export function createSiteData(
         withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
           convex.query(api.documents.listFileAssetPathsPage, nextArgs),
         ),
+      listPdfAssetVisibilityPage: (
+        args: SiteScopedArgs<typeof api.documents.listPdfAssetVisibilityPage>,
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.listPdfAssetVisibilityPage, nextArgs),
+        ),
+      listFileAssetVisibilityPage: (
+        args: SiteScopedArgs<typeof api.documents.listFileAssetVisibilityPage>,
+      ) =>
+        withPreviewIncludeSensitiveFallback(args, (nextArgs) =>
+          convex.query(api.documents.listFileAssetVisibilityPage, nextArgs),
+        ),
       listPdfAssetsPage: (
         args: SiteScopedArgs<typeof api.documents.listPdfAssetsPage>,
       ) =>

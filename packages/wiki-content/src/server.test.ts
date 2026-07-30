@@ -60,6 +60,46 @@ function manifestContext({ failFullManifest = false } = {}) {
           continueCursor: null,
         };
       },
+      listPdfAssetVisibilityPage: async ({ cursor }) => {
+        pdfCalls += 1;
+        return cursor === null
+          ? {
+              page: [
+                {
+                  path: "sources/one.pdf",
+                  ownerSlugs: [],
+                  sensitive: false,
+                },
+              ],
+              isDone: false,
+              continueCursor: "next",
+            }
+          : {
+              page: [
+                {
+                  path: "sources/two.pdf",
+                  ownerSlugs: [],
+                  sensitive: false,
+                },
+              ],
+              isDone: true,
+              continueCursor: null,
+            };
+      },
+      listFileAssetVisibilityPage: async () => {
+        fileCalls += 1;
+        return {
+          page: [
+            {
+              path: "images/scan.jpg",
+              ownerSlugs: [],
+              sensitive: false,
+            },
+          ],
+          isDone: true,
+          continueCursor: null,
+        };
+      },
       getBySlug: async () => null,
     },
   };
@@ -134,5 +174,66 @@ describe("wiki manifest server", () => {
     expect(validated.headers.get("x-wiki-manifest-partial")).toBe("true");
     expect(validated.headers.get("cache-control")).toBe("no-store");
     expect(validated.headers.get("cdn-cache-control")).toBeNull();
+  });
+
+  test("exposes sensitive asset paths only when every recorded owner is accessible", async () => {
+    const { context } = manifestContext();
+    context.getSessionUser = async () => ({ _id: "reader" });
+    context.access = {
+      canUserAccessSlug: async () => false,
+      getAllowedSlugs: async () => ["private/allowed"],
+      filterAccessibleSlugs: async (_user, slugs) =>
+        slugs.map((slug) => ({
+          slug,
+          allowed: slug === "private/allowed",
+          hasDocument: slug !== "private/missing",
+        })),
+    };
+    context.documents.listPdfAssetVisibilityPage = async () => ({
+      page: [
+        {
+          path: "sources/public.pdf",
+          ownerSlugs: [],
+          sensitive: false,
+        },
+        {
+          path: "private/allowed.pdf",
+          ownerSlugs: ["private/allowed"],
+          sensitive: true,
+        },
+        {
+          path: "private/shared.pdf",
+          ownerSlugs: ["private/allowed", "private/denied"],
+          sensitive: true,
+        },
+        {
+          path: "private/orphan.pdf",
+          ownerSlugs: [],
+          sensitive: true,
+        },
+        {
+          path: "private/missing-owner.pdf",
+          ownerSlugs: ["private/missing"],
+          sensitive: true,
+        },
+      ],
+      isDone: true,
+      continueCursor: null,
+    });
+
+    const response = await createWikiManifestResponse(
+      new Request("https://example.test/api/wiki/manifest?scope=session"),
+      context,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.assets.map((asset: { path: string }) => asset.path)).toEqual([
+      "sources/public.pdf",
+      "private/allowed.pdf",
+    ]);
+    expect(JSON.stringify(body.compactTree)).not.toContain("shared");
+    expect(JSON.stringify(body.compactTree)).not.toContain("orphan");
+    expect(JSON.stringify(body.compactTree)).not.toContain("missing-owner");
   });
 });

@@ -923,6 +923,50 @@ export const listPdfAssetPathsPage = query({
   },
 });
 
+export const listPdfAssetVisibilityPage = query({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const result = site.siteId
+      ? await ctx.db
+          .query("pdfAssets")
+          .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
+          .paginate({ cursor, numItems })
+      : await ctx.db.query("pdfAssets").paginate({ cursor, numItems });
+    const page = [];
+    for (const row of result.page) {
+      if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+      const siblingSlug = assetPathToSiblingSlug(row.path);
+      let sibling =
+        row.sensitive === undefined
+          ? await findDocBySlug(ctx, site, siblingSlug)
+          : null;
+      const sensitive = row.sensitive ?? sibling?.sensitive === true;
+      if (!includeSensitive && sensitive) continue;
+      const ownerSlugs = new Set(row.ownerSlugs ?? []);
+      if (sensitive) {
+        sibling ??= await findDocBySlug(ctx, site, siblingSlug);
+        if (sibling) ownerSlugs.add(sibling.slug);
+      }
+      page.push({
+        path: row.path,
+        ownerSlugs: [...ownerSlugs],
+        sensitive,
+      });
+    }
+    return {
+      page,
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  },
+});
+
 export const getPdfAssetByPath = query({
   args: {
     path: v.string(),
@@ -1240,6 +1284,50 @@ export const listFileAssetPathsPage = query({
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
       if (!canReadAssetWithSensitiveSlugs(row, sensitiveSlugs)) continue;
       page.push(row.path);
+    }
+    return {
+      page,
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  },
+});
+
+export const listFileAssetVisibilityPage = query({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const result = site.siteId
+      ? await ctx.db
+          .query("fileAssets")
+          .withIndex("by_site_path", (q) => q.eq("siteId", site.siteId!))
+          .paginate({ cursor, numItems })
+      : await ctx.db.query("fileAssets").paginate({ cursor, numItems });
+    const page = [];
+    for (const row of result.page) {
+      if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+      const siblingSlug = assetPathToSiblingSlug(row.path);
+      let sibling =
+        row.sensitive === undefined
+          ? await findDocBySlug(ctx, site, siblingSlug)
+          : null;
+      const sensitive = row.sensitive ?? sibling?.sensitive === true;
+      if (!includeSensitive && sensitive) continue;
+      const ownerSlugs = new Set(row.ownerSlugs ?? []);
+      if (sensitive) {
+        sibling ??= await findDocBySlug(ctx, site, siblingSlug);
+        if (sibling) ownerSlugs.add(sibling.slug);
+      }
+      page.push({
+        path: row.path,
+        ownerSlugs: [...ownerSlugs],
+        sensitive,
+      });
     }
     return {
       page,
