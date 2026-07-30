@@ -384,6 +384,9 @@ export function DicomViewerClient({
       : catalogError
         ? "Could not load DICOM catalog"
         : null);
+  const catalogLoading = catalog === undefined && catalogError === undefined;
+  const catalogMissing =
+    catalog !== undefined && catalog.root === null && catalogError === undefined;
 
   const applyToolMode = useCallback((mode: ToolMode) => {
     const modules = modulesRef.current;
@@ -959,7 +962,20 @@ export function DicomViewerClient({
                 </div>
               ) : null}
 
-              {!catalog?.root ? (
+              {catalogLoading ? (
+                <div
+                  className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs text-zinc-300"
+                  role="status"
+                  data-test-id="dicom-series-catalog-loading"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="size-4 animate-spin rounded-full border-2 border-white/15 border-t-emerald-300" />
+                    Loading DICOM studies…
+                  </div>
+                </div>
+              ) : null}
+
+              {catalogMissing ? (
                 <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
                   No DICOM catalog was found.
                 </div>
@@ -1025,7 +1041,7 @@ export function DicomViewerClient({
               onEditorOpenChange={handleAnnotationEditorOpenChange}
               series={activeStack}
             />
-            {!catalog && !displayError ? (
+            {catalogLoading ? (
               <div className="absolute inset-0 flex items-center justify-center bg-black/80 px-6 text-center">
                 <div className="max-w-sm">
                   <div className="mx-auto mb-4 size-8 animate-spin rounded-full border-2 border-white/15 border-t-emerald-300" />
@@ -1447,7 +1463,19 @@ export function DicomViewerClient({
                       : "The catalog only has non-image DICOM objects right now."}
                   </div>
                 ) : null}
-                {!catalog?.root ? (
+                {catalogLoading ? (
+                  <div
+                    className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs text-zinc-300"
+                    role="status"
+                    data-test-id="dicom-mobile-catalog-loading"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="size-4 animate-spin rounded-full border-2 border-white/15 border-t-emerald-300" />
+                      Loading DICOM studies…
+                    </div>
+                  </div>
+                ) : null}
+                {catalogMissing ? (
                   <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
                     No DICOM catalog was found.
                   </div>

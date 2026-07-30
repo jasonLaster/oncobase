@@ -112,6 +112,18 @@ requested image:
   overlay disappears and the slice counter reflects the newly rendered image.
 - Cached images may transition immediately without showing the overlay.
 
+## Catalog Loading Contract
+
+The series rail must distinguish between a catalog request that is still in
+flight and a completed catalog response with no data:
+
+- While `/api/dicom/studies` is pending, the desktop series rail and mobile
+  series sheet show `Loading DICOM studies…`.
+- `No DICOM catalog was found.` is shown only after the request completes with
+  no catalog root.
+- Catalog request errors use the viewer error state and must not also appear as
+  an empty catalog.
+
 ## Prefetch Contract
 
 After initial stack load and after each successful slice change, the viewer

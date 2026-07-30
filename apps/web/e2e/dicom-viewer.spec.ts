@@ -293,6 +293,32 @@ function holdDicomFileRequest(page: Page, fileName: string) {
   };
 }
 
+function holdDicomCatalogRequest(page: Page) {
+  let release = () => {};
+  const requestSeen = new Promise<void>((resolve) => {
+    void page.route("**/api/dicom/studies", async (route) => {
+      resolve();
+      await new Promise<void>((next) => {
+        release = next;
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          root: null,
+          rootsTried: [],
+          series: [],
+        }),
+      });
+    });
+  });
+
+  return {
+    requestSeen,
+    release: () => release(),
+  };
+}
+
 async function installAnnotationApiMock(page: Page) {
   const savedByImage = new Map<string, unknown[]>();
   const saves: Array<{
@@ -702,6 +728,51 @@ test.describe("DICOM viewer", () => {
     ).toHaveCount(0);
     await backLink.click();
     await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible();
+  });
+
+  test("keeps the empty DICOM message hidden until catalog loading finishes", async ({
+    page,
+  }) => {
+    const catalogRequest = holdDicomCatalogRequest(page);
+
+    await page.goto(`/tools/dicom-viewer${seededStudySetQuery}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await catalogRequest.requestSeen;
+
+    const seriesPanel = page.getByTestId("dicom-series-panel");
+    await expect(seriesPanel.getByTestId("dicom-series-catalog-loading")).toBeVisible();
+    await expect(seriesPanel).toContainText("Loading DICOM studies…");
+    await expect(seriesPanel).not.toContainText("No DICOM catalog was found.");
+
+    catalogRequest.release();
+
+    await expect(seriesPanel.getByTestId("dicom-series-catalog-loading")).toBeHidden();
+    await expect(seriesPanel).toContainText("No DICOM catalog was found.");
+  });
+
+  test("uses the dedicated catalog loading state in the mobile series sheet", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const catalogRequest = holdDicomCatalogRequest(page);
+
+    await page.goto(`/tools/dicom-viewer${seededStudySetQuery}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await catalogRequest.requestSeen;
+    await page.getByTestId("dicom-mobile-series-bar").click();
+
+    const studySheet = page.getByTestId("dicom-mobile-study-sheet");
+    await expect(studySheet).toHaveAttribute("data-state", "open");
+    await expect(studySheet.getByTestId("dicom-mobile-catalog-loading")).toBeVisible();
+    await expect(studySheet).toContainText("Loading DICOM studies…");
+    await expect(studySheet).not.toContainText("No DICOM catalog was found.");
+
+    catalogRequest.release();
+
+    await expect(studySheet.getByTestId("dicom-mobile-catalog-loading")).toBeHidden();
+    await expect(studySheet).toContainText("No DICOM catalog was found.");
   });
 
   test("stores the current image in the URL and copies a shareable image link", async ({
