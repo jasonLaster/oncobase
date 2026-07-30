@@ -45,6 +45,27 @@ test.describe("Visual parity", () => {
     await expect(collapseButton).toHaveCSS("width", "24px");
     await expect(collapseButton).toHaveCSS("border-radius", "8px");
 
+    const commentsButtonBox = await page
+      .getByRole("button", { name: "Open comments" })
+      .boundingBox();
+    const outlineButtonBox = await page
+      .getByRole("button", { name: "Open outline" })
+      .boundingBox();
+    const articleBox = await page.getByTestId("document-article").boundingBox();
+    expect(commentsButtonBox).toEqual({
+      x: 1234,
+      y: 12,
+      width: 28,
+      height: 28,
+    });
+    expect(outlineButtonBox).toEqual({
+      x: 1234,
+      y: 48,
+      width: 28,
+      height: 28,
+    });
+    expect(articleBox?.y).toBe(32);
+
     if (hasLocalSnapshotBaseline) {
       await expect(page.locator(".wiki-shell-outline-root")).toHaveScreenshot("desktop-reader-shell.png", {
         animations: "disabled",
