@@ -23,6 +23,26 @@ export const diagnosticStudiesSeed = {
       ),
     },
     {
+      id: "diagnostic-2026-07-17-breast-mri",
+      shortLabel: "7/17",
+      title: "July 17 breast MRI",
+      dateLabel: "Jul 17, 2026",
+      isoDate: "2026-07-17",
+      modality: "MR",
+      focus: "Bilateral breast MRI stack",
+      directoryIncludes: "07-17-breast-mri",
+      pathologyReportHref: sourcePageHref("07-17-breast-mri"),
+      reportLinks: [
+        {
+          label: "MRI report",
+          href: sourcePageHref("07-17-breast-mri"),
+        },
+      ],
+      downloadHref: fileAssetHref(
+        "diagnostics/viewer-upload/07-17-breast-mri/source-files.zip",
+      ),
+    },
+    {
       id: "diagnostic-2026-06-26-breast-mri",
       shortLabel: "6/26",
       title: "June 26 breast MRI",

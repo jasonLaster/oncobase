@@ -22,6 +22,12 @@ const biopsyLinks = [
     counter: "285 / 568",
   },
   {
+    id: "diagnostic-2026-07-17-breast-mri",
+    title: "July 17 breast MRI",
+    directory: "07-17-breast-mri/dicoms",
+    counter: "521 / 1040",
+  },
+  {
     id: "diagnostic-2026-06-26-breast-mri",
     title: "June 26 breast MRI",
     directory: "06-26-breast-mri/dicoms",
@@ -494,7 +500,7 @@ test.describe("DICOM viewer", () => {
     await expect(desktopTable.getByRole("columnheader", { name: "Download" })).toBeVisible();
     await expect(
       desktopTable.getByRole("link", { name: "Download source bundle" }),
-    ).toHaveCount(7);
+    ).toHaveCount(8);
     for (const biopsy of biopsyLinks) {
       const viewerLink = desktopTable.locator(
         `a[href="/tools/dicom-viewer?id=${biopsy.id}${seededStudySetParam}"]`

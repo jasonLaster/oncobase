@@ -4,7 +4,7 @@ import "dotenv/config";
 import { ConvexHttpClient } from "convex/browser";
 
 import { api } from "../convex/_generated/api";
-import { sitePut } from "../src/lib/blob";
+import { siteHead, sitePut } from "../src/lib/blob";
 import { resolveServerConvexUrl } from "../src/lib/convex-url";
 import { getDicomCatalog, resolveDicomPath } from "../src/lib/dicom-local";
 import {
@@ -17,6 +17,8 @@ const DRY_RUN = process.argv.includes("--dry-run");
 const STUDIES_FILE = argValue("--studies-file");
 const INCLUDE_PREFIX = normalizePrefix(argValue("--include-prefix"));
 const ALLOW_OVERWRITE = process.argv.includes("--allow-overwrite");
+const RESUME = process.argv.includes("--resume");
+const REGISTER_ONLY = process.argv.includes("--register-only");
 
 const convexUrl = resolveServerConvexUrl();
 if (!convexUrl) {
@@ -34,7 +36,7 @@ async function main() {
   let uploaded = 0;
   let skipped = 0;
 
-  const selectedSeries = INCLUDE_PREFIX
+  let selectedSeries = INCLUDE_PREFIX
     ? catalog.series.filter(
         (series) =>
           series.relativeDirectory === INCLUDE_PREFIX ||
@@ -44,6 +46,42 @@ async function main() {
 
   if (INCLUDE_PREFIX && !selectedSeries.length) {
     throw new Error(`No DICOM series matched --include-prefix ${INCLUDE_PREFIX}`);
+  }
+
+  let resumedSeries = 0;
+  if (RESUME) {
+    const existingSeries = await convex.query(api.dicom.listSeries, {
+      siteSlug: SITE_SLUG,
+    });
+    const existingByKey = new Map(
+      existingSeries.map((series) => [series.seriesKey, series]),
+    );
+
+    selectedSeries = selectedSeries.filter((series) => {
+      const existing = existingByKey.get(series.seriesKey);
+      if (!existing || existing.images.length !== series.images.length) {
+        return true;
+      }
+
+      const existingImages = new Map(
+        existing.images.map((image) => [image.path, image]),
+      );
+      const isComplete = series.images.every((image) => {
+        const existingImage = existingImages.get(image.relativePath);
+        return (
+          existingImage &&
+          existingImage.sizeBytes === image.byteLength &&
+          !existingImage.deletedAt
+        );
+      });
+      if (!isComplete) return true;
+
+      resumedSeries += 1;
+      console.log(
+        `Resume: skipping ${series.images.length} registered images for ${series.relativeDirectory}`,
+      );
+      return false;
+    });
   }
 
   for (const series of selectedSeries) {
@@ -62,12 +100,22 @@ async function main() {
 
       let blobUrl = `dry-run://${blobKey}`;
       if (!DRY_RUN) {
-        const blob = await sitePut(SITE_SLUG, blobKey, body, {
-          addRandomSuffix: false,
-          allowOverwrite: ALLOW_OVERWRITE,
-          contentType: "application/dicom",
-        });
-        blobUrl = blob.url;
+        if (REGISTER_ONLY) {
+          const blob = await siteHead(SITE_SLUG, blobKey);
+          if (blob.size !== body.byteLength) {
+            throw new Error(
+              `Registered Blob size mismatch for ${image.relativePath}: local=${body.byteLength}, remote=${blob.size}`,
+            );
+          }
+          blobUrl = blob.url;
+        } else {
+          const blob = await sitePut(SITE_SLUG, blobKey, body, {
+            addRandomSuffix: false,
+            allowOverwrite: ALLOW_OVERWRITE,
+            contentType: "application/dicom",
+          });
+          blobUrl = blob.url;
+        }
       }
 
       images.push({
@@ -124,7 +172,7 @@ async function main() {
   }
 
   console.log(
-    `${DRY_RUN ? "Dry run complete" : "Done"}: ${uploaded} image(s), ${skipped} skipped, root=${catalog.root}, prefix=${INCLUDE_PREFIX ?? "all"}`,
+    `${DRY_RUN ? "Dry run complete" : "Done"}: ${uploaded} image(s), ${skipped} skipped, ${resumedSeries} resumed series, registerOnly=${REGISTER_ONLY}, root=${catalog.root}, prefix=${INCLUDE_PREFIX ?? "all"}`,
   );
 }
 

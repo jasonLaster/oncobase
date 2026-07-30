@@ -1,4 +1,4 @@
-import { del, put } from "@vercel/blob";
+import { createMultipartUploader, del, head, put } from "@vercel/blob";
 
 // Phase 2 multi-tenant invariant: every blob key starts with
 // `sites/<siteSlug>/`. This helper is the single write path; ESLint
@@ -22,6 +22,24 @@ export async function sitePut(
   options: Omit<Parameters<typeof put>[2], "access"> = {},
 ) {
   return await put(siteBlobKey(siteSlug, key), body, {
+    ...options,
+    access: "public",
+  });
+}
+
+export async function siteHead(siteSlug: string, key: string) {
+  return await head(siteBlobKey(siteSlug, key));
+}
+
+export async function siteCreateMultipartUploader(
+  siteSlug: string,
+  key: string,
+  options: Omit<
+    Parameters<typeof createMultipartUploader>[1],
+    "access"
+  > = {},
+) {
+  return await createMultipartUploader(siteBlobKey(siteSlug, key), {
     ...options,
     access: "public",
   });
