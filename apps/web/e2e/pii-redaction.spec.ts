@@ -157,7 +157,10 @@ test.describe("PII redaction", () => {
         storageState: { cookies: [], origins: [] },
       });
       const readerPage = await readerContext.newPage();
-      await readerPage.goto(`/?token=${encodeURIComponent(GATE_PASSWORD)}`);
+      const readerGateLogin = await readerContext.request.post("/api/login", {
+        data: { password: GATE_PASSWORD },
+      });
+      expect(readerGateLogin.ok(), await readerGateLogin.text()).toBeTruthy();
       await readerPage.goto(`/${ADMIN_REDACTION_SLUG}`);
       await expect(readerPage.getByRole("heading", { name: ADMIN_REDACTION_TITLE }))
         .toBeVisible();
@@ -170,7 +173,10 @@ test.describe("PII redaction", () => {
         storageState: { cookies: [], origins: [] },
       });
       const adminPage = await adminContext.newPage();
-      await adminPage.goto(`/?token=${encodeURIComponent(GATE_PASSWORD)}`);
+      const adminGateLogin = await adminContext.request.post("/api/login", {
+        data: { password: GATE_PASSWORD },
+      });
+      expect(adminGateLogin.ok(), await adminGateLogin.text()).toBeTruthy();
       const signup = await adminContext.request.post("/api/auth/signup", {
         data: {
           email: ADMIN_REDACTION_OWNER_EMAIL,
@@ -250,7 +256,7 @@ test.describe("PII redaction", () => {
 
     const response = await getWithTransientRetry(
       request,
-      `${baseURL}/api/download?type=markdown&showPII=1&token=diana`
+      `${baseURL}/api/download?type=markdown&showPII=1`
     );
 
     expect(response.status()).toBe(200);

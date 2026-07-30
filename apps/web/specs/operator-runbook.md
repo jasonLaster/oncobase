@@ -158,8 +158,8 @@ operator-controlled site.
      OPENAI_API_KEY=...optional... \
      bun run wiki:publish --site diana
    ```
-5. Verify by hitting `http://localhost:3000/?token=diana` and
-   running the cross-site leak suite:
+5. Sign in at `http://localhost:3000/login`, verify the site, and run
+   the cross-site leak suite:
    `bunx playwright test e2e/multi-site-isolation.spec.ts`.
 
 ## Destroy A Site (Hard Delete)

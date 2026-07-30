@@ -58,7 +58,7 @@ test.describe("password login redirects", () => {
     }
   });
 
-  test("magic-link API accepts local paths and rejects external targets", async ({
+  test("login API rejects password query parameters and preserves safe local targets", async ({
     baseURL,
   }) => {
     const origin = new URL(baseURL!).origin;
@@ -79,10 +79,43 @@ test.describe("password login redirects", () => {
           { maxRedirects: 0 },
         );
         expect(response.status()).toBe(307);
+        expect(response.headers()["set-cookie"]).toBeUndefined();
+        expect(response.headers()["cache-control"]).toBe("private, no-store");
+        expect(response.headers().vary).toContain("Cookie");
         expect(new URL(response.headers().location, origin).toString()).toBe(
-          new URL(expected, origin).toString(),
+          new URL(
+            `/login?redirect=${encodeURIComponent(expected)}`,
+            origin,
+          ).toString(),
         );
+        expect(response.headers().location).not.toContain("token");
       }
+    } finally {
+      await request.dispose();
+    }
+  });
+
+  test("legacy page token parameters are stripped without creating a session", async ({
+    baseURL,
+  }) => {
+    const origin = new URL(baseURL!).origin;
+    const request = await playwrightRequest.newContext({
+      baseURL: origin,
+      extraHTTPHeaders: previewBypassHeaders(),
+      storageState: { cookies: [], origins: [] },
+    });
+
+    try {
+      const response = await request.get(
+        "/about/About?token=diana&view=compact",
+        { maxRedirects: 0 },
+      );
+      expect(response.status()).toBe(307);
+      expect(response.headers()["set-cookie"]).toBeUndefined();
+      expect(response.headers()["cache-control"]).toBe("private, no-store");
+      expect(new URL(response.headers().location, origin).toString()).toBe(
+        `${origin}/about/About?view=compact`,
+      );
     } finally {
       await request.dispose();
     }

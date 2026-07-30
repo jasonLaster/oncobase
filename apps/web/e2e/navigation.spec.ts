@@ -64,12 +64,12 @@ async function waitForCommandPaletteItems(page: Page) {
 
 test.describe("Page viewing & sidebar navigation", () => {
   test("serves the about index canonical redirect before rendering", async ({ request }) => {
-    const response = await request.get("/about/index?token=diana", {
+    const response = await request.get("/about/index", {
       maxRedirects: 0,
     });
 
     expect([307, 308]).toContain(response.status());
-    expect(response.headers().location).toMatch(/\/about\/Index\?token=diana$/);
+    expect(response.headers().location).toMatch(/\/about\/Index$/);
   });
 
   test("home page loads with wiki content", async ({ page }) => {

@@ -173,7 +173,8 @@ Recommended flow:
 
 Important note:
 
-- the document route may redirect to `/login` in clean sessions, so local debugging should use a stable authenticated session or the `?token=diana` flow
+- the document route may redirect to `/login` in clean sessions, so local
+  debugging should sign in first and use a stable authenticated session
 
 ## Release Checklist
 

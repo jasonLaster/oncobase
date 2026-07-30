@@ -47,8 +47,8 @@ The app is a multi-site wiki publishing platform. Diana is site #1; additional s
   - a copy-to-clipboard button for the page markdown
 - The app includes redirect rules for legacy wiki slugs and moved source pages.
 - The middleware adds a site-wide password gate with:
-  - `authed=true` cookie persistence
-  - a `?token=<password>` magic-link shortcut that sets the cookie and strips the query param
+  - signed, HTTP-only gate-session cookie persistence
+  - password submission through the login form or `POST /api/login`
 
 ### File Palette And Command Palette
 

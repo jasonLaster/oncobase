@@ -8,9 +8,19 @@ const baseURL =
   (isLocal
     ? `http://localhost:${localPort}`
     : process.env.PROD_URL || "https://diana-tnbc.vercel.app");
+const localGatePasswordHash =
+  "sha256:1b2fc9341a16ae4e30082965d537ae47c21a0f27fd43eab78330ed81751ae6db";
+const localGateSessionSecret = "web-playwright-gate-secret";
 const webServer = isLocal
   ? {
       command: `PORT=${localPort} bun dev:app`,
+      env: {
+        ...process.env,
+        DIANA_WIKI_PASSWORD_HASH:
+          process.env.DIANA_WIKI_PASSWORD_HASH || localGatePasswordHash,
+        WIKI_GATE_SESSION_SECRET:
+          process.env.WIKI_GATE_SESSION_SECRET || localGateSessionSecret,
+      },
       url: baseURL,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

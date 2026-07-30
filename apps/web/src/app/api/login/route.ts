@@ -51,32 +51,16 @@ async function setGateCookie(response: NextResponse, siteSlug: string) {
   );
 }
 
-/** GET /api/login?token=<password>&redirect=<path> — magic link auto-login. */
-export async function GET(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get("token");
+/** GET /api/login redirects to the password form without accepting credentials in the URL. */
+export function GET(request: NextRequest) {
   const redirect = safeLocalRedirect(
     request.nextUrl.searchParams.get("redirect"),
   );
-  const siteSlug = siteSlugFromRequest(request);
-
-  if (!token || !(await isValidPassword(siteSlug, token))) {
-    return NextResponse.redirect(new URL("/login", request.url), {
-      headers: privateHeaders(),
-    });
-  }
-
-  const response = NextResponse.redirect(new URL(redirect, request.url), {
+  const loginUrl = new URL("/login", request.url);
+  loginUrl.searchParams.set("redirect", redirect);
+  return NextResponse.redirect(loginUrl, {
     headers: privateHeaders(),
   });
-  try {
-    await setGateCookie(response, siteSlug);
-  } catch {
-    return NextResponse.json(
-      { error: "Password gate session is not configured" },
-      { status: 503, headers: privateHeaders() },
-    );
-  }
-  return response;
 }
 
 export async function POST(request: NextRequest) {

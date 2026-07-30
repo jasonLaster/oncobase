@@ -90,7 +90,7 @@ test.describe("Sidebar source files", () => {
       request.get("/api/file-tree"),
       request.get("/api/file-tree?format=compact"),
       request.get("/api/pages"),
-      request.get("/wiki/updates/week-6-april-19-to-25?token=diana"),
+      request.get("/wiki/updates/week-6-april-19-to-25"),
     ]);
 
     expect(treeResponse.ok()).toBeTruthy();
@@ -141,8 +141,8 @@ test.describe("Sidebar source files", () => {
     request,
   }) => {
     const [journalResponse, week6Response] = await Promise.all([
-      request.get("/about/Journal?token=diana"),
-      request.get("/wiki/updates/week-6-april-19-to-25?token=diana"),
+      request.get("/about/Journal"),
+      request.get("/wiki/updates/week-6-april-19-to-25"),
     ]);
 
     expect(journalResponse.ok()).toBeTruthy();

@@ -40,11 +40,6 @@ const pageCases: PageLoadCase[] = [
   },
 ];
 
-function withMagicLink(route: string) {
-  const separator = route.includes("?") ? "&" : "?";
-  return `${route}${separator}token=diana`;
-}
-
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -64,7 +59,7 @@ async function getServerShellResponse(
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const response = await request.get(withMagicLink(pageCase.route));
+      const response = await request.get(pageCase.route);
       if (response.ok() || response.status() < 500 || attempt === 3) {
         return response;
       }
@@ -116,7 +111,7 @@ function sidebar(page: Page) {
 async function assertDesktopFirstPaint(page: Page, pageCase: PageLoadCase) {
   await page.setViewportSize(desktopViewport);
   await blockAppScripts(page);
-  await page.goto(withMagicLink(pageCase.route), { waitUntil: "domcontentloaded" });
+  await page.goto(pageCase.route, { waitUntil: "domcontentloaded" });
 
   const sb = sidebar(page);
 
@@ -158,7 +153,7 @@ test.describe("Page load experience", () => {
       });
     });
 
-    await page.goto(withMagicLink("/about/Index"), { waitUntil: "domcontentloaded" });
+    await page.goto("/about/Index", { waitUntil: "domcontentloaded" });
 
     const sb = sidebar(page);
 
@@ -175,7 +170,7 @@ test.describe("Page load experience", () => {
       localStorage.setItem("sidebar-width", "0");
     });
     await blockAppScripts(page);
-    await page.goto(withMagicLink("/about/Index"), { waitUntil: "domcontentloaded" });
+    await page.goto("/about/Index", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeHidden();
@@ -184,7 +179,7 @@ test.describe("Page load experience", () => {
   test("mobile initial paint keeps the header nav affordance", async ({ page }) => {
     await page.setViewportSize(mobileViewport);
     await blockAppScripts(page);
-    await page.goto(withMagicLink("/about/Index"), { waitUntil: "domcontentloaded" });
+    await page.goto("/about/Index", { waitUntil: "domcontentloaded" });
 
     const mobileHeader = page.getByTestId("mobile-page-header");
     const navButton = page.getByTestId("bottom-nav-trigger");

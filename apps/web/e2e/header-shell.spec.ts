@@ -5,7 +5,7 @@ test.describe("Header shell", () => {
     request,
     baseURL,
   }) => {
-    const response = await request.get(new URL("/about/Index?token=diana", baseURL).toString());
+    const response = await request.get(new URL("/about/Index", baseURL).toString());
 
     expect(response.ok()).toBeTruthy();
 

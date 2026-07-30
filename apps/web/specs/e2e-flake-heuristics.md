@@ -32,7 +32,10 @@ Mitigations in this branch:
 - The server HTML test keeps proving requested headings are present in the streamed HTML.
 - The server HTML test retries transient socket/network failures so production stress noise does not mask real shell regressions.
 - The mobile bottom affordance is located by its structural fixed-bottom selector instead of its hydrated page title.
-- The no-JS first-paint browser checks use the same `?token=diana` magic-link path as the server HTML checks, so a missing or stale storage-state cookie cannot turn a production stress repeat into a partial unauthenticated shell assertion.
+- The no-JS first-paint browser and server HTML checks use the Playwright
+  setup project's signed gate session, so stale authentication fails during
+  setup instead of turning a production stress repeat into a partial shell
+  assertion.
 
 ### Client-side navigation waits
 

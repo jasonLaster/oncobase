@@ -5,10 +5,7 @@ import { api } from "@convex/_generated/api";
 import { resolveServerConvexUrl } from "@/lib/convex-url";
 import { safeLocalRedirect } from "@/lib/safe-redirect";
 import {
-  createWikiGateCookieValue,
   hasValidWikiGateCookie,
-  isValidWikiPassword,
-  WIKI_GATE_COOKIE_MAX_AGE,
   wikiGateCookieName,
 } from "@/lib/wiki-gate-session";
 import localHosts from "../.local-hosts.json";
@@ -153,10 +150,6 @@ async function resolveHost(host: string): Promise<ResolvedSite | null> {
     }
     return null;
   }
-}
-
-async function isValidMagicToken(token: string, site: ResolvedSite) {
-  return isValidWikiPassword(site.slug, token, site.passwordHash);
 }
 
 function withSiteHeader(request: NextRequest, siteSlug: string) {
@@ -329,31 +322,12 @@ export async function proxy(request: NextRequest) {
     (request.method === "GET" || request.method === "HEAD") &&
     isLinkPreviewBotUserAgent(request.headers.get("user-agent"));
 
-  // Magic link: ?token=<password> auto-logs in and strips the param.
-  const token = request.nextUrl.searchParams.get("token");
-  if (token && (await isValidMagicToken(token, site))) {
+  // Passwords in URLs can leak through history, logs, and referrers. Strip the
+  // legacy parameter without authenticating it.
+  if (request.nextUrl.searchParams.has("token")) {
     const clean = new URL(request.url);
     clean.searchParams.delete("token");
-    const response = privateRedirect(clean);
-    try {
-      response.cookies.set(
-        cookieName,
-        await createWikiGateCookieValue(site.slug),
-        {
-          httpOnly: true,
-          sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
-          path: "/",
-          maxAge: WIKI_GATE_COOKIE_MAX_AGE,
-        },
-      );
-    } catch {
-      return new NextResponse("password gate session unavailable", {
-        status: 503,
-        headers: PRIVATE_GATE_HEADERS,
-      });
-    }
-    return response;
+    return privateRedirect(clean);
   }
 
   if (isLoginPage) {
