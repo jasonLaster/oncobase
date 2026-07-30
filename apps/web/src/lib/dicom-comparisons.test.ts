@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { aprilJuneMriSeriesSummary } from "../../scripts/fixtures/diagnostic-comparisons-seed";
+import {
+  aprilJuneMriSeriesSummary,
+  juneJulyMriSeriesSummary,
+} from "../../scripts/fixtures/diagnostic-comparisons-seed";
 import {
   normalizeDiagnosticComparisonsPayload,
   seriesPairsFromSeriesSummary,
@@ -92,5 +95,21 @@ describe("DICOM comparison metadata", () => {
     expect(payload.comparisons[0].seriesPairs).toHaveLength(6);
     expect(payload.comparisons[0].caveat).toContain("not a diagnostic radiology report");
     expect(payload.comparisons[0].reportAnchors[0].side).toBe("right");
+  });
+
+  test("supports the June-to-July MRI series prefixes", () => {
+    const pairs = seriesPairsFromSeriesSummary(juneJulyMriSeriesSummary, {
+      leftStudyId: "diagnostic-2026-06-26-breast-mri",
+      rightStudyId: "diagnostic-2026-07-17-breast-mri",
+      leftSeriesPrefix: "0626",
+      rightSeriesPrefix: "0717",
+    });
+
+    expect(pairs).toHaveLength(6);
+    expect(pairs[0]).toMatchObject({
+      defaultSlice: 127,
+      leftSelector: { seriesNumber: 101, imageCount: 254 },
+      rightSelector: { seriesNumber: 100, imageCount: 260 },
+    });
   });
 });

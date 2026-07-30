@@ -6,6 +6,8 @@ import {
 
 const leftStudyId = "diagnostic-2026-04-01-breast-mri";
 const rightStudyId = "diagnostic-2026-06-26-breast-mri";
+const juneStudyId = "diagnostic-2026-06-26-breast-mri";
+const julyStudyId = "diagnostic-2026-07-17-breast-mri";
 
 export const aprilJuneMriSeriesSummary = {
   "0401_sub_phase2": {
@@ -130,8 +132,187 @@ export const aprilJuneMriSeriesSummary = {
   },
 } satisfies SeriesSummaryInput;
 
+export const juneJulyMriSeriesSummary = {
+  "0626_sub_phase2": {
+    root: "0626",
+    series_number: "101",
+    description: "PHASE 2 SUB",
+    count: 254,
+    rows: "512",
+    columns: "512",
+    pixel_spacing: "[0.7031, 0.7031]",
+    slice_thickness: "1.58",
+    z_range: [-89.2855453491, 113.114654541],
+    example_file: "06-26-breast-mri-4013-MR.dcm",
+  },
+  "0717_sub_phase2": {
+    root: "0717",
+    series_number: "100",
+    description: "SUB PH 2",
+    count: 260,
+    rows: "512",
+    columns: "512",
+    pixel_spacing: "[0.7031, 0.7031]",
+    slice_thickness: "1.6",
+    z_range: [-128.8194274902, 78.3807907104],
+    example_file: "07-17-breast-mri-04184-mr.dcm",
+  },
+  "0626_rt_sub": {
+    root: "0626",
+    series_number: "102",
+    description: "RT SUB",
+    count: 25,
+    rows: "568",
+    columns: "568",
+    pixel_spacing: "[0.6337803006, 0.6337803006]",
+    slice_thickness: "1.580000043",
+    z_range: [151.3136749, 191.2418213],
+    example_file: "06-26-breast-mri-4267-MR.dcm",
+  },
+  "0717_rt_sub": {
+    root: "0717",
+    series_number: "101",
+    description: "RT  SUB",
+    count: 25,
+    rows: "568",
+    columns: "568",
+    pixel_spacing: "[0.6337803006, 0.6337803006]",
+    slice_thickness: "1.600000024",
+    z_range: [104.4884796, 154.3986816],
+    example_file: "07-17-breast-mri-04446-mr.dcm",
+  },
+  "0626_t2": {
+    root: "0626",
+    series_number: "2",
+    description: "36: CUBE T2",
+    count: 208,
+    rows: "512",
+    columns: "512",
+    pixel_spacing: "[0.7031, 0.7031]",
+    slice_thickness: "2",
+    z_range: [-91.5853347778, 115.4146652222],
+    example_file: "06-26-breast-mri-0044-MR.dcm",
+  },
+  "0717_t2": {
+    root: "0717",
+    series_number: "2",
+    description: "36: CUBE T2",
+    count: 208,
+    rows: "512",
+    columns: "512",
+    pixel_spacing: "[0.7031, 0.7031]",
+    slice_thickness: "2",
+    z_range: [-128.7192077637, 78.2807998657],
+    example_file: "07-17-breast-mri-01602-mr.dcm",
+  },
+  "0626_adc": {
+    root: "0626",
+    series_number: "350",
+    description: "ADC (10^-6 mm²/s)",
+    count: 41,
+    rows: "256",
+    columns: "256",
+    pixel_spacing: "[1.406299949, 1.406299949]",
+    slice_thickness: "3",
+    z_range: [-69.70000458, 50.29998779],
+    example_file: "06-26-breast-mri-4352-MR.dcm",
+  },
+  "0717_adc": {
+    root: "0717",
+    series_number: "350",
+    description: "ADC (10^-6 mm²/s)",
+    count: 49,
+    rows: "256",
+    columns: "256",
+    pixel_spacing: "[1.406299949, 1.406299949]",
+    slice_thickness: "3",
+    z_range: [-104.4888077, 39.51118469],
+    example_file: "07-17-breast-mri-04179-mr.dcm",
+  },
+  "0626_dcad_mip": {
+    root: "0626",
+    series_number: "40000",
+    description: "DCAD-MIP-Thin Slab Subtraction  Axial",
+    count: 202,
+    rows: "513",
+    columns: "513",
+    pixel_spacing: "[0.7017, 0.7017]",
+    slice_thickness: "",
+    z_range: [-89.5854, 111.4146],
+    example_file: "06-26-breast-mri-6644-MR.dcm",
+  },
+  "0717_dcad_mip": {
+    root: "0717",
+    series_number: "40000",
+    description: "DCAD-MIP-Thin Slab Subtraction  Axial",
+    count: 207,
+    rows: "513",
+    columns: "513",
+    pixel_spacing: "[0.7017, 0.7017]",
+    slice_thickness: "",
+    z_range: [-128.7193, 77.2807],
+    example_file: "07-17-breast-mri-06054-mr.dcm",
+  },
+} satisfies SeriesSummaryInput;
+
 export const diagnosticComparisonsSeed = {
   comparisons: [
+    {
+      id: "mri-comparison-2026-06-26-vs-2026-07-17",
+      label: "June 26 vs July 17 breast MRI",
+      leftStudyId: juneStudyId,
+      rightStudyId: julyStudyId,
+      modality: "MR",
+      bodyPart: "Breast",
+      createdAt: "2026-07-30T00:00:00.000Z",
+      sourceArtifacts: [
+        "diagnostics/_analysis/2026-07-30-july-vs-june-breast-mri/series-summary.json",
+        "diagnostics/_analysis/2026-07-30-july-vs-june-breast-mri/REPORT.md",
+      ],
+      caveat:
+        "Computational side-by-side review and clinical context, not a diagnostic radiology report.",
+      seriesPairs: seriesPairsFromSeriesSummary(juneJulyMriSeriesSummary, {
+        leftStudyId: juneStudyId,
+        rightStudyId: julyStudyId,
+        leftSeriesPrefix: "0626",
+        rightSeriesPrefix: "0717",
+      }),
+      reportAnchors: [
+        {
+          label: "June residual enhancement",
+          side: "left",
+          text: "Residual scattered right-breast non-mass enhancement remained after marked baseline improvement.",
+        },
+        {
+          label: "July interval comparison",
+          side: "right",
+          text: "Continued slight improvement with decreased conspicuity, while residual enhancement distribution remained similar when measured comparably.",
+        },
+        {
+          label: "Tracked focal sites",
+          side: "both",
+          text: "Posterior upper-outer foci decreased from 11 to 9 mm and from 8 to 5 mm.",
+        },
+      ],
+      precomputedPanels: [
+        {
+          label: "Report-anchored subtraction slices",
+          href: "/api/file?path=sources%2Fdiagnostics%2F07-17-breast-mri-side-by-side%2Fimages%2Faxial-subtraction-report-slices.png",
+          note: "Signed-report image planes; labels provide context and are not lesion contours.",
+        },
+        {
+          label: "Subtraction MIP comparison",
+          href: "/api/file?path=sources%2Fdiagnostics%2F07-17-breast-mri-side-by-side%2Fimages%2Fsubtraction-mip-comparison.png",
+          note: "Enhancement-distribution companion view, not an exact lesion-size measurement.",
+        },
+      ],
+      metrics: {
+        subtractionFootprint: {
+          status: "exploratory",
+          calibratedBiomarker: false,
+        },
+      },
+    },
     {
       id: "mri-comparison-2026-04-01-vs-2026-06-26",
       label: "April 1 vs June 26 breast MRI",

@@ -529,7 +529,7 @@ test.describe("DICOM viewer", () => {
 
     if (!isProdRun) {
       const comparisonButtons = desktopTable.getByRole("button", { name: "Comparisons" });
-      await expect(comparisonButtons).toHaveCount(2);
+      await expect(comparisonButtons).toHaveCount(3);
       await expect(comparisonButtons.first()).not.toContainText("Comparisons");
       await breastMriRow.getByRole("button", { name: "Comparisons" }).click();
       await expect(
@@ -640,6 +640,20 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByTestId("dicom-compare-precomputed-panel")).toContainText(
       "Annotated subtraction report slices",
     );
+
+    await page.goto(
+      `/tools/dicom-compare?comparison=mri-comparison-2026-06-26-vs-2026-07-17${seededStudySetParam}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    await expect(page.getByRole("heading", { name: "June 26 vs July 17 breast MRI" })).toBeVisible();
+    await expect(page.getByTestId("dicom-compare-left-counter")).toContainText("/ 254");
+    await expect(page.getByTestId("dicom-compare-right-counter")).toContainText("/ 260");
+    await expect(page.getByText("Continued slight improvement")).toBeVisible();
+    await expect(
+      page
+        .getByTestId("dicom-compare-precomputed-panel")
+        .filter({ hasText: "Report-anchored subtraction slices" }),
+    ).toBeVisible();
   });
 
   test("diagnostics report links stay live and surfaced PDFs support password-gated byte-range loading", async ({

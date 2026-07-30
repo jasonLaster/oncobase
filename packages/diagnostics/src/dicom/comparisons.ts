@@ -215,11 +215,22 @@ export function normalizeDiagnosticComparisonsPayload(
 
 export function seriesPairsFromSeriesSummary(
   summary: SeriesSummaryInput,
-  studies: { leftStudyId: string; rightStudyId: string },
+  studies: {
+    leftStudyId: string;
+    rightStudyId: string;
+    leftSeriesPrefix?: string;
+    rightSeriesPrefix?: string;
+  },
 ) {
   return DEFAULT_SERIES_SUMMARY_PAIR_SPECS.flatMap((spec) => {
-    const left = summary[spec.leftKey];
-    const right = summary[spec.rightKey];
+    const leftKey = studies.leftSeriesPrefix
+      ? spec.leftKey.replace(/^0401_/, `${studies.leftSeriesPrefix}_`)
+      : spec.leftKey;
+    const rightKey = studies.rightSeriesPrefix
+      ? spec.rightKey.replace(/^0626_/, `${studies.rightSeriesPrefix}_`)
+      : spec.rightKey;
+    const left = summary[leftKey];
+    const right = summary[rightKey];
     if (!left || !right) return [];
 
     return [
