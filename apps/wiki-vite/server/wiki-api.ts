@@ -2743,14 +2743,7 @@ export function createWikiApiHandler(client = createClient()) {
     }
 
     if (pathname === "/api/wiki/manifest") {
-      const response = await createWikiManifestResponse(request, context);
-      const headers = new Headers(response.headers);
-      headers.set("Cache-Control", "no-store");
-      return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers,
-      });
+      return createWikiManifestResponse(request, context);
     }
 
     if (pathname === "/api/wiki/pages") {

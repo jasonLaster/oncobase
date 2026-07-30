@@ -18,7 +18,11 @@ export type CompactFileNode =
 
 export type WikiScope = "public" | "session";
 
-export const WIKI_READER_CACHE_VERSION = "reader-v3";
+// Bump this whenever the persisted LiveStore projection changes incompatibly.
+// Reader v4 adds explicit manifest validation metadata. Keeping the version in
+// the store id makes an N-1 database unreachable instead of letting a stale
+// SQLite projection fail while the app renders.
+export const WIKI_READER_CACHE_VERSION = "reader-v4";
 
 export interface WikiManifestPage {
   slug: string;
@@ -46,6 +50,10 @@ export interface WikiManifest {
   pages: WikiManifestPage[];
   assets: WikiManifestAsset[];
 }
+
+export type WikiManifestValidation =
+  | { status: "unchanged" }
+  | { status: "modified"; manifest: WikiManifest };
 
 export interface WikiSessionIdentity {
   siteSlug: string;
@@ -867,6 +875,44 @@ async function fetchJson(
   }
 }
 
+async function fetchManifestValidation(
+  fetchFn: typeof fetch,
+  url: string,
+  credentials: RequestCredentials,
+  cache: RequestCache,
+  requestTimeoutMs: number,
+  manifestHash?: string,
+): Promise<WikiManifestValidation> {
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), requestTimeoutMs);
+  try {
+    const response = await fetchFn(url, {
+      cache,
+      credentials,
+      headers: {
+        Accept: "application/json",
+        ...(manifestHash ? { "If-None-Match": `W/"${manifestHash}"` } : {}),
+      },
+      signal: controller.signal,
+    });
+    if (response.status === 304) return { status: "unchanged" };
+    if (!response.ok) {
+      throw new Error(`Wiki request failed: ${response.status} ${response.statusText}`);
+    }
+    return {
+      status: "modified",
+      manifest: parseWikiManifest(await response.json()),
+    };
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`Wiki request timed out after ${requestTimeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}
+
 export function createWikiContentClient({
   baseUrl = "",
   credentials = "same-origin",
@@ -879,6 +925,17 @@ export function createWikiContentClient({
     async fetchManifest() {
       const url = urlWithParams(baseUrl, "/api/wiki/manifest", { scope });
       return parseWikiManifest(await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs));
+    },
+    async validateManifest(manifestHash?: string): Promise<WikiManifestValidation> {
+      const url = urlWithParams(baseUrl, "/api/wiki/manifest", { scope });
+      return fetchManifestValidation(
+        fetchFn,
+        url,
+        credentials,
+        cache,
+        requestTimeoutMs,
+        manifestHash,
+      );
     },
     async fetchSessionIdentity() {
       const url = urlWithParams(baseUrl, "/api/wiki/session", { scope });

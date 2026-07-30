@@ -48,6 +48,10 @@ test.describe("Vite backend API", () => {
     const response = await request.get("/api/wiki/manifest");
     expect(response.ok()).toBe(true);
     expect(response.headers()["x-wiki-cache-scope"]).toBe("public");
+    expect(response.headers()["cache-control"]).toContain("max-age=60");
+    expect(response.headers()["cache-control"]).toContain("stale-while-revalidate");
+    expect(response.headers()["cdn-cache-control"]).toContain("s-maxage=300");
+    expect(response.headers()["etag"]).toBeTruthy();
 
     const body = await response.json();
     expect(body.siteSlug).toBe("diana");

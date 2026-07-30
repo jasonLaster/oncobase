@@ -688,7 +688,7 @@ describe("wiki content contracts", () => {
         origin: "https://example.test/path",
         cacheKey: "user:1/private",
       }),
-    ).toBe("wiki-vite-reader-v3-diana_tn_bc-session-https___example_test_path-user_1_private");
+    ).toBe("wiki-vite-reader-v4-diana_tn_bc-session-https___example_test_path-user_1_private");
   });
 
   test("includes the reader cache version in store ids", () => {
@@ -706,9 +706,27 @@ describe("wiki content contracts", () => {
       readerCacheVersion: "reader:v2",
     });
 
-    expect(currentId).toContain("reader-v3");
+    expect(currentId).toContain("reader-v4");
     expect(nextId).toBe("wiki-vite-reader_v2-diana-public-https___example_test-public-v1");
     expect(nextId).not.toBe(currentId);
+  });
+
+  test("isolates the current projection from an N-1 persisted store", () => {
+    const args = {
+      siteSlug: "diana",
+      scope: "public" as const,
+      origin: "https://example.test",
+      cacheKey: "diana:public:v1",
+    };
+    const previousStoreId = makeWikiStoreId({
+      ...args,
+      readerCacheVersion: "reader-v3",
+    });
+    const currentStoreId = makeWikiStoreId(args);
+
+    expect(previousStoreId).toContain("reader-v3");
+    expect(currentStoreId).toContain("reader-v4");
+    expect(currentStoreId).not.toBe(previousStoreId);
   });
 
   test("parses server-issued session cache identities", () => {
@@ -770,6 +788,45 @@ describe("wiki content contracts", () => {
     await client.fetchManifest();
 
     expect(requestInit?.cache).toBe("reload");
+  });
+
+  test("conditionally validates a cached manifest without downloading it again", async () => {
+    let requestInit: RequestInit | undefined;
+    const client = createWikiContentClient({
+      fetch: (async (_url, init) => {
+        requestInit = init;
+        return new Response(null, { status: 304 });
+      }) as typeof fetch,
+    });
+
+    await expect(client.validateManifest("manifest-hash")).resolves.toEqual({
+      status: "unchanged",
+    });
+    expect(new Headers(requestInit?.headers).get("if-none-match")).toBe(
+      'W/"manifest-hash"',
+    );
+    expect(requestInit?.cache).toBe("no-cache");
+  });
+
+  test("returns a changed manifest from conditional validation", async () => {
+    const client = createWikiContentClient({
+      fetch: (async () =>
+        Response.json({
+          siteSlug: "diana",
+          manifestHash: "new-hash",
+          generatedAt: "2026-05-10T00:00:00.000Z",
+          scope: "public",
+          compactTree: [],
+          pages: [],
+          assets: [],
+        })) as unknown as typeof fetch,
+    });
+
+    const result = await client.validateManifest("old-hash");
+    expect(result.status).toBe("modified");
+    if (result.status === "modified") {
+      expect(result.manifest.manifestHash).toBe("new-hash");
+    }
   });
 
   test("client helpers time out stalled wiki requests", async () => {
