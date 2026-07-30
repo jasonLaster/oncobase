@@ -8,6 +8,7 @@ import {
 } from "./fixtures";
 
 const REFRESH_MANIFEST_EVENT = "wiki-vite:refresh-manifest";
+const PUBLIC_MANIFEST_FRESH_MS = 60_000;
 const slug = "wiki/logistics/insurance";
 
 test.describe("durable manifest refresh", () => {
@@ -29,6 +30,60 @@ test.describe("durable manifest refresh", () => {
     }).click();
     await waitForPageTitle(page, "Diana Wiki Home");
     expect(requests.manifest).toHaveLength(1);
+  });
+
+  test("automatically revalidates an expired public manifest without blanking stale content", async ({
+    page,
+  }) => {
+    await page.clock.install({
+      time: new Date("2026-07-30T12:00:00.000Z"),
+    });
+    const manifestValidators: Array<string | undefined> = [];
+    let initialEtag: string | undefined;
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === "/api/wiki/manifest") {
+        manifestValidators.push(request.headers()["if-none-match"]);
+      }
+    });
+    page.on("response", (response) => {
+      if (
+        new URL(response.url()).pathname === "/api/wiki/manifest" &&
+        response.status() === 200
+      ) {
+        initialEtag = response.headers()["etag"];
+      }
+    });
+    const requests = await installWikiApiMocks(page, {
+      pageOverrides: {
+        [slug]: { content: "# Insurance\n\nOLD TTL SNAPSHOT remains readable." },
+      },
+    });
+
+    await gotoWiki(page, `/${slug}`);
+    await expect(documentArticle(page)).toContainText("OLD TTL SNAPSHOT");
+    await expect.poll(() => initialEtag).toMatch(/^W\/"[a-f0-9]+"$/);
+    expect(requests.manifest).toHaveLength(1);
+
+    await page.clock.fastForward(PUBLIC_MANIFEST_FRESH_MS / 2);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForPageTitle(page, "Insurance");
+    await expect(documentArticle(page)).toContainText("OLD TTL SNAPSHOT");
+    expect(requests.manifest).toHaveLength(1);
+
+    requests.setPageOverride(slug, {
+      content: "# Insurance\n\nNEW TTL SNAPSHOT arrived automatically.",
+    });
+    requests.setManifestDelay(2_000);
+    await page.clock.fastForward(PUBLIC_MANIFEST_FRESH_MS / 2 + 1);
+
+    await expect.poll(() => requests.manifest.length).toBe(2);
+    expect(manifestValidators[1]).toBe(initialEtag);
+    await expect(documentArticle(page)).toContainText("OLD TTL SNAPSHOT");
+    await expect(documentArticle(page)).toContainText(
+      "NEW TTL SNAPSHOT arrived automatically.",
+      { timeout: 10_000 },
+    );
+    await expect(documentArticle(page)).not.toContainText("OLD TTL SNAPSHOT");
   });
 
   test("keeps stale content visible while a changed manifest replaces it", async ({
