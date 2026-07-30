@@ -304,21 +304,40 @@ export async function GET(request: NextRequest) {
   const filename = path.basename(normalized);
 
   const siteData = siteDataFromRequest(request);
-  const includeSensitive =
-    await hasSitePasswordSession(request, siteData.siteSlug) ||
-    Boolean(await getSessionUserFromRequest(request));
+  const [hasPasswordSession, sessionUser] = await Promise.all([
+    hasSitePasswordSession(request, siteData.siteSlug),
+    getSessionUserFromRequest(request),
+  ]);
   const siblingDoc = await siteData.documents.getBySlug({
     slug: assetPathToSiblingSlug(normalized),
     includeSensitive: true,
   });
+  const includeSensitive = Boolean(
+    sessionUser &&
+      siblingDoc?.sensitive === true &&
+      (await siteData.access.canUserAccessSlug({
+        userId: sessionUser._id,
+        slug: siblingDoc.slug,
+      })),
+  );
+  const privateCache = hasPasswordSession || Boolean(sessionUser);
+
+  if (siblingDoc?.sensitive && !includeSensitive) {
+    return new NextResponse("File not found", { status: 404 });
+  }
+
   let storedAssetWasSensitive = false;
   try {
     const asset = ext === ".pdf"
       ? await siteData.documents.getPdfAssetByPath(
-          { path: normalized, includeSensitive: true },
+          includeSensitive
+            ? { path: normalized, includeSensitive: true }
+            : { path: normalized },
         )
       : await siteData.documents.getFileAssetByPath(
-          { path: normalized, includeSensitive: true },
+          includeSensitive
+            ? { path: normalized, includeSensitive: true }
+            : { path: normalized },
         );
 
     if (asset?.blobUrl) {
@@ -336,7 +355,7 @@ export async function GET(request: NextRequest) {
         ext,
         filename,
         mimeType,
-        privateCache: includeSensitive,
+        privateCache,
         sizeBytes: asset.sizeBytes,
         upstream,
       });
@@ -357,7 +376,7 @@ export async function GET(request: NextRequest) {
       ext,
       filename,
       mimeType,
-      includeSensitive,
+      privateCache,
     );
     if (blob?.error) return blob.error;
     if (blob?.response) return blob.response;
@@ -365,7 +384,7 @@ export async function GET(request: NextRequest) {
     console.error("[file] Blob fallback failed:", err);
   }
 
-  if (includeSensitive) {
+  if (sessionUser) {
     const localViewerUpload = await resolveLocalViewerUploadPath(normalized);
     if (localViewerUpload) {
       return localFileResponse({
