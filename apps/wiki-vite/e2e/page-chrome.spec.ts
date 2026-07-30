@@ -149,7 +149,6 @@ test.describe("Page chrome parity", () => {
 
     for (const pathname of [
       "/comments",
-      "/admin",
       "/tags/logistics",
       "/search",
       "/timeline",
@@ -160,6 +159,10 @@ test.describe("Page chrome parity", () => {
       await expect(page.getByTestId("mobile-page-header")).toBeVisible();
       await expect(page.getByTestId("mobile-header-comments")).toHaveCount(0);
     }
+
+    await page.goto("/admin");
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByTestId("mobile-header-comments")).toBeVisible();
   });
 
   test("surfaces source file provenance from the local asset index", async ({ page }) => {

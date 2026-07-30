@@ -5,6 +5,9 @@ const hasAiGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
 const hasOpenAi = Boolean(process.env.OPENAI_API_KEY);
 const runsLiveAiSearchSmoke = process.env.WIKI_VITE_RUN_LIVE_AI_SEARCH === "1";
 const runsAgainstPreview = Boolean(process.env.PLAYWRIGHT_BASE_URL);
+const standaloneLoginPassword = runsAgainstPreview
+  ? process.env.WIKI_VITE_PREVIEW_LOGIN_PASSWORD
+  : "diana";
 const rawPiiPattern = /Diana Laster|88855655|jason\.laster\.11@gmail\.com/i;
 
 async function authenticatePasswordGate(request: APIRequestContext) {
@@ -185,6 +188,11 @@ test.describe("Vite backend API", () => {
   });
 
   test("serves the standalone login API", async ({ request }) => {
+    test.skip(
+      !standaloneLoginPassword,
+      "Preview login requires WIKI_VITE_PREVIEW_LOGIN_PASSWORD.",
+    );
+
     const legacyMagicLogin = await request.get(
       "/api/login?token=diana&redirect=%2Fwiki%2Flogistics%2Finsurance",
       { maxRedirects: 0 },
@@ -203,7 +211,7 @@ test.describe("Vite backend API", () => {
     expect(await invalid.json()).toEqual({ error: "Invalid password" });
 
     const valid = await request.post("/api/login", {
-      data: { password: "diana" },
+      data: { password: standaloneLoginPassword },
     });
     expect(valid.ok(), await valid.text()).toBe(true);
     expect(await valid.json()).toEqual({ ok: true });
