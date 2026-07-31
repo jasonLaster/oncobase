@@ -315,6 +315,7 @@ export async function proxy(request: NextRequest) {
       site.slug,
       request.cookies.get(cookieName)?.value,
       site.passwordHash,
+      site.passwordGate,
     ) ||
     isDianaPreviewTestAuth(request, site);
   const isLoginPage = request.nextUrl.pathname === "/login";

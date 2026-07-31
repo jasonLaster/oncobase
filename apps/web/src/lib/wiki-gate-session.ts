@@ -31,6 +31,17 @@ export function wikiPasswordHash(
   return null;
 }
 
+function wikiGateVersion(
+  siteSlug: string,
+  configuredHash: string | null | undefined,
+  passwordGateEnabled: boolean,
+) {
+  return JSON.stringify([
+    passwordGateEnabled,
+    wikiPasswordHash(siteSlug, configuredHash) ?? "passwordless",
+  ]);
+}
+
 export async function isValidWikiPassword(
   siteSlug: string,
   password: string,
@@ -45,13 +56,18 @@ export async function isValidWikiPassword(
 export async function createWikiGateCookieValue(
   siteSlug: string,
   configuredHash?: string | null,
+  passwordGateEnabled = true,
 ) {
   const secret = wikiGateSessionSecret();
   if (!secret) {
     throw new Error("WIKI_GATE_SESSION_SECRET is not configured");
   }
   return createWikiGateSession({
-    gateVersion: wikiPasswordHash(siteSlug, configuredHash) ?? "passwordless",
+    gateVersion: wikiGateVersion(
+      siteSlug,
+      configuredHash,
+      passwordGateEnabled,
+    ),
     secret,
     siteSlug,
     ttlSeconds: GATE_SESSION_TTL_SECONDS,
@@ -62,9 +78,14 @@ export async function hasValidWikiGateCookie(
   siteSlug: string,
   cookieValue: string | null | undefined,
   configuredHash?: string | null,
+  passwordGateEnabled = true,
 ) {
   return verifyWikiGateSession({
-    gateVersion: wikiPasswordHash(siteSlug, configuredHash) ?? "passwordless",
+    gateVersion: wikiGateVersion(
+      siteSlug,
+      configuredHash,
+      passwordGateEnabled,
+    ),
     secret: wikiGateSessionSecret(),
     siteSlug,
     token: cookieValue,

@@ -430,6 +430,16 @@ function passwordHashForSite(siteSlug: string, configured?: string | null) {
     : null;
 }
 
+function gateVersionForConfig(
+  siteSlug: string,
+  config: Pick<PasswordGateEntry, "enabled" | "passwordHash">,
+) {
+  return JSON.stringify([
+    config.enabled,
+    passwordHashForSite(siteSlug, config.passwordHash) ?? "passwordless",
+  ]);
+}
+
 export async function hasValidAuthCookie(
   request: Request,
   client: ConvexHttpClient,
@@ -442,8 +452,7 @@ export async function hasValidAuthCookie(
     ?.slice(cookieName.length + 1);
   const config = await passwordGateConfig(client, siteSlug);
   return verifyWikiGateSession({
-    gateVersion:
-      passwordHashForSite(siteSlug, config.passwordHash) ?? "passwordless",
+    gateVersion: gateVersionForConfig(siteSlug, config),
     secret: gateSessionSecret(),
     siteSlug,
     token,
@@ -849,13 +858,12 @@ async function validatePassword(
 
 async function authCookieHeader(
   siteSlug: string,
-  configuredHash?: string | null,
+  config: Pick<PasswordGateEntry, "enabled" | "passwordHash">,
 ) {
   const secret = gateSessionSecret();
   if (!secret) throw new Error("WIKI_GATE_SESSION_SECRET is not configured");
   const token = await createWikiGateSession({
-    gateVersion:
-      passwordHashForSite(siteSlug, configuredHash) ?? "passwordless",
+    gateVersion: gateVersionForConfig(siteSlug, config),
     secret,
     siteSlug,
     ttlSeconds: GATE_SESSION_TTL_SECONDS,
@@ -908,7 +916,7 @@ async function handleLoginRequest(
             "Cache-Control": "private, no-store",
             "Set-Cookie": await authCookieHeader(
               siteSlug,
-              validation.passwordHash,
+              validation,
             ),
             Vary: "Cookie, Host",
           },

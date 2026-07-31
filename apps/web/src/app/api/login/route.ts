@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@convex/_generated/api";
-import { siteSlugFromRequest } from "@/lib/site";
+import { DEFAULT_SITE_SLUG, siteSlugFromRequest } from "@/lib/site";
 import { safeLocalRedirect } from "@/lib/safe-redirect";
 import {
   createWikiGateCookieValue,
@@ -24,18 +24,20 @@ async function validatePassword(siteSlug: string, password: string) {
     () => null,
   );
   const configuredHash = site?.config?.passwordHash;
+  const gateEnabled =
+    site?.config?.passwordGate ?? siteSlug === DEFAULT_SITE_SLUG;
   if (
     configuredHash &&
     await isValidWikiPassword(siteSlug, password, configuredHash)
   ) {
-    return { configuredHash };
+    return { configuredHash, gateEnabled };
   }
   if (await isValidWikiPassword(siteSlug, password)) {
-    return { configuredHash };
+    return { configuredHash, gateEnabled };
   }
   if (site && !configuredHash && !site.config?.passwordGate) {
     // No password gate configured — login is a no-op; pass.
-    return { configuredHash };
+    return { configuredHash, gateEnabled };
   }
   return null;
 }
@@ -51,10 +53,15 @@ async function setGateCookie(
   response: NextResponse,
   siteSlug: string,
   configuredHash?: string | null,
+  gateEnabled = true,
 ) {
   response.cookies.set(
     wikiGateCookieName(siteSlug),
-    await createWikiGateCookieValue(siteSlug, configuredHash),
+    await createWikiGateCookieValue(
+      siteSlug,
+      configuredHash,
+      gateEnabled,
+    ),
     {
       httpOnly: true,
       sameSite: "lax",
@@ -87,7 +94,12 @@ export async function POST(request: NextRequest) {
       headers: privateHeaders(),
     });
     try {
-      await setGateCookie(response, siteSlug, validation.configuredHash);
+      await setGateCookie(
+        response,
+        siteSlug,
+        validation.configuredHash,
+        validation.gateEnabled,
+      );
     } catch {
       return NextResponse.json(
         { error: "Password gate session is not configured" },

@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
         siteSlug,
         request.cookies.get(wikiGateCookieName(siteSlug))?.value,
         gatePasswordHash,
+        gateEnabled,
       ))
     ) {
       return NextResponse.json(

@@ -47,4 +47,29 @@ describe("wiki gate cookie versioning", () => {
     process.env.DIANA_WIKI_PASSWORD_HASH = "sha256:rotated-environment-password";
     expect(await hasValidWikiGateCookie("diana", token)).toBe(false);
   });
+
+  test("invalidates sessions when the password gate configuration toggles", async () => {
+    const token = await createWikiGateCookieValue(
+      "research",
+      "sha256:password",
+      false,
+    );
+
+    expect(
+      await hasValidWikiGateCookie(
+        "research",
+        token,
+        "sha256:password",
+        false,
+      ),
+    ).toBe(true);
+    expect(
+      await hasValidWikiGateCookie(
+        "research",
+        token,
+        "sha256:password",
+        true,
+      ),
+    ).toBe(false);
+  });
 });

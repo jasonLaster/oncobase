@@ -26,7 +26,7 @@ function request(pathname: string, init: RequestInit = {}) {
 
 async function authenticatedHeaders(extraCookie = "") {
   const token = await createWikiGateSession({
-    gateVersion: TEST_GATE_HASH,
+    gateVersion: JSON.stringify([true, TEST_GATE_HASH]),
     secret: TEST_GATE_SECRET,
     siteSlug: "diana",
   });
