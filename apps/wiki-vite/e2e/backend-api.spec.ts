@@ -1,4 +1,9 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import {
+  expect,
+  request as apiRequest,
+  test,
+  type APIRequestContext,
+} from "@playwright/test";
 import JSZip from "jszip";
 
 const hasAiGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
@@ -56,20 +61,30 @@ test.describe("Vite backend API", () => {
   });
 
   test("rejects anonymous raw content APIs without shared caching", async ({
-    request,
+    request: _authenticatedRequest,
   }) => {
-    for (const path of [
-      "/api/wiki/manifest",
-      "/api/wiki/pages?slugs=index",
-      "/api/search?q=diagnosis",
-      "/api/file?path=sources%2Fexample.pdf",
-    ]) {
-      const response = await request.get(path);
-      expect(response.status(), path).toBe(401);
-      expect(response.headers()["cache-control"], path).toBe(
-        "private, no-store",
-      );
-      expect(response.headers().vary, path).toContain("Cookie");
+    const anonymousRequest = await apiRequest.newContext({
+      baseURL:
+        process.env.PLAYWRIGHT_BASE_URL ||
+        `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || "61001"}`,
+      storageState: { cookies: [], origins: [] },
+    });
+    try {
+      for (const path of [
+        "/api/wiki/manifest",
+        "/api/wiki/pages?slugs=index",
+        "/api/search?q=diagnosis",
+        "/api/file?path=sources%2Fexample.pdf",
+      ]) {
+        const response = await anonymousRequest.get(path);
+        expect(response.status(), path).toBe(401);
+        expect(response.headers()["cache-control"], path).toBe(
+          "private, no-store",
+        );
+        expect(response.headers().vary, path).toContain("Cookie");
+      }
+    } finally {
+      await anonymousRequest.dispose();
     }
   });
 
@@ -237,7 +252,7 @@ test.describe("Vite backend API", () => {
     });
     expect(valid.ok(), await valid.text()).toBe(true);
     expect(await valid.json()).toEqual({ ok: true });
-    expect(valid.headers()["set-cookie"]).toContain("authed=v1.");
+    expect(valid.headers()["set-cookie"]).toContain("authed=v2.");
   });
 
   test("serves chat tool calls from the Vite API route", async ({ request }) => {
