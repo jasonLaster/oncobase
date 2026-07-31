@@ -193,7 +193,7 @@ describe("wiki manifest server", () => {
     expect(validated.headers.get("cdn-cache-control")).toBeNull();
   });
 
-  test("keeps the complete manifest cacheable while asset ownership metadata migrates", async () => {
+  test("marks the manifest partial when asset ownership metadata is unavailable", async () => {
     const { context } = manifestContext({ failAssetVisibility: true });
     const response = await createWikiManifestResponse(
       new Request("https://example.test/api/wiki/manifest?scope=public"),
@@ -202,9 +202,9 @@ describe("wiki manifest server", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("x-wiki-manifest-partial")).toBeNull();
-    expect(response.headers.get("cache-control")).toContain("max-age=60");
-    expect(response.headers.get("cdn-cache-control")).toContain("s-maxage=300");
+    expect(response.headers.get("x-wiki-manifest-partial")).toBe("true");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("cdn-cache-control")).toBeNull();
     expect(body.pages).toHaveLength(1);
     expect(body.assets).toEqual([]);
   });

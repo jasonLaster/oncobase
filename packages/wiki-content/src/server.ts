@@ -564,7 +564,7 @@ async function listAssets(
   context: WikiApiContext,
   includeSensitive: boolean,
   user: WikiApiSessionUser | null,
-) {
+): Promise<{ assets: WikiManifestAsset[]; complete: boolean }> {
   const listVisibleAssets = async (
     kind: WikiManifestAsset["kind"],
     fetchPage: (args: {
@@ -603,14 +603,18 @@ async function listAssets(
       "pdf",
       (args) => context.documents.listPdfAssetVisibilityPage(args),
     );
-    if (!includeSensitive) return assets.map(publicManifestAsset);
-    return filterAssetsForUser(context, user, assets);
+    return {
+      assets: !includeSensitive
+        ? assets.map(publicManifestAsset)
+        : await filterAssetsForUser(context, user, assets),
+      complete: true,
+    };
   } catch (error) {
     context.logger?.warn(
       "[wiki manifest] Asset ownership metadata unavailable; omitting assets",
       error,
     );
-    return [];
+    return { assets: [], complete: false };
   }
 }
 
@@ -720,7 +724,7 @@ export async function createWikiManifestResponse(
   let assets: WikiManifestAsset[];
   let partialManifest = false;
   try {
-    [pageResult, assets] = await withTimeout(
+    const [nextPageResult, assetResult] = await withTimeout(
       Promise.all([
         listManifestPages(context, includeSensitive && Boolean(context.access)),
         listAssets(context, includeSensitive && Boolean(context.access), sessionUser),
@@ -728,6 +732,9 @@ export async function createWikiManifestResponse(
       MANIFEST_TIMEOUT_MS,
       "Wiki manifest generation",
     );
+    pageResult = nextPageResult;
+    assets = assetResult.assets;
+    partialManifest = !assetResult.complete;
   } catch (error) {
     context.logger?.warn("[wiki manifest] Full manifest unavailable; using bounded fallback", error);
     try {
