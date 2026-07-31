@@ -291,19 +291,18 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Auth/login routes own their own auth flow — bypass the password
-  // gate but still set x-site-slug. /api/file is here because it's
-  // a content endpoint that needs site scoping; the password gate
-  // historically didn't apply (excluded from the matcher) and we
-  // preserve that, while getting the proxy-set x-site-slug header
-  // so the client can't inject a different site.
+  // Auth/login routes own their own auth flow and the public wiki session
+  // endpoint bootstraps the reader's cache identity. Content endpoints stay
+  // behind the site password gate; OPTIONS carries no content and must reach
+  // the route's CORS handler.
   if (
+    (request.method === "OPTIONS" &&
+      request.nextUrl.pathname.startsWith("/api/")) ||
     request.nextUrl.pathname.startsWith("/api/login") ||
     request.nextUrl.pathname.startsWith("/api/auth") ||
     request.nextUrl.pathname.startsWith("/api/publish") ||
-    request.nextUrl.pathname.startsWith("/api/file") ||
     request.nextUrl.pathname.startsWith("/api/integrations/epic") ||
-    request.nextUrl.pathname.startsWith("/api/wiki") ||
+    request.nextUrl.pathname === "/api/wiki/session" ||
     PUBLIC_PAGES.has(request.nextUrl.pathname) ||
     PUBLIC_FILE_RE.test(request.nextUrl.pathname)
   ) {
@@ -350,6 +349,12 @@ export async function proxy(request: NextRequest) {
   }
 
   if (site.passwordGate && !isAuthed) {
+    if (request.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Password gate authentication required" },
+        { status: 401, headers: PRIVATE_GATE_HEADERS },
+      );
+    }
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
     return privateRedirect(loginUrl);
@@ -362,10 +367,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // /api/file is now inside the matcher so the proxy can set
-    // x-site-slug on it (passed through to Convex for site-scoped
-    // asset lookups). It still bypasses the password gate via the
-    // explicit branch above.
+    // Content APIs are inside the matcher so the proxy can set x-site-slug
+    // and enforce the active site's password gate before route execution.
     "/((?!_next/static|_next/image|favicon.ico|robots.txt|sw\\.js|api/share-preview|api/post-deploy|\\.well-known/workflow).*)",
   ],
 };
