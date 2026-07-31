@@ -340,6 +340,28 @@ Review morphology and biomarkers together.
     ).toHaveAttribute("aria-expanded", "true");
   });
 
+  test("root index keeps the legacy unselected sidebar state", async ({ page }) => {
+    await gotoWiki(page, "/");
+
+    const desktopIndex = page
+      .getByTestId("sidebar-tree")
+      .getByRole("link", { name: "index", exact: true })
+      .first();
+    await expect(desktopIndex).toHaveAttribute("href", "/");
+    await expect(desktopIndex).not.toHaveAttribute("aria-current", "page");
+    await expect(desktopIndex).not.toHaveClass(/active/);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByTestId("bottom-nav-trigger").click();
+    const mobileIndex = page
+      .getByTestId("bottom-nav-page-tree")
+      .getByRole("link", { name: "index", exact: true })
+      .first();
+    await expect(mobileIndex).toHaveAttribute("href", "/");
+    await expect(mobileIndex).not.toHaveAttribute("aria-current", "page");
+    await expect(mobileIndex).not.toHaveClass(/active/);
+  });
+
   test("sidebar directory expansion persists across reloads", async ({ page }) => {
     await gotoWiki(page, "/");
 

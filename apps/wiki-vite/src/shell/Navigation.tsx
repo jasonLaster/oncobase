@@ -222,6 +222,10 @@ function isDocumentRoute(pathname: string) {
   );
 }
 
+function navigationActiveSlug(pathname: string) {
+  return pathname === "/" ? "" : slugFromPath(pathname);
+}
+
 function usesDiagnosticsSidebar(pathname: string) {
   return (
     pathname.startsWith("/tools/dicom-viewer") ||
@@ -413,7 +417,7 @@ export function Sidebar() {
 function WikiNavigationSidebar() {
   const tree = useWikiTree();
   const { pathname } = useLocation();
-  const activeSlug = slugFromPath(pathname);
+  const activeSlug = navigationActiveSlug(pathname);
   const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
   const renderPageLink = usePageLinkRenderer();
 
@@ -547,7 +551,7 @@ function WikiMobileNav() {
   const { pathname } = useLocation();
   const renderPageLink = usePageLinkRenderer();
   const isChatRoute = pathname.startsWith("/chat");
-  const activeSlug = slugFromPath(pathname);
+  const activeSlug = navigationActiveSlug(pathname);
   const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
   const [navState, setNavState] = useState({ open: false, pathname });
   const [activeTab, setActiveTab] = useState<MobileNavTab>("pages");
