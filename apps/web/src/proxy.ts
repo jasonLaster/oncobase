@@ -314,6 +314,7 @@ export async function proxy(request: NextRequest) {
     await hasValidWikiGateCookie(
       site.slug,
       request.cookies.get(cookieName)?.value,
+      site.passwordHash,
     ) ||
     isDianaPreviewTestAuth(request, site);
   const isLoginPage = request.nextUrl.pathname === "/login";

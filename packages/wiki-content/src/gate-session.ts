@@ -1,4 +1,4 @@
-const TOKEN_VERSION = "v1";
+const TOKEN_VERSION = "v2";
 const DEFAULT_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 function bytesToBase64Url(bytes: Uint8Array) {
@@ -33,41 +33,48 @@ function constantTimeEqual(left: string, right: string) {
   return mismatch === 0;
 }
 
-function payload(siteSlug: string, expiresAt: number) {
-  return `${TOKEN_VERSION}:${siteSlug}:${expiresAt}`;
+function payload(siteSlug: string, expiresAt: number, gateVersion: string) {
+  return JSON.stringify([TOKEN_VERSION, siteSlug, expiresAt, gateVersion]);
 }
 
 export async function createWikiGateSession({
+  gateVersion,
   now = Date.now(),
   secret,
   siteSlug,
   ttlSeconds = DEFAULT_TTL_SECONDS,
 }: {
+  gateVersion: string;
   now?: number;
   secret: string;
   siteSlug: string;
   ttlSeconds?: number;
 }) {
   if (!secret) throw new Error("Wiki gate session secret is not configured");
+  if (!gateVersion) {
+    throw new Error("Wiki gate session version is not configured");
+  }
   const expiresAt = Math.floor(now / 1000) + ttlSeconds;
   const signature = bytesToBase64Url(
-    await hmac(secret, payload(siteSlug, expiresAt)),
+    await hmac(secret, payload(siteSlug, expiresAt, gateVersion)),
   );
   return `${TOKEN_VERSION}.${expiresAt}.${signature}`;
 }
 
 export async function verifyWikiGateSession({
+  gateVersion,
   now = Date.now(),
   secret,
   siteSlug,
   token,
 }: {
+  gateVersion: string | null | undefined;
   now?: number;
   secret: string | null | undefined;
   siteSlug: string;
   token: string | null | undefined;
 }) {
-  if (!secret || !token) return false;
+  if (!gateVersion || !secret || !token) return false;
   const [version, rawExpiresAt, signature, extra] = token.split(".");
   if (
     version !== TOKEN_VERSION ||
@@ -82,7 +89,7 @@ export async function verifyWikiGateSession({
     return false;
   }
   const expected = bytesToBase64Url(
-    await hmac(secret, payload(siteSlug, expiresAt)),
+    await hmac(secret, payload(siteSlug, expiresAt, gateVersion)),
   );
   return constantTimeEqual(signature, expected);
 }

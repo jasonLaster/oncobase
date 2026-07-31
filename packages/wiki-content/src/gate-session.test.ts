@@ -8,6 +8,7 @@ import {
 describe("wiki gate sessions", () => {
   test("accepts only unexpired, site-bound HMAC sessions", async () => {
     const token = await createWikiGateSession({
+      gateVersion: "sha256:current-password",
       now: 1_000,
       secret: "test-secret",
       siteSlug: "diana",
@@ -16,6 +17,7 @@ describe("wiki gate sessions", () => {
 
     expect(
       await verifyWikiGateSession({
+        gateVersion: "sha256:current-password",
         now: 2_000,
         secret: "test-secret",
         siteSlug: "diana",
@@ -24,6 +26,7 @@ describe("wiki gate sessions", () => {
     ).toBe(true);
     expect(
       await verifyWikiGateSession({
+        gateVersion: "sha256:current-password",
         now: 2_000,
         secret: "test-secret",
         siteSlug: "other",
@@ -32,6 +35,7 @@ describe("wiki gate sessions", () => {
     ).toBe(false);
     expect(
       await verifyWikiGateSession({
+        gateVersion: "sha256:current-password",
         now: 2_000,
         secret: "wrong-secret",
         siteSlug: "diana",
@@ -40,6 +44,7 @@ describe("wiki gate sessions", () => {
     ).toBe(false);
     expect(
       await verifyWikiGateSession({
+        gateVersion: "sha256:current-password",
         now: 62_000,
         secret: "test-secret",
         siteSlug: "diana",
@@ -48,9 +53,51 @@ describe("wiki gate sessions", () => {
     ).toBe(false);
     expect(
       await verifyWikiGateSession({
+        gateVersion: "sha256:current-password",
         secret: "test-secret",
         siteSlug: "diana",
         token: "true",
+      }),
+    ).toBe(false);
+  });
+
+  test("invalidates sessions when the password configuration rotates", async () => {
+    const token = await createWikiGateSession({
+      gateVersion: "sha256:old-password",
+      now: 1_000,
+      secret: "test-secret",
+      siteSlug: "diana",
+      ttlSeconds: 60,
+    });
+
+    expect(
+      await verifyWikiGateSession({
+        gateVersion: "sha256:old-password",
+        now: 2_000,
+        secret: "test-secret",
+        siteSlug: "diana",
+        token,
+      }),
+    ).toBe(true);
+    expect(
+      await verifyWikiGateSession({
+        gateVersion: "sha256:new-password",
+        now: 2_000,
+        secret: "test-secret",
+        siteSlug: "diana",
+        token,
+      }),
+    ).toBe(false);
+  });
+
+  test("rejects legacy sessions that were not bound to password configuration", async () => {
+    expect(
+      await verifyWikiGateSession({
+        gateVersion: "sha256:current-password",
+        now: 2_000,
+        secret: "test-secret",
+        siteSlug: "diana",
+        token: "v1.61.legacy-signature",
       }),
     ).toBe(false);
   });

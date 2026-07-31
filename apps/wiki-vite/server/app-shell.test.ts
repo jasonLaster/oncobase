@@ -7,6 +7,7 @@ import { createWikiGateSession } from "@oncobase/wiki-content/gate-session";
 import { createWikiViteHandler } from "./app-shell";
 
 const TEST_GATE_SECRET = "app-shell-test-gate-secret";
+const TEST_GATE_HASH = "sha256:app-shell-test-password";
 const INDEX_HTML =
   "<!doctype html><html><head><link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" /><title>Diana Wiki</title></head><body><div id=\"root\"></div></body></html>";
 const LONG_DESCRIPTION =
@@ -25,6 +26,7 @@ function request(pathname: string, init: RequestInit = {}) {
 
 async function authenticatedHeaders(extraCookie = "") {
   const token = await createWikiGateSession({
+    gateVersion: TEST_GATE_HASH,
     secret: TEST_GATE_SECRET,
     siteSlug: "diana",
   });
@@ -38,7 +40,13 @@ function fakeClient({ canAccessSensitive = true } = {}) {
     async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
       switch (getFunctionName(ref)) {
         case "sites:getBySlug":
-          return { slug: args.slug, config: { passwordGate: true } };
+          return {
+            slug: args.slug,
+            config: {
+              passwordGate: true,
+              passwordHash: TEST_GATE_HASH,
+            },
+          };
         case "documents:listManifestPage":
           return {
             page: [{ slug: "wiki/public" }],

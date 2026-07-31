@@ -240,7 +240,7 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
     });
   }
   const isAuthed =
-    await hasValidAuthCookie(request, siteSlug) ||
+    await hasValidAuthCookie(request, client, siteSlug) ||
     isDianaPreviewTestAuth(request, siteSlug);
   const isLoginPage = url.pathname === "/login";
 
@@ -403,7 +403,7 @@ async function staticIndexHtml(
 async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath: string) {
   const siteSlug = (await resolveSiteSlug(request, client)) ?? DEFAULT_SITE_SLUG;
   const authed =
-    await hasValidAuthCookie(request, siteSlug) ||
+    await hasValidAuthCookie(request, client, siteSlug) ||
     isDianaPreviewTestAuth(request, siteSlug);
   const [gateEnabled, sessionUser] = await Promise.all([
     isPasswordGateEnabled(client, siteSlug).catch((error) => {

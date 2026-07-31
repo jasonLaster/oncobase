@@ -117,10 +117,12 @@ async function signupCookie(
 function createFakeConvexClient({
   deniedSlugs = [],
   failPasswordGateLookup = false,
+  passwordHash,
   passwordGate = false,
 }: {
   deniedSlugs?: string[];
   failPasswordGateLookup?: boolean;
+  passwordHash?: string;
   passwordGate?: boolean;
 } = {}) {
   const deniedSlugSet = new Set(deniedSlugs);
@@ -177,7 +179,10 @@ function createFakeConvexClient({
           if (failPasswordGateLookup) {
             throw new Error("site config unavailable");
           }
-          return { slug: args.slug, config: { passwordGate } };
+          return {
+            slug: args.slug,
+            config: { passwordGate, passwordHash },
+          };
         case "users:getByEmailForAuth":
           return users.get(String(args.email)) ?? null;
         case "users:getSessionUser": {
@@ -478,6 +483,36 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  test("rejects an existing gate cookie after the configured password rotates", async () => {
+    const originalHash = process.env.DIANA_WIKI_PASSWORD_HASH;
+    const originalHandler = createWikiApiHandler(
+      createFakeConvexClient({
+        passwordGate: true,
+        passwordHash: originalHash,
+      }) as never,
+    );
+    const cookie = await gateCookie(originalHandler);
+
+    expect(
+      (
+        await originalHandler(
+          request("/api/wiki/manifest", { headers: { Cookie: cookie } }),
+        )
+      )?.status,
+    ).toBe(200);
+
+    const rotatedHandler = createWikiApiHandler(
+      createFakeConvexClient({
+        passwordGate: true,
+        passwordHash: "sha256:rotated-password-hash",
+      }) as never,
+    );
+    const afterRotation = await rotatedHandler(
+      request("/api/wiki/manifest", { headers: { Cookie: cookie } }),
+    );
+    expect(afterRotation?.status).toBe(401);
   });
 
   test("fails closed without caching a custom site's gate lookup failure", async () => {

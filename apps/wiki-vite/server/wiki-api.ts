@@ -126,6 +126,7 @@ type ResolvedSite = {
 type PasswordGateEntry = {
   enabled: boolean;
   expires: number;
+  passwordHash?: string;
 };
 
 type PiiPatternEntry = {
@@ -241,7 +242,7 @@ export async function resolveSiteSlug(request: Request, client: ConvexHttpClient
   return slug;
 }
 
-export async function isPasswordGateEnabled(
+async function passwordGateConfig(
   client: ConvexHttpClient,
   siteSlug: string,
 ) {
@@ -252,17 +253,25 @@ export async function isPasswordGateEnabled(
     passwordGateCaches.set(client, cache);
   }
   const cached = cache.get(siteSlug);
-  if (cached && cached.expires > now) return cached.enabled;
+  if (cached && cached.expires > now) return cached;
 
   const defaultEnabled = siteSlug === DEFAULT_SITE_SLUG;
   const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
-  const enabled = site?.config?.passwordGate ?? defaultEnabled;
-
-  cache.set(siteSlug, {
-    enabled,
+  const config = {
+    enabled: site?.config?.passwordGate ?? defaultEnabled,
     expires: now + PASSWORD_GATE_CACHE_TTL_MS,
-  });
-  return enabled;
+    passwordHash: site?.config?.passwordHash,
+  };
+
+  cache.set(siteSlug, config);
+  return config;
+}
+
+export async function isPasswordGateEnabled(
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  return (await passwordGateConfig(client, siteSlug)).enabled;
 }
 
 export function isDianaPreviewTestAuth(request: Request, siteSlug: string) {
@@ -306,9 +315,9 @@ async function enforceApiPasswordGate(
   client: ConvexHttpClient,
   siteSlug: string,
 ) {
-  let enabled: boolean;
+  let config: PasswordGateEntry;
   try {
-    enabled = await isPasswordGateEnabled(client, siteSlug);
+    config = await passwordGateConfig(client, siteSlug);
   } catch (error) {
     console.warn("[wiki-vite-server] password gate lookup failed", error);
     return {
@@ -316,9 +325,9 @@ async function enforceApiPasswordGate(
       response: passwordGateUnavailableResponse(),
     };
   }
-  if (!enabled) return { enabled: false, response: null };
+  if (!config.enabled) return { enabled: false, response: null };
   if (
-    (await hasValidAuthCookie(request, siteSlug)) ||
+    (await hasValidAuthCookie(request, client, siteSlug)) ||
     isDianaPreviewTestAuth(request, siteSlug)
   ) {
     return { enabled: true, response: null };
@@ -421,13 +430,20 @@ function passwordHashForSite(siteSlug: string, configured?: string | null) {
     : null;
 }
 
-export async function hasValidAuthCookie(request: Request, siteSlug: string) {
+export async function hasValidAuthCookie(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
   const cookieName = authedCookieName(siteSlug);
   const token = (request.headers.get("cookie") ?? "")
     .split(/;\s*/)
     .find((part) => part.startsWith(`${cookieName}=`))
     ?.slice(cookieName.length + 1);
+  const config = await passwordGateConfig(client, siteSlug);
   return verifyWikiGateSession({
+    gateVersion:
+      passwordHashForSite(siteSlug, config.passwordHash) ?? "passwordless",
     secret: gateSessionSecret(),
     siteSlug,
     token,
@@ -796,34 +812,41 @@ async function filterPotentiallySensitivePages<T extends { slug: string; sensiti
   return visible;
 }
 
-async function isValidPassword(
+async function validatePassword(
   client: ConvexHttpClient,
   siteSlug: string,
   password: string,
 ) {
+  const config = await passwordGateConfig(client, siteSlug);
+  if (
+    config.passwordHash &&
+    await matchesWikiPasswordHash(password, config.passwordHash)
+  ) {
+    return config;
+  }
   if (
     await matchesWikiPasswordHash(
       password,
       passwordHashForSite(siteSlug),
     )
   ) {
-    return true;
+    return config;
   }
-  const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
-  if (!site) return false;
-  if (!site.config?.passwordHash && !site.config?.passwordGate) {
-    return !site.config?.passwordGate;
+  if (!config.passwordHash && !config.enabled) {
+    return config;
   }
-  return matchesWikiPasswordHash(
-    password,
-    passwordHashForSite(siteSlug, site.config?.passwordHash),
-  );
+  return null;
 }
 
-async function authCookieHeader(siteSlug: string) {
+async function authCookieHeader(
+  siteSlug: string,
+  configuredHash?: string | null,
+) {
   const secret = gateSessionSecret();
   if (!secret) throw new Error("WIKI_GATE_SESSION_SECRET is not configured");
   const token = await createWikiGateSession({
+    gateVersion:
+      passwordHashForSite(siteSlug, configuredHash) ?? "passwordless",
     secret,
     siteSlug,
     ttlSeconds: GATE_SESSION_TTL_SECONDS,
@@ -864,14 +887,20 @@ async function handleLoginRequest(
   }
 
   const { password } = (await request.json()) as { password?: string };
-  if (password && (await isValidPassword(client, siteSlug, password))) {
+  const validation = password
+    ? await validatePassword(client, siteSlug, password)
+    : null;
+  if (validation) {
     try {
       return Response.json(
         { ok: true },
         {
           headers: {
             "Cache-Control": "private, no-store",
-            "Set-Cookie": await authCookieHeader(siteSlug),
+            "Set-Cookie": await authCookieHeader(
+              siteSlug,
+              validation.passwordHash,
+            ),
             Vary: "Cookie, Host",
           },
         },
@@ -1007,12 +1036,9 @@ async function handleAuthSignupRequest(
     );
   }
 
-  let gateEnabled: boolean;
+  let gateConfig: PasswordGateEntry;
   try {
-    const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
-    gateEnabled =
-      site?.config?.passwordGate ??
-      (siteSlug === DEFAULT_SITE_SLUG);
+    gateConfig = await passwordGateConfig(client, siteSlug);
   } catch {
     return Response.json(
       { error: "Unable to verify signup access" },
@@ -1025,7 +1051,10 @@ async function handleAuthSignupRequest(
       },
     );
   }
-  if (gateEnabled && !(await hasValidAuthCookie(request, siteSlug))) {
+  if (
+    gateConfig.enabled &&
+    !(await hasValidAuthCookie(request, client, siteSlug))
+  ) {
     return Response.json(
       { error: "Password gate access is required to create an account" },
       {
@@ -1125,7 +1154,7 @@ async function handleFileRequest(
   const filename = path.basename(normalized);
   const [sessionUser, hasPasswordSession] = await Promise.all([
     getSessionUser(request, client, siteSlug),
-    hasValidAuthCookie(request, siteSlug),
+    hasValidAuthCookie(request, client, siteSlug),
   ]);
 
   let siblingDoc;

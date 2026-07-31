@@ -42,12 +42,16 @@ export async function isValidWikiPassword(
   );
 }
 
-export async function createWikiGateCookieValue(siteSlug: string) {
+export async function createWikiGateCookieValue(
+  siteSlug: string,
+  configuredHash?: string | null,
+) {
   const secret = wikiGateSessionSecret();
   if (!secret) {
     throw new Error("WIKI_GATE_SESSION_SECRET is not configured");
   }
   return createWikiGateSession({
+    gateVersion: wikiPasswordHash(siteSlug, configuredHash) ?? "passwordless",
     secret,
     siteSlug,
     ttlSeconds: GATE_SESSION_TTL_SECONDS,
@@ -57,8 +61,10 @@ export async function createWikiGateCookieValue(siteSlug: string) {
 export async function hasValidWikiGateCookie(
   siteSlug: string,
   cookieValue: string | null | undefined,
+  configuredHash?: string | null,
 ) {
   return verifyWikiGateSession({
+    gateVersion: wikiPasswordHash(siteSlug, configuredHash) ?? "passwordless",
     secret: wikiGateSessionSecret(),
     siteSlug,
     token: cookieValue,

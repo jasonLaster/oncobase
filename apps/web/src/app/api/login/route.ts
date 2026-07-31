@@ -19,15 +19,25 @@ import {
 // Sets the per-site cookie `authed_<slug>` for non-Diana sites;
 // Diana keeps the legacy `authed` cookie name (matching the proxy's
 // authedCookieName helper).
-async function isValidPassword(siteSlug: string, password: string) {
-  if (await isValidWikiPassword(siteSlug, password)) return true;
-  const site = await fetchQuery(api.sites.getBySlug, { slug: siteSlug });
-  if (!site) return false;
-  if (!site.config?.passwordHash && !site.config?.passwordGate) {
-    // No password gate configured — login is a no-op; pass.
-    return true;
+async function validatePassword(siteSlug: string, password: string) {
+  const site = await fetchQuery(api.sites.getBySlug, { slug: siteSlug }).catch(
+    () => null,
+  );
+  const configuredHash = site?.config?.passwordHash;
+  if (
+    configuredHash &&
+    await isValidWikiPassword(siteSlug, password, configuredHash)
+  ) {
+    return { configuredHash };
   }
-  return isValidWikiPassword(siteSlug, password, site.config?.passwordHash);
+  if (await isValidWikiPassword(siteSlug, password)) {
+    return { configuredHash };
+  }
+  if (site && !configuredHash && !site.config?.passwordGate) {
+    // No password gate configured — login is a no-op; pass.
+    return { configuredHash };
+  }
+  return null;
 }
 
 function privateHeaders() {
@@ -37,10 +47,14 @@ function privateHeaders() {
   };
 }
 
-async function setGateCookie(response: NextResponse, siteSlug: string) {
+async function setGateCookie(
+  response: NextResponse,
+  siteSlug: string,
+  configuredHash?: string | null,
+) {
   response.cookies.set(
     wikiGateCookieName(siteSlug),
-    await createWikiGateCookieValue(siteSlug),
+    await createWikiGateCookieValue(siteSlug, configuredHash),
     {
       httpOnly: true,
       sameSite: "lax",
@@ -67,12 +81,13 @@ export async function POST(request: NextRequest) {
   const { password } = await request.json();
   const siteSlug = siteSlugFromRequest(request);
 
-  if (await isValidPassword(siteSlug, password)) {
+  const validation = await validatePassword(siteSlug, password);
+  if (validation) {
     const response = NextResponse.json({ ok: true }, {
       headers: privateHeaders(),
     });
     try {
-      await setGateCookie(response, siteSlug);
+      await setGateCookie(response, siteSlug, validation.configuredHash);
     } catch {
       return NextResponse.json(
         { error: "Password gate session is not configured" },

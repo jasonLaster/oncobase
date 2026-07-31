@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { NextRequest } from "next/server";
 import { proxy } from "../proxy";
+import { createWikiGateCookieValue } from "./wiki-gate-session";
 
-function request(path: string, init: RequestInit = {}) {
+function request(
+  path: string,
+  init: ConstructorParameters<typeof NextRequest>[1] = {},
+) {
   const headers = new Headers(init.headers);
   headers.set("Host", "localhost");
   return new NextRequest(`http://localhost${path}`, {
@@ -41,5 +45,34 @@ describe("legacy wiki API password gate", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  test("rejects a previously signed content cookie after password rotation", async () => {
+    const previousGateSecret = process.env.WIKI_GATE_SESSION_SECRET;
+    const previousPasswordHash = process.env.DIANA_WIKI_PASSWORD_HASH;
+    try {
+      process.env.WIKI_GATE_SESSION_SECRET = "next-proxy-gate-test-secret";
+      process.env.DIANA_WIKI_PASSWORD_HASH = "sha256:old-password";
+      const cookie = await createWikiGateCookieValue("diana");
+
+      const beforeRotation = await proxy(
+        request("/api/wiki/manifest", {
+          headers: { Cookie: `authed=${cookie}` },
+        }),
+      );
+      expect(beforeRotation.status).toBe(200);
+      expect(beforeRotation.headers.get("x-middleware-next")).toBe("1");
+
+      process.env.DIANA_WIKI_PASSWORD_HASH = "sha256:new-password";
+      const afterRotation = await proxy(
+        request("/api/wiki/manifest", {
+          headers: { Cookie: `authed=${cookie}` },
+        }),
+      );
+      expect(afterRotation.status).toBe(401);
+    } finally {
+      process.env.WIKI_GATE_SESSION_SECRET = previousGateSecret;
+      process.env.DIANA_WIKI_PASSWORD_HASH = previousPasswordHash;
+    }
   });
 });

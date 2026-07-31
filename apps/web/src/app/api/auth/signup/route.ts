@@ -27,11 +27,13 @@ export async function POST(request: NextRequest) {
   try {
     const siteSlug = siteSlugFromRequest(request);
     let gateEnabled = siteSlug === DEFAULT_SITE_SLUG;
+    let gatePasswordHash: string | undefined;
     try {
       const site = await fetchQuery(api.sites.getBySlug, { slug: siteSlug });
       gateEnabled =
         site?.config?.passwordGate ??
         gateEnabled;
+      gatePasswordHash = site?.config?.passwordHash;
     } catch {
       if (siteSlug !== DEFAULT_SITE_SLUG) {
         return NextResponse.json(
@@ -45,6 +47,7 @@ export async function POST(request: NextRequest) {
       !(await hasValidWikiGateCookie(
         siteSlug,
         request.cookies.get(wikiGateCookieName(siteSlug))?.value,
+        gatePasswordHash,
       ))
     ) {
       return NextResponse.json(
