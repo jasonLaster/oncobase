@@ -154,7 +154,14 @@ function createFakeConvexClient({
     {
       path: "sources/public/source.pdf",
       blobUrl: "https://blob.example/source.pdf",
+      ownerSlugs: [],
       sizeBytes: 9,
+      sensitive: false,
+    },
+    {
+      path: "legacy/unversioned.png",
+      blobUrl: "https://blob.example/legacy-unversioned.png",
+      sizeBytes: 7,
     },
     {
       path: "private/images/scan.png",
@@ -1005,6 +1012,36 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       fallbackBlobPath = null;
       fallbackBlobUrl = null;
       blobListCalls = [];
+    }
+  });
+
+  test("does not fetch an asset with incomplete legacy visibility metadata", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchCalls: RequestInfo[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchCalls.push(input as RequestInfo);
+      return new Response("unexpected");
+    }) as typeof fetch;
+
+    try {
+      const handler = createWikiApiHandler(createFakeConvexClient() as never);
+      const cookie = await signupCookie(
+        handler,
+        "legacy-asset@example.com",
+      );
+      const response = await handler(
+        request("/api/file?path=legacy%2Funversioned.png", {
+          headers: { Cookie: cookie },
+        }),
+      );
+
+      expect(response?.status).toBe(404);
+      expect(response!.headers.get("cache-control")).toBe(
+        "private, no-store",
+      );
+      expect(fetchCalls).toEqual([]);
+    } finally {
+      globalThis.fetch = originalFetch;
     }
   });
 
