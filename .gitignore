@@ -11,6 +11,7 @@ apps/web/public/diana-tnbc-wiki-full.zip
 apps/web/public/diana-tnbc-wiki-markdown.zip
 apps/web/public/wiki-download-info.json
 apps/web/e2e/.auth/
+apps/wiki-vite/e2e/.auth/
 apps/web/test-results/
 /diagnostics
 .vercel

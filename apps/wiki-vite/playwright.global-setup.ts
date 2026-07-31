@@ -3,7 +3,10 @@ import { loadPlaywrightEnv } from "./playwright.env";
 
 loadPlaywrightEnv();
 
-export const previewAuthStatePath = "test-results/preview-auth-state.json";
+// Keep setup state outside Playwright's output directory. The runner clears
+// test-results as it starts, which can otherwise delete the freshly-created
+// authenticated state before the first dependent test opens a context.
+export const previewAuthStatePath = "e2e/.auth/preview-auth-state.json";
 
 export default async function globalSetup(_config: FullConfig) {
   const baseURL = process.env.PLAYWRIGHT_BASE_URL;
