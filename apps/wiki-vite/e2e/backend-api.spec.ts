@@ -55,14 +55,34 @@ test.describe("Vite backend API", () => {
     expect([403, 404]).toContain(response.status());
   });
 
-  test("serves public manifest without sensitive pages", async ({ request }) => {
+  test("rejects anonymous raw content APIs without shared caching", async ({
+    request,
+  }) => {
+    for (const path of [
+      "/api/wiki/manifest",
+      "/api/wiki/pages?slugs=index",
+      "/api/search?q=diagnosis",
+      "/api/file?path=sources%2Fexample.pdf",
+    ]) {
+      const response = await request.get(path);
+      expect(response.status(), path).toBe(401);
+      expect(response.headers()["cache-control"], path).toBe(
+        "private, no-store",
+      );
+      expect(response.headers().vary, path).toContain("Cookie");
+    }
+  });
+
+  test("serves gated public manifest privately without sensitive pages", async ({
+    request,
+  }) => {
     await authenticatePasswordGate(request);
     const response = await request.get("/api/wiki/manifest");
     expect(response.ok()).toBe(true);
     expect(response.headers()["x-wiki-cache-scope"]).toBe("public");
-    expect(response.headers()["cache-control"]).toContain("max-age=60");
-    expect(response.headers()["cache-control"]).toContain("stale-while-revalidate");
-    expect(response.headers()["cdn-cache-control"]).toContain("s-maxage=300");
+    expect(response.headers()["cache-control"]).toBe("private, no-store");
+    expect(response.headers()["cdn-cache-control"]).toBeUndefined();
+    expect(response.headers().vary).toContain("Cookie");
     expect(response.headers()["etag"]).toBeTruthy();
 
     const body = await response.json();
@@ -76,6 +96,8 @@ test.describe("Vite backend API", () => {
     const response = await request.get("/api/search?q=diagnosis&limit=5");
     expect(response.ok()).toBe(true);
     expect(response.headers()["x-wiki-cache-scope"]).toBe("public");
+    expect(response.headers()["cache-control"]).toBe("private, no-store");
+    expect(response.headers().vary).toContain("Cookie");
 
     const body = await response.json();
     expect(Array.isArray(body.results)).toBe(true);
