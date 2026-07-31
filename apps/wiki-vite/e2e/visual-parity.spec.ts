@@ -330,25 +330,43 @@ test.describe("Visual parity", () => {
     }
   });
 
-  test("password gate matches production control density", async ({ page }) => {
-    await page.goto("/login", { waitUntil: "domcontentloaded" });
+  test("password gate matches production control density", async ({
+    browser,
+    page: _authenticatedPage,
+  }) => {
+    const context = await browser.newContext({
+      baseURL:
+        process.env.PLAYWRIGHT_BASE_URL ||
+        `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || "61001"}`,
+      storageState: { cookies: [], origins: [] },
+    });
+    const page = await context.newPage();
+    try {
+      await page.goto("/login", { waitUntil: "domcontentloaded" });
 
-    const card = page.locator(".auth-card");
-    const input = page.getByRole("textbox", { name: "Password" });
-    const button = page.getByRole("button", { name: "Enter" });
-    const cardBox = await card.boundingBox();
-    const inputBox = await input.boundingBox();
-    const buttonBox = await button.boundingBox();
+      const card = page.locator(".auth-card");
+      const input = page.getByRole("textbox", { name: "Password" });
+      const button = page.getByRole("button", { name: "Enter" });
+      const cardBox = await card.boundingBox();
+      const inputBox = await input.boundingBox();
+      const buttonBox = await button.boundingBox();
 
-    expect(cardBox).not.toBeNull();
-    expect(inputBox).not.toBeNull();
-    expect(buttonBox).not.toBeNull();
-    expect(cardBox!.width).toBe(384);
-    expect(cardBox!.height).toBe(202);
-    expect(Math.abs(cardBox!.y - (page.viewportSize()!.height - cardBox!.height) / 2)).toBeLessThan(1);
-    expect(inputBox!.width).toBe(320);
-    expect(inputBox!.height).toBe(36);
-    expect(buttonBox!.width).toBe(320);
-    expect(buttonBox!.height).toBe(34);
+      expect(cardBox).not.toBeNull();
+      expect(inputBox).not.toBeNull();
+      expect(buttonBox).not.toBeNull();
+      expect(cardBox!.width).toBe(384);
+      expect(cardBox!.height).toBe(202);
+      expect(
+        Math.abs(
+          cardBox!.y - (page.viewportSize()!.height - cardBox!.height) / 2,
+        ),
+      ).toBeLessThan(1);
+      expect(inputBox!.width).toBe(320);
+      expect(inputBox!.height).toBe(36);
+      expect(buttonBox!.width).toBe(320);
+      expect(buttonBox!.height).toBe(34);
+    } finally {
+      await context.close();
+    }
   });
 });
