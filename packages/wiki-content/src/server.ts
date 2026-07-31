@@ -735,7 +735,7 @@ export async function createWikiManifestResponse(
       pageResult = { pages: fallback.pages, source: fallback.source };
       assets = includeSensitive && context.access
         ? await filterAssetsForUser(context, sessionUser, fallback.assets)
-        : fallback.assets;
+        : fallback.assets.map(publicManifestAsset);
       partialManifest = true;
     } catch (fallbackError) {
       context.logger?.error("[wiki manifest] Reliable manifest metadata unavailable", fallbackError);

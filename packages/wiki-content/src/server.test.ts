@@ -163,12 +163,23 @@ describe("wiki manifest server", () => {
       context,
     );
     const etag = first.headers.get("etag");
+    const body = await first.json();
 
     expect(first.status).toBe(200);
     expect(first.headers.get("x-wiki-manifest-partial")).toBe("true");
     expect(first.headers.get("cache-control")).toBe("no-store");
     expect(first.headers.get("cdn-cache-control")).toBeNull();
     expect(etag).toBeTruthy();
+    expect(body.assets).toEqual([
+      {
+        kind: "pdf",
+        path: "sources/one.pdf",
+        contentHash: null,
+        size: null,
+      },
+    ]);
+    expect(body.assets[0]).not.toHaveProperty("ownerSlugs");
+    expect(body.assets[0]).not.toHaveProperty("sensitive");
 
     const validated = await createWikiManifestResponse(
       new Request("https://example.test/api/wiki/manifest?scope=public", {
