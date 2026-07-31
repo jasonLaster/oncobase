@@ -16,6 +16,7 @@ import type * as documents from "../documents.js";
 import type * as epicFhir from "../epicFhir.js";
 import type * as guestNames from "../guestNames.js";
 import type * as imageAnnotations from "../imageAnnotations.js";
+import type * as lib_accessPolicy from "../lib/accessPolicy.js";
 import type * as lib_site from "../lib/site.js";
 import type * as migrations from "../migrations.js";
 import type * as sites from "../sites.js";
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   epicFhir: typeof epicFhir;
   guestNames: typeof guestNames;
   imageAnnotations: typeof imageAnnotations;
+  "lib/accessPolicy": typeof lib_accessPolicy;
   "lib/site": typeof lib_site;
   migrations: typeof migrations;
   sites: typeof sites;
