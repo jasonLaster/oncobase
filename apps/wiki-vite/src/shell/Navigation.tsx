@@ -43,7 +43,7 @@ import {
   ListChecks,
   ListTodo,
   Mail,
-  MessageCircle,
+  MessageSquare,
   MessageSquareText,
   Microscope,
   NotebookPen,
@@ -715,9 +715,17 @@ function WikiMobileNav() {
           )}
         </nav>
       </WikiMobileNavigationSheet>
-      <Link to="/chat" aria-label="Ask wiki" title="Ask wiki" className="wiki-vite-mobile-ask" data-test-id="mobile-ask-wiki">
-        <MessageCircle size={19} aria-hidden="true" />
-      </Link>
+      {!open ? (
+        <Link
+          to="/chat"
+          aria-label="Ask wiki"
+          title="Ask wiki"
+          className="wiki-vite-mobile-ask"
+          data-test-id="mobile-ask-wiki"
+        >
+          <MessageSquare size={19} aria-hidden="true" />
+        </Link>
+      ) : null}
     </>
   );
 }

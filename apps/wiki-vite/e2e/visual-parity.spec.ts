@@ -239,7 +239,11 @@ test.describe("Visual parity", () => {
   test("mobile navigation sheet matches production height", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoWiki(page, "/wiki/logistics/insurance");
+    const mobileAsk = page.getByTestId("mobile-ask-wiki");
+    await expect(mobileAsk).toBeVisible();
+    await expect(mobileAsk.locator("svg")).toHaveClass(/lucide-message-square/);
     await page.getByTestId("bottom-nav-trigger").click();
+    await expect(mobileAsk).toHaveCount(0);
 
     const sheet = page.getByTestId("bottom-nav-sheet");
     await expect(sheet.locator(".wiki-shell-bottom-nav-panel")).toHaveCSS(
@@ -296,6 +300,9 @@ test.describe("Visual parity", () => {
         maxDiffPixelRatio: 0.01,
       });
     }
+
+    await sheet.getByRole("button", { name: "Close navigation" }).click();
+    await expect(page.getByTestId("mobile-ask-wiki")).toBeVisible();
   });
 
   test("mobile search header matches production controls", async ({ page }) => {
