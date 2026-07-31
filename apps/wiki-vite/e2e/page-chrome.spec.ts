@@ -68,6 +68,9 @@ test.describe("Page chrome parity", () => {
     await expect(firstHeading).toHaveCSS("line-height", "24px");
     await expect(firstHeading).toHaveCSS("min-height", "40px");
     await expect(firstHeading).toHaveCSS("border-radius", "8px");
+    await expect(
+      outline.getByRole("button", { name: "Claims follow-up" }),
+    ).toHaveCSS("color", "rgb(107, 114, 128)");
     await expect(outline).toHaveCSS("background-color", "rgb(255, 255, 255)");
     await expect(outline).toHaveCSS(
       "box-shadow",
@@ -93,8 +96,12 @@ test.describe("Page chrome parity", () => {
     await expect(firstHeading).toHaveCSS("line-height", "24px");
     await expect(firstHeading).toHaveCSS("min-height", "40px");
     await expect(firstHeading).toHaveCSS("border-radius", "8px");
-    await expect(mobileOutline.getByRole("button", { name: "Claims follow-up" })).toBeVisible();
-    await mobileOutline.getByRole("button", { name: "Claims follow-up" }).click();
+    const inactiveHeading = mobileOutline.getByRole("button", {
+      name: "Claims follow-up",
+    });
+    await expect(inactiveHeading).toBeVisible();
+    await expect(inactiveHeading).toHaveCSS("color", "rgb(107, 114, 128)");
+    await inactiveHeading.click();
 
     await expect(page).toHaveURL(/#claims-follow-up$/);
   });
