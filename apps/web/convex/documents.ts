@@ -8,6 +8,7 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
+import { hasCompleteAssetVisibility } from "./lib/assetVisibility";
 
 // Multi-tenant scoping: every public function takes an optional
 // `siteSlug` argument. During the Diana migration window, omitting it
@@ -134,6 +135,7 @@ async function findAssetByPath(
 }
 
 type AssetVisibilityRow = {
+  ownerSlugs?: string[];
   path: string;
   sensitive?: boolean;
 };
@@ -143,7 +145,8 @@ async function isSensitiveAsset(
   site: SiteCtx,
   asset: AssetVisibilityRow,
 ) {
-  if (asset.sensitive !== undefined) return asset.sensitive;
+  if (!hasCompleteAssetVisibility(asset)) return true;
+  if (asset.sensitive) return true;
   const doc = await findDocBySlug(ctx, site, assetPathToSiblingSlug(asset.path));
   return doc?.sensitive === true;
 }
@@ -176,9 +179,9 @@ function canReadAssetWithSensitiveSlugs(
   asset: AssetVisibilityRow,
   sensitiveSlugs: Set<string> | null,
 ) {
-  if (asset.sensitive !== undefined) {
-    return asset.sensitive !== true || sensitiveSlugs === null;
-  }
+  if (sensitiveSlugs === null) return true;
+  if (!hasCompleteAssetVisibility(asset)) return false;
+  if (asset.sensitive) return false;
   return !sensitiveSlugs?.has(assetPathToSiblingSlug(asset.path));
 }
 
@@ -943,10 +946,13 @@ export const listPdfAssetVisibilityPage = query({
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
       const siblingSlug = assetPathToSiblingSlug(row.path);
       let sibling =
-        row.sensitive === undefined
+        !hasCompleteAssetVisibility(row) || row.sensitive === true
           ? await findDocBySlug(ctx, site, siblingSlug)
           : null;
-      const sensitive = row.sensitive ?? sibling?.sensitive === true;
+      const sensitive =
+        !hasCompleteAssetVisibility(row) ||
+        row.sensitive === true ||
+        sibling?.sensitive === true;
       if (!includeSensitive && sensitive) continue;
       const ownerSlugs = new Set(row.ownerSlugs ?? []);
       if (sensitive) {
@@ -1313,10 +1319,13 @@ export const listFileAssetVisibilityPage = query({
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
       const siblingSlug = assetPathToSiblingSlug(row.path);
       let sibling =
-        row.sensitive === undefined
+        !hasCompleteAssetVisibility(row) || row.sensitive === true
           ? await findDocBySlug(ctx, site, siblingSlug)
           : null;
-      const sensitive = row.sensitive ?? sibling?.sensitive === true;
+      const sensitive =
+        !hasCompleteAssetVisibility(row) ||
+        row.sensitive === true ||
+        sibling?.sensitive === true;
       if (!includeSensitive && sensitive) continue;
       const ownerSlugs = new Set(row.ownerSlugs ?? []);
       if (sensitive) {

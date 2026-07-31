@@ -46,9 +46,14 @@ mock.module("@/lib/session-user", () => ({
 
 mock.module("@/lib/asset-visibility", () => ({
   isStoredAssetSensitive: (
-    asset: { sensitive?: boolean } | null,
+    asset: { ownerSlugs?: string[]; sensitive?: boolean } | null,
     siblingDoc: { sensitive?: boolean } | null,
-  ) => asset?.sensitive === true || siblingDoc?.sensitive === true,
+  ) =>
+    !asset ||
+    typeof asset.sensitive !== "boolean" ||
+    !Array.isArray(asset.ownerSlugs) ||
+    asset.sensitive ||
+    siblingDoc?.sensitive === true,
 }));
 
 mock.module("@/lib/local-diagnostics-paths", () => ({
@@ -100,6 +105,7 @@ mock.module("@/lib/site-data", () => ({
         }
         return {
           blobUrl: "https://assets.example/private-plan.pdf",
+          ownerSlugs: ["private/plan"],
           sensitive: documentSensitive,
           sizeBytes: 7,
         };
@@ -118,6 +124,12 @@ mock.module("@/lib/site-data", () => ({
             blobUrl: "https://assets.example/stale-primary-file",
             ownerSlugs: ["public/fallback"],
             sensitive: false,
+            sizeBytes: 7,
+          };
+        }
+        if (path === "legacy/unversioned.png") {
+          return {
+            blobUrl: "https://assets.example/legacy-unversioned.png",
             sizeBytes: 7,
           };
         }
@@ -276,6 +288,18 @@ describe("file route sensitive authorization", () => {
     expectPrivateDenial(gateOnly);
 
     expect(sensitiveAssetLookups).toBe(2);
+    expect(requestedAccessSlugs).toEqual([]);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  test("rejects legacy assets without complete visibility metadata", async () => {
+    documentSensitive = false;
+    sessionUser = { _id: "authorized-user" };
+    canAccessSensitiveSlug = true;
+
+    const response = await GET(request("legacy/unversioned.png"));
+
+    expectPrivateDenial(response);
     expect(requestedAccessSlugs).toEqual([]);
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
