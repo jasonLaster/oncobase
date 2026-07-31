@@ -1,21 +1,34 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { getFunctionName, type FunctionReference } from "convex/server";
 import { NextRequest } from "next/server";
-import { proxy } from "../proxy";
+import {
+  proxy,
+  setProxyConvexClientForTests,
+} from "../proxy";
 import { createWikiGateCookieValue } from "./wiki-gate-session";
 
 function request(
   path: string,
   init: ConstructorParameters<typeof NextRequest>[1] = {},
+  host = "localhost",
 ) {
   const headers = new Headers(init.headers);
-  headers.set("Host", "localhost");
-  return new NextRequest(`http://localhost${path}`, {
+  headers.set("Host", host);
+  return new NextRequest(`http://${host}${path}`, {
     ...init,
     headers,
   });
 }
 
 describe("legacy wiki API password gate", () => {
+  beforeEach(() => {
+    setProxyConvexClientForTests(null);
+  });
+
+  afterEach(() => {
+    setProxyConvexClientForTests(undefined);
+  });
+
   test.each([
     "/api/wiki/manifest",
     "/api/wiki/pages?slugs=wiki/public",
@@ -73,6 +86,63 @@ describe("legacy wiki API password gate", () => {
     } finally {
       process.env.WIKI_GATE_SESSION_SECRET = previousGateSecret;
       process.env.DIANA_WIKI_PASSWORD_HASH = previousPasswordHash;
+    }
+  });
+
+  test("rejects configured-site cookies immediately on a warm proxy after rotation", async () => {
+    const previousGateSecret = process.env.WIKI_GATE_SESSION_SECRET;
+    let passwordHash = "sha256:old-password";
+    let hostLookups = 0;
+    let gateLookups = 0;
+    const client = {
+      async query(
+        ref: FunctionReference<"query">,
+      ) {
+        switch (getFunctionName(ref)) {
+          case "sites:getByHost":
+            hostLookups += 1;
+            return { slug: "research" };
+          case "sites:getBySlug":
+            gateLookups += 1;
+            return {
+              slug: "research",
+              config: {
+                passwordGate: true,
+                passwordHash,
+              },
+            };
+          default:
+            throw new Error(`Unexpected query ${getFunctionName(ref)}`);
+        }
+      },
+    };
+
+    try {
+      process.env.WIKI_GATE_SESSION_SECRET = "next-warm-proxy-test-secret";
+      setProxyConvexClientForTests(client as never);
+      const cookie = await createWikiGateCookieValue(
+        "research",
+        passwordHash,
+      );
+      const requestInit = {
+        headers: { Cookie: `authed_research=${cookie}` },
+      };
+
+      const beforeRotation = await proxy(
+        request("/api/wiki/manifest", requestInit, "research.example"),
+      );
+      expect(beforeRotation.status).toBe(200);
+
+      passwordHash = "sha256:new-password";
+      const afterRotation = await proxy(
+        request("/api/wiki/manifest", requestInit, "research.example"),
+      );
+      expect(afterRotation.status).toBe(401);
+      expect(hostLookups).toBe(1);
+      expect(gateLookups).toBe(2);
+    } finally {
+      setProxyConvexClientForTests(undefined);
+      process.env.WIKI_GATE_SESSION_SECRET = previousGateSecret;
     }
   });
 });

@@ -27,13 +27,17 @@ const PUBLIC_PAGES = new Set(["/terms-and-conditions"]);
 
 type ResolvedSite = {
   slug: string;
+  expires: number;
+};
+
+type CurrentGateConfig = {
   passwordGate: boolean;
   passwordHash?: string;
-  expires: number;
 };
 
 const hostCache = new Map<string, ResolvedSite>();
 let convexClient: ConvexHttpClient | null = null;
+let convexClientOverride: ConvexHttpClient | null | undefined;
 
 type UserRoleSummary = {
   _id: string;
@@ -41,6 +45,7 @@ type UserRoleSummary = {
 };
 
 function getConvex() {
+  if (convexClientOverride !== undefined) return convexClientOverride;
   const url = resolveServerConvexUrl();
   if (!url) return null;
   if (!convexClient) {
@@ -84,12 +89,29 @@ function previewSiteForHost(host: string): string | null {
 function entryForSlug(siteSlug: string): ResolvedSite {
   return {
     slug: siteSlug,
-    // Diana keeps the existing global password gate during the migration
-    // window. Other explicit site overrides default to no gate unless
-    // Convex resolves their real config.
-    passwordGate: siteSlug === DEFAULT_SITE_SLUG,
     expires: Date.now() + HOST_CACHE_TTL_MS,
   };
+}
+
+async function currentGateConfig(siteSlug: string): Promise<CurrentGateConfig> {
+  const convex = getConvex();
+  if (!convex) {
+    return { passwordGate: siteSlug === DEFAULT_SITE_SLUG };
+  }
+  const site = await convex.query(api.sites.getBySlug, { slug: siteSlug });
+  if (!site) throw new Error(`Unknown wiki site: ${siteSlug}`);
+  return {
+    passwordGate:
+      site.config.passwordGate ?? siteSlug === DEFAULT_SITE_SLUG,
+    passwordHash: site.config.passwordHash,
+  };
+}
+
+export function setProxyConvexClientForTests(
+  client: ConvexHttpClient | null | undefined,
+) {
+  convexClientOverride = client;
+  hostCache.clear();
 }
 
 async function resolveHost(host: string): Promise<ResolvedSite | null> {
@@ -127,7 +149,6 @@ async function resolveHost(host: string): Promise<ResolvedSite | null> {
       // Cache the miss briefly so unknown-host floods don't hammer Convex.
       const miss: ResolvedSite = {
         slug: "",
-        passwordGate: false,
         expires: Date.now() + HOST_CACHE_TTL_MS,
       };
       hostCache.set(host, miss);
@@ -135,14 +156,13 @@ async function resolveHost(host: string): Promise<ResolvedSite | null> {
     }
     const entry: ResolvedSite = {
       slug: site.slug,
-      passwordGate: site.config.passwordGate ?? false,
-      passwordHash: site.config.passwordHash,
       expires: Date.now() + HOST_CACHE_TTL_MS,
     };
     hostCache.set(host, entry);
     return entry;
   } catch {
-    // Convex outage — fail closed for new hosts, fail open for Diana.
+    // Preserve localhost identity; the uncached gate-config lookup below still
+    // fails closed before protected content is served.
     if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
       const entry = entryForSlug(DEFAULT_SITE_SLUG);
       hostCache.set(host, entry);
@@ -309,13 +329,24 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
+  let gateConfig: CurrentGateConfig;
+  try {
+    gateConfig = await currentGateConfig(site.slug);
+  } catch (error) {
+    console.error("[proxy] password gate lookup failed", error);
+    return new NextResponse("password gate configuration unavailable", {
+      status: 503,
+      headers: PRIVATE_GATE_HEADERS,
+    });
+  }
+
   const cookieName = wikiGateCookieName(site.slug);
   const isAuthed =
     await hasValidWikiGateCookie(
       site.slug,
       request.cookies.get(cookieName)?.value,
-      site.passwordHash,
-      site.passwordGate,
+      gateConfig.passwordHash,
+      gateConfig.passwordGate,
     ) ||
     isDianaPreviewTestAuth(request, site);
   const isLoginPage = request.nextUrl.pathname === "/login";
@@ -332,7 +363,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isLoginPage) {
-    if (isAuthed || !site.passwordGate) {
+    if (isAuthed || !gateConfig.passwordGate) {
       const redirect = safeLocalRedirect(
         request.nextUrl.searchParams.get("redirect"),
       );
@@ -341,7 +372,7 @@ export async function proxy(request: NextRequest) {
     return privateNext(requestHeaders);
   }
 
-  if (site.passwordGate && !isAuthed && isSharePreviewRequest) {
+  if (gateConfig.passwordGate && !isAuthed && isSharePreviewRequest) {
     const previewUrl = new URL("/api/share-preview", request.url);
     previewUrl.searchParams.set("path", request.nextUrl.pathname);
     requestHeaders.set("x-share-preview-path", request.nextUrl.pathname);
@@ -350,7 +381,7 @@ export async function proxy(request: NextRequest) {
     });
   }
 
-  if (site.passwordGate && !isAuthed) {
+  if (gateConfig.passwordGate && !isAuthed) {
     if (request.nextUrl.pathname.startsWith("/api/")) {
       return NextResponse.json(
         { error: "Password gate authentication required" },
@@ -362,7 +393,7 @@ export async function proxy(request: NextRequest) {
     return privateRedirect(loginUrl);
   }
 
-  return site.passwordGate || isAuthed
+  return gateConfig.passwordGate || isAuthed
     ? privateNext(requestHeaders)
     : NextResponse.next({ request: { headers: requestHeaders } });
 }

@@ -17,10 +17,10 @@ import {
   createClient,
   createWikiApiHandler,
   getSessionUser,
+  getRequestPasswordGateConfig,
   hasValidAuthCookie,
   handleSharePreviewRequest,
   isDianaPreviewTestAuth,
-  isPasswordGateEnabled,
   resolveSiteSlug,
   withSiteSlug,
 } from "./wiki-api.js";
@@ -225,9 +225,13 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
 
   if (PUBLIC_PAGES.has(url.pathname)) return null;
 
-  let gateEnabled: boolean;
+  let gateConfig;
   try {
-    gateEnabled = await isPasswordGateEnabled(client, siteSlug);
+    gateConfig = await getRequestPasswordGateConfig(
+      request,
+      client,
+      siteSlug,
+    );
   } catch (error) {
     console.warn("[wiki-vite-server] password gate lookup failed", error);
     return new Response("password gate configuration unavailable", {
@@ -240,16 +244,16 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
     });
   }
   const isAuthed =
-    await hasValidAuthCookie(request, client, siteSlug) ||
+    await hasValidAuthCookie(request, client, siteSlug, gateConfig) ||
     isDianaPreviewTestAuth(request, siteSlug);
   const isLoginPage = url.pathname === "/login";
 
-  if (isLoginPage && (isAuthed || !gateEnabled)) {
+  if (isLoginPage && (isAuthed || !gateConfig.enabled)) {
     const redirect = safeLocalRedirect(url.searchParams.get("redirect"));
     return privateRedirect(request, redirect);
   }
 
-  if (!gateEnabled || isAuthed || isLoginPage) {
+  if (!gateConfig.enabled || isAuthed || isLoginPage) {
     return null;
   }
 
@@ -345,7 +349,9 @@ async function staticIndexHtml(
           withSiteSlug(siteSlug, { slug }),
         )
       : Promise.resolve(null),
-    isPasswordGateEnabled(client, siteSlug),
+    getRequestPasswordGateConfig(request, client, siteSlug).then(
+      (config) => config.enabled,
+    ),
     tag
       ? client
           .action(
@@ -402,17 +408,30 @@ async function staticIndexHtml(
 
 async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath: string) {
   const siteSlug = (await resolveSiteSlug(request, client)) ?? DEFAULT_SITE_SLUG;
-  const authed =
-    await hasValidAuthCookie(request, client, siteSlug) ||
-    isDianaPreviewTestAuth(request, siteSlug);
-  const [gateEnabled, sessionUser] = await Promise.all([
-    isPasswordGateEnabled(client, siteSlug).catch((error) => {
-      console.warn("[wiki-vite-server] password gate lookup failed", error);
-      return true;
-    }),
+  let gateConfig;
+  try {
+    gateConfig = await getRequestPasswordGateConfig(
+      request,
+      client,
+      siteSlug,
+    );
+  } catch (error) {
+    console.warn("[wiki-vite-server] password gate lookup failed", error);
+    return {
+      ...staticHeaders(filePath),
+      "Cache-Control": "private, no-store",
+      Vary: "Accept, Cookie, Host, User-Agent",
+    };
+  }
+  const [authed, sessionUser] = await Promise.all([
+    hasValidAuthCookie(request, client, siteSlug, gateConfig),
     getSessionUser(request, client, siteSlug).catch(() => null),
   ]);
-  const privateResponse = authed || gateEnabled || Boolean(sessionUser);
+  const privateResponse =
+    authed ||
+    isDianaPreviewTestAuth(request, siteSlug) ||
+    gateConfig.enabled ||
+    Boolean(sessionUser);
   return {
     ...staticHeaders(filePath),
     "Cache-Control": privateResponse

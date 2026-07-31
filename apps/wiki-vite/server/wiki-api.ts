@@ -86,7 +86,6 @@ import { safeLocalRedirect } from "../src/safe-redirect.js";
 
 const DEFAULT_SITE_SLUG = "diana";
 const HOST_CACHE_TTL_MS = 15_000;
-const PASSWORD_GATE_CACHE_TTL_MS = 15_000;
 const VERCEL_PROJECT_HOST_PREFIX = "diana-tnbc";
 const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
 const USER_SESSION_COOKIE = "wiki_user_session";
@@ -125,7 +124,6 @@ type ResolvedSite = {
 
 type PasswordGateEntry = {
   enabled: boolean;
-  expires: number;
   passwordHash?: string;
 };
 
@@ -142,9 +140,9 @@ type SessionUser = {
 
 const hostCache = new Map<string, ResolvedSite>();
 const piiPatternCache = new Map<string, PiiPatternEntry>();
-const passwordGateCaches = new WeakMap<
-  object,
-  Map<string, PasswordGateEntry>
+const requestPasswordGateConfigs = new WeakMap<
+  Request,
+  Map<string, Promise<PasswordGateEntry>>
 >();
 
 const MIME_TYPES: Record<string, string> = {
@@ -242,36 +240,44 @@ export async function resolveSiteSlug(request: Request, client: ConvexHttpClient
   return slug;
 }
 
-async function passwordGateConfig(
+export async function getPasswordGateConfig(
   client: ConvexHttpClient,
   siteSlug: string,
 ) {
-  const now = Date.now();
-  let cache = passwordGateCaches.get(client);
-  if (!cache) {
-    cache = new Map<string, PasswordGateEntry>();
-    passwordGateCaches.set(client, cache);
-  }
-  const cached = cache.get(siteSlug);
-  if (cached && cached.expires > now) return cached;
-
   const defaultEnabled = siteSlug === DEFAULT_SITE_SLUG;
   const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
-  const config = {
+  return {
     enabled: site?.config?.passwordGate ?? defaultEnabled,
-    expires: now + PASSWORD_GATE_CACHE_TTL_MS,
     passwordHash: site?.config?.passwordHash,
   };
+}
 
-  cache.set(siteSlug, config);
-  return config;
+export function getRequestPasswordGateConfig(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  let configs = requestPasswordGateConfigs.get(request);
+  if (!configs) {
+    configs = new Map();
+    requestPasswordGateConfigs.set(request, configs);
+  }
+  const cached = configs.get(siteSlug);
+  if (cached) return cached;
+
+  const pending = getPasswordGateConfig(client, siteSlug);
+  configs.set(siteSlug, pending);
+  void pending.catch(() => {
+    if (configs?.get(siteSlug) === pending) configs.delete(siteSlug);
+  });
+  return pending;
 }
 
 export async function isPasswordGateEnabled(
   client: ConvexHttpClient,
   siteSlug: string,
 ) {
-  return (await passwordGateConfig(client, siteSlug)).enabled;
+  return (await getPasswordGateConfig(client, siteSlug)).enabled;
 }
 
 export function isDianaPreviewTestAuth(request: Request, siteSlug: string) {
@@ -317,7 +323,7 @@ async function enforceApiPasswordGate(
 ) {
   let config: PasswordGateEntry;
   try {
-    config = await passwordGateConfig(client, siteSlug);
+    config = await getRequestPasswordGateConfig(request, client, siteSlug);
   } catch (error) {
     console.warn("[wiki-vite-server] password gate lookup failed", error);
     return {
@@ -327,7 +333,7 @@ async function enforceApiPasswordGate(
   }
   if (!config.enabled) return { enabled: false, response: null };
   if (
-    (await hasValidAuthCookie(request, client, siteSlug)) ||
+    (await hasValidAuthCookie(request, client, siteSlug, config)) ||
     isDianaPreviewTestAuth(request, siteSlug)
   ) {
     return { enabled: true, response: null };
@@ -444,15 +450,17 @@ export async function hasValidAuthCookie(
   request: Request,
   client: ConvexHttpClient,
   siteSlug: string,
+  config?: PasswordGateEntry,
 ) {
   const cookieName = authedCookieName(siteSlug);
   const token = (request.headers.get("cookie") ?? "")
     .split(/;\s*/)
     .find((part) => part.startsWith(`${cookieName}=`))
     ?.slice(cookieName.length + 1);
-  const config = await passwordGateConfig(client, siteSlug);
+  const currentConfig =
+    config ?? await getRequestPasswordGateConfig(request, client, siteSlug);
   return verifyWikiGateSession({
-    gateVersion: gateVersionForConfig(siteSlug, config),
+    gateVersion: gateVersionForConfig(siteSlug, currentConfig),
     secret: gateSessionSecret(),
     siteSlug,
     token,
@@ -831,11 +839,12 @@ async function filterPotentiallySensitivePages<T extends { slug: string; sensiti
 }
 
 async function validatePassword(
+  request: Request,
   client: ConvexHttpClient,
   siteSlug: string,
   password: string,
 ) {
-  const config = await passwordGateConfig(client, siteSlug);
+  const config = await getRequestPasswordGateConfig(request, client, siteSlug);
   if (
     config.passwordHash &&
     await matchesWikiPasswordHash(password, config.passwordHash)
@@ -905,7 +914,7 @@ async function handleLoginRequest(
 
   const { password } = (await request.json()) as { password?: string };
   const validation = password
-    ? await validatePassword(client, siteSlug, password)
+    ? await validatePassword(request, client, siteSlug, password)
     : null;
   if (validation) {
     try {
@@ -1055,7 +1064,11 @@ async function handleAuthSignupRequest(
 
   let gateConfig: PasswordGateEntry;
   try {
-    gateConfig = await passwordGateConfig(client, siteSlug);
+    gateConfig = await getRequestPasswordGateConfig(
+      request,
+      client,
+      siteSlug,
+    );
   } catch {
     return Response.json(
       { error: "Unable to verify signup access" },
@@ -1070,7 +1083,7 @@ async function handleAuthSignupRequest(
   }
   if (
     gateConfig.enabled &&
-    !(await hasValidAuthCookie(request, client, siteSlug))
+    !(await hasValidAuthCookie(request, client, siteSlug, gateConfig))
   ) {
     return Response.json(
       { error: "Password gate access is required to create an account" },

@@ -119,11 +119,17 @@ function createFakeConvexClient({
   failPasswordGateLookup = false,
   passwordHash,
   passwordGate = false,
+  passwordGateState,
 }: {
   deniedSlugs?: string[];
   failPasswordGateLookup?: boolean;
   passwordHash?: string;
   passwordGate?: boolean;
+  passwordGateState?: {
+    lookups?: number;
+    passwordGate: boolean;
+    passwordHash?: string;
+  };
 } = {}) {
   const deniedSlugSet = new Set(deniedSlugs);
   const users = new Map<string, FakeUser>();
@@ -186,9 +192,13 @@ function createFakeConvexClient({
           if (failPasswordGateLookup) {
             throw new Error("site config unavailable");
           }
+          if (passwordGateState) {
+            passwordGateState.lookups =
+              (passwordGateState.lookups ?? 0) + 1;
+          }
           return {
             slug: args.slug,
-            config: { passwordGate, passwordHash },
+            config: passwordGateState ?? { passwordGate, passwordHash },
           };
         case "users:getByEmailForAuth":
           return users.get(String(args.email)) ?? null;
@@ -494,32 +504,37 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
 
   test("rejects an existing gate cookie after the configured password rotates", async () => {
     const originalHash = process.env.DIANA_WIKI_PASSWORD_HASH;
-    const originalHandler = createWikiApiHandler(
+    const passwordGateState: {
+      lookups?: number;
+      passwordGate: boolean;
+      passwordHash?: string;
+    } = {
+      passwordGate: true,
+      passwordHash: originalHash,
+    };
+    const handler = createWikiApiHandler(
       createFakeConvexClient({
         passwordGate: true,
-        passwordHash: originalHash,
+        passwordGateState,
       }) as never,
     );
-    const cookie = await gateCookie(originalHandler);
+    const cookie = await gateCookie(handler);
 
     expect(
       (
-        await originalHandler(
+        await handler(
           request("/api/wiki/manifest", { headers: { Cookie: cookie } }),
         )
       )?.status,
     ).toBe(200);
 
-    const rotatedHandler = createWikiApiHandler(
-      createFakeConvexClient({
-        passwordGate: true,
-        passwordHash: "sha256:rotated-password-hash",
-      }) as never,
-    );
-    const afterRotation = await rotatedHandler(
+    const lookupsBeforeRotation = passwordGateState.lookups ?? 0;
+    passwordGateState.passwordHash = "sha256:rotated-password-hash";
+    const afterRotation = await handler(
       request("/api/wiki/manifest", { headers: { Cookie: cookie } }),
     );
     expect(afterRotation?.status).toBe(401);
+    expect(passwordGateState.lookups).toBe(lookupsBeforeRotation + 1);
   });
 
   test("fails closed without caching a custom site's gate lookup failure", async () => {
