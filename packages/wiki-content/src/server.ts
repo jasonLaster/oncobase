@@ -15,6 +15,7 @@ import {
   isHiddenFileTreeAssetPath,
   isHiddenFileTreePath,
   makePublicWikiSessionIdentity,
+  WIKI_MANIFEST_SCHEMA_VERSION,
   WIKI_SESSION_CACHE_VERSION,
 } from "./index.ts";
 
@@ -757,6 +758,7 @@ export async function createWikiManifestResponse(
   const compactTree = buildCompactTreeFromManifest(pages, assets);
 
   const manifestCore = {
+    schemaVersion: WIKI_MANIFEST_SCHEMA_VERSION,
     siteSlug: context.siteSlug,
     scope,
     compactTree,

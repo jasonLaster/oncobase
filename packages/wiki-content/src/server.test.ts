@@ -130,6 +130,7 @@ describe("wiki manifest server", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(body.schemaVersion).toBe(1);
     expect(response.headers.get("cdn-cache-control")).toBe(
       "public, s-maxage=300, stale-while-revalidate=3600",
     );

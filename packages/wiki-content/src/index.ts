@@ -19,6 +19,7 @@ export type CompactFileNode =
 export type WikiScope = "public" | "session";
 
 export const WIKI_SESSION_CACHE_VERSION = "v1";
+export const WIKI_MANIFEST_SCHEMA_VERSION = 1 as const;
 
 // Keep the current and N-1 reader generations together. A schema bump must
 // advance both the reader namespace and schema version, and carry the former
@@ -85,6 +86,7 @@ export interface WikiManifestAsset {
 }
 
 export interface WikiManifest {
+  schemaVersion: typeof WIKI_MANIFEST_SCHEMA_VERSION;
   siteSlug: string;
   manifestHash: string;
   generatedAt: string;
@@ -806,8 +808,66 @@ function isCompactFileNode(value: unknown): value is CompactFileNode {
   );
 }
 
+type WikiManifestWireObject = Record<string, unknown>;
+type WikiManifestMigration = (
+  manifest: WikiManifestWireObject,
+) => WikiManifestWireObject;
+
+const WIKI_MANIFEST_MIGRATIONS: Record<number, WikiManifestMigration> = {
+  0: (manifest) => ({
+    ...manifest,
+    schemaVersion: 1,
+  }),
+};
+
+function migrateWikiManifestWireObject(
+  value: WikiManifestWireObject,
+): WikiManifestWireObject {
+  let manifest = value;
+  let version =
+    manifest.schemaVersion == null
+      ? 0
+      : asNumber(manifest.schemaVersion, "manifest.schemaVersion");
+
+  if (!Number.isInteger(version) || version < 0) {
+    throw new Error("manifest.schemaVersion must be a non-negative integer");
+  }
+  if (version > WIKI_MANIFEST_SCHEMA_VERSION) {
+    throw new Error(`Unsupported manifest.schemaVersion: ${version}`);
+  }
+
+  while (version < WIKI_MANIFEST_SCHEMA_VERSION) {
+    const migrate = WIKI_MANIFEST_MIGRATIONS[version];
+    if (!migrate) {
+      throw new Error(
+        `No manifest migration registered for schemaVersion ${version}`,
+      );
+    }
+    manifest = migrate(manifest);
+    const nextVersion = asNumber(
+      manifest.schemaVersion,
+      "manifest.schemaVersion",
+    );
+    if (!Number.isInteger(nextVersion) || nextVersion <= version) {
+      throw new Error(`Invalid manifest migration from schemaVersion ${version}`);
+    }
+    version = nextVersion;
+  }
+
+  return manifest;
+}
+
 export function parseWikiManifest(value: unknown): WikiManifest {
-  const object = assertObject(value, "manifest");
+  const object = migrateWikiManifestWireObject(
+    assertObject(value, "manifest"),
+  );
+  const schemaVersion = asNumber(
+    object.schemaVersion,
+    "manifest.schemaVersion",
+  );
+  if (schemaVersion !== WIKI_MANIFEST_SCHEMA_VERSION) {
+    throw new Error(`Unsupported manifest.schemaVersion: ${schemaVersion}`);
+  }
   const compactTree = object.compactTree;
   if (!Array.isArray(compactTree) || !compactTree.every(isCompactFileNode)) {
     throw new Error("manifest.compactTree must be a compact file tree");
@@ -818,6 +878,7 @@ export function parseWikiManifest(value: unknown): WikiManifest {
   if (!Array.isArray(assets)) throw new Error("manifest.assets must be an array");
 
   return {
+    schemaVersion,
     siteSlug: asString(object.siteSlug, "manifest.siteSlug"),
     manifestHash: asString(object.manifestHash, "manifest.manifestHash"),
     generatedAt: asString(object.generatedAt, "manifest.generatedAt"),

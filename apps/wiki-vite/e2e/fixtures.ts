@@ -4,6 +4,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import {
   buildCompactTreeFromManifest,
   makePublicWikiSessionIdentity,
+  WIKI_MANIFEST_SCHEMA_VERSION,
   type WikiManifest,
   type WikiManifestAsset,
   type WikiManifestPage,
@@ -320,7 +321,14 @@ function manifest(scope: WikiScope, options: MockOptions, partial = false): Wiki
     }));
   const manifestAssets = partial ? [] : assets;
   const compactTree = buildCompactTreeFromManifest(pages, manifestAssets);
-  const core = { siteSlug, scope, compactTree, pages, assets: manifestAssets };
+  const core = {
+    schemaVersion: WIKI_MANIFEST_SCHEMA_VERSION,
+    siteSlug,
+    scope,
+    compactTree,
+    pages,
+    assets: manifestAssets,
+  };
   return {
     ...core,
     generatedAt,

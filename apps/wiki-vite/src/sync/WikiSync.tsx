@@ -3,6 +3,7 @@ import {
   createWikiContentClient,
   expandCompactFileTree,
   flattenFileTree,
+  WIKI_MANIFEST_SCHEMA_VERSION,
   type CompactFileNode,
   type WikiManifest,
   type WikiManifestValidation,
@@ -190,6 +191,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
     const pages = store.query(pageIndex$) as PageIndexRow[];
     const assets = store.query(assets$) as AssetIndexRow[];
     return {
+      schemaVersion: WIKI_MANIFEST_SCHEMA_VERSION,
       siteSlug: state.siteSlug,
       scope: state.scope,
       manifestHash: state.manifestHash,

@@ -566,7 +566,7 @@ describe("wiki content contracts", () => {
     ]);
   });
 
-  test("parses manifest payloads", () => {
+  test("migrates versionless manifest payloads to the current wire schema", () => {
     const manifest = parseWikiManifest({
       siteSlug: "diana",
       manifestHash: "abc",
@@ -588,6 +588,22 @@ describe("wiki content contracts", () => {
     });
 
     expect(manifest.pages[0]?.contentHash).toBe("hash");
+    expect(manifest.schemaVersion).toBe(1);
+  });
+
+  test("rejects future manifest wire schemas before they reach LiveStore", () => {
+    expect(() =>
+      parseWikiManifest({
+        schemaVersion: 2,
+        siteSlug: "diana",
+        manifestHash: "abc",
+        generatedAt: "2026-05-09T12:00:00.000Z",
+        scope: "public",
+        compactTree: [],
+        pages: [],
+        assets: [],
+      }),
+    ).toThrow("Unsupported manifest.schemaVersion: 2");
   });
 
   test("rejects invalid manifest payloads before they reach LiveStore", () => {
