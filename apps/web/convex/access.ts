@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 import type { Doc, Id } from "./_generated/dataModel";
-import { canAccessWithoutProtectedRule } from "./lib/access-policy";
+import { canAccessWithoutProtectedRule } from "./lib/accessPolicy";
 
 function pathAllowed(path: string, patterns: string[]) {
   return patterns.some((pattern) => {

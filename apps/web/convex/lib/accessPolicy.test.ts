@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { canAccessWithoutProtectedRule } from "./access-policy";
+import { canAccessWithoutProtectedRule } from "./accessPolicy";
 
 describe("access policy defaults", () => {
   test("keeps public documents readable without a protected rule", () => {
