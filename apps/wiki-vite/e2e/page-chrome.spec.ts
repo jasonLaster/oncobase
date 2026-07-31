@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { documentArticle, gotoWiki, installWikiApiMocks } from "./fixtures";
+import { passwordGateCookie } from "./gate-auth";
 
 test.describe("Page chrome parity", () => {
   test.beforeEach(async ({ page }) => {
@@ -31,8 +32,10 @@ test.describe("Page chrome parity", () => {
   test("page markdown copy payloads are served by the Vite API boundary", async ({ page, request }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 
+    const cookie = await passwordGateCookie(request);
     const response = await request.get(
       "/api/page-copy?slug=wiki%2Flogistics%2Finsurance&cacheKey=latest&scope=public",
+      { headers: { Cookie: cookie } },
     );
     expect(response.ok(), await response.text()).toBe(true);
     expect(response.headers()["content-type"]).toContain("text/markdown");

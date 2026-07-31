@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { documentArticle, gotoWiki, installWikiApiMocks } from "./fixtures";
+import { passwordGateCookie } from "./gate-auth";
 
 async function mockCommentsApi(page: Page) {
   await page.route("**/api/liveblocks-auth", (route) =>
@@ -195,7 +196,10 @@ test.describe("global comments page", () => {
 
 test.describe("comments and Liveblocks API endpoints", () => {
   test("liveblocks-auth GET returns configured status", async ({ request }) => {
-    const response = await request.get("/api/liveblocks-auth");
+    const cookie = await passwordGateCookie(request);
+    const response = await request.get("/api/liveblocks-auth", {
+      headers: { Cookie: cookie },
+    });
     expect(response.ok()).toBeTruthy();
     const body = await response.json();
     expect(body).toEqual(
@@ -207,8 +211,10 @@ test.describe("comments and Liveblocks API endpoints", () => {
   });
 
   test("liveblocks-users rejects malformed IDs", async ({ request }) => {
+    const cookie = await passwordGateCookie(request);
     const response = await request.post("/api/liveblocks-users", {
       data: { userIds: ["guest_test", 123] },
+      headers: { Cookie: cookie },
     });
     expect(response.status()).toBe(400);
     await expect(response.json()).resolves.toEqual({
@@ -217,8 +223,10 @@ test.describe("comments and Liveblocks API endpoints", () => {
   });
 
   test("delete-thread API rejects missing params", async ({ request }) => {
+    const cookie = await passwordGateCookie(request);
     const response = await request.post("/api/liveblocks-delete-thread", {
       data: {},
+      headers: { Cookie: cookie },
     });
     expect(response.status()).toBe(400);
     await expect(response.json()).resolves.toEqual({
