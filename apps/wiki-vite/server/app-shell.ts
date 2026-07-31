@@ -225,7 +225,20 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
 
   if (PUBLIC_PAGES.has(url.pathname)) return null;
 
-  const gateEnabled = await isPasswordGateEnabled(client, siteSlug);
+  let gateEnabled: boolean;
+  try {
+    gateEnabled = await isPasswordGateEnabled(client, siteSlug);
+  } catch (error) {
+    console.warn("[wiki-vite-server] password gate lookup failed", error);
+    return new Response("password gate configuration unavailable", {
+      status: 503,
+      headers: {
+        "Cache-Control": "private, no-store",
+        "Content-Type": "text/plain; charset=utf-8",
+        Vary: "Cookie, Host",
+      },
+    });
+  }
   const isAuthed =
     await hasValidAuthCookie(request, siteSlug) ||
     isDianaPreviewTestAuth(request, siteSlug);
@@ -393,7 +406,10 @@ async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath:
     await hasValidAuthCookie(request, siteSlug) ||
     isDianaPreviewTestAuth(request, siteSlug);
   const [gateEnabled, sessionUser] = await Promise.all([
-    isPasswordGateEnabled(client, siteSlug),
+    isPasswordGateEnabled(client, siteSlug).catch((error) => {
+      console.warn("[wiki-vite-server] password gate lookup failed", error);
+      return true;
+    }),
     getSessionUser(request, client, siteSlug).catch(() => null),
   ]);
   const privateResponse = authed || gateEnabled || Boolean(sessionUser);

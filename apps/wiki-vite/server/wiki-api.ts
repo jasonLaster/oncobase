@@ -254,13 +254,9 @@ export async function isPasswordGateEnabled(
   const cached = cache.get(siteSlug);
   if (cached && cached.expires > now) return cached.enabled;
 
-  let enabled = siteSlug === DEFAULT_SITE_SLUG;
-  try {
-    const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
-    enabled = site?.config?.passwordGate ?? enabled;
-  } catch (error) {
-    console.warn("[wiki-vite-server] password gate lookup failed", error);
-  }
+  const defaultEnabled = siteSlug === DEFAULT_SITE_SLUG;
+  const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
+  const enabled = site?.config?.passwordGate ?? defaultEnabled;
 
   cache.set(siteSlug, {
     enabled,
@@ -292,19 +288,42 @@ function passwordGateRequiredResponse() {
   );
 }
 
+function passwordGateUnavailableResponse() {
+  return Response.json(
+    { error: "Password gate configuration is unavailable" },
+    {
+      status: 503,
+      headers: {
+        "Cache-Control": "private, no-store",
+        Vary: "Cookie, Host",
+      },
+    },
+  );
+}
+
 async function enforceApiPasswordGate(
   request: Request,
   client: ConvexHttpClient,
   siteSlug: string,
 ) {
-  if (!(await isPasswordGateEnabled(client, siteSlug))) return null;
+  let enabled: boolean;
+  try {
+    enabled = await isPasswordGateEnabled(client, siteSlug);
+  } catch (error) {
+    console.warn("[wiki-vite-server] password gate lookup failed", error);
+    return {
+      enabled: true,
+      response: passwordGateUnavailableResponse(),
+    };
+  }
+  if (!enabled) return { enabled: false, response: null };
   if (
     (await hasValidAuthCookie(request, siteSlug)) ||
     isDianaPreviewTestAuth(request, siteSlug)
   ) {
-    return null;
+    return { enabled: true, response: null };
   }
-  return passwordGateRequiredResponse();
+  return { enabled: true, response: passwordGateRequiredResponse() };
 }
 
 function decorateViteHeaders(headers: HeadersInit) {
@@ -320,6 +339,30 @@ function decorateViteHeaders(headers: HeadersInit) {
     );
   }
   return nextHeaders;
+}
+
+function privatePasswordGateHeaders(headers: HeadersInit) {
+  const nextHeaders = decorateViteHeaders(headers);
+  nextHeaders.set("Cache-Control", "private, no-store");
+  nextHeaders.delete("CDN-Cache-Control");
+  const vary = new Set(
+    (nextHeaders.get("Vary") ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
+  vary.add("Cookie");
+  vary.add("Host");
+  nextHeaders.set("Vary", [...vary].join(", "));
+  return nextHeaders;
+}
+
+function privatizePasswordGatedResponse(response: Response) {
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: privatePasswordGateHeaders(response.headers),
+  });
 }
 
 function hashSessionToken(token: string) {
@@ -3068,6 +3111,7 @@ export function createWikiApiHandler(client = createClient()) {
         },
       );
     }
+    let passwordGateEnabled = false;
     const context = {
       siteSlug,
       documents: createDocumentsGateway(client, siteSlug),
@@ -3075,7 +3119,10 @@ export function createWikiApiHandler(client = createClient()) {
         getSessionUser(nextRequest, client, siteSlug),
       access: createAccessAdapter(client, siteSlug),
       manifestPrioritySlugs: MANIFEST_PRIORITY_SLUGS,
-      decorateHeaders: decorateViteHeaders,
+      decorateHeaders: (headers: HeadersInit) =>
+        passwordGateEnabled
+          ? privatePasswordGateHeaders(headers)
+          : decorateViteHeaders(headers),
       logger: console,
     };
 
@@ -3094,12 +3141,13 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/liveblocks-webhook" ||
       pathname.startsWith("/api/integrations/epic/");
     if (!passwordGateExempt) {
-      const gateResponse = await enforceApiPasswordGate(
+      const gate = await enforceApiPasswordGate(
         request,
         client,
         siteSlug,
       );
-      if (gateResponse) return gateResponse;
+      passwordGateEnabled = gate.enabled;
+      if (gate.response) return gate.response;
     }
 
     if (pathname.startsWith("/api/publish/")) {
@@ -3151,7 +3199,10 @@ export function createWikiApiHandler(client = createClient()) {
     }
 
     if (pathname === "/api/search") {
-      return handleSearchRequest(request, client, siteSlug);
+      const response = await handleSearchRequest(request, client, siteSlug);
+      return passwordGateEnabled
+        ? privatizePasswordGatedResponse(response)
+        : response;
     }
 
     if (pathname === "/api/timeline") {
@@ -3267,15 +3318,24 @@ export function createWikiApiHandler(client = createClient()) {
     }
 
     if (pathname === "/api/download") {
-      return handleDownloadRequest(request, client, siteSlug);
+      const response = await handleDownloadRequest(request, client, siteSlug);
+      return passwordGateEnabled
+        ? privatizePasswordGatedResponse(response)
+        : response;
     }
 
     if (pathname === "/api/file") {
-      return handleFileRequest(request, client, siteSlug);
+      const response = await handleFileRequest(request, client, siteSlug);
+      return passwordGateEnabled
+        ? privatizePasswordGatedResponse(response)
+        : response;
     }
 
     if (pathname === "/api/page-copy") {
-      return handlePageCopyRequest(request, client, siteSlug);
+      const response = await handlePageCopyRequest(request, client, siteSlug);
+      return passwordGateEnabled
+        ? privatizePasswordGatedResponse(response)
+        : response;
     }
 
     if (pathname === "/api/integrations/epic/authorize") {

@@ -1,7 +1,10 @@
 import { describe, expect, mock, test } from "bun:test";
 import { getFunctionName, type FunctionReference } from "convex/server";
 import JSZip from "jszip";
-import { createWikiApiHandler } from "./wiki-api";
+import {
+  createWikiApiHandler,
+  isPasswordGateEnabled,
+} from "./wiki-api";
 
 process.env.WIKI_GATE_SESSION_SECRET = "wiki-api-test-gate-secret";
 process.env.DIANA_WIKI_PASSWORD_HASH =
@@ -113,9 +116,11 @@ async function signupCookie(
 
 function createFakeConvexClient({
   deniedSlugs = [],
+  failPasswordGateLookup = false,
   passwordGate = false,
 }: {
   deniedSlugs?: string[];
+  failPasswordGateLookup?: boolean;
   passwordGate?: boolean;
 } = {}) {
   const deniedSlugSet = new Set(deniedSlugs);
@@ -169,6 +174,9 @@ function createFakeConvexClient({
     async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
       switch (getFunctionName(ref)) {
         case "sites:getBySlug":
+          if (failPasswordGateLookup) {
+            throw new Error("site config unavailable");
+          }
           return { slug: args.slug, config: { passwordGate } };
         case "users:getByEmailForAuth":
           return users.get(String(args.email)) ?? null;
@@ -448,15 +456,58 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
         request("/api/file?path=sources/public/source.pdf", {
           headers: { Cookie: gateCookieValue },
         }),
+        request("/api/page-copy?slug=wiki/public", {
+          headers: { Cookie: gateCookieValue },
+        }),
       ];
 
-      for (const gatedRequest of coreRequests) {
+      for (const [index, gatedRequest] of coreRequests.entries()) {
         const response = await handler(gatedRequest);
         expect(response?.status, gatedRequest.url).toBe(200);
+        if (index === 0) continue;
+        expect(response!.headers.get("cache-control"), gatedRequest.url).toBe(
+          "private, no-store",
+        );
+        expect(
+          response!.headers.get("cdn-cache-control"),
+          gatedRequest.url,
+        ).toBeNull();
+        expect(response!.headers.get("vary"), gatedRequest.url).toContain("Cookie");
+        expect(response!.headers.get("vary"), gatedRequest.url).toContain("Host");
       }
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  test("fails closed without caching a custom site's gate lookup failure", async () => {
+    let lookups = 0;
+    const client = {
+      async query() {
+        lookups += 1;
+        throw new Error("site config unavailable");
+      },
+    };
+
+    await expect(
+      isPasswordGateEnabled(client as never, "custom"),
+    ).rejects.toThrow("site config unavailable");
+    await expect(
+      isPasswordGateEnabled(client as never, "custom"),
+    ).rejects.toThrow("site config unavailable");
+    expect(lookups).toBe(2);
+
+    const handler = createWikiApiHandler(
+      createFakeConvexClient({ failPasswordGateLookup: true }) as never,
+    );
+    const response = await handler(
+      new Request("http://custom.localhost/api/wiki/manifest", {
+        headers: { Host: "custom.localhost" },
+      }),
+    );
+    expect(response?.status).toBe(503);
+    expect(response!.headers.get("cache-control")).toBe("private, no-store");
+    expect(response!.headers.get("vary")).toContain("Cookie");
   });
 
   test("keeps login, auth, share previews, and service endpoints outside the API gate", async () => {
