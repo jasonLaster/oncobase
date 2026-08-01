@@ -573,7 +573,7 @@ function TextSearch({
       >
         {totalMatches} result{totalMatches !== 1 ? "s" : ""} in{" "}
         {normalizedResults.length} file{normalizedResults.length !== 1 ? "s" : ""}
-        {incomplete ? <span role="status"> — full results loading…</span> : null}
+        {incomplete ? <output aria-live="polite"> (full results loading…)</output> : null}
       </div>
       <DirectoryTree
         activeIndex={activeIndex}
