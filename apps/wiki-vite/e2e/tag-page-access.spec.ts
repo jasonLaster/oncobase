@@ -208,9 +208,11 @@ test.describe("Vite tag page access", () => {
       await expect(ownerPage.getByRole("link", { name: ALLOWED_TITLE })).toBeVisible();
       await expect(ownerPage.getByRole("link", { name: DENIED_TITLE })).toBeVisible();
     } finally {
-      void anonymousContext.close().catch(() => {});
-      void normalContext.close().catch(() => {});
-      void ownerContext.close().catch(() => {});
+      await Promise.all([
+        anonymousContext.close(),
+        normalContext.close(),
+        ownerContext.close(),
+      ]);
     }
   });
 });
