@@ -1609,7 +1609,9 @@ html[data-initial-sidebar-state="collapsed"]
 }
 
 .wiki-shell-file-palette .wiki-shell-command-item-text small {
+  color: var(--foreground);
   line-height: 1rem;
+  opacity: 0.72;
 }
 
 .wiki-shell-command-list button,

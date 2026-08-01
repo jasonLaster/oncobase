@@ -2165,7 +2165,12 @@ function TimelineAxis({
         </div>
         <div className="mt-0.5 text-xs font-semibold text-foreground">Weeks</div>
       </div>
-      <div className="relative min-w-0 overflow-x-auto overscroll-x-contain">
+      <div
+        aria-label="Timeline calendar axis"
+        className="relative min-w-0 overflow-x-auto overscroll-x-contain"
+        role="region"
+        tabIndex={0}
+      >
         <div
           className="relative h-9"
           onWheel={onWheel}
@@ -2277,7 +2282,12 @@ function TimelineTrackRow({
         </Button>
       </div>
 
-      <div className="min-w-0 overflow-x-auto overscroll-x-contain">
+      <div
+        aria-label={`${track.label} timeline plot`}
+        className="min-w-0 overflow-x-auto overscroll-x-contain"
+        role="region"
+        tabIndex={0}
+      >
         <div
           className="relative select-none"
           onPointerDown={dragHandlers.onPointerDown}
