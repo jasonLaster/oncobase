@@ -12,7 +12,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ThreadData } from "@liveblocks/client";
-import { useThreads } from "@liveblocks/react";
+import { useRoom, useThreads } from "@liveblocks/react";
 import { Comment, Composer, Thread } from "@liveblocks/react-ui";
 import { cn } from "./utils.ts";
 import { LiveblocksRoom } from "./room.tsx";
@@ -518,6 +518,7 @@ function CommentsShell({
   onSignIn?: () => void;
   children: ReactNode;
 }) {
+  const room = useRoom();
   const threadsResult = useThreads();
   const [sessionLoading, setSessionLoading] = useState(true);
   const [sessionUser, setSessionUser] = useState<{ email: string; name?: string | null } | null>(
@@ -527,6 +528,7 @@ function CommentsShell({
     () => (threadsResult.isLoading || threadsResult.error ? [] : threadsResult.threads),
     [threadsResult.isLoading, threadsResult.error, threadsResult.threads]
   );
+  const [linkedThread, setLinkedThread] = useState<ThreadData | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const pendingSelectionId = useId();
@@ -620,7 +622,39 @@ function CommentsShell({
     setCommentsWidth(next, { persist: true });
   }, [setCommentsWidth]);
 
-  const sortedThreads = useMemo(() => sortThreads(threads), [threads]);
+  useEffect(() => {
+    const threadId = new URL(window.location.href).searchParams.get("thread");
+    if (!threadId || threads.some((thread) => thread.id === threadId)) {
+      setLinkedThread(null);
+      return;
+    }
+
+    let cancelled = false;
+    void room
+      .getThread(threadId)
+      .then(({ thread }) => {
+        if (!cancelled) setLinkedThread(thread ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setLinkedThread(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [room, threads]);
+
+  const hydratedThreads = useMemo(
+    () =>
+      linkedThread && !threads.some((thread) => thread.id === linkedThread.id)
+        ? [...threads, linkedThread]
+        : threads,
+    [linkedThread, threads],
+  );
+  const sortedThreads = useMemo(
+    () => sortThreads(hydratedThreads),
+    [hydratedThreads],
+  );
   const visibleThreads = useMemo(
     () => (showResolvedThreads ? sortedThreads : sortedThreads.filter((thread) => !thread.resolved)),
     [showResolvedThreads, sortedThreads]
@@ -1219,6 +1253,9 @@ function CommentsShell({
                                     );
 
                                     if (!response.ok) return;
+                                    setLinkedThread((current) =>
+                                      current?.id === thread.id ? null : current
+                                    );
                                     setActiveThreadId((current) => {
                                       if (current === thread.id) {
                                         updateThreadQueryParam(null);
