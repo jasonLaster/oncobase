@@ -408,6 +408,7 @@ function Slider({ label, value, min, max, step, onChange }: {
       </div>
       <input
         type="range"
+        aria-label={`${label} slider`}
         min={min}
         max={max}
         step={step}
@@ -436,7 +437,10 @@ function Hero({ result, medical, spread, onSpread }: {
   onSpread: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-gradient-to-br from-[var(--accent-light)] to-[var(--muted)] p-8 text-center shadow-sm">
+    <div
+      className="rounded-xl border border-[var(--border)] bg-gradient-to-br from-[var(--accent-light)] to-[var(--muted)] p-8 text-center shadow-sm"
+      data-test-id="medical-deduction-summary"
+    >
       <div className="text-sm text-[var(--text-muted)]">Estimated Tax Savings</div>
       <div className="my-2 text-5xl font-bold tabular-nums text-[var(--brand)]">
         {fmtMoneyExact(result.totalSavings)}
@@ -617,6 +621,15 @@ function Heatmap({ onSelect }: { onSelect: (agi: number, med: number) => void })
                     className="cursor-pointer px-2 py-2 text-right transition-opacity hover:opacity-70"
                     style={{ background: `hsla(155, 60%, 50%, ${intensity * 0.5})` }}
                     onClick={() => onSelect(cell.agi, cell.med)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onSelect(cell.agi, cell.med);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`AGI ${fmtMoneyExact(cell.agi)}, medical ${fmtMoneyExact(cell.med)}, estimated tax savings ${fmtMoneyExact(cell.savings)}${cell.wasted > 1000 ? ", deduction exceeds taxable income" : ""}`}
                   >
                     {fmtMoney(cell.savings) + flag}
                   </td>
@@ -654,7 +667,7 @@ function MultiYearPlanner({
   const vsBunch = allocatedSavings - singleYearSavings;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-test-id="medical-deduction-multi-year">
       <label className="flex cursor-pointer items-start gap-3">
         <input
           type="checkbox"

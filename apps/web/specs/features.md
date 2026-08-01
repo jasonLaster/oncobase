@@ -25,6 +25,8 @@ The app is a multi-site wiki publishing platform. Diana is site #1; additional s
   - `/diagnostics` provides the diagnostics timeline landing page
   - `/diagnostics/imaging` provides the imaging/report/DICOM shortcut table
   - `/tools/dicom-viewer` opens DICOM image stacks from diagnostics links
+  - `/tools/medical-deduction` opens the shared medical-expense tax planning
+    calculator described in [medical-deduction.md](./medical-deduction.md)
   - `/tags/[tag]` provides tag archive pages
   - `/login` handles the site password gate
 - Desktop layout uses a header, a resizable left sidebar, and a main content pane.
