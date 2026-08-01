@@ -311,6 +311,32 @@ function holdDicomFileRequest(page: Page, fileName: string) {
   };
 }
 
+function holdDicomCatalogRequest(page: Page) {
+  let release = () => {};
+  const requestSeen = new Promise<void>((resolve) => {
+    void page.route("**/api/dicom/studies", async (route) => {
+      resolve();
+      await new Promise<void>((next) => {
+        release = next;
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          root: null,
+          rootsTried: [],
+          series: [],
+        }),
+      });
+    });
+  });
+
+  return {
+    requestSeen,
+    release: () => release(),
+  };
+}
+
 async function installAnnotationApiMock(page: Page) {
   const savedByImage = new Map<string, unknown[]>();
   const saves: Array<{
@@ -323,6 +349,8 @@ async function installAnnotationApiMock(page: Page) {
       text?: string;
       thickness?: number;
       width?: number;
+      worldEnd?: number[];
+      worldStart?: number[];
       x?: number;
       y?: number;
     }>;
@@ -371,6 +399,8 @@ async function installAnnotationApiMock(page: Page) {
             text?: string;
             thickness?: number;
             width?: number;
+            worldEnd?: number[];
+            worldStart?: number[];
             x?: number;
             y?: number;
           }>,
@@ -761,6 +791,51 @@ test.describe("DICOM viewer", () => {
 
       expect([200, 206]).toContain(res.status());
     }
+  });
+
+  test("keeps the empty DICOM message hidden until catalog loading finishes", async ({
+    page,
+  }) => {
+    const catalogRequest = holdDicomCatalogRequest(page);
+
+    await page.goto(`/tools/dicom-viewer${seededStudySetQuery}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await catalogRequest.requestSeen;
+
+    const seriesPanel = page.getByTestId("dicom-series-panel");
+    await expect(seriesPanel.getByTestId("dicom-series-catalog-loading")).toBeVisible();
+    await expect(seriesPanel).toContainText("Loading DICOM studies…");
+    await expect(seriesPanel).not.toContainText("No DICOM catalog was found.");
+
+    catalogRequest.release();
+
+    await expect(seriesPanel.getByTestId("dicom-series-catalog-loading")).toBeHidden();
+    await expect(seriesPanel).toContainText("No DICOM catalog was found.");
+  });
+
+  test("uses the dedicated catalog loading state in the mobile series sheet", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const catalogRequest = holdDicomCatalogRequest(page);
+
+    await page.goto(`/tools/dicom-viewer${seededStudySetQuery}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await catalogRequest.requestSeen;
+    await page.getByTestId("dicom-mobile-series-bar").click();
+
+    const studySheet = page.getByTestId("dicom-mobile-study-sheet");
+    await expect(studySheet).toHaveAttribute("data-state", "open");
+    await expect(studySheet.getByTestId("dicom-mobile-catalog-loading")).toBeVisible();
+    await expect(studySheet).toContainText("Loading DICOM studies…");
+    await expect(studySheet).not.toContainText("No DICOM catalog was found.");
+
+    catalogRequest.release();
+
+    await expect(studySheet.getByTestId("dicom-mobile-catalog-loading")).toBeHidden();
+    await expect(studySheet).toContainText("No DICOM catalog was found.");
   });
 
   test("stores the current image in the URL and copies a shareable image link", async ({
@@ -1219,6 +1294,57 @@ test.describe("DICOM viewer", () => {
       timeout: 30_000,
     });
     await expect(page.getByTestId("dicom-annotation-shape-arrow")).toBeVisible();
+  });
+
+  test("creates a calibrated ruler and deep-links its exact annotation", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const annotationApi = await installAnnotationApiMock(page);
+    await gotoViewer(page);
+
+    const canvas = page.getByTestId("dicom-annotation-canvas");
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    await drawAnnotation(
+      page,
+      "Ruler",
+      box!,
+      { x: 0.4, y: 0.45 },
+      { x: 0.57, y: 0.45 },
+    );
+
+    await expect(page.getByTestId("dicom-annotation-shape-ruler")).toBeVisible();
+    await expect(page.getByTestId("dicom-annotation-ruler-label")).toContainText(
+      "mm",
+    );
+    await expect.poll(() => annotationApi.saves.length).toBe(1);
+    const ruler = latestSavedAnnotation(annotationApi);
+    expect(ruler.kind).toBe("ruler");
+    expect(ruler.worldStart).toHaveLength(3);
+    expect(ruler.worldEnd).toHaveLength(3);
+    const rulerId = String((ruler as { id?: string }).id);
+    await expect(page).toHaveURL(
+      new RegExp(`annotation=${encodeURIComponent(rulerId)}`),
+    );
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("dicom-annotation-shape-ruler")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("dicom-annotation-selection")).toHaveCount(1);
+    await expect(page).toHaveURL(
+      new RegExp(`annotation=${encodeURIComponent(rulerId)}`),
+    );
+
+    await page.getByRole("button", { name: "Zoom", exact: true }).click();
+    await expect(page.getByTestId("dicom-annotation-canvas")).toHaveClass(
+      /pointer-events-none/,
+    );
+    await expect(page.getByTestId("dicom-annotation-selection")).toHaveCount(1);
+    await expect(page).toHaveURL(
+      new RegExp(`annotation=${encodeURIComponent(rulerId)}`),
+    );
   });
 
   test("multi-selects annotations with shift and drag-selects before group moves", async ({

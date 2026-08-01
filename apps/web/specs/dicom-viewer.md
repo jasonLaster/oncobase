@@ -1,9 +1,9 @@
 # DICOM Viewer Feature Spec
 
-This document describes the behavior verified by
-`apps/web/e2e/dicom-viewer.spec.ts`. Diagnostics route/sidebar regressions are
-also covered by
-`apps/web/e2e/diagnostics-regression.spec.ts`.
+This document describes the shared viewer behavior verified by
+`apps/web/e2e/dicom-viewer.spec.ts` and
+`apps/wiki-vite/e2e/dicom-viewer.spec.ts`. Diagnostics route/sidebar
+regressions are also covered in both applications' regression suites.
 
 ## Routes
 
@@ -164,7 +164,7 @@ surface real image-load errors.
 
 ## Automated Coverage
 
-`apps/web/e2e/dicom-viewer.spec.ts` verifies:
+Both DICOM viewer suites verify:
 
 - `/diagnostics/imaging` links each imaging shortcut to the viewer.
 - `/diagnostics/imaging` renders a compact mobile study list.
