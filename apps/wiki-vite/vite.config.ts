@@ -68,6 +68,19 @@ function vendorChunk(id: string): string | null {
 
 
 export default defineConfig({
+  optimizeDeps: {
+    // Cornerstone's decoder worker statically imports every codec adapter. The
+    // codec packages below publish CommonJS/UMD factories behind ESM-style
+    // subpath exports; without pre-bundling, Vite's dev server exposes the raw
+    // files and the worker fails to link on their missing default exports.
+    include: [
+      "@cornerstonejs/codec-charls/decodewasmjs",
+      "@cornerstonejs/codec-libjpeg-turbo-8bit/decodewasmjs",
+      "@cornerstonejs/codec-openjpeg/decodewasmjs",
+      "@cornerstonejs/codec-openjph/wasmjs",
+      "jpeg-lossless-decoder-js",
+    ],
+  },
   build: {
     // Keep all styles in a single entry stylesheet. Per-chunk CSS files are
     // preloaded via `<link rel="stylesheet">` before a lazy chunk executes, and
