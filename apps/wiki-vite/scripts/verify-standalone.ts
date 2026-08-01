@@ -1,6 +1,9 @@
 const appDir = new URL("..", import.meta.url).pathname;
 const port = Number(process.env.PORT ?? 62006);
 const origin = `http://127.0.0.1:${port}`;
+const localGatePasswordHash =
+  "sha256:1b2fc9341a16ae4e30082965d537ae47c21a0f27fd43eab78330ed81751ae6db";
+const localGateSessionSecret = "wiki-vite-standalone-gate-secret";
 
 async function runCommand(command: string[], env: Record<string, string | undefined> = {}) {
   const proc = Bun.spawn(command, {
@@ -33,7 +36,14 @@ await runCommand(["bun", "run", "build"]);
 
 const server = Bun.spawn(["bun", "server/standalone.ts"], {
   cwd: appDir,
-  env: { ...process.env, PORT: String(port) },
+  env: {
+    ...process.env,
+    PORT: String(port),
+    DIANA_WIKI_PASSWORD_HASH:
+      process.env.DIANA_WIKI_PASSWORD_HASH || localGatePasswordHash,
+    WIKI_GATE_SESSION_SECRET:
+      process.env.WIKI_GATE_SESSION_SECRET || localGateSessionSecret,
+  },
   stdout: "inherit",
   stderr: "inherit",
 });
@@ -88,10 +98,15 @@ try {
   const botMetadataHtml = await botMetadataResponse.text();
   if (
     !/<title>[^<]*Insurance/i.test(botMetadataHtml) ||
-    !botMetadataHtml.includes('rel="canonical"') ||
     !/property="og:title" content="[^"]*Insurance/i.test(botMetadataHtml)
   ) {
-    throw new Error("Standalone bot metadata smoke did not inject page-specific canonical/OG tags");
+    throw new Error("Standalone bot metadata smoke did not inject page-specific title/OG tags");
+  }
+  if (
+    botMetadataHtml.includes('rel="canonical"') ||
+    botMetadataHtml.includes('property="og:url"')
+  ) {
+    throw new Error("Standalone bot metadata smoke exposed a canonical URL behind the password gate");
   }
   if (
     !/name="twitter:card" content="summary"/.test(botMetadataHtml) ||
@@ -133,7 +148,7 @@ try {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ password: "diana" }),
   });
-  if (!loginResponse.ok || !loginResponse.headers.get("set-cookie")?.includes("authed=v1.")) {
+  if (!loginResponse.ok || !loginResponse.headers.get("set-cookie")?.includes("authed=v2.")) {
     throw new Error(`Standalone login smoke failed: ${loginResponse.status}`);
   }
   const authCookie = loginResponse.headers.get("set-cookie")?.split(";")[0] ?? "";
