@@ -391,6 +391,7 @@ export function ChatInterface({
           "",
           routes.conversationPath(createdConvId)
         );
+        window.dispatchEvent(new Event("chat:route-replaced"));
       }
 
       // Persist the user message so cross-tab subscribers see it and the

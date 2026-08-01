@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
 import { gotoWiki, installWikiApiMocks } from "./fixtures";
+import { ensurePasswordGateSession } from "./gate-auth";
 
 const hasAiGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL ?? process.env.VITE_CONVEX_URL;
@@ -9,6 +10,17 @@ const archiveConversation = makeFunctionReference<
   "mutation",
   { id: string; siteSlug?: string }
 >("conversations:archive");
+
+async function archiveIfPossible(conversationId: string | null) {
+  if (!conversationId || !convexUrl) return;
+  const convex = new ConvexHttpClient(convexUrl);
+  await convex
+    .mutation(archiveConversation, {
+      id: conversationId,
+      siteSlug: "diana",
+    })
+    .catch(() => {});
+}
 
 test.describe("Chat", () => {
   test("chat page loads the full composer UI", async ({ page }) => {
@@ -42,13 +54,14 @@ test.describe("Chat", () => {
   test("can send a message and get a response", async ({ page }) => {
     test.skip(!hasAiGateway || !convexUrl, "Live chat UI smoke requires AI_GATEWAY_API_KEY and Convex URL");
 
+    await ensurePasswordGateSession(page);
     await page.goto("/chat", { waitUntil: "domcontentloaded" });
     await page.getByTestId("chat-composer-textarea").fill("Reply with exactly: pong");
     await page.getByTestId("chat-submit-button").click();
 
     const chat = page.getByTestId("chat-interface");
     await expect(chat).toHaveAttribute("data-chat-conversation-id", /.+/, { timeout: 15_000 });
-    await expect(page.getByTestId("chat-message-log")).toContainText(/pong/i, {
+    await expect(page.getByTestId("chat-assistant-message").last()).toContainText(/pong/i, {
       timeout: 60_000,
     });
 
@@ -60,6 +73,53 @@ test.describe("Chat", () => {
         id: conversationId,
         siteSlug: "diana",
       });
+    }
+  });
+
+  test("archiving the active conversation resets the new-chat surface", async ({
+    page,
+  }) => {
+    test.skip(
+      !hasAiGateway || !convexUrl,
+      "Active archive coverage requires AI_GATEWAY_API_KEY and Convex URL",
+    );
+
+    let conversationId: string | null = null;
+    const prompt = `Reply with exactly: archive-reset-${Date.now()}`;
+    try {
+      await ensurePasswordGateSession(page);
+      await page.goto("/chat", { waitUntil: "domcontentloaded" });
+      await page.getByTestId("chat-composer-textarea").fill(prompt);
+      await page.getByTestId("chat-submit-button").click();
+
+      const chat = page.getByTestId("chat-interface");
+      await expect(chat).toHaveAttribute("data-chat-conversation-id", /^(?!new$).+/, {
+        timeout: 15_000,
+      });
+      conversationId = await chat.getAttribute("data-chat-conversation-id");
+      await expect(page.getByTestId("chat-assistant-message").last()).toContainText(
+        /archive-reset-/,
+        { timeout: 60_000 },
+      );
+
+      const activeItem = page
+        .getByTestId("chat-sidebar")
+        .locator(`[data-conversation-id="${conversationId}"]`);
+      await activeItem.locator("..").getByRole("button", {
+        name: "Conversation actions",
+      }).click();
+      await page.getByRole("button", { name: "Archive", exact: true }).click();
+
+      await expect(page).toHaveURL(/\/chat$/);
+      await expect(page.getByTestId("chat-interface")).toHaveAttribute(
+        "data-chat-conversation-id",
+        "new",
+      );
+      await expect(page.getByTestId("chat-interface")).not.toContainText(prompt);
+      await expect(page.getByTestId("chat-suggested-prompts")).toBeVisible();
+      conversationId = null;
+    } finally {
+      await archiveIfPossible(conversationId);
     }
   });
 

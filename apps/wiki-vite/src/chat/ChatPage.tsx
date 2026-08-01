@@ -52,7 +52,7 @@ function ChatRouteContent() {
   if (id === "archived") {
     return <ArchivedChatsRoute />;
   }
-  if (!id) return <ChatInterface conversationId={null} />;
+  if (!id) return <ChatInterface key="new" conversationId={null} />;
   if (conversation === undefined) {
     return <WikiChatLoadingSkeleton data-test-id="chat-conversation-loading" />;
   }
@@ -65,6 +65,7 @@ function ChatRouteContent() {
   }
   return (
     <ChatInterface
+      key={id}
       conversationId={id}
       initialMessages={conversation.messages.map((message) => ({
         _id: message._id,
