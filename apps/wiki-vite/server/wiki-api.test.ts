@@ -229,6 +229,23 @@ function createFakeConvexClient({
             continueCursor: null,
           };
         }
+        case "documents:search": {
+          const query = String(args.query ?? "").toLowerCase();
+          const limit = Number(args.limit ?? 10);
+          return pages
+            .filter(
+              (page) =>
+                !page.sensitive &&
+                `${page.title}\n${page.content}`.toLowerCase().includes(query),
+            )
+            .slice(0, limit)
+            .map((page) => ({
+              slug: page.slug,
+              title: page.title,
+              tags: page.tags,
+              excerpt: page.content,
+            }));
+        }
         case "documents:listManifestPage": {
           const includeSensitive = args.includeSensitive === true;
           const visiblePages = pages.filter((page) => includeSensitive || !page.sensitive);
@@ -670,6 +687,39 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
 
     expect(responses.map((response) => response?.status)).toEqual([200, 200]);
     expect(corpusLoads).toBe(1);
+  });
+
+  test("returns indexed results while a slow public corpus finishes warming", async () => {
+    const client = createFakeConvexClient();
+    const originalQuery = client.query.bind(client);
+    client.query = async (ref, args) => {
+      if (getFunctionName(ref) === "documents:listPageWithContent") {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      return originalQuery(ref, args);
+    };
+    const handler = createWikiApiHandler(client as never);
+    const previousWait = process.env.WIKI_SEARCH_CORPUS_WAIT_MS;
+    process.env.WIKI_SEARCH_CORPUS_WAIT_MS = "1";
+
+    try {
+      const response = await handler(request("/api/search?q=public"));
+      expect(response?.status).toBe(200);
+      expect(response!.headers.get("x-wiki-search-completeness")).toBe("indexed");
+      expect(await response!.json()).toEqual({
+        complete: false,
+        retryAfterMs: 5_000,
+        results: [
+          expect.objectContaining({
+            excerpt: expect.stringContaining("Public wiki body"),
+            slug: "wiki/public",
+          }),
+        ],
+      });
+    } finally {
+      if (previousWait == null) delete process.env.WIKI_SEARCH_CORPUS_WAIT_MS;
+      else process.env.WIKI_SEARCH_CORPUS_WAIT_MS = previousWait;
+    }
   });
 
   test("keeps text and AI search in the explicit reader scope", async () => {

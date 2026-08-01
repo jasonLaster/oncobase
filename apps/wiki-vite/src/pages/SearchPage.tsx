@@ -148,7 +148,12 @@ async function readJsonBody<T>(response: Response): Promise<T> {
 }
 
 type TextSearchResponse = {
-  body: { results?: TextSearchResult[]; error?: string };
+  body: {
+    complete?: boolean;
+    error?: string;
+    results?: TextSearchResult[];
+    retryAfterMs?: number;
+  };
   durationMs: number;
   ok: boolean;
   status: number;
@@ -165,7 +170,7 @@ function requestTextSearch(searchParams: URLSearchParams) {
   const query = searchParams.get("q") ?? "";
   const startedAt = performance.now();
   const pending = fetch(`/api/search?${searchParams}`).then(async (response) => ({
-    body: await readJsonBody<{ results?: TextSearchResult[]; error?: string }>(response),
+    body: await readJsonBody<TextSearchResponse["body"]>(response),
     durationMs: performance.now() - startedAt,
     ok: response.ok,
     status: response.status,
@@ -484,6 +489,7 @@ function DirectoryTree({
 function TextSearch({
   activeIndex,
   error,
+  incomplete,
   onFocusResult,
   query,
   results,
@@ -491,6 +497,7 @@ function TextSearch({
 }: {
   activeIndex: number;
   error: string | null;
+  incomplete: boolean;
   onFocusResult: (index: number) => void;
   query: string;
   results: TextSearchResult[];
@@ -566,6 +573,7 @@ function TextSearch({
       >
         {totalMatches} result{totalMatches !== 1 ? "s" : ""} in{" "}
         {normalizedResults.length} file{normalizedResults.length !== 1 ? "s" : ""}
+        {incomplete ? <span role="status"> — full results loading…</span> : null}
       </div>
       <DirectoryTree
         activeIndex={activeIndex}
@@ -714,6 +722,8 @@ export function SearchPage() {
   const [textResultsQuery, setTextResultsQuery] = useState("");
   const [textStatus, setTextStatus] = useState<SearchStatus>(query ? "loading" : "idle");
   const [textError, setTextError] = useState<string | null>(null);
+  const [textIncomplete, setTextIncomplete] = useState(false);
+  const [textRetryAfterMs, setTextRetryAfterMs] = useState(0);
   const [aiResults, setAiResults] = useState<AISearchResult[]>([]);
   const [aiStatus, setAiStatus] = useState<SearchStatus>(query ? "loading" : "idle");
   const [aiError, setAiError] = useState<string | null>(null);
@@ -749,20 +759,23 @@ export function SearchPage() {
       .map((result) => result.slug);
   }, [query, textResults, textResultsQuery]);
 
-  const runTextSearch = useCallback(async (nextQuery: string) => {
+  const runTextSearch = useCallback(async (nextQuery: string, background = false) => {
     const normalized = nextQuery.trim();
     setTextResultsQuery(normalized);
-    setActiveIndex(0);
+    if (!background) setActiveIndex(0);
 
     if (normalized.length < 2) {
       setTextResults([]);
       setTextStatus(normalized ? "ready" : "idle");
       setTextError(null);
+      setTextIncomplete(false);
       return;
     }
 
-    setTextStatus("loading");
-    setTextError(null);
+    if (!background) {
+      setTextStatus("loading");
+      setTextError(null);
+    }
 
     try {
       const searchParams = new URLSearchParams({ q: normalized, scope });
@@ -776,7 +789,17 @@ export function SearchPage() {
       const results = Array.isArray(body.results) ? body.results : [];
       setTextResults(results);
       setTextStatus("ready");
+      setTextIncomplete(body.complete === false);
+      setTextRetryAfterMs(
+        body.complete === false && Number.isFinite(body.retryAfterMs)
+          ? Math.max(1_000, Number(body.retryAfterMs))
+          : 0,
+      );
     } catch (error) {
+      if (background) {
+        setTextIncomplete(false);
+        return;
+      }
       setTextResults([]);
       setTextStatus("error");
       setTextError(error instanceof Error ? error.message : "Search failed.");
@@ -786,6 +809,14 @@ export function SearchPage() {
   useEffect(() => {
     void runTextSearch(query);
   }, [query, runTextSearch]);
+
+  useEffect(() => {
+    if (!textIncomplete || textRetryAfterMs <= 0) return;
+    const timeout = window.setTimeout(() => {
+      void runTextSearch(query, true);
+    }, textRetryAfterMs);
+    return () => window.clearTimeout(timeout);
+  }, [query, runTextSearch, textIncomplete, textRetryAfterMs]);
 
   useEffect(() => {
     const normalized = query.trim();
@@ -905,6 +936,7 @@ export function SearchPage() {
             <TextSearch
               activeIndex={activeIndex}
               error={textError}
+              incomplete={textIncomplete}
               key={query}
               onFocusResult={setActiveIndex}
               query={query}

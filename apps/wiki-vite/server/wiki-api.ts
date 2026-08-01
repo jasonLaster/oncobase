@@ -99,6 +99,9 @@ const MAX_SEARCH_LIMIT = 5000;
 // trips as practical; Diana's current reader set fits in one page.
 const SEARCH_DOCUMENT_PAGE_SIZE = 500;
 const SEARCH_CORPUS_CACHE_TTL_MS = 60_000;
+const PUBLIC_SEARCH_CORPUS_WAIT_MS = 15_000;
+const PUBLIC_SEARCH_RETRY_AFTER_MS = 5_000;
+const INDEXED_SEARCH_FALLBACK_LIMIT = 100;
 // Archive generation scans the same corpus; avoid serial network pages while
 // preserving Convex's own byte-bounded pagination for large sites.
 const DOWNLOAD_DOCUMENT_PAGE_SIZE = 500;
@@ -2199,6 +2202,54 @@ async function getSearchCorpus(
   }
 }
 
+function publicSearchCorpusWaitMs() {
+  const configured = Number(process.env.WIKI_SEARCH_CORPUS_WAIT_MS);
+  return Number.isFinite(configured) && configured >= 0
+    ? configured
+    : PUBLIC_SEARCH_CORPUS_WAIT_MS;
+}
+
+async function waitForPublicSearchCorpus(pages: Promise<SearchCorpusPage[]>) {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<null>((resolve) => {
+    timeout = setTimeout(() => resolve(null), publicSearchCorpusWaitMs());
+  });
+  try {
+    return await Promise.race([pages, deadline]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+async function loadIndexedSearchResults(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  query: string,
+  limit: number,
+  patterns: PiiPattern[] | undefined,
+) {
+  const indexedLimit = Number.isFinite(limit)
+    ? Math.min(INDEXED_SEARCH_FALLBACK_LIMIT, limit)
+    : INDEXED_SEARCH_FALLBACK_LIMIT;
+  const indexed = (await client.query(
+    api.documents.search,
+    withSiteSlug(siteSlug, { query, limit: indexedLimit }),
+  )) as Array<{
+    excerpt?: string;
+    slug: string;
+    tags?: string[];
+    title: string;
+  }>;
+
+  return indexed.map((result) => ({
+    filePath: result.slug,
+    slug: result.slug,
+    title: applyPiiRedactions(result.title, { patterns }),
+    tags: result.tags,
+    excerpt: applyPiiRedactions(result.excerpt ?? "", { patterns }),
+  }));
+}
+
 async function handleSearchRequest(
   request: Request,
   client: ConvexHttpClient,
@@ -2245,11 +2296,12 @@ async function handleSearchRequest(
         },
   );
 
-  const timedResponseHeaders = () => {
+  const timedResponseHeaders = (completeness = "exhaustive") => {
     const durationMs = Math.round(performance.now() - startedAt);
     const headers = new Headers(responseHeaders);
     headers.set("Server-Timing", `wiki-search;dur=${durationMs}`);
     headers.set("X-Wiki-Search-Budget-Ms", String(TEXT_SEARCH_LATENCY_BUDGET_MS));
+    headers.set("X-Wiki-Search-Completeness", completeness);
     headers.set("X-Wiki-Search-Duration-Ms", String(durationMs));
     return headers;
   };
@@ -2275,12 +2327,33 @@ async function handleSearchRequest(
       matchEnd: number;
     }>;
   }> = [];
-  const visiblePages = await getSearchCorpus(
+  const corpusPromise = getSearchCorpus(
     client,
     siteSlug,
     includeSensitive,
     sessionUser,
   );
+  const visiblePages = includeSensitive
+    ? await corpusPromise
+    : await waitForPublicSearchCorpus(corpusPromise);
+
+  if (!visiblePages) {
+    const indexedResults = await loadIndexedSearchResults(
+      client,
+      siteSlug,
+      query,
+      limit,
+      patterns,
+    );
+    return Response.json(
+      {
+        results: indexedResults,
+        complete: false,
+        retryAfterMs: PUBLIC_SEARCH_RETRY_AFTER_MS,
+      },
+      { headers: timedResponseHeaders("indexed") },
+    );
+  }
 
   for (const page of visiblePages) {
     const title = applyPiiRedactions(page.title, { patterns });

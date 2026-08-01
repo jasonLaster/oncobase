@@ -120,6 +120,9 @@ test.describe("Vite backend API", () => {
     expect(response.headers()["x-wiki-search-budget-ms"]).toBe(
       String(TEXT_SEARCH_LATENCY_BUDGET_MS),
     );
+    expect(["exhaustive", "indexed"]).toContain(
+      response.headers()["x-wiki-search-completeness"],
+    );
     expect(Number(response.headers()["x-wiki-search-duration-ms"])).toBeLessThanOrEqual(
       TEXT_SEARCH_LATENCY_BUDGET_MS,
     );
@@ -134,14 +137,21 @@ test.describe("Vite backend API", () => {
       expect.objectContaining({
         slug: expect.any(String),
         title: expect.any(String),
-        matches: expect.arrayContaining([
+      }),
+    );
+    if (response.headers()["x-wiki-search-completeness"] === "indexed") {
+      expect(body.complete).toBe(false);
+      expect(body.results[0].excerpt).toEqual(expect.any(String));
+    } else {
+      expect(body.results[0].matches).toEqual(
+        expect.arrayContaining([
           expect.objectContaining({
             lineContent: expect.any(String),
             lineNumber: expect.any(Number),
           }),
         ]),
-      }),
-    );
+      );
+    }
   });
 
   test("validates backend AI search route without model credentials", async ({ request }) => {

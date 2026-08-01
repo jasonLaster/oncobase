@@ -301,6 +301,59 @@ test.describe("Search and local page finding", () => {
     await waitForPageTitle(page, "Insurance");
   });
 
+  test("indexed cold results stay visible while exhaustive text search warms", async ({
+    page,
+  }) => {
+    let requests = 0;
+    await page.route("**/api/search?**", (route) => {
+      requests += 1;
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(
+          requests === 1
+            ? {
+                complete: false,
+                retryAfterMs: 1_000,
+                results: [
+                  {
+                    slug: "wiki/diagnostics/diagnosis",
+                    title: "Diagnosis",
+                    excerpt: "diagnosis indexed result",
+                  },
+                ],
+              }
+            : {
+                results: [
+                  {
+                    slug: "wiki/diagnostics/diagnosis",
+                    title: "Diagnosis",
+                    matches: [
+                      { lineContent: "diagnosis exact line", lineNumber: 7 },
+                      { lineContent: "second diagnosis line", lineNumber: 11 },
+                    ],
+                  },
+                ],
+              },
+        ),
+      });
+    });
+    await mockAISearch(page);
+    await installWikiApiMocks(page);
+    await page.goto("/search?q=diagnosis&tab=text", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByTestId("search-text-summary")).toContainText(
+      "full results loading",
+    );
+    await expect(page.getByText("diagnosis indexed result")).toBeVisible();
+    await expect.poll(() => requests).toBe(2);
+    await expect(page.getByTestId("search-text-summary")).toContainText(
+      "2 results in 1 file",
+    );
+    await expect(page.getByTestId("search-text-summary")).not.toContainText(
+      "full results loading",
+    );
+  });
+
   test("AI mode shows ranked results", async ({ page }) => {
     await mockTextSearch(page);
     const aiSearch = await mockAISearch(page);
