@@ -274,6 +274,16 @@ test.describe("Search and local page finding", () => {
 
     await expect(page.getByTestId("search-tab-text")).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("search-text-summary")).toContainText("1 result");
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.__WIKI_VITE_OBSERVABILITY__?.search
+              .filter((metric) => metric.mode === "text")
+              .at(-1)?.withinBudget,
+        ),
+      )
+      .toBe(true);
     await page.getByTestId("search-text-result").click();
 
     await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);

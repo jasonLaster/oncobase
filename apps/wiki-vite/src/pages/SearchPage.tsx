@@ -7,6 +7,7 @@ import {
   protectCurrencyFromMath,
 } from "@oncobase/wiki-markdown";
 import { recordSearchMetric } from "../observability";
+import { isWithinTextSearchLatencyBudget } from "../search-performance";
 import { useWikiScope } from "../wiki-context";
 import { hrefForSlug } from "../wiki-utils";
 import {
@@ -714,23 +715,27 @@ export function SearchPage() {
       }
 
       const results = Array.isArray(body.results) ? body.results : [];
+      const durationMs = performance.now() - startedAt;
       setTextResults(results);
       setTextStatus("ready");
       recordSearchMetric({
         query: normalized,
         mode: "text",
-        durationMs: performance.now() - startedAt,
+        durationMs,
+        withinBudget: isWithinTextSearchLatencyBudget(durationMs),
         resultCount: results.length,
         status: "ready",
       });
     } catch (error) {
+      const durationMs = performance.now() - startedAt;
       setTextResults([]);
       setTextStatus("error");
       setTextError(error instanceof Error ? error.message : "Search failed.");
       recordSearchMetric({
         query: normalized,
         mode: "text",
-        durationMs: performance.now() - startedAt,
+        durationMs,
+        withinBudget: isWithinTextSearchLatencyBudget(durationMs),
         resultCount: 0,
         status: "error",
       });

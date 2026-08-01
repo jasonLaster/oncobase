@@ -5,6 +5,7 @@ type SearchMetric = {
   query: string;
   mode: "text" | "ai";
   durationMs: number;
+  withinBudget?: boolean;
   resultCount: number;
   status: "ready" | "error";
   at: number;

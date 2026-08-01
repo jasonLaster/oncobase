@@ -5,6 +5,7 @@ import {
   type APIRequestContext,
 } from "@playwright/test";
 import JSZip from "jszip";
+import { TEXT_SEARCH_LATENCY_BUDGET_MS } from "../src/search-performance";
 
 const hasAiGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
 const hasOpenAi = Boolean(process.env.OPENAI_API_KEY);
@@ -107,12 +108,23 @@ test.describe("Vite backend API", () => {
   });
 
   test("serves backend text search from the Vite API route", async ({ request }) => {
+    test.setTimeout(TEXT_SEARCH_LATENCY_BUDGET_MS + 20_000);
     await authenticatePasswordGate(request);
+    const startedAt = performance.now();
     const response = await request.get("/api/search?q=diagnosis&limit=5");
+    const clientDurationMs = performance.now() - startedAt;
     expect(response.ok()).toBe(true);
     expect(response.headers()["x-wiki-cache-scope"]).toBe("public");
     expect(response.headers()["cache-control"]).toBe("private, no-store");
     expect(response.headers().vary).toContain("Cookie");
+    expect(response.headers()["x-wiki-search-budget-ms"]).toBe(
+      String(TEXT_SEARCH_LATENCY_BUDGET_MS),
+    );
+    expect(Number(response.headers()["x-wiki-search-duration-ms"])).toBeLessThanOrEqual(
+      TEXT_SEARCH_LATENCY_BUDGET_MS,
+    );
+    expect(response.headers()["server-timing"]).toMatch(/^wiki-search;dur=\d+$/);
+    expect(clientDurationMs).toBeLessThanOrEqual(TEXT_SEARCH_LATENCY_BUDGET_MS);
 
     const body = await response.json();
     expect(Array.isArray(body.results)).toBe(true);

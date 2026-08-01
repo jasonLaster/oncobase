@@ -83,6 +83,7 @@ import {
   tagFromPathname,
 } from "./legacy-route-metadata.js";
 import { safeLocalRedirect } from "../src/safe-redirect.js";
+import { TEXT_SEARCH_LATENCY_BUDGET_MS } from "../src/search-performance.js";
 
 const DEFAULT_SITE_SLUG = "diana";
 const HOST_CACHE_TTL_MS = 15_000;
@@ -2112,6 +2113,7 @@ async function handleSearchRequest(
   client: ConvexHttpClient,
   siteSlug: string,
 ) {
+  const startedAt = performance.now();
   const url = new URL(request.url);
   const scope = url.searchParams.get("scope") === "session" ? "session" : "public";
   const sessionUser = scope === "session"
@@ -2138,22 +2140,33 @@ async function handleSearchRequest(
     ? Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.floor(rawLimit)))
     : Number.POSITIVE_INFINITY;
 
-  const responseHeaders = scope === "session"
-    ? {
-        "Cache-Control": "private, max-age=30, stale-while-revalidate=300",
-        Vary: "Accept, Cookie, Host",
-        "X-Wiki-Cache-Scope": "session",
-      }
-    : {
-        "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
-        Vary: "Accept, Host",
-        "X-Wiki-Cache-Scope": "public",
-      };
+  const responseHeaders = new Headers(
+    scope === "session"
+      ? {
+          "Cache-Control": "private, max-age=30, stale-while-revalidate=300",
+          Vary: "Accept, Cookie, Host",
+          "X-Wiki-Cache-Scope": "session",
+        }
+      : {
+          "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
+          Vary: "Accept, Host",
+          "X-Wiki-Cache-Scope": "public",
+        },
+  );
+
+  const timedResponseHeaders = () => {
+    const durationMs = Math.round(performance.now() - startedAt);
+    const headers = new Headers(responseHeaders);
+    headers.set("Server-Timing", `wiki-search;dur=${durationMs}`);
+    headers.set("X-Wiki-Search-Budget-Ms", String(TEXT_SEARCH_LATENCY_BUDGET_MS));
+    headers.set("X-Wiki-Search-Duration-Ms", String(durationMs));
+    return headers;
+  };
 
   if (query.length < 2) {
     return Response.json(
       { results: [] },
-      { headers: responseHeaders },
+      { headers: timedResponseHeaders() },
     );
   }
 
@@ -2233,7 +2246,7 @@ async function handleSearchRequest(
 
   return Response.json(
     { results: limitedResults },
-    { headers: responseHeaders },
+    { headers: timedResponseHeaders() },
   );
 }
 

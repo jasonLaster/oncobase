@@ -178,4 +178,4 @@ Run `bun run build && bun run check:bundle` before widening the reader surface. 
 
 ## Observability
 
-The reader keeps a small browser-local diagnostics buffer at `window.__WIKI_VITE_OBSERVABILITY__`. It exposes the latest route/cache metrics and recent search timings so Playwright and preview smoke tests can verify cold render, warm navigation, search latency, and cache pressure without relying only on visible UI text.
+The reader keeps a small browser-local diagnostics buffer at `window.__WIKI_VITE_OBSERVABILITY__`. It exposes the latest route/cache metrics and recent search timings so Playwright and preview smoke tests can verify cold render, warm navigation, search latency, and cache pressure without relying only on visible UI text. Exhaustive text search has a 30-second launch budget. The browser records whether each text search stayed within it, while `/api/search` returns `Server-Timing`, `X-Wiki-Search-Duration-Ms`, and `X-Wiki-Search-Budget-Ms` headers for server-side monitoring and integration enforcement.
