@@ -1,3 +1,4 @@
+import { stat } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import {
   documentArticle,
@@ -7,7 +8,7 @@ import {
   openDirectory,
   waitForPageTitle,
 } from "./fixtures";
-import { passwordGateCookie } from "./gate-auth";
+import { ensurePasswordGateSession, passwordGateCookie } from "./gate-auth";
 
 const runsAgainstProductionServer = Boolean(process.env.PLAYWRIGHT_BASE_URL);
 
@@ -161,6 +162,28 @@ test.describe("Page viewing and sidebar navigation", () => {
     await actions.click();
     await menu.getByRole("menuitem", { name: /Command palette/ }).click();
     await expect(page.getByTestId("command-palette")).toBeVisible();
+  });
+
+  test("actions menu downloads the scoped markdown archive in the browser", async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.unroute("**/api/download**");
+    await ensurePasswordGateSession(page);
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    await page.getByRole("button", { name: "Workspace menu" }).click();
+    const downloadPromise = page.waitForEvent("download");
+    await page
+      .getByRole("menu", { name: "Actions" })
+      .getByRole("menuitem", { name: "Download wiki (markdown)" })
+      .click();
+    const download = await downloadPromise;
+
+    expect(download.suggestedFilename()).toBe("diana-tnbc-wiki-markdown.zip");
+    await expect(download.failure()).resolves.toBeNull();
+    const downloadPath = await download.path();
+    expect(downloadPath).not.toBeNull();
+    expect((await stat(downloadPath!)).size).toBeGreaterThan(1_000);
+    await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
   });
 
   test("same-origin actions menu navigation stays in the client router", async ({ page }) => {

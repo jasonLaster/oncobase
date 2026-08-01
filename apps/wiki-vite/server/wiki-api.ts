@@ -97,6 +97,9 @@ const MAX_SEARCH_LIMIT = 5000;
 // rather than the relevance index. Keep the corpus in as few Convex round
 // trips as practical; Diana's current reader set fits in one page.
 const SEARCH_DOCUMENT_PAGE_SIZE = 500;
+// Archive generation scans the same corpus; avoid serial network pages while
+// preserving Convex's own byte-bounded pagination for large sites.
+const DOWNLOAD_DOCUMENT_PAGE_SIZE = 500;
 const TIMELINE_META_KEY = "diagnosticTimeline:data";
 const MANIFEST_PRIORITY_SLUGS = [
   "index",
@@ -1975,7 +1978,7 @@ async function appendMarkdownToArchive(
   let totalDocs = 0;
 
   while (!isDone && totalDocs < maxPages) {
-    const numItems = Math.min(100, maxPages - totalDocs);
+    const numItems = Math.min(DOWNLOAD_DOCUMENT_PAGE_SIZE, maxPages - totalDocs);
     const args = includeSensitive
       ? { cursor, numItems, includeSensitive: true as const }
       : { cursor, numItems };
