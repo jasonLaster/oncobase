@@ -192,6 +192,24 @@ test.describe("Page load experience", () => {
     );
   });
 
+  test("unknown deep links retire their loader after a warm manifest navigation", async ({
+    page,
+  }) => {
+    await installWikiApiMocks(page);
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await waitForPageTitle(page, "Insurance");
+
+    await page.goto("/wiki/missing/after-warm-manifest", {
+      waitUntil: "domcontentloaded",
+    });
+
+    await expect(documentArticle(page).locator("h1")).toHaveText("Page not found");
+    await expect(documentArticle(page)).toContainText(
+      "wiki/missing/after-warm-manifest",
+    );
+    await expect(page.getByTestId("page-loading")).toHaveCount(0);
+  });
+
   test("manifest failures show a bounded retry state instead of an infinite loader", async ({ page }) => {
     await installWikiApiMocks(page, { manifestFailure: true });
     await page.goto("/wiki/logistics/insurance", { waitUntil: "domcontentloaded" });

@@ -506,6 +506,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
 
   useEffect(() => {
     const manifest = manifestRef.current;
+    const state = store.query(siteState$) as SiteStateRow | null;
     const indexedPage = (store.query(pageIndex$) as PageIndexRow[]).find(
       (item) => item.slug === currentSlug,
     );
@@ -521,8 +522,25 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
             size: indexedPage.size,
           }
         : undefined);
-    if (page) void fetchSlug(currentSlug, page).catch(() => undefined);
-  }, [currentSlug, fetchSlug, store]);
+    if (page) {
+      void fetchSlug(currentSlug, page).catch(() => undefined);
+      return;
+    }
+
+    if (state?.lastValidatedAt) {
+      const cached = store.query(pageContentBySlug$(currentSlug)) as PageContentRow | null;
+      if (cached?.contentStatus !== "missing") {
+        store.commit(
+          events.pageContentMissing({
+            slug: currentSlug,
+            contentHash: null,
+            missingAt: Date.now(),
+          }),
+        );
+        onMetrics({ eventCount: 1 });
+      }
+    }
+  }, [currentSlug, fetchSlug, onMetrics, store]);
 
   useEffect(() => {
     const onWarmCache = () => {
