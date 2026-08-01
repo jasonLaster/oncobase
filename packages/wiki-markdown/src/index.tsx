@@ -9,10 +9,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import ReactMarkdown, {
-  defaultUrlTransform,
-  type UrlTransform,
-} from "react-markdown";
+import ReactMarkdown, { type UrlTransform } from "react-markdown";
 import {
   MdTable,
   MdTbody,
@@ -50,6 +47,7 @@ import {
   resolveHref,
   resolveImageSrc,
   resolveWikilinks,
+  sanitizeMarkdownUrl,
   splitWikilinkAlias,
 } from "./paths.ts";
 
@@ -183,11 +181,8 @@ const MdTrCell = withoutNode(MdTr);
 const MdThCell = withoutNode(MdTh);
 const MdTdCell = withoutNode(MdTd);
 
-const wikiUrlTransform: UrlTransform = (value, key) => {
-  if (key === "href" && /^tel:/i.test(value)) {
-    return value;
-  }
-  return defaultUrlTransform(value);
+const wikiUrlTransform: UrlTransform = (value) => {
+  return sanitizeMarkdownUrl(value);
 };
 
 export function WikiMarkdownTableEnhancer({
@@ -327,6 +322,7 @@ export {
   resolveHref,
   resolveImageSrc,
   resolveWikilinks,
+  sanitizeMarkdownUrl,
   splitWikilinkAlias,
 };
 export type {

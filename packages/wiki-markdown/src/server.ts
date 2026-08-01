@@ -12,6 +12,7 @@ import {
   protectCurrencyFromMath,
 } from "./math.ts";
 import { expandSlidesMarkdown } from "./slides-markdown.ts";
+import { resolveWikilinks, sanitizeMarkdownUrl } from "./paths.ts";
 
 const processor = unified()
   .use(remarkParse)
@@ -140,7 +141,10 @@ function fixMarkdownLinks(html: string, currentSlug?: string): string {
       return `href="${href}"`;
     }
     return `href="${href.replace(/\.(?:md|mdx)(#|$)/, "$1")}"`;
-  }).replace(/href="([^"]+)"/g, (_match, href) => {
+  }).replace(/href="([^"]*)"/g, (_match, href) => {
+    const safeHref = sanitizeMarkdownUrl(href);
+    if (!safeHref) return 'href=""';
+    href = safeHref;
     if (
       href.startsWith("http://") ||
       href.startsWith("https://") ||
@@ -283,7 +287,7 @@ function fixPdfLinks(html: string): string {
 }
 
 export function renderWikiMarkdownHtml(md: string, currentSlug?: string): string {
-  const citationLinked = preprocessCitationMarkdown(md);
+  const citationLinked = preprocessCitationMarkdown(resolveWikilinks(md, currentSlug));
   const slidesExpanded = expandSlidesMarkdown(citationLinked);
   const mermaidExtracted = extractMermaidBlocks(slidesExpanded);
   const cleanMd = protectCurrencyFromMath(
@@ -300,7 +304,7 @@ export async function renderWikiMarkdownHtmlAsync(
   md: string,
   currentSlug?: string,
 ): Promise<string> {
-  const citationLinked = preprocessCitationMarkdown(md);
+  const citationLinked = preprocessCitationMarkdown(resolveWikilinks(md, currentSlug));
   const slidesExpanded = expandSlidesMarkdown(citationLinked);
   const mermaidExtracted = extractMermaidBlocks(slidesExpanded);
   const cleanMd = protectCurrencyFromMath(
