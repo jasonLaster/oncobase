@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": false,
   "license": "MIT",
-  "description": "Liveblocks-backed document comments rail and supporting helpers for Oncobase wiki apps. Currently consumed only by web; the Vite reader ships without comments by design.",
+  "description": "Liveblocks-backed document comments rail and supporting helpers shared by the Oncobase web and Vite readers.",
   "type": "module",
   "exports": {
     ".": {

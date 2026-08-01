@@ -67,10 +67,20 @@ Required project env vars:
 - `VITE_CONVEX_URL`
 - `VITE_NEXT_PUBLIC_CONVEX_URL`
 - `WIKI_SITE_SLUG`
+- `LIVEBLOCKS_API_KEY` (or `LIVEBLOCKS_SECRET_KEY`)
+- `LIVEBLOCKS_WEBHOOK_SECRET` when the Liveblocks webhook is configured
 - `AI_GATEWAY_API_KEY`
 - `OPENAI_API_KEY`
 
 `WIKI_SITE_SLUG=diana` is currently required for the new `vercel.app` host because that host is not yet a site-domain record in Convex.
+
+The production Liveblocks project should post all comment and thread events to
+`https://<vite-host>/api/liveblocks-webhook`. Keep the existing Liveblocks
+workspace, Convex deployment, site slug, and document slugs during cutover so
+the `markdown:<documentSlug>` rooms and existing thread URLs remain intact.
+Production comments use authenticated mode and fail closed when the Liveblocks
+API key is unavailable; an explicit `VITE_LIVEBLOCKS_PUBLIC_KEY` is reserved
+for local development fixtures.
 
 ## Environment
 
