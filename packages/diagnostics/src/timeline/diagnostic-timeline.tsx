@@ -723,6 +723,7 @@ function MobileSleeveSwimlanes({
             <div
               className="relative min-h-14 cursor-grab overflow-hidden bg-muted/10 [touch-action:pan-y] active:cursor-grabbing"
               data-test-id={`mobile-swimlane-pan-${track.id}`}
+              onClickCapture={mobilePanHandlers.onClickCapture}
               onPointerCancel={mobilePanHandlers.onPointerCancel}
               onPointerDown={mobilePanHandlers.onPointerDown}
               onPointerMove={mobilePanHandlers.onPointerMove}
@@ -826,6 +827,7 @@ function MobileBloodCountsChart({
     <div
       className="cursor-grab px-2 pb-3 [touch-action:pan-y] active:cursor-grabbing"
       data-test-id="mobile-blood-counts-pan"
+      onClickCapture={mobilePanHandlers.onClickCapture}
       onPointerCancel={mobilePanHandlers.onPointerCancel}
       onPointerDown={mobilePanHandlers.onPointerDown}
       onPointerMove={mobilePanHandlers.onPointerMove}
@@ -2917,27 +2919,28 @@ function useMobileTimelinePanHandlers({
   visibleRange: DateRange;
 }) {
   const dragRef = useRef<{
+    captureTarget: Element;
     initialRange: DateRange;
+    moved: boolean;
     startX: number;
     width: number;
   } | null>(null);
+  const suppressClickRef = useRef(false);
 
   const onPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       if (event.button !== 0) return;
-      const target = event.target;
-      if (
-        target instanceof Element &&
-        target.closest('button, a, [role="button"]')
-      ) {
-        return;
-      }
 
       const rect = event.currentTarget.getBoundingClientRect();
       if (rect.width <= 0) return;
-      event.currentTarget.setPointerCapture(event.pointerId);
+      const captureTarget =
+        event.target instanceof Element ? event.target : event.currentTarget;
+      captureTarget.setPointerCapture(event.pointerId);
+      suppressClickRef.current = false;
       dragRef.current = {
+        captureTarget,
         initialRange: visibleRange,
+        moved: false,
         startX: event.clientX,
         width: rect.width,
       };
@@ -2949,6 +2952,11 @@ function useMobileTimelinePanHandlers({
     (event: ReactPointerEvent<HTMLElement>) => {
       const drag = dragRef.current;
       if (!drag) return;
+      if (!drag.moved && Math.abs(event.clientX - drag.startX) < 4) return;
+
+      if (!drag.moved) {
+        drag.moved = true;
+      }
       event.preventDefault();
 
       const span = drag.initialRange.end - drag.initialRange.start;
@@ -2958,18 +2966,39 @@ function useMobileTimelinePanHandlers({
     [fullRange, onRangeChange],
   );
 
-  const stopDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
+  const onPointerCancel = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    const drag = dragRef.current;
+    if (drag?.captureTarget.hasPointerCapture(event.pointerId)) {
+      drag.captureTarget.releasePointerCapture(event.pointerId);
     }
     dragRef.current = null;
   }, []);
 
+  const onPointerUp = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    const drag = dragRef.current;
+    if (drag?.captureTarget.hasPointerCapture(event.pointerId)) {
+      drag.captureTarget.releasePointerCapture(event.pointerId);
+    }
+    if (drag?.moved) {
+      event.preventDefault();
+      suppressClickRef.current = true;
+    }
+    dragRef.current = null;
+  }, []);
+
+  const onClickCapture = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!suppressClickRef.current) return;
+    suppressClickRef.current = false;
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
+
   return {
-    onPointerCancel: stopDrag,
+    onClickCapture,
+    onPointerCancel,
     onPointerDown,
     onPointerMove,
-    onPointerUp: stopDrag,
+    onPointerUp,
   };
 }
 
