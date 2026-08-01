@@ -91,11 +91,13 @@ its legacy-only clauses, and any intentionally deferred behavior.
 
 The repository currently has 40 Vite E2E spec files. Static inspection finds
 308 `test` declarations before parameterized expansion and conditional skips.
-The post-audit ordered run collected 294 outcomes: 264 passed, 29 were explicit
-environment/runtime skips, and the only failure was the cold exhaustive text
-search timeout described below. After reducing that search from three
-sequential Convex corpus pages to one, two focused cold runs passed in 28.1 and
-12.3 seconds. The raw count is less important than the gaps below.
+The final post-fix ordered run collected 294 outcomes: 265 passed, 29 were
+explicit environment/runtime skips, and none failed. Earlier audit runs found
+an exhaustive text-search timeout and repeatable malformed OPFS snapshots;
+those are included below rather than hidden by the final green count. After
+reducing search from three sequential Convex corpus pages to one, focused cold
+runs passed in 28.1 and 12.3 seconds and the final ordered run passed in 33.7
+seconds. The raw count is less important than the gaps below.
 
 | Contract area | Current Vite evidence | Audit status |
 | --- | --- | --- |
@@ -108,13 +110,13 @@ sequential Convex corpus pages to one, two focused cold runs passed in 28.1 and
 | Chat | Chat UI, performance, navigation resilience, backend stream/tool tests | Good for Vite and live Convex/model paths. Live QA found and fixed the stale active conversation after archive, and corrected the live test so a 401 or echoed user text cannot masquerade as an assistant response. Several live tests legitimately skip without credentials; CI must surface the skip count. |
 | Comments and review | 11 Vite tests versus the legacy suite's 48 named interaction tests | **Major gap.** Vite covers disabled/unavailable states, basic rail/navigation, empty global page, and API validation. It does not exercise successful page/selection comment creation, anchored highlights and thread deep links, edit/delete/copy menus, resolve/reaction/reply flows, guest identity persistence, or a populated global timeline through the Vite backend. Shared package reuse lowers component drift but does not prove Vite auth, routing, API, and layout integration. |
 | Diagnostics timeline | Full timeline interaction test plus seven regression tests | Good. Manual QA is still needed for real pointer/wheel behavior, dense drill-in readability, and mobile marker-origin drags. |
-| DICOM imaging and comparison | 33-test Vite viewer suite, comparison regression, server response-shape test, diagnostics unit tests | Strong. Desktop/mobile catalog loading and calibrated-ruler deep links now have explicit Vite coverage. The viewer and comparison entry points are isolated from the unused wiki LiveStore projection, closing the ordered OPFS reload corruption without changing measured layout. |
+| DICOM imaging and comparison | 33-test Vite viewer suite, comparison regression, server response-shape test, diagnostics unit tests | Strong. Desktop/mobile catalog loading and calibrated-ruler deep links now have explicit Vite coverage. The viewer and comparison entry points no longer boot the unused wiki projection. The wider persisted-store snapshot race was fixed independently, preserving the normal wiki sidebar on diagnostics pages. |
 | Smart tables | 12 expansion tests, examples, performance test | Strong automated geometry coverage. The documented comments/outline-rail transition, real trackpad feel, multi-table sequence, and tablet fallback remain manual-only. |
 | Downloads, files, copy, and sharing | Backend archive/file tests, menu-link assertions, page-copy, DICOM share, image download, PII and multi-site tests | Good at the API boundary. A real browser download from the actions menu is not asserted end to end. |
 | Admin and RBAC UI | Controlled live admin access and bulk-user tests plus role E2E | Good for current launch paths after round three. |
 | Medical deduction tool | Dedicated product contract plus three Vite E2E tests | Good. Formatted inputs, clamping, computed results, named sliders, keyboard grid selection, multi-year state, and mobile overflow are covered. |
 | Epic FHIR lab integration | Four focused Vite server unit tests | API normalization and unauthenticated denial are covered; authorize/callback/sync happy paths require external Epic configuration and have no E2E rehearsal. This is an integration gap, not necessarily a reader-launch blocker. |
-| LiveStore/offline/recovery | Manifest/cache/session/app-recovery E2E and extensive unit tests | Strong for ordinary cache transitions. The audit reproduced the ordered DICOM `database disk image is malformed` failure, then removed DICOM's unnecessary LiveStore dependency. The complete 33-test DICOM sequence and the later ordered matrix crossed annotation reloads without another corruption event. |
+| LiveStore/offline/recovery | Manifest/cache/session/app-recovery E2E and extensive unit tests | Strong after a launch-blocking durability correction. Two of three earlier full runs reproduced `database disk image is malformed`, including on the normal diagnostics page after returning from DICOM. DICOM no longer boots an unused wiki store, and the persisted adapter now asks its leader worker for a recreated snapshot instead of importing an optimistic client-side OPFS image. The exact failing transition passed 10 consecutive repeats, all 33 DICOM tests passed, and the final 294-test ordered matrix completed without corruption. |
 | Accessibility | Focus/modal assertions in palette and mobile navigation; accessible names throughout | Partial. The chat contract explicitly records no axe-core CI, and there is no cross-surface automated accessibility smoke. Manual keyboard/focus QA is required for launch. |
 
 ## Documentation gaps
@@ -191,7 +193,7 @@ input sequence, console/network evidence, severity, and fix commit.
 
 | Severity | Route / runtime | Input and evidence | Disposition |
 | --- | --- | --- | --- |
-| P0 | `/tools/dicom-viewer`, ordered Vite E2E | Drawing an annotation and hard-reloading after the preceding diagnostics/viewer sequence reproduced `database disk image is malformed`; the recovery card replaced the viewer. | Fixed by mounting DICOM viewer/comparison outside the unused wiki LiveStore projection (`cdc2a604`). All 33 DICOM tests pass, including reload, ruler, mobile touch, and delayed-image cases; live reload makes zero `/api/wiki/*` requests and preserves the prior 256/320/581px rail geometry. |
+| P0 | `/tools/dicom-viewer` and `/diagnostics/imaging`, ordered Vite E2E | Drawing an annotation and hard-reloading first reproduced `database disk image is malformed`. A later full run proved DICOM isolation alone was insufficient: returning from the viewer to the normal diagnostics sidebar imported another malformed persisted snapshot. | Fixed in two layers. DICOM viewer/comparison no longer boot the unused wiki projection (`cdc2a604`), and LiveStore now requests a leader-recreated snapshot instead of racing an optimistic client-side OPFS read (`ed12add7`). The exact failing transition passed 10 consecutive repeats, all 33 DICOM tests passed, and the final 294-test matrix was green. Live viewer reload still makes zero `/api/wiki/*` requests and preserves the prior 256/320/581px rail geometry. |
 | P1 | `/about/Index`, live Vite | The canonical route retained an infinite loader because route aliasing did not map to the root content slug. | Fixed and covered cold/warm (`563aa94d`). |
 | P1 | `/wiki/missing/not-here`, live Vite after a successful article navigation | A warm validated manifest left the unknown route in `page-loading` indefinitely with no failed body request. | Fixed by materializing the missing state from the validated index; cold and warm not-found tests pass (`fa37eebd`). |
 | P1 | `/chat`, live Convex/model | Sent `audit-pong-2026-08-01`, received the exact assistant reply, then archived the active conversation. The sidebar removed it but the URL and messages stayed stale. | Fixed by synchronizing history replacement with router state and resetting the active surface on archive (`994ecff3`). The live test now authenticates and asserts an assistant message rather than matching echoed user text. |
@@ -203,3 +205,21 @@ input sequence, console/network evidence, severity, and fix commit.
 | Pass | `/diagnostics?studySet=audit#marker`, 390x844 | Alias canonicalized to `/diagnostics`; real pointer drags moved the date window from Apr 2–Aug 1 to Mar 13–Jul 12, and the start handle resized it to Mar 29–Jul 12 with no horizontal overflow. | Timeline spatial interaction confirmed. |
 | Pass | `/wiki/logistics/insurance.md`, 1440px, and `/table-examples`, 390px | Expanded tables stayed between the 256px sidebar and right rails; collapse, wheel ownership, theme persistence, article navigation, browser back, and mobile in-flow fallback worked. | Table queue behavior confirmed. Clipboard read was browser-permission-blocked, while the automated copy test passed. |
 | Coverage gap | `/comments`, live Liveblocks | Five populated global threads loaded and old thread routes canonicalized. The document rail showed existing content and the signed-out prompt. | Read/navigation path confirmed. Successful create/anchor/reply/edit/delete/resolve flows remain the largest Vite integration gap because this audit did not mutate live comments without a deterministic cleanup harness. |
+
+## Final verification snapshot
+
+- `verify:wiki-vite:static`: lint, package/app typechecks, production Vite
+  build, standalone function build, and bundle budget passed.
+- `verify:wiki-vite:unit`: 214 focused unit tests passed across smart table,
+  diagnostics, wiki content, markdown, shell, and Vite packages.
+- `verify:wiki-vite:server`: build, gate/API verification, and four preview
+  browser tests passed.
+- Full Vite E2E: 265 passed, 29 explicitly skipped for unavailable live or
+  runtime-specific prerequisites, zero failed.
+- DICOM durability: the 33-test serial file passed; the previously failing
+  imaging/sidebar/viewer/back sequence also passed 10 consecutive repeats.
+
+The remaining launch decision is therefore coverage-driven rather than a
+known green-path regression: successful Liveblocks comment mutation is still
+P0, with markdown differential, cross-surface accessibility, and text-search
+latency budgets at P1.
