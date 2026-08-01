@@ -15,14 +15,17 @@ export function PiiViewPage() {
   const slug = params["*"] ?? "";
   const [page, setPage] = useState<PiiPage | null>(null);
   const [error, setError] = useState("");
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
     void fetch(`/api/admin/pii/${encodeURIComponent(slug)}`, {
       credentials: "same-origin",
     }).then(async (response) => {
-      if (response.status === 401) {
-        window.location.assign("/");
+      // The legacy reader renders a not-found page for non-admins rather than
+      // bouncing them home, so the route never confirms the slug exists.
+      if (response.status === 401 || response.status === 404) {
+        setUnavailable(true);
         return;
       }
       if (!response.ok) throw new Error(await response.text());
@@ -31,6 +34,16 @@ export function PiiViewPage() {
       setError(err instanceof Error ? err.message : String(err));
     });
   }, [slug, location.key]);
+
+  if (unavailable) {
+    return (
+      <WikiEmptyState
+        data-test-id="document-article"
+        title="Page not found"
+        description="This page is not available."
+      />
+    );
+  }
 
   if (error) {
     return (

@@ -68,6 +68,78 @@ describe("wiki markdown helpers", () => {
     );
   });
 
+  test("leaves hrefs that already point at the file API alone", () => {
+    expect(
+      resolveHref("/api/file?path=wiki%2Fresearch%2Fpaper.pdf", "wiki/research/index"),
+    ).toBe("/api/file?path=wiki%2Fresearch%2Fpaper.pdf");
+  });
+
+  test("proxies every asset extension the server renderer proxies", () => {
+    expect(resolveHref("results.csv", "wiki/research/index")).toBe(
+      "/api/file?path=wiki%2Fresearch%2Fresults.csv",
+    );
+    expect(resolveHref("scan.png", "wiki/research/index")).toBe(
+      "/api/file?path=wiki%2Fresearch%2Fscan.png",
+    );
+    expect(resolveHref("notes.txt", "wiki/research/index")).toBe("notes.txt");
+  });
+
+  test("keeps fragments on proxied asset hrefs", () => {
+    expect(resolveHref("paper.pdf#page=3", "wiki/research/index")).toBe(
+      "/api/file?path=wiki%2Fresearch%2Fpaper.pdf#page=3",
+    );
+  });
+
+  test("does not double-wrap pdf wikilinks in the React renderer", () => {
+    const html = renderToStaticMarkup(
+      createElement(WikiMarkdown, {
+        content: "See [[telli-2016.pdf]] for details.",
+        currentSlug: "wiki/research/notes",
+      }),
+    );
+
+    expect(html).toContain(
+      'href="/api/file?path=wiki%2Fresearch%2Ftelli-2016.pdf"',
+    );
+    expect(html).not.toContain("%2Fapi%2Ffile");
+  });
+
+  test("renders pdf links as chips like the server renderer does", () => {
+    const html = renderToStaticMarkup(
+      createElement(WikiMarkdown, {
+        content: "See [the paper](telli-2016.pdf) for details.",
+        currentSlug: "wiki/research/notes",
+      }),
+    );
+
+    expect(html).toContain('class="pdf-chip"');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noopener noreferrer"');
+    // The chip shows the file name, not the markdown link label.
+    expect(html).toContain("<span>telli-2016.pdf</span>");
+  });
+
+  test("does not leak the react-markdown node prop into the DOM", () => {
+    const html = renderToStaticMarkup(
+      createElement(WikiMarkdown, {
+        content: [
+          "See [the paper](https://example.com).",
+          "",
+          "| a | b |",
+          "| - | - |",
+          "| 1 | 2 |",
+          "",
+          "```ts",
+          "const x = 1;",
+          "```",
+        ].join("\n"),
+        currentSlug: "wiki/research/notes",
+      }),
+    );
+
+    expect(html).not.toContain("node=");
+  });
+
   test("turns citations into markdown links", () => {
     expect(preprocessCitations("Finding [1] and gene^{2-3}")).toContain(
       "[[1]](#references)",

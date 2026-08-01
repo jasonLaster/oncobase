@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { LockIcon } from "lucide-react";
+import { WikiSensitiveLock } from "@oncobase/wiki-shell/page-chrome";
 import {
   WikiMarkdownBodySkeleton,
   WikiSensitiveUnavailable,
@@ -155,15 +155,7 @@ function DocHeader({
           <MarkdownTitle title={file.title} currentSlug={file.slug} />
         </h1>
         <div className="flex shrink-0 items-center gap-1">
-          {file.sensitive === true && (
-            <span
-              aria-label="Sensitive page"
-              title="Sensitive page"
-              className="inline-flex size-7 items-center justify-center rounded-md text-[var(--text-muted)]"
-            >
-              <LockIcon aria-hidden="true" size={16} strokeWidth={1.8} />
-            </span>
-          )}
+          {file.sensitive === true && <WikiSensitiveLock />}
           <CopyPageButton
             slug={file.slug}
             title={plainTitle}

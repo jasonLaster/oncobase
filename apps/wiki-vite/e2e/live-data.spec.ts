@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { documentArticle, nextErrorOverlay } from "./fixtures";
+import { ensurePasswordGateSession, passwordGateCookie } from "./gate-auth";
 
 test.describe("Live backend P0 smokes", () => {
   test("clean browser renders a real route with a PDF-only bootstrap asset index", async ({
@@ -10,7 +11,11 @@ test.describe("Live backend P0 smokes", () => {
     // so the test budget needs to cover manifest + cold page fetch + sidebar hydration.
     testInfo.setTimeout(120_000);
 
-    const manifestResponse = await request.get("/api/wiki/manifest", { timeout: 60_000 });
+    await ensurePasswordGateSession(page);
+    const manifestResponse = await request.get("/api/wiki/manifest", {
+      headers: { Cookie: await passwordGateCookie(request) },
+      timeout: 60_000,
+    });
     expect(manifestResponse.ok(), await manifestResponse.text()).toBe(true);
     const manifest = await manifestResponse.json();
     const manifestAssets = manifest.assets as Array<{ kind: string; path: string }>;

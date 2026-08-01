@@ -40,6 +40,7 @@ import {
   markdownRemarkPlugins,
   protectCurrencyFromMath,
 } from "./math.ts";
+import { PdfChipLink, isPdfChipHref } from "./pdf-chip.tsx";
 import { expandSlidesMarkdown } from "./slides-markdown.ts";
 import { SlidesViewer, SlidesViewerControls } from "./slides-viewer.tsx";
 import { WikiMarkdownFrame } from "./frame.tsx";
@@ -161,6 +162,27 @@ function MarkdownPre({ children, ...props }: ComponentProps<"pre">) {
   return <pre {...props}>{children}</pre>;
 }
 
+// react-markdown hands every custom component the hast `node`. Components that
+// spread their props onto a DOM element would render it as node="[object Object]".
+//
+// These wrappers must stay module-level: building them inside the render would
+// hand React a new component type on every pass, remounting the whole subtree
+// and discarding DOM that later passes enhance in place (mermaid, tables).
+function withoutNode<P extends object>(
+  Component: (props: P) => ReactNode,
+): (props: P & { node?: unknown }) => ReactNode {
+  return function NodeFreeComponent({ node: _node, ...props }) {
+    return Component(props as unknown as P);
+  };
+}
+
+const MarkdownPreCell = withoutNode(MarkdownPre);
+const MdTheadCell = withoutNode(MdThead);
+const MdTbodyCell = withoutNode(MdTbody);
+const MdTrCell = withoutNode(MdTr);
+const MdThCell = withoutNode(MdTh);
+const MdTdCell = withoutNode(MdTd);
+
 const wikiUrlTransform: UrlTransform = (value, key) => {
   if (key === "href" && /^tel:/i.test(value)) {
     return value;
@@ -215,8 +237,13 @@ export function WikiMarkdown({
         rehypePlugins={markdownRehypePlugins}
         urlTransform={wikiUrlTransform}
         components={{
-          pre: MarkdownPre,
-          a: ({ href, children, ...props }: WikiMarkdownLinkProps) => {
+          pre: MarkdownPreCell,
+          a: ({
+            href,
+            children,
+            node: _node,
+            ...props
+          }: WikiMarkdownLinkProps & { node?: unknown }) => {
             const defaultHref = resolveHref(href, currentSlug, apiBasePath);
             const nextHref = resolveLinkHref
               ? resolveLinkHref(defaultHref, {
@@ -225,6 +252,10 @@ export function WikiMarkdown({
                   apiBasePath,
                 })
               : defaultHref;
+
+            if (isPdfChipHref(nextHref)) {
+              return <PdfChipLink fallbackLabel={children} href={nextHref} />;
+            }
 
             if (isInternalHref(nextHref) && LinkComponent) {
               return (
@@ -240,20 +271,22 @@ export function WikiMarkdown({
               </a>
             );
           },
-          table: (props) => <MdTable {...props} layoutAdapter={tableLayoutAdapter} />,
-          thead: MdThead,
-          tbody: MdTbody,
-          tr: MdTr,
-          th: MdTh,
-          td: MdTd,
-          img: (props) => (
+          table: withoutNode((props) => (
+            <MdTable {...props} layoutAdapter={tableLayoutAdapter} />
+          )),
+          thead: MdTheadCell,
+          tbody: MdTbodyCell,
+          tr: MdTrCell,
+          th: MdThCell,
+          td: MdTdCell,
+          img: withoutNode((props) => (
             <TheaterImage
               {...props}
               ImageComponent={ImageComponent}
               currentSlug={currentSlug}
               apiBasePath={apiBasePath}
             />
-          ),
+          )),
         }}
       >
         {prepared}

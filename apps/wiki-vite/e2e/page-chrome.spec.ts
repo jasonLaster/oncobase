@@ -29,6 +29,19 @@ test.describe("Page chrome parity", () => {
     await expect(actions.getByRole("link")).toHaveCount(0);
   });
 
+  test("marks sensitive pages with the lock affordance the legacy header uses", async ({ page }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await expect(
+      page.getByTestId("page-actions").getByLabel("Sensitive page"),
+    ).toHaveCount(0);
+
+    await installWikiApiMocks(page, { sessionAuthenticated: true });
+    await gotoWiki(page, "/private/plan?scope=session");
+    await expect(
+      page.getByTestId("page-actions").getByLabel("Sensitive page"),
+    ).toBeVisible();
+  });
+
   test("page markdown copy payloads are served by the Vite API boundary", async ({ page, request }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
 

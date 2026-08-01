@@ -31,7 +31,11 @@ function passwordHash() {
   return `sha256:${crypto.createHash("sha256").update(PASSWORD).digest("hex")}`;
 }
 
-async function newSiteUserContext(baseURL: string, email: string) {
+/**
+ * Clears the site password gate without signing anyone in, so the context is
+ * still "logged out" for role checks but can reach the gated reader APIs.
+ */
+async function newGatedAnonymousContext(baseURL: string) {
   const context = await playwrightRequest.newContext({
     baseURL,
     extraHTTPHeaders: { Host: SITE_HOST },
@@ -41,6 +45,11 @@ async function newSiteUserContext(baseURL: string, email: string) {
     data: { password: PASSWORD },
   });
   expect(gateLogin.ok(), await gateLogin.text()).toBeTruthy();
+  return context;
+}
+
+async function newSiteUserContext(baseURL: string, email: string) {
+  const context = await newGatedAnonymousContext(baseURL);
   const response = await context.post("/api/auth/signup", {
     data: { email, password: PASSWORD, name: email.split("@")[0] },
   });
@@ -137,11 +146,7 @@ test.describe("Vite role-based reader access", () => {
       }),
     ]);
 
-    anonymous = await playwrightRequest.newContext({
-      baseURL: url,
-      extraHTTPHeaders: { Host: SITE_HOST },
-      storageState: { cookies: [], origins: [] },
-    });
+    anonymous = await newGatedAnonymousContext(url);
     unassignedUser = await newSiteUserContext(url, `unassigned-${RUN_NONCE}@example.test`);
     assignedUser = await newSiteUserContext(url, `assigned-${RUN_NONCE}@example.test`);
     serovaUser = await newSiteUserContext(url, `serova-${RUN_NONCE}@serova.bio`);

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { gotoWiki, installWikiApiMocks, openDirectory, waitForPageTitle } from "./fixtures";
+import { passwordGateCookie } from "./gate-auth";
 
 async function openSourcePath(page: Page) {
   await openDirectory(page, "sources");
@@ -13,7 +14,9 @@ test.describe("Sidebar source files", () => {
   test("/api/wiki/manifest returns the full tree shape while the route shell stays lean", async ({
     request,
   }) => {
+    const cookie = await passwordGateCookie(request);
     const manifestResponse = await request.get("/api/wiki/manifest?scope=public", {
+      headers: { Cookie: cookie },
       timeout: 45_000,
     });
     expect(manifestResponse.ok()).toBeTruthy();
@@ -134,23 +137,38 @@ test.describe("Sidebar PDF files", () => {
 });
 
 test.describe("PDF serving via /api/file", () => {
+  // /api/file sits behind the site password gate, so these validation checks
+  // need a signed gate session or they only ever observe the 401.
   test("returns 400 when path param is missing", async ({ request }) => {
-    const response = await request.get("/api/file");
+    const response = await request.get("/api/file", {
+      headers: { Cookie: await passwordGateCookie(request) },
+    });
     expect(response.status()).toBe(400);
   });
 
   test("returns 400 for non-PDF / non-asset paths", async ({ request }) => {
-    const response = await request.get("/api/file?path=wiki/diagnostics/diagnosis.md");
+    const response = await request.get("/api/file?path=wiki/diagnostics/diagnosis.md", {
+      headers: { Cookie: await passwordGateCookie(request) },
+    });
     expect(response.status()).toBe(400);
   });
 
   test("returns 400 for unsupported file extensions", async ({ request }) => {
-    const response = await request.get("/api/file?path=sources/example.exe");
+    const response = await request.get("/api/file?path=sources/example.exe", {
+      headers: { Cookie: await passwordGateCookie(request) },
+    });
     expect(response.status()).toBe(400);
   });
 
   test("prevents path traversal", async ({ request }) => {
-    const response = await request.get("/api/file?path=../../etc/passwd");
+    const response = await request.get("/api/file?path=../../etc/passwd", {
+      headers: { Cookie: await passwordGateCookie(request) },
+    });
     expect([400, 404]).toContain(response.status());
+  });
+
+  test("requires a password gate session before validating input", async ({ request }) => {
+    const response = await request.get("/api/file?path=../../etc/passwd");
+    expect(response.status()).toBe(401);
   });
 });

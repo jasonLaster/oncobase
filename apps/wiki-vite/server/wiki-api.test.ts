@@ -356,6 +356,34 @@ function createFakeConvexClient({
               : []),
           ];
         }
+        case "dicom:listSeries":
+          return [
+            {
+              _id: "series-1",
+              seriesKey: "1.2.3",
+              label: "2026-06-26 · MR · PHASE 2 SUB",
+              relativeDirectory: "06-26-breast-mri/dicoms",
+              modality: "MR",
+              studyDescription: "BREAST MRI",
+              seriesDescription: "PHASE 2 SUB",
+              studyDate: "2026-06-26",
+              seriesNumber: 101,
+              images: [
+                {
+                  _id: "image-1",
+                  fileName: "06-26-breast-mri-4013-MR.dcm",
+                  path: "06-26-breast-mri/dicoms/06-26-breast-mri-4013-MR.dcm",
+                  sizeBytes: 1024,
+                  uploadedAt: 0,
+                  instanceNumber: 1,
+                  imagePosition: [0, 0, -89.28],
+                  rows: 512,
+                  columns: 512,
+                  pixelSpacing: [0.7031, 0.7031],
+                },
+              ],
+            },
+          ];
         case "documents:getBySlug":
           return pages.find((page) => page.slug === args.slug) ?? null;
         case "documents:getPdfAssetByPath":
@@ -1265,5 +1293,34 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  // The comparison viewer reads per-image geometry straight off this payload,
+  // so it has to carry the same fields the legacy /api/dicom/studies route emits.
+  test("serves the blob DICOM catalog with the legacy image geometry fields", async () => {
+    const handler = createWikiApiHandler(createFakeConvexClient() as never);
+    const response = await handler(request("/api/dicom/studies"));
+
+    expect(response?.status).toBe(200);
+    const catalog = (await response!.json()) as {
+      root: string;
+      series: Array<{ images: Array<Record<string, unknown>> }>;
+    };
+    expect(catalog.root).toBe("vercel-blob");
+    expect(Object.keys(catalog.series[0]!.images[0]!).sort()).toEqual([
+      "byteLength",
+      "columns",
+      "fileName",
+      "id",
+      "imageId",
+      "imagePosition",
+      "instanceNumber",
+      "modifiedAt",
+      "pixelSpacing",
+      "relativePath",
+      "rows",
+      "sortIndex",
+    ]);
+    expect(catalog.series[0]!.images[0]!.pixelSpacing).toEqual([0.7031, 0.7031]);
   });
 });

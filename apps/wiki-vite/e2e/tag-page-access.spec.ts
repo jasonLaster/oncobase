@@ -40,11 +40,19 @@ function siteBaseURL(baseURL: string) {
   return url.toString().replace(/\/$/, "");
 }
 
-async function signUp(context: BrowserContext, email: string) {
+/**
+ * Clears the site password gate without signing in, so the context stays
+ * logged out for access checks but its navigations are not bounced to /login.
+ */
+async function clearPasswordGate(context: BrowserContext) {
   const gateLogin = await context.request.post("/api/login", {
     data: { password: PASSWORD },
   });
   expect(gateLogin.ok(), await gateLogin.text()).toBeTruthy();
+}
+
+async function signUp(context: BrowserContext, email: string) {
+  await clearPasswordGate(context);
   const response = await context.request.post("/api/auth/signup", {
     data: { email, password: PASSWORD, name: email.split("@")[0] },
   });
@@ -135,6 +143,7 @@ test.describe("Vite tag page access", () => {
     });
 
     try {
+      await clearPasswordGate(anonymousContext);
       await signUp(normalContext, NORMAL_EMAIL);
       await signUp(ownerContext, OWNER_EMAIL);
 

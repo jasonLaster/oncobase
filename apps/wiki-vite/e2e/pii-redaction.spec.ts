@@ -21,6 +21,17 @@ test.describe("P0 PII parity", () => {
     await expect(documentArticle(page)).toContainText("[redacted MRN]");
   });
 
+  test("pii-view route requires an admin account", async ({ page }) => {
+    await installWikiApiMocks(page);
+    await page.goto("/pii-view/wiki/diagnostics/diagnosis", {
+      waitUntil: "domcontentloaded",
+    });
+
+    await expect(documentArticle(page).locator("h1")).toHaveText("Page not found");
+    await expect(page).toHaveURL(/\/pii-view\//);
+    await expect(page.locator("body")).not.toContainText(RAW_IDENTIFIERS);
+  });
+
   test("redacts inline patient references on the about page", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/about/About");

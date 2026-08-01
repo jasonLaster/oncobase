@@ -445,6 +445,7 @@ export function WikiPage({
               content={page.content}
               contentHash={page.contentHash}
               scope={scope}
+              sensitive={page.sensitive || index?.sensitive}
               slug={page.slug}
               title={page.title}
             />

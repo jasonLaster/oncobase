@@ -1,6 +1,7 @@
 import type { WikiScope } from "@oncobase/wiki-content";
 import {
   WikiPageActionButton,
+  WikiSensitiveLock,
   copyTextToClipboard,
 } from "@oncobase/wiki-shell";
 import {
@@ -27,11 +28,13 @@ function ActionButton({
 
 export function PageActions({
   content,
+  sensitive,
   title,
 }: {
   content: string;
   contentHash: string | null;
   scope: WikiScope;
+  sensitive?: boolean;
   slug: string;
   title: string;
 }) {
@@ -57,6 +60,7 @@ export function PageActions({
 
   return (
     <div className="wiki-vite-title-copy" data-test-id="page-actions">
+      {sensitive ? <WikiSensitiveLock data-test-id="sensitive-page-lock" /> : null}
       <ActionButton label="Copy page as markdown" onClick={copyMarkdown}>
         {copied ? <CheckIcon size={16} /> : <ClipboardIcon size={16} />}
       </ActionButton>

@@ -6,7 +6,7 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
-import { passwordGateCookie } from "./gate-auth";
+import { ensurePasswordGateSession, passwordGateCookie } from "./gate-auth";
 
 const { diagnosticComparisonsSeed } = createRequire(import.meta.url)(
   "../../web/scripts/fixtures/diagnostic-comparisons-seed.ts",
@@ -21,6 +21,18 @@ const { diagnosticStudiesSeed } = createRequire(import.meta.url)(
  */
 
 const biopsyLinks = [
+  {
+    id: "diagnostic-2026-07-27-ct-chest",
+    title: "July 27 CT chest",
+    directory: "07-27-ct-chest/dicoms",
+    counter: "285 / 568",
+  },
+  {
+    id: "diagnostic-2026-07-17-breast-mri",
+    title: "July 17 breast MRI",
+    directory: "07-17-breast-mri/dicoms",
+    counter: "521 / 1040",
+  },
   {
     id: "diagnostic-2026-06-26-breast-mri",
     title: "June 26 breast MRI",
@@ -125,8 +137,9 @@ async function seedDiagnosticStudies(
   const appBaseURL = baseURL ?? "http://localhost:3000";
   const response = await request.post(`${appBaseURL}/api/test/diagnostic-studies`, {
     data: { studySet, studies },
+    headers: { Cookie: await passwordGateCookie(request) },
   });
-  expect(response.ok()).toBe(true);
+  expect(response.ok(), await response.text()).toBe(true);
 }
 
 async function seedDiagnosticComparisons(
@@ -138,8 +151,9 @@ async function seedDiagnosticComparisons(
   const appBaseURL = baseURL ?? "http://localhost:3000";
   const response = await request.post(`${appBaseURL}/api/test/dicom-comparisons`, {
     data: { comparisonSet, comparisons },
+    headers: { Cookie: await passwordGateCookie(request) },
   });
-  expect(response.ok()).toBe(true);
+  expect(response.ok(), await response.text()).toBe(true);
 }
 
 async function expectToolState(
@@ -445,6 +459,13 @@ function requireNumber(value: number | undefined, label: string) {
 test.describe.configure({ mode: "serial" });
 
 test.describe("DICOM viewer", () => {
+  // These pages read live diagnostics APIs rather than route mocks, so every
+  // navigation needs a site password gate session or the fetches 401 and the
+  // tables render empty.
+  test.beforeEach(async ({ page }) => {
+    await ensurePasswordGateSession(page);
+  });
+
   test.beforeAll(async ({ request, baseURL }) => {
     if (isProdRun) return;
     await seedDiagnosticStudies(
@@ -530,7 +551,7 @@ test.describe("DICOM viewer", () => {
       mobileList.getByRole("link", { name: /Images/ }).first(),
     ).toHaveAttribute(
       "href",
-      `/tools/dicom-viewer?id=diagnostic-2026-06-26-breast-mri${seededStudySetParam}`,
+      `/tools/dicom-viewer?id=diagnostic-2026-07-27-ct-chest${seededStudySetParam}`,
     );
   });
 

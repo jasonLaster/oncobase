@@ -134,16 +134,27 @@ export function resolveImageSrc(src: string, currentSlug?: string, apiBasePath =
 
 export function resolveHref(href: string | undefined, currentSlug?: string, apiBasePath = "") {
   if (!href) return href;
-  if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//")) {
+  if (
+    href.startsWith("http://") ||
+    href.startsWith("https://") ||
+    href.startsWith("//") ||
+    href.startsWith("#") ||
+    href.startsWith("/api/")
+  ) {
     return href;
   }
   if (/\.(?:md|mdx)(?:#|$)/.test(href)) {
     return href.replace(/\.(?:md|mdx)(#|$)/, "$1");
   }
-  if (href.endsWith(".pdf")) {
-    return encodeFilePath(resolveAssetPath(href, currentSlug), apiBasePath);
-  }
-  return href;
+
+  const [rawPath, ...hashParts] = href.split("#");
+  const ext = rawPath.includes(".")
+    ? rawPath.slice(rawPath.lastIndexOf(".")).toLowerCase()
+    : "";
+  if (!PROXIED_EXTENSIONS.has(ext)) return href;
+
+  const hash = hashParts.length > 0 ? `#${hashParts.join("#")}` : "";
+  return `${encodeFilePath(resolveAssetPath(rawPath, currentSlug), apiBasePath)}${hash}`;
 }
 
 export function isInternalWikiHref(href: string | undefined): href is string {
