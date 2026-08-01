@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { slugFromPath } from "./wiki-utils";
+import { contentSlugFromRouteSlug, slugFromPath } from "./wiki-utils";
 
 describe("slugFromPath", () => {
   test("treats markdown extensions as article aliases", () => {
@@ -16,5 +16,18 @@ describe("slugFromPath", () => {
       "wiki/logistics/insurance",
     );
     expect(slugFromPath("/")).toBe("index");
+  });
+});
+
+describe("contentSlugFromRouteSlug", () => {
+  test("maps the canonical about index route to root content", () => {
+    expect(contentSlugFromRouteSlug("about/Index")).toBe("index");
+    expect(contentSlugFromRouteSlug("ABOUT/index")).toBe("index");
+  });
+
+  test("leaves ordinary document slugs unchanged", () => {
+    expect(contentSlugFromRouteSlug("wiki/logistics/insurance")).toBe(
+      "wiki/logistics/insurance",
+    );
   });
 });

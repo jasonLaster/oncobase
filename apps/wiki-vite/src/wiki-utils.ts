@@ -4,6 +4,7 @@ import type { StoragePressure } from "./types";
 
 const RECENT_KEY = "cmd-palette-recent";
 const LEGACY_RECENT_KEY = "wiki-vite-recent-slugs";
+const ROUTE_CONTENT_SLUG_ALIASES = new Map([["about/index", "index"]]);
 
 export function slugFromPath(pathname: string) {
   const decoded = decodeURIComponent(pathname)
@@ -11,6 +12,10 @@ export function slugFromPath(pathname: string) {
     .replace(/\/+$/, "")
     .replace(/\.(?:md|mdx)$/i, "");
   return decoded || "index";
+}
+
+export function contentSlugFromRouteSlug(routeSlug: string) {
+  return ROUTE_CONTENT_SLUG_ALIASES.get(routeSlug.toLowerCase()) ?? routeSlug;
 }
 
 export function hrefForSlug(slug: string) {

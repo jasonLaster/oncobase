@@ -55,6 +55,7 @@ import {
   WIKI_SITE_NAME,
 } from "../document-title";
 import {
+  contentSlugFromRouteSlug,
   hrefForSlug,
   parseJsonArray,
   slugFromPath,
@@ -163,7 +164,8 @@ export function WikiPage({
   const scope = useWikiScope();
   const identity = useWikiSession();
   const [toast, setToast] = useState<string | null>(null);
-  const slug = slugFromPath(location.pathname);
+  const routeSlug = slugFromPath(location.pathname);
+  const slug = contentSlugFromRouteSlug(routeSlug);
   const deferredSlug = useDeferredValue(slug);
   const routePending = deferredSlug !== slug;
   const page = useStore().store.useQuery(pageContentBySlug$(deferredSlug)) as PageContentRow | null;
@@ -186,14 +188,14 @@ export function WikiPage({
   }>({
     hadContent: false,
     recorded: false,
-    slug,
+    slug: routeSlug,
     start: performance.now(),
   });
-  if (routeRenderRef.current.slug !== slug) {
+  if (routeRenderRef.current.slug !== routeSlug) {
     routeRenderRef.current = {
       hadContent: Boolean(page?.content && page.slug === slug),
       recorded: false,
-      slug,
+      slug: routeSlug,
       start: performance.now(),
     };
   }
@@ -208,8 +210,13 @@ export function WikiPage({
   );
   const pageMatchesRoute = page?.slug === slug;
   const metadataPageAvailable = Boolean(routeIndex) || pageMatchesRoute;
-  const metadataPageTitle =
+  const rawMetadataPageTitle =
     routeIndex?.title ?? (pageMatchesRoute ? page.title : null);
+  const metadataPageTitle =
+    routeSlug.toLowerCase() === "about/index" &&
+    rawMetadataPageTitle?.toLowerCase() === "index"
+      ? "Index"
+      : rawMetadataPageTitle;
   const metadataPageDescription = routeIndex?.description ?? null;
   const routeAdapter = useMemo(
     () => ({
@@ -245,11 +252,11 @@ export function WikiPage({
   }, [onMetrics, page?.content, page?.size]);
 
   useEffect(() => {
-    if (slug !== "index" && !metadataPageAvailable && pageIndex.length === 0) {
+    if (routeSlug !== "index" && !metadataPageAvailable && pageIndex.length === 0) {
       return;
     }
 
-    if (slug === "index") {
+    if (routeSlug === "index") {
       updateClientRouteMetadata({
         description: WIKI_SITE_DESCRIPTION,
         openGraphDescription: WIKI_SITE_DESCRIPTION,
@@ -281,12 +288,17 @@ export function WikiPage({
     metadataPageDescription,
     metadataPageTitle,
     pageIndex.length,
-    slug,
+    routeSlug,
   ]);
 
   useEffect(() => {
     const routeRender = routeRenderRef.current;
-    if (!page?.content || page.slug !== slug || routeRender.recorded || routeRender.slug !== slug) {
+    if (
+      !page?.content ||
+      page.slug !== slug ||
+      routeRender.recorded ||
+      routeRender.slug !== routeSlug
+    ) {
       return;
     }
 
@@ -298,7 +310,7 @@ export function WikiPage({
         ? { warmRouteRenderMs: elapsed }
         : { coldRouteRenderMs: elapsed }),
     });
-  }, [onMetrics, page?.content, page?.slug, slug]);
+  }, [onMetrics, page?.content, page?.slug, routeSlug, slug]);
 
   if (routePending) {
     return (
@@ -377,9 +389,15 @@ export function WikiPage({
     if (failedCurrentFetch) {
       return (
         <WikiEmptyState
-          before={<Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={index?.title} />}
+          before={
+            <Breadcrumbs
+              pageSlugs={pageSlugs}
+              slug={routeSlug}
+              title={metadataPageTitle ?? undefined}
+            />
+          }
           data-test-id="document-article"
-          title={index?.title ?? "Markdown unavailable"}
+          title={metadataPageTitle ?? "Markdown unavailable"}
           description="The page is in the local manifest, but its markdown body could not be fetched. Cached pages remain available while this request is retried."
           actions={
             <WikiPageActionButton
@@ -396,9 +414,15 @@ export function WikiPage({
     if (metrics.status === "error") {
       return (
         <WikiEmptyState
-          before={<Breadcrumbs pageSlugs={pageSlugs} slug={slug} title={index?.title} />}
+          before={
+            <Breadcrumbs
+              pageSlugs={pageSlugs}
+              slug={routeSlug}
+              title={metadataPageTitle ?? undefined}
+            />
+          }
           data-test-id="document-article"
-          title={index?.title ?? "Markdown unavailable"}
+          title={metadataPageTitle ?? "Markdown unavailable"}
           description={metrics.message || "The page could not be loaded from the wiki backend."}
           actions={
             <WikiPageActionButton
@@ -423,15 +447,19 @@ export function WikiPage({
     );
   }
 
-  const isIndexPage = page.slug === "index";
+  const displayTitle =
+    routeSlug.toLowerCase() === "about/index" && page.title.toLowerCase() === "index"
+      ? "Index"
+      : page.title;
+  const isHomePage = routeSlug === "index" && page.slug === "index";
   const pageBody = (
     <>
       {toast ? <WikiToast>{toast}</WikiToast> : null}
-      {!isIndexPage ? (
+      {!isHomePage ? (
         <WikiPageHeader
           title={
             <MarkdownTitle
-              title={page.title}
+              title={displayTitle}
               currentSlug={page.slug}
               LinkComponent={({ href, children, ...props }) => (
                 <Link to={href} {...props}>
@@ -447,7 +475,7 @@ export function WikiPage({
               scope={scope}
               sensitive={page.sensitive || index?.sensitive}
               slug={page.slug}
-              title={page.title}
+              title={displayTitle}
             />
           }
         />
@@ -471,7 +499,7 @@ export function WikiPage({
           </a>
         )}
       />
-      {!isIndexPage ? (
+      {!isHomePage ? (
         <WikiTagList
           tags={tags}
           renderTag={(tag) => (
@@ -498,7 +526,7 @@ export function WikiPage({
       articleClassName="page-shell"
       contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
       documentSlug={page.slug}
-      documentTitle={page.title}
+      documentTitle={displayTitle}
       mobileRail={false}
       pathname={location.pathname}
     >
@@ -512,7 +540,7 @@ export function WikiPage({
         articleClassName="page-shell"
         contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
         documentSlug={page.slug}
-        documentTitle={page.title}
+        documentTitle={displayTitle}
         mobileRail={false}
         onSignIn={() => openWikiAuthDialog("signin")}
         pathname={location.pathname}

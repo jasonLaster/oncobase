@@ -6,7 +6,7 @@ import type {
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router";
 import type { PageContentRow, PageIndexRow, SiteStateRow } from "../types";
-import { slugFromPath } from "../wiki-utils";
+import { contentSlugFromRouteSlug, slugFromPath } from "../wiki-utils";
 import {
   isCurrentReaderHydrated,
   isCurrentReaderManifestValidated,
@@ -58,7 +58,7 @@ export function FirstFrameSnapshotSync({
 }) {
   const { store } = useStore();
   const location = useLocation();
-  const slug = slugFromPath(location.pathname);
+  const slug = contentSlugFromRouteSlug(slugFromPath(location.pathname));
   const state = store.useQuery(siteState$) as SiteStateRow | null;
   const page = store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
   const index = store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;

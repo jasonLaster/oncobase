@@ -77,6 +77,20 @@ test.describe("Page load experience", () => {
       .toBeGreaterThanOrEqual(0);
   });
 
+  test("about index renders root content at its canonical route", async ({ page }) => {
+    await installWikiApiMocks(page);
+    await gotoWiki(page, "/about/Index");
+
+    await expect(page).toHaveURL(/\/about\/Index$/);
+    await waitForPageTitle(page, "Diana Wiki Home");
+    await expect(documentArticle(page)).toContainText(
+      "Welcome to the local Vite reader fixture",
+    );
+    await expect(documentArticle(page).locator(".wiki-shell-page-header")).toBeVisible();
+    await expect(page.getByTestId("page-loading")).toHaveCount(0);
+    await expect(nextErrorOverlay(page)).toHaveCount(0);
+  });
+
   test("mobile initial paint keeps header and bottom page affordance", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await installWikiApiMocks(page);

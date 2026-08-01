@@ -30,6 +30,7 @@ import type {
 import { useWikiScope } from "../wiki-context";
 import {
   byteSize,
+  contentSlugFromRouteSlug,
   isAuthError,
   manifestToEvent,
   normalizeFetchedPageSlug,
@@ -160,7 +161,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const { store } = useStore();
   const scope = useWikiScope();
   const location = useLocation();
-  const currentSlug = slugFromPath(location.pathname);
+  const currentSlug = contentSlugFromRouteSlug(slugFromPath(location.pathname));
   const [networkTick, setNetworkTick] = useState(0);
   const manifestRef = useRef<WikiManifest | null>(null);
   const currentSlugRef = useRef(currentSlug);
