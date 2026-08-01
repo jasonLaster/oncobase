@@ -221,13 +221,14 @@ function AdminUsersPage() {
                         type="checkbox"
                         disabled={isCurrentUser}
                         checked={selected.includes(user._id)}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const checked = event.currentTarget.checked;
                           setSelected((current) =>
-                            event.currentTarget.checked
+                            checked
                               ? [...current, user._id]
                               : current.filter((id) => id !== user._id),
-                          )
-                        }
+                          );
+                        }}
                       />
                     </td>
                     <td>{userLabel}</td>
