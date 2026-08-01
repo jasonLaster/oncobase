@@ -31,6 +31,10 @@ const adapter = makePersistedAdapter({
   storage: { type: "opfs" },
   worker: LiveStoreWorker,
   sharedWorker: LiveStoreSharedWorker,
+  // Rapid route reloads can overlap the optimistic client-side OPFS snapshot
+  // read with the previous leader's final write. Ask the leader for a recreated
+  // snapshot so a partially observed SQLite image never reaches React queries.
+  experimental: { disableFastPath: true },
 });
 
 function BootRetryPending() {
