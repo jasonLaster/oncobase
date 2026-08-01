@@ -35,7 +35,7 @@ async function authenticatedHeaders(extraCookie = "") {
   };
 }
 
-function fakeClient({ canAccessSensitive = true } = {}) {
+function fakeClient({ canAccessSensitive = true, passwordGate = true } = {}) {
   return {
     async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
       switch (getFunctionName(ref)) {
@@ -43,7 +43,7 @@ function fakeClient({ canAccessSensitive = true } = {}) {
           return {
             slug: args.slug,
             config: {
-              passwordGate: true,
+              passwordGate,
               passwordHash: TEST_GATE_HASH,
             },
           };
@@ -278,7 +278,7 @@ describe("wiki Vite app-shell password gate", () => {
     );
   });
 
-  test("serves the production favicon and robots policy outside the password gate", async () => {
+  test("serves the favicon and a gate-aware robots policy outside the password gate", async () => {
     const handler = createWikiViteHandler({
       client: fakeClient() as never,
       distDir,
@@ -292,7 +292,16 @@ describe("wiki Vite app-shell password gate", () => {
     const robots = await handler(request("/robots.txt"));
     expect(robots.status).toBe(200);
     expect(robots.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(robots.headers.get("cache-control")).toBe("no-cache");
+    expect(robots.headers.get("vary")).toBe("Host");
     expect(await robots.text()).toBe("User-agent: *\nDisallow: /\n");
+
+    const publicHandler = createWikiViteHandler({
+      client: fakeClient({ passwordGate: false }) as never,
+      distDir,
+    });
+    const publicRobots = await publicHandler(request("/robots.txt"));
+    expect(await publicRobots.text()).toBe("User-agent: *\nAllow: /\n");
 
     const shell = await handler(
       request("/", { headers: await authenticatedHeaders() }),

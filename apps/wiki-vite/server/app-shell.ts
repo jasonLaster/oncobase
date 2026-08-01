@@ -443,6 +443,37 @@ async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath:
   };
 }
 
+async function robotsPolicyResponse(
+  request: Request,
+  client: ConvexHttpClient,
+) {
+  let allowIndexing = false;
+  try {
+    const siteSlug = await resolveSiteSlug(request, client);
+    if (siteSlug) {
+      const gateConfig = await getRequestPasswordGateConfig(
+        request,
+        client,
+        siteSlug,
+      );
+      allowIndexing = !gateConfig.enabled;
+    }
+  } catch (error) {
+    console.warn("[wiki-vite-server] robots policy lookup failed", error);
+  }
+
+  return new Response(
+    `User-agent: *\n${allowIndexing ? "Allow" : "Disallow"}: /\n`,
+    {
+      headers: {
+        "Cache-Control": "no-cache",
+        "Content-Type": "text/plain; charset=utf-8",
+        Vary: "Host",
+      },
+    },
+  );
+}
+
 export function createAppShellHandler({
   client = createClient(),
   distDir,
@@ -454,6 +485,9 @@ export function createAppShellHandler({
 }) {
   return async function handleAppShellRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/robots.txt") {
+      return robotsPolicyResponse(request, client);
+    }
     const directPath = safeStaticPath(distDir, url.pathname === "/" ? "/index.html" : url.pathname);
     const hasExtension = path.extname(url.pathname) !== "";
     const isMarkdownAlias = MARKDOWN_ALIAS_PATH_RE.test(url.pathname);
