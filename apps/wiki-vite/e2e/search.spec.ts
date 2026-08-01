@@ -254,7 +254,7 @@ test.describe("Search and local page finding", () => {
   });
 
   test("search route runs backend text search and opens results", async ({ page }) => {
-    await mockTextSearch(page, {
+    const textSearch = await mockTextSearch(page, {
       body: {
         results: [
           {
@@ -274,6 +274,17 @@ test.describe("Search and local page finding", () => {
 
     await expect(page.getByTestId("search-tab-text")).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("search-text-summary")).toContainText("1 result");
+    expect(textSearch.requests).toHaveLength(1);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.__WIKI_VITE_OBSERVABILITY__?.search.filter(
+              (metric) => metric.mode === "text",
+            ).length,
+        ),
+      )
+      .toBe(1);
     await expect
       .poll(() =>
         page.evaluate(

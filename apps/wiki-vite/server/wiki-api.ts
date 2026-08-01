@@ -98,6 +98,7 @@ const MAX_SEARCH_LIMIT = 5000;
 // rather than the relevance index. Keep the corpus in as few Convex round
 // trips as practical; Diana's current reader set fits in one page.
 const SEARCH_DOCUMENT_PAGE_SIZE = 500;
+const SEARCH_CORPUS_CACHE_TTL_MS = 60_000;
 // Archive generation scans the same corpus; avoid serial network pages while
 // preserving Convex's own byte-bounded pagination for large sites.
 const DOWNLOAD_DOCUMENT_PAGE_SIZE = 500;
@@ -119,6 +120,19 @@ type PageDownloadResult = {
   isDone: boolean;
   continueCursor: string | null;
 };
+
+type SearchCorpusPage = PageDownloadResult["page"][number];
+
+type SearchCorpusCacheEntry = {
+  expires: number;
+  pages: Promise<SearchCorpusPage[]>;
+};
+
+// Vite development intentionally runs React effects twice. Keep concurrent
+// public searches from downloading the same complete corpus twice, and retain
+// the corpus for the same interval as the public search response. The client
+// key keeps unit-test handlers and independently configured sites isolated.
+const publicSearchCorpusCache = new WeakMap<object, Map<string, SearchCorpusCacheEntry>>();
 
 type DownloadAsset = {
   blobUrl?: string;
@@ -2108,6 +2122,83 @@ async function handleDownloadRequest(
   });
 }
 
+async function loadSearchCorpus(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  includeSensitive: boolean,
+  sessionUser: SessionUser | null,
+) {
+  const pages: SearchCorpusPage[] = [];
+  let cursor: string | null = null;
+  let isDone = false;
+
+  while (!isDone) {
+    const pageResult = (await client.query(
+      api.documents.listPageWithContent,
+      withSiteSlug(
+        siteSlug,
+        includeSensitive
+          ? {
+              cursor,
+              numItems: SEARCH_DOCUMENT_PAGE_SIZE,
+              includeSensitive: true as const,
+            }
+          : { cursor, numItems: SEARCH_DOCUMENT_PAGE_SIZE },
+      ),
+    )) as PageDownloadResult;
+    pages.push(
+      ...(await filterAccessiblePages(
+        client,
+        siteSlug,
+        sessionUser,
+        pageResult.page,
+      )),
+    );
+
+    isDone = pageResult.isDone;
+    cursor = pageResult.continueCursor;
+    if (!isDone && !cursor) {
+      throw new Error("Search pagination failed");
+    }
+  }
+
+  return pages;
+}
+
+async function getSearchCorpus(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  includeSensitive: boolean,
+  sessionUser: SessionUser | null,
+) {
+  if (includeSensitive) {
+    // Session corpora can differ by user grants and must never share a cache.
+    return loadSearchCorpus(client, siteSlug, true, sessionUser);
+  }
+
+  const now = Date.now();
+  let clientCache = publicSearchCorpusCache.get(client);
+  if (!clientCache) {
+    clientCache = new Map();
+    publicSearchCorpusCache.set(client, clientCache);
+  }
+
+  const cached = clientCache.get(siteSlug);
+  if (cached && cached.expires > now) return cached.pages;
+
+  const pages = loadSearchCorpus(client, siteSlug, false, null);
+  clientCache.set(siteSlug, {
+    expires: now + SEARCH_CORPUS_CACHE_TTL_MS,
+    pages,
+  });
+  try {
+    return await pages;
+  } catch (error) {
+    if (clientCache.get(siteSlug)?.pages === pages) clientCache.delete(siteSlug);
+    throw error;
+  }
+}
+
 async function handleSearchRequest(
   request: Request,
   client: ConvexHttpClient,
@@ -2184,60 +2275,36 @@ async function handleSearchRequest(
       matchEnd: number;
     }>;
   }> = [];
-  let cursor: string | null = null;
-  let isDone = false;
+  const visiblePages = await getSearchCorpus(
+    client,
+    siteSlug,
+    includeSensitive,
+    sessionUser,
+  );
 
-  while (!isDone) {
-    const pageResult = (await client.query(
-      api.documents.listPageWithContent,
-      withSiteSlug(
-        siteSlug,
-        includeSensitive
-          ? {
-              cursor,
-              numItems: SEARCH_DOCUMENT_PAGE_SIZE,
-              includeSensitive: true as const,
-            }
-          : { cursor, numItems: SEARCH_DOCUMENT_PAGE_SIZE },
-      ),
-    )) as PageDownloadResult;
-    const visiblePages = await filterAccessiblePages(
-      client,
-      siteSlug,
-      sessionUser,
-      pageResult.page,
-    );
+  for (const page of visiblePages) {
+    const title = applyPiiRedactions(page.title, { patterns });
+    const content = applyPiiRedactions(page.content, { patterns });
+    const matches = content.split("\n").flatMap((lineContent, index) => {
+      regex.lastIndex = 0;
+      const match = regex.exec(lineContent);
+      return match
+        ? [{
+            lineNumber: index + 1,
+            lineContent,
+            matchStart: match.index,
+            matchEnd: match.index + match[0].length,
+          }]
+        : [];
+    });
 
-    for (const page of visiblePages) {
-      const title = applyPiiRedactions(page.title, { patterns });
-      const content = applyPiiRedactions(page.content, { patterns });
-      const matches = content.split("\n").flatMap((lineContent, index) => {
-        regex.lastIndex = 0;
-        const match = regex.exec(lineContent);
-        return match
-          ? [{
-              lineNumber: index + 1,
-              lineContent,
-              matchStart: match.index,
-              matchEnd: match.index + match[0].length,
-            }]
-          : [];
+    if (matches.length > 0) {
+      results.push({
+        filePath: page.slug,
+        slug: page.slug,
+        title,
+        matches,
       });
-
-      if (matches.length > 0) {
-        results.push({
-          filePath: page.slug,
-          slug: page.slug,
-          title,
-          matches,
-        });
-      }
-    }
-
-    isDone = pageResult.isDone;
-    cursor = pageResult.continueCursor;
-    if (!isDone && !cursor) {
-      throw new Error("Search pagination failed");
     }
   }
 

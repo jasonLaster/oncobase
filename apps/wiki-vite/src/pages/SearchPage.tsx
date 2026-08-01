@@ -147,6 +147,66 @@ async function readJsonBody<T>(response: Response): Promise<T> {
   }
 }
 
+type TextSearchResponse = {
+  body: { results?: TextSearchResult[]; error?: string };
+  durationMs: number;
+  ok: boolean;
+  status: number;
+  statusText: string;
+};
+
+const pendingTextSearchRequests = new Map<string, Promise<TextSearchResponse>>();
+
+function requestTextSearch(searchParams: URLSearchParams) {
+  const key = searchParams.toString();
+  const existing = pendingTextSearchRequests.get(key);
+  if (existing) return existing;
+
+  const query = searchParams.get("q") ?? "";
+  const startedAt = performance.now();
+  const pending = fetch(`/api/search?${searchParams}`).then(async (response) => ({
+    body: await readJsonBody<{ results?: TextSearchResult[]; error?: string }>(response),
+    durationMs: performance.now() - startedAt,
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+  }));
+  pendingTextSearchRequests.set(key, pending);
+  const clearPending = () => {
+    if (pendingTextSearchRequests.get(key) === pending) {
+      pendingTextSearchRequests.delete(key);
+    }
+  };
+  void pending.then(
+    (response) => {
+      clearPending();
+      const ready = response.ok && !response.body.error;
+      const results = Array.isArray(response.body.results) ? response.body.results : [];
+      recordSearchMetric({
+        query,
+        mode: "text",
+        durationMs: response.durationMs,
+        withinBudget: isWithinTextSearchLatencyBudget(response.durationMs),
+        resultCount: ready ? results.length : 0,
+        status: ready ? "ready" : "error",
+      });
+    },
+    () => {
+      clearPending();
+      const durationMs = performance.now() - startedAt;
+      recordSearchMetric({
+        query,
+        mode: "text",
+        durationMs,
+        withinBudget: isWithinTextSearchLatencyBudget(durationMs),
+        resultCount: 0,
+        status: "error",
+      });
+    },
+  );
+  return pending;
+}
+
 function SearchInput({
   onSubmit,
   query,
@@ -691,7 +751,6 @@ export function SearchPage() {
 
   const runTextSearch = useCallback(async (nextQuery: string) => {
     const normalized = nextQuery.trim();
-    const startedAt = performance.now();
     setTextResultsQuery(normalized);
     setActiveIndex(0);
 
@@ -707,38 +766,20 @@ export function SearchPage() {
 
     try {
       const searchParams = new URLSearchParams({ q: normalized, scope });
-      const response = await fetch(`/api/search?${searchParams}`);
-      const body = await readJsonBody<{ results?: TextSearchResult[]; error?: string }>(response);
+      const response = await requestTextSearch(searchParams);
+      const { body } = response;
       if (body.error) throw new Error(body.error);
       if (!response.ok) {
         throw new Error(`Search failed with ${response.status} ${response.statusText}.`);
       }
 
       const results = Array.isArray(body.results) ? body.results : [];
-      const durationMs = performance.now() - startedAt;
       setTextResults(results);
       setTextStatus("ready");
-      recordSearchMetric({
-        query: normalized,
-        mode: "text",
-        durationMs,
-        withinBudget: isWithinTextSearchLatencyBudget(durationMs),
-        resultCount: results.length,
-        status: "ready",
-      });
     } catch (error) {
-      const durationMs = performance.now() - startedAt;
       setTextResults([]);
       setTextStatus("error");
       setTextError(error instanceof Error ? error.message : "Search failed.");
-      recordSearchMetric({
-        query: normalized,
-        mode: "text",
-        durationMs,
-        withinBudget: isWithinTextSearchLatencyBudget(durationMs),
-        resultCount: 0,
-        status: "error",
-      });
     }
   }, [scope]);
 

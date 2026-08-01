@@ -650,6 +650,28 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     });
   });
 
+  test("shares one public corpus load across concurrent text searches", async () => {
+    const client = createFakeConvexClient();
+    const originalQuery = client.query.bind(client);
+    let corpusLoads = 0;
+    client.query = async (ref, args) => {
+      if (getFunctionName(ref) === "documents:listPageWithContent") {
+        corpusLoads += 1;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      return originalQuery(ref, args);
+    };
+    const handler = createWikiApiHandler(client as never);
+
+    const responses = await Promise.all([
+      handler(request("/api/search?q=public")),
+      handler(request("/api/search?q=body")),
+    ]);
+
+    expect(responses.map((response) => response?.status)).toEqual([200, 200]);
+    expect(corpusLoads).toBe(1);
+  });
+
   test("keeps text and AI search in the explicit reader scope", async () => {
     const handler = createWikiApiHandler(createFakeConvexClient() as never);
     const cookie = await signupCookie(
