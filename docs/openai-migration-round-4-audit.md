@@ -89,35 +89,35 @@ its legacy-only clauses, and any intentionally deferred behavior.
 
 ## Contract-to-test inventory
 
-The repository currently has 40 Vite E2E spec files. Static inspection finds
-308 `test` declarations before parameterized expansion and conditional skips.
-The final post-fix ordered run collected 294 outcomes: 265 passed, 29 were
+The repository currently has 42 Vite E2E spec files. Static inspection finds
+315 `test` declarations before parameterized expansion and conditional skips.
+The final credentialed post-fix run collected 299 outcomes: 285 passed, 14 were
 explicit environment/runtime skips, and none failed. Earlier audit runs found
-an exhaustive text-search timeout and repeatable malformed OPFS snapshots;
-those are included below rather than hidden by the final green count. After
-reducing search from three sequential Convex corpus pages to one, focused cold
-runs passed in 28.1 and 12.3 seconds and the final ordered run passed in 33.7
-seconds. The raw count is less important than the gaps below.
+an exhaustive text-search budget failure, a malformed admin modal DOM, a stale
+palette contrast assertion, and repeatable malformed OPFS snapshots. Those
+findings are included below rather than hidden by the final green count. The
+raw count is less important than whether the named live and transition paths
+actually ran.
 
 | Contract area | Current Vite evidence | Audit status |
 | --- | --- | --- |
 | Shell, navigation, aliases, metadata | Navigation, route-correctness, metadata, page-chrome, page-load, visual, standalone server tests | Strong. The hard-skipped `header-shell` case is a legacy SSR contract; Vite's client-first shell is covered after hydration and standalone metadata is covered separately. This distinction should remain explicit. |
-| Markdown, links, assets, diagrams | Shared unit tests plus heading, currency, image-theater, table, timeline-gantt, page-chrome, and sidebar/file E2E | Good but structurally vulnerable. There is no committed fixture table that renders the same corpus through both server and React pipelines and compares normalized semantics. Round two used differential analysis, but the durable tests are still split by implementation. |
+| Markdown, links, assets, diagrams | Shared unit tests, a cross-renderer semantic fixture matrix, plus heading, currency, image-theater, table, timeline-gantt, page-chrome, and sidebar/file E2E | Strong. The durable differential contract now compares headings, wikilinks, assets, PDF chips, smart tables, explicit redaction labels, and safe protocol handling through both renderers. |
 | Password gate and session lifecycle | Unit/server API tests, auth-gate-security, session-recovery, backend-api | Strong. Includes rotation, forged cookies, redirect safety, scope separation, and private caching. |
 | Sensitive content and PII | Server API tests, PII E2E, role E2E, tag access, cache retirement | Strong for page/search/tool/archive boundaries. Live comments against sensitive rooms remains dependent on the comments gap below. |
 | Multi-site isolation | Server scoping tests and local synthetic-Host E2E | Strong locally. Preview skips Host-injection cases because Vercel owns the preview host; this is a runtime limitation, not silent coverage. |
-| Search and local finder | Search E2E, backend API, command palette, multi-site/PII tests | Strong across empty/loading/results/keyboard/scope. Exhaustive text search remains a performance watch: a cold 271-document scan ranged from 12 to 45+ seconds during this audit even after its backend round trips were reduced. Live AI ranking remains opt-in and credential-dependent. |
+| Search and local finder | Search E2E, backend API, command palette, multi-site/PII tests, server timing headers, and browser observability | Strong across empty/loading/results/keyboard/scope. Public search coalesces duplicate work and waits 15 seconds for exhaustive line matches; if the corpus is still cold it returns redacted indexed candidates within the 30-second budget, labels the response, keeps those results visible, and retries in the background. Session-sensitive corpora are never shared. Live AI ranking remains opt-in and credential-dependent. |
 | Chat | Chat UI, performance, navigation resilience, backend stream/tool tests | Good for Vite and live Convex/model paths. Live QA found and fixed the stale active conversation after archive, and corrected the live test so a 401 or echoed user text cannot masquerade as an assistant response. Several live tests legitimately skip without credentials; CI must surface the skip count. |
-| Comments and review | 11 Vite tests versus the legacy suite's 48 named interaction tests | **Major gap.** Vite covers disabled/unavailable states, basic rail/navigation, empty global page, and API validation. It does not exercise successful page/selection comment creation, anchored highlights and thread deep links, edit/delete/copy menus, resolve/reaction/reply flows, guest identity persistence, or a populated global timeline through the Vite backend. Shared package reuse lowers component drift but does not prove Vite auth, routing, API, and layout integration. |
+| Comments and review | Vite rail/navigation/API tests plus a credentialed Liveblocks integration story | Launch path covered. The live story creates an account, anchors a selection comment, verifies persistence, reloads the exact thread URL, verifies the populated global timeline, then deletes the Liveblocks thread and temporary Convex user with absence checks. Edit/copy/reaction/reply/resolve permutations remain useful depth rather than a missing Vite integration proof. |
 | Diagnostics timeline | Full timeline interaction test plus seven regression tests | Good. Manual QA is still needed for real pointer/wheel behavior, dense drill-in readability, and mobile marker-origin drags. |
 | DICOM imaging and comparison | 33-test Vite viewer suite, comparison regression, server response-shape test, diagnostics unit tests | Strong. Desktop/mobile catalog loading and calibrated-ruler deep links now have explicit Vite coverage. The viewer and comparison entry points no longer boot the unused wiki projection. The wider persisted-store snapshot race was fixed independently, preserving the normal wiki sidebar on diagnostics pages. |
 | Smart tables | 12 expansion tests, examples, performance test | Strong automated geometry coverage. The documented comments/outline-rail transition, real trackpad feel, multi-table sequence, and tablet fallback remain manual-only. |
-| Downloads, files, copy, and sharing | Backend archive/file tests, menu-link assertions, page-copy, DICOM share, image download, PII and multi-site tests | Good at the API boundary. A real browser download from the actions menu is not asserted end to end. |
-| Admin and RBAC UI | Controlled live admin access and bulk-user tests plus role E2E | Good for current launch paths after round three. |
+| Downloads, files, copy, and sharing | Backend archive/file tests, real actions-menu browser download, page-copy, DICOM share, image download, PII and multi-site tests | Strong. Playwright waits for the browser download and verifies the saved ZIP; manual QA independently produced a valid 43,259,157-byte Markdown archive with 6,417 entries. |
+| Admin and RBAC UI | Controlled live admin access and bulk-user tests plus role E2E | Strong for current launch paths. Exploratory output found and fixed the role editor modal being rendered inside `<tbody>`; the regression test now fails on those React DOM errors. |
 | Medical deduction tool | Dedicated product contract plus three Vite E2E tests | Good. Formatted inputs, clamping, computed results, named sliders, keyboard grid selection, multi-year state, and mobile overflow are covered. |
-| Epic FHIR lab integration | Four focused Vite server unit tests | API normalization and unauthenticated denial are covered; authorize/callback/sync happy paths require external Epic configuration and have no E2E rehearsal. This is an integration gap, not necessarily a reader-launch blocker. |
-| LiveStore/offline/recovery | Manifest/cache/session/app-recovery E2E and extensive unit tests | Strong after a launch-blocking durability correction. Two of three earlier full runs reproduced `database disk image is malformed`, including on the normal diagnostics page after returning from DICOM. DICOM no longer boots an unused wiki store, and the persisted adapter now asks its leader worker for a recreated snapshot instead of importing an optimistic client-side OPFS image. The exact failing transition passed 10 consecutive repeats, all 33 DICOM tests passed, and the final 294-test ordered matrix completed without corruption. |
-| Accessibility | Focus/modal assertions in palette and mobile navigation; accessible names throughout | Partial. The chat contract explicitly records no axe-core CI, and there is no cross-surface automated accessibility smoke. Manual keyboard/focus QA is required for launch. |
+| Epic FHIR lab integration | Four focused Vite server unit tests | API normalization and unauthenticated denial are covered. Authorize/callback/sync happy paths are explicitly excluded from this P1 launch goal at the user's direction and remain deferred. |
+| LiveStore/offline/recovery | Manifest/cache/session/app-recovery E2E and extensive unit tests | Strong after a launch-blocking durability correction. Two of three earlier full runs reproduced `database disk image is malformed`, including on the normal diagnostics page after returning from DICOM. DICOM no longer boots an unused wiki store, and the persisted adapter now asks its leader worker for a recreated snapshot instead of importing an optimistic client-side OPFS image. The exact failing transition passed 10 consecutive repeats, all 33 DICOM tests passed, and the final 299-outcome ordered matrix completed without corruption. |
+| Accessibility | Axe smoke plus focus/modal assertions and accessible names | Strong launch smoke. Axe scans cover the reader, command palette, text search, comments, diagnostics, and calculator. The audit fixed low-contrast palette paths and keyboard-inaccessible diagnostic timeline regions; focus restoration is asserted. This is not a substitute for a full WCAG audit. |
 
 ## Documentation gaps
 
@@ -127,9 +127,10 @@ seconds. The raw count is less important than the gaps below.
    serve as the Vite launch checklist without the mapping above.
 2. `apps/web/specs/diagnostic-timeline.md` still names only legacy E2E owners.
    The DICOM contract now names the Vite owner and its loading/ruler proofs.
-3. `apps/wiki-vite/README.md` says deeper comments and chat resilience are
-   backlog, but chat resilience is active and substantial while comments is the
-   true remaining integration gap. The statement is stale.
+3. `apps/wiki-vite/README.md` now records the live comment integration boundary
+   and the indexed-to-exhaustive cold-search behavior. The broader
+   `apps/web/specs/features.md` inventory still needs future per-feature Vite
+   ownership rather than relying on migration reports.
 4. The medical deduction calculator gap was closed with
    `apps/web/specs/medical-deduction.md`; it should be added to any future
    generated feature index.
@@ -137,33 +138,31 @@ seconds. The raw count is less important than the gaps below.
    matrix must distinguish Vite dev, standalone Bun, Vercel preview, and live
    service proofs so a skipped runtime is visible.
 
-## Testing gaps to close before launch
+## Launch gap disposition
 
-### P0
+### Closed in this P1 round
 
-1. Add a successful Vite comments integration path when Liveblocks credentials
-   are available, with explicit skips when they are not. At minimum: create a
-   page comment, create/select an anchored comment, open its thread URL, and
-   verify a populated global timeline entry.
-
-### P1
-
-2. Add a durable markdown differential contract that feeds the same fixture
-   cases through both renderers and compares normalized links, asset proxying,
-   PDF chips, headings, tables, redaction labels, and protocol links.
-3. Add one cross-surface accessibility smoke covering landmarks, obvious
-   accessible-name failures, dialogs, and keyboard focus restoration.
-4. Set and monitor a launch latency budget for exhaustive text search. The
-   round-trip reduction keeps current cold runs inside the existing E2E timeout,
-   but the user-visible 12–30 second range is still too slow to call complete.
+1. Successful Liveblocks create, anchored selection, thread URL reload, global
+   timeline, and deterministic remote/local cleanup.
+2. Shared server/React Markdown semantic differential coverage.
+3. Cross-surface axe and keyboard/focus smoke.
+4. Enforced 30-second public text-search budget with completeness headers,
+   browser observability, coalesced corpus work, and an indexed cold fallback
+   that upgrades to exhaustive line matches in the background.
+5. A real browser download initiated from the actions menu and validated as a
+   readable ZIP.
 
 ### P2 or explicitly deferred
 
-5. Exercise a browser download initiated from the actions menu.
-6. Add an Epic authorize/callback/sync rehearsal using a deterministic fake
-   FHIR server if the integration is part of the Vite launch scope.
-7. Automate the table/comments right-rail transition once the comments
-   integration harness is reliable.
+1. Epic authorize/callback/sync rehearsal is intentionally excluded from this
+   launch goal. Re-open it only if Epic is declared part of the reader launch.
+2. Expand comments depth into edit/copy/reaction/reply/resolve permutations.
+3. Automate the table/comments right-rail transition and the two declarative
+   smart-table cases that remain explicitly skipped with written runtime
+   reasons.
+4. Investigate remote manifest latency. Several final-run requests exercised
+   the designed 20-second bounded fallback and recovered successfully, but the
+   warning is a useful post-P1 performance signal.
 
 ## Exploratory QA charter
 
@@ -198,28 +197,41 @@ input sequence, console/network evidence, severity, and fix commit.
 | P1 | `/wiki/missing/not-here`, live Vite after a successful article navigation | A warm validated manifest left the unknown route in `page-loading` indefinitely with no failed body request. | Fixed by materializing the missing state from the validated index; cold and warm not-found tests pass (`fa37eebd`). |
 | P1 | `/chat`, live Convex/model | Sent `audit-pong-2026-08-01`, received the exact assistant reply, then archived the active conversation. The sidebar removed it but the URL and messages stayed stale. | Fixed by synchronizing history replacement with router state and resetting the active surface on archive (`994ecff3`). The live test now authenticates and asserts an assistant message rather than matching echoed user text. |
 | P1 | standalone Bun server | The production smoke contradicted gated bot metadata policy, omitted deterministic gate credentials, and expected the retired `v1` cookie. | Verification contract repaired; build, API/gate checks, and four preview tests pass (`80e9b634`). |
-| P1 performance | `/search?q=diagnosis`, live backend | Text search returned 271 matches across 111 files in roughly 14 seconds manually, varied to about 30 seconds for a no-result query, and once exceeded the 45-second ordered-test timeout. | Reduced sequential Convex corpus pages from three to one (`360f2039`). Focused cold runs passed in 28.1 and 12.3 seconds. Keep a launch latency budget open. |
+| P1 performance | `/search?q=diagnosis&tab=text`, live backend and browser | The first manual cold pass issued two Strict Mode requests and completed in 38.7 seconds. Coalescing brought a fresh-browser run to 15.34 seconds, but a later ordered API run still measured 33,034 ms against the 30-second budget. | Fixed in layers: corpus work is shared (`cee3537f`), then a 15-second public wait returns labeled, redacted indexed candidates while exhaustive line matches keep warming (`3ce374bf`). A forced real-backend fallback passed in 602 ms; the final full run passed the normal cold gate in 9.6 seconds. The UI announces and background-refreshes incomplete results. |
+| P1 | `/admin/roles`, credentialed Vite E2E | Opening Edit rendered `RoleDialog` as a sibling of `<tr>` inside `<tbody>`, producing React invalid-DOM and hydration errors even though the save flow passed. | `RoleDialog` now portals to `document.body`, and the live admin test fails on either invalid-`tbody` console error (`5fcf65df`). |
+| P1 | anchored comment thread URL, live Liveblocks | A newly created thread persisted and its direct endpoint resolved, but the room thread list could lag after reload, leaving the exact linked thread temporarily absent. | The comments package fetches a missing linked thread directly and merges it until the room index catches up. The credentialed create/reload/global-timeline/cleanup story passed in the final run (`61d79fa4`). |
+| P2 accessibility | command palette and diagnostics timeline | Axe found the selected file path below contrast threshold and horizontally scrollable diagnostic regions unavailable to keyboard users. | Palette paths use readable foreground/opacity and timeline regions have names and keyboard focus. Both cross-surface axe tests and the updated theme contract pass (`0d2bb7af`, `aac38c5c`). |
 | P2 accessibility | `/tools/medical-deduction`, 1440px and 390px | The calculator computed correctly, but sliders had no names and heatmap selection required a pointer. | Added slider names, Enter/Space grid selection, a product contract, and desktop/mobile functional E2E (`5eb976a9`). |
-| Pass | `/tools/dicom-compare?comparison=mri-comparison-2026-04-01-vs-2026-06-26`, 1440px | Two canvases rendered at 124/246 and 112/254; exact-z matching, six pair presets, Pan/Zoom state, next matched slice, and pair switching worked without runtime errors. | Comparison parity confirmed. The local legacy Next dev route could not resolve the baseline series, which reinforces runtime-labeled proofs but is not a Vite launch defect. |
+| Pass | `/tools/dicom-compare?comparison=mri-comparison-2026-06-26-vs-2026-07-17`, live Vite at 1280px | Both real MRI canvases rendered at 128/254 and 177/260. Z-matched preset selection worked; Next matched slice advanced both counters to 129/254 and 178/260 with no browser errors. | Comparison viewer parity confirmed manually and by the dynamic-metadata E2E. |
 | Pass | `/tools/dicom-viewer?id=biopsy-2026-04-10&image=6`, 390x844 | Real canvas rendered, next slice updated the URL from image 6 to 7, mobile study controls worked, and document width remained exactly 390px. | Mobile viewer behavior confirmed; explicit catalog/ruler contracts added (`4fa26095`). |
 | Pass | `/diagnostics?studySet=audit#marker`, 390x844 | Alias canonicalized to `/diagnostics`; real pointer drags moved the date window from Apr 2–Aug 1 to Mar 13–Jul 12, and the start handle resized it to Mar 29–Jul 12 with no horizontal overflow. | Timeline spatial interaction confirmed. |
-| Pass | `/wiki/logistics/insurance.md`, 1440px, and `/table-examples`, 390px | Expanded tables stayed between the 256px sidebar and right rails; collapse, wheel ownership, theme persistence, article navigation, browser back, and mobile in-flow fallback worked. | Table queue behavior confirmed. Clipboard read was browser-permission-blocked, while the automated copy test passed. |
-| Coverage gap | `/comments`, live Liveblocks | Five populated global threads loaded and old thread routes canonicalized. The document rail showed existing content and the signed-out prompt. | Read/navigation path confirmed. Successful create/anchor/reply/edit/delete/resolve flows remain the largest Vite integration gap because this audit did not mutate live comments without a deterministic cleanup harness. |
+| Pass | `/`, 1280px, plus the full smart-table matrix | The real index table expanded into the available content lane without navigation or rail overlap. The complete suite covered collapse, wheel ownership, theme/style persistence, responsive fallback, column resize, overflow, and cleanup. | Table expansion launch queue confirmed. Two declarative fixture cases remain explicitly skipped with documented implementation differences. |
+| Pass | Workspace menu → Download wiki (markdown), live browser | Manual automation saved a 43,259,157-byte archive containing 6,417 entries; `unzip -t` reported no errors. The final Playwright browser-download contract also passed. | Browser download gap closed (`61c1d37e`). The manual temporary artifact was moved to Trash and is recoverable there. |
+| Watch | `/api/wiki/manifest`, live backend under full-suite load | Several requests reached the designed 20-second full-manifest timeout, logged the bounded-fallback warning, returned a valid scoped response, and allowed their tests to pass. | Not a P1 correctness failure because the provisional/fallback and retry paths worked. Keep as a post-P1 latency investigation rather than suppressing the warning. |
 
 ## Final verification snapshot
 
 - `verify:wiki-vite:static`: lint, package/app typechecks, production Vite
   build, standalone function build, and bundle budget passed.
-- `verify:wiki-vite:unit`: 214 focused unit tests passed across smart table,
+- `verify:wiki-vite:unit`: 220 focused unit tests passed across smart table,
   diagnostics, wiki content, markdown, shell, and Vite packages.
 - `verify:wiki-vite:server`: build, gate/API verification, and four preview
   browser tests passed.
-- Full Vite E2E: 265 passed, 29 explicitly skipped for unavailable live or
-  runtime-specific prerequisites, zero failed.
+- Full credentialed Vite E2E: 285 passed, 14 explicitly skipped for unavailable
+  or runtime-specific prerequisites, zero failed across 299 outcomes.
+- Live comments: account signup, anchored create, persistence, direct thread URL
+  reload, global timeline, exact Liveblocks deletion, and Convex-user cleanup
+  all passed without leaving the test thread or user behind.
+- Browser download: the actions-menu Playwright contract passed; independent
+  manual verification produced a valid 43,259,157-byte, 6,417-entry ZIP.
+- Search: normal final-suite cold search passed in 9.6 seconds; a forced
+  real-backend indexed fallback passed in 602 ms and the background exhaustive
+  upgrade is covered in browser E2E.
 - DICOM durability: the 33-test serial file passed; the previously failing
-  imaging/sidebar/viewer/back sequence also passed 10 consecutive repeats.
+  imaging/sidebar/viewer/back sequence also passed 10 consecutive repeats, and
+  manual June–July comparison QA rendered/advanced both paired stacks.
 
-The remaining launch decision is therefore coverage-driven rather than a
-known green-path regression: successful Liveblocks comment mutation is still
-P0, with markdown differential, cross-surface accessibility, and text-search
-latency budgets at P1.
+No known P1 from this audit remains open. Epic FHIR authorize/callback/sync is
+explicitly outside the goal. The remaining queue is deeper comments/table
+coverage plus the non-blocking manifest-latency watch, not a known broken
+green-path launch regression.

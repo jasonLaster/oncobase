@@ -127,7 +127,7 @@ PORT=62004 bun run start:server
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:62004 bun run test:e2e:preview
 ```
 
-The suite mirrors the current `apps/web/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app. P0 multi-site isolation, PII parity, chat performance, and chat navigation resilience are active; standalone metadata hardening is covered by `verify:standalone` because production HTML patching is owned by the Bun server rather than the Vite dev server. Successful Liveblocks comment creation, anchoring, replies, moderation, and cleanup remain the main integration backlog.
+The suite mirrors the current `apps/web/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app. P0 multi-site isolation, PII parity, chat performance, and chat navigation resilience are active; standalone metadata hardening is covered by `verify:standalone` because production HTML patching is owned by the Bun server rather than the Vite dev server. When Liveblocks and Convex credentials are available, the live comments story signs up a temporary reader, creates an anchored thread, reloads its direct URL, verifies the global timeline, and deletes both the remote thread and temporary user. Replies, reactions, resolution, and moderation permutations remain useful depth beyond that launch integration proof.
 
 From the repository root, `bun run verify:wiki-vite` runs the current migration proof: static checks, unit checks, and the migrated Vite Playwright suite. `bun run verify:wiki-vite:static` runs lint, package/app typechecks, the Vite build, and the bundle budget. `bun run verify:wiki-vite:unit` runs the shared package and Vite app unit tests.
 
