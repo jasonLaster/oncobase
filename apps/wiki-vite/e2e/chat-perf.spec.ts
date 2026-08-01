@@ -1,7 +1,26 @@
 import { expect, test } from "@playwright/test";
+import { ConvexHttpClient } from "convex/browser";
+import { makeFunctionReference } from "convex/server";
+import { ensurePasswordGateSession } from "./gate-auth";
 
 const hasAiGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
-const hasConvex = Boolean(process.env.NEXT_PUBLIC_CONVEX_URL ?? process.env.VITE_CONVEX_URL);
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL ?? process.env.VITE_CONVEX_URL;
+const hasConvex = Boolean(convexUrl);
+const archiveConversation = makeFunctionReference<
+  "mutation",
+  { id: string; siteSlug?: string }
+>("conversations:archive");
+
+async function archiveIfPossible(conversationId: string | null) {
+  if (!conversationId || conversationId === "new" || !convexUrl) return;
+  const convex = new ConvexHttpClient(convexUrl);
+  await convex
+    .mutation(archiveConversation, {
+      id: conversationId,
+      siteSlug: "diana",
+    })
+    .catch(() => {});
+}
 
 declare global {
   interface Window {
@@ -95,21 +114,32 @@ test.describe("P0 chat perf", () => {
   test("first-token and full-completion timings are recorded", async ({ page }) => {
     test.skip(!hasAiGateway || !hasConvex, "Live timing smoke requires AI Gateway and Convex credentials");
 
-    await page.goto("/chat", { waitUntil: "domcontentloaded" });
-    await page.getByTestId("chat-composer-textarea").fill("Reply with exactly: pong");
-    await page.getByTestId("chat-submit-button").click();
+    let conversationId: string | null = null;
+    try {
+      await ensurePasswordGateSession(page);
+      await page.goto("/chat", { waitUntil: "domcontentloaded" });
+      await page.getByTestId("chat-composer-textarea").fill("Reply with exactly: pong");
+      await page.getByTestId("chat-submit-button").click();
 
-    await expect(page.getByTestId("chat-message-log")).toContainText(/pong/i, {
-      timeout: 60_000,
-    });
+      const chat = page.getByTestId("chat-interface");
+      await expect(chat).toHaveAttribute("data-chat-conversation-id", /^(?!new$).+/, {
+        timeout: 15_000,
+      });
+      conversationId = await chat.getAttribute("data-chat-conversation-id");
+      await expect(page.getByTestId("chat-assistant-message").last()).toContainText(/pong/i, {
+        timeout: 60_000,
+      });
 
-    await expect.poll(
-      () => page.evaluate(() => (window.__CHAT_PERF__?.events ?? []).map((event) => event.type).join(",")),
-      { timeout: 15_000 },
-    ).toMatch(/submit.*first-token.*stream-end|submit.*stream-end.*first-token/);
-    const finalEvents = await page.evaluate(() => window.__CHAT_PERF__?.events ?? []);
-    expect(finalEvents.some((event) => event.type === "submit")).toBe(true);
-    expect(finalEvents.some((event) => event.type === "first-token")).toBe(true);
-    expect(finalEvents.some((event) => event.type === "stream-end")).toBe(true);
+      await expect.poll(
+        () => page.evaluate(() => (window.__CHAT_PERF__?.events ?? []).map((event) => event.type).join(",")),
+        { timeout: 15_000 },
+      ).toMatch(/submit.*first-token.*stream-end|submit.*stream-end.*first-token/);
+      const finalEvents = await page.evaluate(() => window.__CHAT_PERF__?.events ?? []);
+      expect(finalEvents.some((event) => event.type === "submit")).toBe(true);
+      expect(finalEvents.some((event) => event.type === "first-token")).toBe(true);
+      expect(finalEvents.some((event) => event.type === "stream-end")).toBe(true);
+    } finally {
+      await archiveIfPossible(conversationId);
+    }
   });
 });
