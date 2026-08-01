@@ -82,7 +82,7 @@ test.describe("Command palette parity", () => {
     await expect(palette.getByRole("option").nth(1)).toBeVisible();
   });
 
-  test("file palette keeps muted surfaces and muted text as separate theme tokens", async ({
+  test("file palette keeps accessible path text over muted selection surfaces", async ({
     page,
   }) => {
     await gotoWiki(page, "/");
@@ -98,7 +98,8 @@ test.describe("Command palette parity", () => {
     await expect(recentHeading).toHaveCSS("color", "rgb(107, 114, 128)");
     await expect(recentHeading).toHaveCSS("font-weight", "500");
     await expect(recentHeading).toHaveCSS("line-height", "16px");
-    await expect(recentPath).toHaveCSS("color", "rgb(107, 114, 128)");
+    await expect(recentPath).toHaveCSS("color", "rgb(26, 26, 46)");
+    await expect(recentPath).toHaveCSS("opacity", "0.72");
     const recentIcon = palette
       .getByRole("option")
       .first()
@@ -123,7 +124,8 @@ test.describe("Command palette parity", () => {
       document.documentElement.classList.add("dark");
     });
     await expect(recentHeading).toHaveCSS("color", "rgb(156, 163, 175)");
-    await expect(recentPath).toHaveCSS("color", "rgb(156, 163, 175)");
+    await expect(recentPath).toHaveCSS("color", "rgb(229, 229, 229)");
+    await expect(recentPath).toHaveCSS("opacity", "0.72");
     await expect(palette.locator("footer")).toHaveCount(0);
   });
 
