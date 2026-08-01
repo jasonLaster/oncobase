@@ -93,6 +93,10 @@ const USER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const DEV_GATE_SESSION_SECRET = "oncobase-wiki-gate-development-only";
 const GATE_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const MAX_SEARCH_LIMIT = 5000;
+// Text search needs complete line matches, so it scans the visible corpus
+// rather than the relevance index. Keep the corpus in as few Convex round
+// trips as practical; Diana's current reader set fits in one page.
+const SEARCH_DOCUMENT_PAGE_SIZE = 500;
 const TIMELINE_META_KEY = "diagnosticTimeline:data";
 const MANIFEST_PRIORITY_SLUGS = [
   "index",
@@ -2173,8 +2177,12 @@ async function handleSearchRequest(
       withSiteSlug(
         siteSlug,
         includeSensitive
-          ? { cursor, numItems: 100, includeSensitive: true as const }
-          : { cursor, numItems: 100 },
+          ? {
+              cursor,
+              numItems: SEARCH_DOCUMENT_PAGE_SIZE,
+              includeSensitive: true as const,
+            }
+          : { cursor, numItems: SEARCH_DOCUMENT_PAGE_SIZE },
       ),
     )) as PageDownloadResult;
     const visiblePages = await filterAccessiblePages(
