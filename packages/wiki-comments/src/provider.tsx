@@ -10,10 +10,11 @@ import {
   serializeGuestUser,
   type GuestUser,
 } from "./guest-user.ts";
+import {
+  resolveLiveblocksProviderMode,
+  type LiveblocksProviderMode,
+} from "./provider-mode.ts";
 import { formatLiveblocksUserId } from "./user-format.ts";
-
-const FALLBACK_PUBLIC_API_KEY =
-  "pk_dev_HXZfdhC5pUVp1uUoX4mp31GEwMiYRKXXF5uoiZugexxsNV65JmHUqcRN__UFGQ05";
 
 type SessionUser = {
   _id?: string;
@@ -53,13 +54,13 @@ const DEFAULT_ENDPOINTS: LiveblocksProviderEndpoints = {
   guest: "/api/liveblocks-guest",
 };
 
-function configuredPublicApiKey(explicitPublicApiKey?: string) {
+function configuredPublicApiKey(explicitPublicApiKey?: string): string | null {
   const viteEnv = (import.meta as { env?: Record<string, string | undefined> }).env;
   return (
     explicitPublicApiKey ??
     viteEnv?.VITE_LIVEBLOCKS_PUBLIC_KEY ??
     viteEnv?.VITE_NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY ??
-    FALLBACK_PUBLIC_API_KEY
+    null
   );
 }
 
@@ -75,8 +76,8 @@ export function LiveblocksProviderShell({
     [endpointOverrides],
   );
   const configuredPublicKey = configuredPublicApiKey(publicApiKey);
-  const [providerMode, setProviderMode] = useState<"auth" | "public">(
-    "public"
+  const [providerMode, setProviderMode] = useState<LiveblocksProviderMode>(
+    "unavailable",
   );
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [ready, setReady] = useState(false);
@@ -127,12 +128,22 @@ export function LiveblocksProviderShell({
                 name: guest.name,
               }
         );
-        setProviderMode(authConfig.configured ? "auth" : "public");
+        setProviderMode(
+          resolveLiveblocksProviderMode({
+            authConfigured: authConfig.configured === true,
+            publicApiKey: configuredPublicKey,
+          }),
+        );
         setReady(true);
       } catch {
         if (cancelled) return;
         setIdentity({ name: guest.name });
-        setProviderMode("public");
+        setProviderMode(
+          resolveLiveblocksProviderMode({
+            authConfigured: false,
+            publicApiKey: configuredPublicKey,
+          }),
+        );
         setReady(true);
       }
     }
@@ -149,9 +160,15 @@ export function LiveblocksProviderShell({
     return () => {
       cancelled = true;
     };
-  }, [endpoints.auth, endpoints.guest, endpoints.session, resolveGuestUser]);
+  }, [
+    configuredPublicKey,
+    endpoints.auth,
+    endpoints.guest,
+    endpoints.session,
+    resolveGuestUser,
+  ]);
 
-  if (!ready) {
+  if (!ready || providerMode === "unavailable") {
     return <>{fallback}</>;
   }
 
@@ -160,7 +177,7 @@ export function LiveblocksProviderShell({
       key={`${providerMode}:${identity?.email ?? identity?.name ?? "anonymous"}`}
       {...(providerMode === "auth"
         ? { authEndpoint: endpoints.auth }
-        : { publicApiKey: configuredPublicKey })}
+        : { publicApiKey: configuredPublicKey! })}
       resolveUsers={async ({ userIds }) => {
         try {
           const response = await fetch(endpoints.users, {

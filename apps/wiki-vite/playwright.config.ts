@@ -9,6 +9,8 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${port}`;
 const localGatePasswordHash =
   "sha256:1b2fc9341a16ae4e30082965d537ae47c21a0f27fd43eab78330ed81751ae6db";
 const localGateSessionSecret = "wiki-vite-playwright-gate-secret";
+const localLiveblocksPublicKey =
+  "pk_dev_HXZfdhC5pUVp1uUoX4mp31GEwMiYRKXXF5uoiZugexxsNV65JmHUqcRN__UFGQ05";
 const previewBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 const extraHTTPHeaders = previewBypassSecret
   ? {
@@ -30,6 +32,8 @@ const webServer = process.env.PLAYWRIGHT_BASE_URL
           process.env.DIANA_WIKI_PASSWORD_HASH || localGatePasswordHash,
         WIKI_GATE_SESSION_SECRET:
           process.env.WIKI_GATE_SESSION_SECRET || localGateSessionSecret,
+        VITE_LIVEBLOCKS_PUBLIC_KEY:
+          process.env.VITE_LIVEBLOCKS_PUBLIC_KEY || localLiveblocksPublicKey,
       },
     };
 const previewAuthState = process.env.PLAYWRIGHT_BASE_URL && process.env.WIKI_VITE_PREVIEW_LOGIN_PASSWORD

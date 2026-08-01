@@ -89,26 +89,27 @@ export function DocumentComments({
     );
   }
 
-  return (
-    <Suspense
-      fallback={
-        <DocumentOutlineShell
-          articleClassName={articleClassName}
-          contentKey={contentKey ?? documentSlug}
-          documentSlug={documentSlug}
-          documentTitle={documentTitle}
-          mobileRail={mobileRail}
-          pathname={pathname}
-        >
-          {children}
-        </DocumentOutlineShell>
-      }
+  const outlineFallback = (
+    <DocumentOutlineShell
+      articleClassName={articleClassName}
+      contentKey={contentKey ?? documentSlug}
+      documentSlug={documentSlug}
+      documentTitle={documentTitle}
+      mobileRail={mobileRail}
+      pathname={pathname}
     >
+      {children}
+    </DocumentOutlineShell>
+  );
+
+  return (
+    <Suspense fallback={outlineFallback}>
       <ActiveComments
         documentSlug={documentSlug}
         documentTitle={documentTitle}
         onSignIn={onSignIn}
         provider={provider}
+        fallback={outlineFallback}
       >
         {children}
       </ActiveComments>
