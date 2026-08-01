@@ -51,6 +51,11 @@
       "import": "./src/dicom/index.ts",
       "default": "./src/dicom/index.ts"
     },
+    "./dicom/sidebar": {
+      "types": "./src/dicom/diagnostics-sidebar.tsx",
+      "import": "./src/dicom/diagnostics-sidebar.tsx",
+      "default": "./src/dicom/diagnostics-sidebar.tsx"
+    },
     "./imaging": {
       "types": "./src/imaging/index.tsx",
       "import": "./src/imaging/index.tsx",

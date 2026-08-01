@@ -1,5 +1,5 @@
 import { useStore } from "@livestore/react";
-import { DiagnosticsSidebar } from "@oncobase/diagnostics/dicom";
+import { DiagnosticsSidebar } from "@oncobase/diagnostics/dicom/sidebar";
 import {
   expandCompactFileTree,
   transformFileTreeForSidebar,

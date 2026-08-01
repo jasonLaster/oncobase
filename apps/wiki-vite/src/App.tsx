@@ -6,7 +6,6 @@ import {
   HeaderAuthDialogHost,
   HeaderCommandPaletteHost,
 } from "./shell/Header";
-import { LiveStoreDevtoolsFooter } from "./shell/LiveStoreDevtoolsFooter";
 import { MobileNav, Sidebar } from "./shell/Navigation";
 import { ResizableAppShell } from "./shell/ResizableAppShell";
 import { SpecialRouteMetadata } from "./shell/SpecialRouteMetadata";
@@ -91,6 +90,11 @@ const AdminPage = lazy(() =>
 const PiiViewPage = lazy(() =>
   import("./pages/PiiViewPage").then((module) => ({ default: module.PiiViewPage })),
 );
+const LiveStoreDevtoolsFooter = lazy(() =>
+  import("./shell/LiveStoreDevtoolsFooter").then((module) => ({
+    default: module.LiveStoreDevtoolsFooter,
+  })),
+);
 
 function PageFallback() {
   return (
@@ -110,8 +114,7 @@ export function App({
   storeId: string;
 }) {
   const scope = useWikiScope();
-  const location = useLocation();
-  const { pathname } = location;
+  const { pathname } = useLocation();
   const isImmersiveDicomRoute =
     pathname.startsWith("/tools/dicom-viewer") ||
     pathname.startsWith("/tools/dicom-compare");
@@ -138,7 +141,7 @@ export function App({
     }));
   }, []);
 
-  if (location.pathname === "/login") {
+  if (pathname === "/login") {
     return (
       <Suspense fallback={<PageFallback />}>
         <LoginPage />
@@ -146,7 +149,7 @@ export function App({
     );
   }
 
-  if (location.pathname === "/terms-and-conditions") {
+  if (pathname === "/terms-and-conditions") {
     return (
       <Suspense fallback={<PageFallback />}>
         <TermsAndConditionsPage />
@@ -189,13 +192,17 @@ export function App({
             </Suspense>
           </main>
         </ResizableAppShell>
-        <LiveStoreDevtoolsFooter
-          enabled={liveStoreDevtoolsEnabled}
-          metrics={metrics}
-          scope={scope}
-          storeId={storeId}
-          visible={devtoolsFooterVisible}
-        />
+        {devtoolsFooterVisible ? (
+          <Suspense fallback={null}>
+            <LiveStoreDevtoolsFooter
+              enabled={liveStoreDevtoolsEnabled}
+              metrics={metrics}
+              scope={scope}
+              storeId={storeId}
+              visible
+            />
+          </Suspense>
+        ) : null}
         <MobileNav />
       </div>
     </>
