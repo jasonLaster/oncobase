@@ -45,6 +45,11 @@ const LiveStoreRoot = lazy(() =>
     default: module.LiveStoreRoot,
   })),
 );
+const ImmersiveDicomRoot = lazy(() =>
+  import("./ImmersiveDicomRoot").then((module) => ({
+    default: module.ImmersiveDicomRoot,
+  })),
+);
 
 type BootstrapState =
   | { status: "loading"; scope: WikiScope }
@@ -234,10 +239,31 @@ function WikiViteRoot() {
   );
 }
 
+function isImmersiveDicomPathname(pathname: string) {
+  return pathname === "/tools/dicom-viewer" || pathname === "/tools/dicom-compare";
+}
+
+function RootRouteBoundary() {
+  if (isImmersiveDicomPathname(window.location.pathname)) {
+    return createElement(
+      Suspense,
+      {
+        fallback: createElement(WikiPageLoading, {
+          "data-test-id": "page-loading",
+          includeTags: true,
+          label: "Loading page",
+        }),
+      },
+      createElement(ImmersiveDicomRoot),
+    );
+  }
+  return createElement(WikiViteRoot);
+}
+
 createRoot(document.getElementById("root")!).render(
   createElement(
     StrictMode,
     null,
-    createElement(AppErrorBoundary, null, createElement(WikiViteRoot)),
+    createElement(AppErrorBoundary, null, createElement(RootRouteBoundary)),
   ),
 );

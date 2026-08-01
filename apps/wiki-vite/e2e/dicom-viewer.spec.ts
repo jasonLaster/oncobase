@@ -570,6 +570,23 @@ test.describe("DICOM viewer", () => {
     }
   });
 
+  test("viewer boot does not depend on the wiki LiveStore projection", async ({ page }) => {
+    let wikiProjectionRequests = 0;
+    await page.route("**/api/wiki/session", async (route) => {
+      wikiProjectionRequests += 1;
+      await route.abort();
+    });
+    await page.route("**/api/wiki/manifest**", async (route) => {
+      wikiProjectionRequests += 1;
+      await route.abort();
+    });
+
+    await gotoViewer(page);
+
+    expect(wikiProjectionRequests).toBe(0);
+    await expect(page.getByTestId("diagnostics-sidebar")).toBeVisible();
+  });
+
   test("diagnostics imaging page uses a compact mobile study list", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/diagnostics/imaging${seededStudySetQuery}`);
