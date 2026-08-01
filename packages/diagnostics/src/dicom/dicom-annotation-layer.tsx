@@ -216,7 +216,6 @@ export function DicomAnnotationLayer({
   }, [
     currentImageKey,
     onSelectedAnnotationChange,
-    requestedAnnotationId,
     seriesId,
   ]);
 

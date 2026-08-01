@@ -422,6 +422,9 @@ async function drawAnnotation(
 ) {
   await page.getByRole("button", { name: "Draw" }).click();
   await page.getByRole("button", { name: kind }).click();
+  await expect(
+    page.getByTestId(`dicom-annotation-tool-${kind.toLowerCase()}`),
+  ).toHaveAttribute("aria-pressed", "true");
   const drawStart = pointInBox(box, start.x, start.y);
   const drawEnd = pointInBox(box, end.x, end.y);
   await page.mouse.move(drawStart.x, drawStart.y);
@@ -1002,6 +1005,10 @@ test.describe("DICOM viewer", () => {
 
     await page.getByRole("button", { name: "Draw" }).click();
     await page.getByRole("button", { name: "Arrow" }).click();
+    await expect(page.getByTestId("dicom-annotation-tool-arrow")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     const canvas = page.getByTestId("dicom-annotation-canvas");
     const box = await canvas.boundingBox();
@@ -1333,6 +1340,10 @@ test.describe("DICOM viewer", () => {
 
     await page.getByRole("button", { name: "Draw" }).click();
     await page.getByRole("button", { name: "Text" }).click();
+    await expect(page.getByTestId("dicom-annotation-tool-text")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     const canvas = page.getByTestId("dicom-annotation-canvas");
     const box = await canvas.boundingBox();
