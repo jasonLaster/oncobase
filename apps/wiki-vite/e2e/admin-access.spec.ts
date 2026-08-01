@@ -131,6 +131,17 @@ test.describe("admin access management", () => {
     expect(operatorSignup.ok(), await operatorSignup.text()).toBeTruthy();
 
     const page = await context.newPage();
+    const invalidTableErrors: string[] = [];
+    page.on("console", (message) => {
+      if (
+        message.type() === "error" &&
+        /(?:child of|contain a nested).*tbody|tbody.*(?:child of|contain a nested)/i.test(
+          message.text(),
+        )
+      ) {
+        invalidTableErrors.push(message.text());
+      }
+    });
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Users Review signed-in/ })).toHaveAttribute("href", "/admin/users");
@@ -203,6 +214,7 @@ test.describe("admin access management", () => {
     await page.getByRole("button", { name: `Actions for ${roleName}` }).click();
     await page.getByRole("menuitem", { name: "Edit" }).click();
     await expect(page.getByRole("dialog", { name: "Edit role" })).toBeVisible();
+    expect(invalidTableErrors).toEqual([]);
     const editDialog = page.getByRole("dialog", { name: "Edit role" });
     await editDialog.getByRole("tab", { name: "Preview" }).click();
     await expect(editDialog.getByRole("button", { name: "Save" })).toBeVisible();

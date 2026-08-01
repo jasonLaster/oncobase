@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, Navigate, useLocation } from "react-router";
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import {
@@ -461,7 +462,7 @@ function RoleDialog({
   const update = (key: keyof ReturnType<typeof emptyRole>, value: string) =>
     setForm((current) => ({ ...current, [key]: value }));
 
-  return (
+  return createPortal(
     <div className="admin-modal-backdrop">
       <div role="dialog" aria-modal="true" aria-label={title} className="admin-modal admin-role-modal">
         <h2>{title}</h2>
@@ -510,7 +511,8 @@ function RoleDialog({
           <button type="button" disabled={!form.name.trim()} onClick={() => void onSave(form)}>Save</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
