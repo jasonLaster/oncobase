@@ -87,6 +87,23 @@ export type WikiMarkdownProps = {
   isInternalHref?: (href: string | undefined) => href is string;
 };
 
+type MarkdownTableNode = {
+  position?: {
+    start?: {
+      line?: number;
+      offset?: number;
+    };
+  };
+};
+
+function markdownTablePersistenceKey(
+  currentSlug: string | undefined,
+  node: MarkdownTableNode | undefined,
+) {
+  const sourcePosition = node?.position?.start?.offset ?? node?.position?.start?.line ?? 0;
+  return `${currentSlug ?? "wiki"}::md-table-${sourcePosition}`;
+}
+
 function mermaidTitle(source: string) {
   return source.match(/^\s*title\s+(.+?)\s*$/m)?.[1] ?? "Mermaid diagram";
 }
@@ -266,9 +283,16 @@ export function WikiMarkdown({
               </a>
             );
           },
-          table: withoutNode((props) => (
-            <MdTable {...props} layoutAdapter={tableLayoutAdapter} />
-          )),
+          table: ({ node, ...props }) => (
+            <MdTable
+              {...props}
+              layoutAdapter={tableLayoutAdapter}
+              persistenceKey={markdownTablePersistenceKey(
+                currentSlug,
+                node as MarkdownTableNode | undefined,
+              )}
+            />
+          ),
           thead: MdTheadCell,
           tbody: MdTbodyCell,
           tr: MdTrCell,
