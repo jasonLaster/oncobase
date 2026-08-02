@@ -108,7 +108,7 @@ actually ran.
 | Multi-site isolation | Server scoping tests and local synthetic-Host E2E | Strong locally. Preview skips Host-injection cases because Vercel owns the preview host; this is a runtime limitation, not silent coverage. |
 | Search and local finder | Search E2E, backend API, command palette, multi-site/PII tests, server timing headers, and browser observability | Strong across empty/loading/results/keyboard/scope. Public search coalesces duplicate work and waits 15 seconds for exhaustive line matches; if the corpus is still cold it returns redacted indexed candidates within the 30-second budget, labels the response, keeps those results visible, and retries in the background. Session-sensitive corpora are never shared. Live AI ranking remains opt-in and credential-dependent. |
 | Chat | Chat UI, performance, navigation resilience, backend stream/tool tests | Good for Vite and live Convex/model paths. Live QA found and fixed the stale active conversation after archive, and corrected the live test so a 401 or echoed user text cannot masquerade as an assistant response. Several live tests legitimately skip without credentials; CI must surface the skip count. |
-| Comments and review | Vite rail/navigation/API tests plus a credentialed Liveblocks integration story | Launch path covered. The live story creates an account, anchors a selection comment, verifies persistence, reloads the exact thread URL, verifies the populated global timeline, then deletes the Liveblocks thread and temporary Convex user with absence checks. Edit/copy/reaction/reply/resolve permutations remain useful depth rather than a missing Vite integration proof. |
+| Comments and review | Fifteen Vite rail/navigation/API tests plus a credentialed Liveblocks action-level integration story | Strong. The live story creates an account, anchors a selection comment, waits for server persistence, verifies copy/edit/reaction/document reply/resolve/re-open, reloads the exact thread URL, replies from the populated global timeline, rehydrates both replies on the document, then deletes the Liveblocks thread and temporary Convex user with absence checks. |
 | Diagnostics timeline | Full timeline interaction test plus seven regression tests | Good. Manual QA is still needed for real pointer/wheel behavior, dense drill-in readability, and mobile marker-origin drags. |
 | DICOM imaging and comparison | 33-test Vite viewer suite, comparison regression, server response-shape test, diagnostics unit tests | Strong. Desktop/mobile catalog loading and calibrated-ruler deep links now have explicit Vite coverage. The viewer and comparison entry points no longer boot the unused wiki projection. The wider persisted-store snapshot race was fixed independently, preserving the normal wiki sidebar on diagnostics pages. |
 | Smart tables | 12 expansion tests, examples, performance test | Strong automated geometry coverage. The documented comments/outline-rail transition, real trackpad feel, multi-table sequence, and tablet fallback remain manual-only. |
@@ -137,13 +137,17 @@ actually ran.
 5. The launch runtime boundary is scattered across migration reports. The
    matrix must distinguish Vite dev, standalone Bun, Vercel preview, and live
    service proofs so a skipped runtime is visible.
+6. The comments contract still described a page-level composer that neither
+   current reader exposes. It now records selection-only creation, signed-out
+   write restrictions, anchored-only timelines, and the Vite proof owners.
 
 ## Launch gap disposition
 
 ### Closed in this P1 round
 
-1. Successful Liveblocks create, anchored selection, thread URL reload, global
-   timeline, and deterministic remote/local cleanup.
+1. Successful Liveblocks create, anchored selection, copy/edit/reaction/reply,
+   resolve/re-open, thread URL reload, signed-in global reply, and deterministic
+   remote/local cleanup.
 2. Shared server/React Markdown semantic differential coverage.
 3. Cross-surface axe and keyboard/focus smoke.
 4. Enforced 30-second public text-search budget with completeness headers,
@@ -156,11 +160,10 @@ actually ran.
 
 1. Epic authorize/callback/sync rehearsal is intentionally excluded from this
    launch goal. Re-open it only if Epic is declared part of the reader launch.
-2. Expand comments depth into edit/copy/reaction/reply/resolve permutations.
-3. Automate the table/comments right-rail transition and the two declarative
+2. Automate the table/comments right-rail transition and the two declarative
    smart-table cases that remain explicitly skipped with written runtime
    reasons.
-4. Investigate remote manifest latency. Several final-run requests exercised
+3. Investigate remote manifest latency. Several final-run requests exercised
    the designed 20-second bounded fallback and recovered successfully, but the
    warning is a useful post-P1 performance signal.
 
@@ -200,6 +203,7 @@ input sequence, console/network evidence, severity, and fix commit.
 | P1 performance | `/search?q=diagnosis&tab=text`, live backend and browser | The first manual cold pass issued two Strict Mode requests and completed in 38.7 seconds. Coalescing brought a fresh-browser run to 15.34 seconds, but a later ordered API run still measured 33,034 ms against the 30-second budget. | Fixed in layers: corpus work is shared (`cee3537f`), then a 15-second public wait returns labeled, redacted indexed candidates while exhaustive line matches keep warming (`3ce374bf`). A forced real-backend fallback passed in 602 ms; the final full run passed the normal cold gate in 9.6 seconds. The UI announces and background-refreshes incomplete results. |
 | P1 | `/admin/roles`, credentialed Vite E2E | Opening Edit rendered `RoleDialog` as a sibling of `<tr>` inside `<tbody>`, producing React invalid-DOM and hydration errors even though the save flow passed. | `RoleDialog` now portals to `document.body`, and the live admin test fails on either invalid-`tbody` console error (`5fcf65df`). |
 | P1 | anchored comment thread URL, live Liveblocks | A newly created thread persisted and its direct endpoint resolved, but the room thread list could lag after reload, leaving the exact linked thread temporarily absent. | The comments package fetches a missing linked thread directly and merges it until the room index catches up. The credentialed create/reload/global-timeline/cleanup story passed in the final run (`61d79fa4`). |
+| P1 | document comments rail, Vercel preview with live Liveblocks | Action-level QA found Liveblocks dropdowns and the emoji picker at `z-index: auto`, below the fixed rail, and showed that optimistic mutations can race a just-created thread. | Vite now carries the legacy `.lb-portal { z-index: 50 !important; }` contract (`62e3077e`). The live gate waits for server-observed creation and verifies copy plus persisted edit/reaction/replies/resolve/deep-link/global/delete behavior rather than trusting the optimistic DOM (`e65c61d6`). |
 | P2 accessibility | command palette and diagnostics timeline | Axe found the selected file path below contrast threshold and horizontally scrollable diagnostic regions unavailable to keyboard users. | Palette paths use readable foreground/opacity and timeline regions have names and keyboard focus. Both cross-surface axe tests and the updated theme contract pass (`0d2bb7af`, `aac38c5c`). |
 | P2 accessibility | `/tools/medical-deduction`, 1440px and 390px | The calculator computed correctly, but sliders had no names and heatmap selection required a pointer. | Added slider names, Enter/Space grid selection, a product contract, and desktop/mobile functional E2E (`5eb976a9`). |
 | Pass | `/tools/dicom-compare?comparison=mri-comparison-2026-06-26-vs-2026-07-17`, live Vite at 1280px | Both real MRI canvases rendered at 128/254 and 177/260. Z-matched preset selection worked; Next matched slice advanced both counters to 129/254 and 178/260 with no browser errors. | Comparison viewer parity confirmed manually and by the dynamic-metadata E2E. |
@@ -219,9 +223,10 @@ input sequence, console/network evidence, severity, and fix commit.
   browser tests passed.
 - Full credentialed Vite E2E: 285 passed, 14 explicitly skipped for unavailable
   or runtime-specific prerequisites, zero failed across 299 outcomes.
-- Live comments: account signup, anchored create, persistence, direct thread URL
-  reload, global timeline, exact Liveblocks deletion, and Convex-user cleanup
-  all passed without leaving the test thread or user behind.
+- Live comments: account signup, anchored create, server persistence,
+  copy/edit/reaction/document reply/resolve/re-open, direct thread URL reload,
+  signed-in global reply, exact Liveblocks deletion, and Convex-user cleanup all
+  passed without leaving the test thread or user behind.
 - Browser download: the actions-menu Playwright contract passed; independent
   manual verification produced a valid 43,259,157-byte, 6,417-entry ZIP.
 - Search: normal final-suite cold search passed in 9.6 seconds; a forced
