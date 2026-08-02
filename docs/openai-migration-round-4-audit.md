@@ -111,7 +111,7 @@ actually ran.
 | Comments and review | Fifteen Vite rail/navigation/API tests plus a credentialed Liveblocks action-level integration story | Strong. The live story creates an account, anchors a selection comment, waits for server persistence, verifies copy/edit/reaction/document reply/resolve/re-open, reloads the exact thread URL, replies from the populated global timeline, rehydrates both replies on the document, then deletes the Liveblocks thread and temporary Convex user with absence checks. |
 | Diagnostics timeline | Full timeline interaction test plus seven regression tests | Good. Manual QA is still needed for real pointer/wheel behavior, dense drill-in readability, and mobile marker-origin drags. |
 | DICOM imaging and comparison | 33-test Vite viewer suite, comparison regression, server response-shape test, diagnostics unit tests | Strong. Desktop/mobile catalog loading and calibrated-ruler deep links now have explicit Vite coverage. The viewer and comparison entry points no longer boot the unused wiki projection. The wider persisted-store snapshot race was fixed independently, preserving the normal wiki sidebar on diagnostics pages. |
-| Smart tables | 12 expansion tests, examples, performance test | Strong automated geometry coverage. The documented comments/outline-rail transition, real trackpad feel, multi-table sequence, and tablet fallback remain manual-only. |
+| Smart tables | 12 deterministic expansion tests plus a preview-only Liveblocks rail-transition test, examples, performance test | Strong automated geometry and remount coverage. The live test found and closed missing Vite table persistence across comments activation. Real trackpad feel, custom comments-rail resize, multi-table sequence, and tablet fallback remain manual-only. |
 | Downloads, files, copy, and sharing | Backend archive/file tests, real actions-menu browser download, page-copy, DICOM share, image download, PII and multi-site tests | Strong. Playwright waits for the browser download and verifies the saved ZIP; manual QA independently produced a valid 43,259,157-byte Markdown archive with 6,417 entries. |
 | Admin and RBAC UI | Controlled live admin access and bulk-user tests plus role E2E | Strong for current launch paths. Exploratory output found and fixed the role editor modal being rendered inside `<tbody>`; the regression test now fails on those React DOM errors. |
 | Medical deduction tool | Dedicated product contract plus three Vite E2E tests | Good. Formatted inputs, clamping, computed results, named sliders, keyboard grid selection, multi-year state, and mobile overflow are covered. |
@@ -160,9 +160,10 @@ actually ran.
 
 1. Epic authorize/callback/sync rehearsal is intentionally excluded from this
    launch goal. Re-open it only if Epic is declared part of the reader launch.
-2. Automate the table/comments right-rail transition and the two declarative
+2. Resolve or retain with stronger justification the two declarative
    smart-table cases that remain explicitly skipped with written runtime
-   reasons.
+   reasons. The table/comments right-rail transition is now automated and
+   closed.
 3. Investigate remote manifest latency. Several final-run requests exercised
    the designed 20-second bounded fallback and recovered successfully, but the
    warning is a useful post-P1 performance signal.
@@ -204,12 +205,14 @@ input sequence, console/network evidence, severity, and fix commit.
 | P1 | `/admin/roles`, credentialed Vite E2E | Opening Edit rendered `RoleDialog` as a sibling of `<tr>` inside `<tbody>`, producing React invalid-DOM and hydration errors even though the save flow passed. | `RoleDialog` now portals to `document.body`, and the live admin test fails on either invalid-`tbody` console error (`5fcf65df`). |
 | P1 | anchored comment thread URL, live Liveblocks | A newly created thread persisted and its direct endpoint resolved, but the room thread list could lag after reload, leaving the exact linked thread temporarily absent. | The comments package fetches a missing linked thread directly and merges it until the room index catches up. The credentialed create/reload/global-timeline/cleanup story passed in the final run (`61d79fa4`). |
 | P1 | document comments rail, Vercel preview with live Liveblocks | Action-level QA found Liveblocks dropdowns and the emoji picker at `z-index: auto`, below the fixed rail, and showed that optimistic mutations can race a just-created thread. | Vite now carries the legacy `.lb-portal { z-index: 50 !important; }` contract (`62e3077e`). The live gate waits for server-observed creation and verifies copy plus persisted edit/reaction/replies/resolve/deep-link/global/delete behavior rather than trusting the optimistic DOM (`e65c61d6`). |
+| P1 | expanded root table → activate/open/close comments, Vercel preview with live Liveblocks | Activating comments rebuilt the document surface and permanently collapsed the expanded table because Vite's shared React markdown renderer omitted the stable table persistence key used by legacy. | The renderer now derives a stable key from document slug plus markdown source position. A preview-only test verifies the same logical table restores, stays between both rails, and survives two complete comments-pane cycles with one overlay and no page errors (`ae934908`). |
 | P2 accessibility | command palette and diagnostics timeline | Axe found the selected file path below contrast threshold and horizontally scrollable diagnostic regions unavailable to keyboard users. | Palette paths use readable foreground/opacity and timeline regions have names and keyboard focus. Both cross-surface axe tests and the updated theme contract pass (`0d2bb7af`, `aac38c5c`). |
 | P2 accessibility | `/tools/medical-deduction`, 1440px and 390px | The calculator computed correctly, but sliders had no names and heatmap selection required a pointer. | Added slider names, Enter/Space grid selection, a product contract, and desktop/mobile functional E2E (`5eb976a9`). |
 | Pass | `/tools/dicom-compare?comparison=mri-comparison-2026-06-26-vs-2026-07-17`, live Vite at 1280px | Both real MRI canvases rendered at 128/254 and 177/260. Z-matched preset selection worked; Next matched slice advanced both counters to 129/254 and 178/260 with no browser errors. | Comparison viewer parity confirmed manually and by the dynamic-metadata E2E. |
 | Pass | `/tools/dicom-viewer?id=biopsy-2026-04-10&image=6`, 390x844 | Real canvas rendered, next slice updated the URL from image 6 to 7, mobile study controls worked, and document width remained exactly 390px. | Mobile viewer behavior confirmed; explicit catalog/ruler contracts added (`4fa26095`). |
 | Pass | `/diagnostics?studySet=audit#marker`, 390x844 | Alias canonicalized to `/diagnostics`; real pointer drags moved the date window from Apr 2–Aug 1 to Mar 13–Jul 12, and the start handle resized it to Mar 29–Jul 12 with no horizontal overflow. | Timeline spatial interaction confirmed. |
 | Pass | `/`, 1280px, plus the full smart-table matrix | The real index table expanded into the available content lane without navigation or rail overlap. The complete suite covered collapse, wheel ownership, theme/style persistence, responsive fallback, column resize, overflow, and cleanup. | Table expansion launch queue confirmed. Two declarative fixture cases remain explicitly skipped with documented implementation differences. |
+| Pass | `/`, 1440px, live Liveblocks preview | Expanded the real index table before activating comments, then opened and closed the comments pane twice through visible controls. The same persistence identity returned after the document remount, lane width tracked the 64px/384px rail, and exactly one overlay/collapse control remained. | The new transition gate passed against deployment `dpl_3wR4EyTeeFtxuMtDERebVHDJxD1t`; the initially reproduced Vite-only state-loss gap is closed (`ae934908`). |
 | Pass | Workspace menu → Download wiki (markdown), live browser | Manual automation saved a 43,259,157-byte archive containing 6,417 entries; `unzip -t` reported no errors. The final Playwright browser-download contract also passed. | Browser download gap closed (`61c1d37e`). The manual temporary artifact was moved to Trash and is recoverable there. |
 | Watch | `/api/wiki/manifest`, live backend under full-suite load | Several requests reached the designed 20-second full-manifest timeout, logged the bounded-fallback warning, returned a valid scoped response, and allowed their tests to pass. | Not a P1 correctness failure because the provisional/fallback and retry paths worked. Keep as a post-P1 latency investigation rather than suppressing the warning. |
 
@@ -227,6 +230,8 @@ input sequence, console/network evidence, severity, and fix commit.
   copy/edit/reaction/document reply/resolve/re-open, direct thread URL reload,
   signed-in global reply, exact Liveblocks deletion, and Convex-user cleanup all
   passed without leaving the test thread or user behind.
+- Live table/comments seam: the preview-only regression passed two full rail
+  cycles after restoring legacy-equivalent markdown-table persistence.
 - Browser download: the actions-menu Playwright contract passed; independent
   manual verification produced a valid 43,259,157-byte, 6,417-entry ZIP.
 - Search: normal final-suite cold search passed in 9.6 seconds; a forced
@@ -237,6 +242,6 @@ input sequence, console/network evidence, severity, and fix commit.
   manual June–July comparison QA rendered/advanced both paired stacks.
 
 No known P1 from this audit remains open. Epic FHIR authorize/callback/sync is
-explicitly outside the goal. The remaining queue is deeper comments/table
-coverage plus the non-blocking manifest-latency watch, not a known broken
-green-path launch regression.
+explicitly outside the goal. The remaining queue is the two declarative table
+cases, deeper manual gesture/resize coverage, and the non-blocking
+manifest-latency watch, not a known broken green-path launch regression.

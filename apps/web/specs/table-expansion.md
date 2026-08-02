@@ -221,7 +221,10 @@ Additional cases:
 - Browser auth state on localhost can make QA inconsistent if the document route redirects to `/login`; authenticated testing should use a stable session or an explicit token flow.
 - The separate `SmartTable` path still uses older margin-based bleed math and may diverge from prose behavior until it is unified.
 - The right comments rail is the most failure-prone dependency because its controls, DOM shape, and mounted width can all change across states.
-- In the current local environment, comments activation is further complicated by suspended Liveblocks access, so outline-rail automation is the most reliable right-rail regression path.
+- Local automation uses the outline rail as the deterministic right-rail probe.
+  A preview-only Liveblocks test now drives the visible comments controls and
+  verifies that stable markdown-table persistence restores expansion across the
+  outline-to-comments remount before applying live rail geometry.
 
 ## Open Follow-Ups
 

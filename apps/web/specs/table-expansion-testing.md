@@ -92,19 +92,30 @@ Current [`table-expansion.spec.ts`](../e2e/table-expansion.spec.ts) covers:
 - expanded horizontal scrolling when content exceeds the lane
 - expanded wrapper and toggle alignment
 
+Preview-only [`table-expansion-live.spec.ts`](../../wiki-vite/e2e/table-expansion-live.spec.ts)
+uses the configured Liveblocks integration and visible comments controls to cover:
+
+- activating comments while a real index table is already expanded
+- restoring the same logical table after the outline-to-comments remount
+- opening and closing the desktop comments pane twice
+- shrinking and widening the lane between the live left and right rails
+- retaining exactly one expansion layer and one collapse control
+- surfacing browser page errors during the transition
+
 ## Current Automation Gaps
 
-The main remaining weak spot is the full comments-rail UI transition:
+The real comments-rail transition is now automated against Vercel preview.
+The test initially found that Vite markdown tables lacked the stable persistence
+key used by legacy, so activating comments permanently collapsed the table.
+The shared renderer now derives a stable key from the document slug and markdown
+source position; the same test passes through two complete rail cycles.
 
-- opening and closing the desktop comments pane through the visible controls while an expanded overlay is present is still less reliable in automation than the underlying layout-state probes
-- because of that, a green Playwright run should not be treated as sufficient evidence for the full right-rail interaction without a browser pass
+The remaining automation gaps are narrower:
 
-These should remain explicitly tracked:
-
-- right comments rail opens while a table is already expanded and the lane shrinks
-- right comments rail closes while a table is already expanded and the lane widens again
-- comments-pane remounts do not leave duplicate expansion layers behind
-- outline-rail open/close is the preferred automated right-rail regression path while Liveblocks is unavailable locally
+- real trackpad feel and simultaneous horizontal/vertical gesture judgment
+- manual column-resize persistence through the live comments remount
+- custom right-rail drag width while an overlay is expanded
+- the multi-table sequence and tablet fallback in the manual matrix below
 
 ## Manual QA Matrix
 
@@ -186,14 +197,16 @@ Before shipping changes to table expansion:
 - manually verify one wheel-scroll-over-table case
 - manually verify one horizontal-overflow case after manual column resize
 - manually verify one left-sidebar toggle case while expanded
-- manually verify one right-sidebar open/close case while expanded
+- run the preview-only live comments/table transition when deployment credentials are available
+- manually verify one custom-width right-sidebar case while expanded
 - manually verify one refresh-after-expand case
 - manually verify the resize-then-expand path
 - manually verify the overlay fade and toggle placement in expanded state
 
 ## Ownership
 
-- [`e2e/table-expansion.spec.ts`](../e2e/table-expansion.spec.ts) owns the automated regression coverage
+- [`e2e/table-expansion.spec.ts`](../e2e/table-expansion.spec.ts) owns deterministic local regression coverage
+- [`../../wiki-vite/e2e/table-expansion-live.spec.ts`](../../wiki-vite/e2e/table-expansion-live.spec.ts) owns the real comments-rail transition gate
 - [`packages/smart-table/src/interactive-tables.tsx`](../../../packages/smart-table/src/interactive-tables.tsx) owns the prose expansion behavior
 - [`src/app/globals.css`](../src/app/globals.css) owns the overlay styling contract
 - [`packages/smart-table/src/smart-table-layout.ts`](../../../packages/smart-table/src/smart-table-layout.ts) owns content-aware sizing and manual-width persistence

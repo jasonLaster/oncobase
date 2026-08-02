@@ -165,5 +165,11 @@ Simple width checks were not enough. These additional probes proved necessary du
 - Horizontal scrolling becomes relevant mainly after manual column resizing or if content still exceeds the computed lane.
 - Manual column widths now persist across the tested sidebar-plus-expand path.
 - Expanded state persists across same-page rerenders only; a full refresh returns the page to a collapsed state.
-- The right comments rail remains the most fragile transition because its visible controls and mounted DOM are harder to drive reliably under automation than the other flows.
-- Because Liveblocks is suspended locally, outline-rail open/close is the most reliable automated right-rail probe in this environment.
+- The right comments rail remains a high-value transition seam, but it now has a
+  preview-only Liveblocks test that activates comments, opens/closes the pane
+  twice, and verifies stable expansion identity plus rail-to-rail geometry.
+- That test found and closed a Vite-only gap: shared React-rendered markdown
+  tables did not receive the stable persistence key legacy assigns, so comments
+  activation permanently collapsed an expanded table.
+- Local automation continues to use outline-rail open/close as its deterministic
+  right-rail probe; the real comments transition requires a configured preview.
