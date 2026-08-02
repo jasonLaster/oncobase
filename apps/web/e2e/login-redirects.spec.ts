@@ -121,6 +121,28 @@ test.describe("password login redirects", () => {
     }
   });
 
+  test("password gate preserves query parameters in the post-login target", async ({
+    baseURL,
+  }) => {
+    const origin = new URL(baseURL!).origin;
+    const request = await playwrightRequest.newContext({
+      baseURL: origin,
+      extraHTTPHeaders: previewBypassHeaders(),
+      storageState: { cookies: [], origins: [] },
+    });
+
+    try {
+      const target = "/tools/medical-deduction?agi=900000&medical=1000000";
+      const response = await request.get(target, { maxRedirects: 0 });
+      expect(response.status()).toBe(307);
+      const loginUrl = new URL(response.headers().location, origin);
+      expect(loginUrl.pathname).toBe("/login");
+      expect(loginUrl.searchParams.get("redirect")).toBe(target);
+    } finally {
+      await request.dispose();
+    }
+  });
+
   test("anonymous readers cannot self-register behind the site password", async ({
     baseURL,
   }) => {
