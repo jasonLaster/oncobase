@@ -2,7 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { documentArticle, gotoWiki, installWikiApiMocks } from "./fixtures";
 import { passwordGateCookie } from "./gate-auth";
 
-async function mockCommentsApi(page: Page) {
+async function mockCommentsApi(
+  page: Page,
+  threads: Array<Record<string, unknown>> = [],
+) {
   await page.route("**/api/liveblocks-auth", (route) =>
     route.fulfill({
       status: 200,
@@ -39,9 +42,50 @@ async function mockCommentsApi(page: Page) {
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ threads: [], userNames: {} }),
+      body: JSON.stringify({ threads, userNames: { user_1: "Parity Reader" } }),
     }),
   );
+}
+
+function commentThread({
+  anchored,
+  id,
+  text,
+}: {
+  anchored: boolean;
+  id: string;
+  text: string;
+}) {
+  const timestamp = "2026-08-01T12:00:00.000Z";
+  return {
+    id,
+    roomId: "markdown:wiki/logistics/insurance",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    resolved: false,
+    metadata: {
+      documentSlug: "wiki/logistics/insurance",
+      documentTitle: "Insurance",
+      ...(anchored
+        ? {
+            anchorStart: 10,
+            anchorEnd: 30,
+            anchorQuote: "Prior authorization",
+          }
+        : {}),
+    },
+    comments: [
+      {
+        id: `${id}-comment`,
+        userId: "user_1",
+        createdAt: timestamp,
+        body: {
+          version: 1,
+          content: [{ type: "paragraph", children: [{ text }] }],
+        },
+      },
+    ],
+  };
 }
 
 test.describe("document comments sidebar", () => {
@@ -191,6 +235,41 @@ test.describe("global comments page", () => {
 
     await page.getByRole("button", { name: "View all comments" }).click();
     await expect(page.getByRole("button", { name: "Open only" })).toBeVisible();
+  });
+
+  test("matches legacy freshness, anchor filtering, and signed-out reply behavior", async ({
+    page,
+  }) => {
+    await installWikiApiMocks(page);
+    await mockCommentsApi(page, [
+      commentThread({
+        anchored: true,
+        id: "thread-anchored",
+        text: "Anchored parity comment",
+      }),
+      commentThread({
+        anchored: false,
+        id: "thread-page-level",
+        text: "Page-level comment omitted from the legacy timeline",
+      }),
+    ]);
+    const threadsRequest = page.waitForRequest("**/api/liveblocks-threads**");
+
+    await page.goto("/comments", { waitUntil: "domcontentloaded" });
+
+    const request = await threadsRequest;
+    expect(new URL(request.url()).searchParams.get("fresh")).toBe("1");
+    expect(request.headers()["cache-control"]).toBe("no-cache");
+    await expect(page.getByText("Anchored parity comment")).toBeVisible();
+    await expect(
+      page.getByText("Page-level comment omitted from the legacy timeline"),
+    ).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Reply", exact: true }).click();
+    await expect(page.getByText("Sign in to reply")).toBeVisible();
+    await expect(page.getByPlaceholder("Write a reply...")).toHaveCount(0);
+    await page.getByRole("button", { name: "Sign in", exact: true }).last().click();
+    await expect(page.getByRole("dialog", { name: "Sign in" })).toBeVisible();
   });
 });
 

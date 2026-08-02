@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { openWikiAuthDialog } from "@oncobase/wiki-shell";
 import { Link } from "react-router";
 
 const LazyCommentsPageClient = lazy(() =>
@@ -23,6 +24,7 @@ export function CommentsPage() {
       </header>
       <Suspense fallback={<CommentsPageFallback />}>
         <LazyCommentsPageClient
+          onSignIn={() => openWikiAuthDialog("signin")}
           renderDocumentLink={(href, label) => (
             <Link className="shrink-0 text-[var(--brand)] hover:underline" to={href}>
               {label}

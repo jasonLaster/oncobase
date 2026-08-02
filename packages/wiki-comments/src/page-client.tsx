@@ -49,6 +49,14 @@ function buildThreadItems(
   userNames: Map<string, string>
 ): ThreadItem[] {
   return threads
+    .filter((thread) => {
+      const metadata = thread.metadata ?? {};
+      return (
+        typeof metadata.anchorStart === "number" &&
+        typeof metadata.anchorEnd === "number" &&
+        typeof metadata.anchorQuote === "string"
+      );
+    })
     .map((thread) => {
       const metadata = thread.metadata ?? {};
       const latestComment = thread.comments.at(-1);
@@ -104,10 +112,14 @@ function formatRelativeTime(date: Date) {
 function ReplyComposer({
   roomId,
   threadId,
+  canComment,
+  onSignIn,
   onCommentAdded,
 }: {
   roomId: string;
   threadId: string;
+  canComment: boolean;
+  onSignIn: () => void;
   onCommentAdded: (comment: { id: string; author: string; createdAt: Date; text: string }) => void;
 }) {
   const [text, setText] = useState("");
@@ -148,6 +160,21 @@ function ReplyComposer({
     [text, sending, roomId, threadId, onCommentAdded]
   );
 
+  if (!canComment) {
+    return (
+      <div className="mt-3 rounded-lg border border-dashed border-[var(--sidebar-border)] bg-[var(--background)] px-3 py-3 text-sm">
+        <p className="font-medium text-[var(--foreground)]">Sign in to reply</p>
+        <button
+          type="button"
+          onClick={onSignIn}
+          className="mt-3 rounded-md border border-indigo-600 bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:border-indigo-700 hover:bg-indigo-700"
+        >
+          Sign in
+        </button>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
       <input
@@ -171,13 +198,17 @@ function ReplyComposer({
 
 function ThreadCard({
   item,
+  canComment,
   expanded,
   onToggle,
+  onSignIn,
   renderDocumentLink,
 }: {
   item: ThreadItem;
+  canComment: boolean;
   expanded: boolean;
   onToggle: () => void;
+  onSignIn: () => void;
   renderDocumentLink: (href: string, label: string) => ReactNode;
 }) {
   const [comments, setComments] = useState(item.comments);
@@ -276,6 +307,8 @@ function ThreadCard({
           <ReplyComposer
             roomId={item.roomId}
             threadId={item.id}
+            canComment={canComment}
+            onSignIn={onSignIn}
             onCommentAdded={handleCommentAdded}
           />
         </div>
@@ -288,8 +321,10 @@ function ThreadCard({
 }
 
 function CommentsTimeline({
+  onSignIn,
   renderDocumentLink,
 }: {
+  onSignIn: () => void;
   renderDocumentLink: (href: string, label: string) => ReactNode;
 }) {
   const [threads, setThreads] = useState<ServerThread[]>([]);
@@ -298,6 +333,34 @@ function CommentsTimeline({
   const [error, setError] = useState<string | null>(null);
   const [showResolvedThreads, setShowResolvedThreads] = useState(false);
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
+  const [sessionUser, setSessionUser] = useState<{ email: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSession() {
+      try {
+        const response = await fetch("/api/auth/session", {
+          credentials: "same-origin",
+        });
+        const data = response.ok
+          ? ((await response.json()) as {
+              user?: { email: string } | null;
+            })
+          : { user: null };
+        if (!cancelled) setSessionUser(data.user ?? null);
+      } catch {
+        if (!cancelled) setSessionUser(null);
+      }
+    }
+
+    loadSession();
+    window.addEventListener("wiki-auth-session-change", loadSession);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("wiki-auth-session-change", loadSession);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -307,7 +370,12 @@ function CommentsTimeline({
       setError(null);
 
       try {
-        const res = await fetch("/api/liveblocks-threads");
+        const res = await fetch("/api/liveblocks-threads?fresh=1", {
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        });
         if (!res.ok) throw new Error("Failed to fetch threads");
         const data = await res.json();
         if (cancelled) return;
@@ -404,8 +472,10 @@ function CommentsTimeline({
         <ThreadCard
           key={item.id}
           item={item}
+          canComment={Boolean(sessionUser)}
           expanded={expandedThreads.has(item.id)}
           onToggle={() => toggleThread(item.id)}
+          onSignIn={onSignIn}
           renderDocumentLink={renderDocumentLink}
         />
       ))}
@@ -414,13 +484,23 @@ function CommentsTimeline({
 }
 
 export function CommentsPageClient({
+  onSignIn = () => {
+    window.location.assign(
+      `/login?redirect=${encodeURIComponent(
+        `${window.location.pathname}${window.location.search}${window.location.hash}`,
+      )}`,
+    );
+  },
   renderDocumentLink = (href, label) => (
     <a className="shrink-0 text-[var(--brand)] hover:underline" href={href}>
       {label}
     </a>
   ),
 }: {
+  onSignIn?: () => void;
   renderDocumentLink?: (href: string, label: string) => ReactNode;
 }) {
-  return <CommentsTimeline renderDocumentLink={renderDocumentLink} />;
+  return (
+    <CommentsTimeline onSignIn={onSignIn} renderDocumentLink={renderDocumentLink} />
+  );
 }
