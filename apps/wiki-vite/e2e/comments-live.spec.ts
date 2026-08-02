@@ -201,7 +201,7 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
       .toBe(true);
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    const restored = page.locator(`[data-thread-id="${threadId}"]`);
+    const restored = page.locator(`[data-thread-id="${threadId}"]:visible`);
     await expect(restored).toBeVisible({ timeout: 20_000 });
     await expect(restored).toHaveClass(/border-sky/);
 
