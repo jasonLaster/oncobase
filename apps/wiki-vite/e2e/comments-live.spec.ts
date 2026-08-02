@@ -163,6 +163,12 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
     await expect(
       page.getByRole("button", { name: "Add a page-level comment" }),
     ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Comment actions" }).last(),
+    ).toBeVisible({ timeout: 20_000 });
+    await expect(
+      page.locator('[data-comments-session-state="authenticated"]'),
+    ).toBeVisible({ timeout: 20_000 });
 
     const quote = await selectArticleText(page);
     await expect(page.getByRole("button", { name: "Add comment" })).toBeVisible();

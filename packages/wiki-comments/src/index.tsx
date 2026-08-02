@@ -1617,7 +1617,13 @@ function CommentsShell({
   );
 
   return (
-    <div ref={scrollRootRef} className="h-full overflow-y-auto">
+    <div
+      ref={scrollRootRef}
+      className="h-full overflow-y-auto"
+      data-comments-session-state={
+        sessionLoading ? "loading" : canComment ? "authenticated" : "guest"
+      }
+    >
       <div
         className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-4 md:px-8 md:py-8 comments-content-wrapper"
         style={{
