@@ -66,6 +66,56 @@ test.describe("Medical expense deduction calculator", () => {
     await expect(planner.getByText("Year 4", { exact: true })).toBeVisible();
   });
 
+  test("saves a complete scenario to the URL and restores it on reload", async ({ page }) => {
+    const agi = page.getByRole("textbox", { name: agiInputName });
+    const medical = page.getByRole("textbox", { name: medicalInputName });
+    await agi.fill("900000");
+    await agi.press("Enter");
+    await medical.fill("1000000");
+    await medical.press("Enter");
+
+    const planner = page.getByTestId("medical-deduction-multi-year");
+    await planner.getByLabel("Spread costs across multiple tax years").check();
+    await planner.getByRole("button", { name: "4", exact: true }).click();
+    await planner.getByLabel("Customize distribution").check();
+    await planner.getByRole("spinbutton", { name: "AGI" }).first().fill("800000");
+    await planner
+      .getByRole("spinbutton", { name: "Medical spend" })
+      .first()
+      .fill("400000");
+
+    await expect
+      .poll(() => Object.fromEntries(new URL(page.url()).searchParams))
+      .toMatchObject({
+        agi: "900000",
+        medical: "1000000",
+        spread: "1",
+        years: "4",
+        customize: "1",
+        year1Agi: "800000",
+        year1Medical: "400000",
+      });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    await expect(page.getByRole("textbox", { name: agiInputName })).toHaveValue("900,000");
+    await expect(page.getByRole("textbox", { name: medicalInputName })).toHaveValue(
+      "1,000,000",
+    );
+    const restoredPlanner = page.getByTestId("medical-deduction-multi-year");
+    await expect(
+      restoredPlanner.getByLabel("Spread costs across multiple tax years"),
+    ).toBeChecked();
+    await expect(restoredPlanner.getByLabel("Customize distribution")).toBeChecked();
+    await expect(restoredPlanner.getByText("Year 4", { exact: true })).toBeVisible();
+    await expect(restoredPlanner.getByRole("spinbutton", { name: "AGI" }).first()).toHaveValue(
+      "800000",
+    );
+    await expect(
+      restoredPlanner.getByRole("spinbutton", { name: "Medical spend" }).first(),
+    ).toHaveValue("400000");
+  });
+
   test("keeps mobile content within the viewport", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload({ waitUntil: "domcontentloaded" });

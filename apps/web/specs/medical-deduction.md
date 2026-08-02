@@ -29,6 +29,9 @@ tax advice.
 
 ## Interactive planning contract
 
+- The primary inputs and the complete multi-year scenario are written to URL
+  query parameters as they change. Opening or reloading that URL restores the
+  same inputs, year count, mode, per-year AGIs, and customized medical spend.
 - Selecting a sensitivity-grid cell updates both primary inputs and the
   summary. Cells are operable by pointer, Enter, and Space and have an
   accessible name describing AGI, spend, savings, and the wasted-deduction
@@ -52,7 +55,7 @@ tax advice.
 ## Automated coverage
 
 `apps/wiki-vite/e2e/medical-deduction.spec.ts` verifies default results, input
-updates and clamping, keyboard sensitivity-grid selection, multi-year controls,
-accessible names, and mobile overflow. The pure tax formulas still live in the
-shared calculator component, so the same interactions exercise the component
-used by both renderers.
+updates and clamping, URL persistence and reload restoration, keyboard
+sensitivity-grid selection, multi-year controls, accessible names, and mobile
+overflow. The pure tax formulas still live in the shared calculator component,
+so the same interactions exercise the component used by both renderers.

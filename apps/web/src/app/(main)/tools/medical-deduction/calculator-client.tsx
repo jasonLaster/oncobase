@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 // ─── Tax engine ───────────────────────────────────────────────────────────────
 
@@ -9,6 +9,13 @@ const SALT_CAP = 10_000;
 const AGI_FLOOR = 0.075;
 const TOP_BRACKET_MFJ_2026 = 768_600;
 const HIGH_EARNER_HAIRCUT_RATIO = 2 / 37; // OB3 / OBBBA 35% itemized cap, expressed per Kate's spreadsheet
+const DEFAULT_AGI = 250_000;
+const DEFAULT_MEDICAL = 150_000;
+const DEFAULT_YEARS = 3;
+const MIN_AGI = 100_000;
+const MAX_INPUT = 2_000_000;
+const MIN_YEARS = 2;
+const MAX_YEARS = 4;
 
 type Bracket = { top: number; rate: number };
 
@@ -165,15 +172,98 @@ function frontloadSplit(agis: number[], totalMedical: number): number[] {
 
 interface YearData { agi: number; medical: number }
 
+interface CalculatorParams {
+  agi: number;
+  medical: number;
+  spread: boolean;
+  customize: boolean;
+  years: number;
+  yearData: YearData[];
+}
+
+function readNumberParam(
+  params: URLSearchParams,
+  key: string,
+  fallback: number,
+  min: number,
+  max = Number.POSITIVE_INFINITY,
+) {
+  const raw = params.get(key);
+  if (raw === null || raw.trim() === "") return fallback;
+
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= min && value <= max
+    ? value
+    : fallback;
+}
+
+function readCalculatorParams(search: string): CalculatorParams {
+  const params = new URLSearchParams(search);
+  const agi = readNumberParam(params, "agi", DEFAULT_AGI, MIN_AGI, MAX_INPUT);
+  const medical = readNumberParam(params, "medical", DEFAULT_MEDICAL, 0, MAX_INPUT);
+  const spread = params.get("spread") === "1";
+  const customize = spread && params.get("customize") === "1";
+  const years = Math.round(
+    readNumberParam(params, "years", DEFAULT_YEARS, MIN_YEARS, MAX_YEARS),
+  );
+  const agis = new Array(years).fill(agi).map((defaultAgi, index) =>
+    readNumberParam(params, `year${index + 1}Agi`, defaultAgi, 0),
+  );
+  const automaticMedical = frontloadSplit(agis, medical);
+  const yearData = agis.map((yearAgi, index) => ({
+    agi: yearAgi,
+    medical: customize
+      ? readNumberParam(
+          params,
+          `year${index + 1}Medical`,
+          automaticMedical[index] ?? 0,
+          0,
+        )
+      : automaticMedical[index] ?? 0,
+  }));
+
+  return { agi, medical, spread, customize, years, yearData };
+}
+
+function writeCalculatorParams(url: URL, state: CalculatorParams) {
+  for (const key of ["agi", "medical", "spread", "customize", "years"]) {
+    url.searchParams.delete(key);
+  }
+  for (let index = 1; index <= MAX_YEARS; index++) {
+    url.searchParams.delete(`year${index}Agi`);
+    url.searchParams.delete(`year${index}Medical`);
+  }
+
+  url.searchParams.set("agi", String(state.agi));
+  url.searchParams.set("medical", String(state.medical));
+
+  if (!state.spread) return;
+
+  url.searchParams.set("spread", "1");
+  url.searchParams.set("years", String(state.years));
+  if (state.customize) url.searchParams.set("customize", "1");
+
+  state.yearData.slice(0, state.years).forEach((year, index) => {
+    url.searchParams.set(`year${index + 1}Agi`, String(year.agi));
+    if (state.customize) {
+      url.searchParams.set(`year${index + 1}Medical`, String(year.medical));
+    }
+  });
+}
+
 export function MedicalDeductionCalculator() {
-  const [agi, setAgi] = useState(250_000);
-  const [medical, setMedical] = useState(150_000);
+  const [agi, setAgi] = useState(DEFAULT_AGI);
+  const [medical, setMedical] = useState(DEFAULT_MEDICAL);
 
   // Multi-year state
   const [spread, setSpread] = useState(false);
   const [customize, setCustomize] = useState(false);
-  const [years, setYears] = useState(3);
-  const [yearData, setYearData] = useState<YearData[]>(() => initializeYears(3, 250_000, 150_000));
+  const [years, setYears] = useState(DEFAULT_YEARS);
+  const [yearData, setYearData] = useState<YearData[]>(() =>
+    initializeYears(DEFAULT_YEARS, DEFAULT_AGI, DEFAULT_MEDICAL),
+  );
+  const [urlReady, setUrlReady] = useState(false);
+  const restoringFromUrl = useRef(false);
 
   const r = calc(agi, medical);
 
@@ -182,6 +272,10 @@ export function MedicalDeductionCalculator() {
   // When spread is ON & customize is ON: user-driven; AGI changes still propagate to all years
   //   only on first activation; thereafter user edits stand.
   useEffect(() => {
+    if (restoringFromUrl.current) {
+      restoringFromUrl.current = false;
+      return;
+    }
     if (!spread) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- resync yearData to single-year defaults when spread toggles off
       setYearData(initializeYears(years, agi, medical));
@@ -193,6 +287,37 @@ export function MedicalDeductionCalculator() {
       setYearData(agis.map((a, i) => ({ agi: a, medical: allocation[i] ?? 0 })));
     }
   }, [spread, customize, years, agi, medical]);
+
+  useEffect(() => {
+    function restoreParamsFromUrl() {
+      const restored = readCalculatorParams(window.location.search);
+      restoringFromUrl.current = true;
+      setAgi(restored.agi);
+      setMedical(restored.medical);
+      setSpread(restored.spread);
+      setCustomize(restored.customize);
+      setYears(restored.years);
+      setYearData(restored.yearData);
+      setUrlReady(true);
+    }
+
+    restoreParamsFromUrl();
+    window.addEventListener("popstate", restoreParamsFromUrl);
+    return () => window.removeEventListener("popstate", restoreParamsFromUrl);
+  }, []);
+
+  useEffect(() => {
+    if (!urlReady) return;
+
+    const url = new URL(window.location.href);
+    writeCalculatorParams(url, { agi, medical, spread, customize, years, yearData });
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    const currentUrl =
+      `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) {
+      window.history.replaceState(window.history.state, "", nextUrl);
+    }
+  }, [urlReady, agi, medical, spread, customize, years, yearData]);
 
   function setYearCount(n: number) {
     setYears(n);
