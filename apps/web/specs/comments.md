@@ -1,6 +1,6 @@
 # Comments Feature Spec
 
-Liveblocks-powered commenting system that supports page-level and text-selection-anchored comments across document pages in the wiki when comments are enabled.
+Liveblocks-powered commenting system for text-selection-anchored comments across document pages in the wiki when comments are enabled. The legacy product does not expose a page-level composer; Vite preserves that behavior.
 
 ## Availability
 
@@ -18,7 +18,7 @@ Liveblocks-powered commenting system that supports page-level and text-selection
 ## Authentication & Identity
 
 - **Signed-in users** (via `/api/auth/signin`) are identified by their Convex user ID, display their real name and email.
-- **Guest users** get a persistent random identity (e.g. "Swift Fox 472") stored in a cookie, localStorage, and Convex. Identity survives page reloads and browser restarts and can be resolved by other users.
+- **Guest users** get a persistent random read identity (e.g. "Swift Fox 472") stored in a cookie, localStorage, and Convex. Identity survives page reloads and browser restarts and can be resolved by other users, but signed-out users must sign in before creating comments or replies.
 - The client always uses the authenticated `/api/liveblocks-auth` endpoint.
   There is no public-key fallback; a site without configured Liveblocks
   credentials renders comments as temporarily unavailable and the API fails
@@ -41,8 +41,8 @@ Every document page (`/[...slug]` and `/`) wraps its content in `<DocumentCommen
 
 ### Creating Comments
 
-- **Page-level comment**: click "Add a page-level comment" button in the sidebar to open the Composer.
 - **Selection-anchored comment**: select text in the article, a floating comment bubble appears above the selection. Clicking it opens the Composer in the sidebar with the selection quoted.
+- There is no page-level composer. The document rail lists anchored threads only.
 - The Composer stores metadata: `documentSlug`, `documentTitle`, and anchor offsets/quote/prefix/suffix for selection comments.
 
 ### Viewing Comments
@@ -90,7 +90,7 @@ Liveblocks portals (dropdowns, emoji pickers) require `z-index: 50` (via `.lb-po
 ## Global Comments Page (`/comments`)
 
 - Accessible from the sidebar navigation ("View comments" link).
-- Server-side API (`/api/liveblocks-threads`) fetches all threads in bulk using the Liveblocks Node SDK, resolves Convex user IDs to display names.
+- Server-side API (`/api/liveblocks-threads`) fetches threads in bulk using the Liveblocks Node SDK, filters out unanchored/page-level threads, and resolves Convex user IDs to display names.
 - Timeline sorted by most recent activity (newest first).
 - Each item shows: author name (resolved from Convex or formatted guest ID), document title (linked, right-aligned), anchor quote (if any), preview text, comment count, and relative timestamp.
 - Toggle between "Open only" and "View all comments" (including resolved).
@@ -112,6 +112,8 @@ Liveblocks portals (dropdowns, emoji pickers) require `z-index: 50` (via `.lb-po
 - `components/document-comments.tsx` — per-document sidebar, highlight overlay, delete thread action
 - `components/comments-page-client.tsx` — global /comments timeline (client)
 - `app/api/liveblocks-threads/route.ts` — server-side thread fetching + user name resolution
+- `apps/wiki-vite/server/wiki-api.ts` — Vite Liveblocks auth, fresh global timeline, single-thread hydration, reply, and delete APIs
+- `packages/wiki-comments/src/index.tsx` — shared Vite document rail and linked-thread restoration
 - `components/liveblocks-provider-shell.tsx` — auth/public mode detection, guest identity
 - `components/liveblocks-room.tsx` — per-room provider wrapper
 - `app/api/liveblocks-auth/route.ts` — Liveblocks session endpoint
@@ -138,7 +140,7 @@ Liveblocks portals (dropdowns, emoji pickers) require `z-index: 50` (via `.lb-po
 - [x] Fast loading via server-side API (not client-side room scanning)
 
 ### Creating Comments
-- [x] Page-level comment: click button, type, submit — thread appears
+- [x] No page-level composer is rendered
 - [x] Selection comment: select text, click bubble, type, submit — thread appears with anchor
 - [x] Selection highlight appears while composing
 
@@ -166,4 +168,5 @@ Liveblocks portals (dropdowns, emoji pickers) require `z-index: 50` (via `.lb-po
 - [x] "View comments" link visible (no unread count)
 
 ### Pending
-- None.
+- Keep the real-backend Vite parity test green for create, copy, edit, reaction,
+  reply, resolve/re-open, linked reload, global reply, and delete-thread cleanup.
