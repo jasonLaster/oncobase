@@ -173,3 +173,6 @@ Simple width checks were not enough. These additional probes proved necessary du
   activation permanently collapsed an expanded table.
 - Local automation continues to use outline-rail open/close as its deterministic
   right-rail probe; the real comments transition requires a configured preview.
+- Legacy and Vite now mount one shared declarative showcase on
+  `/table-examples`; Vite's former declarative and landscape-overflow skips run
+  as passing tests instead of being documented away as runtime differences.

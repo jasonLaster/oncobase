@@ -102,6 +102,12 @@ uses the configured Liveblocks integration and visible comments controls to cove
 - retaining exactly one expansion layer and one collapse control
 - surfacing browser page errors during the transition
 
+[`table-examples.spec.ts`](../../wiki-vite/e2e/table-examples.spec.ts) now runs
+all ten Vite fixture stories without skips. The `/table-examples` route mounts
+the same shared declarative React showcase as legacy, validates the exact
+scenario/audit inventory, exercises desktop overlay-to-tablet fallback, and
+keeps a deliberately widened landscape fixture scrollable across expansion.
+
 ## Current Automation Gaps
 
 The real comments-rail transition is now automated against Vercel preview.
@@ -206,7 +212,9 @@ Before shipping changes to table expansion:
 ## Ownership
 
 - [`e2e/table-expansion.spec.ts`](../e2e/table-expansion.spec.ts) owns deterministic local regression coverage
+- [`../../wiki-vite/e2e/table-examples.spec.ts`](../../wiki-vite/e2e/table-examples.spec.ts) owns Vite markdown/declarative fixture parity
 - [`../../wiki-vite/e2e/table-expansion-live.spec.ts`](../../wiki-vite/e2e/table-expansion-live.spec.ts) owns the real comments-rail transition gate
 - [`packages/smart-table/src/interactive-tables.tsx`](../../../packages/smart-table/src/interactive-tables.tsx) owns the prose expansion behavior
+- [`packages/smart-table/src/declarative-examples.tsx`](../../../packages/smart-table/src/declarative-examples.tsx) owns the shared React API showcase used by both runtimes
 - [`src/app/globals.css`](../src/app/globals.css) owns the overlay styling contract
 - [`packages/smart-table/src/smart-table-layout.ts`](../../../packages/smart-table/src/smart-table-layout.ts) owns content-aware sizing and manual-width persistence
