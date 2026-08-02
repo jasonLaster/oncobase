@@ -55,6 +55,86 @@ async function selectArticleText(page: Page) {
   return quote;
 }
 
+async function clickCommentAction(
+  page: Page,
+  actionLabel: "More" | "Add reaction",
+  threadId: string,
+) {
+  await page.waitForFunction(
+    (id) =>
+      Array.from(
+        document.querySelectorAll(`[data-thread-id="${CSS.escape(id)}"]`),
+      ).some((item) => {
+        const rect = (item as HTMLElement).getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      }),
+    threadId,
+    { timeout: 10_000 },
+  );
+
+  return page.evaluate(
+    ({ label, id }) => {
+      for (const item of Array.from(
+        document.querySelectorAll(`[data-thread-id="${CSS.escape(id)}"]`),
+      )) {
+        const element = item as HTMLElement;
+        const rect = element.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+
+        const comment = element.querySelector(".lb-comment") as HTMLElement | null;
+        if (comment) {
+          const commentRect = comment.getBoundingClientRect();
+          for (const type of [
+            "pointerenter",
+            "mouseenter",
+            "pointerover",
+            "mouseover",
+          ]) {
+            comment.dispatchEvent(
+              new PointerEvent(type, {
+                bubbles: true,
+                composed: true,
+                clientX: commentRect.x + commentRect.width / 2,
+                clientY: commentRect.y + commentRect.height / 2,
+              }),
+            );
+          }
+        }
+
+        const button = Array.from(
+          element.querySelectorAll(`button[aria-label="${label}"]`),
+        ).find((candidate) => {
+          const buttonRect = (candidate as HTMLElement).getBoundingClientRect();
+          return buttonRect.width > 0 && buttonRect.height > 0;
+        }) as HTMLElement | undefined;
+        if (!button) return false;
+
+        const buttonRect = button.getBoundingClientRect();
+        for (const type of [
+          "pointerdown",
+          "mousedown",
+          "pointerup",
+          "mouseup",
+          "click",
+        ]) {
+          button.dispatchEvent(
+            new PointerEvent(type, {
+              bubbles: true,
+              composed: true,
+              clientX: buttonRect.x + buttonRect.width / 2,
+              clientY: buttonRect.y + buttonRect.height / 2,
+            }),
+          );
+        }
+        return true;
+      }
+
+      return false;
+    },
+    { label: actionLabel, id: threadId },
+  );
+}
+
 async function liveThreads(request: APIRequestContext) {
   const response = await request.get("/api/liveblocks-threads?fresh=1");
   if (!response.ok()) return [];
@@ -126,6 +206,9 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const email = `vite-comments-${suffix}@example.test`;
   const commentText = `Vite launch anchored comment ${suffix}`;
+  const editedText = `Vite launch edited comment ${suffix}`;
+  const documentReplyText = `Vite launch document reply ${suffix}`;
+  const globalReplyText = `Vite launch global reply ${suffix}`;
   let signupAttempted = false;
   let signedUp = false;
   let threadId: string | null = null;
@@ -141,6 +224,8 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
     });
     expect(signup.ok(), await signup.text()).toBe(true);
     signedUp = true;
+
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
 
     await page.addInitScript(() => {
       window.localStorage.setItem("comments-pane-open", "1");
@@ -187,9 +272,7 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
     await expect(thread).toContainText(quote.slice(0, 32));
     threadId = await thread.getAttribute("data-thread-id");
     expect(threadId).toBeTruthy();
-
-    await thread.getByText("Linked selection").click();
-    await expect(page).toHaveURL(new RegExp(`thread=${threadId}`));
+    const activeThread = page.locator(`[data-thread-id="${threadId}"]:visible`);
     await expect
       .poll(
         async () =>
@@ -199,6 +282,78 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
         { timeout: 20_000 },
       )
       .toBe(true);
+
+    expect(await clickCommentAction(page, "More", threadId!)).toBe(true);
+    let dropdown = page.locator(".lb-dropdown:visible").last();
+    await expect(dropdown).toHaveCSS("z-index", "50");
+    await expect(dropdown.getByRole("menuitem", { name: "Edit comment" })).toBeVisible();
+    await expect(dropdown.getByRole("menuitem", { name: "Delete comment" })).toBeVisible();
+    await expect(dropdown.getByRole("menuitem", { name: "Copy comment" })).toBeVisible();
+    await expect(dropdown.getByRole("menuitem", { name: "Delete thread" })).toBeVisible();
+    await dropdown.getByRole("menuitem", { name: "Copy comment" }).click();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe(commentText);
+
+    expect(await clickCommentAction(page, "More", threadId!)).toBe(true);
+    dropdown = page.locator(".lb-dropdown:visible").last();
+    await dropdown.getByRole("menuitem", { name: "Edit comment" }).click();
+    const editComposer = activeThread.locator(
+      '.lb-comment .lb-composer [aria-label="Composer editor"]',
+    );
+    await expect(editComposer).toBeVisible();
+    await editComposer.fill(editedText);
+    await activeThread.getByRole("button", { name: "Save" }).click();
+    await expect(activeThread.getByText(editedText)).toBeVisible({ timeout: 20_000 });
+
+    expect(await clickCommentAction(page, "Add reaction", threadId!)).toBe(true);
+    const emojiPicker = page.locator(".lb-emoji-picker:visible").last();
+    await expect(emojiPicker).toHaveCSS("z-index", "50");
+    const loadedEmoji = emojiPicker
+      .locator(
+        'button.lb-emoji-picker-emoji:has([data-emoji]:not([data-emoji=""])):visible',
+      )
+      .first();
+    await expect(loadedEmoji).toBeVisible({ timeout: 20_000 });
+    await loadedEmoji.dispatchEvent("click");
+    await expect(activeThread.locator(".lb-comment-reaction").first()).toBeVisible({
+      timeout: 20_000,
+    });
+
+    const replyComposer = activeThread.locator(
+      '.lb-thread-composer [aria-label="Composer editor"]',
+    );
+    await replyComposer.fill(documentReplyText);
+    await activeThread.getByRole("button", { name: "Reply", exact: true }).click();
+    await expect(activeThread.getByText(documentReplyText)).toBeVisible({ timeout: 20_000 });
+
+    await activeThread.getByRole("button", { name: "Resolve thread" }).click();
+    await expect(activeThread).toBeHidden({ timeout: 20_000 });
+    await page.getByRole("button", { name: "Comment actions" }).last().click();
+    await page.getByRole("menuitem", { name: "View all threads" }).click();
+    await expect(activeThread).toBeVisible({ timeout: 20_000 });
+    await activeThread.getByRole("button", { name: "Re-open thread" }).click();
+    await expect(activeThread.getByRole("button", { name: "Resolve thread" })).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect
+      .poll(
+        async () => {
+          const persisted = (await liveThreads(page.request)).find(
+            (candidate) => candidate.id === threadId,
+          );
+          return Boolean(
+            persisted &&
+              threadContainsText(persisted, editedText) &&
+              threadContainsText(persisted, documentReplyText),
+          );
+        },
+        { timeout: 20_000 },
+      )
+      .toBe(true);
+
+    await activeThread.getByText("Linked selection").click();
+    await expect(page).toHaveURL(new RegExp(`thread=${threadId}`));
 
     await page.reload({ waitUntil: "domcontentloaded" });
     const restored = page.locator(`[data-thread-id="${threadId}"]:visible`);
@@ -212,11 +367,44 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
     });
     await page.goto("/comments", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Comments" })).toBeVisible();
-    await expect(page.getByText(commentText)).toBeVisible({ timeout: 30_000 });
+    const timelineItem = page
+      .getByTestId("comments-page")
+      .locator("article")
+      .filter({ hasText: editedText });
+    await expect(timelineItem).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("link", { name: "wiki/logistics/insurance" })).toHaveAttribute(
       "href",
       DOCUMENT_PATH,
     );
+    await timelineItem
+      .getByRole("button", { name: /^(Reply|Show \d+ repl(?:y|ies))$/ })
+      .click();
+    await timelineItem.getByPlaceholder("Write a reply...").fill(globalReplyText);
+    await timelineItem.getByRole("button", { name: "Reply", exact: true }).last().click();
+    await expect(timelineItem.getByText(globalReplyText)).toBeVisible({ timeout: 20_000 });
+
+    await page.goto(`${DOCUMENT_PATH}?thread=${threadId}`, {
+      waitUntil: "domcontentloaded",
+    });
+    const finalThread = page.locator(`[data-thread-id="${threadId}"]:visible`);
+    await expect(finalThread.getByText(documentReplyText)).toBeVisible({ timeout: 20_000 });
+    await expect(finalThread.getByText(globalReplyText)).toBeVisible({ timeout: 20_000 });
+    expect(await clickCommentAction(page, "More", threadId!)).toBe(true);
+    await page
+      .locator(".lb-dropdown:visible")
+      .last()
+      .getByRole("menuitem", { name: "Delete thread" })
+      .click();
+    await expect
+      .poll(
+        async () =>
+          (await liveThreads(page.request)).some(
+            (candidate) => candidate.id === threadId,
+          ),
+        { timeout: 20_000 },
+      )
+      .toBe(false);
+    await expect(page).not.toHaveURL(/(?:\?|&)thread=/);
   } finally {
     if (signedUp) {
       await cleanupCommentThreads(page.request, commentText, threadId);
