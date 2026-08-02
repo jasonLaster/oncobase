@@ -14,6 +14,13 @@ html[data-wiki-first-frame="true"] #root {
 @import "@oncobase/wiki-shell/styles.css";
 @import "@oncobase/wiki-markdown/styles.css";
 @import "@liveblocks/react-ui/styles.css";
+
+/* Match the legacy comments rail: Liveblocks dropdowns and emoji pickers
+   must render above the fixed sidebar and document highlights. */
+.lb-portal {
+  z-index: 50 !important;
+}
+
 @source "../../../packages/wiki-comments/src";
 @source "../../../packages/chat/src";
 @source "../../../packages/diagnostics/src";
