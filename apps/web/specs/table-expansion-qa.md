@@ -176,3 +176,26 @@ Simple width checks were not enough. These additional probes proved necessary du
 - Legacy and Vite now mount one shared declarative showcase on
   `/table-examples`; Vite's former declarative and landscape-overflow skips run
   as passing tests instead of being documented away as runtime differences.
+
+## Committed Preview Manual Pass
+
+Deployment: `dpl_32XrRzphKpdxACEnm4p7JBj3V9Na` at `1440x806`.
+
+- Collapsed comments rail: left `0 -> 256`, table `276 -> 1356`, right
+  `1376 -> 1440`; one layer and one collapse control.
+- Open 384px comments rail: table narrowed to `276 -> 1036` and retained its
+  stable declarative persistence key.
+- Dragging the comments rail 80px left produced a 464px rail and a 680px table
+  lane with one overlay still mounted.
+- Browser wheel input over the expanded table moved the document scroll owner
+  from `1639 -> 1899` and the layer from `320.18 -> 60.18`.
+- A second table expanded concurrently; collapsing the first left only the
+  second table's keyed overlay.
+- Dragging column 2 produced `data-smart-table-locked="manual"`, a 940px table,
+  and 262px of horizontal overflow. Horizontal browser input moved
+  `scrollLeft` from `2 -> 222.5`.
+- Closing the comments rail widened the layer back to 1080px while preserving
+  the 940px manual table width and manual lock.
+- Comments activation resets the internal document scroll root to zero in both
+  legacy and Vite while restoring the expanded table at its document position;
+  this is observable legacy parity, not a Vite-only divergence.

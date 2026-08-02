@@ -123,6 +123,13 @@ The remaining automation gaps are narrower:
 - custom right-rail drag width while an overlay is expanded
 - the multi-table sequence and tablet fallback in the manual matrix below
 
+These are no longer unverified launch paths. A manual browser pass against the
+committed Vercel preview covered real vertical and horizontal scroll input,
+two simultaneously expanded declarative tables with independent collapse,
+an 80px comments-rail drag, a manual column resize to 940px, persistence after
+closing the rail, and the resulting 262px horizontal overflow. Tablet fallback
+remains deterministic in the declarative Playwright story.
+
 ## Manual QA Matrix
 
 These cases still benefit from a human pass even when Playwright is green.
