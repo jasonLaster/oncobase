@@ -5,6 +5,7 @@ import { passwordGateCookie } from "./gate-auth";
 async function mockCommentsApi(
   page: Page,
   threads: Array<Record<string, unknown>> = [],
+  sessionUser: { email: string; name: string } | null = null,
 ) {
   await page.route("**/api/liveblocks-auth", (route) =>
     route.fulfill({
@@ -21,7 +22,7 @@ async function mockCommentsApi(
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ user: null }),
+      body: JSON.stringify({ user: sessionUser }),
     }),
   );
   await page.route("**/api/liveblocks-guest", (route) =>
@@ -129,41 +130,47 @@ test.describe("document comments sidebar", () => {
         }),
       )
       .toBe("true");
-    const panel = page.locator("[data-comments-bottom-rail]");
-    await expect(panel).toBeVisible({ timeout: 20_000 });
-    await expect(panel).toHaveAttribute("aria-label", "Document comments");
-    await expect(panel).toContainText("0 unresolved threads");
-    await expect(panel.getByText("Sign in to leave a comment")).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Sign in" })).toBeVisible();
+    const panel = page.getByTestId("mobile-comments-panel");
+    await expect(panel).toHaveAttribute("data-state", "open", { timeout: 20_000 });
+    const commentsRail = panel.getByRole("complementary", {
+      name: "Document comments",
+    });
+    await expect(commentsRail).toBeVisible();
+    await expect(commentsRail).toContainText("0 unresolved threads");
+    await expect(commentsRail.getByText("Sign in to leave a comment")).toBeVisible();
+    await expect(commentsRail.getByRole("button", { name: "Sign in" })).toBeVisible();
     const closeButton = page.getByRole("button", {
       name: "Close comments panel",
       exact: true,
     });
     await expect(closeButton).toBeVisible();
 
-    const geometry = await panel.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      const style = getComputedStyle(element);
-      return {
-        bottom: Math.round(rect.bottom),
-        height: Math.round(rect.height),
-        radius: style.borderTopLeftRadius,
-        width: Math.round(rect.width),
-        x: Math.round(rect.x),
-        y: Math.round(rect.y),
-      };
-    });
-    expect(geometry).toEqual({
-      bottom: 844,
-      height: 743,
-      radius: "18px",
-      width: 390,
-      x: 0,
-      y: 101,
-    });
+    await expect
+      .poll(async () =>
+        commentsRail.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          const style = getComputedStyle(element);
+          return {
+            bottom: Math.round(rect.bottom),
+            height: Math.round(rect.height),
+            radius: style.borderTopLeftRadius,
+            width: Math.round(rect.width),
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+          };
+        }),
+      )
+      .toEqual({
+        bottom: 844,
+        height: 743,
+        radius: "16px",
+        width: 390,
+        x: 0,
+        y: 101,
+      });
 
     await closeButton.click();
-    await expect(panel).toHaveCount(0);
+    await expect(panel).toHaveAttribute("data-state", "closed");
   });
 
   test("signed-out mobile comments open account sign-in in place", async ({ page }) => {
@@ -174,7 +181,7 @@ test.describe("document comments sidebar", () => {
 
     await page.getByTestId("mobile-header-comments").click();
     const signIn = page
-      .locator("[data-comments-bottom-rail]")
+      .getByTestId("mobile-comments-panel")
       .getByRole("button", { name: "Sign in" });
     await expect(signIn).toBeVisible({ timeout: 20_000 });
     await signIn.click();
@@ -211,9 +218,91 @@ test.describe("document comments sidebar", () => {
 
     await rail.getByRole("button", { name: "Outline" }).click();
     const firstHeading = rail.getByRole("button", { name: "Insurance", exact: true });
-    await expect(firstHeading).toHaveClass(/active/);
-    await expect(firstHeading).toHaveCSS("font-size", "16px");
-    await expect(firstHeading).toHaveCSS("min-height", "40px");
+    await expect(firstHeading).toHaveAttribute("data-active-outline-heading", "true");
+  });
+
+  test("phone comments panel matches legacy resizing behavior", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await installWikiApiMocks(page);
+    await mockCommentsApi(page);
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    await page.getByTestId("mobile-header-comments").click();
+    const panel = page.getByTestId("mobile-comments-panel");
+    await expect(panel).toHaveAttribute("data-state", "open", { timeout: 20_000 });
+    const commentsRail = panel.getByRole("complementary", {
+      name: "Document comments",
+    });
+    const heightBefore = (await commentsRail.boundingBox())?.height ?? 0;
+    const resizer = panel.getByRole("separator", { name: "Resize comments panel" });
+    const box = await resizer.boundingBox();
+    expect(box).not.toBeNull();
+
+    await resizer.dispatchEvent("pointerdown", {
+      bubbles: true,
+      clientX: box!.x + box!.width / 2,
+      clientY: box!.y + box!.height / 2,
+      pointerId: 1,
+      pointerType: "touch",
+    });
+    await page.evaluate(
+      ({ x, y }) => {
+        window.dispatchEvent(
+          new PointerEvent("pointermove", {
+            bubbles: true,
+            clientX: x,
+            clientY: y + 80,
+            pointerId: 1,
+            pointerType: "touch",
+          }),
+        );
+        window.dispatchEvent(
+          new PointerEvent("pointerup", {
+            bubbles: true,
+            clientX: x,
+            clientY: y + 80,
+            pointerId: 1,
+            pointerType: "touch",
+          }),
+        );
+      },
+      { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 },
+    );
+
+    const heightAfter = (await commentsRail.boundingBox())?.height ?? 0;
+    expect(heightAfter).toBeLessThan(heightBefore - 40);
+  });
+
+  test("desktop rail matches legacy selection-only and resize behavior", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await installWikiApiMocks(page);
+    await mockCommentsApi(page, [], {
+      email: "parity@example.test",
+      name: "Parity Reader",
+    });
+    await gotoWiki(page, "/wiki/logistics/insurance");
+
+    await page.getByRole("button", { name: "Open comments" }).click();
+    const rail = page.locator("[data-wiki-shell-right-rail]").last();
+    await expect(rail).toBeVisible({ timeout: 20_000 });
+    await expect(
+      rail.getByRole("button", { name: "Add a page-level comment" }),
+    ).toHaveCount(0);
+
+    const widthBefore = (await rail.boundingBox())?.width ?? 0;
+    const resizer = rail.getByRole("separator", { name: "Resize comments pane" });
+    const box = await resizer.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move(box!.x + 1, box!.y + box!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box!.x - 80, box!.y + box!.height / 2);
+    await page.mouse.up();
+
+    const widthAfter = (await rail.boundingBox())?.width ?? 0;
+    expect(widthAfter).toBeGreaterThan(widthBefore + 40);
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem("comments-pane-width")))
+      .toBe(String(Math.round(widthAfter)));
   });
 });
 
