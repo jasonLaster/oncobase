@@ -102,7 +102,9 @@ test.describe("Prose table expansion", () => {
   test("serves the table examples route in the real Vite app", async ({ page }) => {
     await gotoWiki(page, "/table-examples");
 
-    await expect(documentArticle(page).locator(".page-header h1")).toHaveText("Table Examples");
+    await expect(documentArticle(page).getByRole("heading", { level: 1 })).toHaveText(
+      "Smart Table Examples",
+    );
     await expect(firstSmartTableShell(page)).toBeVisible();
     await expect(firstSmartTableToggle(page)).toBeVisible();
   });

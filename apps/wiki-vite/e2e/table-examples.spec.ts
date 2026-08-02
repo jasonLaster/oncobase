@@ -1,6 +1,8 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   exampleTables,
+  featuredExampleTables,
+  resizeAuditExampleTables,
   type ExampleTableDefinition,
 } from "@oncobase/smart-table/examples";
 import {
@@ -32,7 +34,10 @@ async function exampleGeometry(page: Page, example: ExampleTableDefinition) {
     let current = heading?.nextElementSibling ?? null;
 
     while (current) {
-      if (current instanceof HTMLElement && current.hasAttribute("data-smart-table-shell")) {
+      if (
+        current instanceof HTMLElement &&
+        current.hasAttribute("data-smart-table-shell")
+      ) {
         fallbackShell = current;
         break;
       }
@@ -66,11 +71,49 @@ test.describe("Smart table examples", () => {
     await installWikiApiMocks(page);
     await gotoWiki(page, TABLE_PAGE);
     await expect(
-      page.getByRole("heading", { name: "Table Examples" }),
+      page.getByRole("heading", { name: "Smart Table Examples" }),
     ).toBeVisible();
   });
 
-  test("renders fixture headings and desktop expand toggle", async ({ page }) => {
+  test("renders fixture headings and desktop expand toggle", async ({
+    page,
+  }) => {
+    await expect(
+      page.getByRole("heading", { name: "Component API Scenarios" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Resize Performance Audit" }),
+    ).toBeVisible();
+    await expect(declarativeToggle(page)).toBeVisible();
+
+    const liveScenarios = featuredExampleTables.filter((example) =>
+      example.apiModes.includes("declarative"),
+    );
+    const uniqueScenarioIds = await page.evaluate(() =>
+      Array.from(
+        new Set(
+          Array.from(
+            document.querySelectorAll(
+              "[data-smart-table-live-scenarios] [data-smart-table-scenario]",
+            ),
+          ).map((node) => node.getAttribute("data-smart-table-scenario")),
+        ),
+      ).filter(Boolean),
+    );
+    expect(uniqueScenarioIds).toHaveLength(liveScenarios.length);
+    const uniqueAuditTargets = await page.evaluate(() =>
+      Array.from(
+        new Set(
+          Array.from(
+            document.querySelectorAll(
+              "[data-smart-table-performance-summary] a",
+            ),
+          ).map((node) => node.getAttribute("href")),
+        ),
+      ).filter(Boolean),
+    );
+    expect(uniqueAuditTargets).toHaveLength(resizeAuditExampleTables.length);
+
     await expect(firstSmartTableShell(page)).toBeVisible();
     await expect(firstSmartTableToggle(page)).toBeVisible();
 
@@ -84,14 +127,20 @@ test.describe("Smart table examples", () => {
     }
   });
 
-  test("client-rendered tables ship styled markup before expansion", async ({ page }) => {
+  test("client-rendered tables ship styled markup before expansion", async ({
+    page,
+  }) => {
     const shell = firstSmartTableShell(page);
-    await expect(shell.locator("[data-smart-table-wrapper]").first()).toBeVisible();
+    await expect(
+      shell.locator("[data-smart-table-wrapper]").first(),
+    ).toBeVisible();
     await expect(shell.locator("table.smart-table").first()).toBeVisible();
     await expect
       .poll(() =>
         shell.evaluate((element) =>
-          getComputedStyle(element).getPropertyValue("--smart-table-css-loaded").trim(),
+          getComputedStyle(element)
+            .getPropertyValue("--smart-table-css-loaded")
+            .trim(),
         ),
       )
       .toBe("1");
@@ -104,17 +153,26 @@ test.describe("Smart table examples", () => {
       )
       .toBe("uppercase");
 
-    const snapshot = await shell.locator("table.smart-table").first().evaluate((table) => {
-      const th = table.querySelector("th");
-      const wrapper = table.closest<HTMLElement>("[data-smart-table-wrapper]");
-      return {
-        tableClass: table.className,
-        wrapperBorderTopWidth: wrapper ? getComputedStyle(wrapper).borderTopWidth : "0px",
-        thTextTransform: th ? getComputedStyle(th).textTransform : "",
-      };
-    });
+    const snapshot = await shell
+      .locator("table.smart-table")
+      .first()
+      .evaluate((table) => {
+        const th = table.querySelector("th");
+        const wrapper = table.closest<HTMLElement>(
+          "[data-smart-table-wrapper]",
+        );
+        return {
+          tableClass: table.className,
+          wrapperBorderTopWidth: wrapper
+            ? getComputedStyle(wrapper).borderTopWidth
+            : "0px",
+          thTextTransform: th ? getComputedStyle(th).textTransform : "",
+        };
+      });
     expect(snapshot.tableClass).toContain("smart-table");
-    expect(Number.parseFloat(snapshot.wrapperBorderTopWidth)).toBeGreaterThan(0);
+    expect(Number.parseFloat(snapshot.wrapperBorderTopWidth)).toBeGreaterThan(
+      0,
+    );
     expect(snapshot.thTextTransform).toBe("uppercase");
   });
 
@@ -131,7 +189,9 @@ test.describe("Smart table examples", () => {
         .toMatchObject({ expanded: true });
 
       const expanded = await exampleGeometry(page, example);
-      expect(expanded.layerWidth ?? 0).toBeGreaterThan(collapsed.wrapperWidth ?? 0);
+      expect(expanded.layerWidth ?? 0).toBeGreaterThan(
+        collapsed.wrapperWidth ?? 0,
+      );
       expect(expanded.shellReservedHeight ?? 0).toBeGreaterThan(0);
 
       await page.getByRole("button", { name: "Collapse table" }).click();
@@ -141,31 +201,100 @@ test.describe("Smart table examples", () => {
     });
   }
 
-  test.skip(
-    "keeps the landscape fixture scrollable when widened before and after expansion",
-    () => {
-      // The web-side test installs a manual `style.width` overshoot on the
-      // `<table>` element to force horizontal overflow and then asserts the
-      // overshoot survives expansion. On web this works because the markdown
-      // is server-rendered and the smart-table enhancement runs once after
-      // hydration. On Vite the table is rendered by ReactMarkdown and the
-      // client-only `installSmartTableLayout` recomputes column widths via
-      // <colgroup> on every layout change, which clobbers the test's inline
-      // style override. The same end-to-end invariant — "expanded wrapper
-      // keeps horizontal scrolling when content exceeds the lane" — is
-      // already covered by table-expansion.spec.ts, which drives the smart-
-      // table layout pipeline rather than a test-only style override.
-    },
-  );
+  test("keeps the landscape fixture scrollable when widened before and after expansion", async ({
+    page,
+  }) => {
+    const example = exampleTables.find(
+      (entry) => entry.id === "overflow-landscape",
+    );
+    if (!example) throw new Error("overflow-landscape fixture missing");
 
-  test.skip(
-    "keeps the declarative SmartTable API aligned with overlay behavior",
-    () => {
-      // The declarative-SmartTable-example component is a web-only surface that
-      // renders `data-smart-table-live-scenarios` + `data-smart-table-performance-summary`.
-      // Vite's table-examples route renders only the markdown-driven fixtures.
-      // Re-enable this test when the declarative SmartTable React API is mounted
-      // in the Vite app.
-    },
-  );
+    const shell = exampleShell(page, example);
+    const collapsedWrapper = shell.locator("[data-smart-table-wrapper]");
+    const collapsedTable = shell.locator("table");
+
+    await collapsedTable.evaluate((node) => {
+      const wrapper = node.parentElement;
+      if (!wrapper) return;
+      const width = wrapper.clientWidth + 320;
+      node.style.minWidth = `${width}px`;
+      node.style.width = `${width}px`;
+    });
+
+    const collapsed = await collapsedWrapper.evaluate((node) => ({
+      clientWidth: node.clientWidth,
+      scrollWidth: node.scrollWidth,
+    }));
+    expect(collapsed.scrollWidth).toBeGreaterThan(collapsed.clientWidth + 40);
+
+    await exampleToggle(shell).click();
+    await expect
+      .poll(() => exampleGeometry(page, example))
+      .toMatchObject({ expanded: true });
+
+    const expandedWrapper = page.locator(
+      ".table-expansion-layer > .table-scroll-wrapper",
+    );
+    const expanded = await expandedWrapper.evaluate((node) => ({
+      clientWidth: node.clientWidth,
+      scrollWidth: node.scrollWidth,
+      layerWidth: node.parentElement?.getBoundingClientRect().width ?? null,
+    }));
+    expect(expanded.scrollWidth).toBeGreaterThan(expanded.clientWidth + 40);
+    expect(expanded.layerWidth ?? 0).toBeGreaterThanOrEqual(
+      expanded.clientWidth,
+    );
+  });
+
+  test("keeps the declarative SmartTable API aligned with overlay behavior", async ({
+    page,
+  }) => {
+    await declarativeToggle(page).click();
+    await expect
+      .poll(() => declarativeGeometry(page))
+      .toMatchObject({ expanded: true });
+
+    await page.setViewportSize({ width: 900, height: 900 });
+    await expect
+      .poll(() => declarativeGeometry(page))
+      .toMatchObject({ expanded: false });
+    await expect(declarativeToggle(page)).toBeHidden();
+  });
 });
+
+function declarativeShell(page: Page) {
+  return page
+    .locator(
+      "[data-smart-table-live-scenarios] [data-smart-table-scenario] [data-smart-table-shell]",
+    )
+    .first();
+}
+
+function declarativeToggle(page: Page) {
+  return declarativeShell(page).getByRole("button", { name: "Expand table" });
+}
+
+async function declarativeGeometry(page: Page) {
+  return page.evaluate(() => {
+    const section = document.querySelector<HTMLElement>(
+      "[data-smart-table-live-scenarios] [data-smart-table-scenario]",
+    );
+    const shell = section?.querySelector<HTMLElement>(
+      "[data-smart-table-shell]",
+    );
+    const layer = document.querySelector<HTMLElement>(".table-expansion-layer");
+    const wrapper =
+      layer?.querySelector<HTMLElement>(":scope > .table-scroll-wrapper") ??
+      shell?.querySelector<HTMLElement>("[data-smart-table-wrapper]") ??
+      null;
+
+    return {
+      expanded:
+        Boolean(layer) &&
+        wrapper?.parentElement === layer &&
+        document.body.contains(layer),
+      wrapperWidth: wrapper?.getBoundingClientRect().width ?? null,
+      layerWidth: layer?.getBoundingClientRect().width ?? null,
+    };
+  });
+}

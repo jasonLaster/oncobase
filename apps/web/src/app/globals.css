@@ -15,6 +15,7 @@
 @source "../../../../packages/wiki-comments/src";
 @source "../../../../packages/wiki-markdown/src";
 @source "../../../../packages/wiki-shell/src";
+@source "../../../../packages/smart-table/src";
 
 @custom-variant dark (&:is(.dark *));
 

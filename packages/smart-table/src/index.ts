@@ -26,6 +26,7 @@ export {
   defaultSmartTableToggleLabels,
   type SmartTableToggleLabels,
 } from "./enhance-table";
+export { DeclarativeSmartTableShowcase } from "./declarative-examples";
 export {
   createViewportSmartTableLayoutAdapter,
   defaultSmartTableLayoutAdapter,
