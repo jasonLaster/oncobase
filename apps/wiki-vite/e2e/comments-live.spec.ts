@@ -180,7 +180,7 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
     await page.getByRole("button", { name: "Send" }).last().click();
 
     const thread = page
-      .locator('[data-comment-list-item="thread"][data-anchor-start]')
+      .locator('[data-comment-list-item="thread"][data-anchor-start]:visible')
       .filter({ hasText: commentText });
     await expect(thread).toBeVisible({ timeout: 20_000 });
     await expect(thread.getByText("Linked selection")).toBeVisible();

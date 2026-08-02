@@ -401,6 +401,17 @@ test.describe("comments and Liveblocks API endpoints", () => {
       error: "roomId and threadId are required",
     });
   });
+
+  test("single-thread API rejects missing params", async ({ request }) => {
+    const cookie = await passwordGateCookie(request);
+    const response = await request.get("/api/liveblocks-thread", {
+      headers: { Cookie: cookie },
+    });
+    expect(response.status()).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "roomId and threadId are required",
+    });
+  });
 });
 
 test.describe("comments sidebar navigation", () => {

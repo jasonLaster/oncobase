@@ -12,7 +12,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ThreadData } from "@liveblocks/client";
-import { useRoom, useThreads } from "@liveblocks/react";
+import { useThreads } from "@liveblocks/react";
 import { Comment, Composer, Thread } from "@liveblocks/react-ui";
 import { cn } from "./utils.ts";
 import { LiveblocksRoom } from "./room.tsx";
@@ -59,6 +59,44 @@ type OutlineItem = {
   key: string;
   parentIds: string[];
 };
+
+type SerializedThreadData = Omit<
+  ThreadData,
+  "comments" | "createdAt" | "updatedAt"
+> & {
+  createdAt: string;
+  updatedAt: string;
+  comments: Array<
+    Omit<ThreadData["comments"][number], "createdAt" | "editedAt" | "reactions"> & {
+      createdAt: string;
+      editedAt?: string;
+      deletedAt?: string;
+      reactions: Array<
+        Omit<ThreadData["comments"][number]["reactions"][number], "createdAt"> & {
+          createdAt: string;
+        }
+      >;
+    }
+  >;
+};
+
+function reviveThreadData(value: SerializedThreadData): ThreadData {
+  return {
+    ...value,
+    createdAt: new Date(value.createdAt),
+    updatedAt: new Date(value.updatedAt),
+    comments: value.comments.map((comment) => ({
+      ...comment,
+      createdAt: new Date(comment.createdAt),
+      ...(comment.editedAt ? { editedAt: new Date(comment.editedAt) } : {}),
+      ...(comment.deletedAt ? { deletedAt: new Date(comment.deletedAt) } : {}),
+      reactions: comment.reactions.map((reaction) => ({
+        ...reaction,
+        createdAt: new Date(reaction.createdAt),
+      })),
+    })) as ThreadData["comments"],
+  };
+}
 
 type SidebarButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   active?: boolean;
@@ -683,7 +721,6 @@ function CommentsShell({
   onSignIn?: () => void;
   children: ReactNode;
 }) {
-  const room = useRoom();
   const threadsResult = useThreads();
   const [sessionLoading, setSessionLoading] = useState(true);
   const [sessionUser, setSessionUser] = useState<{ email: string; name?: string | null } | null>(
@@ -693,7 +730,19 @@ function CommentsShell({
     () => (threadsResult.isLoading || threadsResult.error ? [] : threadsResult.threads),
     [threadsResult.isLoading, threadsResult.error, threadsResult.threads]
   );
-  const [linkedThread, setLinkedThread] = useState<ThreadData | null>(null);
+  const queryThreadId =
+    typeof window === "undefined"
+      ? null
+      : new URL(window.location.href).searchParams.get("thread");
+  const [linkedThreadResult, setLinkedThreadResult] = useState<{
+    threadId: string | null;
+    status: "loading" | "ready";
+    thread: ThreadData | null;
+  }>(() => ({
+    threadId: queryThreadId,
+    status: queryThreadId ? "loading" : "ready",
+    thread: null,
+  }));
   const articleRef = useRef<HTMLElement | null>(null);
   const scrollRootRef = useRef<HTMLDivElement | null>(null);
   const pendingSelectionId = useId();
@@ -796,26 +845,54 @@ function CommentsShell({
   }, [setCommentsWidth]);
 
   useEffect(() => {
-    const threadId = new URL(window.location.href).searchParams.get("thread");
+    const threadId = queryThreadId;
     if (!threadId || threads.some((thread) => thread.id === threadId)) {
-      setLinkedThread(null);
       return;
     }
 
     let cancelled = false;
-    void room
-      .getThread(threadId)
-      .then(({ thread }) => {
-        if (!cancelled) setLinkedThread(thread ?? null);
+    const params = new URLSearchParams({
+      roomId: getRoomId(documentSlug),
+      threadId,
+    });
+    void fetch(`/api/liveblocks-thread?${params}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { "Cache-Control": "no-cache" },
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const body = (await response.json()) as {
+          thread?: SerializedThreadData;
+        };
+        return body.thread ? reviveThreadData(body.thread) : null;
+      })
+      .then((thread) => {
+        if (!cancelled) {
+          setLinkedThreadResult({ threadId, status: "ready", thread });
+        }
       })
       .catch(() => {
-        if (!cancelled) setLinkedThread(null);
+        if (!cancelled) {
+          setLinkedThreadResult({ threadId, status: "ready", thread: null });
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [room, threads]);
+  }, [documentSlug, queryThreadId, threads]);
+
+  const linkedThread =
+    linkedThreadResult.threadId === queryThreadId
+      ? linkedThreadResult.thread
+      : null;
+  const linkedThreadHydrationPending = Boolean(
+    queryThreadId &&
+      !threads.some((thread) => thread.id === queryThreadId) &&
+      (linkedThreadResult.threadId !== queryThreadId ||
+        linkedThreadResult.status === "loading")
+  );
 
   const hydratedThreads = useMemo(
     () =>
@@ -1203,7 +1280,7 @@ function CommentsShell({
 
     const thread = sortedThreads.find((candidate) => candidate.id === threadId);
     if (!thread) {
-      if (!threadsResult.isLoading) {
+      if (!threadsResult.isLoading && !linkedThreadHydrationPending) {
         updateThreadQueryParam(null);
       }
       return;
@@ -1229,6 +1306,7 @@ function CommentsShell({
     setCommentsOpen,
     showResolvedThreads,
     sortedThreads,
+    linkedThreadHydrationPending,
     threadsResult.isLoading,
   ]);
 
@@ -1569,8 +1647,10 @@ function CommentsShell({
                                     );
 
                                     if (!response.ok) return;
-                                    setLinkedThread((current) =>
-                                      current?.id === thread.id ? null : current
+                                    setLinkedThreadResult((current) =>
+                                      current.thread?.id === thread.id
+                                        ? { ...current, thread: null }
+                                        : current
                                     );
                                     setActiveThreadId((current) => {
                                       if (current === thread.id) {

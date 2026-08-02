@@ -4,6 +4,7 @@ import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "node:
 import archiver from "archiver";
 import { ConvexHttpClient } from "convex/browser";
 import { Liveblocks, WebhookHandler } from "@liveblocks/node";
+import type { ThreadData } from "@liveblocks/client";
 import type { Plugin } from "vite";
 import { legacyRedirectResponse } from "./redirects.ts";
 import {
@@ -2861,6 +2862,73 @@ async function handleLiveblocksThreadsRequest(
   }
 }
 
+function serializeLiveblocksThread(thread: ThreadData) {
+  return {
+    ...thread,
+    createdAt: thread.createdAt.toISOString(),
+    updatedAt: thread.updatedAt.toISOString(),
+    comments: thread.comments.map((comment) => ({
+      ...comment,
+      createdAt: comment.createdAt.toISOString(),
+      ...(comment.editedAt ? { editedAt: comment.editedAt.toISOString() } : {}),
+      ...("deletedAt" in comment && comment.deletedAt
+        ? { deletedAt: comment.deletedAt.toISOString() }
+        : {}),
+      reactions: comment.reactions.map((reaction) => ({
+        ...reaction,
+        createdAt: reaction.createdAt.toISOString(),
+      })),
+    })),
+  };
+}
+
+async function handleLiveblocksThreadRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  if (request.method !== "GET") {
+    return Response.json(
+      { error: "Method not allowed" },
+      { status: 405, headers: { Allow: "GET" } },
+    );
+  }
+
+  const url = new URL(request.url);
+  const roomId = url.searchParams.get("roomId")?.trim();
+  const threadId = url.searchParams.get("threadId")?.trim();
+  if (!roomId?.startsWith("markdown:") || !threadId) {
+    return Response.json(
+      { error: "roomId and threadId are required" },
+      { status: 400 },
+    );
+  }
+
+  const config = await getLiveblocksConfig(request, client, siteSlug);
+  if (!config.ok) return liveblocksDisabledResponse(config);
+
+  const sessionUser = await getSessionUser(request, client, siteSlug);
+  if (!sessionUser && (await isSensitiveCommentRoom(roomId, client, siteSlug))) {
+    return Response.json({ error: "Thread not found" }, { status: 404 });
+  }
+
+  try {
+    const liveblocks = new Liveblocks({ secret: config.creds.secretKey });
+    const thread = await liveblocks.getThread({ roomId, threadId });
+    return Response.json(
+      { thread: serializeLiveblocksThread(thread) },
+      { headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" } },
+    );
+  } catch (error) {
+    const status = (error as { status?: number }).status;
+    if (status === 404) {
+      return Response.json({ error: "Thread not found" }, { status: 404 });
+    }
+    console.error("[liveblocks-thread] Error:", error);
+    return Response.json({ error: "Failed to load thread" }, { status: 502 });
+  }
+}
+
 async function handleLiveblocksAddCommentRequest(
   request: Request,
   client: ConvexHttpClient,
@@ -3307,6 +3375,7 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/test/dicom-comparisons" ||
       pathname === "/api/tools" ||
       pathname === "/api/liveblocks-auth" ||
+      pathname === "/api/liveblocks-thread" ||
       pathname === "/api/liveblocks-threads" ||
       pathname === "/api/liveblocks-add-comment" ||
       pathname === "/api/liveblocks-delete-thread" ||
@@ -3515,6 +3584,10 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/liveblocks-auth") {
       return handleLiveblocksAuthRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/liveblocks-thread") {
+      return handleLiveblocksThreadRequest(request, client, siteSlug);
     }
 
     if (pathname === "/api/liveblocks-threads") {
