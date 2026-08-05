@@ -2215,7 +2215,7 @@ function TimelineAxis({
       </div>
       <div
         aria-label="Timeline calendar axis"
-        className="relative min-w-0 overflow-x-auto overscroll-x-contain"
+        className="relative min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         data-test-id="timeline-axis-scroll-region"
         data-timeline-scroll-region
         onScroll={onScroll}
@@ -2340,7 +2340,7 @@ function TimelineTrackRow({
 
       <div
         aria-label={`${track.label} timeline plot`}
-        className="min-w-0 overflow-x-auto overscroll-x-contain"
+        className="min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         data-test-id={`timeline-track-scroll-region-${track.id}`}
         data-timeline-scroll-region
         onScroll={onTimelineScroll}

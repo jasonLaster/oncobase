@@ -20,6 +20,14 @@ test.describe("diagnostic timeline", () => {
     await expect(signatera).toBeVisible();
     await expect
       .poll(() =>
+        axis.evaluate((element) => ({
+          standard: getComputedStyle(element).scrollbarWidth,
+          webkit: getComputedStyle(element, "::-webkit-scrollbar").display,
+        })),
+      )
+      .toEqual({ standard: "none", webkit: "none" });
+    await expect
+      .poll(() =>
         axis.evaluate((element) => element.scrollWidth > element.clientWidth),
       )
       .toBe(true);
