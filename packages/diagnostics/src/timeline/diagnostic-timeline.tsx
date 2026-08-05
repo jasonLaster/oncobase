@@ -222,6 +222,8 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
   const [mobileSelectedEventId, setMobileSelectedEventId] = useState<string | null>(
     null,
   );
+  const desktopTimelineRef = useRef<HTMLDivElement>(null);
+  const timelineScrollLeft = useRef(0);
   const tooltipHideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allEventRefs = useMemo(() => flattenEvents(data.sleeves), [data.sleeves]);
@@ -359,6 +361,29 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
     [],
   );
 
+  const registerTimelineScrollRegion = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (element) element.scrollLeft = timelineScrollLeft.current;
+    },
+    [],
+  );
+  const synchronizeTimelineScroll = useCallback(
+    (event: ReactUIEvent<HTMLDivElement>) => {
+      const source = event.currentTarget;
+      const nextScrollLeft = source.scrollLeft;
+      timelineScrollLeft.current = nextScrollLeft;
+
+      desktopTimelineRef.current
+        ?.querySelectorAll<HTMLDivElement>("[data-timeline-scroll-region]")
+        .forEach((region) => {
+          if (region !== source && region.scrollLeft !== nextScrollLeft) {
+            region.scrollLeft = nextScrollLeft;
+          }
+        });
+    },
+    [],
+  );
+
   const dragHandlers = usePlotDragHandlers({
     drag,
     fullRange,
@@ -386,7 +411,10 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
         visibleRange={visibleRange}
       />
 
-      <div className="hidden rounded-lg border border-border bg-background shadow-sm md:block">
+      <div
+        className="hidden rounded-lg border border-border bg-background shadow-sm md:block"
+        ref={desktopTimelineRef}
+      >
         <TimelineStickyHeader
           activeOverviewX={activeOverviewX}
           activeX={activeX}
@@ -399,8 +427,10 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
           }
           onRangeChange={setVisibleRange}
           onResetRange={resetRange}
+          onTimelineScroll={synchronizeTimelineScroll}
           onWheel={dragHandlers.onWheel}
           onZoom={zoomBy}
+          registerTimelineScrollRegion={registerTimelineScrollRegion}
           visibleRange={visibleRange}
           weekTicks={weekTicks}
         />
@@ -419,7 +449,9 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
           onInspectTrack={(sleeve, track) =>
             setDrilldownTarget({ scope: "track", sleeve, track })
           }
+          onTimelineScroll={synchronizeTimelineScroll}
           onToggleSleeve={toggleSleeve}
+          registerTimelineScrollRegion={registerTimelineScrollRegion}
           sleeves={filteredSleeves}
           visibleRange={visibleRange}
           weekTicks={weekTicks}
@@ -1077,8 +1109,10 @@ function TimelineStickyHeader({
   onFilterChange,
   onRangeChange,
   onResetRange,
+  onTimelineScroll,
   onWheel,
   onZoom,
+  registerTimelineScrollRegion,
   visibleRange,
   weekTicks,
 }: {
@@ -1091,8 +1125,10 @@ function TimelineStickyHeader({
   onFilterChange: (filter: string) => void;
   onRangeChange: (range: DateRange | ((range: DateRange) => DateRange)) => void;
   onResetRange: () => void;
+  onTimelineScroll: (event: ReactUIEvent<HTMLDivElement>) => void;
   onWheel: (event: ReactWheelEvent<HTMLElement>) => void;
   onZoom: (factor: number) => void;
+  registerTimelineScrollRegion: (element: HTMLDivElement | null) => void;
   visibleRange: DateRange;
   weekTicks: TimelineTick[];
 }) {
@@ -1189,7 +1225,9 @@ function TimelineStickyHeader({
       <TimelineAxis
         activeX={activeX}
         monthTicks={monthTicks}
+        onScroll={onTimelineScroll}
         onWheel={onWheel}
+        scrollRegionRef={registerTimelineScrollRegion}
         weekTicks={weekTicks}
         visibleRange={visibleRange}
       />
@@ -2038,7 +2076,9 @@ function TimelineSleeves({
   onDeactivate,
   onInspectSleeve,
   onInspectTrack,
+  onTimelineScroll,
   onToggleSleeve,
+  registerTimelineScrollRegion,
   sleeves,
   visibleRange,
   weekTicks,
@@ -2055,7 +2095,9 @@ function TimelineSleeves({
     sleeve: DiagnosticTimelineSleeve,
     track: DiagnosticTimelineTrack,
   ) => void;
+  onTimelineScroll: (event: ReactUIEvent<HTMLDivElement>) => void;
   onToggleSleeve: (sleeveId: string) => void;
+  registerTimelineScrollRegion: (element: HTMLDivElement | null) => void;
   sleeves: DiagnosticTimelineSleeve[];
   visibleRange: DateRange;
   weekTicks: TimelineTick[];
@@ -2125,6 +2167,8 @@ function TimelineSleeves({
                     onActivate={onActivate}
                     onDeactivate={onDeactivate}
                     onInspect={() => onInspectTrack(sleeve, track)}
+                    onTimelineScroll={onTimelineScroll}
+                    registerTimelineScrollRegion={registerTimelineScrollRegion}
                     sleeve={sleeve}
                     track={track}
                     visibleRange={visibleRange}
@@ -2143,13 +2187,17 @@ function TimelineSleeves({
 function TimelineAxis({
   activeX,
   monthTicks,
+  onScroll,
   onWheel,
+  scrollRegionRef,
   weekTicks,
   visibleRange,
 }: {
   activeX: number | null;
   monthTicks: TimelineTick[];
+  onScroll: (event: ReactUIEvent<HTMLDivElement>) => void;
   onWheel: (event: ReactWheelEvent<HTMLElement>) => void;
+  scrollRegionRef: (element: HTMLDivElement | null) => void;
   weekTicks: TimelineTick[];
   visibleRange: DateRange;
 }) {
@@ -2168,6 +2216,10 @@ function TimelineAxis({
       <div
         aria-label="Timeline calendar axis"
         className="relative min-w-0 overflow-x-auto overscroll-x-contain"
+        data-test-id="timeline-axis-scroll-region"
+        data-timeline-scroll-region
+        onScroll={onScroll}
+        ref={scrollRegionRef}
         role="region"
         tabIndex={0}
       >
@@ -2224,6 +2276,8 @@ function TimelineTrackRow({
   onActivate,
   onDeactivate,
   onInspect,
+  onTimelineScroll,
+  registerTimelineScrollRegion,
   sleeve,
   track,
   visibleRange,
@@ -2236,6 +2290,8 @@ function TimelineTrackRow({
   onActivate: (eventId: string, anchorElement: HTMLElement) => void;
   onDeactivate: (eventId: string) => void;
   onInspect: () => void;
+  onTimelineScroll: (event: ReactUIEvent<HTMLDivElement>) => void;
+  registerTimelineScrollRegion: (element: HTMLDivElement | null) => void;
   sleeve: DiagnosticTimelineSleeve;
   track: DiagnosticTimelineTrack;
   visibleRange: DateRange;
@@ -2285,6 +2341,10 @@ function TimelineTrackRow({
       <div
         aria-label={`${track.label} timeline plot`}
         className="min-w-0 overflow-x-auto overscroll-x-contain"
+        data-test-id={`timeline-track-scroll-region-${track.id}`}
+        data-timeline-scroll-region
+        onScroll={onTimelineScroll}
+        ref={registerTimelineScrollRegion}
         role="region"
         tabIndex={0}
       >

@@ -6,6 +6,51 @@ test.describe("diagnostic timeline", () => {
     await installWikiApiMocks(page);
   });
 
+  test("keeps the calendar and diagnostic swimlanes horizontally aligned", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 800, height: 900 });
+    await page.goto("/timeline", { waitUntil: "domcontentloaded" });
+
+    const scrollRegions = page.locator("[data-timeline-scroll-region]");
+    const axis = page.getByTestId("timeline-axis-scroll-region");
+    const signatera = page.getByTestId("timeline-track-scroll-region-signatera");
+
+    await expect(axis).toBeVisible();
+    await expect(signatera).toBeVisible();
+    await expect
+      .poll(() =>
+        axis.evaluate((element) => element.scrollWidth > element.clientWidth),
+      )
+      .toBe(true);
+
+    const axisScrollLeft = await axis.evaluate((element) => {
+      element.scrollLeft = (element.scrollWidth - element.clientWidth) / 2;
+      element.dispatchEvent(new Event("scroll"));
+      return element.scrollLeft;
+    });
+    expect(axisScrollLeft).toBeGreaterThan(0);
+    await expect
+      .poll(() =>
+        scrollRegions.evaluateAll((elements) =>
+          elements.map((item) => item.scrollLeft),
+        ),
+      )
+      .toEqual(Array(await scrollRegions.count()).fill(axisScrollLeft));
+
+    await signatera.evaluate((element) => {
+      element.scrollLeft = 0;
+      element.dispatchEvent(new Event("scroll"));
+    });
+    await expect
+      .poll(() =>
+        scrollRegions.evaluateAll((elements) =>
+          elements.map((item) => item.scrollLeft),
+        ),
+      )
+      .toEqual(Array(await scrollRegions.count()).fill(0));
+  });
+
   test("renders sleeves, week ticks, hover tooltips, diagnostics links, and zoom state", async ({
     page,
   }) => {
