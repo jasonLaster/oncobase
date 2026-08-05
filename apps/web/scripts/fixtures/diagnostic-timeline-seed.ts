@@ -3,10 +3,10 @@ import type { DiagnosticTimelineData } from "../../src/lib/diagnostic-timeline-d
 export const diagnosticTimelineSeed: DiagnosticTimelineData = {
   "metadata": {
     "title": "Diagnostic Timeline",
-    "asOf": "2026-06-23",
+    "asOf": "2026-07-27",
     "range": {
       "start": "2026-02-01",
-      "end": "2026-07-15"
+      "end": "2026-08-31"
     },
     "sourcePages": [
       {
@@ -363,19 +363,40 @@ export const diagnosticTimelineSeed: DiagnosticTimelineData = {
               ]
             },
             {
-              "id": "signatera-late-june-planned",
-              "date": "2026-06-26",
-              "label": "Signatera taxol/AC crossover",
-              "result": "Planned late-June redraw near completion of Carbo/Taxol/Pembro.",
-              "status": "planned",
+              "id": "signatera-2026-07-01",
+              "date": "2026-07-01",
+              "label": "Signatera on-treatment",
+              "value": 0,
+              "valueLabel": "0.00 MTM/mL, not detected",
+              "result": "First formally negative Signatera timepoint after three declining positive results.",
+              "status": "reported",
               "details": [
-                "Next cross-platform comparator after the June 9 Personalis result.",
-                "Key T2-style gate for the Magbanua interpretation frame."
+                "Favorable and concordant with the July 6 Personalis not-detected call.",
+                "A negative result does not definitively establish absence of cancer."
               ],
               "links": [
                 {
-                  "label": "ctDNA schedule",
-                  "href": "/wiki/diagnostics/ctdna-mrd"
+                  "label": "Source page",
+                  "href": "/sources/diagnostics/07-01-signatera-ctdna/07-01-signatera-ctdna"
+                }
+              ]
+            },
+            {
+              "id": "signatera-2026-07-20",
+              "date": "2026-07-20",
+              "label": "Signatera on-treatment",
+              "value": 0,
+              "valueLabel": "0.00 MTM/mL, not detected",
+              "result": "Second consecutive formally negative Signatera timepoint.",
+              "status": "reported",
+              "details": [
+                "Extends the July 1 negative result.",
+                "The report notes high cell-free DNA may decrease clinical sensitivity."
+              ],
+              "links": [
+                {
+                  "label": "Source page",
+                  "href": "/sources/diagnostics/07-20-signatera-ctdna/07-20-signatera-ctdna"
                 }
               ]
             }
@@ -428,6 +449,42 @@ export const diagnosticTimelineSeed: DiagnosticTimelineData = {
                 {
                   "label": "Source page",
                   "href": "/sources/diagnostics/06-09-personalis-next-personal-mrd/06-09-personalis-next-personal-mrd"
+                }
+              ]
+            },
+            {
+              "id": "personalis-2026-07-06",
+              "date": "2026-07-06",
+              "label": "NeXT Personal Dx",
+              "valueLabel": "ctDNA not detected",
+              "result": "First formally not-detected Personalis timepoint after the 304 PPM to 1 PPM decline.",
+              "status": "reported",
+              "details": [
+                "Concordant with the July 1 Signatera negative result.",
+                "A not-detected result does not rule out the presence of ctDNA."
+              ],
+              "links": [
+                {
+                  "label": "Source page",
+                  "href": "/sources/diagnostics/07-06-personalis-next-personal-mrd/07-06-personalis-next-personal-mrd"
+                }
+              ]
+            },
+            {
+              "id": "personalis-2026-07-20",
+              "date": "2026-07-20",
+              "label": "NeXT Personal Dx",
+              "valueLabel": "ctDNA not detected",
+              "result": "Second consecutive formally not-detected Personalis timepoint.",
+              "status": "reported",
+              "details": [
+                "Extends the July 6 not-detected result.",
+                "Use as an on-treatment response marker, not a substitute for surgical pathology."
+              ],
+              "links": [
+                {
+                  "label": "Source page",
+                  "href": "/sources/diagnostics/07-20-personalis-next-personal-mrd/07-20-personalis-next-personal-mrd"
                 }
               ]
             }
