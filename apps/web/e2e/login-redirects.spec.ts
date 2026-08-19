@@ -95,7 +95,39 @@ test.describe("password login redirects", () => {
     }
   });
 
-  test("legacy page token parameters are stripped without creating a session", async ({
+  test("page password tokens create a signed session and preserve other query parameters", async ({
+    baseURL,
+  }) => {
+    const origin = new URL(baseURL!).origin;
+    const request = await playwrightRequest.newContext({
+      baseURL: origin,
+      extraHTTPHeaders: previewBypassHeaders(),
+      storageState: { cookies: [], origins: [] },
+    });
+
+    try {
+      const target =
+        "/tools/dicom-viewer?id=diagnostic-2026-07-27-ct-chest";
+      const response = await request.get(`${target}&token=diana`, {
+        maxRedirects: 0,
+      });
+      expect(response.status()).toBe(307);
+      expect(response.headers()["set-cookie"]).toMatch(/^authed=[^;]+;/);
+      expect(response.headers()["cache-control"]).toBe("private, no-store");
+      expect(new URL(response.headers().location, origin).toString()).toBe(
+        `${origin}${target}`,
+      );
+
+      const authenticated = await request.get(target, {
+        maxRedirects: 0,
+      });
+      expect(authenticated.status()).toBe(200);
+    } finally {
+      await request.dispose();
+    }
+  });
+
+  test("invalid page password tokens are stripped without creating a session", async ({
     baseURL,
   }) => {
     const origin = new URL(baseURL!).origin;
@@ -107,7 +139,7 @@ test.describe("password login redirects", () => {
 
     try {
       const response = await request.get(
-        "/about/About?token=diana&view=compact",
+        "/about/About?token=incorrect&view=compact",
         { maxRedirects: 0 },
       );
       expect(response.status()).toBe(307);
@@ -116,6 +148,14 @@ test.describe("password login redirects", () => {
       expect(new URL(response.headers().location, origin).toString()).toBe(
         `${origin}/about/About?view=compact`,
       );
+
+      const unauthenticated = await request.get("/about/About?view=compact", {
+        maxRedirects: 0,
+      });
+      expect(unauthenticated.status()).toBe(307);
+      expect(
+        new URL(unauthenticated.headers().location, origin).pathname,
+      ).toBe("/login");
     } finally {
       await request.dispose();
     }

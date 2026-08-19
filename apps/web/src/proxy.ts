@@ -5,7 +5,10 @@ import { api } from "@convex/_generated/api";
 import { resolveServerConvexUrl } from "@/lib/convex-url";
 import { safeLocalRedirect } from "@/lib/safe-redirect";
 import {
+  createWikiGateCookieValue,
   hasValidWikiGateCookie,
+  isValidWikiPassword,
+  WIKI_GATE_COOKIE_MAX_AGE,
   wikiGateCookieName,
 } from "@/lib/wiki-gate-session";
 import localHosts from "../.local-hosts.json";
@@ -354,12 +357,50 @@ export async function proxy(request: NextRequest) {
     (request.method === "GET" || request.method === "HEAD") &&
     isLinkPreviewBotUserAgent(request.headers.get("user-agent"));
 
-  // Passwords in URLs can leak through history, logs, and referrers. Strip the
-  // legacy parameter without authenticating it.
+  // Password magic links authenticate once, then immediately redirect to the
+  // same URL without the credential. Invalid tokens are also stripped so they
+  // do not survive in login redirects.
   if (request.nextUrl.searchParams.has("token")) {
+    const token = request.nextUrl.searchParams.get("token");
     const clean = new URL(request.url);
     clean.searchParams.delete("token");
-    return privateRedirect(clean);
+
+    if (
+      request.method !== "GET" ||
+      !token ||
+      !(await isValidWikiPassword(
+        site.slug,
+        token,
+        gateConfig.passwordHash,
+      ))
+    ) {
+      return privateRedirect(clean);
+    }
+
+    const response = privateRedirect(clean);
+    try {
+      response.cookies.set(
+        cookieName,
+        await createWikiGateCookieValue(
+          site.slug,
+          gateConfig.passwordHash,
+          gateConfig.passwordGate,
+        ),
+        {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          path: "/",
+          maxAge: WIKI_GATE_COOKIE_MAX_AGE,
+        },
+      );
+    } catch {
+      return new NextResponse("password gate session unavailable", {
+        status: 503,
+        headers: PRIVATE_GATE_HEADERS,
+      });
+    }
+    return response;
   }
 
   if (isLoginPage) {

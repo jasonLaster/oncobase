@@ -51,6 +51,8 @@ The app is a multi-site wiki publishing platform. Diana is site #1; additional s
 - The middleware adds a site-wide password gate with:
   - signed, HTTP-only gate-session cookie persistence
   - password submission through the login form or `POST /api/login`
+  - direct password links using `?token=<site-password>`; a valid token creates
+    the signed gate session and redirects to the same URL without the token
 
 ### File Palette And Command Palette
 
