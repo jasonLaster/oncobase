@@ -19,6 +19,10 @@ const INCLUDE_PREFIX = normalizePrefix(argValue("--include-prefix"));
 const ALLOW_OVERWRITE = process.argv.includes("--allow-overwrite");
 const RESUME = process.argv.includes("--resume");
 const REGISTER_ONLY = process.argv.includes("--register-only");
+const UPLOAD_CONCURRENCY = positiveInteger(
+  process.env.DICOM_UPLOAD_CONCURRENCY,
+  8,
+);
 
 const convexUrl = resolveServerConvexUrl();
 if (!convexUrl) {
@@ -85,53 +89,58 @@ async function main() {
   }
 
   for (const series of selectedSeries) {
-    const images = [];
-
-    for (const image of series.images) {
-      const resolved = await resolveDicomPath(image.relativePath);
-      if (!resolved) {
-        skipped += 1;
-        continue;
-      }
-
-      const body = await fs.readFile(resolved.absolutePath);
-      const contentHash = createHash("sha256").update(body).digest("hex");
-      const blobKey = `dicom/${image.relativePath}`;
-
-      let blobUrl = `dry-run://${blobKey}`;
-      if (!DRY_RUN) {
-        if (REGISTER_ONLY) {
-          const blob = await siteHead(SITE_SLUG, blobKey);
-          if (blob.size !== body.byteLength) {
-            throw new Error(
-              `Registered Blob size mismatch for ${image.relativePath}: local=${body.byteLength}, remote=${blob.size}`,
-            );
-          }
-          blobUrl = blob.url;
-        } else {
-          const blob = await sitePut(SITE_SLUG, blobKey, body, {
-            addRandomSuffix: false,
-            allowOverwrite: ALLOW_OVERWRITE,
-            contentType: "application/dicom",
-          });
-          blobUrl = blob.url;
+    const uploadedImages = await mapWithConcurrency(
+      series.images,
+      UPLOAD_CONCURRENCY,
+      async (image) => {
+        const resolved = await resolveDicomPath(image.relativePath);
+        if (!resolved) {
+          skipped += 1;
+          return null;
         }
-      }
 
-      images.push({
-        path: image.relativePath,
-        fileName: image.fileName,
-        blobUrl,
-        sizeBytes: image.byteLength,
-        contentHash,
-        instanceNumber: image.instanceNumber ?? undefined,
-        imagePosition: image.imagePosition ?? undefined,
-        rows: image.rows ?? undefined,
-        columns: image.columns ?? undefined,
-        pixelSpacing: image.pixelSpacing ?? undefined,
-      });
-      uploaded += 1;
-    }
+        const body = await fs.readFile(resolved.absolutePath);
+        const contentHash = createHash("sha256").update(body).digest("hex");
+        const blobKey = `dicom/${image.relativePath}`;
+
+        let blobUrl = `dry-run://${blobKey}`;
+        if (!DRY_RUN) {
+          if (REGISTER_ONLY) {
+            const blob = await siteHead(SITE_SLUG, blobKey);
+            if (blob.size !== body.byteLength) {
+              throw new Error(
+                `Registered Blob size mismatch for ${image.relativePath}: local=${body.byteLength}, remote=${blob.size}`,
+              );
+            }
+            blobUrl = blob.url;
+          } else {
+            const blob = await sitePut(SITE_SLUG, blobKey, body, {
+              addRandomSuffix: false,
+              allowOverwrite: ALLOW_OVERWRITE,
+              contentType: "application/dicom",
+            });
+            blobUrl = blob.url;
+          }
+        }
+
+        uploaded += 1;
+        return {
+          path: image.relativePath,
+          fileName: image.fileName,
+          blobUrl,
+          sizeBytes: image.byteLength,
+          contentHash,
+          instanceNumber: image.instanceNumber ?? undefined,
+          imagePosition: image.imagePosition ?? undefined,
+          rows: image.rows ?? undefined,
+          columns: image.columns ?? undefined,
+          pixelSpacing: image.pixelSpacing ?? undefined,
+        };
+      },
+    );
+    const images = uploadedImages.filter(
+      (image): image is NonNullable<typeof image> => image !== null,
+    );
 
     if (!images.length) continue;
 
@@ -185,6 +194,31 @@ function argValue(name: string) {
 function normalizePrefix(value: string | undefined) {
   const normalized = value?.replace(/^\/+|\/+$/g, "");
   return normalized || undefined;
+}
+
+function positiveInteger(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function mapWithConcurrency<Input, Output>(
+  values: Input[],
+  concurrency: number,
+  worker: (value: Input) => Promise<Output>,
+) {
+  const results = new Array<Output>(values.length);
+  let cursor = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+      while (true) {
+        const index = cursor;
+        cursor += 1;
+        if (index >= values.length) return;
+        results[index] = await worker(values[index]);
+      }
+    }),
+  );
+  return results;
 }
 
 main().catch((error) => {
