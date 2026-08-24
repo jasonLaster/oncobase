@@ -40,6 +40,8 @@
   border-radius: 8px;
   border-spacing: 0;
   display: table;
+  margin-inline: auto;
+  max-width: 72rem;
   overflow: hidden;
   table-layout: fixed;
   width: 100%;

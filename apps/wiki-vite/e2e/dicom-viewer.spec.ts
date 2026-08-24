@@ -516,17 +516,37 @@ test.describe("DICOM viewer", () => {
   });
 
   test("diagnostics imaging page links each biopsy shortcut to the viewer", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
     await page.goto(`/diagnostics/imaging${seededStudySetQuery}`);
 
     await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible();
     const desktopTable = page.getByTestId("diagnostics-desktop-table");
+    const tableLayout = await desktopTable.evaluate((table) => {
+      const tableRect = table.getBoundingClientRect();
+      const parent = table.parentElement;
+      if (!parent) throw new Error("Expected the diagnostics table to have a parent");
+      const parentRect = parent.getBoundingClientRect();
+      const parentStyles = getComputedStyle(parent);
+      const parentContentLeft = parentRect.left + Number.parseFloat(parentStyles.paddingLeft);
+      const parentContentRight = parentRect.right - Number.parseFloat(parentStyles.paddingRight);
+      return {
+        leftMargin: tableRect.left - parentContentLeft,
+        rightMargin: parentContentRight - tableRect.right,
+        width: tableRect.width,
+      };
+    });
+    expect(tableLayout.width).toBeLessThanOrEqual(1152);
+    expect(tableLayout.leftMargin).toBeGreaterThan(0);
+    expect(Math.abs(tableLayout.leftMargin - tableLayout.rightMargin)).toBeLessThanOrEqual(1);
     await expect(desktopTable.getByRole("columnheader", { name: "Reports" })).toBeVisible();
     await expect(desktopTable.getByRole("columnheader", { name: "Images" })).toBeVisible();
     await expect(desktopTable.getByRole("columnheader", { name: "Comparisons" })).toBeVisible();
     await expect(desktopTable.getByRole("columnheader", { name: "Download" })).toBeVisible();
     await expect(
       desktopTable.getByRole("link", { name: "Download source bundle" }),
-    ).toHaveCount(8);
+    ).toHaveCount(
+      diagnosticStudiesSeed.studies.filter((study) => study.downloadHref).length,
+    );
     for (const biopsy of biopsyLinks) {
       const viewerLink = desktopTable.locator(
         `a[href="/tools/dicom-viewer?id=${biopsy.id}${seededStudySetParam}"]`
@@ -596,12 +616,12 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByRole("table")).toBeHidden();
     await expect(
       mobileList.getByRole("link", { name: /Images/ }),
-    ).toHaveCount(biopsyLinks.length);
+    ).toHaveCount(diagnosticStudiesSeed.studies.length);
     await expect(
       mobileList.getByRole("link", { name: /Images/ }).first(),
     ).toHaveAttribute(
       "href",
-      `/tools/dicom-viewer?id=diagnostic-2026-07-27-ct-chest${seededStudySetParam}`,
+      `/tools/dicom-viewer?id=${diagnosticStudiesSeed.studies[0]!.id}${seededStudySetParam}`,
     );
   });
 
