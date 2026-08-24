@@ -49,8 +49,12 @@ export const listSeries = query({
   args: {
     siteSlug: v.optional(v.string()),
     relativeDirectoryIncludes: v.optional(v.string()),
+    includeImages: v.optional(v.boolean()),
   },
-  handler: async (ctx, { siteSlug, relativeDirectoryIncludes }) => {
+  handler: async (
+    ctx,
+    { siteSlug, relativeDirectoryIncludes, includeImages = true },
+  ) => {
     const site = await requireSite(ctx, siteSlug);
     if (!site.siteId) return [];
 
@@ -75,6 +79,10 @@ export const listSeries = query({
           a.relativeDirectory.localeCompare(b.relativeDirectory),
       );
 
+    if (!includeImages) {
+      return activeSeries.map((row) => ({ ...row, images: [] }));
+    }
+
     return Promise.all(activeSeries.map(async (row) => {
       const images = await ctx.db
         .query("dicomImages")
@@ -95,6 +103,34 @@ export const listSeries = query({
           ),
       };
     }));
+  },
+});
+
+export const listSeriesImages = query({
+  args: {
+    siteSlug: v.optional(v.string()),
+    seriesKey: v.string(),
+  },
+  handler: async (ctx, { siteSlug, seriesKey }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const series = await findSeriesByKey(ctx, site, seriesKey);
+    if (!series || series.deletedAt) return [];
+
+    const images = await ctx.db
+      .query("dicomImages")
+      .withIndex("by_site_series", (q) =>
+        q.eq("siteId", site.siteId!).eq("seriesKey", seriesKey),
+      )
+      .collect();
+
+    return images
+      .filter((image) => rowBelongsToSite(image, site) && !image.deletedAt)
+      .sort(
+        (a, b) =>
+          (a.imagePosition ?? a.instanceNumber ?? Number.MAX_SAFE_INTEGER) -
+            (b.imagePosition ?? b.instanceNumber ?? Number.MAX_SAFE_INTEGER) ||
+          a.path.localeCompare(b.path, undefined, { numeric: true }),
+      );
   },
 });
 

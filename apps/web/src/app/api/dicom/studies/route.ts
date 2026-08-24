@@ -35,6 +35,7 @@ async function getBlobCatalog(
     const rows = await getConvexServerClient().query(api.dicom.listSeries, {
       siteSlug,
       relativeDirectoryIncludes,
+      includeImages: !relativeDirectoryIncludes,
     });
     if (!rows.length) return null;
 
@@ -53,6 +54,7 @@ async function getBlobCatalog(
         seriesDescription: series.seriesDescription ?? null,
         studyDate: series.studyDate ?? null,
         seriesNumber: series.seriesNumber ?? null,
+        imageCount: series.imageCount,
         images: series.images.map((image, index) => ({
           id: image._id,
           fileName: image.fileName,

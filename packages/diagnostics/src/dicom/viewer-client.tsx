@@ -99,6 +99,11 @@ interface DicomSeries {
   seriesDescription: string | null;
   studyDate: string | null;
   seriesNumber: number | null;
+  imageCount?: number;
+  images: DicomImage[];
+}
+
+interface DicomSeriesImagesResponse {
   images: DicomImage[];
 }
 
@@ -140,6 +145,12 @@ async function fetchDicomCatalog(url: string) {
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) throw new Error(`Catalog request failed: ${response.status}`);
   return (await response.json()) as DicomCatalog;
+}
+
+async function fetchDicomSeriesImages(url: string) {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Series request failed: ${response.status}`);
+  return (await response.json()) as DicomSeriesImagesResponse;
 }
 
 async function fetchDiagnosticStudies(url: string) {
@@ -333,7 +344,7 @@ export function DicomViewerClient({
     return preferred?.id ?? null;
   }, [diagnosticStudies, displaySeries, initialBiopsyId, renderableSeries]);
 
-  const selectedSeries = useMemo(() => {
+  const selectedSeriesSummary = useMemo(() => {
     const id = selectedSeriesId ?? preferredSeriesId;
     if (!id) return null;
     return (
@@ -342,6 +353,26 @@ export function DicomViewerClient({
       null
     );
   }, [displaySeries, preferredSeriesId, selectedSeriesId]);
+  const selectedSeriesImagesUrl = useMemo(() => {
+    if (!selectedSeriesSummary?.seriesKey || selectedSeriesSummary.images.length > 0) {
+      return null;
+    }
+    return `/api/dicom/series?key=${encodeURIComponent(selectedSeriesSummary.seriesKey)}`;
+  }, [selectedSeriesSummary]);
+  const {
+    data: selectedSeriesImages,
+    error: selectedSeriesImagesError,
+    isLoading: selectedSeriesImagesLoading,
+  } = useSWR<DicomSeriesImagesResponse>(
+    selectedSeriesImagesUrl,
+    fetchDicomSeriesImages,
+    { revalidateOnFocus: false },
+  );
+  const selectedSeries = useMemo(() => {
+    if (!selectedSeriesSummary) return null;
+    if (!selectedSeriesImages) return selectedSeriesSummary;
+    return { ...selectedSeriesSummary, images: selectedSeriesImages.images };
+  }, [selectedSeriesImages, selectedSeriesSummary]);
 
   const selectedBiopsy = useMemo(
     () => findBiopsyForSeries(selectedSeries, diagnosticStudies) ?? requestedBiopsy,
@@ -396,6 +427,11 @@ export function DicomViewerClient({
   );
   const displayError =
     error ??
+    (selectedSeriesImagesError instanceof Error
+      ? selectedSeriesImagesError.message
+      : selectedSeriesImagesError
+        ? "Could not load DICOM series"
+        : null) ??
     (catalogError instanceof Error
       ? catalogError.message
       : catalogError
@@ -1012,7 +1048,7 @@ export function DicomViewerClient({
                           variant="outline"
                           className="border-white/15 text-zinc-300"
                         >
-                          {series.images.length} images
+                          {seriesImageCount(series)} images
                         </Badge>
                       </div>
                     </button>
@@ -1134,12 +1170,12 @@ export function DicomViewerClient({
               requestedAnnotationId={selectedAnnotationId}
               series={activeStack}
             />
-            {catalogLoading ? (
+            {catalogLoading || selectedSeriesImagesLoading ? (
               <div className="absolute inset-0 flex items-center justify-center bg-black/80 px-6 text-center">
                 <div className="max-w-sm">
                   <div className="mx-auto mb-4 size-8 animate-spin rounded-full border-2 border-white/15 border-t-emerald-300" />
                   <div className="text-sm font-medium text-zinc-200">
-                    Loading DICOM catalog.
+                    {catalogLoading ? "Loading DICOM catalog." : "Loading DICOM series."}
                   </div>
                 </div>
               </div>
@@ -1542,7 +1578,7 @@ export function DicomViewerClient({
                       </span>
                       <span className="shrink-0 text-right text-xs text-zinc-400">
                         <span className="block text-zinc-300">
-                          {series.images.length}
+                          {seriesImageCount(series)}
                         </span>
                         <span className="block">images</span>
                       </span>
@@ -1730,8 +1766,12 @@ function findSeriesForBiopsy(
   return (
     series
       .filter((candidate) => matchesBiopsySeries(candidate, biopsy))
-      .sort((a, b) => b.images.length - a.images.length)[0] ?? null
+      .sort((a, b) => seriesImageCount(b) - seriesImageCount(a))[0] ?? null
   );
+}
+
+function seriesImageCount(series: DicomSeries) {
+  return series.imageCount ?? series.images.length;
 }
 
 function waitForElementSize(element: HTMLElement) {
