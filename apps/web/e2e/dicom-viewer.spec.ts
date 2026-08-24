@@ -17,6 +17,12 @@ import { diagnosticStudiesSeed } from "../scripts/fixtures/diagnostic-studies-se
 
 const biopsyLinks = [
   {
+    id: "diagnostic-2026-08-24-breast-mri",
+    title: "August 24 breast MRI",
+    directory: "08-24-breast-mri/dicoms",
+    counter: "521 / 1040",
+  },
+  {
     id: "diagnostic-2026-07-27-ct-chest",
     title: "July 27 CT chest",
     directory: "07-27-ct-chest/dicoms",
