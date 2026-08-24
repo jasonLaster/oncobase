@@ -271,12 +271,6 @@ export function DicomViewerClient({
   const [cornerstoneModules, setCornerstoneModules] =
     useState<CornerstoneModules | null>(null);
   const [viewportNode, setViewportNode] = useState<HTMLDivElement | null>(null);
-  const {
-    data: catalog,
-    error: catalogError,
-  } = useSWR<DicomCatalog>("/api/dicom/studies", fetchDicomCatalog, {
-    revalidateOnFocus: false,
-  });
   const diagnosticStudiesUrl = useMemo(() => {
     const params = new URLSearchParams();
     if (initialStudySet) params.set(DIAGNOSTIC_STUDY_SET_PARAM, initialStudySet);
@@ -295,14 +289,27 @@ export function DicomViewerClient({
     [diagnosticStudiesPayload],
   );
 
-  const renderableSeries = useMemo(
-    () => catalog?.series.filter(isRenderableSeries) ?? [],
-    [catalog],
-  );
-
   const requestedBiopsy = useMemo(
     () => diagnosticStudies.find((study) => study.id === initialBiopsyId) ?? null,
     [diagnosticStudies, initialBiopsyId],
+  );
+  const dicomCatalogUrl = useMemo(() => {
+    if (!initialBiopsyId) return "/api/dicom/studies";
+    if (!diagnosticStudiesPayload) return null;
+    if (!requestedBiopsy) return "/api/dicom/studies";
+    const directory = encodeURIComponent(requestedBiopsy.directoryIncludes);
+    return `/api/dicom/studies?directory=${directory}`;
+  }, [diagnosticStudiesPayload, initialBiopsyId, requestedBiopsy]);
+  const {
+    data: catalog,
+    error: catalogError,
+  } = useSWR<DicomCatalog>(dicomCatalogUrl, fetchDicomCatalog, {
+    revalidateOnFocus: false,
+  });
+
+  const renderableSeries = useMemo(
+    () => catalog?.series.filter(isRenderableSeries) ?? [],
+    [catalog],
   );
 
   const displaySeries = useMemo(

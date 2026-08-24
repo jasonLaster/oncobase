@@ -48,8 +48,9 @@ const optionalNumber = v.optional(v.number());
 export const listSeries = query({
   args: {
     siteSlug: v.optional(v.string()),
+    relativeDirectoryIncludes: v.optional(v.string()),
   },
-  handler: async (ctx, { siteSlug }) => {
+  handler: async (ctx, { siteSlug, relativeDirectoryIncludes }) => {
     const site = await requireSite(ctx, siteSlug);
     if (!site.siteId) return [];
 
@@ -58,8 +59,14 @@ export const listSeries = query({
       .withIndex("by_site_updated", (q) => q.eq("siteId", site.siteId!))
       .collect();
 
+    const directoryNeedle = relativeDirectoryIncludes?.trim().toLowerCase();
     const activeSeries = seriesRows
       .filter((row) => rowBelongsToSite(row, site) && !row.deletedAt)
+      .filter(
+        (row) =>
+          !directoryNeedle ||
+          row.relativeDirectory.toLowerCase().includes(directoryNeedle),
+      )
       .sort(
         (a, b) =>
           (b.studyDate ?? "").localeCompare(a.studyDate ?? "") ||
@@ -68,8 +75,7 @@ export const listSeries = query({
           a.relativeDirectory.localeCompare(b.relativeDirectory),
       );
 
-    const result = [];
-    for (const row of activeSeries) {
+    return Promise.all(activeSeries.map(async (row) => {
       const images = await ctx.db
         .query("dicomImages")
         .withIndex("by_site_series", (q) =>
@@ -77,7 +83,7 @@ export const listSeries = query({
         )
         .collect();
 
-      result.push({
+      return {
         ...row,
         images: images
           .filter((image) => rowBelongsToSite(image, site) && !image.deletedAt)
@@ -87,10 +93,8 @@ export const listSeries = query({
                 (b.imagePosition ?? b.instanceNumber ?? Number.MAX_SAFE_INTEGER) ||
               a.path.localeCompare(b.path, undefined, { numeric: true }),
           ),
-      });
-    }
-
-    return result;
+      };
+    }));
   },
 });
 

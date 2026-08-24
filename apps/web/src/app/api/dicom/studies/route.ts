@@ -7,7 +7,9 @@ import { getDicomCatalog } from "@/lib/dicom-local";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const siteSlug = url.searchParams.get("site") ?? undefined;
-  const blobCatalog = await getBlobCatalog(siteSlug);
+  const relativeDirectoryIncludes =
+    url.searchParams.get("directory")?.trim() || undefined;
+  const blobCatalog = await getBlobCatalog(siteSlug, relativeDirectoryIncludes);
   if (blobCatalog) {
     return NextResponse.json(blobCatalog, {
       headers: {
@@ -25,10 +27,14 @@ export async function GET(request: Request) {
   });
 }
 
-async function getBlobCatalog(siteSlug: string | undefined) {
+async function getBlobCatalog(
+  siteSlug: string | undefined,
+  relativeDirectoryIncludes: string | undefined,
+) {
   try {
     const rows = await getConvexServerClient().query(api.dicom.listSeries, {
       siteSlug,
+      relativeDirectoryIncludes,
     });
     if (!rows.length) return null;
 
