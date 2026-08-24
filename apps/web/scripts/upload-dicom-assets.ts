@@ -56,6 +56,9 @@ async function main() {
   if (RESUME) {
     const existingSeries = await convex.query(api.dicom.listSeries, {
       siteSlug: SITE_SLUG,
+      ...(INCLUDE_PREFIX
+        ? { relativeDirectoryIncludes: INCLUDE_PREFIX }
+        : {}),
     });
     const existingByKey = new Map(
       existingSeries.map((series) => [series.seriesKey, series]),
