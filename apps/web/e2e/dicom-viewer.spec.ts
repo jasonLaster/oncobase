@@ -332,8 +332,11 @@ function holdDicomCatalogRequest(page: Page) {
   };
 }
 
-async function installAnnotationApiMock(page: Page) {
-  const savedByImage = new Map<string, unknown[]>();
+async function installAnnotationApiMock(
+  page: Page,
+  initialByImage: Iterable<readonly [string, unknown[]]> = [],
+) {
+  const savedByImage = new Map<string, unknown[]>(initialByImage);
   const saves: Array<{
     annotations: Array<{
       color?: string;
@@ -621,6 +624,47 @@ test.describe("DICOM viewer", () => {
   test("comparison viewer renders paired MRI stacks from dynamic metadata", async ({ page }) => {
     test.skip(isProdRun, "Local seeded comparison metadata is not available in production.");
 
+    await installAnnotationApiMock(page, [
+      [
+        "06-26-breast-mri/dicoms/06-26-breast-mri-4165-MR.dcm",
+        [
+          {
+            id: "audit-june-focus-prior-8",
+            kind: "ruler",
+            x: 432.1 / 512,
+            y: 180.6 / 512,
+            endX: 438.6 / 512,
+            endY: 190.3 / 512,
+            worldStart: [-118.6918, 98.737, -8.4855],
+            worldEnd: [-122.8846, 92.2204, -8.4855],
+            text: "June report-anchored prior 8 mm focus",
+            color: "#f59e0b",
+            thickness: 3,
+            fontSize: 22,
+          },
+        ],
+      ],
+      [
+        "07-17-breast-mri/dicoms/07-17-breast-mri-04307-mr.dcm",
+        [
+          {
+            id: "audit-july-focus-current-5",
+            kind: "ruler",
+            x: 411.3 / 512,
+            y: 187.1 / 512,
+            endX: 415.1 / 512,
+            endY: 191.6 / 512,
+            worldStart: [-105.9308, 79.5184, -20.0192],
+            worldEnd: [-108.6279, 76.4117, -20.0192],
+            text: "July report-anchored 5 mm focus",
+            color: "#f59e0b",
+            thickness: 3,
+            fontSize: 22,
+          },
+        ],
+      ],
+    ]);
+
     await page.goto(
       `/tools/dicom-compare?comparison=mri-comparison-2026-04-01-vs-2026-06-26${seededStudySetParam}`,
       { waitUntil: "domcontentloaded" },
@@ -660,6 +704,37 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByTestId("dicom-compare-left-counter")).toContainText("/ 254");
     await expect(page.getByTestId("dicom-compare-right-counter")).toContainText("/ 260");
     await expect(page.getByText("Continued slight improvement")).toBeVisible();
+    await expect(page.getByTestId("dicom-compare-annotations")).toBeVisible();
+    await expect(page.getByText("June report-anchored prior 8 mm focus")).toBeVisible();
+    await expect(page.getByText("July report-anchored 5 mm focus")).toBeVisible();
+    await expect(page.getByTestId("dicom-annotation-toolbar")).toHaveCount(0);
+
+    await page
+      .getByTestId("dicom-compare-annotation-left-audit-june-focus-prior-8")
+      .click();
+    const leftRuler = page
+      .getByTestId("dicom-compare-left-frame")
+      .getByTestId("dicom-annotation-shape-ruler");
+    const leftAnnotationLayer = page
+      .getByTestId("dicom-compare-left-frame")
+      .getByTestId("dicom-annotation-layer");
+    await expect(leftAnnotationLayer).toHaveAttribute("data-annotation-image-count", "2");
+    await expect(leftAnnotationLayer).toHaveAttribute(
+      "data-current-image-file",
+      "06-26-breast-mri-4165-MR.dcm",
+    );
+    await expect(leftAnnotationLayer).toHaveAttribute("data-annotation-count", "1");
+    await expect(leftRuler).toBeVisible();
+    await expect(leftRuler).toHaveAttribute("data-distance-mm", /7\.7/);
+
+    await page
+      .getByTestId("dicom-compare-annotation-right-audit-july-focus-current-5")
+      .click();
+    const rightRuler = page
+      .getByTestId("dicom-compare-right-frame")
+      .getByTestId("dicom-annotation-shape-ruler");
+    await expect(rightRuler).toBeVisible();
+    await expect(rightRuler).toHaveAttribute("data-distance-mm", /4\.1/);
     await expect(
       page
         .getByTestId("dicom-compare-precomputed-panel")

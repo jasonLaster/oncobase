@@ -29,7 +29,11 @@ import {
   AnnotationSelectionRail,
   AnnotationToolbarButton,
 } from "./dicom-annotation-controls.tsx";
-import { imageKey, loadAnnotationsMap } from "./dicom-annotation-data.ts";
+import {
+  annotationsForImage,
+  imageKey,
+  loadAnnotationsMap,
+} from "./dicom-annotation-data.ts";
 import {
   annotationBounds,
   annotationGroupBounds,
@@ -131,6 +135,7 @@ function calibrateWorldRuler(
 }
 
 export function DicomAnnotationLayer({
+  annotationsResponse,
   coordinateAdapter,
   currentImage,
   disabled,
@@ -139,7 +144,9 @@ export function DicomAnnotationLayer({
   onEditorOpenChange,
   requestedAnnotationId,
   series,
+  showToolbar = true,
 }: {
+  annotationsResponse?: AnnotationSeriesResponse;
   coordinateAdapter?: AnnotationCoordinateAdapter | null;
   currentImage: DicomAnnotationImage | null;
   disabled?: boolean;
@@ -148,6 +155,7 @@ export function DicomAnnotationLayer({
   onEditorOpenChange?: (open: boolean) => void;
   requestedAnnotationId?: string | null;
   series: DicomAnnotationSeries | null;
+  showToolbar?: boolean;
 }) {
   const [activeTool, setActiveTool] = useState<AnnotationKind | null>(null);
   const [color, setColor] = useState("#45a6e8");
@@ -242,14 +250,17 @@ export function DicomAnnotationLayer({
       setDraft(null);
       setSaveStatus("loading");
       try {
-        const response = await fetch(
-          `/api/dicom/annotations?seriesKey=${encodeURIComponent(seriesId!)}`,
-          {
-            cache: "no-store",
-          },
-        );
-        if (!response.ok) throw new Error(`annotations ${response.status}`);
-        const body = (await response.json()) as AnnotationSeriesResponse;
+        const body = annotationsResponse
+          ? await Promise.resolve(annotationsResponse)
+          : await fetch(
+              `/api/dicom/annotations?seriesKey=${encodeURIComponent(seriesId!)}`,
+              {
+                cache: "no-store",
+              },
+            ).then(async (response) => {
+              if (!response.ok) throw new Error(`annotations ${response.status}`);
+              return (await response.json()) as AnnotationSeriesResponse;
+            });
         if (cancelled) return;
         const loadedAnnotations = loadAnnotationsMap(body);
         setAnnotationsByImage(loadedAnnotations);
@@ -268,14 +279,14 @@ export function DicomAnnotationLayer({
     return () => {
       cancelled = true;
     };
-  }, [changeSelection, seriesId]);
+  }, [annotationsResponse, changeSelection, seriesId]);
 
   const annotations = useMemo(
     () =>
       currentImageKey && loadedSeriesId === seriesId
-        ? (annotationsByImage[currentImageKey] ?? [])
+        ? annotationsForImage(annotationsByImage, currentImage)
         : [],
-    [annotationsByImage, currentImageKey, loadedSeriesId, seriesId],
+    [annotationsByImage, currentImage, currentImageKey, loadedSeriesId, seriesId],
   );
   const projectedAnnotations = useMemo(
     () =>
@@ -876,6 +887,9 @@ export function DicomAnnotationLayer({
   return (
     <div
       className="pointer-events-none absolute inset-0 z-10"
+      data-annotation-count={visibleAnnotations.length}
+      data-annotation-image-count={Object.keys(annotationsByImage).length}
+      data-current-image-file={currentImage?.fileName}
       data-test-id="dicom-annotation-layer"
       ref={layerRef}
     >
@@ -945,6 +959,7 @@ export function DicomAnnotationLayer({
         ) : null}
       </svg>
 
+      {showToolbar ? (
       <div
         className="pointer-events-auto absolute top-3 left-3 z-20 w-fit max-w-[calc(100%-1.5rem)]"
         data-test-id="dicom-annotation-toolbar"
@@ -1002,6 +1017,7 @@ export function DicomAnnotationLayer({
         ) : null}
 
       </div>
+      ) : null}
 
       {selectedAnnotations.length > 0 && editorPortalElement
         ? createPortal(

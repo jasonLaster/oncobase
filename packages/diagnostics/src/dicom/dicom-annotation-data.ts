@@ -17,3 +17,21 @@ export function loadAnnotationsMap(response: AnnotationSeriesResponse) {
   }
   return next;
 }
+
+export function annotationsForImage(
+  annotationsByImage: Record<string, DicomAnnotation[]>,
+  image: DicomAnnotationImage | null,
+) {
+  if (!image) return [];
+  const exact = annotationsByImage[imageKey(image)];
+  if (exact) return exact;
+
+  const matchingPath = Object.keys(annotationsByImage).find(
+    (path) => fileName(path) === image.fileName,
+  );
+  return matchingPath ? annotationsByImage[matchingPath] ?? [] : [];
+}
+
+function fileName(path: string) {
+  return path.split(/[\\/]/).at(-1) ?? path;
+}

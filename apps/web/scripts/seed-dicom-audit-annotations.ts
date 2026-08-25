@@ -10,6 +10,7 @@ const WRITE = process.argv.includes("--write");
 const auditRulers = [
   {
     id: "audit-june-focus-prior-8",
+    text: "June report-anchored prior 8 mm focus",
     seriesKey: "2.25.92441482697318590819609109145265512417",
     fileName: "06-26-breast-mri-4165-MR.dcm",
     x: 432.1 / 512,
@@ -21,6 +22,7 @@ const auditRulers = [
   },
   {
     id: "audit-july-focus-current-5",
+    text: "July report-anchored 5 mm focus",
     seriesKey: "2.25.125273068617921823323029632359324909118",
     fileName: "07-17-breast-mri-04307-mr.dcm",
     x: 411.3 / 512,
@@ -32,6 +34,7 @@ const auditRulers = [
   },
   {
     id: "audit-june-focus-prior-11",
+    text: "June report-anchored prior 11 mm focus",
     seriesKey: "2.25.92441482697318590819609109145265512417",
     fileName: "06-26-breast-mri-4174-MR.dcm",
     x: 406.8 / 512,
@@ -43,6 +46,7 @@ const auditRulers = [
   },
   {
     id: "audit-july-focus-current-9",
+    text: "July report-anchored 9 mm focus",
     seriesKey: "2.25.125273068617921823323029632359324909118",
     fileName: "07-17-breast-mri-04316-mr.dcm",
     x: 403.8 / 512,
@@ -62,14 +66,28 @@ async function main() {
   const convex = new ConvexHttpClient(convexUrl);
   const series = await convex.query(api.dicom.listSeries, {
     siteSlug: SITE_SLUG,
+    includeImages: false,
   });
+  const imagesBySeries = new Map(
+    await Promise.all(
+      [...new Set(auditRulers.map((ruler) => ruler.seriesKey))].map(
+        async (seriesKey) => [
+          seriesKey,
+          await convex.query(api.dicom.listSeriesImages, {
+            siteSlug: SITE_SLUG,
+            seriesKey,
+          }),
+        ] as const,
+      ),
+    ),
+  );
 
   for (const ruler of auditRulers) {
     const seriesRow = series.find(
       (candidate) => candidate.seriesKey === ruler.seriesKey,
     );
     if (!seriesRow) throw new Error(`Series not found: ${ruler.seriesKey}`);
-    const image = seriesRow.images.find(
+    const image = imagesBySeries.get(ruler.seriesKey)?.find(
       (candidate) => candidate.fileName === ruler.fileName,
     );
     if (!image) throw new Error(`Image not found: ${ruler.fileName}`);
@@ -91,6 +109,7 @@ async function main() {
       endY: ruler.endY,
       worldStart: [...ruler.worldStart],
       worldEnd: [...ruler.worldEnd],
+      text: ruler.text,
       color: "#f59e0b",
       thickness: 3,
       fontSize: 22,

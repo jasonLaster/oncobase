@@ -17,6 +17,7 @@ import {
   LinkIcon,
   Move,
   RotateCcw,
+  Ruler,
   ScanSearch,
   SlidersHorizontal,
   ZoomIn,
@@ -37,6 +38,15 @@ import {
   type MatchResult,
   type MatchState,
 } from "./comparison-matching.ts";
+import {
+  comparisonAnnotationTargets,
+  type ComparisonAnnotationTarget,
+} from "./comparison-annotations.ts";
+import {
+  DicomAnnotationLayer,
+  type AnnotationCoordinateAdapter,
+} from "./dicom-annotation-layer.tsx";
+import type { AnnotationSeriesResponse } from "./dicom-annotation-model.ts";
 import {
   DIAGNOSTIC_STUDY_SET_PARAM,
   type DiagnosticStudiesPayload,
@@ -152,7 +162,11 @@ export function DicomCompareClient({
   const loadingRequestIdsRef = useRef({ left: 0, right: 0 });
   const sliceIndexesRef = useRef({ left: 0, right: 0 });
   const activePairRef = useRef<ResolvedPair | null>(null);
-  const internalImageChangeRef = useRef(false);
+  const internalImageChangeRef = useRef<Record<ComparisonSide, number | null>>({
+    left: null,
+    right: null,
+  });
+  const viewportRevisionFrameRef = useRef(0);
 
   const renderingEngineId = useRef(`oncobase-dicom-compare-engine-${crypto.randomUUID()}`);
   const leftViewportId = useRef(`oncobase-dicom-compare-left-${crypto.randomUUID()}`);
@@ -176,6 +190,13 @@ export function DicomCompareClient({
   const syncZoomPan = true;
   const [toolMode, setToolMode] = useState<ToolMode>("window");
   const [error, setError] = useState<string | null>(null);
+  const [requestedAnnotationIds, setRequestedAnnotationIds] = useState<
+    Record<ComparisonSide, string | null>
+  >({ left: null, right: null });
+  const [annotationCoordinateAdapters, setAnnotationCoordinateAdapters] = useState<
+    Record<ComparisonSide, AnnotationCoordinateAdapter | null>
+  >({ left: null, right: null });
+  const [loadedPairId, setLoadedPairId] = useState<string | null>(null);
 
   const querySuffix = useMemo(() => {
     const params = new URLSearchParams();
@@ -312,6 +333,25 @@ export function DicomCompareClient({
 
   const leftStack = activePair?.leftStack ?? null;
   const rightStack = activePair?.rightStack ?? null;
+  const leftAnnotationsUrl = annotationSeriesUrl(leftStack);
+  const rightAnnotationsUrl = annotationSeriesUrl(rightStack);
+  const { data: leftAnnotations } = useSWR<AnnotationSeriesResponse>(
+    leftAnnotationsUrl,
+    fetchJson,
+    { revalidateOnFocus: false },
+  );
+  const { data: rightAnnotations } = useSWR<AnnotationSeriesResponse>(
+    rightAnnotationsUrl,
+    fetchJson,
+    { revalidateOnFocus: false },
+  );
+  const annotationTargets = useMemo(
+    () => [
+      ...comparisonAnnotationTargets("left", leftAnnotations, leftStack?.images ?? []),
+      ...comparisonAnnotationTargets("right", rightAnnotations, rightStack?.images ?? []),
+    ],
+    [leftAnnotations, leftStack?.images, rightAnnotations, rightStack?.images],
+  );
   const hasStacks = Boolean(leftStack?.images.length && rightStack?.images.length);
   const leftCurrentImage =
     leftStack?.images[sliceIndexes.left] ?? leftStack?.images[0] ?? null;
@@ -411,9 +451,8 @@ export function DicomCompareClient({
       setError(null);
 
       try {
-        internalImageChangeRef.current = true;
+        internalImageChangeRef.current[side] = clamped;
         await viewport.setImageIdIndex(clamped);
-        internalImageChangeRef.current = false;
         if (loadingRequestIdsRef.current[side] !== requestId) return;
         viewport.render();
         setSideSliceIndex(side, clamped);
@@ -421,7 +460,7 @@ export function DicomCompareClient({
         const modules = modulesRef.current;
         if (modules) prefetchNearbyImages(modules.core, stack.images, clamped);
       } catch (caught) {
-        internalImageChangeRef.current = false;
+        internalImageChangeRef.current[side] = null;
         if (loadingRequestIdsRef.current[side] !== requestId) return;
         setLoadingIndexes((current) => ({ ...current, [side]: null }));
         setError(caught instanceof Error ? caught.message : "Could not load comparison image");
@@ -435,13 +474,15 @@ export function DicomCompareClient({
       const detail = (event as CustomEvent<{ imageIdIndex: number }>).detail;
       if (typeof detail?.imageIdIndex !== "number") return;
       const index = detail.imageIdIndex;
+      const internalImageChange = internalImageChangeRef.current[side] === index;
+      if (internalImageChange) internalImageChangeRef.current[side] = null;
       setSideSliceIndex(side, index);
 
       const resolved = activePairRef.current;
       const stack = side === "left" ? resolved?.leftStack : resolved?.rightStack;
       if (stack) prefetchNearbyImages(core, stack.images, index);
       if (
-        internalImageChangeRef.current ||
+        internalImageChange ||
         !syncSlices ||
         !resolved?.leftStack ||
         !resolved.rightStack
@@ -486,6 +527,56 @@ export function DicomCompareClient({
     [showViewportImage, syncSlices],
   );
 
+  const showAnnotationTarget = useCallback(
+    async (target: ComparisonAnnotationTarget) => {
+      setRequestedAnnotationIds((current) => ({
+        ...current,
+        [target.side]: null,
+      }));
+      await showSyncedImage(target.side, target.imageIndex);
+      setRequestedAnnotationIds((current) => ({
+        ...current,
+        [target.side]: target.annotationId,
+      }));
+    },
+    [showSyncedImage],
+  );
+
+  const handleLeftSelectedAnnotationChange = useCallback(
+    (annotationId: string | null) => {
+      setRequestedAnnotationIds((current) => ({
+        ...current,
+        left: annotationId,
+      }));
+    },
+    [],
+  );
+  const handleRightSelectedAnnotationChange = useCallback(
+    (annotationId: string | null) => {
+      setRequestedAnnotationIds((current) => ({
+        ...current,
+        right: annotationId,
+      }));
+    },
+    [],
+  );
+  const scheduleAnnotationCoordinateAdapters = useCallback(() => {
+    if (viewportRevisionFrameRef.current) return;
+    viewportRevisionFrameRef.current = window.requestAnimationFrame(() => {
+      viewportRevisionFrameRef.current = 0;
+      setAnnotationCoordinateAdapters({
+        left: annotationCoordinateAdapter(
+          leftViewportRef.current,
+          leftViewportElementRef.current,
+        ),
+        right: annotationCoordinateAdapter(
+          rightViewportRef.current,
+          rightViewportElementRef.current,
+        ),
+      });
+    });
+  }, []);
+
   useEffect(() => {
     const leftElement = leftViewportElementRef.current;
     const rightElement = rightViewportElementRef.current;
@@ -512,6 +603,7 @@ export function DicomCompareClient({
 
     async function loadStacks() {
       setError(null);
+      setLoadedPairId(null);
       try {
         const modules = await ensureCornerstoneModules();
         if (cancelled) return;
@@ -635,6 +727,7 @@ export function DicomCompareClient({
         sliceIndexesRef.current = { left: leftInitial, right: rightInitial };
         setMatchInfo(initialMatch);
         setLoadingIndexes({ left: null, right: null });
+        setLoadedPairId(resolvedActivePair.pair.id);
         prefetchNearbyImages(modules.core, resolvedLeftStack.images, leftInitial);
         prefetchNearbyImages(modules.core, resolvedRightStack.images, rightInitial);
 
@@ -644,8 +737,26 @@ export function DicomCompareClient({
         const rightListener = (event: Event) => {
           void handleStackNewImage("right", event, modules.core);
         };
+        const viewportChangedListener = () => scheduleAnnotationCoordinateAdapters();
         currentLeftElement.addEventListener(core.Enums.Events.STACK_NEW_IMAGE, leftListener);
         currentRightElement.addEventListener(core.Enums.Events.STACK_NEW_IMAGE, rightListener);
+        currentLeftElement.addEventListener(
+          core.Enums.Events.CAMERA_MODIFIED,
+          viewportChangedListener,
+        );
+        currentLeftElement.addEventListener(
+          core.Enums.Events.IMAGE_RENDERED,
+          viewportChangedListener,
+        );
+        currentRightElement.addEventListener(
+          core.Enums.Events.CAMERA_MODIFIED,
+          viewportChangedListener,
+        );
+        currentRightElement.addEventListener(
+          core.Enums.Events.IMAGE_RENDERED,
+          viewportChangedListener,
+        );
+        scheduleAnnotationCoordinateAdapters();
         removeListeners = () => {
           currentLeftElement.removeEventListener(
             core.Enums.Events.STACK_NEW_IMAGE,
@@ -654,6 +765,22 @@ export function DicomCompareClient({
           currentRightElement.removeEventListener(
             core.Enums.Events.STACK_NEW_IMAGE,
             rightListener,
+          );
+          currentLeftElement.removeEventListener(
+            core.Enums.Events.CAMERA_MODIFIED,
+            viewportChangedListener,
+          );
+          currentLeftElement.removeEventListener(
+            core.Enums.Events.IMAGE_RENDERED,
+            viewportChangedListener,
+          );
+          currentRightElement.removeEventListener(
+            core.Enums.Events.CAMERA_MODIFIED,
+            viewportChangedListener,
+          );
+          currentRightElement.removeEventListener(
+            core.Enums.Events.IMAGE_RENDERED,
+            viewportChangedListener,
           );
         };
       } catch (caught) {
@@ -674,6 +801,7 @@ export function DicomCompareClient({
     handleStackNewImage,
     leftStack,
     rightStack,
+    scheduleAnnotationCoordinateAdapters,
     syncWindow,
     syncZoomPan,
     toolMode,
@@ -704,6 +832,10 @@ export function DicomCompareClient({
   useEffect(() => {
     const currentToolGroupId = toolGroupId.current;
     return () => {
+      if (viewportRevisionFrameRef.current) {
+        window.cancelAnimationFrame(viewportRevisionFrameRef.current);
+        viewportRevisionFrameRef.current = 0;
+      }
       zoomPanSynchronizerRef.current?.destroy();
       voiSynchronizerRef.current?.destroy();
       const modules = modulesRef.current;
@@ -849,6 +981,8 @@ export function DicomCompareClient({
             data-test-id="dicom-compare-viewports"
           >
             <ComparisonViewport
+              annotationCoordinateAdapter={annotationCoordinateAdapters.left}
+              annotationsResponse={leftAnnotations}
               side="left"
               stack={leftStack}
               currentImage={leftCurrentImage}
@@ -856,8 +990,12 @@ export function DicomCompareClient({
               loadingIndex={loadingIndexes.left ?? (leftSeriesLoading ? 0 : null)}
               viewportRef={leftViewportElementRef}
               emptyLabel="Baseline series not resolved"
+              onSelectedAnnotationChange={handleLeftSelectedAnnotationChange}
+              requestedAnnotationId={requestedAnnotationIds.left}
             />
             <ComparisonViewport
+              annotationCoordinateAdapter={annotationCoordinateAdapters.right}
+              annotationsResponse={rightAnnotations}
               side="right"
               stack={rightStack}
               currentImage={rightCurrentImage}
@@ -865,6 +1003,8 @@ export function DicomCompareClient({
               loadingIndex={loadingIndexes.right ?? (rightSeriesLoading ? 0 : null)}
               viewportRef={rightViewportElementRef}
               emptyLabel="Follow-up series not resolved"
+              onSelectedAnnotationChange={handleRightSelectedAnnotationChange}
+              requestedAnnotationId={requestedAnnotationIds.right}
             />
           </div>
 
@@ -987,6 +1127,52 @@ export function DicomCompareClient({
               </section>
             ) : null}
 
+            {annotationTargets.length ? (
+              <section data-test-id="dicom-compare-annotations">
+                <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
+                  <Ruler className="size-4" />
+                  Annotations
+                </h2>
+                <p className="mb-2 text-xs leading-5 text-zinc-500">
+                  Stored source-image annotations. Select a target to open its source slice.
+                </p>
+                <div className="space-y-2">
+                  {annotationTargets.map((target) => {
+                    const selected =
+                      requestedAnnotationIds[target.side] === target.annotationId;
+                    return (
+                      <button
+                        key={`${target.side}-${target.annotationId}`}
+                        type="button"
+                        className={cn(
+                          "block w-full rounded-lg border bg-white/[0.03] p-3 text-left transition-colors hover:border-white/25 hover:bg-white/[0.06] disabled:cursor-wait disabled:opacity-60",
+                          selected
+                            ? "border-sky-300/50 bg-sky-300/10"
+                            : "border-white/10",
+                        )}
+                        data-test-id={`dicom-compare-annotation-${target.side}-${target.annotationId}`}
+                        disabled={loadedPairId !== activePair?.pair.id}
+                        onClick={() => void showAnnotationTarget(target)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-sm font-medium text-zinc-100">
+                            {target.label}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="shrink-0 border-white/15 text-zinc-400"
+                          >
+                            {target.side === "left" ? "Baseline" : "Follow-up"}
+                          </Badge>
+                        </div>
+                        <div className="mt-1 text-xs text-zinc-400">{target.detail}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+
             {comparison?.reportAnchors.length ? (
               <section>
                 <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
@@ -1045,6 +1231,8 @@ export function DicomCompareClient({
 }
 
 function ComparisonViewport({
+  annotationCoordinateAdapter,
+  annotationsResponse,
   side,
   stack,
   currentImage,
@@ -1052,7 +1240,11 @@ function ComparisonViewport({
   loadingIndex,
   viewportRef,
   emptyLabel,
+  onSelectedAnnotationChange,
+  requestedAnnotationId,
 }: {
+  annotationCoordinateAdapter: AnnotationCoordinateAdapter | null;
+  annotationsResponse?: AnnotationSeriesResponse;
   side: ComparisonSide;
   stack: ActiveStack | null;
   currentImage: ViewerImage | null;
@@ -1060,6 +1252,8 @@ function ComparisonViewport({
   loadingIndex: number | null;
   viewportRef: RefObject<HTMLDivElement | null>;
   emptyLabel: string;
+  onSelectedAnnotationChange: (annotationId: string | null) => void;
+  requestedAnnotationId: string | null;
 }) {
   return (
     <section
@@ -1073,7 +1267,17 @@ function ComparisonViewport({
         className="absolute inset-0 touch-none bg-black select-none"
         data-test-id={`dicom-compare-${side}-viewport`}
       />
-      <div className="pointer-events-none absolute top-2 left-2 max-w-[calc(100%-1rem)] rounded-md border border-white/10 bg-black/70 px-2.5 py-2 shadow-lg">
+      <DicomAnnotationLayer
+        annotationsResponse={annotationsResponse}
+        coordinateAdapter={annotationCoordinateAdapter}
+        currentImage={currentImage}
+        disabled
+        onSelectedAnnotationChange={onSelectedAnnotationChange}
+        requestedAnnotationId={requestedAnnotationId}
+        series={stack}
+        showToolbar={false}
+      />
+      <div className="pointer-events-none absolute top-2 left-2 z-20 max-w-[calc(100%-1rem)] rounded-md border border-white/10 bg-black/70 px-2.5 py-2 shadow-lg">
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="border-white/15 text-zinc-300">
             {side === "left" ? "Baseline" : "Follow-up"}
@@ -1086,12 +1290,12 @@ function ComparisonViewport({
           {stack?.series.seriesDescription ?? stack?.title ?? emptyLabel}
         </div>
       </div>
-      <div className="pointer-events-none absolute right-2 bottom-2 rounded-md border border-white/10 bg-black/70 px-2.5 py-1.5 font-mono text-xs text-zinc-300 shadow-lg">
+      <div className="pointer-events-none absolute right-2 bottom-2 z-20 rounded-md border border-white/10 bg-black/70 px-2.5 py-1.5 font-mono text-xs text-zinc-300 shadow-lg">
         {stack ? `${(loadingIndex ?? sliceIndex) + 1} / ${stack.images.length}` : "0 / 0"}
       </div>
       {loadingIndex !== null ? (
         <div
-          className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 px-6 text-center backdrop-blur-[1px]"
+          className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-black/35 px-6 text-center backdrop-blur-[1px]"
           aria-live="polite"
           data-test-id={`dicom-compare-${side}-loading`}
         >
@@ -1107,7 +1311,7 @@ function ComparisonViewport({
         </div>
       ) : null}
       {!stack ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80 px-6 text-center">
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80 px-6 text-center">
           <div className="max-w-sm">
             <ScanSearch className="mx-auto mb-4 size-10 text-zinc-500" />
             <div className="text-sm font-medium text-zinc-200">{emptyLabel}</div>
@@ -1140,6 +1344,11 @@ function resolvePair(
 function seriesImagesUrl(series: DicomSeries | null | undefined) {
   if (!series?.seriesKey || series.images.length > 0) return null;
   return `/api/dicom/series?key=${encodeURIComponent(series.seriesKey)}`;
+}
+
+function annotationSeriesUrl(stack: ActiveStack | null | undefined) {
+  if (!stack?.id) return null;
+  return `/api/dicom/annotations?seriesKey=${encodeURIComponent(stack.id)}`;
 }
 
 function requestErrorMessage(error: unknown, fallback: string) {
@@ -1194,7 +1403,7 @@ function toActiveStack(
   study: DiagnosticStudy | null,
 ): ActiveStack {
   return {
-    id: series.id,
+    id: series.seriesKey ?? series.id,
     title: series.label,
     sideLabel,
     study,
@@ -1208,6 +1417,34 @@ function toActiveStack(
       imagePosition: image.imagePosition,
       dimensions: image.rows && image.columns ? `${image.columns} x ${image.rows}` : null,
     })),
+  };
+}
+
+function annotationCoordinateAdapter(
+  viewport: StackViewport | null,
+  element: HTMLElement | null,
+): AnnotationCoordinateAdapter | null {
+  if (!viewport || !element) return null;
+  return {
+    canvasToWorld(point) {
+      const rect = element.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return null;
+      const world = viewport.canvasToWorld([
+        point.x * rect.width,
+        point.y * rect.height,
+      ]);
+      return world && world.length === 3
+        ? [world[0], world[1], world[2]]
+        : null;
+    },
+    worldToCanvas(world) {
+      const rect = element.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return null;
+      const canvas = viewport.worldToCanvas(world);
+      return canvas && canvas.length === 2
+        ? { x: canvas[0] / rect.width, y: canvas[1] / rect.height }
+        : null;
+    },
   };
 }
 
