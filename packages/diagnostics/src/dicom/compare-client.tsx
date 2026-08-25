@@ -162,6 +162,7 @@ export function DicomCompareClient({
   const loadingRequestIdsRef = useRef({ left: 0, right: 0 });
   const sliceIndexesRef = useRef({ left: 0, right: 0 });
   const activePairRef = useRef<ResolvedPair | null>(null);
+  const toolModeRef = useRef<ToolMode>("window");
   const internalImageChangeRef = useRef<Record<ComparisonSide, number | null>>({
     left: null,
     right: null,
@@ -423,6 +424,7 @@ export function DicomCompareClient({
   }, []);
 
   useEffect(() => {
+    toolModeRef.current = toolMode;
     applyToolMode(toolMode);
   }, [applyToolMode, toolMode]);
 
@@ -672,7 +674,7 @@ export function DicomCompareClient({
           voiSynchronizerRef.current = synchronizer;
         }
 
-        applyToolMode(toolMode);
+        applyToolMode(toolModeRef.current);
 
         const leftViewport = renderingEngine.getViewport(
           leftViewportId.current,
@@ -804,7 +806,6 @@ export function DicomCompareClient({
     scheduleAnnotationCoordinateAdapters,
     syncWindow,
     syncZoomPan,
-    toolMode,
   ]);
 
   useEffect(() => {

@@ -726,6 +726,13 @@ test.describe("DICOM viewer", () => {
     await expect(leftAnnotationLayer).toHaveAttribute("data-annotation-count", "1");
     await expect(leftRuler).toBeVisible();
     await expect(leftRuler).toHaveAttribute("data-distance-mm", /7\.7/);
+    await page.getByRole("button", { name: "Pan", exact: true }).click();
+    await expect(leftAnnotationLayer).toHaveAttribute(
+      "data-current-image-file",
+      "06-26-breast-mri-4165-MR.dcm",
+    );
+    await expect(leftRuler).toHaveAttribute("data-distance-mm", /7\.7/);
+    await page.getByRole("button", { name: "Pan", exact: true }).click();
 
     await page
       .getByTestId("dicom-compare-annotation-right-audit-july-focus-current-5")
