@@ -8,6 +8,7 @@ const leftStudyId = "diagnostic-2026-04-01-breast-mri";
 const rightStudyId = "diagnostic-2026-06-26-breast-mri";
 const juneStudyId = "diagnostic-2026-06-26-breast-mri";
 const julyStudyId = "diagnostic-2026-07-17-breast-mri";
+const augustStudyId = "diagnostic-2026-08-24-breast-mri";
 
 export const aprilJuneMriSeriesSummary = {
   "0401_sub_phase2": {
@@ -255,8 +256,196 @@ export const juneJulyMriSeriesSummary = {
   },
 } satisfies SeriesSummaryInput;
 
+export const augustMriSeriesSummary = {
+  ...juneJulyMriSeriesSummary,
+  "0717_rt_sub": {
+    ...juneJulyMriSeriesSummary["0717_rt_sub"],
+    pixel_spacing: "[0.4577302337, 0.4577302337]",
+  },
+  "0824_sub_phase2": {
+    root: "0824",
+    series_number: "100",
+    description: "PHASE 2 SUB",
+    count: 260,
+    rows: "512",
+    columns: "512",
+    pixel_spacing: "[0.7031, 0.7031]",
+    slice_thickness: "1.6",
+    z_range: [-126.3810272217, 80.819190979],
+    example_file: "08-24-breast-mri-00916-mr.dcm",
+  },
+  "0824_rt_sub": {
+    root: "0824",
+    series_number: "101",
+    description: "RT SUB",
+    count: 25,
+    rows: "568",
+    columns: "568",
+    pixel_spacing: "[0.5701754689, 0.5701754689]",
+    slice_thickness: "1.600000024",
+    z_range: [106.9268799, 138.8050995],
+    example_file: "08-24-breast-mri-01058-mr.dcm",
+  },
+  "0824_t2": {
+    root: "0824",
+    series_number: "2",
+    description: "36: CUBE T2",
+    count: 208,
+    rows: "512",
+    columns: "512",
+    pixel_spacing: "[0.7031, 0.7031]",
+    slice_thickness: "2",
+    z_range: [-126.2807998657, 80.7192001343],
+    example_file: "08-24-breast-mri-00140-mr.dcm",
+  },
+  "0824_adc": {
+    root: "0824",
+    series_number: "350",
+    description: "ADC (10^-6 mm²/s)",
+    count: 42,
+    rows: "256",
+    columns: "256",
+    pixel_spacing: "[1.406299949, 1.406299949]",
+    slice_thickness: "3",
+    z_range: [-101.1999969, 21.79999542],
+    example_file: "08-24-breast-mri-01117-mr.dcm",
+  },
+  "0824_dcad_mip": {
+    root: "0824",
+    series_number: "40000",
+    description: "DCAD-MIP-Thin Slab Subtraction  Axial",
+    count: 207,
+    rows: "513",
+    columns: "513",
+    pixel_spacing: "[0.7017, 0.7017]",
+    slice_thickness: "",
+    z_range: [-126.2809, 79.7191],
+    example_file: "08-24-breast-mri-06441-mr.dcm",
+  },
+} satisfies SeriesSummaryInput;
+
 export const diagnosticComparisonsSeed = {
   comparisons: [
+    {
+      id: "mri-comparison-2026-07-17-vs-2026-08-24",
+      label: "July 17 vs August 24 breast MRI",
+      leftStudyId: julyStudyId,
+      rightStudyId: augustStudyId,
+      modality: "MR",
+      bodyPart: "Breast",
+      createdAt: "2026-08-24T22:00:00.000Z",
+      sourceArtifacts: [
+        "diagnostics/_analysis/2026-08-24-four-date-breast-mri-independent-audit/audit_metrics.json",
+        "sources/diagnostics/08-24-breast-mri-side-by-side/index.md",
+      ],
+      caveat:
+        "August has no signed radiology report. This is an image-only computational comparison, not a diagnostic radiology interpretation.",
+      seriesPairs: seriesPairsFromSeriesSummary(augustMriSeriesSummary, {
+        leftStudyId: julyStudyId,
+        rightStudyId: augustStudyId,
+        leftSeriesPrefix: "0717",
+        rightSeriesPrefix: "0824",
+      }),
+      reportAnchors: [
+        {
+          label: "July signed report",
+          side: "left",
+          text: "Continued slight improvement with residual right-breast enhancement and posterior foci reported at 9 mm and 5 mm.",
+        },
+        {
+          label: "August image-only audit",
+          side: "right",
+          text: "Distributed right-breast enhancement remains; the defensible July-to-August conclusion is broadly stable without a robust direction of change.",
+        },
+        {
+          label: "Measurement boundary",
+          side: "both",
+          text: "Threshold disagreement and unregistered positioning do not support a reliable interval lesion-size, response, or progression claim.",
+        },
+      ],
+      precomputedPanels: [
+        {
+          label: "July and August focal-target sensitivity",
+          href: "/api/file?path=sources%2Fdiagnostics%2F08-24-breast-mri-side-by-side%2Fimages%2Fjuly-august-focal-target-sensitivity.png",
+          note: "Report-anchored sensitivity boxes, not tumor contours.",
+        },
+        {
+          label: "Four-date z-matched subtraction context",
+          href: "/api/file?path=sources%2Fdiagnostics%2F08-24-breast-mri-side-by-side%2Fimages%2Ffour-date-subtraction-z-matched.png",
+          note: "Nearest scanner-z planes; not deformable anatomic registration.",
+        },
+      ],
+      metrics: {
+        fixedRegion: {
+          status: "exploratory",
+          calibratedBiomarker: false,
+          julyP99: 390,
+          augustP99: 393,
+          julyAbove200PerMillion: 55417,
+          augustAbove200PerMillion: 55440,
+        },
+      },
+    },
+    {
+      id: "mri-comparison-2026-06-26-vs-2026-08-24",
+      label: "June 26 vs August 24 breast MRI",
+      leftStudyId: juneStudyId,
+      rightStudyId: augustStudyId,
+      modality: "MR",
+      bodyPart: "Breast",
+      createdAt: "2026-08-24T21:00:00.000Z",
+      sourceArtifacts: [
+        "diagnostics/_analysis/2026-08-24-four-date-breast-mri-independent-audit/audit_metrics.json",
+        "sources/diagnostics/08-24-breast-mri-side-by-side/index.md",
+      ],
+      caveat:
+        "August has no signed radiology report. This is an image-only computational comparison, not a diagnostic radiology interpretation.",
+      seriesPairs: seriesPairsFromSeriesSummary(augustMriSeriesSummary, {
+        leftStudyId: juneStudyId,
+        rightStudyId: augustStudyId,
+        leftSeriesPrefix: "0626",
+        rightSeriesPrefix: "0824",
+      }),
+      reportAnchors: [
+        {
+          label: "June signed report",
+          side: "left",
+          text: "Marked improvement from baseline with scattered residual right-breast enhancement; the reported footprint extended up to 65 mm.",
+        },
+        {
+          label: "August image-only audit",
+          side: "right",
+          text: "The major improvement from April persists, while distributed right-breast enhancement remains visible.",
+        },
+        {
+          label: "Measurement boundary",
+          side: "both",
+          text: "Raw subtraction signal varies with acquisition and contrast timing and is not a calibrated lesion-burden biomarker.",
+        },
+      ],
+      precomputedPanels: [
+        {
+          label: "Four-date subtraction MIPs",
+          href: "/api/file?path=sources%2Fdiagnostics%2F08-24-breast-mri-side-by-side%2Fimages%2Ffour-date-subtraction-mips.png",
+          note: "Shared-window enhancement-distribution context, not an exact lesion-size measurement.",
+        },
+        {
+          label: "T2 and ADC context",
+          href: "/api/file?path=sources%2Fdiagnostics%2F08-24-breast-mri-side-by-side%2Fimages%2Ffour-date-t2-adc-context.png",
+          note: "Sequence context only; no independent nodal or diffusion-response claim.",
+        },
+      ],
+      metrics: {
+        fixedRegion: {
+          status: "exploratory",
+          calibratedBiomarker: false,
+          juneP99: 458,
+          augustP99: 393,
+          juneAbove300PerMillion: 30472,
+          augustAbove300PerMillion: 21335,
+        },
+      },
+    },
     {
       id: "mri-comparison-2026-06-26-vs-2026-07-17",
       label: "June 26 vs July 17 breast MRI",

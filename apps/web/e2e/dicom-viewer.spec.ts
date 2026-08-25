@@ -665,6 +665,28 @@ test.describe("DICOM viewer", () => {
         .getByTestId("dicom-compare-precomputed-panel")
         .filter({ hasText: "Report-anchored subtraction slices" }),
     ).toBeVisible();
+
+    await page.goto(
+      `/tools/dicom-compare?comparison=mri-comparison-2026-07-17-vs-2026-08-24${seededStudySetParam}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    await expect(
+      page.getByRole("heading", { name: "July 17 vs August 24 breast MRI" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("dicom-compare-left-counter")).toContainText("/ 260");
+    await expect(page.getByTestId("dicom-compare-right-counter")).toContainText("/ 260");
+    await expect(page.getByText("broadly stable without a robust direction")).toBeVisible();
+
+    await page.goto(
+      `/tools/dicom-compare?comparison=mri-comparison-2026-06-26-vs-2026-08-24${seededStudySetParam}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    await expect(
+      page.getByRole("heading", { name: "June 26 vs August 24 breast MRI" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("dicom-compare-left-counter")).toContainText("/ 254");
+    await expect(page.getByTestId("dicom-compare-right-counter")).toContainText("/ 260");
+    await expect(page.getByText("major improvement from April persists")).toBeVisible();
   });
 
   test("diagnostics report links stay live and surfaced PDFs support password-gated byte-range loading", async ({

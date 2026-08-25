@@ -401,6 +401,21 @@ function createFakeConvexClient({
               ],
             },
           ];
+        case "dicom:listSeriesImages":
+          return [
+            {
+              _id: "image-1",
+              fileName: "06-26-breast-mri-4013-MR.dcm",
+              path: "06-26-breast-mri/dicoms/06-26-breast-mri-4013-MR.dcm",
+              sizeBytes: 1024,
+              uploadedAt: 0,
+              instanceNumber: 1,
+              imagePosition: [0, 0, -89.28],
+              rows: 512,
+              columns: 512,
+              pixelSpacing: [0.7031, 0.7031],
+            },
+          ];
         case "documents:getBySlug":
           return pages.find((page) => page.slug === args.slug) ?? null;
         case "documents:getPdfAssetByPath":
@@ -1394,5 +1409,35 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       "sortIndex",
     ]);
     expect(catalog.series[0]!.images[0]!.pixelSpacing).toEqual([0.7031, 0.7031]);
+  });
+
+  test("serves scoped DICOM summaries and lazily loads a selected series", async () => {
+    const handler = createWikiApiHandler(createFakeConvexClient() as never);
+    const catalogResponse = await handler(
+      request("/api/dicom/studies?directory=06-26-breast-mri%2Fdicoms"),
+    );
+
+    expect(catalogResponse?.status).toBe(200);
+    const catalog = (await catalogResponse!.json()) as {
+      series: Array<{ images: unknown[]; seriesKey: string }>;
+    };
+    expect(catalog.series).toHaveLength(1);
+    expect(catalog.series[0]).toMatchObject({
+      seriesKey: "1.2.3",
+    });
+
+    const seriesResponse = await handler(
+      request("/api/dicom/series?key=1.2.3"),
+    );
+    expect(seriesResponse?.status).toBe(200);
+    const series = (await seriesResponse!.json()) as {
+      images: Array<Record<string, unknown>>;
+    };
+    expect(series.images).toHaveLength(1);
+    expect(series.images[0]).toMatchObject({
+      imageId:
+        "/api/dicom/file?path=06-26-breast-mri%2Fdicoms%2F06-26-breast-mri-4013-MR.dcm",
+      pixelSpacing: [0.7031, 0.7031],
+    });
   });
 });

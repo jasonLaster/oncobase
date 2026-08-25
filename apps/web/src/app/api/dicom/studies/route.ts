@@ -7,8 +7,14 @@ import { getDicomCatalog } from "@/lib/dicom-local";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const siteSlug = url.searchParams.get("site") ?? undefined;
-  const relativeDirectoryIncludes =
-    url.searchParams.get("directory")?.trim() || undefined;
+  const relativeDirectoryIncludes = [
+    ...new Set(
+      url.searchParams
+        .getAll("directory")
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ];
   const blobCatalog = await getBlobCatalog(siteSlug, relativeDirectoryIncludes);
   if (blobCatalog) {
     return NextResponse.json(blobCatalog, {
@@ -29,20 +35,36 @@ export async function GET(request: Request) {
 
 async function getBlobCatalog(
   siteSlug: string | undefined,
-  relativeDirectoryIncludes: string | undefined,
+  relativeDirectoryIncludes: string[],
 ) {
   try {
-    const rows = await getConvexServerClient().query(api.dicom.listSeries, {
-      siteSlug,
-      relativeDirectoryIncludes,
-      includeImages: !relativeDirectoryIncludes,
-    });
+    const convex = getConvexServerClient();
+    const rows = relativeDirectoryIncludes.length
+      ? (
+          await Promise.all(
+            relativeDirectoryIncludes.map((directory) =>
+              convex.query(api.dicom.listSeries, {
+                siteSlug,
+                relativeDirectoryIncludes: directory,
+                includeImages: false,
+              }),
+            ),
+          )
+        ).flat()
+      : await convex.query(api.dicom.listSeries, {
+          siteSlug,
+          includeImages: true,
+        });
     if (!rows.length) return null;
+
+    const uniqueRows = [
+      ...new Map(rows.map((series) => [series.seriesKey, series])).values(),
+    ];
 
     return {
       root: "vercel-blob",
       rootsTried: ["vercel-blob"],
-      series: rows.map((series) => ({
+      series: uniqueRows.map((series) => ({
         id: series._id,
         seriesKey: series.seriesKey,
         label: series.label,

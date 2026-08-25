@@ -75,6 +75,11 @@ interface DicomSeries {
   seriesDescription: string | null;
   studyDate: string | null;
   seriesNumber: number | null;
+  imageCount?: number;
+  images: DicomImage[];
+}
+
+interface DicomSeriesImagesResponse {
   images: DicomImage[];
 }
 
@@ -186,11 +191,6 @@ export function DicomCompareClient({
     return `/api/diagnostic-studies${query ? `?${query}` : ""}`;
   }, [initialStudySet]);
 
-  const { data: catalog, error: catalogError } = useSWR<DicomCatalog>(
-    "/api/dicom/studies",
-    fetchJson,
-    { revalidateOnFocus: false },
-  );
   const { data: diagnosticStudiesPayload } = useSWR<DiagnosticStudiesPayload>(
     diagnosticStudiesUrl,
     fetchJson,
@@ -213,7 +213,27 @@ export function DicomCompareClient({
     return comparisonData;
   }, [comparisonData]);
 
-  const resolvedPairs = useMemo(
+  const catalogUrl = useMemo(() => {
+    if (!comparison || !diagnosticStudiesPayload) return null;
+    const studyIds = [comparison.leftStudyId, comparison.rightStudyId];
+    const directories = studyIds.flatMap((studyId) => {
+      const study = diagnosticStudies.find((candidate) => candidate.id === studyId);
+      return study ? [study.directoryIncludes] : [];
+    });
+    if (!directories.length) return "/api/dicom/studies";
+    const params = new URLSearchParams();
+    for (const directory of new Set(directories)) {
+      params.append("directory", directory);
+    }
+    return `/api/dicom/studies?${params.toString()}`;
+  }, [comparison, diagnosticStudies, diagnosticStudiesPayload]);
+  const { data: catalog, error: catalogError } = useSWR<DicomCatalog>(
+    catalogUrl,
+    fetchJson,
+    { revalidateOnFocus: false },
+  );
+
+  const resolvedPairSummaries = useMemo(
     () =>
       comparison?.seriesPairs.map((pair) =>
         resolvePair(pair, catalog?.series ?? [], diagnosticStudies),
@@ -221,12 +241,69 @@ export function DicomCompareClient({
     [catalog?.series, comparison?.seriesPairs, diagnosticStudies],
   );
 
+  const activePairSummary = useMemo(() => {
+    if (!resolvedPairSummaries.length) return null;
+    const selected = selectedPairId
+      ? resolvedPairSummaries.find((pair) => pair.pair.id === selectedPairId)
+      : null;
+    return (
+      selected ??
+      resolvedPairSummaries.find((pair) => pair.leftStack && pair.rightStack) ??
+      resolvedPairSummaries[0]
+    );
+  }, [resolvedPairSummaries, selectedPairId]);
+  const leftSeriesUrl = seriesImagesUrl(activePairSummary?.leftStack?.series);
+  const rightSeriesUrl = seriesImagesUrl(activePairSummary?.rightStack?.series);
+  const {
+    data: leftSeriesImages,
+    error: leftSeriesError,
+    isLoading: leftSeriesLoading,
+  } = useSWR<DicomSeriesImagesResponse>(leftSeriesUrl, fetchJson, {
+    revalidateOnFocus: false,
+  });
+  const {
+    data: rightSeriesImages,
+    error: rightSeriesError,
+    isLoading: rightSeriesLoading,
+  } = useSWR<DicomSeriesImagesResponse>(rightSeriesUrl, fetchJson, {
+    revalidateOnFocus: false,
+  });
+  const hydratedSeries = useMemo(() => {
+    const leftSeriesKey = activePairSummary?.leftStack?.series.seriesKey;
+    const rightSeriesKey = activePairSummary?.rightStack?.series.seriesKey;
+    return (catalog?.series ?? []).map((series) => {
+      if (series.seriesKey === leftSeriesKey && leftSeriesImages) {
+        return { ...series, images: leftSeriesImages.images };
+      }
+      if (series.seriesKey === rightSeriesKey && rightSeriesImages) {
+        return { ...series, images: rightSeriesImages.images };
+      }
+      return series;
+    });
+  }, [
+    activePairSummary?.leftStack?.series.seriesKey,
+    activePairSummary?.rightStack?.series.seriesKey,
+    catalog?.series,
+    leftSeriesImages,
+    rightSeriesImages,
+  ]);
+  const resolvedPairs = useMemo(
+    () =>
+      comparison?.seriesPairs.map((pair) =>
+        resolvePair(pair, hydratedSeries, diagnosticStudies),
+      ) ?? [],
+    [comparison?.seriesPairs, diagnosticStudies, hydratedSeries],
+  );
   const activePair = useMemo(() => {
     if (!resolvedPairs.length) return null;
     const selected = selectedPairId
       ? resolvedPairs.find((pair) => pair.pair.id === selectedPairId)
       : null;
-    return selected ?? resolvedPairs.find((pair) => pair.leftStack && pair.rightStack) ?? resolvedPairs[0];
+    return (
+      selected ??
+      resolvedPairs.find((pair) => pair.leftStack && pair.rightStack) ??
+      resolvedPairs[0]
+    );
   }, [resolvedPairs, selectedPairId]);
 
   useEffect(() => {
@@ -242,6 +319,8 @@ export function DicomCompareClient({
     rightStack?.images[sliceIndexes.right] ?? rightStack?.images[0] ?? null;
   const displayError =
     error ??
+    requestErrorMessage(leftSeriesError, "Could not load left DICOM series") ??
+    requestErrorMessage(rightSeriesError, "Could not load right DICOM series") ??
     (catalogError instanceof Error
       ? catalogError.message
       : comparisonError instanceof Error
@@ -774,7 +853,7 @@ export function DicomCompareClient({
               stack={leftStack}
               currentImage={leftCurrentImage}
               sliceIndex={sliceIndexes.left}
-              loadingIndex={loadingIndexes.left}
+              loadingIndex={loadingIndexes.left ?? (leftSeriesLoading ? 0 : null)}
               viewportRef={leftViewportElementRef}
               emptyLabel="Baseline series not resolved"
             />
@@ -783,7 +862,7 @@ export function DicomCompareClient({
               stack={rightStack}
               currentImage={rightCurrentImage}
               sliceIndex={sliceIndexes.right}
-              loadingIndex={loadingIndexes.right}
+              loadingIndex={loadingIndexes.right ?? (rightSeriesLoading ? 0 : null)}
               viewportRef={rightViewportElementRef}
               emptyLabel="Follow-up series not resolved"
             />
@@ -1056,6 +1135,16 @@ function resolvePair(
     rightResolution: right.reason,
     warnings,
   };
+}
+
+function seriesImagesUrl(series: DicomSeries | null | undefined) {
+  if (!series?.seriesKey || series.images.length > 0) return null;
+  return `/api/dicom/series?key=${encodeURIComponent(series.seriesKey)}`;
+}
+
+function requestErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message;
+  return error ? fallback : null;
 }
 
 function resolveSeries(

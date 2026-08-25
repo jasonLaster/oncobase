@@ -1330,13 +1330,40 @@ async function handleDicomStudiesRequest(
   }
 
   try {
-    const rows = await client.query(api.dicom.listSeries, { siteSlug });
+    const url = new URL(request.url);
+    const directories = [
+      ...new Set(
+        url.searchParams
+          .getAll("directory")
+          .map((value) => value.trim())
+          .filter(Boolean),
+      ),
+    ];
+    const rows = directories.length
+      ? (
+          await Promise.all(
+            directories.map((directory) =>
+              client.query(api.dicom.listSeries, {
+                siteSlug,
+                relativeDirectoryIncludes: directory,
+                includeImages: false,
+              }),
+            ),
+          )
+        ).flat()
+      : await client.query(api.dicom.listSeries, {
+          siteSlug,
+          includeImages: true,
+        });
     if (rows.length) {
+      const uniqueRows = [
+        ...new Map(rows.map((series) => [series.seriesKey, series])).values(),
+      ];
       return Response.json(
         {
           root: "vercel-blob",
           rootsTried: ["vercel-blob"],
-          series: rows.map((series) => ({
+          series: uniqueRows.map((series) => ({
             id: series._id,
             seriesKey: series.seriesKey,
             label: series.label,
@@ -1348,6 +1375,7 @@ async function handleDicomStudiesRequest(
             seriesDescription: series.seriesDescription ?? null,
             studyDate: series.studyDate ?? null,
             seriesNumber: series.seriesNumber ?? null,
+            imageCount: series.imageCount,
             images: series.images.map((image, index) => ({
               id: image._id,
               fileName: image.fileName,
@@ -1383,6 +1411,53 @@ async function handleDicomStudiesRequest(
       Vary: "Host",
     },
   });
+}
+
+async function handleDicomSeriesRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: { Allow: "GET, HEAD" },
+    });
+  }
+
+  const seriesKey = new URL(request.url).searchParams.get("key")?.trim();
+  if (!seriesKey) {
+    return Response.json({ error: "Missing series key" }, { status: 400 });
+  }
+
+  const images = await client.query(api.dicom.listSeriesImages, {
+    siteSlug,
+    seriesKey,
+  });
+  return Response.json(
+    {
+      images: images.map((image, index) => ({
+        id: image._id,
+        fileName: image.fileName,
+        relativePath: image.path,
+        byteLength: image.sizeBytes,
+        modifiedAt: new Date(image.uploadedAt).toISOString(),
+        imageId: `/api/dicom/file?path=${encodeURIComponent(image.path)}`,
+        instanceNumber: image.instanceNumber ?? null,
+        imagePosition: image.imagePosition ?? null,
+        rows: image.rows ?? null,
+        columns: image.columns ?? null,
+        pixelSpacing: image.pixelSpacing ?? null,
+        sortIndex: index,
+      })),
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+        Vary: "Host",
+      },
+    },
+  );
 }
 
 async function handleDicomFileRequest(
@@ -3300,6 +3375,7 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/share-preview" ||
       pathname === "/api/dicom/file" ||
       pathname === "/api/dicom/studies" ||
+      pathname === "/api/dicom/series" ||
       pathname === "/api/dicom/annotations" ||
       pathname === "/api/dicom/comparisons" ||
       pathname.startsWith("/api/dicom/comparisons/") ||
@@ -3447,6 +3523,10 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/dicom/studies") {
       return handleDicomStudiesRequest(request, client, siteSlug);
+    }
+
+    if (pathname === "/api/dicom/series") {
+      return handleDicomSeriesRequest(request, client, siteSlug);
     }
 
     if (pathname === "/api/dicom/annotations") {
