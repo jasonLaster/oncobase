@@ -523,6 +523,9 @@ test.describe("DICOM viewer", () => {
     const desktopTable = page.getByTestId("diagnostics-desktop-table");
     const tableLayout = await desktopTable.evaluate((table) => {
       const tableRect = table.getBoundingClientRect();
+      const header = document.querySelector(".diagnostics-imaging-header");
+      if (!header) throw new Error("Expected the diagnostics imaging header");
+      const headerRect = header.getBoundingClientRect();
       const parent = table.parentElement;
       if (!parent) throw new Error("Expected the diagnostics table to have a parent");
       const parentRect = parent.getBoundingClientRect();
@@ -530,12 +533,20 @@ test.describe("DICOM viewer", () => {
       const parentContentLeft = parentRect.left + Number.parseFloat(parentStyles.paddingLeft);
       const parentContentRight = parentRect.right - Number.parseFloat(parentStyles.paddingRight);
       return {
+        headerLeft: headerRect.left,
+        headerRight: headerRect.right,
+        headerWidth: headerRect.width,
         leftMargin: tableRect.left - parentContentLeft,
         rightMargin: parentContentRight - tableRect.right,
+        tableLeft: tableRect.left,
+        tableRight: tableRect.right,
         width: tableRect.width,
       };
     });
     expect(tableLayout.width).toBeLessThanOrEqual(1152);
+    expect(tableLayout.headerWidth).toBeLessThanOrEqual(1152);
+    expect(Math.abs(tableLayout.headerLeft - tableLayout.tableLeft)).toBeLessThanOrEqual(1);
+    expect(Math.abs(tableLayout.headerRight - tableLayout.tableRight)).toBeLessThanOrEqual(1);
     expect(tableLayout.leftMargin).toBeGreaterThan(0);
     expect(Math.abs(tableLayout.leftMargin - tableLayout.rightMargin)).toBeLessThanOrEqual(1);
     await expect(desktopTable.getByRole("columnheader", { name: "Reports" })).toBeVisible();
@@ -575,7 +586,13 @@ test.describe("DICOM viewer", () => {
 
     if (!isProdRun) {
       const comparisonButtons = desktopTable.getByRole("button", { name: "Comparisons" });
-      await expect(comparisonButtons).toHaveCount(3);
+      const comparisonStudyCount = new Set(
+        diagnosticComparisonsSeed.comparisons.flatMap((comparison) => [
+          comparison.leftStudyId,
+          comparison.rightStudyId,
+        ]),
+      ).size;
+      await expect(comparisonButtons).toHaveCount(comparisonStudyCount);
       await expect(comparisonButtons.first()).not.toContainText("Comparisons");
       await breastMriRow.getByRole("button", { name: "Comparisons" }).click();
       await expect(

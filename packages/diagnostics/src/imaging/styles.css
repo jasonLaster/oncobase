@@ -8,7 +8,10 @@
   display: flex;
   gap: 1rem;
   justify-content: space-between;
+  margin-inline: auto;
+  max-width: 72rem;
   padding-bottom: 1rem;
+  width: 100%;
 }
 
 .diagnostics-imaging-header h1 {
