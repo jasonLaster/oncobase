@@ -687,6 +687,28 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByTestId("dicom-compare-left-counter")).toContainText("/ 254");
     await expect(page.getByTestId("dicom-compare-right-counter")).toContainText("/ 260");
     await expect(page.getByText("major improvement from April persists")).toBeVisible();
+
+    await page.goto(
+      `/tools/dicom-compare?comparison=mri-comparison-2026-04-01-vs-2026-07-17${seededStudySetParam}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    await expect(
+      page.getByRole("heading", { name: "April 1 vs July 17 breast MRI" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("dicom-compare-left-counter")).toContainText("/ 246");
+    await expect(page.getByTestId("dicom-compare-right-counter")).toContainText("/ 260");
+    await expect(page.getByText("substantial reduction from the April baseline")).toBeVisible();
+
+    await page.goto(
+      `/tools/dicom-compare?comparison=mri-comparison-2026-04-01-vs-2026-08-24${seededStudySetParam}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    await expect(
+      page.getByRole("heading", { name: "April 1 vs August 24 breast MRI" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("dicom-compare-left-counter")).toContainText("/ 246");
+    await expect(page.getByTestId("dicom-compare-right-counter")).toContainText("/ 260");
+    await expect(page.getByText("major improvement from the April baseline persists")).toBeVisible();
   });
 
   test("diagnostics report links stay live and surfaced PDFs support password-gated byte-range loading", async ({

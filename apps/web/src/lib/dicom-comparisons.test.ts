@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   aprilJuneMriSeriesSummary,
+  diagnosticComparisonsSeed,
   juneJulyMriSeriesSummary,
 } from "../../scripts/fixtures/diagnostic-comparisons-seed";
 import {
@@ -111,5 +112,22 @@ describe("DICOM comparison metadata", () => {
       leftSelector: { seriesNumber: 101, imageCount: 254 },
       rightSelector: { seriesNumber: 100, imageCount: 260 },
     });
+  });
+
+  test("seeds every pairwise comparison across the four breast MRI dates", () => {
+    const normalized = normalizeDiagnosticComparisonsPayload(diagnosticComparisonsSeed);
+
+    expect(normalized.comparisons).toHaveLength(6);
+    expect(normalized.comparisons.map((comparison) => comparison.id).sort()).toEqual([
+      "mri-comparison-2026-04-01-vs-2026-06-26",
+      "mri-comparison-2026-04-01-vs-2026-07-17",
+      "mri-comparison-2026-04-01-vs-2026-08-24",
+      "mri-comparison-2026-06-26-vs-2026-07-17",
+      "mri-comparison-2026-06-26-vs-2026-08-24",
+      "mri-comparison-2026-07-17-vs-2026-08-24",
+    ]);
+    expect(normalized.comparisons.every((comparison) => comparison.seriesPairs.length === 6)).toBe(
+      true,
+    );
   });
 });

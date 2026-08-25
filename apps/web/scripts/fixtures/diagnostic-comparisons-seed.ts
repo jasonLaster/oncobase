@@ -324,8 +324,133 @@ export const augustMriSeriesSummary = {
   },
 } satisfies SeriesSummaryInput;
 
+export const fourDateMriSeriesSummary = {
+  ...aprilJuneMriSeriesSummary,
+  ...augustMriSeriesSummary,
+} satisfies SeriesSummaryInput;
+
 export const diagnosticComparisonsSeed = {
   comparisons: [
+    {
+      id: "mri-comparison-2026-04-01-vs-2026-08-24",
+      label: "April 1 vs August 24 breast MRI",
+      leftStudyId,
+      rightStudyId: augustStudyId,
+      modality: "MR",
+      bodyPart: "Breast",
+      createdAt: "2026-08-24T23:30:00.000Z",
+      sourceArtifacts: [
+        "diagnostics/_analysis/2026-08-24-four-date-breast-mri-independent-audit/audit_metrics.json",
+        "sources/diagnostics/08-24-breast-mri-side-by-side/index.md",
+      ],
+      caveat:
+        "August has no signed radiology report. This is an image-only computational comparison, not a diagnostic radiology interpretation.",
+      seriesPairs: seriesPairsFromSeriesSummary(fourDateMriSeriesSummary, {
+        leftStudyId,
+        rightStudyId: augustStudyId,
+        leftSeriesPrefix: "0401",
+        rightSeriesPrefix: "0824",
+      }),
+      reportAnchors: [
+        {
+          label: "April signed report",
+          side: "left",
+          text: "Baseline right-breast non-mass enhancement measured approximately 26 x 87 x 76 mm.",
+        },
+        {
+          label: "August image-only audit",
+          side: "right",
+          text: "The major improvement from the April baseline persists, while distributed right-breast enhancement remains visible.",
+        },
+        {
+          label: "Measurement boundary",
+          side: "both",
+          text: "No signed August report is available, and the unregistered image comparison does not support a reliable residual-size, pCR, RCB, or treatment-causation claim.",
+        },
+      ],
+      precomputedPanels: [
+        {
+          label: "Four-date subtraction MIPs",
+          href: "/api/file?path=sources%2Fdiagnostics%2F08-24-breast-mri-side-by-side%2Fimages%2Ffour-date-subtraction-mips.png",
+          note: "Shared-window enhancement-distribution context, not an exact lesion-size measurement.",
+        },
+        {
+          label: "T2 and ADC context",
+          href: "/api/file?path=sources%2Fdiagnostics%2F08-24-breast-mri-side-by-side%2Fimages%2Ffour-date-t2-adc-context.png",
+          note: "Sequence context only; no independent nodal or diffusion-response claim.",
+        },
+      ],
+      metrics: {
+        fixedRegion: {
+          status: "exploratory",
+          calibratedBiomarker: false,
+          aprilP99: 537,
+          augustP99: 393,
+          aprilAbove300PerMillion: 43218,
+          augustAbove300PerMillion: 21335,
+        },
+      },
+    },
+    {
+      id: "mri-comparison-2026-04-01-vs-2026-07-17",
+      label: "April 1 vs July 17 breast MRI",
+      leftStudyId,
+      rightStudyId: julyStudyId,
+      modality: "MR",
+      bodyPart: "Breast",
+      createdAt: "2026-08-24T23:00:00.000Z",
+      sourceArtifacts: [
+        "diagnostics/_analysis/2026-08-24-four-date-breast-mri-independent-audit/audit_metrics.json",
+        "sources/diagnostics/08-24-breast-mri-side-by-side/index.md",
+      ],
+      caveat:
+        "Computational side-by-side review with signed-report context, not a diagnostic radiology interpretation.",
+      seriesPairs: seriesPairsFromSeriesSummary(fourDateMriSeriesSummary, {
+        leftStudyId,
+        rightStudyId: julyStudyId,
+        leftSeriesPrefix: "0401",
+        rightSeriesPrefix: "0717",
+      }),
+      reportAnchors: [
+        {
+          label: "April signed report",
+          side: "left",
+          text: "Baseline right-breast non-mass enhancement measured approximately 26 x 87 x 76 mm.",
+        },
+        {
+          label: "July signed report",
+          side: "right",
+          text: "The substantial reduction from the April baseline persisted; the July report described continued slight improvement with posterior foci at 9 mm and 5 mm.",
+        },
+        {
+          label: "Measurement boundary",
+          side: "both",
+          text: "Different positioning, contrast timing, and background enhancement limit exact unregistered cross-date lesion-size or volume claims.",
+        },
+      ],
+      precomputedPanels: [
+        {
+          label: "Four-date subtraction MIPs",
+          href: "/api/file?path=sources%2Fdiagnostics%2F08-24-breast-mri-side-by-side%2Fimages%2Ffour-date-subtraction-mips.png",
+          note: "Shared-window enhancement-distribution context, not an exact lesion-size measurement.",
+        },
+        {
+          label: "Four-date z-matched subtraction context",
+          href: "/api/file?path=sources%2Fdiagnostics%2F08-24-breast-mri-side-by-side%2Fimages%2Ffour-date-subtraction-z-matched.png",
+          note: "Nearest scanner-z planes; not deformable anatomic registration.",
+        },
+      ],
+      metrics: {
+        fixedRegion: {
+          status: "exploratory",
+          calibratedBiomarker: false,
+          aprilP99: 537,
+          julyP99: 390,
+          aprilAbove300PerMillion: 43218,
+          julyAbove300PerMillion: 23035,
+        },
+      },
+    },
     {
       id: "mri-comparison-2026-07-17-vs-2026-08-24",
       label: "July 17 vs August 24 breast MRI",
