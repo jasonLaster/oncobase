@@ -513,7 +513,7 @@ test.describe("diagnostics regressions", () => {
       const chart = chartElement as HTMLElement;
       const viewport = chart.getBoundingClientRect();
       const latestPoint = chart.querySelector(
-        '[data-test-id="timeline-drilldown-point-personalis-personalis-2026-06-09"]',
+        '[data-test-id="timeline-drilldown-point-personalis-personalis-2026-07-20"]',
       ) as SVGCircleElement | null;
       const pointBox = latestPoint?.getBoundingClientRect();
 

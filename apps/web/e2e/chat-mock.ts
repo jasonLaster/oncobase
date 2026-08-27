@@ -2,7 +2,7 @@ import type { Page, Route } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
-import { resolveServerConvexUrl } from "../src/lib/convex-url";
+import { testConvexUrl } from "./test-environment";
 
 type ChatRequestBody = {
   conversationId?: string;
@@ -22,10 +22,10 @@ function sleep(ms: number) {
 }
 
 function getConvexClient() {
-  const url = resolveServerConvexUrl();
+  const url = testConvexUrl();
   if (!url) {
     throw new Error(
-      "Convex must point at a real deployment for chat E2E mocking."
+      "Chat E2E mutations require PLAYWRIGHT_TEST_CONVEX_URL for an isolated test deployment."
     );
   }
   return new ConvexHttpClient(url);
@@ -149,7 +149,7 @@ export async function mockChatApi(page: Page, options?: { delayMs?: number }) {
       const convex = getConvexClient();
       await Promise.all(
         [...conversationSiteSlugs].map(([id, siteSlug]) =>
-          convex.mutation(api.conversations.archive, {
+          convex.mutation(api.conversations.remove, {
             id: id as Id<"conversations">,
             siteSlug,
           })

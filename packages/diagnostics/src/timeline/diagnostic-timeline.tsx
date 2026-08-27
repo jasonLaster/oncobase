@@ -2948,7 +2948,10 @@ function usePlotDragHandlers({
   const onWheel = useCallback(
     (event: ReactWheelEvent<HTMLElement>) => {
       if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
-        event.preventDefault();
+        // React delegates wheel handlers as passive listeners. Timeline state
+        // owns this pan, while the synchronized scroll regions absorb any
+        // native horizontal movement, so preventDefault would only emit a
+        // browser error and cannot affect the native event here.
         const rect = event.currentTarget.getBoundingClientRect();
         const scale =
           event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.width : 1;
@@ -2964,7 +2967,6 @@ function usePlotDragHandlers({
       }
       if (!event.metaKey) return;
       if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
-      event.preventDefault();
       const rect = event.currentTarget.getBoundingClientRect();
       const cursorPercent = (event.clientX - rect.left) / rect.width;
       const cursorTime = timeForPercent(cursorPercent, visibleRange);

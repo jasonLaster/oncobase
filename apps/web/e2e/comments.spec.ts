@@ -1,29 +1,53 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Liveblocks } from "@liveblocks/node";
-import fs from "node:fs";
-import path from "node:path";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../convex/_generated/api";
+import type { Id } from "../convex/_generated/dataModel";
 import { waitForDocumentArticle } from "./helpers";
+import {
+  isolatedTestBackendEnabled,
+  testConvexUrl,
+  testLiveblocksSecret,
+} from "./test-environment";
 
 const ROOM_ID = "markdown:about/About";
 const DOCUMENT_SLUG = "about/About";
 const DOCUMENT_TITLE = "About";
 const isProdRun = process.env.TEST_ENV === "prod";
-function readLocalEnv(name: string) {
-  if (process.env[name]) return process.env[name];
+const liveblocksSecret = testLiveblocksSecret();
+const createdGuestIds = new Set<string>();
+const createdUserIds = new Set<Id<"users">>();
 
-  const envPath = path.join(process.cwd(), ".env.local");
-  if (!fs.existsSync(envPath)) return undefined;
+test.afterAll(async () => {
+  const convexUrl = testConvexUrl();
+  if (convexUrl) {
+    const convex = new ConvexHttpClient(convexUrl);
+    if (createdUserIds.size > 0) {
+      await convex.mutation(api.access.deleteUsers, {
+        siteSlug: "diana",
+        userIds: [...createdUserIds],
+      });
+    }
+    await Promise.all(
+      [...createdGuestIds].map((guestId) =>
+        convex.mutation(api.guestNames.remove, {
+          siteSlug: "diana",
+          guestId,
+        }),
+      ),
+    );
+  }
 
-  const line = fs
-    .readFileSync(envPath, "utf8")
-    .split(/\r?\n/)
-    .find((entry) => entry.trim().startsWith(`${name}=`));
-  const value = line?.split("=").slice(1).join("=").trim();
-  return value?.replace(/^["']|["']$/g, "");
-}
-
-const liveblocksSecret =
-  readLocalEnv("LIVEBLOCKS_SECRET_KEY") ?? readLocalEnv("LIVEBLOCKS_API_KEY");
+  if (liveblocksSecret) {
+    const liveblocks = new Liveblocks({ secret: liveblocksSecret });
+    const { data: threads } = await liveblocks.getThreads({ roomId: ROOM_ID });
+    await Promise.all(
+      threads.map((thread) =>
+        liveblocks.deleteThread({ roomId: ROOM_ID, threadId: thread.id }),
+      ),
+    );
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -137,6 +161,10 @@ async function waitForCommentsUi(page: Page) {
 }
 
 async function signInForComments(page: Page) {
+  test.skip(
+    !isolatedTestBackendEnabled(),
+    "Account-creating comment tests require PLAYWRIGHT_TEST_CONVEX_URL.",
+  );
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   const response = await page.context().request.post("/api/auth/signup", {
     data: {
@@ -146,6 +174,11 @@ async function signInForComments(page: Page) {
     },
   });
   test.skip(!response.ok(), "Convex user storage unavailable");
+  const sessionResponse = await page.context().request.get("/api/auth/session");
+  expect(sessionResponse.ok()).toBeTruthy();
+  const session = await sessionResponse.json();
+  expect(session.user?._id).toBeTruthy();
+  createdUserIds.add(session.user._id as Id<"users">);
   await page.addInitScript(() => {
     window.localStorage.removeItem("comments-pane-open");
   });
@@ -1796,8 +1829,13 @@ test.describe("API endpoints", () => {
     request,
   }) => {
     test.skip(process.env.TEST_ENV === "prod", "Avoid mutating production data");
+    test.skip(
+      !isolatedTestBackendEnabled(),
+      "Guest-name mutations require PLAYWRIGHT_TEST_CONVEX_URL.",
+    );
 
     const guestId = `guest_playwright_${Date.now()}`;
+    createdGuestIds.add(guestId);
     const name = `Playwright Guest ${Date.now()}`;
     const saveRes = await request.post("/api/liveblocks-guest", {
       data: { guestId, name },
@@ -1816,6 +1854,10 @@ test.describe("API endpoints", () => {
     request,
   }) => {
     test.skip(process.env.TEST_ENV === "prod", "Avoid mutating production data");
+    test.skip(
+      !isolatedTestBackendEnabled(),
+      "Account creation requires PLAYWRIGHT_TEST_CONVEX_URL.",
+    );
 
     const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const name = `Playwright User ${suffix}`;
@@ -1833,6 +1875,7 @@ test.describe("API endpoints", () => {
     const session = await sessionRes.json();
     const userId = session.user?._id;
     expect(userId).toBeTruthy();
+    createdUserIds.add(userId as Id<"users">);
 
     const usersRes = await request.post("/api/liveblocks-users", {
       data: { userIds: [userId] },

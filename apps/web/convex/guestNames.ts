@@ -60,3 +60,14 @@ export const getByIds = query({
     return results;
   },
 });
+
+export const remove = mutation({
+  args: { guestId: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { guestId, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const existing = await findGuest(ctx, site, guestId);
+    if (!existing) return { deleted: false };
+    await ctx.db.delete(existing._id);
+    return { deleted: true };
+  },
+});

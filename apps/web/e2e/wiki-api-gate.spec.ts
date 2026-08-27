@@ -1,10 +1,9 @@
 import {
-  expect,
   request as playwrightRequest,
-  test,
 } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
-test("keeps raw wiki content APIs behind the site password gate", async ({
+test("@smoke @cross-browser keeps raw wiki content APIs behind the site password gate", async ({
   baseURL,
 }) => {
   const anonymous = await playwrightRequest.newContext({

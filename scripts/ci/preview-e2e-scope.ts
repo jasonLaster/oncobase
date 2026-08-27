@@ -22,12 +22,7 @@ const outputPath = process.env.GITHUB_OUTPUT;
 const SKIPPABLE_EXACT_PATHS = new Set([
   ".gitignore",
   ".github/workflows/post-deploy.yml",
-  ".github/workflows/pr-checks.yml",
-  "bun.lock",
-  "scripts/ci/preview-e2e-scope.ts",
   "apps/web/docs/architecture/04-publishing.md",
-  "apps/web/package.json",
-  "apps/web/e2e/header-shell.spec.ts",
   "apps/web/scripts/admin/add-publish-token.ts",
   "apps/web/scripts/admin/backfill-content-hashes.ts",
   "apps/web/scripts/admin/changed-slugs.test.ts",

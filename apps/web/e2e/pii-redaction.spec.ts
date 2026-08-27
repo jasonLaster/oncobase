@@ -5,8 +5,9 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import { cleanupSiteUsers } from "./helpers";
 import { mockAISearch } from "./ai-search-mock";
+import { testConvexUrl } from "./test-environment";
 
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
+const CONVEX_URL = testConvexUrl();
 const RUN_NONCE = `${Date.now().toString(36)}${crypto
   .randomBytes(2)
   .toString("hex")}`;
@@ -123,7 +124,7 @@ test.describe("PII redaction", () => {
   }) => {
     test.skip(
       !CONVEX_URL,
-      "Admin redaction reveal test requires NEXT_PUBLIC_CONVEX_URL for the same Convex deployment as the target app.",
+      "Admin redaction reveal test requires PLAYWRIGHT_TEST_CONVEX_URL for an isolated test deployment.",
     );
 
     const convex = new ConvexHttpClient(CONVEX_URL!);

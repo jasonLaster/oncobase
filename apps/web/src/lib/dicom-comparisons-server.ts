@@ -55,3 +55,13 @@ export async function setDiagnosticComparisonsForRequest(
   });
   return normalized satisfies DiagnosticComparisonsPayload;
 }
+
+export async function deleteDiagnosticComparisonsForRequest(
+  request: { headers: Headers },
+  comparisonSet: string,
+) {
+  const siteData = siteDataFromRequest(request);
+  return siteData.documents.deleteMeta({
+    key: diagnosticComparisonsMetaKeyForSet(comparisonSet),
+  });
+}

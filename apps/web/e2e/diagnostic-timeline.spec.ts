@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
-test.describe("diagnostic timeline", () => {
+test.describe("@smoke @cross-browser diagnostic timeline", () => {
   test("renders sleeves, week ticks, hover tooltips, diagnostics links, and zoom state", async ({
     page,
   }) => {

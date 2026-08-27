@@ -260,6 +260,23 @@ export const restore = mutation({
   },
 });
 
+export const remove = mutation({
+  args: { id: v.id("conversations"), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { id, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    if (!(await ensureOwnedConvById(ctx, site, id))) return { deleted: false };
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", id))
+      .collect();
+    for (const message of messages) {
+      await ctx.db.delete(message._id);
+    }
+    await ctx.db.delete(id);
+    return { deleted: true, deletedMessages: messages.length };
+  },
+});
+
 export const saveMessages = mutation({
   args: {
     conversationId: v.id("conversations"),

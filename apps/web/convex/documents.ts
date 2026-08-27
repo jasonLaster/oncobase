@@ -859,6 +859,26 @@ export const setMeta = mutation({
   },
 });
 
+export const deleteMeta = mutation({
+  args: { key: v.string(), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { key, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const siteId = site.siteId;
+    const existing = siteId
+      ? await ctx.db
+          .query("meta")
+          .withIndex("by_site_key", (q) => q.eq("siteId", siteId).eq("key", key))
+          .first()
+      : await ctx.db
+          .query("meta")
+          .withIndex("by_key", (q) => q.eq("key", key))
+          .first();
+    if (!existing || !rowBelongsToSite(existing, site)) return { deleted: false };
+    await ctx.db.delete(existing._id);
+    return { deleted: true };
+  },
+});
+
 export const listPdfAssets = query({
   args: {
     includeSensitive: v.optional(v.boolean()),

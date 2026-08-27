@@ -8,8 +8,9 @@ import {
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import { cleanupSiteUsers } from "./helpers";
+import { testConvexUrl } from "./test-environment";
 
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
+const CONVEX_URL = testConvexUrl();
 const RUN_NONCE = `${Date.now().toString(36)}${crypto
   .randomBytes(2)
   .toString("hex")}`;
@@ -69,7 +70,7 @@ async function expectSourceNotFound(context: APIRequestContext, slug: string) {
 test.describe("role-based access permissions", () => {
   test.skip(
     !CONVEX_URL,
-    "Role-based access tests require NEXT_PUBLIC_CONVEX_URL for the same Convex deployment as the target app.",
+    "Role-based access tests require PLAYWRIGHT_TEST_CONVEX_URL for an isolated test deployment.",
   );
 
   let convex: ConvexHttpClient;
@@ -88,6 +89,7 @@ test.describe("role-based access permissions", () => {
       ownerEmail: "rbac@test",
       domain: SITE_HOST,
       publishTokenHash: tokenHash(),
+      passwordGate: false,
     });
 
     await convex.mutation(api.documents.upsert, {

@@ -22,8 +22,13 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
 import JSZip from "jszip";
 import { api } from "../convex/_generated/api";
+import {
+  MIN_SUPPORTED_PUBLISHER_PROTOCOL_VERSION,
+  PUBLISHER_VERSION_HEADER,
+} from "../src/lib/publish-protocol";
+import { testConvexUrl } from "./test-environment";
 
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
+const CONVEX_URL = testConvexUrl();
 
 // Unique slugs per run so the test is idempotent without needing
 // upsert semantics on sites:create. Slugs must match
@@ -50,7 +55,10 @@ async function publishOne(
 ) {
   const hash = `${doc.slug}-${Date.now()}`;
   const begin = await request.post(`${baseURL}/api/publish/begin`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      [PUBLISHER_VERSION_HEADER]: String(MIN_SUPPORTED_PUBLISHER_PROTOCOL_VERSION),
+    },
     data: {
       siteSlug,
       manifest: {
@@ -64,13 +72,20 @@ async function publishOne(
   const { runId } = (await begin.json()) as { runId: string };
 
   const docResp = await request.post(`${baseURL}/api/publish/document`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      [PUBLISHER_VERSION_HEADER]: String(MIN_SUPPORTED_PUBLISHER_PROTOCOL_VERSION),
+    },
     data: { runId, siteSlug, ...doc, hash },
   });
   expect(docResp.ok(), await docResp.text()).toBeTruthy();
 
   const finish = await request.post(`${baseURL}/api/publish/finish`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      [PUBLISHER_VERSION_HEADER]: String(MIN_SUPPORTED_PUBLISHER_PROTOCOL_VERSION),
+      "X-E2E-Skip-Post-Publish": "1",
+    },
     data: { runId, siteSlug, deletedDocSlugs: [], deletedAssetPaths: [] },
   });
   expect(finish.ok(), await finish.text()).toBeTruthy();
@@ -79,7 +94,7 @@ async function publishOne(
 test.describe("multi-site isolation", () => {
   test.skip(
     !CONVEX_URL,
-    "Multi-site publish isolation requires NEXT_PUBLIC_CONVEX_URL for the same Convex deployment as the target app."
+    "Multi-site publish isolation requires PLAYWRIGHT_TEST_CONVEX_URL for an isolated test deployment."
   );
 
   let convex: ConvexHttpClient;
@@ -103,6 +118,7 @@ test.describe("multi-site isolation", () => {
       ownerEmail: "isolation@test",
       domain: `${ALPHA_SLUG}.localhost`,
       publishTokenHash: alphaH,
+      passwordGate: false,
     });
     await convex.mutation(api.sites.create, {
       slug: BETA_SLUG,
@@ -110,6 +126,7 @@ test.describe("multi-site isolation", () => {
       ownerEmail: "isolation@test",
       domain: `${BETA_SLUG}.localhost`,
       publishTokenHash: betaH,
+      passwordGate: false,
     });
 
     // Each site gets a unique marker token that does NOT share any
@@ -248,39 +265,33 @@ test.describe("multi-site isolation", () => {
     }
   });
 
-  test("invariant 4: /api/file-tree is empty for non-Diana sites", async ({
+  test("invariant 4: file-tree and pages are scoped for non-Diana sites", async ({
     request,
     baseURL,
   }) => {
     const url = baseURL ?? "http://localhost:3000";
 
-    // Until the deferred Phase 7 swap of the static-gen renderer to
-    // Convex-backed reads, /api/file-tree returns Diana's
-    // fs-backed tree only when the active site is Diana. For new
-    // sites it must return an empty tree, not Diana's tree —
-    // otherwise alpha would render Diana's sidebar.
+    // Both endpoints are Convex-backed. Alpha must see the one page published
+    // for alpha, with no entries from Diana or beta.
     const alphaResp = await request.get(`${url}/api/file-tree`, {
       headers: { Host: `${ALPHA_SLUG}.localhost` },
     });
     expect(alphaResp.ok()).toBeTruthy();
-    const alphaTree = (await alphaResp.json()) as unknown[];
+    const alphaTree = (await alphaResp.json()) as Array<{ slug: string }>;
     expect(Array.isArray(alphaTree)).toBe(true);
-    expect(alphaTree.length).toBe(0);
+    expect(alphaTree).toEqual([
+      expect.objectContaining({ slug: "home" }),
+    ]);
 
-    // /api/pages mirrors the file-tree route — also empty for non-Diana.
+    // /api/pages mirrors the same site-scoped document set.
     const alphaPages = await request.get(`${url}/api/pages`, {
       headers: { Host: `${ALPHA_SLUG}.localhost` },
     });
     expect(alphaPages.ok()).toBeTruthy();
-    const alphaPagesJson = (await alphaPages.json()) as unknown[];
-    expect(alphaPagesJson.length).toBe(0);
-
-    // Sanity: localhost (Diana) still gets a populated tree, so we
-    // know the test isn't trivially passing because the routes are
-    // broken.
-    const dianaResp = await request.get(`${url}/api/file-tree`);
-    const dianaTree = (await dianaResp.json()) as unknown[];
-    expect(dianaTree.length).toBeGreaterThan(0);
+    const alphaPagesJson = (await alphaPages.json()) as Array<{ slug: string }>;
+    expect(alphaPagesJson).toEqual([
+      expect.objectContaining({ slug: "home" }),
+    ]);
   });
 
   test("invariant 5: /api/tools chat tool calls are site-scoped", async ({

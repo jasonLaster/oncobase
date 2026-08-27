@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { mockChatApi } from "./chat-mock";
 import { chatComposer, chatSubmitButton, gotoChatOrSkip } from "./helpers";
+import { isolatedTestBackendEnabled } from "./test-environment";
 
 test.describe("Chat", () => {
   let chatMock: Awaited<ReturnType<typeof mockChatApi>> | null = null;
@@ -22,6 +23,10 @@ test.describe("Chat", () => {
   });
 
   test("can send a message and get a response", async ({ page }) => {
+    test.skip(
+      !isolatedTestBackendEnabled(),
+      "Chat message persistence requires PLAYWRIGHT_TEST_CONVEX_URL.",
+    );
     // Click the first suggested-prompt button on the empty state.
     await page.getByTestId("chat-suggested-prompt").first().click();
 

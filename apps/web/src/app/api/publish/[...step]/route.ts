@@ -814,10 +814,12 @@ export async function POST(
         await convex.mutation(api.sites.finishPublish, { slug: siteSlug });
         revalidateSiteAfterPublish(siteSlug);
         const prioritySlugs = postPublishPrioritySlugs(body.changedDocumentSlugs);
-        const postPublishRunId = await startPostPublishWorkflow(
-          siteSlug,
-          prioritySlugs,
-        );
+        const skipPostPublish =
+          process.env.E2E_ALLOW_TEST_MUTATIONS === "1" &&
+          request.headers.get("x-e2e-skip-post-publish") === "1";
+        const postPublishRunId = skipPostPublish
+          ? null
+          : await startPostPublishWorkflow(siteSlug, prioritySlugs);
         return NextResponse.json({ ok: true, postPublishRunId });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

@@ -11,8 +11,9 @@ import {
   hashSessionToken,
 } from "../src/lib/user-auth";
 import { cleanupSiteUsers } from "./helpers";
+import { testConvexUrl } from "./test-environment";
 
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
+const CONVEX_URL = testConvexUrl();
 const RUN_NONCE = `${Date.now().toString(36)}${crypto
   .randomBytes(2)
   .toString("hex")}`;
@@ -50,7 +51,7 @@ async function createTestUser(
 test.describe("admin bulk user access actions", () => {
   test.skip(
     !CONVEX_URL,
-    "Admin bulk access tests require NEXT_PUBLIC_CONVEX_URL for the target Convex deployment.",
+    "Admin bulk access tests require PLAYWRIGHT_TEST_CONVEX_URL for an isolated test deployment.",
   );
 
   let convex: ConvexHttpClient;
@@ -63,6 +64,7 @@ test.describe("admin bulk user access actions", () => {
       ownerEmail: OWNER_EMAIL,
       domain: SITE_HOST,
       publishTokenHash: tokenHash(),
+      passwordGate: false,
     });
   });
 

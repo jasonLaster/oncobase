@@ -15,12 +15,17 @@
 import { test, expect } from "@playwright/test";
 import { mockChatApi } from "./chat-mock";
 import { chatComposer, chatLog, chatSubmitButton, gotoChatOrSkip } from "./helpers";
+import { isolatedTestBackendEnabled } from "./test-environment";
 
 // Each test in this file owns the full Playwright budget — they exercise a
 // real model round-trip and need elbow room.
 test.describe.configure({ timeout: 120_000 });
 
 test.describe("Chat navigation resilience", () => {
+  test.skip(
+    !isolatedTestBackendEnabled(),
+    "Chat persistence tests require PLAYWRIGHT_TEST_CONVEX_URL.",
+  );
   let chatMock: Awaited<ReturnType<typeof mockChatApi>> | null = null;
 
   test.beforeEach(async ({ page }) => {

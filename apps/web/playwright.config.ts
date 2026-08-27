@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { localPlaywrightServerEnv } from "./e2e/test-environment";
 
 const isLocal = process.env.TEST_ENV !== "prod";
 const isEndform = Boolean(process.env.ENDFORM_API_KEY);
@@ -15,7 +16,7 @@ const webServer = isLocal
   ? {
       command: `PORT=${localPort} bun dev:app`,
       env: {
-        ...process.env,
+        ...localPlaywrightServerEnv(),
         DIANA_WIKI_PASSWORD_HASH:
           process.env.DIANA_WIKI_PASSWORD_HASH || localGatePasswordHash,
         WIKI_GATE_SESSION_SECRET:
@@ -41,6 +42,14 @@ const requestedProdWorkers = Number.parseInt(
 const prodWorkers = Number.isFinite(requestedProdWorkers)
   ? Math.min(Math.max(requestedProdWorkers, 1), 4)
   : 4;
+const isProductionSmoke = process.env.PLAYWRIGHT_SUITE === "production-smoke";
+const isCrossBrowserSmoke = process.env.PLAYWRIGHT_SUITE === "cross-browser-smoke";
+const failOnSkip = process.env.PLAYWRIGHT_FAIL_ON_SKIP === "1";
+const requestedBrowser = process.env.PLAYWRIGHT_BROWSER;
+const browserName: "chromium" | "firefox" | "webkit" =
+  requestedBrowser === "firefox" || requestedBrowser === "webkit"
+    ? requestedBrowser
+    : "chromium";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -49,13 +58,26 @@ export default defineConfig({
   fullyParallel: !isLocal && !isEndform,
   retries: isLocal ? 0 : 1,
   workers: isLocal ? 1 : prodWorkers,
+  reporter: failOnSkip
+    ? [
+        ["list"],
+        ["html", { open: "never" }],
+        ["./e2e/fail-on-skip-reporter.ts"],
+      ]
+    : undefined,
   webServer,
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
       name: "tests",
       dependencies: ["setup"],
+      grep: isCrossBrowserSmoke
+        ? /@cross-browser/
+        : isProductionSmoke
+          ? /@smoke/
+          : undefined,
       use: {
+        browserName,
         storageState: "e2e/.auth/state.json",
       },
     },
@@ -65,5 +87,7 @@ export default defineConfig({
     extraHTTPHeaders,
     screenshot: "only-on-failure",
     testIdAttribute: "data-test-id",
+    trace: "on-first-retry",
+    video: "retain-on-failure",
   },
 });

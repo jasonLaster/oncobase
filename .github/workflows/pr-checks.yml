@@ -1,6 +1,10 @@
 name: PR Checks
 
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'obsidian-2/**'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
@@ -20,6 +24,7 @@ permissions:
 jobs:
   preview-scope:
     name: Preview Scope
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.scope.outputs.should_run }}
@@ -156,7 +161,7 @@ jobs:
     name: E2E (Preview)
     runs-on: ubuntu-latest
     needs: [preview-scope, preview-url]
-    if: needs.preview-scope.outputs.should_run == 'true'
+    if: github.event_name == 'pull_request' && needs.preview-scope.outputs.should_run == 'true'
     steps:
       - uses: actions/checkout@v5
 
@@ -177,4 +182,123 @@ jobs:
           TEST_ENV: prod
           PROD_URL: ${{ needs.preview-url.outputs.url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-        run: bun run test:prod:ci
+        run: bun run test:prod:smoke
+
+  e2e-cross-browser:
+    name: E2E (${{ matrix.browser }} smoke)
+    runs-on: ubuntu-latest
+    needs: [preview-scope, preview-url]
+    if: github.event_name == 'pull_request' && needs.preview-scope.outputs.should_run == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, webkit]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
+
+      - name: Install Playwright browser
+        working-directory: apps/web
+        run: bunx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run cross-browser smoke against preview
+        working-directory: apps/web
+        env:
+          PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
+          PROD_URL: ${{ needs.preview-url.outputs.url }}
+          TEST_ENV: prod
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: bun run test:prod:cross-browser
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.browser }}-smoke-playwright-results
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+
+  e2e-isolated:
+    name: E2E (Isolated mutations)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
+
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run mutation tests against an ephemeral local Convex deployment
+        working-directory: apps/web
+        env:
+          CONVEX_AGENT_MODE: anonymous
+        run: >-
+          bunx convex dev --once --typecheck try
+          --run-sh 'set -a; . ./.env.local; set +a;
+          export PLAYWRIGHT_TEST_CONVEX_URL="$NEXT_PUBLIC_CONVEX_URL";
+          bun run test:perf:ci && bun run test:isolated:ci'
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolated-mutation-playwright-results
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+
+  e2e-production:
+    name: E2E (Production smoke)
+    if: github.event_name == 'push'
+    needs: [static, unit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
+
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run production smoke suite
+        working-directory: apps/web
+        env:
+          PROD_URL: https://diana-tnbc.com
+          TEST_ENV: prod
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: bun run test:prod:smoke
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-smoke-playwright-results
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7

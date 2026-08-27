@@ -19,13 +19,19 @@ permissions:
 
 jobs:
   stress:
-    name: Stress (${{ github.event.inputs.runs || '10' }}x)
+    name: Stress (${{ github.event.inputs.runs || '10' }}x, shard ${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     env:
       TEST_ENV: prod
       PROD_URL: ${{ github.event.inputs.target_url || 'https://diana-tnbc.vercel.app' }}
       PLAYWRIGHT_REPEAT_EACH: ${{ github.event.inputs.runs || '10' }}
+      PLAYWRIGHT_SUITE: production-smoke
+      PLAYWRIGHT_FAIL_ON_SKIP: "1"
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
     steps:
       - uses: actions/checkout@v5
@@ -43,20 +49,21 @@ jobs:
 
       - name: Run e2e stress test
         working-directory: apps/web
-        run: bunx playwright test --project=tests --repeat-each=${PLAYWRIGHT_REPEAT_EACH} --reporter=list,html
+        timeout-minutes: 75
+        run: bunx playwright test --project=tests --repeat-each=${PLAYWRIGHT_REPEAT_EACH} --shard=${{ matrix.shard }}/4
 
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: apps/web/playwright-report
           retention-days: 14
 
       - name: Upload test results
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-results
+          name: playwright-results-${{ matrix.shard }}
           path: apps/web/test-results
           retention-days: 14

@@ -1,14 +1,12 @@
 import {
-  expect,
-  test,
   type APIRequestContext,
   type Locator,
   type Page,
 } from "@playwright/test";
-import { passwordGateCookie } from "./gate-auth";
-
+import { expect, test } from "./fixtures";
 import { diagnosticComparisonsSeed } from "../scripts/fixtures/diagnostic-comparisons-seed";
 import { diagnosticStudiesSeed } from "../scripts/fixtures/diagnostic-studies-seed";
+import { isolatedTestBackendEnabled } from "./test-environment";
 
 /**
  * Verifies the DICOM viewer contract documented in
@@ -92,6 +90,8 @@ const biopsyLinks = [
 const breastMriReportPath = "sources/diagnostics/401-breast-mri.pdf";
 const isProdRun = process.env.TEST_ENV === "prod";
 const seededStudySet = `playwright-dicom-${Date.now()}`;
+const createdStudySets = new Set<string>();
+const createdComparisonSets = new Set<string>();
 const seededStudySetQuery = isProdRun ? "" : `?studySet=${seededStudySet}`;
 const seededStudySetParam = isProdRun ? "" : `&studySet=${seededStudySet}`;
 const liveDiagnosticsReportLinks = Array.from(
@@ -136,6 +136,7 @@ async function seedDiagnosticStudies(
     data: { studySet, studies },
   });
   expect(response.ok()).toBe(true);
+  createdStudySets.add(studySet);
 }
 
 async function seedDiagnosticComparisons(
@@ -149,6 +150,28 @@ async function seedDiagnosticComparisons(
     data: { comparisonSet, comparisons },
   });
   expect(response.ok()).toBe(true);
+  createdComparisonSets.add(comparisonSet);
+}
+
+async function deleteDiagnosticStudyFixtures(
+  request: APIRequestContext,
+  baseURL: string | undefined,
+) {
+  const appBaseURL = baseURL ?? "http://localhost:3000";
+  await Promise.all([
+    ...[...createdStudySets].map((studySet) =>
+      request.delete(`${appBaseURL}/api/test/diagnostic-studies`, {
+        data: { studySet },
+      }),
+    ),
+    ...[...createdComparisonSets].map((comparisonSet) =>
+      request.delete(`${appBaseURL}/api/test/dicom-comparisons`, {
+        data: { comparisonSet },
+      }),
+    ),
+  ]);
+  createdStudySets.clear();
+  createdComparisonSets.clear();
 }
 
 async function expectToolState(
@@ -484,11 +507,13 @@ function requireNumber(value: number | undefined, label: string) {
   return value!;
 }
 
-test.describe.configure({ mode: "serial" });
-
 test.describe("DICOM viewer", () => {
   test.beforeAll(async ({ request, baseURL }) => {
     if (isProdRun) return;
+    test.skip(
+      !isolatedTestBackendEnabled(),
+      "Local DICOM metadata fixtures require PLAYWRIGHT_TEST_CONVEX_URL.",
+    );
     await seedDiagnosticStudies(
       request,
       baseURL,
@@ -503,7 +528,12 @@ test.describe("DICOM viewer", () => {
     );
   });
 
-  test("diagnostics imaging page links each biopsy shortcut to the viewer", async ({ page }) => {
+  test.afterAll(async ({ request, baseURL }) => {
+    if (isProdRun || !isolatedTestBackendEnabled()) return;
+    await deleteDiagnosticStudyFixtures(request, baseURL);
+  });
+
+  test("@smoke @cross-browser diagnostics imaging page links each biopsy shortcut to the viewer", async ({ page }) => {
     await page.goto(`/diagnostics/imaging${seededStudySetQuery}`);
 
     await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible();
@@ -514,7 +544,7 @@ test.describe("DICOM viewer", () => {
     await expect(desktopTable.getByRole("columnheader", { name: "Download" })).toBeVisible();
     await expect(
       desktopTable.getByRole("link", { name: "Download source bundle" }),
-    ).toHaveCount(8);
+    ).toHaveCount(9);
     for (const biopsy of biopsyLinks) {
       const viewerLink = desktopTable.locator(
         `a[href="/tools/dicom-viewer?id=${biopsy.id}${seededStudySetParam}"]`
@@ -576,7 +606,7 @@ test.describe("DICOM viewer", () => {
     );
   });
 
-  test("diagnostics imaging reflects local test DB metadata changes without a deploy", async ({
+  test("@mutation diagnostics imaging reflects local test DB metadata changes without a deploy", async ({
     page,
     request,
     baseURL,
@@ -621,9 +651,7 @@ test.describe("DICOM viewer", () => {
     ).toBeVisible();
   });
 
-  test("comparison viewer renders paired MRI stacks from dynamic metadata", async ({ page }) => {
-    test.skip(isProdRun, "Local seeded comparison metadata is not available in production.");
-
+  test("@smoke comparison viewer renders registered MRI stacks and annotations", async ({ page }) => {
     await installAnnotationApiMock(page, [
       [
         "06-26-breast-mri/dicoms/06-26-breast-mri-4165-MR.dcm",
@@ -793,16 +821,14 @@ test.describe("DICOM viewer", () => {
     await expect(page.getByText("major improvement from the April baseline persists")).toBeVisible();
   });
 
-  test("diagnostics report links stay live and surfaced PDFs support password-gated byte-range loading", async ({
+  test("@smoke diagnostics report links stay live and surfaced PDFs support password-gated byte-range loading", async ({
     request,
     baseURL,
   }) => {
-    const cookie = await passwordGateCookie(request);
     const pdfRes = await request.get(
       `${baseURL}/api/file?path=${encodeURIComponent(breastMriReportPath)}`,
       {
         headers: {
-          Cookie: cookie,
           Range: "bytes=0-99",
         },
       },
@@ -821,7 +847,6 @@ test.describe("DICOM viewer", () => {
     for (const href of liveDiagnosticsReportLinks) {
       const res = await request.get(`${baseURL}${href}`, {
         headers: {
-          Cookie: cookie,
           ...(href.includes("/api/file?path=") ? { Range: "bytes=0-99" } : {}),
         },
       });
@@ -933,7 +958,7 @@ test.describe("DICOM viewer", () => {
     await expect(studySheet).toContainText("No DICOM catalog was found.");
   });
 
-  test("stores the current image in the URL and copies a shareable image link", async ({
+  test("@smoke stores the current image in the URL and copies a shareable image link", async ({
     page,
   }) => {
     await page.goto(
@@ -1156,7 +1181,7 @@ test.describe("DICOM viewer", () => {
     await expectToolState(page, { window: false, pan: true, zoom: false });
   });
 
-  test("draws and reloads annotations for an image inside a DICOM series", async ({
+  test("@smoke draws and reloads annotations for an image inside a DICOM series", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1745,7 +1770,7 @@ test.describe("DICOM viewer", () => {
       .toBeGreaterThan(0);
   });
 
-  test("next image shows loading state while the requested DICOM file is pending", async ({
+  test("@smoke next image shows loading state while the requested DICOM file is pending", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });

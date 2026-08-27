@@ -1,9 +1,8 @@
 import {
-  expect,
   request as playwrightRequest,
-  test,
   type Browser,
 } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const previewBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 
@@ -32,7 +31,7 @@ async function submitPassword(
   return { context, page };
 }
 
-test.describe("password login redirects", () => {
+test.describe("@smoke @cross-browser password login redirects", () => {
   test("LoginForm preserves local hashes and rejects external targets", async ({
     baseURL,
     browser,

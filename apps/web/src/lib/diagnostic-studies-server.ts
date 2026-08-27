@@ -44,3 +44,13 @@ export async function setDiagnosticStudiesForRequest(
   });
   return normalized satisfies DiagnosticStudiesPayload;
 }
+
+export async function deleteDiagnosticStudiesForRequest(
+  request: { headers: Headers },
+  studySet: string,
+) {
+  const siteData = siteDataFromRequest(request);
+  return siteData.documents.deleteMeta({
+    key: diagnosticStudiesMetaKeyForSet(studySet),
+  });
+}

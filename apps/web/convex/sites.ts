@@ -192,6 +192,7 @@ export const create = mutation({
     domain: v.string(),
     publishTokenHash: v.string(),
     passwordHash: v.optional(v.string()),
+    passwordGate: v.optional(v.boolean()),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
   },
@@ -216,6 +217,7 @@ export const create = mutation({
       publishTokens: [publishTokenRecord("initial publisher", args.publishTokenHash, now)],
       config: {
         ...defaultConfig,
+        passwordGate: args.passwordGate ?? defaultConfig.passwordGate,
         title: args.title ?? args.name,
         description: args.description,
         passwordHash: args.passwordHash,

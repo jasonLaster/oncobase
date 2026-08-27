@@ -16,6 +16,10 @@
     "test": "bunx playwright test",
     "test:prod": "TEST_ENV=prod bunx playwright test",
     "test:prod:ci": "TEST_ENV=prod bunx playwright test --project=tests",
+    "test:prod:smoke": "TEST_ENV=prod PLAYWRIGHT_SUITE=production-smoke PLAYWRIGHT_FAIL_ON_SKIP=1 bunx playwright test --project=tests",
+    "test:prod:cross-browser": "TEST_ENV=prod PLAYWRIGHT_SUITE=cross-browser-smoke PLAYWRIGHT_FAIL_ON_SKIP=1 bunx playwright test --project=tests",
+    "test:isolated:ci": "bun e2e/seed-isolated-backend.ts && PLAYWRIGHT_FAIL_ON_SKIP=1 bunx playwright test --project=tests e2e/admin-access.spec.ts e2e/admin-users-bulk.spec.ts e2e/multi-site-isolation.spec.ts e2e/role-based-access.spec.ts e2e/tag-page-access.spec.ts",
+    "test:perf:ci": "bun e2e/seed-isolated-backend.ts && PLAYWRIGHT_PORT=3001 PLAYWRIGHT_FAIL_ON_SKIP=1 bunx playwright test --project=tests e2e/chat-perf.spec.ts",
     "test:endform": "bunx endform test",
     "test:endform:prod": "TEST_ENV=prod bunx endform test",
     "wiki:bootstrap": "bun scripts/publish/bootstrap.ts",
@@ -116,6 +120,7 @@
     "workflow": "^4.2.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@types/archiver": "^7.0.0",

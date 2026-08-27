@@ -67,7 +67,7 @@
 
 .wiki-markdown a {
   color: var(--brand, #2563eb);
-  opacity: 0.7;
+  opacity: 1;
   text-decoration: none;
 }
 

@@ -3,8 +3,9 @@ import { expect, test, type BrowserContext } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import { cleanupSiteUsers } from "./helpers";
+import { testConvexUrl } from "./test-environment";
 
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
+const CONVEX_URL = testConvexUrl();
 const RUN_NONCE = `${Date.now().toString(36)}${crypto
   .randomBytes(2)
   .toString("hex")}`;
@@ -66,7 +67,7 @@ test.describe("tag page access", () => {
 
   test.skip(
     !CONVEX_URL,
-    "Tag page access tests require NEXT_PUBLIC_CONVEX_URL for the same Convex deployment as the target app.",
+    "Tag page access tests require PLAYWRIGHT_TEST_CONVEX_URL for an isolated test deployment.",
   );
 
   let convex: ConvexHttpClient;
@@ -79,6 +80,7 @@ test.describe("tag page access", () => {
       ownerEmail: OWNER_EMAIL,
       domain: SITE_HOST,
       publishTokenHash: tokenHash(),
+      passwordGate: false,
     });
 
     await Promise.all([

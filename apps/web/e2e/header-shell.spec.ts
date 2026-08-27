@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
-test.describe("Header shell", () => {
+test.describe("@smoke @cross-browser Header shell", () => {
   test("about/Index prerender includes navigation chrome before hydration", async ({
     request,
     baseURL,

@@ -239,6 +239,8 @@ export function createSiteData(
         convex.query(api.documents.getMeta, args),
       setMeta: (args: SiteScopedArgs<typeof api.documents.setMeta>) =>
         convex.mutation(api.documents.setMeta, args),
+      deleteMeta: (args: SiteScopedArgs<typeof api.documents.deleteMeta>) =>
+        convex.mutation(api.documents.deleteMeta, args),
       setDescription: (
         args: SiteScopedArgs<typeof api.documents.setDescription>,
       ) => convex.mutation(api.documents.setDescription, args),
@@ -286,6 +288,8 @@ export function createSiteData(
     guestNames: {
       upsert: (args: SiteScopedArgs<typeof api.guestNames.upsert>) =>
         convex.mutation(api.guestNames.upsert, args),
+      remove: (args: SiteScopedArgs<typeof api.guestNames.remove>) =>
+        convex.mutation(api.guestNames.remove, args),
       getByIds: (args: SiteScopedArgs<typeof api.guestNames.getByIds>) =>
         convex.query(api.guestNames.getByIds, args),
     },
