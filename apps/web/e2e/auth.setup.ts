@@ -38,6 +38,7 @@ async function saveDianaPreviewAuthState(
 
 setup("authenticate", async ({ request, baseURL }) => {
   const appBaseURL = baseURL ?? "http://localhost:3000";
+  let previewHeaderAuthenticated = false;
 
   if (previewBypassHeaders) {
     const bypassRes = await request.get(appBaseURL, {
@@ -57,17 +58,21 @@ setup("authenticate", async ({ request, baseURL }) => {
       );
     }
 
-    if (isProd) {
-      await saveDianaPreviewAuthState(request, appBaseURL);
-      return;
-    }
+    previewHeaderAuthenticated =
+      new URL(bypassRes.url()).pathname !== "/login";
   }
 
   const res = await request.post(`${appBaseURL}/api/login`, {
     headers: previewBypassHeaders,
     data: { password: "diana" },
   });
-  if (!res.ok()) throw new Error("Login failed");
+  if (!res.ok()) {
+    if (isProd && previewHeaderAuthenticated) {
+      await saveDianaPreviewAuthState(request, appBaseURL);
+      return;
+    }
+    throw new Error(`Login failed: ${res.status()} ${res.statusText()}`);
+  }
 
   // Save the cookie state for all tests
   await request.storageState({ path: AUTH_STATE_PATH });
