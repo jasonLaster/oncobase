@@ -42,6 +42,10 @@ export function tokenPath(site: string) {
   return path.join(os.homedir(), ".config", "wiki", `${site}.token`);
 }
 
+export function elicitTokenPath() {
+  return path.join(os.homedir(), ".config", "oncobase", "elicit.token");
+}
+
 export function loadConfig(site: string): PublishConfig {
   const file = configPath(site);
   if (!fs.existsSync(file)) {
@@ -75,6 +79,24 @@ export function loadPublishToken(site: string) {
     );
   }
   return token;
+}
+
+export function loadElicitApiKey() {
+  const apiKey = process.env.ELICIT_API_KEY?.trim();
+  if (apiKey) return apiKey;
+
+  const file = elicitTokenPath();
+  if (fs.existsSync(file)) {
+    if (process.platform !== "win32" && (fs.statSync(file).mode & 0o077) !== 0) {
+      throw new Error(`Refusing to read ${file}: permissions must be 0600.`);
+    }
+    const fileToken = fs.readFileSync(file, "utf8").trim();
+    if (fileToken) return fileToken;
+  }
+
+  throw new Error(
+    `Set ELICIT_API_KEY or write the API key to ${file} with permissions 0600.`,
+  );
 }
 
 export function writeConfig(config: PublishConfig) {

@@ -31,6 +31,8 @@ The publish token can be provided with `WIKI_PUBLISH_TOKEN_<SITE>`, `WIKI_PUBLIS
 - `oncobase skills --site <slug>` copies bundled vault skills into `<vault>/.claude/skills`.
 - `oncobase assets:backfill-hashes --site <slug>` backfills asset hashes without a full content upload.
 - `oncobase docs:backfill-hashes --site <slug> --since-ref <commit>` backfills document hashes without a full content upload while protecting recent local edits.
+- `oncobase elicit papers <query>` searches Elicit's academic-paper index and emits provenance-preserving JSON or Markdown.
+- `oncobase elicit trials <query>` searches ClinicalTrials.gov through Elicit and emits provenance-preserving JSON or Markdown.
 - `oncobase transcription record --site <slug> --context <file>` records audio until Ctrl-C, then transcribes and drafts an enriched note with Vercel AI Gateway.
 - `oncobase transcription transcribe --site <slug> --audio <file> --context <file>` transcribes an existing recording and drafts the note after the fact.
 
@@ -68,6 +70,29 @@ Useful options:
 - `--wiki-all` includes wiki page bodies until `--max-context-chars` is reached.
 - `--model <id>` overrides the default Gateway model.
 - `--output`, `--transcript-output`, and `--note-output` choose output files.
+
+## Elicit research search
+
+Set `ELICIT_API_KEY`, or store the key in `~/.config/oncobase/elicit.token`
+with permissions `0600`. The API key is sent only in the authorization header
+and is not included in saved search artifacts.
+
+JSON is the default and includes the request, retrieval timestamp, endpoint,
+results, and API warnings. Use `--format markdown` to create a reviewable Diana
+research note. The Markdown output explicitly labels Elicit as a discovery
+source whose decision-relevant claims require primary-source verification.
+
+```sh
+oncobase elicit papers "TNBC antibody-drug conjugates" \
+  --min-year 2022 --type-tag RCT --max-results 25 \
+  --format markdown --output sources/research/elicit/tnbc-adc-search.md
+
+oncobase elicit trials "TNBC antibody-drug conjugates" \
+  --phase PHASE2,PHASE3 --status RECRUITING \
+  --format json --output sources/research/elicit/tnbc-adc-trials.json
+```
+
+Run `oncobase elicit --help` for the complete paper and trial filter list.
 
 ## Bundled Skills
 

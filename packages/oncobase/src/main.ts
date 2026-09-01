@@ -12,11 +12,14 @@ const COMMANDS = new Set([
   "skills",
   "assets:backfill-hashes",
   "docs:backfill-hashes",
+  "elicit",
   "transcription",
 ]);
 
 function usage() {
-  console.error("Usage: oncobase <init|sync|check|publish|skills|assets:backfill-hashes|docs:backfill-hashes|transcription> [options]");
+  console.error(
+    "Usage: oncobase <init|sync|check|publish|skills|assets:backfill-hashes|docs:backfill-hashes|elicit|transcription> [options]",
+  );
 }
 
 function readPackageVersion() {
@@ -40,18 +43,15 @@ if (!command || !COMMANDS.has(command)) {
 }
 
 const binDir = path.dirname(fileURLToPath(import.meta.url));
-const scriptName =
-  command === "sync"
-    ? "sync-command.js"
-    : command === "skills"
-      ? "skills-command.js"
-      : command === "assets:backfill-hashes"
-        ? "assets-backfill-hashes.js"
-        : command === "docs:backfill-hashes"
-          ? "docs-backfill-hashes.js"
-        : command === "transcription"
-          ? "transcription-command.js"
-        : `${command}.js`;
+const commandScripts: Partial<Record<string, string>> = {
+  sync: "sync-command.js",
+  skills: "skills-command.js",
+  "assets:backfill-hashes": "assets-backfill-hashes.js",
+  "docs:backfill-hashes": "docs-backfill-hashes.js",
+  elicit: "elicit-command.js",
+  transcription: "transcription-command.js",
+};
+const scriptName = commandScripts[command] ?? `${command}.js`;
 const result = spawnSync(process.execPath, [path.join(binDir, scriptName), ...args], {
   stdio: "inherit",
   env: process.env,
