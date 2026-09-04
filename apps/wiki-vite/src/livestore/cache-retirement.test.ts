@@ -186,6 +186,32 @@ describe("reader cache retirement", () => {
     expect(localValues.has(sessionCacheCleanupKey("diana"))).toBe(false);
   });
 
+  test("denied OPFS preserves pending cleanup and does not reject cache retirement", async () => {
+    const cleanupKey = sessionCacheCleanupKey("diana");
+    const values = new Map([[cleanupKey, "1"]]);
+    const storage = {
+      getDirectory: async (): Promise<FileSystemDirectoryHandle> => {
+        throw new DOMException("Storage denied", "UnknownError");
+      },
+    } as StorageManager;
+    expect(await retireRequestedSessionReaderStores({
+      localStorage: {
+        getItem: (key) => values.get(key) ?? null,
+        removeItem: (key) => { values.delete(key); },
+      },
+      origin: "https://wiki.example",
+      siteSlug: "diana",
+      storage,
+    })).toEqual([]);
+    expect(values.get(cleanupKey)).toBe("1");
+    expect(await retirePreviousReaderStore({
+      identity,
+      origin: "https://wiki.example",
+      scope: "public",
+      storage,
+    })).toEqual([]);
+  });
+
   test("keeps the cleanup request when an open tab blocks deletion", async () => {
     const localValues = new Map<string, string>();
     const localStorage = {

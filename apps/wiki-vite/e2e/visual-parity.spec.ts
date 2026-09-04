@@ -7,7 +7,9 @@ const dynamicMasks = (page: Page) => [
   page.locator(".page-footer"),
 ];
 
-const hasLocalSnapshotBaseline = process.platform === "darwin" && !process.env.CI;
+// Baselines use macOS fonts. The dedicated macOS CI job must compare them too;
+// Linux shards still enforce geometry without pretending to perform pixel QA.
+const hasLocalSnapshotBaseline = process.platform === "darwin";
 
 test.describe("Visual parity", () => {
   test.beforeEach(async ({ page }) => {
@@ -32,7 +34,10 @@ test.describe("Visual parity", () => {
       "ui-sans-serif, system-ui, sans-serif",
     );
     await expect(page.locator(".wiki-shell-page-header")).toHaveCSS("min-height", "48px");
-    expect((await page.locator(".wiki-shell-page-header").boundingBox())?.height).toBe(48);
+    const titleBox = await page.locator(".wiki-shell-page-title-row").boundingBox();
+    const tagsBox = await page.locator(".wiki-shell-page-metadata").boundingBox();
+    expect(tagsBox!.y - (titleBox!.y + titleBox!.height)).toBe(12);
+    expect((await page.locator(".wiki-shell-page-header").boundingBox())?.height).toBe(68);
     await expect(page.getByTestId("sidebar-workspace-trigger")).toHaveCSS("font-size", "16px");
     await expect(
       page.getByTestId("wiki-sidebar").getByTestId("sidebar-sign-in"),

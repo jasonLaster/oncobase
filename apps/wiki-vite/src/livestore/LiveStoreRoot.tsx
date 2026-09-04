@@ -1,4 +1,5 @@
-import { makePersistedAdapter } from "@livestore/adapter-web";
+import { makeInMemoryAdapter, makePersistedAdapter } from "@livestore/adapter-web";
+import { rootHandlePromise } from "@livestore/adapter-web/opfs-utils";
 import LiveStoreSharedWorker from "@livestore/adapter-web/shared-worker?sharedworker";
 import { LiveStoreProvider } from "@livestore/react";
 import { makeWikiStoreId, type WikiScope, type WikiSessionIdentity } from "@oncobase/wiki-content";
@@ -20,6 +21,7 @@ import { FirstFrameSnapshotSync } from "./FirstFrameSnapshot";
 import { readDevtoolsFooterVisible, readLiveStoreDevtoolsEnabled } from "./devtools";
 import LiveStoreWorker from "./livestore.worker?worker";
 import { schema } from "./schema";
+import { resolveReaderStorage } from "./reader-storage";
 import { SessionCacheRetirement } from "./SessionCacheRetirement";
 import {
   STORE_BOOT_RETRY_DELAY_MS,
@@ -27,7 +29,7 @@ import {
   toBootError,
 } from "./store-boot-retry";
 
-const adapter = makePersistedAdapter({
+const persistedAdapter = makePersistedAdapter({
   storage: { type: "opfs" },
   worker: LiveStoreWorker,
   sharedWorker: LiveStoreSharedWorker,
@@ -35,6 +37,15 @@ const adapter = makePersistedAdapter({
   // read with the previous leader's final write. Ask the leader for a recreated
   // snapshot so a partially observed SQLite image never reaches React queries.
   experimental: { disableFastPath: true },
+});
+// This store is a server-backed reader cache, not the source of user writes.
+// When OPFS is unavailable, keep the online reader working in a tab-local cache.
+// Consume the library's eager OPFS probe too, so a denied handle cannot become
+// an unhandled rejection even when the temporary adapter is selected.
+const adapterPromise = resolveReaderStorage({ getDirectory: () => rootHandlePromise }).then((mode) => {
+  if (mode === "opfs") return persistedAdapter;
+  console.warn("[wiki-vite] Persistent cache unavailable; using temporary reader storage");
+  return makeInMemoryAdapter();
 });
 
 function BootRetryPending() {
@@ -115,6 +126,14 @@ export function LiveStoreRoot({
   identity: WikiSessionIdentity;
   scope: WikiScope;
 }) {
+  const [adapter, setAdapter] = useState<Awaited<typeof adapterPromise> | null>(null);
+  useEffect(() => {
+    let active = true;
+    void adapterPromise.then((resolved) => {
+      if (active) setAdapter(() => resolved);
+    });
+    return () => { active = false; };
+  }, []);
   const [bootAttempt, setBootAttempt] = useState(0);
   const retryBoot = useCallback(() => setBootAttempt((attempt) => attempt + 1), []);
   const storeId = useMemo(
@@ -129,6 +148,8 @@ export function LiveStoreRoot({
   );
   const liveStoreDevtoolsEnabled = useMemo(() => readLiveStoreDevtoolsEnabled(), []);
   const devtoolsFooterVisible = useMemo(() => readDevtoolsFooterVisible(), []);
+
+  if (!adapter) return <BootRetryPending />;
 
   return (
     <StoreBootRetryBoundary attempt={bootAttempt} onRetry={retryBoot}>

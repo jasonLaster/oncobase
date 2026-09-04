@@ -6,9 +6,12 @@ const runsWithPreviewAuth = Boolean(
 );
 
 function targetScrollState(id: string) {
+  const container = document.querySelector<HTMLElement>(".content-shell");
+  const header = document.querySelector<HTMLElement>('[data-test-id="mobile-page-header"]');
   return {
-    scrollTop: document.querySelector<HTMLElement>(".content-shell")?.scrollTop ?? window.scrollY,
+    scrollTop: container?.scrollTop ?? window.scrollY,
     targetTop: document.getElementById(id)?.getBoundingClientRect().top ?? null,
+    visibleTop: Math.max(container?.getBoundingClientRect().top ?? 0, header?.getBoundingClientRect().bottom ?? 0),
   };
 }
 
@@ -20,6 +23,7 @@ async function expectScrolledTo(page: import("@playwright/test").Page, id: strin
         return (
           state.scrollTop > minScroll &&
           state.targetTop !== null &&
+          state.targetTop >= state.visibleTop - 1 &&
           state.targetTop < 180
         );
       },
@@ -73,6 +77,23 @@ test.describe("Markdown heading anchors", () => {
     await expect(page).toHaveURL(/#treatment-note$/);
     await expectScrolledTo(page, "treatment-note", 300);
   });
+
+  for (const width of [393, 767]) {
+    test(`mobile outline and reloaded deep links clear the fixed header at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 852 });
+      await gotoWiki(page, "/wiki/updates/week-5-april-12-to-18");
+      await page.getByTestId("bottom-nav-trigger").click();
+      await page.getByRole("button", { name: "Outline", exact: true }).click();
+      await page.getByRole("button", { name: "Treatment note", exact: true }).click();
+
+      await expect(page).toHaveURL(/#treatment-note$/);
+      await expect(page.getByTestId("bottom-nav-sheet")).toHaveAttribute("aria-hidden", "true");
+      await expectScrolledTo(page, "treatment-note", 300);
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expectScrolledTo(page, "treatment-note", 300);
+    });
+  }
 
   test("cross-page markdown hash links use app navigation and scroll", async ({ page }) => {
     await gotoWiki(page, "/wiki/updates/week-5-april-12-to-18");

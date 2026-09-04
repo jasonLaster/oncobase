@@ -34,3 +34,4 @@ apps/web/.swc/
 .codex/
 .claude
 .playwright-mcp/
+.playwright/

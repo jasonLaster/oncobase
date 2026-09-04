@@ -457,6 +457,16 @@ export function WikiPage({
       {toast ? <WikiToast>{toast}</WikiToast> : null}
       {!isHomePage ? (
         <WikiPageHeader
+          metadata={tags.length > 0 ? (
+            <WikiTagList
+              tags={tags}
+              renderTag={(tag) => (
+                <Link key={tag} to={`/tags/${encodeURIComponent(tag)}`}>
+                  {tag}
+                </Link>
+              )}
+            />
+          ) : undefined}
           title={
             <MarkdownTitle
               title={displayTitle}
@@ -499,16 +509,6 @@ export function WikiPage({
           </a>
         )}
       />
-      {!isHomePage ? (
-        <WikiTagList
-          tags={tags}
-          renderTag={(tag) => (
-            <Link key={tag} to={`/tags/${encodeURIComponent(tag)}`}>
-              {tag}
-            </Link>
-          )}
-        />
-      ) : null}
       <WikiMarkdown
         content={page.content}
         currentSlug={page.slug}

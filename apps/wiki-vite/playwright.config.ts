@@ -39,6 +39,10 @@ const webServer = process.env.PLAYWRIGHT_BASE_URL
 const previewAuthState = process.env.PLAYWRIGHT_BASE_URL && process.env.WIKI_VITE_PREVIEW_LOGIN_PASSWORD
   ? previewAuthStatePath
   : undefined;
+const browser = process.env.PLAYWRIGHT_BROWSER || "chromium";
+if (!["chromium", "firefox", "webkit"].includes(browser)) {
+  throw new Error(`Unsupported PLAYWRIGHT_BROWSER: ${browser}`);
+}
 
 export default defineConfig({
   testDir: "./e2e",
@@ -53,15 +57,17 @@ export default defineConfig({
     baseURL,
     extraHTTPHeaders,
     storageState: previewAuthState,
-    permissions: ["clipboard-read", "clipboard-write"],
-    screenshot: "only-on-failure",
+    permissions: browser === "chromium" ? ["clipboard-read", "clipboard-write"] : [],
+    // This is a public repository. Live screenshots and traces can contain
+    // clinical content or signed sessions, so retain them only on local runs.
+    screenshot: process.env.CI ? "off" : "only-on-failure",
     testIdAttribute: "data-test-id",
-    trace: "retain-on-failure",
+    trace: process.env.CI ? "off" : "retain-on-failure",
   },
   projects: [
     {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      name: browser,
+      use: { ...devices[browser === "firefox" ? "Desktop Firefox" : browser === "webkit" ? "Desktop Safari" : "Desktop Chrome"] },
     },
   ],
 });

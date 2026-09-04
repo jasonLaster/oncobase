@@ -78,7 +78,7 @@ test.describe("cross-surface accessibility smoke", () => {
 
     const trigger = page.getByTestId("sidebar-search");
     await trigger.focus();
-    await trigger.click();
+    await trigger.press("Enter");
     const dialog = page.getByRole("dialog", { name: "Go to page" });
     await expect(dialog).toBeVisible();
     await expect(

@@ -1,0 +1,124 @@
+# Vite promotion readiness — second QA review
+
+Review date: 2026-09-04. Starting commit: `5d717320` on `oncobase/main`.
+Reference: `https://diana-tnbc.com` (Next). Candidate: `https://wiki-vite-zeta.vercel.app` (Vite).
+This review does **not** move the live domain or authorize a cutover.
+
+## Findings and repairs
+
+| Priority | Finding | Evidence and repair |
+| --- | --- | --- |
+| P1 | MRI comparison images collapse on tablets | Computer-use exploration at 820×1000 found two loaded stacks and advancing counters, but both canvases had **zero height**. Reproduced in both Next and Vite: a shared component defect. Reserved usable image rows, bounded the details panel, and made layout depend on available component width, including an expanded sidebar. The repaired panes measure 385.5×537px at the original failure size. Nine cold-load sizes now assert canvas dimensions, completed decoding, working slice controls, and no horizontal overflow. |
+| P1 | Denied browser storage leaves the reader loading indefinitely | WebKit reproduced the hang against both development and the deployed candidate. A separate storage probe confirmed `getDirectory()` rejected; the worker never reached the existing React error path. Vite now chooses a temporary, tab-local reader cache when OPFS is denied, consumes the library's eager rejected probe, and preserves pending cache cleanup for later. Online reading/navigation/reload and public/session isolation are regression-tested. This fallback does not promise persistent offline storage. |
+| P2 | Mobile heading links land under the fixed header | Direct links/reloads and outline navigation could place the heading at y≈0 behind a 48px header. Next placed it at y≈48. Vite's content scroller now declares its scroll padding and the shared anchor helper respects it. Computer-use verification measured the repaired heading at y=48.16. Tests now check the lower visibility bound, not just “less than 180px.” |
+| P2 | Article title/tag spacing drifts from Next | Matched desktop screenshots and measurements showed Vite's tag row 24px too low, displacing the entire body. Tags now belong inside the document header, with matching spacing and chip dimensions. At 1440×1000 the repaired article height matches Next at 2014.65px; the tag row starts at y=80. Updated synthetic desktop/mobile baselines were inspected. |
+| P1 release gate | Green main did not mean green Vite | The Vite workflow ran only on PRs/manual dispatch, omitted shared paths, and resolved only Preview environments even for main. Main now runs Vite static/unit/server checks and resolves the exact SHA's Vite Production deployment. Shared packages, shared web source, API adapters, and Vercel configuration trigger PR checks. |
+| P2 release gate | Screenshot assertions were disabled in CI; only Chromium ran | Added a macOS screenshot job that compares committed baselines without updating them, plus Firefox/WebKit reader/accessibility/anchor/calculator/storage smoke jobs. Linux Chromium shards retain geometry checks. |
+| P1 evidence custody | Rich test artifacts are unsafe to publish from this repository | The GitHub repository is public. Clinical screenshots, signed sessions, response bodies, and traces stay local. Hosted runs disable live screenshots/traces and publish only sanitized test names/outcomes. The dedicated synthetic visual job may upload its PNG diffs. |
+
+The storage fallback has a measured ~6 KiB compressed cost (<0.6% of the eager
+asset budget). The bundle ceiling records that compatibility tradeoff explicitly;
+other bundle limits remain unchanged. No clinical content, database schema, or
+authorization policy was changed.
+
+## Verification ledger
+
+Final local/hosted results are recorded in the release addendum below. Evidence
+collected before the repair commit:
+
+| Method | Scope | Result |
+| --- | --- | --- |
+| Computer-use exploration | Matched desktop/mobile readers; mobile navigation → outline → heading; search → result → reload; timeline drag/category expansion; imaging catalog → comparison → next slice | Found and reproduced the spacing, anchor, and tablet defects; directly verified repaired geometry. |
+| Deployed candidate E2E | Live data, APIs, routes, chat, anchored comments, all published imaging stacks, viewer tools/downloads, calculator | **63 passed / 4 skipped**, 255.3s. Live chat and anchored comment create → reload → global listing → cleanup both actually ran. |
+| New tests against old candidate | 820px comparison; 393px mobile anchor/reload | Both failed for the observed product defects before the fixes. |
+| Repaired Chromium focused run | Nine comparison sizes, heading anchors, ten visual tests | **28 passed / 1 skipped**; updated only the two intended reader screenshots, then inspected them. |
+| Firefox and WebKit focused runs | Reader/outline, anchors, accessibility, calculator, denied storage | Each **24 passed / 6 skipped** in the exploratory 30-case selection. Four skips were a local-Convex-only API RBAC suite (not browser isolation proof); the others were preview login and Chromium-only OS clipboard permission automation. |
+| Additional WebKit isolation run | Denied storage read/navigation/reload; public/session separation; session cache-key rotation | **4 passed / 0 skipped**. This is the browser isolation evidence, distinct from the skipped API RBAC suite. |
+| Static and unit verification | Lint, typechecks, bundle budgets, shared packages, server contracts, private-artifact summary regression | Static checks passed; **228 unit tests passed**. |
+| Standalone production server | Production build, API checks, gate and reader smoke | Passed, including **4 browser smoke tests**. |
+| Production-build Chromium | Denied storage, nine comparison sizes, anchors, synthetic visuals | **30 passed / 1 skipped**. |
+| Production-build WebKit | Reader, anchors, accessibility, calculator, page chrome, denied storage | **25 passed / 2 skipped** (local preview-login and Chromium-only OS clipboard automation). |
+| Production-build WebKit imaging | 393px, 820px, and 1440px published comparisons | **3 passed / 0 skipped**. |
+| Explicit deployed live AI ranking | Opt-in configured API request | **1 passed / 0 skipped** against the starting candidate; must repeat on the repaired deployment. |
+| Final full local Chromium run | Complete 317-case suite on fresh port 61865 | **302 passed / 15 skipped / 0 failed / 0 flaky**, 695.7s. |
+
+The final full-run skips comprise nine production-server-only gate/metadata/
+redirect checks, four documented Next-SSR/table-fixture exclusions, opt-in live
+AI ranking, and unavailable local Liveblocks. An earlier full run had the same
+302 passes but failed the comment test because the local Liveblocks key was
+invalid. The clean rerun explicitly removed that unusable local integration;
+the deployed live comment story is still mandatory, not waived.
+
+The four skips in the initial deployed 67-case selection were synthetic Host
+routing, opt-in live AI ranking, local-only metadata mutation, and the older
+locally seeded comparison test. They were **not** all Liveblocks skips. The new
+published-comparison layout suite is runnable against a deployed candidate.
+
+## Coverage audit
+
+| Risk / transition | Evidence to require | Coverage and limits |
+| --- | --- | --- |
+| Cold/warm/deep-link route parity | Gate → page, alias, hash, reload, not-found; document completeness | `route-correctness`, `navigation`, `page-load-experience`, and strengthened `markdown-heading-anchors`; route inventory also checks legal/PII/admin/chat special cases outside the catch-all. |
+| Cache/session boundaries | Expired manifest, denied OPFS, session rotation, sign-out retirement, no sensitive discovery | `manifest-cache`, `cache-retirement`, `session-recovery`, `storage-availability`; server/API RBAC needs a credentialed local run. Temporary storage must never be reported as durable offline coverage. |
+| Stateful reader UI | Table expand/collapse across rails, width/scroll persistence, focus restoration, mobile sheets | Shared smart-table suites, comments, page chrome, navigation, accessibility. Matched screenshots supplement these; screenshots alone cannot prove interactions. |
+| Diagnostic usability | Decode both stacks, useful canvas size, reachable controls, pointer/keyboard slice change, reload | Existing viewer suite plus nine-size `dicom-comparison-layout`; checks both viewport breakpoints and actual available width. |
+| Live service stories | Actual assistant response; anchored comment persistence and cleanup | Credentialed deployed checks, not mocked UI or a configured-status response. Standard hosted shards can still skip services lacking runner credentials. These require an explicit release run, not an assumption from aggregate green status. |
+| API/auth/cache/security | Anonymous denial; signed sessions; public/session data; files/archives/byte ranges; bot metadata; Host isolation | Server unit tests, standalone checks, backend/multi-site/RBAC suites. Synthetic Host checks belong locally; Vercel does not accept injected synthetic hosts. |
+| Browser compatibility | Chromium plus Firefox/WebKit, keyboard-focused dialog invocation, browser storage denial | Browser selection is now configurable and smoke coverage runs in CI. OS clipboard-read permission automation remains Chromium-only. WebKit is engine coverage, not physical iPhone certification. |
+| Production assets and performance | Production bundle and standalone server, worker/WASM startup, cache headers, bounded network retries | Static bundle budgets and standalone verification. Dev success alone does not prove deployed worker/asset behavior. Live long-tail search/manifest latency remains an operational watch item. |
+
+Historical Next-only SSR-header/streaming tests and two declarative table fixture
+differences remain documented exclusions, not silently counted passes. React
+Doctor 0.9.13's changed-source review against the starting commit reported zero
+errors and six advisory warnings: three existing build-script iteration chains,
+the existing large reader/comparison components, and an unchanged non-component
+export used by page chrome. These are maintainability follow-ups, not observed
+parity failures; no broad component rewrite was folded into this release. Its
+warning-level exit is not represented as a passing gate.
+
+## Promotion and rollback checklist
+
+1. Identify the exact pushed SHA and its **Vite** deployment; verify all new Vite
+   checks and the existing Next checks. A successful Next deployment is not
+   evidence about the Vite candidate. GitHub currently reports no branch
+   protection or applicable rulesets on main: these checks are observable gates,
+   not an enforced restriction on pushing. Repository-policy changes are outside
+   this repair; enforce required checks before relying on an automatic cutover.
+2. Run the credentialed live-service release selection on that immutable Vite
+   deployment, including chat, anchored comments, imaging, and live AI search.
+   Account for every skip explicitly; confirm cleanup of test-owned records.
+3. Before moving the domain, verify effective project configuration: Convex
+   target, gate/session compatibility, Liveblocks webhook destination/secret,
+   Epic OAuth callback and cron ownership, asset/download origins, and caching.
+   Unit tests validate adapters but do not prove external webhook delivery or
+   account-wide Vercel settings. Avoid two active sync schedulers at cutover.
+4. Record the current Next deployment/domain mapping as the rollback target.
+   Promote only the already-verified candidate, with explicit cutover approval.
+   No database migration is part of these fixes.
+5. After domain reassignment, test the **real live hostname** anonymously and in
+   a fresh signed-in session: deep-link gate, role-sensitive denial, search,
+   comment, chat, imaging, and download. Check existing-session behavior too.
+   Monitor error rate, 401/403/5xx, worker boot, search latency, and webhook/sync
+   failures. Roll back the mapping if a core journey or access boundary regresses.
+
+## Evidence custody
+
+Local screenshots, traces, JSON reports, and logs are in ignored
+`.playwright/qa-round-2/` and `apps/wiki-vite/test-results/`. They can contain
+protected content and must not be committed or uploaded to a public report.
+Browser emulation can scale captured pixels; CSS viewport/element measurements
+are retained alongside screenshots for geometry claims. Committed visual
+baselines contain synthetic fixture content only.
+
+The visual UI audit guided matched-view captures and measurements; the React
+review checked hook ordering, stable adapter lifetime and teardown, cache
+isolation, and unchanged server authority. Container sizing follows the
+[Tailwind container-query documentation](https://tailwindcss.com/docs/responsive-design#container-queries).
+
+## Release addendum
+
+The release verdict must use the hosted checks attached to the pushed commit,
+plus the credentialed release selection on its immutable Vite deployment URL.
+Local results alone do not establish that deployment identity. The private
+evidence index retains the exact SHA, deployment URL, hosted run, and release
+test counts once that verification completes.

@@ -890,12 +890,12 @@ export function DicomCompareClient({
   const matchLabel = matchLabelForState(matchInfo.state);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#08090a] text-zinc-100">
-      <header className="shrink-0 border-b border-white/10 bg-[#11151a] px-3 py-2 lg:px-4">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+    <div className="@container/compare flex h-full min-h-0 flex-col overflow-hidden bg-[#08090a] text-zinc-100">
+      <header className="shrink-0 border-b border-white/10 bg-[#11151a] px-3 py-2 @5xl/compare:px-4">
+        <div className="flex flex-col gap-2 @5xl/compare:flex-row @5xl/compare:items-center @5xl/compare:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-base font-semibold tracking-normal lg:text-lg">
+              <h1 className="truncate text-base font-semibold tracking-normal @5xl/compare:text-lg">
                 {comparison?.label ?? "DICOM comparison"}
               </h1>
               <Badge variant="outline" className="border-white/15 text-zinc-300">
@@ -920,9 +920,9 @@ export function DicomCompareClient({
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] lg:grid-cols-[260px_minmax(0,1fr)_300px] lg:grid-rows-none">
-        <aside className="min-h-0 overflow-x-auto border-b border-white/10 bg-[#11151a] lg:overflow-y-auto lg:border-r lg:border-b-0">
-          <div className="flex gap-2 p-2.5 lg:block lg:space-y-2 lg:p-3">
+      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(540px,1fr)_auto] overflow-y-auto @min-[600px]/compare:grid-rows-[auto_minmax(320px,1fr)_auto] @5xl/compare:grid-cols-[260px_minmax(0,1fr)_300px] @5xl/compare:grid-rows-none @5xl/compare:overflow-hidden">
+        <aside className="min-h-0 overflow-x-auto border-b border-white/10 bg-[#11151a] @5xl/compare:overflow-y-auto @5xl/compare:border-r @5xl/compare:border-b-0">
+          <div className="flex gap-2 p-2.5 @5xl/compare:block @5xl/compare:space-y-2 @5xl/compare:p-3">
             {resolvedPairs.map((resolved) => {
               const selected = activePair?.pair.id === resolved.pair.id;
               const disabled = !resolved.leftStack || !resolved.rightStack;
@@ -931,7 +931,7 @@ export function DicomCompareClient({
                   key={resolved.pair.id}
                   type="button"
                   className={cn(
-                    "w-56 shrink-0 rounded-lg border p-2.5 text-left transition-colors lg:w-full",
+                    "w-56 shrink-0 rounded-lg border p-2.5 text-left transition-colors @5xl/compare:w-full",
                     selected
                       ? "border-emerald-300/50 bg-emerald-300/12"
                       : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]",
@@ -978,7 +978,7 @@ export function DicomCompareClient({
 
         <main className="flex min-h-0 flex-col bg-black">
           <div
-            className="grid min-h-0 flex-1 grid-cols-1 grid-rows-2 gap-px bg-white/10 md:grid-cols-2 md:grid-rows-1"
+            className="grid min-h-0 flex-1 grid-cols-1 grid-rows-2 gap-px bg-white/10 @min-[600px]/compare:grid-cols-2 @min-[600px]/compare:grid-rows-1"
             data-test-id="dicom-compare-viewports"
           >
             <ComparisonViewport
@@ -1010,7 +1010,7 @@ export function DicomCompareClient({
           </div>
 
           <div
-            className="flex shrink-0 flex-col gap-2 border-t border-white/10 bg-[#0d1013] px-2 py-2 lg:flex-row lg:items-center lg:gap-3"
+            className="flex shrink-0 flex-col gap-2 border-t border-white/10 bg-[#0d1013] px-2 py-2 @5xl/compare:flex-row @5xl/compare:items-center @5xl/compare:gap-3"
             data-test-id="dicom-compare-controls"
           >
             <div className="flex shrink-0 items-center gap-1 overflow-x-auto">
@@ -1101,7 +1101,7 @@ export function DicomCompareClient({
           ) : null}
         </main>
 
-        <aside className="min-h-0 overflow-y-auto border-t border-white/10 bg-[#11151a] lg:border-t-0 lg:border-l">
+        <aside className="max-h-44 min-h-0 overflow-y-auto border-t border-white/10 bg-[#11151a] @5xl/compare:max-h-none @5xl/compare:border-t-0 @5xl/compare:border-l">
           <div className="space-y-4 p-3">
             <section>
               <h2 className="text-xs font-semibold tracking-wide text-zinc-300 uppercase">
@@ -1258,7 +1258,7 @@ function ComparisonViewport({
 }) {
   return (
     <section
-      className="relative min-h-[220px] touch-none overflow-hidden bg-black select-none md:min-h-0"
+      className="relative min-h-[220px] touch-none overflow-hidden bg-black select-none @min-[600px]/compare:min-h-0"
       onContextMenu={(event) => event.preventDefault()}
       aria-label={`${side} DICOM comparison viewport`}
       data-test-id={`dicom-compare-${side}-frame`}

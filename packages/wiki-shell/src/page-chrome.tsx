@@ -62,6 +62,7 @@ export type WikiPageHeaderProps = Omit<ComponentProps<"header">, "children" | "t
   actions?: ReactNode;
   badges?: ReactNode;
   description?: ReactNode;
+  metadata?: ReactNode;
   title: ReactNode;
 };
 
@@ -70,6 +71,7 @@ export function WikiPageHeader({
   badges,
   className,
   description,
+  metadata,
   title,
   ...props
 }: WikiPageHeaderProps) {
@@ -81,6 +83,7 @@ export function WikiPageHeader({
           {actions ? <div className="wiki-shell-page-inline-actions">{actions}</div> : null}
         </div>
         {description ? <p>{description}</p> : null}
+        {metadata ? <div className="wiki-shell-page-metadata">{metadata}</div> : null}
       </div>
       {badges ? <div className="wiki-shell-page-badges page-badges">{badges}</div> : null}
     </header>

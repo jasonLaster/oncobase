@@ -56,7 +56,8 @@ test.describe("Page chrome parity", () => {
     expect((await response.text()).length).toBeGreaterThan(100);
   });
 
-  test("copies local markdown without a server body fetch", async ({ page, context }) => {
+  test("copies local markdown without a server body fetch", async ({ page, context, browserName }) => {
+    test.skip(browserName !== "chromium", "Clipboard permission automation is Chromium-only; permalink copy feedback is covered across browsers.");
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await gotoWiki(page, "/wiki/logistics/insurance");
 

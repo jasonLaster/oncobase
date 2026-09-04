@@ -27,10 +27,9 @@ const budgets: Budget[] = [
   { label: "page chunk", pattern: /^WikiPage-[\w-]+\.js$/, maxGzipBytes: 125_000 },
   { label: "chat chunk", pattern: /^ChatPage-[\w-]+\.js$/, maxGzipBytes: 110_000 },
   { label: "sync/shared shell chunks", pattern: /^(?:WikiSync|outline|src)-[\w-]+\.js$/, maxGzipBytes: 45_000 },
-  // The opt-in devtools footer now loads on demand and keeps this boundary
-  // below its prior 15.7 KiB baseline. Allow a small amount of chunk-hash
-  // variance while retaining a tighter ceiling than the pre-trim artifact.
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 15_360 },
+  // The denied-OPFS boot probe and temporary adapter add ~0.2 KiB here.
+  // Keep the 15.5 KiB ceiling below the older pre-trim 15.7 KiB shell.
+  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 15_872 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },
@@ -71,7 +70,10 @@ const eagerLoaderPatterns = [
 // adds a bounded ~3 KiB so warm reloads paint before OPFS replay completes.
 // Client route metadata replacement adds less than 0.5 KiB across the default
 // page and shared title helper.
-const eagerGzipBudget = 1_225_512;
+// The temporary-reader fallback adds ~6 KiB gzip (<0.6%) to the shared
+// LiveStore graph. Budget that measured compatibility cost explicitly; the
+// fallback prevents an infinite loader when the browser denies OPFS access.
+const eagerGzipBudget = 1_233_000;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
 const lazyGzipBudget = 3_400_000;

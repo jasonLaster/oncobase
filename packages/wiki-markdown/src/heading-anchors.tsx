@@ -56,7 +56,11 @@ function scrollElementIntoContainerView(
   }
 
   const containerRect = scrollContainer.getBoundingClientRect();
-  const nextTop = scrollContainer.scrollTop + targetRect.top - containerRect.top;
+  const scrollPaddingTop = Number.parseFloat(
+    window.getComputedStyle(scrollContainer).scrollPaddingTop,
+  ) || 0;
+  const nextTop =
+    scrollContainer.scrollTop + targetRect.top - containerRect.top - scrollPaddingTop;
   scrollContainer.scrollTo({ top: Math.max(0, nextTop), behavior });
 }
 

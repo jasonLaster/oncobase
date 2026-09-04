@@ -806,6 +806,25 @@ a {
   min-height: 3rem;
 }
 
+.prototype-shell .wiki-shell-page-header:has(.wiki-shell-page-metadata) h1 {
+  margin-bottom: 0;
+}
+
+.prototype-shell .wiki-shell-page-metadata {
+  margin-top: 0.75rem;
+}
+
+.prototype-shell .wiki-shell-page-metadata .wiki-shell-tag-row {
+  margin-bottom: 0;
+}
+
+.prototype-shell .wiki-shell-page-metadata .wiki-shell-tag-row a {
+  border: 0;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 20%, transparent);
+  font-weight: 400;
+  line-height: 1rem;
+}
+
 .app-shell {
   display: flex;
   min-height: 0;
@@ -1317,6 +1336,7 @@ a {
     height: 100%;
     overflow: auto;
     padding-top: calc(48px + env(safe-area-inset-top));
+    scroll-padding-top: calc(48px + env(safe-area-inset-top));
   }
 
   .livestore-devtools-footer {

@@ -60,7 +60,7 @@ export async function retireRequestedSessionReaderStores({
 }) {
   const cleanupKey = sessionCacheCleanupKey(siteSlug);
   if (localStorage.getItem(cleanupKey) !== "1") return [];
-  const directory = await storage?.getDirectory?.();
+  const directory = await storage?.getDirectory?.().catch(() => undefined);
   if (!directory || typeof (directory as DirectoryWithKeys).keys !== "function") {
     return [];
   }
@@ -171,7 +171,7 @@ export async function retirePreviousReaderStore({
   scope: WikiScope;
   storage?: StorageManager;
 }) {
-  const directory = await storage?.getDirectory?.();
+  const directory = await storage?.getDirectory?.().catch(() => undefined);
   if (!directory || typeof (directory as DirectoryWithKeys).keys !== "function") {
     return [] as string[];
   }
