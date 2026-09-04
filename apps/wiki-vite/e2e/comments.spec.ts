@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
-import { documentArticle, gotoWiki, installWikiApiMocks } from "./fixtures";
+import {
+  documentArticle,
+  firstSmartTableToggle,
+  gotoWiki,
+  installWikiApiMocks,
+} from "./fixtures";
 import { passwordGateCookie } from "./gate-auth";
 
 async function mockCommentsApi(page: Page) {
@@ -170,6 +175,39 @@ test.describe("document comments sidebar", () => {
     await expect(firstHeading).toHaveClass(/active/);
     await expect(firstHeading).toHaveCSS("font-size", "16px");
     await expect(firstHeading).toHaveCSS("min-height", "40px");
+  });
+
+  test("open comments keep an expanded table clear of the right rail", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await installWikiApiMocks(page);
+    await mockCommentsApi(page);
+    await gotoWiki(page, "/wiki/examples/smart-table");
+
+    await firstSmartTableToggle(page).click();
+    const layer = page.locator(".table-expansion-layer").first();
+    await expect(layer).toBeVisible();
+    const initialLayer = await layer.boundingBox();
+    expect(initialLayer).not.toBeNull();
+
+    await page.getByRole("button", { name: "Open comments" }).click();
+    const rail = page.locator("[data-wiki-shell-right-rail]").last();
+    await expect(rail.getByText("Sign in to leave a comment")).toBeVisible({
+      timeout: 20_000,
+    });
+
+    const [commentsLayer, commentsRail] = await Promise.all([
+      layer.boundingBox(),
+      rail.boundingBox(),
+    ]);
+    expect(commentsLayer).not.toBeNull();
+    expect(commentsRail).not.toBeNull();
+    expect(commentsRail!.x - (commentsLayer!.x + commentsLayer!.width)).toBeGreaterThanOrEqual(
+      16,
+    );
+
+    await expect
+      .poll(async () => (await layer.boundingBox())?.width ?? Number.POSITIVE_INFINITY)
+      .toBeLessThan(initialLayer!.width);
   });
 });
 

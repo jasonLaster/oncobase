@@ -181,6 +181,14 @@ const MdTrCell = withoutNode(MdTr);
 const MdThCell = withoutNode(MdTh);
 const MdTdCell = withoutNode(MdTd);
 
+type MarkdownTableNode = {
+  position?: {
+    start?: {
+      offset?: number;
+    };
+  };
+};
+
 const wikiUrlTransform: UrlTransform = (value) => {
   return sanitizeMarkdownUrl(value);
 };
@@ -266,9 +274,20 @@ export function WikiMarkdown({
               </a>
             );
           },
-          table: withoutNode((props) => (
-            <MdTable {...props} layoutAdapter={tableLayoutAdapter} />
-          )),
+          table: ({
+            node,
+            ...props
+          }: ComponentProps<typeof MdTable> & { node?: MarkdownTableNode }) => (
+            <MdTable
+              {...props}
+              layoutAdapter={tableLayoutAdapter}
+              persistenceKey={
+                currentSlug && node?.position?.start?.offset !== undefined
+                  ? `${currentSlug}::prose-table-${node.position.start.offset}`
+                  : undefined
+              }
+            />
+          ),
           thead: MdTheadCell,
           tbody: MdTbodyCell,
           tr: MdTrCell,

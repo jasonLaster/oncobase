@@ -151,7 +151,6 @@ export const beginRun = mutation({
     if (!(await ensureOwnedConvById(ctx, site, conversationId))) return;
     await ctx.db.patch(conversationId, {
       activeRunId: runId,
-      canceledAt: undefined,
       streamingText: "",
       streamingParts: undefined,
       streamingUpdatedAt: Date.now(),

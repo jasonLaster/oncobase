@@ -111,17 +111,33 @@ export async function POST(request: Request) {
     `[chat ${requestId}] start conv=${convId ?? "n/a"} run=${runId} msgs=${messages.length}`
   );
 
-  // Begin the run server-side: sets activeRunId and clears any prior
-  // canceledAt + streaming row in one atomic patch. From this point on,
-  // any flush from a *prior* run with a different runId is a no-op (the
-  // mutation rejects mismatched runIds).
+  // Clear the prior run's Stop marker before starting. beginRun deliberately
+  // leaves canceledAt alone so a new Stop that races with startup survives.
   if (convId) {
+    await convex
+      .mutation(siteData.conversations.refs.clearCancel, {
+        conversationId: convId,
+        siteSlug,
+      })
+      .catch(() => {});
     await siteData.conversations
       .beginRun({
         conversationId: convId,
         runId,
       })
       .catch(() => {});
+
+    // During a rollout the deployed mutation can briefly retain the older
+    // behavior that clears canceledAt. Re-assert a Stop that arrived while
+    // beginRun was in flight so startup ordering never loses cancellation.
+    if (request.signal.aborted) {
+      await convex
+        .mutation(siteData.conversations.refs.cancelStream, {
+          conversationId: convId,
+          siteSlug,
+        })
+        .catch(() => {});
+    }
   }
 
   // Compose abort signals so BOTH the explicit Stop button AND the request

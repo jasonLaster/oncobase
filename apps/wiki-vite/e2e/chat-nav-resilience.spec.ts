@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
+import { ensurePasswordGateSession } from "./gate-auth";
 
 const hasAiGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL ?? process.env.VITE_CONVEX_URL;
@@ -45,6 +46,7 @@ test.describe("P0 chat navigation resilience", () => {
 
     let conversationId: string | null = null;
     try {
+      await ensurePasswordGateSession(page);
       await page.goto("/chat", { waitUntil: "domcontentloaded" });
       const chat = await submitPrompt(
         page,
@@ -83,6 +85,7 @@ test.describe("P0 chat navigation resilience", () => {
 
     let conversationId: string | null = null;
     try {
+      await ensurePasswordGateSession(page);
       await page.goto("/chat", { waitUntil: "domcontentloaded" });
       const chat = await submitPrompt(
         page,
@@ -108,6 +111,7 @@ test.describe("P0 chat navigation resilience", () => {
 
     let conversationId: string | null = null;
     try {
+      await ensurePasswordGateSession(page);
       await page.goto("/chat", { waitUntil: "domcontentloaded" });
       const chat = await submitPrompt(
         page,
@@ -146,6 +150,7 @@ test.describe("P0 chat navigation resilience", () => {
     });
 
     try {
+      await ensurePasswordGateSession(page);
       await page.goto("/chat", { waitUntil: "domcontentloaded" });
       const chat = await submitPrompt(page, "Trigger a forced stream failure");
       conversationId = await currentConversationId(chat);

@@ -6,6 +6,7 @@ import {
   applyWikiTheme,
   cycleWikiThemePreference,
   getWikiThemePreference,
+  installCommandPaletteChords,
   subscribeWikiSystemTheme,
   subscribeWikiThemePreference,
   wikiThemeLabel,
@@ -62,34 +63,22 @@ export function HeaderCommandPaletteHost() {
     return () => window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpenPalette);
   }, [openPalette]);
 
+  useEffect(
+    () =>
+      installCommandPaletteChords({
+        onFiles: () => openPalette("pages"),
+        onOutline: () => openPalette("outline"),
+        onAction: () => openPalette("actions"),
+      }),
+    [openPalette],
+  );
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey)) return;
-
-      if (!event.shiftKey && event.code === "KeyK") {
-        event.preventDefault();
-        openPalette("pages");
-      }
-
-      if (!event.shiftKey && event.code === "KeyO") {
-        event.preventDefault();
-        openPalette("pages");
-      }
-
-      if (event.shiftKey && event.code === "KeyO") {
-        event.preventDefault();
-        openPalette("outline");
-      }
-
-      if (event.shiftKey && event.code === "KeyK") {
-        event.preventDefault();
-        openPalette("actions");
-      }
-
-      if (event.shiftKey && event.code === "KeyD") {
-        event.preventDefault();
-        openPalette("debug");
-      }
+      if (!event.shiftKey || event.code !== "KeyD") return;
+      event.preventDefault();
+      openPalette("debug");
     };
 
     document.addEventListener("keydown", onKeyDown, { capture: true });

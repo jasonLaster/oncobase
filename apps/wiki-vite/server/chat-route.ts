@@ -276,12 +276,32 @@ export async function handleChatRequest({
   const documents = documentsGateway(client, siteSlug, includeSensitive, canAccessSlug);
 
   if (convId) {
+    // Clear the prior run's Stop marker before starting. beginRun deliberately
+    // leaves canceledAt alone so a new Stop that races with startup survives.
+    await client
+      .mutation(
+        api.conversations.clearCancel,
+        withSiteSlug(siteSlug, { conversationId: convId }),
+      )
+      .catch(() => {});
     await client
       .mutation(
         api.conversations.beginRun,
         withSiteSlug(siteSlug, { conversationId: convId, runId }),
       )
       .catch(() => {});
+
+    // Deployed Convex functions can briefly lag this source during a rollout.
+    // If Stop aborted the fetch while beginRun was in flight, re-assert the
+    // marker after startup so an older beginRun implementation cannot erase it.
+    if (request.signal.aborted) {
+      await client
+        .mutation(
+          api.conversations.cancelStream,
+          withSiteSlug(siteSlug, { conversationId: convId }),
+        )
+        .catch(() => {});
+    }
   }
 
   const userStopSignal = new AbortController();

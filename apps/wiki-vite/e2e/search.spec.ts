@@ -305,8 +305,13 @@ test.describe("Search and local page finding", () => {
     page,
   }) => {
     let requests = 0;
-    await page.route("**/api/search?**", (route) => {
+    let releaseExhaustiveSearch = () => {};
+    const exhaustiveSearchRelease = new Promise<void>((resolve) => {
+      releaseExhaustiveSearch = resolve;
+    });
+    await page.route("**/api/search?**", async (route) => {
       requests += 1;
+      if (requests > 1) await exhaustiveSearchRelease;
       return route.fulfill({
         contentType: "application/json",
         body: JSON.stringify(
@@ -339,13 +344,20 @@ test.describe("Search and local page finding", () => {
     });
     await mockAISearch(page);
     await installWikiApiMocks(page);
-    await page.goto("/search?q=diagnosis&tab=text", { waitUntil: "domcontentloaded" });
+    try {
+      await page.goto("/search?q=diagnosis&tab=text", {
+        waitUntil: "domcontentloaded",
+      });
 
-    await expect(page.getByTestId("search-text-summary")).toContainText(
-      "full results loading",
-    );
-    await expect(page.getByText("diagnosis indexed result")).toBeVisible();
-    await expect.poll(() => requests).toBe(2);
+      await expect(page.getByTestId("search-text-summary")).toContainText(
+        "full results loading",
+      );
+      await expect(page.getByText("diagnosis indexed result")).toBeVisible();
+      await expect.poll(() => requests).toBe(2);
+      await expect(page.getByText("diagnosis indexed result")).toBeVisible();
+    } finally {
+      releaseExhaustiveSearch();
+    }
     await expect(page.getByTestId("search-text-summary")).toContainText(
       "2 results in 1 file",
     );

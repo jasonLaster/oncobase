@@ -34,6 +34,30 @@ test.describe("Command palette parity", () => {
     await expect(page.getByTestId("document-article")).toBeVisible();
   });
 
+  test("command chords open the same palette modes as the production reader", async ({
+    page,
+  }) => {
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    const modifier = process.platform === "darwin" ? "Meta" : "Control";
+
+    await page.keyboard.press(`${modifier}+K`);
+    await page.keyboard.press("O");
+    await expect(page.getByTestId("command-palette")).toBeVisible();
+    await expect(page.getByTestId("command-palette-input")).toHaveAttribute(
+      "placeholder",
+      "Find a heading",
+    );
+
+    await page.keyboard.press("Escape");
+    await page.keyboard.press(`${modifier}+K`);
+    await page.keyboard.press("A");
+    await expect(page.getByTestId("command-palette")).toBeVisible();
+    await expect(page.getByTestId("command-palette-input")).toHaveAttribute(
+      "placeholder",
+      "Search commands...",
+    );
+  });
+
   test("palette exposes active result semantics for keyboard users", async ({ page }) => {
     await gotoWiki(page, "/");
 
