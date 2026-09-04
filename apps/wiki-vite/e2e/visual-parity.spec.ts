@@ -223,14 +223,25 @@ test.describe("Visual parity", () => {
     expect(menuBox!.x).toBe(8);
     expect(menuBox!.y).toBe(46);
     expect(menuBox!.width).toBe(224);
-    expect(menuBox!.height).toBe(218);
-    expect((await menu.getByRole("menuitem").first().boundingBox())?.height).toBe(28);
+    const itemHeights = await menu.getByRole("menuitem").evaluateAll(
+      (items) => items.map((item) => item.getBoundingClientRect().height),
+    );
+    // Linux system fonts can wrap a label onto a second 20px line. Assert
+    // the same padding/spacing, with macOS pixel baselines checked separately.
+    for (const height of itemHeights) expect((height - 8) % 20).toBe(0);
+    expect(menuBox!.height).toBe(itemHeights.reduce((sum, height) => sum + height, 50));
+    expect(itemHeights[0]).toBe(28);
     const menuItemOffsets = await menu.getByRole("menuitem").evaluateAll(
       (items, menuTop) =>
         items.map((item) => item.getBoundingClientRect().y - menuTop),
       menuBox!.y,
     );
-    expect(menuItemOffsets).toEqual([28, 56, 93, 130, 158, 186]);
+    let offset = 28;
+    expect(menuItemOffsets).toEqual(itemHeights.map((height, index) => {
+      const current = offset;
+      offset += height + (index === 1 || index === 2 ? 9 : 0);
+      return current;
+    }));
     await expect(menu).toHaveCSS("border-radius", "10px");
 
     if (hasLocalSnapshotBaseline) {

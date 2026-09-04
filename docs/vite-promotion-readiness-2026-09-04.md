@@ -12,6 +12,7 @@ This review does **not** move the live domain or authorize a cutover.
 | P1 | Denied browser storage leaves the reader loading indefinitely | WebKit reproduced the hang against both development and the deployed candidate. A separate storage probe confirmed `getDirectory()` rejected; the worker never reached the existing React error path. Vite now chooses a temporary, tab-local reader cache when OPFS is denied, consumes the library's eager rejected probe, and preserves pending cache cleanup for later. Online reading/navigation/reload and public/session isolation are regression-tested. This fallback does not promise persistent offline storage. |
 | P2 | Mobile heading links land under the fixed header | Direct links/reloads and outline navigation could place the heading at y≈0 behind a 48px header. Next placed it at y≈48. Vite's content scroller now declares its scroll padding and the shared anchor helper respects it. Computer-use verification measured the repaired heading at y=48.16. Tests now check the lower visibility bound, not just “less than 180px.” |
 | P2 | Article title/tag spacing drifts from Next | Matched desktop screenshots and measurements showed Vite's tag row 24px too low, displacing the entire body. Tags now belong inside the document header, with matching spacing and chip dimensions. At 1440×1000 the repaired article height matches Next at 2014.65px; the tag row starts at y=80. Updated synthetic desktop/mobile baselines were inspected. |
+| P2 | Comparison status labels lose contrast in light theme | The deployed follow-up found dark foreground styling overriding the explicitly pale status colors. Shared diagnostic UI now resolves conflicting Tailwind classes, matching the legacy utility's override behavior. Secondary comparison labels also have sufficient contrast. Added light/dark axe contrast checks and a class-override unit regression. |
 | P1 release gate | Green main did not mean green Vite | The Vite workflow ran only on PRs/manual dispatch, omitted shared paths, and resolved only Preview environments even for main. Main now runs Vite static/unit/server checks and resolves the exact SHA's Vite Production deployment. Shared packages, shared web source, API adapters, and Vercel configuration trigger PR checks. |
 | P2 release gate | Screenshot assertions were disabled in CI; only Chromium ran | Added a macOS screenshot job that compares committed baselines without updating them, plus Firefox/WebKit reader/accessibility/anchor/calculator/storage smoke jobs. Linux Chromium shards retain geometry checks. |
 | P1 evidence custody | Rich test artifacts are unsafe to publish from this repository | The GitHub repository is public. Clinical screenshots, signed sessions, response bodies, and traces stay local. Hosted runs disable live screenshots/traces and publish only sanitized test names/outcomes. The dedicated synthetic visual job may upload its PNG diffs. |
@@ -116,6 +117,25 @@ isolation, and unchanged server authority. Container sizing follows the
 [Tailwind container-query documentation](https://tailwindcss.com/docs/responsive-design#container-queries).
 
 ## Release addendum
+
+The first repair commit, `2435aff7`, reached its exact Vite Production candidate
+and passed the credentialed release selection: **40 passed / 1 skipped**
+(synthetic Host routing). Live AI ranking, chat/Stop/navigation/reload/archive,
+anchored comments with cleanup, imaging, downloads, gate security, and production
+metadata actually ran. Vercel reported READY with that exact SHA; its initial
+deployment-scoped 5xx scan returned no rows. The existing Next checks and the
+new Vite static/unit/server/macOS visual jobs passed.
+
+The newly enabled full hosted gates correctly stayed red. Follow-up reproduced
+and repaired test assumptions about inherited gate cookies, local-only public
+Liveblocks keys, server-provided metadata, redirect/rail timing, and Linux font
+wrapping. The follow-up unit suite passes **229 tests**. Raw Playwright process
+output is now also kept off public logs because reporters can print failures
+even when a JSON output file is configured. A dedicated anonymous/synthetic
+browser-startup probe provides safe boot diagnostics. Linux WebKit's initial
+25-case failure is not waived: the latest hosted run must resolve it before
+promotion readiness is claimed. macOS WebKit passes against both the local
+production build and the immutable deployed candidate.
 
 The release verdict must use the hosted checks attached to the pushed commit,
 plus the credentialed release selection on its immutable Vite deployment URL.

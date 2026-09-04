@@ -1,9 +1,10 @@
 import type { ButtonHTMLAttributes, HTMLAttributes } from "react";
+import { twMerge } from "tailwind-merge";
 
 type ClassValue = string | number | false | null | undefined;
 
 export function cn(...values: ClassValue[]) {
-  return values.filter(Boolean).join(" ");
+  return twMerge(values.filter(Boolean).join(" "));
 }
 
 const buttonBase =
@@ -67,4 +68,3 @@ export function Badge({
 }) {
   return <span className={cn(badgeBase, badgeVariants[variant], className)} {...props} />;
 }
-

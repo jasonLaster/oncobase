@@ -59,6 +59,10 @@ test.describe("Prose table expansion", () => {
       "data-outline-state",
       "expanded",
     );
+    await expect.poll(async () => {
+      const metrics = await railMetrics(page);
+      return metrics.layer.right <= metrics.rightRail.left - 16;
+    }).toBe(true);
     const rightExpanded = await railMetrics(page);
     expect(rightExpanded.layer.right).toBeLessThanOrEqual(rightExpanded.rightRail.left - 16);
     expect(rightExpanded.layer.width).toBeLessThan(leftCollapsed.layer.width);

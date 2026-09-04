@@ -179,7 +179,9 @@ test.describe("Page chrome parity", () => {
       "/diagnostics",
       "/tools/medical-deduction",
     ]) {
-      await page.goto(pathname);
+      await page.goto(pathname, { waitUntil: "domcontentloaded" });
+      const canonicalPath = pathname === "/timeline" ? "/diagnostics" : pathname;
+      await expect(page).toHaveURL(new RegExp(`${canonicalPath}$`));
       await expect(page.getByTestId("mobile-page-header")).toBeVisible();
       await expect(page.getByTestId("mobile-header-comments")).toHaveCount(0);
     }

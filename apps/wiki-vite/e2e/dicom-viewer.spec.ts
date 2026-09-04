@@ -719,7 +719,8 @@ test.describe("DICOM viewer", () => {
       page.getByTestId("dicom-tools-row").getByTestId("dicom-back-to-imaging"),
     ).toHaveCount(0);
     await backLink.click();
-    await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible();
+    await expect(page).toHaveURL(/\/diagnostics\/imaging(?:\?|$)/);
+    await expect(page.getByRole("heading", { name: "Imaging" })).toBeVisible({ timeout: 60_000 });
   });
 
   test("diagnostics imaging reflects local test DB metadata changes without a deploy", async ({

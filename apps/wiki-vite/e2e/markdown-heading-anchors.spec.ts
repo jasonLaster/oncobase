@@ -55,8 +55,8 @@ test.describe("Markdown heading anchors", () => {
     const heading = documentArticle(page).getByRole("heading", {
       name: /Saturday, April 12/,
     });
-    await heading.hover();
-    await heading.locator(".heading-anchor").click({ force: true });
+    await expect(heading).toHaveClass(/wiki-heading-linked/);
+    await heading.getByRole("link", { name: /Link to/ }).press("Enter");
 
     await expect(page).toHaveURL(/#saturday-april-12$/);
     await expect(page.getByRole("status")).toHaveText("Link copied");

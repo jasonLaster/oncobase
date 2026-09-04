@@ -76,7 +76,8 @@
     "@oncobase/wiki-shell": "workspace:*",
     "dicom-parser": "^1.8.21",
     "lucide-react": "^1.11.0",
-    "swr": "^2.4.1"
+    "swr": "^2.4.1",
+    "tailwind-merge": "^3.5.0"
   },
   "peerDependencies": {
     "react": "^19.0.0",

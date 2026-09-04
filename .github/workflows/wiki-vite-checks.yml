@@ -175,7 +175,7 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           TEST_ENV: prod
           PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/results.json
-        run: bun run test:e2e -- --shard=${{ matrix.shard }}/4 --reporter=json
+        run: bun run test:e2e -- --shard=${{ matrix.shard }}/4 --reporter=json > playwright-runner.log 2>&1
 
       - name: Publish content-free test outcomes
         if: always()
@@ -208,6 +208,14 @@ jobs:
       - name: Install browser
         working-directory: apps/wiki-vite
         run: bunx playwright install --with-deps ${{ matrix.browser }}
+      - name: Check anonymous and synthetic browser startup
+        working-directory: apps/wiki-vite
+        env:
+          PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
+          PLAYWRIGHT_BASE_URL: ${{ needs.preview-url.outputs.url }}
+          WIKI_VITE_PREVIEW_LOGIN_PASSWORD: diana
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: bun run test:e2e e2e/browser-preflight.spec.ts --reporter=line
       - name: Exercise reader, anchors, accessibility, tools, and denied storage
         working-directory: apps/wiki-vite
         env:
@@ -217,7 +225,7 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           TEST_ENV: prod
           PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/results.json
-        run: bun run test:e2e e2e/accessibility.spec.ts e2e/markdown-heading-anchors.spec.ts e2e/medical-deduction.spec.ts e2e/page-chrome.spec.ts e2e/storage-availability.spec.ts --reporter=json
+        run: bun run test:e2e e2e/accessibility.spec.ts e2e/markdown-heading-anchors.spec.ts e2e/medical-deduction.spec.ts e2e/page-chrome.spec.ts e2e/storage-availability.spec.ts --reporter=json > playwright-runner.log 2>&1
       - name: Publish content-free test outcomes
         if: always()
         working-directory: apps/wiki-vite
@@ -250,7 +258,7 @@ jobs:
           WIKI_VITE_PREVIEW_LOGIN_PASSWORD: diana
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/results.json
-        run: bun run test:e2e e2e/visual-parity.spec.ts --reporter=json
+        run: bun run test:e2e e2e/visual-parity.spec.ts --reporter=json > playwright-runner.log 2>&1
       - name: Publish content-free test outcomes
         if: always()
         working-directory: apps/wiki-vite

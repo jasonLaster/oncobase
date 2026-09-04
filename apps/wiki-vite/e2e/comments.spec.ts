@@ -10,11 +10,12 @@ import { passwordGateCookie } from "./gate-auth";
 async function mockCommentsApi(page: Page) {
   await page.route("**/api/liveblocks-auth", (route) =>
     route.fulfill({
-      status: 200,
+      // Exercise the signed-out UI without depending on a build-time public
+      // key or opening a real Liveblocks room. Persistence is covered separately.
+      status: route.request().method() === "GET" ? 200 : 401,
       contentType: "application/json",
       body: JSON.stringify({
-        configured: false,
-        reason: "credentials-missing",
+        configured: true,
         siteSlug: "diana",
       }),
     }),

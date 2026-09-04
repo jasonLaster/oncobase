@@ -1,9 +1,28 @@
 import { expect, test } from "@playwright/test";
+import axe from "axe-core";
 import { ensurePasswordGateSession } from "./gate-auth";
 
 // Read-only published comparison: this also runs against the deployed candidate,
 // unlike the dynamic-metadata suite that requires a local seeded study set.
 const comparisonPath = "/tools/dicom-compare?comparison=mri-comparison-2026-07-17-vs-2026-08-24";
+
+for (const theme of ["light", "dark"]) {
+  test(`comparison status labels remain readable in ${theme} theme`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem("theme", value), theme);
+    await page.setViewportSize({ width: 820, height: 1000 });
+    await ensurePasswordGateSession(page);
+    await page.goto(comparisonPath, { waitUntil: "domcontentloaded" });
+    await expect(page.getByText("Resolved", { exact: true }).first()).toBeVisible();
+    await page.addScriptTag({ content: axe.source });
+    const violations = await page.evaluate(async () => {
+      const results = await (window as unknown as { axe: typeof axe }).axe.run('[data-test-id="dicom-comparison"]', {
+        runOnly: { type: "rule", values: ["color-contrast"] },
+      });
+      return results.violations.map((violation) => ({ id: violation.id, targets: violation.nodes.map((node) => node.target) }));
+    });
+    expect(violations).toEqual([]);
+  });
+}
 
 for (const viewport of [
   { width: 393, height: 852 },

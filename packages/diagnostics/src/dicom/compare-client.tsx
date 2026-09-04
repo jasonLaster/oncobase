@@ -890,7 +890,7 @@ export function DicomCompareClient({
   const matchLabel = matchLabelForState(matchInfo.state);
 
   return (
-    <div className="@container/compare flex h-full min-h-0 flex-col overflow-hidden bg-[#08090a] text-zinc-100">
+    <div data-test-id="dicom-comparison" className="@container/compare flex h-full min-h-0 flex-col overflow-hidden bg-[#08090a] text-zinc-100">
       <header className="shrink-0 border-b border-white/10 bg-[#11151a] px-3 py-2 @5xl/compare:px-4">
         <div className="flex flex-col gap-2 @5xl/compare:flex-row @5xl/compare:items-center @5xl/compare:justify-between">
           <div className="min-w-0">
@@ -946,7 +946,7 @@ export function DicomCompareClient({
                       <div className="truncate text-sm font-medium text-zinc-100">
                         {resolved.pair.label}
                       </div>
-                      <div className="mt-1 text-xs text-zinc-500">
+                      <div className="mt-1 text-xs text-zinc-400">
                         {resolved.pair.preset}
                       </div>
                     </div>
@@ -1134,7 +1134,7 @@ export function DicomCompareClient({
                   <Ruler className="size-4" />
                   Annotations
                 </h2>
-                <p className="mb-2 text-xs leading-5 text-zinc-500">
+                <p className="mb-2 text-xs leading-5 text-zinc-400">
                   Stored source-image annotations. Select a target to open its source slice.
                 </p>
                 <div className="space-y-2">
@@ -1532,7 +1532,7 @@ function ToolButton({
 function MetaRow({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div>
-      <dt className="text-xs text-zinc-500">{label}</dt>
+      <dt className="text-xs text-zinc-400">{label}</dt>
       <dd className="mt-0.5 break-words text-zinc-200">{value || "—"}</dd>
     </div>
   );

@@ -211,19 +211,29 @@ test.describe("durable manifest refresh", () => {
       content: "# Insurance\n\nNEW FIRST FRAME arrived after refresh.",
     });
     requests.setManifestDelay(2_000);
-    await page.reload({ waitUntil: "domcontentloaded" });
-
-    const firstFrame = page.locator("#wiki-first-frame-snapshot");
-    await expect(firstFrame).toBeVisible({ timeout: 250 });
-    await expect(firstFrame.getByTestId("document-article")).toContainText(
-      "OLD FIRST FRAME",
-      { timeout: 250 },
-    );
-    await expect(firstFrame.getByTestId("wiki-sidebar")).toContainText(
-      "insurance",
-      { timeout: 250 },
-    );
-    expect(await page.title()).toBe("TNBC Knowledge Base");
+    // Hold hydration, not just the API response. A fast production cache can
+    // replace this intentionally ephemeral snapshot before a 250ms assertion.
+    let releaseHydration!: () => void;
+    const hydrationHeld = new Promise<void>((resolve) => { releaseHydration = resolve; });
+    await page.route("**/*", async (route) => {
+      if (route.request().resourceType() === "script") await hydrationHeld;
+      await route.fallback();
+    });
+    try {
+      const response = await page.reload({ waitUntil: "commit" });
+      const serverTitle = await page.evaluate((html) =>
+        new DOMParser().parseFromString(html, "text/html").title,
+      await response!.text());
+      const firstFrame = page.locator("#wiki-first-frame-snapshot");
+      await expect(firstFrame).toBeVisible();
+      await expect(firstFrame.getByTestId("document-article")).toContainText("OLD FIRST FRAME");
+      await expect(firstFrame.getByTestId("wiki-sidebar")).toContainText("insurance");
+      // Production serves route metadata; the snapshot must not replace it
+      // with the previous client title (the dev shell has a generic title).
+      expect(await page.title()).toBe(serverTitle);
+    } finally {
+      releaseHydration();
+    }
 
     await expect
       .poll(() =>

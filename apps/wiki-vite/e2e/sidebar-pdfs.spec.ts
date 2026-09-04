@@ -168,7 +168,11 @@ test.describe("PDF serving via /api/file", () => {
   });
 
   test("requires a password gate session before validating input", async ({ request }) => {
-    const response = await request.get("/api/file?path=../../etc/passwd");
+    // Deployed suites start with a gate cookie; this assertion must explicitly
+    // remove it rather than accidentally validating authenticated input.
+    const response = await request.get("/api/file?path=../../etc/passwd", {
+      headers: { Cookie: "" },
+    });
     expect(response.status()).toBe(401);
   });
 });

@@ -207,6 +207,7 @@
         "dicom-parser": "^1.8.21",
         "lucide-react": "^1.11.0",
         "swr": "^2.4.1",
+        "tailwind-merge": "^3.5.0",
       },
       "devDependencies": {
         "@types/react": "^19",
