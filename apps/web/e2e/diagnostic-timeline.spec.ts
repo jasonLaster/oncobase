@@ -157,7 +157,7 @@ test.describe("@smoke @cross-browser diagnostic timeline", () => {
     );
     await page.mouse.down();
     await page.mouse.move(
-      overviewBox!.x + overviewBox!.width / 2 + 120,
+      overviewBox!.x + overviewBox!.width / 2 - 120,
       overviewBox!.y + overviewBox!.height / 2,
       { steps: 6 },
     );
