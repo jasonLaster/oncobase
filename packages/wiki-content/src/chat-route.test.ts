@@ -7,8 +7,8 @@ import {
 } from "./chat-route.ts";
 
 describe("chatTextModel", () => {
-  test("uses GLM 5.2 in production", () => {
-    expect(chatTextModel({ VERCEL_ENV: "production" })).toBe("zai/glm-5.2");
+  test("uses GPT-5.6 Luna in production", () => {
+    expect(chatTextModel({ VERCEL_ENV: "production" })).toBe("openai/gpt-5.6-luna");
   });
 
   test("uses DeepSeek outside production", () => {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const PRODUCTION_CHAT_MODEL = "zai/glm-5.2";
+export const PRODUCTION_CHAT_MODEL = "openai/gpt-5.6-luna";
 export const NON_PRODUCTION_CHAT_MODEL = "deepseek/deepseek-v4-flash";
 
 export type ChatTextModel =

@@ -190,7 +190,7 @@ export async function POST(request: Request) {
   const systemPrompt = await buildSystemPrompt(siteSlug);
 
   const result = streamText({
-    model: chatTextModel(), // prod: GLM 5.2; preview/dev: DeepSeek for Playwright.
+    model: chatTextModel(), // prod: GPT-5.6 Luna; preview/dev: DeepSeek for Playwright.
     maxOutputTokens: 50000,
     system: systemPrompt,
     messages: modelMessages,
