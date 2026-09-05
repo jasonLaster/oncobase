@@ -222,3 +222,11 @@ while the fulfilled mock omits it from inspection. Scope assertions run in every
 engine; outgoing-cookie inspection is explicitly additional Chromium coverage,
 not claimed as WebKit mock evidence. No application cookie policy was changed.
 The complete search and request-order selections are now included in WebKit CI.
+
+The `8cd4c096` candidate passed **56 credentialed release cases / 1 synthetic-Host
+skip**, expanded WebKit, screenshots, static/unit/server gates and three Chromium
+shards. The remaining shard failed the manual table-resize overflow assertion.
+The test now waits for a stable, actionable handle, asserts that the actual
+mouse-down engaged manual sizing, and polls the original overflow threshold.
+No application code, timeout ceiling, or assertion threshold changed in this
+follow-up. The initial hosted failure remains in the private release evidence.

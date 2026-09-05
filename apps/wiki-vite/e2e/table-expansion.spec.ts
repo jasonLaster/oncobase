@@ -210,11 +210,11 @@ test.describe("Prose table expansion", () => {
 
     await dragFirstResizeHandle(page, 520);
 
-    const metrics = await tableMetrics(page);
-    expect(metrics.wrapper).not.toBeNull();
-    expect(
-      (metrics.wrapper?.scrollWidth ?? 0) - (metrics.wrapper?.clientWidth ?? 0),
-    ).toBeGreaterThan(40);
+    await expect.poll(async () => {
+      const metrics = await tableMetrics(page);
+      expect(metrics.wrapper).not.toBeNull();
+      return (metrics.wrapper?.scrollWidth ?? 0) - (metrics.wrapper?.clientWidth ?? 0);
+    }).toBeGreaterThan(40);
 
     const tableState = await page.evaluate(() => {
       const table = document.querySelector<HTMLTableElement>("[data-smart-table-wrapper] table");
@@ -468,8 +468,11 @@ async function scrollFirstSmartTableIntoView(page: Page) {
 }
 
 async function dragFirstResizeHandle(page: Page, deltaX: number) {
-  const handle = page.getByLabel("Resize column 1").first();
-  await handle.waitFor({ state: "attached" });
+  const shell = firstSmartTableShell(page);
+  const handle = shell.getByLabel("Resize column 1").first();
+  // Wait for actionability/stable layout after viewport and table sizing work,
+  // rather than sampling an attached handle while its coordinates can move.
+  await handle.hover();
   const box = await handle.evaluate((element) => {
     const rect = element.getBoundingClientRect();
     return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
@@ -481,8 +484,13 @@ async function dragFirstResizeHandle(page: Page, deltaX: number) {
 
   await page.mouse.move(startX, startY);
   await page.mouse.down();
-  await page.mouse.move(startX + deltaX, startY, { steps: 12 });
-  await page.mouse.up();
+  try {
+    // Prove the real pointer event engaged resizing before moving the cursor.
+    await expect(shell.locator("table").first()).toHaveAttribute("data-smart-table-locked", "manual");
+    await page.mouse.move(startX + deltaX, startY, { steps: 12 });
+  } finally {
+    await page.mouse.up();
+  }
 }
 
 async function railMetrics(page: Page) {
