@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
 type Result = { status?: string; startTime?: string; duration?: number; error?: unknown; errors?: unknown[] };
-export const publicReaderHealthFlags = ["page-loading", "store-boot-retry", "document-article", "search-page", "mobile-page-header", "session-recovery", "login-route", "empty-root"] as const;
+export const publicReaderHealthFlags = ["page-loading", "store-boot-retry", "document-article", "search-page", "search-ai-loading", "search-ai-error", "search-ai-empty", "search-ai-summary", "search-text-summary", "mobile-page-header", "session-recovery", "login-route", "empty-root"] as const;
 
 /** Extract only fixed categories, timing, and locations in known test sources. */
 export function safeFailureDetails(result: Result, file: string) {

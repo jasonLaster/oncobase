@@ -1,4 +1,4 @@
-import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import ReactMarkdown from "react-markdown";
 import {
@@ -724,6 +724,7 @@ export function SearchPage() {
   const [textError, setTextError] = useState<string | null>(null);
   const [textIncomplete, setTextIncomplete] = useState(false);
   const [textRetryAfterMs, setTextRetryAfterMs] = useState(0);
+  const textRequestGeneration = useRef(0);
   const [aiResults, setAiResults] = useState<AISearchResult[]>([]);
   const [aiStatus, setAiStatus] = useState<SearchStatus>(query ? "loading" : "idle");
   const [aiError, setAiError] = useState<string | null>(null);
@@ -760,6 +761,7 @@ export function SearchPage() {
   }, [query, textResults, textResultsQuery]);
 
   const runTextSearch = useCallback(async (nextQuery: string, background = false) => {
+    const generation = ++textRequestGeneration.current;
     const normalized = nextQuery.trim();
     setTextResultsQuery(normalized);
     if (!background) setActiveIndex(0);
@@ -775,11 +777,14 @@ export function SearchPage() {
     if (!background) {
       setTextStatus("loading");
       setTextError(null);
+      setTextIncomplete(false);
+      setTextRetryAfterMs(0);
     }
 
     try {
       const searchParams = new URLSearchParams({ q: normalized, scope });
       const response = await requestTextSearch(searchParams);
+      if (generation !== textRequestGeneration.current) return;
       const { body } = response;
       if (body.error) throw new Error(body.error);
       if (!response.ok) {
@@ -796,6 +801,7 @@ export function SearchPage() {
           : 0,
       );
     } catch (error) {
+      if (generation !== textRequestGeneration.current) return;
       if (background) {
         setTextIncomplete(false);
         return;
@@ -808,6 +814,9 @@ export function SearchPage() {
 
   useEffect(() => {
     void runTextSearch(query);
+    // Invalidate foreground and exhaustive responses on navigation/unmount.
+    // The shared in-flight request can still finish for another subscriber.
+    return () => { textRequestGeneration.current += 1; };
   }, [query, runTextSearch]);
 
   useEffect(() => {

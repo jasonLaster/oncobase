@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Request } from "@playwright/test";
 import { documentArticle, gotoWiki, installWikiApiMocks, waitForPageTitle } from "./fixtures";
 import { recordReaderHealth, trackReaderHealth } from "./browser-health";
 
@@ -54,13 +54,10 @@ async function mockTextSearch(
     status = 200,
   }: MockSearchOptions = {},
 ) {
-  const requests: Array<{ cookie: string | undefined; url: string }> = [];
+  const requests: Request[] = [];
 
   await page.route("**/api/search?**", (route) => {
-    requests.push({
-      cookie: route.request().headers()["cookie"],
-      url: route.request().url(),
-    });
+    requests.push(route.request());
     return route.fulfill({
       body: typeof body === "string" ? body : JSON.stringify(body),
       contentType,
@@ -84,13 +81,10 @@ async function mockAISearch(
     status = 200,
   }: MockSearchOptions = {},
 ) {
-  const requests: Array<{ cookie: string | undefined; url: string }> = [];
+  const requests: Request[] = [];
 
   await page.route("**/api/ai-search**", (route) => {
-    requests.push({
-      cookie: route.request().headers()["cookie"],
-      url: route.request().url(),
-    });
+    requests.push(route.request());
     return route.fulfill({
       body: typeof body === "string" ? body : JSON.stringify(body),
       contentType,
@@ -191,8 +185,9 @@ test.describe("Search and local page finding", () => {
   });
 
   for (const scope of ["public", "session"] as const) {
-    test(`text and AI requests preserve ${scope} reader scope with an auth cookie`, async ({
+    test(`text and AI requests preserve ${scope} reader scope`, async ({
       baseURL,
+      browserName,
       context,
       page,
     }) => {
@@ -215,8 +210,13 @@ test.describe("Search and local page finding", () => {
         textSearch.requests.at(-1)!,
         aiSearch.requests.at(-1)!,
       ]) {
-        expect(new URL(apiRequest.url).searchParams.get("scope")).toBe(scope);
-        expect(apiRequest.cookie).toContain("wiki_user_session=valid-e2e-session");
+        expect(new URL(apiRequest.url()).searchParams.get("scope")).toBe(scope);
+        // WebKit's fulfilled interceptions omit Cookie even in allHeaders();
+        // a real HTTP control sends it. Scope assertions above run everywhere,
+        // while outgoing-cookie inspection is additional Chromium coverage.
+        if (browserName !== "webkit") {
+          expect((await apiRequest.allHeaders()).cookie).toContain("wiki_user_session=valid-e2e-session");
+        }
       }
     });
   }

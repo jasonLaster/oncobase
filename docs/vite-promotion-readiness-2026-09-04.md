@@ -3,6 +3,8 @@
 Review date: 2026-09-04. Starting commit: `5d717320` on `oncobase/main`.
 Reference: `https://diana-tnbc.com` (Next). Candidate: `https://wiki-vite-zeta.vercel.app` (Vite).
 This review does **not** move the live domain or authorize a cutover.
+Required browser gates are the complete Chromium suite and WebKit smoke coverage.
+Firefox is optional and explicitly outside the promotion gate at the user's request.
 
 ## Findings and repairs
 
@@ -13,8 +15,9 @@ This review does **not** move the live domain or authorize a cutover.
 | P2 | Mobile heading links land under the fixed header | Direct links/reloads and outline navigation could place the heading at y≈0 behind a 48px header. Next placed it at y≈48. Vite's content scroller now declares its scroll padding and the shared anchor helper respects it. Computer-use verification measured the repaired heading at y=48.16. Tests now check the lower visibility bound, not just “less than 180px.” |
 | P2 | Article title/tag spacing drifts from Next | Matched desktop screenshots and measurements showed Vite's tag row 24px too low, displacing the entire body. Tags now belong inside the document header, with matching spacing and chip dimensions. At 1440×1000 the repaired article height matches Next at 2014.65px; the tag row starts at y=80. Updated synthetic desktop/mobile baselines were inspected. |
 | P2 | Comparison status labels lose contrast in light theme | The deployed follow-up found dark foreground styling overriding the explicitly pale status colors. Shared diagnostic UI now resolves conflicting Tailwind classes, matching the legacy utility's override behavior. Secondary comparison labels also have sufficient contrast. Added light/dark axe contrast checks and a class-override unit regression. |
+| P2 | Old text-search responses overwrite a newer query | Delayed-response tests against the immutable candidate reproduced both old results and old errors replacing the current query. Vite now invalidates outstanding text-search updates on query changes/unmount and stops carrying the previous query's retry schedule forward. Four request-order cases cover initial and exhaustive responses, including failures, without extending timeouts. |
 | P1 release gate | Green main did not mean green Vite | The Vite workflow ran only on PRs/manual dispatch, omitted shared paths, and resolved only Preview environments even for main. Main now runs Vite static/unit/server checks and resolves the exact SHA's Vite Production deployment. Shared packages, shared web source, API adapters, and Vercel configuration trigger PR checks. |
-| P2 release gate | Screenshot assertions were disabled in CI; only Chromium ran | Added a macOS screenshot job that compares committed baselines without updating them, plus Firefox/WebKit reader/accessibility/anchor/calculator/storage smoke jobs. Linux Chromium shards retain geometry checks. |
+| P2 release gate | Screenshot assertions were disabled in CI; only Chromium ran | Added a macOS screenshot job that compares committed baselines without updating them, plus WebKit reader/accessibility/anchor/calculator/storage smoke coverage. Linux Chromium shards retain geometry checks. Firefox remains available for optional local runs. |
 | P1 evidence custody | Rich test artifacts are unsafe to publish from this repository | The GitHub repository is public. Clinical screenshots, signed sessions, response bodies, and traces stay local. Hosted runs disable live screenshots/traces and publish only sanitized test names/outcomes. The dedicated synthetic visual job may upload its PNG diffs. |
 
 The storage fallback has a measured ~6 KiB compressed cost (<0.6% of the eager
@@ -62,10 +65,11 @@ published-comparison layout suite is runnable against a deployed candidate.
 | Cold/warm/deep-link route parity | Gate → page, alias, hash, reload, not-found; document completeness | `route-correctness`, `navigation`, `page-load-experience`, and strengthened `markdown-heading-anchors`; route inventory also checks legal/PII/admin/chat special cases outside the catch-all. |
 | Cache/session boundaries | Expired manifest, denied OPFS, session rotation, sign-out retirement, no sensitive discovery | `manifest-cache`, `cache-retirement`, `session-recovery`, `storage-availability`; server/API RBAC needs a credentialed local run. Temporary storage must never be reported as durable offline coverage. |
 | Stateful reader UI | Table expand/collapse across rails, width/scroll persistence, focus restoration, mobile sheets | Shared smart-table suites, comments, page chrome, navigation, accessibility. Matched screenshots supplement these; screenshots alone cannot prove interactions. |
+| Out-of-order search | An earlier result/error or exhaustive refresh must not replace the current query | `search-request-order` deliberately holds the older request until the newer query is visible, then releases it and verifies the newer results remain. `search` also covers API errors/non-JSON responses, scope cookies, keyboard selection, snippets and result navigation. |
 | Diagnostic usability | Decode both stacks, useful canvas size, reachable controls, pointer/keyboard slice change, reload | Existing viewer suite plus nine-size `dicom-comparison-layout`; checks both viewport breakpoints and actual available width. |
 | Live service stories | Actual assistant response; anchored comment persistence and cleanup | Credentialed deployed checks, not mocked UI or a configured-status response. Standard hosted shards can still skip services lacking runner credentials. These require an explicit release run, not an assumption from aggregate green status. |
 | API/auth/cache/security | Anonymous denial; signed sessions; public/session data; files/archives/byte ranges; bot metadata; Host isolation | Server unit tests, standalone checks, backend/multi-site/RBAC suites. Synthetic Host checks belong locally; Vercel does not accept injected synthetic hosts. |
-| Browser compatibility | Chromium plus Firefox/WebKit, keyboard-focused dialog invocation, browser storage denial | Browser selection is now configurable and smoke coverage runs in CI. OS clipboard-read permission automation remains Chromium-only. WebKit is engine coverage, not physical iPhone certification. |
+| Browser compatibility | Full Chromium plus WebKit, keyboard-focused dialog invocation, browser storage denial | Browser selection is configurable and smoke coverage runs in CI. Firefox is outside the requested gate. OS clipboard-read permission automation remains Chromium-only. WebKit is engine coverage, not physical iPhone certification. |
 | Production assets and performance | Production bundle and standalone server, worker/WASM startup, cache headers, bounded network retries | Static bundle budgets and standalone verification. Dev success alone does not prove deployed worker/asset behavior. Live long-tail search/manifest latency remains an operational watch item. |
 
 Historical Next-only SSR-header/streaming tests and two declarative table fixture
@@ -183,12 +187,38 @@ presence flags. It still excludes page text, arbitrary errors, cookies and raw
 annotations. The readiness verdict remains conditional on final hosted results;
 the private release index preserves the initial failures and operational caveat.
 
-On `84697b02`, all four Chromium shards passed on the first attempt; Firefox's
-remaining failures timed out in `beforeEach` setup rather than route assertions.
-Reader-state diagnostics could not acquire the failed page. The Linux Firefox
-smoke now uses its normal window lifecycle under an isolated virtual display,
-following [Playwright's headed-CI setup](https://playwright.dev/docs/ci#running-headed),
-without changing timeouts or dropping assertions. A separate ten-context blank
-browser control distinguishes browser setup from application boot, and failure
-diagnostics no longer request a new page fixture or wait indefinitely during
-teardown. This is a runner-lifecycle mitigation, not a claimed app rendering fix.
+On `84697b02`, all four Chromium shards, WebKit and the visual/static/unit/server
+gates passed on the first attempt. The subsequent `9769c1c6` candidate passed
+**52 credentialed release cases / 1 synthetic-Host skip**, including all nine live
+AI/chat cases previously skipped by hosted shards, plus live comments, imaging,
+downloads, gate checks, metadata and unavailable-storage isolation. Its hosted
+Chromium search assertion failed intermittently; safe diagnostics now distinguish
+loading/error/empty/results states without publishing search content. Historical
+failures remain in the private evidence index and are not counted as passes.
+
+The final breadth pass prioritizes functional transitions rather than extending
+Firefox investigation. It repeats the full local suite for locally seeded account,
+admin, role/tag-access and multi-site checks, and adds request-order regressions.
+A stale local optimized dependency returned 504 after the dependency patch; that
+cache was moved aside recoverably and a fresh-port full run restarted. This is
+recorded separately from product defects. Exact final counts and immutable
+deployment identity are retained in the private release index after hosted gates
+and the credentialed release selection finish.
+
+The refreshed 336-case local run completed with **320 passed / 15 documented
+skips / 1 failed**. All locally seeded admin, role/tag-access and multi-site
+checks ran. The sole failure was the live timing story receiving an AI Gateway
+connection timeout instead of a model response; the app rendered its recoverable
+error. This first-attempt failure remains recorded even if the focused live
+rerun recovers. The four new search-order regressions run separately from that
+already-collected suite; both initial-response cases and the exhaustive-results
+case fail against the older deployed candidate and pass after the repair.
+The unchanged live-chat timing selection then recovered: **4 passed / 0 skipped**.
+WebKit's expanded search run also exposed a test-only cookie inspection issue.
+The abbreviated `headers()` omits security-related headers ([Playwright docs](https://playwright.dev/docs/api/class-request#request-headers)).
+For fulfilled WebKit interceptions, even `allHeaders()` omits Cookie. An isolated
+local HTTP control confirmed that the real request sends the synthetic cookie,
+while the fulfilled mock omits it from inspection. Scope assertions run in every
+engine; outgoing-cookie inspection is explicitly additional Chromium coverage,
+not claimed as WebKit mock evidence. No application cookie policy was changed.
+The complete search and request-order selections are now included in WebKit CI.
