@@ -58,6 +58,9 @@ export const ChatRequestSchema = z.object({
     )
     .min(1, "messages must not be empty"),
   conversationId: z.string().optional(),
+  // New clients reset cancellation before exposing a stoppable request. Legacy
+  // callers still use the server-side reset during a rolling deployment.
+  cancelResetHandled: z.boolean().optional(),
 });
 
 export type ChatRequestBody = z.infer<typeof ChatRequestSchema>;

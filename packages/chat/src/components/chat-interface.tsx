@@ -6,14 +6,13 @@ import {
 } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import { nowMs, recordChatPerf, trackStream } from "../perf";
 import { useChatRuntime } from "../runtime";
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-  ConversationEmptyState,
 } from "./ai-elements/conversation";
 import {
   PromptInput,
@@ -106,12 +105,17 @@ export function ChatInterface({
   initialMessages,
 }: ChatInterfaceProps) {
   const { apiPath, convexApi, copy, routes, siteSlug, storageKeyPrefix } = useChatRuntime();
+  const convex = useConvex();
   const siteArgs = useMemo(() => (siteSlug ? { siteSlug } : {}), [siteSlug]);
   const createConversation = useMutation(convexApi.conversations.create);
   const sendMessageMutation = useMutation(convexApi.conversations.sendMessage);
   const clearStreamingMutation = useMutation(convexApi.conversations.clearStreaming);
   const cancelStreamMutation = useMutation(convexApi.conversations.cancelStream);
+  const clearCancelMutation = useMutation(convexApi.conversations.clearCancel);
   const disableMessageMutation = useMutation(convexApi.conversations.disableMessage);
+  const preparingRef = useRef(false);
+  const [isPreparing, setIsPreparing] = useState(false);
+  const [preparationError, setPreparationError] = useState<Error | undefined>();
 
   // The Convex conversation id. Null until the first message is sent.
   const [activeConvId, setActiveConvId] = useState<string | null>(
@@ -172,6 +176,7 @@ export function ChatInterface({
             ...(body ?? {}),
             messages,
             conversationId: convIdRef.current,
+            cancelResetHandled: true,
           },
         }),
       }),
@@ -200,9 +205,9 @@ export function ChatInterface({
     regenerate,
     stop,
     status,
-    error,
+    error: streamError,
     setMessages,
-    clearError,
+    clearError: clearStreamError,
   } = useChat<ChatUIMessage>({
     messages: initialUIMessages,
     transport,
@@ -214,6 +219,43 @@ export function ChatInterface({
       endTracker("error");
     },
   });
+
+  const error = preparationError ?? streamError;
+  const clearError = useCallback(() => {
+    setPreparationError(undefined);
+    clearStreamError();
+  }, [clearStreamError]);
+
+  // Reset stale cancellation BEFORE useChat exposes Stop. Doing this on the
+  // server erases a Stop pressed while the HTTP request is still starting.
+  // All four entry points (send, regenerate, retry, auto-resume) share this gate.
+  const runPrepared = useCallback(async ({ prepare, run }: {
+    prepare: () => Promise<void>;
+    run: () => Promise<void>;
+  }) => {
+    if (preparingRef.current || status === "submitted" || status === "streaming") return;
+    preparingRef.current = true;
+    setIsPreparing(true);
+    const resetToken = resetTokenRef.current;
+    let started = false;
+    try {
+      clearError();
+      await prepare();
+      if (resetToken !== resetTokenRef.current) return;
+      const conversationId = convIdRef.current;
+      if (conversationId) await clearCancelMutation({ conversationId, ...siteArgs });
+      if (resetToken !== resetTokenRef.current) return;
+      started = true;
+      startTracker();
+      await run();
+    } catch (cause) {
+      // useChat owns stream errors; preparation failures happen before it runs.
+      if (!started) setPreparationError(cause instanceof Error ? cause : new Error("Could not start chat. Please retry."));
+    } finally {
+      preparingRef.current = false;
+      setIsPreparing(false);
+    }
+  }, [clearCancelMutation, clearError, siteArgs, status]);
 
   // useChat does not expose first-byte timing; approximate by recording the
   // first message-id we observe after submit. Phase 0 instrumentation runs
@@ -288,7 +330,10 @@ export function ChatInterface({
   // Sync from Convex when the local list is behind (e.g., another tab's
   // stream completed and saved messages).
   useEffect(() => {
-    if (status !== "ready") return;
+    // A local submit has already persisted its user row, but useChat has not
+    // appended it yet while preparation runs. Importing that row now would
+    // append the same message twice when sendMessage takes over.
+    if (status !== "ready" || isPreparing) return;
     if (!conversationMessages) return;
     if (conversationMessages.length <= messages.length) return;
     const next = storedToUIMessages(
@@ -301,21 +346,19 @@ export function ChatInterface({
       }))
     );
     setMessages(next);
-  }, [status, conversationMessages, messages.length, setMessages]);
+  }, [status, isPreparing, conversationMessages, messages.length, setMessages]);
 
   // 30s stale-stream watchdog — clears the Convex mirror if the server died.
   const disableLastUserMessage = useCallback(() => {
-    setMessages((prev) => {
-      const last = prev[prev.length - 1] as ChatUIMessage;
-      if (last?.role === "user" && last.dbId) {
-        disableMessageMutation({ id: last.dbId, ...siteArgs });
-        return prev.map((m, i) =>
-          i === prev.length - 1 ? ({ ...m, disabled: true } as ChatUIMessage) : m
-        );
-      }
-      return prev;
-    });
-  }, [disableMessageMutation, setMessages, siteArgs]);
+    // The streaming tail may already be an assistant. Stop applies to the
+    // preceding user message, whose persisted identity was captured on send.
+    const lastUser = [...messages].reverse().find((message) => message.role === "user");
+    if (!lastUser) return;
+    if (lastUser.dbId) void disableMessageMutation({ id: lastUser.dbId, ...siteArgs });
+    setMessages((prev) => prev.map((message) =>
+      message.id === lastUser.id ? { ...message, disabled: true } : message,
+    ));
+  }, [disableMessageMutation, messages, setMessages, siteArgs]);
 
   useEffect(() => {
     if (serverStreamingText === undefined || !streamingUpdatedAt || !activeConvId) return;
@@ -368,8 +411,7 @@ export function ChatInterface({
       }
     }
     autoResumed.current = true;
-    startTracker();
-    void regenerate();
+    void runPrepared({ prepare: async () => {}, run: () => regenerate() });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConvId, status, lastIsActiveUser, serverStreamingText, lastMessage]);
 
@@ -377,45 +419,50 @@ export function ChatInterface({
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || isStreaming) return;
-      clearError();
+      let persistedMessageId: string | undefined;
+      await runPrepared({ prepare: async () => {
+        let convId = convIdRef.current;
+        if (!convId) {
+          const title = trimmed.slice(0, 60) + (trimmed.length > 60 ? "…" : "");
+          const createdConvId = (await createConversation({ title, ...siteArgs })) as string;
+          convId = createdConvId;
+          convIdRef.current = convId;
+          setActiveConvId(convId);
+          window.history.replaceState(null, "", routes.conversationPath(createdConvId));
+          window.dispatchEvent(new Event("chat:route-replaced"));
+        }
 
-      let convId = convIdRef.current;
-      if (!convId) {
-        const title = trimmed.slice(0, 60) + (trimmed.length > 60 ? "…" : "");
-        const createdConvId = (await createConversation({ title, ...siteArgs })) as string;
-        convId = createdConvId;
-        convIdRef.current = convId;
-        setActiveConvId(convId);
-        window.history.replaceState(
-          null,
-          "",
-          routes.conversationPath(createdConvId)
-        );
-        window.dispatchEvent(new Event("chat:route-replaced"));
-      }
-
-      // Persist the user message so cross-tab subscribers see it and the
-      // 30s watchdog has a streamingUpdatedAt to track.
-      await sendMessageMutation({
-        conversationId: convId,
-        text: trimmed,
-        ...siteArgs,
-      });
-
-      autoResumed.current = true;
-      setInput("");
-      startTracker();
-      await sendMessage({ text: trimmed });
+        // Persist before generation so cross-tab subscribers and the watchdog
+        // can observe the pending user message.
+        await sendMessageMutation({ conversationId: convId, text: trimmed, ...siteArgs });
+        // Deployed sendMessage versions do not all return the inserted id.
+        // Resolve it before exposing Stop so immediate cancellation can also
+        // disable auto-resume after a reload (not just the local UI message).
+        const stored: StoredMessage[] = await convex.query(convexApi.conversations.getMessages, {
+          id: convId, ...siteArgs,
+        });
+        persistedMessageId = [...stored].reverse().find((message) =>
+          message.role === "user" && message.content === trimmed,
+        )?._id;
+        if (!persistedMessageId) throw new Error("Could not confirm the saved message. Please retry.");
+      }, run: async () => {
+        autoResumed.current = true;
+        setInput("");
+        await sendMessage({ id: persistedMessageId, dbId: persistedMessageId,
+          role: "user", parts: [{ type: "text", text: trimmed }] });
+      } });
     },
     [
       isStreaming,
-    clearError,
-    createConversation,
-    sendMessageMutation,
-    sendMessage,
-    routes,
-    siteArgs,
-  ]
+      runPrepared,
+      createConversation,
+      convex,
+      convexApi.conversations.getMessages,
+      sendMessageMutation,
+      sendMessage,
+      routes,
+      siteArgs,
+    ]
   );
 
   // <PromptInput> hands us its own message + event shape on submit.
@@ -443,13 +490,9 @@ export function ChatInterface({
   // model from the message *before* the targeted assistant message.
   const handleRegenerate = useCallback(
     (messageId: string) => {
-      clearError();
-      startTracker();
-      void regenerate({ messageId }).catch(() => {
-        // useChat surfaces the error via its `error` state; no toast here.
-      });
+      void runPrepared({ prepare: async () => {}, run: () => regenerate({ messageId }) });
     },
-    [clearError, regenerate, startTracker]
+    [regenerate, runPrepared]
   );
 
   const handleRetryAfterError = useCallback(() => {
@@ -457,12 +500,8 @@ export function ChatInterface({
       clearError();
       return;
     }
-    clearError();
-    startTracker();
-    void regenerate().catch(() => {
-      // useChat surfaces the error via its `error` state; no toast here.
-    });
-  }, [clearError, messages.length, regenerate, startTracker]);
+    void runPrepared({ prepare: async () => {}, run: () => regenerate() });
+  }, [clearError, messages.length, regenerate, runPrepared]);
 
   // Split messages into the memoized prior list + the live streaming tail.
   // The tail is the last assistant message *while streaming*; otherwise all
@@ -626,7 +665,7 @@ export function ChatInterface({
         <span className="flex-1" />
         <PromptInputSubmit
           status={status}
-          disabled={!isStreaming && !input.trim()}
+          disabled={!isStreaming && (isPreparing || !input.trim())}
           onStop={handleStop}
           data-test-id="chat-submit-button"
           className="bg-[var(--brand)] text-white hover:bg-[var(--brand)]/90 disabled:bg-[var(--brand)] disabled:text-white disabled:opacity-100"

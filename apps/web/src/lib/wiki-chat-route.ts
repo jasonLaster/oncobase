@@ -111,10 +111,10 @@ export async function POST(request: Request) {
     `[chat ${requestId}] start conv=${convId ?? "n/a"} run=${runId} msgs=${messages.length}`
   );
 
-  // Clear the prior run's Stop marker before starting. beginRun deliberately
-  // leaves canceledAt alone so a new Stop that races with startup survives.
+  // Current clients reset before exposing Stop; a server reset would erase a
+  // cancellation that arrived while this request was still starting.
   if (convId) {
-    await convex
+    if (!parsedBody.cancelResetHandled) await convex
       .mutation(siteData.conversations.refs.clearCancel, {
         conversationId: convId,
         siteSlug,
@@ -169,6 +169,14 @@ export async function POST(request: Request) {
     } catch {
       // Best-effort; don't fail the stream on a transient query error.
     }
+  }
+
+  await maybeAbortOnCancel();
+  if (composedAbortSignal.aborted) {
+    if (convId) await convex.mutation(siteData.conversations.refs.clearStreaming, {
+      conversationId: convId, runId, siteSlug,
+    }).catch(() => {});
+    return new Response(null, { status: 204 });
   }
 
   const flusher = createConvexFlusher({

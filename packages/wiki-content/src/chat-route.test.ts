@@ -50,6 +50,12 @@ describe("ChatRequestSchema", () => {
       expect(result.data.conversationId).toBe("conv_abc");
     }
   });
+
+  test("preserves the pre-request cancellation reset contract", () => {
+    const body = { messages: [{ role: "user", content: "hi" }], cancelResetHandled: true };
+    expect(ChatRequestSchema.parse(body).cancelResetHandled).toBe(true);
+    expect(ChatRequestSchema.safeParse({ ...body, cancelResetHandled: "true" }).success).toBe(false);
+  });
 });
 
 describe("compactChatToolResult", () => {

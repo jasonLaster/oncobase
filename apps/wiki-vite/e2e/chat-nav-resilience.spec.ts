@@ -41,6 +41,98 @@ async function submitPrompt(page: Page, prompt: string) {
 }
 
 test.describe("P0 chat navigation resilience", () => {
+  test("Stop before server startup survives a delayed HTTP request", async ({ page }) => {
+    test.skip(!hasAiGateway || !convexUrl, "Startup cancellation requires the deployed chat backend");
+    let conversationId: string | null = null;
+    let requestBody: Record<string, unknown> | undefined;
+    await page.route("**/api/chat", async (route) => {
+      requestBody = route.request().postDataJSON();
+      // Stop is exercised before any HTTP handler sees the request. Replaying
+      // it through APIRequestContext below models delayed server startup without
+      // relying on the disconnected browser fetch's AbortSignal propagation.
+      await route.abort();
+    });
+    try {
+      await ensurePasswordGateSession(page);
+      await page.goto("/chat", { waitUntil: "domcontentloaded" });
+      const chat = await submitPrompt(page, "QA delayed cancellation control");
+      conversationId = await currentConversationId(chat);
+      await expect.poll(() => Boolean(requestBody)).toBe(true);
+      const convex = new ConvexHttpClient(convexUrl!);
+      await convex.mutation(makeFunctionReference<"mutation">("conversations:cancelStream"), {
+        conversationId, siteSlug: "diana",
+      });
+      const response = await page.request.post("/api/chat", {
+        data: { ...requestBody, cancelResetHandled: true }, timeout: 20_000,
+      });
+      expect(response.status()).toBe(204);
+      expect(requestBody?.cancelResetHandled).toBe(true);
+      const state = await convex.query(getCancelState, { conversationId, siteSlug: "diana" });
+      expect(typeof state?.canceledAt).toBe("number");
+      expect(state?.activeRunId).toBeUndefined();
+    } finally {
+      await archiveIfPossible(conversationId);
+    }
+  });
+
+  test("a new prompt resets the previous Stop before sending HTTP", async ({ page }) => {
+    test.skip(!convexUrl, "Cancellation reset requires Convex URL");
+    let conversationId: string | null = null;
+    const requests: Array<Record<string, unknown>> = [];
+    // Keep each request pending until the real Stop button aborts it.
+    await page.route("**/api/chat", (route) => { requests.push(route.request().postDataJSON()); });
+    try {
+      await ensurePasswordGateSession(page);
+      await page.goto("/chat", { waitUntil: "domcontentloaded" });
+      const convex = new ConvexHttpClient(convexUrl!);
+      for (let run = 1; run <= 2; run += 1) {
+        const chat = await submitPrompt(page, `QA cancellation reset control ${run}`);
+        conversationId = await currentConversationId(chat);
+        await expect.poll(() => requests.length).toBe(run);
+        await expect(page.getByTestId("chat-user-message")).toHaveCount(run);
+        const state = await convex.query(getCancelState, { conversationId, siteSlug: "diana" });
+        expect(state?.canceledAt).toBeUndefined();
+        await page.getByRole("button", { name: "Stop" }).click();
+        await expect(chat).toHaveAttribute("data-chat-status", /ready|error/);
+        await expect.poll(async () => typeof (await convex.query(getCancelState, {
+          conversationId: conversationId!, siteSlug: "diana",
+        }))?.canceledAt).toBe("number");
+      }
+      expect(requests.every((request) => request.cancelResetHandled === true)).toBe(true);
+    } finally {
+      await archiveIfPossible(conversationId);
+    }
+  });
+
+  test("Stop persists the disabled user message and does not auto-resume on reload", async ({ page }) => {
+    test.skip(!convexUrl, "Persisted Stop requires Convex URL");
+    let conversationId: string | null = null;
+    let chatCalls = 0;
+    await page.route("**/api/chat", () => { chatCalls += 1; });
+    try {
+      await ensurePasswordGateSession(page);
+      await page.goto("/chat", { waitUntil: "domcontentloaded" });
+      const chat = await submitPrompt(page, "QA stopped-message persistence control");
+      conversationId = await currentConversationId(chat);
+      await expect.poll(() => chatCalls).toBe(1);
+      await page.getByRole("button", { name: "Stop" }).click();
+      const convex = new ConvexHttpClient(convexUrl!);
+      await expect.poll(async () => {
+        const messages = await convex.query(makeFunctionReference<"query">("conversations:getMessages"), {
+          id: conversationId!, siteSlug: "diana",
+        }) as Array<{ role: string; disabled?: boolean }>;
+        return messages.filter((message) => message.role === "user").at(-1)?.disabled;
+      }).toBe(true);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(page.getByTestId("chat-message-log")).toContainText("QA stopped-message persistence control");
+      await expect(page.getByTestId("chat-interface")).toHaveAttribute("data-chat-status", "ready");
+      await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeHidden();
+      expect(chatCalls).toBe(1);
+    } finally {
+      await archiveIfPossible(conversationId);
+    }
+  });
+
   test("Stop button aborts the model server-side", async ({ page }) => {
     test.skip(!hasAiGateway || !convexUrl, "Stop abort coverage requires AI_GATEWAY_API_KEY and Convex URL");
 

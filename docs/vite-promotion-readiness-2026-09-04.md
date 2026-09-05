@@ -16,6 +16,8 @@ Firefox is optional and explicitly outside the promotion gate at the user's requ
 | P2 | Article title/tag spacing drifts from Next | Matched desktop screenshots and measurements showed Vite's tag row 24px too low, displacing the entire body. Tags now belong inside the document header, with matching spacing and chip dimensions. At 1440×1000 the repaired article height matches Next at 2014.65px; the tag row starts at y=80. Updated synthetic desktop/mobile baselines were inspected. |
 | P2 | Comparison status labels lose contrast in light theme | The deployed follow-up found dark foreground styling overriding the explicitly pale status colors. Shared diagnostic UI now resolves conflicting Tailwind classes, matching the legacy utility's override behavior. Secondary comparison labels also have sufficient contrast. Added light/dark axe contrast checks and a class-override unit regression. |
 | P2 | Old text-search responses overwrite a newer query | Delayed-response tests against the immutable candidate reproduced both old results and old errors replacing the current query. Vite now invalidates outstanding text-search updates on query changes/unmount and stops carrying the previous query's retry schedule forward. Four request-order cases cover initial and exhaustive responses, including failures, without extending timeouts. |
+| P1 | Immediate Stop can be erased during server startup | The credentialed deployment run failed; a delayed-request regression reproduced an active SSE response after cancellation. Both hosts now respect the client's pre-request reset and check cancellation before provider work. |
+| P1 | A stopped conversation can restart on reopening | Computer-use exploration reproduced unexpected auto-resume. Submission now captures the persisted user identity, Stop disables the preceding user message even behind an assistant tail, and the reset gate prevents duplicate rows during preparation. Persistence, reload, and exact message-count regressions cover the repair. |
 | P1 release gate | Green main did not mean green Vite | The Vite workflow ran only on PRs/manual dispatch, omitted shared paths, and resolved only Preview environments even for main. Main now runs Vite static/unit/server checks and resolves the exact SHA's Vite Production deployment. Shared packages, shared web source, API adapters, and Vercel configuration trigger PR checks. |
 | P2 release gate | Screenshot assertions were disabled in CI; only Chromium ran | Added a macOS screenshot job that compares committed baselines without updating them, plus WebKit reader/accessibility/anchor/calculator/storage smoke coverage. Linux Chromium shards retain geometry checks. Firefox remains available for optional local runs. |
 | P1 evidence custody | Rich test artifacts are unsafe to publish from this repository | The GitHub repository is public. Clinical screenshots, signed sessions, response bodies, and traces stay local. Hosted runs disable live screenshots/traces and publish only sanitized test names/outcomes. The dedicated synthetic visual job may upload its PNG diffs. |
@@ -68,6 +70,7 @@ published-comparison layout suite is runnable against a deployed candidate.
 | Out-of-order search | An earlier result/error or exhaustive refresh must not replace the current query | `search-request-order` deliberately holds the older request until the newer query is visible, then releases it and verifies the newer results remain. `search` also covers API errors/non-JSON responses, scope cookies, keyboard selection, snippets and result navigation. |
 | Diagnostic usability | Decode both stacks, useful canvas size, reachable controls, pointer/keyboard slice change, reload | Existing viewer suite plus nine-size `dicom-comparison-layout`; checks both viewport breakpoints and actual available width. |
 | Live service stories | Actual assistant response; anchored comment persistence and cleanup | Credentialed deployed checks, not mocked UI or a configured-status response. Standard hosted shards can still skip services lacking runner credentials. These require an explicit release run, not an assumption from aggregate green status. |
+| Chat cancellation and recovery | Stop during startup, new prompt after Stop, persisted disabled message, reload without auto-resume | `chat-nav-resilience` combines a delayed HTTP replay with real Stop-button interactions and Convex queries. Live navigation/refresh/retry and performance stories complement the controlled races; the shared chat package's typecheck and units are explicit gates. |
 | API/auth/cache/security | Anonymous denial; signed sessions; public/session data; files/archives/byte ranges; bot metadata; Host isolation | Server unit tests, standalone checks, backend/multi-site/RBAC suites. Synthetic Host checks belong locally; Vercel does not accept injected synthetic hosts. |
 | Browser compatibility | Full Chromium plus WebKit, keyboard-focused dialog invocation, browser storage denial | Browser selection is configurable and smoke coverage runs in CI. Firefox is outside the requested gate. OS clipboard-read permission automation remains Chromium-only. WebKit is engine coverage, not physical iPhone certification. |
 | Production assets and performance | Production bundle and standalone server, worker/WASM startup, cache headers, bounded network retries | Static bundle budgets and standalone verification. Dev success alone does not prove deployed worker/asset behavior. Live long-tail search/manifest latency remains an operational watch item. |
@@ -230,3 +233,47 @@ The test now waits for a stable, actionable handle, asserts that the actual
 mouse-down engaged manual sizing, and polls the original overflow threshold.
 No application code, timeout ceiling, or assertion threshold changed in this
 follow-up. The initial hosted failure remains in the private release evidence.
+
+## Final Stop and recovery audit
+
+The next immutable candidate (`a7a1f801`) passed all four hosted Chromium shards,
+but its credentialed release run exposed an immediate-Stop cancellation race:
+**67 passed / 1 skipped / 1 failed**. The late server-side `clearCancel` could erase
+a Stop pressed before HTTP startup. A controlled backend mutation confirmed that
+the deployed `beginRun` itself preserves cancellation. New clients now await the
+reset before exposing Stop; both hosts preserve that marker and check cancellation
+before starting provider work. Legacy request bodies retain their existing reset
+behavior for rolling compatibility. No Convex deployment or schema change is needed.
+
+Additional computer-use exploration caught a second recovery defect: reopening a
+stopped conversation could resume generation. The just-submitted UI message had
+no persisted identity, and stopping an assistant tail did not disable its preceding
+user message. Submission now resolves that identity before generation; Stop marks
+the preceding user message disabled in both local and persisted state, outside any
+React state-updater callback. Three deterministic regressions cover delayed HTTP
+startup, a new prompt following Stop, and stopped-message persistence/reload.
+All three fail against the preceding deployment. The delayed-startup old response
+was an active SSE stream instead of the expected early cancellation response.
+
+The shared chat package's typecheck and unit suite are now explicit Vite CI gates.
+The follow-up React Doctor pass reports no errors; its remaining advisories concern
+component complexity and clearing preparation-error state on conversation reset.
+
+The `a7a1f801` WebKit run also had one calculator URL-persistence failure. Five
+unchanged repeats passed. Additional committed-value assertions now pinpoint each
+input transition before the unchanged complete-URL and reload checks. This is not
+claimed as a confirmed calculator product defect. The interrupted broad run while
+investigating the computer-use finding is not counted as a completed release run;
+final complete-suite and exact-deployment results are recorded in the private index.
+
+The frozen-source 343-case sweep completed with **327 passed / 15 documented
+skips / 1 harness failure**, 714.6s. The admin test had completed its role-change
+assertions and failed closing its trace: a concurrent standalone runner had
+emptied the shared output directory. Standalone smoke output is now isolated in
+an ignored sibling directory. That same admin story and four cancellation
+stories each passed three independent repeats (**15 passed / 0 skipped**).
+No other failure or duplicate-key warning occurred in the full sweep. This is
+not represented as a first-attempt green sweep. Frozen static/bundle checks,
+Next typechecking, **243 units**, and four standalone browser smokes passed;
+the complete chat selection separately passed **18 / 18**. Exact hosted results
+remain tied to the final pushed SHA in the private release index.

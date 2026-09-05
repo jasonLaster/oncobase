@@ -18,6 +18,7 @@ export interface ChatConvexApi {
     updateStreaming: ChatMutationRef;
     clearStreaming: ChatMutationRef;
     cancelStream: ChatMutationRef;
+    clearCancel: ChatMutationRef;
     archive: ChatMutationRef;
     restore: ChatMutationRef;
     saveMessages: ChatMutationRef;

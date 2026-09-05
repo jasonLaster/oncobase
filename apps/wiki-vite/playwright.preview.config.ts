@@ -11,6 +11,9 @@ if (!baseURL) {
 
 export default defineConfig({
   testDir: "./preview-e2e",
+  // Keep standalone smoke cleanup away from the main suite's trace directory.
+  // Playwright empties outputDir at startup, including nested concurrent runs.
+  outputDir: "./.playwright/standalone-results",
   timeout: 60_000,
   expect: { timeout: 30_000 },
   fullyParallel: false,

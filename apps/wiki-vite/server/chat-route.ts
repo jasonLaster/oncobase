@@ -276,9 +276,9 @@ export async function handleChatRequest({
   const documents = documentsGateway(client, siteSlug, includeSensitive, canAccessSlug);
 
   if (convId) {
-    // Clear the prior run's Stop marker before starting. beginRun deliberately
-    // leaves canceledAt alone so a new Stop that races with startup survives.
-    await client
+    // Current clients reset before the request becomes stoppable. Never clear
+    // their marker here: Stop may already have arrived before this function.
+    if (!parsedBody.cancelResetHandled) await client
       .mutation(
         api.conversations.clearCancel,
         withSiteSlug(siteSlug, { conversationId: convId }),
@@ -324,6 +324,14 @@ export async function handleChatRequest({
     } catch {
       // Best effort only; transient Convex failures should not kill generation.
     }
+  }
+
+  // Do not start provider work when Stop arrived before the first model chunk.
+  await maybeAbortOnCancel();
+  if (composedAbortSignal.aborted) {
+    if (convId) await client.mutation(api.conversations.clearStreaming,
+      withSiteSlug(siteSlug, { conversationId: convId, runId })).catch(() => {});
+    return new Response(null, { status: 204 });
   }
 
   const flusher = createConvexFlusher({
