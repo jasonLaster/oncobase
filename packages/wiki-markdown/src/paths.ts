@@ -1,9 +1,10 @@
-const PROXIED_EXTENSIONS = new Set([
+export const PROXIED_EXTENSIONS = new Set([
   ".jpg",
   ".jpeg",
   ".png",
   ".gif",
   ".webp",
+  ".avif",
   ".svg",
   ".csv",
   ".pdf",

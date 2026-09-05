@@ -2,6 +2,23 @@ import { expect, test } from "@playwright/test";
 import { gotoWiki, installWikiApiMocks } from "./fixtures";
 
 test.describe("Image theater", () => {
+  test("keeps the preview open across a background manifest refresh", async ({ page }) => {
+    await installWikiApiMocks(page);
+    await gotoWiki(page, "/wiki/media/image-theater");
+    await page.getByRole("button", { name: "Open image: Pathology slide" }).click();
+    const dialog = page.getByRole("dialog", { name: "Pathology slide" });
+    await expect(dialog).toBeVisible();
+    const refresh = page.waitForResponse((response) => response.url().includes("/api/wiki/manifest"));
+    await page.evaluate(() => window.dispatchEvent(new Event("wiki-vite:refresh-manifest")));
+    expect((await refresh).status()).toBe(304);
+    await page.evaluate(async () => {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
+    await expect(dialog).toBeVisible();
+    await page.getByRole("button", { name: "Close image preview" }).click();
+    await expect(dialog).toBeHidden();
+  });
+
   test("opens markdown images with download and closes from mask and close button", async ({ page }) => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/media/image-theater");

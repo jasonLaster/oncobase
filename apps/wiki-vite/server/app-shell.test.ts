@@ -639,6 +639,31 @@ describe("wiki Vite app-shell password gate", () => {
     );
   });
 
+  test("normalizes anonymous URLs before the gate without bypassing protected pages", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    for (const method of ["GET", "HEAD"]) {
+      for (const pathname of ["/login", "/terms-and-conditions", "/wiki/public"]) {
+        const response = await handler(request(`${pathname}/?view=compact`, { method }));
+        expect(response.status).toBe(308);
+        expect(response.headers.get("location")).toBe(
+          `http://127.0.0.1${pathname}?view=compact`,
+        );
+        const canonical = await handler(request(`${pathname}?view=compact`, { method }));
+        expect(canonical.status).toBe(pathname === "/wiki/public" ? 302 : 200);
+        if (pathname === "/wiki/public") {
+          expect(canonical.headers.get("location")).toBe(
+            "http://127.0.0.1/login?redirect=%2Fwiki%2Fpublic%3Fview%3Dcompact",
+          );
+          expect(canonical.headers.get("cache-control")).toBe("private, no-store");
+        }
+      }
+    }
+  });
+
   test("preserves the explicit about directory canonical redirect", async () => {
     const handler = createWikiViteHandler({
       client: fakeClient() as never,

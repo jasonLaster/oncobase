@@ -6,12 +6,26 @@ import {
 } from "@oncobase/smart-table/examples";
 import { normalizeMathValue } from "./math.ts";
 import { renderWikiMarkdownHtml } from "./server.ts";
+import { resolveHref, resolveImageSrc } from "./paths.ts";
 
 function countMatches(source: string, pattern: RegExp) {
   return source.match(pattern)?.length ?? 0;
 }
 
 describe("server markdown rendering", () => {
+  for (const extension of ["jpg", "jpeg", "png", "gif", "webp", "avif", "svg"]) {
+    test(`both renderers proxy relative and absolute ${extension} images`, () => {
+      for (const source of [`images/scan.${extension}`, `/wiki/research/images/scan.${extension}`]) {
+        const expected = `/api/file?path=wiki%2Fresearch%2Fimages%2Fscan.${extension}`;
+        expect(resolveImageSrc(source, "wiki/research/index")).toBe(expected);
+        expect(resolveHref(source, "wiki/research/index")).toBe(expected);
+        const html = renderWikiMarkdownHtml(`![Scan](${source})\n\n[Download](${source})`, "wiki/research/index");
+        expect(html).toContain(`src="${expected}"`);
+        expect(html).toContain(`href="${expected}"`);
+      }
+    });
+  }
+
   test("renders one wrapped table per smart-table example fixture", () => {
     const html = renderWikiMarkdownHtml(buildExampleTablesDocument(), "table-examples");
 

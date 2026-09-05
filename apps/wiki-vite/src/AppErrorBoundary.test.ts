@@ -22,14 +22,17 @@ afterEach(() => {
 });
 
 describe("clearLocalWikiData", () => {
-  test("removes OPFS entries, IndexedDB databases, and the scope key", async () => {
+  test("resets only reader OPFS caches and preserves unrelated origin storage", async () => {
     const removeEntry = mock(async (_name: string, _options?: { recursive?: boolean }) => {});
     const deleteDatabase = mock((_name: string) => {});
     const removeItem = mock((_key: string) => {});
 
     async function* keys() {
-      yield "livestore-wiki-vite-reader-v3-diana-public";
+      yield "livestore-wiki-vite-reader-v3-diana-public-http_localhost-abc@123";
+      yield "livestore-wiki-vite-reader-v4-diana-session-http_localhost-abc@456";
       yield "another-store";
+      yield "livestore-another-app@123";
+      yield "livestore-wiki-vite-not-a-database";
     }
 
     stub("navigator", {
@@ -44,13 +47,11 @@ describe("clearLocalWikiData", () => {
     await clearLocalWikiData();
 
     expect(removeEntry).toHaveBeenCalledTimes(2);
-    expect(removeEntry.mock.calls[0]?.[0]).toBe("livestore-wiki-vite-reader-v3-diana-public");
     expect(removeEntry.mock.calls).toEqual([
-      ["livestore-wiki-vite-reader-v3-diana-public", { recursive: true }],
-      ["another-store", { recursive: true }],
+      ["livestore-wiki-vite-reader-v3-diana-public-http_localhost-abc@123", { recursive: true }],
+      ["livestore-wiki-vite-reader-v4-diana-session-http_localhost-abc@456", { recursive: true }],
     ]);
-    expect(deleteDatabase).toHaveBeenCalledTimes(2);
-    expect(deleteDatabase.mock.calls).toEqual([["livestore"], ["keyval"]]);
+    expect(deleteDatabase).not.toHaveBeenCalled();
     expect(removeItem).toHaveBeenCalledWith("wiki-vite-scope");
   });
 

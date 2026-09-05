@@ -536,12 +536,12 @@ export function createWikiViteHandler({
   return async function handleWikiViteRequest(request: Request): Promise<Response> {
     const apiResponse = await handleWikiApiRequest(request);
     if (apiResponse) return apiResponse;
+    const trailingSlashRedirect = trailingSlashRedirectResponse(request);
+    if (trailingSlashRedirect) return trailingSlashRedirect;
     const gateResponse = await enforcePasswordGate(request, client);
     if (gateResponse) return gateResponse;
     const redirectResponse = legacyRedirectResponse(request);
     if (redirectResponse) return redirectResponse;
-    const trailingSlashRedirect = trailingSlashRedirectResponse(request);
-    if (trailingSlashRedirect) return trailingSlashRedirect;
     const explicitCanonicalRedirect = explicitCanonicalRedirectResponse(request);
     if (explicitCanonicalRedirect) return explicitCanonicalRedirect;
     const canonicalRedirect = await canonicalSlugRedirectResponse(request, client);

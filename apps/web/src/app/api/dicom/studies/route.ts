@@ -53,7 +53,7 @@ async function getBlobCatalog(
         ).flat()
       : await convex.query(api.dicom.listSeries, {
           siteSlug,
-          includeImages: true,
+          includeImages: false,
         });
     if (!rows.length) return null;
 

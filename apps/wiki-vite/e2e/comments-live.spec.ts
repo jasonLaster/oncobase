@@ -1,9 +1,8 @@
 import { createRequire } from "node:module";
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { type APIRequestContext, type Page } from "@playwright/test";
+import { writeFile } from "node:fs/promises";
+import { expect, test, signIn, checkpoint, article as documentArticle } from "../parity-e2e/fixtures";
 import { ConvexHttpClient } from "convex/browser";
-import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
-import { documentArticle } from "./fixtures";
-import { ensurePasswordGateSession } from "./gate-auth";
 
 const { api } = createRequire(import.meta.url)(
   "../../web/convex/_generated/api.js",
@@ -20,46 +19,24 @@ type LiveThread = {
 };
 
 async function selectArticleText(page: Page) {
-  const quote = await page.evaluate(() => {
-    const root = Array.from(document.querySelectorAll<HTMLElement>("article")).find(
-      (article) => {
-        const rect = article.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0;
-      },
-    );
-    if (!root) return "";
-
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode(node) {
-        return (node.textContent ?? "").trim().length > 40
-          ? NodeFilter.FILTER_ACCEPT
-          : NodeFilter.FILTER_REJECT;
-      },
-    });
-    const textNode = walker.nextNode() as Text | null;
-    if (!textNode?.textContent) return "";
-
-    const start = Math.max(0, textNode.textContent.search(/\S/));
-    const end = Math.min(textNode.textContent.length, start + 72);
-    const range = document.createRange();
-    range.setStart(textNode, start);
-    range.setEnd(textNode, end);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    root.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
-    return range.toString();
-  });
-
+  const prose = documentArticle(page).locator("p").filter({ visible: true }).first();
+  await prose.scrollIntoViewIfNeeded();
+  const bounds = (await prose.boundingBox())!;
+  await page.mouse.move(bounds.x + 8, bounds.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + Math.min(bounds.width - 8, 340), bounds.y + 10, { steps: 12 });
+  await page.mouse.up();
+  const quote = await page.evaluate(() => window.getSelection()?.toString() ?? "");
   expect(quote.trim().length).toBeGreaterThan(0);
   return quote;
 }
 
 async function liveThreads(request: APIRequestContext) {
   const response = await request.get("/api/liveblocks-threads?fresh=1");
-  if (!response.ok()) return [];
+  expect(response.ok(), "Real comment read must not masquerade as an empty list").toBe(true);
   const body = (await response.json()) as { threads?: LiveThread[] };
-  return body.threads ?? [];
+  expect(Array.isArray(body.threads)).toBe(true);
+  return body.threads!;
 }
 
 function threadContainsText(thread: LiveThread, text: string) {
@@ -73,10 +50,14 @@ async function cleanupCommentThreads(
 ) {
   const threads = await liveThreads(request);
   const targets = threads.filter(
-    (thread) => thread.id === knownThreadId || threadContainsText(thread, text),
+    (thread) => thread.roomId === ROOM_ID && threadContainsText(thread, text),
   );
+  if (knownThreadId && threads.some((thread) => thread.id === knownThreadId)) {
+    expect(targets.some((thread) => thread.id === knownThreadId), "Cleanup must prove ownership, not just match an ID").toBe(true);
+  }
 
   for (const thread of targets) {
+    expect(thread.comments, "Do not delete a test thread that acquired someone else's reply").toHaveLength(1);
     const response = await request.post("/api/liveblocks-delete-thread", {
       data: { roomId: thread.roomId, threadId: thread.id },
     });
@@ -84,10 +65,11 @@ async function cleanupCommentThreads(
       throw new Error(`Liveblocks cleanup failed for ${thread.id}: ${response.status()}`);
     }
   }
+  await expect.poll(async () => (await liveThreads(request)).some((thread) => threadContainsText(thread, text))).toBe(false);
 }
 
 async function cleanupTestUser(email: string) {
-  const convex = new ConvexHttpClient(resolveServerConvexUrl());
+  const convex = new ConvexHttpClient(process.env.PARITY_CONVEX_URL!);
   const user = await convex.query(api.users.getByEmailForAuth, {
     email,
     siteSlug: SITE_SLUG,
@@ -108,9 +90,9 @@ async function cleanupTestUser(email: string) {
 
 test("creates an anchored comment, restores its URL, and shows it globally", async ({
   page,
-}) => {
+}, info) => {
   test.setTimeout(150_000);
-  await ensurePasswordGateSession(page);
+  await signIn(page);
 
   const configResponse = await page.request.get("/api/liveblocks-auth");
   expect(configResponse.ok()).toBe(true);
@@ -118,10 +100,7 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
     configured: boolean;
     reason?: string | null;
   };
-  test.skip(
-    !config.configured,
-    `Liveblocks integration unavailable: ${config.reason ?? "credentials-missing"}`,
-  );
+  expect(config.configured, `Liveblocks integration unavailable: ${config.reason ?? "credentials-missing"}`).toBe(true);
 
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const email = `vite-comments-${suffix}@example.test`;
@@ -129,6 +108,13 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
   let signupAttempted = false;
   let signedUp = false;
   let threadId: string | null = null;
+  const journal = info.outputPath("backend-cleanup.json");
+  const record = (state: string) => writeFile(journal, JSON.stringify({
+    state, email, commentText, roomId: ROOM_ID, threadId, baseURL: info.project.use.baseURL,
+  }, null, 2));
+  const convex = new ConvexHttpClient(process.env.PARITY_CONVEX_URL!);
+  expect(await convex.query(api.users.getByEmailForAuth, { email, siteSlug: SITE_SLUG })).toBeNull();
+  await record("pending");
 
   try {
     signupAttempted = true;
@@ -160,10 +146,9 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
       .last();
     await expect(commentsTab).toBeVisible();
     await commentsTab.click();
-    await expect(
-      page.getByRole("button", { name: "Add a page-level comment" }),
-    ).toBeVisible({ timeout: 20_000 });
-
+    // The outline fallback is replaced after real Liveblocks initialization.
+    // Selecting text in that fallback loses the selection on the replacement.
+    await expect(documentArticle(page).locator("[data-comment-highlight-layer]")).toHaveCount(1);
     const quote = await selectArticleText(page);
     await expect(page.getByRole("button", { name: "Add comment" })).toBeVisible();
     await page.getByRole("button", { name: "Add comment" }).click();
@@ -175,12 +160,13 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
 
     const thread = page
       .locator('[data-comment-list-item="thread"][data-anchor-start]')
-      .filter({ hasText: commentText });
+      .filter({ hasText: commentText, visible: true });
     await expect(thread).toBeVisible({ timeout: 20_000 });
     await expect(thread.getByText("Linked selection")).toBeVisible();
     await expect(thread).toContainText(quote.slice(0, 32));
     threadId = await thread.getAttribute("data-thread-id");
     expect(threadId).toBeTruthy();
+    await record("pending");
 
     await thread.getByText("Linked selection").click();
     await expect(page).toHaveURL(new RegExp(`thread=${threadId}`));
@@ -193,17 +179,14 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
         { timeout: 20_000 },
       )
       .toBe(true);
+    await checkpoint(page, info, "comment-persisted");
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    const restored = page.locator(`[data-thread-id="${threadId}"]`);
+    const restored = page.locator(`[data-comment-list-item="thread"][data-thread-id="${threadId}"]`).filter({ visible: true });
     await expect(restored).toBeVisible({ timeout: 20_000 });
     await expect(restored).toHaveClass(/border-sky/);
+    await checkpoint(page, info, "comment-restored");
 
-    await page.route("**/api/liveblocks-threads**", async (route) => {
-      const url = new URL(route.request().url());
-      url.searchParams.set("fresh", "1");
-      await route.continue({ url: url.toString() });
-    });
     await page.goto("/comments", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Comments" })).toBeVisible();
     await expect(page.getByText(commentText)).toBeVisible({ timeout: 30_000 });
@@ -211,18 +194,29 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
       "href",
       DOCUMENT_PATH,
     );
+    await checkpoint(page, info, "comment-global");
   } finally {
-    if (signedUp) {
-      await cleanupCommentThreads(page.request, commentText, threadId);
+    // The API context survives page closure. Disconnect Liveblocks before
+    // cleanup so the browser cannot enqueue further comment changes.
+    if (!page.isClosed()) {
+      // Diagnostic capture must never prevent cleanup after a browser failure.
+      try { await info.attach("before-cleanup", { body: await page.screenshot(), contentType: "image/png" }); }
+      catch { /* The trace still records events preceding a browser failure. */ }
+      await page.close({ runBeforeUnload: false }).catch(() => {});
     }
-    if (signupAttempted) {
-      await cleanupTestUser(email);
+    try {
+      if (signedUp) {
+        await cleanupCommentThreads(page.request, commentText, threadId);
+      }
+      if (signupAttempted) {
+        await cleanupTestUser(email);
+      }
+      await record("clean");
+    } catch (error) {
+      await record("cleanup-failed");
+      throw error;
+    } finally {
+      await info.attach("backend-cleanup", { path: journal, contentType: "application/json" });
     }
   }
-
-  expect(
-    (await liveThreads(page.request)).some((thread) =>
-      threadContainsText(thread, commentText),
-    ),
-  ).toBe(false);
 });

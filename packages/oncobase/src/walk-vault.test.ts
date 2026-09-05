@@ -127,6 +127,24 @@ describe("readVaultDocuments", () => {
     });
   });
 
+  test("publishes AVIF images with inherited owner visibility", () => {
+    const vault = makeVault();
+    fs.mkdirSync(path.join(vault, "images"));
+    fs.writeFileSync(path.join(vault, "images", "figure.avif"), Buffer.alloc(256));
+    fs.writeFileSync(path.join(vault, "paper.md"), "---\nsensitive: true\nsensitive-include: [reviewer]\n---\n# Paper\n![Figure](images/figure.avif)\n");
+
+    expect(readVaultAssets(vault)).toEqual([
+      expect.objectContaining({
+        relativePath: "images/figure.avif",
+        contentType: "image/avif",
+        kind: "file",
+        ownerSlugs: ["paper"],
+        sensitive: true,
+        sensitiveInclude: ["reviewer"],
+      }),
+    ]);
+  });
+
   test("inherits visibility from documents that reference nested assets", () => {
     const vault = makeVault();
     fs.mkdirSync(path.join(vault, "private", "images"), { recursive: true });

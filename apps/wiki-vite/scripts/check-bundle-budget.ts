@@ -38,8 +38,8 @@ const budgets: Budget[] = [
 /**
  * Eager assets are the bytes a reader downloads before a wiki page paints:
  *
- * - the static-import closure of the entry chunk plus the two dynamic roots
- *   every page view takes (`LiveStoreRoot`, the reader shell, and `WikiPage`,
+ * - the static-import closure of the entry chunk plus the dynamic roots
+ *   every reader view takes (`WikiViteRoot`, session bootstrap, `LiveStoreRoot`, the reader shell, and `WikiPage`,
  *   the default route), and
  * - the LiveStore workers, the SQLite wasm, and the single eager stylesheet,
  *   which load at boot outside the module graph.
@@ -55,6 +55,7 @@ const budgets: Budget[] = [
  */
 const eagerRootPatterns = [
   /^index-[\w-]+\.js$/,
+  /^WikiViteRoot-[\w-]+\.js$/,
   /^LiveStoreRoot-[\w-]+\.js$/,
   /^WikiPage-[\w-]+\.js$/,
 ];

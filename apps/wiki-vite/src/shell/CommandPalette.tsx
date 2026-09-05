@@ -7,11 +7,14 @@ import {
   FileTextIcon,
   ListIcon,
   MessageCircleIcon,
+  MonitorIcon,
+  MoonIcon,
   PaperclipIcon,
   PowerIcon,
   PowerOffIcon,
   RotateCcwIcon,
   SearchIcon,
+  SunIcon,
   TagIcon,
   XIcon,
   ZapIcon,
@@ -24,6 +27,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
@@ -36,6 +40,10 @@ import {
   WikiCommandList,
   WikiCommandPanel,
   WikiCommandSearch,
+  getWikiThemePreference,
+  setWikiThemePreference,
+  subscribeWikiSystemTheme,
+  subscribeWikiThemePreference,
 } from "@oncobase/wiki-shell";
 import {
   WikiFilePalette,
@@ -69,7 +77,7 @@ type ActionItem = {
   href?: string;
   icon: ReactNode;
   run?: () => void;
-  group: "Navigate" | "Source" | "Search" | "Downloads" | "Tools";
+  group: "Theme" | "Navigate" | "Source" | "Search" | "Downloads" | "Tools";
 };
 
 type DebugItem = {
@@ -113,6 +121,10 @@ export function CommandPalette({
   const location = useLocation();
   const currentSlug = slugFromPath(location.pathname);
   const returnTo = returnToHref(location.pathname, location.search, location.hash);
+  const themePreference = useSyncExternalStore(subscribeWikiThemePreference, getWikiThemePreference, () => null);
+  const systemDark = useSyncExternalStore(subscribeWikiSystemTheme,
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches, () => false);
+  const isDark = themePreference === "dark" || (themePreference === null && systemDark);
 
   useEffect(() => {
     if (!open) return;
@@ -165,6 +177,26 @@ export function CommandPalette({
 
   const actions = useMemo<ActionItem[]>(
     () => [
+      {
+        group: "Theme",
+        label: `Switch to ${isDark ? "Light" : "Dark"} theme`,
+        description: "Use an explicit appearance preference",
+        icon: isDark ? <SunIcon size={15} aria-hidden="true" /> : <MoonIcon size={15} aria-hidden="true" />,
+        run: () => {
+          setWikiThemePreference(isDark ? "light" : "dark");
+          onOpenChange(false);
+        },
+      },
+      {
+        group: "Theme",
+        label: "Use system theme",
+        description: "Follow the device appearance preference",
+        icon: <MonitorIcon size={15} aria-hidden="true" />,
+        run: () => {
+          setWikiThemePreference(null);
+          onOpenChange(false);
+        },
+      },
       {
         group: "Navigate",
         label: "Find files",
@@ -265,7 +297,7 @@ export function CommandPalette({
         },
       },
     ],
-    [currentSlug, relatedAssets, returnTo, scope],
+    [currentSlug, isDark, onOpenChange, relatedAssets, returnTo, scope],
   );
 
   const actionResults = useMemo(() => {

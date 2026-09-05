@@ -459,8 +459,6 @@ export function DicomCompareClient({
         viewport.render();
         setSideSliceIndex(side, clamped);
         setLoadingIndexes((current) => ({ ...current, [side]: null }));
-        const modules = modulesRef.current;
-        if (modules) prefetchNearbyImages(modules.core, stack.images, clamped);
       } catch (caught) {
         internalImageChangeRef.current[side] = null;
         if (loadingRequestIdsRef.current[side] !== requestId) return;
@@ -472,7 +470,7 @@ export function DicomCompareClient({
   );
 
   const handleStackNewImage = useCallback(
-    async (side: ComparisonSide, event: Event, core: CornerstoneCore) => {
+    async (side: ComparisonSide, event: Event) => {
       const detail = (event as CustomEvent<{ imageIdIndex: number }>).detail;
       if (typeof detail?.imageIdIndex !== "number") return;
       const index = detail.imageIdIndex;
@@ -481,8 +479,6 @@ export function DicomCompareClient({
       setSideSliceIndex(side, index);
 
       const resolved = activePairRef.current;
-      const stack = side === "left" ? resolved?.leftStack : resolved?.rightStack;
-      if (stack) prefetchNearbyImages(core, stack.images, index);
       if (
         internalImageChange ||
         !syncSlices ||
@@ -730,14 +726,12 @@ export function DicomCompareClient({
         setMatchInfo(initialMatch);
         setLoadingIndexes({ left: null, right: null });
         setLoadedPairId(resolvedActivePair.pair.id);
-        prefetchNearbyImages(modules.core, resolvedLeftStack.images, leftInitial);
-        prefetchNearbyImages(modules.core, resolvedRightStack.images, rightInitial);
 
         const leftListener = (event: Event) => {
-          void handleStackNewImage("left", event, modules.core);
+          void handleStackNewImage("left", event);
         };
         const rightListener = (event: Event) => {
-          void handleStackNewImage("right", event, modules.core);
+          void handleStackNewImage("right", event);
         };
         const viewportChangedListener = () => scheduleAnnotationCoordinateAdapters();
         currentLeftElement.addEventListener(core.Enums.Events.STACK_NEW_IMAGE, leftListener);
@@ -1559,32 +1553,6 @@ function waitForElementSize(element: HTMLElement) {
     };
     window.requestAnimationFrame(tick);
   });
-}
-
-function prefetchNearbyImages(
-  core: CornerstoneCore,
-  images: ViewerImage[],
-  currentIndex: number,
-) {
-  const candidateIndexes = [
-    currentIndex + 1,
-    currentIndex - 1,
-    currentIndex + 2,
-    currentIndex - 2,
-  ];
-
-  for (const index of candidateIndexes) {
-    const imageId = images[index]?.imageId;
-    if (!imageId) continue;
-    void core.imageLoader
-      .loadAndCacheImage(imageId, {
-        priority: 0,
-        requestType: "prefetch",
-      })
-      .catch(() => {
-        // Prefetch is opportunistic; active navigation surfaces real load errors.
-      });
-  }
 }
 
 function clampIndex(index: number, length: number) {

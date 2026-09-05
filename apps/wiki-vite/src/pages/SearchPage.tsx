@@ -833,6 +833,11 @@ export function SearchPage() {
     setAiResults([]);
     setAiError(null);
 
+    if (mode !== "ai") {
+      setAiStatus("idle");
+      return;
+    }
+
     if (normalized.length < 2) {
       setAiStatus(normalized ? "ready" : "idle");
       return;
@@ -886,7 +891,7 @@ export function SearchPage() {
     // Slugs come from the slower text-search path. AI mode should begin
     // immediately and not refetch when those candidates arrive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, scope]);
+  }, [mode, query, scope]);
 
   function onResultsKeyDown(event: KeyboardEvent<HTMLElement>) {
     const activeResults = mode === "ai" ? aiResults : textResults;

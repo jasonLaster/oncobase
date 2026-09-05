@@ -377,22 +377,19 @@ export function WikiMobileNavigationSheet({
         panelRef.current.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ),
-      );
+      ).filter((element) => element.getClientRects().length > 0);
       if (focusable.length === 0) {
         event.preventDefault();
         panelRef.current.focus();
         return;
       }
 
-      const first = focusable[0];
-      const last = focusable.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      // Safari may skip buttons on Tab. Own each step so focus cannot escape.
+      event.preventDefault();
+      const current = focusable.indexOf(document.activeElement as HTMLElement);
+      const next = current < 0 ? (event.shiftKey ? focusable.length - 1 : 0)
+        : (current + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length;
+      focusable[next].focus();
     };
 
     document.addEventListener("keydown", onDocumentKeyDown, { capture: true });
@@ -415,7 +412,10 @@ export function WikiMobileNavigationSheet({
             type="button"
             aria-expanded={open}
             aria-controls={sheetId}
-            onClick={() => onOpenChange(true)}
+            onClick={(event) => {
+              event.currentTarget.focus();
+              onOpenChange(true);
+            }}
           >
             <span>{title}</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">

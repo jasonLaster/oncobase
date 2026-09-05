@@ -68,7 +68,8 @@
 .wiki-markdown a {
   color: var(--brand, #2563eb);
   opacity: 1;
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .wiki-markdown a:hover {
@@ -547,8 +548,10 @@
   border-radius: 0.75rem;
   box-shadow: 0 24px 80px color-mix(in srgb, black 60%, transparent);
   cursor: default;
+  height: 100%;
   max-height: 100%;
   max-width: 100%;
   object-fit: contain;
   pointer-events: auto;
+  width: 100%;
 }

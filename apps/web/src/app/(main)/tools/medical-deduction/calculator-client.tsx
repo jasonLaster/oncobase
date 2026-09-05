@@ -602,7 +602,7 @@ function ComparisonTable({ r }: { r: CalcResult }) {
   const cell = "px-3 py-2 text-right tabular-nums";
   const head = "px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]";
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tax deduction comparison">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--border)]">
@@ -726,7 +726,7 @@ function Heatmap({ onSelect }: { onSelect: (agi: number, med: number) => void })
   }, []);
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tax savings sensitivity table">
       <table className="w-full text-sm tabular-nums">
         <thead>
           <tr>

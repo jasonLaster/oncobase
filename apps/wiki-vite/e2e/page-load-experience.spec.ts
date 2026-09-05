@@ -118,6 +118,10 @@ test.describe("Page load experience", () => {
     const navigationSheet = page.getByTestId("bottom-nav-sheet");
     await navigationTrigger.click();
     await expect(navigationSheet.getByRole("button", { name: "Close navigation" })).toBeFocused();
+    await expect(navigationSheet.locator(".wiki-shell-bottom-nav-backdrop")).toHaveCSS(
+      "backdrop-filter",
+      "blur(2px)",
+    );
     await expect(navigationSheet.locator(".wiki-shell-bottom-nav-panel")).toHaveCSS(
       "transform",
       "matrix(1, 0, 0, 1, 0, 0)",
@@ -170,7 +174,7 @@ test.describe("Page load experience", () => {
     await expect(documentArticle(page)).toContainText("Claims follow-up");
   });
 
-  test("cold route fetches the current page body before eager markdown", async ({ page }) => {
+  test("cold route fetches only the active body until cache warming is requested", async ({ page }) => {
     const requests = await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/logistics/insurance");
     await waitForPageTitle(page, "Insurance");
@@ -178,6 +182,15 @@ test.describe("Page load experience", () => {
     expect(requests.pages.length).toBeGreaterThan(0);
     const firstPageRequest = new URL(requests.pages[0]);
     expect(firstPageRequest.searchParams.get("slugs")).toBe("wiki/logistics/insurance");
+    const unrelatedBody = (request: { url(): string }) => {
+      const url = new URL(request.url());
+      return url.pathname === "/api/wiki/pages" && url.searchParams.get("slugs") !== "wiki/logistics/insurance";
+    };
+    await expect(page.waitForRequest(unrelatedBody, { timeout: 1500 })).rejects.toThrow(/Timeout/);
+    expect(requests.pages).toHaveLength(1);
+    const warmed = page.waitForRequest(unrelatedBody);
+    await page.evaluate(() => window.dispatchEvent(new Event("wiki-vite:warm-cache")));
+    await warmed;
   });
 
   test("unknown deep links render a not-found shell after manifest sync", async ({ page }) => {

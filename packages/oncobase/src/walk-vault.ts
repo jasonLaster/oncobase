@@ -22,6 +22,7 @@ const EXCLUDED_FILES = new Set(["CLAUDE.md"]);
 
 const PDF_EXTENSIONS = new Set([".pdf"]);
 const FILE_ASSET_EXTENSIONS = new Set([
+  ".avif",
   ".dcm",
   ".dicom",
   ".doc",
@@ -51,6 +52,7 @@ const FILE_ASSET_EXTENSIONS = new Set([
 const DOCUMENT_EXTENSIONS = new Set([".md", ".mdx"]);
 
 const CONTENT_TYPES: Record<string, string> = {
+  ".avif": "image/avif",
   ".pdf": "application/pdf",
   ".dcm": "application/dicom",
   ".dicom": "application/dicom",

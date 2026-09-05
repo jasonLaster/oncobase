@@ -435,12 +435,8 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         } else {
           store.commit(manifestToEvent(manifest, validatedAt));
         }
-        const { manifestBySlug, queue, queuedBytes } = buildEagerQueue(
-          currentSlugRef.current,
-          manifest,
-        );
         const activeSlug = currentSlugRef.current;
-        const activePage = manifestBySlug.get(activeSlug);
+        const activePage = manifest.pages.find((page) => page.slug === activeSlug);
         void fetchSlug(activeSlug, activePage).catch(() => undefined);
         const storage = await storageSnapshot();
         onMetrics({
@@ -457,17 +453,8 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         });
         scheduleRefresh(validation.partial ? MANIFEST_RETRY_MS : freshnessMs);
 
-        if (validation.partial) return;
-
-        if (shouldFetchInBackground()) {
-          onMetrics({
-            status: "ready",
-            message: `Queued ${queue.length} pages (${Math.round(queuedBytes / 1024)} KB)`,
-          });
-          scheduleEagerFetch({ queue, manifestBySlug, fetchSlug, onMetrics });
-        } else {
-          onMetrics({ status: "offline", message: "Background fetch paused" });
-        }
+        // Cache pages when visited. Bulk warming is an explicit user action;
+        // an arbitrary first 80 pages should not compete with the active route.
       } catch (error) {
         if (!cancelled) {
           if (scope === "session" && isAuthError(error)) {

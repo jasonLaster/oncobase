@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
-import { Route, Routes, useLocation } from "react-router";
+import { Route, Routes } from "react-router";
 import { publishMetrics } from "./observability";
 import {
   HeaderAuthDialogHost,
@@ -32,14 +32,6 @@ const initialMetrics: Metrics = {
 const WikiPage = lazy(() =>
   import("./pages/WikiPage").then((module) => ({ default: module.WikiPage })),
 );
-const LoginPage = lazy(() =>
-  import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })),
-);
-const TermsAndConditionsPage = lazy(() =>
-  import("./pages/TermsAndConditionsPage").then((module) => ({
-    default: module.TermsAndConditionsPage,
-  })),
-);
 const SearchPage = lazy(() =>
   import("./pages/SearchPage").then((module) => ({ default: module.SearchPage })),
 );
@@ -56,16 +48,6 @@ const TimelinePage = lazy(() =>
 const DiagnosticImagingPage = lazy(() =>
   import("./pages/DiagnosticImagingPage").then((module) => ({
     default: module.DiagnosticImagingPage,
-  })),
-);
-const DicomViewerPage = lazy(() =>
-  import("./pages/DicomViewerPage").then((module) => ({
-    default: module.DicomViewerPage,
-  })),
-);
-const DicomComparePage = lazy(() =>
-  import("./pages/DicomComparePage").then((module) => ({
-    default: module.DicomComparePage,
   })),
 );
 const ChatPage = lazy(() =>
@@ -114,10 +96,6 @@ export function App({
   storeId: string;
 }) {
   const scope = useWikiScope();
-  const { pathname } = useLocation();
-  const isImmersiveDicomRoute =
-    pathname.startsWith("/tools/dicom-viewer") ||
-    pathname.startsWith("/tools/dicom-compare");
   const [metrics, setMetrics] = useState<Metrics>(initialMetrics);
 
   useEffect(() => {
@@ -141,29 +119,10 @@ export function App({
     }));
   }, []);
 
-  if (pathname === "/login") {
-    return (
-      <Suspense fallback={<PageFallback />}>
-        <LoginPage />
-      </Suspense>
-    );
-  }
-
-  if (pathname === "/terms-and-conditions") {
-    return (
-      <Suspense fallback={<PageFallback />}>
-        <TermsAndConditionsPage />
-      </Suspense>
-    );
-  }
-
   return (
     <>
       <WikiSync onMetrics={bumpMetrics} />
-      <div
-        className="prototype-shell"
-        data-immersive-route={isImmersiveDicomRoute ? "dicom-viewer" : undefined}
-      >
+      <div className="prototype-shell">
         <SpecialRouteMetadata />
         <HeaderAuthDialogHost />
         <HeaderCommandPaletteHost />
@@ -171,13 +130,10 @@ export function App({
           <main className="content-shell">
             <Suspense fallback={<PageFallback />}>
               <Routes>
-                <Route path="/login" element={<LoginPage />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/table-examples" element={<TableExamplesPage />} />
                 <Route path="/diagnostics" element={<TimelinePage />} />
                 <Route path="/diagnostics/imaging" element={<DiagnosticImagingPage />} />
-                <Route path="/tools/dicom-viewer" element={<DicomViewerPage />} />
-                <Route path="/tools/dicom-compare" element={<DicomComparePage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/chat/:id" element={<ChatPage />} />
                 <Route path="/comments" element={<CommentsPage />} />

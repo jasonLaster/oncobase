@@ -29,6 +29,7 @@ const MIME_TYPES: Record<string, string> = {
   ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   ".rtf": "application/rtf",
   ".webp": "image/webp",
+  ".avif": "image/avif",
   ".svg":  "image/svg+xml",
   ".tar": "application/x-tar",
   ".tif": "image/tiff",

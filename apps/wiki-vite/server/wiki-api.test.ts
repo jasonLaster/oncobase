@@ -158,6 +158,13 @@ function createFakeConvexClient({
   ];
   const assets: FakeAsset[] = [
     {
+      path: "sources/public/image.avif",
+      blobUrl: "data:image/avif;base64,YXZpZg==",
+      ownerSlugs: [],
+      sizeBytes: 4,
+      sensitive: false,
+    },
+    {
       path: "sources/public/source.pdf",
       blobUrl: "https://blob.example/source.pdf",
       ownerSlugs: [],
@@ -374,6 +381,7 @@ function createFakeConvexClient({
           ];
         }
         case "dicom:listSeries":
+          expect(args.includeImages, "Catalog must not eagerly read every DICOM image").toBe(false);
           return [
             {
               _id: "series-1",
@@ -385,20 +393,8 @@ function createFakeConvexClient({
               seriesDescription: "PHASE 2 SUB",
               studyDate: "2026-06-26",
               seriesNumber: 101,
-              images: [
-                {
-                  _id: "image-1",
-                  fileName: "06-26-breast-mri-4013-MR.dcm",
-                  path: "06-26-breast-mri/dicoms/06-26-breast-mri-4013-MR.dcm",
-                  sizeBytes: 1024,
-                  uploadedAt: 0,
-                  instanceNumber: 1,
-                  imagePosition: [0, 0, -89.28],
-                  rows: 512,
-                  columns: 512,
-                  pixelSpacing: [0.7031, 0.7031],
-                },
-              ],
+              imageCount: 1,
+              images: [],
             },
           ];
         case "dicom:listSeriesImages":
@@ -467,6 +463,14 @@ function createFakeConvexClient({
 }
 
 describe("wiki Vite API auth and scoped archive behavior", () => {
+  test("serves published AVIF assets with their image MIME type", async () => {
+    const handler = createWikiApiHandler(createFakeConvexClient() as never);
+    const response = await handler(request("/api/file?path=sources/public/image.avif"));
+    expect(response?.status).toBe(200);
+    expect(response!.headers.get("content-type")).toBe("image/avif");
+    expect(await response!.text()).toBe("avif");
+  });
+
   test("gates every reader-facing content API with private responses", async () => {
     const handler = createWikiApiHandler(
       createFakeConvexClient({ passwordGate: true }) as never,
@@ -1382,19 +1386,13 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     }
   });
 
-  // The comparison viewer reads per-image geometry straight off this payload,
-  // so it has to carry the same fields the legacy /api/dicom/studies route emits.
-  test("serves the blob DICOM catalog with the legacy image geometry fields", async () => {
+  test("serves selected DICOM images with the shared geometry fields", async () => {
     const handler = createWikiApiHandler(createFakeConvexClient() as never);
-    const response = await handler(request("/api/dicom/studies"));
+    const response = await handler(request("/api/dicom/series?key=1.2.3"));
 
     expect(response?.status).toBe(200);
-    const catalog = (await response!.json()) as {
-      root: string;
-      series: Array<{ images: Array<Record<string, unknown>> }>;
-    };
-    expect(catalog.root).toBe("vercel-blob");
-    expect(Object.keys(catalog.series[0]!.images[0]!).sort()).toEqual([
+    const catalog = (await response!.json()) as { images: Array<Record<string, unknown>> };
+    expect(Object.keys(catalog.images[0]!).sort()).toEqual([
       "byteLength",
       "columns",
       "fileName",
@@ -1408,13 +1406,13 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       "rows",
       "sortIndex",
     ]);
-    expect(catalog.series[0]!.images[0]!.pixelSpacing).toEqual([0.7031, 0.7031]);
+    expect(catalog.images[0]!.pixelSpacing).toEqual([0.7031, 0.7031]);
   });
 
-  test("serves scoped DICOM summaries and lazily loads a selected series", async () => {
+  for (const query of ["", "?directory=06-26-breast-mri%2Fdicoms"]) test(`serves DICOM summaries (${query || "unfiltered"}) and lazily loads a selected series`, async () => {
     const handler = createWikiApiHandler(createFakeConvexClient() as never);
     const catalogResponse = await handler(
-      request("/api/dicom/studies?directory=06-26-breast-mri%2Fdicoms"),
+      request(`/api/dicom/studies${query}`),
     );
 
     expect(catalogResponse?.status).toBe(200);
@@ -1424,6 +1422,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(catalog.series).toHaveLength(1);
     expect(catalog.series[0]).toMatchObject({
       seriesKey: "1.2.3",
+      images: [],
     });
 
     const seriesResponse = await handler(

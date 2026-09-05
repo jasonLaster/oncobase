@@ -1,7 +1,7 @@
 import { DiagnosticsSidebar } from "@oncobase/diagnostics/dicom";
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Route, Routes } from "react-router";
+import { Route, Routes } from "react-router";
 import { ResizableAppShell } from "./shell/ResizableAppShell";
 import { SpecialRouteMetadata } from "./shell/SpecialRouteMetadata";
 
@@ -31,20 +31,18 @@ function PageFallback() {
  */
 export function ImmersiveDicomRoot() {
   return (
-    <BrowserRouter>
-      <div className="prototype-shell" data-immersive-route="dicom-viewer">
-        <SpecialRouteMetadata />
-        <ResizableAppShell sidebar={<DiagnosticsSidebar />}>
-          <main className="content-shell">
-            <Suspense fallback={<PageFallback />}>
-              <Routes>
-                <Route path="/tools/dicom-viewer" element={<DicomViewerPage />} />
-                <Route path="/tools/dicom-compare" element={<DicomComparePage />} />
-              </Routes>
-            </Suspense>
-          </main>
-        </ResizableAppShell>
-      </div>
-    </BrowserRouter>
+    <div className="prototype-shell" data-immersive-route="dicom-viewer">
+      <SpecialRouteMetadata />
+      <ResizableAppShell sidebar={<DiagnosticsSidebar />}>
+        <main className="content-shell">
+          <Suspense fallback={<PageFallback />}>
+            <Routes>
+              <Route path="/tools/dicom-viewer" element={<DicomViewerPage />} />
+              <Route path="/tools/dicom-compare" element={<DicomComparePage />} />
+            </Routes>
+          </Suspense>
+        </main>
+      </ResizableAppShell>
+    </div>
   );
 }

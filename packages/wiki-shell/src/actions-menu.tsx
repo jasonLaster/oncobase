@@ -241,6 +241,14 @@ export function WikiAuthDialog({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+    return () => previous?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -280,8 +288,25 @@ export function WikiAuthDialog({
       aria-describedby={descriptionId}
       aria-modal="true"
       className="wiki-shell-actions-dialog-backdrop"
+      ref={dialogRef}
       role="dialog"
       onMouseDown={onClose}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+        } else if (event.key === "Tab") {
+          const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+            'input:not(:disabled), button:not(:disabled), a[href], [tabindex="0"]',
+          )).filter((element) => element.getClientRects().length > 0);
+          event.preventDefault();
+          const current = controls.indexOf(document.activeElement as HTMLElement);
+          const next = current < 0 ? (event.shiftKey ? controls.length - 1 : 0)
+            : (current + (event.shiftKey ? -1 : 1) + controls.length) % controls.length;
+          controls[next]?.focus();
+        }
+      }}
     >
       <div className="wiki-shell-actions-dialog" onMouseDown={(event) => event.stopPropagation()}>
         <div className="wiki-shell-sr-only" id={titleId}>
@@ -462,7 +487,10 @@ export function WikiActionsMenu({
       "aria-haspopup": "menu",
       onClick: (event: MouseEvent) => {
         trigger.props.onClick?.(event);
-        if (!event.defaultPrevented) setOpen((value) => !value);
+        if (!event.defaultPrevented) {
+          (event.currentTarget as HTMLElement).focus();
+          setOpen((value) => !value);
+        }
       },
     })
   ) : (
@@ -473,7 +501,10 @@ export function WikiActionsMenu({
       className="wiki-shell-header-button wiki-shell-header-button-icon wiki-shell-actions-trigger"
       data-test-id="header-actions-menu"
       type="button"
-      onClick={() => setOpen((value) => !value)}
+      onClick={(event) => {
+        event.currentTarget.focus();
+        setOpen((value) => !value);
+      }}
     >
       <MenuIcon />
     </button>

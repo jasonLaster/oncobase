@@ -12,7 +12,7 @@ import {
   protectCurrencyFromMath,
 } from "./math.ts";
 import { expandSlidesMarkdown } from "./slides-markdown.ts";
-import { resolveWikilinks, sanitizeMarkdownUrl } from "./paths.ts";
+import { PROXIED_EXTENSIONS, resolveWikilinks, sanitizeMarkdownUrl } from "./paths.ts";
 
 const processor = unified()
   .use(remarkParse)
@@ -177,17 +177,6 @@ function fixMarkdownLinks(html: string, currentSlug?: string): string {
     return `href="${nextHref}"`;
   });
 }
-
-const PROXIED_EXTENSIONS = new Set([
-  ".jpg",
-  ".jpeg",
-  ".png",
-  ".gif",
-  ".webp",
-  ".svg",
-  ".csv",
-  ".pdf",
-]);
 
 function normalizePosixPath(value: string) {
   const output: string[] = [];

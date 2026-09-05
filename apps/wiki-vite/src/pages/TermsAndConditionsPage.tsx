@@ -31,7 +31,7 @@ export function TermsAndConditionsPage() {
       </header>
 
       <main className="mx-auto max-w-3xl px-6 py-12 sm:py-16">
-        <article className="prose max-w-none" data-test-id="terms-and-conditions">
+        <article className="wiki-markdown" data-test-id="terms-and-conditions">
           <h1>Terms and Conditions</h1>
           <p className="text-sm text-[var(--muted-foreground)]">
             Effective date: {effectiveDate}

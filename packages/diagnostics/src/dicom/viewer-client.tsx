@@ -550,7 +550,6 @@ export function DicomViewerClient({
         sliceIndexRef.current = detail.imageIdIndex;
         setSliceIndex(detail.imageIdIndex);
         setLoadingImageIndex(null);
-        prefetchNearbyImages(modules.core, currentStack.images, detail.imageIdIndex);
       }
     };
     const onViewportChanged = () => {
@@ -642,7 +641,6 @@ export function DicomViewerClient({
           initialImageIndexRef.current = null;
         }
         setIsInverted(false);
-        prefetchNearbyImages(modules.core, currentStack.images, initialIndex);
 
       } catch (caught) {
         if (cancelled) return;
@@ -725,8 +723,6 @@ export function DicomViewerClient({
         setLoadingImageIndex(null);
         viewport.render();
 
-        const modules = modulesRef.current;
-        if (modules) prefetchNearbyImages(modules.core, images, clamped);
         return imageId;
       } catch (caught) {
         if (imageRequestIdRef.current !== requestId) return;
@@ -1817,32 +1813,6 @@ function currentImageShareUrl(
     url.searchParams.delete("annotation");
   }
   return url.toString();
-}
-
-function prefetchNearbyImages(
-  core: CornerstoneCore,
-  images: ViewerImage[],
-  currentIndex: number,
-) {
-  const candidateIndexes = [
-    currentIndex + 1,
-    currentIndex - 1,
-    currentIndex + 2,
-    currentIndex - 2,
-  ];
-
-  for (const index of candidateIndexes) {
-    const imageId = images[index]?.imageId;
-    if (!imageId) continue;
-    void core.imageLoader
-      .loadAndCacheImage(imageId, {
-        priority: 0,
-        requestType: "prefetch",
-      })
-      .catch(() => {
-        // Prefetch is opportunistic; normal navigation still reports load errors.
-      });
-  }
 }
 
 function formatBytes(bytes: number) {

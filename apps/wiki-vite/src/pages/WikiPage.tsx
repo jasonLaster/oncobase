@@ -1,4 +1,5 @@
 import { useStore } from "@livestore/react";
+import { DocumentComments } from "@oncobase/wiki-comments/wrapper";
 import {
   MarkdownTitle,
   WikiMarkdown,
@@ -6,7 +7,6 @@ import {
   type WikiMarkdownNotificationAdapter,
 } from "@oncobase/wiki-markdown";
 import {
-  DocumentOutlineShell,
   openWikiAuthDialog,
   WikiBreadcrumbs,
   WikiPageActionButton,
@@ -79,11 +79,6 @@ const MERMAID_FENCE_PATTERN = /^\s*```mermaid\s*$/m;
 const LazyMermaidRenderer = lazy(() =>
   import("@oncobase/wiki-markdown/mermaid").then((module) => ({
     default: module.WikiMermaidRenderer,
-  })),
-);
-const LazyDocumentComments = lazy(() =>
-  import("@oncobase/wiki-comments/wrapper").then((module) => ({
-    default: module.DocumentComments,
   })),
 );
 
@@ -521,22 +516,8 @@ export function WikiPage({
     </>
   );
 
-  const commentsFallback = (
-    <DocumentOutlineShell
-      articleClassName="page-shell"
-      contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
-      documentSlug={page.slug}
-      documentTitle={displayTitle}
-      mobileRail={false}
-      pathname={location.pathname}
-    >
-      {pageBody}
-    </DocumentOutlineShell>
-  );
-
   return (
-    <Suspense fallback={commentsFallback}>
-      <LazyDocumentComments
+      <DocumentComments
         articleClassName="page-shell"
         contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
         documentSlug={page.slug}
@@ -546,7 +527,6 @@ export function WikiPage({
         pathname={location.pathname}
       >
         {pageBody}
-      </LazyDocumentComments>
-    </Suspense>
+      </DocumentComments>
   );
 }

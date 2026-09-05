@@ -200,13 +200,11 @@ test.describe("Prose table expansion", () => {
     const handle = firstSmartTableShell(page).getByLabel("Resize column 1").first();
     await handle.waitFor({ state: "attached" });
 
-    const initial = await handle.evaluate((element) => {
-      const style = window.getComputedStyle(element);
-      return { opacity: style.opacity, backgroundImage: style.backgroundImage };
-    });
-
-    expect(Number.parseFloat(initial.opacity || "0")).toBe(0);
-    expect(initial.backgroundImage === "none" || initial.backgroundImage === "").toBeTruthy();
+    // The handle can attach before its opacity transition settles. Assert the
+    // non-hovered end state, not a single frame midway through that transition.
+    await page.mouse.move(0, 0);
+    await expect(handle).toHaveCSS("opacity", "0");
+    await expect(handle).toHaveCSS("background-image", "none");
 
     await dragFirstResizeHandle(page, 520);
 

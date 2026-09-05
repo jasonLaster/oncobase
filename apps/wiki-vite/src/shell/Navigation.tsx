@@ -1,5 +1,4 @@
 import { useStore } from "@livestore/react";
-import { DiagnosticsSidebar } from "@oncobase/diagnostics/dicom/sidebar";
 import {
   expandCompactFileTree,
   transformFileTreeForSidebar,
@@ -226,13 +225,6 @@ function navigationActiveSlug(pathname: string) {
   return pathname === "/" ? "" : slugFromPath(pathname);
 }
 
-function usesDiagnosticsSidebar(pathname: string) {
-  return (
-    pathname.startsWith("/tools/dicom-viewer") ||
-    pathname.startsWith("/tools/dicom-compare")
-  );
-}
-
 function lastPathSegment(slug: string) {
   return slug.split("/").filter(Boolean).at(-1) ?? slug;
 }
@@ -281,10 +273,7 @@ function DiagnosticsTreeLink({
   onNavigate?: () => void;
   testId?: string;
 }) {
-  const active =
-    activePathname.startsWith("/diagnostics") ||
-    activePathname.startsWith("/tools/dicom-viewer") ||
-    activePathname.startsWith("/tools/dicom-compare");
+  const active = activePathname.startsWith("/diagnostics");
   return (
     <Link
       aria-current={active ? "page" : undefined}
@@ -394,9 +383,6 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
 
 export function Sidebar() {
   const { pathname } = useLocation();
-  if (usesDiagnosticsSidebar(pathname)) {
-    return <DiagnosticsSidebar />;
-  }
   if (pathname.startsWith("/chat")) {
     return (
       <ChatProviders>
@@ -475,7 +461,7 @@ function CommentsTreeLink({
 function pageTitleFromPath(pathname: string) {
   if (pathname === "/") return "Home";
   if (pathname.startsWith("/search")) return "Search";
-  if (usesDiagnosticsSidebar(pathname) || pathname.startsWith("/diagnostics")) {
+  if (pathname.startsWith("/diagnostics")) {
     return "Diagnostics";
   }
   const slug = slugFromPath(pathname);
@@ -539,14 +525,6 @@ function usePageLinkRenderer() {
 }
 
 export function MobileNav() {
-  const { pathname } = useLocation();
-  if (usesDiagnosticsSidebar(pathname)) {
-    return null;
-  }
-  return <WikiMobileNav />;
-}
-
-function WikiMobileNav() {
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const renderPageLink = usePageLinkRenderer();
@@ -801,7 +779,12 @@ function MobilePageHeader({
         aria-label="Open page navigation"
         title="Open page navigation"
         data-test-id="bottom-nav-trigger"
-        onClick={onOpenNavigation}
+        onClick={(event) => {
+          // WebKit pointer activation does not focus buttons automatically.
+          // Give the sheet a concrete focus target to restore on dismissal.
+          event.currentTarget.focus();
+          onOpenNavigation();
+        }}
       >
         <svg
           width="17"

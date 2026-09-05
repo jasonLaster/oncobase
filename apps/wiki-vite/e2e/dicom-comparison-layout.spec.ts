@@ -51,6 +51,12 @@ for (const viewport of [
       expect(size?.height).toBeGreaterThanOrEqual(200);
     }
 
+    for (const label of ["W/L", "Pan", "Zoom"]) {
+      const text = page.getByRole("button", { name: label, exact: true }).getByText(label, { exact: true });
+      await expect(text).toHaveCSS("position", viewport.width >= 640 ? "static" : "absolute");
+      if (viewport.width >= 640) expect((await text.boundingBox())!.width).toBeGreaterThan(10);
+    }
+
     if (!process.env.CI) {
       await testInfo.attach("loaded-comparison", {
         body: await page.screenshot(),

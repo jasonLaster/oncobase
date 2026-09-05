@@ -1,0 +1,213 @@
+import {
+  createWikiContentClient,
+  type WikiScope,
+  type WikiSessionIdentity,
+} from "@oncobase/wiki-content";
+import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
+import { createElement, lazy, Suspense, useEffect, useState } from "react";
+import { persistPublicIdentity, resolvePublicIdentityFallback } from "./public-identity";
+
+function readScope(): WikiScope {
+  const url = new URL(window.location.href);
+  const urlScope = url.searchParams.get("scope");
+  if (urlScope === "session" || urlScope === "public") {
+    window.localStorage.setItem("wiki-vite-scope", urlScope);
+    return urlScope;
+  }
+  return window.localStorage.getItem("wiki-vite-scope") === "session"
+    ? "session"
+    : "public";
+}
+
+const LiveStoreRoot = lazy(() =>
+  import("./livestore/LiveStoreRoot").then((module) => ({
+    default: module.LiveStoreRoot,
+  })),
+);
+type BootstrapState =
+  | { status: "loading"; scope: WikiScope }
+  | { status: "ready"; scope: WikiScope; identity: WikiSessionIdentity }
+  | { status: "error"; scope: WikiScope; message: string };
+
+function backendHref(path: string) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const origin =
+    import.meta.env.VITE_WIKI_APP_ORIGIN ?? import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
+  return origin ? `${origin.replace(/\/+$/, "")}${normalizedPath}` : normalizedPath;
+}
+
+function currentReturnTo() {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+function apiBaseUrl() {
+  return import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
+}
+
+function publicIdentityPartition() {
+  const apiOrigin = new URL(
+    apiBaseUrl() || window.location.origin,
+    window.location.origin,
+  ).origin;
+  return `${window.location.origin}|${apiOrigin}`;
+}
+
+function publicIdentityFallback(scope: WikiScope) {
+  if (scope !== "public") return null;
+  try {
+    return resolvePublicIdentityFallback({
+      storage: window.localStorage,
+      partition: publicIdentityPartition(),
+      configuredSiteSlug: import.meta.env.VITE_WIKI_SITE_SLUG,
+    });
+  } catch {
+    return null;
+  }
+}
+
+function switchToPublicScope() {
+  window.localStorage.setItem("wiki-vite-scope", "public");
+  const url = new URL(window.location.href);
+  url.searchParams.set("scope", "public");
+  window.location.assign(`${url.pathname}${url.search}${url.hash}`);
+}
+
+function SessionRecovery({ message }: { message: string }) {
+  return createElement(
+    "main",
+    {
+      className: "app-loading app-auth-shell",
+      "data-test-id": "session-recovery",
+    },
+    createElement("section", null, [
+      createElement("h1", { key: "title" }, "Session access needed"),
+      createElement(
+        "p",
+        { key: "body" },
+        "This reader keeps public and session caches separate. Sign in through the main app to use the session store, or continue with the public cache.",
+      ),
+      createElement("p", { key: "error", className: "auth-error" }, message),
+      createElement("div", { key: "actions", className: "auth-actions" }, [
+        createElement(
+          "button",
+          {
+            key: "public",
+            type: "button",
+            onClick: switchToPublicScope,
+          },
+          "Continue public",
+        ),
+        createElement(
+          "a",
+          {
+            key: "login",
+            href: backendHref(`/login?redirect=${encodeURIComponent(currentReturnTo())}`),
+          },
+          "Open sign in",
+        ),
+      ]),
+    ]),
+  );
+}
+
+export function WikiViteRoot() {
+  const [state, setState] = useState<BootstrapState>(() => {
+    const scope = readScope();
+    const fallback = publicIdentityFallback(scope);
+    return fallback
+      ? { status: "ready", scope, identity: fallback }
+      : { status: "loading", scope };
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    const scope = readScope();
+    const fallback = publicIdentityFallback(scope);
+    if (!fallback) setState({ status: "loading", scope });
+    const baseUrl = apiBaseUrl();
+    const client = createWikiContentClient({
+      scope,
+      baseUrl,
+      credentials: baseUrl ? "include" : "same-origin",
+      requestTimeoutMs: 30_000,
+    });
+
+    void client.fetchSessionIdentity()
+      .then((identity) => {
+        if (!cancelled) {
+          if (scope === "public") {
+            try {
+              persistPublicIdentity(
+                window.localStorage,
+                publicIdentityPartition(),
+                identity,
+              );
+            } catch {
+              // localStorage can be disabled independently of OPFS.
+            }
+          }
+          setState({ status: "ready", scope, identity });
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          if (scope === "public" && fallback) {
+            setState({ status: "ready", scope, identity: fallback });
+            return;
+          }
+          setState({
+            status: "error",
+            scope,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (state.status === "loading") {
+    return createElement(WikiPageLoading, {
+      "data-test-id": "page-loading",
+      includeTags: true,
+      label: "Loading page",
+    });
+  }
+
+  if (state.status === "error") {
+    if (state.scope === "session") {
+      return createElement(SessionRecovery, { message: state.message });
+    }
+
+    return createElement(
+      "main",
+      { className: "app-loading app-auth-shell", "data-test-id": "session-recovery" },
+      createElement("section", null, [
+        createElement("h1", { key: "title" }, "Wiki session failed"),
+        createElement(
+          "p",
+          { key: "body" },
+          "The reader could not verify the current wiki session.",
+        ),
+        createElement("p", { key: "error", className: "auth-error" }, state.message),
+      ]),
+    );
+  }
+
+  return createElement(
+    Suspense,
+    {
+      fallback: createElement(
+        WikiPageLoading,
+        {
+          "data-test-id": "page-loading",
+          includeTags: true,
+          label: "Loading page",
+        },
+      ),
+    },
+    createElement(LiveStoreRoot, { identity: state.identity, scope: state.scope }),
+  );
+}

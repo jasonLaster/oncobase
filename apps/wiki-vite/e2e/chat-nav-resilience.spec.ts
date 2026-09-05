@@ -179,17 +179,21 @@ test.describe("P0 chat navigation resilience", () => {
     try {
       await ensurePasswordGateSession(page);
       await page.goto("/chat", { waitUntil: "domcontentloaded" });
+      const chatRequest = page.waitForRequest((request) =>
+        new URL(request.url()).pathname === "/api/chat" && request.method() === "POST",
+      );
       const chat = await submitPrompt(
         page,
         "Reply with exactly: navigation-resilience-ok",
       );
       conversationId = await currentConversationId(chat);
+      await chatRequest;
 
       await page.goto("/chat/archived", { waitUntil: "domcontentloaded" });
       await expect(page.getByTestId("chat-archived-page")).toBeVisible();
 
       await page.goto(`/chat/${conversationId}`, { waitUntil: "domcontentloaded" });
-      await expect(page.getByTestId("chat-message-log")).toContainText(
+      await expect(page.getByTestId("chat-assistant-message").last()).toContainText(
         /navigation-resilience-ok/i,
         { timeout: 60_000 },
       );
@@ -205,11 +209,17 @@ test.describe("P0 chat navigation resilience", () => {
     try {
       await ensurePasswordGateSession(page);
       await page.goto("/chat", { waitUntil: "domcontentloaded" });
+      // A conversation id is assigned during preparation, before the user row
+      // is saved. This story must reload during generation, not before send.
+      const chatRequest = page.waitForRequest((request) =>
+        new URL(request.url()).pathname === "/api/chat" && request.method() === "POST",
+      );
       const chat = await submitPrompt(
         page,
         "Reply with exactly: refresh-resilience-ok",
       );
       conversationId = await currentConversationId(chat);
+      await chatRequest;
 
       await page.reload({ waitUntil: "domcontentloaded" });
 
@@ -218,7 +228,8 @@ test.describe("P0 chat navigation resilience", () => {
         "data-chat-conversation-id",
         conversationId,
       );
-      await expect(page.getByTestId("chat-message-log")).toContainText(
+      // Matching the whole log can pass on the user's prompt alone.
+      await expect(page.getByTestId("chat-assistant-message").last()).toContainText(
         /refresh-resilience-ok/i,
         { timeout: 60_000 },
       );

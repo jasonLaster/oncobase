@@ -19,6 +19,7 @@ html[data-wiki-first-frame="true"] #root {
 @source "../../../packages/diagnostics/src";
 @source "../../../packages/wiki-markdown/src";
 @source "../../../packages/wiki-shell/src";
+@source "../../web/src/app/(main)/tools/medical-deduction/calculator-client.tsx";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -60,6 +61,8 @@ html[data-wiki-first-frame="true"] #root {
   font-family: ui-sans-serif, system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background: var(--background);
   color: var(--foreground);
 }
@@ -335,18 +338,6 @@ html[data-wiki-first-frame="true"] #root {
 .admin-modal button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-}
-
-.sr-only {
-  clip: rect(0, 0, 0, 0);
-  border: 0;
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  padding: 0;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
 }
 
 .pii-view-content {
@@ -1305,7 +1296,7 @@ a {
   color: var(--red);
 }
 
-@media (max-width: 860px) {
+@media (max-width: 767px) {
   .prototype-shell {
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
@@ -1585,6 +1576,10 @@ a {
     overflow: hidden;
     padding-bottom: 0;
     padding-top: 0;
+  }
+
+  .prototype-shell[data-immersive-route="dicom-viewer"] .app-content {
+    padding-bottom: 0;
   }
 }
 

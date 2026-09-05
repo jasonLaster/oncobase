@@ -39,20 +39,15 @@ export async function clearLocalWikiData(): Promise<void> {
         keys: () => AsyncIterableIterator<string>;
       };
       for await (const name of handle.keys()) {
-        await directory.removeEntry(name, { recursive: true }).catch(() => {});
+        // The reader owns these versioned LiveStore directories, not every
+        // database on the origin (which may also host the previous app).
+        if (/^livestore-wiki-vite-.+@\d+$/.test(name)) {
+          await directory.removeEntry(name, { recursive: true }).catch(() => {});
+        }
       }
     }
   } catch {
     // OPFS may be unavailable; fall through to the other stores.
-  }
-
-  try {
-    const databases = (await indexedDB.databases?.()) ?? [];
-    for (const database of databases) {
-      if (database.name) indexedDB.deleteDatabase(database.name);
-    }
-  } catch {
-    // Best effort: deleting IndexedDB is not supported everywhere.
   }
 
   try {

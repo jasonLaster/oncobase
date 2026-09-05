@@ -13,7 +13,6 @@ import {
   useState,
 } from "react";
 import { unstable_batchedUpdates as batchUpdates } from "react-dom";
-import { BrowserRouter } from "react-router";
 import { App } from "../App";
 import { CanonicalRouteBoundary } from "../CanonicalRouteBoundary";
 import { WikiScopeProvider, WikiSessionProvider } from "../wiki-context";
@@ -173,17 +172,15 @@ export function LiveStoreRoot({
       >
         <WikiSessionProvider identity={identity}>
           <WikiScopeProvider scope={scope}>
-            <BrowserRouter>
-              <SessionCacheRetirement identity={identity} scope={scope} />
-              <FirstFrameSnapshotSync identity={identity} scope={scope} />
-              <CanonicalRouteBoundary>
-                <App
-                  devtoolsFooterVisible={devtoolsFooterVisible}
-                  liveStoreDevtoolsEnabled={liveStoreDevtoolsEnabled}
-                  storeId={storeId}
-                />
-              </CanonicalRouteBoundary>
-            </BrowserRouter>
+            <SessionCacheRetirement identity={identity} scope={scope} />
+            <FirstFrameSnapshotSync identity={identity} scope={scope} />
+            <CanonicalRouteBoundary>
+              <App
+                devtoolsFooterVisible={devtoolsFooterVisible}
+                liveStoreDevtoolsEnabled={liveStoreDevtoolsEnabled}
+                storeId={storeId}
+              />
+            </CanonicalRouteBoundary>
           </WikiScopeProvider>
         </WikiSessionProvider>
       </LiveStoreProvider>

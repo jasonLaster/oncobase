@@ -232,6 +232,9 @@ export function enhanceSmartTableElement(
   }
 
   wrapper.setAttribute("data-smart-table-wrapper", "");
+  // A horizontal scroll region must remain reachable without a mouse/touch
+  // device, including when expansion controls are hidden on narrow screens.
+  wrapper.tabIndex = 0;
   applySmartTableClasses(table);
 
   const layoutCleanup = installSmartTableLayout(table, wrapper, {

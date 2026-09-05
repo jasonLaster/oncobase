@@ -63,6 +63,30 @@ test.describe("Medical expense deduction calculator", () => {
     await expect(medical).toHaveValue("2,000,000");
   });
 
+  for (const width of [1440, 393]) {
+    test(`preserves calculator typography and responsive layout at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 1000 });
+      const heading = page.getByRole("heading", { name: "Medical Expense Deduction Calculator", exact: true });
+      const summary = page.getByTestId("medical-deduction-summary");
+      await expect(heading).toHaveCSS("font-size", "30px");
+      await expect(summary.getByText("$33,985", { exact: true })).toHaveCSS("font-size", "48px");
+      const bounds = await summary.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.width).toBe(width === 1440 ? 992 : 361);
+      const content = (await page.locator(".content-shell").boundingBox())!;
+      expect(Math.abs(bounds!.x + bounds!.width / 2 - (content.x + content.width / 2))).toBeLessThan(1);
+      const inputs = page.getByRole("textbox");
+      const agi = (await inputs.filter({ visible: true }).nth(0).boundingBox())!;
+      const medical = (await inputs.filter({ visible: true }).nth(1).boundingBox())!;
+      if (width === 1440) {
+        expect(agi.y).toBe(medical.y);
+        expect(medical.x).toBeGreaterThanOrEqual(agi.x + agi.width + 16);
+      } else {
+        expect(medical.y).toBeGreaterThanOrEqual(agi.y + agi.height + 16);
+      }
+    });
+  }
+
   test("supports named sliders, keyboard grid selection, and multi-year planning", async ({
     page,
   }) => {

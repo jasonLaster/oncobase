@@ -119,7 +119,7 @@ mock.module("@/lib/site-data", () => ({
       }) => {
         if (assetLookupFails) throw new Error("asset metadata unavailable");
         if (path === "deleted/scan.png") return null;
-        if (path === "public/fallback.png") {
+        if (path === "public/fallback.png" || path === "public/image.avif") {
           return {
             blobUrl: "https://assets.example/stale-primary-file",
             ownerSlugs: ["public/fallback"],
@@ -210,6 +210,13 @@ describe("file route sensitive authorization", () => {
           : { "Content-Length": "7" },
       });
     }) as unknown as typeof fetch;
+  });
+
+  test("serves published AVIF assets with their image MIME type", async () => {
+    gateAuthenticated = true;
+    const response = await GET(request("public/image.avif"));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/avif");
   });
 
   test("rejects a known sensitive asset for a valid password-gate session", async () => {

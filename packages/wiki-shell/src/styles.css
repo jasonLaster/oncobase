@@ -2048,11 +2048,6 @@ html[data-initial-sidebar-state="collapsed"]
 @media (min-width: 768px) {
   .wiki-shell-outline-content {
     padding: 2rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .wiki-shell-outline-content {
     padding-right: var(--comments-pane-width, 24rem);
   }
 
@@ -2136,7 +2131,7 @@ html[data-initial-sidebar-state="collapsed"]
   }
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   .wiki-shell-outline-content {
     padding-bottom: calc(
       var(--comments-mobile-rail-height, 3.5rem) + 3rem +
@@ -2145,7 +2140,7 @@ html[data-initial-sidebar-state="collapsed"]
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 767px) {
   .wiki-shell-file-palette .wiki-shell-command-list {
     max-height: min(60dvh, 31.65625rem);
   }
@@ -2201,7 +2196,8 @@ html[data-initial-sidebar-state="collapsed"]
   }
 
   .wiki-shell-bottom-nav-backdrop {
-    background: rgb(0 0 0 / 0.48);
+    backdrop-filter: blur(2px);
+    background: rgb(0 0 0 / 0.5);
     border: 0;
     inset: 0;
     position: absolute;

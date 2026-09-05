@@ -3,13 +3,14 @@
 import {
   Children,
   isValidElement,
+  useMemo,
   type AnchorHTMLAttributes,
   type ComponentProps,
   type ComponentType,
   type ReactElement,
   type ReactNode,
 } from "react";
-import ReactMarkdown, { type UrlTransform } from "react-markdown";
+import ReactMarkdown, { type Components, type UrlTransform } from "react-markdown";
 import {
   MdTable,
   MdTbody,
@@ -233,13 +234,9 @@ export function WikiMarkdown({
     ),
   );
 
-  return (
-    <WikiMarkdownFrame className={className}>
-      <ReactMarkdown
-        remarkPlugins={markdownRemarkPlugins}
-        rehypePlugins={markdownRehypePlugins}
-        urlTransform={wikiUrlTransform}
-        components={{
+  // These functions are React component types. Recreating them on a metrics
+  // update remounts images/tables and discards an open preview or local state.
+  const components = useMemo<Components>(() => ({
           pre: MarkdownPreCell,
           a: ({
             href,
@@ -301,7 +298,15 @@ export function WikiMarkdown({
               apiBasePath={apiBasePath}
             />
           )),
-        }}
+        }), [currentSlug, apiBasePath, resolveLinkHref, isInternalHref, LinkComponent, tableLayoutAdapter, ImageComponent]);
+
+  return (
+    <WikiMarkdownFrame className={className}>
+      <ReactMarkdown
+        remarkPlugins={markdownRemarkPlugins}
+        rehypePlugins={markdownRehypePlugins}
+        urlTransform={wikiUrlTransform}
+        components={components}
       >
         {prepared}
       </ReactMarkdown>
