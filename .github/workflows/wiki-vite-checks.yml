@@ -196,6 +196,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: preview-url
+    env:
+      # Use Firefox's normal window lifecycle on an isolated virtual display.
+      # Its Linux headless page fixture intermittently hangs before navigation.
+      PLAYWRIGHT_HEADED: ${{ matrix.browser == 'firefox' && '1' || '0' }}
     strategy:
       fail-fast: false
       matrix:
@@ -216,7 +220,7 @@ jobs:
           PLAYWRIGHT_BASE_URL: ${{ needs.preview-url.outputs.url }}
           WIKI_VITE_PREVIEW_LOGIN_PASSWORD: diana
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-        run: bun run test:e2e e2e/browser-preflight.spec.ts --reporter=line
+        run: xvfb-run -a bun run test:e2e e2e/browser-preflight.spec.ts --reporter=line
       - name: Exercise reader, anchors, accessibility, tools, and denied storage
         working-directory: apps/wiki-vite
         env:
@@ -226,7 +230,7 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           TEST_ENV: prod
           PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/results.json
-        run: bun run test:e2e e2e/accessibility.spec.ts e2e/markdown-heading-anchors.spec.ts e2e/medical-deduction.spec.ts e2e/page-chrome.spec.ts e2e/storage-availability.spec.ts --reporter=json > playwright-runner.log 2>&1
+        run: xvfb-run -a bun run test:e2e e2e/accessibility.spec.ts e2e/markdown-heading-anchors.spec.ts e2e/medical-deduction.spec.ts e2e/page-chrome.spec.ts e2e/storage-availability.spec.ts --reporter=json > playwright-runner.log 2>&1
       - name: Publish content-free test outcomes
         if: always()
         working-directory: apps/wiki-vite

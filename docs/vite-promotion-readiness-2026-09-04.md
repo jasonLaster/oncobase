@@ -182,3 +182,13 @@ error categories, known test-source locations and allowlisted reader-state
 presence flags. It still excludes page text, arbitrary errors, cookies and raw
 annotations. The readiness verdict remains conditional on final hosted results;
 the private release index preserves the initial failures and operational caveat.
+
+On `84697b02`, all four Chromium shards passed on the first attempt; Firefox's
+remaining failures timed out in `beforeEach` setup rather than route assertions.
+Reader-state diagnostics could not acquire the failed page. The Linux Firefox
+smoke now uses its normal window lifecycle under an isolated virtual display,
+following [Playwright's headed-CI setup](https://playwright.dev/docs/ci#running-headed),
+without changing timeouts or dropping assertions. A separate ten-context blank
+browser control distinguishes browser setup from application boot, and failure
+diagnostics no longer request a new page fixture or wait indefinitely during
+teardown. This is a runner-lifecycle mitigation, not a claimed app rendering fix.

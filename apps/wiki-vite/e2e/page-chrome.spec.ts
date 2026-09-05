@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { documentArticle, gotoWiki, installWikiApiMocks } from "./fixtures";
 import { passwordGateCookie } from "./gate-auth";
-import { recordReaderHealth } from "./browser-health";
+import { recordReaderHealth, trackReaderHealth } from "./browser-health";
 
 test.describe("Page chrome parity", () => {
-  test.afterEach(async ({ page }, info) => recordReaderHealth(page, info));
-  test.beforeEach(async ({ page }) => {
+  test.afterEach(async ({}, info) => recordReaderHealth(info));
+  test.beforeEach(async ({ page }, info) => {
+    trackReaderHealth(page, info);
     await installWikiApiMocks(page);
   });
 

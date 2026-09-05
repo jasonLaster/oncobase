@@ -55,6 +55,7 @@ export default defineConfig({
   webServer,
   use: {
     baseURL,
+    headless: process.env.PLAYWRIGHT_HEADED !== "1",
     extraHTTPHeaders,
     storageState: previewAuthState,
     permissions: browser === "chromium" ? ["clipboard-read", "clipboard-write"] : [],

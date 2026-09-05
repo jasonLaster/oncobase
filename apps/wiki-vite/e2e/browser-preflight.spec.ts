@@ -40,3 +40,15 @@ test("synthetic reader boots in the selected browser", async ({ page }) => {
   await installWikiApiMocks(page);
   await withStartupDiagnostics(page, () => gotoWiki(page, "/wiki/logistics/insurance"));
 });
+
+test("blank browser contexts repeatedly open and close without app code", async ({ browser }) => {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    try {
+      const page = await context.newPage();
+      await expect(page).toHaveURL("about:blank");
+    } finally {
+      await context.close();
+    }
+  }
+});
