@@ -54,3 +54,12 @@ test("failure diagnostics expose known locations and timing but no private messa
   expect(JSON.stringify(result)).not.toContain("secret");
   expect(safeFailureDetails({ status: "passed" }, "page-chrome.spec.ts")).toBeUndefined();
 });
+
+test("navigation failure categories never include target URLs or cookie payloads", () => {
+  const result = safeFailureDetails({ status: "failed", error: {
+    message: "page.goto: Navigation to https://private.invalid/PRIVATE_TEST_PAYLOAD is interrupted by another navigation; Cookie: PRIVATE_TEST_PAYLOAD",
+  } }, "storage-availability.spec.ts");
+  expect(result?.categories).toEqual(["page.goto", "interrupted by another navigation"]);
+  expect(JSON.stringify(result)).not.toContain("PRIVATE_TEST_PAYLOAD");
+  expect(JSON.stringify(result)).not.toContain("private.invalid");
+});

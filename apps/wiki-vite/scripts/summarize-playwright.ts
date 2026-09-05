@@ -23,7 +23,7 @@ export function safeFailureDetails(result: Result, file: string) {
     durationMs: Number.isFinite(result.duration) ? result.duration : undefined,
     startTime: typeof result.startTime === "string" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(result.startTime) ? result.startTime : undefined,
     locations: [...locations],
-    categories: ["NS_BINDING_ABORTED", "ETIMEDOUT", "page.goto", "waitForRequest", "toBeVisible", "toHaveCount", "toHaveURL", "Test timeout", "TimeoutError"].filter((token) => messages.includes(token)),
+    categories: ["NS_BINDING_ABORTED", "ETIMEDOUT", "page.goto", "waitForRequest", "toBeVisible", "toHaveCount", "toHaveURL", "Test timeout", "TimeoutError", "interrupted by another navigation", "Target page, context or browser has been closed", "Page crashed", "Navigation interrupted", "Internal error", "ERR_ABORTED", "Could not connect to the server"].filter((token) => messages.includes(token)),
   };
 }
 

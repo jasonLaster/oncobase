@@ -35,6 +35,7 @@ type MockSearchOptions = {
   body?: Record<string, unknown> | string;
   contentType?: string;
   status?: number;
+  responseGate?: Promise<void>;
 };
 
 async function mockTextSearch(
@@ -52,12 +53,14 @@ async function mockTextSearch(
     },
     contentType = "application/json",
     status = 200,
+    responseGate,
   }: MockSearchOptions = {},
 ) {
   const requests: Request[] = [];
 
-  await page.route("**/api/search?**", (route) => {
+  await page.route("**/api/search?**", async (route) => {
     requests.push(route.request());
+    await responseGate;
     return route.fulfill({
       body: typeof body === "string" ? body : JSON.stringify(body),
       contentType,
@@ -371,21 +374,33 @@ test.describe("Search and local page finding", () => {
   });
 
   test("AI mode shows ranked results", async ({ page }) => {
-    await mockTextSearch(page);
+    let releaseTextResponse!: () => void;
+    const responseGate = new Promise<void>((resolve) => { releaseTextResponse = resolve; });
+    await mockTextSearch(page, { responseGate });
     const aiSearch = await mockAISearch(page);
     await installWikiApiMocks(page);
-    await page.goto(`/search?q=${encodeURIComponent(AI_RESULTS_QUERY)}`, {
-      waitUntil: "domcontentloaded",
-    });
-
-    await aiSearch.waitForRequest();
-    await expect(page.getByTestId("search-ai-summary")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId("search-ai-result").first()).toContainText("9/10");
-    await expect(page.getByText("Diagnosis Overview").first()).toBeVisible();
-    await expect(page.getByText("7/10").first()).toBeVisible();
-    await expect
-      .poll(() => page.evaluate(() => window.__WIKI_VITE_OBSERVABILITY__?.search.at(-1)?.mode))
-      .toBe("ai");
+    try {
+      await page.goto(`/search?q=${encodeURIComponent(AI_RESULTS_QUERY)}`, {
+        waitUntil: "domcontentloaded",
+      });
+      await aiSearch.waitForRequest();
+      await expect(page.getByTestId("search-ai-summary")).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByTestId("search-ai-result").first()).toContainText("9/10");
+      await expect(page.getByText("Diagnosis Overview").first()).toBeVisible();
+      await expect(page.getByText("7/10").first()).toBeVisible();
+      // Both search modes run concurrently. Force text to finish after AI so
+      // this assertion cannot accidentally depend on the last global metric.
+      releaseTextResponse();
+      await expect.poll(() => page.evaluate((query) =>
+        window.__WIKI_VITE_OBSERVABILITY__?.search.findLast((metric) => metric.query === query)?.mode,
+      AI_RESULTS_QUERY)).toBe("text");
+      await expect.poll(() => page.evaluate((query) =>
+        window.__WIKI_VITE_OBSERVABILITY__?.search.findLast((metric) =>
+          metric.query === query && metric.mode === "ai",
+        ), AI_RESULTS_QUERY)).toMatchObject({ mode: "ai", status: "ready", resultCount: 2 });
+    } finally {
+      releaseTextResponse();
+    }
   });
 
   test("AI mode results link to wiki pages", async ({ page }) => {

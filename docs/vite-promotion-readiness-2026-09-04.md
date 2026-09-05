@@ -277,3 +277,20 @@ not represented as a first-attempt green sweep. Frozen static/bundle checks,
 Next typechecking, **243 units**, and four standalone browser smokes passed;
 the complete chat selection separately passed **18 / 18**. Exact hosted results
 remain tied to the final pushed SHA in the private release index.
+
+The `925da665` deployment passed **71 credentialed cases / 1 synthetic-Host skip**.
+Its hosted search check exposed a test-ordering bug: AI and background text search
+both emit metrics, so the last global metric need not be AI. Holding the text
+response until AI results rendered reproduced the old assertion's failure with
+actual mode `text`. The assertion now finds the successful AI metric for the exact
+query and verifies its result count, while deliberately retaining that ordering.
+No application search behavior changed in this follow-up. One WebKit storage
+isolation case failed during its second `page.goto`, before the public-scope
+assertions; all **30 unchanged local WebKit storage/isolation repeats passed**.
+The hosted failure is retained, and additional fixed navigation-error categories
+improve diagnosis without exposing target URLs, cookies, or page content.
+The strengthened search selection passed **25 / 25** in Chromium. The complete
+WebKit gate selection then passed **64 / 2 documented skips / 0 failures**,
+110.9s, and the expanded unit chain passed **244 tests**. This final follow-up
+changes test assertions, sanitized diagnostics and this report only; application
+code remains the credentialed-release-verified `925da665` source.
