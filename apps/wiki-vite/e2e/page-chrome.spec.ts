@@ -158,35 +158,40 @@ test.describe("Page chrome parity", () => {
     ).not.toHaveAttribute("aria-current", "location");
   });
 
-  test("shows the mobile comments action only on document routes", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-
-    for (const pathname of [
-      "/",
-      "/wiki/logistics/insurance",
-      "/about/About",
-      "/sources/people/providers/stanford/telli",
-    ]) {
+  for (const pathname of [
+    "/",
+    "/wiki/logistics/insurance",
+    "/about/About",
+    "/sources/people/providers/stanford/telli",
+  ]) {
+    test(`shows the mobile comments action on ${pathname}`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
       await gotoWiki(page, pathname);
       await expect(page.getByTestId("mobile-header-comments")).toBeVisible();
-    }
+    });
+  }
 
-    for (const pathname of [
-      "/comments",
-      "/tags/logistics",
-      "/search",
-      "/timeline",
-      "/diagnostics",
-      "/tools/medical-deduction",
-    ]) {
+  for (const pathname of [
+    "/comments",
+    "/tags/logistics",
+    "/search",
+    "/timeline",
+    "/diagnostics",
+    "/tools/medical-deduction",
+  ]) {
+    test(`hides the mobile comments action on ${pathname}`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(pathname, { waitUntil: "domcontentloaded" });
       const canonicalPath = pathname === "/timeline" ? "/diagnostics" : pathname;
       await expect(page).toHaveURL(new RegExp(`${canonicalPath}$`));
       await expect(page.getByTestId("mobile-page-header")).toBeVisible();
       await expect(page.getByTestId("mobile-header-comments")).toHaveCount(0);
-    }
+    });
+  }
 
-    await page.goto("/admin");
+  test("redirected mobile admin route restores document comments", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByTestId("mobile-header-comments")).toBeVisible();
   });

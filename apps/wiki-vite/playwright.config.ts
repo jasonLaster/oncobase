@@ -58,6 +58,14 @@ export default defineConfig({
     extraHTTPHeaders,
     storageState: previewAuthState,
     permissions: browser === "chromium" ? ["clipboard-read", "clipboard-write"] : [],
+    // Linux headless Firefox otherwise reports no pointer, despite using the
+    // Desktop Firefox profile. Declare the desktop mouse capability explicitly.
+    launchOptions: browser === "firefox" ? {
+      firefoxUserPrefs: {
+        "ui.primaryPointerCapabilities": 0x02 | 0x04,
+        "ui.allPointerCapabilities": 0x02 | 0x04,
+      },
+    } : undefined,
     // This is a public repository. Live screenshots and traces can contain
     // clinical content or signed sessions, so retain them only on local runs.
     screenshot: process.env.CI ? "off" : "only-on-failure",

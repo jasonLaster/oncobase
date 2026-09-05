@@ -1,0 +1,64 @@
+diff --git a/dist/opfs-utils.js b/dist/opfs-utils.js
+index 1304b31c049d9c767908977f35b147daafc1842f..e2e8711a8447f4c0b620906bde1a14e8be3622d3 100644
+--- a/dist/opfs-utils.js
++++ b/dist/opfs-utils.js
+@@ -1,12 +1,16 @@
+ // NOTE we're already firing off this promise call here since we'll need it anyway and need it cached
+ import { prettyBytes } from '@livestore/utils';
+-// To improve LiveStore compatibility with e.g. Node.js we're guarding for `navigator` / `navigator.storage` to be defined.
+-export const rootHandlePromise = typeof navigator === 'undefined' || navigator.storage === undefined
+-    ? // We're using a proxy here to make the promise reject lazy
+-        new Proxy({}, {
+-            get: () => Promise.reject(new Error(`Can't get OPFS root handle in this environment as navigator.storage is undefined`)),
+-        })
+-    : navigator.storage.getDirectory();
++// Always expose a real promise, including browsers without the Storage API.
++// A proxy returning a promise for `then` is not an awaitable rejected promise.
++export const rootHandlePromise = Promise.resolve().then(() => {
++    if (typeof navigator === 'undefined' || typeof navigator.storage?.getDirectory !== 'function') {
++        throw new Error('OPFS is unavailable in this environment');
++    }
++    return navigator.storage.getDirectory();
++});
++// Importing the adapter must be safe before a consumer selects its fallback.
++// Keep the original promise rejected so consumers still observe the failure.
++void rootHandlePromise.catch(() => {});
+ export const getDirHandle = async (absDirPath) => {
+     const rootHandle = await rootHandlePromise;
+     if (absDirPath === undefined)
+diff --git a/src/opfs-utils.ts b/src/opfs-utils.ts
+index 146676ba0693fc04ff7f603cfde821dfaaa80557..f46ec342de41f042a8b690d959ec8d367bc6c937 100644
+--- a/src/opfs-utils.ts
++++ b/src/opfs-utils.ts
+@@ -2,20 +2,17 @@
+ 
+ import { prettyBytes } from '@livestore/utils'
+ 
+-// To improve LiveStore compatibility with e.g. Node.js we're guarding for `navigator` / `navigator.storage` to be defined.
+-export const rootHandlePromise =
+-  typeof navigator === 'undefined' || navigator.storage === undefined
+-    ? // We're using a proxy here to make the promise reject lazy
+-      (new Proxy(
+-        {},
+-        {
+-          get: () =>
+-            Promise.reject(
+-              new Error(`Can't get OPFS root handle in this environment as navigator.storage is undefined`),
+-            ),
+-        },
+-      ) as never)
+-    : navigator.storage.getDirectory()
++// Always expose a real promise, including browsers without the Storage API.
++// A proxy returning a promise for `then` is not an awaitable rejected promise.
++export const rootHandlePromise = Promise.resolve().then(() => {
++  if (typeof navigator === 'undefined' || typeof navigator.storage?.getDirectory !== 'function') {
++    throw new Error('OPFS is unavailable in this environment')
++  }
++  return navigator.storage.getDirectory()
++})
++// Importing the adapter must be safe before a consumer selects its fallback.
++// Keep the original promise rejected so consumers still observe the failure.
++void rootHandlePromise.catch(() => {})
+ 
+ export const getDirHandle = async (absDirPath: string | undefined) => {
+   const rootHandle = await rootHandlePromise

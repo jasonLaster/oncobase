@@ -137,6 +137,34 @@ browser-startup probe provides safe boot diagnostics. Linux WebKit's initial
 promotion readiness is claimed. macOS WebKit passes against both the local
 production build and the immutable deployed candidate.
 
+The next immutable candidate, `d383c8b5`, passed all four deployed Chromium
+shards and the macOS screenshot gate, plus **42 passed / 1 skipped** in the
+credentialed release selection. Linux WebKit's startup probe isolated a second
+OPFS failure: `navigator.storage` is absent altogether. The locked LiveStore
+adapter returned a proxy whose `then` property was a rejected promise, rather
+than a callable promise method. Awaiting it both emitted an unhandled rejection
+and misclassified persistent storage as available. A missing `getDirectory`
+method also threw during import. A version-pinned Bun patch now exposes a real,
+observed promise while preserving its rejection for the reader's memory fallback.
+Five fresh-process dependency tests cover absent navigator/storage/method,
+denied access, and available storage. Six browser stories cover reading,
+navigation, reload and scope isolation under all three unavailable-storage modes.
+The new missing-object/method stories failed against the unpatched deployment
+and passed against the repaired production build.
+
+Firefox's desktop runner now explicitly declares a mouse-capable pointer: Linux
+headless Firefox can otherwise omit the hover-only permalink affordance, as
+documented in [Tailwind's own Playwright configuration](https://github.com/tailwindlabs/tailwindcss/blob/main/packages/tailwindcss/playwright.config.ts).
+The permalink test asserts that capability before testing real link copying.
+The eleven-route mobile-chrome loop is split into independently timed tests;
+this removes a reproduced whole-test timeout without weakening route assertions.
+
+The deployed Next and Vite gate cookies were checked in both directions using
+anonymous, own-cookie and cross-project requests: anonymous file requests returned
+401, while both valid-cookie variants reached the expected missing-path 400.
+This proves gate-signature compatibility, not existing account-session continuity
+or cookie/domain behavior after a domain cutover; those remain cutover checks.
+
 The release verdict must use the hosted checks attached to the pushed commit,
 plus the credentialed release selection on its immutable Vite deployment URL.
 Local results alone do not establish that deployment identity. The private

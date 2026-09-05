@@ -14,6 +14,7 @@ on:
       - "vercel.json"
       - "package.json"
       - "bun.lock"
+      - "patches/**"
       - ".github/workflows/wiki-vite-checks.yml"
   workflow_dispatch:
 

@@ -32,5 +32,8 @@
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "unified": "^11.0.5"
+  },
+  "patchedDependencies": {
+    "@livestore/adapter-web@0.3.1": "patches/@livestore%2Fadapter-web@0.3.1.patch"
   }
 }

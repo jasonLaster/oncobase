@@ -51,6 +51,7 @@ test.describe("Markdown heading anchors", () => {
 
   test("clicking a heading permalink copies the section URL", async ({ page }) => {
     await gotoWiki(page, "/wiki/updates/week-5-april-12-to-18");
+    expect(await page.evaluate(() => matchMedia("(hover: hover)").matches)).toBe(true);
 
     const heading = documentArticle(page).getByRole("heading", {
       name: /Saturday, April 12/,
