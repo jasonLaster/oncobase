@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 // ─── Tax engine ───────────────────────────────────────────────────────────────
 
@@ -288,7 +288,9 @@ export function MedicalDeductionCalculator() {
     }
   }, [spread, customize, years, agi, medical]);
 
-  useEffect(() => {
+  // Restore before the first interactive paint. A passive mount effect can
+  // overwrite a user's first edit with URL defaults on a cold browser load.
+  useLayoutEffect(() => {
     function restoreParamsFromUrl() {
       const restored = readCalculatorParams(window.location.search);
       restoringFromUrl.current = true;
@@ -495,11 +497,14 @@ function Slider({ label, value, min, max, step, onChange }: {
   onChange: (v: number) => void;
 }) {
   const [text, setText] = useState(value.toLocaleString());
+  const [previousValue, setPreviousValue] = useState(value);
 
-  // Keep the text input in sync when the value changes externally (slider, heatmap clicks, etc.)
-  useEffect(() => {
+  // Adjust the draft during render only when the committed external value
+  // changes. A mount effect can erase a first keystroke before it is committed.
+  if (value !== previousValue) {
+    setPreviousValue(value);
     setText(value.toLocaleString());
-  }, [value]);
+  }
 
   function commitText(raw: string) {
     const n = Number(raw.replace(/[^0-9.-]/g, ""));

@@ -18,6 +18,7 @@ Firefox is optional and explicitly outside the promotion gate at the user's requ
 | P2 | Old text-search responses overwrite a newer query | Delayed-response tests against the immutable candidate reproduced both old results and old errors replacing the current query. Vite now invalidates outstanding text-search updates on query changes/unmount and stops carrying the previous query's retry schedule forward. Four request-order cases cover initial and exhaustive responses, including failures, without extending timeouts. |
 | P1 | Immediate Stop can be erased during server startup | The credentialed deployment run failed; a delayed-request regression reproduced an active SSE response after cancellation. Both hosts now respect the client's pre-request reset and check cancellation before provider work. |
 | P1 | A stopped conversation can restart on reopening | Computer-use exploration reproduced unexpected auto-resume. Submission now captures the persisted user identity, Stop disables the preceding user message even behind an assistant tail, and the reset gate prevents duplicate rows during preparation. Persistence, reload, and exact message-count regressions cover the repair. |
+| P2 | Cold calculator startup overwrites the first edit | Repeated hosted WebKit failures were narrowed to the first AGI field. A first-commit input probe failed three times against the deployed candidate: entered 900,000 became the default 250,000. URL state now restores before interaction, and external-value draft synchronization no longer runs in a deferred mount effect. Calculator formulas are unchanged. |
 | P1 release gate | Green main did not mean green Vite | The Vite workflow ran only on PRs/manual dispatch, omitted shared paths, and resolved only Preview environments even for main. Main now runs Vite static/unit/server checks and resolves the exact SHA's Vite Production deployment. Shared packages, shared web source, API adapters, and Vercel configuration trigger PR checks. |
 | P2 release gate | Screenshot assertions were disabled in CI; only Chromium ran | Added a macOS screenshot job that compares committed baselines without updating them, plus WebKit reader/accessibility/anchor/calculator/storage smoke coverage. Linux Chromium shards retain geometry checks. Firefox remains available for optional local runs. |
 | P1 evidence custody | Rich test artifacts are unsafe to publish from this repository | The GitHub repository is public. Clinical screenshots, signed sessions, response bodies, and traces stay local. Hosted runs disable live screenshots/traces and publish only sanitized test names/outcomes. The dedicated synthetic visual job may upload its PNG diffs. |
@@ -294,3 +295,25 @@ WebKit gate selection then passed **64 / 2 documented skips / 0 failures**,
 110.9s, and the expanded unit chain passed **244 tests**. This final follow-up
 changes test assertions, sanitized diagnostics and this report only; application
 code remains the credentialed-release-verified `925da665` source.
+
+## Calculator startup follow-up
+
+`9fbaea79` passed all four hosted Chromium shards, static/unit/server/visual gates,
+Next checks, and **71 credentialed release cases / 1 expected skip**. WebKit
+failed the first AGI committed-value assertion. The extra assertions exposed a
+real startup race, not a URL-serialization defect: delayed mount effects could
+reset the field to 250,000 after an early 900,000 edit. A synthetic first-commit
+input probe reproduced this **3 / 3** times on the immutable deployment.
+
+The shared calculator restores browser URL state in a layout effect, before
+interaction, and synchronizes its draft during render only when the committed
+external value changes. No mount effect resets an in-progress draft. The refined
+repair passed all five calculator cases three times in WebKit (**15 / 15**),
+including the first-commit probe, normal formatted inputs, keyboard/grid use,
+multi-year URL restoration and mobile bounds. React Doctor reports no errors;
+its sole changed-file advisory recommends grouping calculator state in a reducer.
+The Chromium calculator/accessibility/visual selection also passed **17 / 17**,
+28.3s. Manual Chrome input retained 900,000 AGI and 1,000,000 medical expenses,
+kept the existing 320,169 result, and wrote both values to the URL. No visual
+baseline or calculation formula changed. The final deployed release selection
+now explicitly includes all five calculator cases in addition to live-service QA.

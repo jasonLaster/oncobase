@@ -4,6 +4,28 @@ import { installWikiApiMocks } from "./fixtures";
 const agiInputName = "Adjusted Gross Income (AGI)";
 const medicalInputName = "Qualified Medical Expenses";
 
+test("an edit at the calculator's first interactive commit is not overwritten by startup effects", async ({ page }) => {
+  await page.addInitScript(() => {
+    const observer = new MutationObserver(() => {
+      const input = document.querySelector<HTMLInputElement>('input[aria-label="Adjusted Gross Income (AGI)"]');
+      if (!input) return;
+      observer.disconnect();
+      // Enter at the first DOM commit, before passive startup effects. Using
+      // the native setter models the browser input event rather than mutating
+      // React's value tracker directly.
+      input.focus();
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "900000");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    });
+    observer.observe(document, { subtree: true, childList: true });
+  });
+  await installWikiApiMocks(page);
+  await page.goto("/tools/medical-deduction", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("textbox", { name: agiInputName })).toHaveValue("900,000");
+  await expect.poll(() => new URL(page.url()).searchParams.get("agi")).toBe("900000");
+});
+
 test.describe("Medical expense deduction calculator", () => {
   test.beforeEach(async ({ page }) => {
     await installWikiApiMocks(page);
