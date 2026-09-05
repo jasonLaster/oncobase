@@ -170,3 +170,15 @@ plus the credentialed release selection on its immutable Vite deployment URL.
 Local results alone do not establish that deployment identity. The private
 evidence index retains the exact SHA, deployment URL, hosted run, and release
 test counts once that verification completes.
+
+The storage-patch commit `1aa8e375` passed Linux WebKit (39 smoke cases plus
+2 startup probes), all Chromium shards after one failed-shard rerun, the visual/
+static/unit/server gates, and **48 credentialed release cases** (one synthetic
+Host skip). Firefox's rerun failed on a different route. Two deployment-scoped
+upstream connection timeouts were observed; subsequent endpoint reads recovered,
+but this does not establish the cause of every browser failure. Rather than
+waive those results, the public report now retains failure timestamps, fixed
+error categories, known test-source locations and allowlisted reader-state
+presence flags. It still excludes page text, arbitrary errors, cookies and raw
+annotations. The readiness verdict remains conditional on final hosted results;
+the private release index preserves the initial failures and operational caveat.

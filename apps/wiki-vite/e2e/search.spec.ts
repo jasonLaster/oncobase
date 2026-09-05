@@ -1,5 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { documentArticle, gotoWiki, installWikiApiMocks, waitForPageTitle } from "./fixtures";
+import { recordReaderHealth } from "./browser-health";
+
+test.afterEach(async ({ page }, info) => recordReaderHealth(page, info));
 
 const SEARCH_QUERY = "diagnosis";
 const AI_RESULTS_QUERY = "mock ai ranked results";
