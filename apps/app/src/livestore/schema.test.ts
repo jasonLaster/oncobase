@@ -6,6 +6,7 @@ import {
   fileTree$,
   pageContentBySlug$,
   pageIndex$,
+  sidebarTree$,
   siteState$,
   stalePageContent$,
 } from "./queries";
@@ -67,6 +68,10 @@ describe("wiki vite LiveStore schema", () => {
     expect(store.query(siteState$)?.manifestHash).toBe("manifest-hash");
     expect(store.query(siteState$)?.lastValidatedAt).toBe(1);
     expect(store.query(siteState$)?.schemaVersion).toBe(WIKI_CACHE_SCHEMA_VERSION);
+    expect(store.query(fileTree$)?.treeJson).toContain("index");
+    // These queries share SQL but deliberately map to different result types.
+    expect(Array.isArray(store.query(sidebarTree$))).toBe(true);
+    expect(store.query(sidebarTree$)).toContainEqual(expect.objectContaining({ slug: "index", type: "file" }));
     expect(store.query(fileTree$)?.treeJson).toContain("index");
     expect(store.query(pageIndex$)).toHaveLength(1);
     expect(store.query(pageContentBySlug$("index"))?.content).toBe("# Hello");

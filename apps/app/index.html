@@ -87,6 +87,13 @@
           host.innerHTML = snapshot.html;
           host.hidden = false;
           host.dataset.readOnly = "true";
+          // Cached text is readable, but its cloned controls have no handlers.
+          // Expose that state instead of presenting enabled, dead controls.
+          host.setAttribute("aria-disabled", "true");
+          host.setAttribute("aria-busy", "true");
+          host.querySelectorAll("a, button, input, select, textarea, [tabindex]").forEach(function (control) {
+            control.setAttribute("tabindex", "-1");
+          });
           host.dataset.readerCacheVersion = snapshotReader;
           var preventSnapshotAction = function (event) {
             event.preventDefault();

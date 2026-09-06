@@ -227,7 +227,7 @@ test.describe("Page load experience", () => {
     await installWikiApiMocks(page, { manifestFailure: true });
     await page.goto("/wiki/logistics/insurance", { waitUntil: "domcontentloaded" });
 
-    await expect(documentArticle(page).locator("h1")).toHaveText("Insurance");
+    await waitForPageTitle(page, "Insurance");
     await expect(documentArticle(page)).toContainText("Prior authorization");
     await expect(page.getByTestId("navigation-unavailable")).toBeVisible();
     await expect(page.getByTestId("page-loading")).toHaveCount(0);
@@ -248,6 +248,9 @@ test.describe("Page load experience", () => {
   test("failed current-page markdown fetch exposes a retry action", async ({ page }) => {
     const slug = "wiki/logistics/insurance";
     const requests = await installWikiApiMocks(page, { pageFailures: { [slug]: true } });
+    // The independent body failure arrives before the successful manifest.
+    // Manifest readiness must not overwrite the page's retry state.
+    requests.setManifestDelay(500);
     await gotoWiki(page, `/${slug}`);
 
     await expect(documentArticle(page).locator("h1")).toHaveText("Insurance");

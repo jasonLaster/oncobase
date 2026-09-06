@@ -334,7 +334,7 @@ function SidebarFooter() {
         <button
           type="button"
           data-test-id="sidebar-search"
-          onClick={() => openCommandPalette("pages")}
+          onClick={(event) => { event.currentTarget.focus(); openCommandPalette("pages"); }}
         >
           <Search size={ICON_SIZE} aria-hidden="true" />
           <span>Search</span>
@@ -716,7 +716,7 @@ function MobilePageHeader({
         aria-label="Search files"
         title="Search files"
         data-test-id="mobile-header-search"
-        onClick={() => openCommandPalette("pages")}
+        onClick={(event) => { event.currentTarget.focus(); openCommandPalette("pages"); }}
       >
         <svg
           aria-hidden="true"

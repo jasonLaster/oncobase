@@ -249,6 +249,7 @@ function pagesForOptions(options: MockOptions) {
   const pages: Record<string, FixturePage> = { ...basePages };
 
   for (const [slug, override] of Object.entries(options.pageOverrides ?? {})) {
+    if (!override) continue;
     const base = pages[slug];
     if (base) {
       pages[slug] = { ...base, ...override };
@@ -308,13 +309,14 @@ function visibleRecords(scope: WikiScope, options: MockOptions) {
 
 function manifest(scope: WikiScope, options: MockOptions, partial = false): WikiManifest {
   const siteSlug = options.siteSlug ?? defaultSiteSlug;
+  const pageOptions = pagesForOptions(options);
   const pages: WikiManifestPage[] = visibleRecords(scope, options)
     .filter((page) => !partial || page.slug === "index")
     .map((page) => ({
       slug: page.slug,
       title: page.title,
       tags: page.tags,
-      description: pagesForOptions(options)[page.slug]?.description ?? null,
+      description: pageOptions[page.slug]?.description ?? null,
       contentHash: page.contentHash,
       sensitive: page.sensitive,
       size: page.size,
@@ -452,7 +454,10 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
     }
     const currentManifest = manifest(scope, options, manifestPartial);
     const etag = `W/"${currentManifest.manifestHash}"`;
-    if (route.request().headers()["if-none-match"] === etag) {
+    // WebKit's interception API cannot fulfill 304 responses. Returning the
+    // current 200 representation is valid revalidation too; Chromium and the
+    // server tests retain the actual 304 transport coverage.
+    if (route.request().headers()["if-none-match"] === etag && page.context().browser()?.browserType().name() !== "webkit") {
       await route.fulfill({
         status: 304,
         headers: {

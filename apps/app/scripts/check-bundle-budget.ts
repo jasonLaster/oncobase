@@ -24,12 +24,11 @@ const budgets: Budget[] = [
   { label: "livestore vendor", pattern: /^vendor-livestore-[\w-]+\.js$/, maxGzipBytes: 95_000 },
   { label: "effect vendor", pattern: /^vendor-effect-[\w-]+\.js$/, maxGzipBytes: 140_000 },
   { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 150_000 },
-  { label: "page chunk", pattern: /^WikiPage-[\w-]+\.js$/, maxGzipBytes: 125_000 },
   { label: "chat chunk", pattern: /^ChatPage-[\w-]+\.js$/, maxGzipBytes: 110_000 },
   { label: "sync/shared shell chunks", pattern: /^(?:WikiSync|outline|src)-[\w-]+\.js$/, maxGzipBytes: 45_000 },
-  // The denied-OPFS boot probe and temporary adapter add ~0.2 KiB here.
-  // Keep the 15.5 KiB ceiling below the older pre-trim 15.7 KiB shell.
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 15_872 },
+  // The primary document is now part of this lazy reader graph instead of a
+  // second lazy boundary. The shell measures 15.6 KiB; total eager bytes fall.
+  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 16_384 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },
@@ -39,13 +38,13 @@ const budgets: Budget[] = [
  * Eager assets are the bytes a reader downloads before a wiki page paints:
  *
  * - the static-import closure of the entry chunk plus the dynamic roots
- *   every reader view takes (`WikiViteRoot`, session bootstrap, `LiveStoreRoot`, the reader shell, and `WikiPage`,
- *   the default route), and
+ *   every reader view takes (`WikiViteRoot`, session bootstrap, `LiveStoreRoot`,
+ *   and its statically imported reader shell and default `WikiPage`), and
  * - the LiveStore workers, the SQLite wasm, and the single eager stylesheet,
  *   which load at boot outside the module graph.
  *
  * Everything else — mermaid diagram splits, the chat page, admin routes, the
- * lazily imported markdown title/body renderers — only downloads when its
+ * specialist route renderers — only downloads when its
  * dynamic import runs, and counts against the lazy budget instead.
  *
  * Classification walks the actual `import`/`from` specifiers in the built
@@ -57,7 +56,6 @@ const eagerRootPatterns = [
   /^index-[\w-]+\.js$/,
   /^WikiViteRoot-[\w-]+\.js$/,
   /^LiveStoreRoot-[\w-]+\.js$/,
-  /^WikiPage-[\w-]+\.js$/,
 ];
 const eagerLoaderPatterns = [
   /^livestore\.worker-[\w-]+\.js$/,

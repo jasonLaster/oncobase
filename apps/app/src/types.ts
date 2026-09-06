@@ -15,6 +15,7 @@ export type Metrics = {
   warmRouteRenderMs: number | null;
   lastRouteRenderMs: number | null;
   failedBodyFetches: number;
+  failedBodySlug: string | null;
 };
 
 export type MetricsPatch = Partial<Metrics>;

@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./persistent-reader-fixture";
 import {
   makePublicWikiSessionIdentity,
   makeWikiStoreId,
@@ -34,6 +35,7 @@ test("retires only the matching reader-v3 OPFS namespace after v4 hydration", as
 
   await page.addInitScript(
     ({ matching, unrelated }) => {
+      Object.defineProperty(navigator, "storage", { value: navigator.storage, configurable: true });
       const originalGetDirectory = navigator.storage.getDirectory.bind(
         navigator.storage,
       );
@@ -42,7 +44,8 @@ test("retires only the matching reader-v3 OPFS namespace after v4 hydration", as
         value: removed,
         configurable: true,
       });
-      navigator.storage.getDirectory = async () => {
+      let directoryPromise: Promise<FileSystemDirectoryHandle> | undefined;
+      navigator.storage.getDirectory = () => directoryPromise ??= (async () => {
         const directory = await originalGetDirectory();
         await directory.getDirectoryHandle(matching, { create: true });
         await directory.getDirectoryHandle(unrelated, { create: true });
@@ -52,7 +55,7 @@ test("retires only the matching reader-v3 OPFS namespace after v4 hydration", as
           return originalRemoveEntry(name, options);
         };
         return directory;
-      };
+      })();
     },
     { matching: matchingDirectory, unrelated: unrelatedDirectory },
   );
@@ -72,6 +75,14 @@ test("retires only the matching reader-v3 OPFS namespace after v4 hydration", as
       ),
     )
     .toEqual([matchingDirectory]);
+  expect(await page.evaluate(async ({ matching, unrelated }) => {
+    const directory = await navigator.storage.getDirectory();
+    const exists = (name: string) => directory.getDirectoryHandle(name).then(() => true, error => {
+      if (error.name === "NotFoundError") return false;
+      throw error;
+    });
+    return { matching: await exists(matching), unrelated: await exists(unrelated) };
+  }, { matching: matchingDirectory, unrelated: unrelatedDirectory })).toEqual({ matching: false, unrelated: true });
 });
 
 test("keeps a validated N-1 first frame offline until current hydration retires it", async ({
@@ -138,6 +149,7 @@ test("keeps a validated N-1 first frame offline until current hydration retires 
         get: () => testWindow.__WIKI_TEST_ONLINE__ === true,
       });
 
+      Object.defineProperty(navigator, "storage", { value: navigator.storage, configurable: true });
       const originalGetDirectory = navigator.storage.getDirectory.bind(
         navigator.storage,
       );
@@ -146,7 +158,8 @@ test("keeps a validated N-1 first frame offline until current hydration retires 
         value: removed,
         configurable: true,
       });
-      navigator.storage.getDirectory = async () => {
+      let directoryPromise: Promise<FileSystemDirectoryHandle> | undefined;
+      navigator.storage.getDirectory = () => directoryPromise ??= (async () => {
         const directory = await originalGetDirectory();
         await directory.getDirectoryHandle(matching, { create: true });
         const originalRemoveEntry = directory.removeEntry.bind(directory);
@@ -155,7 +168,7 @@ test("keeps a validated N-1 first frame offline until current hydration retires 
           return originalRemoveEntry(name, options);
         };
         return directory;
-      };
+      })();
     },
     {
       currentKey: currentSnapshotKey,
@@ -181,7 +194,11 @@ test("keeps a validated N-1 first frame offline until current hydration retires 
     WIKI_PREVIOUS_READER_CACHE_VERSION,
   );
   await expect(firstFrame).toHaveAttribute("data-read-only", "true");
-  await firstFrame.getByRole("link", { name: "Cached link" }).click();
+  const cachedLink = firstFrame.getByRole("link", { name: "Cached link" });
+  await expect(cachedLink).toBeDisabled();
+  await expect(cachedLink).toHaveAttribute("tabindex", "-1");
+  // Even an explicit pointer action must not activate a stale snapshot link.
+  await cachedLink.click({ force: true });
   await expect(page).toHaveURL(new RegExp(`${pathname}$`));
   await expect(page.locator("#root")).toHaveCSS("visibility", "hidden");
   expect(requests.manifest).toHaveLength(0);
@@ -209,6 +226,9 @@ test("keeps a validated N-1 first frame offline until current hydration retires 
     )
     .toBeNull();
   expect(requests.manifest).toHaveLength(1);
+  // Handoff to the live reader precedes deferred snapshot serialization.
+  // Wait for successful replacement/retirement, not an arbitrary delay.
+  await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), previousSnapshotKey)).toBeNull();
   const snapshots = await page.evaluate(
     ({ currentKey, previousKey }) => ({
       current: localStorage.getItem(currentKey),
@@ -286,6 +306,7 @@ test("retires stale first-frame HTML when the refreshed public manifest makes th
         }),
       );
 
+      Object.defineProperty(navigator, "storage", { value: navigator.storage, configurable: true });
       const originalGetDirectory = navigator.storage.getDirectory.bind(
         navigator.storage,
       );
@@ -294,7 +315,8 @@ test("retires stale first-frame HTML when the refreshed public manifest makes th
         value: removed,
         configurable: true,
       });
-      navigator.storage.getDirectory = async () => {
+      let directoryPromise: Promise<FileSystemDirectoryHandle> | undefined;
+      navigator.storage.getDirectory = () => directoryPromise ??= (async () => {
         const directory = await originalGetDirectory();
         await directory.getDirectoryHandle(matching, { create: true });
         const originalRemoveEntry = directory.removeEntry.bind(directory);
@@ -303,7 +325,7 @@ test("retires stale first-frame HTML when the refreshed public manifest makes th
           return originalRemoveEntry(name, options);
         };
         return directory;
-      };
+      })();
     },
     {
       identityKey,

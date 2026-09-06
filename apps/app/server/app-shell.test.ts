@@ -621,6 +621,35 @@ describe("wiki Vite app-shell password gate", () => {
     }
   });
 
+  test("canonical document requests reuse one indexed lookup without scanning the manifest", async () => {
+    const client = fakeClient({ passwordGate: false });
+    const query = client.query.bind(client);
+    const calls: string[] = [];
+    client.query = async (ref, args) => {
+      calls.push(getFunctionName(ref));
+      return query(ref, args);
+    };
+    const handler = createWikiViteHandler({ client: client as never, distDir });
+    const response = await handler(request("/wiki/public"));
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("<title>Public — TNBC Knowledge Base</title>");
+    expect(calls.filter(name => name === "documents:getBySlug")).toHaveLength(1);
+    expect(calls).not.toContain("documents:listManifestPage");
+  });
+
+  test("an indexed miss still resolves case-insensitive canonical redirects", async () => {
+    const client = fakeClient({ passwordGate: false });
+    const query = client.query.bind(client);
+    client.query = async (ref, args) => {
+      if (getFunctionName(ref) === "documents:getBySlug" && args.slug === "WIKI/PUBLIC") return null;
+      return query(ref, args);
+    };
+    const handler = createWikiViteHandler({ client: client as never, distDir });
+    const response = await handler(request("/WIKI/PUBLIC?view=compact"));
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://127.0.0.1/wiki/public?view=compact");
+  });
+
   test("permanently removes trailing slashes while preserving query parameters", async () => {
     const handler = createWikiViteHandler({
       client: fakeClient() as never,

@@ -15,6 +15,7 @@ import {
 import { unstable_batchedUpdates as batchUpdates } from "react-dom";
 import { App } from "../App";
 import { CanonicalRouteBoundary } from "../CanonicalRouteBoundary";
+import { WikiAuthProvider } from "../shell/Header";
 import { WikiScopeProvider, WikiSessionProvider } from "../wiki-context";
 import { FirstFrameSnapshotSync } from "./FirstFrameSnapshot";
 import { readDevtoolsFooterVisible, readLiveStoreDevtoolsEnabled } from "./devtools";
@@ -174,13 +175,15 @@ export function LiveStoreRoot({
           <WikiScopeProvider scope={scope}>
             <SessionCacheRetirement identity={identity} scope={scope} />
             <FirstFrameSnapshotSync identity={identity} scope={scope} />
-            <CanonicalRouteBoundary>
-              <App
-                devtoolsFooterVisible={devtoolsFooterVisible}
-                liveStoreDevtoolsEnabled={liveStoreDevtoolsEnabled}
-                storeId={storeId}
-              />
-            </CanonicalRouteBoundary>
+            <WikiAuthProvider>
+              <CanonicalRouteBoundary>
+                <App
+                  devtoolsFooterVisible={devtoolsFooterVisible}
+                  liveStoreDevtoolsEnabled={liveStoreDevtoolsEnabled}
+                  storeId={storeId}
+                />
+              </CanonicalRouteBoundary>
+            </WikiAuthProvider>
           </WikiScopeProvider>
         </WikiSessionProvider>
       </LiveStoreProvider>

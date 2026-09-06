@@ -7,6 +7,9 @@ import {
   HeaderCommandPaletteHost,
 } from "./shell/Header";
 import { MobileNav, Sidebar } from "./shell/Navigation";
+// The whole reader is already lazy at the login boundary. A second lazy
+// boundary here delays cached documents behind another Suspense retry.
+import { WikiPage } from "./pages/WikiPage";
 import { ResizableAppShell } from "./shell/ResizableAppShell";
 import { SpecialRouteMetadata } from "./shell/SpecialRouteMetadata";
 import { WikiSync } from "./sync/WikiSync";
@@ -27,11 +30,9 @@ const initialMetrics: Metrics = {
   warmRouteRenderMs: null,
   lastRouteRenderMs: null,
   failedBodyFetches: 0,
+  failedBodySlug: null,
 };
 
-const WikiPage = lazy(() =>
-  import("./pages/WikiPage").then((module) => ({ default: module.WikiPage })),
-);
 const SearchPage = lazy(() =>
   import("./pages/SearchPage").then((module) => ({ default: module.SearchPage })),
 );

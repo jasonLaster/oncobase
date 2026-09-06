@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./persistent-reader-fixture";
 import {
   documentArticle,
   gotoWiki,
@@ -226,6 +227,8 @@ test.describe("durable manifest refresh", () => {
       await response!.text());
       const firstFrame = page.locator("#wiki-first-frame-snapshot");
       await expect(firstFrame).toBeVisible();
+      await expect(firstFrame).toHaveAttribute("aria-disabled", "true");
+      await expect(firstFrame.getByRole("button", { name: "Workspace menu" })).toBeDisabled();
       await expect(firstFrame.getByTestId("document-article")).toContainText("OLD FIRST FRAME");
       await expect(firstFrame.getByTestId("wiki-sidebar")).toContainText("insurance");
       // Production serves route metadata; the snapshot must not replace it

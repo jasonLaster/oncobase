@@ -173,8 +173,7 @@ export function WikiPage({
   const failedCurrentFetch =
     !page?.content &&
     Boolean(index) &&
-    metrics.status === "error" &&
-    metrics.message.includes(slug);
+    metrics.failedBodySlug === slug;
   const routeRenderRef = useRef<{
     hadContent: boolean;
     recorded: boolean;

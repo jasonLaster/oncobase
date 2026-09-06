@@ -17,11 +17,15 @@ import {
 } from "@oncobase/wiki-shell";
 import {
   Suspense,
+  createContext,
   lazy,
   useCallback,
+  useContext,
   useEffect,
+  useMemo,
   useState,
   useSyncExternalStore,
+  type ReactNode,
 } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { backendHref, returnToHref } from "../wiki-utils";
@@ -127,25 +131,40 @@ export function HeaderAuthDialogHost() {
   );
 }
 
+const WikiAuthContext = createContext<ReturnType<typeof useWikiAuthState> | null>(null);
+
+export function WikiAuthProvider({ children }: { children: ReactNode }) {
+  const auth = useWikiAuthState();
+  return <WikiAuthContext.Provider value={auth}>{children}</WikiAuthContext.Provider>;
+}
+
 export function useWikiViteAuth() {
+  const auth = useContext(WikiAuthContext);
+  if (!auth) throw new Error("Wiki authentication must be read inside WikiAuthProvider");
+  return auth;
+}
+
+function useWikiAuthState() {
   const [sessionUser, setSessionUser] = useState<WikiActionsMenuUser | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    let requestVersion = 0;
 
     async function loadSession() {
+      const version = ++requestVersion;
       setSessionLoading(true);
       try {
         const response = await fetch(backendHref("/api/auth/session"), {
           credentials: "same-origin",
         });
         const data = await response.json();
-        if (!cancelled) setSessionUser(data.user ?? null);
+        if (!cancelled && version === requestVersion) setSessionUser(data.user ?? null);
       } catch {
-        if (!cancelled) setSessionUser(null);
+        if (!cancelled && version === requestVersion) setSessionUser(null);
       } finally {
-        if (!cancelled) setSessionLoading(false);
+        if (!cancelled && version === requestVersion) setSessionLoading(false);
       }
     }
 
@@ -158,15 +177,15 @@ export function useWikiViteAuth() {
     };
   }, []);
 
-  async function parseAuthResponse(response: Response) {
+  const parseAuthResponse = useCallback(async (response: Response) => {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(typeof data.error === "string" ? data.error : "Something went wrong");
     }
     return data as { user?: WikiActionsMenuUser };
-  }
+  }, []);
 
-  async function submitAuth(input: WikiActionsMenuAuthInput) {
+  const submitAuth = useCallback(async (input: WikiActionsMenuAuthInput) => {
     const response = await fetch(
       backendHref(input.mode === "signup" ? "/api/auth/signup" : "/api/auth/signin"),
       {
@@ -184,23 +203,23 @@ export function useWikiViteAuth() {
     if (!data.user) throw new Error("The server did not return a user session");
     window.dispatchEvent(new CustomEvent("wiki-auth-session-change"));
     return data.user;
-  }
+  }, [parseAuthResponse]);
 
-  async function signOut() {
+  const signOut = useCallback(async () => {
     await fetch(backendHref("/api/auth/signout"), {
       method: "POST",
       credentials: "same-origin",
     });
     window.dispatchEvent(new CustomEvent("wiki-auth-session-change"));
-  }
+  }, []);
 
-  return {
+  return useMemo(() => ({
     sessionLoading,
     sessionUser,
     setSessionUser,
     signOut,
     submitAuth,
-  };
+  }), [sessionLoading, sessionUser, signOut, submitAuth]);
 }
 
 export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["trigger"] } = {}) {

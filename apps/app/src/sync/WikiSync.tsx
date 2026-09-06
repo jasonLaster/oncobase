@@ -236,6 +236,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           onMetrics({
             markdownBytes: page.size,
             eventCount: 1,
+            ...(slug === currentSlugRef.current ? { failedBodySlug: null } : {}),
           });
         } else {
           const unavailable = batch.unavailable?.find((item) => item.slug === slug);
@@ -278,6 +279,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
               ? {
                   status: "error" as const,
                   message: `Failed to fetch markdown for ${slug}`,
+                  failedBodySlug: slug,
                 }
               : {}),
             failedBodyFetches: 1,
@@ -562,7 +564,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         return;
       }
 
-      onMetrics({ status: "syncing", message: `Retrying ${currentSlug}` });
+      onMetrics({ status: "syncing", message: `Retrying ${currentSlug}`, failedBodySlug: null });
       void fetchSlug(currentSlug, page).catch(() => undefined);
     };
 

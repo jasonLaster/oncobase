@@ -76,38 +76,49 @@ export function treeNodeKey(node: WikiNavigationNode) {
   return `${node.type}:${node.slug}:${node.pdfPath ?? ""}`;
 }
 
-const ancestorIndexes = new WeakMap<WikiNavigationNode[], Map<string, string[]>>();
+const ancestorIndexes = new WeakMap<WikiNavigationNode[], Map<string, Set<string>>>();
 
 export function collectActiveAncestors(tree: WikiNavigationNode[], activeSlug: string) {
   let index = ancestorIndexes.get(tree);
   if (!index) {
     index = new Map();
-    const visit = (nodes: WikiNavigationNode[], parents: string[]) => {
+    const visit = (nodes: WikiNavigationNode[], parents: string[], seen: Set<string>) => {
       for (const node of nodes) {
-        if (!index!.has(node.slug)) index!.set(node.slug, parents);
-        if (node.type === "directory" && node.children) visit(node.children, [...parents, node.slug]);
+        // A document can appear in more than one root (for example a source
+        // shortcut). Preserve the recursive tree's first match within each
+        // root and the union of active ancestors across roots.
+        if (!seen.has(node.slug)) {
+          seen.add(node.slug);
+          const ancestors = index!.get(node.slug) ?? new Set<string>();
+          for (const parent of parents) ancestors.add(parent);
+          index!.set(node.slug, ancestors);
+        }
+        if (node.type === "directory" && node.children) visit(node.children, [...parents, node.slug], seen);
       }
     };
-    visit(tree, []);
+    for (const root of tree) visit([root], [], new Set());
     ancestorIndexes.set(tree, index);
   }
   return new Set(index.get(activeSlug) ?? []);
 }
 
-export type WikiTreeRow = { node: WikiNavigationNode; depth: number; open: boolean; gap: number };
+export type WikiTreeRow = { key: string; node: WikiNavigationNode; depth: number; open: boolean; gap: number };
 
 export function flattenVisibleWikiTree({ tree, expandedSlugs, activeAncestorSlugs, defaultDirectoryOpen }: Pick<WikiTreeProps, "tree" | "expandedSlugs" | "activeAncestorSlugs" | "defaultDirectoryOpen">) {
   const rows: WikiTreeRow[] = [];
-  const visit = (nodes: WikiNavigationNode[], depth: number) => {
+  const visit = (nodes: WikiNavigationNode[], depth: number, parentPath: string) => {
     nodes.forEach((node, index) => {
+      const occurrence = `${parentPath}.${index}`;
       const open = node.type === "directory" && (expandedSlugs.get(node.slug) ??
         defaultDirectoryOpen?.({ activeAncestorSlugs, depth, node }) ??
         (depth < 1 || activeAncestorSlugs.has(node.slug)));
-      rows.push({ node, depth, open, gap: depth === 0 && index > 0 ? 4 : 0 });
-      if (open && node.children) visit(node.children, depth + 1);
+      // Flattening puts shortcuts and their source document in one sibling
+      // list. Identity must include the occurrence, not only the target slug.
+      rows.push({ key: `${occurrence}:${treeNodeKey(node)}`, node, depth, open, gap: depth === 0 && index > 0 ? 4 : 0 });
+      if (open && node.children) visit(node.children, depth + 1, occurrence);
     });
   };
-  visit(tree, 0);
+  visit(tree, 0, "");
   return rows;
 }
 
@@ -204,12 +215,12 @@ export function WikiTree({
   const [scrollMargin, setScrollMargin] = useState(0);
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
   const pendingFocus = useRef<string | null>(null);
-  const focusedIndex = focusedKey ? rows.findIndex(row => treeNodeKey(row.node) === focusedKey) : -1;
+  const focusedIndex = focusedKey ? rows.findIndex(row => row.key === focusedKey) : -1;
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => rootRef.current?.parentElement ?? null,
     estimateSize: index => 30 + rows[index].gap,
-    getItemKey: useCallback((index: number) => treeNodeKey(rows[index].node), [rows]),
+    getItemKey: useCallback((index: number) => rows[index].key, [rows]),
     overscan: 8,
     scrollMargin,
     rangeExtractor: range => [...new Set([...defaultRangeExtractor(range), ...(focusedIndex >= 0 ? [focusedIndex] : [])])].sort((a, b) => a - b),
@@ -255,7 +266,7 @@ export function WikiTree({
         const next = Number(element.dataset.treeIndex) + (event.shiftKey ? -1 : 1);
         if (next < 0 || next >= rows.length) return;
         event.preventDefault();
-        const key = treeNodeKey(rows[next].node);
+        const key = rows[next].key;
         pendingFocus.current = key;
         setFocusedKey(key);
         virtualizer.scrollToIndex(next, { align: "auto" });
@@ -263,10 +274,10 @@ export function WikiTree({
     >
       {visibleRows.map(({ row, index, start }) => (
         <div
-          key={treeNodeKey(row.node)}
-          data-tree-row={treeNodeKey(row.node)}
+          key={row.key}
+          data-tree-row={row.key}
           data-tree-index={index}
-          onFocusCapture={() => setFocusedKey(treeNodeKey(row.node))}
+          onFocusCapture={() => setFocusedKey(row.key)}
           style={virtualized
             ? { position: "absolute", top: 0, left: 0, width: "100%", paddingTop: row.gap, transform: `translateY(${start}px)` }
             : { paddingTop: row.gap }}
