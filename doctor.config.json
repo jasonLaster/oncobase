@@ -8,7 +8,7 @@
       "**/node_modules/**",
       "**/playwright-report/**",
       "**/test-results/**",
-      "apps/wiki-vite/convex/_generated/**"
+      "apps/app/convex/_generated/**"
     ]
   }
 }

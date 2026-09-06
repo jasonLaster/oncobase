@@ -1,0 +1,185 @@
+# Diana application
+
+This is the production Diana application at `diana-tnbc.com` and `www.diana-tnbc.com`. It serves its own backend APIs from the same origin and uses LiveStore as a persistent browser read cache for the file tree, page index, asset index, and markdown bodies. Convex remains the shared backend; its schema and functions currently live under `apps/app/convex`.
+
+`apps/app` is the long-term application home (formerly `apps/wiki-vite`). Existing root-level `*:wiki-vite` commands remain compatible. Runtime cache identifiers and the Vercel project name are intentionally unchanged by this folder move.
+
+The [cutover QA report](../../docs/vite-cutover-qa-2026-09-05.md) records the release evidence. The [Next retirement report](../../docs/next-retirement-2026-09-05.md) records the removal and retained-logic consolidation; the Susan test site is retired.
+
+## Run
+
+Run the app:
+
+```sh
+cd apps/app
+bun run dev
+```
+
+By default the Vite dev server serves the reader APIs directly from Convex:
+
+- `/api/wiki/session`
+- `/api/wiki/manifest`
+- `/api/wiki/pages`
+- `/api/search`
+- `/api/ai-search`
+- `/api/chat`
+- `/api/tools`
+- `/api/login`
+- `/api/download`
+- `/api/file`
+- `/api/page-copy`
+
+This is the normal one-server development loop. It uses `NEXT_PUBLIC_CONVEX_URL` or `CONVEX_URL` when set, and otherwise falls back to the current Diana Convex deployment. Set `WIKI_SITE_SLUG` to test a non-default site.
+
+Run the production-style one-process server after building:
+
+```sh
+cd apps/app
+bun run build
+PORT=62003 bun run start:server
+```
+
+`start:server` serves `dist/` and the same wiki API request handler from one Bun process. It is the current full-stack rehearsal target: the SPA, `/api/wiki/*`, `/api/search`, `/api/ai-search`, `/api/chat`, `/api/tools`, `/api/login`, `/api/download`, `/api/file`, and `/api/page-copy` all come from the same origin while Convex remains the content database.
+
+## Vercel
+
+The production Vite project is `diana-tnbc-wiki-vite`, connected to the repo root and its `vercel.json`. Convex deploys from this app's `convex` directory.
+
+The root Vercel config builds `apps/app`, serves `apps/app/dist`, and routes app HTML plus `/api/*` through Vercel Functions that call bundled versions of the same request handlers as `server/standalone.ts`. That keeps local standalone behavior and Vercel behavior aligned for password gate enforcement, route metadata, search, AI search, chat, downloads, files, and page-copy.
+
+Current production smoke URL:
+
+```sh
+https://diana-tnbc.com
+```
+
+Required project env vars:
+
+- `NEXT_PUBLIC_CONVEX_URL`
+- `CONVEX_URL`
+- `VITE_CONVEX_URL`
+- `VITE_NEXT_PUBLIC_CONVEX_URL`
+- `WIKI_SITE_SLUG`
+- `LIVEBLOCKS_API_KEY` (or `LIVEBLOCKS_SECRET_KEY`)
+- `LIVEBLOCKS_WEBHOOK_SECRET` when the Liveblocks webhook is configured
+- `AI_GATEWAY_API_KEY`
+- `OPENAI_API_KEY`
+
+`WIKI_SITE_SLUG=diana` is currently required for the new `vercel.app` host because that host is not yet a site-domain record in Convex.
+
+The production Liveblocks project should post all comment and thread events to
+`https://<vite-host>/api/liveblocks-webhook`. Keep the existing Liveblocks
+workspace, Convex deployment, site slug, and document slugs during cutover so
+the `markdown:<documentSlug>` rooms and existing thread URLs remain intact.
+Production comments use authenticated mode and fail closed when the Liveblocks
+API key is unavailable; an explicit `VITE_LIVEBLOCKS_PUBLIC_KEY` is reserved
+for local development fixtures.
+
+## Environment
+
+Production uses same-origin APIs. Optional development overrides are:
+
+- `VITE_WIKI_API_ORIGIN`: optional override for where `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/search`, `/api/ai-search`, `/api/chat`, `/api/tools`, `/api/login`, `/api/download`, `/api/page-copy`, and `/api/file` are served from.
+- `VITE_WIKI_APP_ORIGIN`: optional app-origin override for routes that should intentionally leave the Vite app. Search, AI search, chat, and sign-in are Vite-owned in the standalone path.
+
+Omit the origin overrides for the normal same-origin development and production paths.
+
+Session mode uses `credentials: include` when `VITE_WIKI_API_ORIGIN` is set. That keeps the public store usable without cookies and lets authenticated previews use the existing wiki session when the backend origin explicitly allows the Vite origin.
+
+## Test
+
+Run the migrated Playwright suite with mocked wiki APIs:
+
+```sh
+bun run test:e2e
+```
+
+Run the same suite on Endform's remote browser runners:
+
+```sh
+bun x endform login
+bun run test:e2e:endform
+```
+
+Endform currently requires Node 22+. The script remains useful for targeted experiments, while the required PR browser suite runs as sharded Playwright jobs against the Vercel preview deployment.
+
+Run the migrated Playwright suite against a deployed Vite reader:
+
+```sh
+PLAYWRIGHT_BASE_URL=https://wiki-vite-preview.example \
+bun run test:e2e
+```
+
+When `PLAYWRIGHT_BASE_URL` is set, Playwright skips the local dev-server bootstrap and treats the URL as the app origin. For Vercel-protected previews, set `VERCEL_AUTOMATION_BYPASS_SECRET` so Playwright sends the Vercel bypass header and the Diana preview test-auth header with every request.
+
+Run the optional preview smoke against a deployed Vite reader:
+
+```sh
+PLAYWRIGHT_BASE_URL=https://wiki-vite-preview.example \
+WIKI_VITE_SMOKE_PATH=/wiki/logistics/insurance \
+bun run test:e2e:preview
+```
+
+For password-gated deployments, set `WIKI_VITE_SMOKE_COOKIE` to an `authed=true` cookie from `/api/login` before running the preview smoke.
+
+You can also run the preview smoke against the standalone server:
+
+```sh
+bun run build
+PORT=62004 bun run start:server
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:62004 bun run test:e2e:preview
+```
+
+The suite mirrors the current `apps/app/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app. P0 multi-site isolation, PII parity, chat performance, and chat navigation resilience are active; standalone metadata hardening is covered by `verify:standalone` because production HTML patching is owned by the Bun server rather than the Vite dev server. When Liveblocks and Convex credentials are available, the live comments story signs up a temporary reader, creates an anchored thread, reloads its direct URL, verifies the global timeline, and deletes both the remote thread and temporary user. Replies, reactions, resolution, and moderation permutations remain useful depth beyond that launch integration proof.
+
+From the repository root, `bun run verify:wiki-vite` runs the current migration proof: static checks, unit checks, and the migrated Vite Playwright suite. `bun run verify:wiki-vite:static` runs lint, package/app typechecks, the Vite build, and the bundle budget. `bun run verify:wiki-vite:unit` runs the shared package and Vite app unit tests.
+
+The PR workflow keeps those phases independent:
+
+- `Vite Static` runs the static/lint/build/bundle phase.
+- `Vite Unit` runs the shared package and Vite app unit tests.
+- `Vite Server` runs the standalone Bun server smoke so metadata, gates, backend APIs, and single-origin preview behavior keep their existing coverage.
+- `Vite E2E (Preview n/4)` resolves the branch's Vercel preview URL and runs the migrated Playwright suite in four preview shards.
+
+`bun run verify:wiki-vite:server` builds the Vite reader, starts the standalone Bun server, checks the password gate, page-specific bot metadata without exposing gated canonicals, private/public cache headers, key backend APIs, and the preview smoke against that single origin, then stops the server.
+
+The header finder is intentionally not the canonical wiki search. It filters the local manifest/page index for instant page switching. Canonical text search, AI search, and the full-stack chat experience are now served by the Vite backend/app surface for the standalone migration path.
+
+## Scope
+
+The default store is public-only, even if the browser also has a signed-in wiki session. Open `/?scope=session` to use authenticated content. Session mode first fetches `/api/wiki/session` and only opens LiveStore with a server-issued cache key for the current wiki session.
+
+## Architecture Note
+
+The app serves content, publishing and interactive APIs directly. Convex lives
+in `convex`, operator tools in `scripts`, and HTTP handlers in `server`.
+
+The durable wiki behavior should stay in shared packages. `@oncobase/wiki-content` owns manifest/page/tree contracts and cache reconciliation. `@oncobase/wiki-markdown` owns markdown rendering, route-safe links, heading anchors, image theater, citations, math, and smart-table integration. The Vite app should remain the LiveStore and React Router adapter around those packages.
+
+LiveStore is used as a local read cache without a remote sync backend. The schema stores:
+
+- `siteState` for manifest metadata and sync timing.
+- `fileTree`, `pageIndex`, and `assetIndex` for navigation, local page finding, and link rewriting.
+- `pageContent` for fetched markdown bodies plus first-class `fresh`, `stale`, `missing`, and `deleted` states.
+
+On load the app renders whatever markdown is already in LiveStore. A manifest validated within the freshness window (60 seconds for public data and 30 seconds for session data) causes no network request. Once stale, the reader sends the persisted manifest hash as `If-None-Match`; a `304` records a new `lastValidatedAt` without rebuilding the indexes. A changed response is applied as one LiveStore event, so the old tree and page content remain readable during the request and the replacement tree/index snapshot becomes visible atomically. Failed validation retains the old snapshot and retries after a bounded delay. Route changes only resolve page bodies from the local index and never refresh the full manifest.
+
+Fetch priority after a changed manifest is current route first through an explicit page fetch, then sidebar-linked pages, recent pages, and a bounded idle queue. The idle queue skips the current route so user-visible retry state is not raced by duplicate background fetches. The queue respects browser offline/save-data signals and caps eager work by page count and payload bytes.
+
+Public and session data use separate LiveStore `storeId` values that include site, scope, origin, reader cache version, and session cache key. Public requests never ask for sensitive content; session requests use private cache headers, require the existing wiki session, and clear the local session cache on auth failure. The Vite backend also applies defense-in-depth PII redaction across page bodies, search, AI search, chat tools, page-copy, and downloads, even though Convex content should already be redacted at publish time.
+
+### Directory-sharded manifest follow-up
+
+The current atomic unit is intentionally the complete manifest. A safe sharded follow-up must first add a small root index containing `snapshotId`, schema version, and `{ key, hash, pageCount, bytes }` for every directory shard. The client can then fetch only changed hashes, prioritizing the current route and expanded sidebar directories. Every shard must be a complete directory replacement or include explicit tombstones for moves and deletions. Changed shards must be staged under the new `snapshotId`, validated for complete coverage and matching scope, and activated in one LiveStore transaction; readers must never combine shards from different snapshots. Root and shard cache keys must continue to include site, public/session scope, session cache key, and reader schema version.
+
+## Bundle Shape
+
+The entry bundle resolves the public/session scope through the same-origin `/api/wiki/session`. LiveStore startup is lazy-loaded after that identity is known, and the markdown page renderer is lazy-loaded inside the shell so the first paint does not pull in the markdown processor.
+
+Vite/Rolldown code splitting keeps React, LiveStore, Effect, markdown, and icons in separate vendor chunks. Lazy chunk preloads are intentionally suppressed for `LiveStoreRoot` and `WikiPage`; otherwise the browser eagerly requests the expensive local database and markdown renderer before the wiki shell can render.
+
+Run `bun run build && bun run check:bundle` before widening the reader surface. The bundle budget reports raw/gzip sizes for the entry, LiveStore, markdown, Effect, workers, and SQLite wasm chunks so tree-shaking regressions show up as a failing check instead of a visual review surprise.
+
+## Observability
+
+The reader keeps a small browser-local diagnostics buffer at `window.__WIKI_VITE_OBSERVABILITY__`. It exposes the latest route/cache metrics and recent search timings so Playwright and preview smoke tests can verify cold render, warm navigation, search latency, and cache pressure without relying only on visible UI text. Text search has a 30-second launch budget. A cold public request waits up to 15 seconds for the exhaustive corpus, then returns safe indexed candidates while that corpus continues warming; the reader keeps those results visible and retries for exact line-level matches in the background. The browser records whether each request stayed within budget, while `/api/search` returns `Server-Timing`, `X-Wiki-Search-Duration-Ms`, `X-Wiki-Search-Budget-Ms`, and `X-Wiki-Search-Completeness` headers for server-side monitoring and integration enforcement. Session-scoped search never shares its sensitive corpus cache.

@@ -8,9 +8,9 @@ apps/*/.vercel-functions/
 obsidian-2/.obsidian/workspace.json
 # Retired local checkout residue (private env, caches and prior QA evidence).
 /apps/web/
-apps/wiki-vite/public/diana-tnbc-wiki*.zip
-apps/wiki-vite/public/wiki-download-info.json
-apps/wiki-vite/e2e/.auth/
+apps/app/public/diana-tnbc-wiki*.zip
+apps/app/public/wiki-download-info.json
+apps/app/e2e/.auth/
 /diagnostics
 .vercel
 package-lock.json

@@ -18,8 +18,8 @@
         "turbo": "^2",
       },
     },
-    "apps/wiki-vite": {
-      "name": "@oncobase/wiki-vite",
+    "apps/app": {
+      "name": "@oncobase/app",
       "version": "0.1.0",
       "dependencies": {
         "@liveblocks/client": "^3.18.1",
@@ -727,7 +727,7 @@
 
     "@oncobase/wiki-shell": ["@oncobase/wiki-shell@workspace:packages/wiki-shell"],
 
-    "@oncobase/wiki-vite": ["@oncobase/wiki-vite@workspace:apps/wiki-vite"],
+    "@oncobase/app": ["@oncobase/app@workspace:apps/app"],
 
     "@oozcitak/dom": ["@oozcitak/dom@1.15.10", "", { "dependencies": { "@oozcitak/infra": "1.0.8", "@oozcitak/url": "1.0.4", "@oozcitak/util": "8.3.8" } }, "sha512-0JT29/LaxVgRcGKvHmSrUTEvZ8BXvZhGl2LASRUgHqDTC1M5g1pLmVv56IYNyt3bG2CUjDkc67wnyZC14pbQrQ=="],
 

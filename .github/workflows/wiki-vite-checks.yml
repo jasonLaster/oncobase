@@ -6,7 +6,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - "apps/wiki-vite/**"
+      - "apps/app/**"
       - "packages/**"
       - "api/**"
       - "vercel.json"
@@ -76,7 +76,7 @@ jobs:
         run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
 
       - name: Install Playwright browsers
-        working-directory: apps/wiki-vite
+        working-directory: apps/app
         run: bunx playwright install --with-deps chromium
 
       - name: Verify standalone server
@@ -173,11 +173,11 @@ jobs:
         run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
 
       - name: Install Playwright browsers
-        working-directory: apps/wiki-vite
+        working-directory: apps/app
         run: bunx playwright install --with-deps chromium
 
       - name: Run Vite e2e shard against deployed commit
-        working-directory: apps/wiki-vite
+        working-directory: apps/app
         env:
           PLAYWRIGHT_BASE_URL: ${{ needs.preview-url.outputs.url }}
           WIKI_VITE_PREVIEW_LOGIN_PASSWORD: diana
@@ -188,7 +188,7 @@ jobs:
 
       - name: Publish content-free test outcomes
         if: always()
-        working-directory: apps/wiki-vite
+        working-directory: apps/app
         run: bun scripts/summarize-playwright.ts test-results/results.json test-summary.json
 
       - name: Upload Playwright report
@@ -196,7 +196,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wiki-vite-preview-playwright-report-${{ matrix.shard }}
-          path: apps/wiki-vite/test-summary.json
+          path: apps/app/test-summary.json
           retention-days: 7
 
   browser-smoke:
@@ -217,10 +217,10 @@ jobs:
           bun-version: 1.3.12
       - run: bun install --frozen-lockfile
       - name: Install browser
-        working-directory: apps/wiki-vite
+        working-directory: apps/app
         run: bunx playwright install --with-deps ${{ matrix.browser }}
       - name: Check anonymous and synthetic browser startup
-        working-directory: apps/wiki-vite
+        working-directory: apps/app
         env:
           PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
           PLAYWRIGHT_BASE_URL: ${{ needs.preview-url.outputs.url }}
@@ -228,7 +228,7 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: bun run test:e2e e2e/browser-preflight.spec.ts --reporter=line
       - name: Exercise reader, search, anchors, accessibility, tools, and denied storage
-        working-directory: apps/wiki-vite
+        working-directory: apps/app
         env:
           PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
           PLAYWRIGHT_BASE_URL: ${{ needs.preview-url.outputs.url }}
@@ -239,13 +239,13 @@ jobs:
         run: bun run test:e2e e2e/accessibility.spec.ts e2e/markdown-heading-anchors.spec.ts e2e/medical-deduction.spec.ts e2e/page-chrome.spec.ts e2e/search.spec.ts e2e/search-request-order.spec.ts e2e/storage-availability.spec.ts --reporter=json > playwright-runner.log 2>&1
       - name: Publish content-free test outcomes
         if: always()
-        working-directory: apps/wiki-vite
+        working-directory: apps/app
         run: bun scripts/summarize-playwright.ts test-results/results.json test-summary.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: wiki-vite-${{ matrix.browser }}-report
-          path: apps/wiki-vite/test-summary.json
+          path: apps/app/test-summary.json
           retention-days: 7
 
   visual:
@@ -260,10 +260,10 @@ jobs:
           bun-version: 1.3.12
       - run: bun install --frozen-lockfile
       - name: Install Chromium
-        working-directory: apps/wiki-vite
+        working-directory: apps/app
         run: bunx playwright install chromium
       - name: Compare committed screenshots without updating baselines
-        working-directory: apps/wiki-vite
+        working-directory: apps/app
         env:
           PLAYWRIGHT_BASE_URL: ${{ needs.preview-url.outputs.url }}
           WIKI_VITE_PREVIEW_LOGIN_PASSWORD: diana
@@ -272,13 +272,13 @@ jobs:
         run: bun run test:e2e e2e/visual-parity.spec.ts --reporter=json > playwright-runner.log 2>&1
       - name: Publish content-free test outcomes
         if: always()
-        working-directory: apps/wiki-vite
+        working-directory: apps/app
         run: bun scripts/summarize-playwright.ts test-results/results.json test-summary.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: wiki-vite-visual-report
           path: |
-            apps/wiki-vite/test-summary.json
-            apps/wiki-vite/test-results/**/*.png
+            apps/app/test-summary.json
+            apps/app/test-results/**/*.png
           retention-days: 7

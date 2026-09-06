@@ -2,15 +2,15 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "installCommand": "bun install --frozen-lockfile",
-  "buildCommand": "bun --cwd apps/wiki-vite scripts/build-vercel.ts",
-  "outputDirectory": "apps/wiki-vite/dist",
+  "buildCommand": "bun --cwd apps/app scripts/build-vercel.ts",
+  "outputDirectory": "apps/app/dist",
   "functions": {
     "api/app-shell.js": {
-      "includeFiles": "apps/wiki-vite/.vercel-functions/**",
+      "includeFiles": "apps/app/.vercel-functions/**",
       "maxDuration": 60
     },
     "api/index.js": {
-      "includeFiles": "apps/wiki-vite/.vercel-functions/**",
+      "includeFiles": "apps/app/.vercel-functions/**",
       "maxDuration": 60
     }
   },

@@ -47,4 +47,4 @@ Pause and ask before publishing if:
 ## Documentation
 
 - CLI docs: `packages/oncobase/README.md`
-- Publishing architecture: `apps/wiki-vite/docs/architecture/04-publishing.md`
+- Publishing architecture: `apps/app/docs/architecture/04-publishing.md`

@@ -1,6 +1,6 @@
 # Application
 
-[`wiki-vite`](wiki-vite/README.md) is the production application. It owns the React Router/LiveStore reader, same-origin HTTP APIs, Convex schema and functions, publishing/admin scripts, and browser regression suites.
+[`app`](app/README.md) is the production application. It owns the React Router/LiveStore reader, same-origin HTTP APIs, Convex schema and functions, publishing/admin scripts, and browser regression suites.
 
 Reusable rendering, chat, comments, content contracts, diagnostics and the publishing CLI remain in [packages](../packages/README.md).
 

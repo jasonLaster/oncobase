@@ -32,6 +32,6 @@ This package may depend on TypeScript, Zod, and server-safe utility libraries. I
 ## Related Docs
 
 - [Feature overview](../../docs/features.md)
-- [Chat and search architecture](../../apps/wiki-vite/docs/architecture/05-chat-and-search.md)
-- [PII redaction spec](../../apps/wiki-vite/specs/pii-redaction.md)
-- [Vite reader README](../../apps/wiki-vite/README.md)
+- [Chat and search architecture](../../apps/app/docs/architecture/05-chat-and-search.md)
+- [PII redaction spec](../../apps/app/specs/pii-redaction.md)
+- [Vite reader README](../../apps/app/README.md)
