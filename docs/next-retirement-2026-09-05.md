@@ -40,4 +40,6 @@ The removed hosted Next deployment is no longer a rollback target. Next source i
 - Final focused navigation, loading, and source-boundary rerun: 38 passed, 5 server-only cases skipped on the dev server, no failures or retries.
 - Manual browser exploration verified the password gate and rendered reader, with screenshots and no browser errors.
 
+The first hosted cleanup build (`b87407ee`) found a missing build prerequisite: retained operator tools import the publisher CLI's generated types. Local generated artifacts had masked that dependency. The app's typecheck/build now builds the CLI first. The failed frontend build did not replace the working Diana deployment; Convex deployed the unchanged moved functions successfully.
+
 Private evidence is under `.playwright/next-retirement/`. Deployed verification must use the exact new commit, real backends, test-owned records, and fresh teardown checks. Traces, screenshots, signed sessions, and backend receipts must not be uploaded to this public repository.
