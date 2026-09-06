@@ -42,4 +42,6 @@ The removed hosted Next deployment is no longer a rollback target. Next source i
 
 The first hosted cleanup build (`b87407ee`) found a missing build prerequisite: retained operator tools import the publisher CLI's generated types. Local generated artifacts had masked that dependency. The app's typecheck/build now builds the CLI first. The failed frontend build did not replace the working Diana deployment; Convex deployed the unchanged moved functions successfully.
 
+Clean CI also exposed two imports for Next-era workflow placeholders in the Vite publisher. Those workflows performed no maintenance: they only logged completion. Both placeholders and the unused `/api/post-deploy` endpoint were deleted, with an endpoint-retirement regression test. Publishing still finishes the site lock and returns `postPublishRunId: null` for wire compatibility; there is no implied background job. Downloads are request-time, and description/embedding maintenance remains explicit operator tooling.
+
 Private evidence is under `.playwright/next-retirement/`. Deployed verification must use the exact new commit, real backends, test-owned records, and fresh teardown checks. Traces, screenshots, signed sessions, and backend receipts must not be uploaded to this public repository.

@@ -642,7 +642,6 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       request("/api/share-preview?path=%2Fwiki%2Fpublic"),
       request("/api/liveblocks-webhook"),
       request("/api/publish/unknown"),
-      request("/api/post-deploy"),
       request("/api/integrations/epic/callback"),
     ];
 
@@ -653,6 +652,12 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
         "Password gate authentication required",
       );
     }
+  });
+
+  test("does not register the retired no-op post-deploy endpoint", async () => {
+    const handler = createWikiApiHandler(createFakeConvexClient() as never);
+    expect(await handler(request("/api/post-deploy"))).toBeNull();
+    expect(await handler(new Request("https://example.test/api/post-deploy", { method: "POST" }))).toBeNull();
   });
 
   test("returns redacted line-level text search matches with source locations", async () => {

@@ -8,7 +8,6 @@ import { siteBlobKey } from "./blob";
 const MIN_SUPPORTED_PUBLISHER_PROTOCOL_VERSION = 1;
 const PUBLISHER_VERSION_HEADER = "X-Publisher-Version";
 const MAX_DOCUMENT_CONTENT_STORAGE_BYTES = 950_000;
-const MAX_POST_PUBLISH_PRIORITY_SLUGS = 64;
 
 type Manifest = {
   documents?: Array<{ slug: string; hash: string; sensitive?: boolean }>;
@@ -318,40 +317,6 @@ async function handleDocumentHashBackfill(request: Request, client: ConvexHttpCl
     }),
   );
   return Response.json(result);
-}
-
-function postPublishPrioritySlugs(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  const seen = new Set<string>();
-  const slugs: string[] = [];
-  for (const item of value) {
-    if (typeof item !== "string") continue;
-    const slug = item.trim().replace(/^\/+/, "").replace(/\.(?:md|mdx)$/i, "");
-    if (!slug || seen.has(slug)) continue;
-    slugs.push(slug);
-    seen.add(slug);
-    if (slugs.length >= MAX_POST_PUBLISH_PRIORITY_SLUGS) break;
-  }
-  return slugs;
-}
-
-async function startPostPublishWorkflow(siteSlug: string, prioritySlugs: string[]) {
-  try {
-    const { start } = await import("workflow/api");
-    const run = await start(
-      async function postPublishManifestRefreshWorkflow() {
-        "use workflow";
-        console.log(
-          `[post-publish] wiki-vite manifest refresh completed for ${siteSlug} (${prioritySlugs.length} priority slugs)`,
-        );
-      },
-      [],
-    );
-    return run.runId;
-  } catch (error) {
-    console.warn("[publish] post-publish workflow unavailable", error);
-    return null;
-  }
 }
 
 function logRouteError(step: string, error: unknown) {
@@ -680,11 +645,7 @@ export async function handlePublishRequest({
           }
         }
         await client.mutation(api.sites.finishPublish, { slug: siteSlug });
-        const postPublishRunId = await startPostPublishWorkflow(
-          siteSlug,
-          postPublishPrioritySlugs(body.changedDocumentSlugs),
-        );
-        return Response.json({ ok: true, postPublishRunId });
+        return Response.json({ ok: true, postPublishRunId: null });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         await client
@@ -700,33 +661,5 @@ export async function handlePublishRequest({
     logRouteError(step, error);
     const message = error instanceof Error ? error.message : String(error);
     return Response.json({ step, error: message }, { status: 500 });
-  }
-}
-
-export async function handlePostDeployRequest(request: Request) {
-  if (request.method !== "POST") {
-    return Response.json(
-      { error: "Method not allowed" },
-      { status: 405, headers: { Allow: "POST" } },
-    );
-  }
-  const secret = process.env.POST_DEPLOY_SECRET;
-  if (secret && new URL(request.url).searchParams.get("secret") !== secret) {
-    console.warn("[post-deploy] Unauthorized request");
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  try {
-    const { start } = await import("workflow/api");
-    const run = await start(
-      async function postDeployManifestRefreshWorkflow() {
-        "use workflow";
-        console.log("[post-deploy] wiki-vite post-deploy manifest refresh completed");
-      },
-      [],
-    );
-    return Response.json({ started: true, runId: run.runId });
-  } catch (error) {
-    console.warn("[post-deploy] workflow unavailable", error);
-    return Response.json({ started: true, runId: null });
   }
 }

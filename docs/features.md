@@ -176,7 +176,7 @@ See the [operator runbook](../apps/wiki-vite/specs/operator-runbook.md) for prod
 
 ## Vite + LiveStore Reader
 
-The Vite reader is the standalone replacement path for the current Next reader surface. It consumes the same wiki APIs, stores public/session snapshots in LiveStore, and keeps offline-friendly local read state.
+The Vite reader is the production app. It serves same-origin wiki APIs, stores public/session snapshots in LiveStore, and keeps offline-friendly local read state.
 
 Implemented reader features include:
 
@@ -199,7 +199,7 @@ Operators have scripts and workflows for:
 - password reset for account auth
 - site-id backfills
 - content hash backfills
-- post-deploy workflows for archives, descriptions, and embeddings
+- explicit operator scripts for descriptions and embeddings; request-time scoped downloads
 - preview and production smoke tests
 - Vite reader static/unit/server/e2e checks
 

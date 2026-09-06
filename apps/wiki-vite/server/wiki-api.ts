@@ -85,7 +85,7 @@ import {
   handleEpicSyncRequest,
   isAdminSessionUser,
 } from "./epic-fhir.js";
-import { handlePostDeployRequest, handlePublishRequest } from "./publish-api.js";
+import { handlePublishRequest } from "./publish-api.js";
 import {
   DEFAULT_SITE_DESCRIPTION,
   DIANA_SITE_NAME as SITE_NAME,
@@ -3378,7 +3378,6 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/download" ||
       pathname === "/api/file" ||
       pathname === "/api/page-copy" ||
-      pathname === "/api/post-deploy" ||
       pathname === "/api/integrations/epic/authorize" ||
       pathname === "/api/integrations/epic/callback" ||
       pathname === "/api/integrations/epic/sync";
@@ -3421,7 +3420,6 @@ export function createWikiApiHandler(client = createClient()) {
       pathname.startsWith("/api/auth/") ||
       pathname.startsWith("/api/admin/") ||
       pathname.startsWith("/api/publish/") ||
-      pathname === "/api/post-deploy" ||
       pathname === "/api/wiki/session" ||
       pathname === "/api/share-preview" ||
       pathname === "/api/liveblocks-webhook" ||
@@ -3442,10 +3440,6 @@ export function createWikiApiHandler(client = createClient()) {
         client,
         step: pathname.slice("/api/publish/".length),
       });
-    }
-
-    if (pathname === "/api/post-deploy") {
-      return handlePostDeployRequest(request);
     }
 
     if (pathname.startsWith("/api/admin/")) {

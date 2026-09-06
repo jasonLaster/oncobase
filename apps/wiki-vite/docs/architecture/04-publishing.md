@@ -1,80 +1,30 @@
-# 4. Publishing Pipeline
+# 4. Publishing
 
-Authors edit markdown in Obsidian. To make those edits live, they run `oncobase publish` directly or through the repo's `wiki:publish` script. Everything between "save in Obsidian" and "live on the site" happens in this pipeline.
+Authors publish a configured vault with `oncobase publish`. Application deployment and content publication are separate operations.
 
-## High-level flow
+## Content publication
 
-```mermaid
-flowchart LR
-  V[(Obsidian vault\nconfigured per site)]
-  CLI[oncobase publish CLI\n@oncobase/oncobase]
-  Walk[vault walker\nfind markdown + assets]
-  Hash[hash content\nskip unchanged]
-  ConvexAPI[(Convex\ndocuments, pdfAssets,\nfileAssets)]
-  BlobAPI[(Vercel Blob)]
-  Vercel[Vercel deploy\ngit push]
-  PostDeploy[/api/post-deploy/]
-  Workflows[Vercel Workflows]
+The CLI in `packages/oncobase` plans the vault's markdown and assets, compares content hashes with the remote manifest, and sends the reviewed changes through the same-origin `/api/publish/*` protocol in `server/publish-api.ts`.
 
-  V --> CLI --> Walk --> Hash
-  Hash -->|markdown rows| ConvexAPI
-  Hash -->|PDFs / files| BlobAPI
-  Hash -->|asset URLs| ConvexAPI
-  CLI -->|git push if --commit| Vercel
-  Vercel --> PostDeploy --> Workflows
-  Workflows --> ConvexAPI
-  Workflows --> BlobAPI
-```
+The server validates the site and publish token, acquires the site publish lock, applies site-specific redaction, updates Convex content and asset metadata, and finishes or fails the publish transaction. Blob object keys remain scoped under `sites/<siteSlug>/`. Hash matches avoid unnecessary writes; removed paths must be reviewed before tombstoning.
 
-## What `oncobase publish` does
+The finish response retains `postPublishRunId: null` for client compatibility. It does not start a background workflow. Readers synchronize the current manifest through their existing cache-validation path.
 
-1. **Walks the vault** (`@oncobase/oncobase`) skipping `.obsidian`, `Clippings`, `Google Drive`, etc.
-2. **Per markdown file**: parses frontmatter (`gray-matter`), applies PII redactions (`pii-redaction.ts`), computes a SHA hash of the post-redaction body. If the hash matches Convex's stored `contentHash`, skip — otherwise upsert into `documents`.
-3. **Per binary asset**: hashes the file. If unchanged, skip. Otherwise uploads to Vercel Blob and upserts a `pdfAssets` / `fileAssets` row pointing at the new `blobUrl`.
-4. Optionally commits + pushes, which triggers a Vercel deploy.
+## Application deployment
 
-The hash-skip step is what makes incremental publishes fast — only the diff hits the network.
+Root `vercel.json` invokes `scripts/build-vercel.ts`. Production deploys the shared Convex functions from this app, builds the publisher CLI types needed by operator tools, then builds Vite and its API functions. Preview builds do not deploy Convex.
 
-## Post-deploy: durable workflows
+There is no `/api/post-deploy` workflow endpoint. The former Vite placeholders only logged completion and have been deleted. Scoped download archives are assembled by `/api/download` for each authorized request. Description and embedding maintenance is available through explicit operator scripts; it is not implied by a successful frontend deploy or publish response.
 
-After a successful production deploy, GitHub Actions hits `POST /api/post-deploy`, which kicks off [`postDeployWorkflow`](../../src/workflows/post-deploy.ts). It fans out four child workflows in parallel:
+## Operator tools
 
-```mermaid
-flowchart TB
-  PD[postDeployWorkflow]
-  PD --> A[buildDownloadCacheWorkflow 'full'\nzip whole vault]
-  PD --> B[buildDownloadCacheWorkflow 'markdown'\nmarkdown-only zip]
-  PD --> C[generateDescriptionsWorkflow\nAI summaries for new pages]
-  PD --> D[ingestEmbeddingsWorkflow\nOpenAI embeddings batch]
+Retained tools live in `scripts/admin` and `scripts/publish`:
 
-  A --> Blob1[(Public Blob:\nfull.zip)]
-  B --> Blob2[(Public Blob:\nmarkdown.zip)]
-  C --> Convex1[(documents.description)]
-  D --> Convex2[(documents.embedding\n+ embeddingHash)]
-```
+- Site creation, publish-token management, archive/restore, and stuck-lock recovery.
+- Account password reset using the same hashing implementation as the live API.
+- Hash and site-ID backfills, with their explicit targeting and confirmation requirements.
+- Vault bootstrapping, file/DICOM uploads, descriptions, embeddings, and diagnostic seed maintenance.
 
-Each child is **independently retryable**. If OpenAI rate-limits one batch inside `ingestEmbeddingsWorkflow`, only that batch retries — the rest keep going.
+Use the app's `wiki:*` scripts for the named commands. Backend deployment and source movement do not authorize publishing a vault, bulk backfilling data, or deleting clinical records.
 
-### Why workflows, not build steps?
-
-Embeddings and description generation used to run during `next build`. That:
-
-- blocked deploys behind OpenAI latency,
-- billed OpenAI on every preview deploy,
-- couldn't retry without a full redeploy.
-
-Moving them post-deploy decouples render from AI side-effects. The site renders the moment Vercel is happy; embeddings catch up asynchronously.
-
-## Site-admin scripts
-
-These don't run on every publish, but you'll meet them when onboarding a tenant. They live in `apps/wiki-vite/scripts/admin/`:
-
-| Script | Use when |
-|---|---|
-| `wiki:site:create` | Bring up a new tenant — inserts the `sites` row, attaches domains. |
-| `wiki:site:token:add` | Add a publish token without invalidating existing publishers. |
-| `wiki:site:archive` / `restore` | Soft-archive a tenant; flips `status` and stops public reads. |
-| `wiki:site:lock-clear` | Clears `publishLockUntil` if a publish hung. |
-| `wiki:site:backfill` | Backfills `siteId` on legacy rows (one-time per tenant). |
-
-Continue to [Chat & search →](05-chat-and-search.md)
+Continue to [Chat and search](05-chat-and-search.md).
