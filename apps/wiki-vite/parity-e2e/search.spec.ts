@@ -1,4 +1,5 @@
 import { test, expect, signIn, article, checkpoint } from "./fixtures";
+import { TEXT_SEARCH_LATENCY_BUDGET_MS } from "../src/search-performance";
 
 for (const width of [393, 1440]) {
   for (const mode of ["text", "ai"] as const) {
@@ -11,7 +12,9 @@ for (const width of [393, 1440]) {
       // below inject responses; those are not persistence/provider evidence.
       await page.goto(`/search?q=insurance&tab=${mode}`);
       const link = page.getByTestId(mode === "ai" ? "search-ai-result" : "search-text-result").first();
-      await expect(link).toBeVisible();
+      // Use the product's existing exhaustive-search budget on both hosts,
+      // rather than the shorter generic UI assertion timeout.
+      await expect(link).toBeVisible({ timeout: mode === "text" ? TEXT_SEARCH_LATENCY_BUDGET_MS : 20_000 });
       await expect(link).toContainText(/insurance/i);
       const destination = new URL((await link.getAttribute("href"))!, page.url()).pathname;
       await checkpoint(page, info, "ranked-results");
