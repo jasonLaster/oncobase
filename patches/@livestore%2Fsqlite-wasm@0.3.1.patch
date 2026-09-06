@@ -1,0 +1,76 @@
+diff --git a/dist/browser/opfs/AccessHandlePoolVFS.d.ts b/dist/browser/opfs/AccessHandlePoolVFS.d.ts
+index fee939b698438ee43060560ba532424f76712c28..4d2bc18792d80dd872c4c889f846c47279cf5282 100644
+--- a/dist/browser/opfs/AccessHandlePoolVFS.d.ts
++++ b/dist/browser/opfs/AccessHandlePoolVFS.d.ts
+@@ -1,4 +1,5 @@
+ import { FacadeVFS } from '../../FacadeVFS.js';
++export declare function openAccessHandle<T>(file: { createSyncAccessHandle(): Promise<T> }, wait?: () => Promise<void>): Promise<T>;
+ /**
+  * This VFS uses the updated Access Handle API with all synchronous methods
+  * on FileSystemSyncAccessHandle (instead of just read and write). It will
+diff --git a/dist/browser/opfs/AccessHandlePoolVFS.js b/dist/browser/opfs/AccessHandlePoolVFS.js
+index 24496dfad3088a06d69733fc96e8cb3d31862cae..f92e2c57c296eadc4e5df1e914ee0407776649a1 100644
+--- a/dist/browser/opfs/AccessHandlePoolVFS.js
++++ b/dist/browser/opfs/AccessHandlePoolVFS.js
+@@ -2,6 +2,17 @@
+ // Based on https://github.com/rhashimoto/wa-sqlite/blob/master/src/examples/AccessHandlePoolVFS.js
+ import * as VFS from '@livestore/wa-sqlite/src/VFS.js';
+ import { FacadeVFS } from '../../FacadeVFS.js';
++// Wait for the previous worker's exclusive OPFS handles; never reset data.
++export async function openAccessHandle(file, wait = () => new Promise(resolve => setTimeout(resolve, 50))) {
++    for (let attempt = 0; ; attempt++) {
++        try {
++            return await file.createSyncAccessHandle();
++        } catch (error) {
++            if (!(error instanceof DOMException) || error.name !== 'NoModificationAllowedError' || attempt >= 40) throw error;
++            await wait();
++        }
++    }
++}
+ const SECTOR_SIZE = 4096;
+ // Each OPFS file begins with a fixed-size header with metadata. The
+ // contents of the file follow immediately after the header.
+@@ -224,7 +235,7 @@ export class AccessHandlePoolVFS extends FacadeVFS {
+         }
+         // Open access handles in parallel, separating associated and unassociated.
+         await Promise.all(files.map(async ([name, handle]) => {
+-            const accessHandle = await handle.createSyncAccessHandle();
++            const accessHandle = await openAccessHandle(handle);
+             this.#mapAccessHandleToName.set(accessHandle, name);
+             const path = this.#getAssociatedPath(accessHandle);
+             if (path) {
+diff --git a/src/browser/opfs/AccessHandlePoolVFS.ts b/src/browser/opfs/AccessHandlePoolVFS.ts
+index b6e4919821bd1378ea8e4d07d379331a839725db..f91ed834955197d68f4a97a28fe5695bee4bc6c1 100644
+--- a/src/browser/opfs/AccessHandlePoolVFS.ts
++++ b/src/browser/opfs/AccessHandlePoolVFS.ts
+@@ -4,6 +4,21 @@
+ import * as VFS from '@livestore/wa-sqlite/src/VFS.js'
+ 
+ import { FacadeVFS } from '../../FacadeVFS.js'
++// Navigation can release the leader lock before the prior worker's OPFS handles.
++// Retry only exclusive-lock contention, for at most two seconds; never reset data.
++export async function openAccessHandle<T>(
++  file: { createSyncAccessHandle(): Promise<T> },
++  wait: () => Promise<void> = () => new Promise(resolve => setTimeout(resolve, 50)),
++): Promise<T> {
++  for (let attempt = 0; ; attempt++) {
++    try {
++      return await file.createSyncAccessHandle()
++    } catch (error) {
++      if (!(error instanceof DOMException) || error.name !== 'NoModificationAllowedError' || attempt >= 40) throw error
++      await wait()
++    }
++  }
++}
+ 
+ const SECTOR_SIZE = 4096
+ 
+@@ -260,7 +275,7 @@ export class AccessHandlePoolVFS extends FacadeVFS {
+     // Open access handles in parallel, separating associated and unassociated.
+     await Promise.all(
+       files.map(async ([name, handle]) => {
+-        const accessHandle = await handle.createSyncAccessHandle()
++        const accessHandle = await openAccessHandle(handle)
+         this.#mapAccessHandleToName.set(accessHandle, name)
+         const path = this.#getAssociatedPath(accessHandle)
+         if (path) {

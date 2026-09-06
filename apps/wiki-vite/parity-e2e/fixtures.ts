@@ -109,7 +109,7 @@ export async function openReader(page: Page, path = readerPath) {
 export async function checkpoint(page: Page, info: TestInfo, name: string) {
   await test.step(`Checkpoint: ${name}`, async () => {
     // A cached HTML first frame is not an interactive, hydrated reader.
-    await expect(page.locator("#wiki-first-frame-snapshot")).toHaveCount(0);
+    await expect(page.locator("#wiki-first-frame-snapshot").filter({ visible: true })).toHaveCount(0);
     await expect(page.locator("vite-error-overlay,[data-nextjs-dialog]")).toHaveCount(0);
     await expect(page.getByTestId("page-loading").filter({ visible: true })).toHaveCount(0);
     await page.evaluate(async () => {

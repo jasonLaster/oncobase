@@ -65,14 +65,14 @@
   margin-bottom: 0.25rem;
 }
 
-.wiki-markdown a {
+.wiki-markdown a:not(.heading-anchor) {
   color: var(--brand, #2563eb);
   opacity: 1;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.wiki-markdown a:hover {
+.wiki-markdown a:not(.heading-anchor):hover {
   opacity: 1;
   text-decoration: underline;
   text-underline-offset: 2px;

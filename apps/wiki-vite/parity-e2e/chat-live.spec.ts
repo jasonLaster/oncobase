@@ -39,6 +39,35 @@ test('real AI chat persists its response across reload', async ({ page }, info) 
     await expect(page.getByTestId('chat-assistant-message').last()).toContainText(/pong/i);
     await expect(page.getByTestId('chat-interface')).toHaveAttribute('data-chat-status', 'ready');
     await checkpoint(page, info, 'chat-restored');
+
+    // Stop must reach the real backend, not merely hide a local spinner.
+    const stopPrompt = 'Nonclinical QA: write a 1200-word fictional story about a lighthouse. Do not use tools.';
+    await page.getByTestId('chat-composer-textarea').fill(stopPrompt);
+    await page.getByTestId('chat-submit-button').click();
+    await expect.poll(async () => Boolean((await query('getStreamingState'))?.activeRunId)).toBe(true);
+    await page.getByRole('button', { name: 'Stop', exact: true }).click();
+    await expect.poll(async () => Boolean((await query('getStreamingState'))?.activeRunId)).toBe(false);
+    await expect.poll(async () => (await query('getMessages')).some((m: any) => m.role === 'user' && m.content === stopPrompt && m.disabled === true)).toBe(true);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('chat-interface')).toHaveAttribute('data-chat-status', 'ready');
+    await checkpoint(page, info, 'chat-stopped-restored');
+
+    await page.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
+    const ownedLink = page.getByTestId('conversation-list-item').filter({ visible: true }).and(page.locator(`[data-conversation-id="${id}"]`));
+    const ownedRow = ownedLink.locator('..');
+    await ownedRow.hover();
+    await ownedRow.getByRole('button', { name: 'Conversation actions' }).click();
+    await ownedRow.getByRole('button', { name: 'Archive', exact: true }).click();
+    await expect.poll(async () => (await query('get')).archived).toBe(true);
+    await page.goto('/chat/archived', { waitUntil: 'domcontentloaded' });
+    const archivedRow = page.getByTestId('chat-archived-item').filter({ has: page.locator(`a[href="/chat/${id}"]`) });
+    await expect(archivedRow).toBeVisible();
+    await checkpoint(page, info, 'chat-archived');
+    await archivedRow.getByRole('button', { name: 'Restore', exact: true }).click();
+    await expect.poll(async () => Boolean((await query('get')).archived)).toBe(false);
+    await page.goto(`/chat/${id}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('chat-assistant-message').first()).toContainText(/pong/i);
+    await checkpoint(page, info, 'chat-unarchived');
   } finally {
     await page.close();
     try {

@@ -74,7 +74,9 @@ const eagerLoaderPatterns = [
 // The temporary-reader fallback adds ~6 KiB gzip (<0.6%) to the shared
 // LiveStore graph. Budget that measured compatibility cost explicitly; the
 // fallback prevents an infinite loader when the browser denies OPFS access.
-const eagerGzipBudget = 1_233_000;
+// Bounded OPFS lock acquisition adds less than 0.5 KiB across the worker and
+// SQLite graph. Keep this explicit rather than obscuring the readiness fix.
+const eagerGzipBudget = 1_233_500;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
 const lazyGzipBudget = 3_400_000;
