@@ -190,7 +190,9 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
     await page.goto("/comments", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Comments" })).toBeVisible();
     await expect(page.getByText(commentText)).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("link", { name: "wiki/logistics/insurance" })).toHaveAttribute(
+    const ownedGlobalThread = page.getByText(commentText, { exact: true }).locator("xpath=ancestor::article[1]");
+    await expect(ownedGlobalThread).toHaveCount(1);
+    await expect(ownedGlobalThread.getByRole("link", { name: "wiki/logistics/insurance" })).toHaveAttribute(
       "href",
       DOCUMENT_PATH,
     );

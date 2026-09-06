@@ -6,6 +6,8 @@ September 5, 2026 (Pacific). This follows the [Vite cutover](vite-cutover-qa-202
 
 - The tracked `apps/web` Next implementation, Next dependencies, framework-only chat adapters, and old Next build/deployment/test workflows.
 - Superseded report-only parity scripts, four large captured browser-tree JSON files, starter assets, and a one-off chat cancellation script without verified teardown.
+- Unreferenced local-vault zip and description generators targeting a removed `obsidian/` directory, plus their unused sensitivity helper/tests and direct `gray-matter` dependency. Stored descriptions remain intact; production downloads use the scoped API.
+- The unreferenced standalone tissue-plan HTML asset. Copying it into Vite's public directory bypassed the password gate, unlike Next's middleware. It was removed, with a regression check rejecting standalone public HTML; reader documents must use the gated app/content routes.
 - The permanently skipped Next streaming test. Current Vite browser tests and screenshot baselines remain.
 
 ## What remains and where
@@ -32,7 +34,7 @@ The removed hosted Next deployment is no longer a rollback target. Next source i
 ## Verification
 
 - All nine workspace typechecks passed; frozen dependency installation passed with no Next package in the lockfile.
-- Shared/package/CLI unit suite passed; the final Vite app unit run passed 134 tests.
+- Shared/package/CLI unit suite passed. After removing three unused-helper tests and adding the public-HTML gate regression, the final Vite app suite passed all 132 tests (798 assertions).
 - Lint, production build and bundle budgets passed. Lint retains existing React-hook and unused-disable warnings; they were not hidden or expanded into unrelated refactoring.
 - Standalone production-server probes and all four Chromium preview smoke tests passed.
 - Full local Chromium suite: 319 passed, 32 skipped, no failures or retries. This run preceded removal of the one permanently skipped Next-only case. These tests include mocked scenarios and environment-dependent skips; they are not a substitute for real-backend verification.
@@ -42,10 +44,18 @@ The removed hosted Next deployment is no longer a rollback target. Next source i
 
 The first hosted cleanup build (`b87407ee`) found a missing build prerequisite: retained operator tools import the publisher CLI's generated types. Local generated artifacts had masked that dependency. The app's typecheck/build now builds the CLI first. The failed frontend build did not replace the working Diana deployment; Convex deployed the unchanged moved functions successfully.
 
-Clean CI also exposed two imports for Next-era workflow placeholders in the Vite publisher. Those workflows performed no maintenance: they only logged completion. Both placeholders and the unused `/api/post-deploy` endpoint were deleted, with an endpoint-retirement regression test. Publishing still finishes the site lock and returns `postPublishRunId: null` for wire compatibility; there is no implied background job. Downloads are request-time, and description/embedding maintenance remains explicit operator tooling.
+Clean CI also exposed two imports for Next-era workflow placeholders in the Vite publisher. Those workflows performed no maintenance: they only logged completion. Both placeholders and the unused `/api/post-deploy` endpoint were deleted, with an endpoint-retirement regression test. Publishing still finishes the site lock and returns `postPublishRunId: null` for wire compatibility; there is no implied background job. Downloads are request-time, embedding maintenance remains explicit operator tooling, and stored descriptions are retained without the obsolete local-vault generator.
 
 With only one Vercel project remaining, GitHub now names its deployment simply `Production` instead of including the project name. The CI resolver accepts that exact environment label while still checking the commit SHA and verifying the resulting URL belongs to the Vite project.
 
 The final application changes (`8e23d0f6`) passed frozen installation, the complete static/build/bundle command, all shared/app/CLI unit suites, and production standalone verification including 4/4 browser smokes in a separate fresh checkout with no old dependencies or generated artifacts.
+
+All ten hosted checks passed on `d2154869`, including four deployed Chromium shards, WebKit smoke, and macOS visual tests. The unused-tool deletion produced byte-identical copies of all 167 frontend build files; the later public-HTML correction removes the unused tissue-plan asset. Both API bundles retained identical executable code; dependency-path comments and generated debug identifiers differ between checkouts.
+
+The live comment assertion was tightened to the test-owned comment's nearest article card. A document can legitimately have multiple comment cards, and the comments page itself also uses an article element. Original failed attempts and their verified cleanup receipts are retained privately; a targeted repaired run passed. No application behavior was changed to satisfy this assertion.
+
+Live backend coverage completed on `d2154869`: WebKit passed 110/110 in one run. Chromium completed all 110 scenarios across repair phases: 42 completed scenarios, the corrected comment case, and the remaining 67. No scenarios were skipped. The before/after Vite report matches 334 screenshot checkpoints and 440 traces (220 before plus 220 after), with no missing counterparts or published-content mismatches. 308 checkpoints are pixel-identical; differences include nondeterministic AI output and concurrent test-owned fixtures, not a claim of universal pixel equality. This is a historical Vite baseline comparison, not a fresh Next/Vite comparison.
+
+Independent backend reconciliation across all retirement phases found 276 completed cleanup journals, zero unfinished journals, and all 17 fresh absence checks passing for owned guests, accounts, chats, annotation fixtures, and comment threads.
 
 Private evidence is under `.playwright/next-retirement/`. Deployed verification must use the exact new commit, real backends, test-owned records, and fresh teardown checks. Traces, screenshots, signed sessions, and backend receipts must not be uploaded to this public repository.

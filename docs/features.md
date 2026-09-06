@@ -199,7 +199,7 @@ Operators have scripts and workflows for:
 - password reset for account auth
 - site-id backfills
 - content hash backfills
-- explicit operator scripts for descriptions and embeddings; request-time scoped downloads
+- explicit embedding maintenance; request-time scoped downloads
 - preview and production smoke tests
 - Vite reader static/unit/server/e2e checks
 
