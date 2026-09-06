@@ -1,6 +1,6 @@
 # Shared Next / Vite parity gate
 
-**Status: real-backend QA resumed, not promotion-ready.** The user explicitly
+**Historical checkpoint; superseded by [the cutover report](vite-cutover-qa-2026-09-05.md).** The user explicitly
 chose real services with cleanup after each phase. The shared annotation flow
 now uses real catalog records, image bytes and annotation persistence, followed
 by verified deletion. The prior incident and incomplete release run remain
@@ -47,8 +47,8 @@ Start a freshly built candidate production server. Set the password privately
 and use explicit reference/candidate URLs:
 
 ```sh
-export PARITY_NEXT_URL="https://diana-tnbc.com"
-export PARITY_VITE_URL="https://wiki-vite-zeta.vercel.app"
+export PARITY_NEXT_URL="<an accessible Next baseline deployment>"
+export PARITY_VITE_URL="https://diana-tnbc.com"
 export PARITY_REAL_BACKENDS=1
 export PARITY_CONVEX_URL="<the real Convex backend used by both apps>"
 # Set WIKI_VITE_PREVIEW_LOGIN_PASSWORD privately.
@@ -60,6 +60,10 @@ bunx playwright show-report .playwright/shared-parity/report --host 127.0.0.1 --
 ```
 
 `PARITY_BROWSERS=chromium` selects one complete paired browser run.
+After cutover, both Diana production hostnames serve Vite: using them as the
+two URLs checks hostname continuity, not Next/Vite parity. A Next deployment
+must also have working site resolution and deployment-protection access before
+it can serve as a new baseline.
 `PARITY_OUTPUT_DIR` is relative to `apps/wiki-vite`, unless absolute. Use a new
 directory for each run; the runner replaces its result directory. Keep source
 and built assets frozen throughout a release run. Use HTTPS for production-mode
