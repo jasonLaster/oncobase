@@ -1,6 +1,0 @@
-{
-  "buildCommand": "bun scripts/build-vercel.ts",
-  "outputDirectory": ".next",
-  "installCommand": "bun install",
-  "framework": "nextjs"
-}

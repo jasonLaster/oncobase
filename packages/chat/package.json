@@ -3,12 +3,11 @@
   "version": "0.1.0",
   "private": false,
   "license": "MIT",
-  "description": "Configurable full-stack Next.js chat feature with AI SDK streaming and Convex persistence.",
+  "description": "Framework-independent React chat UI with AI SDK streaming and Convex persistence.",
   "keywords": [
     "ai",
     "chat",
     "convex",
-    "next",
     "react",
     "streaming"
   ],
@@ -70,11 +69,6 @@
       "import": "./src/types.ts",
       "default": "./src/types.ts"
     },
-    "./components/chat-actions": {
-      "types": "./src/components/chat-actions.tsx",
-      "import": "./src/components/chat-actions.tsx",
-      "default": "./src/components/chat-actions.tsx"
-    },
     "./components/archived-chats-core": {
       "types": "./src/components/archived-chats-core.tsx",
       "import": "./src/components/archived-chats-core.tsx",
@@ -89,11 +83,6 @@
       "types": "./src/components/chat-interface.tsx",
       "import": "./src/components/chat-interface.tsx",
       "default": "./src/components/chat-interface.tsx"
-    },
-    "./components/conversation-list": {
-      "types": "./src/components/conversation-list.tsx",
-      "import": "./src/components/conversation-list.tsx",
-      "default": "./src/components/conversation-list.tsx"
     },
     "./components/conversation-list-core": {
       "types": "./src/components/conversation-list-core.tsx",
@@ -114,26 +103,6 @@
       "types": "./src/components/streaming-markdown.tsx",
       "import": "./src/components/streaming-markdown.tsx",
       "default": "./src/components/streaming-markdown.tsx"
-    },
-    "./pages/archived-page": {
-      "types": "./src/pages/archived-page.tsx",
-      "import": "./src/pages/archived-page.tsx",
-      "default": "./src/pages/archived-page.tsx"
-    },
-    "./pages/chat-layout": {
-      "types": "./src/pages/chat-layout.tsx",
-      "import": "./src/pages/chat-layout.tsx",
-      "default": "./src/pages/chat-layout.tsx"
-    },
-    "./pages/conversation-page": {
-      "types": "./src/pages/conversation-page.tsx",
-      "import": "./src/pages/conversation-page.tsx",
-      "default": "./src/pages/conversation-page.tsx"
-    },
-    "./pages/new-chat-page": {
-      "types": "./src/pages/new-chat-page.tsx",
-      "import": "./src/pages/new-chat-page.tsx",
-      "default": "./src/pages/new-chat-page.tsx"
     },
     "./perf": {
       "types": "./src/perf.ts",
@@ -157,7 +126,6 @@
     "convex": "^1.34.1",
     "lucide-react": "^1.11.0",
     "nanoid": "^5.1.9",
-    "next": "16.2.6",
     "sonner": "^2.0.7",
     "streamdown": "^2.5.0",
     "tailwind-merge": "^3.5.0",

@@ -8,8 +8,6 @@ on:
     paths:
       - "apps/wiki-vite/**"
       - "packages/**"
-      - "apps/web/convex/**"
-      - "apps/web/src/**"
       - "api/**"
       - "vercel.json"
       - "package.json"

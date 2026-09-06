@@ -6,17 +6,13 @@ packages/oncobase/dist/
 apps/*/dist/
 apps/*/.vercel-functions/
 obsidian-2/.obsidian/workspace.json
-apps/web/public/diana-tnbc-wiki.zip
-apps/web/public/diana-tnbc-wiki-full.zip
-apps/web/public/diana-tnbc-wiki-markdown.zip
-apps/web/public/wiki-download-info.json
-apps/web/e2e/.auth/
+# Retired local checkout residue (private env, caches and prior QA evidence).
+/apps/web/
+apps/wiki-vite/public/diana-tnbc-wiki*.zip
+apps/wiki-vite/public/wiki-download-info.json
 apps/wiki-vite/e2e/.auth/
-apps/web/test-results/
 /diagnostics
 .vercel
-apps/web/scripts/test-archive-output.zip
-apps/web/scripts/test-blob-archive.ts
 package-lock.json
 test-results/
 .env
@@ -24,13 +20,9 @@ test-results/
 .env*.local
 !.env.example
 !apps/**/.env.example
-apps/web/web
-**/apps/web/web
 .agents/worktrees
 obsidian-2/.agents/worktrees/
 obsidian-2/.wiki-sync-review/
-apps/web/.agents/worktrees/
-apps/web/.swc/
 .codex/
 .claude
 .playwright-mcp/

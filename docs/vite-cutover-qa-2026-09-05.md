@@ -1,5 +1,11 @@
 # Vite cutover QA
 
+Later retirement update: the owner identified Susan as a test site and requested
+removal of Next. Susan was archived (stored data retained), and the Next source
+and hosting project were retired. The Next-specific rollback instructions below
+are historical; use a retained Vite deployment for routine rollback, or rebuild
+the old source from Git if Next recovery is ever needed.
+
 Status: **promoted** on September 5, 2026 (approximately 01:14 UTC September 6).
 `diana-tnbc.com` and `www.diana-tnbc.com` now serve Vite at application release
 `b1b19bbcef467826ae837ae095cbb4fe86a9deea`. The application code is unchanged

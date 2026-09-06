@@ -4,7 +4,6 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const WEB_ROOT = path.join(ROOT, "..", "web");
 const CONVEX_URL_FILE = path.join(ROOT, ".convex-deployment-url");
 const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
 
@@ -45,7 +44,7 @@ if (process.env.VERCEL_ENV === "production") {
       `printf '%s' "$NEXT_PUBLIC_CONVEX_URL" > ${shellQuote(CONVEX_URL_FILE)}`,
     ],
     process.env,
-    WEB_ROOT,
+    ROOT,
   );
 
   if (!fs.existsSync(CONVEX_URL_FILE)) {

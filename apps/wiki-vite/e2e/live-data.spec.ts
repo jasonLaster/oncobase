@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { documentArticle, nextErrorOverlay } from "./fixtures";
+import { documentArticle, viteErrorOverlay } from "./fixtures";
 import { ensurePasswordGateSession, passwordGateCookie } from "./gate-auth";
 
 test.describe("Live backend P0 smokes", () => {
@@ -40,6 +40,6 @@ test.describe("Live backend P0 smokes", () => {
     await expect(
       page.getByTestId("wiki-sidebar").getByRole("link", { name: /\.png$/i }),
     ).toHaveCount(0);
-    await expect(nextErrorOverlay(page)).toHaveCount(0);
+    await expect(viteErrorOverlay(page)).toHaveCount(0);
   });
 });

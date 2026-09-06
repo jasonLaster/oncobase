@@ -4,11 +4,11 @@ import { ConvexHttpClient } from "convex/browser";
 import { createRequire } from "node:module";
 
 const { api } = createRequire(import.meta.url)(
-  "../../web/convex/_generated/api.js",
-) as typeof import("../../web/convex/_generated/api");
+  "../convex/_generated/api.js",
+) as typeof import("../convex/_generated/api");
 const { cleanupSiteUsers } = createRequire(import.meta.url)(
-  "../../web/e2e/helpers.ts",
-) as typeof import("../../web/e2e/helpers");
+  "./backend-helpers.ts",
+) as typeof import("./backend-helpers");
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 const RUN_NONCE = `${Date.now().toString(36)}${crypto.randomBytes(2).toString("hex")}`;

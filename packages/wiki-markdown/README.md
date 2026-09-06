@@ -2,9 +2,9 @@
 
 Shared markdown runtime for Oncobase wikis.
 
-See [`../../plans/vite-livestore-wiki-reader.md`](../../plans/vite-livestore-wiki-reader.md) for the productionization plan that explains why this package is the durable layer between the current Next app and the Vite + LiveStore reader.
+The Vite + LiveStore reader consumes this package through host-owned routing and data adapters.
 
-The package owns the framework-neutral behavior that both the current Next app and the Vite + LiveStore prototype need:
+The package owns framework-neutral markdown behavior:
 
 - wikilinks, citation preprocessing, math cleanup, and asset URL rewriting
 - server-side HTML rendering with smart-table, PDF, image, citation, math, and Mermaid transforms
@@ -12,7 +12,7 @@ The package owns the framework-neutral behavior that both the current Next app a
 - shared `.wiki-markdown prose max-w-none` frame and package-owned prose/media styles
 - routed heading anchors, hash scrolling, image theater, and table enhancement islands
 
-Framework adapters stay outside the package. The Next app supplies `next/navigation`, `next/link`, Sonner toast notifications, and the existing `.next/cache` wrapper. The Vite app supplies React Router navigation and LiveStore data. That keeps future framework changes focused on route/data plumbing instead of duplicating the markdown feature set.
+Framework adapters stay outside the package. The Vite app supplies React Router navigation, notifications, server caching, and LiveStore data.
 
 ## Package Boundary
 

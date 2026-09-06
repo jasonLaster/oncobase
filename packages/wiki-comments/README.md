@@ -41,6 +41,6 @@ This package does not import app internals. Hosts provide adapters for:
 
 ## Related Docs
 
-- [Comments spec](../../apps/web/specs/comments.md)
-- [Multi-site spec](../../apps/web/specs/multi-site.md)
+- [Comments spec](../../apps/wiki-vite/specs/comments.md)
+- [Multi-site spec](../../apps/wiki-vite/specs/multi-site.md)
 - [Feature overview](../../docs/features.md#comments-and-review)

@@ -3,7 +3,7 @@ import { ConvexHttpClient } from "convex/browser";
 import OpenAI from "openai";
 import { z } from "zod";
 import { applyPiiRedactions, parseSitePiiPatterns } from "@oncobase/wiki-content/pii";
-import { api } from "../../../apps/web/convex/_generated/api.js";
+import { api } from "../convex/_generated/api.js";
 
 const MAX_CANDIDATES = 12;
 const SCORE_BATCH_SIZE = 4;

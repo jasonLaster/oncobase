@@ -6,7 +6,7 @@ This audit starts from the three migration reports:
 - `openai-migration-round-2.md`: renderer/API differential and test-validity audit
 - `openai-migration-round-3.md`: open-queue investigation and focused fixes
 
-It then checks the product contracts under `apps/web/specs`, the platform
+It then checks the product contracts under `apps/wiki-vite/specs`, the platform
 inventory in `docs/features.md`, the Vite architecture in
 `apps/wiki-vite/README.md`, and both apps' E2E suites. The objective is not to
 equate a high test count with launch readiness. A contract is covered only when
@@ -121,18 +121,18 @@ actually ran.
 
 ## Documentation gaps
 
-1. The main product contract, `apps/web/specs/features.md`, is explicitly an
+1. The main product contract, `apps/wiki-vite/specs/features.md`, is explicitly an
    `apps/web` implementation inventory. It mixes shared behavior with Next-only
    details such as RSC, PPR, filesystem search, and build workflows. It cannot
    serve as the Vite launch checklist without the mapping above.
-2. `apps/web/specs/diagnostic-timeline.md` still names only legacy E2E owners.
+2. `apps/wiki-vite/specs/diagnostic-timeline.md` still names only legacy E2E owners.
    The DICOM contract now names the Vite owner and its loading/ruler proofs.
 3. `apps/wiki-vite/README.md` now records the live comment integration boundary
    and the indexed-to-exhaustive cold-search behavior. The broader
-   `apps/web/specs/features.md` inventory still needs future per-feature Vite
+   `apps/wiki-vite/specs/features.md` inventory still needs future per-feature Vite
    ownership rather than relying on migration reports.
 4. The medical deduction calculator gap was closed with
-   `apps/web/specs/medical-deduction.md`; it should be added to any future
+   `apps/wiki-vite/specs/medical-deduction.md`; it should be added to any future
    generated feature index.
 5. The launch runtime boundary is scattered across migration reports. The
    matrix must distinguish Vite dev, standalone Bun, Vercel preview, and live

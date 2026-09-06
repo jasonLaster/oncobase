@@ -21,8 +21,8 @@ import {
   generateChatSearchPatterns,
 } from "@oncobase/wiki-content/chat-route";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
-import { api } from "../../../apps/web/convex/_generated/api.js";
-import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
+import { api } from "../convex/_generated/api.js";
+import type { Id } from "../convex/_generated/dataModel.js";
 
 const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 });
 const generateRunId = createIdGenerator({ prefix: "run", size: 16 });

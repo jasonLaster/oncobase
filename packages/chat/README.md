@@ -1,6 +1,6 @@
 # @oncobase/chat
 
-Configurable full-stack chat UI for Next.js apps. The package owns the reusable
+Framework-independent React chat UI. The package owns the reusable
 client experience, AI SDK transport wiring, Convex persistence references, and
 small route helpers. Host apps own their generated Convex API, route handler,
 domain prompts, tool definitions, markdown rendering, and product copy.
@@ -13,7 +13,7 @@ domain prompts, tool definitions, markdown rendering, and product copy.
 - Configure host-specific markdown with `MarkdownRenderer`.
 - Configure host-specific tool displays with `ToolCallRenderer`.
 - Configure source extraction with `extractSources`.
-- Use `ConversationListCore`, `ConversationActionsMenu`, and `ArchivedChatsCore` when a non-Next host needs the same chat sidebar rows, actions, and archived-management surface with its own router adapter.
+- Use `ConversationListCore`, `ConversationActionsMenu`, and `ArchivedChatsCore` with the host's router for sidebar rows, actions, and archive management.
 
 Convex codegen should run in the host app that defines the Convex functions. This
 package should not import `@convex/_generated/*` or any host source aliases.

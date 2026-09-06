@@ -1,5 +1,5 @@
 import { canonicalSlugLookupEntriesFromSlugs } from "@oncobase/wiki-content/canonical-slugs";
-import redirects from "../../web/redirects.json";
+import redirects from "../redirects.json";
 
 export type RedirectEntry = {
   source: string;

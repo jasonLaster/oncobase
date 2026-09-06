@@ -1,0 +1,185 @@
+# DICOM Viewer Feature Spec
+
+This document describes the shared viewer behavior verified by
+`apps/wiki-vite/e2e/dicom-viewer.spec.ts` and
+`apps/wiki-vite/e2e/dicom-viewer.spec.ts`. Diagnostics route/sidebar
+regressions are also covered in both applications' regression suites.
+
+## Routes
+
+- `/diagnostics/imaging` lists the diagnostic imaging shortcuts.
+- `/tools/dicom-viewer?id=biopsy-2026-04-10` opens the April 10 biopsy stack.
+- `/tools/dicom-viewer?id=biopsy-2026-03-23` opens the March 23 axilla biopsy stack.
+- `/tools/dicom-viewer?id=biopsy-2026-03-13` opens the March 13 biopsy stack.
+- `/diagnostics` is the diagnostics timeline landing page, not the imaging
+  table.
+- `/timeline` redirects to `/diagnostics`.
+
+The viewer also accepts `biopsyId`, `seriesId`, `image`, and `annotation` query
+parameters.
+`id` and `biopsyId` are human-facing biopsy IDs. `seriesId` is the raw DICOM
+series id. `image` is a 1-based index into the selected stack. The legacy
+`slice` query parameter is accepted as an alias on initial load, but the viewer
+normalizes current-image URLs back to `image`.
+`annotation` identifies a persisted annotation on that exact image. When found,
+the viewer opens Select mode and highlights it, so audit reports can link
+directly to the evidence markup rather than only to a nearby slice.
+
+## Diagnostic Imaging Page Contract
+
+The diagnostics imaging page must show the diagnostic study metadata returned by
+`/api/diagnostic-studies`. That metadata is stored in Convex under the
+site-scoped `diagnosticStudies:data` key, so adding a new study does not require
+a web deploy after the DB metadata is seeded.
+
+The default production study set includes these biopsy IDs:
+
+- `biopsy-2026-04-10`
+- `biopsy-2026-03-23`
+- `biopsy-2026-03-13`
+
+- The page heading is `Imaging`.
+- Desktop renders `diagnostics-desktop-table`; mobile renders
+  `diagnostics-mobile-list`.
+- Desktop columns are `Date`, `Study`, `Type`, `Reports`, `View images`, and
+  `Download`.
+- Each row exposes `Reports`, `View images`, and `Download` as separate actions.
+- Each card or row links to the DICOM viewer with `id=<biopsy-id>` or
+  `id=<diagnostic-id>` for non-biopsy imaging studies.
+- In local development only, `?studySet=<test-key>` reads
+  `diagnosticStudies:test:<test-key>` from Convex. Production ignores test study
+  sets so Playwright-only metadata is not user-visible.
+- The page uses the normal app sidebar because the table itself lists the
+  imaging tests.
+- The DICOM viewer uses the biopsy shortcut sidebar.
+
+## Viewer Deep-Link Contract
+
+When a biopsy ID is present, the viewer selects the largest renderable DICOM
+series matching that biopsy date and directory. Renderable means image-bearing
+modalities only; `SR`, `PR`, and `OT` objects are excluded from the selectable
+series list.
+
+When an `image` query parameter is present, the viewer opens that image number
+within the selected stack. The browser URL is kept current as the user steps
+through images, and the top-right share button copies the current
+`seriesId`/`image` URL.
+
+Expected stacks:
+
+| Biopsy ID | Expected date | Expected directory | Expected count |
+| --- | --- | --- | --- |
+| `biopsy-2026-04-10` | `2026-04-10` | `4-10 biopsy` | `9` |
+| `biopsy-2026-03-23` | `2026-03-23` | `3-23 - US Axilla biopsy` | `45` |
+| `biopsy-2026-03-13` | `2026-03-13` | `3-13 - Biopsy` | `19` |
+
+## Tool Mode Contract
+
+The primary left-drag tool is selected by the toolbar:
+
+- `W/L` is the default window/level tool.
+- Clicking `Zoom` activates zoom.
+- Clicking active `Zoom` again returns to `W/L`.
+- Clicking `Pan` activates pan.
+- Clicking active `Pan` again returns to `W/L`.
+- Switching from `Zoom` to `Pan` changes the active primary tool without
+  resetting the current viewport camera.
+- On touch devices, one-finger drag uses the selected toolbar tool.
+- Two-finger pinch or drag remains available for zooming and panning the image.
+
+Each tool button exposes `aria-pressed` so tests and assistive technology can
+read the active state.
+
+## Annotation Selection Contract
+
+When annotation Select mode is active:
+
+- Clicking a shape selects that shape for editing.
+- Shift-clicking a shape adds it to the current selection, or removes it from
+  the selection when the pointer is released without dragging.
+- Dragging any selected shape moves the selected group together.
+- Dragging on empty image space draws a selection marquee. Releasing the
+  marquee selects all annotations intersecting it; holding Shift adds those
+  annotations to the current selection.
+- Backspace/Delete removes the current selection, and Cmd/Ctrl+Z restores the
+  previous annotation state.
+
+## Calibrated Ruler Contract
+
+- Ruler endpoints are converted from canvas positions to DICOM patient-space
+  coordinates through the active Cornerstone viewport.
+- The persisted annotation retains those 3D world endpoints and displays their
+  Euclidean distance in millimeters.
+- Rulers are reprojected after pan, zoom, viewport resize, and image rendering,
+  so they stay attached to image anatomy.
+- A ruler that cannot be calibrated is not saved.
+- The share button includes the selected annotation ID. Opening that URL returns
+  to the exact series, image, and highlighted annotation.
+- Older arrow, circle, box, and text annotations remain viewport-relative;
+  they are visual callouts, not calibrated measurements.
+
+## Slice Loading Contract
+
+Slice navigation must distinguish between the currently rendered image and the
+requested image:
+
+- Clicking next/previous or changing the slice slider requests a new image.
+- If the image is not already decoded and cached, the viewport keeps the old
+  image visible and shows a `Loading image N` overlay.
+- When Cornerstone finishes loading and rendering the requested image, the
+  overlay disappears and the slice counter reflects the newly rendered image.
+- Cached images may transition immediately without showing the overlay.
+
+## Catalog Loading Contract
+
+The series rail must distinguish between a catalog request that is still in
+flight and a completed catalog response with no data:
+
+- While `/api/dicom/studies` is pending, the desktop series rail and mobile
+  series sheet show `Loading DICOM studies…`.
+- `No DICOM catalog was found.` is shown only after the request completes with
+  no catalog root.
+- Catalog request errors use the viewer error state and must not also appear as
+  an empty catalog.
+
+## Prefetch Contract
+
+After initial stack load and after each successful slice change, the viewer
+prefetches nearby slices with Cornerstone's image cache:
+
+- next slice
+- previous slice
+- second next slice
+- second previous slice
+
+Prefetch is opportunistic. Failures are ignored because normal navigation will
+surface real image-load errors.
+
+## Out Of Scope
+
+- File upload and folder selection are intentionally not supported in this
+  viewer surface.
+- Full diagnostic report parsing is intentionally out of scope.
+- Window/level, pan, and zoom persistence across page reloads is not required.
+
+## Automated Coverage
+
+Both DICOM viewer suites verify:
+
+- `/diagnostics/imaging` links each imaging shortcut to the viewer.
+- `/diagnostics/imaging` renders a compact mobile study list.
+- local-only test metadata updates in Convex are visible after a reload without
+  a rebuild or deploy.
+- Diagnostic report links stay live and PDF byte-range loading works when the
+  underlying source asset is a real PDF.
+- `/diagnostics/imaging` uses the normal app sidebar.
+- `/tools/dicom-viewer` uses the DICOM biopsy shortcut sidebar, selects the
+  expected image stack, stores the selected image in the URL, copies current
+  image links, and preserves viewer tool/loading behavior.
+- DICOM annotations can be drawn, edited inline, persisted, selected as a
+  group with Shift or drag-select, moved as a group, deleted, and restored with
+  keyboard undo.
+
+`apps/wiki-vite/e2e/diagnostics-regression.spec.ts` verifies the route-level split
+between `/diagnostics`, `/diagnostics/imaging`, `/timeline`, and the DICOM
+viewer sidebar.

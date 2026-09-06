@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ConvexHttpClient } from "convex/browser";
-import { api } from "../../../apps/web/convex/_generated/api.js";
-import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
+import { api } from "../convex/_generated/api.js";
+import type { Id } from "../convex/_generated/dataModel.js";
 import { isAdminSessionUser } from "./epic-fhir.js";
 import { withSiteSlug } from "./wiki-api.js";
 

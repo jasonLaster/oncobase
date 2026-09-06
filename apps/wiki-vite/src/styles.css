@@ -19,7 +19,6 @@ html[data-wiki-first-frame="true"] #root {
 @source "../../../packages/diagnostics/src";
 @source "../../../packages/wiki-markdown/src";
 @source "../../../packages/wiki-shell/src";
-@source "../../web/src/app/(main)/tools/medical-deduction/calculator-client.tsx";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -1546,7 +1545,7 @@ a {
 }
 
 /* Immersive DICOM viewer on mobile — mirrors web's chrome rules
-   (apps/web/src/app/globals.css + resizable-layout): at max-lg the viewer
+   (the shared reader layout): at max-lg the viewer
    owns the full viewport with no top chrome; landscape additionally drops
    the sidebar rails and series panel. Wins over the 860px mobile-flow block
    above via the attribute selector and source order. */

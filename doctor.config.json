@@ -4,12 +4,11 @@
   "adoptExistingLintConfig": true,
   "ignore": {
     "files": [
-      "**/.next/**",
       "**/dist/**",
       "**/node_modules/**",
       "**/playwright-report/**",
       "**/test-results/**",
-      "apps/web/convex/_generated/**"
+      "apps/wiki-vite/convex/_generated/**"
     ]
   }
 }

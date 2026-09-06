@@ -12,15 +12,16 @@ This directory is the public documentation hub. App-specific implementation spec
 
 ## Deep Dives
 
-- [Architecture index](../apps/web/docs/architecture/README.md)
-- [Multi-site model](../apps/web/specs/multi-site.md)
-- [Role-based access](../apps/web/specs/role-based-access.md)
-- [PII redaction](../apps/web/specs/pii-redaction.md)
-- [Comments](../apps/web/specs/comments.md)
-- [Smart table expansion](../apps/web/specs/table-expansion.md)
-- [Chat package](../apps/web/specs/chat-package.md)
-- [Chat pattern library](../apps/web/specs/chat-patterns/00-overview.md)
-- [Operator runbook](../apps/web/specs/operator-runbook.md)
+- [Next retirement and retained-logic consolidation](next-retirement-2026-09-05.md)
+- [Architecture index](../apps/wiki-vite/docs/architecture/README.md)
+- [Multi-site model](../apps/wiki-vite/specs/multi-site.md)
+- [Role-based access](../apps/wiki-vite/specs/role-based-access.md)
+- [PII redaction](../apps/wiki-vite/specs/pii-redaction.md)
+- [Comments](../apps/wiki-vite/specs/comments.md)
+- [Smart table expansion](../apps/wiki-vite/specs/table-expansion.md)
+- [Chat package](../apps/wiki-vite/specs/chat-package.md)
+- [Chat pattern library](../apps/wiki-vite/specs/chat-patterns/00-overview.md)
+- [Operator runbook](../apps/wiki-vite/specs/operator-runbook.md)
 - [Vite reader plan](../plans/vite-livestore-wiki-reader.md)
 
 ## Link Style

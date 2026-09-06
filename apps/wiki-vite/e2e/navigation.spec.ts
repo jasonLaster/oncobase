@@ -4,7 +4,7 @@ import {
   documentArticle,
   gotoWiki,
   installWikiApiMocks,
-  nextErrorOverlay,
+  viteErrorOverlay,
   openDirectory,
   waitForPageTitle,
 } from "./fixtures";
@@ -91,7 +91,7 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(documentArticle(page).locator(".wiki-shell-page-header")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Copy page as markdown" })).toHaveCount(0);
     await expect(documentArticle(page).locator(".tag-row")).toHaveCount(0);
-    await expect(nextErrorOverlay(page)).toHaveCount(0);
+    await expect(viteErrorOverlay(page)).toHaveCount(0);
   });
 
   test("renders a markdown article alias without changing its URL", async ({ page }) => {
@@ -100,7 +100,7 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(page).toHaveURL(/\/wiki\/logistics\/insurance\.md$/);
     await waitForPageTitle(page, "Insurance");
     await expect(documentArticle(page)).toContainText("Prior authorization");
-    await expect(nextErrorOverlay(page)).toHaveCount(0);
+    await expect(viteErrorOverlay(page)).toHaveCount(0);
   });
 
   test("serves legacy redirect entries before the SPA catch-all", async ({ request }) => {
@@ -325,7 +325,7 @@ Review morphology and biomarkers together.
     await expect
       .poll(() => page.evaluate(() => document.documentElement.dataset.navigationProbe))
       .toBe("alive");
-    await expect(nextErrorOverlay(page)).toHaveCount(0);
+    await expect(viteErrorOverlay(page)).toHaveCount(0);
   });
 
   test("sidebar navigation commits the route before delayed markdown resolves", async ({ page }) => {

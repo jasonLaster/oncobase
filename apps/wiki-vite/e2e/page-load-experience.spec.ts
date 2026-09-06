@@ -3,7 +3,7 @@ import {
   documentArticle,
   gotoWiki,
   installWikiApiMocks,
-  nextErrorOverlay,
+  viteErrorOverlay,
   openDirectory,
   waitForPageTitle,
 } from "./fixtures";
@@ -69,7 +69,7 @@ test.describe("Page load experience", () => {
     await expect(page.getByTestId("metrics-panel")).toHaveCount(0);
     await expect(page.getByTestId("livestore-devtools-footer")).toHaveCount(0);
     await waitForPageTitle(page, "Insurance");
-    await expect(nextErrorOverlay(page)).toHaveCount(0);
+    await expect(viteErrorOverlay(page)).toHaveCount(0);
     await expect
       .poll(() =>
         page.evaluate(() => window.__WIKI_VITE_OBSERVABILITY__?.metrics?.lastRouteRenderMs ?? -1),
@@ -88,7 +88,7 @@ test.describe("Page load experience", () => {
     );
     await expect(documentArticle(page).locator(".wiki-shell-page-header")).toBeVisible();
     await expect(page.getByTestId("page-loading")).toHaveCount(0);
-    await expect(nextErrorOverlay(page)).toHaveCount(0);
+    await expect(viteErrorOverlay(page)).toHaveCount(0);
   });
 
   test("mobile initial paint keeps header and bottom page affordance", async ({ page }) => {

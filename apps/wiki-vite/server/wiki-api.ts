@@ -1,4 +1,14 @@
 import crypto from "node:crypto";
+import {
+  USER_SESSION_COOKIE,
+  USER_SESSION_TTL_MS,
+  createPasswordSalt,
+  createSessionToken,
+  hashPassword as hashUserPassword,
+  hashSessionToken,
+  normalizeEmail,
+  verifyPassword as verifyUserPassword,
+} from "./user-auth";
 import path from "node:path";
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "node:http";
 import archiver from "archiver";
@@ -54,8 +64,8 @@ import {
   resolveDicomPath,
   getDicomCatalog,
 } from "@oncobase/diagnostics/dicom/local";
-import { api } from "../../../apps/web/convex/_generated/api.js";
-import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
+import { api } from "../convex/_generated/api.js";
+import type { Id } from "../convex/_generated/dataModel.js";
 import { handleAiSearchRequest } from "./ai-search.js";
 import { handleChatRequest } from "./chat-route.js";
 import {
@@ -89,8 +99,6 @@ const DEFAULT_SITE_SLUG = "diana";
 const HOST_CACHE_TTL_MS = 15_000;
 const VERCEL_PROJECT_HOST_PREFIX = "diana-tnbc";
 const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
-const USER_SESSION_COOKIE = "wiki_user_session";
-const USER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const DEV_GATE_SESSION_SECRET = "oncobase-wiki-gate-development-only";
 const GATE_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const MAX_SEARCH_LIMIT = 5000;
@@ -404,33 +412,6 @@ function privatizePasswordGatedResponse(response: Response) {
     statusText: response.statusText,
     headers: privatePasswordGateHeaders(response.headers),
   });
-}
-
-function hashSessionToken(token: string) {
-  return crypto.createHash("sha256").update(token).digest("hex");
-}
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
-
-function createPasswordSalt() {
-  return crypto.randomBytes(16).toString("hex");
-}
-
-function hashUserPassword(password: string, salt: string) {
-  return crypto.scryptSync(password, salt, 64).toString("hex");
-}
-
-function verifyUserPassword(password: string, salt: string, expectedHash: string) {
-  const actual = Buffer.from(hashUserPassword(password, salt), "hex");
-  const expected = Buffer.from(expectedHash, "hex");
-  if (actual.length !== expected.length) return false;
-  return crypto.timingSafeEqual(actual, expected);
-}
-
-function createSessionToken() {
-  return crypto.randomBytes(32).toString("base64url");
 }
 
 function sessionCookieHeader(token: string) {
@@ -1268,7 +1249,7 @@ async function handleFileRequest(
   }
 
   const cacheScope = assetIsSensitive ? "session" : "public";
-  // Cache privacy mirrors apps/web: any password-gated or signed-in request
+  // Cache privacy: any password-gated or signed-in request
   // gets a private response varying on Cookie, independent of RBAC scope.
   const privateCache =
     assetIsSensitive ||

@@ -9,8 +9,8 @@ import {
 } from "@oncobase/wiki-shell";
 import { useMutation, useQuery } from "convex/react";
 import { Link, useParams } from "react-router";
-import { api } from "../../../../apps/web/convex/_generated/api.js";
-import type { Id } from "../../../../apps/web/convex/_generated/dataModel.js";
+import { api } from "../../convex/_generated/api.js";
+import type { Id } from "../../convex/_generated/dataModel.js";
 import { useWikiSession } from "../wiki-context";
 import { ChatProviders } from "./ChatProviders";
 

@@ -1,12 +1,12 @@
 # Vite + LiveStore Wiki Reader
 
-This is a side-by-side prototype for a client-rendered wiki reader. It keeps the existing `apps/web` app as the content source and uses LiveStore as a persistent browser read cache for the file tree, page index, asset index, and markdown bodies.
+This is the production Diana application at `diana-tnbc.com` and `www.diana-tnbc.com`. It serves its own backend APIs from the same origin and uses LiveStore as a persistent browser read cache for the file tree, page index, asset index, and markdown bodies. Convex remains the shared backend; its schema and functions currently live under `apps/wiki-vite/convex`.
 
-The productionization plan lives in [`../../plans/vite-livestore-wiki-reader.md`](../../plans/vite-livestore-wiki-reader.md). This README describes how the current prototype runs.
+The [cutover QA report](../../docs/vite-cutover-qa-2026-09-05.md) records the release evidence. The [Next retirement report](../../docs/next-retirement-2026-09-05.md) records the removal and retained-logic consolidation; the Susan test site is retired.
 
 ## Run
 
-Run the prototype:
+Run the app:
 
 ```sh
 cd apps/wiki-vite
@@ -27,16 +27,7 @@ By default the Vite dev server serves the reader APIs directly from Convex:
 - `/api/file`
 - `/api/page-copy`
 
-This is the normal one-server development loop for the prototype. It uses `NEXT_PUBLIC_CONVEX_URL` or `CONVEX_URL` when set, and otherwise falls back to the current Diana Convex deployment. Set `WIKI_SITE_SLUG` to test a non-default site.
-
-If you need to compare against the current Next route handlers instead, start the current Next app:
-
-```sh
-cd apps/web
-bun run dev
-```
-
-Then run Vite with `VITE_WIKI_API_ORIGIN=http://localhost:3000` to proxy `/api/*` to Next.
+This is the normal one-server development loop. It uses `NEXT_PUBLIC_CONVEX_URL` or `CONVEX_URL` when set, and otherwise falls back to the current Diana Convex deployment. Set `WIKI_SITE_SLUG` to test a non-default site.
 
 Run the production-style one-process server after building:
 
@@ -50,14 +41,14 @@ PORT=62003 bun run start:server
 
 ## Vercel
 
-The standalone replacement has an isolated Vercel project named `diana-tnbc-wiki-vite`. The existing Next project remains `diana-tnbc` with Vercel root directory `apps/web`; the isolated Vite project is connected to the repo root and uses the root `vercel.json`.
+The production Vite project is `diana-tnbc-wiki-vite`, connected to the repo root and its `vercel.json`. Convex deploys from this app's `convex` directory.
 
 The root Vercel config builds `apps/wiki-vite`, serves `apps/wiki-vite/dist`, and routes app HTML plus `/api/*` through Vercel Functions that call bundled versions of the same request handlers as `server/standalone.ts`. That keeps local standalone behavior and Vercel behavior aligned for password gate enforcement, route metadata, search, AI search, chat, downloads, files, and page-copy.
 
 Current production smoke URL:
 
 ```sh
-https://wiki-vite-zeta.vercel.app
+https://diana-tnbc.com
 ```
 
 Required project env vars:
@@ -84,12 +75,12 @@ for local development fixtures.
 
 ## Environment
 
-The prototype has two origins:
+Production uses same-origin APIs. Optional development overrides are:
 
 - `VITE_WIKI_API_ORIGIN`: optional override for where `/api/wiki/session`, `/api/wiki/manifest`, `/api/wiki/pages`, `/api/search`, `/api/ai-search`, `/api/chat`, `/api/tools`, `/api/login`, `/api/download`, `/api/page-copy`, and `/api/file` are served from.
 - `VITE_WIKI_APP_ORIGIN`: optional app-origin override for routes that should intentionally leave the Vite app. Search, AI search, chat, and sign-in are Vite-owned in the standalone path.
 
-For local dev, omit `VITE_WIKI_API_ORIGIN` to use the Vite backend. For a separate preview deployment that still calls the Next backend, set both origins to the deployed Next app origin. Cross-origin previews must also set `WIKI_VITE_ALLOWED_ORIGINS` on the Next app to the exact Vite preview origin so the additive wiki APIs can return credentialed CORS headers.
+Omit the origin overrides for the normal same-origin development and production paths.
 
 Session mode uses `credentials: include` when `VITE_WIKI_API_ORIGIN` is set. That keeps the public store usable without cookies and lets authenticated previews use the existing wiki session when the backend origin explicitly allows the Vite origin.
 
@@ -137,7 +128,7 @@ PORT=62004 bun run start:server
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:62004 bun run test:e2e:preview
 ```
 
-The suite mirrors the current `apps/web/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app. P0 multi-site isolation, PII parity, chat performance, and chat navigation resilience are active; standalone metadata hardening is covered by `verify:standalone` because production HTML patching is owned by the Bun server rather than the Vite dev server. When Liveblocks and Convex credentials are available, the live comments story signs up a temporary reader, creates an anchored thread, reloads its direct URL, verifies the global timeline, and deletes both the remote thread and temporary user. Replies, reactions, resolution, and moderation permutations remain useful depth beyond that launch integration proof.
+The suite mirrors the current `apps/wiki-vite/e2e/*.spec.ts` filenames. Reader-capable and newly migrated full-stack specs run against the Vite app. P0 multi-site isolation, PII parity, chat performance, and chat navigation resilience are active; standalone metadata hardening is covered by `verify:standalone` because production HTML patching is owned by the Bun server rather than the Vite dev server. When Liveblocks and Convex credentials are available, the live comments story signs up a temporary reader, creates an anchored thread, reloads its direct URL, verifies the global timeline, and deletes both the remote thread and temporary user. Replies, reactions, resolution, and moderation permutations remain useful depth beyond that launch integration proof.
 
 From the repository root, `bun run verify:wiki-vite` runs the current migration proof: static checks, unit checks, and the migrated Vite Playwright suite. `bun run verify:wiki-vite:static` runs lint, package/app typechecks, the Vite build, and the bundle budget. `bun run verify:wiki-vite:unit` runs the shared package and Vite app unit tests.
 
@@ -158,7 +149,8 @@ The default store is public-only, even if the browser also has a signed-in wiki 
 
 ## Architecture Note
 
-The prototype is intentionally side-by-side with the current Next app. `apps/web` remains the v1 content source and publishing target; this app only consumes public/session API snapshots and stores them in the browser.
+The app serves content, publishing and interactive APIs directly. Convex lives
+in `convex`, operator tools in `scripts`, and HTTP handlers in `server`.
 
 The durable wiki behavior should stay in shared packages. `@oncobase/wiki-content` owns manifest/page/tree contracts and cache reconciliation. `@oncobase/wiki-markdown` owns markdown rendering, route-safe links, heading anchors, image theater, citations, math, and smart-table integration. The Vite app should remain the LiveStore and React Router adapter around those packages.
 
@@ -180,7 +172,7 @@ The current atomic unit is intentionally the complete manifest. A safe sharded f
 
 ## Bundle Shape
 
-The entry bundle only resolves the public/session scope and asks the existing web app for `/api/wiki/session`. LiveStore startup is lazy-loaded after that identity is known, and the markdown page renderer is lazy-loaded inside the shell so the first paint does not pull in the markdown processor.
+The entry bundle resolves the public/session scope through the same-origin `/api/wiki/session`. LiveStore startup is lazy-loaded after that identity is known, and the markdown page renderer is lazy-loaded inside the shell so the first paint does not pull in the markdown processor.
 
 Vite/Rolldown code splitting keeps React, LiveStore, Effect, markdown, and icons in separate vendor chunks. Lazy chunk preloads are intentionally suppressed for `LiveStoreRoot` and `WikiPage`; otherwise the browser eagerly requests the expensive local database and markdown renderer before the wiki shell can render.
 

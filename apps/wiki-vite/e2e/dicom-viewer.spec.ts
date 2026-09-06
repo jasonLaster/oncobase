@@ -9,15 +9,15 @@ import {
 import { ensurePasswordGateSession, passwordGateCookie } from "./gate-auth";
 
 const { diagnosticComparisonsSeed } = createRequire(import.meta.url)(
-  "../../web/scripts/fixtures/diagnostic-comparisons-seed.ts",
-) as typeof import("../../web/scripts/fixtures/diagnostic-comparisons-seed");
+  "../scripts/fixtures/diagnostic-comparisons-seed.ts",
+) as typeof import("../scripts/fixtures/diagnostic-comparisons-seed");
 const { diagnosticStudiesSeed } = createRequire(import.meta.url)(
-  "../../web/scripts/fixtures/diagnostic-studies-seed.ts",
-) as typeof import("../../web/scripts/fixtures/diagnostic-studies-seed");
+  "../scripts/fixtures/diagnostic-studies-seed.ts",
+) as typeof import("../scripts/fixtures/diagnostic-studies-seed");
 
 /**
  * Verifies the DICOM viewer contract documented in
- * apps/web/specs/dicom-viewer.md.
+ * apps/wiki-vite/specs/dicom-viewer.md.
  */
 
 const biopsyLinks = [

@@ -1,28 +1,7 @@
-# Applications
+# Application
 
-This directory contains runnable Oncobase applications.
+[`wiki-vite`](wiki-vite/README.md) is the production application. It owns the React Router/LiveStore reader, same-origin HTTP APIs, Convex schema and functions, publishing/admin scripts, and browser regression suites.
 
-## [`web`](web/README.md)
+Reusable rendering, chat, comments, content contracts, diagnostics and the publishing CLI remain in [packages](../packages/README.md).
 
-The current production Next.js app. It owns:
-
-- App Router pages and API routes
-- Convex functions and schema
-- publishing endpoints consumed by the `oncobase` CLI
-- site admin tooling
-- production comments, chat, search, downloads, and file serving
-- Playwright and Endform coverage for the production surface
-
-Most current architecture docs live under [`web/docs/architecture`](web/docs/architecture/README.md), and detailed product specs live under [`web/specs`](web/specs/features.md).
-
-## [`wiki-vite`](wiki-vite/README.md)
-
-The standalone Vite + LiveStore reader. It owns:
-
-- client-rendered wiki shell
-- LiveStore-backed public/session read caches
-- standalone Bun server for same-origin preview behavior
-- migrated reader E2E coverage
-- Vercel replacement rehearsal for the reader surface
-
-The migration plan is tracked in [`../plans/vite-livestore-wiki-reader.md`](../plans/vite-livestore-wiki-reader.md).
+The old Next application has been removed. Susan was a test site and has been retired; stored site data is retained for recovery. Historical cutover evidence remains in the [QA report](../docs/vite-cutover-qa-2026-09-05.md).

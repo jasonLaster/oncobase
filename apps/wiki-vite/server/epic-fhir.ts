@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { ConvexHttpClient } from "convex/browser";
-import { api } from "../../../apps/web/convex/_generated/api.js";
-import type { Id } from "../../../apps/web/convex/_generated/dataModel.js";
+import { api } from "../convex/_generated/api.js";
+import type { Id } from "../convex/_generated/dataModel.js";
 
 const DEFAULT_PROVIDER_KEY = "ucsf";
 const DEFAULT_PROVIDER_NAME = "UCSF Health Epic";

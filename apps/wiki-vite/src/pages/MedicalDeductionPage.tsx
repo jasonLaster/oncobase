@@ -1,4 +1,4 @@
-import { MedicalDeductionCalculator } from "../../../../apps/web/src/app/(main)/tools/medical-deduction/calculator-client";
+import { MedicalDeductionCalculator } from "./medical-deduction-calculator";
 
 export function MedicalDeductionPage() {
   return (

@@ -19,11 +19,11 @@ import {
 } from "@oncobase/wiki-content/pii";
 import { prepareDiagnosticTimeline } from "@oncobase/diagnostics/timeline";
 const { diagnosticStudiesSeed } = createRequire(import.meta.url)(
-  "../../web/scripts/fixtures/diagnostic-studies-seed.ts",
-) as typeof import("../../web/scripts/fixtures/diagnostic-studies-seed");
+  "../scripts/fixtures/diagnostic-studies-seed.ts",
+) as typeof import("../scripts/fixtures/diagnostic-studies-seed");
 const { diagnosticTimelineSeed } = createRequire(import.meta.url)(
-  "../../web/scripts/fixtures/diagnostic-timeline-seed.ts",
-) as typeof import("../../web/scripts/fixtures/diagnostic-timeline-seed");
+  "../scripts/fixtures/diagnostic-timeline-seed.ts",
+) as typeof import("../scripts/fixtures/diagnostic-timeline-seed");
 
 type FixturePage = {
   title: string;
@@ -612,14 +612,17 @@ export function documentArticle(page: Page) {
   return page.getByTestId("document-article").first();
 }
 
-export function nextErrorOverlay(page: Page) {
+export function viteErrorOverlay(page: Page) {
   return page.locator(
-    "[data-nextjs-dialog], .vite-error-overlay, #webpack-dev-server-client-overlay",
+    "vite-error-overlay",
   );
 }
 
 export async function gotoWiki(page: Page, path = "/") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
+  // Cached first-frame HTML is intentionally read-only. Visible article text
+  // alone is not proof that React has mounted its interactive controls.
+  await expect(page.locator("#wiki-first-frame-snapshot").filter({ visible: true })).toHaveCount(0);
   const article = documentArticle(page);
   await expect(article).toBeVisible();
   await expect(article.getByText(/Loading markdown for/i)).toHaveCount(0, { timeout: 15_000 });
@@ -640,12 +643,14 @@ export async function waitForPageTitle(page: Page, title: string | RegExp) {
 
 export async function openDirectory(page: Page, name: string) {
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const expandButton = page
-    .getByRole("button", { name: new RegExp(`^Expand ${escapedName}$`, "i") })
+  const directoryButton = page
+    .getByRole("button", { name: new RegExp(`^(Expand|Collapse) ${escapedName}$`, "i") })
     .first();
-  if (await expandButton.isVisible().catch(() => false)) {
-    await expandButton.click();
+  await expect(directoryButton).toBeVisible();
+  if (await directoryButton.getAttribute("aria-expanded") !== "true") {
+    await directoryButton.click();
   }
+  await expect(directoryButton).toHaveAttribute("aria-expanded", "true");
 }
 
 export function firstSmartTableShell(page: Page): Locator {

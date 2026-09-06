@@ -4,8 +4,8 @@ import { useChatRuntime } from "@oncobase/chat/runtime";
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState, type MouseEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { api } from "../../../../apps/web/convex/_generated/api.js";
-import type { Id } from "../../../../apps/web/convex/_generated/dataModel.js";
+import { api } from "../../convex/_generated/api.js";
+import type { Id } from "../../convex/_generated/dataModel.js";
 import { useWikiSession } from "../wiki-context";
 
 export function ChatConversationList() {

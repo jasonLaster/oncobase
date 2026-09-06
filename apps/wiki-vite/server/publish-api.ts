@@ -1,8 +1,9 @@
 import crypto from "node:crypto";
 import type { ConvexHttpClient } from "convex/browser";
-import { api } from "../../../apps/web/convex/_generated/api.js";
+import { api } from "../convex/_generated/api.js";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
 import { withSiteSlug } from "./wiki-api.js";
+import { siteBlobKey } from "./blob";
 
 const MIN_SUPPORTED_PUBLISHER_PROTOCOL_VERSION = 1;
 const PUBLISHER_VERSION_HEADER = "X-Publisher-Version";
@@ -137,13 +138,6 @@ function assetKey(asset: { path: string; kind?: "pdf" | "file" }) {
 
 function pathFromAssetKey(key: string) {
   return key.slice(key.indexOf(":") + 1);
-}
-
-function siteBlobKey(siteSlug: string, key: string) {
-  if (!/^[a-z0-9-]{1,32}$/.test(siteSlug)) {
-    throw new Error(`bad siteSlug: ${siteSlug}`);
-  }
-  return `sites/${siteSlug}/${key.replace(/^\/+/, "")}`;
 }
 
 function sitePiiPatterns(site: { config?: { piiPatterns?: string[] } }): PiiPattern[] {

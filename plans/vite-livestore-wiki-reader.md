@@ -1,5 +1,7 @@
 # Vite + LiveStore Wiki Reader Plan
 
+> Historical migration log. Vite was promoted on September 5, 2026 and the Next implementation was subsequently retired. Paths and commands below describe the implementation at the time; see [the current app guide](../apps/wiki-vite/README.md) for active ownership.
+
 Status: migration re-baseline in progress, updated 2026-07-08. Audience: reviewer, operator, and future migration owner. Remaining work is parity burn-down, Vercel admin actions for custom-domain swap, and post-cutover monitoring before `apps/web/` can be removed.
 
 ## Goal

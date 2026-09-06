@@ -6,12 +6,12 @@ This page is the public, reader-first inventory of the Oncobase platform. It lin
 
 Oncobase publishes an Obsidian-style markdown vault as a hosted, searchable, collaborative wiki. It combines:
 
-- a multi-site publishing backend in the [Next.js app](../apps/web/README.md)
+- a multi-site publishing backend in the [Vite app](../apps/wiki-vite/README.md)
 - a standalone [Vite + LiveStore reader](../apps/wiki-vite/README.md)
 - an `oncobase` CLI for vault sync, checks, publishing, and skill sync
 - reusable packages for [content](../packages/wiki-content/README.md), [markdown](../packages/wiki-markdown/README.md), [wiki shell UI](../packages/wiki-shell/README.md), [comments](../packages/wiki-comments/README.md), [chat](../packages/chat/README.md), and [smart tables](../packages/smart-table/README.md)
 
-Diana TNBC is the first production site and remains the default operational example in some app-level docs. The platform model is site-scoped and reusable; see the [multi-site contract](../apps/web/specs/multi-site.md).
+Diana TNBC is the first production site and remains the default operational example in some app-level docs. The platform model is site-scoped and reusable; see the [multi-site contract](../apps/wiki-vite/specs/multi-site.md).
 
 ## Content Publishing
 
@@ -23,7 +23,7 @@ Oncobase treats the vault as the authoring source and Convex plus Blob storage a
 - `oncobase publish` uploads changed markdown documents, assets, embeddings, and tombstones stale records when confirmed.
 - `oncobase assets:backfill-hashes` repairs missing asset content hashes without requiring a full republish.
 
-The publish protocol is documented in [architecture: publishing](../apps/web/docs/architecture/04-publishing.md), and the CLI behavior is documented in [`@oncobase/oncobase`](../packages/oncobase/README.md).
+The publish protocol is documented in [architecture: publishing](../apps/wiki-vite/docs/architecture/04-publishing.md), and the CLI behavior is documented in [`@oncobase/oncobase`](../packages/oncobase/README.md).
 
 ## Multi-Site Hosting
 
@@ -37,7 +37,7 @@ Core invariants:
 - comments require per-site Liveblocks credentials unless a migration fallback applies
 - public and session content are cached separately
 
-Read the full [multi-site spec](../apps/web/specs/multi-site.md) and [data model overview](../apps/web/docs/architecture/03-data-model.md).
+Read the full [multi-site spec](../apps/wiki-vite/specs/multi-site.md) and [data model overview](../apps/wiki-vite/docs/architecture/03-data-model.md).
 
 ## Wiki Browsing
 
@@ -53,7 +53,7 @@ The wiki surface supports the common reading loop for dense research notes:
 - tags render as linked pills
 - source links, copy actions, breadcrumbs, page footer, and not-found states come from shared page chrome
 
-The reusable chrome lives in [`@oncobase/wiki-shell`](../packages/wiki-shell/README.md). The current app feature inventory lives in [apps/web/specs/features.md](../apps/web/specs/features.md).
+The reusable chrome lives in [`@oncobase/wiki-shell`](../packages/wiki-shell/README.md). The current app feature inventory lives in [apps/wiki-vite/specs/features.md](../apps/wiki-vite/specs/features.md).
 
 ## Markdown Rendering
 
@@ -74,7 +74,7 @@ Features include:
 - PII redaction before display, search, chat, copy, and downloads
 - smart-table enhancement for wide or dense tables
 
-The shared runtime is [`@oncobase/wiki-markdown`](../packages/wiki-markdown/README.md). PII behavior is specified in [PII redaction](../apps/web/specs/pii-redaction.md).
+The shared runtime is [`@oncobase/wiki-markdown`](../packages/wiki-markdown/README.md). PII behavior is specified in [PII redaction](../apps/wiki-vite/specs/pii-redaction.md).
 
 ## Smart Tables
 
@@ -91,7 +91,7 @@ Smart-table behavior includes:
 - host-provided layout adapters for sidebars and right rails
 - shared CSS variables so host apps do not need Tailwind scanning for package source
 
-See [`@oncobase/smart-table`](../packages/smart-table/README.md) and the detailed [table expansion spec](../apps/web/specs/table-expansion.md).
+See [`@oncobase/smart-table`](../packages/smart-table/README.md) and the detailed [table expansion spec](../apps/wiki-vite/specs/table-expansion.md).
 
 ## Search
 
@@ -111,7 +111,7 @@ AI search:
 - falls back to vector discovery when text search finds no candidates
 - respects site scope and access/sensitivity rules
 
-The architecture is covered in [chat and search](../apps/web/docs/architecture/05-chat-and-search.md). Shared search chrome lives in [`@oncobase/wiki-shell`](../packages/wiki-shell/README.md).
+The architecture is covered in [chat and search](../apps/wiki-vite/docs/architecture/05-chat-and-search.md). Shared search chrome lives in [`@oncobase/wiki-shell`](../packages/wiki-shell/README.md).
 
 ## Chat With The Wiki
 
@@ -132,7 +132,7 @@ User-facing behavior includes:
 
 The wiki chat tools can search pages, read pages, list pages, list tags, and fetch pages by tag. The shared chat route helpers generate medical/research-friendly search patterns, compact large tool results before persistence, and keep citation rules consistent between apps.
 
-Read [`@oncobase/chat`](../packages/chat/README.md), the [chat package spec](../apps/web/specs/chat-package.md), and the [chat pattern library](../apps/web/specs/chat-patterns/00-overview.md).
+Read [`@oncobase/chat`](../packages/chat/README.md), the [chat package spec](../apps/wiki-vite/specs/chat-package.md), and the [chat pattern library](../apps/wiki-vite/specs/chat-patterns/00-overview.md).
 
 ## Comments And Review
 
@@ -148,7 +148,7 @@ It supports:
 - comment text extraction for copy/review surfaces
 - per-site enablement and credential checks
 
-The reusable package is [`@oncobase/wiki-comments`](../packages/wiki-comments/README.md). The product contract is in [comments.md](../apps/web/specs/comments.md).
+The reusable package is [`@oncobase/wiki-comments`](../packages/wiki-comments/README.md). The product contract is in [comments.md](../apps/wiki-vite/specs/comments.md).
 
 ## Access, Auth, And Identity
 
@@ -159,7 +159,7 @@ Oncobase uses two layers:
 
 Role-based access is site-scoped and can combine path-prefix and tag filters. Public pages render before RBAC is consulted; protected pages return 404 unless the signed-in user has a matching role. Sensitive content handling remains separate from role restrictions so public educational material is not over-classified.
 
-Read [role-based access](../apps/web/specs/role-based-access.md), [PII redaction](../apps/web/specs/pii-redaction.md), and the [implemented access-control skill](skills.md#diana-web-access-control).
+Read [role-based access](../apps/wiki-vite/specs/role-based-access.md), [PII redaction](../apps/wiki-vite/specs/pii-redaction.md), and the [implemented access-control skill](skills.md#diana-web-access-control).
 
 ## Downloads, Files, And Sharing
 
@@ -172,7 +172,7 @@ Oncobase exposes both individual assets and generated archives.
 - deployment workflows can prebuild and cache download archives.
 - page markdown, chat markdown, chat URLs, and comment text can be copied from the UI.
 
-See the [operator runbook](../apps/web/specs/operator-runbook.md) for production cache and recovery procedures.
+See the [operator runbook](../apps/wiki-vite/specs/operator-runbook.md) for production cache and recovery procedures.
 
 ## Vite + LiveStore Reader
 
@@ -203,7 +203,7 @@ Operators have scripts and workflows for:
 - preview and production smoke tests
 - Vite reader static/unit/server/e2e checks
 
-Start with [apps/web](../apps/web/README.md), the [operator runbook](../apps/web/specs/operator-runbook.md), and [scripts](../scripts/README.md).
+Start with [apps/wiki-vite](../apps/wiki-vite/README.md), the [operator runbook](../apps/wiki-vite/specs/operator-runbook.md), and the app's operator scripts.
 
 ## Package Feature Map
 
@@ -220,6 +220,6 @@ Start with [apps/web](../apps/web/README.md), the [operator runbook](../apps/web
 ## Known Caveats
 
 - Diana TNBC remains the first production deployment and appears in some workflow defaults, smoke URLs, and migration notes.
-- `apps/web` is still the current production app and fallback target while `apps/wiki-vite` is being finalized.
+- `apps/wiki-vite` is the production app. The Next implementation and Susan test deployment have been retired.
 - Some Liveblocks comments package code still imports app-local generated Convex and UI modules; that dependency is documented in the package README and should be removed before treating comments as fully framework-neutral.
 - The file palette implementation listens for `Cmd/Ctrl+K` and `Cmd/Ctrl+O`; some older user-facing labels mention `Cmd/Ctrl+P`.

@@ -5,8 +5,8 @@ import { expect, test, signIn, checkpoint, article as documentArticle } from "..
 import { ConvexHttpClient } from "convex/browser";
 
 const { api } = createRequire(import.meta.url)(
-  "../../web/convex/_generated/api.js",
-) as typeof import("../../web/convex/_generated/api");
+  "../convex/_generated/api.js",
+) as typeof import("../convex/_generated/api");
 
 const SITE_SLUG = "diana";
 const DOCUMENT_PATH = "/wiki/logistics/insurance";

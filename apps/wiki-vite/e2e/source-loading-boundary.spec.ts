@@ -3,7 +3,7 @@ import {
   documentArticle,
   gotoWiki,
   installWikiApiMocks,
-  nextErrorOverlay,
+  viteErrorOverlay,
   waitForPageTitle,
 } from "./fixtures";
 
@@ -17,7 +17,7 @@ test.describe("source loading boundary", () => {
 
     await waitForPageTitle(page, "Diagnosis");
     await expect(page.getByTestId("page-loading")).toHaveCount(0);
-    await expect(nextErrorOverlay(page)).toHaveCount(0);
+    await expect(viteErrorOverlay(page)).toHaveCount(0);
   });
 
   test("source pages still render cleanly through their scoped route", async ({ page }) => {
@@ -25,12 +25,7 @@ test.describe("source loading boundary", () => {
 
     await waitForPageTitle(page, "Telli 2016 HRD Platinum TNBC");
     await expect(documentArticle(page)).toContainText("source page proves source routes");
-    await expect(nextErrorOverlay(page)).toHaveCount(0);
-  });
-
-  test.skip("source route shell includes the streamed Next loading state", async () => {
-    // The Vite reader does not stream server HTML; it shows its own local cache
-    // shell while markdown is fetched.
+    await expect(viteErrorOverlay(page)).toHaveCount(0);
   });
 
   test("command palette Enter opens wiki results without the source loading shell", async ({ page }) => {
@@ -43,6 +38,6 @@ test.describe("source loading boundary", () => {
     await expect(page).toHaveURL(/\/wiki\/diagnostics\/diagnosis$/);
     await waitForPageTitle(page, "Diagnosis");
     await expect(page.getByTestId("page-loading")).toHaveCount(0);
-    await expect(nextErrorOverlay(page)).toHaveCount(0);
+    await expect(viteErrorOverlay(page)).toHaveCount(0);
   });
 });
