@@ -106,7 +106,7 @@ jobs:
             deployment_id="$(
               gh api "repos/${REPOSITORY}/deployments?sha=${HEAD_SHA}&per_page=40" \
                 | jq -r --arg project "${VERCEL_PROJECT}" --arg environment "${DEPLOYMENT_ENVIRONMENT}" \
-                    '[.[] | select(.environment | startswith($environment)) | select((.payload.project // "") == $project or (.environment | endswith($project)))] | first | .id // empty'
+                    '[.[] | select(.environment | startswith($environment)) | select((.payload.project // "") == $project or (.environment | endswith($project)) or .environment == $environment)] | first | .id // empty'
             )"
 
             if [[ -z "${deployment_id}" ]]; then
@@ -123,6 +123,16 @@ jobs:
             case "${state}" in
               success)
                 if [[ -n "${preview_url}" ]]; then
+                  # With one Vercel project, GitHub labels the deployment simply
+                  # Production/Preview and omits payload.project. Still verify
+                  # that the exact commit resolved to this app's immutable URL.
+                  node -e '
+                    const url = new URL(process.argv[1]);
+                    const project = process.argv[2];
+                    if (url.protocol !== "https:" ||
+                        !url.hostname.startsWith(project + "-") ||
+                        !url.hostname.endsWith(".vercel.app")) process.exit(1);
+                  ' "${preview_url}" "${VERCEL_PROJECT}"
                   echo "url=${preview_url}" >> "${GITHUB_OUTPUT}"
                   exit 0
                 fi

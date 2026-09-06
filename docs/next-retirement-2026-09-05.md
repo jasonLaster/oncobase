@@ -32,7 +32,7 @@ The removed hosted Next deployment is no longer a rollback target. Next source i
 ## Verification
 
 - All nine workspace typechecks passed; frozen dependency installation passed with no Next package in the lockfile.
-- Shared/package/CLI unit suite passed; the final Vite app unit run passed 133 tests.
+- Shared/package/CLI unit suite passed; the final Vite app unit run passed 134 tests.
 - Lint, production build and bundle budgets passed. Lint retains existing React-hook and unused-disable warnings; they were not hidden or expanded into unrelated refactoring.
 - Standalone production-server probes and all four Chromium preview smoke tests passed.
 - Full local Chromium suite: 319 passed, 32 skipped, no failures or retries. This run preceded removal of the one permanently skipped Next-only case. These tests include mocked scenarios and environment-dependent skips; they are not a substitute for real-backend verification.
@@ -43,5 +43,9 @@ The removed hosted Next deployment is no longer a rollback target. Next source i
 The first hosted cleanup build (`b87407ee`) found a missing build prerequisite: retained operator tools import the publisher CLI's generated types. Local generated artifacts had masked that dependency. The app's typecheck/build now builds the CLI first. The failed frontend build did not replace the working Diana deployment; Convex deployed the unchanged moved functions successfully.
 
 Clean CI also exposed two imports for Next-era workflow placeholders in the Vite publisher. Those workflows performed no maintenance: they only logged completion. Both placeholders and the unused `/api/post-deploy` endpoint were deleted, with an endpoint-retirement regression test. Publishing still finishes the site lock and returns `postPublishRunId: null` for wire compatibility; there is no implied background job. Downloads are request-time, and description/embedding maintenance remains explicit operator tooling.
+
+With only one Vercel project remaining, GitHub now names its deployment simply `Production` instead of including the project name. The CI resolver accepts that exact environment label while still checking the commit SHA and verifying the resulting URL belongs to the Vite project.
+
+The final application changes (`8e23d0f6`) passed frozen installation, the complete static/build/bundle command, all shared/app/CLI unit suites, and production standalone verification including 4/4 browser smokes in a separate fresh checkout with no old dependencies or generated artifacts.
 
 Private evidence is under `.playwright/next-retirement/`. Deployed verification must use the exact new commit, real backends, test-owned records, and fresh teardown checks. Traces, screenshots, signed sessions, and backend receipts must not be uploaded to this public repository.
