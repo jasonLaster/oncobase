@@ -2,6 +2,10 @@ import { withWorkflow } from "workflow/next";
 import type { NextConfig } from "next";
 import path from "path";
 import redirects from "./redirects.json";
+import { assertPublicAssets } from "./scripts/security/public-assets";
+
+// Validate before both development serving and production builds.
+assertPublicAssets(path.join(__dirname, "public"));
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
