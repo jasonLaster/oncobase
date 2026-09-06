@@ -1,9 +1,12 @@
 import { unlink } from "node:fs/promises";
+import { assertBuildAssets, assertPublicAssets } from "./public-assets";
 
 const appDir = new URL("..", import.meta.url).pathname;
 
 const outdir = `${appDir}/.vercel-functions`;
 const indexPath = `${appDir}/dist/index.html`;
+assertPublicAssets(`${appDir}/public`);
+assertBuildAssets(`${appDir}/dist`);
 const indexHtml = await Bun.file(indexPath).text();
 const result = await Bun.build({
   entrypoints: [

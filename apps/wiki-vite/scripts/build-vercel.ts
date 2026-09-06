@@ -2,10 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { assertPublicAssets } from "./public-assets";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONVEX_URL_FILE = path.join(ROOT, ".convex-deployment-url");
 const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
+
+// Fail before deploying the backend or copying any public assets.
+assertPublicAssets(path.join(ROOT, "public"));
 
 function run(
   command: string,
