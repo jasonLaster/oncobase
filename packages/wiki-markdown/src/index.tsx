@@ -3,6 +3,7 @@
 import {
   Children,
   isValidElement,
+  memo,
   useMemo,
   type AnchorHTMLAttributes,
   type ComponentProps,
@@ -211,7 +212,7 @@ export function WikiMarkdownTableEnhancer({
   );
 }
 
-export function WikiMarkdown({
+export const WikiMarkdown = memo(function WikiMarkdown({
   content,
   currentSlug,
   apiBasePath = "",
@@ -319,7 +320,7 @@ export function WikiMarkdown({
       <SlidesViewerControls />
     </WikiMarkdownFrame>
   );
-}
+});
 
 export {
   ImageTheater,

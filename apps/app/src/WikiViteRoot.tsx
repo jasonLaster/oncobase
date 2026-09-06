@@ -19,11 +19,11 @@ function readScope(): WikiScope {
     : "public";
 }
 
-const LiveStoreRoot = lazy(() =>
+const loadLiveStoreRoot = () =>
   import("./livestore/LiveStoreRoot").then((module) => ({
     default: module.LiveStoreRoot,
-  })),
-);
+  }));
+const LiveStoreRoot = lazy(loadLiveStoreRoot);
 type BootstrapState =
   | { status: "loading"; scope: WikiScope }
   | { status: "ready"; scope: WikiScope; identity: WikiSessionIdentity }
@@ -121,6 +121,9 @@ export function WikiViteRoot() {
 
   useEffect(() => {
     let cancelled = false;
+    // Download/initialize the reader while identity is verified. Importing code
+    // does not open a store or authorize content; those still require identity.
+    void loadLiveStoreRoot().catch(() => undefined);
     const scope = readScope();
     const fallback = publicIdentityFallback(scope);
     if (!fallback) setState({ status: "loading", scope });

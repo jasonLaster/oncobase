@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { ConvexHttpClient } from "convex/browser";
+import type { FunctionReturnType } from "convex/server";
 import { api } from "../convex/_generated/api.js";
 import { isLinkPreviewBotUserAgent } from "@oncobase/wiki-content/link-preview";
 import { legacyRedirectResponse } from "./redirects.ts";
@@ -51,6 +52,22 @@ type ManifestPageResult = {
 };
 
 const canonicalSlugCache = new Map<string, CanonicalSlugCacheEntry>();
+const requestPublicPages = new WeakMap<Request, Map<string, Promise<FunctionReturnType<typeof api.documents.getBySlug>>>>();
+
+function publicPageForRequest(request: Request, client: ConvexHttpClient, siteSlug: string, slug: string) {
+  let pages = requestPublicPages.get(request);
+  if (!pages) {
+    pages = new Map();
+    requestPublicPages.set(request, pages);
+  }
+  const key = `${siteSlug}:${slug}`;
+  let page = pages.get(key);
+  if (!page) {
+    page = client.query(api.documents.getBySlug, withSiteSlug(siteSlug, { slug }));
+    pages.set(key, page);
+  }
+  return page;
+}
 
 const STATIC_MIME_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -191,6 +208,10 @@ async function canonicalSlugRedirectResponse(
   if (!siteSlug) return null;
 
   try {
+    // The normal, correctly-cased URL needs one indexed document lookup, not
+    // a paginated scan of every document in the site. Reuse it for metadata.
+    const page = await publicPageForRequest(request, client, siteSlug, slug);
+    if (page?.slug === slug) return null;
     const canonicalPathname = canonicalSlugPathname(
       url.pathname,
       await publicCanonicalSlugMap(client, siteSlug),
@@ -344,10 +365,7 @@ async function staticIndexHtml(
 
   const [publicPage, gateEnabled, taggedPages] = await Promise.all([
     slug
-      ? client.query(
-          api.documents.getBySlug,
-          withSiteSlug(siteSlug, { slug }),
-        )
+      ? publicPageForRequest(request, client, siteSlug, slug)
       : Promise.resolve(null),
     getRequestPasswordGateConfig(request, client, siteSlug).then(
       (config) => config.enabled,
@@ -510,9 +528,11 @@ export function createAppShellHandler({
     }
 
     if (servesIndex) {
-      return new Response(await staticIndexHtml(request, client, filePath, indexHtml), {
-        headers: await htmlHeaders(request, client, filePath),
-      });
+      const [html, headers] = await Promise.all([
+        staticIndexHtml(request, client, filePath, indexHtml),
+        htmlHeaders(request, client, filePath),
+      ]);
+      return new Response(html, { headers });
     }
 
     return new Response(await readFile(filePath), {

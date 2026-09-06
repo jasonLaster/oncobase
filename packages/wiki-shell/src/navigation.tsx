@@ -3,10 +3,15 @@ import {
   type ComponentProps,
   type MouseEventHandler,
   type ReactNode,
+  memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
+  useState,
 } from "react";
+import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "./utils.ts";
 
 export type WikiNavigationNode = {
@@ -71,25 +76,39 @@ export function treeNodeKey(node: WikiNavigationNode) {
   return `${node.type}:${node.slug}:${node.pdfPath ?? ""}`;
 }
 
+const ancestorIndexes = new WeakMap<WikiNavigationNode[], Map<string, string[]>>();
+
 export function collectActiveAncestors(tree: WikiNavigationNode[], activeSlug: string) {
-  const ancestors = new Set<string>();
+  let index = ancestorIndexes.get(tree);
+  if (!index) {
+    index = new Map();
+    const visit = (nodes: WikiNavigationNode[], parents: string[]) => {
+      for (const node of nodes) {
+        if (!index!.has(node.slug)) index!.set(node.slug, parents);
+        if (node.type === "directory" && node.children) visit(node.children, [...parents, node.slug]);
+      }
+    };
+    visit(tree, []);
+    ancestorIndexes.set(tree, index);
+  }
+  return new Set(index.get(activeSlug) ?? []);
+}
 
-  const visit = (node: WikiNavigationNode, currentAncestors: string[]): boolean => {
-    if (node.slug === activeSlug) {
-      currentAncestors.forEach((slug) => ancestors.add(slug));
-      return true;
-    }
+export type WikiTreeRow = { node: WikiNavigationNode; depth: number; open: boolean; gap: number };
 
-    if (node.type !== "directory" || !node.children) return false;
-
-    const nextAncestors = [...currentAncestors, node.slug];
-    const found = node.children.some((child) => visit(child, nextAncestors));
-    if (found) ancestors.add(node.slug);
-    return found;
+export function flattenVisibleWikiTree({ tree, expandedSlugs, activeAncestorSlugs, defaultDirectoryOpen }: Pick<WikiTreeProps, "tree" | "expandedSlugs" | "activeAncestorSlugs" | "defaultDirectoryOpen">) {
+  const rows: WikiTreeRow[] = [];
+  const visit = (nodes: WikiNavigationNode[], depth: number) => {
+    nodes.forEach((node, index) => {
+      const open = node.type === "directory" && (expandedSlugs.get(node.slug) ??
+        defaultDirectoryOpen?.({ activeAncestorSlugs, depth, node }) ??
+        (depth < 1 || activeAncestorSlugs.has(node.slug)));
+      rows.push({ node, depth, open, gap: depth === 0 && index > 0 ? 4 : 0 });
+      if (open && node.children) visit(node.children, depth + 1);
+    });
   };
-
-  tree.forEach((node) => visit(node, []));
-  return ancestors;
+  visit(tree, 0);
+  return rows;
 }
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -179,44 +198,113 @@ export function WikiTree({
   renderPageLink,
   tree,
 }: WikiTreeProps) {
+  const rows = useMemo(() => flattenVisibleWikiTree({ tree, expandedSlugs, activeAncestorSlugs, defaultDirectoryOpen }), [tree, expandedSlugs, activeAncestorSlugs, defaultDirectoryOpen]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const virtualized = rows.length > 150;
+  const [scrollMargin, setScrollMargin] = useState(0);
+  const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  const pendingFocus = useRef<string | null>(null);
+  const focusedIndex = focusedKey ? rows.findIndex(row => treeNodeKey(row.node) === focusedKey) : -1;
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => rootRef.current?.parentElement ?? null,
+    estimateSize: index => 30 + rows[index].gap,
+    getItemKey: useCallback((index: number) => treeNodeKey(rows[index].node), [rows]),
+    overscan: 8,
+    scrollMargin,
+    rangeExtractor: range => [...new Set([...defaultRangeExtractor(range), ...(focusedIndex >= 0 ? [focusedIndex] : [])])].sort((a, b) => a - b),
+  });
+
+  useLayoutEffect(() => {
+    if (!virtualized) return;
+    const root = rootRef.current;
+    const parent = root?.parentElement;
+    if (!root || !parent) return;
+    const measure = () => setScrollMargin(root.getBoundingClientRect().top - parent.getBoundingClientRect().top + parent.scrollTop);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(parent);
+    for (const sibling of parent.children) if (sibling !== root) observer.observe(sibling);
+    return () => observer.disconnect();
+  }, [virtualized]);
+
+  useLayoutEffect(() => {
+    if (!pendingFocus.current) return;
+    const row = [...(rootRef.current?.querySelectorAll<HTMLElement>("[data-tree-row]") ?? [])].find(element => element.dataset.treeRow === pendingFocus.current);
+    const target = row?.querySelector<HTMLElement>("button, a[href]");
+    if (target) {
+      pendingFocus.current = null;
+      target.focus({ preventScroll: true });
+    }
+  });
+
+  const visibleRows = virtualized
+    ? virtualizer.getVirtualItems().map(item => ({ row: rows[item.index], index: item.index, start: item.start - scrollMargin }))
+    : rows.map((row, index) => ({ row, index, start: 0 }));
   return (
-    <div className="wiki-shell-tree-root">
-      {tree.map((node) => (
+    <div
+      className="wiki-shell-tree-root wiki-shell-tree-flat"
+      ref={rootRef}
+      data-virtualized={virtualized ? "true" : undefined}
+      data-visible-row-count={rows.length}
+      style={virtualized ? { height: virtualizer.getTotalSize(), position: "relative" } : undefined}
+      onKeyDown={event => {
+        if (!virtualized || event.key !== "Tab" || event.altKey || event.ctrlKey || event.metaKey) return;
+        const element = (event.target as HTMLElement).closest<HTMLElement>("[data-tree-index]");
+        if (!element) return;
+        const next = Number(element.dataset.treeIndex) + (event.shiftKey ? -1 : 1);
+        if (next < 0 || next >= rows.length) return;
+        event.preventDefault();
+        const key = treeNodeKey(rows[next].node);
+        pendingFocus.current = key;
+        setFocusedKey(key);
+        virtualizer.scrollToIndex(next, { align: "auto" });
+      }}
+    >
+      {visibleRows.map(({ row, index, start }) => (
+        <div
+          key={treeNodeKey(row.node)}
+          data-tree-row={treeNodeKey(row.node)}
+          data-tree-index={index}
+          onFocusCapture={() => setFocusedKey(treeNodeKey(row.node))}
+          style={virtualized
+            ? { position: "absolute", top: 0, left: 0, width: "100%", paddingTop: row.gap, transform: `translateY(${start}px)` }
+            : { paddingTop: row.gap }}
+        >
         <WikiTreeNode
-          key={treeNodeKey(node)}
-          activeAncestorSlugs={activeAncestorSlugs}
-          activeSlug={activeSlug}
-          defaultDirectoryOpen={defaultDirectoryOpen}
+          active={row.node.slug === activeSlug}
+          depth={row.depth}
           directoryAriaLabel={directoryAriaLabel}
-          expandedSlugs={expandedSlugs}
           formatNodeName={formatNodeName}
           getFileHref={getFileHref}
-          node={node}
+          node={row.node}
+          open={row.open}
           onNavigate={onNavigate}
           onToggleDirectory={onToggleDirectory}
           renderNodeIcon={renderNodeIcon}
           renderPageLink={renderPageLink}
         />
+        </div>
       ))}
     </div>
   );
 }
 
-type WikiTreeNodeProps = Omit<WikiTreeProps, "tree"> & {
+type WikiTreeNodeProps = Omit<WikiTreeProps, "tree" | "activeAncestorSlugs" | "activeSlug" | "defaultDirectoryOpen" | "expandedSlugs"> & {
+  active: boolean;
   depth?: number;
   node: WikiNavigationNode;
+  open: boolean;
 };
 
-function WikiTreeNode({
-  activeAncestorSlugs,
-  activeSlug,
-  defaultDirectoryOpen,
+const WikiTreeNode = memo(function WikiTreeNode({
+  active,
   depth = 0,
   directoryAriaLabel,
-  expandedSlugs,
   formatNodeName = formatTreeNodeName,
   getFileHref,
   node,
+  open,
   onNavigate,
   onToggleDirectory,
   renderNodeIcon,
@@ -226,11 +314,6 @@ function WikiTreeNode({
   const formattedName = formatNodeName(node.name, node);
 
   if (node.type === "directory") {
-    const userOpen = expandedSlugs.get(node.slug);
-    const open =
-      userOpen ??
-      defaultDirectoryOpen?.({ activeAncestorSlugs, depth, node }) ??
-      (depth < 1 || activeAncestorSlugs.has(node.slug));
     const accessibleName = node.badge
       ? `${open ? "Collapse" : "Expand"} ${formattedName} ${node.badge}`
       : `${open ? "Collapse" : "Expand"} ${formattedName}`;
@@ -256,26 +339,6 @@ function WikiTreeNode({
           <span className="wiki-shell-tree-label">{formattedName}</span>
           {node.badge ? <span className="wiki-shell-tree-badge tree-badge">{node.badge}</span> : null}
         </button>
-        {open
-          ? node.children?.map((child) => (
-              <WikiTreeNode
-                key={treeNodeKey(child)}
-                activeAncestorSlugs={activeAncestorSlugs}
-                activeSlug={activeSlug}
-                defaultDirectoryOpen={defaultDirectoryOpen}
-                directoryAriaLabel={directoryAriaLabel}
-                depth={depth + 1}
-                expandedSlugs={expandedSlugs}
-                formatNodeName={formatNodeName}
-                getFileHref={getFileHref}
-                node={child}
-                onNavigate={onNavigate}
-                onToggleDirectory={onToggleDirectory}
-                renderNodeIcon={renderNodeIcon}
-                renderPageLink={renderPageLink}
-              />
-            ))
-          : null}
       </div>
     );
   }
@@ -296,7 +359,6 @@ function WikiTreeNode({
     );
   }
 
-  const active = node.slug === activeSlug;
   return renderPageLink({
     active,
     children: (
@@ -310,7 +372,7 @@ function WikiTreeNode({
     onNavigate,
     style: { paddingLeft: indent + 24 },
   });
-}
+});
 
 export type WikiMobileNavigationProps = Omit<ComponentProps<"div">, "children" | "title"> &
   WikiTreeProps & {
@@ -454,7 +516,7 @@ export function WikiMobileNavigationSheet({
               </svg>
             </button>
           </div>
-          {children}
+          {open ? children : null}
         </div>
       </div>
     </>

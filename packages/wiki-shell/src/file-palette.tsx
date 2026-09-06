@@ -41,6 +41,24 @@ export const WIKI_FILE_PALETTE_MAX_RECENT = 8;
 const MAX_SEARCH_RESULTS = 50;
 const PALETTE_ROW_HEIGHT = 56;
 const PALETTE_HEADING_HEIGHT = 28;
+const preparedIndexes = new WeakMap<WikiFilePalettePage[], ReturnType<typeof preparePages>>();
+
+function preparePages(pages: WikiFilePalettePage[]) {
+  return pages.map(page => ({
+    page,
+    prepName: fuzzysort.prepare(displayName(page)),
+    prepPath: fuzzysort.prepare(page.path),
+  }));
+}
+
+function preparedPages(pages: WikiFilePalettePage[]) {
+  let prepared = preparedIndexes.get(pages);
+  if (!prepared) {
+    prepared = preparePages(pages);
+    preparedIndexes.set(pages, prepared);
+  }
+  return prepared;
+}
 
 function displayName(page: WikiFilePalettePage) {
   return page.name.replace(/-/g, " ");
@@ -70,12 +88,8 @@ export function buildWikiFilePaletteState(
     entries.map((page, pageIndex) => ({ type: "page", page, pageIndex }));
 
   if (normalizedQuery) {
-    const prepared = pages.map((page) => ({
-      page,
-      prepName: fuzzysort.prepare(displayName(page)),
-      prepPath: fuzzysort.prepare(page.path),
-    }));
-    const results = fuzzysort.go(query, prepared, {
+    // Page arrays are immutable snapshots; reuse tokenization across keystrokes.
+    const results = fuzzysort.go(query, preparedPages(pages), {
       keys: ["prepName", "prepPath"],
       limit: MAX_SEARCH_RESULTS,
       threshold: -1000,

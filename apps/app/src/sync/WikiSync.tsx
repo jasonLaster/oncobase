@@ -17,6 +17,7 @@ import {
   fileTree$,
   pageContentBySlug$,
   pageIndex$,
+  pageIndexBySlug$,
   siteState$,
 } from "../livestore/queries";
 import { events } from "../livestore/schema";
@@ -492,13 +493,9 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   }, [client, fetchSlug, networkTick, onMetrics, readCachedManifest, scope, store]);
 
   useEffect(() => {
-    const manifest = manifestRef.current;
     const state = store.query(siteState$) as SiteStateRow | null;
-    const indexedPage = (store.query(pageIndex$) as PageIndexRow[]).find(
-      (item) => item.slug === currentSlug,
-    );
-    const page = manifest?.pages.find((item) => item.slug === currentSlug) ??
-      (indexedPage
+    const indexedPage = store.query(pageIndexBySlug$(currentSlug)) as PageIndexRow | null;
+    const page = indexedPage
         ? {
             slug: indexedPage.slug,
             title: indexedPage.title,
@@ -508,7 +505,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
             sensitive: indexedPage.sensitive,
             size: indexedPage.size,
           }
-        : undefined);
+        : undefined;
     if (page) {
       void fetchSlug(currentSlug, page).catch(() => undefined);
       return;
@@ -526,6 +523,11 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         );
         onMetrics({ eventCount: 1 });
       }
+    } else {
+      // The body endpoint independently enforces the gate and access rules and
+      // includes its metadata. A cold reader need not wait for the entire site
+      // manifest before requesting the one document the user asked to read.
+      void fetchSlug(currentSlug).catch(() => undefined);
     }
   }, [currentSlug, fetchSlug, onMetrics, store]);
 

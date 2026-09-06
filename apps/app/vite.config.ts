@@ -88,14 +88,6 @@ export default defineConfig({
     // the whole reader down with "Unable to preload CSS". One eager stylesheet
     // removes that failure mode entirely.
     cssCodeSplit: false,
-    modulePreload: {
-      resolveDependencies(filename, deps) {
-        if (filename.includes("LiveStoreRoot") || filename.includes("WikiPage")) {
-          return [];
-        }
-        return deps;
-      },
-    },
     rolldownOptions: {
       preserveEntrySignatures: false,
       output: {

@@ -63,7 +63,7 @@ import {
 } from "../wiki-utils";
 import { useWikiScope, useWikiSession } from "../wiki-context";
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
-import { RETRY_PAGE_EVENT } from "../sync/WikiSync";
+import { REFRESH_MANIFEST_EVENT, RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
 import { PageActions } from "./PageActions";
 
@@ -450,6 +450,17 @@ export function WikiPage({
   const pageBody = (
     <>
       {toast ? <WikiToast>{toast}</WikiToast> : null}
+      {metrics.status === "error" && pageIndex.length === 0 ? (
+        <WikiStatusNotice data-test-id="navigation-unavailable">
+          This page is available, but navigation could not be loaded.
+          <WikiPageActionButton
+            data-test-id="retry-navigation"
+            onClick={() => window.dispatchEvent(new Event(REFRESH_MANIFEST_EVENT))}
+          >
+            Retry navigation
+          </WikiPageActionButton>
+        </WikiStatusNotice>
+      ) : null}
       {!isHomePage ? (
         <WikiPageHeader
           metadata={tags.length > 0 ? (

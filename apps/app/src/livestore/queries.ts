@@ -1,5 +1,6 @@
 import { queryDb, Schema } from "@livestore/livestore";
 import { tables } from "./schema";
+import { expandCompactFileTree, transformFileTreeForSidebar, type CompactFileNode } from "@oncobase/wiki-content";
 
 export const siteState$ = queryDb({
   query: "select * from siteState where id = 'current'",
@@ -18,6 +19,26 @@ export const fileTree$ = queryDb({
 });
 
 export const pageIndex$ = queryDb(tables.pageIndex.orderBy("slug", "asc"));
+
+// One derived query for desktop/mobile consumers. The manifest materializes its
+// tree and index atomically, so a second full-index fallback is unnecessary.
+export const sidebarTree$ = queryDb({
+  query: "select * from fileTree where id = 'current'",
+  schema: Schema.Array(tables.fileTree.rowSchema),
+  queriedTables: new Set(["fileTree"]),
+}, {
+  label: "sidebarTree",
+  deps: ["sidebarTree"],
+  map: (rows) => {
+    const tree = rows[0]?.treeJson;
+    if (!tree) return [];
+    try {
+      return transformFileTreeForSidebar(expandCompactFileTree(JSON.parse(tree) as CompactFileNode[]));
+    } catch {
+      return [];
+    }
+  },
+});
 
 export const assets$ = queryDb(tables.assetIndex.orderBy("path", "asc"));
 

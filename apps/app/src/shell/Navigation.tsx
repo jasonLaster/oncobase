@@ -1,9 +1,4 @@
 import { useStore } from "@livestore/react";
-import {
-  expandCompactFileTree,
-  transformFileTreeForSidebar,
-  type CompactFileNode,
-} from "@oncobase/wiki-content";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { MarkdownTitle } from "@oncobase/wiki-markdown/title-react";
 import {
@@ -59,6 +54,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
+  lazy,
+  memo,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -67,11 +65,8 @@ import {
   type MouseEvent,
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { ChatConversationList } from "../chat/ChatConversationList";
-import { ChatProviders } from "../chat/ChatProviders";
-import { fileTree$, pageIndex$ } from "../livestore/queries";
-import type { PageIndexRow } from "../types";
-import { hrefForSlug, parseJsonArray, slugFromPath } from "../wiki-utils";
+import { sidebarTree$ } from "../livestore/queries";
+import { hrefForSlug, slugFromPath } from "../wiki-utils";
 import {
   setNavigationIntentForSlug,
   useNavigationSlug,
@@ -79,6 +74,7 @@ import {
 import { ViteActionsMenu, openCommandPalette, useWikiViteAuth } from "./Header";
 
 const TREE_EXPANSION_KEY = "wiki-vite-expanded-directories";
+const ChatNavigation = lazy(() => import("../chat/ChatNavigation"));
 const ICON_SIZE = 16;
 const MOBILE_OUTLINE_SELECTOR = "h2[id], h3[id], h4[id]";
 const NON_DOCUMENT_ROUTE_PREFIXES = [
@@ -155,23 +151,12 @@ const FILE_ICONS_BY_SLUG: Record<string, LucideIcon> = {
   "about/overview/test-tracker": Microscope,
 };
 
+function formatTreeLabel(name: string) {
+  return formatFileLabel(name);
+}
+
 function useWikiTree() {
-  const fileTreeRow = useStore().store.useQuery(fileTree$) as { treeJson: string } | null;
-  const pages = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
-  return useMemo<WikiNavigationNode[]>(() => {
-    if (fileTreeRow) {
-      return transformFileTreeForSidebar(
-        expandCompactFileTree(parseJsonArray<CompactFileNode>(fileTreeRow.treeJson)),
-      );
-    }
-    return transformFileTreeForSidebar(
-      pages.map((page) => ({
-        name: page.slug.split("/").at(-1) ?? page.slug,
-        slug: page.slug,
-        type: "file" as const,
-      })),
-    );
-  }, [fileTreeRow, pages]);
+  return useStore().store.useQuery(sidebarTree$) as WikiNavigationNode[];
 }
 
 function readExpandedDirectories() {
@@ -381,24 +366,24 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
   return { activeAncestorSlugs, expandedSlugs, toggleDirectory };
 }
 
-export function Sidebar() {
+export const Sidebar = memo(function Sidebar() {
   const { pathname } = useLocation();
   if (pathname.startsWith("/chat")) {
     return (
-      <ChatProviders>
         <aside
           className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
           data-test-id="chat-sidebar"
         >
           <nav className="flex-1 min-h-0 overflow-y-auto p-2">
-            <ChatConversationList />
+            <Suspense fallback={<p role="status">Loading chats…</p>}>
+              <ChatNavigation />
+            </Suspense>
           </nav>
         </aside>
-      </ChatProviders>
     );
   }
   return <WikiNavigationSidebar />;
-}
+});
 
 function WikiNavigationSidebar() {
   const tree = useWikiTree();
@@ -421,7 +406,7 @@ function WikiNavigationSidebar() {
       defaultDirectoryOpen={defaultDirectoryOpen}
       expandedSlugs={expandedSlugs}
       footer={<SidebarFooter />}
-      formatNodeName={(name) => formatFileLabel(name)}
+      formatNodeName={formatTreeLabel}
       getFileHref={fileHrefForNode}
       heading={<WorkspaceHeader />}
       onToggleDirectory={toggleDirectory}
@@ -524,7 +509,7 @@ function usePageLinkRenderer() {
   );
 }
 
-export function MobileNav() {
+export const MobileNav = memo(function MobileNav() {
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const renderPageLink = usePageLinkRenderer();
@@ -591,7 +576,6 @@ export function MobileNav() {
 
   if (isChatRoute) {
     return (
-      <ChatProviders>
         <WikiMobileNavigationSheet
           heading="Chats"
           onOpenChange={setOpen}
@@ -601,10 +585,11 @@ export function MobileNav() {
           title="Chat with wiki"
         >
           <nav data-test-id="bottom-nav-chat-list">
-            <ChatConversationList />
+            <Suspense fallback={<p role="status">Loading chats…</p>}>
+              <ChatNavigation />
+            </Suspense>
           </nav>
         </WikiMobileNavigationSheet>
-      </ChatProviders>
     );
   }
 
@@ -685,7 +670,7 @@ export function MobileNav() {
                 activeSlug={activeSlug}
                 defaultDirectoryOpen={defaultDirectoryOpen}
                 expandedSlugs={expandedSlugs}
-                formatNodeName={(name) => formatFileLabel(name)}
+                formatNodeName={formatTreeLabel}
                 getFileHref={fileHrefForNode}
                 onNavigate={() => setOpen(false)}
                 onToggleDirectory={toggleDirectory}
@@ -710,7 +695,7 @@ export function MobileNav() {
       ) : null}
     </>
   );
-}
+});
 
 function MobilePageHeader({
   onOpenNavigation,

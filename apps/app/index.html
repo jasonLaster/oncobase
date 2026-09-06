@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>TNBC Knowledge Base</title>
+    <style>
+      /* First paint must not wait for React, the database, or a cached page. */
+      .reader-boot{box-sizing:border-box;min-height:100dvh;padding:48px max(24px,calc((100vw - 800px)/2));font:16px/1.5 system-ui,sans-serif;color:#6b7280;background:#fff}
+      .reader-boot-title{display:flex;align-items:center;gap:12px;margin:0 0 32px;font-weight:500}
+      .reader-boot-mark{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;background:#4f46e5;color:#fff;font-weight:700}
+      .reader-boot-line{height:14px;margin:16px 0;border-radius:5px;background:#f3f4f6}
+      .reader-boot-heading{width:65%;height:30px;margin-bottom:30px}
+      .reader-boot-short{width:78%}
+      .dark .reader-boot{background:#0f1117;color:#a1a1aa}.dark .reader-boot-line{background:#232632}
+      #wiki-first-frame-snapshot[hidden]{display:none}html[data-wiki-first-frame="true"] #root{visibility:hidden}
+      @media(max-width:767px){.reader-boot{padding:28px 24px}}
+    </style>
     <script>
       (function () {
         try {
@@ -23,7 +35,7 @@
   </head>
   <body>
     <div id="wiki-first-frame-snapshot" hidden></div>
-    <div id="root"></div>
+    <div id="root"><main class="reader-boot" data-test-id="reader-boot-shell" role="status" aria-label="Loading page" aria-busy="true"><p class="reader-boot-title"><span class="reader-boot-mark" aria-hidden="true">D</span>Loading page…</p><div aria-hidden="true"><div class="reader-boot-line reader-boot-heading"></div><div class="reader-boot-line"></div><div class="reader-boot-line"></div><div class="reader-boot-line reader-boot-short"></div><div class="reader-boot-line"></div></div></main></div>
     <script>
       (function () {
         try {

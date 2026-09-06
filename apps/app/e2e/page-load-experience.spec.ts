@@ -223,14 +223,26 @@ test.describe("Page load experience", () => {
     await expect(page.getByTestId("page-loading")).toHaveCount(0);
   });
 
-  test("manifest failures show a bounded retry state instead of an infinite loader", async ({ page }) => {
+  test("manifest failures preserve an independently available body and expose navigation retry", async ({ page }) => {
     await installWikiApiMocks(page, { manifestFailure: true });
     await page.goto("/wiki/logistics/insurance", { waitUntil: "domcontentloaded" });
 
-    await expect(documentArticle(page).locator("h1")).toHaveText("Markdown unavailable");
-    await expect(documentArticle(page)).toContainText("Wiki request failed: 503");
+    await expect(documentArticle(page).locator("h1")).toHaveText("Insurance");
+    await expect(documentArticle(page)).toContainText("Prior authorization");
+    await expect(page.getByTestId("navigation-unavailable")).toBeVisible();
     await expect(page.getByTestId("page-loading")).toHaveCount(0);
+    await page.unroute("**/api/wiki/manifest**");
+    await installWikiApiMocks(page);
+    await page.getByTestId("retry-navigation").click();
+    await expect(page.getByTestId("navigation-unavailable")).toHaveCount(0);
+    await expect(page.getByTestId("sidebar-tree").getByRole("button", { name: "Collapse logistics", exact: true })).toBeVisible();
+  });
+
+  test("unavailable manifest and body show a bounded retry state", async ({ page }) => {
+    await installWikiApiMocks(page, { manifestFailure: true, pageFailures: { "wiki/logistics/insurance": true } });
+    await page.goto("/wiki/logistics/insurance", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("retry-page-fetch")).toBeVisible();
+    await expect(page.getByTestId("page-loading")).toHaveCount(0);
   });
 
   test("failed current-page markdown fetch exposes a retry action", async ({ page }) => {

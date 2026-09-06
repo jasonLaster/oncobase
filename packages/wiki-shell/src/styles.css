@@ -609,6 +609,10 @@ html[data-initial-sidebar-state="collapsed"]
   margin-top: 0.25rem;
 }
 
+.wiki-shell-tree-flat > * + * {
+  margin-top: 0;
+}
+
 .wiki-shell-sidebar-sign-in {
   background: var(--popover);
   border: 1px solid var(--sidebar-border);

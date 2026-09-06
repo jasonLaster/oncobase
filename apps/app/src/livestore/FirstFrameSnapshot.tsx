@@ -101,6 +101,7 @@ export function FirstFrameSnapshotSync({
     }
 
     let frame = 0;
+    let persistTimer: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
     const capture = () => {
       const shell = document.querySelector<HTMLElement>(
@@ -123,6 +124,10 @@ export function FirstFrameSnapshotSync({
         return;
       }
 
+      // Hand control to the hydrated app before cloning/serializing its DOM.
+      // This cache optimization must never hold the first interactive frame.
+      dismissFirstFrameSnapshot();
+      persistTimer = setTimeout(() => {
       try {
         const persisted = persistFirstFrameSnapshot(
           window.localStorage,
@@ -148,11 +153,14 @@ export function FirstFrameSnapshotSync({
       } catch {
         // The hydrated app remains authoritative when storage is unavailable.
       }
-      dismissFirstFrameSnapshot();
+      }, 100);
     };
     frame = window.requestAnimationFrame(capture);
 
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (persistTimer !== undefined) clearTimeout(persistTimer);
+    };
   }, [fileTree, identity, location.pathname, page, scope, state]);
 
   return null;
