@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
+  "ignoreCommand": "test ! -d apps/app",
   "installCommand": "bun install --frozen-lockfile",
   "buildCommand": "bun --cwd apps/app scripts/build-vercel.ts",
   "outputDirectory": "apps/app/dist",

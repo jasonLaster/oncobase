@@ -12,6 +12,7 @@ test("the permanent application workspace owns the server and build output", () 
   expect(appPath).toBe("apps/app");
   expect(JSON.parse(readRoot(`${appPath}/package.json`)).name).toBe("@oncobase/app");
   const config = JSON.parse(readRoot("vercel.json"));
+  expect(config.ignoreCommand).toBe(`test ! -d ${appPath}`);
   expect(config.buildCommand).toBe(`bun --cwd ${appPath} scripts/build-vercel.ts`);
   expect(config.outputDirectory).toBe(`${appPath}/dist`);
   for (const filename of ["api/index.js", "api/app-shell.js"]) {
