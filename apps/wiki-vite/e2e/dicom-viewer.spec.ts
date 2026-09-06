@@ -1770,11 +1770,12 @@ test.describe("DICOM viewer", () => {
     const heldRequest = holdDicomFileRequest(page, "IMG00006.dcm");
 
     await gotoViewer(page, "biopsy-2026-04-10");
-    await heldRequest.requestSeen;
 
     await expect(page.getByTestId("dicom-slice-counter")).toHaveText("5 / 9");
 
     await page.getByRole("button", { name: "Next image" }).click();
+    // Images are loaded on demand, not prefetched before navigation.
+    await heldRequest.requestSeen;
 
     await expect(page.getByTestId("dicom-image-loading")).toBeVisible();
     await expect(page.getByTestId("dicom-image-loading")).toContainText(

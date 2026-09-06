@@ -21,6 +21,7 @@ import { readDevtoolsFooterVisible, readLiveStoreDevtoolsEnabled } from "./devto
 import LiveStoreWorker from "./livestore.worker?worker";
 import { schema } from "./schema";
 import { resolveReaderStorage } from "./reader-storage";
+import { bindWorkerToPage } from "./page-worker";
 import { SessionCacheRetirement } from "./SessionCacheRetirement";
 import {
   STORE_BOOT_RETRY_DELAY_MS,
@@ -30,7 +31,7 @@ import {
 
 const persistedAdapter = makePersistedAdapter({
   storage: { type: "opfs" },
-  worker: LiveStoreWorker,
+  worker: (options) => bindWorkerToPage(new LiveStoreWorker(options), window),
   sharedWorker: LiveStoreSharedWorker,
   // Rapid route reloads can overlap the optimistic client-side OPFS snapshot
   // read with the previous leader's final write. Ask the leader for a recreated

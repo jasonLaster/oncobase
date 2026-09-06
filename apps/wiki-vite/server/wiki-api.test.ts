@@ -930,7 +930,10 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
 
     const session = await handler(request("/api/auth/session", { headers: { Cookie: cookie } }));
     expect(session?.status).toBe(200);
-    expect(await session!.json()).toEqual({ user: { email, isAdmin: false, name: "Reader" } });
+    expect(await session!.json()).toEqual({ user: {
+      _id: expect.any(String), createdAt: expect.any(Number),
+      email, isAdmin: false, name: "Reader",
+    } });
 
     const badSignin = await handler(
       request("/api/auth/signin", {

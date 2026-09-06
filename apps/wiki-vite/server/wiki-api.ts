@@ -1033,7 +1033,11 @@ async function handleAuthSessionRequest(
   const user = await getSessionUser(request, client, siteSlug);
   const isAdmin = user ? await isAdminSessionUser(client, siteSlug, user) : false;
   return Response.json(
-    { user: user ? publicSessionUser({ ...user, isAdmin }) : null },
+    { user: user ? {
+      ...publicSessionUser({ ...user, isAdmin }),
+      _id: user._id,
+      createdAt: user.createdAt,
+    } : null },
     {
       headers: {
         "Cache-Control": "private, no-store",
