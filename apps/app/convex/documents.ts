@@ -10,6 +10,8 @@ import {
 import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 import { invalidateManifest } from "./lib/manifestRevision";
 import { hasCompleteAssetVisibility } from "./lib/assetVisibility";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 
 // Multi-tenant scoping: every public function takes an optional
 // `siteSlug` argument. During the Diana migration window, omitting it
@@ -269,21 +271,28 @@ export const getBySlug = query({
 // Convex invalidates its query result when any of those records changes.
 // Never includes rawContent, restricted documents or account permissions.
 export const getReaderPage = query({
-  args: { host: v.string(), slug: v.string(), previewSiteSlug: v.optional(v.string()) },
-  handler: async (ctx, { host, slug, previewSiteSlug }) => {
+  args: { host: v.string(), slug: v.string(), previewSiteSlug: v.optional(v.string()),
+    knownBody: v.optional(v.object({ siteSlug: v.string(), digest: v.string() })) },
+  handler: async (ctx, { host, slug, previewSiteSlug, knownBody }) => {
     const normalized = host.trim().toLowerCase().split(":")[0];
     const site = previewSiteSlug && normalized.endsWith(".vercel.app")
       ? await ctx.db.query("sites").withIndex("by_slug", q => q.eq("slug", previewSiteSlug)).first()
       : (await ctx.db.query("sites").collect()).find(site => site.domains.includes(normalized));
     if (!site || site.status !== "active") return null;
     const doc = await findDocBySlug(ctx, { siteId: site._id, siteSlug: site.slug, site }, slug);
+    const publicDoc = doc && !doc.deletedAt && doc.sensitive === false ? doc : null;
+    // Hash actual published bytes, not just the publisher's source revision:
+    // publishing/redaction can replace content without changing contentHash.
+    const bodyDigest = publicDoc ? bytesToHex(sha256(new TextEncoder().encode(publicDoc.content))) : null;
     return {
       siteSlug: site.slug,
       gate: { enabled: site.config.passwordGate, passwordHash: site.config.passwordHash },
       piiPatterns: site.config.piiPatterns,
-      page: doc && !doc.deletedAt && doc.sensitive === false ? {
-        slug: doc.slug, title: doc.title, content: doc.content,
-        tags: doc.tags, contentHash: doc.contentHash, description: doc.description, sensitive: false as const,
+      page: publicDoc ? {
+        slug: publicDoc.slug, title: publicDoc.title,
+        content: knownBody?.siteSlug === site.slug && knownBody.digest === bodyDigest ? null : publicDoc.content,
+        bodyDigest,
+        tags: publicDoc.tags, contentHash: publicDoc.contentHash, description: publicDoc.description, sensitive: false as const,
       } : null,
     };
   },

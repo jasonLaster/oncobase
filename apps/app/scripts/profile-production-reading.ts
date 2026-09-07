@@ -27,8 +27,21 @@ try {
     let errors = 0;
     page.on("pageerror", () => errors++);
     await page.addInitScript(() => {
-      const probe = { readable: 0, candidate: 0, live: 0, source: "", cls: 0 };
+      const probe = { readable: 0, textPaint: 0, candidate: 0, live: 0, source: "", cls: 0 };
       Object.assign(window, { __READING_PROBE__: probe });
+      if (PerformanceObserver.supportedEntryTypes.includes("element")) {
+        new PerformanceObserver(list => {
+          for (const entry of list.getEntries() as (PerformanceEntry & { identifier: string; renderTime: number; intersectionRect: DOMRectReadOnly })[]) {
+            if (entry.identifier === "wiki-body-text" && entry.renderTime > 0 && entry.intersectionRect.height > 0 && !probe.textPaint) probe.textPaint = entry.renderTime;
+          }
+        }).observe({ type: "element", buffered: true });
+        const annotate = () => {
+          for (const selector of ["#wiki-html-first .wiki-markdown p", "#root .wiki-markdown p"]) {
+            document.querySelector(selector)?.setAttribute("elementtiming", "wiki-body-text");
+          }
+        };
+        new MutationObserver(annotate).observe(document, { childList: true, subtree: true });
+      }
       new PerformanceObserver(list => {
         for (const e of list.getEntries() as (PerformanceEntry & {value: number;hadRecentInput: boolean})[]) if (!e.hadRecentInput) probe.cls += e.value;
       }).observe({type: "layout-shift", buffered: true});
@@ -72,7 +85,7 @@ try {
       const record = {run,pathname,state,status:documentResponse?.status(),cache:documentResponse?.headers()["cache-control"],errors,...sample};
       samples.push(record);
       await writeFile(output + "/samples.json", JSON.stringify({origin,phase,measuredAt:new Date().toISOString(),viewport:{width:1440,height:1000},cpu:1,network:"unthrottled; fresh context per path/iteration; login outside browser; no mocked requests",samples},null,2));
-      console.log(JSON.stringify({run,pathname,state,readable:Math.round(sample.readable),fcp:sample.fcp,ttfb:Math.round(sample.ttfb),live:Math.round(sample.live),errors}));
+      console.log(JSON.stringify({run,pathname,state,readable:Math.round(sample.readable),textPaint:sample.textPaint,fcp:sample.fcp,ttfb:Math.round(sample.ttfb),live:Math.round(sample.live),errors}));
     }
     await context.close();
   }

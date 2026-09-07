@@ -50,6 +50,7 @@
     "@livestore/peer-deps": "0.3.1",
     "@livestore/react": "0.3.1",
     "@livestore/wa-sqlite": "1.0.5-dev.2",
+    "@noble/hashes": "2.4.0",
     "@oncobase/chat": "workspace:*",
     "@oncobase/diagnostics": "workspace:*",
     "@oncobase/oncobase": "workspace:*",

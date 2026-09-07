@@ -68,7 +68,11 @@ export function injectHtmlFirstPage(html: string, page: PublicPage, url: URL, si
   const body = renderHtmlFirstBody(page, siteSlug);
   if (criticalCss) {
     html = html.replace(/<link\b[^>]*rel="stylesheet"[^>]*>/g, tag =>
-      tag.replace(/\s*\/?>$/, ' data-wiki-full-style media="print" onload="this.media=\'all\';window.dispatchEvent(new Event(\'wiki-full-style-ready\'))">'));
+      tag.replace('href="', 'data-wiki-style-href="').replace(/\s*\/?>$/, ' data-wiki-full-style media="print" onload="this.media=\'all\';window.dispatchEvent(new Event(\'wiki-full-style-ready\'))">'));
+    html = html.replace(/<script\b[^>]*type="module"[^>]*src="[^\"]+"[^>]*><\/script>/g,
+      tag => tag.replace('type="module"', 'type="application/x-wiki-module"').replace('src="', 'data-wiki-module-src="'));
+    html = html.replace(/<link\b[^>]*rel="modulepreload"[^>]*>/g,
+      tag => tag.replace('rel="modulepreload"', 'data-wiki-module-preload'));
     html = html.replace("</head>", `<style id="wiki-critical-style">${criticalCss}</style></head>`);
   }
   const payload = serializePageBootstrap({

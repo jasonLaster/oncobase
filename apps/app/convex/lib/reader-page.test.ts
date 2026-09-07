@@ -17,6 +17,14 @@ test("reader snapshot joins current host and policy to explicitly public content
   });
   const read = () => t.query(api.documents.getReaderPage, { host: "alpha.test", slug: "index" });
   expect((await read())?.page?.content).toBe("PUBLIC_A");
+  const digest = (await read())!.page!.bodyDigest!;
+  const cached = () => t.query(api.documents.getReaderPage, { host: "alpha.test", slug: "index", knownBody: { siteSlug: "alpha", digest } });
+  expect((await cached())?.page?.content).toBeNull();
+  expect((await cached())?.page?.bodyDigest).toBe(digest);
+  await t.run(ctx => ctx.db.patch(doc, { content: "REPLACED_AT_SAME_SOURCE_HASH" }));
+  expect((await cached())?.page?.content).toBe("REPLACED_AT_SAME_SOURCE_HASH");
+  expect((await cached())?.page?.bodyDigest).not.toBe(digest);
+  expect((await t.query(api.documents.getReaderPage, { host: "beta.test", slug: "index", knownBody: { siteSlug: "alpha", digest } }))?.page?.content).toBe("PUBLIC_B");
   expect(JSON.stringify(await read())).not.toContain("RAW_SECRET");
   expect(await t.query(api.documents.getReaderPage, { host: "unknown.test", slug: "index", previewSiteSlug: "alpha" })).toBeNull();
   await t.run(ctx => ctx.db.patch(doc, { sensitive: true }));

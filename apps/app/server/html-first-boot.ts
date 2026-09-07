@@ -4,6 +4,22 @@ export function bootHtmlFirstPage() {
   const root = document.getElementById("root");
   if (!host || !root) return;
   root.inert = true;
+  // Let the inline-styled article paint before downloading/compiling the app
+  // or applying its much larger stylesheet. Native links work immediately.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll<HTMLLinkElement>("link[data-wiki-style-href]").forEach(link => {
+      link.href = link.dataset.wikiStyleHref!;
+    });
+    document.querySelectorAll<HTMLLinkElement>("link[data-wiki-module-preload]").forEach(link => { link.rel = "modulepreload"; });
+    document.querySelectorAll<HTMLScriptElement>("script[data-wiki-module-src]").forEach(placeholder => {
+      const script = document.createElement("script");
+      for (const attribute of placeholder.attributes) {
+        if (attribute.name !== "type" && attribute.name !== "data-wiki-module-src") script.setAttribute(attribute.name, attribute.value);
+      }
+      script.type = "module"; script.src = placeholder.dataset.wikiModuleSrc!;
+      placeholder.replaceWith(script);
+    });
+  }));
   const payload = document.getElementById("wiki-page-bootstrap");
   if (payload) payload.dataset.receivedAt = String(Date.now());
   const initialPath = location.pathname;
