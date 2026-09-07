@@ -110,6 +110,15 @@ export function FirstFrameSnapshotSync({
       // Authenticated content may take over a public snapshot, but must never
       // be copied into the public first-frame cache.
       if (scope !== "public") return;
+      // Server HTML already supplies the next readable frame. Cloning a large
+      // live document here can run during a reload and delay its first paint.
+      if (performance.getEntriesByName("wiki-html-first-ready").length > 0) {
+        if (!retirementStarted.current) {
+          retirementStarted.current = true;
+          void retirePreviousReaderStore({ identity, origin: window.location.origin, scope });
+        }
+        return;
+      }
       persistTimer = setTimeout(async () => {
         try {
           const { persistSafeSnapshot } = await import("./snapshot-html");

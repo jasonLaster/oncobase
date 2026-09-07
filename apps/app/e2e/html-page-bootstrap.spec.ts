@@ -79,6 +79,20 @@ test("HTML stays readable while scripts are held; payload seeds before consumers
   } finally { release(); releaseManifest(); }
 });
 
+test("server HTML avoids cloning another full DOM snapshot after handoff", async ({ page }) => {
+  await prepare(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(article(page)).toBeVisible();
+  await expect(page.locator("#wiki-html-first")).toHaveCount(0);
+  // Cover the former 100 ms capture timer and its asynchronous module load.
+  await page.waitForTimeout(500);
+  const saved = await page.evaluate(() => ({
+    captureModules: performance.getEntriesByType("resource").filter(entry => entry.name.includes("snapshot-html-")).length,
+    snapshots: Object.keys(localStorage).filter(key => key.startsWith("wiki-vite:first-frame:")).length,
+  }));
+  expect(saved).toEqual({ captureModules: 0, snapshots: 0 });
+});
+
 test("fresh manifest updates replace the bootstrap; a later restriction removes its public body", async ({ page }) => {
   const api = await prepare(page);
   api.setManifestDelay(1200);
