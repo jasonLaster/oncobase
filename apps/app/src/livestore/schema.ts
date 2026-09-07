@@ -86,13 +86,6 @@ const manifestPageSchema = Schema.Struct({
   size: Schema.Number,
 });
 
-const assetSchema = Schema.Struct({
-  kind: Schema.Literal("pdf", "file"),
-  path: Schema.String,
-  contentHash: Schema.NullOr(Schema.String),
-  size: Schema.NullOr(Schema.Number),
-});
-
 const pageContentSchema = Schema.Struct({
   slug: Schema.String,
   title: Schema.String,
@@ -179,10 +172,10 @@ const materializers = State.SQLite.materializers(events, {
     assetsJson,
   }, { query }) => {
     const pages = JSON.parse(pagesJson) as Array<typeof manifestPageSchema.Type>;
-    const assets = JSON.parse(assetsJson) as Array<typeof assetSchema.Type>;
     const pagesBySlug = new Map(pages.map((page) => [page.slug, page]));
-    const cachedContent = query(tables.pageContent) as Array<
-      typeof tables.pageContent.rowSchema.Type
+    // Reconciliation needs metadata only, not every cached Markdown body.
+    const cachedContent = query({ query: "SELECT slug, contentHash, missingAt, contentStatus FROM pageContent", bindValues: {} }) as Array<
+      Pick<typeof tables.pageContent.rowSchema.Type, "slug" | "contentHash" | "missingAt" | "contentStatus">
     >;
 
     const reconcileContent = cachedContent.map((page) => {
@@ -254,25 +247,23 @@ const materializers = State.SQLite.materializers(events, {
       }).onConflict("id", "replace"),
       tables.pageIndex.delete(),
       tables.assetIndex.delete(),
-      ...pages.map((page) =>
-        tables.pageIndex.insert({
-          slug: page.slug,
-          title: page.title,
-          tagsJson: JSON.stringify(page.tags),
-          description: page.description,
-          contentHash: page.contentHash,
-          sensitive: page.sensitive,
-          size: page.size,
-        }).onConflict("slug", "replace"),
-      ),
-      ...assets.map((asset) =>
-        tables.assetIndex.insert({
-          path: asset.path,
-          kind: asset.kind,
-          contentHash: asset.contentHash,
-          size: asset.size,
-        }).onConflict("path", "replace"),
-      ),
+      // One set-based insert per index avoids thousands of synchronous
+      // query-builder/schema conversions while retaining this atomic event.
+      {
+        sql: `INSERT OR REPLACE INTO pageIndex (slug, title, tagsJson, description, contentHash, sensitive, size)
+          SELECT json_extract(value, '$.slug'), json_extract(value, '$.title'), json_extract(value, '$.tags'),
+            json_extract(value, '$.description'), json_extract(value, '$.contentHash'),
+            json_extract(value, '$.sensitive'), json_extract(value, '$.size') FROM json_each(?)`,
+        bindValues: [pagesJson],
+        writeTables: new Set(["pageIndex"]),
+      },
+      {
+        sql: `INSERT OR REPLACE INTO assetIndex (path, kind, contentHash, size)
+          SELECT json_extract(value, '$.path'), json_extract(value, '$.kind'),
+            json_extract(value, '$.contentHash'), json_extract(value, '$.size') FROM json_each(?)`,
+        bindValues: [assetsJson],
+        writeTables: new Set(["assetIndex"]),
+      },
       ...reconcileContent,
     ];
   },

@@ -3,6 +3,7 @@ import { makeInMemoryAdapter } from "@livestore/adapter-web";
 import { createStorePromise } from "@livestore/livestore";
 import { events, schema, WIKI_CACHE_SCHEMA_VERSION } from "./schema";
 import {
+  assets$,
   fileTree$,
   pageContentBySlug$,
   pageIndex$,
@@ -234,4 +235,31 @@ describe("wiki vite LiveStore schema", () => {
     store.commit(events.cacheResetRequested({ requestedAt: 4 }));
     expect(store.query(pageContentBySlug$("wiki/missing"))).toBeNull();
   });
+});
+
+
+test("bulk manifest import preserves a full site's metadata and replacement semantics", async () => {
+  const store = await makeStore();
+  const pages = Array.from({ length: 6600 }, (_, i) => ({
+    slug: `wiki/page-${i}`, title: `Page ${i}: quotes '\" and Unicode café`,
+    tags: ["one", "two\nlines", "& <literal>"], description: i % 2 ? null : "Description",
+    contentHash: i % 2 ? null : `hash-${i}`, sensitive: i % 2 === 1, size: 100 + i,
+  }));
+  const assets = [{ kind: "file" as const, path: "a'\" café.png", contentHash: null, size: null }, { kind: "pdf" as const, path: "report.pdf", contentHash: "pdf-hash", size: 300 }];
+  const manifest = (replacement: typeof pages, files = assets) => events.manifestApplied({
+    siteSlug: "diana", scope: "public", manifestHash: "bulk-" + replacement.length, generatedAt: "2026-09-07", receivedAt: 1,
+    manifestSize: 1, compactTreeJson: "[]", pagesJson: JSON.stringify(replacement), assetsJson: JSON.stringify(files),
+  });
+  store.commit(manifest(pages));
+  const rows = store.query(pageIndex$);
+  expect(rows).toHaveLength(6600);
+  for (const i of [0, 1, 6599]) {
+    const { tags, ...expected } = pages[i]!;
+    expect(rows.find(row => row.slug === expected.slug)).toEqual({ ...expected, tagsJson: JSON.stringify(tags) });
+  }
+  expect(store.query(assets$)).toEqual(assets);
+  store.commit(manifest(pages.slice(0, 1), []));
+  expect(store.query(pageIndex$)).toHaveLength(1);
+  expect(store.query(assets$)).toEqual([]);
+  expect(store.query(siteState$)?.manifestHash).toBe("bulk-1");
 });
