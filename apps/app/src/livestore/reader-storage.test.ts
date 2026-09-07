@@ -15,3 +15,21 @@ describe("reader storage selection", () => {
     })).toBe("memory");
   });
 });
+
+test("a silent OPFS probe has a deadline and ignores late completion", async () => {
+  let resolve!: (directory: FileSystemDirectoryHandle) => void;
+  const probe = new Promise<FileSystemDirectoryHandle>((done) => { resolve = done; });
+  const result = await resolveReaderStorage({ getDirectory: () => probe }, 5);
+  expect(result).toBe("memory");
+  resolve({} as FileSystemDirectoryHandle);
+  await Promise.resolve();
+  expect(result).toBe("memory");
+});
+
+test("late OPFS rejection is consumed after the timeout", async () => {
+  let reject!: (error: Error) => void;
+  const probe = new Promise<FileSystemDirectoryHandle>((_, fail) => { reject = fail; });
+  expect(await resolveReaderStorage({ getDirectory: () => probe }, 5)).toBe("memory");
+  reject(new Error("Late storage failure"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+});

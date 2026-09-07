@@ -6,6 +6,7 @@ import { makeWikiStoreId, type WikiScope, type WikiSessionIdentity } from "@onco
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import {
   Component,
+  lazy,
   type ReactNode,
   useCallback,
   useEffect,
@@ -21,6 +22,8 @@ import { FirstFrameSnapshotSync } from "./FirstFrameSnapshot";
 import { readDevtoolsFooterVisible, readLiveStoreDevtoolsEnabled } from "./devtools";
 import LiveStoreWorker from "./livestore.worker?worker";
 import { schema } from "./schema";
+import { dismissFirstFrameSnapshot } from "./first-frame-snapshot";
+import { StoreStartupLoading } from "./StoreStartup";
 import { resolveReaderStorage } from "./reader-storage";
 import { SessionCacheRetirement } from "./SessionCacheRetirement";
 import {
@@ -29,7 +32,12 @@ import {
   toBootError,
 } from "./store-boot-retry";
 
+const StoreStartupRecovery = lazy(() => import("./StoreStartupRecovery"));
+
 const persistedAdapter = makePersistedAdapter({
+  // sessionStorage is copied by duplicated/opener tabs. A per-document ID
+  // prevents two live tabs from presenting the same LiveStore session identity.
+  sessionId: crypto.getRandomValues(new Uint32Array(4)).join("-"),
   storage: { type: "opfs" },
   worker: LiveStoreWorker,
   sharedWorker: LiveStoreSharedWorker,
@@ -42,10 +50,11 @@ const persistedAdapter = makePersistedAdapter({
 // When OPFS is unavailable, keep the online reader working in a tab-local cache.
 // Consume the library's eager OPFS probe too, so a denied handle cannot become
 // an unhandled rejection even when the temporary adapter is selected.
+const temporaryAdapter = makeInMemoryAdapter();
 const adapterPromise = resolveReaderStorage({ getDirectory: () => rootHandlePromise }).then((mode) => {
   if (mode === "opfs") return persistedAdapter;
   console.warn("[wiki-vite] Persistent cache unavailable; using temporary reader storage");
-  return makeInMemoryAdapter();
+  return temporaryAdapter;
 });
 
 function BootRetryPending() {
@@ -101,7 +110,6 @@ class StoreBootRetryBoundary extends Component<BootBoundaryProps, BootBoundarySt
     this.retryTimer = setTimeout(() => {
       this.retryTimer = undefined;
       this.props.onRetry();
-      this.setState({ error: null });
     }, STORE_BOOT_RETRY_DELAY_MS);
   }
 
@@ -126,33 +134,54 @@ export function LiveStoreRoot({
   identity: WikiSessionIdentity;
   scope: WikiScope;
 }) {
+  const storeId = makeWikiStoreId({
+    siteSlug: identity.siteSlug,
+    scope,
+    origin: window.location.origin,
+    cacheKey: identity.cacheKey,
+  });
+  // Reset adapter choice, deadlines, and retry budget together on identity
+  // changes. Never let a prior session's delayed callback replace this store.
+  return <ReaderStore key={storeId} storeId={storeId} identity={identity} scope={scope} />;
+}
+
+function ReaderStore({ identity, scope, storeId }: {
+  identity: WikiSessionIdentity;
+  scope: WikiScope;
+  storeId: string;
+}) {
   const [adapter, setAdapter] = useState<Awaited<typeof adapterPromise> | null>(null);
+  const [stalled, setStalled] = useState(false);
   useEffect(() => {
     let active = true;
     void adapterPromise.then((resolved) => {
-      if (active) setAdapter(() => resolved);
+      // A late probe must not replace a temporary store already in use.
+      if (active) setAdapter((current: Awaited<typeof adapterPromise> | null) => current ?? resolved);
     });
     return () => { active = false; };
   }, []);
   const [bootAttempt, setBootAttempt] = useState(0);
   const retryBoot = useCallback(() => setBootAttempt((attempt) => attempt + 1), []);
-  const storeId = useMemo(
-    () =>
-      makeWikiStoreId({
-        siteSlug: identity.siteSlug,
-        scope,
-        origin: window.location.origin,
-        cacheKey: identity.cacheKey,
-      }),
-    [identity.cacheKey, identity.siteSlug, scope],
-  );
+  const recoverStalledBoot = useCallback(() => {
+    dismissFirstFrameSnapshot();
+    if (adapter === temporaryAdapter) {
+      setStalled(true);
+      return;
+    }
+    console.warn("[wiki-vite] Reader startup timed out; using temporary storage");
+    // Unmount the old provider so its scope releases its workers/lock request.
+    // Never steal a lock or reset persistence belonging to another live tab.
+    setAdapter(() => temporaryAdapter);
+    setBootAttempt(0);
+  }, [adapter]);
   const liveStoreDevtoolsEnabled = useMemo(() => readLiveStoreDevtoolsEnabled(), []);
   const devtoolsFooterVisible = useMemo(() => readDevtoolsFooterVisible(), []);
 
-  if (!adapter) return <BootRetryPending />;
+  if (stalled) return <StoreStartupRecovery />;
+  if (!adapter) return <StoreStartupLoading onTimeout={recoverStalledBoot} />;
 
   return (
-    <StoreBootRetryBoundary attempt={bootAttempt} onRetry={retryBoot}>
+    <StoreBootRetryBoundary key={`${adapter === temporaryAdapter}:${bootAttempt}`} attempt={bootAttempt} onRetry={retryBoot}>
       <LiveStoreProvider
         key={bootAttempt}
         schema={schema}
@@ -161,12 +190,12 @@ export function LiveStoreRoot({
         storeId={storeId}
         disableDevtools={!liveStoreDevtoolsEnabled}
         renderLoading={({ stage }) => (
-          <WikiPageLoading
-            data-test-id="page-loading"
-            includeTags
+          <StoreStartupLoading
             label={`Loading page (${stage})`}
+            onTimeout={recoverStalledBoot}
           />
         )}
+        renderShutdown={() => <StoreStartupRecovery />}
         renderError={(error) => (
           <StoreBootError error={error} attempt={bootAttempt} onRetry={retryBoot} />
         )}

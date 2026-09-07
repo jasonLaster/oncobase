@@ -1,14 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { gotoWiki, installWikiApiMocks } from "./fixtures";
 
-for (const availability of ["denied", "missing storage", "missing getDirectory"] as const) {
+for (const availability of ["denied", "missing storage", "missing getDirectory", "hanging"] as const) {
   test.describe(availability, () => {
     test.beforeEach(async ({ page }) => {
       await page.addInitScript((mode) => {
         Object.defineProperty(navigator, "storage", {
           configurable: true,
           value: mode === "missing storage" ? undefined : mode === "missing getDirectory" ? {} : {
-            getDirectory: async () => { throw new DOMException("Storage denied", "UnknownError"); },
+            getDirectory: async () => { if (mode === "hanging") return new Promise(() => {}); throw new DOMException("Storage denied", "UnknownError"); },
           },
         });
       }, availability);
