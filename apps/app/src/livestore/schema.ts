@@ -160,6 +160,10 @@ export const events = {
     name: "v1.CacheResetRequested",
     schema: Schema.Struct({ requestedAt: Schema.Number }),
   }),
+  pageContentEvicted: Events.clientOnly({
+    name: "v1.PageContentEvicted",
+    schema: Schema.Struct({ slugs: Schema.Array(Schema.String) }),
+  }),
 };
 
 const materializers = State.SQLite.materializers(events, {
@@ -212,7 +216,6 @@ const materializers = State.SQLite.materializers(events, {
           tagsJson: JSON.stringify(manifestPage.tags),
           expectedContentHash: manifestPage.contentHash,
           sensitive: manifestPage.sensitive,
-          size: manifestPage.size,
           contentStatus: "stale",
           staleAt: receivedAt,
           deletedAt: null,
@@ -225,7 +228,6 @@ const materializers = State.SQLite.materializers(events, {
         tagsJson: JSON.stringify(manifestPage.tags),
         expectedContentHash: manifestPage.contentHash,
         sensitive: manifestPage.sensitive,
-        size: manifestPage.size,
         contentStatus: "fresh",
         staleAt: null,
         deletedAt: null,
@@ -354,6 +356,7 @@ const materializers = State.SQLite.materializers(events, {
     tables.pageContent.delete(),
     tables.assetIndex.delete(),
   ],
+  "v1.PageContentEvicted": ({ slugs }) => slugs.map(slug => tables.pageContent.delete().where({ slug })),
 });
 
 const state = State.SQLite.makeState({ tables, materializers });

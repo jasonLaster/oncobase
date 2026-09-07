@@ -94,6 +94,7 @@ import {
 } from "./legacy-route-metadata.js";
 import { safeLocalRedirect } from "../src/safe-redirect.js";
 import { TEXT_SEARCH_LATENCY_BUDGET_MS } from "../src/search-performance.js";
+import { handlePrefetchRequest } from "./prefetch";
 
 const DEFAULT_SITE_SLUG = "diana";
 const HOST_CACHE_TTL_MS = 15_000;
@@ -3456,6 +3457,14 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/wiki/pages") {
       return createWikiPagesResponse(request, context);
+    }
+
+    if (pathname === "/api/wiki/prefetch") {
+      const serverSecret = process.env.WIKI_PREFETCH_SECRET;
+      return handlePrefetchRequest(request, context, serverSecret ? {
+        priorities: () => client.query(api.prefetch.priorities, { siteSlug, serverSecret }),
+        recordVisit: (slug) => client.mutation(api.prefetch.recordVisit, { siteSlug, serverSecret, slug }),
+      } : null).catch(() => Response.json({ error: "Prefetch unavailable" }, { status: 503, headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" } }));
     }
 
     if (pathname === "/api/login") {

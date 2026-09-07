@@ -20,6 +20,15 @@ export const fileTree$ = queryDb({
 
 export const pageIndex$ = queryDb(tables.pageIndex.orderBy("slug", "asc"));
 
+// Do not copy cached markdown bodies just to decide what to fetch or evict.
+export const cachedPageMetadata$ = queryDb({
+  // Older cache entries used UTF-16 length for size. Measure actual body bytes
+  // in SQLite without copying the body into JavaScript or flushing warm caches.
+  query: "select slug, length(CAST(content AS BLOB)) AS size, fetchedAt, contentHash, contentStatus from pageContent",
+  schema: Schema.Array(Schema.Struct({ slug: Schema.String, size: Schema.Number, fetchedAt: Schema.Number, contentHash: Schema.NullOr(Schema.String), contentStatus: Schema.String })),
+  queriedTables: new Set(["pageContent"]),
+});
+
 // One derived query for desktop/mobile consumers. The manifest materializes its
 // tree and index atomically, so a second full-index fallback is unnecessary.
 export const sidebarTree$ = queryDb({

@@ -168,6 +168,7 @@ export type WikiContentClientOptions = {
 };
 
 export type FetchPagesOptions = {
+  signal?: AbortSignal;
   cursor?: string | null;
   limit?: number;
   slugs?: string[];
@@ -968,6 +969,7 @@ async function fetchJson(
   credentials: RequestCredentials,
   cache: RequestCache,
   requestTimeoutMs: number,
+  signal?: AbortSignal,
 ) {
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), requestTimeoutMs);
@@ -976,7 +978,7 @@ async function fetchJson(
       cache,
       credentials,
       headers: { Accept: "application/json" },
-      signal: controller.signal,
+      signal: signal ? AbortSignal.any([signal, controller.signal]) : controller.signal,
     });
     if (!response.ok) {
       throw new Error(`Wiki request failed: ${response.status} ${response.statusText}`);
@@ -1062,13 +1064,13 @@ export function createWikiContentClient({
         await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs),
       );
     },
-    async fetchPages({ cursor, limit, slugs }: FetchPagesOptions = {}) {
+    async fetchPages({ cursor, limit, slugs, signal }: FetchPagesOptions = {}) {
       const params: Record<string, string> = { scope };
       if (cursor) params.cursor = cursor;
       if (limit) params.limit = String(limit);
       if (slugs?.length) params.slugs = slugs.join(",");
       const url = urlWithParams(baseUrl, "/api/wiki/pages", params);
-      return parseWikiPageBatch(await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs));
+      return parseWikiPageBatch(await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs, signal));
     },
   };
 }

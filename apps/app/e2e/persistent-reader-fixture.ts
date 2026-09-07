@@ -62,7 +62,12 @@ export const test = base.extend({
           // this WebKit build. Never touch another origin's reader storage.
           for (const page of persistent.pages()) await page.close();
           const cleanupPage = await persistent.newPage();
-          await cleanupPage.goto(`${baseURL}/terms-and-conditions`, { waitUntil: "domcontentloaded", timeout: 10_000 });
+          // Only the temporary browser origin is needed for OPFS access. Do
+          // not make teardown depend on application/backend route latency.
+          // This response exists only in Playwright, never on disk or a server.
+          const cleanupUrl = `${baseURL}/__reader-test-cleanup`;
+          await cleanupPage.route(cleanupUrl, route => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Test storage cleanup</title>" }));
+          await cleanupPage.goto(cleanupUrl, { waitUntil: "domcontentloaded", timeout: 10_000 });
           const marker = `-${baseURL!.replace(/[^a-zA-Z0-9]/g, "_")}-`;
           await cleanupPage.evaluate(async originMarker => {
             const root = await navigator.storage.getDirectory() as FileSystemDirectoryHandle & { keys(): AsyncIterableIterator<string> };

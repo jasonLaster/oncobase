@@ -356,6 +356,9 @@ const png = Buffer.from(
 );
 
 export async function installWikiApiMocks(page: Page, options: MockOptions = {}) {
+  // Synthetic reader visits must never update real popularity statistics.
+  // Prefetch-specific tests override this route explicitly.
+  await page.route("**/api/wiki/prefetch**", route => route.fulfill({ json: { enabled: false, slugs: [] } }));
   options.pageOverrides = { ...options.pageOverrides };
   const siteSlug = options.siteSlug ?? defaultSiteSlug;
   let manifestFailure = options.manifestFailure === true;

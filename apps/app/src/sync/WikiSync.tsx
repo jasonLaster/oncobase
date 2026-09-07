@@ -1,8 +1,6 @@
 import { useStore } from "@livestore/react";
 import {
   createWikiContentClient,
-  expandCompactFileTree,
-  flattenFileTree,
   WIKI_MANIFEST_SCHEMA_VERSION,
   type CompactFileNode,
   type WikiManifest,
@@ -37,20 +35,14 @@ import {
   normalizeFetchedPageSlug,
   pageToEvent,
   parseJsonArray,
-  readRecentSlugs,
   rememberSlug,
   slugFromPath,
   storageSnapshot,
 } from "../wiki-utils";
 
-const EAGER_FETCH_BUDGET = {
-  batchSize: 4,
-  maxBytes: 2 * 1024 * 1024,
-  maxPages: 80,
-  maxRetries: 2,
-};
-
-export const WARM_CACHE_EVENT = "wiki-vite:warm-cache";
+import { BackgroundPrefetch, FOREGROUND_FETCH_EVENT } from "./BackgroundPrefetch";
+import { PREFETCH_LIMITS } from "./prefetch-policy";
+export { WARM_CACHE_EVENT } from "./BackgroundPrefetch";
 export const RETRY_PAGE_EVENT = "wiki-vite:retry-page";
 export const REFRESH_MANIFEST_EVENT = "wiki-vite:refresh-manifest";
 
@@ -59,104 +51,6 @@ const MANIFEST_FRESH_MS: Record<WikiScope, number> = {
   session: 30_000,
 };
 const MANIFEST_RETRY_MS = 30_000;
-
-function shouldFetchInBackground() {
-  if (!navigator.onLine) return false;
-  const connection = (
-    navigator as Navigator & {
-      connection?: { saveData?: boolean };
-    }
-  ).connection;
-  return connection?.saveData !== true;
-}
-
-function buildEagerQueue(currentSlug: string, manifest: WikiManifest) {
-  const manifestBySlug = new Map(manifest.pages.map((page) => [page.slug, page]));
-  const treeSlugs = flattenFileTree(expandCompactFileTree(manifest.compactTree))
-    .filter((node) => node.type === "file")
-    .map((node) => node.slug);
-  const recent = readRecentSlugs();
-  const priority = [...treeSlugs.slice(0, 20), ...recent];
-  const candidates = [...new Set([...priority, ...manifest.pages.map((page) => page.slug)])]
-    .filter((slug) => slug !== currentSlug && manifestBySlug.has(slug));
-
-  let queuedBytes = 0;
-  const queue: string[] = [];
-  for (const slug of candidates) {
-    const page = manifestBySlug.get(slug);
-    if (!page) continue;
-    if (queue.length >= EAGER_FETCH_BUDGET.maxPages) break;
-    if (queuedBytes + page.size > EAGER_FETCH_BUDGET.maxBytes && slug !== currentSlug) {
-      continue;
-    }
-    queuedBytes += page.size;
-    queue.push(slug);
-  }
-
-  return { manifestBySlug, queue, queuedBytes };
-}
-
-function scheduleIdle(callback: () => void, timeout: number, fallbackDelay: number) {
-  const requestIdleCallback = (
-    globalThis as typeof globalThis & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-    }
-  ).requestIdleCallback;
-
-  if (typeof requestIdleCallback === "function") {
-    requestIdleCallback(callback, { timeout });
-    return;
-  }
-
-  globalThis.setTimeout(callback, fallbackDelay);
-}
-
-function scheduleEagerFetch({
-  fetchSlug,
-  manifestBySlug,
-  onMetrics,
-  queue,
-}: {
-  fetchSlug: (slug: string, page: WikiManifestPage) => Promise<void>;
-  manifestBySlug: Map<string, WikiManifestPage>;
-  onMetrics: (patch: MetricsPatch) => void;
-  queue: string[];
-}) {
-  let index = 0;
-  const attempts = new Map<string, number>();
-
-  const runBatch = () => {
-    if (!shouldFetchInBackground()) {
-      onMetrics({ status: "offline", message: "Background fetch paused" });
-      return;
-    }
-
-    const next = queue.slice(index, index + EAGER_FETCH_BUDGET.batchSize);
-    index += next.length;
-
-    void Promise.all(
-      next.map(async (slug) => {
-        const page = manifestBySlug.get(slug);
-        if (!page) return;
-        try {
-          await fetchSlug(slug, page);
-        } catch {
-          const nextAttempt = (attempts.get(slug) ?? 0) + 1;
-          attempts.set(slug, nextAttempt);
-          if (nextAttempt <= EAGER_FETCH_BUDGET.maxRetries) {
-            queue.push(slug);
-          }
-        }
-      }),
-    ).finally(() => {
-      if (index >= queue.length) return;
-      const retryBackoff = attempts.size > 0 ? 1000 : 250;
-      scheduleIdle(runBatch, 1500, retryBackoff);
-    });
-  };
-
-  scheduleIdle(runBatch, 1000, 100);
-}
 
 export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => void }) {
   const { store } = useStore();
@@ -172,6 +66,10 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
     promise: Promise<WikiManifestValidation>;
   } | null>(null);
   const inFlight = useRef(new Set<string>());
+  const isForegroundBusy = useCallback(
+    () => inFlight.current.size > 0 || validationInFlight.current !== null,
+    [],
+  );
   useEffect(() => {
     currentSlugRef.current = currentSlug;
   }, [currentSlug]);
@@ -222,12 +120,14 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         cached?.content &&
         pageIndex &&
         cached.contentHash === pageIndex.contentHash &&
-        cached.contentStatus === "fresh"
+        cached.contentStatus === "fresh" &&
+        Date.now() - cached.fetchedAt < PREFETCH_LIMITS.revalidateMs
       ) {
         return;
       }
 
       inFlight.current.add(cacheKey);
+      window.dispatchEvent(new Event(FOREGROUND_FETCH_EVENT));
       try {
         const batch = await client.fetchPages({ slugs: [slug] });
         const page = normalizeFetchedPageSlug(slug, batch.pages);
@@ -371,6 +271,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           key: validationKey,
           promise: validationPromise,
         };
+        window.dispatchEvent(new Event(FOREGROUND_FETCH_EVENT));
         let validation: WikiManifestValidation;
         try {
           validation = await validationPromise;
@@ -456,8 +357,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         });
         scheduleRefresh(validation.partial ? MANIFEST_RETRY_MS : freshnessMs);
 
-        // Cache pages when visited. Bulk warming is an explicit user action;
-        // an arbitrary first 80 pages should not compete with the active route.
+        // BackgroundPrefetch handles ranked warming after the active body is ready.
       } catch (error) {
         if (!cancelled) {
           if (scope === "session" && isAuthError(error)) {
@@ -534,26 +434,6 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   }, [currentSlug, fetchSlug, onMetrics, store]);
 
   useEffect(() => {
-    const onWarmCache = () => {
-      const manifest = manifestRef.current;
-      if (!manifest) {
-        onMetrics({ status: "syncing", message: "Waiting for manifest before warming" });
-        return;
-      }
-
-      const { manifestBySlug, queue, queuedBytes } = buildEagerQueue(currentSlug, manifest);
-      onMetrics({
-        status: "ready",
-        message: `Warming ${queue.length} pages (${Math.round(queuedBytes / 1024)} KB)`,
-      });
-      scheduleEagerFetch({ queue, manifestBySlug, fetchSlug, onMetrics });
-    };
-
-    window.addEventListener(WARM_CACHE_EVENT, onWarmCache);
-    return () => window.removeEventListener(WARM_CACHE_EVENT, onWarmCache);
-  }, [currentSlug, fetchSlug, onMetrics]);
-
-  useEffect(() => {
     const onRetryPage = () => {
       const manifest = manifestRef.current;
       const page = manifest?.pages.find((item) => item.slug === currentSlug);
@@ -576,5 +456,5 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
     if (currentSlug !== "index") rememberSlug(currentSlug);
   }, [currentSlug]);
 
-  return null;
+  return <BackgroundPrefetch onMetrics={onMetrics} isForegroundBusy={isForegroundBusy} />;
 }

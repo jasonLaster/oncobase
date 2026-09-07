@@ -28,6 +28,17 @@ afterEach(async () => {
   await Promise.all(stores.splice(0).map((store) => store.shutdown()));
 });
 
+test("cache eviction removes only selected bodies and preserves the manifest", async () => {
+  const store = await makeStore();
+  const body = { title: "Example", content: "body", tags: [], contentHash: "hash", sensitive: false, size: 4, fetchedAt: 1 };
+  store.commit(events.pageContentFetched({ slug: "active", ...body }), events.pageContentFetched({ slug: "old", ...body }));
+  const previousState = store.query(siteState$);
+  store.commit(events.pageContentEvicted({ slugs: ["old"] }));
+  expect(store.query(pageContentBySlug$("old"))).toBeNull();
+  expect(store.query(pageContentBySlug$("active"))?.content).toBe("body");
+  expect(store.query(siteState$)).toEqual(previousState);
+});
+
 describe("wiki vite LiveStore schema", () => {
   test("materializes manifests and page bodies", async () => {
     const store = await makeStore();

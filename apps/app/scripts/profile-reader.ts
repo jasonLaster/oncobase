@@ -106,7 +106,7 @@ async function profile() {
         for (let iteration = 0; iteration < runs; iteration++) {
           const id = `${deviceName}-${scope}-${iteration}`;
           activeCase = `${id}:setup`;
-          const context = await browser.newContext({ viewport });
+          const context = await browser.newContext({ viewport, extraHTTPHeaders: { "x-wiki-test-run": "1" } });
           let tracing = false;
           try {
             if (scope !== "login") await authenticate(context);

@@ -477,6 +477,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     );
     const readerPaths = [
       "/api/wiki/manifest",
+      "/api/wiki/prefetch",
       "/api/wiki/pages?slugs=wiki/public",
       "/api/search?q=public",
       "/api/timeline",
@@ -529,6 +530,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       const gateCookieValue = await gateCookie(handler);
       const coreRequests = [
         request("/api/wiki/session", { headers: { Cookie: gateCookieValue } }),
+        request("/api/wiki/prefetch", { headers: { Cookie: gateCookieValue } }),
         request("/api/wiki/manifest", { headers: { Cookie: gateCookieValue } }),
         request("/api/wiki/pages?slugs=wiki/public", {
           headers: { Cookie: gateCookieValue },

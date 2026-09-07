@@ -104,6 +104,15 @@ export default defineSchema({
       filterFields: ["siteId"],
     }),
 
+  pageVisitStats: defineTable({
+    siteId: v.id("sites"),
+    slug: v.string(),
+    priority: v.number(),
+    lastVisitedAt: v.number(),
+  })
+    .index("by_site_slug", ["siteId", "slug"])
+    .index("by_site_priority", ["siteId", "priority"]),
+
   meta: defineTable({
     siteId: v.optional(v.id("sites")),
     key: v.string(),

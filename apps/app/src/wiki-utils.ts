@@ -134,7 +134,7 @@ export function pageToEvent(page: WikiPageRecord) {
     tags: page.tags,
     contentHash: page.contentHash,
     sensitive: page.sensitive,
-    size: page.size,
+    size: byteSize(page.content),
     fetchedAt: Date.now(),
   });
 }

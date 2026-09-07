@@ -12,13 +12,14 @@ const localGateSessionSecret = "wiki-vite-playwright-gate-secret";
 const localLiveblocksPublicKey =
   "pk_dev_HXZfdhC5pUVp1uUoX4mp31GEwMiYRKXXF5uoiZugexxsNV65JmHUqcRN__UFGQ05";
 const previewBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
-const extraHTTPHeaders = previewBypassSecret
-  ? {
+const extraHTTPHeaders = {
+  "x-wiki-test-run": "1",
+  ...(previewBypassSecret ? {
       "x-vercel-protection-bypass": previewBypassSecret,
       "x-vercel-set-bypass-cookie": "true",
       "x-diana-test-auth": previewBypassSecret,
-    }
-  : undefined;
+    } : {}),
+};
 const webServer = process.env.PLAYWRIGHT_BASE_URL
   ? undefined
   : {
