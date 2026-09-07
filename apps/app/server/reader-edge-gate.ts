@@ -1,20 +1,15 @@
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "../convex/_generated/api";
 import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
 import { verifyWikiGateSession } from "@oncobase/wiki-content/gate-session";
 import { next, rewrite } from "@vercel/functions/middleware";
-import { createSharedReaderPolicyCache } from "./shared-reader-policy-cache";
+import { waitUntil } from "@vercel/functions";
+import { createReaderEdgeSnapshot } from "./reader-edge-snapshot";
 import { readerSlug } from "./reader-route";
-import { gateVersion, isInternalReaderPath, READER_CONTEXT_HEADER, READER_VERSION_HEADER, readerCachePath, readerFingerprint, signReaderContext, type ReaderSnapshot } from "./reader-cache-context";
+import { gateVersion, isInternalReaderPath, READER_CONTEXT_HEADER, READER_VERSION_HEADER, readerCachePath, readerFingerprint, signReaderContext } from "./reader-cache-context";
 
 export function createReaderEdgeGate(client = new ConvexHttpClient(resolveServerConvexUrl())) {
-  const cache = createSharedReaderPolicyCache<ReaderSnapshot | null>({
-    maxAgeMs: process.env.WIKI_READER_POLICY_CACHE_MS === "0" ? 0 : 5000,
-    read: key => {
-      const [host, slug] = JSON.parse(key) as [string, string];
-      return client.query(api.documents.getReaderPage, { host, slug, metadataOnly: true,
-        ...(host.endsWith(".vercel.app") && process.env.WIKI_SITE_SLUG ? { previewSiteSlug: process.env.WIKI_SITE_SLUG } : {}) });
-    } });
+  const snapshots = createReaderEdgeSnapshot(client, { background: waitUntil,
+    maxAgeMs: process.env.WIKI_READER_POLICY_CACHE_MS === "0" ? 0 : 5000 });
   return async (request: Request) => {
     const started = performance.now();
     const url = new URL(request.url);
@@ -25,10 +20,13 @@ export function createReaderEdgeGate(client = new ConvexHttpClient(resolveServer
     // External requests can never address the internal cache namespace.
     if (isInternalReaderPath(url.pathname)) return new Response(null, { status: 404, headers: privateHeaders });
     if (process.env.WIKI_HTML_CDN !== "1" || process.env.WIKI_HTML_FIRST !== "1") return pass();
+    if (["/api/login", "/api/wiki/manifest", "/api/wiki/pages"].includes(url.pathname)) {
+      waitUntil(snapshots.warm(url.hostname).catch(() => {}));
+    }
     const slug = readerSlug(request), secret = process.env.WIKI_GATE_SESSION_SECRET?.trim();
     if (!slug || !secret || url.searchParams.has("token") || url.href.length > 4000 || request.headers.has("range") || request.headers.has("authorization")) return pass();
     try {
-      const snapshot = await cache.get(JSON.stringify([url.hostname, slug]));
+      const snapshot = await snapshots.get(url.hostname, slug);
       if (!snapshot) return pass();
       const cookieName = snapshot.siteSlug === "diana" ? "authed" : `authed_${snapshot.siteSlug}`;
       const token = (request.headers.get("cookie") ?? "").split(/;\s*/).find(part => part.startsWith(cookieName + "="))?.slice(cookieName.length + 1);

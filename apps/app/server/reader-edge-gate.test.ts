@@ -1,3 +1,4 @@
+import { getFunctionName } from "convex/server";
 import { afterEach, expect, test } from "bun:test";
 import { createWikiGateSession } from "@oncobase/wiki-content/gate-session";
 import { createReaderEdgeGate } from "./reader-edge-gate";
@@ -13,8 +14,9 @@ const secret = "synthetic-cdn-gate-secret";
 test("the edge authenticates before a versioned CDN rewrite, blocks direct cache URLs and strips forged routing headers", async () => {
   Object.assign(process.env, { WIKI_HTML_FIRST: "1", WIKI_HTML_CDN: "1", WIKI_GATE_SESSION_SECRET: secret, WIKI_READER_POLICY_CACHE_MS: "0" });
   let value = snapshot();
-  const gate = createReaderEdgeGate({ query: async (_ref: unknown, args: { metadataOnly?: boolean }) => {
-    expect(args.metadataOnly).toBe(true); return structuredClone(value);
+  const gate = createReaderEdgeGate({ query: async (ref: Parameters<typeof getFunctionName>[0], args: { metadataOnly?: boolean }) => {
+    if (getFunctionName(ref).endsWith("getReaderPage")) expect(args.metadataOnly).toBe(true);
+    return structuredClone(value);
   } } as never);
   const token = await createWikiGateSession({ siteSlug: "diana", secret, gateVersion: gateVersion(value) });
   const url = "https://diana-tnbc.com/";
