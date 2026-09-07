@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+.page-refresh-notice {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  max-width: min(28rem, calc(100vw - 2rem));
+  z-index: 60;
+}
+
 #wiki-first-frame-snapshot[hidden] {
   display: none;
 }

@@ -18,6 +18,8 @@ export function TheaterImage({
   ImageComponent = DefaultWikiImage,
   src,
   alt = "",
+  width,
+  height,
   ...props
 }: ComponentProps<"img"> & {
   ImageComponent?: WikiImageComponent;
@@ -34,6 +36,8 @@ export function TheaterImage({
         alt={alt}
         className={className}
         src={resolvedSrc}
+        width={width}
+        height={height}
         {...props}
       />
     );
@@ -44,6 +48,7 @@ export function TheaterImage({
       <button
         aria-label={alt ? `Open image: ${alt}` : "Open image"}
         className="wiki-theater-image-button"
+        style={{ aspectRatio: Number(width) > 0 && Number(height) > 0 ? `${Number(width)} / ${Number(height)}` : "16 / 9" }}
         onClick={(event) => {
           const imageElement = event.currentTarget.querySelector("img");
           setImage(
@@ -62,6 +67,8 @@ export function TheaterImage({
           className={classNames("wiki-theater-image", className)}
           data-theater-image=""
           src={resolvedSrc}
+          width={width}
+          height={height}
           {...props}
         />
       </button>

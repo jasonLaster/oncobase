@@ -308,6 +308,8 @@
   cursor: zoom-in;
   display: block;
   max-width: 100%;
+  width: 100%;
+  overflow: hidden;
   padding: 0;
   text-align: left;
 }
@@ -319,6 +321,16 @@
 
 .wiki-theater-image {
   transition: filter 160ms ease;
+}
+
+/* Reserve a stable preview before decode, including dimensionless markdown
+   images. Contain preserves the full figure; the theater shows it at full size. */
+.wiki-markdown .wiki-theater-image-button > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  object-fit: contain;
 }
 
 .wiki-theater-image-button:hover .wiki-theater-image {

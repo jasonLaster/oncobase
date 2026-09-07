@@ -27,7 +27,6 @@ import {
   Suspense,
   lazy,
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -168,10 +167,22 @@ export function WikiPage({
   const [toast, setToast] = useState<string | null>(null);
   const routeSlug = slugFromPath(location.pathname);
   const slug = contentSlugFromRouteSlug(routeSlug);
-  const deferredSlug = useDeferredValue(slug);
-  const routePending = deferredSlug !== slug;
-  const page = useStore().store.useQuery(pageContentBySlug$(deferredSlug)) as PageContentRow | null;
-  const index = useStore().store.useQuery(pageIndexBySlug$(deferredSlug)) as PageIndexRow | null;
+  // Keep the previous live query on screen until the destination has content
+  // or a terminal result. Deferring a slug alone only delays a React render;
+  // it cannot bridge an asynchronous body fetch and used to replace text with
+  // a skeleton. Query the old slug rather than copying its content so access
+  // revocation/deletion still takes effect during a pending navigation.
+  const requestedPage = useStore().store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
+  const [displayedRouteSlug, setDisplayedRouteSlug] = useState(routeSlug);
+  const displayedSlug = contentSlugFromRouteSlug(displayedRouteSlug);
+  if (displayedRouteSlug !== routeSlug && (
+    (requestedPage?.slug === slug && (requestedPage.content || requestedPage.missingAt ||
+      ["deleted", "missing", "sensitive-unavailable"].includes(requestedPage.contentStatus))) ||
+    metrics.failedBodySlug === slug || metrics.status === "error"
+  )) setDisplayedRouteSlug(routeSlug);
+  const routePending = displayedRouteSlug !== routeSlug;
+  const page = useStore().store.useQuery(pageContentBySlug$(displayedSlug)) as PageContentRow | null;
+  const index = useStore().store.useQuery(pageIndexBySlug$(displayedSlug)) as PageIndexRow | null;
   const routeIndex = useStore().store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;
   const pageIndex = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
   const assets = useStore().store.useQuery(assets$) as AssetIndexRow[];
@@ -202,8 +213,8 @@ export function WikiPage({
   }
   const tags = parseJsonArray<string>(page?.tagsJson ?? index?.tagsJson ?? "[]");
   const relatedAssets = useMemo(
-    () => relatedAssetsForSlug(deferredSlug, assets).slice(0, 6),
-    [assets, deferredSlug],
+    () => relatedAssetsForSlug(displayedSlug, assets).slice(0, 6),
+    [assets, displayedSlug],
   );
   const pageSlugs = useMemo(
     () => new Set(pageIndex.map((page) => page.slug)),
@@ -341,7 +352,7 @@ export function WikiPage({
     </article>
   );
 
-  if (routePending || (identityPending && !page?.content)) return loadingPage;
+  if (identityPending && !page?.content) return loadingPage;
 
   if (deleted) {
     return (
@@ -424,12 +435,13 @@ export function WikiPage({
   }
 
   const displayTitle =
-    routeSlug.toLowerCase() === "about/index" && page.title.toLowerCase() === "index"
+    displayedRouteSlug.toLowerCase() === "about/index" && page.title.toLowerCase() === "index"
       ? "Index"
       : page.title;
-  const isHomePage = routeSlug === "index" && page.slug === "index";
+  const isHomePage = displayedRouteSlug === "index" && page.slug === "index";
   const pageBody = (
     <>
+      {routePending ? <span role="status" className="sr-only">Opening page…</span> : null}
       {toast ? <WikiToast>{toast}</WikiToast> : null}
       {metrics.status === "error" && pageIndex.length === 0 ? (
         <WikiStatusNotice data-test-id="navigation-unavailable">
@@ -478,7 +490,7 @@ export function WikiPage({
         />
       ) : null}
       {stale ? (
-        <WikiStatusNotice>
+        <WikiStatusNotice className="page-refresh-notice" role="status">
           Showing cached markdown while a newer version is fetched in the background.
         </WikiStatusNotice>
       ) : null}
@@ -516,7 +528,7 @@ export function WikiPage({
         documentTitle={displayTitle}
         mobileRail={false}
         onSignIn={() => openWikiAuthDialog("signin")}
-        pathname={location.pathname}
+        pathname={routePending ? hrefForSlug(displayedRouteSlug) : location.pathname}
       >
         {pageBody}
       </DocumentComments>

@@ -1,3 +1,4 @@
+import { writeFile } from "node:fs/promises";
 import { expect, type Page, type TestInfo } from "@playwright/test";
 
 /** Observe actual frame candidates, including CSS hiding, before application JS runs.
@@ -69,9 +70,9 @@ export async function assertAdditivePaint(page: Page, testInfo: TestInfo, mobile
       frames: number; seen: Record<string, unknown>; violations: unknown[];
     } }).paintMonitor,
   );
-  await testInfo.attach("paint-history", {
-    body: JSON.stringify(state, null, 2), contentType: "application/json",
-  });
+  const path = testInfo.outputPath(`paint-history-${testInfo.attachments.length}.json`);
+  await writeFile(path, JSON.stringify(state, null, 2));
+  await testInfo.attach("paint-history", { path, contentType: "application/json" });
   expect(state.frames).toBeGreaterThan(1);
   // Avoid vacuous passes when selectors drift or the app never loads.
   for (const region of mobile ? ["heading", "body"] : ["heading", "body", "navigation", "commentsLink", "diagnosticsLink", "rightRail"]) {

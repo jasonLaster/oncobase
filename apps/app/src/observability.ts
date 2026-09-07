@@ -1,5 +1,6 @@
 import type { Metrics } from "./types";
 import type { ChatPerfEvent } from "@oncobase/chat/perf";
+import { markVisualPhase } from "./visual-phase";
 
 type SearchMetric = {
   query: string;
@@ -41,6 +42,9 @@ function state(): WikiViteObservability {
 }
 
 export function publishMetrics(metrics: Metrics) {
+  if (state().metrics?.status !== metrics.status) {
+    markVisualPhase("sync", { status: metrics.status });
+  }
   state().metrics = metrics;
 }
 

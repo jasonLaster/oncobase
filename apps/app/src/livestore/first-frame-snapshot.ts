@@ -2,6 +2,7 @@ import {
   WIKI_PREVIOUS_READER_CACHE_VERSION,
   WIKI_READER_CACHE_VERSION,
 } from "@oncobase/wiki-content";
+import { markVisualPhase } from "../visual-phase";
 
 const FIRST_FRAME_PREFIX = "wiki-vite:first-frame";
 const MAX_FIRST_FRAME_BYTES = 2 * 1024 * 1024;
@@ -176,6 +177,7 @@ export function retireFirstFrameSnapshotsForPath(
 }
 
 export function dismissFirstFrameSnapshot(documentNode: Document = document) {
+  if (documentNode.documentElement.dataset.wikiFirstFrame) markVisualPhase("snapshot-dismiss");
   documentNode.getElementById("wiki-first-frame-snapshot")?.remove();
   delete documentNode.documentElement.dataset.wikiFirstFrame;
   delete documentNode.documentElement.dataset.wikiFirstFrameVersion;

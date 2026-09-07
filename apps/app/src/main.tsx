@@ -5,6 +5,12 @@ import { BrowserRouter, useLocation } from "react-router";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { publishRuntimeEnvironment } from "./observability";
 
+if (new URLSearchParams(location.search).get("paintDebug") === "1" && !window.__WIKI_VISUAL_STABILITY__) {
+  void import("./visual-stability").then(({ installVisualStabilityObserver }) => {
+    installVisualStabilityObserver();
+  }).catch(() => console.warn("Visual diagnostics could not be loaded"));
+}
+
 // Vite throws this when a dynamic import's JS/CSS fails to load — most often a
 // tab left open across a deploy. Recover by reloading once; if we already
 // reloaded this session, let it propagate to the error boundary instead of

@@ -15,9 +15,7 @@ import {
 } from "./cache-retirement";
 import {
   dismissFirstFrameSnapshot,
-  persistFirstFrameSnapshot,
   retireFirstFrameSnapshotsForPath,
-  retirePreviousFirstFrameSnapshot,
 } from "./first-frame-snapshot";
 import {
   fileTree$,
@@ -26,28 +24,6 @@ import {
   siteState$,
 } from "./queries";
 
-function snapshotSafeShell(shell: HTMLElement) {
-  const clone = shell.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll("script, iframe, object, embed").forEach((node) => {
-    node.remove();
-  });
-  clone.querySelectorAll("*").forEach((node) => {
-    for (const attribute of [...node.attributes]) {
-      const name = attribute.name.toLowerCase();
-      const value = attribute.value.trim().toLowerCase();
-      if (
-        name.startsWith("on") ||
-        name === "srcdoc" ||
-        ((name === "href" || name === "src" || name === "formaction") &&
-          (value.startsWith("javascript:") ||
-            value.startsWith("data:text/html")))
-      ) {
-        node.removeAttribute(attribute.name);
-      }
-    }
-  });
-  return clone.outerHTML;
-}
 
 export function FirstFrameSnapshotSync({
   identity,
@@ -66,11 +42,13 @@ export function FirstFrameSnapshotSync({
   const retirementStarted = useRef(false);
 
   useEffect(() => {
+    const unavailable = scope === "public"
+      ? isRouteUnavailableInCurrentReader({ index, page })
+      : !index || ["deleted", "missing", "sensitive-unavailable"].includes(page?.contentStatus ?? "");
     if (
-      scope !== "public" ||
       !fileTree ||
       !isCurrentReaderManifestValidated({ identity, scope, state }) ||
-      !isRouteUnavailableInCurrentReader({ index, page })
+      !unavailable
     ) {
       return;
     }
@@ -81,7 +59,7 @@ export function FirstFrameSnapshotSync({
       location.pathname,
     );
     dismissFirstFrameSnapshot();
-    if (!retirementStarted.current) {
+    if (scope === "public" && !retirementStarted.current) {
       retirementStarted.current = true;
       void retirePreviousReaderStore({
         identity,
@@ -93,13 +71,13 @@ export function FirstFrameSnapshotSync({
 
   useEffect(() => {
     if (
-      scope !== "public" ||
       !fileTree ||
       !isCurrentReaderHydrated({ identity, state, page, scope })
     ) {
       return;
     }
 
+    let cancelled = false;
     let frame = 0;
     let persistTimer: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
@@ -127,37 +105,31 @@ export function FirstFrameSnapshotSync({
       // Hand control to the hydrated app before cloning/serializing its DOM.
       // This cache optimization must never hold the first interactive frame.
       dismissFirstFrameSnapshot();
-      persistTimer = setTimeout(() => {
-      try {
-        const persisted = persistFirstFrameSnapshot(
-          window.localStorage,
-          window.location.origin,
-          {
-            html: snapshotSafeShell(shell),
-            pathname: location.pathname,
-          },
-          { validatedAt: state?.lastValidatedAt ?? 0 },
-        );
-        if (persisted && !retirementStarted.current) {
-          retirementStarted.current = true;
-          retirePreviousFirstFrameSnapshot(
-            window.localStorage,
-            window.location.origin,
-          );
-          void retirePreviousReaderStore({
-            identity,
-            origin: window.location.origin,
-            scope,
-          });
+      // Authenticated content may take over a public snapshot, but must never
+      // be copied into the public first-frame cache.
+      if (scope !== "public") return;
+      persistTimer = setTimeout(async () => {
+        try {
+          const { persistSafeSnapshot } = await import("./snapshot-html");
+          if (cancelled || !shell.isConnected) return;
+          const persisted = persistSafeSnapshot(shell, location.pathname, state?.lastValidatedAt ?? 0);
+          if (persisted && !retirementStarted.current) {
+            retirementStarted.current = true;
+            void retirePreviousReaderStore({
+              identity,
+              origin: window.location.origin,
+              scope,
+            });
+          }
+        } catch {
+          // The hydrated app remains authoritative when storage is unavailable.
         }
-      } catch {
-        // The hydrated app remains authoritative when storage is unavailable.
-      }
       }, 100);
     };
     frame = window.requestAnimationFrame(capture);
 
     return () => {
+      cancelled = true;
       window.cancelAnimationFrame(frame);
       if (persistTimer !== undefined) clearTimeout(persistTimer);
     };

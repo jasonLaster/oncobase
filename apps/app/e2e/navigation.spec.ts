@@ -328,18 +328,21 @@ Review morphology and biomarkers together.
     await expect(viteErrorOverlay(page)).toHaveCount(0);
   });
 
-  test("sidebar navigation commits the route before delayed markdown resolves", async ({ page }) => {
+  test("sidebar navigation commits the route while retaining readable content until markdown resolves", async ({ page }) => {
     await page.unroute("**/api/wiki/pages**");
     await installWikiApiMocks(page, {
       pageDelays: { "wiki/logistics/insurance": 5_000 },
     });
     await gotoWiki(page, "/");
+    const previousBody = await documentArticle(page).locator(".wiki-markdown").textContent();
 
     await openDirectory(page, "logistics");
     await page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" }).click();
 
     await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
-    await expect(documentArticle(page).getByTestId("page-loading")).toBeVisible();
+    await expect(documentArticle(page).getByTestId("page-loading")).toHaveCount(0);
+    await expect(documentArticle(page).locator(".wiki-markdown")).toHaveText(previousBody!);
+    await expect(page.getByRole("status").filter({ hasText: "Opening page…" })).toBeVisible();
     await waitForPageTitle(page, "Insurance");
     await expect(documentArticle(page)).toContainText("Prior authorization");
   });

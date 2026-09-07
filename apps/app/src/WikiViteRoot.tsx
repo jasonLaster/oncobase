@@ -8,6 +8,7 @@ import { createElement, lazy, Suspense, useEffect, useState } from "react";
 import { persistPublicIdentity, resolvePublicIdentityFallback } from "./public-identity";
 import { explicitReaderScope, resolveReaderSession } from "./reader-session";
 import { WikiIdentityPendingContext } from "./wiki-context";
+import { markVisualPhase } from "./visual-phase";
 
 function readScope(): WikiScope {
   // A public cache may paint while identity is checked, but it never decides
@@ -111,19 +112,22 @@ export function WikiViteRoot() {
   const [state, setState] = useState<BootstrapState>(() => {
     const scope = readScope();
     const fallback = publicIdentityFallback(scope);
-    return fallback
+    // An automatic identity check may select a different session store. Do
+    // not mount a public reader only to tear it down when that check resolves.
+    // The read-only first-frame snapshot can remain visible during this wait.
+    return fallback && explicitReaderScope(window.location.search) === "public"
       ? { status: "ready", scope, identity: fallback }
       : { status: "loading", scope };
   });
 
   useEffect(() => {
     let cancelled = false;
+    markVisualPhase("identity-start");
     // Download/initialize the reader while identity is verified. Importing code
     // does not open a store or authorize content; those still require identity.
     void loadLiveStoreRoot().catch(() => undefined);
     const scope = readScope();
     const fallback = publicIdentityFallback(scope);
-    if (!fallback) setState({ status: "loading", scope });
     const baseUrl = apiBaseUrl();
     void resolveReaderSession(
       explicitReaderScope(window.location.search),
@@ -136,6 +140,7 @@ export function WikiViteRoot() {
     )
       .then((identity) => {
         if (!cancelled) {
+          markVisualPhase("identity-ready", { scope: identity.scope });
           setIdentityPending(false);
           if (identity.scope === "public") {
             try {
@@ -153,6 +158,7 @@ export function WikiViteRoot() {
       })
       .catch((error) => {
         if (!cancelled) {
+          markVisualPhase("identity-error");
           setIdentityPending(false);
           if (scope === "public" && fallback) {
             setState({ status: "ready", scope, identity: fallback });

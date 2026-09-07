@@ -66,3 +66,5 @@ probe is opt-in and signs in through the existing Diana gate login flow:
 ```sh
 ADDITIVE_PAINT_LIVE=1 PLAYWRIGHT_BASE_URL=https://diana-tnbc.com bun run test:e2e e2e/additive-paint.spec.ts --grep 'live reported'
 ```
+
+For the broader follow-up, see [Page flashing and layout stability](visual-stability-strategy.md), including root-cause fixes, the shared observer, and cross-browser release gates.

@@ -88,6 +88,35 @@
           if (!snapshot) return;
           var host = document.getElementById("wiki-first-frame-snapshot");
           host.innerHTML = snapshot.html;
+          // A snapshot is content, not the authority for current layout
+          // preferences (which another tab may have changed since capture).
+          var storedWidth = parseInt(localStorage.getItem("sidebar-width"), 10);
+          var sidebarWidth = storedWidth >= 0 && storedWidth <= 480 ? storedWidth : 256;
+          host.querySelectorAll("[data-sidebar-layout]").forEach(function (layout) {
+            layout.dataset.sidebarState = sidebarWidth === 0 ? "collapsed" : "expanded";
+          });
+          host.querySelectorAll("[data-sidebar-expanded-rail]").forEach(function (rail) {
+            rail.style.width = sidebarWidth + "px";
+          });
+          var paneOpen = localStorage.getItem("comments-pane-open") === "1";
+          var storedPaneWidth = parseInt(localStorage.getItem("comments-pane-width"), 10);
+          var paneWidth = paneOpen ? (storedPaneWidth >= 240 && storedPaneWidth <= 640 ? storedPaneWidth : 384) : 64;
+          host.querySelectorAll(".wiki-shell-outline-root").forEach(function (root) {
+            root.dataset.rightRailState = paneOpen ? "expanded" : "collapsed";
+            root.style.setProperty("--comments-pane-width", paneWidth + "px");
+          });
+          host.querySelectorAll("[data-wiki-shell-right-rail]").forEach(function (rail) {
+            var paneState = paneOpen ? "expanded" : "collapsed";
+            if (rail.dataset.outlineState !== paneState) {
+              // The old controls may describe the opposite state. Reserve the
+              // new rail now and let the live reader add the correct controls.
+              Array.from(rail.children).forEach(function (child) { child.style.visibility = "hidden"; });
+            }
+            rail.dataset.outlineState = paneState;
+            rail.classList.toggle("expanded", paneOpen);
+            rail.classList.toggle("collapsed", !paneOpen);
+            rail.style.width = paneWidth + "px";
+          });
           host.hidden = false;
           host.dataset.readOnly = "true";
           // Cached text is readable, but its cloned controls have no handlers.
