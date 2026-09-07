@@ -6,17 +6,12 @@ import {
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { createElement, lazy, Suspense, useEffect, useState } from "react";
 import { persistPublicIdentity, resolvePublicIdentityFallback } from "./public-identity";
+import { explicitReaderScope, resolveReaderSession } from "./reader-session";
 
 function readScope(): WikiScope {
-  const url = new URL(window.location.href);
-  const urlScope = url.searchParams.get("scope");
-  if (urlScope === "session" || urlScope === "public") {
-    window.localStorage.setItem("wiki-vite-scope", urlScope);
-    return urlScope;
-  }
-  return window.localStorage.getItem("wiki-vite-scope") === "session"
-    ? "session"
-    : "public";
+  // A public cache may paint while identity is checked, but it never decides
+  // whether the authenticated reader is allowed to load session content.
+  return explicitReaderScope(window.location.search) ?? "public";
 }
 
 const loadLiveStoreRoot = () =>
@@ -128,17 +123,18 @@ export function WikiViteRoot() {
     const fallback = publicIdentityFallback(scope);
     if (!fallback) setState({ status: "loading", scope });
     const baseUrl = apiBaseUrl();
-    const client = createWikiContentClient({
-      scope,
-      baseUrl,
-      credentials: baseUrl ? "include" : "same-origin",
-      requestTimeoutMs: 30_000,
-    });
-
-    void client.fetchSessionIdentity()
+    void resolveReaderSession(
+      explicitReaderScope(window.location.search),
+      (requestedScope) => createWikiContentClient({
+        scope: requestedScope,
+        baseUrl,
+        credentials: baseUrl ? "include" : "same-origin",
+        requestTimeoutMs: 30_000,
+      }).fetchSessionIdentity(),
+    )
       .then((identity) => {
         if (!cancelled) {
-          if (scope === "public") {
+          if (identity.scope === "public") {
             try {
               persistPublicIdentity(
                 window.localStorage,
@@ -149,7 +145,7 @@ export function WikiViteRoot() {
               // localStorage can be disabled independently of OPFS.
             }
           }
-          setState({ status: "ready", scope, identity });
+          setState({ status: "ready", scope: identity.scope, identity });
         }
       })
       .catch((error) => {
