@@ -1,0 +1,51 @@
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../convex/_generated/api";
+import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
+import { verifyWikiGateSession } from "@oncobase/wiki-content/gate-session";
+import { next, rewrite } from "@vercel/functions/middleware";
+import { waitUntil } from "@vercel/functions";
+import { createReaderPolicyCache } from "./reader-policy-cache";
+import { readerSlug } from "./reader-route";
+import { gateVersion, isInternalReaderPath, READER_CONTEXT_HEADER, READER_VERSION_HEADER, readerCachePath, readerFingerprint, signReaderContext, type ReaderSnapshot } from "./reader-cache-context";
+
+export function createReaderEdgeGate(client = new ConvexHttpClient(resolveServerConvexUrl())) {
+  const cache = createReaderPolicyCache<ReaderSnapshot | null>({ background: waitUntil,
+    maxAgeMs: process.env.WIKI_READER_POLICY_CACHE_MS === "0" ? 0 : 5000,
+    read: key => {
+      const [host, slug] = JSON.parse(key) as [string, string];
+      return client.query(api.documents.getReaderPage, { host, slug, metadataOnly: true,
+        ...(host.endsWith(".vercel.app") && process.env.WIKI_SITE_SLUG ? { previewSiteSlug: process.env.WIKI_SITE_SLUG } : {}) });
+    } });
+  return async (request: Request) => {
+    const url = new URL(request.url);
+    const forwarded = new Headers(request.headers);
+    forwarded.delete(READER_CONTEXT_HEADER); forwarded.delete(READER_VERSION_HEADER);
+    const pass = () => next({ request: { headers: forwarded } });
+    const privateHeaders = { "Cache-Control": "private, no-store", "Vercel-CDN-Cache-Control": "no-store" };
+    // External requests can never address the internal cache namespace.
+    if (isInternalReaderPath(url.pathname)) return new Response(null, { status: 404, headers: privateHeaders });
+    if (process.env.WIKI_HTML_CDN !== "1" || process.env.WIKI_HTML_FIRST !== "1") return pass();
+    const slug = readerSlug(request), secret = process.env.WIKI_GATE_SESSION_SECRET?.trim();
+    if (!slug || !secret || url.searchParams.has("token") || url.href.length > 4000 || request.headers.has("range") || request.headers.has("authorization")) return pass();
+    try {
+      const snapshot = await cache.get(JSON.stringify([url.hostname, slug]));
+      if (!snapshot) return pass();
+      const cookieName = snapshot.siteSlug === "diana" ? "authed" : `authed_${snapshot.siteSlug}`;
+      const token = (request.headers.get("cookie") ?? "").split(/;\s*/).find(part => part.startsWith(cookieName + "="))?.slice(cookieName.length + 1);
+      if (snapshot.gate.enabled && !await verifyWikiGateSession({ token, secret, siteSlug: snapshot.siteSlug, gateVersion: gateVersion(snapshot) })) {
+        const login = new URL("/login", url); login.searchParams.set("redirect", url.pathname + url.search);
+        return new Response(null, { status: 302, headers: { ...privateHeaders, Location: login.href } });
+      }
+      if (!snapshot.page?.contentHash || snapshot.page.sensitive !== false || !snapshot.page.bodyDigest) return pass();
+      const fingerprint = await readerFingerprint(snapshot);
+      const destination = new URL(await readerCachePath(url.href, fingerprint), url);
+      const headers = forwarded;
+      headers.set(READER_CONTEXT_HEADER, await signReaderContext(url.href, fingerprint, secret));
+      headers.set(READER_VERSION_HEADER, fingerprint);
+      return rewrite(destination, { request: { headers } });
+    } catch {
+      // An expired/failed policy lookup must never fall through to a CDN hit.
+      return new Response("Reader temporarily unavailable. Please retry.", { status: 503, headers: privateHeaders });
+    }
+  };
+}

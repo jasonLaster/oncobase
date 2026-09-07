@@ -23,6 +23,9 @@ test("reader snapshot joins current host and policy to explicitly public content
   expect((await policy())!.contentRevision).not.toBe(revision);
   expect((await read())!.contentRevision).toBe((await policy())!.contentRevision);
   expect((await read())?.page?.content).toBe("PUBLIC_A");
+  const metadata = await t.query(api.documents.getReaderPage, { host: "alpha.test", slug: "index", metadataOnly: true });
+  expect(metadata?.page?.content).toBeNull();
+  expect(metadata?.page?.bodyDigest).toBe((await read())?.page?.bodyDigest);
   const digest = (await read())!.page!.bodyDigest!;
   const cached = () => t.query(api.documents.getReaderPage, { host: "alpha.test", slug: "index", knownBody: { siteSlug: "alpha", digest } });
   expect((await cached())?.page?.content).toBeNull();

@@ -299,8 +299,9 @@ export const getReaderPolicy = query({
 // Never includes rawContent, restricted documents or account permissions.
 export const getReaderPage = query({
   args: { host: v.string(), slug: v.string(), previewSiteSlug: v.optional(v.string()),
+    metadataOnly: v.optional(v.boolean()),
     knownBody: v.optional(v.object({ siteSlug: v.string(), digest: v.string() })) },
-  handler: async (ctx, { host, slug, previewSiteSlug, knownBody }) => {
+  handler: async (ctx, { host, slug, previewSiteSlug, knownBody, metadataOnly }) => {
     const site = await findReaderSite(ctx, host, previewSiteSlug);
     if (!site) return null;
     const doc = await findDocBySlug(ctx, { siteId: site._id, siteSlug: site.slug, site }, slug);
@@ -312,7 +313,7 @@ export const getReaderPage = query({
       ...readerPolicy(site),
       page: publicDoc ? {
         slug: publicDoc.slug, title: publicDoc.title,
-        content: knownBody?.siteSlug === site.slug && knownBody.digest === bodyDigest ? null : publicDoc.content,
+        content: metadataOnly || (knownBody?.siteSlug === site.slug && knownBody.digest === bodyDigest) ? null : publicDoc.content,
         bodyDigest,
         tags: publicDoc.tags, contentHash: publicDoc.contentHash, description: publicDoc.description, sensitive: false as const,
       } : null,

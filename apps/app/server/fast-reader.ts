@@ -3,17 +3,16 @@ import { api } from "../convex/_generated/api";
 import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
 import { verifyWikiGateSession } from "@oncobase/wiki-content/gate-session";
 import { applyPiiRedactions, parseSitePiiPatterns } from "@oncobase/wiki-content/pii";
-import { isLinkPreviewBotUserAgent } from "@oncobase/wiki-content/link-preview";
-import { configuredRedirect, explicitCanonicalPathname, slugFromRoutePathname, trailingSlashCanonicalPathname } from "../src/route-canonicalization";
-import { specialRouteMetadata } from "../src/special-route-metadata";
 import { injectHeadMetadata } from "./html-head";
-import { DEFAULT_SITE_DESCRIPTION, DIANA_SITE_NAME, legacyRouteMetadata } from "./legacy-route-metadata";
+import { DIANA_SITE_NAME, legacyRouteMetadata } from "./legacy-route-metadata";
 import { injectHtmlFirstShell } from "./html-first-shell";
 import { streamReaderGzip } from "./stream-reader";
 import { acceptsGzip, createEncodedReaderCache } from "./encoded-reader-cache";
 import { createReaderPolicyCache } from "./reader-policy-cache";
 import type { FunctionReturnType } from "convex/server";
 import { waitUntil } from "@vercel/functions";
+import { gateVersion, readerFingerprint } from "./reader-cache-context";
+import { readerSlug } from "./reader-route";
 
 type Snapshot = FunctionReturnType<typeof api.documents.getReaderPage>;
 type Policy = FunctionReturnType<typeof api.documents.getReaderPolicy>;
@@ -35,18 +34,11 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
     const value = bodies.get(key);
     if (value) { bodyBytes -= value.bytes; bodies.delete(key); }
   };
-  return async (request: Request): Promise<Response | null> => {
+  return async (request: Request, expectedFingerprint?: string): Promise<Response | null> => {
     const url = new URL(request.url);
     const pathname = url.pathname;
-    if ((request.method !== "GET" && request.method !== "HEAD") || url.searchParams.get("html-first") === "off" ||
-      /^\/(?:api|assets|tags|admin|tools|diagnostics|chat)(?:\/|$)/.test(pathname) ||
-      ["/login", "/search", "/robots.txt", "/favicon.svg"].includes(pathname) ||
-      /\.(?!mdx?$)[a-z0-9]+$/i.test(pathname) ||
-      trailingSlashCanonicalPathname(pathname) || explicitCanonicalPathname(pathname) || configuredRedirect(pathname) ||
-      isLinkPreviewBotUserAgent(request.headers.get("user-agent")) ||
-      specialRouteMetadata({ pathname, siteName: DIANA_SITE_NAME, defaultDescription: DEFAULT_SITE_DESCRIPTION })) return null;
     const started = performance.now();
-    const slug = slugFromRoutePathname(pathname);
+    const slug = readerSlug(request);
     if (!slug) return null;
     const bodyKey = JSON.stringify([url.hostname, slug]);
     const cached = bodies.get(bodyKey);
@@ -61,7 +53,7 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
         snapshot = { ...policy, page: cached.page }; cacheHit = true;
       }
     }
-    if (!snapshot) {
+    if (!snapshot || (expectedFingerprint && await readerFingerprint(snapshot) !== expectedFingerprint)) {
       const ticket = policies.begin();
       snapshot = await client.query(api.documents.getReaderPage, {
         host: url.hostname, slug,
@@ -79,8 +71,7 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
       .find(part => part.startsWith(cookieName + "="))?.slice(cookieName.length + 1);
     if (gate.enabled && !await verifyWikiGateSession({ siteSlug, token,
       secret: process.env.WIKI_GATE_SESSION_SECRET?.trim(),
-      gateVersion: JSON.stringify([gate.enabled, gate.passwordHash ||
-        (siteSlug === "diana" ? process.env.DIANA_WIKI_PASSWORD_HASH?.trim() : null) || "passwordless"]),
+      gateVersion: gateVersion(snapshot),
     })) {
       url.searchParams.delete("token");
       const login = new URL("/login", url);
@@ -100,7 +91,7 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
     }
     const configured = parseSitePiiPatterns(snapshot.piiPatterns);
     const patterns = configured.length ? configured : siteSlug === "diana" ? undefined : [];
-    const page = { ...snapshot.page, content: applyPiiRedactions(content, { patterns }),
+    const page = { ...snapshot.page, title: applyPiiRedactions(snapshot.page.title, { patterns }), content: applyPiiRedactions(content, { patterns }),
       description: snapshot.page.description ? applyPiiRedactions(snapshot.page.description, { patterns }) : undefined };
     const frame = (bodyHtml: string) => {
       const metadata = legacyRouteMetadata({ page, pathname, siteName: siteSlug === "diana" ? DIANA_SITE_NAME : siteSlug, slug });
@@ -109,6 +100,7 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
       return injectHtmlFirstShell(head, page, url, siteSlug, criticalCss, bodyHtml);
     };
     const gzip = acceptsGzip(request.headers.get("accept-encoding"));
+    const cdnAllowed = Boolean(expectedFingerprint && expectedFingerprint === await readerFingerprint(snapshot));
     const representation = [url.href, siteSlug, gate.enabled, page];
     let body: BodyInit | null = gzip ? encode.peek(representation) ?? null : null;
     if (!body) {
@@ -133,8 +125,9 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
     }
     return new Response(request.method === "HEAD" ? null : body, { headers: { ...headers,
       ...(gzip ? { "Content-Encoding": "gzip" } : {}),
+      ...(cdnAllowed ? { "Vercel-CDN-Cache-Control": "max-age=31536000", Vary: "Accept-Encoding, X-Wiki-Reader-Version" } : {}),
       "Server-Timing": `wiki-shell;dur=${(performance.now() - started).toFixed(1)}, wiki-lookup;dur=${lookupMs.toFixed(1)}`,
-      "X-Wiki-Reader": "html-first-5",
+      "X-Wiki-Reader": "html-first-6",
       "X-Wiki-Reader-Cache": cacheHit ? "hit" : "miss",
     } });
   };

@@ -85,6 +85,7 @@ try {
       });
       const record = {run,pathname,state,status:documentResponse?.status(),cache:documentResponse?.headers()["cache-control"],
         reader:documentResponse?.headers()["x-wiki-reader"], readerCache:documentResponse?.headers()["x-wiki-reader-cache"],
+        cdn:documentResponse?.headers()["x-vercel-cache"], age:documentResponse?.headers()["age"],
         encoding:documentResponse?.headers()["content-encoding"],errors,...sample};
       samples.push(record);
       await writeFile(output + "/samples.json", JSON.stringify({origin,phase,measuredAt:new Date().toISOString(),viewport:{width:1440,height:1000},cpu:1,network:"unthrottled; fresh context per path/iteration; login outside browser; no mocked requests",samples},null,2));

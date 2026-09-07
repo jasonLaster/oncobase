@@ -49,6 +49,13 @@ for (const name of ["index", "root-app-shell"]) {
   await Bun.write(target, Bun.file(source));
 }
 
+const gate = await Bun.build({ entrypoints: [`${appDir}/api-runtime/edge-gate.ts`], outdir,
+  target: "browser", format: "esm", minify: true });
+if (!gate.success) {
+  for (const log of gate.logs) console.error(log.message);
+  process.exit(1);
+}
+
 if (process.env.WIKI_VITE_EMBED_APP_SHELL === "1") {
   // Vercel's filesystem routing serves a root index.html before evaluating the
   // catch-all rewrite. Keep the SPA shell inside the gated function so `/`

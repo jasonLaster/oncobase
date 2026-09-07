@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { createWikiGateSession } from "@oncobase/wiki-content/gate-session";
 import { createFastReader } from "./fast-reader";
 import { gunzipSync } from "node:zlib";
+import { readerFingerprint, type ReaderSnapshot } from "./reader-cache-context";
 import { getFunctionName } from "convex/server";
 
 const originalSecret = process.env.WIKI_GATE_SESSION_SECRET;
@@ -62,4 +63,37 @@ for (const gzip of [false, true]) test(`fast reader checks current access and re
   expect((await handler(request()))?.status).toBe(302);
   passwordHash = "fixture-hash"; visible = false;
   expect(await handler(request())).toBeNull();
+});
+
+
+test("only an attested, current fingerprint permits CDN storage, including a content change during cache fill", async () => {
+  process.env.WIKI_GATE_SESSION_SECRET = "synthetic-gate-secret";
+  let value: ReaderSnapshot = { siteSlug: "diana", contentRevision: "site:1", gate: { enabled: true, passwordHash: "fixture" }, piiPatterns: [],
+    page: { slug: "index", title: "Home", content: "ORIGINAL BODY", bodyDigest: "original", contentHash: "source", description: undefined, sensitive: false, tags: [] } };
+  const client = { query: async (ref: Parameters<typeof getFunctionName>[0]) => getFunctionName(ref).endsWith("getReaderPolicy")
+    ? { ...value, page: undefined } : structuredClone(value) };
+  const handler = createFastReader({ client: client as never, now: () => 0, background: () => {},
+    criticalCss: ":root{--brand:blue}", indexHtml: '<html><head></head><body><div id="root"></div></body></html>' });
+  const token = await createWikiGateSession({ siteSlug: "diana", secret: process.env.WIKI_GATE_SESSION_SECRET,
+    gateVersion: JSON.stringify([true, "fixture"]) });
+  const fingerprint = await readerFingerprint(value);
+  const request = (cookie = token) => new Request("https://diana-tnbc.com/", { headers: { Cookie: `authed=${cookie}`,
+    "x-wiki-reader-version": fingerprint, "x-wiki-reader-context": "forged" } });
+  expect((await handler(request()))!.headers.get("Vercel-CDN-Cache-Control")).toBeNull();
+  const allowed = (await handler(request(), fingerprint))!;
+  expect(allowed.headers.get("Vercel-CDN-Cache-Control")).toBe("max-age=31536000");
+  expect(allowed.headers.get("Cache-Control")).toBe("private, no-store");
+  expect(allowed.headers.get("Vary")).toBe("Accept-Encoding, X-Wiki-Reader-Version");
+  expect((await handler(request("forged"), fingerprint))!.status).toBe(302);
+  // Simulate an edit even without a manifest bump: the edge digest must force a fresh origin read.
+  value = { ...value, page: { ...value.page!, content: "CHANGED BODY", bodyDigest: "changed" } };
+  const updated = (await handler(request(), await readerFingerprint(value)))!;
+  expect(updated.headers.get("Vercel-CDN-Cache-Control")).toBe("max-age=31536000");
+  expect(await updated.text()).toContain("CHANGED BODY");
+  // The edge attested the old version just before the origin observed an edit.
+  const raced = (await handler(request(), fingerprint))!;
+  expect(raced.headers.get("Vercel-CDN-Cache-Control")).toBeNull();
+  expect(await raced.text()).not.toContain("ORIGINAL BODY");
+  value = { ...value, page: null };
+  expect(await handler(request(), fingerprint)).toBeNull();
 });
