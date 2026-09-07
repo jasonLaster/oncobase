@@ -8,7 +8,8 @@ import { configuredRedirect, explicitCanonicalPathname, slugFromRoutePathname, t
 import { specialRouteMetadata } from "../src/special-route-metadata";
 import { injectHeadMetadata } from "./html-head";
 import { DEFAULT_SITE_DESCRIPTION, DIANA_SITE_NAME, legacyRouteMetadata } from "./legacy-route-metadata";
-import { injectHtmlFirstPage } from "./html-first-experiment";
+import { injectHtmlFirstShell } from "./html-first-shell";
+import { streamReaderGzip } from "./stream-reader";
 import { acceptsGzip, createEncodedReaderCache } from "./encoded-reader-cache";
 import { createReaderPolicyCache } from "./reader-policy-cache";
 import type { FunctionReturnType } from "convex/server";
@@ -49,6 +50,8 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
     if (!slug) return null;
     const bodyKey = JSON.stringify([url.hostname, slug]);
     const cached = bodies.get(bodyKey);
+    // Start the optional markdown renderer while the first content read waits.
+    const rendering = cached ? undefined : import("./html-first-experiment");
     let snapshot: Snapshot = null;
     let cacheHit = false;
     if (cached && policyCacheMs > 0) {
@@ -90,8 +93,8 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
     if (!content) return null;
     forget(bodyKey);
     const bytes = Buffer.byteLength(content);
-    if (snapshot.page.bodyDigest && bytes <= 512_000) {
-      while (bodies.size && (bodies.size >= 32 || bodyBytes + bytes > 8_192_000)) forget(bodies.keys().next().value!);
+    if (snapshot.page.bodyDigest && bytes <= 1_048_576) {
+      while (bodies.size && (bodies.size >= 32 || bodyBytes + bytes > 16_777_216)) forget(bodies.keys().next().value!);
       bodies.set(bodyKey, { siteSlug, revision: snapshot.contentRevision, page: { ...snapshot.page, content },
         digest: snapshot.page.bodyDigest, content, bytes }); bodyBytes += bytes;
     }
@@ -99,18 +102,39 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
     const patterns = configured.length ? configured : siteSlug === "diana" ? undefined : [];
     const page = { ...snapshot.page, content: applyPiiRedactions(content, { patterns }),
       description: snapshot.page.description ? applyPiiRedactions(snapshot.page.description, { patterns }) : undefined };
-    const render = () => {
+    const frame = (bodyHtml: string) => {
       const metadata = legacyRouteMetadata({ page, pathname, siteName: siteSlug === "diana" ? DIANA_SITE_NAME : siteSlug, slug });
       const head = injectHeadMetadata(indexHtml, { ...metadata, noIndex: gate.enabled,
         canonicalUrl: gate.enabled ? undefined : url.origin + pathname });
-      return injectHtmlFirstPage(head, page, url, siteSlug, criticalCss);
+      return injectHtmlFirstShell(head, page, url, siteSlug, criticalCss, bodyHtml);
     };
     const gzip = acceptsGzip(request.headers.get("accept-encoding"));
-    const body = gzip ? encode([url.href, siteSlug, gate.enabled, page], render) : render();
+    const representation = [url.href, siteSlug, gate.enabled, page];
+    let body: BodyInit | null = gzip ? encode.peek(representation) ?? null : null;
+    if (!body) {
+      const renderer = await (rendering ?? import("./html-first-experiment"));
+      if (gzip && request.method !== "HEAD") {
+        const parts = renderer.renderHtmlFirstParts(page);
+        const marker = "<!--wiki-stream-body-->";
+        const template = frame(marker);
+        const split = template.indexOf(marker);
+        if (split < 0) return null;
+        const first = template.slice(0, split) + parts.first;
+        const tail = template.slice(split + marker.length);
+        body = streamReaderGzip(first, () => {
+          const rest = parts.rest() + tail;
+          encode(representation, () => first + rest);
+          return rest;
+        });
+      } else {
+        const html = () => frame(renderer.renderHtmlFirstBody(page, siteSlug));
+        body = gzip ? encode(representation, html) : html();
+      }
+    }
     return new Response(request.method === "HEAD" ? null : body, { headers: { ...headers,
       ...(gzip ? { "Content-Encoding": "gzip" } : {}),
       "Server-Timing": `wiki-shell;dur=${(performance.now() - started).toFixed(1)}, wiki-lookup;dur=${lookupMs.toFixed(1)}`,
-      "X-Wiki-Reader": "html-first-4",
+      "X-Wiki-Reader": "html-first-5",
       "X-Wiki-Reader-Cache": cacheHit ? "hit" : "miss",
     } });
   };

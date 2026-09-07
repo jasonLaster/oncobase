@@ -5,8 +5,9 @@ import { gzipSync } from "node:zlib";
 export function createEncodedReaderCache() {
   const entries = new Map<string, Uint8Array<ArrayBuffer>>();
   let bytes = 0;
-  return (representation: unknown, render: () => string) => {
-    const key = createHash("sha256").update(JSON.stringify(representation)).digest("hex");
+  const keyOf = (representation: unknown) => createHash("sha256").update(JSON.stringify(representation)).digest("hex");
+  const encode = (representation: unknown, render: () => string) => {
+    const key = keyOf(representation);
     const cached = entries.get(key);
     if (cached) { entries.delete(key); entries.set(key, cached); return cached; }
     const encoded = new Uint8Array(gzipSync(render(), { level: 6 }));
@@ -19,6 +20,11 @@ export function createEncodedReaderCache() {
     }
     return encoded;
   };
+  return Object.assign(encode, { peek: (representation: unknown) => {
+    const key = keyOf(representation), value = entries.get(key);
+    if (value) { entries.delete(key); entries.set(key, value); }
+    return value;
+  } });
 }
 
 export function acceptsGzip(header: string | null) {

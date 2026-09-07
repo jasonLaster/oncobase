@@ -8,7 +8,7 @@
   "functions": {
     "api/app-shell.js": {
       "includeFiles": "apps/app/.vercel-functions/**",
-      "regions": ["sfo1", "iad1", "fra1"],
+      "regions": ["iad1"],
       "maxDuration": 60
     },
     "api/index.js": {

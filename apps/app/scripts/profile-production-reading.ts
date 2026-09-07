@@ -36,8 +36,8 @@ try {
           }
         }).observe({ type: "element", buffered: true });
         const annotate = () => {
-          for (const selector of ["#wiki-html-first .wiki-markdown p", "#root .wiki-markdown p"]) {
-            document.querySelector(selector)?.setAttribute("elementtiming", "wiki-body-text");
+          for (const selector of ["#wiki-html-first .wiki-markdown", "#root .wiki-markdown"]) {
+            document.querySelector(selector)?.querySelector("p,li,td")?.setAttribute("elementtiming", "wiki-body-text");
           }
         };
         new MutationObserver(annotate).observe(document, { childList: true, subtree: true });
@@ -49,7 +49,7 @@ try {
         const sources = ["#wiki-html-first", "#wiki-first-frame-snapshot:not([hidden])", "#root"];
         for (const source of sources) {
           const markdown = document.querySelector<HTMLElement>(source + " .wiki-markdown");
-          const node = markdown?.querySelector<HTMLElement>("p,li,h1,h2,table");
+          const node = markdown?.querySelector<HTMLElement>("p,li,td");
           if (!node || !node.innerText.trim()) continue;
           const box = node.getBoundingClientRect();
           const visible = node.checkVisibility({checkVisibilityCSS: true, checkOpacity: true}) && box.width > 0 && box.height > 0;

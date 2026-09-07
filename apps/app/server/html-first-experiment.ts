@@ -1,4 +1,4 @@
-import { WIKI_READER_CACHE_VERSION } from "@oncobase/wiki-content";
+import { injectHtmlFirstShell } from "./html-first-shell";
 import { formatWikiHtml } from "@oncobase/wiki-markdown/server-format";
 import { resolveWikilinks } from "@oncobase/wiki-markdown/paths";
 import { preprocessCitationMarkdown } from "@oncobase/wiki-markdown/citations";
@@ -8,8 +8,6 @@ import GithubSlugger from "github-slugger";
 import { fromHtml } from "hast-util-from-html";
 import { defaultSchema, sanitize } from "hast-util-sanitize";
 import { toHtml } from "hast-util-to-html";
-import { bootHtmlFirstPage } from "./html-first-boot";
-import { MAX_BOOTSTRAP_BYTES, serializePageBootstrap } from "../src/bootstrap/page-payload";
 import { createHtmlPageCache, type RenderablePage } from "./html-page-cache";
 
 type PublicPage = {
@@ -26,7 +24,7 @@ function escape(value: string) {
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function renderBody(page: RenderablePage) {
+function markdownRenderer() {
   const slugger = new GithubSlugger();
   const markdown = new Marked({ async: false, gfm: true, renderer: {
     heading({ tokens, depth }) {
@@ -38,8 +36,11 @@ function renderBody(page: RenderablePage) {
       return `<pre><code>${escape(text)}</code></pre>`;
     },
   } });
-  const source = preprocessCitationMarkdown(resolveWikilinks(page.content, page.slug));
-  const rendered = formatWikiHtml(markdown.parse(source, { async: false }), page.slug);
+  return markdown;
+}
+
+function sanitizeBody(html: string, slug: string) {
+  const rendered = formatWikiHtml(html, slug);
   // Sanitize AFTER every markdown transformation, including PDF filenames.
   // The experiment supports ordinary reading; richer SVG/math widgets arrive
   // with the app. Do not expose pretend image buttons before their handlers.
@@ -57,55 +58,35 @@ function renderBody(page: RenderablePage) {
   return body;
 }
 
+function renderBody(page: RenderablePage) {
+  const source = preprocessCitationMarkdown(resolveWikilinks(page.content, page.slug));
+  return sanitizeBody(markdownRenderer().parse(source, { async: false }), page.slug);
+}
+
+/** Complete markdown blocks let the beginning arrive while the rest renders. */
+export function renderHtmlFirstParts(page: RenderablePage) {
+  const markdown = markdownRenderer();
+  const source = preprocessCitationMarkdown(resolveWikilinks(page.content, page.slug));
+  const tokens = markdown.lexer(source, markdown.defaults);
+  // Raw HTML can span markdown blocks. Preserve its complete parse context.
+  if (tokens.some(token => token.type === "html")) return { first: renderBody(page), rest: () => "" };
+  let end = 0, size = 0;
+  while (end < tokens.length && size < 3000) {
+    if (size > 0 && tokens[end]!.raw.length > 4000) break;
+    size += tokens[end++]!.raw.length;
+  }
+  const render = (part: typeof tokens) => sanitizeBody(markdown.parser(part, markdown.defaults), page.slug);
+  const first = render(Object.assign(tokens.slice(0, end), { links: tokens.links }));
+  let remainder: string | undefined;
+  return { first, rest: () => remainder ??= render(Object.assign(tokens.slice(end), { links: tokens.links })) };
+}
+
 const cachedBody = createHtmlPageCache(renderBody);
 export function renderHtmlFirstBody(page: PublicPage, siteSlug: string) {
   return cachedBody(siteSlug, page);
 }
 
 export function injectHtmlFirstPage(html: string, page: PublicPage, url: URL, siteSlug: string, criticalCss = "") {
-  // A stable revision is required for handing over to the same live article.
-  if (page.sensitive !== false || !page.contentHash || !html.includes('<div id="root">')) return html;
-  const body = renderHtmlFirstBody(page, siteSlug);
-  if (criticalCss) {
-    html = html.replace(/<link\b[^>]*rel="stylesheet"[^>]*>/g, tag =>
-      tag.replace('href="', 'data-wiki-style-href="').replace(/\s*\/?>$/, ' data-wiki-full-style media="print" onload="this.media=\'all\';window.dispatchEvent(new Event(\'wiki-full-style-ready\'))">'));
-    html = html.replace(/<script\b[^>]*type="module"[^>]*src="[^\"]+"[^>]*><\/script>/g,
-      tag => tag.replace('type="module"', 'type="application/x-wiki-module"').replace('src="', 'data-wiki-module-src="'));
-    html = html.replace(/<link\b[^>]*rel="modulepreload"[^>]*>/g,
-      tag => tag.replace('rel="modulepreload"', 'data-wiki-module-preload'));
-    html = html.replace("</head>", `<style id="wiki-critical-style">${criticalCss}</style></head>`);
-  }
-  const payload = serializePageBootstrap({
-    version: 1, readerVersion: WIKI_READER_CACHE_VERSION,
-    origin: url.origin, pathname: url.pathname, siteSlug, scope: "public",
-    page: { slug: page.slug, title: page.title, content: page.content,
-      contentHash: page.contentHash, tags: page.tags ?? [], sensitive: false,
-      size: Buffer.byteLength(page.content) },
-  });
-  const bootstrap = Buffer.byteLength(payload) <= MAX_BOOTSTRAP_BYTES
-    ? `<script id="wiki-page-bootstrap" type="application/json">${payload}</script>` : "";
-  const interactive = new URL(url);
-  interactive.searchParams.set("html-first", "off");
-  const fallbackHref = escape(interactive.pathname + interactive.search + interactive.hash);
-  const header = page.slug === "index" ? "" : `<header class="wiki-shell-page-header"><h1>${escape(page.title)}</h1></header>`;
-  const navigation = `<a href="/">Home</a><a href="/search">Search</a><a href="${fallbackHref}">Open interactive reader</a>`;
-  const shell = `<div id="wiki-html-first" class="prototype-shell" data-slug="${escape(page.slug)}" data-hash="${escape(page.contentHash)}">
-    <div class="app-shell wiki-shell-resizable-layout">
-      <nav class="html-first-navigation" aria-label="Site navigation">${navigation}</nav>
-      <div class="app-content"><main class="content-shell"><div class="wiki-shell-outline-root" style="--comments-pane-width:64px"><div class="wiki-shell-outline-content"><div class="wiki-shell-outline-content-inner">
-        <article class="wiki-shell-document-article page-shell" aria-label="${escape(page.title)}">${header}<div class="wiki-markdown prose max-w-none">${body}</div></article>
-      </div></div></div></main></div>
-    </div>
-  </div>`;
-  // Position the app underneath the early page without adding a second viewport
-  // to document flow. Its own geometry remains measurable during startup.
-  const css = `<style id="wiki-html-first-style">
-    #root{position:fixed;inset:0;visibility:hidden}
-    #wiki-html-first .html-first-navigation{flex:0 0 var(--html-sidebar-width,259px);background:var(--sidebar-bg);border-right:1px solid var(--sidebar-border);padding:20px 16px;display:flex;flex-direction:column;gap:16px;overflow:hidden;font-size:14px}
-    #wiki-html-first .html-first-navigation a{color:var(--text-muted)}
-    @media(max-width:767px){#wiki-html-first .html-first-navigation{position:absolute;inset:0 0 auto;height:48px;padding:12px 18px;flex-direction:row;z-index:1;white-space:nowrap}}
-  </style>`;
-  return html.replace("</head>", css + "</head>")
-    .replace('<div id="root">', shell + '<div id="root">')
-    .replace("</body>", `${bootstrap}<script>(${bootHtmlFirstPage.toString()})()</script></body>`);
+  if (page.sensitive !== false || !page.contentHash) return html;
+  return injectHtmlFirstShell(html, page, url, siteSlug, criticalCss, renderHtmlFirstBody(page, siteSlug));
 }
