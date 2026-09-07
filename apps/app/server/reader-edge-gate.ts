@@ -3,13 +3,12 @@ import { api } from "../convex/_generated/api";
 import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
 import { verifyWikiGateSession } from "@oncobase/wiki-content/gate-session";
 import { next, rewrite } from "@vercel/functions/middleware";
-import { waitUntil } from "@vercel/functions";
-import { createReaderPolicyCache } from "./reader-policy-cache";
+import { createSharedReaderPolicyCache } from "./shared-reader-policy-cache";
 import { readerSlug } from "./reader-route";
 import { gateVersion, isInternalReaderPath, READER_CONTEXT_HEADER, READER_VERSION_HEADER, readerCachePath, readerFingerprint, signReaderContext, type ReaderSnapshot } from "./reader-cache-context";
 
 export function createReaderEdgeGate(client = new ConvexHttpClient(resolveServerConvexUrl())) {
-  const cache = createReaderPolicyCache<ReaderSnapshot | null>({ background: waitUntil,
+  const cache = createSharedReaderPolicyCache<ReaderSnapshot | null>({
     maxAgeMs: process.env.WIKI_READER_POLICY_CACHE_MS === "0" ? 0 : 5000,
     read: key => {
       const [host, slug] = JSON.parse(key) as [string, string];
@@ -17,6 +16,7 @@ export function createReaderEdgeGate(client = new ConvexHttpClient(resolveServer
         ...(host.endsWith(".vercel.app") && process.env.WIKI_SITE_SLUG ? { previewSiteSlug: process.env.WIKI_SITE_SLUG } : {}) });
     } });
   return async (request: Request) => {
+    const started = performance.now();
     const url = new URL(request.url);
     const forwarded = new Headers(request.headers);
     forwarded.delete(READER_CONTEXT_HEADER); forwarded.delete(READER_VERSION_HEADER);
@@ -42,7 +42,7 @@ export function createReaderEdgeGate(client = new ConvexHttpClient(resolveServer
       const headers = forwarded;
       headers.set(READER_CONTEXT_HEADER, await signReaderContext(url.href, fingerprint, secret));
       headers.set(READER_VERSION_HEADER, fingerprint);
-      return rewrite(destination, { request: { headers } });
+      return rewrite(destination, { request: { headers }, headers: { "X-Wiki-Edge-Ms": (performance.now() - started).toFixed(1) } });
     } catch {
       // An expired/failed policy lookup must never fall through to a CDN hit.
       return new Response("Reader temporarily unavailable. Please retry.", { status: 503, headers: privateHeaders });
