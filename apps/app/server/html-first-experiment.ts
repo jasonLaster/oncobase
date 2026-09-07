@@ -53,7 +53,7 @@ function sanitizeBody(html: string, slug: string) {
     },
   });
   const body = toHtml(tree)
-    .replace(/<img\b[^>]*>/g, tag => tag.replace(/\s(?:tabindex|aria-label)="[^"]*"/g, ""))
+    .replace(/<img\b[^>]*>/g, tag => tag.replace(/\s(?:tabindex|aria-label|loading|decoding)="[^"]*"/g, "").replace("<img", '<img loading="lazy" decoding="async"'))
     .replace(/href="#([^\"]*)"/g, 'href="#wiki-html-$1"');
   return body;
 }

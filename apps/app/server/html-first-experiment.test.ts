@@ -28,3 +28,10 @@ test("only explicitly public, versioned pages can be injected, and attribute dat
   expect(html).not.toContain('<script>alert(1)</script>');
   expect(html).toContain("&lt;script&gt;");
 });
+
+
+test("initial article images defer offscreen requests and decoding", () => {
+  const html = renderHtmlFirstBody({ slug: "wiki/test", title: "Test", content: "Opening text.\n\n![Figure](./figure.png)", sensitive: false, contentHash: "lazy-image-fixture" }, "diana");
+  expect(html).toContain('loading="lazy"'); expect(html).toContain('decoding="async"');
+  expect(html).toContain("/api/file?path=wiki%2Ffigure.png");
+});
