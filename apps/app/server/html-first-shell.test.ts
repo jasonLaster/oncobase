@@ -37,6 +37,7 @@ test("large articles keep their complete readable HTML without duplicating Markd
   const body = "<p>First paragraph.</p>" + "<p>Complete middle content.</p>".repeat(10_000) + "<p>Last paragraph.</p>";
   const html = injectHtmlFirstShell(template, large, new URL("https://example.com/wiki/test"), "test", "", body);
   expect(html).toContain(body);
+  expect(html).toContain('data-large-article="true"');
   expect(html).not.toContain('id="wiki-page-bootstrap"');
   expect(html).not.toContain(large.content);
   expect(html).toContain("Open interactive reader");

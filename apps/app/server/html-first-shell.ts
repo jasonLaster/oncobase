@@ -28,7 +28,8 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
       tag => tag.replace('rel="modulepreload"', 'data-wiki-module-preload'));
     html = html.replace("</head>", () => `<style id="wiki-critical-style">${criticalCss}</style></head>`);
   }
-  const payload = Buffer.byteLength(page.content) <= 131_072 ? serializePageBootstrap({
+  const largeArticle = Buffer.byteLength(page.content) > 131_072;
+  const payload = !largeArticle ? serializePageBootstrap({
     version: 1, readerVersion: WIKI_READER_CACHE_VERSION,
     origin: url.origin, pathname: url.pathname, siteSlug, scope: "public",
     page: { slug: page.slug, title: page.title, content: page.content,
@@ -44,7 +45,7 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
   const fallbackHref = escape(interactive.pathname + interactive.search + interactive.hash);
   const header = page.slug === "index" ? "" : `<header class="wiki-shell-page-header"><h1>${escape(page.title)}</h1></header>`;
   const navigation = `<a href="/">Home</a><a href="/search">Search</a><a href="${fallbackHref}">Open interactive reader</a>`;
-  const shell = `<div id="wiki-html-first" class="prototype-shell" data-slug="${escape(page.slug)}" data-hash="${escape(page.contentHash)}">
+  const shell = `<div id="wiki-html-first" class="prototype-shell"${largeArticle ? ' data-large-article="true"' : ""} data-slug="${escape(page.slug)}" data-hash="${escape(page.contentHash)}">
     <div class="app-shell wiki-shell-resizable-layout">
       <nav class="html-first-navigation" aria-label="Site navigation">${navigation}</nav>
       <div class="app-content"><main class="content-shell"><div class="wiki-shell-outline-root" style="--comments-pane-width:64px"><div class="wiki-shell-outline-content"><div class="wiki-shell-outline-content-inner">
@@ -56,6 +57,7 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
   // to document flow. Its own geometry remains measurable during startup.
   const css = `<style id="wiki-html-first-style">
     #root{position:fixed;inset:0;visibility:hidden}
+    #wiki-html-first[data-large-article] .wiki-markdown > :nth-child(n+4){content-visibility:auto;contain-intrinsic-size:auto 64px}
     #wiki-html-first .html-first-navigation{flex:0 0 var(--html-sidebar-width,259px);background:var(--sidebar-bg);border-right:1px solid var(--sidebar-border);padding:20px 16px;display:flex;flex-direction:column;gap:16px;overflow:hidden;font-size:14px}
     #wiki-html-first .html-first-navigation a{color:var(--text-muted)}
     @media(max-width:767px){#wiki-html-first .html-first-navigation{position:absolute;inset:0 0 auto;height:48px;padding:12px 18px;flex-direction:row;z-index:1;white-space:nowrap}}
