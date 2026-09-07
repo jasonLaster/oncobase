@@ -1,0 +1,157 @@
+{
+  "date": "2026-09-07",
+  "environment": "Local production build, live public backend, warm server process",
+  "sampleCount": 24,
+  "contentKeys": [
+    "index:831515f095d851bb"
+  ],
+  "groups": [
+    {
+      "cpuSlowdown": 1,
+      "visit": "cold",
+      "mode": "normal",
+      "n": 3,
+      "median": {
+        "readable": 1342.1,
+        "ready": 1342.1,
+        "fcp": 216,
+        "ttfb": 194.1,
+        "htmlGzipBytes": 2935
+      },
+      "bodyApiRequests": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "cpuSlowdown": 1,
+      "visit": "cold",
+      "mode": "html-first",
+      "n": 3,
+      "median": {
+        "readable": 309.1,
+        "ready": 1192.1,
+        "fcp": 328,
+        "ttfb": 293.3,
+        "htmlGzipBytes": 5951
+      },
+      "bodyApiRequests": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "cpuSlowdown": 1,
+      "visit": "reload",
+      "mode": "normal",
+      "n": 3,
+      "median": {
+        "readable": 194.3,
+        "ready": 1161.9,
+        "fcp": 204,
+        "ttfb": 190.2,
+        "htmlGzipBytes": 2935
+      },
+      "bodyApiRequests": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "cpuSlowdown": 1,
+      "visit": "reload",
+      "mode": "html-first",
+      "n": 3,
+      "median": {
+        "readable": 187.4,
+        "ready": 1153.7,
+        "fcp": 200,
+        "ttfb": 182.8,
+        "htmlGzipBytes": 5951
+      },
+      "bodyApiRequests": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "cpuSlowdown": 4,
+      "visit": "cold",
+      "mode": "normal",
+      "n": 3,
+      "median": {
+        "readable": 1726.7,
+        "ready": 1726.7,
+        "fcp": 220,
+        "ttfb": 176.2,
+        "htmlGzipBytes": 2935
+      },
+      "bodyApiRequests": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "cpuSlowdown": 4,
+      "visit": "cold",
+      "mode": "html-first",
+      "n": 3,
+      "median": {
+        "readable": 238.5,
+        "ready": 1478.9,
+        "fcp": 252,
+        "ttfb": 190.8,
+        "htmlGzipBytes": 5951
+      },
+      "bodyApiRequests": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "cpuSlowdown": 4,
+      "visit": "reload",
+      "mode": "normal",
+      "n": 3,
+      "median": {
+        "readable": 211.6,
+        "ready": 1453.3,
+        "fcp": 232,
+        "ttfb": 196.4,
+        "htmlGzipBytes": 2935
+      },
+      "bodyApiRequests": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "cpuSlowdown": 4,
+      "visit": "reload",
+      "mode": "html-first",
+      "n": 3,
+      "median": {
+        "readable": 219.9,
+        "ready": 1453.4,
+        "fcp": 228,
+        "ttfb": 202.4,
+        "htmlGzipBytes": 5951
+      },
+      "bodyApiRequests": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "pageErrors": 0,
+  "allHtmlPrivateNoStore": true,
+  "htmlFirstMaxCLS": 0.002585833333333333
+}

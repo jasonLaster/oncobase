@@ -4,11 +4,13 @@ import { createWikiViteHandler } from "../server/app-shell.js";
 import { requestFromIncoming, sendWebResponse } from "../server/wiki-api.js";
 
 declare const __WIKI_VITE_INDEX_HTML__: string;
+declare const __WIKI_CRITICAL_CSS__: string;
 
 const distDir = path.join(process.cwd(), "apps/app/dist");
 const handleWikiViteRequest = createWikiViteHandler({
   distDir,
   indexHtml: __WIKI_VITE_INDEX_HTML__,
+  criticalCss: __WIKI_CRITICAL_CSS__,
 });
 
 function restoreRewrittenPath(request: Request) {

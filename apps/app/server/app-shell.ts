@@ -23,6 +23,7 @@ import {
   handleSharePreviewRequest,
   isDianaPreviewTestAuth,
   resolveSiteSlug,
+  redactPageContent,
   withSiteSlug,
 } from "./wiki-api.js";
 import {
@@ -354,6 +355,8 @@ async function staticIndexHtml(
   client: ConvexHttpClient,
   filePath: string,
   providedHtml?: string,
+  htmlFirstExperiment = false,
+  criticalCss: Promise<string> = Promise.resolve(""),
 ) {
   const html = providedHtml ?? await readFile(filePath, "utf8");
   const url = new URL(request.url);
@@ -414,7 +417,7 @@ async function staticIndexHtml(
     tagCount: taggedPages?.length,
   });
 
-  return injectHeadMetadata(html, {
+  const documentHtml = injectHeadMetadata(html, {
     ...routeMetadata,
     canonicalUrl: gateEnabled || page?.sensitive === true
       ? undefined
@@ -422,6 +425,20 @@ async function staticIndexHtml(
     noIndex: gateEnabled,
     sensitive: page?.sensitive === true,
   });
+  // Experiment: only an explicitly public document may enter the early body.
+  // Authorization still happens before this handler; restricted pages use the
+  // existing reader. Reuse the metadata lookup, then the API's PII redaction.
+  if (htmlFirstExperiment && url.searchParams.get("html-first") !== "off" &&
+      publicPage?.sensitive === false && publicPage.content && slug) {
+    try {
+      const safePage = await redactPageContent(client, siteSlug, publicPage, request);
+      const { injectHtmlFirstPage } = await import("./html-first-experiment");
+      return injectHtmlFirstPage(documentHtml, safePage, url, siteSlug, await criticalCss);
+    } catch {
+      console.warn("[wiki-html-first] rendering unavailable; using normal reader");
+    }
+  }
+  return documentHtml;
 }
 
 async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath: string) {
@@ -496,11 +513,17 @@ export function createAppShellHandler({
   client = createClient(),
   distDir,
   indexHtml,
+  htmlFirstExperiment = false,
+  criticalCss,
 }: {
   client?: ConvexHttpClient;
   distDir: string;
   indexHtml?: string;
+  htmlFirstExperiment?: boolean;
+  criticalCss?: string;
 }) {
+  const readerStyles = criticalCss !== undefined ? Promise.resolve(criticalCss)
+    : readFile(path.join(distDir, "../.vercel-functions/reader-critical.css"), "utf8").catch(() => "");
   return async function handleAppShellRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/robots.txt") {
@@ -529,7 +552,7 @@ export function createAppShellHandler({
 
     if (servesIndex) {
       const [html, headers] = await Promise.all([
-        staticIndexHtml(request, client, filePath, indexHtml),
+        staticIndexHtml(request, client, filePath, indexHtml, htmlFirstExperiment, readerStyles),
         htmlHeaders(request, client, filePath),
       ]);
       return new Response(html, { headers });
@@ -545,15 +568,20 @@ export function createWikiViteHandler({
   client = createClient(),
   distDir,
   indexHtml,
+  htmlFirstExperiment = process.env.WIKI_HTML_FIRST === "1" || process.env.WIKI_HTML_FIRST_EXPERIMENT === "1",
+  criticalCss,
 }: {
   client?: ConvexHttpClient;
   distDir: string;
   indexHtml?: string;
+  htmlFirstExperiment?: boolean;
+  criticalCss?: string;
 }) {
   const handleWikiApiRequest = createWikiApiHandler(client);
-  const handleAppShellRequest = createAppShellHandler({ client, distDir, indexHtml });
+  const handleAppShellRequest = createAppShellHandler({ client, distDir, indexHtml, htmlFirstExperiment, criticalCss });
 
   return async function handleWikiViteRequest(request: Request): Promise<Response> {
+    const started = performance.now();
     const apiResponse = await handleWikiApiRequest(request);
     if (apiResponse) return apiResponse;
     const trailingSlashRedirect = trailingSlashRedirectResponse(request);
@@ -566,6 +594,8 @@ export function createWikiViteHandler({
     if (explicitCanonicalRedirect) return explicitCanonicalRedirect;
     const canonicalRedirect = await canonicalSlugRedirectResponse(request, client);
     if (canonicalRedirect) return canonicalRedirect;
-    return handleAppShellRequest(request);
+    const response = await handleAppShellRequest(request);
+    response.headers.append("Server-Timing", `wiki-shell;dur=${(performance.now() - started).toFixed(1)}`);
+    return response;
   };
 }

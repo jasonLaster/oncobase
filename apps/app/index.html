@@ -43,6 +43,8 @@
       (function () {
         try {
           var url = new URL(window.location.href);
+          // Fresh server HTML supersedes the persisted, inert first frame.
+          if (document.getElementById("wiki-html-first")) return;
           var requestedScope = url.searchParams.get("scope");
           var scope =
             requestedScope === "public" || requestedScope === "session"
@@ -78,7 +80,8 @@
               typeof candidate.html === "string" &&
               candidate.html.indexOf('data-test-id="document-article"') !== -1 &&
               candidate.html.indexOf('data-test-id="wiki-sidebar"') !== -1 &&
-              candidate.html.indexOf("<h1") !== -1
+              (candidate.html.indexOf("<h1") !== -1 ||
+                candidate.html.indexOf('class="wiki-markdown ') !== -1)
             ) {
               snapshot = candidate;
               snapshotReader = reader;

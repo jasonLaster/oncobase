@@ -1,0 +1,30 @@
+import { expect, test } from "bun:test";
+import { injectHtmlFirstPage, renderHtmlFirstBody } from "./html-first-experiment";
+
+const page = { slug: "index", title: "Example", contentHash: "revision-1", sensitive: false, content: "Readable without JavaScript.\n\n[Next](/wiki/next)\n\n## Section\n\n[Jump](#section)" };
+
+test("server HTML preserves native links while removing executable markup and fake controls", () => {
+  const html = renderHtmlFirstBody({ ...page, content: page.content + '\n\n<script>alert(1)</script><img src="x" onerror="alert(1)"><iframe srcdoc="bad"></iframe>\n\n[unsafe](javascript:alert)\n\n[encoded](/api/file?path=%3Cimg%20src=x%20onerror=alert(1)%3E.pdf)' }, "test");
+  expect(html).toContain('href="/wiki/next"');
+  expect(html).toContain('href="#wiki-html-section"');
+  expect(html).toContain('id="wiki-html-section"');
+  expect(html).not.toMatch(/<script|<iframe|onerror="|javascript:|role="button"|tabindex="0"/i);
+});
+
+test("render cache keys use redacted bytes rather than only the source revision", () => {
+  expect(renderHtmlFirstBody(page, "test")).toContain("Readable");
+  expect(renderHtmlFirstBody({ ...page, content: "Redacted replacement." }, "test")).toContain("Redacted replacement.");
+  expect(renderHtmlFirstBody({ ...page, content: "Another site." }, "other")).not.toContain("Readable");
+});
+
+test("only explicitly public, versioned pages can be injected, and attribute data is escaped", () => {
+  const template = '<html><head></head><body><div id="root"></div></body></html>';
+  const url = new URL("https://example.com/");
+  for (const sensitive of [true, undefined]) {
+    expect(injectHtmlFirstPage(template, { ...page, sensitive }, url, "test")).toBe(template);
+  }
+  expect(injectHtmlFirstPage(template, { ...page, contentHash: null }, url, "test")).toBe(template);
+  const html = injectHtmlFirstPage(template, { ...page, contentHash: '\"><script>alert(1)</script>' }, url, "test");
+  expect(html).not.toContain('<script>alert(1)</script>');
+  expect(html).toContain("&lt;script&gt;");
+});

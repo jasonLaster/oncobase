@@ -1,0 +1,168 @@
+{
+  "date": "2026-09-07",
+  "environment": "Loopback production build, live public backend, warm server process",
+  "baseline": "Includes local titleless-home snapshot fix",
+  "samples": 24,
+  "contentKeys": [
+    "index:831515f095d851bb"
+  ],
+  "pageErrors": 0,
+  "checks": [
+    "No JavaScript: full home article and native navigation to another article",
+    "1440px: paused scripts readable, held manifest does not block handoff, article width and scroll preserved",
+    "390px: paused scripts readable, held manifest does not block handoff, article width and scroll preserved",
+    "selection: safe handoff or normal-reader escape verified",
+    "revision: safe handoff or normal-reader escape verified",
+    "focus: safe handoff or normal-reader escape verified",
+    "Failed body API retains readable HTML and a normal-reader escape link",
+    "WebKit: server HTML hands off to live reader"
+  ],
+  "groups": [
+    {
+      "cpuSlowdown": 1,
+      "visit": "cold",
+      "mode": "normal",
+      "n": 3,
+      "median": {
+        "readable": 1415.5,
+        "fcp": 236,
+        "ready": 1415.5,
+        "ttfb": 210.5,
+        "cls": 0.0,
+        "htmlGzipBytes": 2936
+      },
+      "readableRangeMs": [
+        1307,
+        1436
+      ]
+    },
+    {
+      "cpuSlowdown": 1,
+      "visit": "cold",
+      "mode": "html-first",
+      "n": 3,
+      "median": {
+        "readable": 317.7,
+        "fcp": 340,
+        "ready": 1420.8,
+        "ttfb": 299.1,
+        "cls": 0,
+        "htmlGzipBytes": 5289
+      },
+      "readableRangeMs": [
+        220,
+        323
+      ]
+    },
+    {
+      "cpuSlowdown": 1,
+      "visit": "reload",
+      "mode": "normal",
+      "n": 3,
+      "median": {
+        "readable": 199.7,
+        "fcp": 216,
+        "ready": 1177.5,
+        "ttfb": 195.6,
+        "cls": 0,
+        "htmlGzipBytes": 2936
+      },
+      "readableRangeMs": [
+        194,
+        217
+      ]
+    },
+    {
+      "cpuSlowdown": 1,
+      "visit": "reload",
+      "mode": "html-first",
+      "n": 3,
+      "median": {
+        "readable": 194.2,
+        "fcp": 204,
+        "ready": 1124.3,
+        "ttfb": 189.5,
+        "cls": 0,
+        "htmlGzipBytes": 5289
+      },
+      "readableRangeMs": [
+        189,
+        218
+      ]
+    },
+    {
+      "cpuSlowdown": 4,
+      "visit": "cold",
+      "mode": "normal",
+      "n": 3,
+      "median": {
+        "readable": 1670.5,
+        "fcp": 232,
+        "ready": 1670.5,
+        "ttfb": 188.8,
+        "cls": 0.0,
+        "htmlGzipBytes": 2936
+      },
+      "readableRangeMs": [
+        1667,
+        1791
+      ]
+    },
+    {
+      "cpuSlowdown": 4,
+      "visit": "cold",
+      "mode": "html-first",
+      "n": 3,
+      "median": {
+        "readable": 259.6,
+        "fcp": 276,
+        "ready": 1773.4,
+        "ttfb": 210.9,
+        "cls": 0,
+        "htmlGzipBytes": 5289
+      },
+      "readableRangeMs": [
+        235,
+        329
+      ]
+    },
+    {
+      "cpuSlowdown": 4,
+      "visit": "reload",
+      "mode": "normal",
+      "n": 3,
+      "median": {
+        "readable": 219.4,
+        "fcp": 240,
+        "ready": 1457.8,
+        "ttfb": 205.7,
+        "cls": 0,
+        "htmlGzipBytes": 2936
+      },
+      "readableRangeMs": [
+        219,
+        221
+      ]
+    },
+    {
+      "cpuSlowdown": 4,
+      "visit": "reload",
+      "mode": "html-first",
+      "n": 3,
+      "median": {
+        "readable": 281.3,
+        "fcp": 292,
+        "ready": 1509.3,
+        "ttfb": 264.6,
+        "cls": 0,
+        "htmlGzipBytes": 5289
+      },
+      "readableRangeMs": [
+        202,
+        313
+      ]
+    }
+  ],
+  "allHtmlPrivateNoStore": true,
+  "htmlFirstMaxCLS": 0
+}

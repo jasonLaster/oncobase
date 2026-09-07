@@ -26,6 +26,7 @@ import { dismissFirstFrameSnapshot } from "./first-frame-snapshot";
 import { StoreStartupLoading } from "./StoreStartup";
 import { resolveReaderStorage } from "./reader-storage";
 import { SessionCacheRetirement } from "./SessionCacheRetirement";
+import { createReaderBoot } from "../bootstrap/seed-state";
 import {
   STORE_BOOT_RETRY_DELAY_MS,
   shouldRetryStoreBoot,
@@ -150,6 +151,7 @@ function ReaderStore({ identity, scope, storeId }: {
   scope: WikiScope;
   storeId: string;
 }) {
+  const boot = useMemo(() => createReaderBoot(identity), [identity]);
   const [adapter, setAdapter] = useState<Awaited<typeof adapterPromise> | null>(null);
   const [stalled, setStalled] = useState(false);
   useEffect(() => {
@@ -183,6 +185,7 @@ function ReaderStore({ identity, scope, storeId }: {
   return (
     <StoreBootRetryBoundary key={`${adapter === temporaryAdapter}:${bootAttempt}`} attempt={bootAttempt} onRetry={retryBoot}>
       <LiveStoreProvider
+        boot={boot}
         key={bootAttempt}
         schema={schema}
         adapter={adapter}

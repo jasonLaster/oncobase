@@ -1,0 +1,165 @@
+{
+  "date": "2026-09-07",
+  "productionCommit": "57fe635a8df512faf8f326099c9cc869dd4bcd11",
+  "localBaseCommit": "57fe635a8df512faf8f326099c9cc869dd4bcd11",
+  "method": "Chromium desktop 1440x1000; 3 fresh contexts per cell; gate-unlocked public reader, no signed-in account; cold load followed by same-context reload. Readable means article DOM presence; FCP and live-reader handoff are separate.",
+  "production": [
+    {
+      "cpuMultiplier": 1,
+      "visit": "cold",
+      "n": 3,
+      "ttfb": 63,
+      "responseEnd": 218,
+      "fcp": 292,
+      "article": 1905,
+      "sidebar": 2207,
+      "reportedRouteMs": 653,
+      "snapshotsSaved": 0,
+      "cacheControl": [
+        "private, no-store"
+      ],
+      "vercelCache": [
+        "MISS"
+      ]
+    },
+    {
+      "cpuMultiplier": 1,
+      "visit": "reload",
+      "n": 3,
+      "ttfb": 15,
+      "responseEnd": 158,
+      "fcp": 224,
+      "article": 1382,
+      "sidebar": 1323,
+      "reportedRouteMs": 138,
+      "snapshotsSaved": 0,
+      "cacheControl": [
+        "private, no-store"
+      ],
+      "vercelCache": [
+        "MISS"
+      ]
+    },
+    {
+      "cpuMultiplier": 4,
+      "visit": "cold",
+      "n": 3,
+      "ttfb": 53,
+      "responseEnd": 185,
+      "fcp": 276,
+      "article": 2454,
+      "sidebar": 3654,
+      "reportedRouteMs": 1144,
+      "snapshotsSaved": 0,
+      "cacheControl": [
+        "private, no-store"
+      ],
+      "vercelCache": [
+        "MISS"
+      ]
+    },
+    {
+      "cpuMultiplier": 4,
+      "visit": "reload",
+      "n": 3,
+      "ttfb": 12,
+      "responseEnd": 160,
+      "fcp": 1972,
+      "article": 1919,
+      "sidebar": 1919,
+      "reportedRouteMs": 538,
+      "snapshotsSaved": 0,
+      "cacheControl": [
+        "private, no-store"
+      ],
+      "vercelCache": [
+        "MISS"
+      ]
+    }
+  ],
+  "local": [
+    {
+      "cpuMultiplier": 1,
+      "mode": "fixed",
+      "visit": "cold",
+      "n": 3,
+      "ttfb": 256,
+      "fcp": 280,
+      "readable": 1608,
+      "ready": 1608
+    },
+    {
+      "cpuMultiplier": 1,
+      "mode": "fixed",
+      "visit": "reload",
+      "n": 3,
+      "ttfb": 219,
+      "fcp": 260,
+      "readable": 225,
+      "ready": 1284
+    },
+    {
+      "cpuMultiplier": 1,
+      "mode": "html-first",
+      "visit": "cold",
+      "n": 3,
+      "ttfb": 292,
+      "fcp": 380,
+      "readable": 306,
+      "ready": 4741
+    },
+    {
+      "cpuMultiplier": 1,
+      "mode": "html-first",
+      "visit": "reload",
+      "n": 3,
+      "ttfb": 196,
+      "fcp": 236,
+      "readable": 201,
+      "ready": 1251
+    },
+    {
+      "cpuMultiplier": 4,
+      "mode": "fixed",
+      "visit": "cold",
+      "n": 3,
+      "ttfb": 271,
+      "fcp": 316,
+      "readable": 2318,
+      "ready": 2318
+    },
+    {
+      "cpuMultiplier": 4,
+      "mode": "fixed",
+      "visit": "reload",
+      "n": 3,
+      "ttfb": 271,
+      "fcp": 380,
+      "readable": 293,
+      "ready": 2108
+    },
+    {
+      "cpuMultiplier": 4,
+      "mode": "html-first",
+      "visit": "cold",
+      "n": 3,
+      "ttfb": 286,
+      "fcp": 344,
+      "readable": 345,
+      "ready": 5905
+    },
+    {
+      "cpuMultiplier": 4,
+      "mode": "html-first",
+      "visit": "reload",
+      "n": 3,
+      "ttfb": 250,
+      "fcp": 364,
+      "readable": 272,
+      "ready": 2103
+    }
+  ],
+  "prototypeSnapshotGzipBytes": 28476,
+  "productionRuntimeErrors": 0,
+  "localRuntimeErrors": 0
+}

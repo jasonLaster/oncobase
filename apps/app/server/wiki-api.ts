@@ -15,6 +15,7 @@ import path from "node:path";
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "node:http";
 import archiver from "archiver";
 import { ConvexHttpClient } from "convex/browser";
+import type { FunctionReturnType } from "convex/server";
 import { Liveblocks, WebhookHandler } from "@liveblocks/node";
 import type { Plugin } from "vite";
 import { legacyRedirectResponse } from "./redirects.ts";
@@ -181,6 +182,18 @@ const requestPasswordGateConfigs = new WeakMap<
   Request,
   Map<string, Promise<PasswordGateEntry>>
 >();
+const requestSites = new WeakMap<Request, Map<string, Promise<FunctionReturnType<typeof api.sites.getBySlug>>>>();
+
+function siteForRequest(request: Request, client: ConvexHttpClient, siteSlug: string) {
+  let sites = requestSites.get(request);
+  if (!sites) { sites = new Map(); requestSites.set(request, sites); }
+  let pending = sites.get(siteSlug);
+  if (!pending) {
+    pending = client.query(api.sites.getBySlug, { slug: siteSlug });
+    sites.set(siteSlug, pending);
+  }
+  return pending;
+}
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -303,7 +316,10 @@ export function getRequestPasswordGateConfig(
   const cached = configs.get(siteSlug);
   if (cached) return cached;
 
-  const pending = getPasswordGateConfig(client, siteSlug);
+  const pending = siteForRequest(request, client, siteSlug).then(site => ({
+    enabled: site?.config?.passwordGate ?? siteSlug === DEFAULT_SITE_SLUG,
+    passwordHash: site?.config?.passwordHash,
+  }));
   configs.set(siteSlug, pending);
   void pending.catch(() => {
     if (configs?.get(siteSlug) === pending) configs.delete(siteSlug);
@@ -667,11 +683,21 @@ async function redactText(client: ConvexHttpClient, siteSlug: string, text: stri
   });
 }
 
-async function redactPageContent(
+export async function redactPageContent(
   client: ConvexHttpClient,
   siteSlug: string,
   page: PageWithContent,
+  request?: Request,
 ): Promise<PageWithContent> {
+  if (request) {
+    // The gate already fetched the current site policy. Share that read, not
+    // a cached authorization decision or a second serial configuration lookup.
+    const site = await siteForRequest(request, client, siteSlug);
+    const configured = parseSitePiiPatterns(site?.config?.piiPatterns);
+    const patterns = configured.length ? configured : siteSlug === DEFAULT_SITE_SLUG ? undefined : [];
+    return { ...page, content: applyPiiRedactions(page.content, { patterns }),
+      description: page.description ? applyPiiRedactions(page.description, { patterns }) : page.description };
+  }
   return {
     ...page,
     content: await redactText(client, siteSlug, page.content),

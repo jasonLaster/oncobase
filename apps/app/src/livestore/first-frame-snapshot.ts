@@ -54,7 +54,8 @@ function readVersionedFirstFrameSnapshot(
       typeof value.html !== "string" ||
       !value.html.includes("data-test-id=\"document-article\"") ||
       !value.html.includes("data-test-id=\"wiki-sidebar\"") ||
-      !value.html.includes("<h1")
+      // Keep older titled snapshots readable while allowing titleless home.
+      (!value.html.includes("<h1") && !value.html.includes('class="wiki-markdown '))
     ) {
       return null;
     }

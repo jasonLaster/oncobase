@@ -386,6 +386,7 @@ export function DocumentOutlineShell({
             ref={articleRef}
             className={cn("wiki-shell-document-article", articleClassName)}
             data-document-slug={documentSlug}
+            data-content-key={contentKey}
             data-test-id="document-article"
             aria-label={documentTitle}
           >

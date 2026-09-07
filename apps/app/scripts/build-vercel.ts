@@ -36,7 +36,7 @@ function isPlaceholderConvexUrl(value: string) {
 if (fs.existsSync(CONVEX_URL_FILE)) fs.rmSync(CONVEX_URL_FILE);
 
 let convexUrl: string;
-if (process.env.VERCEL_ENV === "production") {
+if (process.env.VERCEL_ENV === "production" && process.env.WIKI_DEPLOY_FRONTEND_ONLY !== "1") {
   run(
     "npx",
     [
@@ -62,6 +62,9 @@ if (process.env.VERCEL_ENV === "production") {
   }
 } else {
   const fromEnv = process.env.NEXT_PUBLIC_CONVEX_URL?.trim() || "";
+  if (process.env.VERCEL_ENV === "production" && (!fromEnv || isPlaceholderConvexUrl(fromEnv))) {
+    throw new Error("A frontend-only production deployment requires the current NEXT_PUBLIC_CONVEX_URL");
+  }
   convexUrl = fromEnv && !isPlaceholderConvexUrl(fromEnv)
     ? fromEnv
     : PROD_CONVEX_FALLBACK_URL;

@@ -29,6 +29,20 @@ const snapshot = {
 };
 
 describe("first-frame snapshots", () => {
+  test("accepts a rendered home body without requiring a page title", () => {
+    const storage = memoryStorage();
+    const home = { pathname: "/", html: '<div data-test-id="wiki-sidebar">nav</div><article data-test-id="document-article"><div class="wiki-markdown prose max-w-none"><p>Home</p></div></article>' };
+    persistFirstFrameSnapshot(storage, "https://wiki.example", home, { validatedAt: 1 });
+    expect(readFirstFrameSnapshot(storage, "https://wiki.example", "/")).toEqual(home);
+    expect(readFirstFrameSnapshot(storage, "https://wiki.example", "/other")).toBeNull();
+  });
+
+  test("rejects a titleless loading shell without rendered markdown", () => {
+    const storage = memoryStorage();
+    storage.setItem(firstFrameSnapshotKey("https://wiki.example"), JSON.stringify({ pathname: "/", html: '<div data-test-id="wiki-sidebar">nav</div><article data-test-id="document-article"><div data-test-id="page-loading">Loading</div></article>' }));
+    expect(readFirstFrameSnapshot(storage, "https://wiki.example", "/")).toBeNull();
+  });
+
   test("partitions valid snapshots by reader version, origin, and pathname", () => {
     const storage = memoryStorage();
 

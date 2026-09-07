@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -83,6 +83,7 @@ function fakeClient({ canAccessSensitive = true, passwordGate = true } = {}) {
                   : "Public",
             description: args.slug === "wiki/long" ? LONG_DESCRIPTION : "Public page",
             content: `# ${String(args.slug)}`,
+            contentHash: `hash:${String(args.slug)}`,
             sensitive: false,
           };
         case "users:getSessionUser":
@@ -125,6 +126,112 @@ describe("wiki Vite app-shell password gate", () => {
   afterEach(async () => {
     delete process.env.WIKI_GATE_SESSION_SECRET;
     await rm(distDir, { recursive: true, force: true });
+  });
+
+  test("HTML-first is opt-in, gated, public-only, redacted, and privately served", async () => {
+    const client = fakeClient();
+    const handler = createWikiViteHandler({ client: client as never, distDir, htmlFirstExperiment: true });
+    const blocked = await handler(request("/"));
+    expect(blocked.status).toBe(302);
+    expect(await blocked.text()).not.toContain("wiki-html-first");
+
+    const headers = await authenticatedHeaders();
+    const early = await handler(request("/", { headers }));
+    expect(early.headers.get("cache-control")).toBe("private, no-store");
+    expect(early.headers.get("vary")).toContain("Cookie");
+    expect(await early.text()).toContain('id="wiki-html-first"');
+    for (const pathname of ["/?html-first=off", "/private/plan", "/search", "/login"]) {
+      const response = await handler(request(pathname, { headers }));
+      expect(await response.text()).not.toContain('id="wiki-html-first"');
+    }
+    const account = await handler(request("/private/plan", {
+      headers: await authenticatedHeaders("wiki_user_session=session-token"),
+    }));
+    const accountHtml = await account.text();
+    expect(accountHtml).toContain("Private Plan");
+    expect(accountHtml).not.toContain('id="wiki-html-first"');
+    const normal = createWikiViteHandler({ client: client as never, distDir, htmlFirstExperiment: false });
+    expect(await (await normal(request("/", { headers }))).text()).not.toContain('id="wiki-html-first"');
+  });
+
+  test("HTML-first shares the current gate policy for redaction and fails closed when it is unavailable", async () => {
+    let failRedaction = false;
+    let siteReads = 0;
+    const base = fakeClient();
+    const client = { ...base, async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      const value = await base.query(ref, args);
+      if (getFunctionName(ref) === "sites:getBySlug") {
+        siteReads++;
+        if (failRedaction) throw new Error("test config read failure");
+        return { slug: args.slug, config: { passwordGate: true, passwordHash: TEST_GATE_HASH,
+          piiPatterns: [JSON.stringify({ pattern: "synthetic@example.com", replacement: "[redacted]" })] } };
+      }
+      if (getFunctionName(ref) === "documents:getBySlug" && value && typeof value === "object" && "content" in value) {
+        return { ...value, content: "Contact synthetic@example.com" };
+      }
+      return value;
+    } };
+    const headers = await authenticatedHeaders();
+    const handler = createWikiViteHandler({ client: client as never, distDir, htmlFirstExperiment: true });
+    const body = await (await handler(request("/", { headers }))).text();
+    expect(body).toContain('id="wiki-html-first"');
+    expect(body).not.toContain("synthetic@example.com");
+    expect(siteReads).toBe(1);
+
+    failRedaction = true;
+    // A failed current policy read cannot authorize or emit cached page text.
+    const failed = createWikiViteHandler({ client: { ...client } as never, distDir, htmlFirstExperiment: true });
+    siteReads = 0;
+    const fallback = await failed(request("/", { headers }));
+    expect(fallback.status).toBe(503);
+    expect(await fallback.text()).not.toContain('id="wiki-html-first"');
+  });
+
+  test("a cached render is not served after its document becomes restricted", async () => {
+    let visible = true;
+    const base = fakeClient();
+    const client = { ...base, async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      if (getFunctionName(ref) === "documents:getBySlug") {
+        return visible ? { slug: "index", title: "Home", content: "PUBLIC_RENDER_CACHE_BODY", contentHash: "same-hash", sensitive: false } : null;
+      }
+      return base.query(ref, args);
+    } };
+    const handler = createWikiViteHandler({ client: client as never, distDir, htmlFirstExperiment: true });
+    const headers = await authenticatedHeaders();
+    expect(await (await handler(request("/", { headers }))).text()).toContain("PUBLIC_RENDER_CACHE_BODY");
+    visible = false;
+    const restricted = await (await handler(request("/", { headers }))).text();
+    expect(restricted).not.toContain("PUBLIC_RENDER_CACHE_BODY");
+    expect(restricted).not.toContain('id="wiki-page-bootstrap"');
+  });
+
+  test("a PII policy refresh invalidates cached HTML and its payload even at the same source hash", async () => {
+    const originalNow = Date.now();
+    let offset = 0;
+    const clock = spyOn(Date, "now").mockImplementation(() => originalNow + offset);
+    let replacement = "FIRST_REDACTION";
+    const base = fakeClient();
+    const client = { ...base, async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      if (getFunctionName(ref) === "documents:getBySlug") return {
+        slug: "index", title: "Home", content: "PERSON_LITERAL", contentHash: "unchanged", sensitive: false,
+      };
+      if (getFunctionName(ref) === "sites:getBySlug") return { slug: args.slug, config: {
+        passwordGate: true, passwordHash: TEST_GATE_HASH,
+        piiPatterns: [JSON.stringify({ pattern: "PERSON_LITERAL", replacement })],
+      } };
+      return base.query(ref, args);
+    } };
+    try {
+      const headers = await authenticatedHeaders();
+      const handler = createWikiViteHandler({ client: client as never, distDir, htmlFirstExperiment: true });
+      expect(await (await handler(request("/", { headers }))).text()).toContain("FIRST_REDACTION");
+      replacement = "UPDATED_REDACTION";
+      offset = 1;
+      const html = await (await handler(request("/", { headers }))).text();
+      expect(html).toContain("UPDATED_REDACTION");
+      expect(html).not.toContain("FIRST_REDACTION");
+      expect(html).not.toContain("PERSON_LITERAL");
+    } finally { clock.mockRestore(); }
   });
 
   test("gates anonymous root and deep links with private redirect responses", async () => {

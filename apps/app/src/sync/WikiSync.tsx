@@ -42,6 +42,7 @@ import {
 
 import { BackgroundPrefetch, FOREGROUND_FETCH_EVENT } from "./BackgroundPrefetch";
 import { PREFETCH_LIMITS } from "./prefetch-policy";
+import { hasBootstrappedPage } from "../bootstrap/seed-state";
 export { WARM_CACHE_EVENT } from "./BackgroundPrefetch";
 export const RETRY_PAGE_EVENT = "wiki-vite:retry-page";
 export const REFRESH_MANIFEST_EVENT = "wiki-vite:refresh-manifest";
@@ -60,7 +61,8 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const [networkTick, setNetworkTick] = useState(0);
   const manifestRef = useRef<WikiManifest | null>(null);
   const currentSlugRef = useRef(currentSlug);
-  const forceValidationRef = useRef(false);
+  // The HTTP page can be newer than a recently cached navigation manifest.
+  const forceValidationRef = useRef(hasBootstrappedPage(store, currentSlug));
   const validationInFlight = useRef<{
     key: string;
     promise: Promise<WikiManifestValidation>;
@@ -395,6 +397,9 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   }, [client, fetchSlug, networkTick, onMetrics, readCachedManifest, scope, store]);
 
   useEffect(() => {
+    // The current HTTP response already supplied this body. A fresh manifest
+    // still reconciles updates/removals through the normal fetch path above.
+    if (hasBootstrappedPage(store, currentSlug)) return;
     const state = store.query(siteState$) as SiteStateRow | null;
     const indexedPage = store.query(pageIndexBySlug$(currentSlug)) as PageIndexRow | null;
     const page = indexedPage

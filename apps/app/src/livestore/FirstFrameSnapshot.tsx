@@ -91,7 +91,9 @@ export function FirstFrameSnapshotSync({
       const sidebar = shell?.querySelector('[data-test-id="wiki-sidebar"]');
       if (
         !shell ||
-        !article?.querySelector("h1") ||
+        // Home intentionally omits its title. The rendered markdown body is
+        // the readiness signal; a heading is a presentation choice.
+        !article?.querySelector(".wiki-markdown") ||
         !sidebar?.textContent?.trim() ||
         article.querySelector('[data-test-id="page-loading"]')
       ) {
