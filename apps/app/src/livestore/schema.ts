@@ -159,6 +159,16 @@ export const events = {
   }),
 };
 
+function bulkIndexInserts(table: string, sql: string, rows: unknown[]) {
+  // Bound SQLite's JSON parsing allocation, including in the fixed-memory
+  // in-memory adapter. All batches still belong to one atomic materialization.
+  const statements = [];
+  for (let start = 0; start < rows.length; start += 256) {
+    statements.push({ sql, bindValues: [JSON.stringify(rows.slice(start, start + 256))], writeTables: new Set([table]) });
+  }
+  return statements;
+}
+
 const materializers = State.SQLite.materializers(events, {
   "v1.ManifestApplied": ({
     siteSlug,
@@ -172,6 +182,7 @@ const materializers = State.SQLite.materializers(events, {
     assetsJson,
   }, { query }) => {
     const pages = JSON.parse(pagesJson) as Array<typeof manifestPageSchema.Type>;
+    const assets = JSON.parse(assetsJson) as unknown[];
     const pagesBySlug = new Map(pages.map((page) => [page.slug, page]));
     // Reconciliation needs metadata only, not every cached Markdown body.
     const cachedContent = query({ query: "SELECT slug, contentHash, missingAt, contentStatus FROM pageContent", bindValues: {} }) as Array<
@@ -247,23 +258,15 @@ const materializers = State.SQLite.materializers(events, {
       }).onConflict("id", "replace"),
       tables.pageIndex.delete(),
       tables.assetIndex.delete(),
-      // One set-based insert per index avoids thousands of synchronous
+      // Batched set-based inserts avoid thousands of synchronous
       // query-builder/schema conversions while retaining this atomic event.
-      {
-        sql: `INSERT OR REPLACE INTO pageIndex (slug, title, tagsJson, description, contentHash, sensitive, size)
+      ...bulkIndexInserts("pageIndex", `INSERT OR REPLACE INTO pageIndex (slug, title, tagsJson, description, contentHash, sensitive, size)
           SELECT json_extract(value, '$.slug'), json_extract(value, '$.title'), json_extract(value, '$.tags'),
             json_extract(value, '$.description'), json_extract(value, '$.contentHash'),
-            json_extract(value, '$.sensitive'), json_extract(value, '$.size') FROM json_each(?)`,
-        bindValues: [pagesJson],
-        writeTables: new Set(["pageIndex"]),
-      },
-      {
-        sql: `INSERT OR REPLACE INTO assetIndex (path, kind, contentHash, size)
+            json_extract(value, '$.sensitive'), json_extract(value, '$.size') FROM json_each(?)`, pages),
+      ...bulkIndexInserts("assetIndex", `INSERT OR REPLACE INTO assetIndex (path, kind, contentHash, size)
           SELECT json_extract(value, '$.path'), json_extract(value, '$.kind'),
-            json_extract(value, '$.contentHash'), json_extract(value, '$.size') FROM json_each(?)`,
-        bindValues: [assetsJson],
-        writeTables: new Set(["assetIndex"]),
-      },
+            json_extract(value, '$.contentHash'), json_extract(value, '$.size') FROM json_each(?)`, assets),
       ...reconcileContent,
     ];
   },
