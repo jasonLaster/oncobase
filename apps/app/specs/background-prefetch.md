@@ -43,6 +43,28 @@ and return at most 200 slugs, without counts or timestamps.
 - The manual Warm cache action uses the same scheduler and budgets, with an
   additional bounded fallback list when ranking history is sparse.
 
+## Link intent and early page context
+
+A mouse hover or keyboard focus held for 350 ms promotes one known document to
+an intent fetch. Delegated listeners cover document and sidebar links without
+per-link subscriptions. Brief pointer flyovers, touch pointers, external links,
+downloads, links with query parameters, same-page anchors, and unknown manifest
+slugs are ignored. The next available scheduler turn skips ranking/visit work to
+fetch the intended body; an already-running background request remains serial.
+Intent never generates visit counts and observes the same count, byte, visibility,
+network, storage-pressure, and foreground-work restrictions as normal warming.
+
+While an uncached public document loads, its local manifest supplies its real
+title, tags, and description. The body remains an accessible loading placeholder.
+The shared document layout keeps the title at the same coordinates when the body
+arrives, including on mobile. Sensitive or unknown destinations retain a neutral
+skeleton until their body/access result resolves. Cached bodies keep the existing
+stale-while-revalidate behavior.
+
+`e2e/reader-intent.spec.ts` proves mouse and keyboard warming by blocking all body
+networking before navigation, exercises speculation exclusions/resource pressure,
+and holds body responses to verify useful early context and stable title geometry.
+
 ## Authorization and configuration
 
 The existing site password gate protects `/api/wiki/prefetch`. Session-scoped

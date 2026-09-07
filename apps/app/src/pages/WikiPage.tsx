@@ -8,6 +8,7 @@ import {
 } from "@oncobase/wiki-markdown";
 import {
   openWikiAuthDialog,
+  DocumentOutlineShell,
   WikiBreadcrumbs,
   WikiPageActionButton,
   WikiPageHeader,
@@ -20,6 +21,7 @@ import {
 import {
   WikiEmptyState,
   WikiPageLoading,
+  WikiMarkdownBodySkeleton,
   WikiSensitiveUnavailable,
 } from "@oncobase/wiki-shell/page-states";
 import {
@@ -306,21 +308,35 @@ export function WikiPage({
     });
   }, [onMetrics, page?.content, page?.slug, routeSlug, slug]);
 
-  if (routePending) {
-    return (
-      <article
-        className="page-shell page-shell-loading"
-        data-navigation-pending="true"
-        data-test-id="document-article"
-      >
-        <WikiPageLoading
-          data-test-id="page-loading"
-          includeTags={Boolean(routeIndex?.tagsJson)}
-          label="Loading page"
+  const loadingPage = routeIndex && !routeIndex.sensitive ? (
+    <DocumentOutlineShell
+      articleClassName="page-shell"
+      contentKey={`${slug}:loading`}
+      documentSlug={slug}
+      documentTitle={metadataPageTitle ?? routeIndex.title}
+      mobileRail={false}
+      pathname={location.pathname}
+    >
+      <div aria-busy="true" data-navigation-pending={routePending || undefined}>
+        <WikiPageHeader
+          // Reserve the eventual copy control so long titles keep their wrapping.
+          actions={<span aria-hidden="true" style={{ display: "block", width: 28, height: 28 }} />}
+          title={<MarkdownTitle title={metadataPageTitle ?? routeIndex.title} currentSlug={slug} />}
+          metadata={parseJsonArray<string>(routeIndex.tagsJson).length ? (
+            <WikiTagList tags={parseJsonArray<string>(routeIndex.tagsJson)} renderTag={tag => <Link key={tag} to={`/tags/${encodeURIComponent(tag)}`}>{tag}</Link>} />
+          ) : undefined}
         />
-      </article>
-    );
-  }
+        {routeIndex.description ? <p className="wiki-shell-muted" data-test-id="page-loading-description">{routeIndex.description}</p> : null}
+        <WikiMarkdownBodySkeleton data-test-id="page-loading" aria-label="Loading page body" />
+      </div>
+    </DocumentOutlineShell>
+  ) : (
+    <article className="page-shell page-shell-loading" data-test-id="document-article" aria-busy="true">
+      <WikiPageLoading data-test-id="page-loading" label="Loading page" />
+    </article>
+  );
+
+  if (routePending) return loadingPage;
 
   if (deleted) {
     return (
@@ -430,15 +446,7 @@ export function WikiPage({
       );
     }
 
-    return (
-      <article className="page-shell page-shell-loading" data-test-id="document-article">
-        <WikiPageLoading
-          data-test-id="page-loading"
-          includeTags={Boolean(index?.tagsJson)}
-          label="Loading page"
-        />
-      </article>
-    );
+    return loadingPage;
   }
 
   const displayTitle =
