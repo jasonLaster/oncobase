@@ -80,9 +80,9 @@ export function injectHtmlFirstPage(html: string, page: PublicPage, url: URL, si
     origin: url.origin, pathname: url.pathname, siteSlug, scope: "public",
     page: { slug: page.slug, title: page.title, content: page.content,
       contentHash: page.contentHash, tags: page.tags ?? [], sensitive: false,
-      size: new TextEncoder().encode(page.content).byteLength },
+      size: Buffer.byteLength(page.content) },
   });
-  const bootstrap = new TextEncoder().encode(payload).byteLength <= MAX_BOOTSTRAP_BYTES
+  const bootstrap = Buffer.byteLength(payload) <= MAX_BOOTSTRAP_BYTES
     ? `<script id="wiki-page-bootstrap" type="application/json">${payload}</script>` : "";
   const interactive = new URL(url);
   interactive.searchParams.set("html-first", "off");
