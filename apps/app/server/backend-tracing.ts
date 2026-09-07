@@ -112,7 +112,15 @@ export function traceConvexClient(client: ConvexHttpClient, tracerOverride?: Tra
         }, current.span ? trace.setSpan(ROOT_CONTEXT, current.span) : ROOT_CONTEXT);
         const call = { operation: property, name, durationMs: 0, failed: false, pending: true };
         current.profile.calls.push(call);
-        try { return await value.apply(target, args); }
+        try {
+          const result = await value.apply(target, args);
+          const rows = Array.isArray(result) ? result : result?.page;
+          if (span?.isRecording() && Array.isArray(rows)) {
+            span.setAttribute("convex.result.rows", rows.length);
+            span.setAttribute("convex.result.content_characters", rows.reduce((sum, row) => sum + (typeof row?.content === "string" ? row.content.length : 0), 0));
+          }
+          return result;
+        }
         catch (error) {
           call.failed = true;
           span?.setStatus({ code: SpanStatusCode.ERROR });
@@ -124,5 +132,20 @@ export function traceConvexClient(client: ConvexHttpClient, tracerOverride?: Tra
         }
       };
     },
+  });
+}
+
+/** Fixed names only; record phase timing without recording user data. */
+export async function traceBackendPhase<T>(
+  name: "search.corpus" | "search.prepare" | "search.match" | "manifest.snapshot-read",
+  run: () => T | Promise<T>,
+): Promise<T> {
+  const current = requests.getStore();
+  if (!current?.tracer || !current.span) return run();
+  const span = current.tracer.startSpan(name, { kind: SpanKind.INTERNAL }, trace.setSpan(ROOT_CONTEXT, current.span));
+  return requests.run({ ...current, span }, async () => {
+    try { return await run(); }
+    catch (error) { span.setStatus({ code: SpanStatusCode.ERROR }); throw error; }
+    finally { span.end(); }
   });
 }

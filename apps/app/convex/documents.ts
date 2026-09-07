@@ -8,6 +8,7 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
+import { invalidateManifest } from "./lib/manifestRevision";
 import { hasCompleteAssetVisibility } from "./lib/assetVisibility";
 
 // Multi-tenant scoping: every public function takes an optional
@@ -523,6 +524,7 @@ export const upsert = mutation({
       ) {
         return { skipped: true };
       }
+      await invalidateManifest(ctx, site.siteId);
       await ctx.db.patch(existing._id, {
         title,
         content,
@@ -539,6 +541,7 @@ export const upsert = mutation({
       });
       return { skipped: false };
     }
+    await invalidateManifest(ctx, site.siteId);
     await ctx.db.insert("documents", {
       ...(site.siteId ? { siteId: site.siteId } : {}),
       slug,
@@ -571,6 +574,7 @@ export const setContentHash = mutation({
     const doc = await findDocBySlug(ctx, site, slug);
     if (!doc) return { found: false, patched: false };
     if (doc.contentHash === contentHash) return { found: true, patched: false };
+    await invalidateManifest(ctx, site.siteId);
     await ctx.db.patch(doc._id, { contentHash });
     return { found: true, patched: true };
   },
@@ -609,6 +613,7 @@ export const bulkSetContentHash = mutation({
       await ctx.db.patch(doc._id, { contentHash, hashFunctionVersion });
       patched++;
     }
+    if (patched) await invalidateManifest(ctx, site.siteId);
     return { patched, alreadyMatching, missing };
   },
 });
@@ -652,6 +657,7 @@ export const setDescription = mutation({
     const site = await requireSite(ctx, siteSlug);
     const doc = await findDocBySlug(ctx, site, slug);
     if (!doc) return { found: false };
+    await invalidateManifest(ctx, site.siteId);
     await ctx.db.patch(doc._id, { description });
     return { found: true };
   },
@@ -666,6 +672,7 @@ export const deleteBySlug = mutation({
     // Tombstone rather than hard-delete — gives a 90-day undo window.
     // Phase 4's publish/finish writes deletedAt; Phase 6 destroy
     // hard-deletes rows past the retention window.
+    await invalidateManifest(ctx, site.siteId);
     await ctx.db.patch(doc._id, { deletedAt: Date.now() });
     return { deleted: true };
   },
@@ -1049,6 +1056,7 @@ export const upsertPdfAsset = mutation({
     },
   ) => {
     const site = await requireSite(ctx, siteSlug);
+    await invalidateManifest(ctx, site.siteId);
     const existing = await findAssetByPath(ctx, "pdfAssets", site, path);
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -1136,6 +1144,7 @@ export const backfillAssetHashes = mutation({
       result.patched++;
     }
 
+    if (result.patched) await invalidateManifest(ctx, site.siteId);
     return result;
   },
 });
@@ -1146,6 +1155,7 @@ export const deletePdfAssetByPath = mutation({
     const site = await requireSite(ctx, siteSlug);
     const row = await findAssetByPath(ctx, "pdfAssets", site, path);
     if (!row) return { deleted: false };
+    await invalidateManifest(ctx, site.siteId);
     await ctx.db.patch(row._id, { deletedAt: Date.now() });
     return { deleted: true };
   },
@@ -1498,6 +1508,7 @@ export const upsertFileAsset = mutation({
     },
   ) => {
     const site = await requireSite(ctx, siteSlug);
+    await invalidateManifest(ctx, site.siteId);
     const existing = await findAssetByPath(ctx, "fileAssets", site, path);
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -1535,6 +1546,7 @@ export const deleteFileAssetByPath = mutation({
     const site = await requireSite(ctx, siteSlug);
     const row = await findAssetByPath(ctx, "fileAssets", site, path);
     if (!row) return { deleted: false };
+    await invalidateManifest(ctx, site.siteId);
     await ctx.db.patch(row._id, { deletedAt: Date.now() });
     return { deleted: true };
   },

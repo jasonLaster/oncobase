@@ -333,3 +333,50 @@ test("manifest order and hash do not depend on sensitivity index grouping", asyn
   expect(second.manifestHash).toBe(first.manifestHash);
   expect(second.pages).toEqual(first.pages);
 });
+
+describe("versioned public manifest snapshots", () => {
+  test("serves identical bytes without pagination and validates without reading storage", async () => {
+    const { context, calls } = manifestContext();
+    const live = await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context);
+    const json = await live.text();
+    const hash = JSON.parse(json).manifestHash;
+    const before = calls();
+    let reads = 0;
+    context.getManifestSnapshot = async () => ({ hash, read: async () => { reads++; return json; } });
+    const fast = await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context);
+    expect(await fast.text()).toBe(json);
+    expect(fast.headers.get("etag")).toBe(live.headers.get("etag"));
+    expect(fast.headers.get("x-wiki-manifest-source")).toBe("snapshot");
+    const validated = await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest", { headers: { "if-none-match": `"${hash}"` } }), context);
+    expect(validated.status).toBe(304);
+    expect(reads).toBe(1);
+    expect(calls()).toEqual(before);
+  });
+
+  test("storage failures and stale snapshots fall back to live reads", async () => {
+    for (const snapshot of [null, { hash: "old", read: async () => { throw new Error("Retired storage"); } }]) {
+      const { context, calls } = manifestContext();
+      context.getManifestSnapshot = async () => snapshot;
+      const result = await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context);
+      expect(result.status).toBe(200);
+      expect(result.headers.get("x-wiki-manifest-source")).toBe("manifest");
+      expect(calls().manifestPageSizes.length).toBeGreaterThan(0);
+    }
+  });
+
+  test("session requests never consult a shared snapshot; gate headers still override caching", async () => {
+    const { context } = manifestContext();
+    let calls = 0;
+    context.getManifestSnapshot = async () => { calls++; return { hash: "current", read: async () => "{}" }; };
+    const denied = await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest?scope=session"), context);
+    expect(denied.status).toBe(401);
+    context.getSessionUser = async () => ({ _id: "user" });
+    await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest?scope=session"), context);
+    expect(calls).toBe(0);
+    context.decorateHeaders = headers => { const h = new Headers(headers); h.set("Cache-Control", "private, no-store"); h.set("CDN-Cache-Control", "no-store"); return h; };
+    const response = await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest", { headers: { "if-none-match": '"current"' } }), context);
+    expect(response.status).toBe(304);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("cdn-cache-control")).toBe("no-store");
+  });
+});

@@ -133,6 +133,8 @@ export type WikiApiContext = {
   getSessionUser(request: Request): Promise<WikiApiSessionUser | null>;
   access?: WikiApiAccessAdapter;
   manifestPrioritySlugs?: string[];
+  // Only public-scope snapshots; session responses still compute access live.
+  getManifestSnapshot?: () => Promise<{ hash: string; read: () => Promise<BodyInit> } | null>;
   decorateHeaders?: (headers: HeadersInit) => HeadersInit;
   logger?: Pick<Console, "error" | "warn">;
 };
@@ -756,6 +758,19 @@ export async function createWikiManifestResponse(
     );
   }
 
+  if (scope === "public" && context.getManifestSnapshot) {
+    try {
+      const snapshot = await context.getManifestSnapshot();
+      if (snapshot) {
+        const headers = decorate(context, { ...cacheHeaders(scope, snapshot.hash), "Content-Type": "application/json", "X-Wiki-Manifest-Source": "snapshot" });
+        if (request.headers.get("if-none-match")?.includes(snapshot.hash)) return new Response(null, { status: 304, headers });
+        return new Response(await snapshot.read(), { headers });
+      }
+    } catch {
+      // A missing, stale, failed or retired snapshot uses the normal live path.
+      // Never serve stale visibility metadata just to keep the fast path running.
+    }
+  }
   const includeSensitive = scope === "session" && Boolean(sessionUser);
   let pageResult: Awaited<ReturnType<typeof listManifestPages>>;
   let assets: WikiManifestAsset[];

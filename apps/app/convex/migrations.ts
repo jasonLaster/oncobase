@@ -31,6 +31,7 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
+import { invalidateManifest } from "./lib/manifestRevision";
 import { DEFAULT_SITE_SLUG } from "./lib/site";
 
 const BATCH_SIZE = 200;
@@ -274,6 +275,7 @@ export const backfillSiteIdsBatch = mutation({
       await ctx.db.patch(row._id, { siteId });
       patched++;
     }
+    if (patched && (table === "documents" || table === "pdfAssets" || table === "fileAssets")) await invalidateManifest(ctx, siteId);
     return {
       table,
       scanned: page.page.length,

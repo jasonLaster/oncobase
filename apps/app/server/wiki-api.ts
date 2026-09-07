@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { traceBackendHandler, traceConvexClient } from "./backend-tracing";
+import { traceBackendHandler, traceConvexClient, traceBackendPhase } from "./backend-tracing";
+import { prepareSearchPage, redactionConfigurationKey, type SearchablePage } from "./search-corpus";
 import {
   USER_SESSION_COOKIE,
   USER_SESSION_TTL_MS,
@@ -138,7 +139,8 @@ type SearchCorpusPage = PageDownloadResult["page"][number];
 
 type SearchCorpusCacheEntry = {
   expires: number;
-  pages: Promise<SearchCorpusPage[]>;
+  pages: Promise<SearchablePage[]>;
+  redactionKey: string;
 };
 
 // Vite development intentionally runs React effects twice. Keep concurrent
@@ -2199,39 +2201,23 @@ async function loadSearchCorpus(
   siteSlug: string,
   includeSensitive: boolean,
   sessionUser: SessionUser | null,
+  patterns: PiiPattern[] | undefined,
 ) {
-  const pages: SearchCorpusPage[] = [];
-  let cursor: string | null = null;
-  let isDone = false;
-
-  while (!isDone) {
-    const pageResult = (await client.query(
-      api.documents.listPageWithContent,
-      withSiteSlug(
-        siteSlug,
-        includeSensitive
-          ? {
-              cursor,
-              numItems: SEARCH_DOCUMENT_PAGE_SIZE,
-              includeSensitive: true as const,
-            }
-          : { cursor, numItems: SEARCH_DOCUMENT_PAGE_SIZE },
-      ),
-    )) as PageDownloadResult;
-    pages.push(
-      ...(await filterAccessiblePages(
-        client,
-        siteSlug,
-        sessionUser,
-        pageResult.page,
-      )),
-    );
-
-    isDone = pageResult.isDone;
-    cursor = pageResult.continueCursor;
-    if (!isDone && !cursor) {
-      throw new Error("Search pagination failed");
-    }
+  const pages: SearchablePage[] = [];
+  const fetchPage = (cursor: string | null): Promise<PageDownloadResult> => client.query(
+    api.documents.listPageWithContent,
+    withSiteSlug(siteSlug, { cursor, numItems: SEARCH_DOCUMENT_PAGE_SIZE, ...(includeSensitive ? { includeSensitive: true } : {}) }),
+  );
+  let pending: Promise<PageDownloadResult> | null = fetchPage(null);
+  while (pending) {
+    const pageResult: PageDownloadResult = await pending;
+    if (!pageResult.isDone && !pageResult.continueCursor) throw new Error("Search pagination failed");
+    // Exactly one next read: overlap its network wait with current-page
+    // preparation. Register rejection handling even if preparation fails.
+    pending = pageResult.isDone ? null : fetchPage(pageResult.continueCursor);
+    void pending?.catch(() => undefined);
+    const visible = await filterAccessiblePages(client, siteSlug, sessionUser, pageResult.page);
+    pages.push(...await traceBackendPhase("search.prepare", () => visible.map(page => prepareSearchPage(page, patterns))));
   }
 
   return pages;
@@ -2242,13 +2228,15 @@ async function getSearchCorpus(
   siteSlug: string,
   includeSensitive: boolean,
   sessionUser: SessionUser | null,
+  patterns: PiiPattern[] | undefined,
 ) {
   if (includeSensitive) {
     // Session corpora can differ by user grants and must never share a cache.
-    return loadSearchCorpus(client, siteSlug, true, sessionUser);
+    return loadSearchCorpus(client, siteSlug, true, sessionUser, patterns);
   }
 
   const now = Date.now();
+  const redactionKey = redactionConfigurationKey(patterns);
   let clientCache = publicSearchCorpusCache.get(client);
   if (!clientCache) {
     clientCache = new Map();
@@ -2256,12 +2244,13 @@ async function getSearchCorpus(
   }
 
   const cached = clientCache.get(siteSlug);
-  if (cached && cached.expires > now) return cached.pages;
+  if (cached && cached.expires > now && cached.redactionKey === redactionKey) return cached.pages;
 
-  const pages = loadSearchCorpus(client, siteSlug, false, null);
+  const pages = loadSearchCorpus(client, siteSlug, false, null, patterns);
   clientCache.set(siteSlug, {
     expires: now + SEARCH_CORPUS_CACHE_TTL_MS,
     pages,
+    redactionKey,
   });
   try {
     return await pages;
@@ -2278,7 +2267,7 @@ function publicSearchCorpusWaitMs() {
     : PUBLIC_SEARCH_CORPUS_WAIT_MS;
 }
 
-async function waitForPublicSearchCorpus(pages: Promise<SearchCorpusPage[]>) {
+async function waitForPublicSearchCorpus(pages: Promise<SearchablePage[]>) {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<null>((resolve) => {
     timeout = setTimeout(() => resolve(null), publicSearchCorpusWaitMs());
@@ -2396,15 +2385,14 @@ async function handleSearchRequest(
       matchEnd: number;
     }>;
   }> = [];
-  const corpusPromise = getSearchCorpus(
+  const corpusPromise = traceBackendPhase("search.corpus", () => getSearchCorpus(
     client,
     siteSlug,
     includeSensitive,
     sessionUser,
-  );
-  const visiblePages = includeSensitive
-    ? await corpusPromise
-    : await waitForPublicSearchCorpus(corpusPromise);
+    patterns,
+  ));
+  const visiblePages = includeSensitive ? await corpusPromise : await waitForPublicSearchCorpus(corpusPromise);
 
   if (!visiblePages) {
     const indexedResults = await loadIndexedSearchResults(
@@ -2424,31 +2412,32 @@ async function handleSearchRequest(
     );
   }
 
-  for (const page of visiblePages) {
-    const title = applyPiiRedactions(page.title, { patterns });
-    const content = applyPiiRedactions(page.content, { patterns });
-    const matches = content.split("\n").flatMap((lineContent, index) => {
-      regex.lastIndex = 0;
-      const match = regex.exec(lineContent);
-      return match
-        ? [{
-            lineNumber: index + 1,
-            lineContent,
-            matchStart: match.index,
-            matchEnd: match.index + match[0].length,
-          }]
-        : [];
-    });
-
-    if (matches.length > 0) {
-      results.push({
-        filePath: page.slug,
-        slug: page.slug,
-        title,
-        matches,
+  await traceBackendPhase("search.match", () => {
+    for (const page of visiblePages) {
+      const title = page.title;
+      const matches = page.lines.flatMap((lineContent, index) => {
+        regex.lastIndex = 0;
+        const match = regex.exec(lineContent);
+        return match
+          ? [{
+              lineNumber: index + 1,
+              lineContent,
+              matchStart: match.index,
+              matchEnd: match.index + match[0].length,
+            }]
+          : [];
       });
+
+      if (matches.length > 0) {
+        results.push({
+          filePath: page.slug,
+          slug: page.slug,
+          title,
+          matches,
+        });
+      }
     }
-  }
+  });
 
   results.sort((a, b) => b.matches.length - a.matches.length);
   const limitedResults = Number.isFinite(limit) ? results.slice(0, limit) : results;
@@ -3413,6 +3402,18 @@ export function createWikiApiHandler(client = createClient()) {
         getSessionUser(nextRequest, client, siteSlug),
       access: createAccessAdapter(client, siteSlug),
       manifestPrioritySlugs: MANIFEST_PRIORITY_SLUGS,
+      getManifestSnapshot: process.env.WIKI_PREFETCH_SECRET ? async () => {
+        const args = { siteSlug, serverSecret: process.env.WIKI_PREFETCH_SECRET! };
+        const snapshot = await client.query(api.manifestCache.current, args);
+        if (!snapshot) { await client.mutation(api.manifestCache.requestBuild, args); return null; }
+        return { hash: snapshot.hash, read: async () => traceBackendPhase("manifest.snapshot-read", async () => {
+          const response = await fetch(snapshot.url, { signal: AbortSignal.timeout(5000) });
+          if (!response.ok) throw new Error("Manifest snapshot unavailable");
+          // Buffer before responding so a broken storage read can use the live
+          // fallback. Storage URLs never leave the server.
+          return await response.arrayBuffer();
+        }) };
+      } : undefined,
       decorateHeaders: (headers: HeadersInit) =>
         passwordGateEnabled
           ? privatePasswordGateHeaders(headers)

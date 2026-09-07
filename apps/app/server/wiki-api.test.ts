@@ -1493,3 +1493,99 @@ test("failed redaction config reads fail closed and are retried", async () => {
   expect(response!.status).toBe(200);
   expect(siteReads).toBe(4);
 });
+
+test("search starts the next page before preparation and retries a failed corpus", async () => {
+  const fake = createFakeConvexClient();
+  let nextStarted = false;
+  let failNext = true;
+  let initialReads = 0;
+  const handler = createWikiApiHandler({
+    ...fake,
+    async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      if (getFunctionName(ref) === "documents:listPageWithContent") {
+        if (args.cursor) {
+          nextStarted = true;
+          if (failNext) throw new Error("next page unavailable");
+          return { page: [], isDone: true, continueCursor: null };
+        }
+        initialReads++;
+        return { page: [{ slug: "public", title: "Fixture", tags: [], get content() {
+          expect(nextStarted).toBe(true);
+          return "fixture match";
+        } }], isDone: false, continueCursor: "second" };
+      }
+      return fake.query(ref, args);
+    },
+  } as never);
+  await expect(handler(request("/api/search?q=fixture"))).rejects.toThrow("next page unavailable");
+  failNext = false;
+  nextStarted = false;
+  const response = await handler(request("/api/search?q=fixture"));
+  expect((await response!.json()).results).toHaveLength(1);
+  expect(initialReads).toBe(2);
+});
+
+test("prepared public search data is reused, but redaction changes and corpus expiry rebuild it", async () => {
+  const fake = createFakeConvexClient();
+  let corpusLoads = 0;
+  let rules = ['/ALPHA/gi=>MASKED'];
+  let offset = 0;
+  const originalNow = Date.now;
+  Date.now = () => originalNow() + offset;
+  const handler = createWikiApiHandler({
+    ...fake,
+    async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      const name = getFunctionName(ref);
+      if (name === "sites:getBySlug") return { slug: args.slug, config: { passwordGate: false, piiPatterns: rules } };
+      if (name === "documents:listPageWithContent") {
+        corpusLoads++;
+        return { page: [{ slug: "public", title: "Fixture", content: "ALPHA\nBETA", tags: [] }], isDone: true, continueCursor: null };
+      }
+      return fake.query(ref, args);
+    },
+  } as never);
+  const search = async (q: string) => {
+    const response = await handler(request(`/api/search?q=${q}`));
+    expect(response!.status).toBe(200);
+    return (await response!.json()).results;
+  };
+  try {
+    expect(await search("ALPHA")).toEqual([]);
+    expect((await search("MASKED"))[0].matches).toEqual([{ lineNumber: 1, lineContent: "MASKED", matchStart: 0, matchEnd: 6 }]);
+    expect(corpusLoads).toBe(1);
+    // Configuration expires independently of the 60-second content cache.
+    offset = 15_001;
+    rules = ['/BETA/gi=>HIDDEN'];
+    expect((await search("ALPHA"))[0].matches[0].lineContent).toBe("ALPHA");
+    expect(await search("BETA")).toEqual([]);
+    expect(corpusLoads).toBe(2);
+    offset += 60_001;
+    await search("ALPHA");
+    expect(corpusLoads).toBe(3);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test("manifest validation uses two backend queries and reads no document pages", async () => {
+  const saved = process.env.WIKI_PREFETCH_SECRET;
+  process.env.WIKI_PREFETCH_SECRET = "synthetic-manifest-http-key-00000000000000";
+  const calls: string[] = [];
+  const base = createFakeConvexClient();
+  try {
+    const client = { ...base, query: async (ref: FunctionReference<"query">, args: Record<string, unknown>) => {
+      const name = getFunctionName(ref);
+      calls.push(name);
+      if (name === "manifestCache:current") return { hash: "current-manifest", url: "https://must-not-fetch.invalid/snapshot" };
+      return base.query(ref, args);
+    } };
+    const handler = createWikiApiHandler(client as never);
+    const response = await handler(request("/api/wiki/manifest", { headers: { "if-none-match": '\"current-manifest\"' } }));
+    expect(response?.status).toBe(304);
+    expect(response?.headers.get("x-wiki-manifest-source")).toBe("snapshot");
+    expect(calls).toEqual(["sites:getBySlug", "manifestCache:current"]);
+  } finally {
+    if (saved === undefined) delete process.env.WIKI_PREFETCH_SECRET;
+    else process.env.WIKI_PREFETCH_SECRET = saved;
+  }
+});

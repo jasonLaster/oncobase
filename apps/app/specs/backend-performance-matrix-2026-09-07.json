@@ -1,0 +1,930 @@
+{
+  "pairedSamples": [
+    {
+      "variant": "baseline",
+      "scenario": "manifest-cold",
+      "run": 1,
+      "status": 200,
+      "completeMs": 3232,
+      "bytes": 3630883,
+      "semanticHash": "10272c0174065802ee8c07912593d06532e1bb6d6c48167df66136cfe97f35ea",
+      "resultCount": 6654,
+      "complete": null
+    },
+    {
+      "variant": "baseline",
+      "scenario": "manifest-revalidate",
+      "run": 1,
+      "status": 304,
+      "completeMs": 3183,
+      "bytes": 0,
+      "semanticHash": null,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "variant": "baseline",
+      "scenario": "search-cold",
+      "run": 1,
+      "status": 200,
+      "completeMs": 13943,
+      "bytes": 4605737,
+      "semanticHash": "b40e9daa19323e1fec66f10cccc10ffbc3107cafe46aeb09d7dcf744931af701",
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "baseline",
+      "scenario": "search-warm",
+      "run": 1,
+      "status": 200,
+      "completeMs": 2295,
+      "bytes": 4605737,
+      "semanticHash": "b40e9daa19323e1fec66f10cccc10ffbc3107cafe46aeb09d7dcf744931af701",
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "baseline",
+      "scenario": "search-no-match-warm",
+      "run": 1,
+      "status": 200,
+      "completeMs": 2325,
+      "bytes": 14,
+      "semanticHash": "5021e624e752b001ce3e3846e8f158ed4aeb93a4c9a72fdb35a0c5b14a0eea84",
+      "resultCount": 0,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "candidate",
+      "scenario": "manifest-cold",
+      "run": 1,
+      "status": 200,
+      "completeMs": 870,
+      "bytes": 3630883,
+      "semanticHash": "10272c0174065802ee8c07912593d06532e1bb6d6c48167df66136cfe97f35ea",
+      "resultCount": 6654,
+      "complete": null
+    },
+    {
+      "variant": "candidate",
+      "scenario": "manifest-revalidate",
+      "run": 1,
+      "status": 304,
+      "completeMs": 185,
+      "bytes": 0,
+      "semanticHash": null,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "variant": "candidate",
+      "scenario": "search-cold",
+      "run": 1,
+      "status": 200,
+      "completeMs": 10151,
+      "bytes": 4605737,
+      "semanticHash": "b40e9daa19323e1fec66f10cccc10ffbc3107cafe46aeb09d7dcf744931af701",
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "candidate",
+      "scenario": "search-warm",
+      "run": 1,
+      "status": 200,
+      "completeMs": 185,
+      "bytes": 4605737,
+      "semanticHash": "b40e9daa19323e1fec66f10cccc10ffbc3107cafe46aeb09d7dcf744931af701",
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "candidate",
+      "scenario": "search-no-match-warm",
+      "run": 1,
+      "status": 200,
+      "completeMs": 161,
+      "bytes": 14,
+      "semanticHash": "5021e624e752b001ce3e3846e8f158ed4aeb93a4c9a72fdb35a0c5b14a0eea84",
+      "resultCount": 0,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "candidate",
+      "scenario": "manifest-cold",
+      "run": 2,
+      "status": 200,
+      "completeMs": 534,
+      "bytes": 3630883,
+      "semanticHash": "10272c0174065802ee8c07912593d06532e1bb6d6c48167df66136cfe97f35ea",
+      "resultCount": 6654,
+      "complete": null
+    },
+    {
+      "variant": "candidate",
+      "scenario": "manifest-revalidate",
+      "run": 2,
+      "status": 304,
+      "completeMs": 180,
+      "bytes": 0,
+      "semanticHash": null,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "variant": "candidate",
+      "scenario": "search-cold",
+      "run": 2,
+      "status": 200,
+      "completeMs": 10532,
+      "bytes": 4605737,
+      "semanticHash": "b40e9daa19323e1fec66f10cccc10ffbc3107cafe46aeb09d7dcf744931af701",
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "candidate",
+      "scenario": "search-warm",
+      "run": 2,
+      "status": 200,
+      "completeMs": 187,
+      "bytes": 4605737,
+      "semanticHash": "b40e9daa19323e1fec66f10cccc10ffbc3107cafe46aeb09d7dcf744931af701",
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "candidate",
+      "scenario": "search-no-match-warm",
+      "run": 2,
+      "status": 200,
+      "completeMs": 211,
+      "bytes": 14,
+      "semanticHash": "5021e624e752b001ce3e3846e8f158ed4aeb93a4c9a72fdb35a0c5b14a0eea84",
+      "resultCount": 0,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "baseline",
+      "scenario": "manifest-cold",
+      "run": 2,
+      "status": 200,
+      "completeMs": 3093,
+      "bytes": 3630883,
+      "semanticHash": "10272c0174065802ee8c07912593d06532e1bb6d6c48167df66136cfe97f35ea",
+      "resultCount": 6654,
+      "complete": null
+    },
+    {
+      "variant": "baseline",
+      "scenario": "manifest-revalidate",
+      "run": 2,
+      "status": 304,
+      "completeMs": 3188,
+      "bytes": 0,
+      "semanticHash": null,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "variant": "baseline",
+      "scenario": "search-cold",
+      "run": 2,
+      "status": 200,
+      "completeMs": 11009,
+      "bytes": 4605737,
+      "semanticHash": "b40e9daa19323e1fec66f10cccc10ffbc3107cafe46aeb09d7dcf744931af701",
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "baseline",
+      "scenario": "search-warm",
+      "run": 2,
+      "status": 200,
+      "completeMs": 2234,
+      "bytes": 4605737,
+      "semanticHash": "b40e9daa19323e1fec66f10cccc10ffbc3107cafe46aeb09d7dcf744931af701",
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "baseline",
+      "scenario": "search-no-match-warm",
+      "run": 2,
+      "status": 200,
+      "completeMs": 2590,
+      "bytes": 14,
+      "semanticHash": "5021e624e752b001ce3e3846e8f158ed4aeb93a4c9a72fdb35a0c5b14a0eea84",
+      "resultCount": 0,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "baseline",
+      "scenario": "manifest-cold",
+      "run": 3,
+      "status": 200,
+      "completeMs": 3212,
+      "bytes": 3630883,
+      "semanticHash": "10272c0174065802ee8c07912593d06532e1bb6d6c48167df66136cfe97f35ea",
+      "resultCount": 6654,
+      "complete": null
+    },
+    {
+      "variant": "baseline",
+      "scenario": "manifest-revalidate",
+      "run": 3,
+      "status": 304,
+      "completeMs": 3117,
+      "bytes": 0,
+      "semanticHash": null,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "variant": "baseline",
+      "scenario": "search-cold",
+      "run": 3,
+      "status": 200,
+      "completeMs": 14196,
+      "bytes": 4605737,
+      "semanticHash": "b40e9daa19323e1fec66f10cccc10ffbc3107cafe46aeb09d7dcf744931af701",
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "baseline",
+      "scenario": "search-warm",
+      "run": 3,
+      "status": 200,
+      "completeMs": 3115,
+      "bytes": 4605737,
+      "semanticHash": "b40e9daa19323e1fec66f10cccc10ffbc3107cafe46aeb09d7dcf744931af701",
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "baseline",
+      "scenario": "search-no-match-warm",
+      "run": 3,
+      "status": 200,
+      "completeMs": 2966,
+      "bytes": 14,
+      "semanticHash": "5021e624e752b001ce3e3846e8f158ed4aeb93a4c9a72fdb35a0c5b14a0eea84",
+      "resultCount": 0,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "candidate",
+      "scenario": "manifest-cold",
+      "run": 3,
+      "status": 200,
+      "completeMs": 444,
+      "bytes": 3630883,
+      "semanticHash": "10272c0174065802ee8c07912593d06532e1bb6d6c48167df66136cfe97f35ea",
+      "resultCount": 6654,
+      "complete": null
+    },
+    {
+      "variant": "candidate",
+      "scenario": "manifest-revalidate",
+      "run": 3,
+      "status": 304,
+      "completeMs": 195,
+      "bytes": 0,
+      "semanticHash": null,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "variant": "candidate",
+      "scenario": "search-cold",
+      "run": 3,
+      "status": 200,
+      "completeMs": 11556,
+      "bytes": 4605737,
+      "semanticHash": "b40e9daa19323e1fec66f10cccc10ffbc3107cafe46aeb09d7dcf744931af701",
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "candidate",
+      "scenario": "search-warm",
+      "run": 3,
+      "status": 200,
+      "completeMs": 201,
+      "bytes": 4605737,
+      "semanticHash": "b40e9daa19323e1fec66f10cccc10ffbc3107cafe46aeb09d7dcf744931af701",
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "variant": "candidate",
+      "scenario": "search-no-match-warm",
+      "run": 3,
+      "status": 200,
+      "completeMs": 202,
+      "bytes": 14,
+      "semanticHash": "5021e624e752b001ce3e3846e8f158ed4aeb93a4c9a72fdb35a0c5b14a0eea84",
+      "resultCount": 0,
+      "complete": "exhaustive"
+    }
+  ],
+  "broadCandidateSamples": [
+    {
+      "scenario": "gate-denied",
+      "run": 1,
+      "status": 401,
+      "completeMs": 170,
+      "bytes": 49,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "session-public",
+      "run": 1,
+      "status": 200,
+      "completeMs": 0,
+      "bytes": 124,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "session-missing",
+      "run": 1,
+      "status": 401,
+      "completeMs": 0,
+      "bytes": 59,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "auth-session-anonymous",
+      "run": 1,
+      "status": 200,
+      "completeMs": 0,
+      "bytes": 13,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "manifest-cold",
+      "run": 1,
+      "status": 200,
+      "completeMs": 889,
+      "bytes": 3630883,
+      "resultCount": 6654,
+      "complete": null
+    },
+    {
+      "scenario": "manifest-revalidate",
+      "run": 1,
+      "status": 304,
+      "completeMs": 226,
+      "bytes": 0,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "page-single-cold",
+      "run": 1,
+      "status": 200,
+      "completeMs": 390,
+      "bytes": 19929,
+      "resultCount": 1,
+      "complete": null
+    },
+    {
+      "scenario": "page-single-warm",
+      "run": 1,
+      "status": 200,
+      "completeMs": 262,
+      "bytes": 19929,
+      "resultCount": 1,
+      "complete": null
+    },
+    {
+      "scenario": "pages-25",
+      "run": 1,
+      "status": 200,
+      "completeMs": 1097,
+      "bytes": 4286008,
+      "resultCount": 25,
+      "complete": null
+    },
+    {
+      "scenario": "pages-100",
+      "run": 1,
+      "status": 200,
+      "completeMs": 970,
+      "bytes": 5651823,
+      "resultCount": 100,
+      "complete": null
+    },
+    {
+      "scenario": "page-missing",
+      "run": 1,
+      "status": 200,
+      "completeMs": 693,
+      "bytes": 125,
+      "resultCount": 0,
+      "complete": null
+    },
+    {
+      "scenario": "page-denied",
+      "run": 1,
+      "status": 200,
+      "completeMs": 390,
+      "bytes": 348,
+      "resultCount": 0,
+      "complete": null
+    },
+    {
+      "scenario": "page-copy",
+      "run": 1,
+      "status": 200,
+      "completeMs": 236,
+      "bytes": 19367,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "prefetch-public",
+      "run": 1,
+      "status": 200,
+      "completeMs": 242,
+      "bytes": 226,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "timeline",
+      "run": 1,
+      "status": 200,
+      "completeMs": 349,
+      "bytes": 29571,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "diagnostic-studies",
+      "run": 1,
+      "status": 200,
+      "completeMs": 262,
+      "bytes": 6103,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "dicom-studies",
+      "run": 1,
+      "status": 200,
+      "completeMs": 489,
+      "bytes": 80824,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "dicom-comparisons",
+      "run": 1,
+      "status": 200,
+      "completeMs": 223,
+      "bytes": 36755,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "search-cold",
+      "run": 1,
+      "status": 200,
+      "completeMs": 16789,
+      "bytes": 55863,
+      "resultCount": 100,
+      "complete": "indexed"
+    },
+    {
+      "scenario": "search-warm",
+      "run": 1,
+      "status": 200,
+      "completeMs": 3088,
+      "bytes": 4605737,
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "scenario": "search-no-match-warm",
+      "run": 1,
+      "status": 200,
+      "completeMs": 212,
+      "bytes": 14,
+      "resultCount": 0,
+      "complete": "exhaustive"
+    },
+    {
+      "scenario": "download-markdown-25",
+      "run": 1,
+      "status": 200,
+      "completeMs": 1883,
+      "bytes": 1643921,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "gate-denied",
+      "run": 2,
+      "status": 401,
+      "completeMs": 204,
+      "bytes": 49,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "session-public",
+      "run": 2,
+      "status": 200,
+      "completeMs": 0,
+      "bytes": 124,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "session-missing",
+      "run": 2,
+      "status": 401,
+      "completeMs": 0,
+      "bytes": 59,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "auth-session-anonymous",
+      "run": 2,
+      "status": 200,
+      "completeMs": 0,
+      "bytes": 13,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "manifest-cold",
+      "run": 2,
+      "status": 200,
+      "completeMs": 964,
+      "bytes": 3630883,
+      "resultCount": 6654,
+      "complete": null
+    },
+    {
+      "scenario": "manifest-revalidate",
+      "run": 2,
+      "status": 304,
+      "completeMs": 370,
+      "bytes": 0,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "page-single-cold",
+      "run": 2,
+      "status": 200,
+      "completeMs": 320,
+      "bytes": 19929,
+      "resultCount": 1,
+      "complete": null
+    },
+    {
+      "scenario": "page-single-warm",
+      "run": 2,
+      "status": 200,
+      "completeMs": 216,
+      "bytes": 19929,
+      "resultCount": 1,
+      "complete": null
+    },
+    {
+      "scenario": "pages-25",
+      "run": 2,
+      "status": 200,
+      "completeMs": 660,
+      "bytes": 4286008,
+      "resultCount": 25,
+      "complete": null
+    },
+    {
+      "scenario": "pages-100",
+      "run": 2,
+      "status": 200,
+      "completeMs": 894,
+      "bytes": 5651823,
+      "resultCount": 100,
+      "complete": null
+    },
+    {
+      "scenario": "page-missing",
+      "run": 2,
+      "status": 200,
+      "completeMs": 678,
+      "bytes": 125,
+      "resultCount": 0,
+      "complete": null
+    },
+    {
+      "scenario": "page-denied",
+      "run": 2,
+      "status": 200,
+      "completeMs": 363,
+      "bytes": 348,
+      "resultCount": 0,
+      "complete": null
+    },
+    {
+      "scenario": "page-copy",
+      "run": 2,
+      "status": 200,
+      "completeMs": 217,
+      "bytes": 19367,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "prefetch-public",
+      "run": 2,
+      "status": 200,
+      "completeMs": 227,
+      "bytes": 226,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "timeline",
+      "run": 2,
+      "status": 200,
+      "completeMs": 357,
+      "bytes": 29571,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "diagnostic-studies",
+      "run": 2,
+      "status": 200,
+      "completeMs": 258,
+      "bytes": 6103,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "dicom-studies",
+      "run": 2,
+      "status": 200,
+      "completeMs": 212,
+      "bytes": 80824,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "dicom-comparisons",
+      "run": 2,
+      "status": 200,
+      "completeMs": 221,
+      "bytes": 36755,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "search-cold",
+      "run": 2,
+      "status": 200,
+      "completeMs": 15333,
+      "bytes": 55863,
+      "resultCount": 100,
+      "complete": "indexed"
+    },
+    {
+      "scenario": "search-warm",
+      "run": 2,
+      "status": 200,
+      "completeMs": 5573,
+      "bytes": 4605737,
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "scenario": "search-no-match-warm",
+      "run": 2,
+      "status": 200,
+      "completeMs": 144,
+      "bytes": 14,
+      "resultCount": 0,
+      "complete": "exhaustive"
+    },
+    {
+      "scenario": "download-markdown-25",
+      "run": 2,
+      "status": 200,
+      "completeMs": 1148,
+      "bytes": 1643921,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "gate-denied",
+      "run": 3,
+      "status": 401,
+      "completeMs": 92,
+      "bytes": 49,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "session-public",
+      "run": 3,
+      "status": 200,
+      "completeMs": 0,
+      "bytes": 124,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "session-missing",
+      "run": 3,
+      "status": 401,
+      "completeMs": 0,
+      "bytes": 59,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "auth-session-anonymous",
+      "run": 3,
+      "status": 200,
+      "completeMs": 0,
+      "bytes": 13,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "manifest-cold",
+      "run": 3,
+      "status": 200,
+      "completeMs": 834,
+      "bytes": 3630883,
+      "resultCount": 6654,
+      "complete": null
+    },
+    {
+      "scenario": "manifest-revalidate",
+      "run": 3,
+      "status": 304,
+      "completeMs": 171,
+      "bytes": 0,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "page-single-cold",
+      "run": 3,
+      "status": 200,
+      "completeMs": 295,
+      "bytes": 19929,
+      "resultCount": 1,
+      "complete": null
+    },
+    {
+      "scenario": "page-single-warm",
+      "run": 3,
+      "status": 200,
+      "completeMs": 181,
+      "bytes": 19929,
+      "resultCount": 1,
+      "complete": null
+    },
+    {
+      "scenario": "pages-25",
+      "run": 3,
+      "status": 200,
+      "completeMs": 806,
+      "bytes": 4286008,
+      "resultCount": 25,
+      "complete": null
+    },
+    {
+      "scenario": "pages-100",
+      "run": 3,
+      "status": 200,
+      "completeMs": 698,
+      "bytes": 5651823,
+      "resultCount": 100,
+      "complete": null
+    },
+    {
+      "scenario": "page-missing",
+      "run": 3,
+      "status": 200,
+      "completeMs": 460,
+      "bytes": 125,
+      "resultCount": 0,
+      "complete": null
+    },
+    {
+      "scenario": "page-denied",
+      "run": 3,
+      "status": 200,
+      "completeMs": 270,
+      "bytes": 348,
+      "resultCount": 0,
+      "complete": null
+    },
+    {
+      "scenario": "page-copy",
+      "run": 3,
+      "status": 200,
+      "completeMs": 241,
+      "bytes": 19367,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "prefetch-public",
+      "run": 3,
+      "status": 200,
+      "completeMs": 187,
+      "bytes": 226,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "timeline",
+      "run": 3,
+      "status": 200,
+      "completeMs": 300,
+      "bytes": 29571,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "diagnostic-studies",
+      "run": 3,
+      "status": 200,
+      "completeMs": 198,
+      "bytes": 6103,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "dicom-studies",
+      "run": 3,
+      "status": 200,
+      "completeMs": 251,
+      "bytes": 80824,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "dicom-comparisons",
+      "run": 3,
+      "status": 200,
+      "completeMs": 203,
+      "bytes": 36755,
+      "resultCount": null,
+      "complete": null
+    },
+    {
+      "scenario": "search-cold",
+      "run": 3,
+      "status": 200,
+      "completeMs": 14826,
+      "bytes": 4605737,
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "scenario": "search-warm",
+      "run": 3,
+      "status": 200,
+      "completeMs": 153,
+      "bytes": 4605737,
+      "resultCount": 100,
+      "complete": "exhaustive"
+    },
+    {
+      "scenario": "search-no-match-warm",
+      "run": 3,
+      "status": 200,
+      "completeMs": 247,
+      "bytes": 14,
+      "resultCount": 0,
+      "complete": "exhaustive"
+    },
+    {
+      "scenario": "download-markdown-25",
+      "run": 3,
+      "status": 200,
+      "completeMs": 1030,
+      "bytes": 1643921,
+      "resultCount": null,
+      "complete": null
+    }
+  ]
+}

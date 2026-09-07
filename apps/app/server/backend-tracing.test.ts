@@ -1,9 +1,32 @@
 import { expect, test } from "bun:test";
 import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { makeFunctionReference } from "convex/server";
-import { traceBackendHandler, traceConvexClient, type BackendProfile } from "./backend-tracing";
+import { traceBackendHandler, traceConvexClient, traceBackendPhase, type BackendProfile } from "./backend-tracing";
 
 const ref = makeFunctionReference<"query">("documents:listManifestPage");
+
+test("phase spans parent database reads and record only aggregate result sizes", async () => {
+  const exporter = new InMemorySpanExporter();
+  const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+  const tracer = provider.getTracer("phase-test");
+  const client = traceConvexClient({ query: async () => ({ page: [{ content: "PRIVATE" }, { content: "DATA" }] }) } as never);
+  const handler = traceBackendHandler(async () => {
+    await traceBackendPhase("search.corpus", () => client.query(ref, {}));
+    return new Response("ok");
+  }, { tracer });
+  await handler(new Request("https://example.test/api/search"));
+  await provider.forceFlush();
+  const spans = exporter.getFinishedSpans();
+  const root = spans.find(span => span.name === "wiki /api/search")!;
+  const phase = spans.find(span => span.name === "search.corpus")!;
+  const query = spans.find(span => span.kind === 2)!;
+  expect(phase.parentSpanContext?.spanId).toBe(root.spanContext().spanId);
+  expect(query.parentSpanContext?.spanId).toBe(phase.spanContext().spanId);
+  expect(query.attributes["convex.result.rows"]).toBe(2);
+  expect(query.attributes["convex.result.content_characters"]).toBe(11);
+  expect(JSON.stringify(spans.map(span => span.attributes))).not.toContain("PRIVATE");
+  await provider.shutdown();
+});
 
 test("overlapping requests retain parentage and expose no arguments or error messages", async () => {
   const exporter = new InMemorySpanExporter();
