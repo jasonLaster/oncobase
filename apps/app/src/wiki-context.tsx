@@ -39,3 +39,9 @@ export function useWikiScope() {
 export function useWikiSession() {
   return useContext(WikiSessionContext);
 }
+
+// Public cache content may render before the current account is verified.
+export const WikiIdentityPendingContext = createContext(false);
+export function useWikiIdentityPending() {
+  return useContext(WikiIdentityPendingContext);
+}

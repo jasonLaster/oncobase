@@ -159,7 +159,7 @@ test.describe("Session scope recovery", () => {
     expect(sessionStoreId).toContain("session");
 
     await gotoWiki(page, "/private/plan?scope=public&devtools=1");
-    await expect(documentArticle(page).locator("h1")).toHaveText("Page not found");
+    await expect(documentArticle(page).locator("h1")).toHaveText("This page may be restricted");
     await expect(documentArticle(page)).not.toContainText("Sensitive session-only planning note");
     await page.getByTestId("sidebar-search").click();
     await page.getByTestId("command-palette-input").fill("private plan");

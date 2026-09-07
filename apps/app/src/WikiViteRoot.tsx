@@ -7,6 +7,7 @@ import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { createElement, lazy, Suspense, useEffect, useState } from "react";
 import { persistPublicIdentity, resolvePublicIdentityFallback } from "./public-identity";
 import { explicitReaderScope, resolveReaderSession } from "./reader-session";
+import { WikiIdentityPendingContext } from "./wiki-context";
 
 function readScope(): WikiScope {
   // A public cache may paint while identity is checked, but it never decides
@@ -106,6 +107,7 @@ function SessionRecovery({ message }: { message: string }) {
 }
 
 export function WikiViteRoot() {
+  const [identityPending, setIdentityPending] = useState(true);
   const [state, setState] = useState<BootstrapState>(() => {
     const scope = readScope();
     const fallback = publicIdentityFallback(scope);
@@ -134,6 +136,7 @@ export function WikiViteRoot() {
     )
       .then((identity) => {
         if (!cancelled) {
+          setIdentityPending(false);
           if (identity.scope === "public") {
             try {
               persistPublicIdentity(
@@ -150,6 +153,7 @@ export function WikiViteRoot() {
       })
       .catch((error) => {
         if (!cancelled) {
+          setIdentityPending(false);
           if (scope === "public" && fallback) {
             setState({ status: "ready", scope, identity: fallback });
             return;
@@ -207,6 +211,10 @@ export function WikiViteRoot() {
         },
       ),
     },
-    createElement(LiveStoreRoot, { identity: state.identity, scope: state.scope }),
+    createElement(
+      WikiIdentityPendingContext.Provider,
+      { value: identityPending },
+      createElement(LiveStoreRoot, { identity: state.identity, scope: state.scope }),
+    ),
   );
 }

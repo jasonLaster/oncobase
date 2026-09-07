@@ -22,7 +22,6 @@ import {
   WikiEmptyState,
   WikiPageLoading,
   WikiMarkdownBodySkeleton,
-  WikiSensitiveUnavailable,
 } from "@oncobase/wiki-shell/page-states";
 import {
   Suspense,
@@ -63,11 +62,13 @@ import {
   slugFromPath,
   storageSnapshot,
 } from "../wiki-utils";
-import { useWikiScope, useWikiSession } from "../wiki-context";
+import { useWikiIdentityPending, useWikiScope, useWikiSession } from "../wiki-context";
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { REFRESH_MANIFEST_EVENT, RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
 import { PageActions } from "./PageActions";
+
+const UnavailablePage = lazy(() => import("./UnavailablePage"));
 
 const WIKI_GANTT_MARKERS: WikiMermaidGanttMarker[] = [
   { date: "2026-07-14", label: "Phase 2 (12 weeks)" },
@@ -160,6 +161,10 @@ export function WikiPage({
   const navigate = useNavigate();
   const scope = useWikiScope();
   const identity = useWikiSession();
+  const identityPending = useWikiIdentityPending();
+  const returnUrl = new URL(location.pathname + location.search + location.hash, window.location.origin);
+  returnUrl.searchParams.delete("scope");
+  const signInHref = `/login?redirect=${encodeURIComponent(returnUrl.pathname + returnUrl.search + returnUrl.hash)}`;
   const [toast, setToast] = useState<string | null>(null);
   const routeSlug = slugFromPath(location.pathname);
   const slug = contentSlugFromRouteSlug(routeSlug);
@@ -336,7 +341,7 @@ export function WikiPage({
     </article>
   );
 
-  if (routePending) return loadingPage;
+  if (routePending || (identityPending && !page?.content)) return loadingPage;
 
   if (deleted) {
     return (
@@ -350,48 +355,17 @@ export function WikiPage({
 
   if (page?.missingAt || page?.contentStatus === "missing") {
     return (
-      <WikiEmptyState
-        before={<Breadcrumbs />}
-        data-test-id="document-article"
-        title="Page not found"
-        description={`The latest manifest does not include markdown for ${slug}. This reader can keep using cached pages while the backend catches up.`}
-        actions={
-          <>
-            <Link className="wiki-shell-page-action page-action" to="/">
-              Go home
-            </Link>
-            <WikiPageActionButton
-              onClick={() => window.dispatchEvent(new Event(RETRY_PAGE_EVENT))}
-            >
-              Retry
-            </WikiPageActionButton>
-          </>
-        }
-      />
+      <Suspense fallback={loadingPage}>
+        <UnavailablePage before={<Breadcrumbs />} publicView={scope === "public"} signInHref={signInHref} />
+      </Suspense>
     );
   }
 
   if (page?.contentStatus === "sensitive-unavailable") {
     return (
-      <WikiSensitiveUnavailable
-        data-test-id="document-article"
-        slug={page.slug}
-        actions={
-          <>
-            {identity?.authenticated !== true ? (
-              <Link
-                className="wiki-shell-page-action page-action"
-                to={`/login?redirect=${encodeURIComponent(location.pathname + location.search + location.hash)}`}
-              >
-                Sign in
-              </Link>
-            ) : null}
-            <Link className="wiki-shell-page-action page-action" to="/">
-              Back to the wiki
-            </Link>
-          </>
-        }
-      />
+      <Suspense fallback={loadingPage}>
+        <UnavailablePage restricted slug={page.slug} publicView={identity?.authenticated !== true} signInHref={signInHref} />
+      </Suspense>
     );
   }
 

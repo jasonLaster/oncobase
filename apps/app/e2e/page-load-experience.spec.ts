@@ -197,8 +197,8 @@ test.describe("Page load experience", () => {
     await installWikiApiMocks(page);
     await gotoWiki(page, "/wiki/missing/not-here");
 
-    await expect(documentArticle(page).locator("h1")).toHaveText("Page not found");
-    await expect(documentArticle(page)).toContainText("wiki/missing/not-here");
+    await expect(documentArticle(page).locator("h1")).toHaveText("This page may be restricted");
+    await expect(documentArticle(page)).toContainText("Sign in to check access");
     await expect(documentArticle(page).getByRole("link", { name: "Go home" })).toHaveAttribute(
       "href",
       "/",
@@ -216,9 +216,9 @@ test.describe("Page load experience", () => {
       waitUntil: "domcontentloaded",
     });
 
-    await expect(documentArticle(page).locator("h1")).toHaveText("Page not found");
+    await expect(documentArticle(page).locator("h1")).toHaveText("This page may be restricted");
     await expect(documentArticle(page)).toContainText(
-      "wiki/missing/after-warm-manifest",
+      "Sign in to check access",
     );
     await expect(page.getByTestId("page-loading")).toHaveCount(0);
   });

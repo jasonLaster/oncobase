@@ -41,7 +41,7 @@ for (const availability of ["denied", "missing storage", "missing getDirectory",
       await gotoWiki(page, "/private/plan?scope=session");
       await expect(page.getByTestId("document-article")).toContainText("Sensitive session-only planning note");
       await gotoWiki(page, "/private/plan?scope=public");
-      await expect(page.getByTestId("document-article").locator("h1")).toHaveText("Page not found");
+      await expect(page.getByTestId("document-article").locator("h1")).toHaveText("This page may be restricted");
       await expect(page.getByTestId("document-article")).not.toContainText("Sensitive session-only planning note");
       await page.getByTestId("sidebar-search").click();
       await page.getByTestId("command-palette-input").fill("private plan");

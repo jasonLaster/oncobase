@@ -350,7 +350,7 @@ test("retires stale first-frame HTML when the refreshed public manifest makes th
   await expect.poll(() => requests.manifest.length).toBe(1);
   await expect(firstFrame).toHaveCount(0);
   await expect(page.locator("#root")).toHaveCSS("visibility", "visible");
-  await expect(documentArticle(page).getByText("Page not found")).toBeVisible();
+  await expect(documentArticle(page).getByText("This page may be restricted")).toBeVisible();
   expect(
     await page.evaluate((key) => localStorage.getItem(key), previousSnapshotKey),
   ).toBeNull();
