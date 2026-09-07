@@ -30,3 +30,14 @@ test("minified server output produces syntactically valid inline startup scripts
     }
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+
+test("large articles keep their complete readable HTML without duplicating Markdown in the startup payload", () => {
+  const large = { ...page, content: "Already present in the HTML.\n\n".repeat(10_000) };
+  const body = "<p>First paragraph.</p>" + "<p>Complete middle content.</p>".repeat(10_000) + "<p>Last paragraph.</p>";
+  const html = injectHtmlFirstShell(template, large, new URL("https://example.com/wiki/test"), "test", "", body);
+  expect(html).toContain(body);
+  expect(html).not.toContain('id="wiki-page-bootstrap"');
+  expect(html).not.toContain(large.content);
+  expect(html).toContain("Open interactive reader");
+});

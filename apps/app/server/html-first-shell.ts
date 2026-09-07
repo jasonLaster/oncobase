@@ -28,14 +28,16 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
       tag => tag.replace('rel="modulepreload"', 'data-wiki-module-preload'));
     html = html.replace("</head>", () => `<style id="wiki-critical-style">${criticalCss}</style></head>`);
   }
-  const payload = serializePageBootstrap({
+  const payload = Buffer.byteLength(page.content) <= 131_072 ? serializePageBootstrap({
     version: 1, readerVersion: WIKI_READER_CACHE_VERSION,
     origin: url.origin, pathname: url.pathname, siteSlug, scope: "public",
     page: { slug: page.slug, title: page.title, content: page.content,
       contentHash: page.contentHash, tags: page.tags ?? [], sensitive: false,
       size: Buffer.byteLength(page.content) },
-  });
-  const bootstrap = Buffer.byteLength(payload) <= MAX_BOOTSTRAP_BYTES
+  }) : "";
+  // Large articles remain complete HTML. Let the app fetch their Markdown
+  // after first paint instead of duplicating hundreds of KiB in the document.
+  const bootstrap = payload && Buffer.byteLength(payload) <= Math.min(MAX_BOOTSTRAP_BYTES, 131_072)
     ? `<script id="wiki-page-bootstrap" type="application/json">${payload}</script>` : "";
   const interactive = new URL(url);
   interactive.searchParams.set("html-first", "off");
