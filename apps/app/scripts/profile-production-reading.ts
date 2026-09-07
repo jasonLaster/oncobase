@@ -77,12 +77,15 @@ try {
       const sample = await page.evaluate(() => {
         const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming;
         return { ...(window as any).__READING_PROBE__, fcp: performance.getEntriesByName("first-contentful-paint")[0]?.startTime,
-          ttfb: nav.responseStart, requestStart: nav.requestStart, dns: nav.domainLookupEnd-nav.domainLookupStart,
+          ttfb: nav.responseStart, finalHeaders: (nav as PerformanceNavigationTiming & { finalResponseHeadersStart?: number }).finalResponseHeadersStart,
+          requestStart: nav.requestStart, dns: nav.domainLookupEnd-nav.domainLookupStart,
           connect: nav.connectEnd-nav.connectStart, htmlEnd: nav.responseEnd, htmlBytes: nav.encodedBodySize,
           server: nav.serverTiming.map(t=>({name:t.name,duration:t.duration})),
           resources: (performance.getEntriesByType("resource") as PerformanceResourceTiming[]).map(r=>({path:new URL(r.name).pathname,start:r.startTime,end:r.responseEnd,bytes:r.transferSize})) };
       });
-      const record = {run,pathname,state,status:documentResponse?.status(),cache:documentResponse?.headers()["cache-control"],errors,...sample};
+      const record = {run,pathname,state,status:documentResponse?.status(),cache:documentResponse?.headers()["cache-control"],
+        reader:documentResponse?.headers()["x-wiki-reader"], readerCache:documentResponse?.headers()["x-wiki-reader-cache"],
+        encoding:documentResponse?.headers()["content-encoding"],errors,...sample};
       samples.push(record);
       await writeFile(output + "/samples.json", JSON.stringify({origin,phase,measuredAt:new Date().toISOString(),viewport:{width:1440,height:1000},cpu:1,network:"unthrottled; fresh context per path/iteration; login outside browser; no mocked requests",samples},null,2));
       console.log(JSON.stringify({run,pathname,state,readable:Math.round(sample.readable),textPaint:sample.textPaint,fcp:sample.fcp,ttfb:Math.round(sample.ttfb),live:Math.round(sample.live),errors}));

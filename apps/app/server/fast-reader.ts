@@ -9,13 +9,26 @@ import { specialRouteMetadata } from "../src/special-route-metadata";
 import { injectHeadMetadata } from "./html-head";
 import { DEFAULT_SITE_DESCRIPTION, DIANA_SITE_NAME, legacyRouteMetadata } from "./legacy-route-metadata";
 import { injectHtmlFirstPage } from "./html-first-experiment";
+import { acceptsGzip, createEncodedReaderCache } from "./encoded-reader-cache";
+import { createReaderPolicyCache } from "./reader-policy-cache";
+import type { FunctionReturnType } from "convex/server";
+import { waitUntil } from "@vercel/functions";
 
-export function createFastReader({ indexHtml, criticalCss, client = new ConvexHttpClient(resolveServerConvexUrl()) }: {
-  indexHtml: string; criticalCss: string; client?: ConvexHttpClient;
+type Snapshot = FunctionReturnType<typeof api.documents.getReaderPage>;
+type Policy = FunctionReturnType<typeof api.documents.getReaderPolicy>;
+type Page = NonNullable<NonNullable<Snapshot>["page"]>;
+
+export function createFastReader({ indexHtml, criticalCss, client = new ConvexHttpClient(resolveServerConvexUrl()),
+  policyCacheMs = process.env.WIKI_READER_POLICY_CACHE_MS === "0" ? 0 : 5000, now = Date.now, background = waitUntil }: {
+  indexHtml: string; criticalCss: string; client?: ConvexHttpClient; policyCacheMs?: number;
+  now?: () => number; background?: (promise: Promise<unknown>) => void;
 }) {
-  // Only page source bytes are cached. Every hit is validated by the current
-  // consistent query, including host ownership, visibility, policy and digest.
-  const bodies = new Map<string, { siteSlug: string; digest: string; content: string; bytes: number }>();
+  const encode = createEncodedReaderCache();
+  const previewArgs = (host: string) => host.endsWith(".vercel.app") && process.env.WIKI_SITE_SLUG
+    ? { previewSiteSlug: process.env.WIKI_SITE_SLUG } : {};
+  const policies = createReaderPolicyCache<Policy>({ now, background, maxAgeMs: Math.min(5000, Math.max(0, policyCacheMs)),
+    read: host => client.query(api.documents.getReaderPolicy, { host, ...previewArgs(host) }) });
+  const bodies = new Map<string, { siteSlug: string; revision: string; page: Page; digest: string; content: string; bytes: number }>();
   let bodyBytes = 0;
   const forget = (key: string) => {
     const value = bodies.get(key);
@@ -36,17 +49,28 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
     if (!slug) return null;
     const bodyKey = JSON.stringify([url.hostname, slug]);
     const cached = bodies.get(bodyKey);
-    // There is no TTL or stale authorization cache here. The query reads the
-    // active host, gate policy, redaction policy and document consistently.
-    const snapshot = await client.query(api.documents.getReaderPage, {
-      host: url.hostname, slug,
-      ...(cached ? { knownBody: { siteSlug: cached.siteSlug, digest: cached.digest } } : {}),
-      ...(url.hostname.endsWith(".vercel.app") && process.env.WIKI_SITE_SLUG
-        ? { previewSiteSlug: process.env.WIKI_SITE_SLUG } : {}),
-    });
+    let snapshot: Snapshot = null;
+    let cacheHit = false;
+    if (cached && policyCacheMs > 0) {
+      const policy = await policies.get(url.hostname);
+      if (!policy) { forget(bodyKey); return null; }
+      if (policy.siteSlug === cached.siteSlug && policy.contentRevision === cached.revision) {
+        snapshot = { ...policy, page: cached.page }; cacheHit = true;
+      }
+    }
+    if (!snapshot) {
+      const ticket = policies.begin();
+      snapshot = await client.query(api.documents.getReaderPage, {
+        host: url.hostname, slug,
+        ...(cached ? { knownBody: { siteSlug: cached.siteSlug, digest: cached.digest } } : {}),
+        ...previewArgs(url.hostname),
+      });
+      if (snapshot) policies.put(url.hostname, { siteSlug: snapshot.siteSlug, contentRevision: snapshot.contentRevision,
+        gate: snapshot.gate, piiPatterns: snapshot.piiPatterns }, ticket);
+    }
     if (!snapshot) { forget(bodyKey); return null; }
     const { siteSlug, gate } = snapshot;
-    const headers = { "Cache-Control": "private, no-store", Vary: "Accept, Cookie, Host, User-Agent", "Content-Type": "text/html; charset=utf-8" };
+    const headers = { "Cache-Control": "private, no-store", Vary: "Accept, Accept-Encoding, Cookie, Host, User-Agent", "Content-Type": "text/html; charset=utf-8" };
     const cookieName = siteSlug === "diana" ? "authed" : `authed_${siteSlug}`;
     const token = (request.headers.get("cookie") ?? "").split(/;\s*/)
       .find(part => part.startsWith(cookieName + "="))?.slice(cookieName.length + 1);
@@ -67,20 +91,27 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
     forget(bodyKey);
     const bytes = Buffer.byteLength(content);
     if (snapshot.page.bodyDigest && bytes <= 512_000) {
-      while (bodies.size && (bodies.size >= 8 || bodyBytes + bytes > 2_048_000)) forget(bodies.keys().next().value!);
-      bodies.set(bodyKey, { siteSlug, digest: snapshot.page.bodyDigest, content, bytes }); bodyBytes += bytes;
+      while (bodies.size && (bodies.size >= 32 || bodyBytes + bytes > 8_192_000)) forget(bodies.keys().next().value!);
+      bodies.set(bodyKey, { siteSlug, revision: snapshot.contentRevision, page: { ...snapshot.page, content },
+        digest: snapshot.page.bodyDigest, content, bytes }); bodyBytes += bytes;
     }
     const configured = parseSitePiiPatterns(snapshot.piiPatterns);
     const patterns = configured.length ? configured : siteSlug === "diana" ? undefined : [];
     const page = { ...snapshot.page, content: applyPiiRedactions(content, { patterns }),
       description: snapshot.page.description ? applyPiiRedactions(snapshot.page.description, { patterns }) : undefined };
-    const metadata = legacyRouteMetadata({ page, pathname, siteName: siteSlug === "diana" ? DIANA_SITE_NAME : siteSlug, slug });
-    const head = injectHeadMetadata(indexHtml, { ...metadata, noIndex: gate.enabled,
-      canonicalUrl: gate.enabled ? undefined : url.origin + pathname });
-    const html = injectHtmlFirstPage(head, page, url, siteSlug, criticalCss);
-    return new Response(request.method === "HEAD" ? null : html, { headers: { ...headers,
+    const render = () => {
+      const metadata = legacyRouteMetadata({ page, pathname, siteName: siteSlug === "diana" ? DIANA_SITE_NAME : siteSlug, slug });
+      const head = injectHeadMetadata(indexHtml, { ...metadata, noIndex: gate.enabled,
+        canonicalUrl: gate.enabled ? undefined : url.origin + pathname });
+      return injectHtmlFirstPage(head, page, url, siteSlug, criticalCss);
+    };
+    const gzip = acceptsGzip(request.headers.get("accept-encoding"));
+    const body = gzip ? encode([url.href, siteSlug, gate.enabled, page], render) : render();
+    return new Response(request.method === "HEAD" ? null : body, { headers: { ...headers,
+      ...(gzip ? { "Content-Encoding": "gzip" } : {}),
       "Server-Timing": `wiki-shell;dur=${(performance.now() - started).toFixed(1)}, wiki-lookup;dur=${lookupMs.toFixed(1)}`,
-      "X-Wiki-Reader": "html-first-3",
+      "X-Wiki-Reader": "html-first-4",
+      "X-Wiki-Reader-Cache": cacheHit ? "hit" : "miss",
     } });
   };
 }

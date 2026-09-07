@@ -16,6 +16,12 @@ test("reader snapshot joins current host and policy to explicitly public content
     return { a, doc };
   });
   const read = () => t.query(api.documents.getReaderPage, { host: "alpha.test", slug: "index" });
+  const policy = () => t.query(api.documents.getReaderPolicy, { host: "alpha.test" });
+  expect(JSON.stringify(await policy())).not.toContain("PUBLIC_A");
+  const revision = (await policy())!.contentRevision;
+  await t.run(ctx => ctx.db.patch(a, { manifestRevision: 1 }));
+  expect((await policy())!.contentRevision).not.toBe(revision);
+  expect((await read())!.contentRevision).toBe((await policy())!.contentRevision);
   expect((await read())?.page?.content).toBe("PUBLIC_A");
   const digest = (await read())!.page!.bodyDigest!;
   const cached = () => t.query(api.documents.getReaderPage, { host: "alpha.test", slug: "index", knownBody: { siteSlug: "alpha", digest } });
@@ -27,10 +33,12 @@ test("reader snapshot joins current host and policy to explicitly public content
   expect((await t.query(api.documents.getReaderPage, { host: "beta.test", slug: "index", knownBody: { siteSlug: "alpha", digest } }))?.page?.content).toBe("PUBLIC_B");
   expect(JSON.stringify(await read())).not.toContain("RAW_SECRET");
   expect(await t.query(api.documents.getReaderPage, { host: "unknown.test", slug: "index", previewSiteSlug: "alpha" })).toBeNull();
+  expect(await t.query(api.documents.getReaderPolicy, { host: "unknown.test", previewSiteSlug: "alpha" })).toBeNull();
   await t.run(ctx => ctx.db.patch(doc, { sensitive: true }));
   expect((await read())?.page).toBeNull();
   await t.run(ctx => ctx.db.patch(doc, { sensitive: false, deletedAt: 1 }));
   expect((await read())?.page).toBeNull();
   await t.run(ctx => ctx.db.patch(a, { status: "archived" }));
   expect(await read()).toBeNull();
+  expect(await policy()).toBeNull();
 });

@@ -267,6 +267,33 @@ export const getBySlug = query({
   },
 });
 
+async function findReaderSite(ctx: QueryCtx, host: string, previewSiteSlug?: string) {
+  const normalized = host.trim().toLowerCase().split(":")[0];
+  const site = previewSiteSlug && normalized.endsWith(".vercel.app")
+    ? await ctx.db.query("sites").withIndex("by_slug", q => q.eq("slug", previewSiteSlug)).first()
+    : (await ctx.db.query("sites").collect()).find(site => site.domains.includes(normalized));
+  return site?.status === "active" ? site : null;
+}
+
+function readerPolicy(site: NonNullable<Awaited<ReturnType<typeof findReaderSite>>>) {
+  return {
+    siteSlug: site.slug,
+    // Every published document/visibility mutation advances this revision in
+    // its transaction. The site id also protects deletion/recreation of a slug.
+    contentRevision: `${site._id}:${site.manifestRevision ?? 0}`,
+    gate: { enabled: site.config.passwordGate, passwordHash: site.config.passwordHash },
+    piiPatterns: site.config.piiPatterns,
+  };
+}
+
+export const getReaderPolicy = query({
+  args: { host: v.string(), previewSiteSlug: v.optional(v.string()) },
+  handler: async (ctx, { host, previewSiteSlug }) => {
+    const site = await findReaderSite(ctx, host, previewSiteSlug);
+    return site ? readerPolicy(site) : null;
+  },
+});
+
 // One consistent read of host, gate/redaction policy and public document.
 // Convex invalidates its query result when any of those records changes.
 // Never includes rawContent, restricted documents or account permissions.
@@ -274,20 +301,15 @@ export const getReaderPage = query({
   args: { host: v.string(), slug: v.string(), previewSiteSlug: v.optional(v.string()),
     knownBody: v.optional(v.object({ siteSlug: v.string(), digest: v.string() })) },
   handler: async (ctx, { host, slug, previewSiteSlug, knownBody }) => {
-    const normalized = host.trim().toLowerCase().split(":")[0];
-    const site = previewSiteSlug && normalized.endsWith(".vercel.app")
-      ? await ctx.db.query("sites").withIndex("by_slug", q => q.eq("slug", previewSiteSlug)).first()
-      : (await ctx.db.query("sites").collect()).find(site => site.domains.includes(normalized));
-    if (!site || site.status !== "active") return null;
+    const site = await findReaderSite(ctx, host, previewSiteSlug);
+    if (!site) return null;
     const doc = await findDocBySlug(ctx, { siteId: site._id, siteSlug: site.slug, site }, slug);
     const publicDoc = doc && !doc.deletedAt && doc.sensitive === false ? doc : null;
     // Hash actual published bytes, not just the publisher's source revision:
     // publishing/redaction can replace content without changing contentHash.
     const bodyDigest = publicDoc ? bytesToHex(sha256(new TextEncoder().encode(publicDoc.content))) : null;
     return {
-      siteSlug: site.slug,
-      gate: { enabled: site.config.passwordGate, passwordHash: site.config.passwordHash },
-      piiPatterns: site.config.piiPatterns,
+      ...readerPolicy(site),
       page: publicDoc ? {
         slug: publicDoc.slug, title: publicDoc.title,
         content: knownBody?.siteSlug === site.slug && knownBody.digest === bodyDigest ? null : publicDoc.content,
