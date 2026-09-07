@@ -4,7 +4,6 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { publishRuntimeEnvironment } from "./observability";
-import "./styles.css";
 
 // Vite throws this when a dynamic import's JS/CSS fails to load — most often a
 // tab left open across a deploy. Recover by reloading once; if we already

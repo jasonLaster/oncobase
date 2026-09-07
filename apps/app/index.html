@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>TNBC Knowledge Base</title>
+    <!-- The cached HTML can paint before main.tsx executes. Its stylesheet
+         must be render-blocking too, including in the development server. -->
+    <link rel="stylesheet" href="/src/styles.css" />
     <style>
       /* First paint must not wait for React, the database, or a cached page. */
       .reader-boot{box-sizing:border-box;min-height:100dvh;padding:48px max(24px,calc((100vw - 800px)/2));font:16px/1.5 system-ui,sans-serif;color:#6b7280;background:#fff}
