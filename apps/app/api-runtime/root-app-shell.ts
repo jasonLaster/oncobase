@@ -1,17 +1,26 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
-import { createWikiViteHandler } from "../server/app-shell.js";
-import { requestFromIncoming, sendWebResponse } from "../server/wiki-api.js";
+import { createFastReader } from "../server/fast-reader";
+import { requestFromIncoming, sendWebResponse } from "../server/http-adapter";
 
 declare const __WIKI_VITE_INDEX_HTML__: string;
 declare const __WIKI_CRITICAL_CSS__: string;
 
 const distDir = path.join(process.cwd(), "apps/app/dist");
-const handleWikiViteRequest = createWikiViteHandler({
-  distDir,
-  indexHtml: __WIKI_VITE_INDEX_HTML__,
-  criticalCss: __WIKI_CRITICAL_CSS__,
-});
+const fastReader = createFastReader({ indexHtml: __WIKI_VITE_INDEX_HTML__, criticalCss: __WIKI_CRITICAL_CSS__ });
+let fallback: Promise<(request: Request) => Promise<Response>>;
+async function handleWikiViteRequest(request: Request) {
+  if (process.env.WIKI_HTML_FIRST === "1") {
+    try {
+      const response = await fastReader(request);
+      if (response) return response;
+    } catch { /* The existing handler still enforces access on fallback. */ }
+  }
+  fallback ??= import("../server/app-shell").then(({ createWikiViteHandler }) => createWikiViteHandler({
+    distDir, indexHtml: __WIKI_VITE_INDEX_HTML__, criticalCss: __WIKI_CRITICAL_CSS__,
+  }));
+  return (await fallback)(request);
+}
 
 function restoreRewrittenPath(request: Request) {
   const url = new URL(request.url);

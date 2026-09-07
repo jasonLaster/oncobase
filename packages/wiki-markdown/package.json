@@ -52,7 +52,12 @@
       "default": "./src/mermaid.tsx"
     },
     "./styles.css": "./src/styles.css",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./server-format": {
+      "types": "./src/server-format.ts",
+      "import": "./src/server-format.ts",
+      "default": "./src/server-format.ts"
+    }
   },
   "scripts": {
     "build": "tsc --noEmit",

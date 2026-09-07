@@ -1,5 +1,10 @@
 import { WIKI_READER_CACHE_VERSION } from "@oncobase/wiki-content";
-import { renderWikiMarkdownHtml } from "@oncobase/wiki-markdown/server";
+import { formatWikiHtml } from "@oncobase/wiki-markdown/server-format";
+import { resolveWikilinks } from "@oncobase/wiki-markdown/paths";
+import { preprocessCitationMarkdown } from "@oncobase/wiki-markdown/citations";
+import { markdownTitleToText } from "@oncobase/wiki-markdown/title";
+import { Marked } from "marked";
+import GithubSlugger from "github-slugger";
 import { fromHtml } from "hast-util-from-html";
 import { defaultSchema, sanitize } from "hast-util-sanitize";
 import { toHtml } from "hast-util-to-html";
@@ -22,10 +27,23 @@ function escape(value: string) {
 }
 
 function renderBody(page: RenderablePage) {
+  const slugger = new GithubSlugger();
+  const markdown = new Marked({ async: false, gfm: true, renderer: {
+    heading({ tokens, depth }) {
+      const text = this.parser.parseInline(tokens);
+      return `<h${depth} id="${escape(slugger.slug(markdownTitleToText(text)))}">${text}</h${depth}>\n`;
+    },
+    code({ text, lang }) {
+      if (lang === "mermaid") return '<p class="text-muted">Diagram loads with the interactive reader.</p>';
+      return `<pre><code>${escape(text)}</code></pre>`;
+    },
+  } });
+  const source = preprocessCitationMarkdown(resolveWikilinks(page.content, page.slug));
+  const rendered = formatWikiHtml(markdown.parse(source, { async: false }), page.slug);
   // Sanitize AFTER every markdown transformation, including PDF filenames.
   // The experiment supports ordinary reading; richer SVG/math widgets arrive
   // with the app. Do not expose pretend image buttons before their handlers.
-  const tree = sanitize(fromHtml(renderWikiMarkdownHtml(page.content, page.slug), { fragment: true }), {
+  const tree = sanitize(fromHtml(rendered, { fragment: true }), {
     ...defaultSchema,
     clobberPrefix: "wiki-html-",
     attributes: {

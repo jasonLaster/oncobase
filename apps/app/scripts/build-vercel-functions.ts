@@ -1,4 +1,4 @@
-import { unlink } from "node:fs/promises";
+import { rm, unlink } from "node:fs/promises";
 import { assertBuildAssets, assertPublicAssets } from "./public-assets";
 import { criticalReaderCss } from "./critical-reader-css";
 
@@ -15,6 +15,7 @@ const criticalCss = criticalReaderCss((await Promise.all(stylesheets.map(href =>
   if (!/^\/assets\/[\w.-]+\.css$/.test(href)) throw new Error("Unexpected entry stylesheet");
   return Bun.file(`${appDir}/dist${href}`).text();
 }))).join("\n"));
+await rm(outdir, { recursive: true, force: true });
 await Bun.write(`${outdir}/reader-critical.css`, criticalCss);
 const result = await Bun.build({
   entrypoints: [
@@ -24,6 +25,8 @@ const result = await Bun.build({
   outdir,
   target: "node",
   format: "esm",
+  splitting: true,
+  minify: true,
   sourcemap: "external",
   define: {
     __WIKI_VITE_INDEX_HTML__: JSON.stringify(indexHtml),

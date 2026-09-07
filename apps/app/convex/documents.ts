@@ -265,6 +265,30 @@ export const getBySlug = query({
   },
 });
 
+// One consistent read of host, gate/redaction policy and public document.
+// Convex invalidates its query result when any of those records changes.
+// Never includes rawContent, restricted documents or account permissions.
+export const getReaderPage = query({
+  args: { host: v.string(), slug: v.string(), previewSiteSlug: v.optional(v.string()) },
+  handler: async (ctx, { host, slug, previewSiteSlug }) => {
+    const normalized = host.trim().toLowerCase().split(":")[0];
+    const site = previewSiteSlug && normalized.endsWith(".vercel.app")
+      ? await ctx.db.query("sites").withIndex("by_slug", q => q.eq("slug", previewSiteSlug)).first()
+      : (await ctx.db.query("sites").collect()).find(site => site.domains.includes(normalized));
+    if (!site || site.status !== "active") return null;
+    const doc = await findDocBySlug(ctx, { siteId: site._id, siteSlug: site.slug, site }, slug);
+    return {
+      siteSlug: site.slug,
+      gate: { enabled: site.config.passwordGate, passwordHash: site.config.passwordHash },
+      piiPatterns: site.config.piiPatterns,
+      page: doc && !doc.deletedAt && doc.sensitive === false ? {
+        slug: doc.slug, title: doc.title, content: doc.content,
+        tags: doc.tags, contentHash: doc.contentHash, description: doc.description, sensitive: false as const,
+      } : null,
+    };
+  },
+});
+
 async function paginatedDocs(ctx: AnyCtx, site: SiteCtx, cursor: string | null, numItems: number) {
   const siteId = site.siteId;
   if (siteId) {
