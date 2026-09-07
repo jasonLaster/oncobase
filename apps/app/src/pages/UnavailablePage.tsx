@@ -14,6 +14,7 @@ export default function UnavailablePage({ before, publicView, signInHref, restri
   if (restricted) return (
     <WikiSensitiveUnavailable
       data-test-id="document-article"
+      data-reader-unavailable="true"
       slug={slug}
       description={publicView
         ? "This page is restricted to readers with access. Sign in to continue to this page."
@@ -28,6 +29,7 @@ export default function UnavailablePage({ before, publicView, signInHref, restri
       <WikiEmptyState
         before={before}
         data-test-id="document-article"
+      data-reader-unavailable="true"
         title={publicView ? "This page may be restricted" : "Page not found"}
         description={publicView
           ? "This page isn't available in the public wiki. It may be restricted to readers with access. Sign in to check access and return to this page. If it still isn't available, the link may have moved or the page may have been removed."

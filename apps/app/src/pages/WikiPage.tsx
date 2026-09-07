@@ -358,6 +358,7 @@ export function WikiPage({
     return (
       <WikiEmptyState
         data-test-id="document-article"
+        data-reader-unavailable="true"
         title="Page no longer available"
         description={`The latest manifest no longer includes ${slug}. The local body is kept only as deleted cache state and will not be rendered.`}
       />

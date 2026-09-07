@@ -119,6 +119,24 @@ test("a restriction arriving during a text selection dismisses the early public 
   } finally { release(); }
 });
 
+test("a restriction dismisses early HTML even when a large article omits its startup payload", async ({ page }) => {
+  const api = await prepare(page, html => html.replace(/<script id="wiki-page-bootstrap"[\s\S]*?<\/script>/, ""));
+  let release!: () => void;
+  const held = new Promise<void>(r => { release = r; });
+  await page.route("**/*", async route => {
+    if (route.request().resourceType() === "script") await held;
+    await route.fallback();
+  });
+  try {
+    await page.goto("/", { waitUntil: "commit" });
+    await expect(page.locator("#wiki-html-first article")).toBeVisible();
+    api.setPageOverride("index", { sensitive: true });
+    release();
+    await expect(page.locator("#wiki-html-first")).toHaveCount(0);
+    await expect(article(page)).toContainText(/no longer available|restricted|private/i);
+  } finally { release(); }
+});
+
 test("invalid bootstrap falls back to the scoped page API", async ({ page }) => {
   const api = await prepare(page, html => html.replace('"siteSlug":"diana"', '"siteSlug":"other"'));
   await page.goto("/", { waitUntil: "domcontentloaded" });

@@ -42,7 +42,7 @@ export function bootHtmlFirstPage() {
     const article = root.querySelector<HTMLElement>('[data-test-id="document-article"]');
     const routeChanged = location.pathname !== initialPath;
     const seeded = host.dataset.bootstrapSeeded === "true";
-    const unavailable = seeded && article?.matches(".wiki-shell-empty-state, .wiki-shell-sensitive-unavailable");
+    const unavailable = article?.dataset.readerUnavailable === "true";
     const selection = window.getSelection();
     if (!unavailable && !routeChanged && (pointerDown ||
         (selection && !selection.isCollapsed && host.contains(selection.anchorNode)))) return;
