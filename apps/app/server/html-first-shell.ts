@@ -26,7 +26,7 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
       tag => tag.replace('type="module"', 'type="application/x-wiki-module"').replace('src="', 'data-wiki-module-src="'));
     html = html.replace(/<link\b[^>]*rel="modulepreload"[^>]*>/g,
       tag => tag.replace('rel="modulepreload"', 'data-wiki-module-preload'));
-    html = html.replace("</head>", `<style id="wiki-critical-style">${criticalCss}</style></head>`);
+    html = html.replace("</head>", () => `<style id="wiki-critical-style">${criticalCss}</style></head>`);
   }
   const payload = serializePageBootstrap({
     version: 1, readerVersion: WIKI_READER_CACHE_VERSION,
@@ -58,7 +58,9 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
     #wiki-html-first .html-first-navigation a{color:var(--text-muted)}
     @media(max-width:767px){#wiki-html-first .html-first-navigation{position:absolute;inset:0 0 auto;height:48px;padding:12px 18px;flex-direction:row;z-index:1;white-space:nowrap}}
   </style>`;
-  return html.replace("</head>", css + "</head>")
-    .replace('<div id="root">', shell + '<div id="root">')
-    .replace("</body>", `${bootstrap}<script>(${bootHtmlFirstPage.toString()})()</script></body>`);
+  // Replacement strings interpret $&, $`, and $'. They can occur in article
+  // text and in minified JavaScript (for example a variable named $ && ...).
+  return html.replace("</head>", () => css + "</head>")
+    .replace('<div id="root">', () => shell + '<div id="root">')
+    .replace("</body>", () => `${bootstrap}<script>(${bootHtmlFirstPage.toString()})()</script></body>`);
 }

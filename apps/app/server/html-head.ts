@@ -54,7 +54,6 @@ export function injectHeadMetadata(
     .join("\n    ");
 
   return html
-    .replace(/<title>.*?<\/title>/, `<title>${title}</title>`)
-    .replace("</head>", `    ${tags}\n  </head>`);
+    .replace(/<title>.*?<\/title>/, () => `<title>${title}</title>`)
+    .replace("</head>", () => `    ${tags}\n  </head>`);
 }
-
