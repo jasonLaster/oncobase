@@ -94,12 +94,35 @@ export function bootHtmlFirstPage() {
   window.addEventListener("popstate", check);
   window.addEventListener("wiki-full-style-ready", check);
   document.addEventListener("selectionchange", check);
-  if (location.hash) {
+  const restoreFragment = () => {
+    if (!location.hash) return;
     try {
       const id = decodeURIComponent(location.hash.slice(1));
       const target = document.getElementById(id.startsWith(prefix) ? id : prefix + id);
       if (target && host.contains(target)) target.scrollIntoView();
     } catch { /* Malformed fragments should not prevent startup. */ }
+  };
+  restoreFragment();
+  const rest = document.getElementById("wiki-html-first-rest");
+  if (rest) {
+    // Give the opening text several frames before constructing thousands of
+    // offscreen nodes. This work is independent of successful app startup.
+    let frames = 4;
+    const expand = () => {
+      if (!host.isConnected) return;
+      if (--frames > 0) { requestAnimationFrame(expand); return; }
+      setTimeout(() => {
+        if (!rest.isConnected) return;
+        const template = document.createElement("template");
+        template.innerHTML = rest.textContent ?? "";
+        rest.replaceWith(template.content);
+        restoreFragment();
+        // content-visibility replaces estimated heights as the destination
+        // becomes visible; align the fragment again after that layout.
+        requestAnimationFrame(() => { if (host.isConnected && !pointerDown) restoreFragment(); });
+      }, 0);
+    };
+    requestAnimationFrame(expand);
   }
   performance.mark("wiki-html-first-ready");
   check();

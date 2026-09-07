@@ -81,6 +81,25 @@ export function renderHtmlFirstParts(page: RenderablePage) {
   return { first, rest: () => remainder ??= render(Object.assign(tokens.slice(end), { links: tokens.links })) };
 }
 
+/** Keep long remainders inert until the opening text paints. With scripting
+ * disabled, noscript content is ordinary, complete article markup. */
+export function renderReadableHtmlFirstParts(page: RenderablePage) {
+  const parts = renderHtmlFirstParts(page);
+  if (Buffer.byteLength(page.content) <= 131_072) return parts;
+  return { first: parts.first, rest: () => {
+    const rest = parts.rest();
+    // The source has already passed the final sanitizer. Preserve full context
+    // rather than wrapping if an unsupported raw-text boundary ever appears.
+    return rest && !/<\/noscript\b/i.test(rest) ? `<noscript id="wiki-html-first-rest">${rest}</noscript>` : rest;
+  } };
+}
+
+export function renderHtmlFirstReadingBody(page: PublicPage, siteSlug: string) {
+  if (Buffer.byteLength(page.content) <= 131_072) return renderHtmlFirstBody(page, siteSlug);
+  const parts = renderReadableHtmlFirstParts(page);
+  return parts.first + parts.rest();
+}
+
 const cachedBody = createHtmlPageCache(renderBody);
 export function renderHtmlFirstBody(page: PublicPage, siteSlug: string) {
   return cachedBody(siteSlug, page);
@@ -88,5 +107,5 @@ export function renderHtmlFirstBody(page: PublicPage, siteSlug: string) {
 
 export function injectHtmlFirstPage(html: string, page: PublicPage, url: URL, siteSlug: string, criticalCss = "") {
   if (page.sensitive !== false || !page.contentHash) return html;
-  return injectHtmlFirstShell(html, page, url, siteSlug, criticalCss, renderHtmlFirstBody(page, siteSlug));
+  return injectHtmlFirstShell(html, page, url, siteSlug, criticalCss, renderHtmlFirstReadingBody(page, siteSlug));
 }

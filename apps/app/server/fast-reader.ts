@@ -106,7 +106,7 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
     if (!body) {
       const renderer = await (rendering ?? import("./html-first-experiment"));
       if (gzip && request.method !== "HEAD") {
-        const parts = renderer.renderHtmlFirstParts(page);
+        const parts = renderer.renderReadableHtmlFirstParts(page);
         const marker = "<!--wiki-stream-body-->";
         const template = frame(marker);
         const split = template.indexOf(marker);
@@ -119,7 +119,7 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
           return rest;
         });
       } else {
-        const html = () => frame(renderer.renderHtmlFirstBody(page, siteSlug));
+        const html = () => frame(renderer.renderHtmlFirstReadingBody(page, siteSlug));
         body = gzip ? encode(representation, html) : html();
       }
     }

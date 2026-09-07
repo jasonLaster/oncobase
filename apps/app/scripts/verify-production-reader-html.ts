@@ -29,6 +29,7 @@ try {
       console.log(JSON.stringify({ case: "complete HTML and native navigation without JavaScript", passed: true, errors }));
     } else {
       await page.goto(origin + longPath, { waitUntil: "domcontentloaded" });
+      await expect(page.locator("#wiki-html-first-rest")).toHaveCount(0);
       const heading = page.locator("#wiki-html-first .wiki-markdown :is(h2,h3,h4)[id]").last();
       const id = await heading.getAttribute("id");
       if (!id) throw new Error("Long article has no heading target");

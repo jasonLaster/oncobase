@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { injectHtmlFirstPage, renderHtmlFirstBody } from "./html-first-experiment";
+import { injectHtmlFirstPage, renderHtmlFirstBody, renderReadableHtmlFirstParts } from "./html-first-experiment";
 
 const page = { slug: "index", title: "Example", contentHash: "revision-1", sensitive: false, content: "Readable without JavaScript.\n\n[Next](/wiki/next)\n\n## Section\n\n[Jump](#section)" };
 
@@ -34,4 +34,15 @@ test("initial article images defer offscreen requests and decoding", () => {
   const html = renderHtmlFirstBody({ slug: "wiki/test", title: "Test", content: "Opening text.\n\n![Figure](./figure.png)", sensitive: false, contentHash: "lazy-image-fixture" }, "diana");
   expect(html).toContain('loading="lazy"'); expect(html).toContain('decoding="async"');
   expect(html).toContain("/api/file?path=wiki%2Ffigure.png");
+});
+
+
+test("long readable HTML preserves every block inside a no-script remainder", () => {
+  const page = { slug: "wiki/long", title: "Long", content: "Opening paragraph.\n\n" + ("A complete later paragraph. " + "Readable content. ".repeat(16) + "\n\n").repeat(600) + "Final paragraph.", sensitive: false, contentHash: "long-reading" };
+  const parts = renderReadableHtmlFirstParts(page);
+  expect(parts.first).toContain("Opening paragraph.");
+  expect(parts.first).not.toContain("Final paragraph.");
+  expect(parts.rest()).toContain('<noscript id="wiki-html-first-rest">');
+  expect(parts.rest()).toContain("Final paragraph.");
+  expect(parts.rest().match(/A complete later paragraph/g)!.length + parts.first.match(/A complete later paragraph/g)!.length).toBe(600);
 });
