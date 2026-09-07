@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { createServer } from "node:http";
 import { documentArticle, gotoWiki, installWikiApiMocks, waitForPageTitle } from "./fixtures";
 
 const runsWithPreviewAuth = Boolean(
@@ -6,6 +7,40 @@ const runsWithPreviewAuth = Boolean(
 );
 
 test.describe("Session scope recovery", () => {
+  test("a session response with a stalled body exits the startup spinner", async ({ page }) => {
+    await installWikiApiMocks(page);
+    let bodyStarted = false;
+    const server = createServer((_request, response) => {
+      response.writeHead(200, {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      });
+      response.write('{"siteSlug":');
+      bodyStarted = true;
+    });
+    await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Missing test server port");
+    try {
+      // Use a real streaming HTTP response. route.fulfill delivers a complete
+      // body and cannot reproduce fetch resolving before response.json does.
+      await page.route("**/api/wiki/session**", route => route.fulfill({
+        status: 307,
+        headers: { Location: `http://127.0.0.1:${address.port}/session` },
+      }));
+      await page.clock.install();
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await expect.poll(() => bodyStarted).toBe(true);
+      await expect(page.getByTestId("page-loading")).toBeVisible();
+      await page.clock.fastForward(30_001);
+      await expect(page.getByTestId("session-recovery")).toContainText("Wiki request timed out after 30000ms");
+      await expect(page.getByTestId("page-loading")).toHaveCount(0);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>(resolve => server.close(() => resolve()));
+    }
+  });
+
   test("public scope reopens its persisted store when identity validation fails", async ({
     page,
   }) => {

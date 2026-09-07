@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createServer } from "node:http";
 import {
   buildCompactTreeFromManifest,
   createWikiContentClient,
@@ -902,5 +903,37 @@ describe("wiki content contracts", () => {
     });
 
     await expect(client.fetchManifest()).rejects.toThrow("timed out");
+  });
+
+  test.each(["fetchManifest", "fetchSessionIdentity", "fetchPages"] as const)("%s times out when headers arrive but the JSON body stalls", async (method) => {
+    let bodyStarted = false;
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.write('{"siteSlug":');
+      bodyStarted = true;
+      // Keep the connection open: fetch resolves, but response.json is pending.
+    });
+    await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Missing test server port");
+    let guard: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const client = createWikiContentClient({
+        baseUrl: `http://127.0.0.1:${address.port}`,
+        requestTimeoutMs: 100,
+      });
+      const outcome = Promise.race([
+        client[method](),
+        new Promise<never>((_resolve, reject) => {
+          guard = setTimeout(() => reject(new Error("Body remained pending past the request deadline")), 1_000);
+        }),
+      ]);
+      await expect(outcome).rejects.toThrow("Wiki request timed out after 100ms");
+      expect(bodyStarted).toBe(true);
+    } finally {
+      clearTimeout(guard);
+      server.closeAllConnections();
+      await new Promise<void>(resolve => server.close(() => resolve()));
+    }
   });
 });

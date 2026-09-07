@@ -983,7 +983,9 @@ async function fetchJson(
     if (!response.ok) {
       throw new Error(`Wiki request failed: ${response.status} ${response.statusText}`);
     }
-    return response.json() as Promise<unknown>;
+    // fetch resolves at the response headers. Keep the deadline and abort
+    // handling active until the body finishes too, or startup can wait forever.
+    return await (response.json() as Promise<unknown>);
   } catch (error) {
     if (controller.signal.aborted) {
       throw new Error(`Wiki request timed out after ${requestTimeoutMs}ms`);
