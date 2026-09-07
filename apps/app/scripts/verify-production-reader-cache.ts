@@ -23,6 +23,8 @@ const cookie = await login();
 async function check(name: string, pathname: string, headers: Record<string, string>, expected: "article" | "denied") {
   const start = performance.now();
   const result = await fetch(origin + pathname, { headers, redirect: "manual" });
+  const deniedStatus = [301, 302, 303, 307, 308, 401, 403, 404].includes(result.status);
+  if (expected === "article" ? result.status !== 200 : !deniedStatus) throw new Error("Unexpected reader status for " + name + ": " + result.status);
   const html = await result.text();
   const article = html.includes('id="wiki-html-first"') && html.includes('id="wiki-page-bootstrap"');
   const passed = expected === "article" ? result.status === 200 && article : !article && !html.includes("wiki-page-bootstrap");

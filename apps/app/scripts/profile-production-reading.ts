@@ -4,6 +4,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 const origin = process.env.WIKI_PERF_ORIGIN ?? "https://diana-tnbc.com";
 const runs = Number(process.env.WIKI_PERF_RUNS ?? "3");
 const paths = (process.env.WIKI_PERF_PATHS ?? "/,/wiki/logistics/insurance").split(",");
+const budget = Number(process.env.WIKI_PERF_BUDGET_MS ?? "200");
+if (!Number.isFinite(budget) || budget <= 0) throw new Error("Invalid reading budget");
 const phase = process.env.WIKI_PERF_PHASE ?? "baseline";
 if (!/^[a-z0-9-]+$/.test(phase)) throw new Error("Invalid phase");
 const output = `.playwright/production-reading/${phase}`;
@@ -29,7 +31,7 @@ try {
     await page.addInitScript(() => {
       const probe = { readable: 0, textPaint: 0, candidate: 0, live: 0, source: "", cls: 0 };
       Object.assign(window, { __READING_PROBE__: probe });
-      if (PerformanceObserver.supportedEntryTypes.includes("element")) {
+      if (new Set(PerformanceObserver.supportedEntryTypes).has("element")) {
         new PerformanceObserver(list => {
           for (const entry of list.getEntries() as (PerformanceEntry & { identifier: string; renderTime: number; intersectionRect: DOMRectReadOnly })[]) {
             if (entry.identifier === "wiki-body-text" && entry.renderTime > 0 && entry.intersectionRect.height > 0 && !probe.textPaint) probe.textPaint = entry.renderTime;
@@ -97,3 +99,17 @@ try {
   console.error(`Production reading measurement failed at ${stage}; request details withheld.`);
   process.exitCode = 1;
 } finally { await browser.close(); }
+
+if (samples.length) {
+  const summary: Record<string, unknown> = { budgetMs: budget, samples: samples.length };
+  for (const metric of ["readable", "textPaint", "live"]) {
+    const values = samples.map(s => Number(s[metric])).sort((a, b) => a - b);
+    summary[metric] = { p50: values[Math.ceil(values.length * 0.5) - 1], p95: values[Math.ceil(values.length * 0.95) - 1], max: values.at(-1) };
+  }
+  const failures = samples.filter(s => Number(s.readable) >= budget || Number(s.textPaint) >= budget || Number(s.textPaint) <= 0 || s.status !== 200 || Number(s.errors) > 0);
+  Object.assign(summary, { failures: failures.length, cdnHits: samples.filter(s => s.cdn === "HIT").length,
+    failedSamples: failures.map(s => ({ run: s.run, pathname: s.pathname, state: s.state, readable: s.readable, textPaint: s.textPaint, cdn: s.cdn, errors: s.errors })) });
+  await writeFile(output + "/summary.json", JSON.stringify(summary, null, 2));
+  console.log(JSON.stringify(summary));
+  if (failures.length || samples.length !== runs * paths.length * 2) process.exitCode = 1;
+}

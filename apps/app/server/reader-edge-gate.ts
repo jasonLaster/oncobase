@@ -1,3 +1,4 @@
+import { acceptsGzip } from "./reader-encoding";
 import { ConvexHttpClient } from "convex/browser";
 import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
 import { verifyWikiGateSession } from "@oncobase/wiki-content/gate-session";
@@ -38,6 +39,8 @@ export function createReaderEdgeGate(client = new ConvexHttpClient(resolveServer
       const fingerprint = await readerFingerprint(snapshot);
       const destination = new URL(await readerCachePath(url.href, fingerprint), url);
       const headers = forwarded;
+      // All gzip-capable browsers share one representation despite different br/zstd lists.
+      headers.set("Accept-Encoding", acceptsGzip(request.headers.get("accept-encoding")) ? "gzip" : "identity");
       headers.set(READER_CONTEXT_HEADER, await signReaderContext(url.href, fingerprint, secret));
       headers.set(READER_VERSION_HEADER, fingerprint);
       return rewrite(destination, { request: { headers }, headers: { "X-Wiki-Edge-Ms": (performance.now() - started).toFixed(1) } });

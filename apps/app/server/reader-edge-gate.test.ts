@@ -21,7 +21,9 @@ test("the edge authenticates before a versioned CDN rewrite, blocks direct cache
   const token = await createWikiGateSession({ siteSlug: "diana", secret, gateVersion: gateVersion(value) });
   const url = "https://diana-tnbc.com/";
   const request = (cookie = token, headers = {}) => new Request(url, { headers: { Cookie: "authed=" + cookie, ...headers } });
-  const result = await gate(request());
+  const result = await gate(request(token, { "Accept-Encoding": "gzip, deflate, br, zstd" }));
+  expect(result.headers.get("x-middleware-request-accept-encoding")).toBe("gzip");
+  expect((await gate(request(token, { "Accept-Encoding": "gzip;q=0, br" }))).headers.get("x-middleware-request-accept-encoding")).toBe("identity");
   const destination = result.headers.get("x-middleware-rewrite")!;
   const context = result.headers.get("x-middleware-request-" + READER_CONTEXT_HEADER)!;
   expect(destination).toContain("/__reader/html/");
