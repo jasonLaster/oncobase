@@ -49,6 +49,16 @@ for (const name of ["index", "root-app-shell"]) {
   await Bun.write(target, Bun.file(source));
 }
 
+const edge = await Bun.build({
+  entrypoints: [`${appDir}/api-runtime/edge-reader.ts`],
+  outdir, target: "browser", format: "esm", minify: true,
+  define: { __WIKI_VITE_INDEX_HTML__: JSON.stringify(indexHtml), __WIKI_CRITICAL_CSS__: JSON.stringify(criticalCss) },
+});
+if (!edge.success) {
+  for (const log of edge.logs) console.error(log.message);
+  process.exit(1);
+}
+
 if (process.env.WIKI_VITE_EMBED_APP_SHELL === "1") {
   // Vercel's filesystem routing serves a root index.html before evaluating the
   // catch-all rewrite. Keep the SPA shell inside the gated function so `/`

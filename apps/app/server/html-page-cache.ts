@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 
 export const HTML_RENDERER_VERSION = "public-reader-3";
 export type RenderablePage = { slug: string; content: string; contentHash?: string | null };
@@ -15,13 +16,13 @@ export function createHtmlPageCache(render: (page: RenderablePage) => string,
   return (siteSlug: string, page: RenderablePage) => {
     // Hash actual redacted bytes: changing PII rules must not reuse the old
     // rendering when the publisher's source contentHash stays unchanged.
-    const key = createHash("sha256").update(JSON.stringify([
+    const key = bytesToHex(sha256(new TextEncoder().encode(JSON.stringify([
       HTML_RENDERER_VERSION, siteSlug, page.slug, page.contentHash, page.content,
-    ])).digest("hex");
+    ]))));
     const hit = entries.get(key);
     if (hit) { entries.delete(key); entries.set(key, hit); return hit.html; }
     const html = render(page);
-    const size = Buffer.byteLength(html);
+    const size = new TextEncoder().encode(html).byteLength;
     if (size <= limits.entryBytes && size <= limits.totalBytes) {
       while (entries.size && (entries.size >= limits.entries || bytes + size > limits.totalBytes)) evict();
       entries.set(key, { html, bytes: size }); bytes += size;

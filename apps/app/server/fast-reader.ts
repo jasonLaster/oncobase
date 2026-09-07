@@ -65,7 +65,7 @@ export function createFastReader({ indexHtml, criticalCss, client = new ConvexHt
     const content = snapshot.page.content ?? (cached?.siteSlug === siteSlug && cached.digest === snapshot.page.bodyDigest ? cached.content : null);
     if (!content) return null;
     forget(bodyKey);
-    const bytes = Buffer.byteLength(content);
+    const bytes = new TextEncoder().encode(content).byteLength;
     if (snapshot.page.bodyDigest && bytes <= 512_000) {
       while (bodies.size && (bodies.size >= 8 || bodyBytes + bytes > 2_048_000)) forget(bodies.keys().next().value!);
       bodies.set(bodyKey, { siteSlug, digest: snapshot.page.bodyDigest, content, bytes }); bodyBytes += bytes;
