@@ -340,6 +340,33 @@ async function canReadPage(
 }
 
 const ACCESS_CHECK_CHUNK_SIZE = 100;
+const ACCESS_CHECK_CONCURRENCY = 4;
+
+// A manifest checks some slugs both as asset owners and as documents. Share
+// in-flight/results only within this response, never across users or requests.
+function withManifestAccessCache(context: WikiApiContext): WikiApiContext {
+  const adapter = context.access;
+  if (!adapter) return context;
+  const users = new Map<string, Map<string, Promise<WikiApiSlugAccess | undefined>>>();
+  return {
+    ...context,
+    access: {
+      ...adapter,
+      async filterAccessibleSlugs(user, slugs) {
+        let cache = users.get(user._id);
+        if (!cache) { cache = new Map(); users.set(user._id, cache); }
+        const missing = [...new Set(slugs)].filter((slug) => !cache.has(slug));
+        if (missing.length > 0) {
+          const pending = adapter.filterAccessibleSlugs(user, missing)
+            .then((results) => new Map(results.map((result) => [result.slug, result])));
+          for (const slug of missing) cache.set(slug, pending.then((results) => results.get(slug)));
+        }
+        const results = await Promise.all(slugs.map((slug) => cache!.get(slug)!));
+        return results.filter((result): result is WikiApiSlugAccess => result !== undefined);
+      },
+    },
+  };
+}
 
 async function accessBySlug(
   context: WikiApiContext,
@@ -355,10 +382,15 @@ async function accessBySlug(
     return access;
   }
   const unique = [...new Set(slugs)];
-  for (let i = 0; i < unique.length; i += ACCESS_CHECK_CHUNK_SIZE) {
-    const chunk = unique.slice(i, i + ACCESS_CHECK_CHUNK_SIZE);
-    const results = await context.access.filterAccessibleSlugs(user, chunk);
-    for (const result of results) access.set(result.slug, result);
+  for (let i = 0; i < unique.length; i += ACCESS_CHECK_CHUNK_SIZE * ACCESS_CHECK_CONCURRENCY) {
+    const chunks: string[][] = [];
+    for (let j = i; j < Math.min(unique.length, i + ACCESS_CHECK_CHUNK_SIZE * ACCESS_CHECK_CONCURRENCY); j += ACCESS_CHECK_CHUNK_SIZE) {
+      chunks.push(unique.slice(j, j + ACCESS_CHECK_CHUNK_SIZE));
+    }
+    const batches = await Promise.all(chunks.map((chunk) => context.access!.filterAccessibleSlugs(user, chunk)));
+    for (const results of batches) {
+      for (const result of results) access.set(result.slug, result);
+    }
   }
   return access;
 }
@@ -401,7 +433,7 @@ async function filterAssetsForUser(
   const access = await accessBySlug(
     context,
     user,
-    assets.flatMap((asset) => asset.ownerSlugs),
+    assets.filter((asset) => asset.sensitive).flatMap((asset) => asset.ownerSlugs),
   );
   return assets
     .filter((asset) => {
@@ -449,6 +481,9 @@ async function listManifestPages(
     isDone = result.isDone;
     cursor = result.continueCursor;
   }
+  // Index choice must not change response order or validators. Public rows
+  // with unset/false sensitivity arrive in separate index groups.
+  pages.sort((a, b) => a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
   return { pages, source };
 }
 
@@ -707,6 +742,7 @@ export async function createWikiManifestResponse(
   request: Request,
   context: WikiApiContext,
 ) {
+  context = withManifestAccessCache(context);
   const scope = requestedScope(request);
   const sessionUser = await requireSessionIfNeeded(request, context, scope);
 

@@ -1450,3 +1450,46 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     });
   });
 });
+
+test("cold page batches share redaction configuration and keep client caches isolated", async () => {
+  async function run() {
+    const fake = createFakeConvexClient();
+    let siteReads = 0;
+    const handler = createWikiApiHandler({
+      ...fake,
+      async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+        if (getFunctionName(ref) === "sites:getBySlug") {
+          siteReads++;
+          await Bun.sleep(5);
+        }
+        if (getFunctionName(ref) === "documents:getBySlug") {
+          return { slug: String(args.slug), title: "Fixture", content: "public body", tags: [] };
+        }
+        return fake.query(ref, args);
+      },
+    } as never);
+    const response = await handler(request(`/api/wiki/pages?slugs=${Array.from({ length: 25 }, (_, i) => `wiki/public-${i}`).join(",")}`));
+    expect(response!.status).toBe(200);
+    expect((await response!.json()).pages).toHaveLength(25);
+    // One gate lookup and one shared redaction lookup, even on a cold batch.
+    expect(siteReads).toBe(2);
+  }
+  await run();
+  await run();
+});
+
+test("failed redaction config reads fail closed and are retried", async () => {
+  const fake = createFakeConvexClient();
+  let siteReads = 0;
+  const handler = createWikiApiHandler({
+    ...fake,
+    async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      if (getFunctionName(ref) === "sites:getBySlug" && ++siteReads === 2) throw new Error("config unavailable");
+      return fake.query(ref, args);
+    },
+  } as never);
+  await expect(handler(request("/api/wiki/pages?slugs=wiki/public"))).rejects.toThrow("config unavailable");
+  const response = await handler(request("/api/wiki/pages?slugs=wiki/public"));
+  expect(response!.status).toBe(200);
+  expect(siteReads).toBe(4);
+});

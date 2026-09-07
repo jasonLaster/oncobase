@@ -1,3 +1,4 @@
+import { flushBackendTraces } from "../server/backend-tracing";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   createClient,
@@ -39,5 +40,7 @@ export default async function wikiViteApi(req: IncomingMessage, res: ServerRespo
       res,
       Response.json({ error: "Wiki Vite API failed" }, { status: 500 }),
     );
+  } finally {
+    await flushBackendTraces();
   }
 }

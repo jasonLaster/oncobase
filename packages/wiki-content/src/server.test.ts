@@ -271,3 +271,65 @@ describe("wiki manifest server", () => {
     expect(JSON.stringify(body.compactTree)).not.toContain("missing-owner");
   });
 });
+
+test("manifest batches overlap, reuse owner checks, and refresh access for the next request", async () => {
+  const { context } = manifestContext();
+  context.getSessionUser = async () => ({ _id: "reader" });
+  const slugs = Array.from({ length: 850 }, (_, index) => `private/${index}`);
+  let calls: string[][] = [];
+  let active = 0;
+  let peak = 0;
+  let allowed = true;
+  context.access = {
+    canUserAccessSlug: async () => false,
+    getAllowedSlugs: async () => [],
+    async filterAccessibleSlugs(_user, batch) {
+      calls.push(batch);
+      peak = Math.max(peak, ++active);
+      await Bun.sleep(1);
+      active--;
+      return batch.map((slug) => ({ slug, allowed, hasDocument: slug !== "private/missing" }));
+    },
+  };
+  context.documents.listManifestPage = async () => ({
+    page: slugs.map((slug) => ({ slug, title: slug, tags: [], description: null, contentHash: null, sensitive: true, size: 1 })),
+    isDone: true, continueCursor: null,
+  });
+  context.documents.listPdfAssetVisibilityPage = async () => ({
+    page: [
+      ...slugs.map((slug) => ({ path: `${slug}.pdf`, ownerSlugs: [slug], sensitive: true })),
+      { path: "public.pdf", ownerSlugs: ["public-owner"], sensitive: false },
+      { path: "orphan.pdf", ownerSlugs: [], sensitive: true },
+      { path: "missing.pdf", ownerSlugs: ["private/missing"], sensitive: true },
+    ],
+    isDone: true, continueCursor: null,
+  });
+  const request = () => new Request("https://example.test/api/wiki/manifest?scope=session");
+  const first = await (await createWikiManifestResponse(request(), context)).json();
+  expect(first.pages).toHaveLength(850);
+  expect(first.assets).toHaveLength(851);
+  expect(calls.flat()).toHaveLength(851);
+  expect(new Set(calls.flat()).size).toBe(851);
+  expect(calls.flat()).not.toContain("public-owner");
+  expect(calls.every((batch) => batch.length <= 100)).toBe(true);
+  expect(peak).toBe(4);
+  allowed = false;
+  calls = [];
+  const second = await (await createWikiManifestResponse(request(), context)).json();
+  expect(second.pages).toEqual([]);
+  expect(second.assets.map((asset: { path: string }) => asset.path)).toEqual(["public.pdf"]);
+  expect(calls.flat()).toHaveLength(851);
+  expect(second.manifestHash).not.toBe(first.manifestHash);
+});
+
+test("manifest order and hash do not depend on sensitivity index grouping", async () => {
+  const { context } = manifestContext();
+  const pages = ["a", "z"].map((slug) => ({ slug, title: slug, tags: [], description: null, contentHash: null, sensitive: false, size: 1 }));
+  context.documents.listManifestPage = async () => ({ page: pages, isDone: true, continueCursor: null });
+  const request = () => new Request("https://example.test/api/wiki/manifest?scope=public");
+  const first = await (await createWikiManifestResponse(request(), context)).json();
+  context.documents.listManifestPage = async () => ({ page: [...pages].reverse(), isDone: true, continueCursor: null });
+  const second = await (await createWikiManifestResponse(request(), context)).json();
+  expect(second.manifestHash).toBe(first.manifestHash);
+  expect(second.pages).toEqual(first.pages);
+});

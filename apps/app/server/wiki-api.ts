@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { traceBackendHandler, traceConvexClient } from "./backend-tracing";
 import {
   USER_SESSION_COOKIE,
   USER_SESSION_TTL_MS,
@@ -162,7 +163,7 @@ type PasswordGateEntry = {
 };
 
 type PiiPatternEntry = {
-  patterns: PiiPattern[] | undefined;
+  patterns: Promise<PiiPattern[] | undefined>;
   expires: number;
 };
 
@@ -173,7 +174,7 @@ type SessionUser = {
 };
 
 const hostCache = new Map<string, ResolvedSite>();
-const piiPatternCache = new Map<string, PiiPatternEntry>();
+const piiPatternCache = new WeakMap<ConvexHttpClient, Map<string, PiiPatternEntry>>();
 const requestPasswordGateConfigs = new WeakMap<
   Request,
   Map<string, Promise<PasswordGateEntry>>
@@ -635,21 +636,27 @@ function markdownFilename(slug: string) {
 
 async function getPiiPatterns(client: ConvexHttpClient, siteSlug: string) {
   const now = Date.now();
-  const cached = piiPatternCache.get(siteSlug);
+  let cache = piiPatternCache.get(client);
+  if (!cache) {
+    cache = new Map();
+    piiPatternCache.set(client, cache);
+  }
+  const cached = cache.get(siteSlug);
   if (cached && cached.expires > now) return cached.patterns;
 
-  const site = await client.query(api.sites.getBySlug, { slug: siteSlug }).catch(() => null);
-  const configuredPatterns = parseSitePiiPatterns(site?.config?.piiPatterns);
-  const patterns = configuredPatterns.length > 0
-    ? configuredPatterns
-    : siteSlug === DEFAULT_SITE_SLUG
-      ? undefined
-      : [];
-  piiPatternCache.set(siteSlug, {
-    patterns,
-    expires: now + HOST_CACHE_TTL_MS,
+  // Publish the promise before yielding so a cold batch shares one read.
+  // Do not turn a failed config lookup into cached unredacted content.
+  const patterns = client.query(api.sites.getBySlug, { slug: siteSlug }).then((site) => {
+    const configured = parseSitePiiPatterns(site?.config?.piiPatterns);
+    return configured.length > 0 ? configured : siteSlug === DEFAULT_SITE_SLUG ? undefined : [];
   });
-  return patterns;
+  cache.set(siteSlug, { patterns, expires: now + HOST_CACHE_TTL_MS });
+  try {
+    return await patterns;
+  } catch (error) {
+    if (cache.get(siteSlug)?.patterns === patterns) cache.delete(siteSlug);
+    throw error;
+  }
 }
 
 async function redactText(client: ConvexHttpClient, siteSlug: string, text: string) {
@@ -3343,7 +3350,8 @@ async function handleAdminRequest(
 }
 
 export function createWikiApiHandler(client = createClient()) {
-  return async function handleWikiApiRequest(request: Request): Promise<Response | null> {
+  client = traceConvexClient(client);
+  return traceBackendHandler(async function handleWikiApiRequest(request: Request): Promise<Response | null> {
     const pathname = new URL(request.url).pathname;
     const handled =
       pathname.startsWith("/api/wiki/") ||
@@ -3662,7 +3670,7 @@ export function createWikiApiHandler(client = createClient()) {
     }
 
     return null;
-  };
+  });
 }
 
 export function wikiApiPlugin(): Plugin {

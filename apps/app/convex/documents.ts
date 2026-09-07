@@ -364,7 +364,16 @@ export const listManifestPage = query({
   },
   handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    const result = await paginatedDocs(ctx, site, cursor, numItems);
+    // Public manifests used to paginate every document and discard restricted
+    // rows afterward. The existing sensitivity index skips those reads entirely.
+    // Convex orders undefined before booleans: `< true` includes both legacy
+    // unset and explicit false values, matching canReadDocument's semantics.
+    const result = !includeSensitive && site.siteId
+      ? await ctx.db.query("documents")
+          .withIndex("by_site_sensitive_slug", (q) =>
+            q.eq("siteId", site.siteId!).lt("sensitive", true))
+          .paginate({ cursor, numItems })
+      : await paginatedDocs(ctx, site, cursor, numItems);
     return {
       page: result.page
         .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
