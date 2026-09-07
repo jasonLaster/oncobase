@@ -69,7 +69,17 @@ export function renderHtmlFirstParts(page: RenderablePage) {
   const source = preprocessCitationMarkdown(resolveWikilinks(page.content, page.slug));
   const tokens = markdown.lexer(source, markdown.defaults);
   // Raw HTML can span markdown blocks. Preserve its complete parse context.
-  if (tokens.some(token => token.type === "html")) return { first: renderBody(page), rest: () => "" };
+  if (tokens.some(token => token.type === "html")) {
+    const body = renderBody(page);
+    if (Buffer.byteLength(page.content) <= 131_072) return { first: body, rest: () => "" };
+    // Parse the complete sanitized document first, then split only its complete
+    // top-level nodes. Raw HTML may cross Markdown token boundaries.
+    const tree = fromHtml(body, { fragment: true });
+    let end = 0, first = "";
+    while (end < tree.children.length && first.length < 3000) first += toHtml(tree.children[end++]!);
+    let remainder: string | undefined;
+    return { first, rest: () => remainder ??= toHtml({ type: "root", children: tree.children.slice(end) }) };
+  }
   let end = 0, size = 0;
   while (end < tokens.length && size < 3000) {
     if (size > 0 && tokens[end]!.raw.length > 4000) break;

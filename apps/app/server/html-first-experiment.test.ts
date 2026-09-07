@@ -38,7 +38,7 @@ test("initial article images defer offscreen requests and decoding", () => {
 
 
 test("long readable HTML preserves every block inside a no-script remainder", () => {
-  const page = { slug: "wiki/long", title: "Long", content: "Opening paragraph.\n\n" + ("A complete later paragraph. " + "Readable content. ".repeat(16) + "\n\n").repeat(600) + "Final paragraph.", sensitive: false, contentHash: "long-reading" };
+  const page = { slug: "wiki/long", title: "Long", content: "Opening paragraph.\n\n<div>Raw HTML block.</div>\n\n" + ("A complete later paragraph. " + "Readable content. ".repeat(16) + "\n\n").repeat(600) + "Final paragraph.", sensitive: false, contentHash: "long-reading" };
   const parts = renderReadableHtmlFirstParts(page);
   expect(parts.first).toContain("Opening paragraph.");
   expect(parts.first).not.toContain("Final paragraph.");

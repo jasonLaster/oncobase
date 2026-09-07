@@ -39,7 +39,7 @@ test("the browser reads a gzip HTML prefix while the complete remainder is still
 test("long articles paint their opening first and retain complete text and late fragments with or without JavaScript", async ({ browser }) => {
   const css = await readFile(new URL("../.vercel-functions/reader-critical.css", import.meta.url), "utf8");
   const fixture = { slug: "index", title: "Long fixture", sensitive: false, contentHash: "long-fixture",
-    content: "The opening remains readable.\n\n" + ("A later paragraph. " + "Full article content. ".repeat(16) + "\n\n").repeat(600) + "## Last section\n\nThe final paragraph includes `& <literal>` safely." };
+    content: "The opening remains readable.\n\n<div>Raw HTML block.</div>\n\n" + ("A later paragraph. " + "Full article content. ".repeat(16) + "\n\n").repeat(600) + "## Last section\n\nThe final paragraph includes `& <literal>` safely." };
   const server = createServer((req, res) => {
     if (req.url !== "/") { res.writeHead(404).end(); return; }
     const url = new URL("http://" + req.headers.host + "/");
