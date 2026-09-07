@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
 import crypto from "node:crypto";
 import { expect, type Locator, type Page } from "@playwright/test";
 import {
@@ -356,6 +357,11 @@ const png = Buffer.from(
 );
 
 export async function installWikiApiMocks(page: Page, options: MockOptions = {}) {
+  if (process.env.PLAYWRIGHT_BUILT_READER === "1") {
+    const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+    await page.route("**/*", route => route.request().resourceType() === "document"
+      ? route.fulfill({ contentType: "text/html", body: html }) : route.fallback());
+  }
   // Synthetic reader visits must never update real popularity statistics.
   // Prefetch-specific tests override this route explicitly.
   await page.route("**/api/wiki/prefetch**", route => route.fulfill({ json: { enabled: false, slugs: [] } }));

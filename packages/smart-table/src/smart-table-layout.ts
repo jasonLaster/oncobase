@@ -805,6 +805,7 @@ export function installSmartTableLayout(
 ) {
   let frame = 0;
   let cancelled = false;
+  let nearViewport = typeof IntersectionObserver === "undefined";
 
   const restorePersistedState = () => {
     if (table.dataset.smartTableLocked === "manual") {
@@ -827,7 +828,7 @@ export function installSmartTableLayout(
   };
 
   const applyLayout = () => {
-    if (cancelled || !table.isConnected || !wrapper.isConnected) {
+    if (cancelled || !nearViewport || !table.isConnected || !wrapper.isConnected) {
       return;
     }
 
@@ -872,7 +873,14 @@ export function installSmartTableLayout(
     });
   };
 
-  applyLayout();
+  // Measuring every cell of offscreen tables blocks navigation on long
+  // documents. Native table layout remains readable until enhancement runs.
+  const visibilityObserver = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(entries => {
+    nearViewport = entries.some(entry => entry.isIntersecting);
+    if (nearViewport) schedule();
+  }, { rootMargin: "256px 0px" });
+  visibilityObserver?.observe(wrapper);
+  if (!visibilityObserver) applyLayout();
 
   const resizeObserver = new ResizeObserver(schedule);
   resizeObserver.observe(wrapper);
@@ -882,6 +890,7 @@ export function installSmartTableLayout(
   return () => {
     cancelled = true;
     cancelAnimationFrame(frame);
+    visibilityObserver?.disconnect();
     resizeObserver.disconnect();
   };
 }
