@@ -511,6 +511,7 @@ export function WikiPage({
       />
       <WikiMarkdown
         content={page.content}
+        className={page.content.length > 128 * 1024 ? "wiki-markdown-long" : undefined}
         currentSlug={page.slug}
         LinkComponent={routeLink}
         notification={notification}

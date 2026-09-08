@@ -16,6 +16,16 @@
 html[data-wiki-first-frame="true"] #root {
   visibility: hidden;
 }
+
+/* Keep distant sections inexpensive after the HTML-to-application handoff.
+   Auto containment retains native find, selection, and anchor navigation;
+   printing lays out the complete document normally. */
+@media screen {
+  .wiki-markdown-long > :nth-child(n+4) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 64px;
+  }
+}
 @import "shadcn/tailwind.css";
 @import "@oncobase/smart-table/styles.css";
 @import "@oncobase/diagnostics/imaging/styles.css";

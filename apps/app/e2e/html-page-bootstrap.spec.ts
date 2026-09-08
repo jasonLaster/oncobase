@@ -10,9 +10,12 @@ const content = applyPiiRedactions("BOOTSTRAPPED_HOME. Ready to read.\n\n[Insura
 const publicPage = { slug: "index", title: "Home", content, tags: [], sensitive: false,
   contentHash: createHash("sha256").update(`index:${content}`).digest("hex").slice(0, 24) };
 
-async function prepare(page: Page, mutate?: (html: string) => string, sessionAuthenticated = false) {
+async function prepare(page: Page, mutate?: (html: string) => string, sessionAuthenticated = false, sourceContent = content) {
+  const responseContent = applyPiiRedactions(sourceContent);
+  const responsePage = { ...publicPage, content: responseContent,
+    contentHash: createHash("sha256").update(`index:${responseContent}`).digest("hex").slice(0, 24) };
   const api = await installWikiApiMocks(page, { sessionAuthenticated,
-    pageOverrides: { index: { content, title: "Home", tags: [] } } });
+    pageOverrides: { index: { content: sourceContent, title: "Home", tags: [] } } });
   // Exercise the real server renderer/boot script and production JS graph, but
   // use synthetic documents and API fixtures throughout this test.
   const template = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
@@ -20,7 +23,7 @@ async function prepare(page: Page, mutate?: (html: string) => string, sessionAut
   await page.route("**/*", async route => {
     const url = new URL(route.request().url());
     if (route.request().resourceType() !== "document" || url.pathname !== "/") return route.fallback();
-    let html = injectHtmlFirstPage(template, publicPage, url, "diana", criticalCss);
+    let html = injectHtmlFirstPage(template, responsePage, url, "diana", criticalCss);
     if (mutate) html = mutate(html);
     await route.fulfill({ contentType: "text/html", headers: { "Cache-Control": "private, no-store" }, body: html });
   });
@@ -28,6 +31,28 @@ async function prepare(page: Page, mutate?: (html: string) => string, sessionAut
 }
 const article = (page: Page) => page.locator('#root [data-test-id="document-article"]');
 const homeFetches = (urls: string[]) => urls.filter(url => new URL(url).searchParams.get("slugs")?.split(",").includes("index"));
+
+test("a late section stays readable as a long article hands off to interactive layout", async ({ page }) => {
+  await prepare(page, undefined, false, "Opening paragraph.\n\n" +
+    ("Complete paragraph. " + "Long article content. ".repeat(16) + "\n\n").repeat(600) +
+    "## Last section\n\nThe complete final paragraph.");
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/*", async route => {
+    if (route.request().resourceType() === "script") await held;
+    await route.fallback();
+  });
+  try {
+    await page.goto("/#last-section", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("#wiki-html-first-rest")).toHaveCount(0);
+    const early = page.locator("#wiki-html-last-section");
+    await expect(early).toBeInViewport();
+    release();
+    await expect(page.locator("#wiki-html-first")).toHaveCount(0);
+    await expect(article(page).locator("#last-section")).toBeInViewport();
+    await expect(article(page).getByText("The complete final paragraph.", { exact: true })).toBeInViewport();
+  } finally { release(); }
+});
 
 test("inline article styles allow reading before the application stylesheet arrives", async ({ page }) => {
   await prepare(page);

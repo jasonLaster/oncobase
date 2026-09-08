@@ -38,6 +38,20 @@ function scrollElementIntoContainerView(
   target: HTMLElement,
   behavior: ScrollBehavior = "auto",
 ) {
+  // Native scrolling activates content-visibility sections before locating
+  // the anchor; arithmetic against their estimated heights can miss it.
+  const longArticle = target.closest<HTMLElement>(".wiki-markdown-long");
+  if (longArticle) {
+    // A smooth trip through thousands of estimated blocks changes the target
+    // throughout the animation. Jump directly, then align after layout settles.
+    target.scrollIntoView({ block: "start", behavior: "instant" });
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (target.isConnected && getElementForHash(longArticle, window.location.hash) === target) {
+        target.scrollIntoView({ block: "start", behavior: "instant" });
+      }
+    }));
+    return;
+  }
   const scrollContainer = getScrollContainer(target);
   if (!scrollContainer) return;
 

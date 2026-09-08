@@ -119,7 +119,9 @@ export function bootHtmlFirstPage() {
         restoreFragment();
         // content-visibility replaces estimated heights as the destination
         // becomes visible; align the fragment again after that layout.
-        requestAnimationFrame(() => { if (host.isConnected && !pointerDown) restoreFragment(); });
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (host.isConnected && !pointerDown) restoreFragment();
+        }));
       }, 0);
     };
     requestAnimationFrame(expand);
