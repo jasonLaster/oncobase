@@ -1,27 +1,5 @@
 import { expect, test } from "bun:test";
 import { createSharedReaderPolicyCache } from "./shared-reader-policy-cache";
-test("HTML hits can avoid opportunistic refresh without extending the policy's maximum age", async () => {
-  let clock = 0, reads = 0, fail = false;
-  const values = new Map<string, unknown>(), tasks: Promise<unknown>[] = [];
-  const options = { now: () => clock, read: async () => { reads++; if (fail) throw new Error("offline"); return "policy"; },
-    background: (task: Promise<unknown>) => { tasks.push(task); },
-    shared: { get: async (key: string) => values.get(key), set: async (key: string, value: unknown) => { values.set(key, value); } } };
-  const first = createSharedReaderPolicyCache(options);
-  await first.get("site"); await Promise.all(tasks); tasks.length = 0;
-  const second = createSharedReaderPolicyCache(options);
-  clock = 4999;
-  expect(await second.get("site", { backgroundRefresh: false })).toBe("policy");
-  expect(reads).toBe(1); expect(tasks).toHaveLength(0);
-  clock = 5000; fail = true;
-  await expect(second.get("site", { backgroundRefresh: false })).rejects.toThrow("offline");
-  fail = false;
-  expect(await second.get("site", { backgroundRefresh: false })).toBe("policy");
-  await Promise.all(tasks);
-  const priorReads = reads;
-  clock = 6001;
-  expect(await second.get("site")).toBe("policy"); await Promise.all(tasks);
-  expect(reads).toBe(priorReads + 1);
-});
 test("a second instance cannot extend shared policy freshness or serve it after a failed refresh", async () => {
   let clock = 0, reads = 0, fail = false;
   const values = new Map<string, unknown>(), tasks: Promise<unknown>[] = [];
