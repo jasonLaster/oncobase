@@ -5,12 +5,16 @@ import { api } from "../convex/_generated/api";
 const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** Native disclosure controls and links work before JavaScript, and without it. */
-export function renderReaderNavigation(tree: FileNode[], activeSlug: string): string {
+export function renderReaderNavigation(tree: FileNode[], activeSlug: string, deferClosed = true): string {
   return tree.map(node => {
     const label = escape(node.name.replace(/-/g, " "));
     if (node.type === "directory") {
       const open = activeSlug.startsWith(node.slug + "/");
-      return `<details data-folder="${escape(node.slug)}"${open ? " open" : ""}><summary>${label}</summary><div class="html-first-tree-children">${renderReaderNavigation(node.children ?? [], activeSlug)}</div></details>`;
+      const children = renderReaderNavigation(node.children ?? [], activeSlug, open && deferClosed);
+      // With JavaScript enabled, collapsed branches stay as text until opened.
+      // Without scripting, noscript is ordinary markup: the entire tree works.
+      const body = !open && deferClosed ? `<noscript class="html-first-branch">${children}</noscript>` : children;
+      return `<details data-folder="${escape(node.slug)}"${open ? " open" : ""}><summary>${label}</summary><div class="html-first-tree-children">${body}</div></details>`;
     }
     const href = node.type === "pdf" ? `/api/file?path=${encodeURIComponent(node.pdfPath ?? node.slug)}`
       : node.slug === "index" ? "/" : "/" + node.slug.split("/").map(encodeURIComponent).join("/");

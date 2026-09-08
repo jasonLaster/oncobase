@@ -5,6 +5,7 @@ The initial HTML reader must include working file navigation, hand off to a usab
 ## Changes
 
 - Render native file-tree disclosure controls and document/file links from the published public manifest. Current document ancestors start open. Mobile readers have a native Files disclosure.
+- Keep collapsed branches as inert text until opened when scripting is enabled; without JavaScript their complete native markup is available.
 - Send article markup before the full tree, reserving sidebar space so streaming the tree does not move the article.
 - Include the complete site revision in the HTML cache fingerprint: a change to another document can change this page's navigation too.
 - Start HTML-first readers with tab-local storage. A cache worker belonging to another deployment/tab cannot delay these readers. The ordinary SPA still uses its persistent cache, with a three-second deadline before its existing temporary fallback. Existing disk caches and other tabs' locks are preserved.

@@ -4,6 +4,15 @@ export function bootHtmlFirstPage() {
   const root = document.getElementById("root");
   if (!host || !root) return;
   root.inert = true;
+  host.addEventListener("toggle", event => {
+    const folder = event.target;
+    if (!(folder instanceof HTMLDetailsElement) || !folder.open) return;
+    const branch = folder.querySelector(":scope > .html-first-tree-children > .html-first-branch");
+    if (!branch) return;
+    const template = document.createElement("template");
+    template.innerHTML = branch.textContent ?? "";
+    branch.replaceWith(template.content);
+  }, true);
   if (window.matchMedia("(max-width: 767px)").matches) host.querySelector(".html-first-files")?.removeAttribute("open");
   // Let the inline-styled article paint before downloading/compiling the app
   // or applying its much larger stylesheet. Native links work immediately.
