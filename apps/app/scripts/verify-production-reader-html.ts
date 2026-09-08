@@ -18,7 +18,7 @@ try {
     if (!javaScriptEnabled) {
       await page.goto(origin + "/wiki/logistics/insurance");
       await expect(page.locator("#wiki-html-first article")).toBeVisible();
-      await page.locator("#wiki-html-first nav").getByRole("link", { name: "Home", exact: true }).click();
+      await page.locator("#wiki-html-first").getByRole("link", { name: "Home", exact: true }).click();
       await expect(page).toHaveURL(origin + "/");
       await expect(page.locator("#wiki-html-first article")).toBeVisible();
       await page.goto(origin + longPath);
