@@ -1,6 +1,6 @@
+import { createBackendClient } from "./backend-client";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
-import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
 import { verifyWikiGateSession } from "@oncobase/wiki-content/gate-session";
 import { applyPiiRedactions, parseSitePiiPatterns } from "@oncobase/wiki-content/pii";
 import { injectHeadMetadata } from "./html-head";
@@ -18,7 +18,7 @@ type Snapshot = FunctionReturnType<typeof api.documents.getReaderPage>;
 type Policy = FunctionReturnType<typeof api.documents.getReaderPolicy>;
 type Page = NonNullable<NonNullable<Snapshot>["page"]>;
 
-export function createFastReader({ indexHtml, criticalCss, client = new ConvexHttpClient(resolveServerConvexUrl()),
+export function createFastReader({ indexHtml, criticalCss, client = createBackendClient(),
   policyCacheMs = process.env.WIKI_READER_POLICY_CACHE_MS === "0" ? 0 : 5000, now = Date.now, background = waitUntil }: {
   indexHtml: string; criticalCss: string; client?: ConvexHttpClient; policyCacheMs?: number;
   now?: () => number; background?: (promise: Promise<unknown>) => void;

@@ -1,3 +1,4 @@
+import { createBackendClient } from "./backend-client";
 import crypto from "node:crypto";
 import { traceBackendHandler, traceConvexClient, traceBackendPhase } from "./backend-tracing";
 import { prepareSearchPage, redactionConfigurationKey, type SearchablePage } from "./search-corpus";
@@ -33,7 +34,6 @@ import {
   matchesWikiPasswordHash,
   verifyWikiGateSession,
 } from "@oncobase/wiki-content/gate-session";
-import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
 import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
 import {
@@ -654,7 +654,7 @@ export async function redactPageContent(
 }
 
 export function createClient() {
-  return new ConvexHttpClient(resolveServerConvexUrl());
+  return createBackendClient();
 }
 
 export function withSiteSlug<TArgs extends object>(siteSlug: string, args: TArgs): TArgs & { siteSlug: string } {

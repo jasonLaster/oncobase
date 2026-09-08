@@ -1,3 +1,4 @@
+import { createBackendClient } from "../../server/backend-client";
 /**
  * Add a new publish token for a site without invalidating existing tokens.
  *
@@ -6,7 +7,6 @@
  */
 import crypto from "node:crypto";
 import path from "node:path";
-import { ConvexHttpClient } from "convex/browser";
 import dotenv from "dotenv";
 import { api } from "../../convex/_generated/api";
 import { writePublishToken } from "@oncobase/oncobase";
@@ -41,7 +41,7 @@ if (!url) {
 }
 
 const token = `wpt_${crypto.randomBytes(32).toString("base64url")}`;
-const client = new ConvexHttpClient(url);
+const client = createBackendClient(url);
 const result = await client.mutation(api.sites.addPublishToken, {
   slug,
   publishTokenHash: hashToken(token),

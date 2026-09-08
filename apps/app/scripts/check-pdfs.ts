@@ -1,3 +1,4 @@
+import { createBackendClient } from "../server/backend-client";
 /**
  * Check that all local vault PDFs are uploaded to Convex.
  * Exits with code 1 if any PDFs are missing from Convex.
@@ -9,7 +10,6 @@
  */
 import fs from "fs";
 import path from "path";
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import dotenv from "dotenv";
 
@@ -22,7 +22,7 @@ if (!CONVEX_URL) {
   process.exit(1);
 }
 
-const client = new ConvexHttpClient(CONVEX_URL);
+const client = createBackendClient(CONVEX_URL);
 const OBSIDIAN_DIR = path.join(__dirname, "..", "..", "..", "obsidian");
 
 const EXCLUDED_DIRS = new Set([

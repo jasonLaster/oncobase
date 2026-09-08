@@ -1,3 +1,4 @@
+import { createBackendClient } from "../../server/backend-client";
 /**
  * Clear a stuck publish lock for a site.
  *
@@ -6,7 +7,6 @@
  * Reads NEXT_PUBLIC_CONVEX_URL (or CONVEX_URL) from apps/app/.env.local.
  */
 import path from "node:path";
-import { ConvexHttpClient } from "convex/browser";
 import dotenv from "dotenv";
 import { api } from "../../convex/_generated/api";
 
@@ -32,7 +32,7 @@ if (!url) {
   process.exit(1);
 }
 
-const client = new ConvexHttpClient(url);
+const client = createBackendClient(url);
 await client.mutation(api.sites.failPublish, {
   slug,
   error: "lock cleared by operator",

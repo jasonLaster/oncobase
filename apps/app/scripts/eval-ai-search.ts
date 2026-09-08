@@ -1,3 +1,4 @@
+import { createBackendClient } from "../server/backend-client";
 /**
  * Evaluate AI search mode with question-oriented queries.
  * Tests the full pipeline: embedding → vector search → GPT scoring → results.
@@ -5,7 +6,6 @@
  *
  * Usage: bun --env-file=.env.local --env-file=.env scripts/eval-ai-search.ts
  */
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import { embed } from "../server/embeddings";
 import { generateObject } from "ai";
@@ -15,7 +15,7 @@ import { z } from "zod";
 // or set OPENAI_API_KEY, AI_GATEWAY_API_KEY, NEXT_PUBLIC_CONVEX_URL in your shell
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL!;
-const convex = new ConvexHttpClient(CONVEX_URL);
+const convex = createBackendClient(CONVEX_URL);
 
 const scoreSchema = z.object({
   relevance: z.number().min(0).max(10),

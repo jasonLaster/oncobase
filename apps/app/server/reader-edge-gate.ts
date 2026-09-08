@@ -1,6 +1,6 @@
+import { createBackendClient } from "./backend-client";
 import { acceptsGzip } from "./reader-encoding";
 import { ConvexHttpClient } from "convex/browser";
-import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
 import { verifyWikiGateSession } from "@oncobase/wiki-content/gate-session";
 import { next, rewrite } from "@vercel/functions/middleware";
 import { waitUntil } from "@vercel/functions";
@@ -8,7 +8,7 @@ import { createReaderEdgeSnapshot } from "./reader-edge-snapshot";
 import { readerSlug } from "./reader-route";
 import { gateVersion, isInternalReaderPath, READER_CONTEXT_HEADER, READER_VERSION_HEADER, readerCachePath, readerFingerprint, signReaderContext } from "./reader-cache-context";
 
-export function createReaderEdgeGate(client = new ConvexHttpClient(resolveServerConvexUrl())) {
+export function createReaderEdgeGate(client = createBackendClient()) {
   const snapshots = createReaderEdgeSnapshot(client, { background: waitUntil,
     maxAgeMs: process.env.WIKI_READER_POLICY_CACHE_MS === "0" ? 0 : 5000 });
   return async (request: Request) => {

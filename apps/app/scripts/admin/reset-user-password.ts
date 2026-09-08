@@ -1,3 +1,4 @@
+import { createBackendClient } from "../../server/backend-client";
 /**
  * Generate a user-account password salt/hash, optionally applying it to Convex.
  *
@@ -8,7 +9,6 @@
  * Reads NEXT_PUBLIC_CONVEX_URL (or CONVEX_URL) from apps/app/.env.local when --email is provided.
  */
 import path from "node:path";
-import { ConvexHttpClient } from "convex/browser";
 import dotenv from "dotenv";
 import { api } from "../../convex/_generated/api";
 import { createPasswordSalt, hashPassword, normalizeEmail } from "../../server/user-auth";
@@ -55,7 +55,7 @@ if (email) {
     process.exit(1);
   }
 
-  const convex = new ConvexHttpClient(convexUrl);
+  const convex = createBackendClient(convexUrl);
   const result = await convex.mutation(api.users.resetPassword, {
     email: normalizeEmail(email),
     passwordHash,

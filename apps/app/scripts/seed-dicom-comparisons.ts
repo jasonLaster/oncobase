@@ -1,7 +1,7 @@
+import { createBackendClient } from "../server/backend-client";
 import "./load-env";
 
 import { promises as fs } from "fs";
-import { ConvexHttpClient } from "convex/browser";
 
 import { api } from "../convex/_generated/api";
 import { resolveServerConvexUrl } from "@oncobase/wiki-content/convex-url";
@@ -33,7 +33,7 @@ async function main() {
   if (!convexUrl) {
     throw new Error("NEXT_PUBLIC_CONVEX_URL or CONVEX_URL is required.");
   }
-  const convex = new ConvexHttpClient(convexUrl);
+  const convex = createBackendClient(convexUrl);
 
   await convex.mutation(api.documents.setMeta, {
     key: DIAGNOSTIC_COMPARISONS_META_KEY,

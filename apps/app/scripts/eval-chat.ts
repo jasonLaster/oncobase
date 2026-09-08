@@ -1,3 +1,4 @@
+import { createBackendClient } from "../server/backend-client";
 /**
  * Evaluate chat agent quality across multiple models in parallel.
  * Uses Sonnet 4.6 as an LLM judge for readability, plus heuristic scoring.
@@ -22,7 +23,6 @@ import {
   type ModelMessage,
 } from "ai";
 import { z } from "zod";
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import dotenv from "dotenv";
 import path from "path";
@@ -32,7 +32,7 @@ dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 if (!CONVEX_URL) { console.error("NEXT_PUBLIC_CONVEX_URL not set"); process.exit(1); }
-const convex = new ConvexHttpClient(CONVEX_URL);
+const convex = createBackendClient(CONVEX_URL);
 
 // --- Cost per 1M tokens (input/output) ---
 const COST_PER_1M: Record<string, { input: number; output: number }> = {

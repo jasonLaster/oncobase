@@ -1,8 +1,8 @@
+import { createBackendClient } from "../server/backend-client";
 import "./load-env";
 
 import { createHash } from "node:crypto";
 import { open, stat } from "node:fs/promises";
-import { ConvexHttpClient } from "convex/browser";
 
 import { api } from "../convex/_generated/api";
 import {
@@ -94,7 +94,7 @@ async function main() {
 
   const convexUrl = resolveServerConvexUrl();
   if (!convexUrl) throw new Error("NEXT_PUBLIC_CONVEX_URL or CONVEX_URL is required.");
-  const convex = new ConvexHttpClient(convexUrl);
+  const convex = createBackendClient(convexUrl);
   await convex.mutation(api.documents.upsertFileAsset, {
     siteSlug: SITE_SLUG,
     path: ASSET_PATH,

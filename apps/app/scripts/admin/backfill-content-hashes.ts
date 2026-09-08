@@ -1,3 +1,4 @@
+import { createBackendClient } from "../../server/backend-client";
 /**
  * One-shot backfill: replace legacy `contentHash` values with the new
  * publisher-style hash so wiki:check reflects the real diff.
@@ -24,7 +25,6 @@
  */
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { ConvexHttpClient } from "convex/browser";
 import dotenv from "dotenv";
 import { api } from "../../convex/_generated/api";
 import {
@@ -113,7 +113,7 @@ const localDocs = readVaultDocuments(config.vaultPath);
 const localBySlug = new Map(localDocs.map((d) => [d.slug, d]));
 console.log(`\nLocal vault docs: ${localDocs.length}`);
 
-const client = new ConvexHttpClient(url);
+const client = createBackendClient(url);
 
 // Each bulk mutation reads the full document for every entry to
 // compare hashes. With ~22KB avg and outliers approaching 150KB,

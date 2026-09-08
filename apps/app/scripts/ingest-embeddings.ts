@@ -1,3 +1,4 @@
+import { createBackendClient } from "../server/backend-client";
 /**
  * Generate and store embeddings for documents in Convex.
  * Skips documents whose content hasn't changed since last embedding.
@@ -8,7 +9,6 @@
  */
 import path from "path";
 import dotenv from "dotenv";
-import { ConvexHttpClient } from "convex/browser";
 import OpenAI from "openai";
 import { api } from "../convex/_generated/api";
 
@@ -27,7 +27,7 @@ if (!OPENAI_KEY) {
   process.exit(0);
 }
 
-const client = new ConvexHttpClient(CONVEX_URL);
+const client = createBackendClient(CONVEX_URL);
 const openai = new OpenAI({ apiKey: OPENAI_KEY });
 const force = process.argv.includes("--force");
 

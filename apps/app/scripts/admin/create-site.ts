@@ -1,3 +1,4 @@
+import { createBackendClient } from "../../server/backend-client";
 /**
  * Create a new site row in Convex and print its publish token once.
  *
@@ -10,7 +11,6 @@
  */
 import crypto from "node:crypto";
 import path from "node:path";
-import { ConvexHttpClient } from "convex/browser";
 import dotenv from "dotenv";
 import { api } from "../../convex/_generated/api";
 
@@ -57,7 +57,7 @@ const publishTokenHash = `sha256:${crypto
   .update(publishToken)
   .digest("hex")}`;
 
-const convex = new ConvexHttpClient(convexUrl);
+const convex = createBackendClient(convexUrl);
 const siteId = await convex.mutation(api.sites.create, {
   slug,
   name: title ?? slug,

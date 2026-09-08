@@ -1,3 +1,4 @@
+import { createBackendClient } from "../server/backend-client";
 /**
  * Drives the 0007_native_parts migration end-to-end.
  *
@@ -8,7 +9,6 @@
  * See apps/app/specs/chat-performance-plan.md Phase 2.
  */
 
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import dotenv from "dotenv";
 import { join } from "node:path";
@@ -22,7 +22,7 @@ if (!url) {
   console.error("NEXT_PUBLIC_CONVEX_URL not set");
   process.exit(1);
 }
-const convex = new ConvexHttpClient(url);
+const convex = createBackendClient(url);
 
 interface DryRunResult {
   totalMessages: number;

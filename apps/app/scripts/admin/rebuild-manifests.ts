@@ -1,10 +1,10 @@
+import { createBackendClient } from "../../server/backend-client";
 /** Rebuild active sites' public manifests and verify their installed bytes.
  * Supply the intended deployment URL and CONVEX_DEPLOY_KEY through the environment.
  * Optional: --site <slug>, --check (verify without rebuilding).
  * Output contains aggregate metadata only; URLs and document content stay in memory.
  */
 import { createHash } from "node:crypto";
-import { ConvexHttpClient } from "convex/browser";
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import { parseWikiManifest } from "@oncobase/wiki-content";
 import { internal } from "../../convex/_generated/api";
@@ -19,7 +19,7 @@ const url = process.env.NEXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL;
 if (!key || !url) throw new Error("An explicit deployment URL and CONVEX_DEPLOY_KEY are required");
 // The normal HTTP client types expose only public functions. Admin credentials
 // also permit these internal operator functions; retain their argument/result types.
-const client = new ConvexHttpClient(url, { logger: false }) as unknown as {
+const client = createBackendClient(url, { logger: false }) as unknown as {
   setAdminAuth(key: string): void;
   query<Q extends FunctionReference<"query", "internal">>(fn: Q, args: FunctionArgs<Q>): Promise<FunctionReturnType<Q>>;
   action<A extends FunctionReference<"action", "internal">>(fn: A, args: FunctionArgs<A>): Promise<FunctionReturnType<A>>;

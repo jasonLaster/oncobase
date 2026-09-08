@@ -1,7 +1,7 @@
+import { createBackendClient } from "../server/backend-client";
 import { createHash } from "crypto";
 import { promises as fs } from "fs";
 import "dotenv/config";
-import { ConvexHttpClient } from "convex/browser";
 
 import { api } from "../convex/_generated/api";
 import { siteHead, sitePut } from "../server/blob";
@@ -29,7 +29,7 @@ if (!convexUrl) {
   throw new Error("NEXT_PUBLIC_CONVEX_URL or CONVEX_URL is required.");
 }
 
-const convex = new ConvexHttpClient(convexUrl);
+const convex = createBackendClient(convexUrl);
 
 async function main() {
   const catalog = await getDicomCatalog();

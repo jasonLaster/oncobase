@@ -1,10 +1,10 @@
+import { createBackendClient } from "../../server/backend-client";
 /**
  * Restore an archived site to active status.
  *
  * Usage: bun scripts/admin/restore-site.ts --site <slug>
  */
 import path from "node:path";
-import { ConvexHttpClient } from "convex/browser";
 import dotenv from "dotenv";
 import { api } from "../../convex/_generated/api";
 
@@ -27,7 +27,7 @@ if (!url) {
   process.exit(1);
 }
 
-const client = new ConvexHttpClient(url);
+const client = createBackendClient(url);
 const result = await client.mutation(api.sites.restore, { slug });
 if (!result.restored) {
   console.error(`Site ${slug} not found.`);

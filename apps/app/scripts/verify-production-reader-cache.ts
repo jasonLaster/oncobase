@@ -1,5 +1,5 @@
+import { createBackendClient } from "../server/backend-client";
 /** Read-only cache-boundary verification against a candidate or production deployment. */
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import { readerCachePath, readerFingerprint, READER_CONTEXT_HEADER, READER_VERSION_HEADER } from "../server/reader-cache-context";
 const origin = process.env.WIKI_PERF_ORIGIN ?? "https://diana-tnbc.com";
@@ -12,7 +12,7 @@ async function login() {
   if (!result.ok || !cookie) throw new Error("Login failed");
   return cookie;
 }
-const client = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL ?? "https://youthful-cricket-560.convex.cloud");
+const client = createBackendClient(process.env.NEXT_PUBLIC_CONVEX_URL ?? "https://youthful-cricket-560.convex.cloud");
 const hostname = new URL(origin).hostname;
 const snapshot = await client.query(api.documents.getReaderPage, { host: hostname, slug: "index", metadataOnly: true,
   ...(hostname.endsWith(".vercel.app") ? { previewSiteSlug: "diana" } : {}) });

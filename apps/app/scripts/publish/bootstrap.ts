@@ -1,10 +1,10 @@
+import { createBackendClient } from "../../server/backend-client";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../convex/_generated/api";
 import {
   readFlag,
@@ -113,7 +113,7 @@ async function main() {
   }
 
   const publishToken = `wpt_${crypto.randomBytes(32).toString("base64url")}`;
-  const client = new ConvexHttpClient(convexUrl());
+  const client = createBackendClient(convexUrl());
   const siteId = await client.mutation(api.sites.create, {
     slug,
     name: title,

@@ -1,3 +1,4 @@
+import { createBackendClient } from "../server/backend-client";
 /**
  * Evaluate search strategies across different query types.
  * Compares: text search (BM25), vector search (semantic), and combined.
@@ -6,7 +7,6 @@
  */
 import path from "path";
 import dotenv from "dotenv";
-import { ConvexHttpClient } from "convex/browser";
 import OpenAI from "openai";
 import { api } from "../convex/_generated/api";
 
@@ -14,7 +14,7 @@ dotenv.config({ path: path.join(__dirname, "..", ".env.local") });
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL!;
-const client = new ConvexHttpClient(CONVEX_URL);
+const client = createBackendClient(CONVEX_URL);
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ── Stop words (same as chat route) ──────────────────────────────────────────

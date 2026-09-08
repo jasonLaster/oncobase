@@ -1,3 +1,4 @@
+import { createBackendClient } from "../../server/backend-client";
 /**
  * Stamp `siteId` onto every legacy row that pre-dates the multi-tenant
  * migration. Without this, the legacy fallback in `findDocBySlug`,
@@ -11,7 +12,6 @@
  *   bun scripts/admin/backfill-site-ids.ts
  */
 import path from "node:path";
-import { ConvexHttpClient } from "convex/browser";
 import dotenv from "dotenv";
 import { api } from "../../convex/_generated/api";
 
@@ -42,7 +42,7 @@ if (!url) {
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
-const client = new ConvexHttpClient(url);
+const client = createBackendClient(url);
 
 if (dryRun) {
   const rows = await client.query(api.migrations.backfillSiteIdDryRun, {});

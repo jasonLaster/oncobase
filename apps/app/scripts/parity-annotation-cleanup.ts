@@ -1,4 +1,4 @@
-import { ConvexHttpClient } from "convex/browser";
+import { createBackendClient } from "../server/backend-client";
 import { makeFunctionReference } from "convex/server";
 
 type Row = { id: string; tableName: string; seriesKey: string; imageKey: string; annotationCount: number };
@@ -25,7 +25,7 @@ export function annotationRowCleanup() {
   const url = process.env.PARITY_CONVEX_URL;
   const key = process.env.PARITY_CONVEX_CLEANUP_KEY;
   if (!url || !key) throw new Error("Annotation QA needs PARITY_CONVEX_URL and PARITY_CONVEX_CLEANUP_KEY for complete teardown");
-  const client = new ConvexHttpClient(url);
+  const client = createBackendClient(url);
   (client as unknown as { setAdminAuth: (key: string) => void }).setAdminAuth(key);
   async function read(seriesKey: string): Promise<Row[]> {
     if (!ownedKey.test(seriesKey)) throw new Error("Refusing a non-test annotation namespace");
