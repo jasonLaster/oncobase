@@ -45,11 +45,11 @@ if (!result.success) {
   process.exit(1);
 }
 
-for (const name of ["index", "root-app-shell"]) {
+await Promise.all(["index", "root-app-shell"].map(async name => {
   const source = `${outdir}/${name}.js`;
   const target = `${outdir}/${name}.mjs`;
   await Bun.write(target, Bun.file(source));
-}
+}));
 
 const gate = await Bun.build({ entrypoints: [`${appDir}/api-runtime/edge-gate.ts`], outdir,
   target: "browser", format: "esm", minify: true,

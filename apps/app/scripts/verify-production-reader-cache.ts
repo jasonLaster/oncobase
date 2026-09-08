@@ -24,6 +24,8 @@ async function check(name: string, pathname: string, headers: Record<string, str
   const start = performance.now();
   const result = await fetch(origin + pathname, { headers, redirect: "manual" });
   const deniedStatus = [301, 302, 303, 307, 308, 401, 403, 404].includes(result.status);
+  // Denial bodies are intentionally read to check that they contain no article.
+  if (!result.ok && !deniedStatus) throw new Error("Unexpected reader response for " + name + ": " + result.status);
   if (expected === "article" ? result.status !== 200 : !deniedStatus) throw new Error("Unexpected reader status for " + name + ": " + result.status);
   const html = await result.text();
   const article = html.includes('id="wiki-html-first"') && html.includes('id="wiki-page-bootstrap"');
@@ -35,25 +37,32 @@ await check("authorized fill", "/", { Cookie: cookie }, "article");
 await check("authorized cached", "/", { Cookie: cookie }, "article");
 const secondCookie = await login();
 await check("independent valid session", "/", { Cookie: secondCookie }, "article");
-for (const [name, headers] of Object.entries<Record<string, string>>({
+await Promise.all(Object.entries<Record<string, string>>({
   "no cookie": {}, "invalid cookie": { Cookie: "authed=forged" },
   "forged cache version": { [READER_VERSION_HEADER]: fingerprint },
   "forged context": { [READER_CONTEXT_HEADER]: "forged", [READER_VERSION_HEADER]: fingerprint },
   "bot with forged routing": { "User-Agent": "Googlebot", [READER_CONTEXT_HEADER]: "forged", [READER_VERSION_HEADER]: fingerprint },
   "middleware bypass header": { "x-middleware-subrequest": "middleware:middleware:middleware:middleware:middleware", [READER_VERSION_HEADER]: fingerprint },
-})) await check(name, "/", headers, "denied");
-for (const [name, pathname] of Object.entries({ "direct cache path": internal,
+}).map(([name, headers]) => check(name, "/", headers, "denied")));
+await Promise.all(Object.entries({ "direct cache path": internal,
   "encoded cache namespace": internal.replace("/__reader/", "/%5F%5Freader/"),
   "internal API route": "/api/app-shell?__path=" + encodeURIComponent(internal.slice(1)),
-})) await check(name, pathname, { Cookie: cookie, [READER_CONTEXT_HEADER]: "forged", [READER_VERSION_HEADER]: fingerprint }, "denied");
+}).map(([name, pathname]) => check(name, pathname, { Cookie: cookie, [READER_CONTEXT_HEADER]: "forged", [READER_VERSION_HEADER]: fingerprint }, "denied")));
 await check("HTML-disabled fallback remains gated", "/?html-first=off", { [READER_VERSION_HEADER]: fingerprint }, "denied");
 const staticPath=readerStaticPath(fingerprint);
-for (const [name,path] of Object.entries({
+await Promise.all(Object.entries({
   "direct static HTML":staticPath,
   "encoded static HTML":staticPath.replace("/__reader/","/%5F%5Freader/"),
   "double-encoded static HTML":staticPath.replace("/__reader/","/%255F%255Freader/"),
   "double-slash static HTML":"/"+staticPath,
   "encoded slash static HTML":"/%2F"+staticPath.slice(1),
+  "double-encoded slash static HTML":"/%252F"+staticPath.slice(1),
+  "encoded backslash static HTML":"/%5C"+staticPath.slice(1),
+  "encoded parent static HTML":"/assets%2f..%2f"+staticPath.slice(1),
+  "asset-prefix encoded parent static HTML":"/assets/%2e%2e%2f"+staticPath.slice(1),
+  "asset-prefix double-encoded parent static HTML":"/assets/%252e%252e%252f"+staticPath.slice(1),
+  "asset-prefix encoded backslash static HTML":"/assets/..%5c"+staticPath.slice(1),
   "static HTML through API":"/api/app-shell?__path="+encodeURIComponent(staticPath.slice(1)),
-})) await check(name,path,{Cookie:cookie,[READER_CONTEXT_HEADER]:"forged",[READER_VERSION_HEADER]:fingerprint},"denied");
+}).map(([name,path]) => check(name,path,{Cookie:cookie,[READER_CONTEXT_HEADER]:"forged",[READER_VERSION_HEADER]:fingerprint},"denied")));
 await check("anonymous direct static HTML",staticPath,{},"denied");
+await check("anonymous encoded slash static HTML","/%2F"+staticPath.slice(1),{},"denied");

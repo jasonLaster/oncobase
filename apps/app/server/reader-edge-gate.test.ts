@@ -26,7 +26,9 @@ test("prebuilt HTML is selected only after current authorization and full finger
   expect(restored?.fingerprint).toBe(fingerprint); expect(restored?.url.href).toBe(url);
   expect(await verifyReaderContext(new Request(destination.replace(fingerprint,"different"),{headers:{[READER_CONTEXT_HEADER]:context}}),secret)).toBeNull();
   expect((await gate(new Request(url))).status).toBe(302);
-  for(const path of [readerStaticPath(fingerprint),readerStaticPath(fingerprint).replace("/__reader/","/%5f%5freader/")]) {
+  for(const path of [readerStaticPath(fingerprint),readerStaticPath(fingerprint).replace("/__reader/","/%5f%5freader/"),
+    "/%2F"+readerStaticPath(fingerprint).slice(1), "/%252F"+readerStaticPath(fingerprint).slice(1),
+    "/assets%2f..%2f"+readerStaticPath(fingerprint).slice(1)]) {
     expect((await gate(new Request(new URL(path,url),{headers}))).status).toBe(404);
   }
   value={...value,page:{...value.page!,bodyDigest:"published replacement"}};

@@ -50,6 +50,17 @@ export async function verifyReaderContext(request: Request, secret: string | und
 }
 
 export function isInternalReaderPath(pathname: string) {
-  try { return decodeURIComponent(pathname).toLowerCase().startsWith("/__reader/"); }
+  try {
+    // Match the filesystem's normalized path too: an encoded slash can reach
+    // a reserved static file even when the raw path begins with two slashes.
+    let decoded=pathname;
+    for(let i=0;i<4&&/%[0-9a-f]{2}/i.test(decoded);i++) decoded=decodeURIComponent(decoded);
+    const segments: string[]=[];
+    for(const segment of decoded.replace(/\\/g,"/").split("/")) {
+      if(!segment || segment===".")continue;
+      if(segment==="..")segments.pop(); else segments.push(segment);
+    }
+    return segments[0]?.toLowerCase()==="__reader";
+  }
   catch { return true; }
 }
