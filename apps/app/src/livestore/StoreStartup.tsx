@@ -8,13 +8,15 @@ export const STORE_STARTUP_TIMEOUT_MS = 15_000;
 export function StoreStartupLoading({
   label = "Loading page",
   onTimeout,
+  timeoutMs = STORE_STARTUP_TIMEOUT_MS,
 }: {
   label?: string;
   onTimeout: () => void;
+  timeoutMs?: number;
 }) {
   useLayoutEffect(() => {
-    const timer = window.setTimeout(onTimeout, STORE_STARTUP_TIMEOUT_MS);
+    const timer = window.setTimeout(onTimeout, timeoutMs);
     return () => window.clearTimeout(timer);
-  }, [onTimeout]);
+  }, [onTimeout, timeoutMs]);
   return <WikiPageLoading data-test-id="page-loading" includeTags label={label} />;
 }

@@ -1,0 +1,44 @@
+import { buildFileTreeFromManifest, type FileNode, type WikiManifest } from "@oncobase/wiki-content";
+import type { ConvexHttpClient } from "convex/browser";
+import { api } from "../convex/_generated/api";
+
+const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** Native disclosure controls and links work before JavaScript, and without it. */
+export function renderReaderNavigation(tree: FileNode[], activeSlug: string): string {
+  return tree.map(node => {
+    const label = escape(node.name.replace(/-/g, " "));
+    if (node.type === "directory") {
+      const open = activeSlug.startsWith(node.slug + "/");
+      return `<details data-folder="${escape(node.slug)}"${open ? " open" : ""}><summary>${label}</summary><div class="html-first-tree-children">${renderReaderNavigation(node.children ?? [], activeSlug)}</div></details>`;
+    }
+    const href = node.type === "pdf" ? `/api/file?path=${encodeURIComponent(node.pdfPath ?? node.slug)}`
+      : node.slug === "index" ? "/" : "/" + node.slug.split("/").map(encodeURIComponent).join("/");
+    return `<a href="${escape(href)}"${node.slug === activeSlug ? ' aria-current="page"' : ""}>${label}${node.type === "pdf" ? ".pdf" : ""}</a>`;
+  }).join("");
+}
+
+/** The published public manifest is already filtered; never use a session tree
+ * in HTML shared by readers. Cache only against the complete site revision. */
+export function createReaderNavigation(client: ConvexHttpClient) {
+  const entries = new Map<string, Promise<FileNode[]>>();
+  return (siteSlug: string, revision: string): Promise<FileNode[]> => {
+    const key = JSON.stringify([siteSlug, revision]);
+    const cached = entries.get(key);
+    if (cached) return cached;
+    const pending = (async () => {
+      const snapshot = await client.query(api.manifestCache.current, { siteSlug, serverSecret: process.env.WIKI_PREFETCH_SECRET! });
+      if (!snapshot) throw new Error("Reader navigation snapshot unavailable");
+      const response = await fetch(snapshot.url, { signal: AbortSignal.timeout(5000) });
+      if (!response.ok) throw new Error("Reader navigation snapshot unavailable");
+      const manifest = await response.json() as WikiManifest;
+      if (manifest.siteSlug !== siteSlug || manifest.scope !== "public" || !Array.isArray(manifest.pages)) throw new Error("Invalid reader navigation snapshot");
+      // Build from visibility metadata instead of trusting precomputed tree rows.
+      return buildFileTreeFromManifest(manifest.pages.filter(page => page.sensitive === false), manifest.assets ?? []);
+    })();
+    entries.set(key, pending);
+    while (entries.size > 8) entries.delete(entries.keys().next().value!);
+    pending.catch(() => { if (entries.get(key) === pending) entries.delete(key); });
+    return pending;
+  };
+}

@@ -53,9 +53,9 @@ test("internal cache attestations are bound to the exact URL, origin, version an
   expect(await verifyReaderContext(req("https://diana-tnbc.com" + path, token + "tampered"), secret, 1000)).toBeNull();
 });
 
-test("CDN versions change with actual page bytes or policy, while unrelated publications preserve existing versions", async () => {
+test("CDN versions change with actual page bytes or policy, or navigation changes", async () => {
   const first = snapshot(), key = await readerFingerprint(first);
-  expect(await readerFingerprint({ ...first, contentRevision: "site:2" })).toBe(key);
+  expect(await readerFingerprint({ ...first, contentRevision: "site:2" })).not.toBe(key);
   expect(await readerFingerprint({ ...first, page: { ...first.page!, content: "body bytes omitted from metadata query" } })).toBe(key);
   for (const changed of [
     { ...first, page: { ...first.page!, bodyDigest: "new" } },

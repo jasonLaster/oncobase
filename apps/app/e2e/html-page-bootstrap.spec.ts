@@ -4,6 +4,8 @@ import { expect, type Page } from "@playwright/test";
 import { test } from "./persistent-reader-fixture";
 import { installWikiApiMocks } from "./fixtures";
 import { injectHtmlFirstPage } from "../server/html-first-experiment";
+import { renderReaderNavigation } from "../server/reader-navigation";
+import { buildFileTreeFromManifest } from "@oncobase/wiki-content";
 import { applyPiiRedactions } from "@oncobase/wiki-content/pii";
 
 const content = applyPiiRedactions("BOOTSTRAPPED_HOME. Ready to read.\n\n[Insurance](/wiki/logistics/insurance)\n\n## Details\n\n" + "A reading paragraph with space to scroll.\n\n".repeat(60));
@@ -23,7 +25,7 @@ async function prepare(page: Page, mutate?: (html: string) => string, sessionAut
   await page.route("**/*", async route => {
     const url = new URL(route.request().url());
     if (route.request().resourceType() !== "document" || url.pathname !== "/") return route.fallback();
-    let html = injectHtmlFirstPage(template, responsePage, url, "diana", criticalCss);
+    let html = injectHtmlFirstPage(template, responsePage, url, "diana", criticalCss, renderReaderNavigation(buildFileTreeFromManifest([{slug:"index"}, {slug:"wiki/logistics/insurance"}]), "index"));
     if (mutate) html = mutate(html);
     await route.fulfill({ contentType: "text/html", headers: { "Cache-Control": "private, no-store" }, body: html });
   });
@@ -212,4 +214,36 @@ test("public bootstrap does not decide the account identity or populate a public
   expect(api.manifest.every(url => new URL(url).searchParams.get("scope") === "session")).toBe(true);
   expect(homeFetches(api.pages)).toHaveLength(0);
   expect(await page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith("wiki-vite:first-frame:")))).toBe(false);
+});
+
+
+test("a newer API body hands off even when the initial HTML has no usable bootstrap", async ({ page }) => {
+  const api = await prepare(page, html => html.replace(/<script id="wiki-page-bootstrap"[\s\S]*?<\/script>/, ""));
+  api.setPageOverride("index", { content: "NEWER_PUBLIC_BODY" });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(article(page)).toBeVisible();
+  await expect(article(page)).toContainText("NEWER_PUBLIC_BODY");
+  await expect(page.locator("#wiki-html-first")).toHaveCount(0);
+  await page.getByTestId("sidebar-search").click();
+  await expect(page.getByTestId("command-palette")).toBeVisible();
+});
+
+test("HTML-first startup does not wait for a silent persistent worker", async ({ page }) => {
+  await prepare(page);
+  await page.addInitScript(() => {
+    window.SharedWorker = class { constructor() { throw new Error("Persistent worker must not block HTML-first startup"); } } as unknown as typeof SharedWorker;
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(article(page)).toBeVisible({ timeout: 8000 });
+  await page.getByTestId("sidebar-search").click();
+  await expect(page.getByTestId("command-palette")).toBeVisible();
+});
+
+test("session recovery replaces the HTML overlay and exposes working actions", async ({ page }) => {
+  await prepare(page);
+  await page.route("**/api/wiki/session*", route => route.fulfill({ status: 503, json: { error: "Synthetic session failure" } }));
+  await page.goto("/?scope=session", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("session-recovery")).toBeVisible();
+  await expect(page.locator("#wiki-html-first")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Continue public" })).toBeEnabled();
 });

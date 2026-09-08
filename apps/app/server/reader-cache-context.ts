@@ -18,9 +18,9 @@ export function gateVersion(snapshot: Pick<ReaderSnapshot, "siteSlug" | "gate">)
 
 export function readerFingerprint(snapshot: ReaderSnapshot) {
   const p = snapshot.page;
-  // Per-page revisions avoid invalidating the entire CDN on every publication.
+  // HTML includes the public file tree, so every manifest change invalidates it.
   // Actual body bytes and all public presentation/policy fields participate.
-  return hash(JSON.stringify([snapshot.siteSlug, snapshot.contentRevision.split(":")[0], gateVersion(snapshot), snapshot.piiPatterns ?? [],
+  return hash(JSON.stringify(["reader-navigation-v1", snapshot.siteSlug, snapshot.contentRevision, gateVersion(snapshot), snapshot.piiPatterns ?? [],
     p ? [p.slug, p.bodyDigest, p.contentHash, p.title, p.description ?? null, p.tags, p.sensitive] : null]));
 }
 

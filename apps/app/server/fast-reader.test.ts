@@ -97,3 +97,18 @@ test("only an attested, current fingerprint permits CDN storage, including a con
   value = { ...value, page: null };
   expect(await handler(request(), fingerprint)).toBeNull();
 });
+
+test("HTML carries current public navigation and invalidates encoded navigation when only the site revision changes", async () => {
+  let revision = "site:1";
+  const client = { query: async () => ({ siteSlug: "fixture", contentRevision: revision,
+    gate: { enabled: false }, piiPatterns: [], page: {slug:"index",title:"Home",content:"Readable",contentHash:"same",bodyDigest:"same",sensitive:false,tags:[]} }) };
+  const handler = createFastReader({client:client as never,policyCacheMs:0,criticalCss:"",indexHtml:'<html><head></head><body><div id="root"></div></body></html>',
+    navigation: async () => [{name:revision === "site:1" ? "old" : "new",slug:revision === "site:1" ? "old" : "new",type:"file"}]});
+  const read = async () => gunzipSync(await (await handler(new Request("https://fixture.test/",{headers:{"Accept-Encoding":"gzip"}})))!.arrayBuffer()).toString();
+  expect(await read()).toContain('href="/old"');
+  revision = "site:2";
+  const updated = await read();
+  expect(updated).toContain('href="/new"');
+  expect(updated).not.toContain('href="/old"');
+  expect(updated.indexOf("Readable")).toBeLessThan(updated.indexOf('href="/new"'));
+});

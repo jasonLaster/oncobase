@@ -152,7 +152,10 @@ function ReaderStore({ identity, scope, storeId }: {
   storeId: string;
 }) {
   const boot = useMemo(() => createReaderBoot(identity), [identity]);
-  const [adapter, setAdapter] = useState<Awaited<typeof adapterPromise> | null>(null);
+  const [adapter, setAdapter] = useState<Awaited<typeof adapterPromise> | null>(() =>
+    // Server-rendered reading already has fresh content. Do not hold the
+    // interactive app behind an older tab's persistent worker or cache lock.
+    document.getElementById("wiki-html-first") ? temporaryAdapter : null);
   const [stalled, setStalled] = useState(false);
   useEffect(() => {
     let active = true;
@@ -195,6 +198,7 @@ function ReaderStore({ identity, scope, storeId }: {
         renderLoading={({ stage }) => (
           <StoreStartupLoading
             label={`Loading page (${stage})`}
+            timeoutMs={adapter === persistedAdapter ? 3000 : undefined}
             onTimeout={recoverStalledBoot}
           />
         )}

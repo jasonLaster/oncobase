@@ -1,3 +1,4 @@
+import { createReaderNavigation, renderReaderNavigation } from "./reader-navigation";
 import { createBackendClient } from "./backend-client";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
@@ -19,11 +20,13 @@ type Policy = FunctionReturnType<typeof api.documents.getReaderPolicy>;
 type Page = NonNullable<NonNullable<Snapshot>["page"]>;
 
 export function createFastReader({ indexHtml, criticalCss, client = createBackendClient(),
-  policyCacheMs = process.env.WIKI_READER_POLICY_CACHE_MS === "0" ? 0 : 5000, now = Date.now, background = waitUntil }: {
-  indexHtml: string; criticalCss: string; client?: ConvexHttpClient; policyCacheMs?: number;
+  policyCacheMs = process.env.WIKI_READER_POLICY_CACHE_MS === "0" ? 0 : 5000, now = Date.now, background = waitUntil, navigation }: {
+  indexHtml: string; criticalCss: string; client?: ConvexHttpClient;
+  navigation?: (siteSlug: string, revision: string) => Promise<import("@oncobase/wiki-content").FileNode[]>; policyCacheMs?: number;
   now?: () => number; background?: (promise: Promise<unknown>) => void;
 }) {
   const encode = createEncodedReaderCache();
+  const readNavigation = navigation ?? (process.env.WIKI_PREFETCH_SECRET ? createReaderNavigation(client) : undefined);
   const previewArgs = (host: string) => host.endsWith(".vercel.app") && process.env.WIKI_SITE_SLUG
     ? { previewSiteSlug: process.env.WIKI_SITE_SLUG } : {};
   const policies = createReaderPolicyCache<Policy>({ now, background, maxAgeMs: Math.min(5000, Math.max(0, policyCacheMs)),
@@ -93,15 +96,20 @@ export function createFastReader({ indexHtml, criticalCss, client = createBacken
     const patterns = configured.length ? configured : siteSlug === "diana" ? undefined : [];
     const page = { ...snapshot.page, title: applyPiiRedactions(snapshot.page.title, { patterns }), content: applyPiiRedactions(content, { patterns }),
       description: snapshot.page.description ? applyPiiRedactions(snapshot.page.description, { patterns }) : undefined };
+    let navigationHtml = "";
+    if (readNavigation) {
+      try { navigationHtml = renderReaderNavigation(await readNavigation(siteSlug, snapshot.contentRevision), slug); }
+      catch { return null; } // Use the ordinary app if a complete navigation snapshot is unavailable.
+    }
     const frame = (bodyHtml: string) => {
       const metadata = legacyRouteMetadata({ page, pathname, siteName: siteSlug === "diana" ? DIANA_SITE_NAME : siteSlug, slug });
       const head = injectHeadMetadata(indexHtml, { ...metadata, noIndex: gate.enabled,
         canonicalUrl: gate.enabled ? undefined : url.origin + pathname });
-      return injectHtmlFirstShell(head, page, url, siteSlug, criticalCss, bodyHtml);
+      return injectHtmlFirstShell(head, page, url, siteSlug, criticalCss, bodyHtml, navigationHtml);
     };
     const gzip = acceptsGzip(request.headers.get("accept-encoding"));
     const cdnAllowed = Boolean(expectedFingerprint && expectedFingerprint === await readerFingerprint(snapshot));
-    const representation = [url.href, siteSlug, gate.enabled, page];
+    const representation = [url.href, siteSlug, snapshot.contentRevision, gate.enabled, page];
     let body: BodyInit | null = gzip ? encode.peek(representation) ?? null : null;
     if (!body) {
       const renderer = await (rendering ?? import("./html-first-experiment"));

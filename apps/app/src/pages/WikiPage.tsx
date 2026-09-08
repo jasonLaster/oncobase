@@ -393,6 +393,7 @@ export function WikiPage({
             />
           }
           data-test-id="document-article"
+          data-reader-unavailable="true"
           title={metadataPageTitle ?? "Markdown unavailable"}
           description="The page is in the local manifest, but its markdown body could not be fetched. Cached pages remain available while this request is retried."
           actions={
@@ -418,6 +419,7 @@ export function WikiPage({
             />
           }
           data-test-id="document-article"
+          data-reader-unavailable="true"
           title={metadataPageTitle ?? "Markdown unavailable"}
           description={metrics.message || "The page could not be loaded from the wiki backend."}
           actions={
@@ -442,6 +444,7 @@ export function WikiPage({
   const isHomePage = displayedRouteSlug === "index" && page.slug === "index";
   const pageBody = (
     <>
+      <span hidden data-reader-ready={page.contentStatus === "fresh" && !routePending ? "true" : undefined} />
       {routePending ? <span role="status" className="sr-only">Opening page…</span> : null}
       {toast ? <WikiToast>{toast}</WikiToast> : null}
       {metrics.status === "error" && pageIndex.length === 0 ? (

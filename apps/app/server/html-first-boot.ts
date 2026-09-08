@@ -4,9 +4,13 @@ export function bootHtmlFirstPage() {
   const root = document.getElementById("root");
   if (!host || !root) return;
   root.inert = true;
+  if (window.matchMedia("(max-width: 767px)").matches) host.querySelector(".html-first-files")?.removeAttribute("open");
   // Let the inline-styled article paint before downloading/compiling the app
   // or applying its much larger stylesheet. Native links work immediately.
-  requestAnimationFrame(() => requestAnimationFrame(() => {
+  let appStarted = false;
+  const startApp = () => {
+    if (appStarted) return;
+    appStarted = true;
     document.querySelectorAll<HTMLLinkElement>("link[data-wiki-style-href]").forEach(link => {
       link.href = link.dataset.wikiStyleHref!;
     });
@@ -19,7 +23,10 @@ export function bootHtmlFirstPage() {
       script.type = "module"; script.src = placeholder.dataset.wikiModuleSrc!;
       placeholder.replaceWith(script);
     });
-  }));
+  };
+  requestAnimationFrame(() => requestAnimationFrame(startApp));
+  // Background tabs may not receive animation frames. They still need to boot.
+  setTimeout(startApp, 100);
   const payload = document.getElementById("wiki-page-bootstrap");
   if (payload) payload.dataset.receivedAt = String(Date.now());
   const initialPath = location.pathname;
@@ -42,13 +49,15 @@ export function bootHtmlFirstPage() {
     const article = root.querySelector<HTMLElement>('[data-test-id="document-article"]');
     const routeChanged = location.pathname !== initialPath;
     const seeded = host.dataset.bootstrapSeeded === "true";
-    const unavailable = article?.dataset.readerUnavailable === "true";
+    const recovery = root.querySelector('[data-test-id="app-recovery"], [data-test-id="session-recovery"], [data-test-id="store-startup-recovery"]');
+    const unavailable = article?.dataset.readerUnavailable === "true" || !!recovery;
     const selection = window.getSelection();
     if (!unavailable && !routeChanged && (pointerDown ||
         (selection && !selection.isCollapsed && host.contains(selection.anchorNode)))) return;
     if (!routeChanged && !unavailable && (!article?.querySelector(".wiki-markdown") ||
         article.dataset.documentSlug !== host.dataset.slug ||
-        (!seeded && article.dataset.contentKey !== `${host.dataset.slug}:${host.dataset.hash}`))) return;
+        (!seeded && article.dataset.contentKey !== `${host.dataset.slug}:${host.dataset.hash}` &&
+          !article.querySelector('[data-reader-ready="true"]')))) return;
     // The article is styled inline. Keep it until the full app stylesheet is
     // applied, including when it is delayed or unavailable.
     if (!unavailable && !routeChanged && [...document.querySelectorAll<HTMLLinkElement>("link[data-wiki-full-style]")]

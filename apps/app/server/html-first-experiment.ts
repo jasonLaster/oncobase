@@ -115,7 +115,7 @@ export function renderHtmlFirstBody(page: PublicPage, siteSlug: string) {
   return cachedBody(siteSlug, page);
 }
 
-export function injectHtmlFirstPage(html: string, page: PublicPage, url: URL, siteSlug: string, criticalCss = "") {
+export function injectHtmlFirstPage(html: string, page: PublicPage, url: URL, siteSlug: string, criticalCss = "", navigationTree = "") {
   if (page.sensitive !== false || !page.contentHash) return html;
-  return injectHtmlFirstShell(html, page, url, siteSlug, criticalCss, renderHtmlFirstReadingBody(page, siteSlug));
+  return injectHtmlFirstShell(html, page, url, siteSlug, criticalCss, renderHtmlFirstReadingBody(page, siteSlug), navigationTree);
 }
