@@ -1,4 +1,4 @@
-import { createBackendClient } from "./backend-client";
+import { browserConversationToken, createBackendClient } from "./backend-client";
 import crypto from "node:crypto";
 import { traceBackendHandler, traceConvexClient, traceBackendPhase } from "./backend-tracing";
 import { prepareSearchPage, redactionConfigurationKey, type SearchablePage } from "./search-corpus";
@@ -3430,6 +3430,14 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/wiki/session") {
       return createWikiSessionResponse(request, context);
+    }
+
+    if (pathname === "/api/wiki/convex-token") {
+      const headers = { "Cache-Control": "private, no-store", Vary: "Cookie, Host" };
+      if (request.method !== "GET") return new Response(null, { status: 405, headers });
+      const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
+      if (!site) return new Response(null, { status: 404, headers });
+      return Response.json({ token: await browserConversationToken(site) }, { headers });
     }
 
     if (pathname === "/api/wiki/manifest") {

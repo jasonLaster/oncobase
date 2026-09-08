@@ -476,6 +476,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       createFakeConvexClient({ passwordGate: true }) as never,
     );
     const readerPaths = [
+      "/api/wiki/convex-token",
       "/api/wiki/manifest",
       "/api/wiki/prefetch",
       "/api/wiki/pages?slugs=wiki/public",

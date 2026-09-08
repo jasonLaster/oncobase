@@ -28,6 +28,12 @@ function getConvexClient() {
   const url = convexUrl();
   if (!convexClient || convexClient.url !== url) {
     convexClient = new ConvexReactClient(url);
+    convexClient.setAuth(async () => {
+      const response = await fetch("/api/wiki/convex-token", { credentials: "same-origin", cache: "no-store" });
+      if (!response.ok) return null;
+      const body = await response.json() as { token?: unknown };
+      return typeof body.token === "string" ? body.token : null;
+    });
   }
   return convexClient;
 }
