@@ -25,14 +25,14 @@ test("the browser reads a gzip HTML prefix while the complete remainder is still
   try {
     const port = (server.address() as { port: number }).port;
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "commit" });
-    await expect(page.locator("#wiki-html-first p").first()).toHaveText("Already readable before the remainder exists.");
-    await expect(page.locator("#wiki-html-first p").first()).toBeVisible();
+    await expect(page.locator("#wiki-html-first article p").first()).toHaveText("Already readable before the remainder exists.");
+    await expect(page.locator("#wiki-html-first article p").first()).toBeVisible();
     await expect(page.locator(".html-first-tree").getByRole("link", {name:"Care folder"})).toBeVisible();
     await expect(page.getByText("The complete final paragraph.", { exact: true })).toHaveCount(0);
-    expect(await page.locator("#wiki-html-first p").first().evaluate(node => parseFloat(getComputedStyle(node).lineHeight))).toBeCloseTo(27.2, 2);
+    expect(await page.locator("#wiki-html-first article p").first().evaluate(node => parseFloat(getComputedStyle(node).lineHeight))).toBeCloseTo(27.2, 2);
     const finish = release!; release = undefined; finish();
     await expect(page.getByText("The complete final paragraph.", { exact: true })).toBeAttached();
-    await expect(page.locator("#wiki-html-first p")).toHaveCount(602);
+    await expect(page.locator("#wiki-html-first article p")).toHaveCount(602);
   } finally { release?.(); server.closeAllConnections(); server.close(); }
 });
 
@@ -57,7 +57,7 @@ test("long articles paint their opening first and retain complete text and late 
         const errors: string[] = []; page.on("pageerror", error => errors.push(error.name));
         if (javaScriptEnabled) await page.addInitScript(() => {
           const check = () => {
-            const first = document.querySelector<HTMLElement>("#wiki-html-first p");
+            const first = document.querySelector<HTMLElement>("#wiki-html-first article p");
             if (!first) { requestAnimationFrame(check); return; }
             requestAnimationFrame(() => requestAnimationFrame(() => {
               Object.assign(window, { openingBeforeExpansion: first.checkVisibility({ checkVisibilityCSS: true }) && !!document.getElementById("wiki-html-first-rest") });
@@ -66,8 +66,8 @@ test("long articles paint their opening first and retain complete text and late 
           requestAnimationFrame(check);
         });
         await page.goto(url);
-        await expect(page.locator("#wiki-html-first p")).toHaveCount(602);
-        await expect(page.locator("#wiki-html-first p").last()).toHaveText("The final paragraph includes & <literal> safely.");
+        await expect(page.locator("#wiki-html-first article p")).toHaveCount(602);
+        await expect(page.locator("#wiki-html-first article p").last()).toHaveText("The final paragraph includes & <literal> safely.");
         if (javaScriptEnabled) {
           expect(await page.evaluate(() => (window as any).openingBeforeExpansion)).toBe(true);
           await expect(page.locator("#wiki-html-first-rest")).toHaveCount(0);
@@ -76,8 +76,8 @@ test("long articles paint their opening first and retain complete text and late 
           await expect(page.locator("#wiki-html-first-rest")).toHaveCount(0);
           await expect(page.locator("#wiki-html-last-section")).toBeInViewport();
         } else {
-          await page.locator("#wiki-html-first p").last().scrollIntoViewIfNeeded();
-          await expect(page.locator("#wiki-html-first p").last()).toBeInViewport();
+          await page.locator("#wiki-html-first article p").last().scrollIntoViewIfNeeded();
+          await expect(page.locator("#wiki-html-first article p").last()).toBeInViewport();
         }
         expect(errors).toEqual([]);
       } finally { await context.close(); }

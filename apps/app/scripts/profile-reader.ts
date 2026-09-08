@@ -76,6 +76,8 @@ async function capture(page: Page, name: string) {
     const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
     return {
       ...probe,
+      htmlFirstReady: performance.getEntriesByName("wiki-html-first-ready")[0]?.startTime ?? null,
+      htmlFirstHandoff: performance.getEntriesByName("wiki-html-first-handoff")[0]?.startTime ?? null,
       fcp: performance.getEntriesByName("first-contentful-paint")[0]?.startTime ?? null,
       ttfb: navigation.responseStart, domContentLoaded: navigation.domContentLoadedEventEnd,
       blockingMs: probe.longTasks.reduce((sum, duration) => sum + Math.max(0, duration - 50), 0),
@@ -92,7 +94,7 @@ async function capture(page: Page, name: string) {
 
 async function waitForReader(page: Page) {
   await page.locator(readySelector).first().waitFor({ timeout: 60_000 });
-  await page.waitForFunction(() => !document.documentElement.dataset.wikiFirstFrame);
+  await page.waitForFunction(() => !document.documentElement.dataset.wikiFirstFrame && !document.getElementById("wiki-html-first"));
 }
 
 async function profile() {
@@ -142,10 +144,10 @@ async function profile() {
             else await waitForReader(page);
             await page.screenshot({ path: path.join(output, `${id}-first-body.png`) });
             if (scope !== "login") {
-              // Include manifest/first-frame persistence in readiness, not an
-              // arbitrary sleep; this makes the following state genuinely warm.
+              // Wait for the live navigation and either HTML handoff or SPA snapshot
+              // persistence. HTML-first readers deliberately omit disk snapshots.
               await page.waitForFunction(() => document.querySelector('#root [data-test-id="sidebar-tree"] .wiki-shell-tree-root a'));
-              if (scope === "public" && readySelector === article) await page.waitForFunction(() => Object.keys(localStorage).some(key => key.startsWith("wiki-vite:first-frame:")));
+              if (scope === "public" && readySelector === article) await page.waitForFunction(() => performance.getEntriesByName("wiki-html-first-handoff").length > 0 || Object.keys(localStorage).some(key => key.startsWith("wiki-vite:first-frame:")));
             }
             const cold = await capture(page, `${id}-cold`);
             await page.reload({ waitUntil: "domcontentloaded" });

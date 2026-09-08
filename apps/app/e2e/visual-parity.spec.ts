@@ -44,7 +44,7 @@ test.describe("Visual parity", () => {
     ).toHaveCSS("min-height", "42px");
     await expect(page.locator(".wiki-shell-tree-directory").first()).toHaveCSS(
       "font-size",
-      "14px",
+      "16px",
     );
     const sidebar = page.getByTestId("wiki-sidebar");
     const sidebarNav = page.getByTestId("sidebar-tree");

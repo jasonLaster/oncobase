@@ -1,3 +1,4 @@
+import { renderReaderSidebar } from "./reader-sidebar";
 import { WIKI_READER_CACHE_VERSION, compactFileTree, type FileNode } from "@oncobase/wiki-content";
 import { bootHtmlFirstPage } from "./html-first-boot";
 import { MAX_BOOTSTRAP_BYTES, serializePageBootstrap } from "../src/bootstrap/page-payload";
@@ -44,14 +45,11 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
     version: 1, readerVersion: WIKI_READER_CACHE_VERSION, origin: url.origin,
     pathname: url.pathname, siteSlug, scope: "public", tree: compactFileTree(tree),
   }).replace(/[<>&\u2028\u2029]/g, char => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`)}</script>` : "";
-  const interactive = new URL(url);
-  interactive.searchParams.set("html-first", "off");
-  const fallbackHref = escape(interactive.pathname + interactive.search + interactive.hash);
   const header = page.slug === "index" ? "" : `<header class="wiki-shell-page-header"><h1>${escape(page.title)}</h1></header>`;
-  const navigation = `<a href="/">Home</a><a href="/search">Search</a><a href="${fallbackHref}">Open interactive reader</a>`;
+  const navigation = renderReaderSidebar(navigationTree, url);
   const shell = `<div id="wiki-html-first" class="prototype-shell"${largeArticle ? ' data-large-article="true"' : ""} data-slug="${escape(page.slug)}" data-hash="${escape(page.contentHash)}">
     <div class="app-shell wiki-shell-resizable-layout">
-      <nav class="html-first-navigation" aria-label="Site navigation">${navigation}<details class="html-first-files" open><summary>Files</summary><div class="html-first-tree" aria-label="Files">${navigationTree}</div></details></nav>
+      <div class="html-first-sidebar-rail sidebar-expanded-rail">${navigation}</div>
       <div class="app-content"><main class="content-shell"><div class="wiki-shell-outline-root" style="--comments-pane-width:64px"><div class="wiki-shell-outline-content"><div class="wiki-shell-outline-content-inner">
         <article class="wiki-shell-document-article page-shell" aria-label="${escape(page.title)}">${header}<div class="wiki-markdown prose max-w-none">${body}</div></article>
       </div></div></div></main></div>
@@ -63,16 +61,19 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
     #root{position:fixed;inset:0;visibility:hidden}
     #wiki-html-first[data-large-article] .wiki-markdown > :nth-child(n+4){content-visibility:auto;contain-intrinsic-size:auto 64px}
     #wiki-html-first .app-content{margin-left:var(--html-sidebar-width,259px)}
-    #wiki-html-first .html-first-navigation{position:absolute;inset:0 auto 0 0;width:var(--html-sidebar-width,259px);background:var(--sidebar-bg);border-right:1px solid var(--sidebar-border);padding:20px 16px;display:flex;flex-direction:column;gap:16px;overflow:auto;font-size:14px}
-    #wiki-html-first .html-first-navigation a{color:var(--text-muted);text-decoration:none}
-    #wiki-html-first .html-first-tree{display:flex;flex-direction:column;gap:4px}
-    #wiki-html-first .html-first-tree a,#wiki-html-first summary{display:block;padding:4px 0;cursor:pointer;overflow-wrap:anywhere}
-    #wiki-html-first summary{display:list-item;list-style-position:inside}
-    #wiki-html-first .html-first-tree-children{padding-left:14px}
-    #wiki-html-first [aria-current="page"]{font-weight:600;color:var(--text-primary)}
+    #wiki-html-first .html-first-sidebar-rail{position:absolute;inset:0 auto 0 0;width:var(--html-sidebar-width,259px);border-right:3px solid var(--sidebar-border)}
+    #wiki-html-first .html-first-navigation{width:100%}
+    #wiki-html-first .wiki-vite-sidebar-workspace{flex:0 1 auto;max-width:calc(100% - 2.5rem)}
+    #wiki-html-first .html-first-files{display:block;flex:1;min-height:0;overflow:auto}
+    #wiki-html-first .html-first-files>nav{width:100%;height:100%}
+    #wiki-html-first .html-first-tree>*{margin-top:4px}
+    #wiki-html-first .html-first-tree-children{padding-top:2px}
+    #wiki-html-first summary.wiki-shell-tree-directory{list-style:none;cursor:pointer}
+    #wiki-html-first summary::-webkit-details-marker{display:none}
+    #wiki-html-first .html-first-search{font-size:16px}
+    #wiki-html-first .html-first-sign-in{align-items:center;display:flex;justify-content:center;gap:8px;background:var(--reader-sign-in-bg);border:1px solid var(--reader-sign-in-bg);border-radius:8px;color:white;margin-top:8px;min-height:42px;padding:8px 10px;text-decoration:none}
     @media(min-width:768px){#wiki-html-first .html-first-files>summary{display:none}}
-    @media(max-width:767px){#wiki-html-first .html-first-files[open] .html-first-tree{position:absolute;top:48px;left:0;right:0;max-height:60vh;overflow:auto;padding:16px;background:var(--sidebar-bg);border-bottom:1px solid var(--sidebar-border)}}
-    @media(max-width:767px){#wiki-html-first .app-content{margin-left:0}#wiki-html-first .html-first-navigation{position:absolute;inset:0 0 auto;width:auto;height:48px;padding:12px 18px;flex-direction:row;z-index:1;white-space:nowrap;overflow:visible}}
+    @media(max-width:767px){#wiki-html-first .app-content{margin-left:0}#wiki-html-first .html-first-sidebar-rail{display:block;inset:0 0 auto;width:auto;height:48px;border:0;z-index:1}#wiki-html-first .html-first-navigation{display:flex;flex-direction:row;overflow:visible}#wiki-html-first .wiki-shell-sidebar-footer{display:none}#wiki-html-first .html-first-files{display:block;flex:0;overflow:visible;margin-left:auto;padding:12px 18px}#wiki-html-first .html-first-files:not([open])>nav{display:none}#wiki-html-first .html-first-files[open]>nav{position:absolute;top:48px;left:0;width:100%;height:auto;max-height:60vh;background:var(--sidebar-bg);border-bottom:1px solid var(--sidebar-border)}}
   </style>`;
   // Replacement strings interpret $&, $`, and $'. They can occur in article
   // text and in minified JavaScript (for example a variable named $ && ...).

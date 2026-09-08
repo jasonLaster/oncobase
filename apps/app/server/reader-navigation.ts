@@ -1,7 +1,9 @@
+import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
+import { renderSidebarIcon } from "./reader-sidebar";
 import { setTimeout, clearTimeout } from "node:timers";
 import { getCache, waitUntil } from "@vercel/functions";
 import { createHash } from "node:crypto";
-import { buildFileTreeFromManifest, compactFileTree, expandCompactFileTree, type CompactFileNode, type FileNode, type WikiManifest } from "@oncobase/wiki-content";
+import { buildFileTreeFromManifest, transformFileTreeForSidebar, compactFileTree, expandCompactFileTree, type CompactFileNode, type FileNode, type WikiManifest } from "@oncobase/wiki-content";
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 
@@ -11,22 +13,27 @@ const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&l
  * Shipping thousands of hidden rows delays both first paint and app startup. */
 export function renderReaderNavigation(tree: FileNode[], activeSlug: string, url = new URL(activeSlug === "index" ? "/" : "/" + activeSlug, "https://reader.invalid")): string {
   const expanded = url.searchParams.get("tree") ?? "";
-  const visit = (nodes: FileNode[]): string => nodes.map(node => {
-    const label = escape(node.name.replace(/-/g, " "));
+  const chevron = '<svg class="wiki-shell-tree-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>';
+  const visit = (nodes: FileNode[], depth = 0): string => nodes.map(node => {
+    const label = `<span class="wiki-shell-tree-label">${escape(formatFileLabel(node.name))}${node.type === "pdf" ? ".pdf" : ""}</span>`;
+    const padding = depth === 0 ? 12 : 38 + (depth - 1) * 18;
+    const geometry = `data-tree-depth="${depth}" style="padding-left:${padding}px"`;
     if (node.type === "directory") {
-      const open = activeSlug.startsWith(node.slug + "/") || expanded === node.slug || expanded.startsWith(node.slug + "/");
+      const open = node.slug === "wiki" || activeSlug.startsWith(node.slug + "/") || expanded === node.slug || expanded.startsWith(node.slug + "/");
+      const contents = renderSidebarIcon(node, false, open) + label + (node.badge ? `<span class="wiki-shell-tree-badge">${escape(node.badge)}</span>` : "") + chevron;
       if (!open) {
         const destination = new URL(url);
         destination.searchParams.set("tree", node.slug);
-        return `<a class="html-first-folder" data-folder="${escape(node.slug)}" href="${escape(destination.pathname + destination.search + destination.hash)}"><span aria-hidden="true">▶ </span>${label}</a>`;
+        return `<a class="wiki-shell-tree-directory html-first-folder" ${geometry} data-folder="${escape(node.slug)}" aria-expanded="false" href="${escape(destination.pathname + destination.search + destination.hash)}">${contents}</a>`;
       }
-      return `<details data-folder="${escape(node.slug)}" open><summary>${label}</summary><div class="html-first-tree-children">${visit(node.children ?? [])}</div></details>`;
+      return `<details data-folder="${escape(node.slug)}" open><summary class="wiki-shell-tree-directory" ${geometry}>${contents}</summary><div class="html-first-tree-children">${visit(node.children ?? [], depth + 1)}</div></details>`;
     }
+    const active = url.pathname !== "/" && node.slug === activeSlug;
     const href = node.type === "pdf" ? `/api/file?path=${encodeURIComponent(node.pdfPath ?? node.slug)}`
       : node.slug === "index" ? "/" : "/" + node.slug.split("/").map(encodeURIComponent).join("/");
-    return `<a href="${escape(href)}"${node.slug === activeSlug ? ' aria-current="page"' : ""}>${label}${node.type === "pdf" ? ".pdf" : ""}</a>`;
+    return `<a class="wiki-shell-tree-link${active ? " active" : ""}" ${geometry} href="${escape(href)}"${active ? ' aria-current="page"' : ""}>${renderSidebarIcon(node, active)}${label}</a>`;
   }).join("");
-  return visit(tree);
+  return visit(transformFileTreeForSidebar(tree));
 }
 
 /** The published public manifest is already filtered; never use a session tree

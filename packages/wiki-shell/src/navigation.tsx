@@ -114,7 +114,7 @@ export function flattenVisibleWikiTree({ tree, expandedSlugs, activeAncestorSlug
         (depth < 1 || activeAncestorSlugs.has(node.slug)));
       // Flattening puts shortcuts and their source document in one sibling
       // list. Identity must include the occurrence, not only the target slug.
-      rows.push({ key: `${occurrence}:${treeNodeKey(node)}`, node, depth, open, gap: depth === 0 && index > 0 ? 4 : 0 });
+      rows.push({ key: `${occurrence}:${treeNodeKey(node)}`, node, depth, open, gap: depth === 0 ? 4 : index === 0 ? 2 : 0 });
       if (open && node.children) visit(node.children, depth + 1, occurrence);
     });
   };
@@ -321,7 +321,8 @@ const WikiTreeNode = memo(function WikiTreeNode({
   renderNodeIcon,
   renderPageLink,
 }: WikiTreeNodeProps) {
-  const indent = depth * 12;
+  // Match the original reader: children start beneath the parent label.
+  const paddingLeft = depth === 0 ? 12 : 38 + (depth - 1) * 18;
   const formattedName = formatNodeName(node.name, node);
 
   if (node.type === "directory") {
@@ -341,7 +342,8 @@ const WikiTreeNode = memo(function WikiTreeNode({
           type="button"
           title={`${open ? "Collapse" : "Expand"} ${formattedName}`}
           onClick={() => onToggleDirectory(node.slug, !open)}
-          style={{ paddingLeft: indent + 8 }}
+          data-tree-depth={depth}
+          style={{ paddingLeft }}
         >
           <span className="wiki-shell-tree-disclosure-text" aria-hidden="true">
             {open ? "▼" : "▶"}
@@ -349,6 +351,7 @@ const WikiTreeNode = memo(function WikiTreeNode({
           {renderNodeIcon?.({ active: false, depth, node, open }) ?? <ChevronIcon open={open} />}
           <span className="wiki-shell-tree-label">{formattedName}</span>
           {node.badge ? <span className="wiki-shell-tree-badge tree-badge">{node.badge}</span> : null}
+          <svg className="wiki-shell-tree-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
         </button>
       </div>
     );
@@ -359,13 +362,14 @@ const WikiTreeNode = memo(function WikiTreeNode({
       <a
         className="wiki-shell-tree-link tree-link pdf"
         href={getFileHref?.(node) ?? `/api/file?path=${encodeURIComponent(node.pdfPath ?? node.slug)}`}
-        style={{ paddingLeft: indent + 24 }}
+        data-tree-depth={depth}
+        style={{ paddingLeft }}
         target="_blank"
         rel="noreferrer"
         onClick={onNavigate}
       >
         {renderNodeIcon?.({ active: false, depth, node }) ?? <FileIcon />}
-        {formattedName}.pdf
+        <span className="wiki-shell-tree-label">{formattedName}.pdf</span>
       </a>
     );
   }
@@ -375,13 +379,13 @@ const WikiTreeNode = memo(function WikiTreeNode({
     children: (
       <>
         {renderNodeIcon?.({ active, depth, node })}
-        {formattedName}
+        <span className="wiki-shell-tree-label">{formattedName}</span>
       </>
     ),
     className: cn("wiki-shell-tree-link tree-link", active && "active"),
     node,
     onNavigate,
-    style: { paddingLeft: indent + 24 },
+    style: { paddingLeft },
   });
 });
 

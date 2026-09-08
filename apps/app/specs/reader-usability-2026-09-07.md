@@ -38,3 +38,17 @@ Run SQLite-heavy unit suites separately: the fixed-size WASM heap can exhaust it
 Production rollout and performance measurements are recorded after browser verification. The original 200 ms target concerns initial readable content; interactive readiness is measured separately.
 
 Validated locally: 32 Chromium browser tests, 23 Firefox reader tests, 126 server/bootstrap/unit tests plus 7 isolated LiveStore schema tests, TypeScript, changed-code lint, and bundle budgets. Desktop/mobile screenshots are retained in the local verification artifacts.
+
+## Legacy sidebar comparison (September 8)
+
+Ran the final Next.js implementation (`52e12889`, the parent of the web-app retirement) in a separate worktree on port 62173, alongside the current production build. The reference needed a local server-auth compatibility adapter for today's backend; its sidebar components and CSS were unchanged. Compared the real homepage in light and dark mode at 1280 × 900.
+
+The earlier checks covered article CSS but missed actual sidebar parity. Restored the measured 16 px directory labels, 14 px desktop files, 30 px rows, root icons at x=18 and nested icons at x=44 (then 18 px per deeper level). Root rows have 4 px separation; the first child has 2 px separation. Restored section emphasis, semantic icons, hover disclosure chevrons, sign-in card styling, and the 40 px Ask/Search controls with a separate divider and non-shrinking icons.
+
+The native sidebar now shares the live icon map and CSS classes, including the workspace, utility links and footer. Wiki opens immediately in the initial response. Native folder navigation still emits only visible branches; the compact public bootstrap and shared snapshot cache remain intact. The small icon-markup cache is bounded by the finite icon set and active state, avoiding repeated React icon rendering for large branches.
+
+New browser regressions hold scripts and the manifest, abort external stylesheets, assert the measured legacy geometry in both themes, compare the entire sidebar before/after handoff, and sample every animation frame for a missing tree. They also exercise deeper indentation, hover disclosure, the initial sign-in destination and the mobile Files control. Streaming tests now scope paragraph assertions to the article because the initial sidebar also contains sign-in copy. Reviewed and refreshed the synthetic mobile navigation snapshot.
+
+Validation for this follow-up: 60 Chromium UI/reader tests passed (one opt-in live probe skipped); the static-preview-only run's legacy redirect assertion requires the real application server and is checked separately against production. All 24 Firefox reader/sign-in cases passed across the main and focused reruns. Twenty targeted server/bootstrap/tree unit tests, the production build/typecheck, and unchanged bundle limits passed. Changed-code lint has no errors; Navigation's existing outline effect still emits its pre-existing state-in-effect warning.
+
+Updated the performance harness to accept HTML-first handoff as readiness instead of waiting forever for the intentionally removed disk snapshot. It now records initial HTML readiness and interactive handoff separately.

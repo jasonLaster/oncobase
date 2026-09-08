@@ -102,7 +102,7 @@ export function HeaderCommandPaletteHost() {
 
 export function HeaderAuthDialogHost() {
   const { setSessionUser, submitAuth } = useWikiViteAuth();
-  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [authDialogOpen, setAuthDialogOpen] = useState(() => new URLSearchParams(location.search).get("reader-action") === "signin");
   const [authMode, setAuthMode] =
     useState<WikiActionsMenuAuthMode>("signin");
 

@@ -13,46 +13,8 @@ import {
   type WikiNavigationNode,
   type WikiTreePageLinkRenderArgs,
 } from "@oncobase/wiki-shell";
-import {
-  Activity,
-  Archive,
-  Beaker,
-  BookOpen,
-  Briefcase,
-  Building2,
-  Calendar,
-  ChevronDown,
-  ClipboardCheck,
-  Crosshair,
-  Dna,
-  FileText,
-  Flame,
-  Folder,
-  FolderOpen,
-  GraduationCap,
-  HelpCircle,
-  Inbox,
-  Info,
-  Landmark,
-  ListChecks,
-  ListTodo,
-  Mail,
-  MessageSquare,
-  MessageSquareText,
-  Microscope,
-  NotebookPen,
-  Package,
-  Pill,
-  ScrollText,
-  Search,
-  ShieldCheck,
-  Syringe,
-  Target,
-  TrendingUp,
-  Users,
-  WandSparkles,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronDown, ClipboardCheck, MessageSquare, MessageSquareText, Search, WandSparkles } from "lucide-react";
+import { nodeIcon } from "./navigation-icons";
 import {
   lazy,
   memo,
@@ -94,63 +56,6 @@ const NON_DOCUMENT_ROUTE_PREFIXES = [
 ] as const;
 
 type MobileNavTab = "pages" | "outline";
-
-const SECTION_ICONS: Record<string, LucideIcon> = {
-  about: Info,
-  "project-management": ListTodo,
-  sources: BookOpen,
-  wiki: BookOpen,
-  overview: Activity,
-  "echo-immune": Activity,
-  emails: Mail,
-  institutions: Building2,
-  insurance: ShieldCheck,
-  "meeting-notes": NotebookPen,
-  "research-analyses": Beaker,
-  "research-articles": BookOpen,
-  "test-results": Microscope,
-  archived: Archive,
-  companies: Briefcase,
-  diagnostics: ClipboardCheck,
-  education: GraduationCap,
-  logistics: Package,
-  people: Users,
-  prognosis: TrendingUp,
-  questions: HelpCircle,
-  research: Beaker,
-  strategy: Target,
-  summary: ScrollText,
-  treatment: Pill,
-  updates: Calendar,
-  "designing-a-vaccine": Syringe,
-  "molecular-profiling": Dna,
-  "oncology-101": Landmark,
-  "reading-a-tumor": Microscope,
-  "targeted-therapy-modalities": Crosshair,
-};
-
-const FILE_ICONS: Record<string, LucideIcon> = {
-  "1-inbox": Inbox,
-  "2-urgent": Flame,
-  "3-completed": ListChecks,
-  "4-backlog": ListChecks,
-};
-
-const FILE_ICONS_BY_SLUG: Record<string, LucideIcon> = {
-  "about/About": Info,
-  "about/Index": Info,
-  "about/Journal": NotebookPen,
-  "about/Log": ScrollText,
-  "about/Terminology": BookOpen,
-  "about/overview/index": Activity,
-  "about/overview/active-workstreams": ListChecks,
-  "about/overview/current-status": ClipboardCheck,
-  "about/overview/for-experts": GraduationCap,
-  "about/overview/for-friends-and-family": Users,
-  "about/overview/for-peers": Users,
-  "about/overview/key-context": Target,
-  "about/overview/test-tracker": Microscope,
-};
 
 function formatTreeLabel(name: string) {
   return formatFileLabel(name);
@@ -212,10 +117,6 @@ function navigationActiveSlug(pathname: string) {
   return pathname === "/" ? "" : slugFromPath(pathname);
 }
 
-function lastPathSegment(slug: string) {
-  return slug.split("/").filter(Boolean).at(-1) ?? slug;
-}
-
 function defaultDirectoryOpen({
   activeAncestorSlugs,
   depth,
@@ -228,28 +129,6 @@ function defaultDirectoryOpen({
   return activeAncestorSlugs.has(node.slug) || (depth === 0 && node.slug === "wiki");
 }
 
-function nodeIcon({
-  active,
-  node,
-  open,
-}: {
-  active: boolean;
-  depth: number;
-  node: WikiNavigationNode;
-  open?: boolean;
-}) {
-  const Icon =
-    node.type === "directory"
-      ? SECTION_ICONS[lastPathSegment(node.slug)] ?? (open ? FolderOpen : Folder)
-      : FILE_ICONS_BY_SLUG[node.slug] ?? FILE_ICONS[node.name] ?? FileText;
-  return (
-    <Icon
-      size={ICON_SIZE}
-      className={active ? "wiki-shell-tree-icon active" : "wiki-shell-tree-icon"}
-      aria-hidden="true"
-    />
-  );
-}
 
 function DiagnosticsTreeLink({
   activePathname,
@@ -272,8 +151,8 @@ function DiagnosticsTreeLink({
       style={{ paddingLeft: 12 }}
       title="Diagnostics"
     >
-      <Activity size={ICON_SIZE} aria-hidden="true" />
-      Diagnostics
+      <ClipboardCheck size={ICON_SIZE} aria-hidden="true" />
+      <span className="wiki-shell-tree-label">Diagnostics</span>
     </Link>
   );
 }
@@ -333,6 +212,7 @@ function SidebarFooter() {
           <WandSparkles size={ICON_SIZE} aria-hidden="true" />
           <span>Ask wiki</span>
         </Link>
+        <span className="wiki-vite-sidebar-footer-separator" aria-hidden="true" />
         <button
           type="button"
           data-test-id="sidebar-search"
@@ -449,7 +329,7 @@ function CommentsTreeLink({
       style={{ paddingLeft: 12 }}
     >
       <MessageSquareText size={ICON_SIZE} aria-hidden="true" />
-      Comments
+      <span className="wiki-shell-tree-label">Comments</span>
     </Link>
   );
 }

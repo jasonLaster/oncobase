@@ -18,7 +18,7 @@ describe("navigation projections", () => {
     const tree = [file("index"), directory("folder", [file("a"), directory("nested", [file("b")])])];
     const props = { tree, activeAncestorSlugs: new Set(["folder", "nested"]), expandedSlugs: new Map<string, boolean>() };
     expect(flattenVisibleWikiTree(props).map(({ node, depth, gap }) => [node.slug, depth, gap]))
-      .toEqual([["index", 0, 0], ["folder", 0, 4], ["a", 1, 0], ["nested", 1, 0], ["b", 2, 0]]);
+      .toEqual([["index", 0, 4], ["folder", 0, 4], ["a", 1, 2], ["nested", 1, 0], ["b", 2, 2]]);
     expect(flattenVisibleWikiTree({ ...props, expandedSlugs: new Map([["folder", false]]) }).map(row => row.node.slug)).toEqual(["index", "folder"]);
   });
 

@@ -20,8 +20,7 @@ for (const javaScriptEnabled of [false, true]) test(`file tree folders and links
   try {
     const page = await context.newPage();
     await page.goto(`http://127.0.0.1:${(server.address() as {port:number}).port}/`);
-    await expect(page.locator('.html-first-folder[data-folder="wiki"]')).toBeVisible();
-    await page.locator('.html-first-folder[data-folder="wiki"]').click();
+    await expect(page.locator('details[data-folder="wiki"]')).toHaveAttribute("open", "");
     await page.locator('.html-first-folder[data-folder="wiki/care"]').click();
     await page.locator('.html-first-tree a[href="/wiki/care/results"]').click();
     await expect(page).toHaveURL(/\/wiki\/care\/results$/);

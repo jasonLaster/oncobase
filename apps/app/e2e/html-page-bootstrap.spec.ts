@@ -344,3 +344,82 @@ test("the authoritative manifest replaces provisional navigation including remov
     await expect(page.getByTestId("wiki-sidebar")).toContainText("logistics");
   } finally {release();}
 });
+
+// Baseline measured in the last Next.js reader (52e12889), at 1280 x 900.
+// Check both paints: final screenshots alone missed the empty/mismatched sidebar.
+for (const colorScheme of ["light", "dark"] as const) {
+  test(`${colorScheme} sidebar preserves the Next.js geometry through delayed-script handoff`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ colorScheme });
+    await prepare(page);
+    let releaseScripts!: () => void;
+    let releaseManifest!: () => void;
+    const scripts = new Promise<void>(resolve => { releaseScripts = resolve; });
+    const manifest = new Promise<void>(resolve => { releaseManifest = resolve; });
+    await page.route("**/*", async route => {
+      if (route.request().resourceType() === "script") await scripts;
+      if (route.request().resourceType() === "stylesheet") return route.abort();
+      if (new URL(route.request().url()).pathname === "/api/wiki/manifest") await manifest;
+      await route.fallback();
+    });
+    const measure = (selector: string) => page.locator(selector).evaluate(sidebar => {
+      const rows = Array.from(sidebar.querySelectorAll<HTMLElement>(".wiki-shell-tree-link, .wiki-shell-tree-directory"));
+      return rows.map(row => {
+        const rect = row.getBoundingClientRect();
+        const icon = row.querySelector("svg")!;
+        return { text: row.querySelector(".wiki-shell-tree-label")!.textContent,
+          x: rect.x, y: rect.y, height: rect.height, width: rect.width,
+          font: getComputedStyle(row).fontSize, iconX: icon.getBoundingClientRect().x,
+          iconWidth: icon.getBoundingClientRect().width, opacity: getComputedStyle(icon).opacity,
+          labelColor: getComputedStyle(row.querySelector(".wiki-shell-tree-label")!).color };
+      });
+    });
+    try {
+      await page.goto("/", { waitUntil: "commit" });
+      const early = page.locator("#wiki-html-first .wiki-shell-sidebar");
+      await expect(early).toContainText("logistics");
+      const before = await measure("#wiki-html-first .wiki-shell-sidebar");
+      expect(before.map(({ text, y, iconX, font }) => ({ text, y, iconX, font }))).toEqual([
+        { text: "Comments", y: 56, iconX: 18, font: "14px" },
+        { text: "Diagnostics", y: 86, iconX: 18, font: "14px" },
+        { text: "index", y: 120, iconX: 18, font: "14px" },
+        { text: "wiki", y: 154, iconX: 18, font: "16px" },
+        { text: "logistics", y: 186, iconX: 44, font: "16px" },
+      ]);
+      for (const row of before) expect(row).toMatchObject({ x: 6, width: 244, height: 30, iconWidth: 16 });
+      const footerBefore = await early.locator(".wiki-vite-sidebar-footer-pills").boundingBox();
+      for (const control of await early.locator(".wiki-vite-sidebar-footer-pills a").all()) {
+        expect((await control.boundingBox())!.height).toBe(40);
+        await expect(control.locator("svg")).toHaveCSS("width", "16px");
+      }
+      await expect(early.locator(".html-first-sign-in")).toHaveAttribute("href", /reader-action=signin/);
+      await page.evaluate(() => {
+        const frames: number[] = [];
+        Object.assign(window, { sidebarPaintFrames: frames });
+        function sample() {
+          const sidebar = document.querySelector("#wiki-html-first .wiki-shell-sidebar") ?? document.querySelector('#root [data-test-id="wiki-sidebar"]');
+          frames.push(sidebar?.querySelectorAll(".wiki-shell-tree-directory").length ?? 0);
+          if (frames.length < 300) requestAnimationFrame(sample);
+        }
+        requestAnimationFrame(sample);
+      });
+      releaseScripts();
+      await expect(page.locator("#wiki-html-first")).toHaveCount(0);
+      const live = page.locator('#root [data-test-id="wiki-sidebar"]');
+      expect(await measure('#root [data-test-id="wiki-sidebar"]')).toEqual(before);
+      expect(await live.locator(".wiki-vite-sidebar-footer-pills").boundingBox()).toEqual(footerBefore);
+      for (const control of await live.locator(".wiki-vite-sidebar-footer-pills button").all()) {
+        expect((await control.boundingBox())!.height).toBe(40);
+      }
+      const frames = await page.evaluate(() => (window as unknown as { sidebarPaintFrames: number[] }).sidebarPaintFrames);
+      expect(frames.length).toBeGreaterThan(0);
+      expect(frames.every(count => count >= 2)).toBe(true);
+      await live.getByRole("button", { name: "Expand logistics", exact: true }).hover();
+      await expect(live.getByRole("button", { name: "Expand logistics", exact: true }).locator(".wiki-shell-tree-chevron")).toHaveCSS("opacity", "0.6");
+      await live.getByRole("button", { name: "Expand logistics", exact: true }).click();
+      const nested = live.locator('a[href="/wiki/logistics/insurance"]');
+      await expect(nested).toBeVisible();
+      expect((await nested.locator("svg").boundingBox())!.x).toBe(62);
+    } finally { releaseScripts(); releaseManifest(); }
+  });
+}

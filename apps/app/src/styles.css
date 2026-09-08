@@ -541,28 +541,25 @@ a {
 }
 
 .sidebar-expanded-rail .wiki-shell-tree-root {
-  margin-top: 4px;
+  margin-top: 0;
 }
 
-.sidebar-expanded-rail .wiki-shell-tree-directory,
 .sidebar-expanded-rail .wiki-shell-tree-link {
   font-size: 0.875rem;
 }
 
 .wiki-shell-tree-icon {
   flex-shrink: 0;
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
-.wiki-shell-tree-icon.active,
+.wiki-shell-tree-icon.active { opacity: 1; }
 .tree-link:hover .wiki-shell-tree-icon,
-.tree-directory:hover .wiki-shell-tree-icon {
-  opacity: 0.95;
-}
+.tree-directory:hover .wiki-shell-tree-icon { opacity: .9; }
 
 .wiki-vite-sidebar-footer {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   padding: 4px 12px 12px;
 }
 
@@ -588,15 +585,12 @@ a {
   font-size: 0.8125rem;
   gap: 8px;
   justify-content: center;
-  min-height: 36px;
-  min-width: 0;
-  padding: 0 10px;
+  min-height: 40px;
+  padding: 8px 12px;
   text-decoration: none;
 }
 
-.wiki-vite-sidebar-footer-pills a + button {
-  border-left: 1px solid var(--sidebar-border);
-}
+.wiki-vite-sidebar-footer-separator { width: 1px; flex-shrink: 0; background: var(--sidebar-border); }
 
 .wiki-vite-sidebar-footer-pills a:hover,
 .wiki-vite-sidebar-footer-pills button:hover,
@@ -614,7 +608,7 @@ a {
   font-size: 0.625rem;
   font-weight: 600;
   line-height: 1;
-  padding: 2px 5px;
+  padding: 2px 6px;
 }
 
 .tag-page-shell {
@@ -1623,3 +1617,28 @@ a {
     @apply border-border outline-ring/50;
   }
 }
+
+/* Sidebar dimensions measured against the final Next.js reader. */
+.sidebar-expanded-rail .wiki-shell-sidebar-nav { padding-block: 8px; }
+.wiki-shell-tree-directory { padding-block: 0; padding-right: 6px; }
+.wiki-shell-tree-link { padding-block: 0; padding-right: 8px; }
+.wiki-shell-tree-directory .wiki-shell-tree-icon { opacity: .6; }
+.wiki-shell-tree-directory[data-tree-depth="0"] .wiki-shell-tree-label,
+.comments-tree-link .wiki-shell-tree-label,
+.diagnostics-tree-link .wiki-shell-tree-label { font-weight: 500; color: color-mix(in srgb, var(--foreground) 85%, transparent); }
+.comments-tree-link { gap: 10px; }
+.comments-tree-link > svg, .diagnostics-tree-link > svg { opacity: .5; }
+.wiki-shell-tree-chevron { flex-shrink: 0; opacity: 0; transition: opacity .15s, transform .15s; }
+[aria-expanded="true"] > .wiki-shell-tree-chevron, details[open] > summary > .wiki-shell-tree-chevron { transform: rotate(90deg); }
+.wiki-shell-tree-directory:hover > .wiki-shell-tree-chevron { opacity: .6; }
+.wiki-vite-sidebar-footer-pills button { font-size: 16px; }
+.wiki-vite-sidebar-footer-pills svg { flex-shrink: 0; opacity: .6; }
+.wiki-vite-sidebar-footer-pills kbd { flex-shrink: 0; font-weight: 500; line-height: 15px; }
+.wiki-shell-sidebar-sign-in p { font-weight: 500; line-height: 1.375; }
+.wiki-shell-sidebar-sign-in button { padding: 8px 10px; }
+
+.wiki-vite-sidebar-footer-pills a>span, .wiki-vite-sidebar-footer-pills button>span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wiki-shell-sidebar-sign-in { --reader-sign-in-bg: var(--color-indigo-600, #4f46e5); }
+.dark .wiki-shell-sidebar-sign-in { --reader-sign-in-bg: var(--color-indigo-500, #6366f1); }
+.wiki-shell-sidebar-sign-in button { background: var(--reader-sign-in-bg); border-color: var(--reader-sign-in-bg); }
+.wiki-shell-sidebar-sign-in, .wiki-vite-sidebar-footer-pills { box-shadow: 0 1px 3px 0 rgb(0 0 0 / .1), 0 1px 2px -1px rgb(0 0 0 / .1); }
