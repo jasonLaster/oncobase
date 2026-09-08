@@ -21,7 +21,10 @@ export function createReaderEdgeSnapshot(client: ConvexHttpClient, options: { no
   return {
     warm: (host: string) => policies.get(host),
     async get(host: string, slug: string): Promise<ReaderSnapshot | null> {
-      const policy = await policies.get(host);
+      // API requests warm the policy opportunistically. A cached HTML rewrite
+      // should not initiate another backend request while delivering a hit.
+      // Expired policies still require a successful foreground read.
+      const policy = await policies.get(host, { backgroundRefresh: false });
       if (!policy) return null;
       const key = keyFor(host, policy.contentRevision, slug);
       if (options.maxAgeMs !== 0) {

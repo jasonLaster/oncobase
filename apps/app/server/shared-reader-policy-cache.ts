@@ -31,7 +31,7 @@ export function createSharedReaderPolicyCache<T>({ read, now = Date.now, maxAgeM
     return promise;
   };
   return {
-    async get(key: string): Promise<T> {
+    async get(key: string, { backgroundRefresh = true }: { backgroundRefresh?: boolean } = {}): Promise<T> {
       if (maxAgeMs === 0) return (await refresh(key)).value;
       let entry = memory.get(key);
       if (!fresh(entry)) {
@@ -39,7 +39,7 @@ export function createSharedReaderPolicyCache<T>({ read, now = Date.now, maxAgeM
         if (fresh(entry)) remember(key, entry);
       }
       if (fresh(entry)) {
-        if (now() - entry.started >= 1000) background(refresh(key).catch(() => {}));
+        if (backgroundRefresh && now() - entry.started >= 1000) background(refresh(key).catch(() => {}));
         return entry.value;
       }
       return (await refresh(key)).value;
