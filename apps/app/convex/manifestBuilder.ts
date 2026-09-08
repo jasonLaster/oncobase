@@ -1,7 +1,7 @@
 "use node";
 import { v } from "convex/values";
 import { createWikiManifestResponse, type WikiApiDocumentsGateway } from "@oncobase/wiki-content/server";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { MANIFEST_SNAPSHOT_VERSION } from "./lib/manifestRevision";
 import { internalAction } from "./_generated/server";
 
@@ -13,13 +13,13 @@ export const build = internalAction({
       const revision = await ctx.runQuery(internal.manifestCache.revision, { siteSlug });
       if (revision === null) return null;
       const documents: WikiApiDocumentsGateway = {
-        listManifestPage: args => ctx.runQuery(api.documents.listManifestPage, { ...args, siteSlug }),
-        listPageWithContent: args => ctx.runQuery(api.documents.listPageWithContent, { ...args, siteSlug }),
-        listPdfAssetPathsPage: args => ctx.runQuery(api.documents.listPdfAssetPathsPage, { ...args, siteSlug }),
-        listFileAssetPathsPage: args => ctx.runQuery(api.documents.listFileAssetPathsPage, { ...args, siteSlug }),
-        listPdfAssetVisibilityPage: args => ctx.runQuery(api.documents.listPdfAssetVisibilityPage, { ...args, siteSlug }),
-        listFileAssetVisibilityPage: args => ctx.runQuery(api.documents.listFileAssetVisibilityPage, { ...args, siteSlug }),
-        getBySlug: args => ctx.runQuery(api.documents.getBySlug, { ...args, siteSlug }),
+        listManifestPage: args => ctx.runQuery(internal.documents.internal_listManifestPage, { ...args, siteSlug }),
+        listPageWithContent: args => ctx.runQuery(internal.documents.internal_listPageWithContent, { ...args, siteSlug }),
+        listPdfAssetPathsPage: args => ctx.runQuery(internal.documents.internal_listPdfAssetPathsPage, { ...args, siteSlug }),
+        listFileAssetPathsPage: args => ctx.runQuery(internal.documents.internal_listFileAssetPathsPage, { ...args, siteSlug }),
+        listPdfAssetVisibilityPage: args => ctx.runQuery(internal.documents.internal_listPdfAssetVisibilityPage, { ...args, siteSlug }),
+        listFileAssetVisibilityPage: args => ctx.runQuery(internal.documents.internal_listFileAssetVisibilityPage, { ...args, siteSlug }),
+        getBySlug: args => ctx.runQuery(internal.documents.internal_getBySlug, { ...args, siteSlug }),
       };
       const response = await createWikiManifestResponse(new Request("https://manifest.internal/api/wiki/manifest?scope=public"), { siteSlug, documents, getSessionUser: async () => null });
       if (!response.ok || response.headers.get("X-Wiki-Manifest-Partial") === "true" || response.headers.get("X-Wiki-Manifest-Source") !== "manifest") throw new Error("Incomplete manifest");

@@ -1,3 +1,4 @@
+import { internalQueryFor } from "./lib/serviceFunctions";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 import {
@@ -6,7 +7,7 @@ import {
   query,
   type MutationCtx,
   type QueryCtx,
-} from "./_generated/server";
+} from "./lib/serviceFunctions";
 import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 import { invalidateManifest } from "./lib/manifestRevision";
 import { hasCompleteAssetVisibility } from "./lib/assetVisibility";
@@ -1620,3 +1621,12 @@ function extractExcerpt(content: string, query: string): string {
     (end < content.length ? "..." : "")
   );
 }
+
+// Private entrypoints for the scheduled manifest builder.
+export const internal_listManifestPage = internalQueryFor(listManifestPage);
+export const internal_listPageWithContent = internalQueryFor(listPageWithContent);
+export const internal_listPdfAssetPathsPage = internalQueryFor(listPdfAssetPathsPage);
+export const internal_listFileAssetPathsPage = internalQueryFor(listFileAssetPathsPage);
+export const internal_listPdfAssetVisibilityPage = internalQueryFor(listPdfAssetVisibilityPage);
+export const internal_listFileAssetVisibilityPage = internalQueryFor(listFileAssetVisibilityPage);
+export const internal_getBySlug = internalQueryFor(getBySlug);

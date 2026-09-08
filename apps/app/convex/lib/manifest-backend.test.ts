@@ -1,3 +1,4 @@
+import { SERVICE_ISSUER, SERVICE_SUBJECT } from "./serviceAuth";
 import { expect, test } from "bun:test";
 import { convexTest } from "convex-test";
 import schema from "../schema";
@@ -9,7 +10,7 @@ const modules = {
 };
 
 test("public manifest index includes unset/false sensitivity, excludes other tenants and restricted rows before pagination", async () => {
-  const t = convexTest(schema, modules);
+  const t = convexTest(schema, modules).withIdentity({ issuer: SERVICE_ISSUER, subject: SERVICE_SUBJECT, role: "backend-service" });
   await t.run(async (ctx) => {
     const site = (slug: string) => ctx.db.insert("sites", {
       slug, name: slug, ownerEmail: "fixture@example.test", status: "active", domains: [], publishTokenHash: "fixture",

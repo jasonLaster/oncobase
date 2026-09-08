@@ -1,7 +1,7 @@
 /* eslint-disable no-restricted-syntax */
 import { v } from "convex/values";
 
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./lib/serviceFunctions";
 import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 
 type AnyCtx = QueryCtx | MutationCtx;

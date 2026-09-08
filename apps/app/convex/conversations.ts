@@ -2,10 +2,11 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   mutation,
-  query,
+  conversationMutation,
+  conversationQuery as query,
   type MutationCtx,
   type QueryCtx,
-} from "./_generated/server";
+} from "./lib/serviceFunctions";
 import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 
 type AnyCtx = QueryCtx | MutationCtx;
@@ -116,7 +117,7 @@ export const getStreamingState = query({
   },
 });
 
-export const create = mutation({
+export const create = conversationMutation({
   args: { title: v.string(), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { title, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
@@ -180,7 +181,7 @@ export const updateStreaming = mutation({
   },
 });
 
-export const clearStreaming = mutation({
+export const clearStreaming = conversationMutation({
   args: {
     conversationId: v.id("conversations"),
     runId: v.optional(v.string()),
@@ -200,7 +201,7 @@ export const clearStreaming = mutation({
   },
 });
 
-export const cancelStream = mutation({
+export const cancelStream = conversationMutation({
   args: {
     conversationId: v.id("conversations"),
     siteSlug: v.optional(v.string()),
@@ -212,7 +213,7 @@ export const cancelStream = mutation({
   },
 });
 
-export const clearCancel = mutation({
+export const clearCancel = conversationMutation({
   args: {
     conversationId: v.id("conversations"),
     siteSlug: v.optional(v.string()),
@@ -241,7 +242,7 @@ export const getCancelState = query({
   },
 });
 
-export const archive = mutation({
+export const archive = conversationMutation({
   args: { id: v.id("conversations"), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { id, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
@@ -250,7 +251,7 @@ export const archive = mutation({
   },
 });
 
-export const restore = mutation({
+export const restore = conversationMutation({
   args: { id: v.id("conversations"), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { id, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
@@ -259,7 +260,7 @@ export const restore = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = conversationMutation({
   args: { id: v.id("conversations"), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { id, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
@@ -324,7 +325,7 @@ export const saveMessages = mutation({
   },
 });
 
-export const sendMessage = mutation({
+export const sendMessage = conversationMutation({
   args: {
     conversationId: v.id("conversations"),
     text: v.string(),
@@ -348,7 +349,7 @@ export const sendMessage = mutation({
   },
 });
 
-export const disableMessage = mutation({
+export const disableMessage = conversationMutation({
   args: { id: v.id("messages"), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { id, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);

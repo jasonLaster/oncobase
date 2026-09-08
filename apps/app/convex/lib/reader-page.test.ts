@@ -1,3 +1,4 @@
+import { SERVICE_ISSUER, SERVICE_SUBJECT } from "./serviceAuth";
 import { expect, test } from "bun:test";
 import { convexTest } from "convex-test";
 import schema from "../schema";
@@ -5,7 +6,7 @@ import { api } from "../_generated/api";
 
 const modules = { "../documents.ts": () => import("../documents"), "../_generated/server.js": () => import("../_generated/server") };
 test("reader snapshot joins current host and policy to explicitly public content without raw or cross-tenant data", async () => {
-  const t = convexTest(schema, modules);
+  const t = convexTest(schema, modules).withIdentity({ issuer: SERVICE_ISSUER, subject: SERVICE_SUBJECT, role: "backend-service" });
   const { a, doc } = await t.run(async ctx => {
     const makeSite = (slug: string) => ctx.db.insert("sites", { slug, name: slug, ownerEmail: "fixture@example.test", status: "active", domains: [slug + ".test"], publishTokenHash: "fixture",
       config: { enableChat: false, enableComments: false, enableDownloads: false, passwordGate: true, passwordHash: "fixture-gate" },

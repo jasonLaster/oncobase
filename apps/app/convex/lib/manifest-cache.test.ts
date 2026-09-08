@@ -1,3 +1,4 @@
+import { SERVICE_ISSUER, SERVICE_SUBJECT } from "./serviceAuth";
 import { expect, test } from "bun:test";
 import { current, install, requestBuild, status } from "../manifestCache";
 import { invalidateManifest, queueManifestBuild } from "./manifestRevision";
@@ -15,6 +16,7 @@ function fixture() {
   };
   const jobs: any[] = [], deleted: string[] = [];
   const ctx: any = {
+    auth: { getUserIdentity: async () => ({ issuer: SERVICE_ISSUER, subject: SERVICE_SUBJECT, role: "backend-service" }) },
     db: {
       get: async (id: string) => { const row = Object.values(rows).flat().find(row => row._id === id); return row ? structuredClone(row) : null; },
       patch: async (id: string, patch: any) => Object.assign(Object.values(rows).flat().find(row => row._id === id)!, patch),
