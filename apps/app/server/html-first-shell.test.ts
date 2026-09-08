@@ -25,6 +25,19 @@ test("minified server output produces syntactically valid inline startup scripts
     await writeFile(path, source);
     const bundled = await import(pathToFileURL(path).href);
     const html = bundled.injectHtmlFirstShell(template, page, new URL("https://example.com/wiki/test"), "test", "", "<p>Readable.</p>") as string;
+    // Execute the bundled head in isolation: the rest of the streamed document
+    // and the application modules need not exist to intercept Cmd+O.
+    const head = html.split("</head>")[0]!;
+    const shortcutScript = [...head.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].at(-1)![1]!;
+    const fakeWindow: any = {};
+    const fakeDocument = new EventTarget();
+    new Function("window", "document", shortcutScript)(fakeWindow, fakeDocument);
+    const key = new Event("keydown", { cancelable: true });
+    Object.assign(key, { key: "o", code: "KeyO", metaKey: true });
+    fakeDocument.dispatchEvent(key);
+    expect(key.defaultPrevented).toBe(true);
+    expect(fakeWindow.__wikiReaderShortcuts.pending).toBe("pages");
+    fakeWindow.__wikiReaderShortcuts.controller.dispose();
     for (const match of html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)) {
       if (!match[1]!.includes("application/json")) expect(() => new Function(match[2])).not.toThrow();
     }

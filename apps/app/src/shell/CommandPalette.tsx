@@ -49,9 +49,11 @@ import {
   WikiFilePalette,
   type WikiFilePalettePage,
 } from "@oncobase/wiki-shell/file-palette";
+import { flattenFileTree } from "@oncobase/wiki-content";
+import { bootstrappedNavigation } from "../bootstrap/seed-state";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { readLiveStoreDevtoolsEnabled, reloadWithLiveStoreDevtools } from "../livestore/devtools";
-import { assets$, pageIndex$ } from "../livestore/queries";
+import { assets$, fileTree$, pageIndex$ } from "../livestore/queries";
 import { events } from "../livestore/schema";
 import { WARM_CACHE_EVENT } from "../sync/WikiSync";
 import type { AssetIndexRow, PageIndexRow } from "../types";
@@ -107,6 +109,10 @@ export function CommandPalette({
 }) {
   const { store } = useStore();
   const pages = store.useQuery(pageIndex$) as PageIndexRow[];
+  const manifestTree = store.useQuery(fileTree$);
+  // A validated public tree is usable before sync; even an empty authoritative
+  // manifest supersedes it. The fallback is scoped to this exact store.
+  const initialTree = manifestTree ? undefined : bootstrappedNavigation.get(store);
   const assets = store.useQuery(assets$) as AssetIndexRow[];
   const scope = useWikiScope();
   const [mode, setMode] = useState<PaletteMode>(initialMode);
@@ -151,7 +157,9 @@ export function CommandPalette({
 
   const filePalettePages = useMemo<WikiFilePalettePage[]>(
     () =>
-      pages.map((page) => {
+      (initialTree
+        ? [...new Map(flattenFileTree(initialTree).filter(node => node.type === "file").map(node => [node.slug, node])).values()]
+        : pages).map((page) => {
         const segments = page.slug.split("/");
         return {
           name: formatFileLabel(segments.at(-1) ?? page.slug),
@@ -159,7 +167,7 @@ export function CommandPalette({
           slug: page.slug,
         };
       }),
-    [pages],
+    [pages, initialTree],
   );
 
   const outlineResults = useMemo(() => {
@@ -460,6 +468,7 @@ export function CommandPalette({
       <WikiFilePalette
         footer={false}
         initialSearch={pageInitialQuery}
+        loading={!manifestTree && !initialTree}
         onOpenChange={onOpenChange}
         onSelectPage={openPage}
         open={open}

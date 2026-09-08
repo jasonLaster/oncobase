@@ -6,7 +6,7 @@ import {
   applyWikiTheme,
   cycleWikiThemePreference,
   getWikiThemePreference,
-  installCommandPaletteChords,
+  createCommandPaletteChords,
   subscribeWikiSystemTheme,
   subscribeWikiThemePreference,
   wikiThemeLabel,
@@ -32,6 +32,7 @@ import { backendHref, returnToHref } from "../wiki-utils";
 import { requestSessionCacheCleanup } from "../livestore/cache-retirement";
 import { useWikiSession } from "../wiki-context";
 import type { PaletteMode } from "./CommandPalette";
+import type {} from "../bootstrap/reader-shortcuts";
 
 const OPEN_COMMAND_PALETTE_EVENT = "wiki-vite-open-command-palette";
 
@@ -67,15 +68,18 @@ export function HeaderCommandPaletteHost() {
     return () => window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpenPalette);
   }, [openPalette]);
 
-  useEffect(
-    () =>
-      installCommandPaletteChords({
-        onFiles: () => openPalette("pages"),
-        onOutline: () => openPalette("outline"),
-        onAction: () => openPalette("actions"),
-      }),
-    [openPalette],
-  );
+  useEffect(() => {
+    const early = window.__wikiReaderShortcuts;
+    const shortcuts = early?.controller ?? createCommandPaletteChords({});
+    shortcuts.setHandlers({
+      onFiles: () => openPalette("pages"),
+      onOutline: () => openPalette("outline"),
+      onAction: () => openPalette("actions"),
+    });
+    delete window.__wikiReaderShortcuts;
+    if (early?.pending) openCommandPalette(early.pending);
+    return shortcuts.dispose;
+  }, [openPalette]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

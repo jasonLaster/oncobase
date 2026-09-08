@@ -131,7 +131,8 @@ test.describe("Search and local page finding", () => {
 
   test("public local finder does not include sensitive pages", async ({ page }) => {
     await installWikiApiMocks(page, { sessionAuthenticated: true });
-    await gotoWiki(page, "/");
+    // Signed-in readers automatically use their session unless public is explicit.
+    await gotoWiki(page, "/?scope=public");
 
     await page.getByTestId("sidebar-search").click();
     await page.getByTestId("command-palette-input").fill("private plan");

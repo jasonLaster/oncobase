@@ -29,7 +29,8 @@ const budgets: Budget[] = [
   // The bootstrap bridge adds a small provider hook and fetch exemption. Keep
   // the payload parser separate, but count its runtime cost as eager below.
   // Navigation seeding adds a store-local WeakMap and a second bootstrap ID.
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 16_768 },
+  // Allow 64 bytes for shared-import symbol churn from the startup shortcut bridge.
+  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 16_832 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },

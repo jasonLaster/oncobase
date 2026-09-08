@@ -1,9 +1,13 @@
-const CHORD_WINDOW_MS = 600;
-
 export type CommandPaletteChordHandlers = {
   onFiles?: () => void;
   onOutline?: () => void;
   onAction?: () => void;
+  onCancel?: () => void;
+};
+
+export type CommandPaletteChordController = {
+  setHandlers: (handlers: CommandPaletteChordHandlers) => void;
+  dispose: () => void;
 };
 
 /**
@@ -20,7 +24,16 @@ export type CommandPaletteChordHandlers = {
 export function installCommandPaletteChords(
   handlers: CommandPaletteChordHandlers,
 ): () => void {
-  if (typeof window === "undefined") return () => {};
+  return createCommandPaletteChords(handlers).dispose;
+}
+
+/** Self-contained so the HTML reader can install it before application chunks.
+ * Adopting handlers preserves a chord already in progress during startup. */
+export function createCommandPaletteChords(
+  handlers: CommandPaletteChordHandlers,
+): CommandPaletteChordController {
+  const CHORD_WINDOW_MS = 600;
+  if (typeof window === "undefined") return { setHandlers() {}, dispose() {} };
 
   let chordTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -39,6 +52,11 @@ export function installCommandPaletteChords(
 
   function onKeyDown(event: KeyboardEvent) {
     const mod = event.metaKey || event.ctrlKey;
+    if (event.key === "Escape") {
+      endChord();
+      handlers.onCancel?.();
+      return;
+    }
 
     if (chordTimer && !mod && !event.shiftKey && !event.altKey) {
       if (event.code === "KeyF") {
@@ -75,26 +93,32 @@ export function installCommandPaletteChords(
 
     if (!event.shiftKey && event.code === "KeyO") {
       event.preventDefault();
+      endChord();
       handlers.onFiles?.();
       return;
     }
 
     if (event.shiftKey && event.code === "KeyO") {
       event.preventDefault();
+      endChord();
       handlers.onOutline?.();
       return;
     }
 
     if (event.shiftKey && event.code === "KeyK") {
       event.preventDefault();
+      endChord();
       handlers.onAction?.();
       return;
     }
   }
 
   document.addEventListener("keydown", onKeyDown, { capture: true });
-  return () => {
-    document.removeEventListener("keydown", onKeyDown, { capture: true });
-    endChord();
+  return {
+    setHandlers(next) { handlers = next; },
+    dispose() {
+      document.removeEventListener("keydown", onKeyDown, { capture: true });
+      endChord();
+    },
   };
 }

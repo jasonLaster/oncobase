@@ -36,6 +36,8 @@ export {
 } from "./command-palette-outline.ts";
 export {
   installCommandPaletteChords,
+  createCommandPaletteChords,
+  type CommandPaletteChordController,
   type CommandPaletteChordHandlers,
 } from "./command-palette-chords.ts";
 export {

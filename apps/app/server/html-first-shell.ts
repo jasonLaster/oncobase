@@ -1,4 +1,6 @@
 import { renderReaderSidebar } from "./reader-sidebar";
+import { createCommandPaletteChords } from "@oncobase/wiki-shell";
+import { installReaderShortcuts } from "../src/bootstrap/reader-shortcuts";
 import { WIKI_READER_CACHE_VERSION, compactFileTree, type FileNode } from "@oncobase/wiki-content";
 import { bootHtmlFirstPage } from "./html-first-boot";
 import { MAX_BOOTSTRAP_BYTES, serializePageBootstrap } from "../src/bootstrap/page-payload";
@@ -77,7 +79,8 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
   </style>`;
   // Replacement strings interpret $&, $`, and $'. They can occur in article
   // text and in minified JavaScript (for example a variable named $ && ...).
-  return html.replace("</head>", () => css + "</head>")
+  const shortcuts = `<script>(${installReaderShortcuts.toString()})(${createCommandPaletteChords.toString()})</script>`;
+  return html.replace("</head>", () => css + shortcuts + "</head>")
     .replace('<div id="root">', () => shell + '<div id="root">')
     .replace("</body>", () => `${bootstrap}${navigationPayload}<script>(${bootHtmlFirstPage.toString()})()</script></body>`);
 }

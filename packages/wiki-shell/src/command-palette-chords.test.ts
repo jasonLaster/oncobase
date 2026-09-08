@@ -1,0 +1,81 @@
+import { afterEach, beforeEach, expect, test } from "bun:test";
+import { createCommandPaletteChords, type CommandPaletteChordController } from "./command-palette-chords";
+
+let documentTarget: EventTarget;
+let controller: CommandPaletteChordController | undefined;
+const oldDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+const oldWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+beforeEach(() => {
+  documentTarget = new EventTarget();
+  Object.defineProperty(globalThis, "document", { configurable: true, value: documentTarget });
+  Object.defineProperty(globalThis, "window", { configurable: true, value: {} });
+});
+afterEach(() => {
+  controller?.dispose();
+  for (const [key, descriptor] of [["document", oldDocument], ["window", oldWindow]] as const) {
+    if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+    else Reflect.deleteProperty(globalThis, key);
+  }
+});
+function key(code: string, modifiers: { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean } = {}) {
+  const event = new Event("keydown", { cancelable: true });
+  Object.assign(event, { code, key: code === "Escape" ? code : code.slice(-1), metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, ...modifiers });
+  documentTarget.dispatchEvent(event);
+  return event.defaultPrevented;
+}
+const settleChord = () => new Promise(resolve => setTimeout(resolve, 650));
+
+test("Cmd+O and Ctrl+O prevent the browser action and open files", () => {
+  let files = 0;
+  controller = createCommandPaletteChords({ onFiles: () => files++ });
+  expect(key("KeyO", { metaKey: true })).toBe(true);
+  expect(key("KeyO", { ctrlKey: true })).toBe(true);
+  expect(files).toBe(2);
+});
+
+test("adopting application handlers preserves an in-progress chord", async () => {
+  const calls: string[] = [];
+  controller = createCommandPaletteChords({ onFiles: () => calls.push("early files") });
+  key("KeyK", { metaKey: true });
+  controller.setHandlers({ onFiles: () => calls.push("files"), onOutline: () => calls.push("outline") });
+  key("KeyO");
+  await settleChord();
+  expect(calls).toEqual(["outline"]);
+});
+
+test("a pending leader uses the adopted handler when its timer expires", async () => {
+  const calls: string[] = [];
+  controller = createCommandPaletteChords({ onFiles: () => calls.push("early") });
+  key("KeyK", { metaKey: true });
+  controller.setHandlers({ onFiles: () => calls.push("live") });
+  await settleChord();
+  expect(calls).toEqual(["live"]);
+});
+
+test("a direct outline shortcut cancels the pending file-palette timer", async () => {
+  const calls: string[] = [];
+  controller = createCommandPaletteChords({ onFiles: () => calls.push("files"), onOutline: () => calls.push("outline") });
+  key("KeyK", { metaKey: true });
+  key("KeyO", { metaKey: true, shiftKey: true });
+  await settleChord();
+  expect(calls).toEqual(["outline"]);
+});
+
+test("Escape cancels the chord and lets the host cancel a queued request", async () => {
+  const calls: string[] = [];
+  controller = createCommandPaletteChords({ onFiles: () => calls.push("files"), onCancel: () => calls.push("cancel") });
+  key("KeyK", { metaKey: true });
+  key("Escape");
+  await settleChord();
+  expect(calls).toEqual(["cancel"]);
+});
+
+test("teardown removes the browser shortcut interception and pending timer", async () => {
+  let calls = 0;
+  controller = createCommandPaletteChords({ onFiles: () => calls++ });
+  key("KeyK", { metaKey: true });
+  controller.dispose();
+  expect(key("KeyO", { metaKey: true })).toBe(false);
+  await settleChord();
+  expect(calls).toBe(0);
+});

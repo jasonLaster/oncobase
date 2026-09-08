@@ -423,3 +423,101 @@ for (const colorScheme of ["light", "dark"] as const) {
     } finally { releaseScripts(); releaseManifest(); }
   });
 }
+
+
+for (const shortcut of ["Meta+O", "Control+O", "Meta+Shift+O", "Meta+Shift+K"]) {
+  test(`${shortcut} pressed before app scripts load opens the requested palette once ready`, async ({ page }) => {
+    await prepare(page);
+    let release!: () => void;
+    const scripts = new Promise<void>(resolve => { release = resolve; });
+    await page.route("**/*", async route => {
+      if (route.request().resourceType() === "script") await scripts;
+      await route.fallback();
+    });
+    try {
+      await page.goto("/", { waitUntil: "commit" });
+      await expect(page.locator("#wiki-html-first article")).toBeVisible();
+      await page.keyboard.press(shortcut);
+      release();
+      await expect(page.locator("#wiki-html-first")).toHaveCount(0);
+      const input = page.getByTestId("command-palette-input");
+      await expect(input).toBeVisible();
+      await expect(input).toBeFocused();
+      if (shortcut.endsWith("Shift+O")) await expect(input).toHaveAttribute("placeholder", "Find a heading");
+      else if (shortcut.endsWith("Shift+K")) await expect(input).toHaveAttribute("placeholder", "Search commands...");
+      else await expect(input).toHaveAttribute("aria-label", "Search pages");
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("command-palette")).toHaveCount(0);
+    } finally { release(); }
+  });
+}
+
+test("Cmd+O opens while a native text selection is retaining the initial article", async ({ page }) => {
+  await prepare(page);
+  let release!: () => void;
+  const scripts = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/*", async route => {
+    if (route.request().resourceType() === "script") await scripts;
+    await route.fallback();
+  });
+  try {
+    await page.goto("/", { waitUntil: "commit" });
+    await expect(page.locator("#wiki-html-first article")).toBeVisible();
+    await page.evaluate(() => {
+      const range = document.createRange();
+      range.selectNodeContents(document.querySelector("#wiki-html-first article p")!);
+      window.getSelection()!.addRange(range);
+    });
+    release();
+    await expect(article(page)).toBeAttached();
+    await expect(page.locator("#wiki-html-first")).toBeVisible();
+    await page.keyboard.press("Meta+O");
+    await expect(page.getByTestId("command-palette-input")).toBeVisible();
+    await expect(page.getByTestId("command-palette-input")).toBeFocused();
+  } finally { release(); }
+});
+
+
+test("file palette uses initial navigation until the authoritative manifest replaces it", async ({ page }) => {
+  await prepare(page, html => html.replace('"tree":[', '"tree":[["f","retired-page"],'));
+  let release!: () => void;
+  const manifest = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/wiki/manifest*", async route => { await manifest; await route.fallback(); });
+  try {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(article(page)).toBeVisible();
+    await page.keyboard.press("Meta+O");
+    const palette = page.getByTestId("command-palette");
+    const input = page.getByTestId("command-palette-input");
+    await input.fill("retired");
+    await expect(palette.getByRole("option")).toContainText("retired");
+    release();
+    await expect(palette.getByRole("option")).toHaveCount(0);
+    await input.fill("insurance");
+    await expect(palette.getByRole("option").first()).toContainText("insurance");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
+    await expect(palette).toHaveCount(0);
+  } finally { release(); }
+});
+
+test("Escape cancels a palette request queued before application scripts load", async ({ page }) => {
+  await prepare(page);
+  let release!: () => void;
+  const scripts = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/*", async route => {
+    if (route.request().resourceType() === "script") await scripts;
+    await route.fallback();
+  });
+  try {
+    await page.goto("/", { waitUntil: "commit" });
+    await expect(page.locator("#wiki-html-first article")).toBeVisible();
+    await page.keyboard.press("Meta+O");
+    await page.keyboard.press("Escape");
+    release();
+    await expect(article(page)).toBeVisible();
+    await expect(page.getByTestId("command-palette")).toHaveCount(0);
+    await page.keyboard.press("Meta+O");
+    await expect(page.getByTestId("command-palette-input")).toBeFocused();
+  } finally { release(); }
+});
