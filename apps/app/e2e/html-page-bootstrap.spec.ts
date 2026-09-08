@@ -109,6 +109,25 @@ test("fresh manifest updates replace the bootstrap; a later restriction removes 
   await expect(page.locator("#wiki-html-first")).toHaveCount(0);
 });
 
+test("a departing reader defers a late manifest and resumes if navigation is canceled", async ({ page }) => {
+  const api = await prepare(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(article(page)).toBeVisible();
+  await expect(page.locator('#root [data-test-id="wiki-sidebar"]')).toContainText("logistics");
+  const requestsBefore = api.manifest.length;
+  api.setManifestDelay(50);
+  api.setPageOverride("index", { content: "RESUMED_AFTER_CANCELED_NAVIGATION" });
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("beforeunload"));
+    window.dispatchEvent(new Event("wiki-vite:refresh-manifest"));
+  });
+  await expect.poll(() => api.manifest.length).toBeGreaterThan(requestsBefore);
+  await page.waitForTimeout(200);
+  await expect(article(page)).toContainText("BOOTSTRAPPED_HOME");
+  await expect(article(page)).toContainText("RESUMED_AFTER_CANCELED_NAVIGATION");
+  expect(api.manifest.length).toBeGreaterThan(requestsBefore + 1);
+});
+
 test("a restriction arriving during a text selection dismisses the early public representation", async ({ page }) => {
   const api = await prepare(page);
   let release!: () => void;

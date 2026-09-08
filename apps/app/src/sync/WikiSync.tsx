@@ -63,6 +63,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const currentSlugRef = useRef(currentSlug);
   // The HTTP page can be newer than a recently cached navigation manifest.
   const forceValidationRef = useRef(hasBootstrappedPage(store, currentSlug));
+  const navigationPending = useRef(false);
   const validationInFlight = useRef<{
     key: string;
     promise: Promise<WikiManifestValidation>;
@@ -75,6 +76,30 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   useEffect(() => {
     currentSlugRef.current = currentSlug;
   }, [currentSlug]);
+  useEffect(() => {
+    let resumeTimer: number | undefined;
+    const resume = () => {
+      if (resumeTimer !== undefined) window.clearTimeout(resumeTimer);
+      if (!navigationPending.current) return;
+      navigationPending.current = false;
+      forceValidationRef.current = true;
+      setNetworkTick(value => value + 1);
+    };
+    const departing = () => {
+      navigationPending.current = true;
+      if (resumeTimer !== undefined) window.clearTimeout(resumeTimer);
+      // A canceled/failed navigation must not leave the current reader paused.
+      // Successful navigation destroys this timer along with the old document.
+      resumeTimer = window.setTimeout(resume, 1000);
+    };
+    window.addEventListener("beforeunload", departing);
+    window.addEventListener("pageshow", resume);
+    return () => {
+      if (resumeTimer !== undefined) window.clearTimeout(resumeTimer);
+      window.removeEventListener("beforeunload", departing);
+      window.removeEventListener("pageshow", resume);
+    };
+  }, []);
   const client = useMemo(() => {
     const baseUrl = import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
     return createWikiContentClient({
@@ -328,6 +353,11 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           return;
         }
         const manifest = validation.manifest;
+        // Leave the fetch promise's microtask checkpoint before starting the
+        // atomic import. This lets a queued navigation run its departure hook
+        // instead of being blocked by work for a document the reader is leaving.
+        await new Promise<void>(resolve => window.setTimeout(resolve, 0));
+        if (cancelled || navigationPending.current) return;
         manifestRef.current = manifest;
         // A manifest is one LiveStore event, so its tree and indexes replace
         // the prior snapshot in the materializer's single transaction.
