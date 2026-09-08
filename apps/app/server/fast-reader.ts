@@ -98,7 +98,7 @@ export function createFastReader({ indexHtml, criticalCss, client = createBacken
       description: snapshot.page.description ? applyPiiRedactions(snapshot.page.description, { patterns }) : undefined };
     let navigationHtml = "";
     if (readNavigation) {
-      try { navigationHtml = renderReaderNavigation(await readNavigation(siteSlug, snapshot.contentRevision), slug); }
+      try { navigationHtml = renderReaderNavigation(await readNavigation(siteSlug, snapshot.contentRevision), slug, url); }
       catch { return null; } // Use the ordinary app if a complete navigation snapshot is unavailable.
     }
     const frame = (bodyHtml: string) => {

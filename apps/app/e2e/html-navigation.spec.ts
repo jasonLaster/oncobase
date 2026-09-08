@@ -13,17 +13,16 @@ for (const javaScriptEnabled of [false, true]) test(`file tree folders and links
     const slug = url.pathname.slice(1) || "index";
     res.writeHead(200, {"Content-Type":"text/html"});
     res.end(injectHtmlFirstPage('<html><head></head><body><div id="root"></div></body></html>',
-      {slug, title:"Fixture", content:"Readable fixture.", contentHash:"fixture", sensitive:false}, url, "fixture", css, renderReaderNavigation(tree, slug)));
+      {slug, title:"Fixture", content:"Readable fixture.", contentHash:"fixture", sensitive:false}, url, "fixture", css, renderReaderNavigation(tree, slug, url)));
   });
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   const context = await browser.newContext({ javaScriptEnabled });
   try {
     const page = await context.newPage();
     await page.goto(`http://127.0.0.1:${(server.address() as {port:number}).port}/`);
-    await expect(page.locator('.html-first-tree > details > summary')).toBeVisible();
-    if (javaScriptEnabled) await expect(page.locator('.html-first-tree a')).toHaveCount(1);
-    await page.locator('[data-folder="wiki"] > summary').click();
-    await page.locator('[data-folder="wiki/care"] > summary').click();
+    await expect(page.locator('.html-first-folder[data-folder="wiki"]')).toBeVisible();
+    await page.locator('.html-first-folder[data-folder="wiki"]').click();
+    await page.locator('.html-first-folder[data-folder="wiki/care"]').click();
     await page.locator('.html-first-tree a[href="/wiki/care/results"]').click();
     await expect(page).toHaveURL(/\/wiki\/care\/results$/);
     await expect(page.locator('.html-first-tree [aria-current="page"]')).toHaveText("results");

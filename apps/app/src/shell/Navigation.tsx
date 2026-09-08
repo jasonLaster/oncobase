@@ -349,7 +349,16 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
   const location = useLocation();
   const locationSlug = slugFromPath(location.pathname);
   const activeSlug = useNavigationSlug(locationSlug);
-  const [expandedSlugs, setExpandedSlugs] = useState(readExpandedDirectories);
+  const [expandedSlugs, setExpandedSlugs] = useState(() => {
+    const expanded = readExpandedDirectories();
+    // Carry a native HTML folder selection into the interactive tree.
+    const branch = new URLSearchParams(location.search).get("tree");
+    if (branch) {
+      const parts = branch.split("/");
+      for (let index = 1; index <= parts.length; index++) expanded.set(parts.slice(0, index).join("/"), true);
+    }
+    return expanded;
+  });
   const activeAncestorSlugs = useMemo(
     () => collectActiveAncestors(tree, activeSlug),
     [activeSlug, tree],

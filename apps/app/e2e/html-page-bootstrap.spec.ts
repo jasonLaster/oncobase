@@ -247,3 +247,11 @@ test("session recovery replaces the HTML overlay and exposes working actions", a
   await expect(page.locator("#wiki-html-first")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Continue public" })).toBeEnabled();
 });
+
+
+test("native folder selection remains expanded after interactive handoff", async ({ page }) => {
+  await prepare(page);
+  await page.goto("/?tree=wiki/logistics", { waitUntil: "domcontentloaded" });
+  await expect(article(page)).toBeVisible();
+  await expect(page.getByTestId("wiki-sidebar").getByRole("button", { name: "Collapse logistics", exact: true })).toBeVisible();
+});

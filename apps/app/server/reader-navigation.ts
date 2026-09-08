@@ -4,22 +4,26 @@ import { api } from "../convex/_generated/api";
 
 const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-/** Native disclosure controls and links work before JavaScript, and without it. */
-export function renderReaderNavigation(tree: FileNode[], activeSlug: string, deferClosed = true): string {
-  return tree.map(node => {
+/** Render the visible branch, with native links for expanding other folders.
+ * Shipping thousands of hidden rows delays both first paint and app startup. */
+export function renderReaderNavigation(tree: FileNode[], activeSlug: string, url = new URL(activeSlug === "index" ? "/" : "/" + activeSlug, "https://reader.invalid")): string {
+  const expanded = url.searchParams.get("tree") ?? "";
+  const visit = (nodes: FileNode[]): string => nodes.map(node => {
     const label = escape(node.name.replace(/-/g, " "));
     if (node.type === "directory") {
-      const open = activeSlug.startsWith(node.slug + "/");
-      const children = renderReaderNavigation(node.children ?? [], activeSlug, open && deferClosed);
-      // With JavaScript enabled, collapsed branches stay as text until opened.
-      // Without scripting, noscript is ordinary markup: the entire tree works.
-      const body = !open && deferClosed ? `<noscript class="html-first-branch">${children}</noscript>` : children;
-      return `<details data-folder="${escape(node.slug)}"${open ? " open" : ""}><summary>${label}</summary><div class="html-first-tree-children">${body}</div></details>`;
+      const open = activeSlug.startsWith(node.slug + "/") || expanded === node.slug || expanded.startsWith(node.slug + "/");
+      if (!open) {
+        const destination = new URL(url);
+        destination.searchParams.set("tree", node.slug);
+        return `<a class="html-first-folder" data-folder="${escape(node.slug)}" href="${escape(destination.pathname + destination.search + destination.hash)}"><span aria-hidden="true">▶ </span>${label}</a>`;
+      }
+      return `<details data-folder="${escape(node.slug)}" open><summary>${label}</summary><div class="html-first-tree-children">${visit(node.children ?? [])}</div></details>`;
     }
     const href = node.type === "pdf" ? `/api/file?path=${encodeURIComponent(node.pdfPath ?? node.slug)}`
       : node.slug === "index" ? "/" : "/" + node.slug.split("/").map(encodeURIComponent).join("/");
     return `<a href="${escape(href)}"${node.slug === activeSlug ? ' aria-current="page"' : ""}>${label}${node.type === "pdf" ? ".pdf" : ""}</a>`;
   }).join("");
+  return visit(tree);
 }
 
 /** The published public manifest is already filtered; never use a session tree
