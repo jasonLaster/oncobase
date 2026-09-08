@@ -110,5 +110,5 @@ test("HTML carries current public navigation and invalidates encoded navigation 
   const updated = await read();
   expect(updated).toContain('href="/new"');
   expect(updated).not.toContain('href="/old"');
-  expect(updated.indexOf("Readable")).toBeLessThan(updated.indexOf('href="/new"'));
+  expect(updated.indexOf('href="/new"')).toBeLessThan(updated.indexOf("Readable"));
 });

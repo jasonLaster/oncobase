@@ -65,6 +65,7 @@ import {
   type MouseEvent,
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
+import { bootstrappedNavigation } from "../bootstrap/seed-state";
 import { sidebarTree$ } from "../livestore/queries";
 import { hrefForSlug, slugFromPath } from "../wiki-utils";
 import {
@@ -156,7 +157,8 @@ function formatTreeLabel(name: string) {
 }
 
 function useWikiTree() {
-  return useStore().store.useQuery(sidebarTree$) as WikiNavigationNode[];
+  const { store } = useStore();
+  return (store.useQuery(sidebarTree$) ?? bootstrappedNavigation.get(store) ?? []) as WikiNavigationNode[];
 }
 
 function readExpandedDirectories() {

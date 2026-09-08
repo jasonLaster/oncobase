@@ -40,7 +40,7 @@ export const sidebarTree$ = queryDb({
   deps: ["sidebarTree"],
   map: (rows) => {
     const tree = rows[0]?.treeJson;
-    if (!tree) return [];
+    if (!tree) return null;
     try {
       return transformFileTreeForSidebar(expandCompactFileTree(JSON.parse(tree) as CompactFileNode[]));
     } catch {

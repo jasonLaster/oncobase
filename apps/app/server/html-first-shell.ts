@@ -1,4 +1,4 @@
-import { WIKI_READER_CACHE_VERSION } from "@oncobase/wiki-content";
+import { WIKI_READER_CACHE_VERSION, compactFileTree, type FileNode } from "@oncobase/wiki-content";
 import { bootHtmlFirstPage } from "./html-first-boot";
 import { MAX_BOOTSTRAP_BYTES, serializePageBootstrap } from "../src/bootstrap/page-payload";
 
@@ -16,12 +16,12 @@ function escape(value: string) {
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, siteSlug: string, criticalCss: string, body: string, navigationTree = "") {
+export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, siteSlug: string, criticalCss: string, body: string, navigationTree = "", tree?: FileNode[]) {
   // A stable revision is required for handing over to the same live article.
   if (page.sensitive !== false || !page.contentHash || !html.includes('<div id="root">')) return html;
   if (criticalCss) {
     html = html.replace(/<link\b[^>]*rel="stylesheet"[^>]*>/g, tag =>
-      tag.replace('href="', 'data-wiki-style-href="').replace(/\s*\/?>$/, ' data-wiki-full-style media="print" onload="this.media=\'all\';window.dispatchEvent(new Event(\'wiki-full-style-ready\'))">'));
+      tag.replace('rel="stylesheet"', 'data-wiki-inlined-style').replace('href="', 'data-wiki-style-source="'));
     html = html.replace(/<script\b[^>]*type="module"[^>]*src="[^\"]+"[^>]*><\/script>/g,
       tag => tag.replace('type="module"', 'type="application/x-wiki-module"').replace('src="', 'data-wiki-module-src="'));
     html = html.replace(/<link\b[^>]*rel="modulepreload"[^>]*>/g,
@@ -40,6 +40,10 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
   // after first paint instead of duplicating hundreds of KiB in the document.
   const bootstrap = payload && Buffer.byteLength(payload) <= Math.min(MAX_BOOTSTRAP_BYTES, 131_072)
     ? `<script id="wiki-page-bootstrap" type="application/json">${payload}</script>` : "";
+  const navigationPayload = tree ? `<script id="wiki-navigation-bootstrap" type="application/json">${JSON.stringify({
+    version: 1, readerVersion: WIKI_READER_CACHE_VERSION, origin: url.origin,
+    pathname: url.pathname, siteSlug, scope: "public", tree: compactFileTree(tree),
+  }).replace(/[<>&\u2028\u2029]/g, char => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`)}</script>` : "";
   const interactive = new URL(url);
   interactive.searchParams.set("html-first", "off");
   const fallbackHref = escape(interactive.pathname + interactive.search + interactive.hash);
@@ -47,10 +51,10 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
   const navigation = `<a href="/">Home</a><a href="/search">Search</a><a href="${fallbackHref}">Open interactive reader</a>`;
   const shell = `<div id="wiki-html-first" class="prototype-shell"${largeArticle ? ' data-large-article="true"' : ""} data-slug="${escape(page.slug)}" data-hash="${escape(page.contentHash)}">
     <div class="app-shell wiki-shell-resizable-layout">
+      <nav class="html-first-navigation" aria-label="Site navigation">${navigation}<details class="html-first-files" open><summary>Files</summary><div class="html-first-tree" aria-label="Files">${navigationTree}</div></details></nav>
       <div class="app-content"><main class="content-shell"><div class="wiki-shell-outline-root" style="--comments-pane-width:64px"><div class="wiki-shell-outline-content"><div class="wiki-shell-outline-content-inner">
         <article class="wiki-shell-document-article page-shell" aria-label="${escape(page.title)}">${header}<div class="wiki-markdown prose max-w-none">${body}</div></article>
       </div></div></div></main></div>
-      <nav class="html-first-navigation" aria-label="Site navigation">${navigation}<details class="html-first-files" open><summary>Files</summary><div class="html-first-tree" aria-label="Files">${navigationTree}</div></details></nav>
     </div>
   </div>`;
   // Position the app underneath the early page without adding a second viewport
@@ -60,7 +64,7 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
     #wiki-html-first[data-large-article] .wiki-markdown > :nth-child(n+4){content-visibility:auto;contain-intrinsic-size:auto 64px}
     #wiki-html-first .app-content{margin-left:var(--html-sidebar-width,259px)}
     #wiki-html-first .html-first-navigation{position:absolute;inset:0 auto 0 0;width:var(--html-sidebar-width,259px);background:var(--sidebar-bg);border-right:1px solid var(--sidebar-border);padding:20px 16px;display:flex;flex-direction:column;gap:16px;overflow:auto;font-size:14px}
-    #wiki-html-first .html-first-navigation a{color:var(--text-muted)}
+    #wiki-html-first .html-first-navigation a{color:var(--text-muted);text-decoration:none}
     #wiki-html-first .html-first-tree{display:flex;flex-direction:column;gap:4px}
     #wiki-html-first .html-first-tree a,#wiki-html-first summary{display:block;padding:4px 0;cursor:pointer;overflow-wrap:anywhere}
     #wiki-html-first summary{display:list-item;list-style-position:inside}
@@ -74,5 +78,5 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
   // text and in minified JavaScript (for example a variable named $ && ...).
   return html.replace("</head>", () => css + "</head>")
     .replace('<div id="root">', () => shell + '<div id="root">')
-    .replace("</body>", () => `${bootstrap}<script>(${bootHtmlFirstPage.toString()})()</script></body>`);
+    .replace("</body>", () => `${bootstrap}${navigationPayload}<script>(${bootHtmlFirstPage.toString()})()</script></body>`);
 }

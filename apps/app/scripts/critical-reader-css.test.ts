@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { criticalReaderCss } from "./critical-reader-css";
 
-test("critical styles preserve the reader's cascade and responsive rules without app controls", () => {
-  const css = "@layer base{p{margin:0}img{max-width:100%}}:root{--brand:blue}.dark{--brand:red}.chat{color:red}.wiki-markdown p{line-height:1.7}@media(max-width:767px){.content-shell{padding-top:48px}.chat{height:4px}}@font-face{font-family:unused}";
-  expect(criticalReaderCss(css)).toBe("@layer base{p{margin:0}img{max-width:100%}}:root{--brand:blue}.dark{--brand:red}.wiki-markdown p{line-height:1.7}@media(max-width:767px){.content-shell{padding-top:48px}}");
+test("initial styles retain the complete cascade, utilities and property dependencies", () => {
+  const css = "@layer base,utilities;@property --tw-shadow{syntax:'*';inherits:false;initial-value:0 0 #0000}@layer utilities{.flex{display:flex}.rounded{border-radius:4px}}.wiki-heading-group{position:relative}.heading-anchor{opacity:0}.wiki-markdown p{line-height:1.7}@media(max-width:767px){.content-shell{padding-top:48px}}";
+  expect(criticalReaderCss(css)).toBe(css);
+  expect(() => criticalReaderCss("</style><script>bad()</script>")).toThrow();
 });

@@ -15,7 +15,7 @@ test("the browser reads a gzip HTML prefix while the complete remainder is still
     if (req.url !== "/") { res.writeHead(404).end(); return; }
     const url = new URL("http://" + req.headers.host + "/");
     const marker = "<!--stream-body-->";
-    const frame = injectHtmlFirstShell('<html><head></head><body><div id="root"></div></body></html>', fixture, url, "fixture", css, marker);
+    const frame = injectHtmlFirstShell('<html><head></head><body><div id="root"></div></body></html>', fixture, url, "fixture", css, marker, '<a href="/wiki/care">Care folder</a>');
     const [before, after] = frame.split(marker);
     const parts = renderHtmlFirstParts(fixture);
     await sendWebResponse(res, new Response(streamReaderGzip(before + parts.first, () => parts.rest() + after,
@@ -27,6 +27,7 @@ test("the browser reads a gzip HTML prefix while the complete remainder is still
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "commit" });
     await expect(page.locator("#wiki-html-first p").first()).toHaveText("Already readable before the remainder exists.");
     await expect(page.locator("#wiki-html-first p").first()).toBeVisible();
+    await expect(page.locator(".html-first-tree").getByRole("link", {name:"Care folder"})).toBeVisible();
     await expect(page.getByText("The complete final paragraph.", { exact: true })).toHaveCount(0);
     expect(await page.locator("#wiki-html-first p").first().evaluate(node => parseFloat(getComputedStyle(node).lineHeight))).toBeCloseTo(27.2, 2);
     const finish = release!; release = undefined; finish();

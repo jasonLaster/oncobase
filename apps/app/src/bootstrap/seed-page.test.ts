@@ -5,8 +5,8 @@ import { makePublicWikiSessionIdentity, WIKI_READER_CACHE_VERSION } from "@oncob
 import { schema } from "../livestore/schema";
 import { pageContentBySlug$, pageIndex$, siteState$ } from "../livestore/queries";
 import { pageToEvent } from "../wiki-utils";
-import { seedPagePayload } from "./seed-page";
-import { hasBootstrappedPage } from "./seed-state";
+import { seedNavigationPayload, seedPagePayload } from "./seed-page";
+import { bootstrappedNavigation, hasBootstrappedPage } from "./seed-state";
 
 const identity = makePublicWikiSessionIdentity("test");
 const request = { origin: "https://example.com", apiOrigin: "https://example.com", pathname: "/" };
@@ -47,4 +47,19 @@ test("wrong site and route cannot seed or exempt a body fetch", async () => {
   expect(seedPagePayload(store, wrongSlug, identity, request)).toBe(false);
   expect(store.query(pageContentBySlug$("index"))).toBeNull();
   expect(hasBootstrappedPage(store, "index")).toBe(false);
+});
+
+test("navigation bootstrap is presentation only and is isolated to the current site, route and store", async () => {
+  const store = await makeStore();
+  const navigation = JSON.stringify({ version: 1, readerVersion: WIKI_READER_CACHE_VERSION,
+    ...request, siteSlug: "test", scope: "public", tree: [["d", "wiki", [["f", "care"]]]] });
+  expect(seedNavigationPayload(store, navigation, identity, request)).toBe(true);
+  expect(bootstrappedNavigation.get(store)?.[0]?.children?.[0]?.slug).toBe("wiki/care");
+  expect(store.query(siteState$)).toBeNull();
+  expect(store.query(pageIndex$)).toEqual([]);
+  expect(bootstrappedNavigation.get(await makeStore())).toBeUndefined();
+  for (const overrides of [{siteSlug:"other"}, {scope:"session"}, {pathname:"/other"}, {tree:[["d", "wiki", "invalid"]]}]) {
+    expect(seedNavigationPayload(store, JSON.stringify({...JSON.parse(navigation),...overrides}), identity, request)).toBe(false);
+  }
+  expect(seedNavigationPayload(store, navigation, identity, {...request,apiOrigin:"https://other.test"})).toBe(false);
 });

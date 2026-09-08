@@ -97,15 +97,19 @@ export function createFastReader({ indexHtml, criticalCss, client = createBacken
     const page = { ...snapshot.page, title: applyPiiRedactions(snapshot.page.title, { patterns }), content: applyPiiRedactions(content, { patterns }),
       description: snapshot.page.description ? applyPiiRedactions(snapshot.page.description, { patterns }) : undefined };
     let navigationHtml = "";
+    let navigationTree: import("@oncobase/wiki-content").FileNode[] | undefined;
     if (readNavigation) {
-      try { navigationHtml = renderReaderNavigation(await readNavigation(siteSlug, snapshot.contentRevision), slug, url); }
+      try {
+        navigationTree = await readNavigation(siteSlug, snapshot.contentRevision);
+        navigationHtml = renderReaderNavigation(navigationTree, slug, url);
+      }
       catch { return null; } // Use the ordinary app if a complete navigation snapshot is unavailable.
     }
     const frame = (bodyHtml: string) => {
       const metadata = legacyRouteMetadata({ page, pathname, siteName: siteSlug === "diana" ? DIANA_SITE_NAME : siteSlug, slug });
       const head = injectHeadMetadata(indexHtml, { ...metadata, noIndex: gate.enabled,
         canonicalUrl: gate.enabled ? undefined : url.origin + pathname });
-      return injectHtmlFirstShell(head, page, url, siteSlug, criticalCss, bodyHtml, navigationHtml);
+      return injectHtmlFirstShell(head, page, url, siteSlug, criticalCss, bodyHtml, navigationHtml, navigationTree);
     };
     const gzip = acceptsGzip(request.headers.get("accept-encoding"));
     const cdnAllowed = Boolean(expectedFingerprint && expectedFingerprint === await readerFingerprint(snapshot));

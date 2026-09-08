@@ -1,4 +1,7 @@
-import { buildFileTreeFromManifest, type FileNode, type WikiManifest } from "@oncobase/wiki-content";
+import { setTimeout, clearTimeout } from "node:timers";
+import { getCache, waitUntil } from "@vercel/functions";
+import { createHash } from "node:crypto";
+import { buildFileTreeFromManifest, compactFileTree, expandCompactFileTree, type CompactFileNode, type FileNode, type WikiManifest } from "@oncobase/wiki-content";
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 
@@ -28,21 +31,37 @@ export function renderReaderNavigation(tree: FileNode[], activeSlug: string, url
 
 /** The published public manifest is already filtered; never use a session tree
  * in HTML shared by readers. Cache only against the complete site revision. */
-export function createReaderNavigation(client: ConvexHttpClient) {
+type NavigationCache = { get(key: string): Promise<unknown>; set(key: string, value: unknown, options: { ttl: number }): Promise<unknown> };
+export function createReaderNavigation(client: ConvexHttpClient, {
+  shared = getCache({ namespace: "wiki-reader-navigation-v1", keyHashFunction: key => createHash("sha256").update(key).digest("hex") }),
+  background = waitUntil, fetchSnapshot = fetch,
+}: { shared?: NavigationCache; background?: (task: Promise<unknown>) => void; fetchSnapshot?: (url: string, options: { signal: AbortSignal }) => Promise<Response> } = {}) {
   const entries = new Map<string, Promise<FileNode[]>>();
   return (siteSlug: string, revision: string): Promise<FileNode[]> => {
     const key = JSON.stringify([siteSlug, revision]);
     const cached = entries.get(key);
     if (cached) return cached;
     const pending = (async () => {
+      // The revision is checked by the caller before rendering any cached data.
+      // Share only public navigation, never gate decisions or session trees.
+      let cancelTimeout = () => {};
+      try {
+        const cached = await Promise.race([
+          shared.get(key), new Promise<undefined>(resolve => { const timer = setTimeout(() => resolve(undefined), 100); cancelTimeout = () => clearTimeout(timer); }),
+        ]) as { key?: string; tree?: CompactFileNode[] } | undefined;
+        if (cached?.key === key && Array.isArray(cached.tree)) return expandCompactFileTree(cached.tree);
+      } catch { /* Cache failure must not prevent an authoritative snapshot read. */ }
+      finally { cancelTimeout(); }
       const snapshot = await client.query(api.manifestCache.current, { siteSlug, serverSecret: process.env.WIKI_PREFETCH_SECRET! });
       if (!snapshot) throw new Error("Reader navigation snapshot unavailable");
-      const response = await fetch(snapshot.url, { signal: AbortSignal.timeout(5000) });
+      const response = await fetchSnapshot(snapshot.url, { signal: AbortSignal.timeout(5000) });
       if (!response.ok) throw new Error("Reader navigation snapshot unavailable");
       const manifest = await response.json() as WikiManifest;
       if (manifest.siteSlug !== siteSlug || manifest.scope !== "public" || !Array.isArray(manifest.pages)) throw new Error("Invalid reader navigation snapshot");
       // Build from visibility metadata instead of trusting precomputed tree rows.
-      return buildFileTreeFromManifest(manifest.pages.filter(page => page.sensitive === false), manifest.assets ?? []);
+      const tree = buildFileTreeFromManifest(manifest.pages.filter(page => page.sensitive === false), manifest.assets ?? []);
+      background(shared.set(key, { key, tree: compactFileTree(tree) }, { ttl: 86400 }).catch(() => {}));
+      return tree;
     })();
     entries.set(key, pending);
     while (entries.size > 8) entries.delete(entries.keys().next().value!);

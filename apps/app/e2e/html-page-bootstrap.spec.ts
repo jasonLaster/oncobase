@@ -25,7 +25,8 @@ async function prepare(page: Page, mutate?: (html: string) => string, sessionAut
   await page.route("**/*", async route => {
     const url = new URL(route.request().url());
     if (route.request().resourceType() !== "document" || url.pathname !== "/") return route.fallback();
-    let html = injectHtmlFirstPage(template, responsePage, url, "diana", criticalCss, renderReaderNavigation(buildFileTreeFromManifest([{slug:"index"}, {slug:"wiki/logistics/insurance"}]), "index"));
+    const tree = buildFileTreeFromManifest([{slug:"index"}, {slug:"wiki/logistics/insurance"}]);
+    let html = injectHtmlFirstPage(template, responsePage, url, "diana", criticalCss, renderReaderNavigation(tree, "index"), tree);
     if (mutate) html = mutate(html);
     await route.fulfill({ contentType: "text/html", headers: { "Cache-Control": "private, no-store" }, body: html });
   });
@@ -60,14 +61,17 @@ test("inline article styles allow reading before the application stylesheet arri
   await prepare(page);
   let release!: () => void;
   const held = new Promise<void>(r => { release = r; });
-  await page.route("**/*.css", async route => { await held; await route.continue(); });
+  await page.route("**/*", async route => {
+    if (route.request().resourceType() === "script") await held;
+    if (route.request().resourceType() === "stylesheet") return route.abort();
+    await route.fallback();
+  });
   try {
     await page.goto("/", { waitUntil: "commit" });
     const early = page.locator("#wiki-html-first .wiki-markdown");
     await expect(early).toBeVisible();
     expect(await early.locator("p").first().evaluate(node => parseFloat(getComputedStyle(node).lineHeight))).toBeCloseTo(27.2, 2);
     const before = await early.boundingBox();
-    await expect(article(page)).toBeAttached();
     await expect(page.locator("#wiki-html-first")).toBeVisible();
     release();
     await expect(article(page)).toBeVisible();
@@ -99,6 +103,11 @@ test("HTML stays readable while scripts are held; payload seeds before consumers
     await expect(page.locator("#wiki-page-bootstrap")).toHaveCount(0);
     expect(homeFetches(api.pages)).toHaveLength(0);
     expect(await page.evaluate(() => performance.getEntriesByName("wiki-page-bootstrap-seeded").length)).toBe(1);
+    // The sidebar must be useful at handoff, even if the manifest never arrives.
+    const sidebar = page.locator('#root [data-test-id="wiki-sidebar"]');
+    await expect(sidebar).toContainText("logistics");
+    await sidebar.getByRole("button", { name: "logistics" }).click();
+    await expect(sidebar.locator('a[href="/wiki/logistics/insurance"]')).toBeVisible();
     releaseManifest();
     await expect.poll(() => api.manifest.length).toBeGreaterThan(0);
     await expect(page.locator('#root [data-test-id="wiki-sidebar"]')).toContainText("logistics");
@@ -257,14 +266,81 @@ test("native folder selection remains expanded after interactive handoff", async
 });
 
 
-for (const asset of ["entry module", "stylesheet"]) test(`a missing ${asset} retries once and leaves readable HTML with a manual recovery action`, async ({ page }) => {
+for (const asset of ["entry module"]) test(`a missing ${asset} retries once and leaves readable HTML with a manual recovery action`, async ({ page }) => {
   await prepare(page);
   let navigations = 0;
   page.on("request", request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) navigations++; });
-  await page.route(asset === "stylesheet" ? /\.css(?:\?|$)/ : /\/index-[^/]+\.js/, route => route.abort());
+  await page.route(/\/index-[^/]+\.js/, route => route.abort());
   await page.goto("/", {waitUntil:"domcontentloaded"});
   await expect(page.locator('[data-reader-load-error]')).toBeVisible();
   await expect(page.locator('[data-reader-load-error] a')).toHaveText("Reload");
   await expect(page.locator('#wiki-html-first article')).toContainText("BOOTSTRAPPED_HOME");
   expect(navigations).toBe(2);
+});
+
+for (const viewport of [{width:1280,height:900}, {width:390,height:844}]) test(`initial article keeps full styling at ${viewport.width}px with CSS and scripts held`, async ({ page }) => {
+  await page.setViewportSize(viewport);
+  await prepare(page, undefined, false, "## Styled section\n\n[Link](/wiki/logistics/insurance) with **bold** and `code`.\n\n- First item\n- Second item\n\n> Quoted text\n\n<div class=\"flex gap-4 rounded-lg border p-4 bg-muted\"><span>Utility layout</span><span>Second column</span></div>");
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/*", async route => {
+    if (["script", "stylesheet"].includes(route.request().resourceType())) await held;
+    await route.fallback();
+  });
+  const styles = () => page.locator('#wiki-html-first .wiki-markdown').evaluate(root => {
+    const selectors = ["h2", "p", "a", "strong", "code", "ul", "li", "blockquote", ".flex"];
+    const properties = ["color", "background-color", "display", "font-size", "font-weight", "line-height", "margin-bottom", "padding-left", "border-bottom-width", "border-radius", "gap", "text-decoration-line"];
+    return selectors.map(selector => {
+      const node = root.querySelector(selector)!;
+      const style = getComputedStyle(node);
+      return properties.map(property => style.getPropertyValue(property));
+    });
+  });
+  try {
+    await page.goto("/", {waitUntil:"commit"});
+    await expect(page.locator('#wiki-html-first .flex')).toHaveCSS("display", "flex");
+    const initial = await styles();
+    // Apply the exact linked CSS while keeping the native DOM in place. This
+    // catches missing dependencies independently of React markup differences.
+    await page.evaluate(async () => {
+      const link = document.querySelector<HTMLLinkElement>('link[data-wiki-inlined-style]')!;
+      const response = await fetch(link.dataset.wikiStyleSource!);
+      const style = document.createElement('style'); style.textContent = await response.text(); document.head.append(style);
+      document.getElementById('wiki-critical-style')!.remove();
+    });
+    expect(await styles()).toEqual(initial);
+    await page.screenshot({path:`/tmp/reader-styles-${viewport.width}.png`});
+    release();
+    await expect(article(page)).toBeVisible();
+  } finally { release(); }
+});
+
+test("the interactive reader retains its inline styles and needs no stylesheet download", async ({page}) => {
+  await prepare(page);
+  const requests: string[] = [];
+  page.on("request", request => { if (request.resourceType() === "stylesheet") requests.push(request.url()); });
+  await page.route(/\.css(?:\?|$)/, route => route.abort());
+  await page.goto("/", {waitUntil:"domcontentloaded"});
+  await expect(article(page)).toBeVisible();
+  await expect(article(page).locator("p").first()).toHaveCSS("line-height", "27.2px");
+  await expect(page.locator("#wiki-critical-style")).toHaveCount(1);
+  await page.getByTestId("sidebar-search").click();
+  await expect(page.getByTestId("command-palette")).toBeVisible();
+  expect(requests).toEqual([]);
+});
+
+test("the authoritative manifest replaces provisional navigation including removed entries", async ({page}) => {
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await prepare(page, html => html.replace('"tree":[', '"tree":[["f","retired-page"],'));
+  await page.route("**/api/wiki/manifest*", async route => {await held; await route.fallback();});
+  try {
+    await page.goto("/", {waitUntil:"domcontentloaded"});
+    await expect(article(page)).toBeVisible();
+    const retired = page.getByTestId("wiki-sidebar").locator('a[href="/retired-page"]');
+    await expect(retired).toBeVisible();
+    release();
+    await expect(retired).toHaveCount(0);
+    await expect(page.getByTestId("wiki-sidebar")).toContainText("logistics");
+  } finally {release();}
 });

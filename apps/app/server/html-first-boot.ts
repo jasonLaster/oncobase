@@ -31,12 +31,6 @@ export function bootHtmlFirstPage() {
   const startApp = () => {
     if (appStarted) return;
     appStarted = true;
-    document.querySelectorAll<HTMLLinkElement>("link[data-wiki-style-href]").forEach(link => {
-      const build = document.querySelector<HTMLScriptElement>("script[data-wiki-module-src]")?.dataset.wikiModuleSrc
-        ?? document.querySelector<HTMLScriptElement>('script[type="module"][src]')?.getAttribute("src") ?? "unknown";
-      link.addEventListener("error", () => recoverLoad(build), { once: true });
-      link.href = link.dataset.wikiStyleHref!;
-    });
     document.querySelectorAll<HTMLLinkElement>("link[data-wiki-module-preload]").forEach(link => { link.rel = "modulepreload"; });
     document.querySelectorAll<HTMLScriptElement>("script[data-wiki-module-src]").forEach(placeholder => {
       const script = document.createElement("script");
@@ -51,8 +45,10 @@ export function bootHtmlFirstPage() {
   requestAnimationFrame(() => requestAnimationFrame(startApp));
   // Background tabs may not receive animation frames. They still need to boot.
   setTimeout(startApp, 100);
-  const payload = document.getElementById("wiki-page-bootstrap");
-  if (payload) payload.dataset.receivedAt = String(Date.now());
+  for (const id of ["wiki-page-bootstrap", "wiki-navigation-bootstrap"]) {
+    const payload = document.getElementById(id);
+    if (payload) payload.dataset.receivedAt = String(Date.now());
+  }
   const initialPath = location.pathname;
   const prefix = "wiki-html-";
   try {
@@ -82,11 +78,6 @@ export function bootHtmlFirstPage() {
         article.dataset.documentSlug !== host.dataset.slug ||
         (!seeded && article.dataset.contentKey !== `${host.dataset.slug}:${host.dataset.hash}` &&
           !article.querySelector('[data-reader-ready="true"]')))) return;
-    // The article is styled inline. Keep it until the full app stylesheet is
-    // applied, including when it is delayed or unavailable.
-    if (!unavailable && !routeChanged && [...document.querySelectorAll<HTMLLinkElement>("link[data-wiki-full-style]")]
-      .some(link => link.media !== "all" || !link.sheet)) return;
-
     // Preserve a keyboard reader's active link. If the lightweight navigation
     // has no live equivalent yet, wait for focus to leave it rather than steal it.
     const active = document.activeElement;
@@ -103,7 +94,7 @@ export function bootHtmlFirstPage() {
     root.inert = false;
     host.remove();
     document.getElementById("wiki-html-first-style")?.remove();
-    document.getElementById("wiki-critical-style")?.remove();
+    // The complete compiled stylesheet also styles the interactive app.
     nextFocus?.focus({ preventScroll: true });
     if (location.hash.startsWith(`#${prefix}`)) {
       history.replaceState(history.state, "", location.pathname + location.search + "#" + location.hash.slice(prefix.length + 1));
@@ -112,7 +103,7 @@ export function bootHtmlFirstPage() {
     finished = true;
     observer.disconnect();
     window.removeEventListener("popstate", check);
-    window.removeEventListener("wiki-full-style-ready", check);
+
     document.removeEventListener("selectionchange", check);
     window.removeEventListener("pointerup", release);
     window.removeEventListener("pointercancel", release);
@@ -125,7 +116,7 @@ export function bootHtmlFirstPage() {
   window.addEventListener("pointercancel", release);
   host.addEventListener("focusout", () => setTimeout(check, 0));
   window.addEventListener("popstate", check);
-  window.addEventListener("wiki-full-style-ready", check);
+
   document.addEventListener("selectionchange", check);
   const restoreFragment = () => {
     if (!location.hash) return;
