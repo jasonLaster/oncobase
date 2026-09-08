@@ -7,11 +7,34 @@ export function bootHtmlFirstPage() {
   if (window.matchMedia("(max-width: 767px)").matches) host.querySelector(".html-first-files")?.removeAttribute("open");
   // Let the inline-styled article paint before downloading/compiling the app
   // or applying its much larger stylesheet. Native links work immediately.
+  const recoverLoad = (build: string) => {
+    const key = "wiki-vite:reloaded-for-load-error";
+    try {
+      if (sessionStorage.getItem(key) !== build) {
+        sessionStorage.setItem(key, build);
+        location.reload();
+        return;
+      }
+    } catch { /* Keep native reading and a manual retry when storage is denied. */ }
+    if (!host.isConnected || host.querySelector('[data-reader-load-error]')) return;
+    const notice = document.createElement("p");
+    notice.dataset.readerLoadError = "true";
+    notice.setAttribute("role", "alert");
+    notice.textContent = "The interactive reader could not load. ";
+    const retry = document.createElement("a");
+    retry.href = location.href;
+    retry.textContent = "Reload";
+    notice.append(retry);
+    host.querySelector("nav")?.prepend(notice);
+  };
   let appStarted = false;
   const startApp = () => {
     if (appStarted) return;
     appStarted = true;
     document.querySelectorAll<HTMLLinkElement>("link[data-wiki-style-href]").forEach(link => {
+      const build = document.querySelector<HTMLScriptElement>("script[data-wiki-module-src]")?.dataset.wikiModuleSrc
+        ?? document.querySelector<HTMLScriptElement>('script[type="module"][src]')?.getAttribute("src") ?? "unknown";
+      link.addEventListener("error", () => recoverLoad(build), { once: true });
       link.href = link.dataset.wikiStyleHref!;
     });
     document.querySelectorAll<HTMLLinkElement>("link[data-wiki-module-preload]").forEach(link => { link.rel = "modulepreload"; });
@@ -21,6 +44,7 @@ export function bootHtmlFirstPage() {
         if (attribute.name !== "type" && attribute.name !== "data-wiki-module-src") script.setAttribute(attribute.name, attribute.value);
       }
       script.type = "module"; script.src = placeholder.dataset.wikiModuleSrc!;
+      script.addEventListener("error", () => recoverLoad(script.getAttribute("src")!));
       placeholder.replaceWith(script);
     });
   };

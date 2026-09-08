@@ -74,3 +74,17 @@ test("failed edge policy lookup cannot reach the CDN", async () => {
   expect(result.status).toBe(503);
   expect(result.headers.get("x-middleware-rewrite")).toBeNull();
 });
+
+
+test("a deployment change invalidates HTML that references the preceding build's assets", async () => {
+  const before = process.env.VERCEL_URL;
+  try {
+    process.env.VERCEL_URL = "first-build.vercel.app";
+    const first = await readerFingerprint(snapshot());
+    process.env.VERCEL_URL = "second-build.vercel.app";
+    expect(await readerFingerprint(snapshot())).not.toBe(first);
+  } finally {
+    if (before === undefined) delete process.env.VERCEL_URL;
+    else process.env.VERCEL_URL = before;
+  }
+});

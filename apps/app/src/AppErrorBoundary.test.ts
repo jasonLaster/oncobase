@@ -5,7 +5,7 @@ import {
   reloadOnceForLoadError,
 } from "./AppErrorBoundary";
 
-const descriptors = ["navigator", "indexedDB", "window"] as const;
+const descriptors = ["navigator", "indexedDB", "window", "document"] as const;
 const originals = new Map<string, PropertyDescriptor | undefined>(
   descriptors.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]),
 );
@@ -87,7 +87,7 @@ describe("isChunkLoadError", () => {
 });
 
 describe("reloadOnceForLoadError", () => {
-  test("reloads only once per tab session", () => {
+  test("reloads only once per entry build", () => {
     const store = new Map<string, string>();
     const reload = mock(() => {});
     stub("window", {
@@ -101,5 +101,12 @@ describe("reloadOnceForLoadError", () => {
     expect(reloadOnceForLoadError()).toBe(true);
     expect(reloadOnceForLoadError()).toBe(false);
     expect(reload).toHaveBeenCalledTimes(1);
+    let entry = "/assets/new-deployment.js";
+    stub("document", { querySelector: () => ({ getAttribute: () => entry }) });
+    expect(reloadOnceForLoadError()).toBe(true);
+    expect(reloadOnceForLoadError()).toBe(false);
+    entry = "/assets/another-deployment.js";
+    expect(reloadOnceForLoadError()).toBe(true);
+    expect(reload).toHaveBeenCalledTimes(3);
   });
 });

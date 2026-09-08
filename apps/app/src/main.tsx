@@ -15,8 +15,11 @@ if (new URLSearchParams(location.search).get("paintDebug") === "1" && !window.__
 // tab left open across a deploy. Recover by reloading once; if we already
 // reloaded this session, let it propagate to the error boundary instead of
 // silently swallowing the failure.
-window.addEventListener("vite:preloadError", (event) => {
-  if (reloadOnceForLoadError()) event.preventDefault();
+window.addEventListener("vite:preloadError", () => {
+  reloadOnceForLoadError();
+  // Preserve the rejected import while navigation is pending. Preventing the
+  // event makes Vite resolve it as undefined, which can crash React.lazy with
+  // an unrelated TypeError and incorrectly restart the reader store.
 });
 
 publishRuntimeEnvironment({

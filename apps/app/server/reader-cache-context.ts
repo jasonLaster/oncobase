@@ -20,7 +20,7 @@ export function readerFingerprint(snapshot: ReaderSnapshot) {
   const p = snapshot.page;
   // HTML includes the public file tree, so every manifest change invalidates it.
   // Actual body bytes and all public presentation/policy fields participate.
-  return hash(JSON.stringify(["reader-navigation-v1", snapshot.siteSlug, snapshot.contentRevision, gateVersion(snapshot), snapshot.piiPatterns ?? [],
+  return hash(JSON.stringify(["reader-navigation-v1", process.env.VERCEL_URL ?? "local", snapshot.siteSlug, snapshot.contentRevision, gateVersion(snapshot), snapshot.piiPatterns ?? [],
     p ? [p.slug, p.bodyDigest, p.contentHash, p.title, p.description ?? null, p.tags, p.sensitive] : null]));
 }
 

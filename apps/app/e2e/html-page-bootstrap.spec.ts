@@ -255,3 +255,16 @@ test("native folder selection remains expanded after interactive handoff", async
   await expect(article(page)).toBeVisible();
   await expect(page.getByTestId("wiki-sidebar").getByRole("button", { name: "Collapse logistics", exact: true })).toBeVisible();
 });
+
+
+for (const asset of ["entry module", "stylesheet"]) test(`a missing ${asset} retries once and leaves readable HTML with a manual recovery action`, async ({ page }) => {
+  await prepare(page);
+  let navigations = 0;
+  page.on("request", request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) navigations++; });
+  await page.route(asset === "stylesheet" ? /\.css(?:\?|$)/ : /\/index-[^/]+\.js/, route => route.abort());
+  await page.goto("/", {waitUntil:"domcontentloaded"});
+  await expect(page.locator('[data-reader-load-error]')).toBeVisible();
+  await expect(page.locator('[data-reader-load-error] a')).toHaveText("Reload");
+  await expect(page.locator('#wiki-html-first article')).toContainText("BOOTSTRAPPED_HOME");
+  expect(navigations).toBe(2);
+});

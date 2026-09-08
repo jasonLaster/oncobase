@@ -13,12 +13,15 @@ export function isChunkLoadError(error: unknown): boolean {
 }
 
 // A deploy can leave an already-open tab referencing chunks/styles that fail to
-// load. Reload once per tab session to pick up the current asset graph; the flag
-// is intentionally never auto-cleared so a persistent failure can't loop.
+// load. Give each entry build one automatic reload. An earlier deployment
+// must not exhaust recovery for the rest of this tab's lifetime. A persistent
+// failure in the same build still cannot create a reload loop.
 export function reloadOnceForLoadError(): boolean {
   try {
-    if (!window.sessionStorage.getItem(RELOAD_FLAG_KEY)) {
-      window.sessionStorage.setItem(RELOAD_FLAG_KEY, "1");
+    const build = typeof document === "undefined" ? "unknown"
+      : document.querySelector<HTMLScriptElement>('script[type="module"][src]')?.getAttribute("src") ?? "unknown";
+    if (window.sessionStorage.getItem(RELOAD_FLAG_KEY) !== build) {
+      window.sessionStorage.setItem(RELOAD_FLAG_KEY, build);
       window.location.reload();
       return true;
     }
