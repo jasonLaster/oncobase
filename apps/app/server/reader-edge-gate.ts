@@ -6,9 +6,13 @@ import { next, rewrite } from "@vercel/functions/middleware";
 import { waitUntil } from "@vercel/functions";
 import { createReaderEdgeSnapshot } from "./reader-edge-snapshot";
 import { readerSlug } from "./reader-route";
-import { gateVersion, isInternalReaderPath, READER_CONTEXT_HEADER, READER_VERSION_HEADER, readerCachePath, readerFingerprint, signReaderContext } from "./reader-cache-context";
+import { gateVersion, isInternalReaderPath, READER_CONTEXT_HEADER, READER_VERSION_HEADER, readerCachePath, readerFingerprint, readerStaticPath, signReaderContext } from "./reader-cache-context";
 
-export function createReaderEdgeGate(client = new ConvexHttpClient(resolveServerConvexUrl())) {
+export function createReaderEdgeGate(client = new ConvexHttpClient(resolveServerConvexUrl()), staticPrefixes: readonly string[] = []) {
+  // This compact catalog is only a routing hint. The full authenticated
+  // fingerprint names the file; prefix collisions fall back to the gated
+  // function, which verifies the full context and current document again.
+  const prebuilt = new Set(staticPrefixes);
   const snapshots = createReaderEdgeSnapshot(client, { background: waitUntil,
     maxAgeMs: process.env.WIKI_READER_POLICY_CACHE_MS === "0" ? 0 : 5000 });
   return async (request: Request) => {
@@ -37,13 +41,18 @@ export function createReaderEdgeGate(client = new ConvexHttpClient(resolveServer
       }
       if (!snapshot.page?.contentHash || snapshot.page.sensitive !== false || !snapshot.page.bodyDigest) return pass();
       const fingerprint = await readerFingerprint(snapshot);
-      const destination = new URL(await readerCachePath(url.href, fingerprint), url);
+      const useStatic = prebuilt.has(fingerprint.slice(0, 8));
+      const destination = new URL(useStatic ? readerStaticPath(fingerprint) : await readerCachePath(url.href, fingerprint), url);
       const headers = forwarded;
       // All gzip-capable browsers share one representation despite different br/zstd lists.
       headers.set("Accept-Encoding", acceptsGzip(request.headers.get("accept-encoding")) ? "gzip" : "identity");
       headers.set(READER_CONTEXT_HEADER, await signReaderContext(url.href, fingerprint, secret));
       headers.set(READER_VERSION_HEADER, fingerprint);
-      return rewrite(destination, { request: { headers }, headers: { "X-Wiki-Edge-Ms": (performance.now() - started).toFixed(1) } });
+      return rewrite(destination, { request: { headers }, headers: {
+        "X-Wiki-Edge-Ms": (performance.now() - started).toFixed(1),
+        ...(useStatic ? { "Cache-Control": "private, no-store", "X-Wiki-Reader": "html-static-1",
+          "X-Wiki-Reader-Cache": "static-route", "X-Wiki-Reader-Static-Version": fingerprint } : {}),
+      } });
     } catch {
       // An expired/failed policy lookup must never fall through to a CDN hit.
       return new Response("Reader temporarily unavailable. Please retry.", { status: 503, headers: privateHeaders });

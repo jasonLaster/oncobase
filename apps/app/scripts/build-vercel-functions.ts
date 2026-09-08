@@ -1,6 +1,7 @@
 import { rm, unlink } from "node:fs/promises";
 import { assertBuildAssets, assertPublicAssets } from "./public-assets";
 import { criticalReaderCss } from "./critical-reader-css";
+import { buildStaticReader } from "./build-static-reader";
 
 const appDir = new URL("..", import.meta.url).pathname;
 
@@ -17,6 +18,7 @@ const criticalCss = criticalReaderCss((await Promise.all(stylesheets.map(href =>
 }))).join("\n"));
 await rm(outdir, { recursive: true, force: true });
 await Bun.write(`${outdir}/reader-critical.css`, criticalCss);
+const staticPrefixes = await buildStaticReader({ appDir, indexHtml, criticalCss });
 const result = await Bun.build({
   entrypoints: [
     `${appDir}/api-runtime/index.ts`,
@@ -50,7 +52,8 @@ for (const name of ["index", "root-app-shell"]) {
 }
 
 const gate = await Bun.build({ entrypoints: [`${appDir}/api-runtime/edge-gate.ts`], outdir,
-  target: "browser", format: "esm", minify: true });
+  target: "browser", format: "esm", minify: true,
+  define: { __WIKI_STATIC_READER_PREFIXES__: JSON.stringify(staticPrefixes) } });
 if (!gate.success) {
   for (const log of gate.logs) console.error(log.message);
   process.exit(1);

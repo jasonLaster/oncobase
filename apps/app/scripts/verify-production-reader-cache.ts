@@ -1,7 +1,7 @@
 /** Read-only cache-boundary verification against a candidate or production deployment. */
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
-import { readerCachePath, readerFingerprint, READER_CONTEXT_HEADER, READER_VERSION_HEADER } from "../server/reader-cache-context";
+import { readerCachePath, readerFingerprint, readerStaticPath, READER_CONTEXT_HEADER, READER_VERSION_HEADER } from "../server/reader-cache-context";
 const origin = process.env.WIKI_PERF_ORIGIN ?? "https://diana-tnbc.com";
 const password = process.env.WIKI_PERF_PASSWORD;
 if (!password) throw new Error("WIKI_PERF_PASSWORD is required");
@@ -27,7 +27,7 @@ async function check(name: string, pathname: string, headers: Record<string, str
   if (expected === "article" ? result.status !== 200 : !deniedStatus) throw new Error("Unexpected reader status for " + name + ": " + result.status);
   const html = await result.text();
   const article = html.includes('id="wiki-html-first"') && html.includes('id="wiki-page-bootstrap"');
-  const passed = expected === "article" ? result.status === 200 && article : !article && !html.includes("wiki-page-bootstrap");
+  const passed = expected === "article" ? result.status === 200 && article && result.headers.get("cache-control") === "private, no-store" : !article && !html.includes("wiki-page-bootstrap");
   console.log(JSON.stringify({ name, passed, status: result.status, cdn: result.headers.get("x-vercel-cache"), reader: result.headers.get("x-wiki-reader"), cacheControl: result.headers.get("cache-control"), ms: Math.round(performance.now() - start) }));
   if (!passed) throw new Error("Reader cache boundary failed: " + name);
 }
@@ -47,3 +47,13 @@ for (const [name, pathname] of Object.entries({ "direct cache path": internal,
   "internal API route": "/api/app-shell?__path=" + encodeURIComponent(internal.slice(1)),
 })) await check(name, pathname, { Cookie: cookie, [READER_CONTEXT_HEADER]: "forged", [READER_VERSION_HEADER]: fingerprint }, "denied");
 await check("HTML-disabled fallback remains gated", "/?html-first=off", { [READER_VERSION_HEADER]: fingerprint }, "denied");
+const staticPath=readerStaticPath(fingerprint);
+for (const [name,path] of Object.entries({
+  "direct static HTML":staticPath,
+  "encoded static HTML":staticPath.replace("/__reader/","/%5F%5Freader/"),
+  "double-encoded static HTML":staticPath.replace("/__reader/","/%255F%255Freader/"),
+  "double-slash static HTML":"/"+staticPath,
+  "encoded slash static HTML":"/%2F"+staticPath.slice(1),
+  "static HTML through API":"/api/app-shell?__path="+encodeURIComponent(staticPath.slice(1)),
+})) await check(name,path,{Cookie:cookie,[READER_CONTEXT_HEADER]:"forged",[READER_VERSION_HEADER]:fingerprint},"denied");
+await check("anonymous direct static HTML",staticPath,{},"denied");

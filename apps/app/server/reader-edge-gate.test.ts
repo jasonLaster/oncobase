@@ -2,7 +2,7 @@ import { getFunctionName } from "convex/server";
 import { afterEach, expect, test } from "bun:test";
 import { createWikiGateSession } from "@oncobase/wiki-content/gate-session";
 import { createReaderEdgeGate } from "./reader-edge-gate";
-import { gateVersion, readerCachePath, readerFingerprint, READER_CONTEXT_HEADER, READER_VERSION_HEADER, signReaderContext, verifyReaderContext, type ReaderSnapshot } from "./reader-cache-context";
+import { gateVersion, readerCachePath, readerFingerprint, readerStaticPath, READER_CONTEXT_HEADER, READER_VERSION_HEADER, signReaderContext, verifyReaderContext, type ReaderSnapshot } from "./reader-cache-context";
 
 const saved = { WIKI_HTML_FIRST: process.env.WIKI_HTML_FIRST, WIKI_HTML_CDN: process.env.WIKI_HTML_CDN,
   WIKI_GATE_SESSION_SECRET: process.env.WIKI_GATE_SESSION_SECRET, WIKI_READER_POLICY_CACHE_MS: process.env.WIKI_READER_POLICY_CACHE_MS };
@@ -10,6 +10,32 @@ afterEach(() => { for (const [key, value] of Object.entries(saved)) { if (value 
 const snapshot = (): ReaderSnapshot => ({ siteSlug: "diana", contentRevision: "site:1", gate: { enabled: true, passwordHash: "fixture" }, piiPatterns: [],
   page: { slug: "index", title: "Home", content: null, bodyDigest: "actual-body-digest", contentHash: "source", description: undefined, sensitive: false, tags: [] } });
 const secret = "synthetic-cdn-gate-secret";
+
+test("prebuilt HTML is selected only after current authorization and full fingerprint validation", async () => {
+  Object.assign(process.env, { WIKI_HTML_FIRST: "1", WIKI_HTML_CDN: "1", WIKI_GATE_SESSION_SECRET: secret, WIKI_READER_POLICY_CACHE_MS: "0" });
+  let value=snapshot(); const fingerprint=await readerFingerprint(value);
+  const gate=createReaderEdgeGate({query:async()=>structuredClone(value)} as never,[fingerprint.slice(0,8)]);
+  const token=await createWikiGateSession({siteSlug:"diana",secret,gateVersion:gateVersion(value)});
+  const url="https://diana-tnbc.com/", headers={Cookie:"authed="+token};
+  const result=await gate(new Request(url,{headers}));
+  const destination=result.headers.get("x-middleware-rewrite")!;
+  expect(destination).toBe(new URL(readerStaticPath(fingerprint),url).href);
+  expect(result.headers.get("Cache-Control")).toBe("private, no-store");
+  const context=result.headers.get("x-middleware-request-"+READER_CONTEXT_HEADER)!;
+  const restored=await verifyReaderContext(new Request(destination,{headers:{[READER_CONTEXT_HEADER]:context}}),secret);
+  expect(restored?.fingerprint).toBe(fingerprint); expect(restored?.url.href).toBe(url);
+  expect(await verifyReaderContext(new Request(destination.replace(fingerprint,"different"),{headers:{[READER_CONTEXT_HEADER]:context}}),secret)).toBeNull();
+  expect((await gate(new Request(url))).status).toBe(302);
+  for(const path of [readerStaticPath(fingerprint),readerStaticPath(fingerprint).replace("/__reader/","/%5f%5freader/")]) {
+    expect((await gate(new Request(new URL(path,url),{headers}))).status).toBe(404);
+  }
+  value={...value,page:{...value.page!,bodyDigest:"published replacement"}};
+  expect((await gate(new Request(url,{headers}))).headers.get("x-middleware-rewrite")).not.toContain("/static/");
+  value={...value,page:null};
+  expect((await gate(new Request(url,{headers}))).headers.get("x-middleware-rewrite")).toBeNull();
+  process.env.WIKI_HTML_FIRST="0";
+  expect((await gate(new Request(new URL(readerStaticPath(fingerprint),url)))).status).toBe(404);
+});
 
 test("the edge authenticates before a versioned CDN rewrite, blocks direct cache URLs and strips forged routing headers", async () => {
   Object.assign(process.env, { WIKI_HTML_FIRST: "1", WIKI_HTML_CDN: "1", WIKI_GATE_SESSION_SECRET: secret, WIKI_READER_POLICY_CACHE_MS: "0" });

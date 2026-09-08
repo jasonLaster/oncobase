@@ -25,6 +25,7 @@ export function readerFingerprint(snapshot: ReaderSnapshot) {
 }
 
 export const readerCachePath = async (url: string, fingerprint: string) => READER_CACHE_PREFIX + fingerprint + "/" + await hash(url);
+export const readerStaticPath = (fingerprint: string) => READER_CACHE_PREFIX + "static/" + fingerprint + ".html";
 
 export async function signReaderContext(url: string, fingerprint: string, secret: string, now = Date.now()) {
   const payload = b64(encoder.encode(JSON.stringify([1, now + 15_000, url, fingerprint])));
@@ -42,7 +43,8 @@ export async function verifyReaderContext(request: Request, secret: string | und
     if (version !== 1 || !Number.isSafeInteger(expires) || expires <= now || expires > now + 15_000 ||
       typeof original !== "string" || typeof fingerprint !== "string") return null;
     const url = new URL(original), incoming = new URL(request.url);
-    if (url.origin !== incoming.origin || incoming.pathname !== await readerCachePath(original, fingerprint)) return null;
+    if (url.origin !== incoming.origin ||
+      (incoming.pathname !== readerStaticPath(fingerprint) && incoming.pathname !== await readerCachePath(original, fingerprint))) return null;
     return { url, fingerprint };
   } catch { return null; }
 }
