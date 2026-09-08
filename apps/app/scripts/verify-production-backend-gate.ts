@@ -8,7 +8,11 @@ const backend = "https://youthful-cricket-560.convex.cloud";
 const anonymous = new ConvexHttpClient(backend, { logger: false });
 async function denied(name: string, read: () => Promise<unknown>) {
   let denied = false;
-  try { await read(); } catch (error) { denied = /Unauthorized|Unauthenticated|authenticat|JWT|token/i.test(String(error)); }
+  try { await read(); } catch (error) {
+    // Production Convex masks the exception message; ConvexError.data retains
+    // our deliberate denial code. A generic server failure is not a pass.
+    denied = (error as { data?: unknown }).data === "Unauthorized" || /Unauthenticated|authenticat|JWT|token/i.test(String(error));
+  }
   console.log(JSON.stringify({ name, denied }));
   if (!denied) throw new Error("Backend authorization check failed: " + name);
 }
