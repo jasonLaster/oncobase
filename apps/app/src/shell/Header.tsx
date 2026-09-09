@@ -36,8 +36,9 @@ import type {} from "../bootstrap/reader-shortcuts";
 
 const OPEN_COMMAND_PALETTE_EVENT = "wiki-vite-open-command-palette";
 
+const loadCommandPalette = () => import("./CommandPalette");
 const CommandPalette = lazy(() =>
-  import("./CommandPalette").then((module) => ({
+  loadCommandPalette().then((module) => ({
     default: module.CommandPalette,
   })),
 );
@@ -53,6 +54,19 @@ export function openCommandPalette(mode: PaletteMode = "pages") {
 export function HeaderCommandPaletteHost() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteMode, setPaletteMode] = useState<PaletteMode>("pages");
+  const [PreparedPalette, setPreparedPalette] = useState<typeof import("./CommandPalette").CommandPalette | null>(null);
+
+  useEffect(() => {
+    // Fetch the split chunk once the interactive shell is mounted, before the
+    // first shortcut. Mounting the palette still waits for an explicit request.
+    // A speculative failure must not break the reader; lazy loading retains the
+    // normal asset recovery path when the user actually opens the palette.
+    let cancelled = false;
+    void loadCommandPalette().then(module => {
+      if (!cancelled) setPreparedPalette(() => module.CommandPalette);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const openPalette = useCallback((mode: PaletteMode) => {
     setPaletteMode(mode);
@@ -93,9 +107,10 @@ export function HeaderCommandPaletteHost() {
     return () => document.removeEventListener("keydown", onKeyDown, { capture: true });
   }, [openPalette]);
 
+  const Palette = PreparedPalette ?? CommandPalette;
   return paletteOpen ? (
     <Suspense fallback={null}>
-      <CommandPalette
+      <Palette
         open={paletteOpen}
         initialMode={paletteMode}
         onOpenChange={setPaletteOpen}

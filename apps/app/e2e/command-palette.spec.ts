@@ -20,6 +20,32 @@ test.describe("Command palette parity", () => {
     await waitForPageTitle(page, "About This Wiki");
   });
 
+  test("palette code loads before the first shortcut without opening a dialog", async ({ page }) => {
+    const paletteCode = page.waitForResponse(response =>
+      /\/(?:assets\/CommandPalette-[^/]+\.js|src\/shell\/CommandPalette\.tsx)(?:\?|$)/.test(response.url()),
+    );
+    await gotoWiki(page, "/");
+    const response = await paletteCode;
+    expect(response.ok()).toBe(true);
+    await response.finished();
+    // A response body can finish before the module's dependency graph evaluates.
+    await page.evaluate(url => import(/* @vite-ignore */ url).then(() => {}), response.url());
+    await expect(page.getByTestId("command-palette")).toHaveCount(0);
+
+    // Once prepared, the first open must also work with script networking off.
+    await page.route("**/*", route => route.request().resourceType() === "script"
+      ? route.abort()
+      : route.continue());
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+O" : "Control+O");
+    const input = page.getByTestId("command-palette-input");
+    await expect(input).toBeFocused();
+    await input.fill("insurance");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("command-palette")).toHaveCount(0);
+  });
+
   test("Cmd+K opens the fuzzy file palette with no top mode tabs", async ({ page }) => {
     await gotoWiki(page, "/");
 
