@@ -353,6 +353,8 @@ export async function handleChatRequest({
 
   const result = streamText({
     model: chatTextModel(),
+    // OpenAI summaries are opt-in; the provider's raw reasoning stays private.
+    providerOptions: { openai: { reasoningSummary: "auto" } },
     maxOutputTokens: 50000,
     system: systemPrompt,
     messages: modelMessages,
@@ -451,6 +453,8 @@ export async function handleChatRequest({
       if (!convId) return;
       if (chunk.type === "text-delta") {
         flusher.pushText((chunk as { text: string }).text);
+      } else if (chunk.type === "reasoning-delta") {
+        flusher.pushReasoning(chunk.text);
       } else if (chunk.type === "tool-call") {
         const toolCall = chunk as unknown as Record<string, unknown>;
         flusher.pushToolCall({

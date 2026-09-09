@@ -31,6 +31,8 @@ interface SaveMessageInput {
 export interface ConvexFlusher {
   /** Append a streaming text delta. Coalesced and flushed on the next tick. */
   pushText(delta: string): void;
+  /** Append a reasoning summary delta, including for resumed streaming views. */
+  pushReasoning(delta: string): void;
   /** Append a tool-call part. Flushed on the next tick (no immediate write). */
   pushToolCall(part: FlusherPart): void;
   /** Update an existing tool part with a result. Flushed on the next tick. */
@@ -128,6 +130,15 @@ export function createConvexFlusher({
         last.text = (last.text as string) + delta;
       } else {
         parts.push({ type: "text", text: delta });
+      }
+      schedule();
+    },
+    pushReasoning(delta) {
+      const last = parts[parts.length - 1];
+      if (last && last.type === "reasoning") {
+        last.text = (last.text as string) + delta;
+      } else {
+        parts.push({ type: "reasoning", text: delta });
       }
       schedule();
     },
