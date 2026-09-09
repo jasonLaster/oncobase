@@ -11,8 +11,11 @@ declare global {
   }
 }
 
-/** Serialized into the document head, before streamed content can be read. */
+/** Serialized into every reader document head, before app scripts or snapshots. */
 export function installReaderShortcuts(create: typeof createCommandPaletteChords) {
+  // These routes intentionally do not mount the reader's palette host.
+  if (["/login", "/terms-and-conditions", "/tools/dicom-viewer", "/tools/dicom-compare"].includes(window.location?.pathname)) return;
+  if (window.__wikiReaderShortcuts) return;
   const state = {
     pending: null as StartupPaletteMode | null,
     controller: null as CommandPaletteChordController | null,

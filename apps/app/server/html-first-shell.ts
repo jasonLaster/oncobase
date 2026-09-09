@@ -94,7 +94,9 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
   </style>`;
   // Replacement strings interpret $&, $`, and $'. They can occur in article
   // text and in minified JavaScript (for example a variable named $ && ...).
-  const shortcuts = `<script>(${prepareHtmlFirstPresentation.toString()})()</script><script>(${installReaderShortcuts.toString()})(${createCommandPaletteChords.toString()})</script>`;
+  const startupShortcuts = html.includes('id="wiki-reader-shortcuts"') ? ""
+    : `<script id="wiki-reader-shortcuts">(${installReaderShortcuts.toString()})(${createCommandPaletteChords.toString()})</script>`;
+  const shortcuts = `<script>(${prepareHtmlFirstPresentation.toString()})()</script>${startupShortcuts}`;
   return html.replace("</head>", () => css + shortcuts + "</head>")
     .replace('<div id="root">', () => shell + '<div id="root">')
     .replace("</body>", () => `${bootstrap}${navigationPayload}<script>(${bootHtmlFirstPage.toString()})()</script></body>`);

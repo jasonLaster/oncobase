@@ -8,6 +8,8 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { wikiApiPlugin } from "./server/wiki-api.ts";
+import { createCommandPaletteChords } from "../../packages/wiki-shell/src/command-palette-chords";
+import { installReaderShortcuts } from "./src/bootstrap/reader-shortcuts";
 
 const apiOrigin = process.env.VITE_WIKI_API_ORIGIN ?? "";
 
@@ -120,6 +122,17 @@ export default defineConfig({
   },
   worker: { format: "es" },
   plugins: [
+    {
+      name: "wiki-reader-startup-shortcuts",
+      transformIndexHtml() {
+        return [{
+          tag: "script",
+          attrs: { id: "wiki-reader-shortcuts" },
+          children: `(${installReaderShortcuts.toString()})(${createCommandPaletteChords.toString()})`,
+          injectTo: "head-prepend" as const,
+        }];
+      },
+    },
     wikiReaderCacheVersionPlugin(),
     !apiOrigin ? wikiApiPlugin() : null,
     tailwindcss(),

@@ -8,6 +8,12 @@ import { pathToFileURL } from "node:url";
 const page = { slug: "wiki/test", title: "Price $& $` $' $$", content: "Literal $& $` $' $$", contentHash: "fixture", sensitive: false };
 const template = '<html><head></head><body><div id="root"></div></body></html>';
 
+test("HTML-first rendering retains the document's existing startup listener without duplicating it", () => {
+  const bootTemplate = template.replace("</head>", '<script id="wiki-reader-shortcuts">/* installed by Vite */</script></head>');
+  const html = injectHtmlFirstShell(bootTemplate, page, new URL("https://example.com/wiki/test"), "test", "", "<p>Readable.</p>");
+  expect(html.match(/id="wiki-reader-shortcuts"/g)).toHaveLength(1);
+});
+
 test("HTML insertion preserves literal dollar replacement sequences in content and bootstrap JSON", () => {
   const html = injectHtmlFirstShell(template, page, new URL("https://example.com/wiki/test"), "test", "", "<p>Literal $&amp; $` $' $$</p>");
   expect(html).toContain("<p>Literal $&amp; $` $' $$</p>");
