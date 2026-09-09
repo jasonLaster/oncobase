@@ -12,6 +12,7 @@ import { api } from "../../convex/_generated/api.js";
 import { publishChatPerfSnapshot } from "../observability";
 import { useWikiSession } from "../wiki-context";
 import { hrefForSlug } from "../wiki-utils";
+import { fetchWikiConvexToken } from "./convex-token";
 
 let convexClient: ConvexReactClient | null = null;
 
@@ -28,12 +29,7 @@ function getConvexClient() {
   const url = convexUrl();
   if (!convexClient || convexClient.url !== url) {
     convexClient = new ConvexReactClient(url);
-    convexClient.setAuth(async () => {
-      const response = await fetch("/api/wiki/convex-token", { credentials: "same-origin", cache: "no-store" });
-      if (!response.ok) return null;
-      const body = await response.json() as { token?: unknown };
-      return typeof body.token === "string" ? body.token : null;
-    });
+    convexClient.setAuth(() => fetchWikiConvexToken());
   }
   return convexClient;
 }
