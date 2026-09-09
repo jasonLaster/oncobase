@@ -21,7 +21,6 @@ export function bootHtmlFirstPage() {
   const root = document.getElementById("root");
   if (!host || !root) return;
   root.inert = true;
-  if (window.matchMedia("(max-width: 767px)").matches) host.querySelector(".html-first-files")?.removeAttribute("open");
   // Let the inline-styled article paint before downloading/compiling the app
   // or applying its much larger stylesheet. Native links work immediately.
   const recoverLoad = (build: string) => {

@@ -27,3 +27,5 @@ The inline presentation fixes add no stylesheet/network dependency. The shared l
 - Firefox startup/header/streaming coverage: 11 passed.
 - WebKit header/streaming coverage: 6 passed.
 - Native page copying, streaming-prefix menu closure, title/tag geometry, mobile row typography and sidebar hover state have explicit regression assertions.
+
+Production verification covered light/dark at 393px and 1440px: stable initial/live header geometry, readable native tables, mobile navigation, sidebar hover and Cmd+O, with zero browser errors. A follow-up streaming check also preserves a native menu opened before the response finishes; the body bootstrap no longer closes it a second time.

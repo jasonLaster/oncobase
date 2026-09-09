@@ -39,6 +39,8 @@ test(`the browser reads a gzip HTML prefix while the complete remainder is still
     const finish = release!; release = undefined; finish();
     await expect(page.getByText("The complete final paragraph.", { exact: true })).toBeAttached();
     await expect(page.locator("#wiki-html-first article p")).toHaveCount(602);
+    // Finishing the streamed response must preserve a menu the reader opened.
+    if (width < 768) await expect(page.locator(".html-first-files")).toHaveAttribute("open", "");
   } finally { release?.(); server.closeAllConnections(); server.close(); }
 });
 }
