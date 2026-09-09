@@ -91,6 +91,27 @@ test.describe("Command palette parity", () => {
     await waitForPageTitle(page, title);
   });
 
+  test("Cmd+K opens before the chord timeout and expiry preserves typed text", async ({ page }) => {
+    await gotoWiki(page, "/");
+    // Prepare the module so this checks the shortcut delay independently of
+    // network speed. Advance only 100 ms, well short of the 600 ms chord window.
+    await page.getByTestId("sidebar-search").click();
+    const input = page.getByTestId("command-palette-input");
+    await expect(input).toBeFocused();
+    await input.press("Escape");
+    await page.clock.install();
+    await page.clock.pauseAt(new Date());
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
+    await page.clock.runFor(100);
+    await expect(input).toBeFocused();
+    await input.fill("insurance");
+    await page.clock.runFor(1000);
+    await expect(input).toHaveValue("insurance");
+    await input.press("Escape");
+    await page.clock.runFor(1000);
+    await expect(input).toHaveCount(0);
+  });
+
   test("Cmd+K opens the fuzzy file palette with no top mode tabs", async ({ page }) => {
     await gotoWiki(page, "/");
 

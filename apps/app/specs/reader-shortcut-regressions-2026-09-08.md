@@ -47,3 +47,7 @@ Cold production samples before this follow-up took approximately 800 ms from Cmd
 The interactive host now prepares the split palette module when it mounts. Once prepared, it renders the component directly on request, avoiding both the first-interaction download and a fresh lazy boundary. The dialog remains unmounted until requested. A speculative failure leaves the existing lazy-loading and asset-recovery path available. The chord window and all keyboard mappings are unchanged.
 
 The new browser regression requires the module request before any shortcut, waits for its dependency graph to evaluate, then blocks further script requests and verifies first-open focus and file navigation. This guards against moving the download back behind the first interaction. Build, typecheck, scoped lint, and existing bundle budgets pass. Browser results: 20 Chromium palette tests, 20 Firefox palette tests, and four WebKit first-open/chord/modal checks. The static-preview-only header test remains skipped.
+
+## Immediate Cmd+K opening (2026-09-09)
+
+Cmd+K and Ctrl+K now request the file palette synchronously, matching Cmd+O. The 600 ms chord window only allows a subsequent F/O/A to select a mode; it no longer delays opening or triggers another open on expiry. Startup requests remain queued until the interactive reader is ready. Regression checks verify synchronous dispatch, focus within 100 ms of simulated time on a prepared reader, preservation of typed text after chord expiry, Escape, and existing outline/action chords.

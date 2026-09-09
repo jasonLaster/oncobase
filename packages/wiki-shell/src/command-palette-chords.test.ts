@@ -45,10 +45,10 @@ test("native Search clicks adopt live handlers, cancel a chord, and stop after d
     key("KeyK", { metaKey: true });
     expect(click()).toBe(true);
     await settleChord();
-    expect(calls).toEqual(["early", "live"]);
+    expect(calls).toEqual(["early", "live", "live"]);
     controller.dispose();
     expect(click()).toBe(false);
-    expect(calls).toEqual(["early", "live"]);
+    expect(calls).toEqual(["early", "live", "live"]);
   } finally {
     if (oldElement) Object.defineProperty(globalThis, "Element", oldElement);
     else Reflect.deleteProperty(globalThis, "Element");
@@ -70,25 +70,33 @@ test("adopting application handlers preserves an in-progress chord", async () =>
   controller.setHandlers({ onFiles: () => calls.push("files"), onOutline: () => calls.push("outline") });
   key("KeyO");
   await settleChord();
-  expect(calls).toEqual(["outline"]);
+  expect(calls).toEqual(["early files", "outline"]);
 });
 
-test("a pending leader uses the adopted handler when its timer expires", async () => {
+test("Cmd+K opens synchronously and its chord expiry does not reopen the palette", async () => {
   const calls: string[] = [];
   controller = createCommandPaletteChords({ onFiles: () => calls.push("early") });
   key("KeyK", { metaKey: true });
+  expect(calls).toEqual(["early"]);
   controller.setHandlers({ onFiles: () => calls.push("live") });
   await settleChord();
-  expect(calls).toEqual(["live"]);
+  expect(calls).toEqual(["early"]);
 });
 
-test("a direct outline shortcut cancels the pending file-palette timer", async () => {
+test("Ctrl+K opens files synchronously", () => {
+  let files = 0;
+  controller = createCommandPaletteChords({ onFiles: () => files++ });
+  expect(key("KeyK", { ctrlKey: true })).toBe(true);
+  expect(files).toBe(1);
+});
+
+test("a direct outline shortcut cancels the file chord without reopening files", async () => {
   const calls: string[] = [];
   controller = createCommandPaletteChords({ onFiles: () => calls.push("files"), onOutline: () => calls.push("outline") });
   key("KeyK", { metaKey: true });
   key("KeyO", { metaKey: true, shiftKey: true });
   await settleChord();
-  expect(calls).toEqual(["outline"]);
+  expect(calls).toEqual(["files", "outline"]);
 });
 
 test("Escape cancels the chord and lets the host cancel a queued request", async () => {
@@ -97,7 +105,7 @@ test("Escape cancels the chord and lets the host cancel a queued request", async
   key("KeyK", { metaKey: true });
   key("Escape");
   await settleChord();
-  expect(calls).toEqual(["cancel"]);
+  expect(calls).toEqual(["files", "cancel"]);
 });
 
 test("teardown removes the browser shortcut interception and pending timer", async () => {
@@ -107,5 +115,5 @@ test("teardown removes the browser shortcut interception and pending timer", asy
   controller.dispose();
   expect(key("KeyO", { metaKey: true })).toBe(false);
   await settleChord();
-  expect(calls).toBe(0);
+  expect(calls).toBe(1);
 });

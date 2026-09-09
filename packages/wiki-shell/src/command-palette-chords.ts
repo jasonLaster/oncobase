@@ -12,8 +12,8 @@ export type CommandPaletteChordController = {
 
 /**
  * Install global keyboard chords for the command palette:
- * - ⌘K / Ctrl+K: chord leader; opens the file palette after CHORD_WINDOW_MS
- *   unless followed by F / O / A within the window.
+ * - ⌘K / Ctrl+K: opens files immediately; F / O / A can select another
+ *   palette mode within CHORD_WINDOW_MS without delaying the initial open.
  * - ⌘K F / ⌘O: file palette.
  * - ⌘K O / ⌘⇧O: outline palette.
  * - ⌘K A / ⌘⇧K: action palette.
@@ -41,7 +41,6 @@ export function createCommandPaletteChords(
     if (chordTimer) clearTimeout(chordTimer);
     chordTimer = setTimeout(() => {
       chordTimer = null;
-      handlers.onFiles?.();
     }, CHORD_WINDOW_MS);
   }
 
@@ -88,6 +87,7 @@ export function createCommandPaletteChords(
     if (!event.shiftKey && event.code === "KeyK") {
       event.preventDefault();
       startChord();
+      handlers.onFiles?.();
       return;
     }
 
