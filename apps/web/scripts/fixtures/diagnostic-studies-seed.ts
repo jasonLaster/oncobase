@@ -3,6 +3,22 @@ import type { DiagnosticStudiesPayload } from "../../src/lib/diagnostic-studies"
 export const diagnosticStudiesSeed = {
   studies: [
     {
+      id: "diagnostic-2026-09-04-right-axillary-fna",
+      shortLabel: "9/4",
+      title: "September 4 right axillary FNA ultrasound",
+      dateLabel: "Sep 4, 2026",
+      isoDate: "2026-09-04",
+      modality: "US",
+      focus: "Right axillary node: recorded stills and all cine frames",
+      directoryIncludes: "09-04-right-axillary-fna/dicoms",
+      pathologyReportHref: sourcePageHref("09-04-right-axillary-fna/index"),
+      reportLinks: [
+        { label: "Image-storage record", href: sourcePageHref("09-04-right-axillary-fna/index") },
+        { label: "Descriptive image review", href: sourcePageHref("09-04-right-axillary-fna/analysis") },
+      ],
+      downloadHref: fileAssetHref("diagnostics/viewer-upload/09-04-right-axillary-fna/source-files.zip"),
+    },
+    {
       id: "diagnostic-2026-08-24-breast-mri",
       shortLabel: "8/24",
       title: "August 24 breast MRI",

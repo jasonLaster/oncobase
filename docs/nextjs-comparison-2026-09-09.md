@@ -10,6 +10,7 @@ comparison branch, not a rollback of main or a production-domain change.
 | --- | --- |
 | `52e12889` | Complete retained Next app under `apps/web`, with its pre-retirement shared packages and original reader/sidebar UI. |
 | `0ee4c214` | Cherry-picked with provenance: remove the legacy public report and reject unreviewed public assets before Next startup/build. |
+| `0436802a` | Cherry-picked the September 4 FNA ultrasound study and its viewer regression case, remapping only `apps/app/` to the legacy `apps/web/` paths. |
 | `f4786a78` | Port only the current research URL mapping into Next redirect syntax. Preserve current reviews/essays/index pages while retaining legacy redirects. The Vite route matcher and tests are excluded. |
 | Backend-auth work after the base | Narrow application-side compatibility adapter for the currently enforced service JWT and site-scoped browser conversation token. Existing Next request handlers and provider use that adapter. No Convex functions, schemas, data, or deployment configuration are changed. |
 
@@ -19,7 +20,10 @@ cherry-pick. Most change Vite startup, styling, APIs, backend authorization,
 performance, tests, or documentation. Replaying those wholesale would destroy
 the usefulness of the original UI comparison. The relevant content-route fix
 is ported separately as described above. Earlier diagnostic content changes
-are already in the base.
+are already in the base. A later main update, `0436802a`, then added the
+September 4 FNA ultrasound metadata and viewer expectation. Those exact
+content/test additions are now carried on this branch with only directory
+paths adapted; the legacy UI remains unchanged.
 
 Vault articles are published to Convex from the separate Diana vault; they are
 not bundled with either frontend. Both versions read the current published
@@ -82,3 +86,19 @@ local configuration and binds the server to loopback.
 - This branch is not independently certified for production deployment.
   Provider response generation, user-account mutations, and the full older
   Next suite are outside this comparison validation.
+
+## September 4 FNA content follow-up
+
+After the initial branch was prepared, `0436802ab452adbe7b1c50f33fad7d13b62f4ae1`
+added the September 4 right axillary FNA ultrasound study. Its complete
+16-line study record and six-line viewer test case were applied here, mapping
+`apps/app/scripts/fixtures/diagnostic-studies-seed.ts` to
+`apps/web/scripts/fixtures/diagnostic-studies-seed.ts` and similarly mapping
+the E2E test path. The record matches main exactly and occurs once.
+
+Validation: all ten workspace typecheck tasks passed, scoped ESLint passed,
+and Playwright test discovery found the new FNA viewer case. The existing
+local comparison server remains available; these fixture/test changes do not
+change the running application bundle. No study seeding, backend writes, or
+production deployment was performed. The new FNA frame-decoding case was
+carried forward but was not executed as part of this branch-only update.
