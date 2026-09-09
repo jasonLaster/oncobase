@@ -22,6 +22,12 @@ const { diagnosticStudiesSeed } = createRequire(import.meta.url)(
 
 const biopsyLinks = [
   {
+    id: "diagnostic-2026-09-04-right-axillary-fna",
+    title: "September 4 right axillary FNA ultrasound",
+    directory: "09-04-right-axillary-fna/dicoms",
+    counter: "83 / 164",
+  },
+  {
     id: "diagnostic-2026-08-24-breast-mri",
     title: "August 24 breast MRI",
     directory: "08-24-breast-mri/dicoms",
