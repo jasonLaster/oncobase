@@ -257,7 +257,10 @@ test.describe("Visual parity", () => {
     await gotoWiki(page, "/wiki/logistics/insurance");
     const mobileAsk = page.getByTestId("mobile-ask-wiki");
     await expect(mobileAsk).toBeVisible();
-    await expect(mobileAsk.locator("svg")).toHaveClass(/lucide-message-square/);
+    // The Next.js reference uses a rounded chat bubble with two text strokes.
+    await expect(mobileAsk.locator("svg")).toHaveAttribute("viewBox", "0 0 24 24");
+    await expect(mobileAsk.locator("svg")).toHaveAttribute("stroke-width", "1.9");
+    await expect(mobileAsk.locator("path").last()).toHaveAttribute("d", "M9 10h6M9 14h4");
     await page.getByTestId("bottom-nav-trigger").click();
     await expect(mobileAsk).toHaveCount(0);
 

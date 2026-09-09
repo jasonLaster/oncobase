@@ -13,8 +13,8 @@ import {
   type WikiNavigationNode,
   type WikiTreePageLinkRenderArgs,
 } from "@oncobase/wiki-shell";
-import { ChevronDown, ClipboardCheck, MessageSquare, MessageSquareText, Search, WandSparkles } from "lucide-react";
-import { nodeIcon } from "./navigation-icons";
+import { ChevronDown, ClipboardCheck, MessageSquareText, Search, WandSparkles } from "lucide-react";
+import { MobileChatIcon, nodeIcon } from "./navigation-icons";
 import {
   lazy,
   memo,
@@ -581,7 +581,7 @@ export const MobileNav = memo(function MobileNav() {
           className="wiki-vite-mobile-ask"
           data-test-id="mobile-ask-wiki"
         >
-          <MessageSquare size={19} aria-hidden="true" />
+          <MobileChatIcon />
         </Link>
       ) : null}
     </>

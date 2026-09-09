@@ -30,7 +30,8 @@ const budgets: Budget[] = [
   // the payload parser separate, but count its runtime cost as eager below.
   // Navigation seeding adds a store-local WeakMap and a second bootstrap ID.
   // Allow 64 bytes for shared-import symbol churn from the startup shortcut bridge.
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 16_832 },
+  // The shared page-copy and mobile-chat glyphs restore the legacy artwork.
+  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 17_024 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },

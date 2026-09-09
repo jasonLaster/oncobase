@@ -1,3 +1,5 @@
+import { prepareHtmlFirstPresentation } from "./html-first-presentation";
+import { renderReaderPageHeader } from "./reader-page-header";
 import { renderReaderSidebar } from "./reader-sidebar";
 import { createCommandPaletteChords } from "@oncobase/wiki-shell";
 import { installReaderShortcuts } from "../src/bootstrap/reader-shortcuts";
@@ -47,7 +49,7 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
     version: 1, readerVersion: WIKI_READER_CACHE_VERSION, origin: url.origin,
     pathname: url.pathname, siteSlug, scope: "public", tree: compactFileTree(tree),
   }).replace(/[<>&\u2028\u2029]/g, char => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`)}</script>` : "";
-  const header = page.slug === "index" ? "" : `<header class="wiki-shell-page-header"><h1>${escape(page.title)}</h1></header>`;
+  const header = renderReaderPageHeader(page);
   const navigation = renderReaderSidebar(navigationTree, url);
   const shell = `<div id="wiki-html-first" class="prototype-shell"${largeArticle ? ' data-large-article="true"' : ""} data-slug="${escape(page.slug)}" data-hash="${escape(page.contentHash)}">
     <div class="app-shell wiki-shell-resizable-layout">
@@ -74,12 +76,25 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
     #wiki-html-first summary::-webkit-details-marker{display:none}
     #wiki-html-first .html-first-search{font-size:16px}
     #wiki-html-first .html-first-sign-in{align-items:center;display:flex;justify-content:center;gap:8px;background:var(--reader-sign-in-bg);border:1px solid var(--reader-sign-in-bg);border-radius:8px;color:white;margin-top:8px;min-height:42px;padding:8px 10px;text-decoration:none}
+    #wiki-html-first .html-first-mobile-title,#wiki-html-first .html-first-mobile-action{display:none}
     @media(min-width:768px){#wiki-html-first .html-first-files>summary{display:none}}
-    @media(max-width:767px){#wiki-html-first .app-content{margin-left:0}#wiki-html-first .html-first-sidebar-rail{display:block;inset:0 0 auto;width:auto;height:48px;border:0;z-index:1}#wiki-html-first .html-first-navigation{display:flex;flex-direction:row;overflow:visible}#wiki-html-first .wiki-shell-sidebar-footer{display:none}#wiki-html-first .html-first-files{display:block;flex:0;overflow:visible;margin-left:auto;padding:12px 18px}#wiki-html-first .html-first-files:not([open])>nav{display:none}#wiki-html-first .html-first-files[open]>nav{position:absolute;top:48px;left:0;width:100%;height:auto;max-height:60vh;background:var(--sidebar-bg);border-bottom:1px solid var(--sidebar-border)}}
+    @media(max-width:767px){
+      #wiki-html-first .app-content{margin-left:0}
+      #wiki-html-first .html-first-sidebar-rail{display:block;inset:0 0 auto;width:auto;height:48px;border:0;z-index:40}
+      #wiki-html-first .html-first-navigation{display:flex;flex-direction:row;align-items:center;gap:8px;padding:0 12px;overflow:visible;border-bottom:1px solid var(--sidebar-border)}
+      #wiki-html-first .wiki-shell-sidebar-heading,#wiki-html-first .wiki-shell-sidebar-footer{display:none}
+      #wiki-html-first .html-first-mobile-title{display:block}
+      #wiki-html-first .html-first-mobile-action,#wiki-html-first .html-first-files>summary{display:inline-flex;align-items:center;justify-content:center;flex:0 0 36px;width:36px;height:36px;border:1px solid var(--sidebar-border);border-radius:8px;background:var(--background);color:var(--text-muted);cursor:pointer;list-style:none}
+      #wiki-html-first .html-first-files>summary::-webkit-details-marker{display:none}
+      #wiki-html-first .html-first-files{display:block;flex:0 0 36px;overflow:visible;margin:0;padding:0}
+      #wiki-html-first .html-first-files:not([open])>nav{display:none}
+      #wiki-html-first .html-first-files[open]~.wiki-vite-mobile-ask{display:none}
+      #wiki-html-first .html-first-files[open]>nav{position:absolute;top:48px;left:0;width:100%;height:auto;max-height:60vh;background:var(--sidebar-bg);border-bottom:1px solid var(--sidebar-border)}
+    }
   </style>`;
   // Replacement strings interpret $&, $`, and $'. They can occur in article
   // text and in minified JavaScript (for example a variable named $ && ...).
-  const shortcuts = `<script>(${installReaderShortcuts.toString()})(${createCommandPaletteChords.toString()})</script>`;
+  const shortcuts = `<script>(${prepareHtmlFirstPresentation.toString()})()</script><script>(${installReaderShortcuts.toString()})(${createCommandPaletteChords.toString()})</script>`;
   return html.replace("</head>", () => css + shortcuts + "</head>")
     .replace('<div id="root">', () => shell + '<div id="root">')
     .replace("</body>", () => `${bootstrap}${navigationPayload}<script>(${bootHtmlFirstPage.toString()})()</script></body>`);

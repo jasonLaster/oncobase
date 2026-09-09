@@ -29,7 +29,8 @@ function markdownRenderer() {
   const markdown = new Marked({ async: false, gfm: true, renderer: {
     heading({ tokens, depth }) {
       const text = this.parser.parseInline(tokens);
-      return `<h${depth} id="${escape(slugger.slug(markdownTitleToText(text)))}">${text}</h${depth}>\n`;
+      const id = escape(slugger.slug(markdownTitleToText(text)));
+      return `<h${depth} class="wiki-heading-group" id="${id}">${text}<a class="heading-anchor" href="#${id}" aria-label="${escape(`Link to "${markdownTitleToText(text)}"`)}">#</a></h${depth}>\n`;
     },
     code({ text, lang }) {
       if (lang === "mermaid") return '<p class="text-muted">Diagram loads with the interactive reader.</p>';
@@ -50,6 +51,12 @@ function sanitizeBody(html: string, slug: string) {
     attributes: {
       ...defaultSchema.attributes,
       "*": [...(defaultSchema.attributes?.["*"] ?? []), "className"],
+      // These tags have narrower default class allowlists than the wildcard.
+      // Retain the generated heading/permalink classes after sanitization.
+      ...Object.fromEntries(["a", "h1", "h2", "h3", "h4", "h5", "h6"].map(tag => [tag, [
+        ...(defaultSchema.attributes?.[tag] ?? []).filter(attribute => !(Array.isArray(attribute) && attribute[0] === "className")),
+        "className",
+      ]])),
     },
   });
   const body = toHtml(tree)

@@ -6,7 +6,9 @@ import { injectHtmlFirstShell } from "../server/html-first-shell";
 import { streamReaderGzip } from "../server/stream-reader";
 import { sendWebResponse } from "../server/http-adapter";
 
-test("the browser reads a gzip HTML prefix while the complete remainder is still held", async ({ page }) => {
+for (const width of [393, 1280]) {
+test(`the browser reads a gzip HTML prefix while the complete remainder is still held at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
   const css = await readFile(new URL("../.vercel-functions/reader-critical.css", import.meta.url), "utf8");
   const fixture = { slug: "index", title: "Streaming fixture", sensitive: false, contentHash: "stream-fixture",
     content: "Already readable before the remainder exists.\n\n" + "An ordinary paragraph.\n\n".repeat(600) + "The complete final paragraph." };
@@ -27,6 +29,10 @@ test("the browser reads a gzip HTML prefix while the complete remainder is still
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "commit" });
     await expect(page.locator("#wiki-html-first article p").first()).toHaveText("Already readable before the remainder exists.");
     await expect(page.locator("#wiki-html-first article p").first()).toBeVisible();
+    if (width < 768) {
+      await expect(page.locator(".html-first-files")).not.toHaveAttribute("open");
+      await page.locator(".html-first-files > summary").click();
+    }
     await expect(page.locator(".html-first-tree").getByRole("link", {name:"Care folder"})).toBeVisible();
     await expect(page.getByText("The complete final paragraph.", { exact: true })).toHaveCount(0);
     expect(await page.locator("#wiki-html-first article p").first().evaluate(node => parseFloat(getComputedStyle(node).lineHeight))).toBeCloseTo(27.2, 2);
@@ -35,6 +41,7 @@ test("the browser reads a gzip HTML prefix while the complete remainder is still
     await expect(page.locator("#wiki-html-first article p")).toHaveCount(602);
   } finally { release?.(); server.closeAllConnections(); server.close(); }
 });
+}
 
 
 test("long articles paint their opening first and retain complete text and late fragments with or without JavaScript", async ({ browser }) => {

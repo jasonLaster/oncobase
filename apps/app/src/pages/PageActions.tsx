@@ -1,3 +1,4 @@
+import { CopyPageIcon } from "../shell/copy-page-icon";
 import type { WikiScope } from "@oncobase/wiki-content";
 import {
   WikiPageActionButton,
@@ -6,7 +7,6 @@ import {
 } from "@oncobase/wiki-shell";
 import {
   CheckIcon,
-  ClipboardIcon,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
@@ -62,7 +62,7 @@ export function PageActions({
     <div className="wiki-vite-title-copy" data-test-id="page-actions">
       {sensitive ? <WikiSensitiveLock data-test-id="sensitive-page-lock" /> : null}
       <ActionButton label="Copy page as markdown" onClick={copyMarkdown}>
-        {copied ? <CheckIcon size={16} /> : <ClipboardIcon size={16} />}
+        {copied ? <CheckIcon size={16} /> : <CopyPageIcon />}
       </ActionButton>
     </div>
   );

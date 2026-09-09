@@ -119,3 +119,9 @@ export function nodeIcon({
     "aria-hidden": true,
   });
 }
+
+export function MobileChatIcon() {
+  return createElement("svg", { width: 19, height: 19, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.9, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
+    createElement("path", { d: "M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" }),
+    createElement("path", { d: "M9 10h6M9 14h4" }));
+}

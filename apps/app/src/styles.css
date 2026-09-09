@@ -1642,3 +1642,20 @@ a {
 .dark .wiki-shell-sidebar-sign-in { --reader-sign-in-bg: var(--color-indigo-500, #6366f1); }
 .wiki-shell-sidebar-sign-in button { background: var(--reader-sign-in-bg); border-color: var(--reader-sign-in-bg); }
 .wiki-shell-sidebar-sign-in, .wiki-vite-sidebar-footer-pills { box-shadow: 0 1px 3px 0 rgb(0 0 0 / .1), 0 1px 2px -1px rgb(0 0 0 / .1); }
+
+/* Match the legacy reader in states beyond the default desktop screenshot. */
+.wiki-vite-sidebar-logo { border-radius: 6px; }
+.wiki-shell-tree-link { font-size: 14px; }
+.sidebar-expanded-rail:hover .wiki-shell-tree-chevron,
+.sidebar-expanded-rail:focus-within .wiki-shell-tree-chevron { opacity: .6; }
+.sidebar-expanded-rail:hover .wiki-shell-tree-icon { opacity: .9; }
+.wiki-markdown .heading-anchor { color: var(--brand); opacity: 1; }
+
+/* Native table layout must remain readable before the sizing module arrives. */
+#wiki-html-first .smart-table th,
+#wiki-html-first .smart-table td {
+  min-width: 10rem;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+@media (hover: none) { #wiki-html-first .heading-anchor { display: none; } }

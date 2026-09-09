@@ -1,3 +1,4 @@
+import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { createElement } from "react";
 import type { FileNode } from "@oncobase/wiki-content";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -6,10 +7,12 @@ import {
   ClipboardCheck,
   LogIn,
   MessageSquareText,
+  MessageSquare,
+  AlignLeft,
   Search,
   WandSparkles,
 } from "lucide-react";
-import { nodeIcon } from "../src/shell/navigation-icons";
+import { MobileChatIcon, nodeIcon } from "../src/shell/navigation-icons";
 const iconMarkup = new Map<unknown, Map<boolean, string>>();
 export function renderSidebarIcon(
   node: FileNode,
@@ -30,6 +33,9 @@ export function renderSidebarIcon(
   return html;
 }
 export function renderReaderSidebar(treeHtml: string, url: URL) {
+  let name = url.pathname.split("/").filter(Boolean).at(-1) ?? "Home";
+  try { name = decodeURIComponent(name); } catch { /* Preserve malformed display paths. */ }
+  const mobileTitle = formatFileLabel(name);
   const signin = new URL(url);
   signin.searchParams.set("html-first", "off");
   signin.searchParams.set("reader-action", "signin");
@@ -94,13 +100,16 @@ export function renderReaderSidebar(treeHtml: string, url: URL) {
           ),
         ),
       ),
+      createElement("div", { className: "html-first-mobile-title wiki-vite-mobile-title" }, mobileTitle),
+      createElement("a", { className: "html-first-mobile-action", href: "/search", "aria-label": "Search files" }, createElement(Search, { size: 18, "aria-hidden": true })),
+      createElement("a", { className: "html-first-mobile-action", href: "/comments", "aria-label": "Open comments" }, createElement(MessageSquare, { size: 18, "aria-hidden": true })),
       createElement(
         "details",
         {
           className: "html-first-files",
           open: true,
         },
-        createElement("summary", null, "Files"),
+        createElement("summary", { "aria-label": "Open page navigation" }, createElement(AlignLeft, { size: 17, "aria-hidden": true }), createElement("span", { className: "sr-only" }, "Files")),
         createElement(
           "nav",
           {
@@ -220,6 +229,7 @@ export function renderReaderSidebar(treeHtml: string, url: URL) {
           ),
         ),
       ),
+      createElement("a", { href: "/chat", className: "wiki-vite-mobile-ask", "aria-label": "Ask wiki" }, createElement(MobileChatIcon)),
     ),
   );
 }

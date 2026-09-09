@@ -1,5 +1,22 @@
 /** Serialized into experiment responses only. No imports or application runtime. */
 export function bootHtmlFirstPage() {
+  const copyButton = document.querySelector<HTMLButtonElement>("#wiki-html-first [data-reader-copy]");
+  const copyPayload = document.getElementById("wiki-page-bootstrap");
+  if (copyButton && copyPayload && navigator.clipboard?.writeText) {
+    try {
+      const page = JSON.parse(copyPayload.textContent ?? "null")?.page;
+      if (typeof page?.title === "string" && typeof page?.content === "string") {
+        copyButton.disabled = false;
+        copyButton.title = "Copy as markdown";
+        copyButton.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(`# ${page.title}\n\n${page.content}`);
+            copyButton.title = "Copied";
+          } catch { copyButton.title = "Unable to copy"; }
+        });
+      }
+    } catch { /* Invalid bootstrap data must not enable a copy action. */ }
+  }
   const host = document.getElementById("wiki-html-first");
   const root = document.getElementById("root");
   if (!host || !root) return;
@@ -83,6 +100,10 @@ export function bootHtmlFirstPage() {
     // has no live equivalent yet, wait for focus to leave it rather than steal it.
     const active = document.activeElement;
     let nextFocus: HTMLElement | undefined;
+    if (!palette && active === copyButton) {
+      nextFocus = root.querySelector<HTMLElement>('[aria-label="Copy page as markdown"]') ?? undefined;
+      if (!nextFocus) return;
+    }
     if (!palette && active instanceof HTMLAnchorElement && host.contains(active)) {
       const href = active.getAttribute("href")?.replace(`#${prefix}`, "#");
       nextFocus = [...root.querySelectorAll<HTMLAnchorElement>("a[href]")]

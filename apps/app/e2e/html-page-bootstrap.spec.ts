@@ -12,21 +12,21 @@ const content = applyPiiRedactions("BOOTSTRAPPED_HOME. Ready to read.\n\n[Insura
 const publicPage = { slug: "index", title: "Home", content, tags: [], sensitive: false,
   contentHash: createHash("sha256").update(`index:${content}`).digest("hex").slice(0, 24) };
 
-async function prepare(page: Page, mutate?: (html: string) => string, sessionAuthenticated = false, sourceContent = content) {
+async function prepare(page: Page, mutate?: (html: string) => string, sessionAuthenticated = false, sourceContent = content, details = { slug: "index", title: "Home", tags: [] as string[] }) {
   const responseContent = applyPiiRedactions(sourceContent);
-  const responsePage = { ...publicPage, content: responseContent,
-    contentHash: createHash("sha256").update(`index:${responseContent}`).digest("hex").slice(0, 24) };
+  const responsePage = { ...publicPage, ...details, content: responseContent,
+    contentHash: createHash("sha256").update(`${details.slug}:${responseContent}`).digest("hex").slice(0, 24) };
   const api = await installWikiApiMocks(page, { sessionAuthenticated,
-    pageOverrides: { index: { content: sourceContent, title: "Home", tags: [] } } });
+    pageOverrides: { [details.slug]: { content: sourceContent, title: details.title, tags: details.tags } } });
   // Exercise the real server renderer/boot script and production JS graph, but
   // use synthetic documents and API fixtures throughout this test.
   const template = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
   const criticalCss = await readFile(new URL("../.vercel-functions/reader-critical.css", import.meta.url), "utf8");
   await page.route("**/*", async route => {
     const url = new URL(route.request().url());
-    if (route.request().resourceType() !== "document" || url.pathname !== "/") return route.fallback();
+    if (route.request().resourceType() !== "document" || url.pathname !== (details.slug === "index" ? "/" : `/${details.slug}`)) return route.fallback();
     const tree = buildFileTreeFromManifest([{slug:"index"}, {slug:"wiki/logistics/insurance"}]);
-    let html = injectHtmlFirstPage(template, responsePage, url, "diana", criticalCss, renderReaderNavigation(tree, "index"), tree);
+    let html = injectHtmlFirstPage(template, responsePage, url, "diana", criticalCss, renderReaderNavigation(tree, details.slug), tree);
     if (mutate) html = mutate(html);
     await route.fulfill({ contentType: "text/html", headers: { "Cache-Control": "private, no-store" }, body: html });
   });
@@ -521,3 +521,69 @@ test("Escape cancels a palette request queued before application scripts load", 
     await expect(page.getByTestId("command-palette-input")).toBeFocused();
   } finally { release(); }
 });
+
+
+for (const width of [393, 768, 1440, 1920]) {
+  test(`article title, tags and readable tables survive delayed-script handoff at ${width}px`, async ({ page, browserName }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const source = "An introductory paragraph.\n\n## Options\n\n| Option | What it generally does | Relevance | Planning take |\n| --- | --- | --- | --- |\n| Critical illness insurance | Usually pays a lump sum after a covered diagnosis | Review the policy language and exclusions carefully | Review the actual certificate before deciding |";
+    const title = "Insurance & supplemental benefits Planning";
+    const tags = ["insurance", "open-enrollment", "supplemental-benefits", "disability", "fsa", "hsa"];
+    await prepare(page, undefined, false, source, { slug: "wiki/logistics/insurance", title, tags });
+    let release!: () => void;
+    let releaseManifest!: () => void;
+    const scripts = new Promise<void>(resolve => { release = resolve; });
+    const manifest = new Promise<void>(resolve => { releaseManifest = resolve; });
+    await page.route("**/*", async route => {
+      if (route.request().resourceType() === "script") await scripts;
+      if (new URL(route.request().url()).pathname === "/api/wiki/manifest") await manifest;
+      await route.fallback();
+    });
+    try {
+      await page.goto("/wiki/logistics/insurance", { waitUntil: "commit" });
+      const native = page.locator("#wiki-html-first");
+      await expect(native.locator(".wiki-shell-tag-row a")).toHaveCount(tags.length);
+      await expect(native.locator("h1")).toHaveText(title);
+      const before = await native.locator(".wiki-shell-page-header").boundingBox();
+      const titleBefore = await native.locator("h1").boundingBox();
+      const tagsBefore = await native.locator(".wiki-shell-tag-row").boundingBox();
+      const permalink = native.locator(".heading-anchor").first();
+      await expect(permalink).toHaveCSS("opacity", "1");
+      const headingBounds = (await native.locator("h2").first().boundingBox())!;
+      const linkBounds = (await permalink.boundingBox())!;
+      if (width >= 1024) expect(linkBounds.x).toBe(headingBounds.x - 24);
+      else expect(linkBounds.x).toBeGreaterThan(headingBounds.x);
+      const table = native.locator("table");
+      await expect(table).toBeVisible();
+      for (const cell of await table.locator("th").all()) expect((await cell.boundingBox())!.width).toBeGreaterThanOrEqual(160);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (width < 768) {
+        await expect(native.locator(".html-first-mobile-title")).toHaveText("insurance");
+        const controls = native.locator(".html-first-mobile-action, .html-first-files > summary");
+        for (const control of await controls.all()) {
+          const bounds = (await control.boundingBox())!;
+          expect(bounds.width).toBe(36); expect(bounds.height).toBe(36);
+        }
+      }
+      if (width === 1440 && browserName === "chromium") {
+        const copy = native.getByRole("button", { name: "Copy page as markdown" });
+        await expect(copy).toBeEnabled();
+        await copy.click();
+        await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(`# ${title}\n\n${source}`);
+      }
+      release();
+      await expect(native).toHaveCount(0);
+      expect(await article(page).locator(".wiki-shell-page-header").boundingBox()).toEqual(before);
+      expect(await article(page).locator("h1").boundingBox()).toEqual(titleBefore);
+      expect(await article(page).locator(".wiki-shell-tag-row").boundingBox()).toEqual(tagsBefore);
+      if (width < 768) {
+        await page.getByTestId("bottom-nav-trigger").click();
+        await expect(page.getByTestId("mobile-view-comments")).toHaveCSS("font-size", "14px");
+        await expect(page.getByTestId("bottom-nav-page-tree").locator('a[href="/wiki/logistics/insurance"]')).toHaveCSS("font-size", "14px");
+      } else {
+        await page.getByTestId("sidebar-workspace-trigger").hover();
+        await expect(page.getByTestId("wiki-sidebar").locator(".wiki-shell-tree-chevron").first()).toHaveCSS("opacity", "0.6");
+      }
+    } finally { release(); releaseManifest(); }
+  });
+}
