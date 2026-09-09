@@ -1,4 +1,5 @@
-import { ConvexHttpClient } from "convex/browser";
+import { createBackendClient } from "@/lib/reference-backend-client";
+import type { ConvexHttpClient } from "convex/browser";
 import { NextRequest, NextResponse } from "next/server";
 import { isLinkPreviewBotUserAgent } from "@oncobase/wiki-content/link-preview";
 import { api } from "@convex/_generated/api";
@@ -52,7 +53,7 @@ function getConvex() {
   const url = resolveServerConvexUrl();
   if (!url) return null;
   if (!convexClient) {
-    convexClient = new ConvexHttpClient(url);
+    convexClient = createBackendClient(url);
   }
   return convexClient;
 }

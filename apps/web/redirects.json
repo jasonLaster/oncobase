@@ -355,7 +355,7 @@
     "permanent": true
   },
   {
-    "source": "/wiki/research/:path*",
+    "source": "/wiki/research/:path((?!index(?:/|$)|reviews(?:/|$)|essays(?:/|$)).*)",
     "destination": "/sources/research/:path*",
     "permanent": true
   },
@@ -1777,6 +1777,21 @@
   {
     "source": "/wiki/education/oncology-101/escape-mechanisms",
     "destination": "/wiki/education/oncology-101/4-escape-mechanisms",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/research",
+    "destination": "/wiki/research/index",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research/reviews/:path*",
+    "destination": "/wiki/research/reviews/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research/essays/:path*",
+    "destination": "/wiki/research/essays/:path*",
     "permanent": true
   }
 ]

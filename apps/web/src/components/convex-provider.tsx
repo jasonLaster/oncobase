@@ -1,6 +1,7 @@
 "use client";
 
 import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { fetchWikiConvexToken } from "@/lib/convex-token";
 import { ReactNode } from "react";
 import { resolvePublicConvexUrl } from "@/lib/convex-url";
 
@@ -18,6 +19,7 @@ function getConvexClient(): ConvexReactClient {
     // Keep a provider mounted even when Convex is disabled so feature-gated
     // chat routes don't crash while parent layouts prerender.
     convexClient = new ConvexReactClient(convexUrl);
+    convexClient.setAuth(() => fetchWikiConvexToken());
   }
 
   return convexClient;

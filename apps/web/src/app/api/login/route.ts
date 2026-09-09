@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchQuery } from "convex/nextjs";
+import { getConvexServerClient } from "@/lib/convex-server";
 import { api } from "@convex/_generated/api";
 import { DEFAULT_SITE_SLUG, siteSlugFromRequest } from "@/lib/site";
 import { safeLocalRedirect } from "@/lib/safe-redirect";
@@ -20,7 +20,7 @@ import {
 // Diana keeps the legacy `authed` cookie name (matching the proxy's
 // authedCookieName helper).
 async function validatePassword(siteSlug: string, password: string) {
-  const site = await fetchQuery(api.sites.getBySlug, { slug: siteSlug }).catch(
+  const site = await getConvexServerClient().query(api.sites.getBySlug, { slug: siteSlug }).catch(
     () => null,
   );
   const configuredHash = site?.config?.passwordHash;

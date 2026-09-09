@@ -1,4 +1,5 @@
-import { ConvexHttpClient } from "convex/browser";
+import { createBackendClient } from "@/lib/reference-backend-client";
+import type { ConvexHttpClient } from "convex/browser";
 import { resolveServerConvexUrl } from "@/lib/convex-url";
 
 let client: ConvexHttpClient | null = null;
@@ -11,7 +12,7 @@ export function getConvexServerClient() {
   }
 
   if (!client || clientUrl !== url) {
-    client = new ConvexHttpClient(url);
+    client = createBackendClient(url);
     clientUrl = url;
   }
 

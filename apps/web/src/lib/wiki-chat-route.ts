@@ -9,7 +9,7 @@ import {
 } from "ai";
 import { connection } from "next/server";
 import { z } from "zod";
-import { ConvexHttpClient } from "convex/browser";
+import { createBackendClient } from "@/lib/reference-backend-client";
 import type { Id } from "@convex/_generated/dataModel";
 import { embed } from "@/lib/embeddings";
 import { applyPiiRedactions } from "@/lib/pii-redaction";
@@ -35,7 +35,7 @@ const generateRunId = createIdGenerator({ prefix: "run", size: 16 });
 function getConvex() {
   const url = resolveServerConvexUrl();
   if (!url) throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
-  return new ConvexHttpClient(url);
+  return createBackendClient(url);
 }
 
 async function loadSystemPrompt(siteSlug: string): Promise<string> {

@@ -1,4 +1,4 @@
-import { fetchQuery } from "convex/nextjs";
+import { getConvexServerClient } from "@/lib/convex-server";
 import { NextRequest, NextResponse } from "next/server";
 import { api } from "@convex/_generated/api";
 import { siteDataFromRequest } from "@/lib/site-data";
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     let gateEnabled = siteSlug === DEFAULT_SITE_SLUG;
     let gatePasswordHash: string | undefined;
     try {
-      const site = await fetchQuery(api.sites.getBySlug, { slug: siteSlug });
+      const site = await getConvexServerClient().query(api.sites.getBySlug, { slug: siteSlug });
       gateEnabled =
         site?.config?.passwordGate ??
         gateEnabled;
