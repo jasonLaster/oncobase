@@ -355,8 +355,33 @@
     "permanent": true
   },
   {
+    "source": "/wiki/research",
+    "destination": "/wiki/research/index",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/research/",
+    "destination": "/wiki/research/index",
+    "permanent": true
+  },
+  {
     "source": "/wiki/research/:path*",
     "destination": "/sources/research/:path*",
+    "exclude": [
+      "/wiki/research/index",
+      "/wiki/research/reviews",
+      "/wiki/research/essays"
+    ],
+    "permanent": true
+  },
+  {
+    "source": "/sources/research/reviews/:path*",
+    "destination": "/wiki/research/reviews/:path*",
+    "permanent": true
+  },
+  {
+    "source": "/sources/research/essays/:path*",
+    "destination": "/wiki/research/essays/:path*",
     "permanent": true
   },
   {

@@ -3,7 +3,7 @@
 // Run with: bun apps/app/scripts/build-redirects.ts
 import { writeFileSync } from "fs";
 
-type Redirect = { source: string; destination: string };
+type Redirect = { source: string; destination: string; exclude?: string[] };
 
 const wikiRedirects: Record<string, string> = {
   diagnosis: "diagnostics/diagnosis",
@@ -141,7 +141,18 @@ const sourceRedirects: Redirect[] = [
   })),
 
   // Source reorg 2026-05-15 — final destinations
-  { source: "/wiki/research/:path*", destination: "/sources/research/:path*" },
+  // The September wiki reorganization reuses these paths for authored reviews
+  // and essays. Keep the older source aliases without redirecting live pages.
+  { source: "/wiki/research", destination: "/wiki/research/index" },
+  { source: "/wiki/research/", destination: "/wiki/research/index" },
+  {
+    source: "/wiki/research/:path*",
+    destination: "/sources/research/:path*",
+    exclude: ["/wiki/research/index", "/wiki/research/reviews", "/wiki/research/essays"],
+  },
+  // Recover URLs produced by the former blanket redirect (including bookmarks).
+  { source: "/sources/research/reviews/:path*", destination: "/wiki/research/reviews/:path*" },
+  { source: "/sources/research/essays/:path*", destination: "/wiki/research/essays/:path*" },
   // claude went claudes-research → sources/claude/research → sources/research/claude
   { source: "/sources/research/claude-deep-research/:path*", destination: "/sources/research/claude/:path*" },
   { source: "/sources/claude/research/:path*", destination: "/sources/research/claude/:path*" },

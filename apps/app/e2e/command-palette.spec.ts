@@ -20,6 +20,22 @@ test.describe("Command palette parity", () => {
     await waitForPageTitle(page, "About This Wiki");
   });
 
+  test("research review opens from the palette without the retired source redirect", async ({ page }) => {
+    const slug = "wiki/research/reviews/breast-conservation-survival";
+    const title = "Breast conservation survival";
+    await installWikiApiMocks(page, {
+      pageOverrides: { [slug]: { title, tags: [], content: `# ${title}\n\nSurvival evidence review.` } },
+    });
+    await gotoWiki(page, "/");
+    await page.getByTestId("sidebar-search").click();
+    const input = page.getByTestId("command-palette-input");
+    await input.fill(title);
+    await input.press("Enter");
+    await expect(page).toHaveURL(new RegExp(`/${slug}$`));
+    await waitForPageTitle(page, title);
+    await expect(page.getByTestId("document-article")).toContainText("Survival evidence review.");
+  });
+
   test("palette code loads before the first shortcut without opening a dialog", async ({ page }) => {
     const paletteCode = page.waitForResponse(response =>
       /\/(?:assets\/CommandPalette-[^/]+\.js|src\/shell\/CommandPalette\.tsx)(?:\?|$)/.test(response.url()),

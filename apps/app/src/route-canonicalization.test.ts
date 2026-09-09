@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { legacyRedirectResponse } from "../server/redirects";
 import {
   canonicalRoutePathname,
   canonicalSlugMap,
@@ -13,6 +14,30 @@ const canonicalSlugs = canonicalSlugMap([
 ]);
 
 describe("route canonicalization", () => {
+  test("preserves current research pages and recovers mistakenly redirected reviews", () => {
+    const review = "/wiki/research/reviews/breast-conservation-survival";
+    const slugs = canonicalSlugMap([review.slice(1), "wiki/research/index"]);
+    for (const path of [review, `${review}/`, `${review}.md`,
+      "/wiki/research/index", "/wiki/research/essays/amazon-ai-oncology-investment"]) {
+      expect(configuredRedirectPathname(path)).toBeNull();
+      expect(legacyRedirectResponse(new Request(`https://example.test${path}`))).toBeNull();
+    }
+    expect(canonicalRoutePathname(review, slugs)).toBeNull();
+    expect(canonicalRoutePathname("/wiki/research", slugs)).toBe("/wiki/research/index");
+    const broken = "/sources/research/reviews/breast-conservation-survival";
+    expect(canonicalRoutePathname(broken, slugs)).toBe(review);
+    const response = legacyRedirectResponse(new Request(`https://example.test${broken}?scope=public`));
+    expect(response?.status).toBe(308);
+    expect(response?.headers.get("Location")).toBe(`https://example.test${review}?scope=public`);
+  });
+
+  test("retains historical research source redirects outside current wiki branches", () => {
+    for (const suffix of ["papers/example", "claude/example", "research-review", "reviews-old/example"]) {
+      expect(configuredRedirectPathname(`/wiki/research/${suffix}`))
+        .toBe(`/sources/research/${suffix}`);
+    }
+  });
+
   test("matches exact and wildcard configured redirects", () => {
     expect(
       matchConfiguredRedirect("/old/page", {

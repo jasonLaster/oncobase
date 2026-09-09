@@ -5,6 +5,7 @@ export type RedirectEntry = {
   source: string;
   destination: string;
   permanent?: boolean;
+  exclude?: string[];
 };
 
 const EXPLICIT_CANONICAL_PATHS = new Map([
@@ -34,6 +35,13 @@ export function matchConfiguredRedirect(
   pathname: string,
   entry: RedirectEntry,
 ) {
+  const normalizedPath = safeDecodePathname(pathname)
+    .replace(/\.(?:md|mdx)$/i, "")
+    .replace(/\/+$/, "");
+  if (entry.exclude?.some((prefix) =>
+    normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`)
+  )) return null;
+
   if (!entry.source.includes(":path*")) {
     return pathname === entry.source ? entry.destination : null;
   }
