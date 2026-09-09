@@ -51,3 +51,11 @@ The new browser regression requires the module request before any shortcut, wait
 ## Immediate Cmd+K opening (2026-09-09)
 
 Cmd+K and Ctrl+K now request the file palette synchronously, matching Cmd+O. The 600 ms chord window only allows a subsequent F/O/A to select a mode; it no longer delays opening or triggers another open on expiry. Startup requests remain queued until the interactive reader is ready. Regression checks verify synchronous dispatch, focus within 100 ms of simulated time on a prepared reader, preservation of typed text after chord expiry, Escape, and existing outline/action chords.
+
+## Immediate Ask wiki navigation (2026-09-09)
+
+The native desktop and mobile links navigate to `/chat` before the reader scripts load. Firefox and WebKit reported the canceled module downloads as load errors during that navigation, causing the startup recovery code to reload the article and cancel the departure. Recovery now ignores those errors while the page is departing or after the initial HTML has handed off; `pageshow` resets the departure state on return.
+
+After handoff, React's shared Suspense boundary previously retained the article while the lazy chat module downloaded, even though the URL had already changed. A newly mounted chat route boundary now shows the shared chat loading layout immediately, keeping the chat implementation lazy. The composer still needs its module to finish loading.
+
+Desktop and mobile browser regressions hold all reader scripts to verify native navigation, then separately hold the chat module to require the article to disappear before that module arrives. They also cover Back while loading and Forward through the completed chat composer. The held-module test failed against the previous build with the article still visible. The shell measures 17,086 gzip bytes; its budget increases by 48 bytes to 17,104, with the overall eager and lazy budgets unchanged.

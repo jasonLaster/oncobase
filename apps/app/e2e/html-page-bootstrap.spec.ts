@@ -35,6 +35,62 @@ async function prepare(page: Page, mutate?: (html: string) => string, sessionAut
 const article = (page: Page) => page.locator('#root [data-test-id="document-article"]');
 const homeFetches = (urls: string[]) => urls.filter(url => new URL(url).searchParams.get("slugs")?.split(",").includes("index"));
 
+for (const mobile of [false, true]) {
+  const surface = mobile ? "mobile" : "desktop";
+  test(`${surface} Ask wiki navigates before the reader scripts load`, async ({ page }) => {
+    if (mobile) await page.setViewportSize({ width: 390, height: 844 });
+    await prepare(page);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    await page.route("**/*", async route => {
+      if (route.request().resourceType() === "script") await held;
+      if (route.request().resourceType() === "document" && new URL(route.request().url()).pathname === "/chat") {
+        return route.fulfill({ contentType: "text/html", body: "<h1>Chat destination</h1>" });
+      }
+      await route.fallback();
+    });
+    try {
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await page.locator('#wiki-html-first a[href="/chat"]:visible').click();
+      await expect(page).toHaveURL(/\/chat$/);
+      await expect(page.getByRole("heading", { name: "Chat destination" })).toBeVisible();
+    } finally { release(); }
+  });
+
+  test(`${surface} Ask wiki leaves the article immediately while chat code is loading`, async ({ page }) => {
+    if (mobile) await page.setViewportSize({ width: 390, height: 844 });
+    await prepare(page);
+    // Keep this navigation test independent of the live conversation backend.
+    await page.routeWebSocket(/convex\.cloud/, socket => socket.close());
+    await page.route("**/api/wiki/convex-token", route => route.fulfill({ json: {} }));
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let chatRequested = false;
+    await page.route("**/assets/ChatPage-*.js", async route => {
+      chatRequested = true;
+      await held;
+      await route.fallback();
+    });
+    try {
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await expect(article(page)).toBeVisible();
+      await expect(page.locator("#wiki-html-first")).toHaveCount(0);
+      await page.getByTestId(mobile ? "mobile-ask-wiki" : "sidebar-ask-wiki").click();
+      await expect(page).toHaveURL(/\/chat$/);
+      await expect.poll(() => chatRequested).toBe(true);
+      // The pending import must not retain the previous article under /chat.
+      await expect(article(page)).toBeHidden({ timeout: 1_000 });
+      await expect(page.getByRole("status", { name: "Loading chat", exact: true })).toBeVisible();
+      await page.goBack();
+      await expect(article(page)).toContainText("BOOTSTRAPPED_HOME");
+      release();
+      await page.goForward();
+      await expect(page.getByTestId("chat-composer-textarea")).toBeVisible();
+      await expect(page.getByRole("status", { name: "Loading chat", exact: true })).toHaveCount(0);
+    } finally { release(); }
+  });
+}
+
 test("heading links keep their target through the initial HTML handoff", async ({ page }) => {
   await prepare(page, undefined, false, "[[#Risks & benefits|Jump to risks]]\n\n" +
     "A synthetic background paragraph with space to scroll.\n\n".repeat(50) +

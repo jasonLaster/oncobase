@@ -31,9 +31,9 @@ const budgets: Budget[] = [
   // Navigation seeding adds a store-local WeakMap and a second bootstrap ID.
   // Allow 64 bytes for shared-import symbol churn from the startup shortcut bridge.
   // The shared page-copy and mobile-chat glyphs restore the legacy artwork.
-  // The merged heading-link changes measure 17,035 bytes. Native Search click
-  // delegation measures 17,043; retain a tight 16-byte budget adjustment.
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 17_056 },
+  // The immediate chat route boundary measures 17,086 bytes, including its
+  // shared loading shell. Allow 48 bytes over the previous 17,056-byte cap.
+  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 17_104 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },

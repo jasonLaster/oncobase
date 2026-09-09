@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
+import { WikiChatLoadingSkeleton, WikiChatMain, WikiChatPage } from "@oncobase/wiki-shell";
 import { Route, Routes } from "react-router";
 import { publishMetrics } from "./observability";
 import {
@@ -54,6 +55,20 @@ const DiagnosticImagingPage = lazy(() =>
 const ChatPage = lazy(() =>
   import("./chat/ChatPage").then((module) => ({ default: module.ChatPage })),
 );
+
+function ChatRoute() {
+  // Mount a fresh boundary when leaving an article so router transitions can
+  // show chat immediately instead of retaining the article until its JS loads.
+  return (
+    <Suspense fallback={
+      <WikiChatPage className="wiki-vite-chat-page">
+        <WikiChatMain><WikiChatLoadingSkeleton /></WikiChatMain>
+      </WikiChatPage>
+    }>
+      <ChatPage />
+    </Suspense>
+  );
+}
 const CommentsPage = lazy(() =>
   import("./pages/CommentsPage").then((module) => ({
     default: module.CommentsPage,
@@ -135,8 +150,8 @@ export function App({
                 <Route path="/table-examples" element={<TableExamplesPage />} />
                 <Route path="/diagnostics" element={<TimelinePage />} />
                 <Route path="/diagnostics/imaging" element={<DiagnosticImagingPage />} />
-                <Route path="/chat" element={<ChatPage />} />
-                <Route path="/chat/:id" element={<ChatPage />} />
+                <Route path="/chat" element={<ChatRoute />} />
+                <Route path="/chat/:id" element={<ChatRoute />} />
                 <Route path="/comments" element={<CommentsPage />} />
                 <Route path="/tags/:tag" element={<TagPage />} />
                 <Route path="/tools/medical-deduction" element={<MedicalDeductionPage />} />

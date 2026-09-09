@@ -21,9 +21,17 @@ export function bootHtmlFirstPage() {
   const root = document.getElementById("root");
   if (!host || !root) return;
   root.inert = true;
+  let departing = false;
+  const markDeparting = () => { departing = true; };
+  const resume = () => { departing = false; };
+  window.addEventListener("beforeunload", markDeparting);
+  window.addEventListener("pageshow", resume);
   // Let the inline-styled article paint before downloading/compiling the app
   // or applying its much larger stylesheet. Native links work immediately.
   const recoverLoad = (build: string) => {
+    // Firefox/WebKit report canceled module downloads as load errors during
+    // native navigation. Retrying then reloads the article and cancels the click.
+    if (departing || !host.isConnected) return;
     const key = "wiki-vite:reloaded-for-load-error";
     try {
       if (sessionStorage.getItem(key) !== build) {
@@ -126,6 +134,8 @@ export function bootHtmlFirstPage() {
     performance.mark("wiki-html-first-handoff");
     finished = true;
     observer.disconnect();
+    window.removeEventListener("beforeunload", markDeparting);
+    window.removeEventListener("pageshow", resume);
     window.removeEventListener("popstate", check);
 
     document.removeEventListener("selectionchange", check);
