@@ -35,6 +35,27 @@ async function prepare(page: Page, mutate?: (html: string) => string, sessionAut
 const article = (page: Page) => page.locator('#root [data-test-id="document-article"]');
 const homeFetches = (urls: string[]) => urls.filter(url => new URL(url).searchParams.get("slugs")?.split(",").includes("index"));
 
+test("heading links keep their target through the initial HTML handoff", async ({ page }) => {
+  await prepare(page, undefined, false, "[[#Risks & benefits|Jump to risks]]\n\n" +
+    "A synthetic background paragraph with space to scroll.\n\n".repeat(50) +
+    "## Risks & benefits\n\nThe target section.");
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/*", async route => {
+    if (route.request().resourceType() === "script") await held;
+    await route.fallback();
+  });
+  try {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.locator("#wiki-html-first").getByRole("link", { name: "Jump to risks", exact: true }).click();
+    await expect(page.locator("#wiki-html-risks--benefits")).toBeInViewport();
+    release();
+    await expect(page.locator("#wiki-html-first")).toHaveCount(0);
+    await expect(article(page).locator("#risks--benefits")).toBeInViewport();
+    await expect(page).toHaveURL(/#risks--benefits$/);
+  } finally { release(); }
+});
+
 test("a late section stays readable as a long article hands off to interactive layout", async ({ page }) => {
   await prepare(page, undefined, false, "Opening paragraph.\n\n" +
     ("Complete paragraph. " + "Long article content. ".repeat(16) + "\n\n").repeat(600) +

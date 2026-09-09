@@ -1,4 +1,9 @@
-import { PROXIED_EXTENSIONS, sanitizeMarkdownUrl } from "./paths.ts";
+import { decodeHTMLAttribute } from "entities";
+import { resolveHref, resolveImageSrc, sanitizeMarkdownUrl } from "./paths.ts";
+
+function escapeAttribute(value: string) {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 type TagDecoration = {
   className?: string;
   attributes?: Record<string, string>;
@@ -91,90 +96,16 @@ function decorateRenderedImages(html: string): string {
 }
 
 function fixMarkdownLinks(html: string, currentSlug?: string): string {
-  return html.replace(/href="([^"]+\.(?:md|mdx)(?:#[^"]*)?)"/g, (_match, href) => {
-    if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//")) {
-      return `href="${href}"`;
-    }
-    return `href="${href.replace(/\.(?:md|mdx)(#|$)/, "$1")}"`;
-  }).replace(/href="([^"]*)"/g, (_match, href) => {
-    const safeHref = sanitizeMarkdownUrl(href);
-    if (!safeHref) return 'href=""';
-    href = safeHref;
-    if (
-      href.startsWith("http://") ||
-      href.startsWith("https://") ||
-      href.startsWith("//") ||
-      href.startsWith("#") ||
-      href.startsWith("/api/")
-    ) {
-      return `href="${href}"`;
-    }
-
-    const [rawPath, hash] = href.split("#");
-    const ext = rawPath.includes(".")
-      ? rawPath.slice(rawPath.lastIndexOf(".")).toLowerCase()
-      : "";
-    if (!PROXIED_EXTENSIONS.has(ext)) {
-      return `href="${href}"`;
-    }
-
-    let resolvedPath = rawPath;
-    if (currentSlug && !rawPath.startsWith("/")) {
-      const dir = currentSlug.includes("/")
-        ? currentSlug.slice(0, currentSlug.lastIndexOf("/"))
-        : currentSlug;
-      resolvedPath = `${dir}/${rawPath}`;
-    }
-    resolvedPath = normalizePosixPath(resolvedPath);
-    const nextHref = `/api/file?path=${encodeURIComponent(resolvedPath)}${
-      hash ? `#${hash}` : ""
-    }`;
-    return `href="${nextHref}"`;
+  return html.replace(/href="([^"]*)"/g, (_match, href: string) => {
+    const safeHref = sanitizeMarkdownUrl(decodeHTMLAttribute(href));
+    return `href="${escapeAttribute(resolveHref(safeHref, currentSlug) ?? "")}"`;
   });
-}
-
-function normalizePosixPath(value: string) {
-  const output: string[] = [];
-
-  for (const part of value.split("/")) {
-    if (!part || part === ".") continue;
-    if (part === "..") {
-      output.pop();
-      continue;
-    }
-    output.push(part);
-  }
-
-  return output.join("/");
 }
 
 function fixImageSrcs(html: string, currentSlug?: string): string {
   return html.replace(/(<img\b[^>]*?\s)src="([^"]*)"([^>]*>)/g, (_match, before, src, after) => {
-    if (
-      src.startsWith("http://") ||
-      src.startsWith("https://") ||
-      src.startsWith("//") ||
-      src.startsWith("data:") ||
-      src.startsWith("/api/")
-    ) {
-      return `${before}src="${src}"${after}`;
-    }
-
-    const ext = src.includes(".") ? src.slice(src.lastIndexOf(".")).toLowerCase() : "";
-    if (!PROXIED_EXTENSIONS.has(ext)) {
-      return `${before}src="${src}"${after}`;
-    }
-
-    let resolvedPath = src;
-    if (currentSlug && !src.startsWith("/")) {
-      const dir = currentSlug.includes("/")
-        ? currentSlug.slice(0, currentSlug.lastIndexOf("/"))
-        : currentSlug;
-      resolvedPath = `${dir}/${src}`;
-    }
-    resolvedPath = normalizePosixPath(resolvedPath);
-
-    return `${before}src="/api/file?path=${encodeURIComponent(resolvedPath)}"${after}`;
+    const resolved = resolveImageSrc(decodeHTMLAttribute(src), currentSlug);
+    return `${before}src="${escapeAttribute(resolved)}"${after}`;
   });
 }
 
@@ -214,10 +145,12 @@ const EXTERNAL_ARROW_ICON =
 function fixPdfLinks(html: string): string {
   return html.replace(
     /<a\b([^>]*)\bhref="(\/api\/file\?path=[^"]*\.pdf[^"]*)"([^>]*)>(.*?)<\/a>/gi,
-    (_match, before, href, after, innerHtml) => {
+    (_match, before, href, after) => {
       if (before.includes("pdf-chip") || after.includes("pdf-chip")) return _match;
-      const rawPath = href.match(/[?&]path=([^&"]*)/)?.[1] ?? "";
-      const fileName = decodeURIComponent(rawPath).split("/").pop() || innerHtml.trim();
+      const rawPath = decodeHTMLAttribute(href).match(/[?&]path=([^&#]*)/)?.[1] ?? "";
+      let fileName = rawPath;
+      try { fileName = decodeURIComponent(rawPath); } catch { /* Keep malformed URLs readable. */ }
+      fileName = escapeAttribute(fileName.split("/").pop() || "PDF");
       const stripped = (before + after).replace(/\s*(class|target|rel)="[^"]*"/g, "");
       return (
         `<a${stripped} href="${href}" class="pdf-chip" target="_blank" rel="noopener noreferrer">` +

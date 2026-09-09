@@ -2,12 +2,12 @@ import { injectHtmlFirstShell } from "./html-first-shell";
 import { formatWikiHtml } from "@oncobase/wiki-markdown/server-format";
 import { resolveWikilinks } from "@oncobase/wiki-markdown/paths";
 import { preprocessCitationMarkdown } from "@oncobase/wiki-markdown/citations";
-import { markdownTitleToText } from "@oncobase/wiki-markdown/title";
 import { Marked } from "marked";
 import GithubSlugger from "github-slugger";
 import { fromHtml } from "hast-util-from-html";
 import { defaultSchema, sanitize } from "hast-util-sanitize";
 import { toHtml } from "hast-util-to-html";
+import { toString } from "hast-util-to-string";
 import { createHtmlPageCache, type RenderablePage } from "./html-page-cache";
 
 type PublicPage = {
@@ -29,8 +29,11 @@ function markdownRenderer() {
   const markdown = new Marked({ async: false, gfm: true, renderer: {
     heading({ tokens, depth }) {
       const text = this.parser.parseInline(tokens);
-      const id = escape(slugger.slug(markdownTitleToText(text)));
-      return `<h${depth} class="wiki-heading-group" id="${id}">${text}<a class="heading-anchor" href="#${id}" aria-label="${escape(`Link to "${markdownTitleToText(text)}"`)}">#</a></h${depth}>\n`;
+      // Slug the decoded text nodes, exactly as rehype-slug does. Slugging
+      // serialized HTML gives &amp; a different ID and strips code underscores.
+      const headingText = toString(fromHtml(text, { fragment: true }));
+      const id = escape(slugger.slug(headingText));
+      return `<h${depth} class="wiki-heading-group" id="${id}">${text}<a class="heading-anchor" href="#${id}" aria-label="${escape(`Link to "${headingText}"`)}">#</a></h${depth}>\n`;
     },
     code({ text, lang }) {
       if (lang === "mermaid") return '<p class="text-muted">Diagram loads with the interactive reader.</p>';

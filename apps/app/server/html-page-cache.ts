@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const HTML_RENDERER_VERSION = "public-reader-3";
+export const HTML_RENDERER_VERSION = "public-reader-4";
 export type RenderablePage = { slug: string; content: string; contentHash?: string | null };
 
 /** Cache CPU work only. The caller must look up visibility and redact first. */

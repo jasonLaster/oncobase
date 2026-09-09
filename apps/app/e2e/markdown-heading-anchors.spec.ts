@@ -37,6 +37,27 @@ test.describe("Markdown heading anchors", () => {
     await installWikiApiMocks(page);
   });
 
+  test("Obsidian heading links navigate to the section and stay on the current page", async ({ page }) => {
+    const targetSlug = "wiki/questions/surgery";
+    const heading = "How a smaller lumpectomy could affect sensation";
+    await installWikiApiMocks(page, { pageOverrides: {
+      index: { content: `# Fixture\n\n[[${targetSlug}#${heading}|Sensation discussion]]` },
+      [targetSlug]: { title: "Surgery", tags: [], content:
+        `[[#${heading}|Jump to sensation]]\n\n` +
+        "A synthetic background paragraph to make section scrolling visible.\n\n".repeat(45) +
+        `## ${heading}\n\nTarget section.\n\n` + "Trailing fixture context.\n\n".repeat(35) },
+    } });
+    await gotoWiki(page, "/");
+    await page.getByRole("link", { name: "Sensation discussion", exact: true }).click();
+    await expect(page).toHaveURL(/\/wiki\/questions\/surgery#how-a-smaller-lumpectomy-could-affect-sensation$/);
+    await expectScrolledTo(page, "how-a-smaller-lumpectomy-could-affect-sensation", 300);
+    await page.getByRole("link", { name: "Jump to sensation", exact: true }).click();
+    await expect(page).toHaveURL(/\/wiki\/questions\/surgery#how-a-smaller-lumpectomy-could-affect-sensation$/);
+    // Smooth scrolling can settle on a fractional pixel. Verify the heading
+    // is visible rather than demanding subpixel alignment with the pane edge.
+    await expect(page.locator("#how-a-smaller-lumpectomy-could-affect-sensation")).toBeInViewport({ ratio: 0.95 });
+  });
+
   test("clicking a markdown heading updates the URL hash", async ({ page }) => {
     await gotoWiki(page, "/wiki/updates/week-5-april-12-to-18");
 

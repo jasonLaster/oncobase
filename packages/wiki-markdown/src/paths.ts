@@ -1,3 +1,5 @@
+import { slug as headingSlug } from "github-slugger";
+
 export const PROXIED_EXTENSIONS = new Set([
   ".jpg",
   ".jpeg",
@@ -79,16 +81,33 @@ export function encodeFilePath(path: string, apiBasePath = "") {
   return `${apiBasePath}/api/file?path=${encodeURIComponent(path)}`;
 }
 
+function decodeUrlPath(value: string) {
+  try { return decodeURIComponent(value); }
+  catch { return value; }
+}
+
+function splitTarget(target: string) {
+  const hashIndex = target.indexOf("#");
+  const beforeHash = hashIndex === -1 ? target : target.slice(0, hashIndex);
+  const hash = hashIndex === -1 ? "" : target.slice(hashIndex);
+  const queryIndex = beforeHash.indexOf("?");
+  return {
+    path: queryIndex === -1 ? beforeHash : beforeHash.slice(0, queryIndex),
+    query: queryIndex === -1 ? "" : beforeHash.slice(queryIndex),
+    hash,
+  };
+}
+
 function wikiRouteHref(target: string) {
-  const suffixIndex = target.search(/[?#]/);
-  const rawPath = suffixIndex === -1 ? target : target.slice(0, suffixIndex);
-  const suffix = suffixIndex === -1 ? "" : target.slice(suffixIndex);
-  const slug = rawPath.replace(/\.(?:md|mdx)$/i, "");
-  const encodedPath = slug
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
+  const { path, query, hash } = splitTarget(target);
+  const slug = path.replace(/\.(?:md|mdx)$/i, "");
+  const encodedPath = slug.split("/")
+    .map(segment => encodeURIComponent(segment).replace(/[()]/g, c => c === "(" ? "%28" : "%29"))
     .join("/");
-  return `/${encodedPath}${suffix}`;
+  // Obsidian fragments name headings, whose IDs use the renderer's slugger.
+  // A fragment-only link must remain on this document rather than going to /.
+  const fragment = hash ? `#${encodeURIComponent(headingSlug(decodeUrlPath(hash.slice(1))))}` : "";
+  return `${path ? `/${encodedPath.replace(/^\/+/, "")}` : ""}${query}${fragment}`;
 }
 
 export function resolveWikilinks(
@@ -100,13 +119,14 @@ export function resolveWikilinks(
 
   return content.replace(/\[\[([^\]]+)]](?!\()/g, (_match, inner: string) => {
     const { target, display } = splitWikilinkAlias(inner);
-    const isBare = !target.includes("/");
+    const { path, query, hash } = splitTarget(target);
+    const isBare = !path.includes("/");
 
-    if (target.endsWith(".pdf")) {
-      const pdfPath = isBare && currentDir ? `${currentDir}/${target}` : target;
-      const baseName = target.split("/").pop()?.replace(/\.pdf$/i, "") ?? target;
+    if (/\.pdf$/i.test(path)) {
+      const pdfPath = isBare && currentDir ? `${currentDir}/${path}` : path.replace(/^\/+/, "");
+      const baseName = path.split("/").pop()?.replace(/\.pdf$/i, "") ?? path;
       const label = display || baseName;
-      return `[${label}](${encodeFilePath(pdfPath, apiBasePath)})`;
+      return `[${label}](${encodeFilePath(pdfPath, apiBasePath)}${query ? `&${query.slice(1)}` : ""}${hash})`;
     }
 
     const label = display || target.split("/").pop()?.replace(/\.(?:md|mdx)$/i, "") || target;
@@ -125,12 +145,15 @@ export function resolveAssetPath(src: string, currentSlug?: string) {
     return src;
   }
 
+  // Markdown parsers already URI-encode local destinations. Decode that URL
+  // once before encoding the file API query, including encoded spaces.
+  src = decodeUrlPath(src);
   const ext = src.includes(".") ? src.slice(src.lastIndexOf(".")).toLowerCase() : "";
   if (!PROXIED_EXTENSIONS.has(ext)) {
     return src;
   }
 
-  if (!currentSlug || src.startsWith("/")) return src.replace(/^\/+/, "");
+  if (!currentSlug || src.startsWith("/")) return normalizePosixPath(src);
   const dir = currentDirectory(currentSlug);
   return normalizePosixPath(`${dir ? `${dir}/` : ""}${src}`);
 }
