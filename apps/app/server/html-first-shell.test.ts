@@ -59,5 +59,6 @@ test("large articles keep their complete readable HTML without duplicating Markd
   expect(html).toContain('data-large-article="true"');
   expect(html).not.toContain('id="wiki-page-bootstrap"');
   expect(html).not.toContain(large.content);
-  expect(html).toContain("html-first=off");
+  expect(html).toContain("data-reader-sign-in");
+  expect(html).not.toContain("reader-action=signin");
 });

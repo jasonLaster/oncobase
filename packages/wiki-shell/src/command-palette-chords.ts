@@ -3,6 +3,7 @@ export type CommandPaletteChordHandlers = {
   onOutline?: () => void;
   onAction?: () => void;
   onCancel?: () => void;
+  onSignIn?: () => void;
 };
 
 export type CommandPaletteChordController = {
@@ -116,10 +117,13 @@ export function createCommandPaletteChords(
   // Initial HTML controls share the keyboard controller, so clicks queue before
   // React and use its adopted handlers while the native article is retained.
   function onClick(event: MouseEvent) {
-    if (!(event.target instanceof Element) || !event.target.closest("[data-reader-file-palette]")) return;
+    if (!(event.target instanceof Element)) return;
+    const signIn = event.target.closest("[data-reader-sign-in]");
+    if (!signIn && !event.target.closest("[data-reader-file-palette]")) return;
     event.preventDefault();
     endChord();
-    handlers.onFiles?.();
+    if (signIn) handlers.onSignIn?.();
+    else handlers.onFiles?.();
   }
 
   document.addEventListener("keydown", onKeyDown, { capture: true });

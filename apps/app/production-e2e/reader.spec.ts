@@ -269,3 +269,59 @@ test("an unavailable page accepts an early file shortcut", async ({ page }) => {
     await chooseInsurance(page);
   } finally { release(); }
 });
+
+async function visibleSignIn(page: Page) {
+  if (phone(page)) await page.getByRole("button", { name: "Open page navigation", exact: true }).click();
+  return page.getByTestId("sidebar-sign-in").filter({ visible: true });
+}
+
+test("Search preserves sign in; account dialog opens in place and traps focus", async ({ page }) => {
+  await page.goto(articlePath, { waitUntil: "domcontentloaded" });
+  await ready(page);
+  const signIn = await visibleSignIn(page);
+  await expect(signIn).toBeVisible();
+  // Phone navigation is dismissed before opening the global palette.
+  if (phone(page)) await page.keyboard.press("Escape");
+  await page.getByTestId(phone(page) ? "mobile-header-search" : "sidebar-search").click();
+  await expect(input(page)).toBeFocused();
+  await page.keyboard.press("Escape");
+  const prompt = await visibleSignIn(page);
+  await expect(prompt).toBeVisible();
+  await prompt.click();
+  const dialog = page.getByRole("dialog", { name: "Sign in", exact: true });
+  await expect(dialog.getByLabel("Email", { exact: true })).toBeFocused();
+  expect(new URL(page.url()).pathname).toBe(articlePath);
+  expect(new URL(page.url()).search).toBe("");
+  await dialog.getByLabel("Email", { exact: true }).fill("unsent-reader@example.test");
+  await page.keyboard.press("Shift+Tab");
+  await expect(dialog.getByRole("button", { name: "Need an account? Sign up" })).toBeFocused();
+  await dialog.getByRole("button", { name: "Need an account? Sign up" }).click();
+  await expect(page.getByRole("dialog", { name: "Sign up", exact: true }).getByLabel("Name", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("wiki-auth-dialog")).toHaveCount(0);
+  await expect(prompt).toBeVisible();
+  await expect(prompt).toBeFocused();
+});
+
+test("initial Sign in opens in place with scripts delayed", async ({ page }) => {
+  test.skip(phone(page), "The initial phone header has no sign-in control; its navigation dialog is covered separately.");
+  let release!: () => void;
+  const scripts = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/*", async route => {
+    if (route.request().resourceType() === "script") await scripts;
+    await route.fallback();
+  });
+  try {
+    await page.goto(articlePath, { waitUntil: "domcontentloaded" });
+    await page.locator("#wiki-html-first .html-first-sign-in").click();
+    expect(new URL(page.url()).pathname).toBe(articlePath);
+    expect(new URL(page.url()).search).toBe("");
+    release();
+    await expect(page.getByTestId("wiki-auth-dialog").getByLabel("Email", { exact: true })).toBeFocused();
+    await expect(page.locator("#wiki-html-first")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("wiki-auth-dialog")).toHaveCount(0);
+    await expect(page.getByTestId("sidebar-sign-in").filter({ visible: true })).toBeVisible();
+    expect(new URL(page.url()).search).toBe("");
+  } finally { release(); }
+});

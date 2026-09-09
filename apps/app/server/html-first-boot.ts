@@ -95,9 +95,9 @@ export function bootHtmlFirstPage() {
     const seeded = host.dataset.bootstrapSeeded === "true";
     const recovery = root.querySelector('[data-test-id="app-recovery"], [data-test-id="session-recovery"], [data-test-id="store-startup-recovery"]');
     const unavailable = article?.dataset.readerUnavailable === "true" || !!recovery;
-    const palette = root.querySelector<HTMLElement>('[data-test-id="command-palette"]');
+    const dialog = root.querySelector<HTMLElement>('[data-test-id="command-palette"], [data-test-id="wiki-auth-dialog"]');
     const selection = window.getSelection();
-    if (!palette && !unavailable && !routeChanged && (pointerDown ||
+    if (!dialog && !unavailable && !routeChanged && (pointerDown ||
         (selection && !selection.isCollapsed && host.contains(selection.anchorNode)))) return;
     if (!routeChanged && !unavailable && (!article?.querySelector(".wiki-markdown") ||
         article.dataset.documentSlug !== host.dataset.slug ||
@@ -107,11 +107,11 @@ export function bootHtmlFirstPage() {
     // has no live equivalent yet, wait for focus to leave it rather than steal it.
     const active = document.activeElement;
     let nextFocus: HTMLElement | undefined;
-    if (!palette && active === copyButton) {
+    if (!dialog && active === copyButton) {
       nextFocus = root.querySelector<HTMLElement>('[aria-label="Copy page as markdown"]') ?? undefined;
       if (!nextFocus) return;
     }
-    if (!palette && active instanceof HTMLAnchorElement && host.contains(active)) {
+    if (!dialog && active instanceof HTMLAnchorElement && host.contains(active)) {
       const href = active.getAttribute("href")?.replace(`#${prefix}`, "#");
       nextFocus = [...root.querySelectorAll<HTMLAnchorElement>("a[href]")]
         .find(link => link.getAttribute("href") === href);
@@ -127,7 +127,7 @@ export function bootHtmlFirstPage() {
     nextFocus?.focus({ preventScroll: true });
     // A requested dialog can mount while the root is still inert. Its initial
     // focus attempt cannot succeed until the retained article is released.
-    palette?.querySelector<HTMLElement>("input")?.focus({ preventScroll: true });
+    dialog?.querySelector<HTMLElement>("input")?.focus({ preventScroll: true });
     if (location.hash.startsWith(`#${prefix}`)) {
       history.replaceState(history.state, "", location.pathname + location.search + "#" + location.hash.slice(prefix.length + 1));
     }

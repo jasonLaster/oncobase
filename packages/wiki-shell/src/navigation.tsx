@@ -442,6 +442,9 @@ export function WikiMobileNavigationSheet({
     }, 0);
 
     const onDocumentKeyDown = (event: KeyboardEvent) => {
+      // An account dialog inside the sheet owns Tab and Escape until it closes.
+      // The outer capture listener must not dismiss both layers at once.
+      if (panelRef.current?.querySelector('[role="dialog"][aria-modal="true"]')) return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();

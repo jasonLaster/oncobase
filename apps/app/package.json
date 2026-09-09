@@ -11,7 +11,7 @@
     "verify:standalone": "bun scripts/verify-standalone.ts",
     "start:server": "bun server/standalone.ts",
     "typecheck": "bun --cwd ../../packages/oncobase build && tsc --noEmit",
-    "test:unit": "bun test src server scripts convex/lib",
+    "test:unit": "bun scripts/test-unit.ts",
     "test:e2e": "playwright test",
     "test:e2e:parity": "playwright test --config playwright.parity.config.ts",
     "report:e2e:parity": "bun scripts/compare-parity.ts",

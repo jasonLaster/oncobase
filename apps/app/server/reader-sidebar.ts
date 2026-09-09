@@ -36,9 +36,6 @@ export function renderReaderSidebar(treeHtml: string, url: URL) {
   let name = url.pathname.split("/").filter(Boolean).at(-1) ?? "Home";
   try { name = decodeURIComponent(name); } catch { /* Preserve malformed display paths. */ }
   const mobileTitle = formatFileLabel(name);
-  const signin = new URL(url);
-  signin.searchParams.set("html-first", "off");
-  signin.searchParams.set("reader-action", "signin");
   return renderToStaticMarkup(
     createElement(
       "aside",
@@ -181,10 +178,11 @@ export function renderReaderSidebar(treeHtml: string, url: URL) {
               "Sign in to comment and view additional content",
             ),
             createElement(
-              "a",
+              "button",
               {
                 className: "html-first-sign-in",
-                href: signin.pathname + signin.search,
+                type: "button",
+                "data-reader-sign-in": true,
               },
               createElement(LogIn, {
                 size: 16,

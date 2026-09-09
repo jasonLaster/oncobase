@@ -85,13 +85,16 @@ export function HeaderCommandPaletteHost() {
   useEffect(() => {
     const early = window.__wikiReaderShortcuts;
     const shortcuts = early?.controller ?? createCommandPaletteChords({});
+    const openSignIn = () => window.dispatchEvent(new CustomEvent(WIKI_AUTH_DIALOG_EVENT, { detail: { mode: "signin" } }));
     shortcuts.setHandlers({
       onFiles: () => openPalette("pages"),
       onOutline: () => openPalette("outline"),
       onAction: () => openPalette("actions"),
+      onSignIn: openSignIn,
     });
     delete window.__wikiReaderShortcuts;
-    if (early?.pending) openCommandPalette(early.pending);
+    if (early?.pending === "signin") openSignIn();
+    else if (early?.pending) openCommandPalette(early.pending);
     return shortcuts.dispose;
   }, [openPalette]);
 
@@ -121,7 +124,7 @@ export function HeaderCommandPaletteHost() {
 
 export function HeaderAuthDialogHost() {
   const { setSessionUser, submitAuth } = useWikiViteAuth();
-  const [authDialogOpen, setAuthDialogOpen] = useState(() => new URLSearchParams(location.search).get("reader-action") === "signin");
+  const [authDialogOpen, setAuthDialogOpen] = useState(() => window.__wikiReaderShortcuts?.pending === "signin" || new URLSearchParams(location.search).get("reader-action") === "signin");
   const [authMode, setAuthMode] =
     useState<WikiActionsMenuAuthMode>("signin");
 

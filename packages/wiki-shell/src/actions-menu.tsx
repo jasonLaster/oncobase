@@ -246,7 +246,6 @@ export function WikiAuthDialog({
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dialogRef.current?.querySelector<HTMLInputElement>("input")?.focus();
     return () => previous?.focus();
   }, [open]);
 
@@ -255,6 +254,12 @@ export function WikiAuthDialog({
     setMode(initialMode);
     setError("");
   }, [initialMode, open]);
+
+  useEffect(() => {
+    // Switching forms can detach the focused control, especially in Safari.
+    // Keep focus inside the new form without changing the original return target.
+    if (open) dialogRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+  }, [mode, open]);
 
   if (!open) return null;
 
@@ -290,6 +295,7 @@ export function WikiAuthDialog({
       className="wiki-shell-actions-dialog-backdrop"
       ref={dialogRef}
       role="dialog"
+      data-test-id="wiki-auth-dialog"
       onMouseDown={onClose}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
@@ -638,12 +644,12 @@ export type WikiSidebarSignInPromptProps = {
 export function WikiSidebarSignInPrompt({
   onAuthSubmit,
   onSessionChange,
-  sessionLoading = false,
   sessionUser = null,
 }: WikiSidebarSignInPromptProps) {
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
 
-  if (sessionLoading || sessionUser) return null;
+  // Match the initial reader until a signed-in account is confirmed.
+  if (sessionUser) return null;
 
   return (
     <>
@@ -652,7 +658,11 @@ export function WikiSidebarSignInPrompt({
         <button
           type="button"
           data-test-id="sidebar-sign-in"
-          onClick={() => setAuthDialogOpen(true)}
+          onClick={(event) => {
+            // Safari does not focus buttons on click; preserve the dialog return target.
+            event.currentTarget.focus();
+            setAuthDialogOpen(true);
+          }}
         >
           <SignInIcon />
           <span>Sign in</span>

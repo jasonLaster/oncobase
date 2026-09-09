@@ -469,7 +469,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         expect((await control.boundingBox())!.height).toBe(40);
         await expect(control.locator("svg")).toHaveCSS("width", "16px");
       }
-      await expect(early.locator(".html-first-sign-in")).toHaveAttribute("href", /reader-action=signin/);
+      await expect(early.locator(".html-first-sign-in")).toHaveAttribute("type", "button");
       await page.evaluate(() => {
         const frames: number[] = [];
         Object.assign(window, { sidebarPaintFrames: frames });
@@ -705,3 +705,109 @@ for (const width of [393, 768, 1440, 1920]) {
     } finally { release(); releaseManifest(); }
   });
 }
+
+for (const action of ["search", "signin", "cancel-signin"] as const) {
+  test(`early ${action} preserves the sidebar while account discovery is delayed`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await prepare(page);
+    let releaseScripts!: () => void;
+    let releaseSession!: () => void;
+    const scripts = new Promise<void>(resolve => { releaseScripts = resolve; });
+    const session = new Promise<void>(resolve => { releaseSession = resolve; });
+    await page.route("**/api/auth/session", async route => {
+      await session;
+      await route.fulfill({ json: { user: null } });
+    });
+    await page.route("**/*", async route => {
+      if (route.request().resourceType() === "script") await scripts;
+      await route.fallback();
+    });
+    try {
+      await page.goto("/", { waitUntil: "commit" });
+      const native = page.locator("#wiki-html-first");
+      await expect(native.locator(".html-first-sign-in")).toBeVisible();
+      await page.evaluate(() => {
+        const frames: { prompt: boolean; footerY: number; treeRows: number }[] = [];
+        Object.assign(window, { authSidebarFrames: frames });
+        const sample = () => {
+          const sidebar = document.querySelector("#wiki-html-first .wiki-shell-sidebar") ?? document.querySelector('#root [data-test-id="wiki-sidebar"]');
+          const prompt = sidebar?.querySelector(".wiki-shell-sidebar-sign-in");
+          const footer = sidebar?.querySelector(".wiki-vite-sidebar-footer-pills");
+          frames.push({ prompt: !!prompt && prompt.getBoundingClientRect().height > 0,
+            footerY: footer?.getBoundingClientRect().y ?? -1,
+            treeRows: sidebar?.querySelectorAll(".wiki-shell-tree-directory").length ?? 0 });
+          if (frames.length < 600) requestAnimationFrame(sample);
+        };
+        sample();
+      });
+      await native.locator(action === "search" ? ".html-first-search" : ".html-first-sign-in").click();
+      if (action === "cancel-signin") await page.keyboard.press("Escape");
+      await expect(page).toHaveURL(/\/$/);
+      releaseScripts();
+      await expect(native).toHaveCount(0);
+      await expect(page.getByTestId("sidebar-sign-in").filter({ visible: true })).toBeVisible();
+      if (action === "search") {
+        await expect(page.getByTestId("command-palette-input")).toBeFocused();
+        await page.keyboard.press("Escape");
+      } else if (action === "signin") {
+        await expect(page.getByTestId("wiki-auth-dialog").getByLabel("Email", { exact: true })).toBeFocused();
+        await page.keyboard.press("Escape");
+      }
+      await expect(page.getByTestId("wiki-auth-dialog")).toHaveCount(0);
+      releaseSession();
+      await page.getByTestId("sidebar-sign-in").filter({ visible: true }).click();
+      await expect(page.getByRole("dialog", { name: "Sign in", exact: true })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("sidebar-sign-in").filter({ visible: true })).toBeFocused();
+      const frames = await page.evaluate(() => (window as unknown as {
+        authSidebarFrames: { prompt: boolean; footerY: number; treeRows: number }[];
+      }).authSidebarFrames);
+      expect(frames.length).toBeGreaterThan(2);
+      expect(frames.every(frame => frame.prompt && frame.treeRows >= 2)).toBe(true);
+      expect(new Set(frames.map(frame => frame.footerY)).size).toBe(1);
+      await expect(page).toHaveURL(/\/$/);
+    } finally { releaseScripts(); releaseSession(); }
+  });
+}
+
+test("sign-in opens through retained native selection and handles auth failure and success in place", async ({ page }) => {
+  await prepare(page);
+  let user: { id: string; name: string; email: string } | null = null;
+  await page.route("**/api/auth/session", route => route.fulfill({ json: { user } }));
+  let attempts = 0;
+  await page.route("**/api/auth/signin", async route => {
+    attempts++;
+    if (attempts === 1) return route.fulfill({ status: 401, json: { error: "Synthetic incorrect password" } });
+    user = { id: "synthetic-user", name: "QA Reader", email: "reader@example.test" };
+    await route.fulfill({ json: { user } });
+  });
+  let release!: () => void;
+  const scripts = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/*", async route => {
+    if (route.request().resourceType() === "script") await scripts;
+    await route.fallback();
+  });
+  try {
+    await page.goto("/", { waitUntil: "commit" });
+    await page.locator("#wiki-html-first article p").first().evaluate(node => {
+      const range = document.createRange(); range.selectNodeContents(node);
+      window.getSelection()!.addRange(range);
+    });
+    release();
+    await expect(article(page)).toBeAttached();
+    await page.locator("#wiki-html-first .html-first-sign-in").click();
+    const dialog = page.getByTestId("wiki-auth-dialog");
+    await expect(dialog.getByLabel("Email", { exact: true })).toBeFocused();
+    await expect(page.locator("#wiki-html-first")).toHaveCount(0);
+    await dialog.getByLabel("Email", { exact: true }).fill("reader@example.test");
+    await dialog.getByLabel("Password", { exact: true }).fill("synthetic-test-password");
+    await dialog.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(dialog).toContainText("Synthetic incorrect password");
+    await expect(dialog.getByRole("button", { name: "Sign in", exact: true })).toBeEnabled();
+    await dialog.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByTestId("sidebar-sign-in")).toHaveCount(0);
+    expect(attempts).toBe(2);
+    await expect(page).toHaveURL(/\/$/);
+  } finally { release(); }
+});

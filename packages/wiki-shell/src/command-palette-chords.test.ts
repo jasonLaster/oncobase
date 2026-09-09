@@ -28,7 +28,7 @@ const settleChord = () => new Promise(resolve => setTimeout(resolve, 650));
 test("native Search clicks adopt live handlers, cancel a chord, and stop after disposal", async () => {
   const oldElement = Object.getOwnPropertyDescriptor(globalThis, "Element");
   class Target {
-    closest() { return this; }
+    closest(selector: string) { return selector === "[data-reader-file-palette]" ? this : null; }
   }
   Object.defineProperty(globalThis, "Element", { configurable: true, value: Target });
   const click = () => {
