@@ -113,11 +113,22 @@ export function createCommandPaletteChords(
     }
   }
 
+  // Initial HTML controls share the keyboard controller, so clicks queue before
+  // React and use its adopted handlers while the native article is retained.
+  function onClick(event: MouseEvent) {
+    if (!(event.target instanceof Element) || !event.target.closest("[data-reader-file-palette]")) return;
+    event.preventDefault();
+    endChord();
+    handlers.onFiles?.();
+  }
+
   document.addEventListener("keydown", onKeyDown, { capture: true });
+  document.addEventListener("click", onClick);
   return {
     setHandlers(next) { handlers = next; },
     dispose() {
       document.removeEventListener("keydown", onKeyDown, { capture: true });
+      document.removeEventListener("click", onClick);
       endChord();
     },
   };

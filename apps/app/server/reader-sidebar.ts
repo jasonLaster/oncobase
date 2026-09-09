@@ -101,7 +101,7 @@ export function renderReaderSidebar(treeHtml: string, url: URL) {
         ),
       ),
       createElement("div", { className: "html-first-mobile-title wiki-vite-mobile-title" }, mobileTitle),
-      createElement("a", { className: "html-first-mobile-action", href: "/search", "aria-label": "Search files" }, createElement(Search, { size: 18, "aria-hidden": true })),
+      createElement("button", { type: "button", className: "html-first-mobile-action", "data-reader-file-palette": true, "aria-label": "Search files" }, createElement(Search, { size: 18, "aria-hidden": true })),
       createElement("a", { className: "html-first-mobile-action", href: "/comments", "aria-label": "Open comments" }, createElement(MessageSquare, { size: 18, "aria-hidden": true })),
       createElement(
         "details",
@@ -214,10 +214,11 @@ export function renderReaderSidebar(treeHtml: string, url: URL) {
               "aria-hidden": true,
             }),
             createElement(
-              "a",
+              "button",
               {
                 className: "html-first-search",
-                href: "/search",
+                type: "button",
+                "data-reader-file-palette": true,
               },
               createElement(Search, {
                 size: 16,

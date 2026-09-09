@@ -25,6 +25,36 @@ function key(code: string, modifiers: { metaKey?: boolean; ctrlKey?: boolean; sh
 }
 const settleChord = () => new Promise(resolve => setTimeout(resolve, 650));
 
+test("native Search clicks adopt live handlers, cancel a chord, and stop after disposal", async () => {
+  const oldElement = Object.getOwnPropertyDescriptor(globalThis, "Element");
+  class Target {
+    closest() { return this; }
+  }
+  Object.defineProperty(globalThis, "Element", { configurable: true, value: Target });
+  const click = () => {
+    const event = new Event("click", { cancelable: true });
+    Object.defineProperty(event, "target", { value: new Target() });
+    documentTarget.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+  try {
+    const calls: string[] = [];
+    controller = createCommandPaletteChords({ onFiles: () => calls.push("early") });
+    expect(click()).toBe(true);
+    controller.setHandlers({ onFiles: () => calls.push("live") });
+    key("KeyK", { metaKey: true });
+    expect(click()).toBe(true);
+    await settleChord();
+    expect(calls).toEqual(["early", "live"]);
+    controller.dispose();
+    expect(click()).toBe(false);
+    expect(calls).toEqual(["early", "live"]);
+  } finally {
+    if (oldElement) Object.defineProperty(globalThis, "Element", oldElement);
+    else Reflect.deleteProperty(globalThis, "Element");
+  }
+});
+
 test("Cmd+O and Ctrl+O prevent the browser action and open files", () => {
   let files = 0;
   controller = createCommandPaletteChords({ onFiles: () => files++ });

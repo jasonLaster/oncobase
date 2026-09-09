@@ -473,6 +473,47 @@ for (const shortcut of ["Meta+O", "Control+O", "Meta+Shift+O", "Meta+Shift+K"]) 
   });
 }
 
+for (const width of [1440, 393]) {
+  for (const adopted of [false, true]) {
+    test(`initial Search opens files at ${width}px ${adopted ? "after" : "before"} shortcut adoption`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await prepare(page);
+      let release!: () => void;
+      const scripts = new Promise<void>(resolve => { release = resolve; });
+      await page.route("**/*", async route => {
+        if (route.request().resourceType() === "script") await scripts;
+        await route.fallback();
+      });
+      try {
+        await page.goto("/", { waitUntil: "commit" });
+        const native = page.locator("#wiki-html-first");
+        await expect(native.locator("article")).toBeVisible();
+        if (adopted) {
+          await native.locator("article p").first().evaluate(node => {
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            window.getSelection()!.addRange(range);
+          });
+          release();
+          await expect(article(page).locator(".wiki-markdown")).toBeAttached();
+        }
+        const search = native.locator(width === 1440 ? ".html-first-search" : '[aria-label="Search files"]');
+        await expect(search).toHaveAttribute("type", "button");
+        await search.click();
+        await expect(page).toHaveURL(/\/$/);
+        release();
+        const input = page.getByTestId("command-palette-input");
+        await expect(input).toBeFocused();
+        await expect(native).toHaveCount(0);
+        await input.fill("insurance");
+        await expect(page.getByRole("option").first()).toContainText("insurance");
+        await input.press("Enter");
+        await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
+      } finally { release(); }
+    });
+  }
+}
+
 test("Cmd+O opens while a native text selection is retaining the initial article", async ({ page }) => {
   await prepare(page);
   let release!: () => void;
