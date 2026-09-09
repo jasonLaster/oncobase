@@ -46,6 +46,35 @@ test.describe("Command palette parity", () => {
     await expect(page.getByTestId("command-palette")).toHaveCount(0);
   });
 
+  test("complete breast-sensation title stays first with an extra word and opens with Enter", async ({ page }) => {
+    const slug = "sources/research/papers/breast-sensation/index";
+    const title = "Breast sensation after surgery";
+    await installWikiApiMocks(page, {
+      pageOverrides: {
+        [slug]: { title, tags: [], content: `# ${title}` },
+        "wiki/questions/surgery": {
+          title: "Breast sensation after surgery: what should patients expect?",
+          tags: [],
+          content: "# Surgery questions",
+        },
+      },
+    });
+    await gotoWiki(page, "/");
+    await page.evaluate(() => {
+      localStorage.setItem("cmd-palette-recent", JSON.stringify(["wiki/questions/surgery"]));
+    });
+    await page.getByTestId("sidebar-search").click();
+    const input = page.getByTestId("command-palette-input");
+    for (const query of [title, `${title} should`]) {
+      await input.fill(query);
+      await expect(page.getByTestId("command-palette").getByRole("option").first())
+        .toHaveAttribute("data-value", slug);
+    }
+    await input.press("Enter");
+    await expect(page).toHaveURL(new RegExp(`/${slug}$`));
+    await waitForPageTitle(page, title);
+  });
+
   test("Cmd+K opens the fuzzy file palette with no top mode tabs", async ({ page }) => {
     await gotoWiki(page, "/");
 

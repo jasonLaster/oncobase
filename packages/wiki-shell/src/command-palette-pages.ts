@@ -8,6 +8,7 @@ export const COMMAND_PALETTE_HEADING_HEIGHT = 28;
 
 export type CommandPalettePageEntry = {
   name: string;
+  title?: string;
   slug: string;
   path: string;
 };
@@ -20,6 +21,7 @@ export type CommandPaletteCompactFileNode =
 export type CommandPalettePreparedPage = {
   page: CommandPalettePageEntry;
   prepName: Fuzzysort.Prepared;
+  prepTitle: Fuzzysort.Prepared;
   prepPath: Fuzzysort.Prepared;
 };
 
@@ -67,6 +69,7 @@ export function prepareCommandPalettePages(
   return pages.map((page) => ({
     page,
     prepName: fuzzysort.prepare(page.name.replace(/-/g, " ")),
+    prepTitle: fuzzysort.prepare(page.title ?? page.name),
     prepPath: fuzzysort.prepare(page.path),
   }));
 }
@@ -137,8 +140,8 @@ export function commandPalettePagesFromCompactFileTree(
  * Returns the visible row set for the file palette: a flat ranked list while
  * the user is searching, or recents-grouped browsing when the query is empty.
  *
- * Exact-name/slug matches are always pinned to the top. Within a tight score
- * band, recent pages are nudged ahead of equally-strong fuzzy hits.
+ * Exact names/slugs and complete multiword titles with a short query suffix
+ * rank first. Recency adds a small bonus on fuzzysort v3's 0–1 score scale.
  */
 export function buildCommandPaletteRows({
   pages,
@@ -163,33 +166,48 @@ export function buildCommandPaletteRows({
   const toPageRows = (entries: CommandPalettePageEntry[]): CommandPaletteRow[] =>
     entries.map((page, pageIndex) => ({ type: "page", page, pageIndex }));
 
-  if (query) {
-    const normalizedSearch = query.toLowerCase();
-    const results = fuzzysort.go(query, prepared, {
-      keys: ["prepName", "prepPath"],
-      limit: COMMAND_PALETTE_MAX_SEARCH_RESULTS,
-      threshold: -1000,
+  const normalizedSearch = query.trim().toLowerCase().replace(/\s+/g, " ");
+  if (normalizedSearch) {
+    const results = fuzzysort.go(normalizedSearch, prepared, {
+      keys: ["prepName", "prepTitle", "prepPath"],
+      threshold: 0,
     });
+    const candidates = new Map(
+      results.map((result) => [
+        result.obj.page.slug,
+        { page: result.obj.page, score: result.score, titleRank: 0 },
+      ]),
+    );
 
-    const ranked = results
-      .map((result) => ({ page: result.obj.page, score: result.score }))
-      .sort((a, b) => {
-        const aExact =
-          a.page.slug.toLowerCase() === normalizedSearch ||
-          a.page.name.replace(/-/g, " ").toLowerCase() === normalizedSearch;
-        const bExact =
-          b.page.slug.toLowerCase() === normalizedSearch ||
-          b.page.name.replace(/-/g, " ").toLowerCase() === normalizedSearch;
-        if (aExact !== bExact) return aExact ? -1 : 1;
+    // Fuzzy search requires every query character to match. Also admit a
+    // complete, substantial title followed by a short suffix (e.g. "should").
+    // Keep short titles and queries with substantial extra terms restrictive.
+    const queryWordCount = normalizedSearch.split(" ").length;
+    for (const page of pages) {
+      const name = (page.title ?? page.name).replace(/-/g, " ").trim().toLowerCase().replace(/\s+/g, " ");
+      const wordCount = name.split(" ").length;
+      const exact = name === normalizedSearch || page.slug.toLowerCase() === normalizedSearch ||
+        page.name.replace(/-/g, " ").trim().toLowerCase() === normalizedSearch;
+      const completeTitle = wordCount >= 3 &&
+        wordCount / queryWordCount >= 0.75 && normalizedSearch.startsWith(`${name} `);
+      const titleRank = exact ? 2 : completeTitle ? 1 : 0;
+      if (titleRank) {
+        candidates.set(page.slug, {
+          page,
+          score: exact ? 1 : wordCount / queryWordCount,
+          titleRank,
+        });
+      }
+    }
 
-        const diff = b.score - a.score;
-        if (Math.abs(diff) < 50) {
-          const aRecent = recentSet.has(a.page.slug) ? 1 : 0;
-          const bRecent = recentSet.has(b.page.slug) ? 1 : 0;
-          if (aRecent !== bRecent) return bRecent - aRecent;
-        }
-        return diff;
-      })
+    // Rank before limiting so title matches and close recent hits cannot be
+    // discarded by fuzzysort's own top-50 cutoff. A bounded additive bonus
+    // also keeps the comparator transitive, unlike pairwise score bands.
+    const scoreWithRecency = (result: { page: CommandPalettePageEntry; score: number }) =>
+      result.score + (recentSet.has(result.page.slug) ? 0.02 : 0);
+    const ranked = [...candidates.values()]
+      .sort((a, b) => b.titleRank - a.titleRank || scoreWithRecency(b) - scoreWithRecency(a))
+      .slice(0, COMMAND_PALETTE_MAX_SEARCH_RESULTS)
       .map((result) => result.page);
 
     return {

@@ -156,17 +156,20 @@ export function CommandPalette({
   }, [onOpenChange, open]);
 
   const filePalettePages = useMemo<WikiFilePalettePage[]>(
-    () =>
-      (initialTree
+    () => {
+      const titles = new Map(pages.map(page => [page.slug, page.title]));
+      return (initialTree
         ? [...new Map(flattenFileTree(initialTree).filter(node => node.type === "file").map(node => [node.slug, node])).values()]
         : pages).map((page) => {
         const segments = page.slug.split("/");
         return {
           name: formatFileLabel(segments.at(-1) ?? page.slug),
+          title: titles.get(page.slug),
           path: segments.join(" / "),
           slug: page.slug,
         };
-      }),
+      });
+    },
     [pages, initialTree],
   );
 

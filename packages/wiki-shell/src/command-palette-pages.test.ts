@@ -50,6 +50,107 @@ describe("buildCommandPaletteRows", () => {
     expect(result.visibleRows.every((row) => row.type === "page")).toBe(true);
   });
 
+  test.each(["Breast sensation after surgery", "Breast sensation after surgery should"])(
+    "ranks the complete title first for %s even with recent competing pages",
+    (query) => {
+      const target = {
+        name: "index",
+        title: "Breast sensation after surgery",
+        slug: "sources/research/papers/breast-sensation/index",
+        path: "sources / research / papers / breast-sensation / index",
+      };
+      const competing = {
+        name: "Breast sensation after surgery: what should patients expect?",
+        slug: "wiki/questions/surgery",
+        path: "wiki / questions / surgery",
+      };
+      const candidates = [competing, target];
+      const result = buildCommandPaletteRows({
+        pages: candidates,
+        prepared: prepareCommandPalettePages(candidates),
+        query,
+        recentSlugs: [competing.slug],
+      });
+      expect(result.visibleEntries[0]).toEqual(target);
+    },
+  );
+
+  test("searches title fragments while preserving the filename label and lookup", () => {
+    const target = { name: "index", title: "Breast sensation after surgery", slug: "sources/sensation/index", path: "sources" };
+    for (const query of ["sensation after", "index"]) {
+      const result = buildCommandPaletteRows({
+        pages: [target],
+        prepared: prepareCommandPalettePages([target]),
+        query,
+        recentSlugs: [],
+      });
+      expect(result.visibleEntries).toEqual([target]);
+      expect(result.visibleEntries[0]?.name).toBe("index");
+    }
+  });
+
+  test("does not let a weak recent match outrank a strong title match", () => {
+    const candidates = [
+      { name: "Breast sensation after surgery", slug: "sources/sensation", path: "sources" },
+      { name: "Breast reconstruction and sensory rehabilitation", slug: "wiki/rehab", path: "wiki" },
+    ];
+    const result = buildCommandPaletteRows({
+      pages: candidates,
+      prepared: prepareCommandPalettePages(candidates),
+      query: "breast sensation",
+      recentSlugs: ["wiki/rehab"],
+    });
+    expect(result.visibleEntries[0]).toEqual(candidates[0]);
+  });
+
+  test("does not discard substantial extra query terms or promote short titles", () => {
+    const candidates = [
+      { name: "Breast sensation after surgery", slug: "sources/sensation", path: "sources" },
+      { name: "Breast sensation", slug: "sources/short", path: "sources" },
+    ];
+    const result = buildCommandPaletteRows({
+      pages: candidates,
+      prepared: prepareCommandPalettePages(candidates),
+      query: "breast sensation after surgery radiation chemotherapy recovery",
+      recentSlugs: [],
+    });
+    expect(result.visibleEntries).toEqual([]);
+  });
+
+  test("ranks complete titles before applying the result limit", () => {
+    const target = { name: "Breast sensation after surgery", slug: "sources/sensation", path: "sources" };
+    const candidates = [
+      ...Array.from({ length: 60 }, (_, index) => ({
+        name: "Breast sensation after surgery: what should patients expect?",
+        slug: `sources/competitor-${index}`,
+        path: "sources",
+      })),
+      target,
+    ];
+    const result = buildCommandPaletteRows({
+      pages: candidates,
+      prepared: prepareCommandPalettePages(candidates),
+      query: "Breast sensation after surgery should",
+      recentSlugs: ["sources/competitor-0"],
+    });
+    expect(result.visibleEntries[0]).toEqual(target);
+    expect(result.visibleEntries).toHaveLength(50);
+  });
+
+  test("recency still breaks equal relevance ties", () => {
+    const candidates = [
+      { name: "Sensation after surgery", slug: "sources/first", path: "sources" },
+      { name: "Sensation after surgery", slug: "sources/recent", path: "sources" },
+    ];
+    const result = buildCommandPaletteRows({
+      pages: candidates,
+      prepared: prepareCommandPalettePages(candidates),
+      query: "sensation",
+      recentSlugs: ["sources/recent"],
+    });
+    expect(result.visibleEntries[0]).toEqual(candidates[1]);
+  });
+
   test("returns empty rows for empty pages", () => {
     const result = buildCommandPaletteRows({
       pages: [],

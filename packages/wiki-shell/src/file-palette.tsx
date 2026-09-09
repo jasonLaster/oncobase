@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import fuzzysort from "fuzzysort";
+import { buildCommandPaletteRows, prepareCommandPalettePages } from "./command-palette-pages.ts";
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -21,6 +21,7 @@ import { cn } from "./utils.ts";
 
 export type WikiFilePalettePage = {
   name: string;
+  title?: string;
   path: string;
   slug: string;
 };
@@ -38,18 +39,11 @@ export type WikiFilePaletteState = {
 
 export const WIKI_FILE_PALETTE_RECENT_KEY = "cmd-palette-recent";
 export const WIKI_FILE_PALETTE_MAX_RECENT = 8;
-const MAX_SEARCH_RESULTS = 50;
 const PALETTE_ROW_HEIGHT = 56;
 const PALETTE_HEADING_HEIGHT = 28;
 const preparedIndexes = new WeakMap<WikiFilePalettePage[], ReturnType<typeof preparePages>>();
 
-function preparePages(pages: WikiFilePalettePage[]) {
-  return pages.map(page => ({
-    page,
-    prepName: fuzzysort.prepare(displayName(page)),
-    prepPath: fuzzysort.prepare(page.path),
-  }));
-}
+const preparePages = prepareCommandPalettePages;
 
 function preparedPages(pages: WikiFilePalettePage[]) {
   let prepared = preparedIndexes.get(pages);
@@ -74,95 +68,12 @@ export function buildWikiFilePaletteState(
   query: string,
   recentSlugs: string[] = [],
 ): WikiFilePaletteState {
-  const empty: WikiFilePaletteState = {
-    recentEntries: [],
-    searchResults: null,
-    visibleEntries: [],
-    visibleRows: [],
-  };
-  if (pages.length === 0) return empty;
-
-  const normalizedQuery = query.trim().toLowerCase();
-  const recentSet = new Set(recentSlugs.slice(0, WIKI_FILE_PALETTE_MAX_RECENT));
-  const toPageRows = (entries: WikiFilePalettePage[]): WikiFilePaletteRow[] =>
-    entries.map((page, pageIndex) => ({ type: "page", page, pageIndex }));
-
-  if (normalizedQuery) {
-    // Page arrays are immutable snapshots; reuse tokenization across keystrokes.
-    const results = fuzzysort.go(query, preparedPages(pages), {
-      keys: ["prepName", "prepPath"],
-      limit: MAX_SEARCH_RESULTS,
-      threshold: -1000,
-    });
-
-    const ranked = results
-      .map((result) => ({ page: result.obj.page, score: result.score }))
-      .sort((left, right) => {
-        const leftExact =
-          left.page.slug.toLowerCase() === normalizedQuery ||
-          displayName(left.page).toLowerCase() === normalizedQuery;
-        const rightExact =
-          right.page.slug.toLowerCase() === normalizedQuery ||
-          displayName(right.page).toLowerCase() === normalizedQuery;
-        if (leftExact !== rightExact) return leftExact ? -1 : 1;
-
-        const scoreDiff = right.score - left.score;
-        if (Math.abs(scoreDiff) < 50) {
-          const leftRecent = recentSet.has(left.page.slug) ? 1 : 0;
-          const rightRecent = recentSet.has(right.page.slug) ? 1 : 0;
-          if (leftRecent !== rightRecent) return rightRecent - leftRecent;
-        }
-
-        return scoreDiff;
-      })
-      .map((result) => result.page);
-
-    return {
-      recentEntries: [],
-      searchResults: ranked,
-      visibleEntries: ranked,
-      visibleRows: toPageRows(ranked),
-    };
-  }
-
-  const recent = recentSlugs
-    .slice(0, WIKI_FILE_PALETTE_MAX_RECENT)
-    .map((slug) => pages.find((page) => page.slug === slug))
-    .filter((page): page is WikiFilePalettePage => Boolean(page));
-  const recentDisplaySet = new Set(recent.map((page) => page.slug));
-  const remainingPages = pages.filter((page) => !recentDisplaySet.has(page.slug));
-  const groupedEntries = [...recent, ...remainingPages];
-  const rows: WikiFilePaletteRow[] = [];
-
-  if (recent.length > 0) {
-    rows.push({ type: "heading", label: "Recent pages" });
-    rows.push(
-      ...recent.map((page, pageIndex) => ({
-        type: "page" as const,
-        page,
-        pageIndex,
-      })),
-    );
-    if (remainingPages.length > 0) {
-      rows.push({ type: "heading", label: "All pages" });
-      rows.push(
-        ...remainingPages.map((page, index) => ({
-          type: "page" as const,
-          page,
-          pageIndex: recent.length + index,
-        })),
-      );
-    }
-  } else {
-    rows.push(...toPageRows(pages));
-  }
-
-  return {
-    recentEntries: recent,
-    searchResults: null,
-    visibleEntries: groupedEntries,
-    visibleRows: rows,
-  };
+  return buildCommandPaletteRows({
+    pages,
+    prepared: query.trim() ? preparedPages(pages) : [],
+    query,
+    recentSlugs: recentSlugs.slice(0, WIKI_FILE_PALETTE_MAX_RECENT),
+  });
 }
 
 type WikiFilePaletteEntriesProps = {
