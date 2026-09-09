@@ -59,9 +59,24 @@ local configuration and binds the server to loopback.
 - Ten security/authentication unit tests passed, covering the public-asset
   guard, signed service token lifetime/refresh, outbound credential scope,
   and browser token site scope, lifetime, signature, and gate rotation.
-- Browser checks confirm current article rendering, original sidebar,
-  Search palette, a Sign in dialog that keeps the current URL, current
-  research URLs, and the chat composer.
+- Chromium and WebKit desktop (1440 px) and phone (393 px) smoke checks
+  reached the current article, Cmd+K palette, current research route, chat
+  composer, authenticated chat-token endpoint, and chat refresh. Desktop
+  checks also verified the Sign in dialog keeps the article URL.
+- Preserve the failed baseline observations: immediate Cmd+K after the
+  server-rendered article appears did not open within five seconds in WebKit.
+  Repeating the same flows after a 1.5-second startup allowance passed the UI
+  checks; this branch retains the original Next shortcut lifecycle and the
+  600 ms chord delay.
+- Console diagnostics remain: the local server does not host Vercel analytics,
+  so `/_vercel/insights/script.js` resolves to HTML and emits a syntax error.
+  WebKit also reports fetch access-control diagnostics for canceled chat-token
+  and RSC prefetch requests during navigation. UI checkpoints passed, but this
+  is not an error-free browser certification.
+- The local production server emits Secure gate cookies. Chromium's UI login
+  worked on loopback; WebKit and API-only smoke needed the successful gate
+  response's cookie transported without Secure in the isolated HTTP test
+  context. This does not change application cookie policy or gate checks.
 - Backend content is shared. Do not create accounts, send chat prompts,
   annotate, publish, or run database-seeding suites merely to compare visuals.
 - This branch is not independently certified for production deployment.
