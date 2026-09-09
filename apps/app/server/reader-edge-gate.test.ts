@@ -88,3 +88,13 @@ test("a deployment change invalidates HTML that references the preceding build's
     else process.env.VERCEL_URL = before;
   }
 });
+
+test("account hints and saved tree preferences bypass the shared HTML cache", async () => {
+  Object.assign(process.env, { WIKI_HTML_FIRST: "1", WIKI_HTML_CDN: "1", WIKI_GATE_SESSION_SECRET: secret });
+  const gate = createReaderEdgeGate({ query: async () => { throw Error("Shared snapshot must not be used"); } } as never);
+  for (const cookie of ['wiki_user_session=synthetic', 'wiki_reader_tree=' + encodeURIComponent('{"sources":true}')]) {
+    const response = await gate(new Request("https://diana-tnbc.com/", { headers: { cookie } }));
+    expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  }
+});

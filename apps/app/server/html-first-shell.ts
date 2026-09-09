@@ -21,7 +21,7 @@ function escape(value: string) {
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, siteSlug: string, criticalCss: string, body: string, navigationTree = "", tree?: FileNode[]) {
+export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, siteSlug: string, criticalCss: string, body: string, navigationTree = "", tree?: FileNode[], accountPending = false) {
   // A stable revision is required for handing over to the same live article.
   if (page.sensitive !== false || !page.contentHash || !html.includes('<div id="root">')) return html;
   if (criticalCss) {
@@ -51,7 +51,7 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
   }).replace(/[<>&\u2028\u2029]/g, char => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`)}</script>` : "";
   const header = renderReaderPageHeader(page);
   const navigation = renderReaderSidebar(navigationTree, url);
-  const shell = `<div id="wiki-html-first" class="prototype-shell"${largeArticle ? ' data-large-article="true"' : ""} data-slug="${escape(page.slug)}" data-hash="${escape(page.contentHash)}">
+  const shell = `<div id="wiki-html-first" class="prototype-shell"${accountPending ? ' data-account-pending="true"' : ""}${largeArticle ? ' data-large-article="true"' : ""} data-slug="${escape(page.slug)}" data-hash="${escape(page.contentHash)}">
     <div class="app-shell wiki-shell-resizable-layout">
       <div class="html-first-sidebar-rail sidebar-expanded-rail">${navigation}</div>
       <div class="app-content"><main class="content-shell"><div class="wiki-shell-outline-root" style="--comments-pane-width:64px"><div class="wiki-shell-outline-content"><div class="wiki-shell-outline-content-inner">
@@ -63,6 +63,7 @@ export function injectHtmlFirstShell(html: string, page: PublicPage, url: URL, s
   // to document flow. Its own geometry remains measurable during startup.
   const css = `<style id="wiki-html-first-style">
     #root{position:fixed;inset:0;visibility:hidden}
+    #wiki-html-first[data-account-pending] .wiki-shell-sidebar-sign-in{display:none}
     #wiki-html-first[data-large-article] .wiki-markdown > :nth-child(n+4){content-visibility:auto;contain-intrinsic-size:auto 64px}
     #wiki-html-first .app-content{margin-left:var(--html-sidebar-width,259px)}
     #wiki-html-first .html-first-sidebar-rail{position:absolute;inset:0 auto 0 0;width:var(--html-sidebar-width,259px);border-right:3px solid var(--sidebar-border)}

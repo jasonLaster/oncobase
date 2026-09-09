@@ -1,3 +1,4 @@
+import { readerPreferences } from "../src/reader-preferences";
 import { createReaderNavigation, renderReaderNavigation } from "./reader-navigation";
 import { createBackendClient } from "./backend-client";
 import { ConvexHttpClient } from "convex/browser";
@@ -40,6 +41,7 @@ export function createFastReader({ indexHtml, criticalCss, client = createBacken
   return async (request: Request, expectedFingerprint?: string): Promise<Response | null> => {
     const url = new URL(request.url);
     const pathname = url.pathname;
+    const preferences = readerPreferences(request.headers.get("cookie") ?? "");
     const started = performance.now();
     const slug = readerSlug(request);
     if (!slug) return null;
@@ -101,7 +103,7 @@ export function createFastReader({ indexHtml, criticalCss, client = createBacken
     if (readNavigation) {
       try {
         navigationTree = await readNavigation(siteSlug, snapshot.contentRevision);
-        navigationHtml = renderReaderNavigation(navigationTree, slug, url);
+        navigationHtml = renderReaderNavigation(navigationTree, slug, url, preferences.expanded);
       }
       catch { return null; } // Use the ordinary app if a complete navigation snapshot is unavailable.
     }
@@ -109,11 +111,12 @@ export function createFastReader({ indexHtml, criticalCss, client = createBacken
       const metadata = legacyRouteMetadata({ page, pathname, siteName: siteSlug === "diana" ? DIANA_SITE_NAME : siteSlug, slug });
       const head = injectHeadMetadata(indexHtml, { ...metadata, noIndex: gate.enabled,
         canonicalUrl: gate.enabled ? undefined : url.origin + pathname });
-      return injectHtmlFirstShell(head, page, url, siteSlug, criticalCss, bodyHtml, navigationHtml, navigationTree);
+      return injectHtmlFirstShell(head, page, url, siteSlug, criticalCss, bodyHtml, navigationHtml, navigationTree, preferences.accountPending);
     };
     const gzip = acceptsGzip(request.headers.get("accept-encoding"));
-    const cdnAllowed = Boolean(expectedFingerprint && expectedFingerprint === await readerFingerprint(snapshot));
-    const representation = [url.href, siteSlug, snapshot.contentRevision, gate.enabled, page];
+    const personalized = preferences.accountPending || Object.keys(preferences.expanded).length > 0;
+    const cdnAllowed = !personalized && Boolean(expectedFingerprint && expectedFingerprint === await readerFingerprint(snapshot));
+    const representation = [url.href, siteSlug, snapshot.contentRevision, gate.enabled, page, preferences];
     let body: BodyInit | null = gzip ? encode.peek(representation) ?? null : null;
     if (!body) {
       const renderer = await (rendering ?? import("./html-first-experiment"));

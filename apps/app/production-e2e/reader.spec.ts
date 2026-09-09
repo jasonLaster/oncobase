@@ -325,3 +325,29 @@ test("initial Sign in opens in place with scripts delayed", async ({ page }) => 
     expect(new URL(page.url()).search).toBe("");
   } finally { release(); }
 });
+
+test("saved folder collapse survives refresh and early Search without changing the sidebar", async ({ page }) => {
+  test.skip(phone(page), "Native desktop tree parity; phone navigation is covered in the reader tests.");
+  await page.goto(articlePath, { waitUntil: "domcontentloaded" });
+  await ready(page);
+  const tree = page.getByTestId("wiki-sidebar");
+  await tree.getByRole("button", { name: "Collapse wiki", exact: true }).click();
+  await expect(tree.getByRole("button", { name: "Expand wiki", exact: true })).toBeVisible();
+  let release!: () => void;
+  const scripts = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/*", async route => {
+    if (route.request().resourceType() === "script") await scripts;
+    await route.fallback();
+  });
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator('#wiki-html-first [data-folder="wiki"]')).toHaveAttribute("aria-expanded", "false");
+    await page.locator("#wiki-html-first .html-first-search").click();
+    release();
+    await expect(input(page)).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(tree.getByRole("button", { name: "Expand wiki", exact: true })).toBeVisible();
+    await expect(page.getByTestId("sidebar-sign-in").filter({ visible: true })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe(articlePath);
+  } finally { release(); }
+});

@@ -112,3 +112,22 @@ test("HTML carries current public navigation and invalidates encoded navigation 
   expect(updated).not.toContain('href="/old"');
   expect(updated.indexOf('href="/new"')).toBeLessThan(updated.indexOf("Readable"));
 });
+
+test("personalized reader chrome cannot contaminate encoded or public CDN responses", async () => {
+  const value = { siteSlug: "fixture", contentRevision: "1", gate: { enabled: false, passwordHash: undefined }, piiPatterns: [],
+    page: { slug: "index", title: "Home", content: "Readable", contentHash: "hash", bodyDigest: "digest", description: undefined, sensitive: false as const, tags: [] } };
+  const handler = createFastReader({client: {query: async () => value} as never, criticalCss: "", indexHtml: '<html><head></head><body><div id="root"></div></body></html>',
+    navigation: async () => [{ name: "sources", slug: "sources", type: "directory", children: [{name:"paper",slug:"sources/paper",type:"file"}] }] });
+  const read = async (cookie: string) => {
+    const response = (await handler(new Request("https://fixture.test/", {headers:{cookie,"Accept-Encoding":"gzip"}}), await readerFingerprint(value as ReaderSnapshot)))!;
+    return { response, html: gunzipSync(await response.arrayBuffer()).toString() };
+  };
+  const personalized = await read('wiki_user_session=synthetic; wiki_reader_tree=' + encodeURIComponent('{"sources":true}'));
+  expect(personalized.html).toContain('data-account-pending="true"');
+  expect(personalized.html).toContain('href="/sources/paper"');
+  expect(personalized.response.headers.get("Vercel-CDN-Cache-Control")).toBeNull();
+  const publicReader = await read('');
+  expect(publicReader.html).not.toContain('data-account-pending="true"');
+  expect(publicReader.html).not.toContain('href="/sources/paper"');
+  expect(publicReader.response.headers.get("Vercel-CDN-Cache-Control")).toBe("max-age=31536000");
+});

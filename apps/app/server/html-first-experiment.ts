@@ -125,7 +125,7 @@ export function renderHtmlFirstBody(page: PublicPage, siteSlug: string) {
   return cachedBody(siteSlug, page);
 }
 
-export function injectHtmlFirstPage(html: string, page: PublicPage, url: URL, siteSlug: string, criticalCss = "", navigationTree = "", tree?: import("@oncobase/wiki-content").FileNode[]) {
+export function injectHtmlFirstPage(html: string, page: PublicPage, url: URL, siteSlug: string, criticalCss = "", navigationTree = "", tree?: import("@oncobase/wiki-content").FileNode[], accountPending = false) {
   if (page.sensitive !== false || !page.contentHash) return html;
-  return injectHtmlFirstShell(html, page, url, siteSlug, criticalCss, renderHtmlFirstReadingBody(page, siteSlug), navigationTree, tree);
+  return injectHtmlFirstShell(html, page, url, siteSlug, criticalCss, renderHtmlFirstReadingBody(page, siteSlug), navigationTree, tree, accountPending);
 }

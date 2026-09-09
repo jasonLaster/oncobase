@@ -61,3 +61,13 @@ test("a hanging shared cache is bounded and failed snapshots are retried", async
   expect(await read("diana", "1")).toEqual([]);
   expect(calls).toBe(2);
 });
+
+test("native navigation respects saved expanded and collapsed branches, with native links taking priority", () => {
+  const tree = buildFileTreeFromManifest([{ slug: "wiki/care/index" }, { slug: "sources/paper" }]);
+  const saved = { sources: true, wiki: false };
+  const html = renderReaderNavigation(tree, "wiki/care/index", new URL("https://example.test/wiki/care/index"), saved);
+  expect(html).toContain('data-folder="sources" open');
+  expect(html).toContain('data-folder="wiki" aria-expanded="false"');
+  expect(html).not.toContain('href="/wiki/care/index" aria-current');
+  expect(renderReaderNavigation(tree, "index", new URL("https://example.test/?tree=wiki/care"), saved)).toContain('data-folder="wiki" open');
+});

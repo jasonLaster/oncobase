@@ -635,6 +635,7 @@ export function WikiActionsMenu({
 }
 
 export type WikiSidebarSignInPromptProps = {
+  hideWhileLoading?: boolean;
   onAuthSubmit?: (input: WikiActionsMenuAuthInput) => Promise<WikiActionsMenuUser>;
   onSessionChange?: (user: WikiActionsMenuUser | null) => void;
   sessionLoading?: boolean;
@@ -645,11 +646,13 @@ export function WikiSidebarSignInPrompt({
   onAuthSubmit,
   onSessionChange,
   sessionUser = null,
+  sessionLoading = false,
+  hideWhileLoading = false,
 }: WikiSidebarSignInPromptProps) {
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
 
   // Match the initial reader until a signed-in account is confirmed.
-  if (sessionUser) return null;
+  if (sessionUser || (sessionLoading && hideWhileLoading)) return null;
 
   return (
     <>

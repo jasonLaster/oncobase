@@ -1,3 +1,4 @@
+import { rememberReaderTree } from "../reader-preferences";
 import { useStore } from "@livestore/react";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { MarkdownTitle } from "@oncobase/wiki-markdown/title-react";
@@ -93,6 +94,7 @@ function readExpandedDirectories() {
 function writeExpandedDirectories(slugs: Map<string, boolean>) {
   try {
     localStorage.setItem(TREE_EXPANSION_KEY, JSON.stringify(Object.fromEntries(slugs)));
+    rememberReaderTree(slugs);
   } catch {
     // Sidebar expansion is a convenience, not critical cache state.
   }
@@ -198,13 +200,14 @@ function WorkspaceHeader() {
 }
 
 function SidebarFooter() {
-  const { sessionLoading, sessionUser, setSessionUser, submitAuth } = useWikiViteAuth();
+  const { accountPending, sessionLoading, sessionUser, setSessionUser, submitAuth } = useWikiViteAuth();
   return (
     <div className="wiki-vite-sidebar-footer">
       <WikiSidebarSignInPrompt
         onAuthSubmit={submitAuth}
         onSessionChange={setSessionUser}
         sessionLoading={sessionLoading}
+        hideWhileLoading={accountPending}
         sessionUser={sessionUser}
       />
       <div className="wiki-vite-sidebar-footer-pills">
@@ -241,6 +244,7 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
     }
     return expanded;
   });
+  useEffect(() => { rememberReaderTree(expandedSlugs); }, [expandedSlugs]);
   const activeAncestorSlugs = useMemo(
     () => collectActiveAncestors(tree, activeSlug),
     [activeSlug, tree],
@@ -411,7 +415,7 @@ export const MobileNav = memo(function MobileNav() {
   const [activeTab, setActiveTab] = useState<MobileNavTab>("pages");
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
-  const { sessionLoading, sessionUser, setSessionUser, submitAuth } = useWikiViteAuth();
+  const { accountPending, sessionLoading, sessionUser, setSessionUser, submitAuth } = useWikiViteAuth();
   const open = navState.pathname === pathname ? navState.open : false;
   const setOpen = useCallback(
     (nextOpen: boolean) => setNavState({ open: nextOpen, pathname }),
@@ -554,6 +558,7 @@ export const MobileNav = memo(function MobileNav() {
                 onAuthSubmit={submitAuth}
                 onSessionChange={setSessionUser}
                 sessionLoading={sessionLoading}
+                hideWhileLoading={accountPending}
                 sessionUser={sessionUser}
               />
               <WikiTree

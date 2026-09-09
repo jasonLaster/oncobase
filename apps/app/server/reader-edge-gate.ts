@@ -1,3 +1,4 @@
+import { readerPreferences } from "../src/reader-preferences";
 import { createBackendClient } from "./backend-client";
 import { acceptsGzip } from "./reader-encoding";
 import { ConvexHttpClient } from "convex/browser";
@@ -24,6 +25,9 @@ export function createReaderEdgeGate(client = createBackendClient()) {
     if (["/api/login", "/api/wiki/manifest", "/api/wiki/pages"].includes(url.pathname)) {
       waitUntil(snapshots.warm(url.hostname).catch(() => {}));
     }
+    const preferences = readerPreferences(request.headers.get("cookie") ?? "");
+    // Personalized chrome must never enter the shared public HTML cache.
+    if (preferences.accountPending || Object.keys(preferences.expanded).length) return pass();
     const slug = readerSlug(request), secret = process.env.WIKI_GATE_SESSION_SECRET?.trim();
     if (!slug || !secret || url.searchParams.has("token") || url.href.length > 4000 || request.headers.has("range") || request.headers.has("authorization")) return pass();
     try {

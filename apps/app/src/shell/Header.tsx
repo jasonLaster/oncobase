@@ -169,6 +169,7 @@ export function useWikiViteAuth() {
 function useWikiAuthState() {
   const [sessionUser, setSessionUser] = useState<WikiActionsMenuUser | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
+  const [accountPending] = useState(() => document.getElementById("wiki-html-first")?.hasAttribute("data-account-pending") === true);
 
   useEffect(() => {
     let cancelled = false;
@@ -236,12 +237,13 @@ function useWikiAuthState() {
   }, []);
 
   return useMemo(() => ({
+    accountPending,
     sessionLoading,
     sessionUser,
     setSessionUser,
     signOut,
     submitAuth,
-  }), [sessionLoading, sessionUser, signOut, submitAuth]);
+  }), [accountPending, sessionLoading, sessionUser, signOut, submitAuth]);
 }
 
 export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["trigger"] } = {}) {

@@ -11,7 +11,7 @@ const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&l
 
 /** Render the visible branch, with native links for expanding other folders.
  * Shipping thousands of hidden rows delays both first paint and app startup. */
-export function renderReaderNavigation(tree: FileNode[], activeSlug: string, url = new URL(activeSlug === "index" ? "/" : "/" + activeSlug, "https://reader.invalid")): string {
+export function renderReaderNavigation(tree: FileNode[], activeSlug: string, url = new URL(activeSlug === "index" ? "/" : "/" + activeSlug, "https://reader.invalid"), saved: Record<string, boolean> = {}): string {
   const expanded = url.searchParams.get("tree") ?? "";
   const chevron = '<svg class="wiki-shell-tree-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>';
   const visit = (nodes: FileNode[], depth = 0): string => nodes.map(node => {
@@ -19,7 +19,8 @@ export function renderReaderNavigation(tree: FileNode[], activeSlug: string, url
     const padding = depth === 0 ? 12 : 38 + (depth - 1) * 18;
     const geometry = `data-tree-depth="${depth}" style="padding-left:${padding}px"`;
     if (node.type === "directory") {
-      const open = node.slug === "wiki" || activeSlug.startsWith(node.slug + "/") || expanded === node.slug || expanded.startsWith(node.slug + "/");
+      const selected = expanded === node.slug || expanded.startsWith(node.slug + "/");
+      const open = selected || (Object.prototype.hasOwnProperty.call(saved, node.slug) ? saved[node.slug] : (node.slug === "wiki" || activeSlug.startsWith(node.slug + "/")));
       const contents = renderSidebarIcon(node, false, open) + label + (node.badge ? `<span class="wiki-shell-tree-badge">${escape(node.badge)}</span>` : "") + chevron;
       if (!open) {
         const destination = new URL(url);

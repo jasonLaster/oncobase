@@ -1,3 +1,4 @@
+import { readerPreferences } from "../src/reader-preferences";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, type Page } from "@playwright/test";
@@ -26,7 +27,11 @@ async function prepare(page: Page, mutate?: (html: string) => string, sessionAut
     const url = new URL(route.request().url());
     if (route.request().resourceType() !== "document" || url.pathname !== (details.slug === "index" ? "/" : `/${details.slug}`)) return route.fallback();
     const tree = buildFileTreeFromManifest([{slug:"index"}, {slug:"wiki/logistics/insurance"}]);
-    let html = injectHtmlFirstPage(template, responsePage, url, "diana", criticalCss, renderReaderNavigation(tree, details.slug), tree);
+    // WebKit omits Cookie from intercepted navigation headers on loopback.
+    // The synthetic server renderer reads the same test browser cookie jar.
+    const cookie = (await route.request().allHeaders()).cookie ?? (await page.context().cookies(url.href)).map(({ name, value }) => `${name}=${value}`).join("; ");
+    const preferences = readerPreferences(cookie);
+    let html = injectHtmlFirstPage(template, responsePage, url, "diana", criticalCss, renderReaderNavigation(tree, details.slug, url, preferences.expanded), tree, preferences.accountPending);
     if (mutate) html = mutate(html);
     await route.fulfill({ contentType: "text/html", headers: { "Cache-Control": "private, no-store" }, body: html });
   });
@@ -811,3 +816,34 @@ test("sign-in opens through retained native selection and handles auth failure a
     await expect(page).toHaveURL(/\/$/);
   } finally { release(); }
 });
+
+for (const signedIn of [true, false]) {
+  test(`saved sidebar and ${signedIn ? "valid" : "expired"} account survive early Search`, async ({ page, baseURL }) => {
+    const expanded = { wiki: false };
+    await page.context().addCookies([
+      { name: "wiki_reader_tree", value: encodeURIComponent(JSON.stringify(expanded)), domain: new URL(baseURL!).hostname, path: "/", secure: false, sameSite: "Lax" },
+      { name: "wiki_user_session", value: "synthetic-account-hint", domain: new URL(baseURL!).hostname, path: "/", secure: false, sameSite: "Lax" },
+    ]);
+    await page.addInitScript(value => localStorage.setItem("wiki-vite-expanded-directories", JSON.stringify(value)), expanded);
+    await prepare(page);
+    let release!: () => void;
+    const scripts = new Promise<void>(resolve => { release = resolve; });
+    await page.route("**/api/auth/session", route => route.fulfill({ json: { user: signedIn ? { id: "qa", name: "QA Reader", email: "qa@example.test" } : null } }));
+    await page.route("**/*", async route => { if (route.request().resourceType() === "script") await scripts; await route.fallback(); });
+    try {
+      await page.goto("/", { waitUntil: "commit" });
+      const native = page.locator("#wiki-html-first");
+      await expect(native.locator(".html-first-sign-in")).toBeHidden();
+      await expect(native.locator('[data-folder="wiki"]')).toHaveAttribute("aria-expanded", "false");
+      await native.locator(".html-first-search").click();
+      release();
+      await expect(page.getByTestId("command-palette-input")).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("button", { name: "Expand wiki", exact: true }).filter({ visible: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Expand logistics", exact: true })).toHaveCount(0);
+      const prompt = page.getByTestId("sidebar-sign-in").filter({ visible: true });
+      if (signedIn) await expect(prompt).toHaveCount(0);
+      else await expect(prompt).toBeVisible();
+    } finally { release(); }
+  });
+}
