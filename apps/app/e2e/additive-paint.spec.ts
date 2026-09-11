@@ -35,8 +35,7 @@ for (const scenario of [
       await test.step(phase, async () => {
         if (phase === "cold") await page.goto(`/${slug}`, { waitUntil: "domcontentloaded" });
         else {
-          // Prove we exercise the saved HTML, rather than only the faster live
-          // cache. Keep monitoring through the exact moment React takes over.
+          // A cached reload still waits for React; never display inert controls.
           let release!: () => void;
           const held = new Promise<void>((resolve) => { release = resolve; });
           await page.route("**/*", async (route) => {
@@ -45,7 +44,8 @@ for (const scenario of [
           });
           try {
             await page.reload({ waitUntil: "commit" });
-            await expect(page.locator("#wiki-first-frame-snapshot")).toBeVisible();
+            await expect(page.locator("#wiki-first-frame-snapshot, #wiki-html-first")).toHaveCount(0);
+            await expect(page.locator("#root")).toBeEmpty();
             await page.waitForTimeout(100);
           } finally {
             release();
@@ -61,7 +61,7 @@ for (const scenario of [
         await page.waitForTimeout(1500);
         await assertAdditivePaint(page, testInfo, scenario.width < 768);
         if (phase === "cold") {
-          await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("wiki-vite:first-frame:")))).toBe(true);
+          await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("wiki-vite:first-frame:")))).toBe(false);
         }
       });
     }

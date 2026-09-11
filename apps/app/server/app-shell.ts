@@ -510,7 +510,8 @@ export function createWikiViteHandler({
   client = createClient(),
   distDir,
   indexHtml,
-  htmlFirstExperiment = process.env.WIKI_HTML_FIRST === "1" || process.env.WIKI_HTML_FIRST_EXPERIMENT === "1",
+  // Kept as an explicit test-harness option only; deployment flags no longer enable it.
+  htmlFirstExperiment = false,
   criticalCss,
 }: {
   client?: ConvexHttpClient;

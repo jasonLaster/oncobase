@@ -1,2 +1,2 @@
-import { createReaderEdgeGate } from "../server/reader-edge-gate";
-export default createReaderEdgeGate();
+import { clientReaderGate } from "../server/client-reader-gate";
+export default clientReaderGate;

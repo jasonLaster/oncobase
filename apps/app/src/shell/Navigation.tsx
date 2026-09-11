@@ -1,4 +1,3 @@
-import { rememberReaderTree } from "../reader-preferences";
 import { useStore } from "@livestore/react";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { MarkdownTitle } from "@oncobase/wiki-markdown/title-react";
@@ -94,7 +93,6 @@ function readExpandedDirectories() {
 function writeExpandedDirectories(slugs: Map<string, boolean>) {
   try {
     localStorage.setItem(TREE_EXPANSION_KEY, JSON.stringify(Object.fromEntries(slugs)));
-    rememberReaderTree(slugs);
   } catch {
     // Sidebar expansion is a convenience, not critical cache state.
   }
@@ -244,7 +242,6 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
     }
     return expanded;
   });
-  useEffect(() => { rememberReaderTree(expandedSlugs); }, [expandedSlugs]);
   const activeAncestorSlugs = useMemo(
     () => collectActiveAncestors(tree, activeSlug),
     [activeSlug, tree],

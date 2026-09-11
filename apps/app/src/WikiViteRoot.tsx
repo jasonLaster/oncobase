@@ -114,7 +114,6 @@ export function WikiViteRoot() {
     const fallback = publicIdentityFallback(scope);
     // An automatic identity check may select a different session store. Do
     // not mount a public reader only to tear it down when that check resolves.
-    // The read-only first-frame snapshot can remain visible during this wait.
     return fallback && explicitReaderScope(window.location.search) === "public"
       ? { status: "ready", scope, identity: fallback }
       : { status: "loading", scope };

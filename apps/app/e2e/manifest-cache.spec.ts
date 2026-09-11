@@ -198,22 +198,11 @@ test.describe("durable manifest refresh", () => {
     });
     await gotoWiki(page, `/${slug}`);
     await expect(documentArticle(page)).toContainText("OLD FIRST FRAME");
-    await expect
-      .poll(() =>
-        page.evaluate(() =>
-          Object.keys(localStorage).some((key) =>
-            key.startsWith("wiki-vite:first-frame:reader-v4:"),
-          ),
-        ),
-      )
-      .toBe(true);
-
     requests.setPageOverride(slug, {
       content: "# Insurance\n\nNEW FIRST FRAME arrived after refresh.",
     });
     requests.setManifestDelay(2_000);
-    // Hold hydration, not just the API response. A fast production cache can
-    // replace this intentionally ephemeral snapshot before a 250ms assertion.
+    // Hold scripts to prove cached data is rendered only after React starts.
     let releaseHydration!: () => void;
     const hydrationHeld = new Promise<void>((resolve) => { releaseHydration = resolve; });
     await page.route("**/*", async (route) => {
@@ -226,25 +215,16 @@ test.describe("durable manifest refresh", () => {
         new DOMParser().parseFromString(html, "text/html").title,
       await response!.text());
       const firstFrame = page.locator("#wiki-first-frame-snapshot");
-      await expect(firstFrame).toBeVisible();
-      await expect(firstFrame).toHaveAttribute("aria-disabled", "true");
-      await expect(firstFrame.getByRole("button", { name: "Workspace menu" })).toBeDisabled();
-      await expect(firstFrame.getByTestId("document-article")).toContainText("OLD FIRST FRAME");
-      await expect(firstFrame.getByTestId("wiki-sidebar")).toContainText("insurance");
-      // Production serves route metadata; the snapshot must not replace it
-      // with the previous client title (the dev shell has a generic title).
+      await expect(firstFrame).toHaveCount(0);
+      await expect(page.getByText("OLD FIRST FRAME")).toHaveCount(0);
+      await expect(page.locator("#root")).toBeEmpty();
+      // Server metadata remains available without rendering cached HTML.
       expect(await page.title()).toBe(serverTitle);
     } finally {
       releaseHydration();
     }
 
-    await expect
-      .poll(() =>
-        page.evaluate(
-          () => document.documentElement.dataset.wikiFirstFrame ?? null,
-        ),
-      )
-      .toBeNull();
+    await expect(documentArticle(page)).toContainText("OLD FIRST FRAME");
     await page.evaluate((eventName) => {
       window.dispatchEvent(new Event(eventName));
     }, REFRESH_MANIFEST_EVENT);

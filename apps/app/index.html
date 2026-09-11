@@ -5,21 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>TNBC Knowledge Base</title>
-    <!-- The cached HTML can paint before main.tsx executes. Its stylesheet
-         must be render-blocking too, including in the development server. -->
     <link rel="stylesheet" href="/src/styles.css" />
-    <style>
-      /* First paint must not wait for React, the database, or a cached page. */
-      .reader-boot{box-sizing:border-box;min-height:100dvh;padding:48px max(24px,calc((100vw - 800px)/2));font:16px/1.5 system-ui,sans-serif;color:#6b7280;background:#fff}
-      .reader-boot-title{display:flex;align-items:center;gap:12px;margin:0 0 32px;font-weight:500}
-      .reader-boot-mark{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;background:#4f46e5;color:#fff;font-weight:700}
-      .reader-boot-line{height:14px;margin:16px 0;border-radius:5px;background:#f3f4f6}
-      .reader-boot-heading{width:65%;height:30px;margin-bottom:30px}
-      .reader-boot-short{width:78%}
-      .dark .reader-boot{background:#0f1117;color:#a1a1aa}.dark .reader-boot-line{background:#232632}
-      #wiki-first-frame-snapshot[hidden]{display:none}html[data-wiki-first-frame="true"] #root{visibility:hidden}
-      @media(max-width:767px){.reader-boot{padding:28px 24px}}
-    </style>
     <script>
       (function () {
         try {
@@ -37,113 +23,8 @@
     </script>
   </head>
   <body>
-    <div id="wiki-first-frame-snapshot" hidden></div>
-    <div id="root"><main class="reader-boot" data-test-id="reader-boot-shell" role="status" aria-label="Loading page" aria-busy="true"><p class="reader-boot-title"><span class="reader-boot-mark" aria-hidden="true">D</span>Loading page…</p><div aria-hidden="true"><div class="reader-boot-line reader-boot-heading"></div><div class="reader-boot-line"></div><div class="reader-boot-line"></div><div class="reader-boot-line reader-boot-short"></div><div class="reader-boot-line"></div></div></main></div>
-    <script>
-      (function () {
-        try {
-          var url = new URL(window.location.href);
-          // Fresh server HTML supersedes the persisted, inert first frame.
-          if (document.getElementById("wiki-html-first")) return;
-          var requestedScope = url.searchParams.get("scope");
-          var scope =
-            requestedScope === "public" || requestedScope === "session"
-              ? requestedScope
-              : localStorage.getItem("wiki-vite-scope") === "session"
-                ? "session"
-                : "public";
-          if (scope !== "public") return;
-
-          var currentReader = "__WIKI_CURRENT_READER_CACHE_VERSION__";
-          var previousReader = "__WIKI_PREVIOUS_READER_CACHE_VERSION__";
-          var snapshot = null;
-          var snapshotReader = null;
-          var candidates = [currentReader, previousReader];
-          for (var index = 0; index < candidates.length; index += 1) {
-            var reader = candidates[index];
-            var key =
-              "wiki-vite:first-frame:" +
-              reader +
-              ":" +
-              window.location.origin;
-            var serialized = localStorage.getItem(key);
-            if (!serialized) continue;
-            var candidate = JSON.parse(serialized);
-            var validatedPrevious =
-              reader !== previousReader ||
-              (candidate.readerCacheVersion === previousReader &&
-                typeof candidate.validatedAt === "number" &&
-                candidate.validatedAt > 0);
-            if (
-              validatedPrevious &&
-              candidate.pathname === window.location.pathname &&
-              typeof candidate.html === "string" &&
-              candidate.html.indexOf('data-test-id="document-article"') !== -1 &&
-              candidate.html.indexOf('data-test-id="wiki-sidebar"') !== -1 &&
-              (candidate.html.indexOf("<h1") !== -1 ||
-                candidate.html.indexOf('class="wiki-markdown ') !== -1)
-            ) {
-              snapshot = candidate;
-              snapshotReader = reader;
-              break;
-            }
-          }
-          if (!snapshot) return;
-          var host = document.getElementById("wiki-first-frame-snapshot");
-          host.innerHTML = snapshot.html;
-          // A snapshot is content, not the authority for current layout
-          // preferences (which another tab may have changed since capture).
-          var storedWidth = parseInt(localStorage.getItem("sidebar-width"), 10);
-          var sidebarWidth = storedWidth >= 0 && storedWidth <= 480 ? storedWidth : 256;
-          host.querySelectorAll("[data-sidebar-layout]").forEach(function (layout) {
-            layout.dataset.sidebarState = sidebarWidth === 0 ? "collapsed" : "expanded";
-          });
-          host.querySelectorAll("[data-sidebar-expanded-rail]").forEach(function (rail) {
-            rail.style.width = sidebarWidth + "px";
-          });
-          var paneOpen = localStorage.getItem("comments-pane-open") === "1";
-          var storedPaneWidth = parseInt(localStorage.getItem("comments-pane-width"), 10);
-          var paneWidth = paneOpen ? (storedPaneWidth >= 240 && storedPaneWidth <= 640 ? storedPaneWidth : 384) : 64;
-          host.querySelectorAll(".wiki-shell-outline-root").forEach(function (root) {
-            root.dataset.rightRailState = paneOpen ? "expanded" : "collapsed";
-            root.style.setProperty("--comments-pane-width", paneWidth + "px");
-          });
-          host.querySelectorAll("[data-wiki-shell-right-rail]").forEach(function (rail) {
-            var paneState = paneOpen ? "expanded" : "collapsed";
-            if (rail.dataset.outlineState !== paneState) {
-              // The old controls may describe the opposite state. Reserve the
-              // new rail now and let the live reader add the correct controls.
-              Array.from(rail.children).forEach(function (child) { child.style.visibility = "hidden"; });
-            }
-            rail.dataset.outlineState = paneState;
-            rail.classList.toggle("expanded", paneOpen);
-            rail.classList.toggle("collapsed", !paneOpen);
-            rail.style.width = paneWidth + "px";
-          });
-          host.hidden = false;
-          host.dataset.readOnly = "true";
-          // Cached text is readable, but its cloned controls have no handlers.
-          // Expose that state instead of presenting enabled, dead controls.
-          host.setAttribute("aria-disabled", "true");
-          host.setAttribute("aria-busy", "true");
-          host.querySelectorAll("a, button, input, select, textarea, [tabindex]").forEach(function (control) {
-            control.setAttribute("tabindex", "-1");
-          });
-          host.dataset.readerCacheVersion = snapshotReader;
-          var preventSnapshotAction = function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-          };
-          host.addEventListener("click", preventSnapshotAction, true);
-          host.addEventListener("submit", preventSnapshotAction, true);
-          document.documentElement.dataset.wikiFirstFrame = "true";
-          document.documentElement.dataset.wikiFirstFrameVersion =
-            snapshotReader;
-        } catch (error) {
-          // localStorage may be disabled or contain a partially-written value.
-        }
-      })();
-    </script>
+    <div id="root"></div>
+    <noscript>Enable JavaScript to read this wiki.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

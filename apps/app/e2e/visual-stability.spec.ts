@@ -93,11 +93,10 @@ for (const outcome of ["unchanged", "updated", "failed"] as const) {
 }
 
 for (const preference of ["narrow", "collapsed", "outline"] as const) {
-test(`saved first frame uses current ${preference} preference after another tab changes it`, async ({ page }) => {
+test(`client reload uses current ${preference} preference after another tab changes it`, async ({ page }) => {
   await installWikiApiMocks(page);
   await gotoWiki(page, `/${first}`);
-  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("wiki-vite:first-frame:")))).toBe(true);
-  // Equivalent to another tab saving a narrower sidebar after this snapshot.
+  // Equivalent to another tab saving a narrower sidebar before this reload.
   await page.evaluate((preference) => {
     if (preference === "outline") {
       localStorage.setItem("comments-pane-open", "1");
@@ -112,7 +111,9 @@ test(`saved first frame uses current ${preference} preference after another tab 
   });
   try {
     await page.reload({ waitUntil: "commit" });
-    await expect(page.locator("#wiki-first-frame-snapshot")).toBeVisible();
+    await expect(page.locator("#root")).toHaveCount(1);
+    await expect(page.locator("#root")).toBeEmpty();
+    await expect(page.locator("#wiki-first-frame-snapshot")).toHaveCount(0);
     await page.waitForTimeout(100);
   } finally { release(); }
   await expect(page.locator("#wiki-first-frame-snapshot").filter({ visible: true })).toHaveCount(0);
@@ -122,10 +123,9 @@ test(`saved first frame uses current ${preference} preference after another tab 
 });
 }
 
-test("late authenticated identity hands the public snapshot to the session reader", async ({ page }) => {
+test("late authenticated identity opens the session reader without exposing cached HTML", async ({ page }) => {
   const requests = await installWikiApiMocks(page);
   await gotoWiki(page, `/${first}?scope=public`);
-  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("wiki-vite:first-frame:")))).toBe(true);
   requests.setSessionAuthenticated(true);
   requests.setPageOverride(first, { content: "# Insurance\n\nSESSION_ONLY_SENTINEL" });
   await page.route("**/api/wiki/session**", async (route) => {

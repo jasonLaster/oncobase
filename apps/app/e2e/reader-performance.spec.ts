@@ -7,7 +7,7 @@ const pages = Object.fromEntries(Array.from({ length: 800 }, (_, index) => [
   { title: `Performance page ${index}`, content: `# Performance page ${index}\n\nSynthetic large-tree document ${index}.`, tags: ["performance"] },
 ]));
 
-test("an uncached page paints an accessible shell before JavaScript arrives", async ({ page }) => {
+test("an uncached page renders no inert UI before JavaScript arrives", async ({ page }) => {
   await installWikiApiMocks(page);
   let release!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; });
@@ -17,8 +17,8 @@ test("an uncached page paints an accessible shell before JavaScript arrives", as
   });
   try {
     await page.goto("/wiki/logistics/insurance", { waitUntil: "commit" });
-    await expect(page.getByRole("status", { name: "Loading page", exact: true })).toBeVisible();
-    await expect(page.getByTestId("reader-boot-shell")).toHaveAttribute("aria-busy", "true");
+    await expect(page.locator("#root")).toHaveCount(1);
+    await expect(page.locator("#root")).toBeEmpty();
     await expect(documentArticle(page)).toHaveCount(0);
   } finally { release(); }
   await waitForPageTitle(page, "Insurance");

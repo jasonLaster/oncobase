@@ -14,7 +14,7 @@ export default defineConfig({
   workers: 2,
   retries: 0,
   use: {
-    baseURL: "https://diana-tnbc.com",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || "https://diana-tnbc.com",
     testIdAttribute: "data-test-id",
     actionTimeout: 30_000,
     navigationTimeout: 60_000,

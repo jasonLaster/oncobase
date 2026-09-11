@@ -22,7 +22,8 @@ for (const path of ["/", "/missing-reader-page"]) {
       try {
         pauseScripts = true;
         await page.reload({ waitUntil: "commit" });
-        await expect(page.locator('#wiki-first-frame-snapshot:visible, [data-test-id="reader-boot-shell"]:visible').first()).toBeVisible();
+        await expect(page.locator("#wiki-reader-shortcuts")).toHaveCount(1);
+        await expect(page.locator("#root")).toBeEmpty();
         await page.keyboard.press(shortcut);
         // The chord can span the transition from inline listener to React.
         release();

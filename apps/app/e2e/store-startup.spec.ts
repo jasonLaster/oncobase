@@ -77,11 +77,10 @@ test("healthy follower tabs and leader handoff do not need fallback", async ({ p
   expect(warnings.filter(message => message.includes("startup timed out"))).toEqual([]);
 });
 
-test("a silent shared worker recovers even with a cached first frame", async ({ page }) => {
+test("a silent shared worker recovers on a cached client reload", async ({ page }) => {
   test.setTimeout(60_000);
   await installWikiApiMocks(page);
   await gotoWiki(page, "/wiki/logistics/insurance");
-  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith("wiki-vite:first-frame:")))).toBe(true);
   await page.addInitScript(() => {
     const RealSharedWorker = window.SharedWorker;
     const silent = URL.createObjectURL(new Blob(["onconnect = () => {};"], { type: "text/javascript" }));

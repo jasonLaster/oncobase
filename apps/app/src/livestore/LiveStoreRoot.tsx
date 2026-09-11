@@ -18,7 +18,7 @@ import { App } from "../App";
 import { CanonicalRouteBoundary } from "../CanonicalRouteBoundary";
 import { WikiAuthProvider } from "../shell/Header";
 import { WikiScopeProvider, WikiSessionProvider } from "../wiki-context";
-import { FirstFrameSnapshotSync } from "./FirstFrameSnapshot";
+import { ReaderCacheRetirement } from "./ReaderCacheRetirement";
 import { readDevtoolsFooterVisible, readLiveStoreDevtoolsEnabled } from "./devtools";
 import LiveStoreWorker from "./livestore.worker?worker";
 import { schema } from "./schema";
@@ -152,10 +152,7 @@ function ReaderStore({ identity, scope, storeId }: {
   storeId: string;
 }) {
   const boot = useMemo(() => createReaderBoot(identity), [identity]);
-  const [adapter, setAdapter] = useState<Awaited<typeof adapterPromise> | null>(() =>
-    // Server-rendered reading already has fresh content. Do not hold the
-    // interactive app behind an older tab's persistent worker or cache lock.
-    document.getElementById("wiki-html-first") ? temporaryAdapter : null);
+  const [adapter, setAdapter] = useState<Awaited<typeof adapterPromise> | null>(null);
   const [stalled, setStalled] = useState(false);
   useEffect(() => {
     let active = true;
@@ -210,7 +207,7 @@ function ReaderStore({ identity, scope, storeId }: {
         <WikiSessionProvider identity={identity}>
           <WikiScopeProvider scope={scope}>
             <SessionCacheRetirement identity={identity} scope={scope} />
-            <FirstFrameSnapshotSync identity={identity} scope={scope} />
+            <ReaderCacheRetirement identity={identity} scope={scope} />
             <WikiAuthProvider>
               <CanonicalRouteBoundary>
                 <App

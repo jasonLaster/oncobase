@@ -4,7 +4,6 @@ import {
   makePublicWikiSessionIdentity,
   makeWikiStoreId,
   WIKI_PREVIOUS_READER_CACHE_VERSION,
-  WIKI_READER_CACHE_VERSION,
 } from "@oncobase/wiki-content";
 import {
   firstFrameSnapshotKey,
@@ -85,7 +84,7 @@ test("retires only the matching reader-v3 OPFS namespace after v4 hydration", as
   }, { matching: matchingDirectory, unrelated: unrelatedDirectory })).toEqual({ matching: false, unrelated: true });
 });
 
-test("keeps a validated N-1 first frame offline until current hydration retires it", async ({
+test("ignores stale HTML offline and recovers through the client reader", async ({
   baseURL,
   page,
 }) => {
@@ -187,24 +186,10 @@ test("keeps a validated N-1 first frame offline until current hydration retires 
   await page.goto(pathname, { waitUntil: "domcontentloaded" });
 
   const firstFrame = page.locator("#wiki-first-frame-snapshot");
-  await expect(firstFrame).toBeVisible();
-  await expect(firstFrame).toContainText("N-1 OFFLINE SNAPSHOT remains readable.");
-  await expect(firstFrame).toHaveAttribute(
-    "data-reader-cache-version",
-    WIKI_PREVIOUS_READER_CACHE_VERSION,
-  );
-  await expect(firstFrame).toHaveAttribute("data-read-only", "true");
-  const cachedLink = firstFrame.getByRole("link", { name: "Cached link" });
-  await expect(cachedLink).toBeDisabled();
-  await expect(cachedLink).toHaveAttribute("tabindex", "-1");
-  // Even an explicit pointer action must not activate a stale snapshot link.
-  await cachedLink.click({ force: true });
-  await expect(page).toHaveURL(new RegExp(`${pathname}$`));
-  await expect(page.locator("#root")).toHaveCSS("visibility", "hidden");
-  expect(requests.manifest).toHaveLength(0);
-  expect(
-    await page.evaluate((key) => localStorage.getItem(key), previousSnapshotKey),
-  ).not.toBeNull();
+  await expect(firstFrame).toHaveCount(0);
+  await expect(page.getByText("N-1 OFFLINE SNAPSHOT remains readable.")).toHaveCount(0);
+  await expect(page.locator("#root")).toHaveCSS("visibility", "visible");
+  await expect.poll(() => page.evaluate(key => localStorage.getItem(key), previousSnapshotKey)).toBeNull();
 
   requests.setSessionIdentityFailure(false);
   await page.evaluate(() => {
@@ -226,21 +211,7 @@ test("keeps a validated N-1 first frame offline until current hydration retires 
     )
     .toBeNull();
   expect(requests.manifest).toHaveLength(1);
-  // Handoff to the live reader precedes deferred snapshot serialization.
-  // Wait for successful replacement/retirement, not an arbitrary delay.
-  await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), previousSnapshotKey)).toBeNull();
-  const snapshots = await page.evaluate(
-    ({ currentKey, previousKey }) => ({
-      current: localStorage.getItem(currentKey),
-      previous: localStorage.getItem(previousKey),
-    }),
-    { currentKey: currentSnapshotKey, previousKey: previousSnapshotKey },
-  );
-  expect(snapshots.previous).toBeNull();
-  expect(JSON.parse(snapshots.current ?? "{}")).toMatchObject({
-    pathname,
-    readerCacheVersion: WIKI_READER_CACHE_VERSION,
-  });
+  expect(await page.evaluate(key => localStorage.getItem(key), currentSnapshotKey)).toBeNull();
   await expect
     .poll(() =>
       page.evaluate(
@@ -346,7 +317,8 @@ test("retires stale first-frame HTML when the refreshed public manifest makes th
   await page.goto(pathname, { waitUntil: "domcontentloaded" });
 
   const firstFrame = page.locator("#wiki-first-frame-snapshot");
-  await expect(firstFrame).toContainText("FORMERLY PUBLIC CONTENT must disappear.");
+  await expect(firstFrame).toHaveCount(0);
+  await expect(page.getByText("FORMERLY PUBLIC CONTENT must disappear.")).toHaveCount(0);
   await expect.poll(() => requests.manifest.length).toBe(1);
   await expect(firstFrame).toHaveCount(0);
   await expect(page.locator("#root")).toHaveCSS("visibility", "visible");

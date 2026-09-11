@@ -9,13 +9,7 @@
   z-index: 60;
 }
 
-#wiki-first-frame-snapshot[hidden] {
-  display: none;
-}
 
-html[data-wiki-first-frame="true"] #root {
-  visibility: hidden;
-}
 
 /* Keep distant sections inexpensive after the HTML-to-application handoff.
    Auto containment retains native find, selection, and anchor navigation;

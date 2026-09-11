@@ -128,6 +128,28 @@ describe("wiki Vite app-shell password gate", () => {
     await rm(distDir, { recursive: true, force: true });
   });
 
+  test("legacy deployment flags cannot enable HTML handoff", async () => {
+    const saved = [process.env.WIKI_HTML_FIRST, process.env.WIKI_HTML_FIRST_EXPERIMENT];
+    process.env.WIKI_HTML_FIRST = "1";
+    process.env.WIKI_HTML_FIRST_EXPERIMENT = "1";
+    try {
+      const handler = createWikiViteHandler({ client: fakeClient() as never, distDir });
+      expect((await handler(request("/"))).status).toBe(302);
+      for (const pathname of ["/", "/?html-first=on", "/search", "/chat"]) {
+        const response = await handler(request(pathname, { headers: await authenticatedHeaders() }));
+        const body = await response.text();
+        expect(response.status).toBe(200);
+        expect(body).toContain('id="root"');
+        expect(body).not.toContain('id="wiki-html-first"');
+        expect(body).not.toContain('id="wiki-page-bootstrap"');
+      }
+    } finally {
+      for (const [i, key] of ["WIKI_HTML_FIRST", "WIKI_HTML_FIRST_EXPERIMENT"].entries()) {
+        if (saved[i] === undefined) delete process.env[key]; else process.env[key] = saved[i];
+      }
+    }
+  });
+
   test("HTML-first is opt-in, gated, public-only, redacted, and privately served", async () => {
     const client = fakeClient();
     const handler = createWikiViteHandler({ client: client as never, distDir, htmlFirstExperiment: true });

@@ -40,6 +40,21 @@ test.afterEach(async ({ page }, testInfo) => {
   expect(result.failedResponses, "Production 5xx responses").toEqual([]);
 });
 
+test("client-rendered documents retain the password gate and reject retired cache URLs", async ({ playwright, baseURL }) => {
+  const anonymous = await playwright.request.newContext({ baseURL });
+  try {
+    for (const path of ["/", articlePath]) {
+      const response = await anonymous.get(path, { maxRedirects: 0 });
+      expect(response.status()).toBe(302);
+      expect(new URL(response.headers().location, baseURL).pathname).toBe("/login");
+    }
+    // The production edge and function both reject this retired namespace.
+    if (new URL(baseURL!).hostname === "diana-tnbc.com") {
+      expect((await anonymous.get("/__reader/html/retired", { maxRedirects: 0 })).status()).toBe(404);
+    }
+  } finally { await anonymous.dispose(); }
+});
+
 async function ready(page: Page) {
   await expect(article(page).locator(".wiki-markdown")).toBeVisible();
   await expect(page.locator("#wiki-html-first")).toHaveCount(0);
@@ -94,7 +109,7 @@ for (const path of [articlePath, "/"]) {
   }
 }
 
-test("early Search click opens files and keeps the current route", async ({ page }) => {
+test("cold startup exposes only React controls; Search opens files in place", async ({ page }) => {
   let release!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; });
   await page.route("**/*", async route => {
@@ -102,46 +117,30 @@ test("early Search click opens files and keeps the current route", async ({ page
     await route.fallback();
   });
   try {
-    await page.goto(articlePath, { waitUntil: "domcontentloaded" });
-    if (!phone(page)) {
-      const nativeTree = page.locator("#wiki-html-first .wiki-shell-tree-link:visible");
-      expect(await nativeTree.count()).toBeGreaterThan(2);
-    }
-    await page.locator("#wiki-html-first [data-reader-file-palette]:visible").click();
+    const response = await page.goto(articlePath, { waitUntil: "commit" });
+    const html = await response!.text();
+    expect(html).not.toContain('id="wiki-html-first"');
+    expect(html).not.toContain('id="wiki-first-frame-snapshot"');
+    await expect(page.locator("#root")).toHaveCount(1);
+    await expect(page.locator("#root")).toBeEmpty();
+    release();
+    await ready(page);
+    await page.getByTestId(phone(page) ? "mobile-header-search" : "sidebar-search").click();
+    await expect(input(page)).toBeFocused();
     expect(new URL(page.url()).pathname).toBe(articlePath);
-    await timed(page, "early-search-to-focus-ms", async () => {
-      release();
-      await expect(input(page)).toBeFocused();
-    });
-    await expect(page.getByRole("dialog", { name: "Go to page" })).toBeVisible();
     await chooseInsurance(page);
   } finally { release(); }
 });
 
-test("early Ask wiki navigates with reader scripts still pending", async ({ page }) => {
-  let release!: () => void;
-  const held = new Promise<void>(resolve => { release = resolve; });
-  await page.route("**/*", async route => {
-    if (route.request().resourceType() === "script") await held;
-    await route.fallback();
-  });
-  try {
-    await page.goto(articlePath, { waitUntil: "domcontentloaded" });
-    const destination = page.waitForRequest(request => request.isNavigationRequest() && new URL(request.url()).pathname === "/chat");
-    await timed(page, "ask-click-to-navigation-request-ms", async () => {
-      await page.locator('#wiki-html-first a[href="/chat"]:visible').click({ noWaitAfter: true });
-      await destination;
-    });
-    await expect(page).toHaveURL(/\/chat$/);
-    await expect(page.locator("#wiki-html-first")).toHaveCount(0);
-    await timed(page, "chat-document-to-composer-ms", async () => {
-      release();
-      await expect(page.getByTestId("chat-composer-textarea")).toBeVisible();
-    });
-    await page.getByTestId("chat-composer-textarea").fill("Production navigation check — unsent");
-    await expect(page.getByTestId("chat-submit-button")).toBeEnabled();
-    await page.getByTestId("chat-composer-textarea").clear();
-  } finally { release(); }
+test("Ask wiki works on a cold client-rendered page", async ({ page }) => {
+  await page.goto(articlePath, { waitUntil: "domcontentloaded" });
+  await ready(page);
+  await page.getByTestId(phone(page) ? "mobile-ask-wiki" : "sidebar-ask-wiki").click();
+  await expect(page).toHaveURL(/\/chat$/);
+  await expect(page.getByTestId("chat-composer-textarea")).toBeVisible();
+  await page.getByTestId("chat-composer-textarea").fill("Production navigation check — unsent");
+  await expect(page.getByTestId("chat-submit-button")).toBeEnabled();
+  await page.getByTestId("chat-composer-textarea").clear();
 });
 
 test("interactive Ask wiki switches before chat downloads; history and composer work", async ({ page }) => {
@@ -303,31 +302,20 @@ test("Search preserves sign in; account dialog opens in place and traps focus", 
   await expect(prompt).toBeFocused();
 });
 
-test("initial Sign in opens in place with scripts delayed", async ({ page }) => {
-  test.skip(phone(page), "The initial phone header has no sign-in control; its navigation dialog is covered separately.");
-  let release!: () => void;
-  const scripts = new Promise<void>(resolve => { release = resolve; });
-  await page.route("**/*", async route => {
-    if (route.request().resourceType() === "script") await scripts;
-    await route.fallback();
-  });
-  try {
-    await page.goto(articlePath, { waitUntil: "domcontentloaded" });
-    await page.locator("#wiki-html-first .html-first-sign-in").click();
-    expect(new URL(page.url()).pathname).toBe(articlePath);
-    expect(new URL(page.url()).search).toBe("");
-    release();
-    await expect(page.getByTestId("wiki-auth-dialog").getByLabel("Email", { exact: true })).toBeFocused();
-    await expect(page.locator("#wiki-html-first")).toHaveCount(0);
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("wiki-auth-dialog")).toHaveCount(0);
-    await expect(page.getByTestId("sidebar-sign-in").filter({ visible: true })).toBeVisible();
-    expect(new URL(page.url()).search).toBe("");
-  } finally { release(); }
+test("Sign in opens in place on a cold client-rendered page", async ({ page }) => {
+  await page.goto(articlePath, { waitUntil: "domcontentloaded" });
+  await ready(page);
+  await (await visibleSignIn(page)).click();
+  expect(new URL(page.url()).pathname).toBe(articlePath);
+  expect(new URL(page.url()).search).toBe("");
+  await expect(page.getByTestId("wiki-auth-dialog").getByLabel("Email", { exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("wiki-auth-dialog")).toHaveCount(0);
+  await expect(page.getByTestId("sidebar-sign-in").filter({ visible: true })).toBeVisible();
 });
 
 test("saved folder collapse survives refresh and early Search without changing the sidebar", async ({ page }) => {
-  test.skip(phone(page), "Native desktop tree parity; phone navigation is covered in the reader tests.");
+  test.skip(phone(page), "Desktop saved tree state; phone navigation is covered in the reader tests.");
   await page.goto(articlePath, { waitUntil: "domcontentloaded" });
   await ready(page);
   const tree = page.getByTestId("wiki-sidebar");
@@ -340,10 +328,14 @@ test("saved folder collapse survives refresh and early Search without changing t
     await route.fallback();
   });
   try {
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.locator('#wiki-html-first [data-folder="wiki"]')).toHaveAttribute("aria-expanded", "false");
-    await page.locator("#wiki-html-first .html-first-search").click();
+    await page.reload({ waitUntil: "commit" });
+    await expect(page.locator("#root")).toHaveCount(1);
+    await expect(page.locator("#root")).toBeEmpty();
+    await expect(page.locator("#wiki-html-first, #wiki-first-frame-snapshot")).toHaveCount(0);
     release();
+    await ready(page);
+    await expect(tree.getByRole("button", { name: "Expand wiki", exact: true })).toBeVisible();
+    await page.getByTestId("sidebar-search").click();
     await expect(input(page)).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(tree.getByRole("button", { name: "Expand wiki", exact: true })).toBeVisible();

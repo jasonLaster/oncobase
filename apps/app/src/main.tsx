@@ -5,6 +5,14 @@ import { BrowserRouter, useLocation } from "react-router";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { publishRuntimeEnvironment } from "./observability";
 
+// Retire inert HTML copies from older releases. Structured reader data remains
+// cached, but only React renders its controls and document content.
+try {
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith("wiki-vite:first-frame:")) localStorage.removeItem(key);
+  }
+} catch { /* Reading still works when local storage is unavailable. */ }
+
 if (new URLSearchParams(location.search).get("paintDebug") === "1" && !window.__WIKI_VISUAL_STABILITY__) {
   void import("./visual-stability").then(({ installVisualStabilityObserver }) => {
     installVisualStabilityObserver();
