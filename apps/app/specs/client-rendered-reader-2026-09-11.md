@@ -17,3 +17,15 @@ The old renderer remains reachable only through the explicit local experiment ha
 Build, type checking, bundle budget, scoped lint, and 544 unit tests pass. Browser coverage includes held startup scripts, old saved HTML, refreshed keyboard shortcuts, anonymous account dialogs, mobile navigation, unavailable storage, data cache retirement, background refresh, saved widths, delayed workers, and history. Real-data checks exercise the same entry paths without replacing backend responses. Tests do not submit account forms, chats, or comments.
 
 The intended tradeoff is that initial content waits for JavaScript. Loading UI is rendered by React; displayed reader controls are never inert clones awaiting a handoff.
+
+## Production result
+
+Runtime release: `37c1a333551e8d7d29c6ebae26ce936b8b21df48`, deployment `dpl_6dypwA9VQVLnhz2ucAM3UgFMd18z`, verified at `https://diana-tnbc.com`.
+
+Local verification finished with 544 passing unit tests and 151 passing browser checks, plus one intentionally skipped opt-in live probe. The lifecycle run initially hit an obsolete snapshot-readiness assertion; its corrected cache-refresh test passed on rerun.
+
+The production matrix covered 90 cases across Chromium, Firefox, and WebKit at desktop and phone widths. The first run produced 83 passes, 4 failures, and 3 intentional skips (desktop saved-folder checks on phone layouts). Two Firefox failures came from Playwright retrieving an intercepted navigation response body; the regression now inspects the actual document with scripts held instead. Chat tests release the artificial network interception before ordinary reload.
+
+After rerunning both affected scenarios in all six configurations, the combined result is **86 passing cases, 1 failing case, and 3 intentional skips**. The remaining failure is the WebKit phone chat history/reload test's strict browser-error assertion: canceled manifest, page, and account-session requests report access-control errors. Its navigation, history, reload, and composer assertions pass. The analogous WebKit cancellation diagnostic existed before this change; it remains reported rather than suppressed. This result does not establish that every browser flow is error-free.
+
+No same-origin 5xx responses were captured by the matrix. Deployment log sampling also returned no 5xx records. Private screenshots, traces, and runtime error details remain local under `.playwright/csr-production-first-matrix/` and `.playwright/production-reader/`.

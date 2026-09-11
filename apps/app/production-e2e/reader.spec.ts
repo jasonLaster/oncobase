@@ -117,11 +117,11 @@ test("cold startup exposes only React controls; Search opens files in place", as
     await route.fallback();
   });
   try {
-    const response = await page.goto(articlePath, { waitUntil: "commit" });
-    const html = await response!.text();
-    expect(html).not.toContain('id="wiki-html-first"');
-    expect(html).not.toContain('id="wiki-first-frame-snapshot"');
+    await page.goto(articlePath, { waitUntil: "commit" });
     await expect(page.locator("#root")).toHaveCount(1);
+    // Inspect the parsed document with scripts held. Firefox cannot reliably
+    // retrieve an intercepted navigation body through Network.getResponseBody.
+    await expect(page.locator("#wiki-html-first, #wiki-first-frame-snapshot")).toHaveCount(0);
     await expect(page.locator("#root")).toBeEmpty();
     release();
     await ready(page);
@@ -164,6 +164,9 @@ test("interactive Ask wiki switches before chat downloads; history and composer 
     await page.getByTestId("chat-composer-textarea").fill("Production navigation check — unsent");
     await expect(page.getByTestId("chat-submit-button")).toBeEnabled();
     await page.getByTestId("chat-composer-textarea").clear();
+    // The delayed-chunk scenario is complete. Exercise reload using native
+    // networking after releasing the artificial delay.
+    await page.unroute("**/assets/ChatPage-*.js");
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("chat-composer-textarea")).toBeVisible();
   } finally { release(); }
