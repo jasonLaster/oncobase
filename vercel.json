@@ -20,6 +20,20 @@
       "maxDuration": 60
     }
   },
+  "redirects": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "diagnostics.diana-tnbc.com" }],
+      "destination": "https://diana-tnbc.com/diagnostics",
+      "permanent": false
+    },
+    {
+      "source": "/:path+",
+      "has": [{ "type": "host", "value": "diagnostics.diana-tnbc.com" }],
+      "destination": "https://diana-tnbc.com/:path+",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
