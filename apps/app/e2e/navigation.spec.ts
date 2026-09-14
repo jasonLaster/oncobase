@@ -216,6 +216,50 @@ test.describe("Page viewing and sidebar navigation", () => {
     await expect(sidebar.getByRole("button", { name: "Expand sources" })).toBeVisible();
   });
 
+  for (const stored of ["[]", "{}", "null", "invalid JSON"]) {
+    test(`sidebar retains defaults with saved state ${stored}`, async ({ page }) => {
+      await page.addInitScript((value) => {
+        localStorage.setItem("wiki-vite-expanded-directories", value);
+      }, stored);
+      await gotoWiki(page, "/");
+
+      const sidebar = page.getByTestId("wiki-sidebar");
+      await expect(sidebar.getByRole("button", { name: "Collapse wiki" })).toBeVisible();
+      await expect(sidebar.getByRole("button", { name: "Expand sources" })).toBeVisible();
+      await expect(sidebar.getByRole("button", { name: "Expand logistics" })).toBeVisible();
+    });
+  }
+
+  test("native HTML folder selection carries into the interactive tree", async ({ page }) => {
+    await gotoWiki(page, "/?tree=wiki/logistics");
+    const sidebar = page.getByTestId("wiki-sidebar");
+    await expect(sidebar.getByRole("button", { name: "Collapse logistics" })).toBeVisible();
+    await sidebar.getByRole("button", { name: "Collapse logistics" }).click();
+    await expect(sidebar.getByRole("button", { name: "Expand logistics" })).toBeVisible();
+  });
+
+  test("desktop and mobile share directory choices without overwriting them", async ({ page }) => {
+    await gotoWiki(page, "/");
+    const sidebar = page.getByTestId("wiki-sidebar");
+    await sidebar.getByRole("button", { name: "Expand logistics" }).click();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByTestId("bottom-nav-trigger").click();
+    const sheet = page.getByRole("dialog", { name: "Page navigation" });
+    await expect(sheet.getByRole("button", { name: "Collapse logistics" })).toBeVisible();
+    await sheet.getByRole("button", { name: "Expand about" }).click();
+    await sheet.getByRole("button", { name: "Collapse wiki" }).click();
+    await sheet.getByRole("button", { name: "Close navigation" }).last().click();
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(sidebar.getByRole("button", { name: "Collapse about" })).toBeVisible();
+    await expect(sidebar.getByRole("button", { name: "Expand wiki" })).toBeVisible();
+    await page.reload();
+    await expect(sidebar.getByRole("button", { name: "Expand wiki" })).toBeVisible();
+    await sidebar.getByRole("button", { name: "Expand wiki" }).click();
+    await expect(sidebar.getByRole("button", { name: "Collapse logistics" })).toBeVisible();
+  });
+
   test("shared actions menu exposes account actions when signed in", async ({ page }) => {
     await page.route("**/api/auth/session", async (route) => {
       await route.fulfill({

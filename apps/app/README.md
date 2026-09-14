@@ -149,6 +149,17 @@ The header finder is intentionally not the canonical wiki search. It filters the
 
 The default store is public-only, even if the browser also has a signed-in wiki session. Open `/?scope=session` to use authenticated content. Session mode first fetches `/api/wiki/session` and only opens LiveStore with a server-issued cache key for the current wiki session.
 
+## File Tree Expansion
+
+The desktop sidebar and mobile navigation share these rules:
+
+- On a fresh visit, only the top-level `wiki` directory starts expanded. Its descendants and other top-level directories start collapsed.
+- Ancestors of the active page open automatically unless the reader has explicitly collapsed them.
+- Manual expansion and collapse choices persist across navigation and reloads, including a collapsed active branch. Switching between desktop and mobile preserves the same choices.
+- Saved preferences override defaults. Empty, invalid, or unavailable storage still uses the default tree; an explicit saved `false` keeps that directory collapsed. Legacy arrays of expanded slugs remain supported.
+
+These rules preserve the [active-route contract](./specs/features.md#wiki-browsing-and-navigation), the [sidebar parity checkpoint](../../plans/vite-livestore-wiki-reader.md#2026-05-09-sidebar-parity-checkpoint), and the fresh-state and persistence cases in [`e2e/navigation.spec.ts`](./e2e/navigation.spec.ts).
+
 ## Architecture Note
 
 The app serves content, publishing and interactive APIs directly. Convex lives

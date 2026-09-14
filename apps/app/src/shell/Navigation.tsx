@@ -35,8 +35,8 @@ import {
   useNavigationSlug,
 } from "./navigation-intent";
 import { ViteActionsMenu, openCommandPalette, useWikiViteAuth } from "./Header";
+import { toggleDirectory, useExpandedDirectories } from "./tree-expansion";
 
-const TREE_EXPANSION_KEY = "wiki-vite-expanded-directories";
 const ChatNavigation = lazy(() => import("../chat/ChatNavigation"));
 const ICON_SIZE = 16;
 const MOBILE_OUTLINE_SELECTOR = "h2[id], h3[id], h4[id]";
@@ -65,38 +65,6 @@ function useWikiTree() {
   const store = useReaderStore();
   const initial = useInitialReaderData();
   return (useReaderQuery(sidebarTree$, initial?.tree ?? null) ?? (store ? bootstrappedNavigation.get(store) : undefined) ?? []) as WikiNavigationNode[];
-}
-
-function readExpandedDirectories() {
-  try {
-    const stored = localStorage.getItem(TREE_EXPANSION_KEY);
-    if (stored == null) return new Map([["wiki", true]]);
-    const parsed = JSON.parse(stored) as unknown;
-    if (Array.isArray(parsed)) {
-      return new Map(
-        parsed
-          .filter((item): item is string => typeof item === "string")
-          .map((slug) => [slug, true]),
-      );
-    }
-    if (parsed && typeof parsed === "object") {
-      return new Map(
-        Object.entries(parsed)
-          .filter((entry): entry is [string, boolean] => typeof entry[1] === "boolean"),
-      );
-    }
-    return new Map<string, boolean>();
-  } catch {
-    return new Map<string, boolean>();
-  }
-}
-
-function writeExpandedDirectories(slugs: Map<string, boolean>) {
-  try {
-    localStorage.setItem(TREE_EXPANSION_KEY, JSON.stringify(Object.fromEntries(slugs)));
-  } catch {
-    // Sidebar expansion is a convenience, not critical cache state.
-  }
 }
 
 function collectMobileOutlineItems() {
@@ -233,29 +201,11 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
   const location = useLocation();
   const locationSlug = slugFromPath(location.pathname);
   const activeSlug = useNavigationSlug(locationSlug);
-  const [expandedSlugs, setExpandedSlugs] = useState(() => {
-    const expanded = readExpandedDirectories();
-    // Carry a native HTML folder selection into the interactive tree.
-    const branch = new URLSearchParams(location.search).get("tree");
-    if (branch) {
-      const parts = branch.split("/");
-      for (let index = 1; index <= parts.length; index++) expanded.set(parts.slice(0, index).join("/"), true);
-    }
-    return expanded;
-  });
+  const expandedSlugs = useExpandedDirectories();
   const activeAncestorSlugs = useMemo(
     () => collectActiveAncestors(tree, activeSlug),
     [activeSlug, tree],
   );
-  const toggleDirectory = useCallback((slug: string, nextOpen: boolean) => {
-    setExpandedSlugs((current) => {
-      const next = new Map(current);
-      next.set(slug, nextOpen);
-      writeExpandedDirectories(next);
-      return next;
-    });
-  }, []);
-
   return { activeAncestorSlugs, expandedSlugs, toggleDirectory };
 }
 
