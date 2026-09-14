@@ -38,7 +38,8 @@ const budgets: Budget[] = [
   // The shared page-copy and mobile-chat glyphs restore the legacy artwork.
   // The account and saved-sidebar bridge measures under 17,344 gzip bytes.
   // Allow its 240-byte increase while retaining the aggregate eager budget.
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 17_344 },
+  // Includes the bounded, read-only leader-lock probe for follower recovery.
+  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 17_856 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },

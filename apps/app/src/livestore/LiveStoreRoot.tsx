@@ -24,7 +24,8 @@ import LiveStoreWorker from "./livestore.worker?worker";
 import { schema } from "./schema";
 import { dismissFirstFrameSnapshot } from "./first-frame-snapshot";
 import { StoreStartupLoading } from "./StoreStartup";
-import { resolveReaderStorage, isDiagnosticMemoryStorageRequest } from "./reader-storage";
+import { resolveReaderStorage, isDiagnosticMemoryStorageRequest, readerBootDeadline,
+  READER_LEADER_BOOT_TIMEOUT_MS, READER_FOLLOWER_BOOT_TIMEOUT_MS } from "./reader-storage";
 import { markVisualPhase } from "../visual-phase";
 import { SessionCacheRetirement } from "./SessionCacheRetirement";
 import { createReaderBoot } from "../bootstrap/seed-state";
@@ -155,15 +156,20 @@ function ReaderStore({ identity, scope, storeId }: {
   // provider and discard the mounted article. A new partition remounts us.
   const [boot] = useState(() => createReaderBoot(identity));
   const [adapter, setAdapter] = useState<Awaited<typeof adapterPromise> | null>(null);
+  const [bootTimeoutMs, setBootTimeoutMs] = useState(READER_LEADER_BOOT_TIMEOUT_MS);
   const [stalled, setStalled] = useState(false);
   useEffect(() => {
     let active = true;
-    void adapterPromise.then((resolved) => {
+    void Promise.all([adapterPromise, readerBootDeadline(navigator.locks, storeId)]).then(([resolved, deadline]) => {
       // A late probe must not replace a temporary store already in use.
-      if (active) setAdapter((current: Awaited<typeof adapterPromise> | null) => current ?? resolved);
+      if (active) {
+        markVisualPhase(deadline === READER_FOLLOWER_BOOT_TIMEOUT_MS ? "store-existing-leader" : "store-new-leader");
+        setBootTimeoutMs(deadline);
+        setAdapter((current: Awaited<typeof adapterPromise> | null) => current ?? resolved);
+      }
     });
     return () => { active = false; };
-  }, []);
+  }, [storeId]);
   const [bootAttempt, setBootAttempt] = useState(0);
   const retryBoot = useCallback(() => setBootAttempt((attempt) => attempt + 1), []);
   const recoverStalledBoot = useCallback(() => {
@@ -198,7 +204,7 @@ function ReaderStore({ identity, scope, storeId }: {
         renderLoading={({ stage }) => (
           <StoreStartupLoading
             stage={stage}
-            timeoutMs={adapter === persistedAdapter ? 3000 : undefined}
+            timeoutMs={adapter === persistedAdapter ? bootTimeoutMs : undefined}
             onTimeout={recoverStalledBoot}
           />
         )}

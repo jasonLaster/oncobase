@@ -15,11 +15,15 @@ import type { seedInitialPage } from "./seed-page";
 import { markVisualPhase } from "../visual-phase";
 
 export function createReaderBoot(identity: WikiSessionIdentity) {
+  // Download code while the adapter starts; only the boot callback may apply
+  // the response to the validated store. Missing/failed imports retain the API
+  // fallback, and do not consume the response ahead of database readiness.
+  const bootstrap = document.querySelector("#wiki-page-bootstrap, #wiki-navigation-bootstrap")
+    ? import("./seed-page").catch(() => null)
+    : Promise.resolve(null);
   return async (store: Parameters<typeof seedInitialPage>[0]) => {
     markVisualPhase("store-boot-enter");
-    if (!document.querySelector("#wiki-page-bootstrap, #wiki-navigation-bootstrap")) return;
-    const bootstrap = await import("./seed-page").catch(() => null);
-    bootstrap?.seedInitialPage(store, identity);
+    (await bootstrap)?.seedInitialPage(store, identity);
     markVisualPhase("store-boot-complete");
   };
 }

@@ -1,4 +1,32 @@
 export const READER_STORAGE_PROBE_TIMEOUT_MS = 3_000;
+export const READER_LEADER_BOOT_TIMEOUT_MS = 3_000;
+export const READER_FOLLOWER_BOOT_TIMEOUT_MS = 750;
+
+/** Inspect before mounting the provider, so its own lock cannot be mistaken
+ * for an existing leader. A read-only, bounded probe must not delay startup
+ * indefinitely or disturb another tab's ownership of persisted data. */
+export async function readerBootDeadline(
+  locks: Pick<LockManager, "query"> | undefined,
+  storeId: string,
+  probeTimeoutMs = 25,
+): Promise<number> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    if (!locks?.query) return READER_LEADER_BOOT_TIMEOUT_MS;
+    return await Promise.race([
+      Promise.resolve().then(() => locks.query()).then(snapshot =>
+        snapshot.held?.some(lock => lock.name === `livestore-tab-lock-${storeId}`)
+          ? READER_FOLLOWER_BOOT_TIMEOUT_MS : READER_LEADER_BOOT_TIMEOUT_MS),
+      new Promise<number>(resolve => {
+        timer = setTimeout(() => resolve(READER_LEADER_BOOT_TIMEOUT_MS), probeTimeoutMs);
+      }),
+    ]);
+  } catch {
+    return READER_LEADER_BOOT_TIMEOUT_MS;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
 
 export type ReaderStorageMode = "opfs" | "memory";
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { isDiagnosticMemoryStorageRequest, resolveReaderStorage } from "./reader-storage";
+import { isDiagnosticMemoryStorageRequest, resolveReaderStorage, readerBootDeadline,
+  READER_LEADER_BOOT_TIMEOUT_MS, READER_FOLLOWER_BOOT_TIMEOUT_MS } from "./reader-storage";
 
 describe("reader storage selection", () => {
   test("uses persistent storage only when it can be opened", async () => {
@@ -39,4 +40,21 @@ test("memory comparison is opt-in for one diagnostics document", () => {
   for (const query of ["", "?readerStorage=memory", "?paintDebug=1", "?paintDebug=1&readerStorage=opfs"]) {
     expect(isDiagnosticMemoryStorageRequest(new URL("https://example.com/" + query))).toBe(false);
   }
+});
+
+test("only an already held lock in the exact store partition shortens follower recovery", async () => {
+  const query = async () => ({ held: [{ name: "livestore-tab-lock-private-user-a" }], pending: [{ name: "livestore-tab-lock-private-user-b" }] });
+  expect(await readerBootDeadline({ query }, "private-user-a")).toBe(READER_FOLLOWER_BOOT_TIMEOUT_MS);
+  expect(await readerBootDeadline({ query }, "private-user-b")).toBe(READER_LEADER_BOOT_TIMEOUT_MS);
+  expect(await readerBootDeadline({ query }, "public")).toBe(READER_LEADER_BOOT_TIMEOUT_MS);
+});
+
+test("missing, rejected, and stalled lock probes retain the normal leader deadline", async () => {
+  expect(await readerBootDeadline(undefined, "public")).toBe(READER_LEADER_BOOT_TIMEOUT_MS);
+  expect(await readerBootDeadline({ query: async () => { throw new Error("denied"); } }, "public")).toBe(READER_LEADER_BOOT_TIMEOUT_MS);
+  let reject!: (error: Error) => void;
+  const pending = new Promise<LockManagerSnapshot>((_, fail) => { reject = fail; });
+  expect(await readerBootDeadline({ query: () => pending }, "public", 5)).toBe(READER_LEADER_BOOT_TIMEOUT_MS);
+  reject(new Error("late failure"));
+  await new Promise(resolve => setTimeout(resolve, 0));
 });

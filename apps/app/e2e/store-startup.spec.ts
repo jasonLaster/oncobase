@@ -30,11 +30,19 @@ test("an orphaned leader lock falls back without stealing the lock or deleting d
     });
   }, lockName);
   const warnings: string[] = [];
-  page.on("console", message => { if (message.type() === "warning") warnings.push(message.text()); });
+  let timeoutAt = 0;
+  page.on("console", message => {
+    if (message.type() === "warning") warnings.push(message.text());
+    if (message.text().includes("startup timed out")) timeoutAt = Date.now();
+  });
   await installWikiApiMocks(page);
+  const startedAt = Date.now();
   await page.goto("/wiki/logistics/insurance");
   await ready(page);
   expect(warnings.some(message => message.includes("startup timed out"))).toBe(true);
+  // Includes script/identity/adapter startup, while leaving ample CI headroom.
+  // The old three-second fallback cannot satisfy this bound.
+  expect(timeoutAt - startedAt).toBeLessThan(2_500);
   expect(await holder.evaluate(async name => (await navigator.locks.query()).held?.some(lock => lock.name === name), lockName)).toBe(true);
   expect(await holder.evaluate(async () => (await (await (await navigator.storage.getDirectory()).getFileHandle("startup-test-sentinel")).getFile()).text())).toBe("preserve me");
   // Closing the holder must not cause the abandoned boot to acquire the lock.
@@ -50,13 +58,17 @@ test("an orphaned leader lock falls back without stealing the lock or deleting d
   await ready(page);
 });
 
-test("healthy follower tabs and leader handoff do not need fallback", async ({ page, context }) => {
+test("healthy follower tabs and leader handoff do not need fallback", async ({ page, context, browserName }) => {
   test.setTimeout(60_000);
   const warnings: string[] = [];
   await installWikiApiMocks(page);
   await gotoWiki(page, "/wiki/logistics/insurance");
   const copiedSession = await page.evaluate(() => ({ ...sessionStorage }));
   const follower = await context.newPage();
+  if (browserName === "chromium") {
+    const cdp = await context.newCDPSession(follower);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+  }
   // Model Duplicate Tab / window.open copying sessionStorage from its opener.
   await follower.addInitScript(values => {
     for (const [key, value] of Object.entries(values)) sessionStorage.setItem(key, value);
