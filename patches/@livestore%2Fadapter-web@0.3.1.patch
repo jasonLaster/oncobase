@@ -1,5 +1,26 @@
+diff --git a/dist/in-memory/in-memory-adapter.js b/dist/in-memory/in-memory-adapter.js
+index 92e64e232cfb0be6530a41dd2020b15ab5be1064..80165fe69cec1c0925a7cc4474827a029338560e 100644
+--- a/dist/in-memory/in-memory-adapter.js
++++ b/dist/in-memory/in-memory-adapter.js
+@@ -10,11 +10,13 @@ import { nanoid } from '@livestore/utils/nanoid';
+ import * as Webmesh from '@livestore/webmesh';
+ import { connectWebmeshNodeClientSession } from '../web-worker/client-session/client-session-devtools.js';
+ import { makeShutdownChannel } from '../web-worker/common/shutdown-channel.js';
+-// NOTE we're starting to initialize the sqlite wasm binary here to speed things up
+-const sqlite3Promise = loadSqlite3Wasm();
++// A persisted reader imports this fallback too. Initialize its separate SQLite
++// runtime only when an in-memory adapter actually starts, once per module.
++let sqlite3Promise;
++const getSqlite3 = () => sqlite3Promise ??= loadSqlite3Wasm();
+ export const makeInMemoryAdapter = (options = {}) => (adapterArgs) => Effect.gen(function* () {
+     const { schema, shutdown, syncPayload, storeId, devtoolsEnabled } = adapterArgs;
+-    const sqlite3 = yield* Effect.promise(() => sqlite3Promise);
++    const sqlite3 = yield* Effect.promise(getSqlite3);
+     const sqliteDb = yield* sqliteDbFactory({ sqlite3 })({ _tag: 'in-memory' });
+     const clientId = options.clientId ?? nanoid(6);
+     const sessionId = options.sessionId ?? nanoid(6);
 diff --git a/dist/opfs-utils.js b/dist/opfs-utils.js
-index 1304b31c049d9c767908977f35b147daafc1842f..e2e8711a8447f4c0b620906bde1a14e8be3622d3 100644
+index 1304b31c049d9c767908977f35b147daafc1842f..7214ee5dfb45bccfd2a24d8686f77b7c71510100 100644
 --- a/dist/opfs-utils.js
 +++ b/dist/opfs-utils.js
 @@ -1,12 +1,16 @@
@@ -26,6 +47,32 @@ index 1304b31c049d9c767908977f35b147daafc1842f..e2e8711a8447f4c0b620906bde1a14e8
  export const getDirHandle = async (absDirPath) => {
      const rootHandle = await rootHandlePromise;
      if (absDirPath === undefined)
+diff --git a/src/in-memory/in-memory-adapter.ts b/src/in-memory/in-memory-adapter.ts
+index 3901994a0722b6bce1c2bf3565be2e03377f8fb5..d0aa92f63485059773e7e1a61c896d675c60c42f 100644
+--- a/src/in-memory/in-memory-adapter.ts
++++ b/src/in-memory/in-memory-adapter.ts
+@@ -18,8 +18,10 @@ import * as Webmesh from '@livestore/webmesh'
+ import { connectWebmeshNodeClientSession } from '../web-worker/client-session/client-session-devtools.js'
+ import { makeShutdownChannel } from '../web-worker/common/shutdown-channel.js'
+ 
+-// NOTE we're starting to initialize the sqlite wasm binary here to speed things up
+-const sqlite3Promise = loadSqlite3Wasm()
++// A persisted reader imports this fallback too. Initialize its separate SQLite
++// runtime only when an in-memory adapter actually starts, once per module.
++let sqlite3Promise: ReturnType<typeof loadSqlite3Wasm> | undefined
++const getSqlite3 = () => sqlite3Promise ??= loadSqlite3Wasm()
+ 
+ export interface InMemoryAdapterOptions {
+   importSnapshot?: Uint8Array
+@@ -50,7 +52,7 @@ export const makeInMemoryAdapter =
+   (adapterArgs) =>
+     Effect.gen(function* () {
+       const { schema, shutdown, syncPayload, storeId, devtoolsEnabled } = adapterArgs
+-      const sqlite3 = yield* Effect.promise(() => sqlite3Promise)
++      const sqlite3 = yield* Effect.promise(getSqlite3)
+ 
+       const sqliteDb = yield* sqliteDbFactory({ sqlite3 })({ _tag: 'in-memory' })
+ 
 diff --git a/src/opfs-utils.ts b/src/opfs-utils.ts
 index 146676ba0693fc04ff7f603cfde821dfaaa80557..f46ec342de41f042a8b690d959ec8d367bc6c937 100644
 --- a/src/opfs-utils.ts

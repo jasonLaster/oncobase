@@ -2,7 +2,7 @@
 
 Target: initial usable reader below 500 ms while preserving client-side React, LiveStore, access isolation, and article continuity. Baseline production commit: `050c1ac3`.
 
-## First release candidate
+## First release — deployed `02afed7f`
 
 - Reuse a valid same-response public page payload to identify the public store on an explicitly public cold visit. Automatic visits may do so only when the server explicitly verified no account session and the gated HTML response is private/no-store. Shared HTML and saved browser identities cannot choose automatic scope. Identity refresh continues in the background, and the normal LiveStore boot path consumes the data.
 - Deduplicate account lookups within one incoming request and site. Every subsequent request revalidates the session; errors are not retained across requests.
@@ -44,8 +44,41 @@ These are controlled medians, not a production or device-wide sub-500-ms claim. 
 - Keep LiveStore's fast snapshot path disabled: rapid reloads previously exposed partial SQLite snapshots.
 - The math vendor group must have lower priority than Markdown so shared helpers do not pull the optional math engine into the eager graph.
 
+## Module preload experiment
+
+The build plugin follows LiveStoreRoot's actual static import graph and adds module preloads to reader HTML. It excludes the already preloaded entry graph and all dynamic imports, so the optional math engine remains lazy. It neither executes modules nor starts a database. Login, terms, and independent DICOM routes skip these hints. Six focused Chromium checks and six WebKit checks passed, including a held entry script proving the early downloads, no early API/WASM requests, one reader-module request, and standalone route isolation.
+
+Two 48-load comparisons against the first release use the same fixture as above. The second adds 50 ms of Chromium network latency without bandwidth throttling; it isolates discovery waterfalls and is not a full mobile-network simulation. All 96 loads had zero errors, retractions and node replacements. Median article readiness:
+
+| Added latency | CPU | Scope | Cold before → after | Reload before → after |
+| --- | --- | --- | --- | --- |
+| 0 ms | Normal | Public | 282 → 269 ms | 132 → 129 ms |
+| 0 ms | Normal | Automatic | 283 → 269 ms | 128 → 130 ms |
+| 0 ms | 4× | Public | 621 → 623 ms | 314 → 302 ms |
+| 0 ms | 4× | Automatic | 610 → 606 ms | 311 → 299 ms |
+| 50 ms | Normal | Public | 779 → 707 ms | 195 → 193 ms |
+| 50 ms | Normal | Automatic | 772 → 714 ms | 190 → 193 ms |
+| 50 ms | 4× | Public | 1022 → 928 ms | 363 → 364 ms |
+| 50 ms | 4× | Automatic | 1021 → 915 ms | 360 → 360 ms |
+
+The gain is material for cold network discovery, modest on loopback, and absent on already cached reloads. It does not by itself meet the target with added latency.
+
+## Deferred fallback SQLite runtime
+
+The existing adapter patch now delays the in-memory adapter's module-level SQLite initialization until that adapter actually starts. Normal persisted startup creates one main-thread SQLite runtime instead of two; fallback consumers still share one promise. No storage protocol, schema, snapshot mode, or source-of-truth behavior changes. Frozen installation preserves the patch without lockfile changes.
+
+A further 48-load comparison against the preload build found no cold-load improvement: normal automatic cold 271 → 270 ms; 4× automatic cold 603 → 611 ms. Slow reload medians improved from 311 → 292 ms (automatic) and 310 → 297 ms (public), while normal reloads were nearly unchanged. Keep the change for removing a verified unused runtime and reducing repeated startup work; do not credit it with a cold-load speedup. Raw synthetic measurements are in `reader-sqlite-runtime-2026-09-14.json`.
+
+24 Chromium checks and 16 WebKit checks passed: the direct runtime-count assertion, bootstrap continuity, unavailable storage in four modes, public/session isolation, lock contention, leader handoff, duplicate tabs, silent workers and recovery deadlines. The Chromium runtime-count check covers cold load and reload; fallback functionality is checked in both browsers.
+
+## Production verification
+
+First release `02afed7f2d5adff1be5079de697a9dcedef8c53f` is pushed to main and READY in deployment `dpl_4bBNCiPtapLg6U8AAzAHFus5sLmo`, aliased to Diana and diagnostics. Existing authenticated Chrome verified the new entry (`index-DjvoDI5Q.js`), Insurance article, reload, sidebar navigation to Home, history back, search palette and Escape, with no captured console errors. Native browser access cannot read the Performance API; no automated production password was available. This confirms functionality, not production load timing.
+
 ## Continuation
 
-Next bounded experiment: preload the reader's existing static module graph from initial HTML, only on reader routes, to overlap module downloads with entry startup. Preserve login and independent-tool isolation; do not preload optional features. Adopt only after measurement and browser checks.
+Current release candidate: measured reader module preloads, deferred fallback SQLite initialization, and a content-free console timing summary in the existing opt-in `paintDebug=1` observer. The latter permits native authenticated-browser measurements without exporting credentials or medical content. Normal visits do not load this diagnostics module.
+
+Next candidate after that: start the existing seed-page dynamic import when the reader boot callback is created, overlapping its download with database boot. Currently it starts only after the database is ready. Do not consume or apply the payload early.
 
 This report is a live checkpoint. The heartbeat is `diana-overnight-startup-optimization`, hourly for eight runs, with a stop boundary of September 14 at 08:00 America/Los_Angeles. Worktree: `/Users/jasonlaster/.codex/worktrees/reader-bootstrap-cache/oncobase`. Preserve the dirty primary checkout. Do not claim the target based on a spinner, HTML response time, or one minimum sample.

@@ -10,6 +10,7 @@ import { defineConfig } from "vite";
 import { wikiApiPlugin } from "./server/wiki-api.ts";
 import { createCommandPaletteChords } from "../../packages/wiki-shell/src/command-palette-chords";
 import { installReaderShortcuts } from "./src/bootstrap/reader-shortcuts";
+import { readerPreloadPlugin } from "./scripts/reader-preload-plugin";
 
 const apiOrigin = process.env.VITE_WIKI_API_ORIGIN ?? "";
 
@@ -99,6 +100,7 @@ export default defineConfig({
           includeDependenciesRecursively: true,
           // Keep transitive library dependencies out of application chunks.
           // Priority gives shared React/Effect dependencies a stable owner.
+          // Markdown owns shared helpers ahead of the optional math engine.
           groups: ["react", "effect", "livestore", "markdown", "math", "icons"].map((vendor, index) => ({
             name: `vendor-${vendor}`,
             test: (id: string) => vendorChunk(id) === `vendor-${vendor}`,
@@ -135,6 +137,7 @@ export default defineConfig({
       },
     },
     wikiReaderCacheVersionPlugin(),
+    readerPreloadPlugin(),
     !apiOrigin ? wikiApiPlugin() : null,
     tailwindcss(),
     react(),

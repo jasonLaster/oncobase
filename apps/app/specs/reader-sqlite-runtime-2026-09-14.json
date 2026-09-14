@@ -1,0 +1,2212 @@
+{
+  "samples": [
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 270.2999999988824,
+      "navigation": 263.7999999988824,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 32.09999999962747,
+          "end": 234.5
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 10.299999998882413,
+          "end": 13.099999999627471,
+          "transfer": 17495
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 53.5,
+          "end": 66.39999999850988,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 54.09999999962747,
+          "end": 66.5,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 82.39999999850988,
+          "end": 82.09999999962747,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 126.90000000037253,
+      "navigation": 124.70000000111759,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.300000000745058,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 11.200000001117587,
+          "end": 214.80000000074506
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 4.400000000372529,
+          "end": 4.400000000372529,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 19.200000001117587,
+          "end": 22.40000000037253,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 19.600000001490116,
+          "end": 22.700000001117587,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 46.90000000037253,
+          "end": 46.100000001490116,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 274.69999999925494,
+      "navigation": 267.80000000074506,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.800000000745058,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 33.19999999925494,
+          "end": 236.69999999925494
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 10.800000000745058,
+          "end": 13.199999999254942,
+          "transfer": 17484
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 55.90000000037253,
+          "end": 67.59999999962747,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 84.69999999925494,
+          "end": 84.40000000037253,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 128.09999999962747,
+      "navigation": 127.09999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 3,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 14.599999999627471,
+          "end": 218
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 8,
+          "end": 8,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 25.90000000037253,
+          "end": 28.09999999962747,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 51.80000000074506,
+          "end": 50.09999999962747,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 272.8999999985099,
+      "navigation": 266.3999999985099,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 31,
+          "end": 235.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 10.399999998509884,
+          "end": 14.599999999627471,
+          "transfer": 17484
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 55.5,
+          "end": 67.79999999888241,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 83.29999999888241,
+          "end": 83,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 128.09999999962747,
+      "navigation": 126.89999999850988,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 12.799999998882413,
+          "end": 216.19999999925494
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 6.599999999627471,
+          "end": 6.599999999627471,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 24.09999999962747,
+          "end": 26.59999999962747,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 50.19999999925494,
+          "end": 48.899999998509884,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 268.59999999962747,
+      "navigation": 261.59999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.3999999985098839,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 26.199999999254942,
+          "end": 235.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 10.099999999627471,
+          "end": 13,
+          "transfer": 17495
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 54.399999998509884,
+          "end": 67.19999999925494,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 55,
+          "end": 67.19999999925494,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 83.39999999850988,
+          "end": 83.09999999962747,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 138.40000000037253,
+      "navigation": 132,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 3,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 16.700000001117587,
+          "end": 220.2000000011176
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 8.700000001117587,
+          "end": 8.700000001117587,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 26.300000000745058,
+          "end": 29.800000000745058,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 26.800000000745058,
+          "end": 30.40000000037253,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 55.20000000111759,
+          "end": 54.30000000074506,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 275.2999999988824,
+      "navigation": 268.59999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.3999999985098839,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 26.299999998882413,
+          "end": 236.19999999925494
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 9.5,
+          "end": 12.5,
+          "transfer": 17495
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 56.19999999925494,
+          "end": 69.59999999962747,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 56.69999999925494,
+          "end": 69.69999999925494,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 86.09999999962747,
+          "end": 86,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 131.09999999962747,
+      "navigation": 130,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.900000000372529,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 16.300000000745058,
+          "end": 219.80000000074506
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 8.700000001117587,
+          "end": 8.700000001117587,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 24.700000001117587,
+          "end": 28.59999999962747,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 25.300000000745058,
+          "end": 28.800000000745058,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 53.59999999962747,
+          "end": 52.59999999962747,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 273.8999999985099,
+      "navigation": 267.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 26.699999999254942,
+          "end": 235.7999999988824
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 10.5,
+          "end": 13.699999999254942,
+          "transfer": 17484
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 56.59999999962747,
+          "end": 68.59999999962747,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 84.5,
+          "end": 84.29999999888241,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 131.5,
+      "navigation": 130.19999999925494,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 3.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 15.299999998882413,
+          "end": 218.69999999925494
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 9,
+          "end": 9,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 26.899999998509884,
+          "end": 29.09999999962747,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 54.09999999962747,
+          "end": 52.79999999888241,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 275.09999999962747,
+      "navigation": 268.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 32.69999999925494,
+          "end": 236.19999999925494
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 9.900000000372529,
+          "end": 12.199999999254942,
+          "transfer": 17495
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 55.5,
+          "end": 68.69999999925494,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 56.09999999962747,
+          "end": 68.90000000037253,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 85.09999999962747,
+          "end": 84.90000000037253,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 132.19999999925494,
+      "navigation": 131.09999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 3,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 15.300000000745058,
+          "end": 218.80000000074506
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 8.099999999627471,
+          "end": 8.099999999627471,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 23.699999999254942,
+          "end": 27.59999999962747,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 24.40000000037253,
+          "end": 28.09999999962747,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 53.80000000074506,
+          "end": 52.69999999925494,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 269,
+      "navigation": 262.09999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 26.200000001117587,
+          "end": 234.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 10.300000000745058,
+          "end": 13.200000001117587,
+          "transfer": 17484
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 55.09999999962747,
+          "end": 66.5,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 82.40000000037253,
+          "end": 82.30000000074506,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 133.69999999925494,
+      "navigation": 131.59999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 3.299999998882413,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 15.299999998882413,
+          "end": 218.59999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 8.199999999254942,
+          "end": 8.199999999254942,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 27.09999999962747,
+          "end": 29.199999999254942,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 53.69999999925494,
+          "end": 52,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 269.5,
+      "navigation": 262.80000000074506,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.300000000745058,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 32.100000001490116,
+          "end": 233.30000000074506
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 9.100000001490116,
+          "end": 11.700000001117587,
+          "transfer": 17484
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 53.5,
+          "end": 65.20000000111759,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 81.60000000149012,
+          "end": 81.5,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 138.09999999962747,
+      "navigation": 132,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.299999998882413,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 16.59999999962747,
+          "end": 220
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 8.900000000372529,
+          "end": 8.900000000372529,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 27.199999999254942,
+          "end": 28.90000000037253,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 54,
+          "end": 52.29999999888241,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 270.09999999962747,
+      "navigation": 263.90000000037253,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 27.09999999962747,
+          "end": 234.7000000011176
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 10.5,
+          "end": 13.099999999627471,
+          "transfer": 17495
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 53.59999999962747,
+          "end": 66.70000000111759,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 54.20000000111759,
+          "end": 66.80000000074506,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 82.5,
+          "end": 82.30000000074506,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 135.30000000074506,
+      "navigation": 133.40000000037253,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.800000000745058,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 14,
+          "end": 217.40000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 6.300000000745058,
+          "end": 6.300000000745058,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 24.800000000745058,
+          "end": 29,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 25.300000000745058,
+          "end": 29.199999999254942,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 55.59999999962747,
+          "end": 54.59999999962747,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 270.7999999988824,
+      "navigation": 264.2999999988824,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 26.699999999254942,
+          "end": 234.5
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 9.899999998509884,
+          "end": 12.599999999627471,
+          "transfer": 17495
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 54.399999998509884,
+          "end": 67.39999999850988,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 54.899999998509884,
+          "end": 67.5,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 83.69999999925494,
+          "end": 83.59999999962747,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 134.89999999850988,
+      "navigation": 128.89999999850988,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.8999999985098839,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 11.599999999627471,
+          "end": 215
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 5.699999999254942,
+          "end": 5.699999999254942,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 21.799999998882413,
+          "end": 25.5,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 22.399999998509884,
+          "end": 25.699999999254942,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 51.09999999962747,
+          "end": 50.19999999925494,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 271,
+      "navigation": 264.30000000074506,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.6000000014901161,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 32.80000000074506,
+          "end": 233.80000000074506
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 9.900000000372529,
+          "end": 12.5,
+          "transfer": 17484
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 54.600000001490116,
+          "end": 66.30000000074506,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 82.10000000149012,
+          "end": 82,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "latency": 0,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 131.5,
+      "navigation": 129.19999999925494,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 14.699999999254942,
+          "end": 218.40000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 7.300000000745058,
+          "end": 7.300000000745058,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 25.800000000745058,
+          "end": 27.90000000037253,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 52.40000000037253,
+          "end": 51,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 612,
+      "navigation": 587.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.300000000745058,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 104.5,
+          "end": 307.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 21.40000000037253,
+          "end": 23.5,
+          "transfer": 17495
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 179.2000000011176,
+          "end": 192.09999999962747,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 181.40000000037253,
+          "end": 192.09999999962747,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 282.7000000011176,
+          "end": 280.7000000011176,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 304.5,
+      "navigation": 296.59999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.900000000372529,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 37.80000000074506,
+          "end": 239
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 11.900000000372529,
+          "end": 11.900000000372529,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 67.20000000111759,
+          "end": 68.90000000037253,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 69.40000000037253,
+          "end": 70.80000000074506,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 168.90000000037253,
+          "end": 164.2000000011176,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 606.7000000011176,
+      "navigation": 582.7000000011176,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.200000001117587,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 104.80000000074506,
+          "end": 307.6000000014901
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 20.800000000745058,
+          "end": 23.200000001117587,
+          "transfer": 17484
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 181.60000000149012,
+          "end": 192.90000000037253,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 281.1000000014901,
+          "end": 278.1000000014901,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 301.59999999962747,
+      "navigation": 293.30000000074506,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 40.30000000074506,
+          "end": 243
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 13.200000001117587,
+          "end": 13.200000001117587,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 73,
+          "end": 74.59999999962747,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 166.7000000011176,
+          "end": 160.2000000011176,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 604.4000000003725,
+      "navigation": 579,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 101.40000000037253,
+          "end": 304.59999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 21.800000000745058,
+          "end": 23.699999999254942,
+          "transfer": 17484
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 176.80000000074506,
+          "end": 187.90000000037253,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 271.19999999925494,
+          "end": 270.30000000074506,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 297.09999999962747,
+      "navigation": 289,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.300000000745058,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 36.69999999925494,
+          "end": 240
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 12.199999999254942,
+          "end": 12.199999999254942,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 70.09999999962747,
+          "end": 71.80000000074506,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 163.5,
+          "end": 156.90000000037253,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 599.0999999996275,
+      "navigation": 576.5999999996275,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.299999998882413,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 102.79999999888241,
+          "end": 307.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 19.299999998882413,
+          "end": 20.799999998882413,
+          "transfer": 17495
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 176.39999999850988,
+          "end": 189.09999999962747,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 179.09999999962747,
+          "end": 189.19999999925494,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 278.8999999985099,
+          "end": 277.5,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 309.90000000037253,
+      "navigation": 301.69999999925494,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 37.59999999962747,
+          "end": 240.80000000074506
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 12.5,
+          "end": 12.5,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 67.30000000074506,
+          "end": 68.90000000037253,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 69.90000000037253,
+          "end": 71.5,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 167.80000000074506,
+          "end": 164.69999999925494,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 602.2999999988824,
+      "navigation": 581,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.299999998882413,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 99.59999999962747,
+          "end": 301.7999999988824
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 19.5,
+          "end": 22.09999999962747,
+          "transfer": 17495
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 176,
+          "end": 188.5,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 178.5,
+          "end": 188.59999999962747,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 278.2999999988824,
+          "end": 275.7999999988824,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 332.30000000074506,
+      "navigation": 324.90000000037253,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.300000000745058,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 39.30000000074506,
+          "end": 242
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 13.400000000372529,
+          "end": 13.400000000372529,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 70.30000000074506,
+          "end": 71.90000000037253,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 72.20000000111759,
+          "end": 73.70000000111759,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 186,
+          "end": 180.59999999962747,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 615,
+      "navigation": 591.3000000007451,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 101.30000000074506,
+          "end": 304.80000000074506
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 20.40000000037253,
+          "end": 22.700000001117587,
+          "transfer": 17484
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 174.7000000011176,
+          "end": 186.40000000037253,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 272.7000000011176,
+          "end": 271.90000000037253,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 297.30000000074506,
+      "navigation": 288.80000000074506,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 39,
+          "end": 241.40000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 12.699999999254942,
+          "end": 12.699999999254942,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 72.09999999962747,
+          "end": 73.80000000074506,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 164.90000000037253,
+          "end": 158.69999999925494,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 603.1999999992549,
+      "navigation": 579.7999999988824,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 99.29999999888241,
+          "end": 301
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 19.699999999254942,
+          "end": 21.299999998882413,
+          "transfer": 17495
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 171.5,
+          "end": 184,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 174.19999999925494,
+          "end": 184.09999999962747,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 270.59999999962747,
+          "end": 269.69999999925494,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 310.7999999988824,
+      "navigation": 302.19999999925494,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 36.90000000037253,
+          "end": 238.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 11.799999998882413,
+          "end": 11.799999998882413,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 67.69999999925494,
+          "end": 69.59999999962747,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 69.5,
+          "end": 71,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 169.5,
+          "end": 165.40000000037253,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 598.3000000007451,
+      "navigation": 575.3000000007451,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 102.90000000037253,
+          "end": 304.5
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 23.40000000037253,
+          "end": 26.40000000037253,
+          "transfer": 17484
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 178.90000000037253,
+          "end": 190,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 276.7000000011176,
+          "end": 275.6000000014901,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 294.7999999988824,
+      "navigation": 287.19999999925494,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.299999998882413,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 35.79999999888241,
+          "end": 237.39999999850988
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 11.099999999627471,
+          "end": 11.099999999627471,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 67.5,
+          "end": 69.19999999925494,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 160.89999999850988,
+          "end": 154.2999999988824,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 611.1000000014901,
+      "navigation": 587.7000000011176,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 104.20000000111759,
+          "end": 305.80000000074506
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 23.40000000037253,
+          "end": 25.100000001490116,
+          "transfer": 17484
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 181.60000000149012,
+          "end": 193.2000000011176,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 279.5,
+          "end": 278.80000000074506,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 286.90000000037253,
+      "navigation": 278.90000000037253,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.200000001117587,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 36.30000000074506,
+          "end": 238.5
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 12,
+          "end": 12,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 66.10000000149012,
+          "end": 67.70000000111759,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 157.5,
+          "end": 150.80000000074506,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 603.5,
+      "navigation": 578.9000000003725,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.699999999254942,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 101.09999999962747,
+          "end": 302.40000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 20.699999999254942,
+          "end": 23.199999999254942,
+          "transfer": 17495
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 174,
+          "end": 186.59999999962747,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 176.5,
+          "end": 186.69999999925494,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 278.30000000074506,
+          "end": 276.5,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 314.30000000074506,
+      "navigation": 306.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 38,
+          "end": 240.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 12,
+          "end": 12,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 67.5,
+          "end": 69,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 69.90000000037253,
+          "end": 71.30000000074506,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 173.40000000037253,
+          "end": 168.59999999962747,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 596.8999999985099,
+      "navigation": 572.3999999985099,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 100.79999999888241,
+          "end": 304.19999999925494
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 20,
+          "end": 21.5,
+          "transfer": 17495
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 173.89999999850988,
+          "end": 186.59999999962747,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 176.19999999925494,
+          "end": 186.69999999925494,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 273.8999999985099,
+          "end": 273.09999999962747,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 309.7000000011176,
+      "navigation": 303,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 37.100000001490116,
+          "end": 238
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-B7w2kLpA.js",
+          "start": 11.5,
+          "end": 11.5,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 66.40000000037253,
+          "end": 68,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 68.40000000037253,
+          "end": 69.70000000111759,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 172.60000000149012,
+          "end": 168.30000000074506,
+          "transfer": 0
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 635.1999999992549,
+      "navigation": 609.1999999992549,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.299999998882413,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 107.79999999888241,
+          "end": 309.3999999985099
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 21.899999998509884,
+          "end": 24.59999999962747,
+          "transfer": 17484
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 186.59999999962747,
+          "end": 198.2999999988824,
+          "transfer": 301938
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 292.7999999988824,
+          "end": 292,
+          "transfer": 165747
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "latency": 0,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 292.40000000037253,
+      "navigation": 285.59999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 37.59999999962747,
+          "end": 238.90000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1,
+      "startupResources": [
+        {
+          "path": "/assets/LiveStoreRoot-L2ys3AGg.js",
+          "start": 11.799999998882413,
+          "end": 11.799999998882413,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/wa-sqlite-CWx0VZcQ.wasm",
+          "start": 68.19999999925494,
+          "end": 69.69999999925494,
+          "transfer": 0
+        },
+        {
+          "path": "/assets/livestore.worker-BfbSaGMW.js",
+          "start": 162.5,
+          "end": 156.69999999925494,
+          "transfer": 0
+        }
+      ]
+    }
+  ]
+}

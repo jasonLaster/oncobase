@@ -6,6 +6,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 
 const origins = { baseline: "http://127.0.0.1:62173", candidate: "http://127.0.0.1:62174" };
 const output = process.env.PROFILE_OUTPUT ?? ".playwright/identity-roundtrip/samples.json";
+const latency = Number(process.env.PROFILE_LATENCY_MS ?? 0);
 mkdirSync(".playwright/identity-roundtrip", { recursive: true });
 const samples: unknown[] = [];
 const browser = await chromium.launch();
@@ -17,6 +18,9 @@ try {
         const page = await context.newPage();
         const cdp = await context.newCDPSession(page);
         await cdp.send("Emulation.setCPUThrottlingRate", { rate: cpu });
+        if (latency) await cdp.send("Network.emulateNetworkConditions", {
+          offline: false, latency, downloadThroughput: -1, uploadThroughput: -1,
+        });
         const errors: string[] = [];
         page.on("pageerror", error => errors.push(error.message));
         await page.addInitScript(() => {
@@ -52,9 +56,11 @@ try {
               identities: entries.filter(e => new URL(e.name).pathname === "/api/wiki/session").map(e => ({ query: new URL(e.name).search, start: e.startTime, end: e.responseEnd })),
               bodyRequests: entries.filter(e => new URL(e.name).pathname === "/api/wiki/pages").length,
               seeded: performance.getEntriesByName("wiki-page-bootstrap-seeded").length,
+              startupResources: entries.filter(e => /LiveStoreRoot-|livestore\.worker-|\.wasm$/.test(new URL(e.name).pathname))
+                .map(e => ({ path: new URL(e.name).pathname, start: e.startTime, end: e.responseEnd, transfer: e.transferSize })),
             };
           });
-          const sample = { mode, cpu, scope, run, visit, errors: [...errors], ...data };
+          const sample = { mode, cpu, latency, scope, run, visit, errors: [...errors], ...data };
           samples.push(sample);
           console.log(JSON.stringify(sample));
           writeFileSync(output, JSON.stringify({ samples }, null, 2));

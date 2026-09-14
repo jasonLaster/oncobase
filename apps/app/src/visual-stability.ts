@@ -39,6 +39,7 @@ declare global {
  */
 export function installVisualStabilityObserver() {
   if (window.__WIKI_VISUAL_STABILITY__) return;
+  const observerStartedMs = performance.now();
   const selectors: Record<string, string> = {
     heading: '[data-test-id="document-article"] .page-header h1',
     body: '[data-test-id="document-article"] .wiki-markdown',
@@ -66,6 +67,7 @@ export function installVisualStabilityObserver() {
   let lastScroll = -Infinity;
   let phase = "";
   let stopped = false;
+  let startupReported = false;
   let measurementStart = 0;
   let raf = 0;
   let shiftWindow = { start: 0, last: 0, value: 0 };
@@ -128,6 +130,19 @@ export function installVisualStabilityObserver() {
       }
       const box = boxOf(element.getBoundingClientRect());
       const content = Boolean(element.textContent?.trim());
+      if (region === "body" && content && !startupReported) {
+        startupReported = true;
+        const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+        // Opt-in local diagnostics can be inspected through browser console
+        // tools without exporting page content, cookies, or performance traces.
+        console.info("[wiki-reader-startup]", JSON.stringify({
+          articleVisibleMs: round(now),
+          observerStartedMs: round(observerStartedMs),
+          htmlEndMs: round(navigation?.responseEnd ?? 0),
+          ttfbMs: round(navigation?.responseStart ?? 0),
+          afterHtmlMs: round(now - (navigation?.responseEnd ?? 0)),
+        }));
+      }
       if (!old) {
         report.seen.push(region);
         emit("appearance", region, { box });
