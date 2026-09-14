@@ -338,14 +338,22 @@ export const listPage = query({
     cursor: v.union(v.string(), v.null()),
     numItems: v.number(),
     includeSensitive: v.optional(v.boolean()),
+    sensitiveOnly: v.optional(v.boolean()),
     siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
+  handler: async (ctx, { cursor, numItems, includeSensitive, sensitiveOnly, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    const result = await paginatedDocs(ctx, site, cursor, numItems);
+    // Access-aware session keys need only explicitly sensitive slugs. Use the
+    // existing index before pagination so public bodies never enter this scan.
+    // This selector does not grant access: retain the normal visibility checks.
+    const result = sensitiveOnly && site.siteId
+      ? await ctx.db.query("documents")
+          .withIndex("by_site_sensitive_slug", q => q.eq("siteId", site.siteId!).eq("sensitive", true))
+          .paginate({ cursor, numItems })
+      : await paginatedDocs(ctx, site, cursor, numItems);
     return {
       page: result.page
-        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
+        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive) && (!sensitiveOnly || doc.sensitive === true))
         .map(({ slug, title, tags, sensitiveInclude, sensitive }) => ({
           slug,
           title,
