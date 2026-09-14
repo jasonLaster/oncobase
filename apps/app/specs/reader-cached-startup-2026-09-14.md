@@ -45,4 +45,17 @@ The correction adds lossless compression, a 7,001-page round-trip unit test, mal
 
 Production `42ec1754` successfully wrote the complete 4,076,362-byte snapshot as 1,076,240 stored bytes. Native Chrome reloads confirmed `data-reader-cache-startup=true`, the article and 30 visible sidebar links, while identity was still pending and the real store was not ready. The first two cached article timings were 607.1 and 484.7 ms, with 284.8 and 280.0 ms after HTML respectively. Both subsequently handed off to the real store. Search found Insurance, navigation rendered it, and its normal URL (without diagnostics parameters) restored from cache on reload. No browser errors were logged.
 
-These measurements also exposed redundant work: the identity boundary expanded the complete cached tree only to check route membership, then the reader expanded it again. The final adjustment checks membership directly, avoids an intermediate per-character array during base64 decoding, and avoids constructing debug statistics when diagnostics are disabled. Final production timings follow that release.
+These measurements also exposed redundant work: the identity boundary expanded the complete cached tree only to check route membership, then the reader expanded it again. The final adjustment checks membership directly, avoids an intermediate per-character array during base64 decoding, and avoids constructing debug statistics when diagnostics are disabled.
+
+## Final production result
+
+`a76775b5268aad16f3ba5aae15dcd98d085768e7` deployed as `dpl_Bjt3y2besFzRFYLYhydLQeruA3D5` on diana-tnbc.com. All thirteen cached-startup tests passed again in both Chromium and WebKit; unit checks, lint, build/typecheck and bundle budgets passed. Native Chrome, using the existing authenticated profile with no throttling, recorded the following consecutive samples on the home page:
+
+| Visit | Article visible | HTML complete | After HTML |
+| --- | ---: | ---: | ---: |
+| First visit after JavaScript update | 1235.0 ms | 600.5 ms | 634.5 ms |
+| Warm reload 1 | 482.5 ms | 288.0 ms | 194.5 ms |
+| Warm reload 2 | 396.4 ms | 232.1 ms | 164.3 ms |
+| Warm reload 3 | 417.8 ms | 252.0 ms | 165.8 ms |
+
+All four samples had the cached-startup DOM marker, a rendered article and 29 visible sidebar links before the real store was ready; real-store handoff subsequently completed. No browser errors were logged. The three consecutive warm samples are below 500 ms. This is a small desktop sample from a populated profile, not a mobile, cold-browser or network-wide guarantee. The first visit after changed JavaScript remains above the target. Timings come from the app's content-free startup console diagnostic; browser bytecode reuse was not measured.
