@@ -18,6 +18,8 @@ import type { Metrics } from "./types";
 import { AppStarting } from "./AppStarting";
 import { useReaderStore } from "./bootstrap/reader-queries";
 import { useWikiScope, useWikiIdentityPending } from "./wiki-context";
+import { PageActivity, useBrowserOnline } from "./shell/ReaderStatus";
+import type { NavigationFreshness } from "./types";
 
 const initialMetrics: Metrics = {
   status: "idle",
@@ -100,6 +102,7 @@ function PageFallback() {
   return (
     <article className="page-shell page-shell-loading" data-test-id="document-article">
       <WikiPageLoading data-test-id="page-loading" includeTags label="Loading page" />
+      <PageActivity label="Loading page…" />
     </article>
   );
 }
@@ -121,6 +124,8 @@ export function App({
   const scope = useWikiScope();
   const identityPending = useWikiIdentityPending();
   const [metrics, setMetrics] = useState<Metrics>(initialMetrics);
+  const online = useBrowserOnline();
+  const navigationFreshness: NavigationFreshness = !online ? "offline" : identityPending || !store ? "checking" : metrics.navigationFreshness ?? "checking";
 
   useEffect(() => {
     publishMetrics(metrics);
@@ -150,7 +155,7 @@ export function App({
         <SpecialRouteMetadata />
         <HeaderAuthDialogHost />
         <HeaderCommandPaletteHost />
-        <ResizableAppShell sidebar={<Sidebar />}>
+        <ResizableAppShell sidebar={<Sidebar freshness={navigationFreshness} />}>
           <main className="content-shell">
             <Suspense fallback={<PageFallback />}>
               <Routes>
@@ -185,7 +190,7 @@ export function App({
             />
           </Suspense>
         ) : null}
-        <MobileNav />
+        <MobileNav freshness={navigationFreshness} />
       </div>
     </>
   );

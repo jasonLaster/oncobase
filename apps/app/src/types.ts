@@ -1,7 +1,9 @@
 export type MetricsStatus = "idle" | "syncing" | "ready" | "offline" | "error";
+export type NavigationFreshness = "checking" | "current" | "saved" | "offline";
 export type StoragePressure = "unknown" | "ok" | "warning" | "critical";
 
 export type Metrics = {
+  navigationFreshness?: NavigationFreshness;
   status: MetricsStatus;
   message: string;
   manifestBytes: number;

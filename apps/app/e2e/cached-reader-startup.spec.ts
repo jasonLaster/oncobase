@@ -36,6 +36,7 @@ for (const privatePage of [false, true]) {
       const article = page.getByTestId("document-article");
       await expect(article).toContainText("CACHED_BODY");
       await expect(page.locator('[data-reader-store-ready]')).toHaveAttribute("data-reader-store-ready", "false");
+      await expect(page.getByTestId("wiki-sidebar").getByTestId("navigation-status")).toHaveAttribute("data-freshness", "checking");
       const original = await article.elementHandle();
       const sidebar = await page.getByTestId("wiki-sidebar").elementHandle();
       await page.getByTestId("sidebar-search").click();
@@ -45,6 +46,7 @@ for (const privatePage of [false, true]) {
       const inputNode = await input.elementHandle();
       release();
       await expect(page.locator('[data-reader-store-ready]')).toHaveAttribute("data-reader-store-ready", "true");
+      await expect(page.getByTestId("wiki-sidebar").getByTestId("navigation-status")).toHaveAttribute("data-freshness", "current");
       expect(await original!.evaluate(node => node.isConnected)).toBe(true);
       expect(await sidebar!.evaluate(node => node.isConnected)).toBe(true);
       expect(await inputNode!.evaluate(node => node.isConnected && node === document.activeElement)).toBe(true);
@@ -240,4 +242,66 @@ test("an invalidation from another tab removes cached content while identity is 
     await expect(page.getByTestId("document-article")).toHaveCount(0);
     await expect(page.getByTestId("app-starting")).toBeVisible();
   } finally { release(); await other.close(); }
+});
+
+
+test("navigation freshness stays honest through refresh, failure and offline", async ({ page, context }) => {
+  const api = await setup(page);
+  await page.goto(`/${query}`); await waitForCache(page);
+  const status = page.getByTestId("wiki-sidebar").getByTestId("navigation-status");
+  await expect(status).toHaveAttribute("data-freshness", "current");
+  const tree = await page.getByTestId("sidebar-tree").elementHandle();
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/wiki/manifest**", async route => { await gate; await route.fallback(); });
+  try {
+    await page.evaluate(() => window.dispatchEvent(new Event("wiki-vite:refresh-manifest")));
+    await expect(status).toHaveAttribute("data-freshness", "checking");
+    await expect(status).toContainText("Checking…");
+    await expect.poll(() => status.locator(".reader-navigation-status-detail").evaluate(node => getComputedStyle(node).opacity)).toBe("1");
+    await page.screenshot({ path: test.info().outputPath("navigation-checking-light.png") });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(status.locator(".reader-status-dot")).toHaveCSS("animation-name", "none");
+    release();
+    await expect(status).toHaveAttribute("data-freshness", "current");
+    expect(await tree!.evaluate(node => node.isConnected)).toBe(true);
+    api.setManifestFailure(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("wiki-vite:refresh-manifest")));
+    await expect(status).toHaveAttribute("data-freshness", "saved");
+    await expect(status).toContainText("Saved · retrying");
+    await context.setOffline(true);
+    await expect(status).toContainText("Saved · offline");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ colorScheme: "dark" });
+    // The app's theme switch normally owns this class; use it only in this synthetic visual fixture.
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await page.getByTestId("bottom-nav-trigger").click();
+    const mobileStatus = page.getByTestId("bottom-nav-page-tree").getByTestId("navigation-status");
+    await expect(mobileStatus).toContainText("Saved · offline");
+    await expect(mobileStatus).toBeInViewport();
+    await page.screenshot({ path: test.info().outputPath("navigation-offline-mobile-dark.png"), animations: "disabled" });
+    await expect(page.getByTestId("bottom-nav-page-tree").getByRole("button", { name: "Collapse wiki", exact: true })).toBeEnabled();
+  } finally { release(); await context.setOffline(false); }
+});
+
+test("launch and page loading are distinct and reduced motion stays still", async ({ page }) => {
+  await setup(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const release = await holdIdentity(page);
+  let releaseBody!: () => void;
+  const bodyGate = new Promise<void>(resolve => { releaseBody = resolve; });
+  await page.route("**/api/wiki/pages**", async route => { await bodyGate; await route.fallback(); });
+  try {
+    await page.goto(`/${query}`, { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("app-starting")).toContainText("Launching Diana TNBC...");
+    await expect(page.locator(".app-startup-mark")).toHaveCSS("animation-name", "none");
+    await page.screenshot({ path: test.info().outputPath("launch-reduced-motion.png") });
+    release();
+    await expect(page.getByTestId("page-activity")).toHaveText("Loading page…");
+    await expect(page.getByTestId("app-starting")).toHaveCount(0);
+    await expect(page.getByTestId("page-activity")).toHaveCSS("animation-name", "none");
+    await expect(page.locator(".wiki-shell-markdown-body-skeleton > div").first()).toHaveCSS("animation-name", "none");
+    await page.screenshot({ path: test.info().outputPath("page-loading-reduced-motion.png") });
+  } finally { release(); releaseBody(); }
+  await expect(page.getByTestId("document-article")).toContainText("CACHED_BODY");
 });

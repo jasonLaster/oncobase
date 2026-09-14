@@ -273,6 +273,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
       if (cachedManifest && !forceValidation && cacheAge < freshnessMs) {
         onMetrics({
           status: "ready",
+          navigationFreshness: "current",
           message: `Using fresh manifest ${cachedManifest.manifestHash.slice(0, 8)}`,
           manifestBytes: cachedState?.manifestSize ?? 0,
         });
@@ -281,13 +282,14 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
       }
 
       if (!navigator.onLine) {
-        onMetrics({ status: "offline", message: "Offline: using local cache" });
+        onMetrics({ status: "offline", navigationFreshness: "offline", message: "Offline: using local cache" });
         return;
       }
 
       const syncStart = performance.now();
       onMetrics({
         status: "syncing",
+        navigationFreshness: "checking",
         message: cachedManifest ? "Checking for wiki updates" : "Loading manifest",
       });
       try {
@@ -317,6 +319,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           if (validation.partial) {
             onMetrics({
               status: "ready",
+              navigationFreshness: "saved",
               message: hasCompleteSnapshot
                 ? "Partial refresh ignored; using complete cached manifest"
                 : "Provisional manifest loaded; retrying full manifest",
@@ -333,6 +336,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           );
           onMetrics({
             status: "ready",
+            navigationFreshness: "current",
             message: `Manifest ${cachedManifest.manifestHash.slice(0, 8)} is current`,
             manifestBytes: cachedState?.manifestSize ?? 0,
             eventCount: 1,
@@ -348,6 +352,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         if (validation.partial && hasCompleteSnapshot) {
           onMetrics({
             status: "ready",
+            navigationFreshness: "saved",
             message: "Partial refresh ignored; using complete cached manifest",
             manifestBytes: cachedState?.manifestSize ?? 0,
           });
@@ -379,6 +384,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         const storage = await storageSnapshot();
         onMetrics({
           status: "ready",
+          navigationFreshness: validation.partial ? "saved" : "current",
           message: validation.partial
             ? "Provisional manifest loaded; retrying full manifest"
             : `Manifest ${manifest.manifestHash.slice(0, 8)} loaded`,
@@ -399,6 +405,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
             store.commit(events.cacheResetRequested({ requestedAt: Date.now() }));
             onMetrics({
               status: "error",
+              navigationFreshness: "saved",
               message: "Session expired; local session cache cleared",
               eventCount: 1,
             });
@@ -407,6 +414,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           if (cachedManifest) {
             onMetrics({
               status: navigator.onLine ? "ready" : "offline",
+              navigationFreshness: navigator.onLine ? "saved" : "offline",
               message: navigator.onLine
                 ? "Refresh failed; using cached manifest"
                 : "Offline: using local cache",
@@ -415,6 +423,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           } else {
             onMetrics({
               status: navigator.onLine ? "error" : "offline",
+              navigationFreshness: navigator.onLine ? "saved" : "offline",
               message: error instanceof Error ? error.message : String(error),
             });
           }
@@ -476,7 +485,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
       const manifest = manifestRef.current;
       const page = manifest?.pages.find((item) => item.slug === currentSlug);
       if (!page) {
-        onMetrics({ status: "syncing", message: "Refreshing manifest before retry" });
+        onMetrics({ status: "syncing", navigationFreshness: "checking", message: "Refreshing manifest before retry" });
         forceValidationRef.current = true;
         setNetworkTick((value) => value + 1);
         return;

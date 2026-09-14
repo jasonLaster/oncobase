@@ -378,17 +378,28 @@ Review morphology and biomarkers together.
       pageDelays: { "wiki/logistics/insurance": 5_000 },
     });
     await gotoWiki(page, "/");
-    const previousBody = await documentArticle(page).locator(".wiki-markdown").textContent();
+    // Let the API fixture replace any initial-response presentation first.
+    await waitForPageTitle(page, "Diana Wiki Home");
+    const readBody = () => documentArticle(page).locator(".wiki-markdown").evaluate(node => {
+      // Heading-link decorations can attach after paint; compare the actual article.
+      const content = node.cloneNode(true) as Element;
+      content.querySelectorAll(".heading-anchor").forEach(anchor => anchor.remove());
+      return content.textContent;
+    });
+    const previousBody = await readBody();
 
     await openDirectory(page, "logistics");
     await page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" }).click();
 
     await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
     await expect(documentArticle(page).getByTestId("page-loading")).toHaveCount(0);
-    await expect(documentArticle(page).locator(".wiki-markdown")).toHaveText(previousBody!);
+    await expect.poll(readBody).toBe(previousBody);
     await expect(page.getByRole("status").filter({ hasText: "Opening page…" })).toBeVisible();
+    await expect.poll(() => page.getByTestId("page-activity").evaluate(node => getComputedStyle(node).opacity)).toBe("1");
+    await page.screenshot({ path: test.info().outputPath("opening-page.png") });
     await waitForPageTitle(page, "Insurance");
     await expect(documentArticle(page)).toContainText("Prior authorization");
+    await expect(page.getByTestId("page-activity")).toHaveCount(0);
   });
 
   test("deep links auto-expand the active sidebar branch", async ({ page }) => {

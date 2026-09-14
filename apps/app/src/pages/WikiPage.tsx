@@ -65,6 +65,7 @@ import {
 import { useWikiIdentityPending, useWikiScope, useWikiSession } from "../wiki-context";
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { REFRESH_MANIFEST_EVENT, RETRY_PAGE_EVENT } from "../sync/WikiSync";
+import { PageActivity, useBrowserOnline } from "../shell/ReaderStatus";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
 import { PageActions } from "./PageActions";
 import { NoteBundleNavigation } from "./NoteBundleNavigation";
@@ -164,6 +165,7 @@ export function WikiPage({
   const scope = useWikiScope();
   const identity = useWikiSession();
   const identityPending = useWikiIdentityPending();
+  const online = useBrowserOnline();
   const returnUrl = new URL(location.pathname + location.search + location.hash, window.location.origin);
   returnUrl.searchParams.delete("scope");
   const signInHref = `/login?redirect=${encodeURIComponent(returnUrl.pathname + returnUrl.search + returnUrl.hash)}`;
@@ -347,11 +349,13 @@ export function WikiPage({
         />
         {routeIndex.description ? <p className="wiki-shell-muted" data-test-id="page-loading-description">{routeIndex.description}</p> : null}
         <WikiMarkdownBodySkeleton data-test-id="page-loading" aria-label="Loading page body" />
+        <PageActivity label="Loading page…" />
       </div>
     </DocumentOutlineShell>
   ) : (
     <article className="page-shell page-shell-loading" data-test-id="document-article" aria-busy="true">
       <WikiPageLoading data-test-id="page-loading" label="Loading page" />
+      <PageActivity label="Loading page…" />
     </article>
   );
 
@@ -448,7 +452,7 @@ export function WikiPage({
   const pageBody = (
     <>
       <span hidden data-reader-ready={page.contentStatus === "fresh" && !routePending ? "true" : undefined} />
-      {routePending ? <span role="status" className="sr-only">Opening page…</span> : null}
+      {routePending ? <PageActivity label="Opening page…" /> : null}
       {toast ? <WikiToast>{toast}</WikiToast> : null}
       {metrics.status === "error" && pageIndex.length === 0 ? (
         <WikiStatusNotice data-test-id="navigation-unavailable">
@@ -497,11 +501,10 @@ export function WikiPage({
         />
       ) : null}
       <NoteBundleNavigation slug={page.slug} pageSlugs={pageSlugs} />
-      {stale ? (
-        <WikiStatusNotice className="page-refresh-notice" role="status">
-          Showing cached markdown while a newer version is fetched in the background.
-        </WikiStatusNotice>
-      ) : null}
+      {stale && !routePending ? <PageActivity
+        label={!online ? "Saved page · offline" : metrics.failedBodySlug === displayedSlug ? "Saved page · retrying" : "Updating page…"}
+        busy={online && metrics.failedBodySlug !== displayedSlug}
+      /> : null}
       <WikiSourceLinks
         data-test-id="source-links"
         items={relatedAssets.map((asset) => ({

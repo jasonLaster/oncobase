@@ -36,6 +36,8 @@ import {
 } from "./navigation-intent";
 import { ViteActionsMenu, openCommandPalette, useWikiViteAuth } from "./Header";
 import { toggleDirectory, useExpandedDirectories } from "./tree-expansion";
+import { NavigationStatus } from "./ReaderStatus";
+import type { NavigationFreshness } from "../types";
 
 const ChatNavigation = lazy(() => import("../chat/ChatNavigation"));
 const ICON_SIZE = 16;
@@ -209,7 +211,7 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
   return { activeAncestorSlugs, expandedSlugs, toggleDirectory };
 }
 
-export const Sidebar = memo(function Sidebar() {
+export const Sidebar = memo(function Sidebar({ freshness }: { freshness: NavigationFreshness }) {
   const store = useReaderStore();
   const { pathname } = useLocation();
   if (store && pathname.startsWith("/chat")) {
@@ -226,10 +228,10 @@ export const Sidebar = memo(function Sidebar() {
         </aside>
     );
   }
-  return <WikiNavigationSidebar />;
+  return <WikiNavigationSidebar freshness={freshness} />;
 });
 
-function WikiNavigationSidebar() {
+function WikiNavigationSidebar({ freshness }: { freshness: NavigationFreshness }) {
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const activeSlug = navigationActiveSlug(pathname);
@@ -244,9 +246,11 @@ function WikiNavigationSidebar() {
         <>
           <CommentsTreeLink activePathname={pathname} />
           <DiagnosticsTreeLink activePathname={pathname} />
+          <NavigationStatus freshness={freshness} hasPages={tree.length > 0} />
         </>
       }
       data-test-id="wiki-sidebar"
+      data-tree-freshness={freshness}
       defaultDirectoryOpen={defaultDirectoryOpen}
       expandedSlugs={expandedSlugs}
       footer={<SidebarFooter />}
@@ -353,7 +357,7 @@ function usePageLinkRenderer() {
   );
 }
 
-export const MobileNav = memo(function MobileNav() {
+export const MobileNav = memo(function MobileNav({ freshness }: { freshness: NavigationFreshness }) {
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const renderPageLink = usePageLinkRenderer();
@@ -469,7 +473,7 @@ export const MobileNav = memo(function MobileNav() {
             Outline
           </button>
         </div>
-        <nav data-test-id={activeTab === "outline" ? "bottom-nav-outline" : "bottom-nav-page-tree"}>
+        <nav data-test-id={activeTab === "outline" ? "bottom-nav-outline" : "bottom-nav-page-tree"} data-tree-freshness={freshness}>
           {activeTab === "outline" ? (
             outlineItems.length > 0 ? (
               <div className="wiki-vite-mobile-outline-list">
@@ -511,6 +515,7 @@ export const MobileNav = memo(function MobileNav() {
                 hideWhileLoading={accountPending}
                 sessionUser={sessionUser}
               />
+              <NavigationStatus freshness={freshness} hasPages={tree.length > 0} />
               <WikiTree
                 activeAncestorSlugs={activeAncestorSlugs}
                 activeSlug={activeSlug}

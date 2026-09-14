@@ -61,7 +61,7 @@ test("a stale active body revalidates before background requests resume", async 
   });
   try {
     await page.evaluate(() => window.dispatchEvent(new Event("wiki-vite:refresh-manifest")));
-    await expect(page.getByText("Showing cached markdown while a newer version is fetched in the background.")).toBeVisible();
+    await expect(page.getByText("Updating page…")).toBeVisible();
     await expect(page.waitForRequest(request => request.url().includes("/api/wiki/prefetch"), { timeout: 3500 })).rejects.toThrow(/Timeout/);
     expect(popularity.reads()).toBe(0);
   } finally { release(); }
@@ -165,13 +165,15 @@ test("a cached stale body stays visible until its new version hot-swaps", async 
   await page.route("**/api/wiki/pages**", async route => { await held; await route.fallback(); });
   try {
     await page.evaluate(() => window.dispatchEvent(new Event("wiki-vite:refresh-manifest")));
-    await expect(page.getByText("Showing cached markdown while a newer version is fetched in the background.")).toBeVisible();
+    await expect(page.getByText("Updating page…")).toBeVisible();
     await expect(documentArticle(page)).toContainText("OLD visible body");
     await expect(page.getByTestId("page-loading")).toHaveCount(0);
+    await expect.poll(() => page.getByTestId("page-activity").evaluate(node => getComputedStyle(node).opacity)).toBe("1");
     await page.screenshot({ path: test.info().outputPath("stale-visible.png") });
   } finally { release(); }
   await expect(documentArticle(page)).toContainText("NEW updated body");
   await expect(documentArticle(page)).not.toContainText("OLD visible body");
+  await expect(page.getByTestId("page-activity")).toHaveCount(0);
   await expect(page.getByTestId("page-loading")).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath("stale-replaced.png") });
 });
