@@ -24,9 +24,10 @@ test.describe("Session scope recovery", () => {
     try {
       // Use a real streaming HTTP response. route.fulfill delivers a complete
       // body and cannot reproduce fetch resolving before response.json does.
-      await page.route("**/api/wiki/session**", route => route.fulfill({
-        status: 307,
-        headers: { Location: `http://127.0.0.1:${address.port}/session` },
+      // WebKit cannot fulfill an intercepted redirect. Continue the actual
+      // request to the streaming fixture so both engines receive partial JSON.
+      await page.route("**/api/wiki/session**", route => route.continue({
+        url: `http://127.0.0.1:${address.port}/session`,
       }));
       await page.clock.install();
       await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -178,6 +179,7 @@ test.describe("Session scope recovery", () => {
       });
       await page.getByPlaceholder("Password").fill("diana");
       await page.getByRole("button", { name: "Enter" }).click();
+      await page.waitForURL(/\/$/, { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/$/);
     }
   });

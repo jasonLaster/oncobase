@@ -52,3 +52,58 @@ test("an invalid CSR payload falls back to the body API", async ({ page }) => {
   expect(api.pages.length).toBeGreaterThan(0);
   expect(await page.evaluate(() => performance.getEntriesByName("wiki-page-bootstrap-seeded").length)).toBe(0);
 });
+
+test("a public identity refresh preserves the article and does not restart its store", async ({ page, browserName }) => {
+  await installWikiApiMocks(page, { pageOverrides: { index: record } });
+  const template = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+  await page.route("**/*", async route => {
+    const url = new URL(route.request().url());
+    if (route.request().resourceType() !== "document" || url.pathname !== "/") return route.fallback();
+    await route.fulfill({ contentType: "text/html", body: injectPageBootstrap(template, record, url, "diana") });
+  });
+  // Reproduce the slow-CPU restart race in Chromium; WebKit exercises the
+  // same identity handoff without a Chromium-only emulation dependency.
+  if (browserName === "chromium") {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+  }
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/?scope=public");
+  await expect(page.getByTestId("document-article")).toContainText("CSR_DATA_BODY");
+  await expect(page.getByTestId("sidebar-search")).toBeVisible();
+
+  let releaseIdentity!: () => void;
+  const identityGate = new Promise<void>(resolve => { releaseIdentity = resolve; });
+  await page.route("**/api/wiki/session**", async route => {
+    await identityGate;
+    await route.fallback();
+  });
+  try {
+    await page.reload();
+    await expect(page.getByTestId("document-article")).toContainText("CSR_DATA_BODY");
+    const article = await page.getByTestId("document-article").elementHandle();
+    if (!article) throw new Error("Missing initial article");
+    const bootCount = () => page.evaluate(() => performance.getEntriesByName("livestore:makeAdapter:start").length);
+    expect(await bootCount()).toBe(1);
+    const identityResponse = page.waitForResponse(response => response.url().includes("/api/wiki/session"));
+    releaseIdentity();
+    await (await identityResponse).finished();
+    // Check over the handoff, not just the first frame. The old callback
+    // restarted the provider here and sometimes hit its 3-second watchdog.
+    for (let frame = 0; frame < 75; frame++) {
+      expect(await article.evaluate(node => node.isConnected && getComputedStyle(node).visibility !== "hidden")).toBe(true);
+      expect(await bootCount()).toBe(1);
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+    }
+    await page.getByTestId("document-article").getByRole("link", { name: "Insurance", exact: true }).click();
+    await expect(page.getByTestId("document-article")).toContainText("Prior authorization");
+    await page.goBack();
+    await expect(page.getByTestId("document-article")).toContainText("CSR_DATA_BODY");
+    await page.getByTestId("sidebar-search").click();
+    await expect(page.getByTestId("command-palette")).toBeVisible();
+    expect(errors).toEqual([]);
+  } finally {
+    releaseIdentity();
+  }
+});

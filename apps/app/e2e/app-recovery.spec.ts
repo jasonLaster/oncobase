@@ -44,7 +44,11 @@ test("a stale lazy feature reloads even when an earlier deployment used its reco
     return route.continue();
   });
   await page.goto("/", {waitUntil:"domcontentloaded"});
-  await page.getByTestId("sidebar-search").click();
+  // The shell preloads the palette and triggers recovery before a click.
+  // A pending click can retry across that reload and open the new palette,
+  // making a second click hit its backdrop instead of the search button.
+  const reloaded = page.waitForEvent("domcontentloaded");
+  await reloaded;
   await expect.poll(() => navigations).toBe(2);
   await page.getByTestId("sidebar-search").click();
   await expect(page.getByTestId("command-palette")).toBeVisible();

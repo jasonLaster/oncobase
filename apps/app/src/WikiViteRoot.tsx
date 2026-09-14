@@ -4,7 +4,7 @@ import {
   type WikiSessionIdentity,
 } from "@oncobase/wiki-content";
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
-import { createElement, lazy, Suspense, useEffect, useState } from "react";
+import { createElement, Suspense, useEffect, useState } from "react";
 import { persistPublicIdentity, resolvePublicIdentityFallback } from "./public-identity";
 import { explicitReaderScope, resolveReaderSession } from "./reader-session";
 import { WikiIdentityPendingContext } from "./wiki-context";
@@ -16,11 +16,17 @@ function readScope(): WikiScope {
   return explicitReaderScope(window.location.search) ?? "public";
 }
 
+// Track module readiness explicitly: React.lazy can suspend even after this
+// preload resolves, adding another fallback reveal delay before store startup.
 const loadLiveStoreRoot = () =>
   import("./livestore/LiveStoreRoot").then((module) => ({
     default: module.LiveStoreRoot,
   }));
-const LiveStoreRoot = lazy(loadLiveStoreRoot);
+type ReaderComponent = Awaited<ReturnType<typeof loadLiveStoreRoot>>["default"];
+type ReaderModuleState =
+  | { status: "loading" }
+  | { status: "ready"; Component: ReaderComponent }
+  | { status: "error"; error: Error };
 type BootstrapState =
   | { status: "loading"; scope: WikiScope }
   | { status: "ready"; scope: WikiScope; identity: WikiSessionIdentity }
@@ -108,6 +114,7 @@ function SessionRecovery({ message }: { message: string }) {
 }
 
 export function WikiViteRoot() {
+  const [readerModule, setReaderModule] = useState<ReaderModuleState>({ status: "loading" });
   const [identityPending, setIdentityPending] = useState(true);
   const [state, setState] = useState<BootstrapState>(() => {
     const scope = readScope();
@@ -124,7 +131,16 @@ export function WikiViteRoot() {
     markVisualPhase("identity-start");
     // Download/initialize the reader while identity is verified. Importing code
     // does not open a store or authorize content; those still require identity.
-    void loadLiveStoreRoot().catch(() => undefined);
+    void loadLiveStoreRoot()
+      .then((module) => {
+        if (!cancelled) setReaderModule({ status: "ready", Component: module.default });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setReaderModule({
+          status: "error",
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
+      });
     const scope = readScope();
     const fallback = publicIdentityFallback(scope);
     const baseUrl = apiBaseUrl();
@@ -176,13 +192,12 @@ export function WikiViteRoot() {
     };
   }, []);
 
-  if (state.status === "loading") {
-    return createElement(WikiPageLoading, {
-      "data-test-id": "page-loading",
-      includeTags: true,
-      label: "Loading page",
-    });
-  }
+  const loadingPage = createElement(WikiPageLoading, {
+    "data-test-id": "page-loading",
+    includeTags: true,
+    label: "Loading page",
+  });
+  if (state.status === "loading") return loadingPage;
 
   if (state.status === "error") {
     if (state.scope === "session") {
@@ -204,22 +219,16 @@ export function WikiViteRoot() {
     );
   }
 
+  if (readerModule.status === "error") throw readerModule.error;
+  if (readerModule.status === "loading") return loadingPage;
+
   return createElement(
     Suspense,
-    {
-      fallback: createElement(
-        WikiPageLoading,
-        {
-          "data-test-id": "page-loading",
-          includeTags: true,
-          label: "Loading page",
-        },
-      ),
-    },
+    { fallback: loadingPage },
     createElement(
       WikiIdentityPendingContext.Provider,
       { value: identityPending },
-      createElement(LiveStoreRoot, { identity: state.identity, scope: state.scope }),
+      createElement(readerModule.Component, { identity: state.identity, scope: state.scope }),
     ),
   );
 }

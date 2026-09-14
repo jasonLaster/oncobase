@@ -151,7 +151,10 @@ function ReaderStore({ identity, scope, storeId }: {
   scope: WikiScope;
   storeId: string;
 }) {
-  const boot = useMemo(() => createReaderBoot(identity), [identity]);
+  // ReaderStore is keyed by the complete store partition. Refreshing an
+  // equivalent identity must not change boot: LiveStore would restart the
+  // provider and discard the mounted article. A new partition remounts us.
+  const [boot] = useState(() => createReaderBoot(identity));
   const [adapter, setAdapter] = useState<Awaited<typeof adapterPromise> | null>(null);
   const [stalled, setStalled] = useState(false);
   useEffect(() => {

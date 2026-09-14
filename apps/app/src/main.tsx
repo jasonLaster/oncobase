@@ -4,6 +4,9 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { publishRuntimeEnvironment } from "./observability";
+// Start identity resolution without waiting for a lazy boundary's reveal.
+// The database and specialist routes still load dynamically.
+import { WikiViteRoot } from "./WikiViteRoot";
 
 // Retire inert HTML copies from older releases. Structured reader data remains
 // cached, but only React renders its controls and document content.
@@ -36,9 +39,6 @@ publishRuntimeEnvironment({
   commitSha: import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA,
 });
 
-const WikiViteRoot = lazy(() =>
-  import("./WikiViteRoot").then((module) => ({ default: module.WikiViteRoot })),
-);
 const ImmersiveDicomRoot = lazy(() =>
   import("./ImmersiveDicomRoot").then((module) => ({
     default: module.ImmersiveDicomRoot,

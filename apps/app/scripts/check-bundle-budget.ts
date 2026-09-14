@@ -21,7 +21,9 @@ type Budget = {
 // Vendor chunks now own their transitive dependencies formerly emitted in
 // app/shared chunks. Only per-chunk allocation changes; aggregate limits stay fixed.
 const budgets: Budget[] = [
-  { label: "entry", pattern: /^index-[\w-]+\.js$/, maxGzipBytes: 20_000 },
+  // The identity boundary and its shared client helpers now belong to the
+  // entry. This moves existing eager bytes; the aggregate limit is unchanged.
+  { label: "entry", pattern: /^index-[\w-]+\.js$/, maxGzipBytes: 24_000 },
   { label: "react vendor", pattern: /^vendor-react-[\w-]+\.js$/, maxGzipBytes: 75_000 },
   { label: "livestore vendor", pattern: /^vendor-livestore-[\w-]+\.js$/, maxGzipBytes: 104_000 },
   { label: "effect vendor", pattern: /^vendor-effect-[\w-]+\.js$/, maxGzipBytes: 140_000 },
@@ -45,7 +47,7 @@ const budgets: Budget[] = [
  * Eager assets are the bytes a reader downloads before a wiki page paints:
  *
  * - the static-import closure of the entry chunk plus the dynamic roots
- *   every reader view takes (`WikiViteRoot`, session bootstrap, `LiveStoreRoot`,
+ *   every reader view takes (session bootstrap, `LiveStoreRoot`,
  *   and its statically imported reader shell and default `WikiPage`), and
  * - the LiveStore workers, the SQLite wasm, and the single eager stylesheet,
  *   which load at boot outside the module graph.
@@ -61,7 +63,6 @@ const budgets: Budget[] = [
  */
 const eagerRootPatterns = [
   /^index-[\w-]+\.js$/,
-  /^WikiViteRoot-[\w-]+\.js$/,
   /^LiveStoreRoot-[\w-]+\.js$/,
   /^seed-page-[\w-]+\.js$/,
 ];

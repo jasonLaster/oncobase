@@ -1,0 +1,6732 @@
+{
+  "baseCommit": "c6cb9c9896bed53a47ca76fb240a4d7c7208d0eb",
+  "method": "Local gzip HTTP, synthetic two-page fixture, session 200ms, manifest 400ms, body 350ms. Three independent contexts per CPU and scope, each cold then reload. Variants sequential. Navigation-start to frame-observed React markdown. Browser runtime retained within each variant.",
+  "medians": [
+    {
+      "cpu": 1,
+      "scope": "public",
+      "visit": "cold",
+      "current": 1101,
+      "eager": 776,
+      "ready": 469,
+      "stable": 475
+    },
+    {
+      "cpu": 1,
+      "scope": "public",
+      "visit": "reload",
+      "current": 410,
+      "eager": 309,
+      "ready": 142,
+      "stable": 140
+    },
+    {
+      "cpu": 1,
+      "scope": "auto",
+      "visit": "cold",
+      "current": 1298,
+      "eager": 983,
+      "ready": 691,
+      "stable": 687
+    },
+    {
+      "cpu": 1,
+      "scope": "auto",
+      "visit": "reload",
+      "current": 1114,
+      "eager": 820,
+      "ready": 529,
+      "stable": 532
+    },
+    {
+      "cpu": 4,
+      "scope": "public",
+      "visit": "cold",
+      "current": 1394,
+      "eager": 1014,
+      "ready": 717,
+      "stable": 698
+    },
+    {
+      "cpu": 4,
+      "scope": "public",
+      "visit": "reload",
+      "current": 504,
+      "eager": 411,
+      "ready": 3274,
+      "stable": 312
+    },
+    {
+      "cpu": 4,
+      "scope": "auto",
+      "visit": "cold",
+      "current": 1548,
+      "eager": 1223,
+      "ready": 889,
+      "stable": 891
+    },
+    {
+      "cpu": 4,
+      "scope": "auto",
+      "visit": "reload",
+      "current": 1236,
+      "eager": 916,
+      "ready": 605,
+      "stable": 604
+    }
+  ],
+  "samples": [
+    {
+      "variant": "current",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "article": 1110.6000000005588,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 332.1000000005588
+        },
+        {
+          "name": "identity-ready",
+          "time": 574.7000000001863,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1109.300000000745,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1112,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1518.300000000745,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 882.3000000007451
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1063.2000000001863
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1072.5
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 10.400000000372529,
+      "pageBodyRequests": 0,
+      "jsTransfer": 776506
+    },
+    {
+      "variant": "current",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "article": 410.20000000018626,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 308.8999999994412
+        },
+        {
+          "name": "sync",
+          "time": 403,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 403.70000000018626,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "identity-ready",
+          "time": 511.20000000018626,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 594.2000000001863,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 594.7999999998137,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 310.8999999994412
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 389.8999999994412
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 393.79999999981374
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 518.3999999994412
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 587.2999999998137
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "current",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "article": 1101.3999999994412,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 320.69999999925494
+        },
+        {
+          "name": "identity-ready",
+          "time": 549.1999999992549,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1100.199999999255,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1102.5999999996275,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1509.699999999255,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 855
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1054.699999999255
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1063.3999999994412
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.199999999254942,
+      "pageBodyRequests": 0,
+      "jsTransfer": 776506
+    },
+    {
+      "variant": "current",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "article": 401,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 309.90000000037253
+        },
+        {
+          "name": "sync",
+          "time": 394.29999999981374,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 395,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "identity-ready",
+          "time": 512.7999999998137,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 621.9000000003725,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 622.6000000005588,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 312
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 381.6000000005588
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 385.20000000018626
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 518.7999999998137
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 614.2999999998137
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "current",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "article": 1086.9000000003725,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 323
+        },
+        {
+          "name": "identity-ready",
+          "time": 548.7000000001863,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1085.7999999998137,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1088.1000000005588,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1494,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 854.5
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1036
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1044.6000000005588
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 776506
+    },
+    {
+      "variant": "current",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "article": 411.8999999994412,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 308.29999999981374
+        },
+        {
+          "name": "sync",
+          "time": 406.09999999962747,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 406.69999999925494,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "identity-ready",
+          "time": 511.3999999994412,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 594.0999999996275,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 594.6999999992549,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 310.19999999925494
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 392.8999999994412
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 396.69999999925494
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 518.3999999994412
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 587.0999999996275
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "current",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "article": 1303.0999999996275,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 321.29999999981374
+        },
+        {
+          "name": "identity-ready",
+          "time": 760.3999999994412,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1302.0999999996275,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1304.2999999998137,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1716.0999999996275,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 1066.0999999996275
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1259.5
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1267.7000000001863
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.7999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 776506
+    },
+    {
+      "variant": "current",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "article": 1115.7999999998137,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 308.20000000018626
+        },
+        {
+          "name": "identity-ready",
+          "time": 713.2999999998137,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1111.9000000003725,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1112.5,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1518.7000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 1015.7999999998137
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1098.4000000003725
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1102.4000000003725
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "current",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "article": 1293,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 323.69999999925494
+        },
+        {
+          "name": "identity-ready",
+          "time": 752,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1291.7999999998137,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1294.3999999994412,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1707.5,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 1057.699999999255
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1248
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1256.3999999994412
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 776506
+    },
+    {
+      "variant": "current",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "article": 1111.699999999255,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 308.8999999994412
+        },
+        {
+          "name": "identity-ready",
+          "time": 714.1999999992549,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1109.5,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1110.199999999255,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1516,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 1016.5999999996275
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1096.8999999994412
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1100.5
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "current",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "article": 1298.5,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 323.8999999994412
+        },
+        {
+          "name": "identity-ready",
+          "time": 751,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1297.2999999998137,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1301.7999999998137,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1713.0999999996275,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 1056.3999999994412
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1254.5
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1262.7999999998137
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 776506
+    },
+    {
+      "variant": "current",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "article": 1114.2999999998137,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 307.59999999962747
+        },
+        {
+          "name": "identity-ready",
+          "time": 712,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1108.5999999996275,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1109.4000000003725,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1513.7000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 1014.7999999998137
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1095.0999999996275
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1098.9000000003725
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.099999999627471,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "current",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "article": 1408.7000000001863,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 375.79999999981374
+        },
+        {
+          "name": "identity-ready",
+          "time": 622.0999999996275,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1407,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1418.2999999998137,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1839.0999999996275,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 947.0999999996275
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1204.5
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1246
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 432.90000000037253,
+          "duration": 114
+        },
+        {
+          "start": 1249.7999999998137,
+          "duration": 131
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.7999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 776506
+    },
+    {
+      "variant": "current",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "article": 495.5,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 327.5
+        },
+        {
+          "name": "sync",
+          "time": 482.20000000018626,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 486,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "identity-ready",
+          "time": 531.5,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 692.2999999998137,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 696.0999999996275,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 338.59999999962747
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 424.79999999981374
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 441.5
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 561.2999999998137
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 657.5999999996275
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 46.59999999962747,
+          "duration": 51
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.5,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "current",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "article": 1393.8999999994412,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 362.8999999994412
+        },
+        {
+          "name": "identity-ready",
+          "time": 592.6999999992549,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1392.5999999996275,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1407.8999999994412,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1828.5999999996275,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 919.2999999998137
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1183
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1227.5
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 406.79999999981374,
+          "duration": 117
+        },
+        {
+          "start": 897.6999999992549,
+          "duration": 51
+        },
+        {
+          "start": 1231.699999999255,
+          "duration": 136
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.199999999254942,
+      "pageBodyRequests": 0,
+      "jsTransfer": 776506
+    },
+    {
+      "variant": "current",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "article": 517.7999999998137,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 327.69999999925494
+        },
+        {
+          "name": "sync",
+          "time": 503.59999999962747,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 507.09999999962747,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "identity-ready",
+          "time": 530.7999999998137,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 716.5999999996275,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 720.5,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 339.5
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 441.59999999962747
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 460.19999999925494
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 560.1999999992549
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 681
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 47.299999999813735,
+          "duration": 54
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.3999999994412065,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "current",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "article": 1337.6000000005588,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 364.6000000005588
+        },
+        {
+          "name": "identity-ready",
+          "time": 592.9000000003725,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1336,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1351.7999999998137,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1772.6000000005588,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 918.2000000001863
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1135.7999999998137
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1176.2999999998137
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 400.1000000005588,
+          "duration": 109
+        },
+        {
+          "start": 1179.5,
+          "duration": 127
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.7000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 776506
+    },
+    {
+      "variant": "current",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "article": 503.5,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 331.70000000018626
+        },
+        {
+          "name": "sync",
+          "time": 490.09999999962747,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 493.70000000018626,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "identity-ready",
+          "time": 536.5999999996275,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 684.2999999998137,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 687.8999999994412,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 340
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 433.5
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 450.20000000018626
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 564.8999999994412
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 652.5999999996275
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 53.5,
+          "duration": 58
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 2.7999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "current",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "article": 1508.2999999998137,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 365.3999999994412
+        },
+        {
+          "name": "identity-ready",
+          "time": 799.1999999992549,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1507,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1521,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1941.5,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 1121.699999999255
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1315.699999999255
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1356.8999999994412
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 404.3999999994412,
+          "duration": 104
+        },
+        {
+          "start": 1360.8999999994412,
+          "duration": 122
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 776506
+    },
+    {
+      "variant": "current",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "article": 1218.0999999996275,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 328.5
+        },
+        {
+          "name": "identity-ready",
+          "time": 739.2999999998137,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1205.7999999998137,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1208.7999999998137,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1618.7000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 1049.2000000001863
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1148
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1165.7999999998137
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 339.79999999981374,
+          "duration": 52
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.7000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "current",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "article": 1548,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 362.29999999981374
+        },
+        {
+          "name": "identity-ready",
+          "time": 790.5,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1546.5,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1562.0999999996275,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1982.2000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 1117.7999999998137
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1337.8999999994412
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1385.2000000001863
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 395.09999999962747,
+          "duration": 102
+        },
+        {
+          "start": 1390,
+          "duration": 132
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 776506
+    },
+    {
+      "variant": "current",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "article": 1257.5,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 329.09999999962747
+        },
+        {
+          "name": "identity-ready",
+          "time": 740.2000000001863,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1241.8999999994412,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1245.8999999994412,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1658.5,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 1052.2999999998137
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1177.7000000001863
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1196.7000000001863
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 339.59999999962747,
+          "duration": 53
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "current",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "article": 1569.7999999998137,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 367
+        },
+        {
+          "name": "identity-ready",
+          "time": 808.6000000005588,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1567.9000000003725,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1583.7000000001863,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 2003.1000000005588,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 1132.7999999998137
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1359.4000000003725
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1404.6000000005588
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 415.5,
+          "duration": 123
+        },
+        {
+          "start": 1408.2999999998137,
+          "duration": 133
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.1000000005587935,
+      "pageBodyRequests": 0,
+      "jsTransfer": 776506
+    },
+    {
+      "variant": "current",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "article": 1235.699999999255,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 328.09999999962747
+        },
+        {
+          "name": "identity-ready",
+          "time": 738.5999999996275,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1220.3999999994412,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1224.199999999255,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1633.5,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 1048.699999999255
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1157.7999999998137
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1177
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 338.79999999981374,
+          "duration": 51
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.699999999254942,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "eager",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "article": 776.4000000003725,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 24.600000000558794
+        },
+        {
+          "name": "identity-ready",
+          "time": 252.1000000005588,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 775.2000000001863,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 777.6000000005588,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1184.5,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 560
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 732.7999999998137
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 740.9000000003725
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 4.1000000005587935,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774028
+    },
+    {
+      "variant": "eager",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "article": 309.40000000037253,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 13
+        },
+        {
+          "name": "identity-ready",
+          "time": 216.1000000005588,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 306.1000000005588,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 306.90000000037253,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 710.7000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 219.1000000005588
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 293.79999999981374
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 297.40000000037253
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "eager",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "article": 777.2000000001863,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 24.600000000558794
+        },
+        {
+          "name": "identity-ready",
+          "time": 250.1000000005588,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 776.2000000001863,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 778.2999999998137,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1183.7999999998137,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 562.6000000005588
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 733.2000000001863
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 741.6000000005588
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774028
+    },
+    {
+      "variant": "eager",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "article": 312.79999999981374,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 12.799999999813735
+        },
+        {
+          "name": "identity-ready",
+          "time": 215.90000000037253,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 306.29999999981374,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 306.90000000037253,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 710.9000000003725,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 218.79999999981374
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 293.70000000018626
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 297.29999999981374
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.6000000005587935,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "eager",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "article": 764.2999999998137,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 20.09999999962747
+        },
+        {
+          "name": "identity-ready",
+          "time": 245.59999999962747,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 763.2000000001863,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 765.4000000003725,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1170.2000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 552.7999999998137
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 720.2999999998137
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 728.7999999998137
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.099999999627471,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774028
+    },
+    {
+      "variant": "eager",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "article": 296.1000000005588,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 9.900000000372529
+        },
+        {
+          "name": "identity-ready",
+          "time": 212.90000000037253,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 294.1000000005588,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 294.70000000018626,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 700.5,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 214.70000000018626
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 281.70000000018626
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 285.20000000018626
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "eager",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "article": 982.7000000001863,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 19.800000000745058
+        },
+        {
+          "name": "identity-ready",
+          "time": 446.20000000018626,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 981.6000000005588,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 983.8000000007451,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1396.1000000005588,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 758.1000000005588
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 938.7000000001863
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 946.8000000007451
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774028
+    },
+    {
+      "variant": "eager",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "article": 806,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 11.399999999441206
+        },
+        {
+          "name": "identity-ready",
+          "time": 417.09999999962747,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 802.3999999994412,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 803.0999999996275,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1206.8999999994412,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 719.8999999994412
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 789.7999999998137
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 793.3999999994412
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.7000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "eager",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "article": 977.1000000005588,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 20.200000000186265
+        },
+        {
+          "name": "identity-ready",
+          "time": 450.20000000018626,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 976,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 978.5,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1389.7000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 761.8000000007451
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 933.4000000003725
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 941.6000000005588
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774028
+    },
+    {
+      "variant": "eager",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "article": 820.0999999996275,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 9.5
+        },
+        {
+          "name": "identity-ready",
+          "time": 416.29999999981374,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 816.5999999996275,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 817.2999999998137,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1227.2000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 722.8999999994412
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 803.7999999998137
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 807.5999999996275
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.599999999627471,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "eager",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "article": 983,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 20.90000000037253
+        },
+        {
+          "name": "identity-ready",
+          "time": 449.70000000018626,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 981.9000000003725,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 984.2000000001863,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1397.7000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 763.9000000003725
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 939
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 947.2000000001863
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774028
+    },
+    {
+      "variant": "eager",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "article": 825.6000000005588,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 12.400000000372529
+        },
+        {
+          "name": "identity-ready",
+          "time": 418.70000000018626,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 820.5,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 821.1000000005588,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1230.1000000005588,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 725.6000000005588
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 807.5
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 811.4000000003725
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.800000000745058,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "eager",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "article": 1013.5999999996275,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 79.20000000018626
+        },
+        {
+          "name": "identity-ready",
+          "time": 305.59999999962747,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1012.2999999998137,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1025.5,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1443.5,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 628.2000000001863
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 824.5
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 862.7000000001863
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 113.70000000018626,
+          "duration": 103
+        },
+        {
+          "start": 866.4000000003725,
+          "duration": 120
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774028
+    },
+    {
+      "variant": "eager",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "article": 404.70000000018626,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 38.40000000037253
+        },
+        {
+          "name": "identity-ready",
+          "time": 241.6000000005588,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 392,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 394.90000000037253,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 804.9000000003725,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 250.20000000018626
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 334.5
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 350.90000000037253
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.400000000372529,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "eager",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "article": 1013.5,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 76.80000000074506
+        },
+        {
+          "name": "identity-ready",
+          "time": 304.30000000074506,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1012.2000000001863,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1026,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1444.800000000745,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 627.3000000007451
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 823.7000000001863
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 861.8000000007451
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 109.5,
+          "duration": 106
+        },
+        {
+          "start": 865.8000000007451,
+          "duration": 120
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774028
+    },
+    {
+      "variant": "eager",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "article": 411.40000000037253,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 41.200000000186265
+        },
+        {
+          "name": "identity-ready",
+          "time": 244.5,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 398.70000000018626,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 402.09999999962747,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 812.2000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 252.79999999981374
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 341.20000000018626
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 357.59999999962747
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 44.799999999813735,
+          "duration": 51
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.5,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "eager",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "article": 1013.4000000003725,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 76.29999999981374
+        },
+        {
+          "name": "identity-ready",
+          "time": 303.5,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1012.2999999998137,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1025.9000000003725,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1447.5,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 628.2999999998137
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 824
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 862.9000000003725
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 110.90000000037253,
+          "duration": 106
+        },
+        {
+          "start": 867,
+          "duration": 120
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.400000000372529,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774028
+    },
+    {
+      "variant": "eager",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "article": 412.70000000018626,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 39
+        },
+        {
+          "name": "identity-ready",
+          "time": 242.5,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 399.59999999962747,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 403.20000000018626,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 813.4000000003725,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 253.59999999962747
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 342.29999999981374
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 358.40000000037253
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.400000000372529,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "eager",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "article": 1222.199999999255,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 78.59999999962747
+        },
+        {
+          "name": "identity-ready",
+          "time": 509,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1220.699999999255,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1239.8999999994412,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1654.199999999255,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 834.5999999996275
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1032.5999999996275
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1070.0999999996275
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 112.3999999994412,
+          "duration": 105
+        },
+        {
+          "start": 1073.7999999998137,
+          "duration": 124
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774028
+    },
+    {
+      "variant": "eager",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "article": 916.9000000003725,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 34
+        },
+        {
+          "name": "identity-ready",
+          "time": 444.79999999981374,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 904,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 907,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1317.5999999996275,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 753.5
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 845.5
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 862.5
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 44,
+          "duration": 56
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.7000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "eager",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "article": 1222.8999999994412,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 77.09999999962747
+        },
+        {
+          "name": "identity-ready",
+          "time": 508.69999999925494,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1221.7999999998137,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1235.3999999994412,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1654.7999999998137,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 831.5
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1033
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1071.8999999994412
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 109.69999999925494,
+          "duration": 105
+        },
+        {
+          "start": 1075.3999999994412,
+          "duration": 121
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.099999999627471,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774028
+    },
+    {
+      "variant": "eager",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "article": 916,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 33.5
+        },
+        {
+          "name": "identity-ready",
+          "time": 444.70000000018626,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 901.9000000003725,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 906,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1315.1000000005588,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 754.3000000007451
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 844.9000000003725
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 861.2000000001863
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "eager",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "article": 1224.5999999996275,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 78
+        },
+        {
+          "name": "identity-ready",
+          "time": 509.19999999925494,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1223.0999999996275,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1233.8999999994412,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1656.7999999998137,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 834.6999999992549
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 1037
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 1076.699999999255
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 111.29999999981374,
+          "duration": 107
+        },
+        {
+          "start": 1080.3999999994412,
+          "duration": 119
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.199999999254942,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774028
+    },
+    {
+      "variant": "eager",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "article": 915.2999999998137,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 33.799999999813735
+        },
+        {
+          "name": "identity-ready",
+          "time": 445.3999999994412,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 902.3999999994412,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 905.2999999998137,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1315.0999999996275,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 755.8999999994412
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 845
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 862.0999999996275
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 43.5,
+          "duration": 50
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.7000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "ready",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "article": 468.70000000018626,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 24.5
+        },
+        {
+          "name": "identity-ready",
+          "time": 251.29999999981374,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 467.59999999962747,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 469.79999999981374,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 881.7999999998137,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 255.79999999981374
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 425
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 433.09999999962747
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 3.7999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774078
+    },
+    {
+      "variant": "ready",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "article": 120.40000000037253,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 8.099999999627471
+        },
+        {
+          "name": "sync",
+          "time": 118.29999999981374,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 119,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "identity-ready",
+          "time": 212.09999999962747,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 292.90000000037253,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 293.40000000037253,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 39.09999999962747
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 105.90000000037253
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 109.29999999981374
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 218.79999999981374
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 286.09999999962747
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "ready",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "article": 461.5,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 19.90000000037253
+        },
+        {
+          "name": "identity-ready",
+          "time": 245.30000000074506,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 460.5,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 462.70000000018626,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 877.7000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 251.30000000074506
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 418.20000000018626
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 426.1000000005588
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.300000000745058,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774078
+    },
+    {
+      "variant": "ready",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "article": 142.09999999962747,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 14.599999999627471
+        },
+        {
+          "name": "sync",
+          "time": 135.3999999994412,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 136.19999999925494,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "identity-ready",
+          "time": 218,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 302.69999999925494,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 303.5,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 55.39999999944121
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 123
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 126.3999999994412
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 224.69999999925494
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 296
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 2.5,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "ready",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "article": 477.40000000037253,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 20.799999999813735
+        },
+        {
+          "name": "identity-ready",
+          "time": 245.29999999981374,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 476.29999999981374,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 478.79999999981374,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 895.2000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 250.90000000037253
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 432.90000000037253
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 441.40000000037253
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774078
+    },
+    {
+      "variant": "ready",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "article": 142.20000000018626,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 14.299999999813735
+        },
+        {
+          "name": "sync",
+          "time": 137.90000000037253,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 138.70000000018626,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "identity-ready",
+          "time": 218.79999999981374,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 301.79999999981374,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 302.29999999981374,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 55.700000000186265
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 125.6000000005588
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 129.20000000018626
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 225.90000000037253
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 295.20000000018626
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 2.6000000005587935,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "ready",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "article": 690.7999999998137,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 22.59999999962747
+        },
+        {
+          "name": "identity-ready",
+          "time": 453.90000000037253,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 689.7000000001863,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 692,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1104.4000000003725,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 462.59999999962747
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 645.2000000001863
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 653.2000000001863
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774078
+    },
+    {
+      "variant": "ready",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "article": 529,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 13.600000000558794
+        },
+        {
+          "name": "identity-ready",
+          "time": 421.6000000005588,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 523.6000000005588,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 524.2999999998137,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 933.7000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 426.1000000005588
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 511.29999999981374
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 515
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 2.1000000005587935,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "ready",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "article": 681,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 21.899999999441206
+        },
+        {
+          "name": "identity-ready",
+          "time": 450,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 679.8999999994412,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 682.0999999996275,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1096.8999999994412,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 460.59999999962747
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 637.5999999996275
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 645.3999999994412
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774078
+    },
+    {
+      "variant": "ready",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "article": 511.6000000005588,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 8.400000000372529
+        },
+        {
+          "name": "identity-ready",
+          "time": 414.5,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 506.70000000018626,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 507.40000000037253,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 911.9000000003725,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 417.1000000005588
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 493.79999999981374
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 497.79999999981374
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "ready",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "article": 702.9000000003725,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 27.5
+        },
+        {
+          "name": "identity-ready",
+          "time": 459.90000000037253,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 701.8000000007451,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 704,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1122.300000000745,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 471.40000000037253
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 658.8000000007451
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 667.2000000001863
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774078
+    },
+    {
+      "variant": "ready",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "article": 530.7000000001863,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 10.600000000558794
+        },
+        {
+          "name": "identity-ready",
+          "time": 417.90000000037253,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 526.5,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 527.1000000005588,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 935,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 423.40000000037253
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 513.9000000003725
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 517.7000000001863
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.5,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "ready",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "article": 717,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 81.20000000018626
+        },
+        {
+          "name": "identity-ready",
+          "time": 309.70000000018626,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 715.2000000001863,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 727,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1149.4000000003725,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 331.70000000018626
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 530.7000000001863
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 567.5
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 114.29999999981374,
+          "duration": 104
+        },
+        {
+          "start": 571.0999999996275,
+          "duration": 120
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774078
+    },
+    {
+      "variant": "ready",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "article": 3274.199999999255,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 31.699999999254942
+        },
+        {
+          "name": "identity-ready",
+          "time": 240.09999999962747,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 3270.7999999998137,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 3277.2999999998137,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 3697.699999999255,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 164.5
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 257.29999999981374
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 266.3999999994412
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 3164.399999999441
+        },
+        {
+          "name": "@livestore/common:leader-thread:recreateDb:start",
+          "time": 3179.5
+        },
+        {
+          "name": "@livestore/common:rematerializeFromEventlog:start",
+          "time": 3190.7999999998137
+        },
+        {
+          "name": "@livestore/common:rematerializeFromEventlog:end",
+          "time": 3198.199999999255
+        },
+        {
+          "name": "@livestore/common:leader-thread:recreateDb:end",
+          "time": 3199
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 3204
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 3213.2999999998137
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 3222.699999999255
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 40.89999999944121,
+          "duration": 50
+        },
+        {
+          "start": 3157.899999999441,
+          "duration": 57
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.199999999254942,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "ready",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "article": 730.2999999998137,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 80.1000000005588
+        },
+        {
+          "name": "identity-ready",
+          "time": 310.79999999981374,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 729.1000000005588,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 749.2000000001863,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1163.1000000005588,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 334.6000000005588
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 539.7000000001863
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 580.2000000001863
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 117.70000000018626,
+          "duration": 108
+        },
+        {
+          "start": 582.9000000003725,
+          "duration": 122
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774078
+    },
+    {
+      "variant": "ready",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "article": 3275.600000000559,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 32.200000000186265
+        },
+        {
+          "name": "identity-ready",
+          "time": 239.90000000037253,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 3272.100000000559,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 3278.2000000001863,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 3697.4000000003725,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 162.70000000018626
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 256.90000000037253
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 266.40000000037253
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 3164.600000000559
+        },
+        {
+          "name": "@livestore/common:leader-thread:recreateDb:start",
+          "time": 3180.4000000003725
+        },
+        {
+          "name": "@livestore/common:rematerializeFromEventlog:start",
+          "time": 3190.7000000001863
+        },
+        {
+          "name": "@livestore/common:rematerializeFromEventlog:end",
+          "time": 3198
+        },
+        {
+          "name": "@livestore/common:leader-thread:recreateDb:end",
+          "time": 3198.800000000745
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 3204
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 3213.9000000003725
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 3223.4000000003725
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 3157.4000000003725,
+          "duration": 58
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "ready",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "article": 697.6000000005588,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 72.90000000037253
+        },
+        {
+          "name": "identity-ready",
+          "time": 300.5,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 696.2000000001863,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 707.7999999998137,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1127.9000000003725,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 320.79999999981374
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 515.2999999998137
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 552.2000000001863
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 107.40000000037253,
+          "duration": 101
+        },
+        {
+          "start": 555.5,
+          "duration": 117
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774078
+    },
+    {
+      "variant": "ready",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "article": 412.59999999962747,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 31.40000000037253
+        },
+        {
+          "name": "identity-ready",
+          "time": 255.90000000037253,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 399.59999999962747,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 402.59999999962747,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 161.79999999981374
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 245
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 279.40000000037253
+        },
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 282.79999999981374
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 359.5
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.099999999627471,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "ready",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "article": 889.5999999996275,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 73.59999999962747
+        },
+        {
+          "name": "identity-ready",
+          "time": 503.09999999962747,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 888.5999999996275,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 901,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1319.4000000003725,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 523.2999999998137
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 714.2999999998137
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 749.7999999998137
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 105.59999999962747,
+          "duration": 99
+        },
+        {
+          "start": 752.7999999998137,
+          "duration": 113
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774078
+    },
+    {
+      "variant": "ready",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "article": 599.3999999994412,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 32.5
+        },
+        {
+          "name": "identity-ready",
+          "time": 442.3999999994412,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 587.6999999992549,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 590.5999999996275,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1001.2999999998137,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 449.5
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 534.0999999996275
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 550
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.5,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "ready",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "article": 888.3000000007451,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 72.1000000005588
+        },
+        {
+          "name": "identity-ready",
+          "time": 500.5,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 887.4000000003725,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 899.5,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1318.2000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 521.1000000005588
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 712.2000000001863
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 746.9000000003725
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 104.90000000037253,
+          "duration": 98
+        },
+        {
+          "start": 749.7000000001863,
+          "duration": 115
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774078
+    },
+    {
+      "variant": "ready",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "article": 609.5,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 34.90000000037253
+        },
+        {
+          "name": "identity-ready",
+          "time": 445.20000000018626,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 597.9000000003725,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 600.7000000001863,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1010.3000000007451,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 455.6000000005588
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 543.2000000001863
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 558.5
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 44.5,
+          "duration": 54
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.300000000745058,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "ready",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "article": 889.0999999996275,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 73
+        },
+        {
+          "name": "identity-ready",
+          "time": 502,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 888,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 898.8999999994412,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1318.2999999998137,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 523.2999999998137
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 713.5999999996275
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 749
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 105.19999999925494,
+          "duration": 98
+        },
+        {
+          "start": 752.1999999992549,
+          "duration": 112
+        }
+      ],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774078
+    },
+    {
+      "variant": "ready",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "article": 604.5999999996275,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 32.5
+        },
+        {
+          "name": "identity-ready",
+          "time": 443.29999999981374,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 592.0999999996275,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 594.8999999994412,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1005.2999999998137,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 450.59999999962747
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 537.0999999996275
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 553.8999999994412
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": null,
+      "htmlMs": 0.8999999994412065,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "stable",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "article": 474.8999999994412,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 24.5
+        },
+        {
+          "name": "identity-ready",
+          "time": 250.79999999981374,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 473.69999999925494,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 476,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 893.0999999996275,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 259
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 431.79999999981374
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 439.69999999925494
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 21.399999999441206
+        },
+        {
+          "visible": true,
+          "time": 468.19999999925494
+        }
+      ],
+      "htmlMs": 4.3999999994412065,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774029
+    },
+    {
+      "variant": "stable",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "article": 137.90000000037253,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 15.100000000558794
+        },
+        {
+          "name": "sync",
+          "time": 134.80000000074506,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 135.5,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "identity-ready",
+          "time": 219.6000000005588,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 545.8000000007451,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 54.5
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 122.6000000005588
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 126
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 9.5
+        },
+        {
+          "visible": true,
+          "time": 135.80000000074506
+        }
+      ],
+      "htmlMs": 2.6000000005587935,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "stable",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "article": 480.40000000037253,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 26.799999999813735
+        },
+        {
+          "name": "identity-ready",
+          "time": 256,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 479.29999999981374,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 481.5,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 899.7000000001863,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 265
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 437.79999999981374
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 446
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 20.200000000186265
+        },
+        {
+          "visible": true,
+          "time": 473.79999999981374
+        }
+      ],
+      "htmlMs": 1.400000000372529,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774029
+    },
+    {
+      "variant": "stable",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "article": 142.59999999962747,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 15.5
+        },
+        {
+          "name": "sync",
+          "time": 135,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 135.70000000018626,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "identity-ready",
+          "time": 219.90000000037253,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 546.4000000003725,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 56
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 122.59999999962747
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 126.20000000018626
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 11.700000000186265
+        },
+        {
+          "visible": true,
+          "time": 136.20000000018626
+        }
+      ],
+      "htmlMs": 2.900000000372529,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "stable",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "article": 470.59999999962747,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 22.299999999813735
+        },
+        {
+          "name": "identity-ready",
+          "time": 247.79999999981374,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 469.59999999962747,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 471.79999999981374,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 886.7999999998137,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 255.79999999981374
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 427.3999999994412
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 435.29999999981374
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 9.899999999441206
+        },
+        {
+          "visible": true,
+          "time": 464.19999999925494
+        }
+      ],
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774029
+    },
+    {
+      "variant": "stable",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "article": 139.70000000018626,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 15.099999999627471
+        },
+        {
+          "name": "sync",
+          "time": 135.8999999994412,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 136.59999999962747,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "identity-ready",
+          "time": 219.5,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 547.5999999996275,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 55.200000000186265
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 123.29999999981374
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 126.8999999994412
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 9.5
+        },
+        {
+          "visible": true,
+          "time": 136.8999999994412
+        }
+      ],
+      "htmlMs": 2.7000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "stable",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "article": 686.7000000001863,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 22.299999999813735
+        },
+        {
+          "name": "identity-ready",
+          "time": 452.70000000018626,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 685.6000000005588,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 687.7999999998137,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1106,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 465.40000000037253
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 643.9000000003725
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 651.7999999998137
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 10.100000000558794
+        },
+        {
+          "visible": true,
+          "time": 680.1000000005588
+        }
+      ],
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774029
+    },
+    {
+      "variant": "stable",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "article": 531.5,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 16.299999999813735
+        },
+        {
+          "name": "identity-ready",
+          "time": 424.3999999994412,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 528.2999999998137,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 529.0999999996275,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 938.7999999998137,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 428.79999999981374
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 516.0999999996275
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 519.5999999996275
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 9.700000000186265
+        },
+        {
+          "visible": true,
+          "time": 529.2999999998137
+        }
+      ],
+      "htmlMs": 2.5,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "stable",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "article": 687.9000000003725,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 21.300000000745058
+        },
+        {
+          "name": "identity-ready",
+          "time": 452.30000000074506,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 686.8000000007451,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 689.2000000001863,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1108.5,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 465.6000000005588
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 644.8000000007451
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 652.9000000003725
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 10
+        },
+        {
+          "visible": true,
+          "time": 681.4000000003725
+        }
+      ],
+      "htmlMs": 1.400000000372529,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774029
+    },
+    {
+      "variant": "stable",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "article": 532,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 15.099999999627471
+        },
+        {
+          "name": "identity-ready",
+          "time": 423.90000000037253,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 529.9000000003725,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 530.5999999996275,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 939.5,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 429.20000000018626
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 517.4000000003725
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 521
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 9.200000000186265
+        },
+        {
+          "visible": true,
+          "time": 531
+        }
+      ],
+      "htmlMs": 2.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "stable",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "article": 686.1000000005588,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 22
+        },
+        {
+          "name": "identity-ready",
+          "time": 451.6000000005588,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 685,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 687.2000000001863,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1102,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 464.40000000037253
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 643
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 651
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 9.900000000372529
+        },
+        {
+          "visible": true,
+          "time": 679.6000000005588
+        }
+      ],
+      "htmlMs": 1.300000000745058,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774029
+    },
+    {
+      "variant": "stable",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "article": 532.1000000005588,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 15.5
+        },
+        {
+          "name": "identity-ready",
+          "time": 424.70000000018626,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 529.7000000001863,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 530.4000000003725,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 940.9000000003725,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 429.6000000005588
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 517.6000000005588
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 520.9000000003725
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 9.300000000745058
+        },
+        {
+          "visible": true,
+          "time": 530.8000000007451
+        }
+      ],
+      "htmlMs": 2.5,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "stable",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "article": 705.2000000001863,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 76.5
+        },
+        {
+          "name": "identity-ready",
+          "time": 304.90000000037253,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 703.5999999996275,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 723.9000000003725,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1135.7999999998137,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 325.09999999962747
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 519.7999999998137
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 558.0999999996275
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 109.79999999981374,
+          "duration": 108
+        },
+        {
+          "start": 561.7999999998137,
+          "duration": 118
+        }
+      ],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 23.799999999813735
+        },
+        {
+          "visible": true,
+          "time": 681.2999999998137
+        }
+      ],
+      "htmlMs": 1.2000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774029
+    },
+    {
+      "variant": "stable",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "article": 311.69999999925494,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 31.5
+        },
+        {
+          "name": "identity-ready",
+          "time": 239.19999999925494,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 299.5,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 302.8999999994412,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 713.6999999992549,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 161
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 244.59999999962747
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 261.29999999981374
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 12.399999999441206
+        },
+        {
+          "visible": true,
+          "time": 304.19999999925494
+        }
+      ],
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "stable",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "article": 698.3999999994412,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 72.69999999925494
+        },
+        {
+          "name": "identity-ready",
+          "time": 300.5,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 697.0999999996275,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 715.0999999996275,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1128.3999999994412,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 323.5
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 518.7999999998137
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 555.1999999992549
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 105.09999999962747,
+          "duration": 100
+        },
+        {
+          "start": 558.1999999992549,
+          "duration": 116
+        }
+      ],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 22.399999999441206
+        },
+        {
+          "visible": true,
+          "time": 675.5
+        }
+      ],
+      "htmlMs": 1,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774029
+    },
+    {
+      "variant": "stable",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "article": 310.40000000037253,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 32.90000000037253
+        },
+        {
+          "name": "identity-ready",
+          "time": 255,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 298,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 301.40000000037253,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 709.6000000005588,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 161.1000000005588
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 244.1000000005588
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 260.20000000018626
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 12.400000000372529
+        },
+        {
+          "visible": true,
+          "time": 303.29999999981374
+        }
+      ],
+      "htmlMs": 1.7999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "stable",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "article": 685.2000000001863,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 73.20000000018626
+        },
+        {
+          "name": "identity-ready",
+          "time": 298.09999999962747,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 684.2000000001863,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 702.5999999996275,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1116.2999999998137,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 317.90000000037253
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 509.90000000037253
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 545.7999999998137
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 104.70000000018626,
+          "duration": 98
+        },
+        {
+          "start": 549.2000000001863,
+          "duration": 112
+        }
+      ],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 21.59999999962747
+        },
+        {
+          "visible": true,
+          "time": 662.0999999996275
+        }
+      ],
+      "htmlMs": 1.400000000372529,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774029
+    },
+    {
+      "variant": "stable",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "article": 312,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 30.700000000186265
+        },
+        {
+          "name": "identity-ready",
+          "time": 238.5,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 300.29999999981374,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 303.5,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 713.3999999994412,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 159.09999999962747
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 244.79999999981374
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 260.8999999994412
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 12.399999999441206
+        },
+        {
+          "visible": true,
+          "time": 305.29999999981374
+        }
+      ],
+      "htmlMs": 1.7000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "stable",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "article": 890.7000000001863,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 72.79999999981374
+        },
+        {
+          "name": "identity-ready",
+          "time": 501.79999999981374,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 888.9000000003725,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 907.2000000001863,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1320.4000000003725,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 522.4000000003725
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 713.2999999998137
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 748.6000000005588
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 104.1000000005588,
+          "duration": 98
+        },
+        {
+          "start": 752.2000000001863,
+          "duration": 114
+        }
+      ],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 20.799999999813735
+        },
+        {
+          "visible": true,
+          "time": 866.7999999998137
+        }
+      ],
+      "htmlMs": 1.2999999998137355,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774029
+    },
+    {
+      "variant": "stable",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "article": 604.9000000003725,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 30.800000000745058
+        },
+        {
+          "name": "identity-ready",
+          "time": 441.40000000037253,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 593.4000000003725,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 596,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1006.6000000005588,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 448.5
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 536.8000000007451
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 553.6000000005588
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 11.600000000558794
+        },
+        {
+          "visible": true,
+          "time": 597.8000000007451
+        }
+      ],
+      "htmlMs": 1,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "stable",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "article": 890.1000000005588,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 72.80000000074506
+        },
+        {
+          "name": "identity-ready",
+          "time": 502.80000000074506,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 888.8000000007451,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 899.4000000003725,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1320.800000000745,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 522.6000000005588
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 714.2000000001863
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 749.5
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 107.20000000018626,
+          "duration": 99
+        },
+        {
+          "start": 752.3000000007451,
+          "duration": 114
+        }
+      ],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 21.800000000745058
+        },
+        {
+          "visible": true,
+          "time": 866.6000000005588
+        }
+      ],
+      "htmlMs": 1.400000000372529,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774029
+    },
+    {
+      "variant": "stable",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "article": 604.1999999992549,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 30.09999999962747
+        },
+        {
+          "name": "identity-ready",
+          "time": 440.79999999981374,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 591,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 594.6999999992549,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1003.7999999998137,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 448
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 535.1999999992549
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 551.7999999998137
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 29.399999999441206
+        },
+        {
+          "visible": true,
+          "time": 596.5999999996275
+        }
+      ],
+      "htmlMs": 1,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    },
+    {
+      "variant": "stable",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "article": 894.1999999992549,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 72.29999999981374
+        },
+        {
+          "name": "identity-ready",
+          "time": 502,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 892.7999999998137,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 911.5,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1326.5,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 525.5999999996275
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 714.8999999994412
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 751.1999999992549
+        }
+      ],
+      "longtasks": [
+        {
+          "start": 103.69999999925494,
+          "duration": 97
+        },
+        {
+          "start": 754.1999999992549,
+          "duration": 115
+        }
+      ],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 22
+        },
+        {
+          "visible": true,
+          "time": 870.5999999996275
+        }
+      ],
+      "htmlMs": 1.199999999254942,
+      "pageBodyRequests": 0,
+      "jsTransfer": 774029
+    },
+    {
+      "variant": "stable",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "article": 599.7000000001863,
+      "phases": [
+        {
+          "name": "identity-start",
+          "time": 31.5
+        },
+        {
+          "name": "identity-ready",
+          "time": 443,
+          "data": {
+            "scope": "public"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 588.4000000003725,
+          "data": {
+            "status": "idle"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 590.7999999998137,
+          "data": {
+            "status": "syncing"
+          }
+        },
+        {
+          "name": "sync",
+          "time": 1000.6000000005588,
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "marks": [
+        {
+          "name": "livestore:makeAdapter:start",
+          "time": 450.5
+        },
+        {
+          "name": "livestore:makeAdapter:end",
+          "time": 534.2000000001863
+        },
+        {
+          "name": "wiki-page-bootstrap-seeded",
+          "time": 550
+        }
+      ],
+      "longtasks": [],
+      "errors": [],
+      "visibility": [
+        {
+          "visible": false,
+          "time": 27
+        },
+        {
+          "visible": true,
+          "time": 592.2999999998137
+        }
+      ],
+      "htmlMs": 1.7000000001862645,
+      "pageBodyRequests": 0,
+      "jsTransfer": 0
+    }
+  ]
+}
