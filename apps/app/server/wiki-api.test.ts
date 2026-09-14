@@ -253,6 +253,7 @@ function createFakeConvexClient({
               excerpt: page.content,
             }));
         }
+        case "documents:listPage":
         case "documents:listManifestPage": {
           const includeSensitive = args.includeSensitive === true;
           const visiblePages = pages.filter((page) => includeSensitive || !page.sensitive);

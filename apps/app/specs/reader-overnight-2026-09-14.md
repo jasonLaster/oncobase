@@ -75,9 +75,19 @@ A further 48-load comparison against the preload build found no cold-load improv
 
 First release `02afed7f2d5adff1be5079de697a9dcedef8c53f` is pushed to main and READY in deployment `dpl_4bBNCiPtapLg6U8AAzAHFus5sLmo`, aliased to Diana and diagnostics. Existing authenticated Chrome verified the new entry (`index-DjvoDI5Q.js`), Insurance article, reload, sidebar navigation to Home, history back, search palette and Escape, with no captured console errors. Native browser access cannot read the Performance API; no automated production password was available. This confirms functionality, not production load timing.
 
+## Live signed-in bottleneck and access experiment
+
+The opt-in native Chrome measurement exposed an existing profile-dependent issue that clean fixtures missed. On `af32de27`, the signed-in account took 21.9 seconds on the first measured load and 9.7 seconds on reload, with a persisted-store timeout. Earlier releases had already logged the same timeout in this browser profile. Expanded diagnostics in `4188dc21` separated an 8.1-second load into 1.25 seconds of HTML delivery, a 3.08-second identity request, the 3-second persisted-store deadline, and temporary-store rendering. Long main-thread tasks were only about 60–100 ms each; the delay is not explained by one long React render.
+
+Explicit public mode in the same profile took 2.23 seconds, with HTML complete at 367 ms and identity responding in 101 ms. This public run did not need the persisted-store timeout, but remains far above the clean fixture. These are exploratory, opt-in, existing-profile measurements, not isolated benchmark medians. The account's identity path and populated/potentially contended storage need priority over further small bundle changes.
+
+The signed-in cache-key path previously fetched full manifest metadata in batches of 100 and then awaited an access RPC for every batch. The new candidate uses the existing lightweight listPage endpoint in batches of 1000, overlaps the next metadata page, and runs at most four existing access-check batches of 100 concurrently. It computes the same allowed-sensitive-slug list and therefore the same cache key, with no authorization cache or policy changes. If a larger page exceeds the backend read budget, it retries that cursor with the original batch size and keeps that size afterward; persistent failures propagate.
+
+A 2500-document synthetic comparison (2000 sensitive, three alternating samples per mode and latency) reduced 50-ms-RPC medians from about 2.58 seconds to 312 ms, preserving exactly the same allowed results. Metadata calls fell from 25 to 3, access calls from 25 to 20, and access concurrency is bounded at four. All 49 access/API/session unit tests passed, including denied results, revocation, oversized-page fallback, exact list equality and failure propagation. This has not yet established the production improvement.
+
 ## Continuation
 
-Current release candidate: measured reader module preloads, deferred fallback SQLite initialization, and a content-free console timing summary in the existing opt-in `paintDebug=1` observer. The latter permits native authenticated-browser measurements without exporting credentials or medical content. Normal visits do not load this diagnostics module.
+Module preloads and deferred fallback SQLite are deployed as `af32de27f055c57ceeed61a47ceec644d375db19` (`dpl_41ZNGS9pcjVpEXX5nNDTu2RUoZpR`). Expanded opt-in timing diagnostics are deployed as `4188dc21cdceea18a6f759ddb94c5aca6427695c` (`dpl_7JGyoNjctqCDwcZ3zVXqWHZYVws2`). Both are READY with production aliases; the browser shows `index-DEJ05vr9.js` for the latter. Prioritize validating the access RPC optimization and diagnosing the real profile's persisted-store delay. Do not report the sub-500-ms fixture as the user's actual signed-in load time.
 
 Next candidate after that: start the existing seed-page dynamic import when the reader boot callback is created, overlapping its download with database boot. Currently it starts only after the database is ready. Do not consume or apply the payload early.
 

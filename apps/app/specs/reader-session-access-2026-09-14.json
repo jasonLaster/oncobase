@@ -1,0 +1,126 @@
+{
+  "documents": 2500,
+  "sensitiveDocuments": 2000,
+  "samples": [
+    {
+      "mode": "baseline",
+      "run": 1,
+      "latency": 20,
+      "durationMs": 1096,
+      "pageCalls": 25,
+      "accessCalls": 25,
+      "peakConcurrency": 1,
+      "sameAccessResults": true
+    },
+    {
+      "mode": "candidate",
+      "run": 1,
+      "latency": 20,
+      "durationMs": 135,
+      "pageCalls": 3,
+      "accessCalls": 20,
+      "peakConcurrency": 4,
+      "sameAccessResults": true
+    },
+    {
+      "mode": "candidate",
+      "run": 2,
+      "latency": 20,
+      "durationMs": 133,
+      "pageCalls": 3,
+      "accessCalls": 20,
+      "peakConcurrency": 4,
+      "sameAccessResults": true
+    },
+    {
+      "mode": "baseline",
+      "run": 2,
+      "latency": 20,
+      "durationMs": 1094,
+      "pageCalls": 25,
+      "accessCalls": 25,
+      "peakConcurrency": 1,
+      "sameAccessResults": true
+    },
+    {
+      "mode": "baseline",
+      "run": 3,
+      "latency": 20,
+      "durationMs": 1077,
+      "pageCalls": 25,
+      "accessCalls": 25,
+      "peakConcurrency": 1,
+      "sameAccessResults": true
+    },
+    {
+      "mode": "candidate",
+      "run": 3,
+      "latency": 20,
+      "durationMs": 128,
+      "pageCalls": 3,
+      "accessCalls": 20,
+      "peakConcurrency": 4,
+      "sameAccessResults": true
+    },
+    {
+      "mode": "baseline",
+      "run": 1,
+      "latency": 50,
+      "durationMs": 2591,
+      "pageCalls": 25,
+      "accessCalls": 25,
+      "peakConcurrency": 1,
+      "sameAccessResults": true
+    },
+    {
+      "mode": "candidate",
+      "run": 1,
+      "latency": 50,
+      "durationMs": 313,
+      "pageCalls": 3,
+      "accessCalls": 20,
+      "peakConcurrency": 4,
+      "sameAccessResults": true
+    },
+    {
+      "mode": "candidate",
+      "run": 2,
+      "latency": 50,
+      "durationMs": 312,
+      "pageCalls": 3,
+      "accessCalls": 20,
+      "peakConcurrency": 4,
+      "sameAccessResults": true
+    },
+    {
+      "mode": "baseline",
+      "run": 2,
+      "latency": 50,
+      "durationMs": 2589,
+      "pageCalls": 25,
+      "accessCalls": 25,
+      "peakConcurrency": 1,
+      "sameAccessResults": true
+    },
+    {
+      "mode": "baseline",
+      "run": 3,
+      "latency": 50,
+      "durationMs": 2584,
+      "pageCalls": 25,
+      "accessCalls": 25,
+      "peakConcurrency": 1,
+      "sameAccessResults": true
+    },
+    {
+      "mode": "candidate",
+      "run": 3,
+      "latency": 50,
+      "durationMs": 309,
+      "pageCalls": 3,
+      "accessCalls": 20,
+      "peakConcurrency": 4,
+      "sameAccessResults": true
+    }
+  ]
+}

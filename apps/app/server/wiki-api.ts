@@ -1,3 +1,4 @@
+import { loadAllowedSensitiveSlugs } from "./allowed-sensitive-slugs";
 import { browserConversationToken, createBackendClient } from "./backend-client";
 import crypto from "node:crypto";
 import { traceBackendHandler, traceConvexClient, traceBackendPhase } from "./backend-tracing";
@@ -737,43 +738,12 @@ function createAccessAdapter(
         api.access.filterAccessibleSlugs,
         withSiteSlug(siteSlug, { userId: user._id as Id<"users">, slugs }),
       ),
-    getAllowedSlugs: async (user) => {
-      const allowed: string[] = [];
-      let cursor: string | null = null;
-      let isDone = false;
-
-      while (!isDone) {
-        const result = (await client.query(
-          api.documents.listManifestPage,
-          withSiteSlug(siteSlug, {
-            cursor,
-            numItems: 100,
-            includeSensitive: true,
-          }),
-        )) as {
-          page: Array<{ slug: string; sensitive?: boolean }>;
-          isDone: boolean;
-          continueCursor: string | null;
-        };
-        const sensitiveSlugs = result.page
-          .filter((page) => page.sensitive === true)
-          .map((page) => page.slug);
-        if (sensitiveSlugs.length > 0) {
-          const checks = (await client.query(
-            api.access.filterAccessibleSlugs,
-            withSiteSlug(siteSlug, {
-              userId: user._id as Id<"users">,
-              slugs: sensitiveSlugs,
-            }),
-          )) as Array<{ slug: string; allowed: boolean }>;
-          allowed.push(...checks.filter((c) => c.allowed).map((c) => c.slug));
-        }
-        isDone = result.isDone;
-        cursor = result.continueCursor;
-      }
-
-      return allowed;
-    },
+    getAllowedSlugs: (user) => loadAllowedSensitiveSlugs(
+      (cursor, numItems) => client.query(api.documents.listPage,
+        withSiteSlug(siteSlug, { cursor, numItems, includeSensitive: true })),
+      (slugs) => client.query(api.access.filterAccessibleSlugs,
+        withSiteSlug(siteSlug, { userId: user._id as Id<"users">, slugs })),
+    ),
   };
 }
 
