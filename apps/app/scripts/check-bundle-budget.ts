@@ -41,7 +41,8 @@ const budgets: Budget[] = [
   // Includes the bounded, read-only leader-lock probe for follower recovery.
   // The early reader keeps one app mounted across the real store handoff.
   // Allow 256 additional bytes here; retain the aggregate eager limit.
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 18_112 },
+  // The diagnostic identity preview adds a nullable-store gate and initial partition latch (+128 bytes).
+  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 18_240 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },

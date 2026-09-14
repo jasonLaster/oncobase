@@ -30,7 +30,7 @@ import {
 import { useLocation, useNavigate } from "react-router";
 import { backendHref, returnToHref } from "../wiki-utils";
 import { requestSessionCacheCleanup } from "../livestore/cache-retirement";
-import { useWikiSession } from "../wiki-context";
+import { useWikiSession, useWikiIdentityPending } from "../wiki-context";
 import type { PaletteMode } from "./CommandPalette";
 import type {} from "../bootstrap/reader-shortcuts";
 
@@ -169,7 +169,9 @@ export function useWikiViteAuth() {
 function useWikiAuthState() {
   const [sessionUser, setSessionUser] = useState<WikiActionsMenuUser | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
-  const [accountPending] = useState(() => document.getElementById("wiki-html-first")?.hasAttribute("data-account-pending") === true);
+  const identityPending = useWikiIdentityPending();
+  const [initialAccountPending] = useState(() => document.getElementById("wiki-html-first")?.hasAttribute("data-account-pending") === true);
+  const accountPending = initialAccountPending || identityPending;
 
   useEffect(() => {
     let cancelled = false;

@@ -208,3 +208,109 @@ test("a failed boot callback retries without moving the already readable article
   expect(await handle!.evaluate(node => node.isConnected)).toBe(true);
   await expect(page.locator("[data-reader-store-ready]")).toHaveAttribute("data-reader-store-ready", "true");
 });
+
+
+async function holdIdentity(page: Page) {
+  let release!: () => void;
+  let pending = false;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/wiki/session**", async route => {
+    pending = true;
+    await gate;
+    await route.fallback();
+  });
+  return { release, pending: () => pending };
+}
+const adapterStarts = (page: Page) => page.evaluate(() => performance.getEntriesByName("livestore:makeAdapter:start").length);
+
+for (const authenticated of [false, true]) {
+  test(`public presentation waits to open the verified store; session=${authenticated}`, async ({ page }) => {
+    const api = await setup(page, authenticated);
+    const gate = await holdIdentity(page);
+    try {
+      await page.goto("/?paintDebug=1&readerSessionPreview=1", { waitUntil: "domcontentloaded" });
+      await expect.poll(gate.pending).toBe(true);
+      const article = page.getByTestId("document-article");
+      await expect(article).toContainText("EARLY_READER_BODY");
+      const handle = await article.elementHandle();
+      await releaseStorage(page);
+      await page.getByTestId("sidebar-search").click();
+      const search = page.getByTestId("command-palette").locator("input");
+      await search.fill("Insurance");
+      const input = await search.elementHandle();
+      expect(await adapterStarts(page)).toBe(0);
+      await expect(page.locator("[data-reader-identity-pending]")).toHaveAttribute("data-reader-identity-pending", "true");
+      expect(api.manifest).toHaveLength(0);
+      expect(api.pages).toHaveLength(0);
+      gate.release();
+      await expect.poll(() => handoffCount(page)).toBe(1);
+      expect(await handle!.evaluate(node => node.isConnected)).toBe(true);
+      expect(await input!.evaluate(node => node.isConnected && node === document.activeElement)).toBe(true);
+      await expect(search).toHaveValue("Insurance");
+      expect(await adapterStarts(page)).toBe(1);
+      await expect(page.locator("[data-reader-identity-pending]")).toHaveAttribute("data-reader-identity-pending", "false");
+      await expect.poll(() => api.manifest.length).toBeGreaterThan(0);
+      expect(api.manifest.every(url => new URL(url).searchParams.get("scope") === (authenticated ? "session" : "public"))).toBe(true);
+      await page.keyboard.press("Escape");
+      if (authenticated) {
+        await page.getByTestId("sidebar-search").click();
+        await search.fill("Private Plan");
+        await expect(page.getByTestId("command-palette").getByRole("option", { name: "plan private", exact: true })).toBeVisible();
+        await page.keyboard.press("Enter");
+        await expect(article).toContainText("Sensitive session-only planning note.");
+      }
+    } finally { gate.release(); }
+  });
+}
+
+test("navigation during identity verification seeds the original route and preserves the requested destination", async ({ page }) => {
+  await setup(page, true);
+  const gate = await holdIdentity(page);
+  try {
+    await page.goto("/?paintDebug=1&readerSessionPreview=1", { waitUntil: "domcontentloaded" });
+    const article = page.getByTestId("document-article");
+    await expect(article).toContainText("EARLY_READER_BODY");
+    const handle = await article.elementHandle();
+    await article.getByRole("link", { name: "Insurance", exact: true }).click();
+    await expect(page).toHaveURL(/\/wiki\/logistics\/insurance/);
+    await expect(article).toContainText("EARLY_READER_BODY");
+    expect(await adapterStarts(page)).toBe(0);
+    gate.release();
+    await releaseStorage(page);
+    await expect(article).toContainText("Prior authorization");
+    expect(await handle!.evaluate(node => node.isConnected)).toBe(true);
+    await page.goBack();
+    await expect(article).toContainText("EARLY_READER_BODY");
+  } finally { gate.release(); }
+});
+
+for (const query of ["scope=session&paintDebug=1&readerSessionPreview=1", "paintDebug=1&readerSessionPreview=1&readerBootstrap=0", "readerSessionPreview=1"]) {
+  test(`identity preview preserves explicit verification and diagnostic gates: ${query}`, async ({ page }) => {
+    await setup(page, true);
+    const gate = await holdIdentity(page);
+    try {
+      await page.goto(`/?${query}`, { waitUntil: "domcontentloaded" });
+      await expect.poll(gate.pending).toBe(true);
+      await expect(page.getByTestId("app-starting")).toBeVisible();
+      await expect(page.getByTestId("document-article")).toHaveCount(0);
+      expect(await adapterStarts(page)).toBe(0);
+    } finally { gate.release(); }
+    await releaseStorage(page);
+    await expect(page.getByTestId("document-article")).toContainText("EARLY_READER_BODY");
+  });
+}
+
+test("failed identity verification removes the public presentation without opening a cache", async ({ page }) => {
+  const api = await setup(page, true);
+  api.setSessionIdentityFailure(true);
+  const gate = await holdIdentity(page);
+  try {
+    await page.goto("/?paintDebug=1&readerSessionPreview=1", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("document-article")).toContainText("EARLY_READER_BODY");
+    await releaseStorage(page);
+    expect(await adapterStarts(page)).toBe(0);
+  } finally { gate.release(); }
+  await expect(page.getByTestId("session-recovery")).toBeVisible();
+  await expect(page.getByTestId("document-article")).toHaveCount(0);
+  expect(await adapterStarts(page)).toBe(0);
+});

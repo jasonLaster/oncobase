@@ -17,7 +17,7 @@ import { WikiSync } from "./sync/WikiSync";
 import type { Metrics } from "./types";
 import { AppStarting } from "./AppStarting";
 import { useReaderStore } from "./bootstrap/reader-queries";
-import { useWikiScope } from "./wiki-context";
+import { useWikiScope, useWikiIdentityPending } from "./wiki-context";
 
 const initialMetrics: Metrics = {
   status: "idle",
@@ -119,6 +119,7 @@ export function App({
 }) {
   const store = useReaderStore();
   const scope = useWikiScope();
+  const identityPending = useWikiIdentityPending();
   const [metrics, setMetrics] = useState<Metrics>(initialMetrics);
 
   useEffect(() => {
@@ -145,7 +146,7 @@ export function App({
   return (
     <>
       {store ? <WikiSync onMetrics={bumpMetrics} /> : null}
-      <div className="prototype-shell" data-reader-store-ready={store ? "true" : "false"}>
+      <div className="prototype-shell" data-reader-store-ready={store ? "true" : "false"} data-reader-identity-pending={identityPending ? "true" : "false"}>
         <SpecialRouteMetadata />
         <HeaderAuthDialogHost />
         <HeaderCommandPaletteHost />

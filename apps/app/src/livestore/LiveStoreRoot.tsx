@@ -33,7 +33,7 @@ import { resolveReaderStorage, isDiagnosticMemoryStorageRequest, readerBootDeadl
   READER_LEADER_BOOT_TIMEOUT_MS, READER_FOLLOWER_BOOT_TIMEOUT_MS } from "./reader-storage";
 import { markVisualPhase } from "../visual-phase";
 import { SessionCacheRetirement } from "./SessionCacheRetirement";
-import { createReaderBoot } from "../bootstrap/seed-state";
+import { createReaderBoot, readerBootRequest } from "../bootstrap/seed-state";
 import {
   STORE_BOOT_RETRY_DELAY_MS,
   shouldRetryStoreBoot,
@@ -133,33 +133,40 @@ class StoreBootRetryBoundary extends Component<BootBoundaryProps, BootBoundarySt
   }
 }
 
-export function LiveStoreRoot({
-  identity,
-  scope,
-}: {
-  identity: WikiSessionIdentity;
+export function LiveStoreRoot({ identity, presentationIdentity, scope }: {
+  identity: WikiSessionIdentity | null;
+  presentationIdentity?: WikiSessionIdentity | null;
   scope: WikiScope;
 }) {
-  const storeId = makeWikiStoreId({
+  const storeId = identity ? makeWikiStoreId({
     siteSlug: identity.siteSlug,
     scope,
     origin: window.location.origin,
     cacheKey: identity.cacheKey,
-  });
-  // Reset adapter choice, deadlines, and retry budget together on identity
-  // changes. Never let a prior session's delayed callback replace this store.
-  return <ReaderStore key={storeId} storeId={storeId} identity={identity} scope={scope} />;
+  }) : null;
+  const [firstPartition, setFirstPartition] = useState(storeId);
+  if (storeId && !firstPartition) setFirstPartition(storeId);
+  const displayIdentity = identity ?? presentationIdentity;
+  if (!displayIdentity || (!storeId && firstPartition)) return <AppStarting />;
+  // The pending public presentation has no database. Keep that first mount
+  // for its first verified identity only; subsequent partition changes still
+  // reset the entire reader, adapter, deadlines and retry budget together.
+  const key = !storeId || storeId === firstPartition
+    ? `initial:${displayIdentity.siteSlug}` : storeId;
+  return <ReaderStore key={key} storeId={storeId} identity={identity}
+    displayIdentity={displayIdentity} scope={identity ? scope : "public"} />;
 }
 
-function ReaderStore({ identity, scope, storeId }: {
-  identity: WikiSessionIdentity;
+function ReaderStore({ identity, displayIdentity, scope, storeId }: {
+  identity: WikiSessionIdentity | null;
+  displayIdentity: WikiSessionIdentity;
   scope: WikiScope;
-  storeId: string;
+  storeId: string | null;
 }) {
-  // ReaderStore is keyed by the complete store partition. Refreshing an
+  // Once a store exists, its complete partition controls remounts. Refreshing an
   // equivalent identity must not change boot: LiveStore would restart the
   // provider and discard the mounted article. A new partition remounts us.
-  const [initial, setInitial] = useState(() => readInitialReaderData(identity));
+  const [initial, setInitial] = useState(() => readInitialReaderData(displayIdentity));
   const [bootstrapMode] = useState(() => Boolean(initial));
   const [runningContext, setRunningContext] = useState<ContextType<typeof LiveStoreContext>>();
   const [handedOff, setHandedOff] = useState(false);
@@ -178,11 +185,14 @@ function ReaderStore({ identity, scope, storeId }: {
     const timer = window.setTimeout(() => setInitialExpired(true), Math.max(0, initial.expiresAt - Date.now()));
     return () => window.clearTimeout(timer);
   }, [initial, handedOff]);
-  const [boot] = useState(() => createReaderBoot(identity));
+  const [request] = useState(readerBootRequest);
+  const [bootState, setBootState] = useState(() => identity ? { boot: createReaderBoot(identity, request) } : null);
+  if (identity && !bootState) setBootState({ boot: createReaderBoot(identity, request) });
   const [adapter, setAdapter] = useState<Awaited<typeof adapterPromise> | null>(null);
   const [bootTimeoutMs, setBootTimeoutMs] = useState(READER_LEADER_BOOT_TIMEOUT_MS);
   const [stalled, setStalled] = useState(false);
   useEffect(() => {
+    if (!storeId) return;
     let active = true;
     void Promise.all([adapterPromise, readerBootDeadline(navigator.locks, storeId)]).then(([resolved, deadline]) => {
       // A late probe must not replace a temporary store already in use.
@@ -212,13 +222,13 @@ function ReaderStore({ identity, scope, storeId }: {
   const liveStoreDevtoolsEnabled = useMemo(() => readLiveStoreDevtoolsEnabled(), []);
   const devtoolsFooterVisible = useMemo(() => readDevtoolsFooterVisible(), []);
 
-  const app = <ReaderApp identity={identity} scope={scope} storeId={storeId}
+  const app = <ReaderApp identity={displayIdentity} scope={scope} storeId={storeId ?? ""}
     devtoolsFooterVisible={devtoolsFooterVisible} liveStoreDevtoolsEnabled={liveStoreDevtoolsEnabled} />;
   if (stalled) return <StoreStartupRecovery />;
-  const provider = !adapter ? <StoreStartupLoading onTimeout={recoverStalledBoot} /> : (
+  const provider = !identity || !storeId || !bootState ? null : !adapter ? <StoreStartupLoading onTimeout={recoverStalledBoot} /> : (
     <StoreBootRetryBoundary key={`${adapter === temporaryAdapter}:${bootAttempt}`} attempt={bootAttempt} onRetry={retryBoot}>
       <LiveStoreProvider
-        boot={boot}
+        boot={bootState.boot}
         key={bootAttempt}
         schema={schema}
         adapter={adapter}
@@ -242,7 +252,7 @@ function ReaderStore({ identity, scope, storeId }: {
     </StoreBootRetryBoundary>
   );
 
-  if (!bootstrapMode) return provider;
+  if (!bootstrapMode) return provider ?? <AppStarting />;
   return (
     <>
       {/* This provider owns lifecycle only. A retry must not insert a second

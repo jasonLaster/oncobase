@@ -10,6 +10,8 @@ const origin = process.argv[2];
 if (!origin || new URL(origin).hostname !== "127.0.0.1") throw new Error("A loopback fixture URL is required");
 const output = process.argv[3];
 if (!output) throw new Error("A JSON output path is required");
+const experiment = process.argv[4] ?? "database";
+if (!["database", "identity"].includes(experiment)) throw new Error("Choose database or identity comparison");
 const samples: unknown[] = [];
 for (const cpu of [1, 4]) for (let run = 1; run <= 2; run++) {
   for (const early of run % 2 ? [false, true] : [true, false]) {
@@ -32,7 +34,10 @@ for (const cpu of [1, 4]) for (let run = 1; run <= 2; run++) {
         requestAnimationFrame(probe);
       });
       for (const visit of ["cold", "reload", "hot"]) {
-        if (visit === "cold") await page.goto(`${origin}/?scope=public&paintDebug=1&readerBootstrap=${early ? "1" : "0"}`, { waitUntil: "domcontentloaded" });
+        const query = experiment === "identity"
+          ? `paintDebug=1&readerSessionPreview=${early ? "1" : "0"}`
+          : `scope=public&paintDebug=1&readerBootstrap=${early ? "1" : "0"}`;
+        if (visit === "cold") await page.goto(`${origin}/?${query}`, { waitUntil: "domcontentloaded" });
         else await page.reload({ waitUntil: "domcontentloaded" });
         await page.waitForFunction(() => (window as unknown as { readerFirstFrame?: number }).readerFirstFrame);
         await page.waitForFunction(() => performance.getEntriesByName("wiki-page-bootstrap-seeded").length > 0);
@@ -58,5 +63,5 @@ for (const cpu of [1, 4]) for (let run = 1; run <= 2; run++) {
     }
   }
 }
-await writeFile(output, JSON.stringify({ fixture: { pages: 2, sessionMs: 200, manifestMs: 400, bodyMs: 350,
+await writeFile(output, JSON.stringify({ experiment, fixture: { pages: 2, sessionMs: 200, manifestMs: 400, bodyMs: 350,
   network: "loopback HTTP with gzip, no added latency", browser: "headless Chromium, fresh persistent profile per mode/run" }, samples }, null, 2));

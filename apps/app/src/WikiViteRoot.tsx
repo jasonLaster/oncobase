@@ -58,13 +58,13 @@ function publicIdentityPartition() {
   return `${window.location.origin}|${apiOrigin}`;
 }
 
-function publicIdentityFromResponse() {
+function publicIdentityFromResponse(presentationOnly = false) {
   const payload = document.getElementById(PAGE_BOOTSTRAP_ID);
   return payload && publicIdentityFromPageBootstrap(
     payload.textContent ?? "", Number(payload.dataset.receivedAt), {
       origin: location.origin, pathname: location.pathname,
       apiOrigin: new URL(apiBaseUrl() || location.origin, location.origin).origin,
-      scope: explicitReaderScope(location.search),
+      scope: presentationOnly ? "public" : explicitReaderScope(location.search),
       configuredSiteSlug: import.meta.env.VITE_WIKI_SITE_SLUG,
     },
   );
@@ -131,6 +131,14 @@ function SessionRecovery({ message }: { message: string }) {
 export function WikiViteRoot() {
   const [readerModule, setReaderModule] = useState<ReaderModuleState>({ status: "loading" });
   const [identityPending, setIdentityPending] = useState(true);
+  const [presentationIdentity] = useState(() => {
+    const query = new URLSearchParams(location.search);
+    // Diagnostic public presentation only. This value never selects a store,
+    // skips explicit session verification, or comes from a browser cache.
+    return query.get("paintDebug") === "1" && query.get("readerSessionPreview") === "1" &&
+      query.get("readerBootstrap") !== "0" && explicitReaderScope(location.search) !== "session"
+      ? publicIdentityFromResponse(true) : null;
+  });
   const [state, setState] = useState<BootstrapState>(() => {
     const scope = readScope();
     const initial = publicIdentityFromResponse();
@@ -215,7 +223,7 @@ export function WikiViteRoot() {
   }, []);
 
   const startingApp = createElement(AppStarting);
-  if (state.status === "loading") return startingApp;
+  if (state.status === "loading" && !presentationIdentity) return startingApp;
 
   if (state.status === "error") {
     if (state.scope === "session") {
@@ -246,7 +254,11 @@ export function WikiViteRoot() {
     createElement(
       WikiIdentityPendingContext.Provider,
       { value: identityPending },
-      createElement(readerModule.Component, { identity: state.identity, scope: state.scope }),
+      createElement(readerModule.Component, {
+        identity: state.status === "ready" ? state.identity : null,
+        presentationIdentity,
+        scope: state.scope,
+      }),
     ),
   );
 }
