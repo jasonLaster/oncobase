@@ -221,3 +221,5 @@ export {
   useResizableSidebarWidth,
   type ResizableLayoutProps,
 } from "./resizable-layout.tsx";
+
+export { getNoteBundlePages, type NoteBundlePage, type NoteBundlePart } from "./note-bundles.ts";

@@ -1,4 +1,5 @@
 import fuzzysort from "fuzzysort";
+import { getNoteBundlePages } from "./note-bundles.ts";
 
 export const COMMAND_PALETTE_RECENT_KEY = "cmd-palette-recent";
 export const COMMAND_PALETTE_MAX_RECENT = 8;
@@ -136,6 +137,25 @@ export function commandPalettePagesFromCompactFileTree(
   return pages;
 }
 
+function noteBundleOverviewSlugs(pages: CommandPalettePageEntry[]) {
+  const slugs = new Set(pages.map((page) => page.slug));
+  const overviewBySlug = new Map<string, string>();
+
+  // Match the file tree's Notes set rule: overview, raw, and at least one
+  // formatted sibling must all exist in the same directory.
+  for (const page of pages) {
+    if (!page.slug.endsWith("-overview")) continue;
+    const siblings = getNoteBundlePages(page.slug, slugs);
+    if (!siblings.some(({ part }) => part === "raw") ||
+        !siblings.some(({ part }) => part === "formatted")) continue;
+    for (const sibling of siblings) {
+      if (sibling.slug !== page.slug) overviewBySlug.set(sibling.slug, page.slug);
+    }
+  }
+
+  return overviewBySlug;
+}
+
 /**
  * Returns the visible row set for the file palette: a flat ranked list while
  * the user is searching, or recents-grouped browsing when the query is empty.
@@ -161,6 +181,13 @@ export function buildCommandPaletteRows({
     visibleRows: [],
   };
   if (!pages.length) return empty;
+
+  const overviewBySlug = noteBundleOverviewSlugs(pages);
+  if (overviewBySlug.size > 0) {
+    pages = pages.filter((page) => !overviewBySlug.has(page.slug));
+    prepared = prepared.filter(({ page }) => !overviewBySlug.has(page.slug));
+    recentSlugs = [...new Set(recentSlugs.map((slug) => overviewBySlug.get(slug) ?? slug))];
+  }
 
   const recentSet = new Set(recentSlugs);
   const toPageRows = (entries: CommandPalettePageEntry[]): CommandPaletteRow[] =>

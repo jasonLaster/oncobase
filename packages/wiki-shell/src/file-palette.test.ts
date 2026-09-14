@@ -84,4 +84,33 @@ describe("wiki file palette model", () => {
   test("formats root-level page paths as root", () => {
     expect(formatWikiFilePalettePath("search")).toBe("/");
   });
+  test.each(["formatted", "transcript-formatted"])(
+    "links a notes bundle to its overview with a %s sibling",
+    (formatted) => {
+      const base = "sources/meeting-notes/09-13---care-planning";
+      const bundle = ["raw", formatted, "overview"].map((part) => ({
+        name: `Care planning ${part}`,
+        slug: `${base}-${part}`,
+        path: `sources / meeting-notes / care-planning-${part}`,
+      }));
+      for (const query of ["", "care planning"]) {
+        const state = buildWikiFilePaletteState(bundle, query, [
+          bundle[0].slug, bundle[1].slug, bundle[2].slug,
+        ]);
+        expect(state.visibleEntries).toEqual([bundle[2]]);
+        expect(state.visibleRows.filter((row) => row.type === "page"))
+          .toEqual([{ type: "page", page: bundle[2], pageIndex: 0 }]);
+        if (!query) expect(state.recentEntries).toEqual([bundle[2]]);
+      }
+    },
+  );
+
+  test("keeps incomplete bundles and similarly named files in other directories", () => {
+    const candidates = [
+      "sources/meeting-notes/care-planning-raw",
+      "sources/meeting-notes/care-planning-formatted",
+      "archive/care-planning-overview",
+    ].map((slug) => ({ name: slug.split("/").at(-1)!, slug, path: slug }));
+    expect(buildWikiFilePaletteState(candidates, "").visibleEntries).toEqual(candidates);
+  });
 });

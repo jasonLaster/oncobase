@@ -66,6 +66,7 @@ import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { REFRESH_MANIFEST_EVENT, RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
 import { PageActions } from "./PageActions";
+import { NoteBundleNavigation } from "./NoteBundleNavigation";
 
 const UnavailablePage = lazy(() => import("./UnavailablePage"));
 
@@ -493,6 +494,7 @@ export function WikiPage({
           }
         />
       ) : null}
+      <NoteBundleNavigation slug={page.slug} pageSlugs={pageSlugs} />
       {stale ? (
         <WikiStatusNotice className="page-refresh-notice" role="status">
           Showing cached markdown while a newer version is fetched in the background.

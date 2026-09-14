@@ -1653,3 +1653,79 @@ a {
   word-break: normal;
 }
 @media (hover: none) { #wiki-html-first .heading-anchor { display: none; } }
+
+.note-bundle-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  margin: 0 0 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--sidebar-bg);
+}
+
+.note-bundle-link {
+  display: flex;
+  flex: 1 1 100px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 52px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.note-bundle-link > svg {
+  flex-shrink: 0;
+}
+
+.note-bundle-link strong,
+.note-bundle-link small {
+  display: block;
+}
+
+.note-bundle-link strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.note-bundle-link small {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.note-bundle-link:hover {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.note-bundle-link[aria-current="page"] {
+  border-color: var(--border);
+  background: var(--background);
+  color: var(--brand);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
+}
+
+.note-bundle-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .note-bundle-link {
+    flex-basis: 76px;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 6px;
+  }
+
+  .note-bundle-link small {
+    display: none;
+  }
+}
