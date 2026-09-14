@@ -947,4 +947,25 @@ describe("wiki Vite app-shell password gate", () => {
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("vary")).toContain("Cookie");
   });
+
+  test("the combined server lazily serves API requests with the same password gate", async () => {
+    const handler = createWikiViteHandler({ client: fakeClient() as never, distDir });
+    const denied = await handler(request("/api/wiki/pages?scope=public&slugs=wiki/public"));
+    expect(denied.status).toBe(401);
+    expect(denied.headers.get("cache-control")).toBe("private, no-store");
+    // Public identity is an existing gate-exempt endpoint; content is not.
+    const identity = await handler(request("/api/wiki/session?scope=public"));
+    expect(identity.status).toBe(200);
+    expect(await identity.json()).toMatchObject({ scope: "public", authenticated: false });
+    const headers = await authenticatedHeaders();
+    const responses = await Promise.all([1, 2].map(() => handler(request("/api/wiki/pages?scope=public&slugs=wiki/public", { headers }))));
+    for (const response of responses) {
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ siteSlug: "diana", scope: "public", pages: [{ slug: "wiki/public" }] });
+    }
+    const html = await handler(request("/wiki/public", { headers }));
+    expect(html.status).toBe(200);
+    expect(await html.text()).toContain('id="wiki-page-bootstrap"');
+  });
+
 });

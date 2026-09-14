@@ -1,0 +1,75 @@
+{
+  "conditions": "Fresh local Node processes; emitted HTML handler import only; no network or handler invocation",
+  "builds": {
+    "baseline": {
+      "bytes": 2132318,
+      "modules": 10
+    },
+    "candidate": {
+      "bytes": 110438,
+      "modules": 7
+    }
+  },
+  "samples": [
+    {
+      "mode": "baseline",
+      "run": 1,
+      "node": "v25.9.0",
+      "importMs": 82.465458
+    },
+    {
+      "mode": "candidate",
+      "run": 1,
+      "node": "v25.9.0",
+      "importMs": 10.417375
+    },
+    {
+      "mode": "candidate",
+      "run": 2,
+      "node": "v25.9.0",
+      "importMs": 10.154041
+    },
+    {
+      "mode": "baseline",
+      "run": 2,
+      "node": "v25.9.0",
+      "importMs": 72.388208
+    },
+    {
+      "mode": "baseline",
+      "run": 3,
+      "node": "v25.9.0",
+      "importMs": 72.933041
+    },
+    {
+      "mode": "candidate",
+      "run": 3,
+      "node": "v25.9.0",
+      "importMs": 9.9375
+    },
+    {
+      "mode": "candidate",
+      "run": 4,
+      "node": "v25.9.0",
+      "importMs": 10.053624999999997
+    },
+    {
+      "mode": "baseline",
+      "run": 4,
+      "node": "v25.9.0",
+      "importMs": 75.870875
+    },
+    {
+      "mode": "baseline",
+      "run": 5,
+      "node": "v25.9.0",
+      "importMs": 75.436083
+    },
+    {
+      "mode": "candidate",
+      "run": 5,
+      "node": "v25.9.0",
+      "importMs": 10.718542000000003
+    }
+  ]
+}

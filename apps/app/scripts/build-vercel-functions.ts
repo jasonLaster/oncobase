@@ -1,6 +1,7 @@
 import { rm, unlink } from "node:fs/promises";
 import { assertBuildAssets, assertPublicAssets } from "./public-assets";
 import { criticalReaderCss } from "./critical-reader-css";
+import { assertReaderServerBudget } from "./reader-server-budget";
 
 const appDir = new URL("..", import.meta.url).pathname;
 
@@ -48,6 +49,8 @@ for (const name of ["index", "root-app-shell"]) {
   const target = `${outdir}/${name}.mjs`;
   await Bun.write(target, Bun.file(source));
 }
+
+assertReaderServerBudget(outdir);
 
 const gate = await Bun.build({ entrypoints: [`${appDir}/api-runtime/edge-gate.ts`], outdir,
   target: "browser", format: "esm", minify: true });

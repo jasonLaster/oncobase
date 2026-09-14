@@ -19,16 +19,14 @@ import {
 import {
   canUserAccessSlug,
   createClient,
-  createWikiApiHandler,
   getSessionUser,
   getRequestPasswordGateConfig,
   hasValidAuthCookie,
-  handleSharePreviewRequest,
   isDianaPreviewTestAuth,
   resolveSiteSlug,
   redactPageContent,
   withSiteSlug,
-} from "./wiki-api.js";
+} from "./reader-access.js";
 import {
   DEFAULT_SITE_DESCRIPTION,
   DIANA_SITE_NAME,
@@ -283,6 +281,7 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
   }
 
   if (isLinkPreviewRequest(request) && !isAppAssetRequest(url.pathname)) {
+    const { handleSharePreviewRequest } = await import("./wiki-api.js");
     return handleSharePreviewRequest(sharePreviewRequestFor(request), client, siteSlug);
   }
 
@@ -529,13 +528,18 @@ export function createWikiViteHandler({
   htmlFirstExperiment?: boolean;
   criticalCss?: string;
 }) {
-  const handleWikiApiRequest = createWikiApiHandler(client);
+  // The full API router includes chat, archives and other optional features.
+  // HTML requests use the same shared access helpers without initializing it.
+  let apiHandler: Promise<ReturnType<typeof import("./wiki-api.js").createWikiApiHandler>> | undefined;
   const handleAppShellRequest = createAppShellHandler({ client, distDir, indexHtml, htmlFirstExperiment, criticalCss });
 
   return async function handleWikiViteRequest(request: Request): Promise<Response> {
     const started = performance.now();
-    const apiResponse = await handleWikiApiRequest(request);
-    if (apiResponse) return apiResponse;
+    if (new URL(request.url).pathname.startsWith("/api/")) {
+      apiHandler ??= import("./wiki-api.js").then(({ createWikiApiHandler }) => createWikiApiHandler(client));
+      const apiResponse = await (await apiHandler)(request);
+      if (apiResponse) return apiResponse;
+    }
     const trailingSlashRedirect = trailingSlashRedirectResponse(request);
     if (trailingSlashRedirect) return trailingSlashRedirect;
     const gateResponse = await enforcePasswordGate(request, client);
