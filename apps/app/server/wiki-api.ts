@@ -1,4 +1,4 @@
-import { loadAllowedSensitiveSlugs } from "./allowed-sensitive-slugs";
+import { loadAllowedSensitivePages } from "./allowed-sensitive-slugs";
 import { browserConversationToken, createBackendClient } from "./backend-client";
 import crypto from "node:crypto";
 import { traceBackendHandler, traceConvexClient, traceBackendPhase } from "./backend-tracing";
@@ -738,11 +738,9 @@ function createAccessAdapter(
         api.access.filterAccessibleSlugs,
         withSiteSlug(siteSlug, { userId: user._id as Id<"users">, slugs }),
       ),
-    getAllowedSlugs: (user) => loadAllowedSensitiveSlugs(
-      (cursor, numItems) => client.query(api.documents.listPage,
-        withSiteSlug(siteSlug, { cursor, numItems, includeSensitive: true, sensitiveOnly: true })),
-      (slugs) => client.query(api.access.filterAccessibleSlugs,
-        withSiteSlug(siteSlug, { userId: user._id as Id<"users">, slugs })),
+    getAllowedSlugs: (user) => loadAllowedSensitivePages(
+      (cursor, numItems) => client.query(api.access.listAllowedSensitivePage,
+        withSiteSlug(siteSlug, { cursor, numItems, userId: user._id as Id<"users"> })),
     ),
   };
 }

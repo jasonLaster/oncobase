@@ -80,9 +80,9 @@ export function traceBackendHandler(
           if (profileSession) {
             // Fixed groups and numbers only: no arguments, rows, URLs, user
             // identifiers or error text. Durations sum overlapping RPCs.
-            const groups: Record<string, typeof profile.calls> = { pages: [], access: [], other: [] };
+            const groups: Record<string, typeof profile.calls> = { pages: [], access: [], combined: [], other: [] };
             for (const call of profile.calls) {
-              const group = call.name === "documents:listPage" ? "pages" :
+              const group = call.name === "access:listAllowedSensitivePage" ? "combined" : call.name === "documents:listPage" ? "pages" :
                 call.name === "access:filterAccessibleSlugs" ? "access" : "other";
               groups[group]!.push(call);
             }

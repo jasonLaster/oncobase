@@ -351,10 +351,12 @@ function createFakeConvexClient({
         }
         case "access:canUserAccessSlug":
           return !deniedSlugSet.has(String(args.slug));
+        case "access:listAllowedSensitivePage":
+          return { slugs: pages.filter(page => page.sensitive === true && !deniedSlugSet.has(page.slug)).map(page => page.slug), isDone: true, continueCursor: null };
         case "access:filterAccessibleSlugs":
           return (args.slugs as string[]).map((slug) => ({
             slug,
-            allowed: true,
+            allowed: !deniedSlugSet.has(slug),
             hasDocument: pages.some((candidate) => candidate.slug === slug),
           }));
         case "documents:listPdfAssets":

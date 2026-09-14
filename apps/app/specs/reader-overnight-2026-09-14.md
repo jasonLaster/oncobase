@@ -128,3 +128,11 @@ Module preloads and deferred fallback SQLite are deployed as `af32de27f055c57cee
 Next priority: measure the follower recovery in the actual signed-in profile, then reduce the remaining live identity and HTML latency. Keep authorization decisions fresh; avoid a broad permission-fingerprint redesign solely to improve a benchmark.
 
 This report is a live checkpoint. The heartbeat is `diana-overnight-startup-optimization`, hourly for eight runs, with a stop boundary of September 14 at 08:00 America/Los_Angeles. Worktree: `/Users/jasonlaster/.codex/worktrees/reader-bootstrap-cache/oncobase`. Preserve the dirty primary checkout. Do not claim the target based on a spinner, HTML response time, or one minimum sample.
+
+### Combined sensitive-page authorization
+
+The next query evaluates sensitive index rows with the existing batch access predicate in one transaction, returning only allowed slugs. This removes the second document lookup per slug and repeated role-permission reads. It preserves fresh authorization and the existing cache-key computation. The backend query was pushed and deployed as `45650fbe` before adopting it in the API. The API retains sequential pagination with a same-cursor retry from 1000 to 100 rows on failure.
+
+Backend tests compare the previous metadata-plus-access pipeline with the new query and exercise explicit and email-derived grants, revocation, path/tag inclusion and exclusion, legacy rule aliases, tenant isolation, malformed foreign references, tombstones, pagination and service authentication. Five backend tests (1083 assertions), 55 API/session/tracing tests, full build/typechecks and changed-file ESLint passed. The final standard Convex dry-run showed no schema/index/auth changes. No verbose deployment output was used.
+
+Immediately before adopting the query, native signed-in Chrome measured 2250 ms for the first load and 1331 ms for a warm reload. Identity took 1048 and 200 ms respectively; each made one metadata and four access calls. Both hit the existing-leader 750-ms fallback. These are exploratory same-profile comparisons, not population medians. The combined-query production result is still pending.

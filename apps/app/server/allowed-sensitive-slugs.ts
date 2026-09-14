@@ -1,6 +1,29 @@
 type Page = { page: Array<{ slug: string; sensitive?: boolean }>; isDone: boolean; continueCursor: string | null };
 type AccessResult = { slug: string; allowed: boolean };
 
+/** The combined backend query has already applied the same access policy.
+ * Pagination stays sequential and retries an oversized page at the old size. */
+export async function loadAllowedSensitivePages(
+  fetchPage: (cursor: string | null, numItems: number) => Promise<{ slugs: string[]; isDone: boolean; continueCursor: string | null }>,
+) {
+  const slugs: string[] = [];
+  let cursor: string | null = null;
+  let pageSize = 1000;
+  while (true) {
+    let page;
+    try { page = await fetchPage(cursor, pageSize); }
+    catch (error) {
+      if (pageSize === 100) throw error;
+      pageSize = 100;
+      page = await fetchPage(cursor, pageSize);
+    }
+    slugs.push(...page.slugs);
+    if (page.isDone) return slugs;
+    if (!page.continueCursor) throw new Error("Incomplete access metadata pagination");
+    cursor = page.continueCursor;
+  }
+}
+
 /** Preserve the exact access-aware cache key, with fewer serial RPCs. Read
  * lightweight metadata, overlap the next page, and bound existing permission
  * checks to four batches of 100. Never cache an authorization decision. */

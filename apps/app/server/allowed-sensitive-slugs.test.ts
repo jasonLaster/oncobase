@@ -1,5 +1,20 @@
 import { expect, test } from "bun:test";
-import { loadAllowedSensitiveSlugs } from "./allowed-sensitive-slugs";
+import { loadAllowedSensitiveSlugs, loadAllowedSensitivePages } from "./allowed-sensitive-slugs";
+
+test("combined access pages keep order, retry the same cursor, and reject incomplete or failed scans", async () => {
+  const calls: Array<[string | null, number]> = [];
+  const result = await loadAllowedSensitivePages(async (cursor, size) => {
+    calls.push([cursor, size]);
+    if (cursor === "next" && size === 1000) throw new Error("read budget");
+    return cursor === null ? { slugs: ["a"], isDone: false, continueCursor: "next" } :
+      { slugs: ["b", "c"], isDone: true, continueCursor: null };
+  });
+  expect(result).toEqual(["a", "b", "c"]);
+  expect(calls).toEqual([[null, 1000], ["next", 1000], ["next", 100]]);
+  await expect(loadAllowedSensitivePages(async () => { throw new Error("unavailable"); })).rejects.toThrow("unavailable");
+  await expect(loadAllowedSensitivePages(async () => ({ slugs: [], isDone: false, continueCursor: null }))).rejects.toThrow("Incomplete");
+  expect(await loadAllowedSensitivePages(async () => ({ slugs: [], isDone: true, continueCursor: null }))).toEqual([]);
+});
 
 test("keeps identical allowed slugs with bounded permission checks and overlapping pagination", async () => {
   const documents = Array.from({ length: 2500 }, (_, index) => ({ slug: `page/${index}`, sensitive: index % 5 !== 0 }));

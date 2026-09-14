@@ -735,22 +735,10 @@ async function createDocumentAccessCheck(ctx: QueryCtx, site: SiteCtx, userId: I
       }
     }
   }
-  const rules: PermissionRule[] = [];
-  for (const roleId of allowedRoleIds) {
-    const typedRoleId = roleId as Id<"roles">;
-    const perms = site.siteId
-      ? await ctx.db
-          .query("rolePermissions")
-          .withIndex("by_site_role", (q) =>
-            q.eq("siteId", site.siteId!).eq("roleId", typedRoleId),
-          )
-          .collect()
-      : await ctx.db
-          .query("rolePermissions")
-          .withIndex("by_role", (q) => q.eq("roleId", typedRoleId))
-          .collect();
-    for (const p of perms) if (rowBelongsToSite(p, site)) rules.push(p);
-  }
+  // The transaction already read these rows to identify protected rules.
+  // Selecting the allowed roles preserves the same union without re-reading
+  // every role's permissions through another index query.
+  const rules = protectedRules.filter(permission => allowedRoleIds.has(String(permission.roleId)));
 
   return (slug: string, doc: Pick<Doc<"documents">, "sensitive" | "tags" | "sensitiveInclude"> | null) => {
     if (!doc) return false;
