@@ -184,6 +184,7 @@ const requestPasswordGateConfigs = new WeakMap<
   Map<string, Promise<PasswordGateEntry>>
 >();
 const requestSites = new WeakMap<Request, Map<string, Promise<FunctionReturnType<typeof api.sites.getBySlug>>>>();
+const requestSessionUsers = new WeakMap<Request, Map<string, Promise<FunctionReturnType<typeof api.users.getSessionUser>>>>();
 
 function siteForRequest(request: Request, client: ConvexHttpClient, siteSlug: string) {
   let sites = requestSites.get(request);
@@ -708,10 +709,17 @@ export async function getSessionUser(
 ) {
   const token = sessionTokenFromCookie(request.headers.get("cookie") ?? "");
   if (!token) return null;
-  return await client.query(
-    api.users.getSessionUser,
-    withSiteSlug(siteSlug, { tokenHash: hashSessionToken(token) }),
-  );
+  // Metadata, headers and access checks can ask about the same incoming
+  // session. Share only this request's lookup; later requests verify it again.
+  let users = requestSessionUsers.get(request);
+  if (!users) { users = new Map(); requestSessionUsers.set(request, users); }
+  let pending = users.get(siteSlug);
+  if (!pending) {
+    pending = client.query(api.users.getSessionUser,
+      withSiteSlug(siteSlug, { tokenHash: hashSessionToken(token) }));
+    users.set(siteSlug, pending);
+  }
+  return pending;
 }
 
 function createAccessAdapter(

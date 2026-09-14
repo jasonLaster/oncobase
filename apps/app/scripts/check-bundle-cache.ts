@@ -27,7 +27,7 @@ try {
     appImports: [...chunk.body.matchAll(/(?:from\s*|import\s*)"\.\/([^" ]+\.js)"/g)]
       .map(match => match[1]).filter(name => !/^(vendor-|rolldown-runtime-)/.test(name)) }));
   console.log(JSON.stringify(report, null, 2));
-  if (report.length !== 5 || report.some(chunk => !chunk.unchanged || chunk.appImports.length)) {
+  if (report.length !== 6 || report.some(chunk => !chunk.unchanged || chunk.appImports.length)) {
     throw new Error("A vendor bundle depends on application code or changed with the app edit");
   }
 } finally {

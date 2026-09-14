@@ -439,6 +439,28 @@ describe("wiki Vite app-shell password gate", () => {
     );
   });
 
+  test("only a private, session-verified response can bootstrap automatic public scope", async () => {
+    for (const passwordGate of [true, false]) {
+      const client = fakeClient({ passwordGate });
+      const handler = createWikiViteHandler({ client: client as never, distDir });
+      for (const signedIn of [false, true]) {
+        const response = await handler(request("/wiki/public", { headers: await authenticatedHeaders(signedIn ? "wiki_user_session=session-token" : "") }));
+        const html = await response.text();
+        expect(html.includes('"publicSessionVerified":true')).toBe(passwordGate && !signedIn);
+        if (html.includes('"publicSessionVerified":true')) expect(response.headers.get("cache-control")).toBe("private, no-store");
+      }
+    }
+    const client = fakeClient();
+    const query = client.query;
+    client.query = async (ref, args) => {
+      if (getFunctionName(ref) === "users:getSessionUser") throw new Error("Session lookup failed");
+      return query(ref, args);
+    };
+    const handler = createWikiViteHandler({ client: client as never, distDir });
+    const response = await handler(request("/wiki/public", { headers: await authenticatedHeaders("wiki_user_session=session-token") }));
+    expect(await response.text()).not.toContain('"publicSessionVerified":true');
+  });
+
   test("serves the favicon and a gate-aware robots policy outside the password gate", async () => {
     const handler = createWikiViteHandler({
       client: fakeClient() as never,

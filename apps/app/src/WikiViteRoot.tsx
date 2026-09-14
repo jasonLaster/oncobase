@@ -9,6 +9,9 @@ import { explicitReaderScope, resolveReaderSession } from "./reader-session";
 import { WikiIdentityPendingContext } from "./wiki-context";
 import { markVisualPhase } from "./visual-phase";
 import { AppStarting } from "./AppStarting";
+import { publicIdentityFromPageBootstrap } from "./bootstrap/public-identity";
+import { PAGE_BOOTSTRAP_ID, MAX_BOOTSTRAP_BYTES } from "./bootstrap/page-payload";
+import { mayContainMath, preloadMarkdownMath } from "@oncobase/wiki-markdown/math-loader";
 
 function readScope(): WikiScope {
   // A public cache may paint while identity is checked, but it never decides
@@ -55,10 +58,22 @@ function publicIdentityPartition() {
   return `${window.location.origin}|${apiOrigin}`;
 }
 
+function publicIdentityFromResponse() {
+  const payload = document.getElementById(PAGE_BOOTSTRAP_ID);
+  return payload && publicIdentityFromPageBootstrap(
+    payload.textContent ?? "", Number(payload.dataset.receivedAt), {
+      origin: location.origin, pathname: location.pathname,
+      apiOrigin: new URL(apiBaseUrl() || location.origin, location.origin).origin,
+      scope: explicitReaderScope(location.search),
+      configuredSiteSlug: import.meta.env.VITE_WIKI_SITE_SLUG,
+    },
+  );
+}
+
 function publicIdentityFallback(scope: WikiScope) {
   if (scope !== "public") return null;
   try {
-    return resolvePublicIdentityFallback({
+    return publicIdentityFromResponse() ?? resolvePublicIdentityFallback({
       storage: window.localStorage,
       partition: publicIdentityPartition(),
       configuredSiteSlug: import.meta.env.VITE_WIKI_SITE_SLUG,
@@ -118,10 +133,11 @@ export function WikiViteRoot() {
   const [identityPending, setIdentityPending] = useState(true);
   const [state, setState] = useState<BootstrapState>(() => {
     const scope = readScope();
-    const fallback = publicIdentityFallback(scope);
-    // An automatic identity check may select a different session store. Do
-    // not mount a public reader only to tear it down when that check resolves.
-    return fallback && explicitReaderScope(window.location.search) === "public"
+    const initial = publicIdentityFromResponse();
+    const fallback = initial ?? publicIdentityFallback(scope);
+    // Browser caches never choose automatic scope. A fresh private response
+    // may already have verified that this request has no account session.
+    return fallback && (initial || explicitReaderScope(window.location.search) === "public")
       ? { status: "ready", scope, identity: fallback }
       : { status: "loading", scope };
   });
@@ -129,6 +145,11 @@ export function WikiViteRoot() {
   useEffect(() => {
     let cancelled = false;
     markVisualPhase("identity-start");
+    const initialMarkdown = document.getElementById(PAGE_BOOTSTRAP_ID)?.textContent;
+    if (initialMarkdown && initialMarkdown.length <= MAX_BOOTSTRAP_BYTES && mayContainMath(initialMarkdown)) {
+      // Fetch optional math alongside the reader, before the boot payload paints.
+      void preloadMarkdownMath().catch(() => {});
+    }
     // Download/initialize the reader while identity is verified. Importing code
     // does not open a store or authorize content; those still require identity.
     void loadLiveStoreRoot()

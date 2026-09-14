@@ -12,6 +12,7 @@ import { gzipSync } from "node:zlib";
 import { buildCompactTreeFromManifest, WIKI_MANIFEST_SCHEMA_VERSION } from "@oncobase/wiki-content";
 import { createWikiViteHandler } from "../server/app-shell";
 import { createWikiSessionResponse } from "@oncobase/wiki-content/server";
+import { createWikiGateSession } from "@oncobase/wiki-content/gate-session";
 
 const output = path.resolve(".playwright/bootstrap-cache");
 mkdirSync(output, { recursive: true });
@@ -44,9 +45,15 @@ const inventory = pages.map(({ content: _, ...page }) => ({ ...page, description
 const manifest = { schemaVersion: WIKI_MANIFEST_SCHEMA_VERSION, siteSlug: "diana", scope: "public",
   pages: inventory, assets: [], compactTree: buildCompactTreeFromManifest(inventory, []),
   generatedAt: "2026-09-13T00:00:00.000Z", manifestHash: hash(JSON.stringify(inventory)) };
+const gatedFixture = process.env.PROFILE_PASSWORD_GATE === "1";
+const gateHash = "profile-only-password-hash";
+const gateSecret = "profile-only-gate-secret";
+if (gatedFixture) process.env.WIKI_GATE_SESSION_SECRET = gateSecret;
+const gateCookie = gatedFixture ? await createWikiGateSession({ siteSlug: "diana", secret: gateSecret,
+  gateVersion: JSON.stringify([true, gateHash]) }) : null;
 const fakeClient = { async query(ref: Parameters<typeof getFunctionName>[0], args: Record<string, unknown>) {
   switch (getFunctionName(ref)) {
-    case "sites:getBySlug": case "sites:getByDomain": return { slug: "diana", config: { passwordGate: false } };
+    case "sites:getBySlug": case "sites:getByDomain": return { slug: "diana", config: { passwordGate: gatedFixture, passwordHash: gateHash } };
     case "documents:getBySlug": return pages.find(page => page.slug === args.slug) ?? null;
     case "users:getSessionUser": return null;
     default: throw new Error(`Unexpected fixture query: ${getFunctionName(ref)}`);
@@ -61,7 +68,12 @@ let mode = "candidate";
 let bodyRequests = 0;
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { "Cache-Control": "no-store" } });
-const server = Bun.serve({ hostname: "127.0.0.1", port: Number(process.env.PROFILE_PORT ?? 0), async fetch(request) {
+const server = Bun.serve({ hostname: "127.0.0.1", port: Number(process.env.PROFILE_PORT ?? 0), async fetch(incoming) {
+  // Synthetic gate credential, scoped to this loopback fixture. This exercises
+  // the private response path without borrowing any real browser/session data.
+  const headers = new Headers(incoming.headers);
+  if (gateCookie) headers.set("Cookie", `authed=${gateCookie}`);
+  const request = new Request(incoming, { headers });
   const url = new URL(request.url);
   if (url.pathname === "/api/wiki/session") {
     await delay(200);
@@ -91,7 +103,7 @@ const server = Bun.serve({ hostname: "127.0.0.1", port: Number(process.env.PROFI
   return response;
 } });
 const origin = `http://127.0.0.1:${server.port}`;
-console.log(JSON.stringify({ origin, mode, fixture: { sessionMs: 200, manifestMs: 400, bodyMs: 350, pages: pages.length } }));
+console.log(JSON.stringify({ origin, mode, fixture: { sessionMs: 200, manifestMs: 400, bodyMs: 350, pages: pages.length, passwordGate: gatedFixture } }));
 if (process.env.PROFILE_SERVE === "1") await new Promise(() => {});
 const samples: Record<string, unknown>[] = [];
 try {

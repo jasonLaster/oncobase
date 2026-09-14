@@ -1,0 +1,1073 @@
+{
+  "samples": [
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 500.5,
+      "navigation": 493.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 4.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 49.30000000074506,
+          "end": 271.90000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 133.80000000074506,
+      "navigation": 132.09999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 3,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 14.699999999254942,
+          "end": 218.5
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 280.69999999925494,
+      "navigation": 274.09999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 26.59999999962747,
+          "end": 246.90000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 131.5,
+      "navigation": 130.40000000037253,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 3.300000000745058,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 14.900000000372529,
+          "end": 218.40000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 284.6000000014901,
+      "navigation": 277.90000000037253,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 25.300000000745058,
+          "end": 245.40000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 131.59999999962747,
+      "navigation": 130.39999999850988,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 13.799999998882413,
+          "end": 217.39999999850988
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 467,
+      "navigation": 460.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 25.199999999254942,
+          "end": 250.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 131.30000000074506,
+      "navigation": 130.10000000149012,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 3,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 15.300000000745058,
+          "end": 218.80000000074506
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 476,
+      "navigation": 469.19999999925494,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 33.59999999962747,
+          "end": 259.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 140.59999999962747,
+      "navigation": 133.59999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.800000000745058,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 16.09999999962747,
+          "end": 219.5
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 277.5,
+      "navigation": 271.19999999925494,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 25.40000000037253,
+          "end": 245.2999999988824
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 125.20000000111759,
+      "navigation": 124.10000000149012,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 10.900000000372529,
+          "end": 214.40000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 466.09999999962747,
+      "navigation": 459.80000000074506,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 28.699999999254942,
+          "end": 253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 313.40000000037253,
+      "navigation": 312.40000000037253,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 3.599999999627471,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 12.699999999254942,
+          "end": 215.5
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 286.8999999985099,
+      "navigation": 280,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.299999998882413,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 27.09999999962747,
+          "end": 248
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 133.69999999925494,
+      "navigation": 127,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.800000000745058,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 14.400000000372529,
+          "end": 217.90000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 278.90000000037253,
+      "navigation": 272.40000000037253,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 25.700000001117587,
+          "end": 247.90000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 132.19999999925494,
+      "navigation": 131.09999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 3,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 16.799999998882413,
+          "end": 220.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 472.5,
+      "navigation": 465.69999999925494,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 28.59999999962747,
+          "end": 253.89999999850988
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 315.69999999925494,
+      "navigation": 313.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.699999999254942,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 13.199999999254942,
+          "end": 217.7999999988824
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 465.09999999962747,
+      "navigation": 458.7999999988824,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 24.5,
+          "end": 250.39999999850988
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 317.5,
+      "navigation": 312.40000000037253,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 3.299999998882413,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 15.5,
+          "end": 219.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 288.2000000011176,
+      "navigation": 281.7000000011176,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 31.09999999962747,
+          "end": 251.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 138.2000000011176,
+      "navigation": 133.10000000149012,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 3.100000001490116,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 16.800000000745058,
+          "end": 220.2000000011176
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 719.6999999992549,
+      "navigation": 694.3000000007451,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 100.09999999962747,
+          "end": 320.80000000074506
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 320.3999999985099,
+      "navigation": 313.2999999988824,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 37.5,
+          "end": 238.7999999988824
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 607.2999999988824,
+      "navigation": 583.3999999985099,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 93.19999999925494,
+          "end": 309.69999999925494
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 315.40000000037253,
+      "navigation": 308.2999999988824,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.599999999627471,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 38.59999999962747,
+          "end": 241.2999999988824
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 634.2999999988824,
+      "navigation": 609.1999999992549,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 91.59999999962747,
+          "end": 310.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 300.80000000074506,
+      "navigation": 293.90000000037253,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 35.80000000074506,
+          "end": 239
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 714.9000000003725,
+      "navigation": 692.5999999996275,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 96.09999999962747,
+          "end": 326.2000000011176
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 313,
+      "navigation": 306,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.6000000014901161,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 39,
+          "end": 240
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 697.0999999996275,
+      "navigation": 671.9000000003725,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.299999998882413,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 91.79999999888241,
+          "end": 311.2999999988824
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 348.19999999925494,
+      "navigation": 339.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 42.5,
+          "end": 244.40000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 641.1999999992549,
+      "navigation": 615.1999999992549,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.299999998882413,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 94.19999999925494,
+          "end": 311.8999999985099
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 310.80000000074506,
+      "navigation": 302.80000000074506,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.100000001490116,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 39,
+          "end": 242.40000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 704.3000000007451,
+      "navigation": 680.1000000014901,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.200000001117587,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 100.60000000149012,
+          "end": 319.80000000074506
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 401,
+      "navigation": 393.69999999925494,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.8999999985098839,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 38.09999999962747,
+          "end": 239.5
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 626.5999999996275,
+      "navigation": 601.5999999996275,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.299999998882413,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 96,
+          "end": 314.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 300.59999999962747,
+      "navigation": 293.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.400000000372529,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 36.80000000074506,
+          "end": 237.90000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 610.2999999988824,
+      "navigation": 586.1999999992549,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.299999998882413,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 93,
+          "end": 311
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 312.2000000011176,
+      "navigation": 304.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.200000001117587,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 40.90000000037253,
+          "end": 242.7000000011176
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 696.2999999988824,
+      "navigation": 670.5999999996275,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 89.79999999888241,
+          "end": 310.5
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 401.8999999985099,
+      "navigation": 394.3999999985099,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 36.79999999888241,
+          "end": 239.89999999850988
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 704.6999999992549,
+      "navigation": 681.4000000003725,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 95.59999999962747,
+          "end": 315.59999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 405.7000000011176,
+      "navigation": 397.30000000074506,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 39.600000001490116,
+          "end": 242.30000000074506
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 617.6999999992549,
+      "navigation": 593.7999999988824,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.299999998882413,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 97.19999999925494,
+          "end": 312.7999999988824
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 304.09999999962747,
+      "navigation": 296.7999999988824,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 38.59999999962747,
+          "end": 241.89999999850988
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    }
+  ],
+  "baselineCommit": "050c1ac34b745c6e1dc11829d2d53d01f95218af",
+  "fixture": {
+    "passwordGate": true,
+    "html": "loopback, about 1-4 ms",
+    "identityDelayMs": 200,
+    "manifestDelayMs": 400,
+    "bodyDelayMs": 350,
+    "documents": "two synthetic pages",
+    "runsPerCell": 3,
+    "scopeAuto": "fresh private response verified signed out",
+    "cold": "fresh browser context, shared Chromium process",
+    "observationMs": 900
+  }
+}

@@ -47,6 +47,7 @@ function vendorChunk(id: string): string | null {
   if (normalized.includes("/node_modules/@livestore/")) {
     return "vendor-livestore";
   }
+  if (normalized.includes("/node_modules/katex/") || normalized.includes("/node_modules/rehype-katex/")) return "vendor-math";
   if (
     normalized.includes("/node_modules/react-markdown/") ||
     normalized.includes("/node_modules/unified/") ||
@@ -98,7 +99,7 @@ export default defineConfig({
           includeDependenciesRecursively: true,
           // Keep transitive library dependencies out of application chunks.
           // Priority gives shared React/Effect dependencies a stable owner.
-          groups: ["react", "effect", "livestore", "markdown", "icons"].map((vendor, index) => ({
+          groups: ["react", "effect", "livestore", "markdown", "math", "icons"].map((vendor, index) => ({
             name: `vendor-${vendor}`,
             test: (id: string) => vendorChunk(id) === `vendor-${vendor}`,
             priority: 50 - index * 10,

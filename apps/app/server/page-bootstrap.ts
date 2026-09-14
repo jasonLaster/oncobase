@@ -8,7 +8,8 @@ type PublicPage = {
 
 /** Data only: React remains responsible for rendering the article. Call only
  * after the request gate and the same redaction policy as the page API. */
-export function injectPageBootstrap(html: string, page: PublicPage, url: URL, siteSlug: string) {
+export function injectPageBootstrap(html: string, page: PublicPage, url: URL, siteSlug: string,
+  options: { publicSessionVerified?: boolean } = {}) {
   if (page.sensitive !== false || !page.contentHash || !page.content ||
       !html.includes('</body>') || html.includes(`id="${PAGE_BOOTSTRAP_ID}"`)) return html;
   // Bound work before serialization as well as the escaped wire payload.
@@ -16,6 +17,7 @@ export function injectPageBootstrap(html: string, page: PublicPage, url: URL, si
   const payload = serializePageBootstrap({
     version: 1, readerVersion: WIKI_READER_CACHE_VERSION,
     origin: url.origin, pathname: url.pathname, siteSlug, scope: "public",
+    ...(options.publicSessionVerified ? { publicSessionVerified: true as const } : {}),
     page: { slug: page.slug, title: page.title, content: page.content,
       contentHash: page.contentHash, tags: page.tags ?? [], sensitive: false,
       size: Buffer.byteLength(page.content) },

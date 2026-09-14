@@ -107,3 +107,39 @@ test("a public identity refresh preserves the article and does not restart its s
     releaseIdentity();
   }
 });
+
+for (const mode of [
+  { query: "?scope=public", verified: false, early: true },
+  { query: "", verified: true, early: true },
+  { query: "", verified: false, early: false },
+  { query: "?scope=session", verified: true, early: false },
+]) {
+  test(`cold response identity: query=${mode.query}; verified=${mode.verified}`, async ({ page }) => {
+    const api = await installWikiApiMocks(page, { sessionAuthenticated: mode.query === "?scope=session", pageOverrides: { index: record } });
+    const template = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+    await page.route("**/*", async route => {
+      const url = new URL(route.request().url());
+      if (route.request().resourceType() !== "document") return route.fallback();
+      await route.fulfill({ contentType: "text/html", headers: { "Cache-Control": "private, no-store" },
+        body: injectPageBootstrap(template, record, url, "diana", { publicSessionVerified: mode.verified }) });
+    });
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let pending = false;
+    await page.route("**/api/wiki/session**", async route => { pending = true; await held; await route.fallback(); });
+    try {
+      await page.goto(`/${mode.query}`, { waitUntil: "domcontentloaded" });
+      await expect.poll(() => pending).toBe(true);
+      if (mode.early) {
+        await expect(page.getByTestId("document-article")).toContainText("CSR_DATA_BODY");
+        expect(await page.evaluate(() => performance.getEntriesByName("livestore:makeAdapter:start").length)).toBe(1);
+      } else {
+        await expect(page.getByTestId("app-starting")).toBeVisible();
+        await expect(page.getByTestId("document-article")).toHaveCount(0);
+      }
+      release();
+      await expect(page.getByTestId("document-article")).toContainText("CSR_DATA_BODY");
+      expect(api.pages).toHaveLength(0);
+    } finally { release(); }
+  });
+}

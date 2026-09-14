@@ -5,7 +5,7 @@ import {
   WikiMarkdown,
   type WikiMarkdownLinkProps,
   type WikiMarkdownNotificationAdapter,
-} from "@oncobase/wiki-markdown";
+} from "@oncobase/wiki-markdown/browser";
 import {
   openWikiAuthDialog,
   DocumentOutlineShell,
@@ -515,6 +515,7 @@ export function WikiPage({
         )}
       />
       <WikiMarkdown
+        loadingFallback={<WikiMarkdownBodySkeleton data-test-id="page-loading" />}
         content={page.content}
         className={page.content.length > 128 * 1024 ? "wiki-markdown-long" : undefined}
         currentSlug={page.slug}

@@ -57,6 +57,16 @@
       "types": "./src/server-format.ts",
       "import": "./src/server-format.ts",
       "default": "./src/server-format.ts"
+    },
+    "./browser": {
+      "types": "./src/browser.tsx",
+      "import": "./src/browser.tsx",
+      "default": "./src/browser.tsx"
+    },
+    "./math-loader": {
+      "types": "./src/math-loader.ts",
+      "import": "./src/math-loader.ts",
+      "default": "./src/math-loader.ts"
     }
   },
   "scripts": {

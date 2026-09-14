@@ -379,7 +379,12 @@ async function staticIndexHtml(
         const { injectHtmlFirstPage } = await import("./html-first-experiment");
         return injectHtmlFirstPage(documentHtml, safePage, url, siteSlug, await criticalCss);
       }
-      return injectPageBootstrap(documentHtml, safePage, url, siteSlug);
+      // A gated document is always private/no-store. Only that fresh response
+      // may tell an automatic reader it has no account session. Shared public
+      // HTML must never select a later visitor's account scope.
+      const publicSessionVerified = gateEnabled && await getSessionUser(request, client, siteSlug)
+        .then(user => user === null).catch(() => false);
+      return injectPageBootstrap(documentHtml, safePage, url, siteSlug, { publicSessionVerified });
     } catch {
       console.warn("[wiki-bootstrap] page data unavailable; using page API");
     }

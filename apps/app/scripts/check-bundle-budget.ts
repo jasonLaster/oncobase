@@ -27,7 +27,8 @@ const budgets: Budget[] = [
   { label: "react vendor", pattern: /^vendor-react-[\w-]+\.js$/, maxGzipBytes: 75_000 },
   { label: "livestore vendor", pattern: /^vendor-livestore-[\w-]+\.js$/, maxGzipBytes: 104_000 },
   { label: "effect vendor", pattern: /^vendor-effect-[\w-]+\.js$/, maxGzipBytes: 140_000 },
-  { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 190_000 },
+  { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 115_000 },
+  { label: "optional math vendor", pattern: /^vendor-math-[\w-]+\.js$/, maxGzipBytes: 85_000 },
   { label: "chat chunk", pattern: /^ChatPage-[\w-]+\.js$/, maxGzipBytes: 110_000 },
   { label: "sync/shared shell chunks", pattern: /^(?:WikiSync|outline|src)-[\w-]+\.js$/, maxGzipBytes: 45_000 },
   // The bootstrap bridge adds a small provider hook and fetch exemption. Keep

@@ -10,6 +10,8 @@ export type PageBootstrap = {
   pathname: string;
   siteSlug: string;
   scope: "public";
+  /** Only emitted after session verification in a private, no-store response. */
+  publicSessionVerified?: true;
   page: WikiPageRecord;
 };
 

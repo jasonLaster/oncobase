@@ -5,12 +5,12 @@ import { chromium } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 
 const origins = { baseline: "http://127.0.0.1:62173", candidate: "http://127.0.0.1:62174" };
-const output = ".playwright/identity-roundtrip/samples.json";
+const output = process.env.PROFILE_OUTPUT ?? ".playwright/identity-roundtrip/samples.json";
 mkdirSync(".playwright/identity-roundtrip", { recursive: true });
 const samples: unknown[] = [];
 const browser = await chromium.launch();
 try {
-  for (const cpu of [1, 4]) for (const scope of ["public", "auto"]) for (let run = 1; run <= 3; run++) {
+  for (const cpu of [1, 4]) for (const scope of ["public", "auto"]) for (let run = 1; run <= Number(process.env.PROFILE_RUNS ?? 3); run++) {
     for (const mode of (run % 2 ? ["baseline", "candidate"] : ["candidate", "baseline"]) as (keyof typeof origins)[]) {
       const context = await browser.newContext();
       try {
