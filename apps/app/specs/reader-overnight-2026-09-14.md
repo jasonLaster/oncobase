@@ -211,3 +211,8 @@ The cache check now builds an ordinary app edit to verify all six vendor bundles
 
 
 Before deployment, ten Chromium and ten WebKit bootstrap/runtime checks passed, along with the full build/typecheck, changed-file ESLint, cache-stability check and browser/server bundle budgets. The runtime test intercepts synthetic HTML and therefore verifies metadata correctness and entry identity, not HTTP-cache transfer behavior. Production verification across successive deployments is the remaining check for this change.
+
+
+The metadata fix is deployed as `62a71a0bb737207f37d1fce1619fe7ce32c3acdc`, READY in `dpl_6qCFhpaKsHAKr6cK4q1TecyrLCwD`, with matching main and production aliases. Native Chrome confirmed that SHA in the response meta tag and loaded `index-CGdbjZuW.js`. The first observed article was 620 ms (HTML end 236 ms; after HTML 383 ms, with 110/79-ms tasks). Three warm samples were 358, 249 and 244 ms (HTML end 271/192/192 ms). The body appeared while identity and LiveStore were pending, then reached the real store without browser errors. These remain unthrottled existing-profile samples. React Doctor's only warning points to a string `includes(commitSha)` in the build verification script, not an application array lookup; no runtime optimization or suppression is justified there.
+
+This report-only commit also provides a real second deployment for the asset-stability check: record the initial entry and module-preload URLs above, then verify the next response reports its new commit SHA while retaining exactly those URLs. No browser or server source changes are included in that check.
