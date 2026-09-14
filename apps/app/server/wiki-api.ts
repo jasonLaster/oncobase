@@ -115,8 +115,10 @@ import {
   DIANA_SITE_NAME as SITE_NAME,
   legacyRouteMetadata,
   tagFromPathname,
+  truncateLegacyDescription,
 } from "./legacy-route-metadata.js";
 import { safeLocalRedirect } from "../src/safe-redirect.js";
+import { slugFromRoutePathname } from "../src/route-canonicalization.js";
 import { TEXT_SEARCH_LATENCY_BUDGET_MS } from "../src/search-performance.js";
 import { handlePrefetchRequest } from "./prefetch";
 
@@ -1459,16 +1461,24 @@ export async function handleSharePreviewRequest(
     request.headers.get("x-share-preview-path") ??
     url.searchParams.get("path") ??
     "/";
-  const pathname = routePath.split("?")[0] || "/";
-  const slug = pathname
-    .replace(/^\/+/, "")
-    .replace(/\.(?:md|mdx)$/i, "") || "index";
+  const pathname = routePath.split(/[?#]/)[0]?.replace(/\/+$/, "") || "/";
+  const slug = slugFromRoutePathname(pathname);
   const tag = tagFromPathname(pathname);
+  async function linkedPage() {
+    if (!slug) return null;
+    const page = await client.query(
+      api.documents.getBySlug,
+      withSiteSlug(siteSlug, { slug }),
+    );
+    if (page || slug === "index" || slug.endsWith("/index")) return page;
+    return client.query(
+      api.documents.getBySlug,
+      withSiteSlug(siteSlug, { slug: `${slug}/index` }),
+    );
+  }
   const [site, page, taggedPages] = await Promise.all([
     client.query(api.sites.getBySlug, { slug: siteSlug }).catch(() => null),
-    client
-      .query(api.documents.getBySlug, withSiteSlug(siteSlug, { slug }))
-      .catch(() => null),
+    linkedPage().catch(() => null),
     tag
       ? client
           .action(
@@ -1506,12 +1516,14 @@ export async function handleSharePreviewRequest(
     twitterDescription = metadata.twitterDescription;
   } else {
     siteName = site?.config.title ?? site?.name ?? siteSlug;
-    title = siteName;
-    description = site?.config.description ?? DEFAULT_SITE_DESCRIPTION;
-    ogTitle = siteName;
+    title = page ? `${page.title} — ${siteName}` : siteName;
+    description = page
+      ? truncateLegacyDescription(page.description ?? "") || `${page.title} notes in ${siteName}`
+      : site?.config.description ?? DEFAULT_SITE_DESCRIPTION;
+    ogTitle = page?.title ?? siteName;
     ogDescription = description;
-    ogType = "website";
-    twitterTitle = siteName;
+    ogType = page ? "article" : "website";
+    twitterTitle = ogTitle;
     twitterDescription = description;
   }
 
