@@ -38,7 +38,8 @@
     "file-asset:upload": "bun scripts/upload-file-asset.ts",
     "dicom-comparisons:seed": "bun scripts/seed-dicom-comparisons.ts",
     "diagnostic-studies:seed": "bun scripts/seed-diagnostic-studies.ts",
-    "timeline:seed": "bun scripts/seed-diagnostic-timeline.ts"
+    "timeline:seed": "bun scripts/seed-diagnostic-timeline.ts",
+    "check:bundle-cache": "bun scripts/check-bundle-cache.ts"
   },
   "dependencies": {
     "@liveblocks/client": "^3.18.1",

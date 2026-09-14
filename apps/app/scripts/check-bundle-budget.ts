@@ -18,12 +18,14 @@ type Budget = {
   maxGzipBytes?: number;
 };
 
+// Vendor chunks now own their transitive dependencies formerly emitted in
+// app/shared chunks. Only per-chunk allocation changes; aggregate limits stay fixed.
 const budgets: Budget[] = [
   { label: "entry", pattern: /^index-[\w-]+\.js$/, maxGzipBytes: 20_000 },
   { label: "react vendor", pattern: /^vendor-react-[\w-]+\.js$/, maxGzipBytes: 75_000 },
-  { label: "livestore vendor", pattern: /^vendor-livestore-[\w-]+\.js$/, maxGzipBytes: 95_000 },
+  { label: "livestore vendor", pattern: /^vendor-livestore-[\w-]+\.js$/, maxGzipBytes: 104_000 },
   { label: "effect vendor", pattern: /^vendor-effect-[\w-]+\.js$/, maxGzipBytes: 140_000 },
-  { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 150_000 },
+  { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 190_000 },
   { label: "chat chunk", pattern: /^ChatPage-[\w-]+\.js$/, maxGzipBytes: 110_000 },
   { label: "sync/shared shell chunks", pattern: /^(?:WikiSync|outline|src)-[\w-]+\.js$/, maxGzipBytes: 45_000 },
   // The bootstrap bridge adds a small provider hook and fetch exemption. Keep

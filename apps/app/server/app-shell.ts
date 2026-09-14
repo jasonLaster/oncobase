@@ -1,3 +1,5 @@
+import { specialRouteMetadata } from "../src/special-route-metadata";
+import { injectPageBootstrap } from "./page-bootstrap";
 import { injectHeadMetadata } from "./html-head";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -367,17 +369,19 @@ async function staticIndexHtml(
     noIndex: gateEnabled,
     sensitive: page?.sensitive === true,
   });
-  // Experiment: only an explicitly public document may enter the early body.
-  // Authorization still happens before this handler; restricted pages use the
-  // existing reader. Reuse the metadata lookup, then the API's PII redaction.
-  if (htmlFirstExperiment && url.searchParams.get("html-first") !== "off" &&
-      publicPage?.sensitive === false && publicPage.content && slug) {
+  // Reuse the current metadata lookup and request-scoped redaction policy.
+  // The ordinary CSR response supplies data without server-rendered article UI.
+  if (publicPage?.sensitive === false && publicPage.content && slug && !tag &&
+      url.pathname !== "/search" && !specialRouteMetadata({ pathname: url.pathname, siteName, defaultDescription: "" })) {
     try {
       const safePage = await redactPageContent(client, siteSlug, publicPage, request);
-      const { injectHtmlFirstPage } = await import("./html-first-experiment");
-      return injectHtmlFirstPage(documentHtml, safePage, url, siteSlug, await criticalCss);
+      if (htmlFirstExperiment && url.searchParams.get("html-first") !== "off") {
+        const { injectHtmlFirstPage } = await import("./html-first-experiment");
+        return injectHtmlFirstPage(documentHtml, safePage, url, siteSlug, await criticalCss);
+      }
+      return injectPageBootstrap(documentHtml, safePage, url, siteSlug);
     } catch {
-      console.warn("[wiki-html-first] rendering unavailable; using normal reader");
+      console.warn("[wiki-bootstrap] page data unavailable; using page API");
     }
   }
   return documentHtml;

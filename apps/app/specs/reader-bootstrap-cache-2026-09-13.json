@@ -1,0 +1,65 @@
+{
+  "baselineCommit": "46328729",
+  "samples": 48,
+  "pageErrors": 0,
+  "candidateBodyRequests": 0,
+  "candidateNoncoldPageObservedJsTransfer": 0,
+  "results": [
+    {
+      "cpuSlowdown": 1,
+      "visit": "cold",
+      "baselineArticleMedianMs": 1473,
+      "candidateArticleMedianMs": 1112,
+      "runsPerMode": 3
+    },
+    {
+      "cpuSlowdown": 1,
+      "visit": "reload",
+      "baselineArticleMedianMs": 405,
+      "candidateArticleMedianMs": 418,
+      "runsPerMode": 3
+    },
+    {
+      "cpuSlowdown": 1,
+      "visit": "hot",
+      "baselineArticleMedianMs": 410,
+      "candidateArticleMedianMs": 416,
+      "runsPerMode": 3
+    },
+    {
+      "cpuSlowdown": 1,
+      "visit": "restart",
+      "baselineArticleMedianMs": 473,
+      "candidateArticleMedianMs": 469,
+      "runsPerMode": 3
+    },
+    {
+      "cpuSlowdown": 4,
+      "visit": "cold",
+      "baselineArticleMedianMs": 1628,
+      "candidateArticleMedianMs": 1280,
+      "runsPerMode": 3
+    },
+    {
+      "cpuSlowdown": 4,
+      "visit": "reload",
+      "baselineArticleMedianMs": 465,
+      "candidateArticleMedianMs": 480,
+      "runsPerMode": 3
+    },
+    {
+      "cpuSlowdown": 4,
+      "visit": "hot",
+      "baselineArticleMedianMs": 454,
+      "candidateArticleMedianMs": 468,
+      "runsPerMode": 3
+    },
+    {
+      "cpuSlowdown": 4,
+      "visit": "restart",
+      "baselineArticleMedianMs": 670,
+      "candidateArticleMedianMs": 680,
+      "runsPerMode": 3
+    }
+  ]
+}

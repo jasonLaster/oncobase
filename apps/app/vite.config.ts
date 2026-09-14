@@ -95,14 +95,14 @@ export default defineConfig({
       output: {
         strictExecutionOrder: true,
         codeSplitting: {
-          includeDependenciesRecursively: false,
-          groups: [
-            {
-              name: vendorChunk,
-              test: (id) => vendorChunk(id) != null,
-              priority: 10,
-            },
-          ],
+          includeDependenciesRecursively: true,
+          // Keep transitive library dependencies out of application chunks.
+          // Priority gives shared React/Effect dependencies a stable owner.
+          groups: ["react", "effect", "livestore", "markdown", "icons"].map((vendor, index) => ({
+            name: `vendor-${vendor}`,
+            test: (id: string) => vendorChunk(id) === `vendor-${vendor}`,
+            priority: 50 - index * 10,
+          })),
         },
       },
     },

@@ -141,13 +141,45 @@ describe("wiki Vite app-shell password gate", () => {
         expect(response.status).toBe(200);
         expect(body).toContain('id="root"');
         expect(body).not.toContain('id="wiki-html-first"');
-        expect(body).not.toContain('id="wiki-page-bootstrap"');
+        expect(body.includes('id="wiki-page-bootstrap"')).toBe(pathname.startsWith("/?") || pathname === "/");
       }
     } finally {
       for (const [i, key] of ["WIKI_HTML_FIRST", "WIKI_HTML_FIRST_EXPERIMENT"].entries()) {
         if (saved[i] === undefined) delete process.env[key]; else process.env[key] = saved[i];
       }
     }
+  });
+
+  test("CSR supplies redacted public page data after the gate without another document lookup", async () => {
+    const base = fakeClient();
+    let bodyReads = 0;
+    const client = { ...base, async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      const value = await base.query(ref, args);
+      if (getFunctionName(ref) === "sites:getBySlug") return { slug: args.slug, config: {
+        passwordGate: true, passwordHash: TEST_GATE_HASH,
+        piiPatterns: [JSON.stringify({ pattern: "synthetic@example.com", replacement: "[redacted]" })],
+      } };
+      if (getFunctionName(ref) === "documents:getBySlug" && value && typeof value === "object" && "content" in value) {
+        bodyReads++;
+        return { ...value, content: "Contact synthetic@example.com" };
+      }
+      return value;
+    } };
+    const handler = createWikiViteHandler({ client: client as never, distDir });
+    const blocked = await handler(request("/"));
+    expect(blocked.status).toBe(302);
+    expect(await blocked.text()).not.toContain("wiki-page-bootstrap");
+    bodyReads = 0;
+    const response = await handler(request("/", { headers: await authenticatedHeaders() }));
+    const html = await response.text();
+    expect(bodyReads).toBe(1);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(html).toContain('id="wiki-page-bootstrap"');
+    expect(html).toContain("Contact [redacted]");
+    expect(html).not.toContain("synthetic@example.com");
+    expect(html).not.toContain('id="wiki-html-first"');
+    const restricted = await handler(request("/private/plan", { headers: await authenticatedHeaders("wiki_user_session=session-token") }));
+    expect(await restricted.text()).not.toContain('id="wiki-page-bootstrap"');
   });
 
   test("HTML-first is opt-in, gated, public-only, redacted, and privately served", async () => {
