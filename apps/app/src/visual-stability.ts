@@ -141,6 +141,17 @@ export function installVisualStabilityObserver() {
           htmlEndMs: round(navigation?.responseEnd ?? 0),
           ttfbMs: round(navigation?.responseStart ?? 0),
           afterHtmlMs: round(now - (navigation?.responseEnd ?? 0)),
+          phases: report.events.filter(event => event.kind.startsWith("phase:"))
+            .map(event => ({ at: event.at, kind: event.kind })),
+          longTasks: report.events.filter(event => event.kind === "longtask")
+            .map(event => ({ at: event.at, duration: event.data?.duration })),
+          resources: (performance.getEntriesByType("resource") as PerformanceResourceTiming[])
+            .flatMap(entry => {
+              const pathname = new URL(entry.name).pathname;
+              const kind = ["session", "manifest", "pages"].find(name => pathname === `/api/wiki/${name}`)
+                ?? (/LiveStoreRoot-|livestore\.worker-|shared-worker-|\.wasm$/.test(pathname) ? "database-code" : null);
+              return kind ? [{ kind, start: round(entry.startTime), end: round(entry.responseEnd) }] : [];
+            }),
         }));
       }
       if (!old) {
