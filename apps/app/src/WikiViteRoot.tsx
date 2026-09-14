@@ -133,10 +133,10 @@ export function WikiViteRoot() {
   const [identityPending, setIdentityPending] = useState(true);
   const [presentationIdentity] = useState(() => {
     const query = new URLSearchParams(location.search);
-    // Diagnostic public presentation only. This value never selects a store,
+    // Fresh public presentation only. This value never selects a store,
     // skips explicit session verification, or comes from a browser cache.
-    return query.get("paintDebug") === "1" && query.get("readerSessionPreview") === "1" &&
-      query.get("readerBootstrap") !== "0" && explicitReaderScope(location.search) !== "session"
+    return query.get("readerSessionPreview") !== "0" && query.get("readerBootstrap") !== "0" &&
+      explicitReaderScope(location.search) !== "session"
       ? publicIdentityFromResponse(true) : null;
   });
   const [state, setState] = useState<BootstrapState>(() => {

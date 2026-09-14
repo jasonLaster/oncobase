@@ -90,32 +90,38 @@ test("navigation requested before storage is ready retains the article then load
   await expect(article).toContainText("Prior authorization");
 });
 
-test("selection and scroll survive the initial-to-live transition", async ({ page }) => {
-  await setup(page, true);
-  await page.goto("/?paintDebug=1&readerBootstrap=1");
-  const paragraph = page.getByTestId("document-article").locator("p").filter({ hasText: "Stable text for selection" }).first();
-  await expect(paragraph).toBeVisible();
-  expect(await handoffCount(page)).toBe(0);
-  const node = await paragraph.elementHandle();
-  const scrollBefore = await paragraph.evaluate(element => {
-    const range = document.createRange();
-    range.selectNodeContents(element);
-    const selection = window.getSelection()!;
-    selection.removeAllRanges(); selection.addRange(range);
-    let scroll: Element | null = element;
-    while (scroll && !(scroll.scrollHeight > scroll.clientHeight && /auto|scroll/.test(getComputedStyle(scroll).overflowY))) scroll = scroll.parentElement;
-    const container = scroll ?? document.scrollingElement!;
-    container.scrollTop = 300;
-    Object.assign(window, { readerScrollContainer: container });
-    return container.scrollTop;
+for (const duringIdentity of [false, true]) {
+  test(`selection and scroll survive identity and store handoff; pendingIdentity=${duringIdentity}`, async ({ page }) => {
+    await setup(page, true);
+    const gate = duringIdentity ? await holdIdentity(page) : null;
+    try {
+      await page.goto(`/?paintDebug=1&readerBootstrap=1${duringIdentity ? "&readerSessionPreview=1" : ""}`);
+      const paragraph = page.getByTestId("document-article").locator("p").filter({ hasText: "Stable text for selection" }).first();
+      await expect(paragraph).toBeVisible();
+      expect(await handoffCount(page)).toBe(0);
+      const node = await paragraph.elementHandle();
+      const scrollBefore = await paragraph.evaluate(element => {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges(); selection.addRange(range);
+        let scroll: Element | null = element;
+        while (scroll && !(scroll.scrollHeight > scroll.clientHeight && /auto|scroll/.test(getComputedStyle(scroll).overflowY))) scroll = scroll.parentElement;
+        const container = scroll ?? document.scrollingElement!;
+        container.scrollTop = 300;
+        Object.assign(window, { readerScrollContainer: container });
+        return container.scrollTop;
+      });
+      expect(scrollBefore).toBeGreaterThan(0);
+      gate?.release();
+      await releaseStorage(page);
+      await expect.poll(() => handoffCount(page)).toBeGreaterThan(0);
+      expect(await node!.evaluate(element => element.isConnected)).toBe(true);
+      expect(await page.evaluate(() => window.getSelection()?.toString())).toBe("Stable text for selection and scrolling.");
+      expect(await page.evaluate(() => (window as unknown as { readerScrollContainer: Element }).readerScrollContainer.scrollTop)).toBe(scrollBefore);
+    } finally { gate?.release(); }
   });
-  expect(scrollBefore).toBeGreaterThan(0);
-  await releaseStorage(page);
-  await expect.poll(() => handoffCount(page)).toBeGreaterThan(0);
-  expect(await node!.evaluate(element => element.isConnected)).toBe(true);
-  expect(await page.evaluate(() => window.getSelection()?.toString())).toBe("Stable text for selection and scrolling.");
-  expect(await page.evaluate(() => (window as unknown as { readerScrollContainer: Element }).readerScrollContainer.scrollTop)).toBe(scrollBefore);
-});
+}
 
 test("the initial public response cannot bypass required session verification", async ({ page }) => {
   await setup(page, true);
@@ -228,7 +234,7 @@ for (const authenticated of [false, true]) {
     const api = await setup(page, authenticated);
     const gate = await holdIdentity(page);
     try {
-      await page.goto("/?paintDebug=1&readerSessionPreview=1", { waitUntil: "domcontentloaded" });
+      await page.goto("/?paintDebug=1", { waitUntil: "domcontentloaded" });
       await expect.poll(gate.pending).toBe(true);
       const article = page.getByTestId("document-article");
       await expect(article).toContainText("EARLY_READER_BODY");
@@ -267,7 +273,7 @@ test("navigation during identity verification seeds the original route and prese
   await setup(page, true);
   const gate = await holdIdentity(page);
   try {
-    await page.goto("/?paintDebug=1&readerSessionPreview=1", { waitUntil: "domcontentloaded" });
+    await page.goto("/?paintDebug=1", { waitUntil: "domcontentloaded" });
     const article = page.getByTestId("document-article");
     await expect(article).toContainText("EARLY_READER_BODY");
     const handle = await article.elementHandle();
@@ -284,8 +290,8 @@ test("navigation during identity verification seeds the original route and prese
   } finally { gate.release(); }
 });
 
-for (const query of ["scope=session&paintDebug=1&readerSessionPreview=1", "paintDebug=1&readerSessionPreview=1&readerBootstrap=0", "readerSessionPreview=1"]) {
-  test(`identity preview preserves explicit verification and diagnostic gates: ${query}`, async ({ page }) => {
+for (const query of ["scope=session&paintDebug=1&readerSessionPreview=1", "paintDebug=1&readerSessionPreview=1&readerBootstrap=0", "readerSessionPreview=0"]) {
+  test(`identity preview preserves explicit verification and comparison gates: ${query}`, async ({ page }) => {
     await setup(page, true);
     const gate = await holdIdentity(page);
     try {
@@ -305,7 +311,7 @@ test("failed identity verification removes the public presentation without openi
   api.setSessionIdentityFailure(true);
   const gate = await holdIdentity(page);
   try {
-    await page.goto("/?paintDebug=1&readerSessionPreview=1", { waitUntil: "domcontentloaded" });
+    await page.goto("/?paintDebug=1", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("document-article")).toContainText("EARLY_READER_BODY");
     await releaseStorage(page);
     expect(await adapterStarts(page)).toBe(0);

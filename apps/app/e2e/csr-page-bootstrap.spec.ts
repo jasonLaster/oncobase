@@ -109,10 +109,11 @@ test("a public identity refresh preserves the article and does not restart its s
 });
 
 for (const mode of [
-  { query: "?scope=public", verified: false, early: true },
-  { query: "", verified: true, early: true },
-  { query: "", verified: false, early: false },
-  { query: "?scope=session", verified: true, early: false },
+  { query: "?scope=public", verified: false, early: true, opensStore: true },
+  { query: "", verified: true, early: true, opensStore: true },
+  { query: "", verified: false, early: true, opensStore: false },
+  { query: "?readerSessionPreview=0", verified: false, early: false, opensStore: false },
+  { query: "?scope=session", verified: true, early: false, opensStore: false },
 ]) {
   test(`cold response identity: query=${mode.query}; verified=${mode.verified}`, async ({ page }) => {
     const api = await installWikiApiMocks(page, { sessionAuthenticated: mode.query === "?scope=session", pageOverrides: { index: record } });
@@ -132,7 +133,7 @@ for (const mode of [
       await expect.poll(() => pending).toBe(true);
       if (mode.early) {
         await expect(page.getByTestId("document-article")).toContainText("CSR_DATA_BODY");
-        await expect.poll(() => page.evaluate(() => performance.getEntriesByName("livestore:makeAdapter:start").length)).toBe(1);
+        await expect.poll(() => page.evaluate(() => performance.getEntriesByName("livestore:makeAdapter:start").length)).toBe(mode.opensStore ? 1 : 0);
       } else {
         await expect(page.getByTestId("app-starting")).toBeVisible();
         await expect(page.getByTestId("document-article")).toHaveCount(0);
