@@ -1,4 +1,5 @@
-import { expandCompactFileTree, parseWikiManifest, transformFileTreeForSidebar, WIKI_MANIFEST_SCHEMA_VERSION, WIKI_READER_CACHE_VERSION, type WikiSessionIdentity } from "@oncobase/wiki-content";
+import type { WikiSessionIdentity } from "@oncobase/wiki-content";
+import { parseNavigationBootstrap } from "./initial-reader-data";
 import { contentSlugFromRouteSlug, pageToEvent, slugFromPath } from "../wiki-utils";
 import { parsePageBootstrap, PAGE_BOOTSTRAP_ID } from "./page-payload";
 import { bootstrappedNavigation, hasBootstrappedPage, markBootstrappedPage } from "./seed-state";
@@ -21,32 +22,23 @@ export function seedPagePayload(store: BootstrapStore, raw: string, identity: Wi
 
 export function seedNavigationPayload(store: object, raw: string, identity: WikiSessionIdentity,
   request: { origin: string; pathname: string; apiOrigin: string }) {
-  if (raw.length > 1_048_576 || request.origin !== request.apiOrigin) return false;
-  try {
-    const value = JSON.parse(raw);
-    if (value.version !== 1 || value.readerVersion !== WIKI_READER_CACHE_VERSION ||
-        value.origin !== request.origin || value.pathname !== request.pathname ||
-        value.siteSlug !== identity.siteSlug || value.scope !== "public") return false;
-    const { compactTree } = parseWikiManifest({ schemaVersion: WIKI_MANIFEST_SCHEMA_VERSION,
-      siteSlug: value.siteSlug, scope: "public", manifestHash: "", generatedAt: "",
-      pages: [], assets: [], compactTree: value.tree });
-    // Presentation only: never marks a manifest current, grants access, or
-    // suppresses validation. Even an empty authoritative tree replaces this.
-    bootstrappedNavigation.set(store, transformFileTreeForSidebar(expandCompactFileTree(compactTree)));
-    return true;
-  } catch { return false; }
+  const tree = parseNavigationBootstrap(raw, { ...request, siteSlug: identity.siteSlug });
+  if (!tree) return false;
+  // Presentation only; an empty authoritative tree always replaces this.
+  bootstrappedNavigation.set(store, tree);
+  return true;
 }
 
-export function seedInitialPage(store: BootstrapStore, identity: WikiSessionIdentity) {
+export function seedInitialPage(store: BootstrapStore, identity: WikiSessionIdentity, request = {
+  origin: location.origin, pathname: location.pathname,
+  apiOrigin: new URL(import.meta.env.VITE_WIKI_API_ORIGIN || location.origin, location.origin).origin,
+}) {
   const navigation = document.getElementById("wiki-navigation-bootstrap");
   if (navigation) {
     const raw = navigation.textContent ?? "";
     navigation.remove();
     const age = Date.now() - Number(navigation.dataset.receivedAt);
-    if (Number.isFinite(age) && age >= 0 && age <= 60_000) seedNavigationPayload(store, raw, identity, {
-      origin: location.origin, pathname: location.pathname,
-      apiOrigin: new URL(import.meta.env.VITE_WIKI_API_ORIGIN || location.origin, location.origin).origin,
-    });
+    if (Number.isFinite(age) && age >= 0 && age <= 60_000) seedNavigationPayload(store, raw, identity, request);
   }
   const node = document.getElementById(PAGE_BOOTSTRAP_ID);
   if (!node) return;
@@ -56,10 +48,7 @@ export function seedInitialPage(store: BootstrapStore, identity: WikiSessionIden
   node.remove();
   const age = Date.now() - Number(node.dataset.receivedAt);
   if (!Number.isFinite(age) || age < 0 || age > 60_000) return;
-  const accepted = seedPagePayload(store, raw, identity, {
-    origin: location.origin, pathname: location.pathname,
-    apiOrigin: new URL(import.meta.env.VITE_WIKI_API_ORIGIN || location.origin, location.origin).origin,
-  });
+  const accepted = seedPagePayload(store, raw, identity, request);
   if (accepted) {
     const host = document.getElementById("wiki-html-first");
     if (host) host.dataset.bootstrapSeeded = "true";

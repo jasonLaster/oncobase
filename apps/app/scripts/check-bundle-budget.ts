@@ -39,7 +39,9 @@ const budgets: Budget[] = [
   // The account and saved-sidebar bridge measures under 17,344 gzip bytes.
   // Allow its 240-byte increase while retaining the aggregate eager budget.
   // Includes the bounded, read-only leader-lock probe for follower recovery.
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 17_856 },
+  // The opt-in early reader keeps one app mounted across the real store handoff.
+  // Allow 256 additional bytes here; retain the aggregate eager limit.
+  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 18_112 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },

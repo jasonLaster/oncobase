@@ -1,18 +1,23 @@
 import { makeInMemoryAdapter, makePersistedAdapter } from "@livestore/adapter-web";
 import { rootHandlePromise } from "@livestore/adapter-web/opfs-utils";
 import LiveStoreSharedWorker from "@livestore/adapter-web/shared-worker?sharedworker";
-import { LiveStoreProvider } from "@livestore/react";
+import { LiveStoreContext, LiveStoreProvider } from "@livestore/react";
 import { makeWikiStoreId, type WikiScope, type WikiSessionIdentity } from "@oncobase/wiki-content";
 import {
   Component,
   lazy,
   type ReactNode,
+  type ContextType,
+  useContext,
+  useLayoutEffect,
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
 import { unstable_batchedUpdates as batchUpdates } from "react-dom";
+import { readInitialReaderData } from "../bootstrap/initial-reader-data";
+import { InitialReaderContext, useReaderStore } from "../bootstrap/reader-queries";
 import { App } from "../App";
 import { AppStarting } from "../AppStarting";
 import { CanonicalRouteBoundary } from "../CanonicalRouteBoundary";
@@ -154,6 +159,25 @@ function ReaderStore({ identity, scope, storeId }: {
   // ReaderStore is keyed by the complete store partition. Refreshing an
   // equivalent identity must not change boot: LiveStore would restart the
   // provider and discard the mounted article. A new partition remounts us.
+  const [initial, setInitial] = useState(() => readInitialReaderData(identity));
+  const [bootstrapMode] = useState(() => Boolean(initial));
+  const [runningContext, setRunningContext] = useState<ContextType<typeof LiveStoreContext>>();
+  const [handedOff, setHandedOff] = useState(false);
+  const [initialExpired, setInitialExpired] = useState(false);
+  const publishStore = useCallback((value: ContextType<typeof LiveStoreContext>) => {
+    setRunningContext(value);
+    if (value) {
+      performance.mark("wiki-reader-live-handoff");
+      markVisualPhase("reader-live-handoff");
+      setHandedOff(true);
+      setInitial(null);
+    }
+  }, []);
+  useEffect(() => {
+    if (!initial || handedOff) return;
+    const timer = window.setTimeout(() => setInitialExpired(true), Math.max(0, initial.expiresAt - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [initial, handedOff]);
   const [boot] = useState(() => createReaderBoot(identity));
   const [adapter, setAdapter] = useState<Awaited<typeof adapterPromise> | null>(null);
   const [bootTimeoutMs, setBootTimeoutMs] = useState(READER_LEADER_BOOT_TIMEOUT_MS);
@@ -188,10 +212,10 @@ function ReaderStore({ identity, scope, storeId }: {
   const liveStoreDevtoolsEnabled = useMemo(() => readLiveStoreDevtoolsEnabled(), []);
   const devtoolsFooterVisible = useMemo(() => readDevtoolsFooterVisible(), []);
 
+  const app = <ReaderApp identity={identity} scope={scope} storeId={storeId}
+    devtoolsFooterVisible={devtoolsFooterVisible} liveStoreDevtoolsEnabled={liveStoreDevtoolsEnabled} />;
   if (stalled) return <StoreStartupRecovery />;
-  if (!adapter) return <StoreStartupLoading onTimeout={recoverStalledBoot} />;
-
-  return (
+  const provider = !adapter ? <StoreStartupLoading hideIndicator={bootstrapMode} onTimeout={recoverStalledBoot} /> : (
     <StoreBootRetryBoundary key={`${adapter === temporaryAdapter}:${bootAttempt}`} attempt={bootAttempt} onRetry={retryBoot}>
       <LiveStoreProvider
         boot={boot}
@@ -204,6 +228,7 @@ function ReaderStore({ identity, scope, storeId }: {
         renderLoading={({ stage }) => (
           <StoreStartupLoading
             stage={stage}
+            hideIndicator={bootstrapMode}
             timeoutMs={adapter === persistedAdapter ? bootTimeoutMs : undefined}
             onTimeout={recoverStalledBoot}
           />
@@ -213,10 +238,45 @@ function ReaderStore({ identity, scope, storeId }: {
           <StoreBootError error={error} attempt={bootAttempt} onRetry={retryBoot} />
         )}
       >
+        {bootstrapMode ? <PublishReaderStore publish={publishStore} /> : app}
+      </LiveStoreProvider>
+    </StoreBootRetryBoundary>
+  );
+
+  if (!bootstrapMode) return provider;
+  return (
+    <>
+      {provider}
+      <LiveStoreContext.Provider value={runningContext}>
+        <InitialReaderContext.Provider value={runningContext || handedOff || initialExpired ? null : initial}>
+          {runningContext || (!handedOff && !initialExpired) ? app : <StoreStartupRecovery />}
+        </InitialReaderContext.Provider>
+      </LiveStoreContext.Provider>
+    </>
+  );
+}
+
+// Keep the app at one React position while the provider completes or retries.
+// Forward only a real, running LiveStore context; never manufacture a store.
+function PublishReaderStore({ publish }: { publish: (value: ContextType<typeof LiveStoreContext>) => void }) {
+  const value = useContext(LiveStoreContext);
+  useLayoutEffect(() => {
+    publish(value);
+    return () => publish(undefined);
+  }, [publish, value]);
+  return null;
+}
+
+function ReaderApp({ identity, scope, storeId, devtoolsFooterVisible, liveStoreDevtoolsEnabled }: {
+  identity: WikiSessionIdentity; scope: WikiScope; storeId: string;
+  devtoolsFooterVisible: boolean; liveStoreDevtoolsEnabled: boolean;
+}) {
+  const store = useReaderStore();
+  return (
         <WikiSessionProvider identity={identity}>
           <WikiScopeProvider scope={scope}>
-            <SessionCacheRetirement identity={identity} scope={scope} />
-            <ReaderCacheRetirement identity={identity} scope={scope} />
+            {store ? <SessionCacheRetirement identity={identity} scope={scope} /> : null}
+            {store ? <ReaderCacheRetirement identity={identity} scope={scope} /> : null}
             <WikiAuthProvider>
               <CanonicalRouteBoundary>
                 <App
@@ -228,7 +288,5 @@ function ReaderStore({ identity, scope, storeId }: {
             </WikiAuthProvider>
           </WikiScopeProvider>
         </WikiSessionProvider>
-      </LiveStoreProvider>
-    </StoreBootRetryBoundary>
   );
 }

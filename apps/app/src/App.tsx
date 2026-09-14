@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { WikiChatLoadingSkeleton, WikiChatMain, WikiChatPage } from "@oncobase/wiki-shell";
-import { Route, Routes } from "react-router";
+import { Outlet, Route, Routes } from "react-router";
 import { publishMetrics } from "./observability";
 import {
   HeaderAuthDialogHost,
@@ -15,6 +15,8 @@ import { ResizableAppShell } from "./shell/ResizableAppShell";
 import { SpecialRouteMetadata } from "./shell/SpecialRouteMetadata";
 import { WikiSync } from "./sync/WikiSync";
 import type { Metrics } from "./types";
+import { AppStarting } from "./AppStarting";
+import { useReaderStore } from "./bootstrap/reader-queries";
 import { useWikiScope } from "./wiki-context";
 
 const initialMetrics: Metrics = {
@@ -102,6 +104,10 @@ function PageFallback() {
   );
 }
 
+function RequireReaderStore() {
+  return useReaderStore() ? <Outlet /> : <AppStarting />;
+}
+
 export function App({
   devtoolsFooterVisible,
   liveStoreDevtoolsEnabled,
@@ -111,6 +117,7 @@ export function App({
   liveStoreDevtoolsEnabled: boolean;
   storeId: string;
 }) {
+  const store = useReaderStore();
   const scope = useWikiScope();
   const [metrics, setMetrics] = useState<Metrics>(initialMetrics);
 
@@ -137,8 +144,8 @@ export function App({
 
   return (
     <>
-      <WikiSync onMetrics={bumpMetrics} />
-      <div className="prototype-shell">
+      {store ? <WikiSync onMetrics={bumpMetrics} /> : null}
+      <div className="prototype-shell" data-reader-store-ready={store ? "true" : "false"}>
         <SpecialRouteMetadata />
         <HeaderAuthDialogHost />
         <HeaderCommandPaletteHost />
@@ -146,6 +153,7 @@ export function App({
           <main className="content-shell">
             <Suspense fallback={<PageFallback />}>
               <Routes>
+                <Route element={<RequireReaderStore />}>
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/table-examples" element={<TableExamplesPage />} />
                 <Route path="/diagnostics" element={<TimelinePage />} />
@@ -159,12 +167,13 @@ export function App({
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/admin/*" element={<AdminPage />} />
                 <Route path="/pii-view/*" element={<PiiViewPage />} />
+                </Route>
                 <Route path="*" element={<WikiPage metrics={metrics} onMetrics={bumpMetrics} />} />
               </Routes>
             </Suspense>
           </main>
         </ResizableAppShell>
-        {devtoolsFooterVisible ? (
+        {devtoolsFooterVisible && store ? (
           <Suspense fallback={null}>
             <LiveStoreDevtoolsFooter
               enabled={liveStoreDevtoolsEnabled}

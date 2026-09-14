@@ -7,10 +7,12 @@ export const STORE_STARTUP_TIMEOUT_MS = 15_000;
 // deadline; unmount (including StrictMode cleanup) cancels stale callbacks.
 export function StoreStartupLoading({
   stage,
+  hideIndicator = false,
   onTimeout,
   timeoutMs = STORE_STARTUP_TIMEOUT_MS,
 }: {
   stage?: string;
+  hideIndicator?: boolean;
   onTimeout: () => void;
   timeoutMs?: number;
 }) {
@@ -18,5 +20,5 @@ export function StoreStartupLoading({
     const timer = window.setTimeout(onTimeout, timeoutMs);
     return () => window.clearTimeout(timer);
   }, [onTimeout, timeoutMs]);
-  return <AppStarting stage={stage} />;
+  return hideIndicator ? null : <AppStarting stage={stage} />;
 }

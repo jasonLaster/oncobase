@@ -1,4 +1,4 @@
-import { useStore } from "@livestore/react";
+import { useInitialReaderData, useReaderQuery, EMPTY_READER_ROWS } from "../bootstrap/reader-queries";
 import { DocumentComments } from "@oncobase/wiki-comments/wrapper";
 import {
   MarkdownTitle,
@@ -157,6 +157,7 @@ export function WikiPage({
   metrics: Metrics;
   onMetrics: (patch: MetricsPatch) => void;
 }) {
+  const initial = useInitialReaderData();
   const location = useLocation();
   const navigate = useNavigate();
   const scope = useWikiScope();
@@ -173,7 +174,7 @@ export function WikiPage({
   // it cannot bridge an asynchronous body fetch and used to replace text with
   // a skeleton. Query the old slug rather than copying its content so access
   // revocation/deletion still takes effect during a pending navigation.
-  const requestedPage = useStore().store.useQuery(pageContentBySlug$(slug)) as PageContentRow | null;
+  const requestedPage = useReaderQuery(pageContentBySlug$(slug), initial?.page.slug === slug ? initial.page : null) as PageContentRow | null;
   const [displayedRouteSlug, setDisplayedRouteSlug] = useState(routeSlug);
   const displayedSlug = contentSlugFromRouteSlug(displayedRouteSlug);
   if (displayedRouteSlug !== routeSlug && (
@@ -182,11 +183,11 @@ export function WikiPage({
     metrics.failedBodySlug === slug || metrics.status === "error"
   )) setDisplayedRouteSlug(routeSlug);
   const routePending = displayedRouteSlug !== routeSlug;
-  const page = useStore().store.useQuery(pageContentBySlug$(displayedSlug)) as PageContentRow | null;
-  const index = useStore().store.useQuery(pageIndexBySlug$(displayedSlug)) as PageIndexRow | null;
-  const routeIndex = useStore().store.useQuery(pageIndexBySlug$(slug)) as PageIndexRow | null;
-  const pageIndex = useStore().store.useQuery(pageIndex$) as PageIndexRow[];
-  const assets = useStore().store.useQuery(assets$) as AssetIndexRow[];
+  const page = useReaderQuery(pageContentBySlug$(displayedSlug), initial?.page.slug === displayedSlug ? initial.page : null) as PageContentRow | null;
+  const index = useReaderQuery(pageIndexBySlug$(displayedSlug), initial?.index.slug === displayedSlug ? initial.index : null) as PageIndexRow | null;
+  const routeIndex = useReaderQuery(pageIndexBySlug$(slug), initial?.index.slug === slug ? initial.index : null) as PageIndexRow | null;
+  const pageIndex = useReaderQuery(pageIndex$, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
+  const assets = useReaderQuery(assets$, EMPTY_READER_ROWS) as AssetIndexRow[];
   const stale = page?.contentStatus === "stale";
   const deleted = page?.contentStatus === "deleted";
   const failedCurrentFetch =

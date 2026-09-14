@@ -1,4 +1,4 @@
-import { useStore } from "@livestore/react";
+import { useInitialReaderData, useReaderQuery, useReaderStore, EMPTY_READER_ROWS } from "../bootstrap/reader-queries";
 import {
   BugIcon,
   CalculatorIcon,
@@ -107,13 +107,14 @@ export function CommandPalette({
   initialMode?: PaletteMode;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { store } = useStore();
-  const pages = store.useQuery(pageIndex$) as PageIndexRow[];
-  const manifestTree = store.useQuery(fileTree$);
+  const store = useReaderStore();
+  const initial = useInitialReaderData();
+  const pages = useReaderQuery(pageIndex$, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
+  const manifestTree = useReaderQuery(fileTree$, null);
   // A validated public tree is usable before sync; even an empty authoritative
   // manifest supersedes it. The fallback is scoped to this exact store.
-  const initialTree = manifestTree ? undefined : bootstrappedNavigation.get(store);
-  const assets = store.useQuery(assets$) as AssetIndexRow[];
+  const initialTree = manifestTree ? undefined : (store ? bootstrappedNavigation.get(store) : initial?.tree);
+  const assets = useReaderQuery(assets$, EMPTY_READER_ROWS) as AssetIndexRow[];
   const scope = useWikiScope();
   const [mode, setMode] = useState<PaletteMode>(initialMode);
   const [query, setQuery] = useState("");
@@ -335,6 +336,7 @@ export function CommandPalette({
         description: "Clear this LiveStore cache and reload the reader",
         icon: <RotateCcwIcon size={15} aria-hidden="true" />,
         run: () => {
+          if (!store) return;
           const confirmed = window.confirm(
             "Clear the local LiveStore cache for this reader and reload?",
           );

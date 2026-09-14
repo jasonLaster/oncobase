@@ -1,4 +1,4 @@
-import { useStore } from "@livestore/react";
+import { useInitialReaderData, useReaderQuery, useReaderStore } from "../bootstrap/reader-queries";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { MarkdownTitle } from "@oncobase/wiki-markdown/title-react";
 import {
@@ -62,8 +62,9 @@ function formatTreeLabel(name: string) {
 }
 
 function useWikiTree() {
-  const { store } = useStore();
-  return (store.useQuery(sidebarTree$) ?? bootstrappedNavigation.get(store) ?? []) as WikiNavigationNode[];
+  const store = useReaderStore();
+  const initial = useInitialReaderData();
+  return (useReaderQuery(sidebarTree$, initial?.tree ?? null) ?? (store ? bootstrappedNavigation.get(store) : undefined) ?? []) as WikiNavigationNode[];
 }
 
 function readExpandedDirectories() {
@@ -259,8 +260,9 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
 }
 
 export const Sidebar = memo(function Sidebar() {
+  const store = useReaderStore();
   const { pathname } = useLocation();
-  if (pathname.startsWith("/chat")) {
+  if (store && pathname.startsWith("/chat")) {
     return (
         <aside
           className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
@@ -405,7 +407,8 @@ export const MobileNav = memo(function MobileNav() {
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const renderPageLink = usePageLinkRenderer();
-  const isChatRoute = pathname.startsWith("/chat");
+  const store = useReaderStore();
+  const isChatRoute = !!store && pathname.startsWith("/chat");
   const activeSlug = navigationActiveSlug(pathname);
   const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
   const [navState, setNavState] = useState({ open: false, pathname });

@@ -15,6 +15,13 @@ import type { seedInitialPage } from "./seed-page";
 import { markVisualPhase } from "../visual-phase";
 
 export function createReaderBoot(identity: WikiSessionIdentity) {
+  // A user can navigate in the initial reader while the database opens. Seed
+  // the public response for its original route, never relabel it as the new
+  // destination or discard the article that is still on screen.
+  const request = {
+    origin: location.origin, pathname: location.pathname,
+    apiOrigin: new URL(import.meta.env.VITE_WIKI_API_ORIGIN || location.origin, location.origin).origin,
+  };
   // Download code while the adapter starts; only the boot callback may apply
   // the response to the validated store. Missing/failed imports retain the API
   // fallback, and do not consume the response ahead of database readiness.
@@ -23,7 +30,7 @@ export function createReaderBoot(identity: WikiSessionIdentity) {
     : Promise.resolve(null);
   return async (store: Parameters<typeof seedInitialPage>[0]) => {
     markVisualPhase("store-boot-enter");
-    (await bootstrap)?.seedInitialPage(store, identity);
+    (await bootstrap)?.seedInitialPage(store, identity, request);
     markVisualPhase("store-boot-complete");
   };
 }
