@@ -24,7 +24,8 @@ import LiveStoreWorker from "./livestore.worker?worker";
 import { schema } from "./schema";
 import { dismissFirstFrameSnapshot } from "./first-frame-snapshot";
 import { StoreStartupLoading } from "./StoreStartup";
-import { resolveReaderStorage } from "./reader-storage";
+import { resolveReaderStorage, isDiagnosticMemoryStorageRequest } from "./reader-storage";
+import { markVisualPhase } from "../visual-phase";
 import { SessionCacheRetirement } from "./SessionCacheRetirement";
 import { createReaderBoot } from "../bootstrap/seed-state";
 import {
@@ -52,7 +53,11 @@ const persistedAdapter = makePersistedAdapter({
 // Consume the library's eager OPFS probe too, so a denied handle cannot become
 // an unhandled rejection even when the temporary adapter is selected.
 const temporaryAdapter = makeInMemoryAdapter();
-const adapterPromise = resolveReaderStorage({ getDirectory: () => rootHandlePromise }).then((mode) => {
+const storageMode = isDiagnosticMemoryStorageRequest(new URL(location.href))
+  ? Promise.resolve("memory" as const)
+  : resolveReaderStorage({ getDirectory: () => rootHandlePromise });
+const adapterPromise = storageMode.then((mode) => {
+  markVisualPhase("storage-ready", { mode });
   if (mode === "opfs") return persistedAdapter;
   console.warn("[wiki-vite] Persistent cache unavailable; using temporary reader storage");
   return temporaryAdapter;
@@ -162,6 +167,7 @@ function ReaderStore({ identity, scope, storeId }: {
   const [bootAttempt, setBootAttempt] = useState(0);
   const retryBoot = useCallback(() => setBootAttempt((attempt) => attempt + 1), []);
   const recoverStalledBoot = useCallback(() => {
+    markVisualPhase("store-timeout", { temporary: adapter === temporaryAdapter });
     dismissFirstFrameSnapshot();
     if (adapter === temporaryAdapter) {
       setStalled(true);

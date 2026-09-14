@@ -2,6 +2,12 @@ export const READER_STORAGE_PROBE_TIMEOUT_MS = 3_000;
 
 export type ReaderStorageMode = "opfs" | "memory";
 
+/** Per-document diagnostic comparison; never changes saved preferences or
+ * deletes persistence. Both paths still use the same LiveStore schema. */
+export function isDiagnosticMemoryStorageRequest(url: URL) {
+  return url.searchParams.get("paintDebug") === "1" && url.searchParams.get("readerStorage") === "memory";
+}
+
 /** A browser may expose OPFS while denying access (for example private sessions).
  * Probe before booting the worker: the adapter can otherwise remain loading
  * forever without delivering the failure to the React error boundary.

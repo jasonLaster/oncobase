@@ -141,6 +141,7 @@ export function installVisualStabilityObserver() {
           htmlEndMs: round(navigation?.responseEnd ?? 0),
           ttfbMs: round(navigation?.responseStart ?? 0),
           afterHtmlMs: round(now - (navigation?.responseEnd ?? 0)),
+          server: navigation?.serverTiming.map(entry => ({ name: entry.name, duration: round(entry.duration) })),
           phases: report.events.filter(event => event.kind.startsWith("phase:"))
             .map(event => ({ at: event.at, kind: event.kind })),
           longTasks: report.events.filter(event => event.kind === "longtask")

@@ -12,11 +12,14 @@ export const bootstrappedNavigation = new WeakMap<object, import("@oncobase/wiki
 
 import type { WikiSessionIdentity } from "@oncobase/wiki-content";
 import type { seedInitialPage } from "./seed-page";
+import { markVisualPhase } from "../visual-phase";
 
 export function createReaderBoot(identity: WikiSessionIdentity) {
   return async (store: Parameters<typeof seedInitialPage>[0]) => {
+    markVisualPhase("store-boot-enter");
     if (!document.querySelector("#wiki-page-bootstrap, #wiki-navigation-bootstrap")) return;
     const bootstrap = await import("./seed-page").catch(() => null);
     bootstrap?.seedInitialPage(store, identity);
+    markVisualPhase("store-boot-complete");
   };
 }

@@ -25,3 +25,16 @@ test("a healthy persisted reader initializes only its active SQLite runtime on t
   await expect(page.getByTestId("document-article")).toContainText("Prior authorization");
   expect(await page.evaluate(() => (window as typeof window & { __sqliteInstances: { count: number } }).__sqliteInstances.count)).toBe(1);
 });
+
+test("the opt-in memory comparison reads through LiveStore without opening a dedicated worker", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.Worker = class extends Worker {
+      constructor() { throw new Error("The memory comparison must not start a dedicated worker"); }
+    };
+  });
+  await installWikiApiMocks(page);
+  await gotoWiki(page, "/wiki/logistics/insurance?paintDebug=1&readerStorage=memory");
+  await expect(page.getByTestId("document-article")).toContainText("Prior authorization");
+  await page.getByTestId("sidebar-search").click();
+  await expect(page.getByTestId("command-palette")).toBeVisible();
+});

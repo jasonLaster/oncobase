@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveReaderStorage } from "./reader-storage";
+import { isDiagnosticMemoryStorageRequest, resolveReaderStorage } from "./reader-storage";
 
 describe("reader storage selection", () => {
   test("uses persistent storage only when it can be opened", async () => {
@@ -32,4 +32,11 @@ test("late OPFS rejection is consumed after the timeout", async () => {
   expect(await resolveReaderStorage({ getDirectory: () => probe }, 5)).toBe("memory");
   reject(new Error("Late storage failure"));
   await new Promise((resolve) => setTimeout(resolve, 0));
+});
+
+test("memory comparison is opt-in for one diagnostics document", () => {
+  expect(isDiagnosticMemoryStorageRequest(new URL("https://example.com/?paintDebug=1&readerStorage=memory"))).toBe(true);
+  for (const query of ["", "?readerStorage=memory", "?paintDebug=1", "?paintDebug=1&readerStorage=opfs"]) {
+    expect(isDiagnosticMemoryStorageRequest(new URL("https://example.com/" + query))).toBe(false);
+  }
 });
