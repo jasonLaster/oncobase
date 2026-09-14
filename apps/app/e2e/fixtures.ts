@@ -423,7 +423,9 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
 
   await page.route("**/api/wiki/session**", async (route) => {
     const url = new URL(route.request().url());
-    const scope = scopeFromUrl(url);
+    const requestedScope = scopeFromUrl(url);
+    const scope = requestedScope === "session" && !sessionState.authenticated && url.searchParams.get("fallback") === "public"
+      ? "public" : requestedScope;
     requests.sessionIdentities.push(url.toString());
     if (sessionIdentityFailure) {
       await route.fulfill(json({ error: "Fixture identity failure" }, 503));

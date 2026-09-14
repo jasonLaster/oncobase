@@ -146,12 +146,12 @@ export function WikiViteRoot() {
     const baseUrl = apiBaseUrl();
     void resolveReaderSession(
       explicitReaderScope(window.location.search),
-      (requestedScope) => createWikiContentClient({
+      (requestedScope, fallbackToPublic) => createWikiContentClient({
         scope: requestedScope,
         baseUrl,
         credentials: baseUrl ? "include" : "same-origin",
         requestTimeoutMs: 30_000,
-      }).fetchSessionIdentity(),
+      }).fetchSessionIdentity({ fallbackToPublic }),
     )
       .then((identity) => {
         if (!cancelled) {

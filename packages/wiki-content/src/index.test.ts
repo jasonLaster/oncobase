@@ -8,6 +8,7 @@ import {
   isHiddenFileTreeAssetPath,
   isHiddenFileTreePath,
   makeWikiStoreId,
+  makePublicWikiSessionIdentity,
   parseWikiManifest,
   parseWikiPageBatch,
   parseWikiSessionIdentity,
@@ -798,6 +799,17 @@ describe("wiki content contracts", () => {
 
     expect(requestInit?.credentials).toBe("include");
     expect(requestInit?.cache).toBe("no-cache");
+  });
+
+  test("identity fallback is opt-in and leaves explicit identity requests unchanged", async () => {
+    const urls: string[] = [];
+    const client = createWikiContentClient({ scope: "session", fetch: (async (url) => {
+      urls.push(String(url));
+      return Response.json(makePublicWikiSessionIdentity("diana"));
+    }) as typeof fetch });
+    await client.fetchSessionIdentity({ fallbackToPublic: true });
+    await client.fetchSessionIdentity();
+    expect(urls).toEqual(["/api/wiki/session?scope=session&fallback=public", "/api/wiki/session?scope=session"]);
   });
 
   test("client helpers allow cache policy overrides", async () => {

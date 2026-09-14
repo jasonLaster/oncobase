@@ -181,6 +181,9 @@ test.describe("Session scope recovery", () => {
       await page.getByRole("button", { name: "Enter" }).click();
       await page.waitForURL(/\/$/, { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/$/);
+      // WebKit may expose the destination URL before the old document finishes
+      // navigating. Exercise the returned reader before starting the next case.
+      await waitForPageTitle(page, "Diana Wiki Home");
     }
   });
 

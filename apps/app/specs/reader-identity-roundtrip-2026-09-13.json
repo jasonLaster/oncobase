@@ -1,0 +1,1060 @@
+{
+  "samples": [
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 510.59999999962747,
+      "navigation": 503.29999999981374,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 4.699999999254942,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 51.89999999944121,
+          "end": 275.3999999994412
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 123.3999999994412,
+      "navigation": 122.29999999981374,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 9.399999999441206,
+          "end": 212.59999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 474.6000000005588,
+      "navigation": 467.70000000018626,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.2000000001862645,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 30.100000000558794,
+          "end": 255
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 122.79999999981374,
+      "navigation": 121.79999999981374,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 9.799999999813735,
+          "end": 213.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 467.5,
+      "navigation": 460.70000000018626,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 24.299999999813735,
+          "end": 250.59999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 129.29999999981374,
+      "navigation": 123.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 9.299999999813735,
+          "end": 212
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 478.59999999962747,
+      "navigation": 472.19999999925494,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 30.199999999254942,
+          "end": 254.8999999994412
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 139.29999999981374,
+      "navigation": 137.09999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.2999999998137355,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 16.200000000186265,
+          "end": 219.70000000018626
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 469.8999999994412,
+      "navigation": 463.59999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 25.799999999813735,
+          "end": 249.69999999925494
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 140.09999999962747,
+      "navigation": 137.09999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 16.200000000186265,
+          "end": 219.59999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 480.09999999962747,
+      "navigation": 473.70000000018626,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.2999999998137355,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 31.799999999813735,
+          "end": 254.8999999994412
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 138.79999999981374,
+      "navigation": 134.69999999925494,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 14.799999999813735,
+          "end": 218.19999999925494
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 694.8000000007451,
+      "navigation": 687,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.300000000745058,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 256.90000000037253,
+          "end": 459.90000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 530.3999999994412,
+      "navigation": 527.7999999998137,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.8999999994412065,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 221.09999999962747,
+          "end": 424.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 481.70000000018626,
+      "navigation": 475.09999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.2000000001862645,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 31.59999999962747,
+          "end": 256.29999999981374
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 328,
+      "navigation": 324,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.1000000005587935,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 16.600000000558794,
+          "end": 219.90000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 474.5,
+      "navigation": 468.20000000018626,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.2000000001862645,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 25.299999999813735,
+          "end": 250.90000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 326.70000000018626,
+      "navigation": 324,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.2999999998137355,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 16.09999999962747,
+          "end": 220.3999999994412
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 692.2999999998137,
+      "navigation": 684.3999999994412,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.2999999998137355,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 252.09999999962747,
+          "end": 458.19999999925494
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 526.5,
+      "navigation": 525.3999999994412,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.3999999994412065,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 216.8999999994412,
+          "end": 419.8999999994412
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 692,
+      "navigation": 684.1999999992549,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 256.3999999994412,
+          "end": 458.8999999994412
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 524.7000000001863,
+      "navigation": 523.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.800000000745058,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 218.6000000005588,
+          "end": 420.20000000018626
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 471.29999999981374,
+      "navigation": 464.69999999925494,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 30.09999999962747,
+          "end": 254.19999999925494
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 1,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 324.20000000018626,
+      "navigation": 323.20000000018626,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 2.2999999998137355,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 16.40000000037253,
+          "end": 219.90000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 714.9000000003725,
+      "navigation": 689.7999999998137,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.2999999998137355,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 95.1000000005588,
+          "end": 315.90000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 315.29999999981374,
+      "navigation": 308.59999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.7000000001862645,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 39.59999999962747,
+          "end": 242.3999999994412
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 687.9000000003725,
+      "navigation": 665.2999999998137,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 91.5,
+          "end": 311.79999999981374
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "public",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 308.79999999981374,
+      "navigation": 301.09999999962747,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.2999999998137355,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 37,
+          "end": 239.79999999981374
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 696.9000000003725,
+      "navigation": 671.0999999996275,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.2000000001862645,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 90.59999999962747,
+          "end": 309.5
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 309.79999999981374,
+      "navigation": 301.90000000037253,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.7000000001862645,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 37.299999999813735,
+          "end": 241.20000000018626
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 685,
+      "navigation": 662.4000000003725,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.1000000005587935,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 90.20000000018626,
+          "end": 310.29999999981374
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "public",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 317.5,
+      "navigation": 310.20000000018626,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.1000000005587935,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 38.90000000037253,
+          "end": 241.20000000018626
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 685.2000000001863,
+      "navigation": 662.0999999996275,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.2000000001862645,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 90.59999999962747,
+          "end": 307.40000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 307.79999999981374,
+      "navigation": 300,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.2000000001862645,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 37.200000000186265,
+          "end": 240.5
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 677.8000000007451,
+      "navigation": 654.9000000003725,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 88.5,
+          "end": 307.80000000074506
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "public",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 302.70000000018626,
+      "navigation": 295.6000000005588,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.2999999998137355,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 35.299999999813735,
+          "end": 238.5
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 885.2999999998137,
+      "navigation": 862.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.2000000001862645,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 309.3999999994412,
+          "end": 512.3999999994412
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 598.0999999996275,
+      "navigation": 591.9000000003725,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.5,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 241.29999999981374,
+          "end": 443.90000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "cold",
+      "errors": [],
+      "article": 676.0999999996275,
+      "navigation": 653.4000000003725,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 86.90000000037253,
+          "end": 307.09999999962747
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 1,
+      "visit": "reload",
+      "errors": [],
+      "article": 399.90000000037253,
+      "navigation": 393.5,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 0.900000000372529,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 36.5,
+          "end": 239.5
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 676.2000000001863,
+      "navigation": 653.2999999998137,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.2000000001862645,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 87.70000000018626,
+          "end": 306.40000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 395.5,
+      "navigation": 388.40000000037253,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.7000000001862645,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 36.700000000186265,
+          "end": 237.90000000037253
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "cold",
+      "errors": [],
+      "article": 884.5,
+      "navigation": 862.2999999998137,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.1000000005587935,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 310.29999999981374,
+          "end": 513.4000000003725
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 2,
+      "visit": "reload",
+      "errors": [],
+      "article": 598.1999999992549,
+      "navigation": 591.3999999994412,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 240.69999999925494,
+          "end": 443.29999999981374
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 893.7000000001863,
+      "navigation": 871.8999999994412,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.099999999627471,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 313.5,
+          "end": 514.8999999994412
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "baseline",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 596.5999999996275,
+      "navigation": 589.6999999992549,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.199999999254942,
+      "identities": [
+        {
+          "query": "?scope=public",
+          "start": 241.29999999981374,
+          "end": 443.8999999994412
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "cold",
+      "errors": [],
+      "article": 684.5,
+      "navigation": 661.4000000003725,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1.1000000005587935,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 90.40000000037253,
+          "end": 309.6000000005588
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    },
+    {
+      "mode": "candidate",
+      "cpu": 4,
+      "scope": "auto",
+      "run": 3,
+      "visit": "reload",
+      "errors": [],
+      "article": 396,
+      "navigation": 388.79999999981374,
+      "retractions": 0,
+      "nodeChanges": 0,
+      "html": 1,
+      "identities": [
+        {
+          "query": "?scope=session&fallback=public",
+          "start": 35.59999999962747,
+          "end": 237.8999999994412
+        }
+      ],
+      "bodyRequests": 0,
+      "seeded": 1
+    }
+  ]
+}

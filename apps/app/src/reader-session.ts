@@ -8,14 +8,15 @@ export function explicitReaderScope(search: string): WikiScope | null {
 
 export async function resolveReaderSession(
   explicitScope: WikiScope | null,
-  fetchIdentity: (scope: WikiScope) => Promise<WikiSessionIdentity>,
+  fetchIdentity: (scope: WikiScope, fallbackToPublic?: boolean) => Promise<WikiSessionIdentity>,
 ): Promise<WikiSessionIdentity> {
   if (explicitScope) return fetchIdentity(explicitScope);
   try {
     // The server validates the current cookie and returns a user/access-specific
     // cache key. Never infer private access from the previous browser's mode.
-    return await fetchIdentity("session");
+    return await fetchIdentity("session", true);
   } catch (error) {
+    // Older API deployments may not support the same-response fallback yet.
     // Only an absent/expired session selects public automatically. Outages and
     // authorization failures must not masquerade as missing private pages.
     if (!(error instanceof Error) || !/^Wiki request failed: 401\b/.test(error.message)) {

@@ -9,8 +9,9 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
-import { buildCompactTreeFromManifest, makePublicWikiSessionIdentity, WIKI_MANIFEST_SCHEMA_VERSION } from "@oncobase/wiki-content";
+import { buildCompactTreeFromManifest, WIKI_MANIFEST_SCHEMA_VERSION } from "@oncobase/wiki-content";
 import { createWikiViteHandler } from "../server/app-shell";
+import { createWikiSessionResponse } from "@oncobase/wiki-content/server";
 
 const output = path.resolve(".playwright/bootstrap-cache");
 mkdirSync(output, { recursive: true });
@@ -29,7 +30,7 @@ if (!process.env.PROFILE_WORKER && process.env.PROFILE_SERVE !== "1") {
   writeFileSync(path.join(output, "samples.json"), JSON.stringify({ samples: combined }, null, 2));
   process.exit(0);
 }
-const candidateDir = path.resolve("apps/app/dist");
+const candidateDir = path.resolve(process.env.PROFILE_DIST ?? "apps/app/dist");
 const baselineDir = path.resolve(process.argv[2] ?? path.join(output, "baseline-dist"));
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 const pages = ["index", "wiki/second"].map((slug, i) => {
@@ -64,7 +65,7 @@ const server = Bun.serve({ hostname: "127.0.0.1", port: Number(process.env.PROFI
   const url = new URL(request.url);
   if (url.pathname === "/api/wiki/session") {
     await delay(200);
-    return url.searchParams.get("scope") === "session" ? json({ error: "Session required" }, 401) : json(makePublicWikiSessionIdentity("diana"));
+    return createWikiSessionResponse(request, { siteSlug: "diana", getSessionUser: async () => null, documents: {} as never });
   }
   if (url.pathname === "/api/wiki/manifest") { await delay(400); return json(manifest); }
   if (url.pathname === "/api/wiki/pages") {

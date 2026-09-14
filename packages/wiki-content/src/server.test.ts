@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   createWikiManifestResponse,
+  createWikiSessionResponse,
   type WikiApiContext,
 } from "./server";
 
@@ -378,5 +379,61 @@ describe("versioned public manifest snapshots", () => {
     expect(response.status).toBe(304);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("cdn-cache-control")).toBe("no-store");
+  });
+});
+
+
+describe("wiki session selection", () => {
+  const request = (query: string) => new Request(`https://example.test/api/wiki/session?${query}`);
+
+  test("automatic signed-out selection returns public privately after one session lookup", async () => {
+    const { context } = manifestContext();
+    let reads = 0;
+    context.getSessionUser = async () => { reads++; return null; };
+    const response = await createWikiSessionResponse(request("scope=session&fallback=public"), context);
+    expect(reads).toBe(1);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ scope: "public", authenticated: false, userHash: null });
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("vary")).toContain("Cookie");
+    expect(response.headers.get("x-wiki-cache-scope")).toBe("public");
+  });
+
+  test("explicit session requests still require sign-in", async () => {
+    const { context } = manifestContext();
+    expect((await createWikiSessionResponse(request("scope=session"), context)).status).toBe(401);
+  });
+
+  test("explicit public selection never looks up the account", async () => {
+    const { context } = manifestContext();
+    context.getSessionUser = async () => { throw new Error("Unexpected account lookup"); };
+    const response = await createWikiSessionResponse(request("scope=public"), context);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("public, max-age=300");
+  });
+
+  test("automatic signed-in selection retains the access-specific session identity", async () => {
+    const { context } = manifestContext();
+    context.getSessionUser = async () => ({ _id: "reader" });
+    let allowed = ["private/one"];
+    context.access = {
+      getAllowedSlugs: async () => allowed,
+      canUserAccessSlug: async () => true,
+      filterAccessibleSlugs: async () => [],
+    };
+    const automatic = await createWikiSessionResponse(request("scope=session&fallback=public"), context);
+    const identity = await automatic.json();
+    expect(identity).toEqual(await (await createWikiSessionResponse(request("scope=session"), context)).json());
+    expect(identity).toMatchObject({ scope: "session", authenticated: true });
+    expect(automatic.headers.get("cache-control")).toBe("private, no-store");
+    allowed = [];
+    const revoked = await (await createWikiSessionResponse(request("scope=session&fallback=public"), context)).json();
+    expect(revoked.cacheKey).not.toBe(identity.cacheKey);
+  });
+
+  test("account lookup failures do not select public", async () => {
+    const { context } = manifestContext();
+    context.getSessionUser = async () => { throw new Error("Session unavailable"); };
+    await expect(createWikiSessionResponse(request("scope=session&fallback=public"), context)).rejects.toThrow("Session unavailable");
   });
 });

@@ -30,6 +30,8 @@ test("signed-out readers fall back to public without retaining session access", 
   const requests = await installWikiApiMocks(page);
   await gotoWiki(page, "/wiki/logistics/insurance");
   await expect(documentArticle(page)).toContainText("Insurance");
+  expect(requests.sessionIdentities).toHaveLength(1);
+  expect(new URL(requests.sessionIdentities[0]).searchParams.get("fallback")).toBe("public");
   expect(requests.manifest.every(url => new URL(url).searchParams.get("scope") === "public")).toBe(true);
   await page.goto("/private/plan");
   await expect(page.getByRole("heading", { name: "This page may be restricted", exact: true })).toBeVisible();
@@ -63,7 +65,7 @@ test("a cached public denial stays a loader until delayed identity verification 
   try {
     // Identity must select the store before interactive reader chrome mounts.
     await expect(page.getByTestId("sidebar-search")).toHaveCount(0);
-    await expect(page.getByTestId("page-loading")).toBeVisible();
+    await expect(page.getByTestId("app-starting")).toBeVisible();
     await expect(page.getByRole("heading", { name: /restricted|not found|no longer available/i })).toHaveCount(0);
   } finally {
     releaseIdentity();

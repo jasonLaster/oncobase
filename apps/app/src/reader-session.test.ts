@@ -15,7 +15,7 @@ describe("reader session selection", () => {
     expect(scopes).toEqual(["session"]);
   });
 
-  test("missing session falls back to a distinct public identity", async () => {
+  test("older servers retain the 401 fallback to a distinct public identity", async () => {
     const scopes: WikiScope[] = [];
     expect(await resolveReaderSession(null, async scope => {
       scopes.push(scope);
@@ -23,6 +23,15 @@ describe("reader session selection", () => {
       return publicIdentity;
     })).toBe(publicIdentity);
     expect(scopes).toEqual(["session", "public"]);
+  });
+
+  test("automatic public selection completes in a single request", async () => {
+    const requests: unknown[] = [];
+    expect(await resolveReaderSession(null, async (scope, fallbackToPublic) => {
+      requests.push({ scope, fallbackToPublic });
+      return publicIdentity;
+    })).toBe(publicIdentity);
+    expect(requests).toEqual([{ scope: "session", fallbackToPublic: true }]);
   });
 
   test("explicit public links never request restricted content", async () => {

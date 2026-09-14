@@ -702,6 +702,17 @@ export async function createWikiSessionResponse(
 
   const sessionUser = await context.getSessionUser(request);
   if (!sessionUser) {
+    // Automatic readers can select public in this same response. This decision
+    // depends on the current cookie, so even its public result is never shared.
+    if (new URL(request.url).searchParams.get("fallback") === "public") {
+      return Response.json(makePublicWikiSessionIdentity(context.siteSlug), {
+        headers: decorate(context, {
+          "Cache-Control": "private, no-store",
+          Vary: "Accept, Cookie, x-site-slug",
+          "X-Wiki-Cache-Scope": "public",
+        }),
+      });
+    }
     return Response.json(
       { error: "Session scope requires a signed-in wiki session" },
       {

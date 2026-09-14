@@ -1060,8 +1060,11 @@ export function createWikiContentClient({
         manifestHash,
       );
     },
-    async fetchSessionIdentity() {
-      const url = urlWithParams(baseUrl, "/api/wiki/session", { scope });
+    async fetchSessionIdentity({ fallbackToPublic = false }: { fallbackToPublic?: boolean } = {}) {
+      const url = urlWithParams(baseUrl, "/api/wiki/session", {
+        scope,
+        ...(scope === "session" && fallbackToPublic ? { fallback: "public" } : {}),
+      });
       return parseWikiSessionIdentity(
         await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs),
       );
