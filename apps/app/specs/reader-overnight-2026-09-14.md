@@ -2,7 +2,17 @@
 
 Target: initial usable reader below 500 ms while preserving client-side React, LiveStore, access isolation, and article continuity. Baseline production commit: `050c1ac3`.
 
-## Current checkpoint — indexed identity deployed
+## Final overnight checkpoint
+
+Production retains client-side React and the real persisted LiveStore. Eligible fresh public pages and navigation now render before identity and database startup complete, with the same article and controls preserved through handoff. Required-session/private routes retain verification. Optional math stays deferred; vendor bundles remain stable under ordinary app edits; deployment metadata no longer invalidates unchanged browser assets. Shared HTML access helpers no longer eagerly import the full API router. The starting indicator remains “Launching Diana TNBC...”.
+
+The latest native Chrome warm observations are **244–358 ms**, including 299 ms after the metadata-only deployment. **Reliable cold sub-500 ms is not established**: first observed loads of the last two deployments were **620 and 645 ms**. The latter had 483 ms HTML delivery and 162 ms between HTML and the article. These are the user's existing authenticated Chrome profile, unthrottled network/CPU, with caches and other tabs left intact; first post-deploy does not mean a fresh browser or a controlled cold function. Synthetic fresh-profile tests also cover normal and 4x CPU, but do not replace production evidence.
+
+The final application-code commit is `62a71a0bb737207f37d1fce1619fe7ce32c3acdc`; the subsequent report-only commit `d85d3b7fcd2f3d9220ae556e619b5e7ca0b6211d` is READY in `dpl_4FVtP2B2RW2WzkjF2kBoMyJ676DU` with all production aliases. Across these real deployments, all 35 entry/module-preload references were identical and the HTML commit metadata updated correctly. The entry returns `public, max-age=31536000, immutable`. This verifies stable cache eligibility, not browser bytecode reuse. Search reached the expected Insurance article, LiveStore became ready, and no browser errors were logged.
+
+The low-risk, high-value candidates investigated in this run are complete. Remaining cold work includes network/platform HTML delivery and first-time execution of the reader's roughly 506 KiB compressed static module closure. Separating LiveStore/Effect code from the initial reader would require changing component/query boundaries and broader continuity testing; it is not treated as a routine overnight cleanup. No lock stealing, lowered recovery deadlines, persistence removal, private bootstrap loosening, credential-lifetime extension, or new authorization cache was used to improve the result. The hourly overnight task can pause here with the cold target explicitly unmet.
+
+## Earlier checkpoint — indexed identity deployed
 
 The target is not yet met for the ordinary signed-in reader in the existing Chrome profile. Latest application release: `23d04cfefcf80cd5f9d17c1c9b9d0e205fbb1ed5` (READY, `dpl_4YW5KwQYbvMXoKS7fRdXPoL5d29J`, production aliases verified). The indexed backend query was deployed separately from pushed commit `7e6611ce`. First measured post-deploy article readiness fell from about 19 seconds to 2295 ms; two warm signed-in loads measured 1412 and 1279 ms. The last 750 ms is the existing-leader fallback in this profile. Public persisted runs measured 876, 742 and 1247 ms (the last had 753-ms HTML delivery). Do not confuse the earlier small-fixture sub-500-ms result with these live results.
 
