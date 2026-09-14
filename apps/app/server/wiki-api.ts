@@ -740,7 +740,7 @@ function createAccessAdapter(
       ),
     getAllowedSlugs: (user) => loadAllowedSensitiveSlugs(
       (cursor, numItems) => client.query(api.documents.listPage,
-        withSiteSlug(siteSlug, { cursor, numItems, includeSensitive: true })),
+        withSiteSlug(siteSlug, { cursor, numItems, includeSensitive: true, sensitiveOnly: true })),
       (slugs) => client.query(api.access.filterAccessibleSlugs,
         withSiteSlug(siteSlug, { userId: user._id as Id<"users">, slugs })),
     ),

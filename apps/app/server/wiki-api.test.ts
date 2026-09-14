@@ -224,7 +224,7 @@ function createFakeConvexClient({
         }
         case "documents:listPageWithContent": {
           const includeSensitive = args.includeSensitive === true;
-          const visiblePages = pages.filter((page) => includeSensitive || !page.sensitive);
+          const visiblePages = pages.filter((page) => (includeSensitive || !page.sensitive) && (!args.sensitiveOnly || page.sensitive === true));
           return {
             page: visiblePages.map((page) => ({
               ...page,
