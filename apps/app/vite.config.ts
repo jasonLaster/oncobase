@@ -11,6 +11,7 @@ import { wikiApiPlugin } from "./server/wiki-api.ts";
 import { createCommandPaletteChords } from "../../packages/wiki-shell/src/command-palette-chords";
 import { installReaderShortcuts } from "./src/bootstrap/reader-shortcuts";
 import { readerPreloadPlugin } from "./scripts/reader-preload-plugin";
+import { readerBuildMetadataPlugin } from "./scripts/reader-build-metadata";
 
 const apiOrigin = process.env.VITE_WIKI_API_ORIGIN ?? "";
 
@@ -137,6 +138,7 @@ export default defineConfig({
       },
     },
     wikiReaderCacheVersionPlugin(),
+    readerBuildMetadataPlugin(),
     readerPreloadPlugin(),
     !apiOrigin ? wikiApiPlugin() : null,
     tailwindcss(),

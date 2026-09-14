@@ -36,7 +36,8 @@ window.addEventListener("vite:preloadError", () => {
 publishRuntimeEnvironment({
   mode: import.meta.env.MODE,
   vercelEnv: import.meta.env.VITE_VERCEL_ENV,
-  commitSha: import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA,
+  // Reading response metadata keeps server-only releases out of JS hashes.
+  commitSha: document.querySelector<HTMLMetaElement>('meta[name="wiki-build-commit"]')?.content || undefined,
 });
 
 const ImmersiveDicomRoot = lazy(() =>
