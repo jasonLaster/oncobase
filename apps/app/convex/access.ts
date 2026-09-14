@@ -694,12 +694,76 @@ export const canUserAccessSlug = query({
   },
 });
 
-/**
- * Batched variant of canUserAccessSlug: resolves the user's grants once and
- * evaluates every slug in memory. One indexed document lookup per slug is the
- * only per-item work, so callers can filter thousands of slugs in a handful
- * of chunked queries instead of one full query per slug.
- */
+// Reuse the batch policy for already-read documents; it never accepts policy
+// metadata from the browser or caches an authorization decision.
+async function createDocumentAccessCheck(ctx: QueryCtx, site: SiteCtx, userId: Id<"users">) {
+  const roles = await ctx.db.query("roles").collect();
+  const rolesById = new Map();
+  for (const role of roles) {
+    if (rowBelongsToSite(role, site)) rolesById.set(role._id, role);
+  }
+  const protectedRules = (await ctx.db.query("rolePermissions").collect()).filter(
+    (permission) =>
+      rowBelongsToSite(permission, site) && rolesById.has(permission.roleId),
+  );
+
+  const assignments = site.siteId
+    ? await ctx.db
+        .query("userRoles")
+        .withIndex("by_site_user", (q) =>
+          q.eq("siteId", site.siteId!).eq("userId", userId),
+        )
+        .collect()
+    : await ctx.db
+        .query("userRoles")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+  const user = await ctx.db.get(userId);
+  const allowedRoleIds = new Set<string>();
+  for (const assignment of assignments) {
+    if (
+      rowBelongsToSite(assignment, site) &&
+      rolesById.has(assignment.roleId)
+    ) {
+      allowedRoleIds.add(String(assignment.roleId));
+    }
+  }
+  if (user && rowBelongsToSite(user, site)) {
+    for (const role of rolesById.values()) {
+      if (roleMatchesEmail(role, user.email)) {
+        allowedRoleIds.add(String(role._id));
+      }
+    }
+  }
+  const rules: PermissionRule[] = [];
+  for (const roleId of allowedRoleIds) {
+    const typedRoleId = roleId as Id<"roles">;
+    const perms = site.siteId
+      ? await ctx.db
+          .query("rolePermissions")
+          .withIndex("by_site_role", (q) =>
+            q.eq("siteId", site.siteId!).eq("roleId", typedRoleId),
+          )
+          .collect()
+      : await ctx.db
+          .query("rolePermissions")
+          .withIndex("by_role", (q) => q.eq("roleId", typedRoleId))
+          .collect();
+    for (const p of perms) if (rowBelongsToSite(p, site)) rules.push(p);
+  }
+
+  return (slug: string, doc: Pick<Doc<"documents">, "sensitive" | "tags" | "sensitiveInclude"> | null) => {
+    if (!doc) return false;
+    if (doc.sensitive !== true) return true;
+    const documentTags = doc.tags ?? [];
+    const documentSensitiveInclude = doc.sensitiveInclude ?? [];
+    return protectedRules.some(rule => ruleMatchesSlug(rule, slug, documentTags, documentSensitiveInclude)) &&
+      rules.some(rule => ruleMatchesSlug(rule, slug, documentTags, documentSensitiveInclude));
+  };
+}
+
+/** Batched variant of canUserAccessSlug: resolves grants once, then performs
+ * one indexed document lookup per supplied slug. */
 export const filterAccessibleSlugs = query({
   args: {
     userId: v.id("users"),
@@ -708,86 +772,40 @@ export const filterAccessibleSlugs = query({
   },
   handler: async (ctx, { userId, slugs, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    const roles = await ctx.db.query("roles").collect();
-    const rolesById = new Map();
-    for (const role of roles) {
-      if (rowBelongsToSite(role, site)) rolesById.set(role._id, role);
-    }
-    const protectedRules = (await ctx.db.query("rolePermissions").collect()).filter(
-      (permission) =>
-        rowBelongsToSite(permission, site) && rolesById.has(permission.roleId),
-    );
-
-    const assignments = site.siteId
-      ? await ctx.db
-          .query("userRoles")
-          .withIndex("by_site_user", (q) =>
-            q.eq("siteId", site.siteId!).eq("userId", userId),
-          )
-          .collect()
-      : await ctx.db
-          .query("userRoles")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .collect();
-    const user = await ctx.db.get(userId);
-    const allowedRoleIds = new Set<string>();
-    for (const assignment of assignments) {
-      if (
-        rowBelongsToSite(assignment, site) &&
-        rolesById.has(assignment.roleId)
-      ) {
-        allowedRoleIds.add(String(assignment.roleId));
-      }
-    }
-    if (user && rowBelongsToSite(user, site)) {
-      for (const role of rolesById.values()) {
-        if (roleMatchesEmail(role, user.email)) {
-          allowedRoleIds.add(String(role._id));
-        }
-      }
-    }
-    const rules: PermissionRule[] = [];
-    for (const roleId of allowedRoleIds) {
-      const typedRoleId = roleId as Id<"roles">;
-      const perms = site.siteId
-        ? await ctx.db
-            .query("rolePermissions")
-            .withIndex("by_site_role", (q) =>
-              q.eq("siteId", site.siteId!).eq("roleId", typedRoleId),
-            )
-            .collect()
-        : await ctx.db
-            .query("rolePermissions")
-            .withIndex("by_role", (q) => q.eq("roleId", typedRoleId))
-            .collect();
-      for (const p of perms) if (rowBelongsToSite(p, site)) rules.push(p);
-    }
-
+    const canRead = await createDocumentAccessCheck(ctx, site, userId);
     const results: { slug: string; allowed: boolean; hasDocument: boolean }[] = [];
     for (const slug of slugs) {
       const doc = await findDocumentBySlug(ctx, site, slug);
-      if (!doc) {
-        results.push({ slug, allowed: false, hasDocument: false });
-        continue;
-      }
-      // Non-sensitive documents are readable without rule evaluation,
-      // mirroring the sensitive shortcut in canReadPage.
-      if (doc.sensitive !== true) {
-        results.push({ slug, allowed: true, hasDocument: true });
-        continue;
-      }
-      const documentTags = doc?.tags ?? [];
-      const documentSensitiveInclude = doc?.sensitiveInclude ?? [];
-      const isProtected = protectedRules.some((rule) =>
-        ruleMatchesSlug(rule, slug, documentTags, documentSensitiveInclude),
-      );
-      const allowed =
-        isProtected &&
-        rules.some((rule) =>
-          ruleMatchesSlug(rule, slug, documentTags, documentSensitiveInclude),
-        );
-      results.push({ slug, allowed, hasDocument: true });
+      results.push({ slug, allowed: canRead(slug, doc), hasDocument: doc !== null });
     }
     return results;
+  },
+});
+
+
+/** Read the sensitive index and evaluate its documents in one transaction.
+ * Session identities need only allowed slugs, so bodies stay in the backend
+ * and are not fetched a second time by separate per-slug access queries. */
+export const listAllowedSensitivePage = query({
+  args: {
+    userId: v.id("users"),
+    siteSlug: v.optional(v.string()),
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+  },
+  handler: async (ctx, { userId, siteSlug, cursor, numItems }) => {
+    const site = await requireSite(ctx, siteSlug);
+    if (!site.siteId) return { slugs: [], isDone: true, continueCursor: null };
+    const [result, canRead] = await Promise.all([
+      ctx.db.query("documents")
+        .withIndex("by_site_sensitive_slug", q => q.eq("siteId", site.siteId!).eq("sensitive", true))
+        .paginate({ cursor, numItems }),
+      createDocumentAccessCheck(ctx, site, userId),
+    ]);
+    return {
+      slugs: result.page.filter(doc => rowBelongsToSite(doc, site) && !doc.deletedAt && doc.sensitive === true && canRead(doc.slug, doc)).map(doc => doc.slug),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
   },
 });
