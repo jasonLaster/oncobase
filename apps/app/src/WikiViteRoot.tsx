@@ -172,7 +172,8 @@ export function WikiViteRoot() {
         baseUrl,
         credentials: baseUrl ? "include" : "same-origin",
         requestTimeoutMs: 30_000,
-      }).fetchSessionIdentity({ fallbackToPublic }),
+      }).fetchSessionIdentity({ fallbackToPublic,
+        profileStartup: new URLSearchParams(window.location.search).get("paintDebug") === "1" }),
     )
       .then((identity) => {
         if (!cancelled) {

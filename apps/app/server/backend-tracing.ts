@@ -61,7 +61,9 @@ export function traceBackendHandler(
   return async (request: Request) => {
     const started = performance.now();
     const tracer = options.tracer ?? await backendTracer();
-    const timing = process.env.WIKI_BACKEND_TIMING === "1";
+    const profileSession = new URL(request.url).pathname === "/api/wiki/session" &&
+      new URL(request.url).searchParams.get("profile") === "1";
+    const timing = process.env.WIKI_BACKEND_TIMING === "1" || profileSession;
     if (!tracer && !timing && !options.onProfile) return handler(request);
     const route = routeName(request);
     const span = tracer?.startSpan(`wiki ${route}`, {
@@ -75,6 +77,20 @@ export function traceBackendHandler(
         profile.status = response?.status ?? 404;
         if (timing && response) {
           response.headers.append("Server-Timing", `backend;dur=${(performance.now() - started).toFixed(1)}, convex;dur=${profile.calls.reduce((sum, call) => sum + call.durationMs, 0).toFixed(1)};desc="summed RPC time", convex-count;desc="${profile.calls.length}"`);
+          if (profileSession) {
+            // Fixed groups and numbers only: no arguments, rows, URLs, user
+            // identifiers or error text. Durations sum overlapping RPCs.
+            const groups: Record<string, typeof profile.calls> = { pages: [], access: [], other: [] };
+            for (const call of profile.calls) {
+              const group = call.name === "documents:listPage" ? "pages" :
+                call.name === "access:filterAccessibleSlugs" ? "access" : "other";
+              groups[group]!.push(call);
+            }
+            for (const [name, calls] of Object.entries(groups)) {
+              response.headers.append("Server-Timing", `db-${name};dur=${calls.reduce((sum, call) => sum + call.durationMs, 0).toFixed(1)}, db-${name}-calls;dur=${calls.length}`);
+            }
+            response.headers.append("Server-Timing", `db-failures;dur=${profile.calls.filter(call => call.failed).length}`);
+          }
         }
         if (profile.status >= 500) span?.setStatus({ code: SpanStatusCode.ERROR });
         return response;

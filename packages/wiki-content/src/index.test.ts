@@ -810,6 +810,8 @@ describe("wiki content contracts", () => {
     await client.fetchSessionIdentity({ fallbackToPublic: true });
     await client.fetchSessionIdentity();
     expect(urls).toEqual(["/api/wiki/session?scope=session&fallback=public", "/api/wiki/session?scope=session"]);
+    await client.fetchSessionIdentity({ profileStartup: true });
+    expect(urls[2]).toBe("/api/wiki/session?scope=session&profile=1");
   });
 
   test("client helpers allow cache policy overrides", async () => {

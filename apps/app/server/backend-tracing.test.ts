@@ -5,6 +5,26 @@ import { traceBackendHandler, traceConvexClient, traceBackendPhase, type Backend
 
 const ref = makeFunctionReference<"query">("documents:listManifestPage");
 
+test("session startup diagnostics expose only fixed RPC groups and numbers", async () => {
+  const client = traceConvexClient({ query: async () => ({ content: "PRIVATE response" }) } as never);
+  const handler = traceBackendHandler(async () => {
+    await client.query(makeFunctionReference<"query">("documents:listPage"), { userId: "PRIVATE user" });
+    await client.query(makeFunctionReference<"query">("access:filterAccessibleSlugs"), { slugs: ["PRIVATE slug"] });
+    return new Response("ok", { headers: { "Cache-Control": "private, no-store" } });
+  });
+  const ordinary = await handler(new Request("https://example.test/api/wiki/session"));
+  expect(ordinary!.headers.get("server-timing")).toBeNull();
+  const profiled = await handler(new Request("https://example.test/api/wiki/session?profile=1"));
+  const timing = profiled!.headers.get("server-timing")!;
+  expect(timing).toContain("db-pages-calls;dur=1");
+  expect(timing).toContain("db-access-calls;dur=1");
+  expect(timing).toContain("db-failures;dur=0");
+  expect(timing).not.toContain("PRIVATE");
+  expect(profiled!.headers.get("cache-control")).toBe("private, no-store");
+  const other = await handler(new Request("https://example.test/api/search?profile=1"));
+  expect(other!.headers.get("server-timing")).toBeNull();
+});
+
 test("phase spans parent database reads and record only aggregate result sizes", async () => {
   const exporter = new InMemorySpanExporter();
   const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });

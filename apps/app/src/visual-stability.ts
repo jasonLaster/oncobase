@@ -151,7 +151,8 @@ export function installVisualStabilityObserver() {
               const pathname = new URL(entry.name).pathname;
               const kind = ["session", "manifest", "pages"].find(name => pathname === `/api/wiki/${name}`)
                 ?? (/LiveStoreRoot-|livestore\.worker-|shared-worker-|\.wasm$/.test(pathname) ? "database-code" : null);
-              return kind ? [{ kind, start: round(entry.startTime), end: round(entry.responseEnd) }] : [];
+              return kind ? [{ kind, start: round(entry.startTime), end: round(entry.responseEnd),
+                server: entry.serverTiming.map(timing => ({ name: timing.name, duration: round(timing.duration) })) }] : [];
             }),
         }));
       }
