@@ -128,6 +128,31 @@ describe("wiki Vite app-shell password gate", () => {
     await rm(distDir, { recursive: true, force: true });
   });
 
+  test("a cached-route hint skips page payload work but preserves the gate and private HTML headers", async () => {
+    const client = fakeClient();
+    const lookup = spyOn(client, "query");
+    const handler = createWikiViteHandler({ client: client as never, distDir });
+    const hint = `wiki_reader_shell=${encodeURIComponent(JSON.stringify(["/"]))}`;
+    expect((await handler(request("/", { headers: { Cookie: hint } }))).status).toBe(302);
+    lookup.mockClear();
+    const response = await handler(request("/", { headers: await authenticatedHeaders(hint) }));
+    const html = await response.text();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(html).toContain('id="root"');
+    expect(html).not.toContain('id="wiki-page-bootstrap"');
+    expect(html).toContain('name="robots" content="noindex, nofollow"');
+    expect(html).toContain('name="wiki-reader-account" content="public"');
+    expect(html).not.toContain("user-1");
+    expect(response.headers.has("X-Wiki-Reader-Account")).toBe(false);
+    expect(lookup.mock.calls.some(([ref]) => getFunctionName(ref) === "documents:getBySlug")).toBe(false);
+    const signedIn = await handler(request("/", { headers: await authenticatedHeaders(`${hint}; wiki_user_session=session-token`) }));
+    expect(await signedIn.text()).toMatch(/name="wiki-reader-account" content="[a-f0-9]{64}"/);
+    const full = await handler(request("/?readerCache=0", { headers: await authenticatedHeaders(hint) }));
+    expect(await full.text()).toContain('id="wiki-page-bootstrap"');
+    lookup.mockRestore();
+  });
+
   test("legacy deployment flags cannot enable HTML handoff", async () => {
     const saved = [process.env.WIKI_HTML_FIRST, process.env.WIKI_HTML_FIRST_EXPERIMENT];
     process.env.WIKI_HTML_FIRST = "1";

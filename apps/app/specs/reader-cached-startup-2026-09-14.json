@@ -1,0 +1,105 @@
+{
+  "conditions": "Synthetic loopback server, real HTTP cache, headless Chromium, 1440x1000; no request interception",
+  "samples": [
+    {
+      "cpu": 1,
+      "visit": "cold",
+      "articleMs": 93.5,
+      "htmlMs": 2,
+      "cachedStartup": false,
+      "storeReadyAtObservation": "false",
+      "jsTransferBytes": 540822,
+      "errors": []
+    },
+    {
+      "cpu": 1,
+      "visit": "cached",
+      "articleMs": 67.89999999850988,
+      "htmlMs": 2.100000001490116,
+      "cachedStartup": true,
+      "storeReadyAtObservation": "false",
+      "jsTransferBytes": 0,
+      "errors": []
+    },
+    {
+      "cpu": 1,
+      "visit": "cached",
+      "articleMs": 45.899999998509884,
+      "htmlMs": 2,
+      "cachedStartup": true,
+      "storeReadyAtObservation": "false",
+      "jsTransferBytes": 0,
+      "errors": []
+    },
+    {
+      "cpu": 1,
+      "visit": "comparison",
+      "articleMs": 47.5,
+      "htmlMs": 2.2999999970197678,
+      "cachedStartup": false,
+      "storeReadyAtObservation": "false",
+      "jsTransferBytes": 0,
+      "errors": []
+    },
+    {
+      "cpu": 1,
+      "visit": "cached",
+      "articleMs": 46.5,
+      "htmlMs": 1.8999999985098839,
+      "cachedStartup": true,
+      "storeReadyAtObservation": "false",
+      "jsTransferBytes": 0,
+      "errors": []
+    },
+    {
+      "cpu": 4,
+      "visit": "cold",
+      "articleMs": 358,
+      "htmlMs": 1.6000000014901161,
+      "cachedStartup": false,
+      "storeReadyAtObservation": "false",
+      "jsTransferBytes": 540822,
+      "errors": []
+    },
+    {
+      "cpu": 4,
+      "visit": "cached",
+      "articleMs": 185.59999999403954,
+      "htmlMs": 1.7999999970197678,
+      "cachedStartup": true,
+      "storeReadyAtObservation": "false",
+      "jsTransferBytes": 0,
+      "errors": []
+    },
+    {
+      "cpu": 4,
+      "visit": "cached",
+      "articleMs": 118.79999999701977,
+      "htmlMs": 1,
+      "cachedStartup": true,
+      "storeReadyAtObservation": "false",
+      "jsTransferBytes": 0,
+      "errors": []
+    },
+    {
+      "cpu": 4,
+      "visit": "comparison",
+      "articleMs": 128.89999999850988,
+      "htmlMs": 1.6000000014901161,
+      "cachedStartup": false,
+      "storeReadyAtObservation": "false",
+      "jsTransferBytes": 0,
+      "errors": []
+    },
+    {
+      "cpu": 4,
+      "visit": "cached",
+      "articleMs": 126.20000000298023,
+      "htmlMs": 1.3999999985098839,
+      "cachedStartup": true,
+      "storeReadyAtObservation": "false",
+      "jsTransferBytes": 0,
+      "errors": []
+    }
+  ]
+}

@@ -42,7 +42,8 @@ import {
 
 import { BackgroundPrefetch, FOREGROUND_FETCH_EVENT } from "./BackgroundPrefetch";
 import { PREFETCH_LIMITS } from "./prefetch-policy";
-import { hasBootstrappedPage } from "../bootstrap/seed-state";
+import { clearStartupSnapshot } from "../bootstrap/reader-startup-cache";
+import { hasBootstrappedPage, cachedStartupStores } from "../bootstrap/seed-state";
 export { WARM_CACHE_EVENT } from "./BackgroundPrefetch";
 export const RETRY_PAGE_EVENT = "wiki-vite:retry-page";
 export const REFRESH_MANIFEST_EVENT = "wiki-vite:refresh-manifest";
@@ -62,7 +63,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const manifestRef = useRef<WikiManifest | null>(null);
   const currentSlugRef = useRef(currentSlug);
   // The HTTP page can be newer than a recently cached navigation manifest.
-  const forceValidationRef = useRef(hasBootstrappedPage(store, currentSlug));
+  const forceValidationRef = useRef(hasBootstrappedPage(store, currentSlug) || cachedStartupStores.has(store));
   const navigationPending = useRef(false);
   const validationInFlight = useRef<{
     key: string;
@@ -138,13 +139,13 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   }, [scope, store]);
 
   const fetchSlug = useCallback(
-    async (slug: string, pageIndex?: WikiManifestPage) => {
+    async (slug: string, pageIndex?: WikiManifestPage, force = false) => {
       const cacheKey = `${scope}:${slug}`;
       if (inFlight.current.has(cacheKey)) return;
 
       const cached = store.query(pageContentBySlug$(slug)) as PageContentRow | null;
       if (
-        cached?.content &&
+        !force && cached?.content &&
         pageIndex &&
         cached.contentHash === pageIndex.contentHash &&
         cached.contentStatus === "fresh" &&
@@ -192,7 +193,8 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           onMetrics({ eventCount: 1 });
         }
       } catch (error) {
-        if (scope === "session" && isAuthError(error)) {
+        if (isAuthError(error)) {
+          clearStartupSnapshot();
           store.commit(events.cacheResetRequested({ requestedAt: Date.now() }));
           onMetrics({
             status: "error",
@@ -392,7 +394,8 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         // BackgroundPrefetch handles ranked warming after the active body is ready.
       } catch (error) {
         if (!cancelled) {
-          if (scope === "session" && isAuthError(error)) {
+          if (isAuthError(error)) {
+            clearStartupSnapshot();
             store.commit(events.cacheResetRequested({ requestedAt: Date.now() }));
             onMetrics({
               status: "error",
@@ -444,7 +447,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           }
         : undefined;
     if (page) {
-      void fetchSlug(currentSlug, page).catch(() => undefined);
+      void fetchSlug(currentSlug, page, cachedStartupStores.has(store)).catch(() => undefined);
       return;
     }
 

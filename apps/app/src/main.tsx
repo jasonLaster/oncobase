@@ -1,3 +1,4 @@
+import { clearStartupSnapshot } from "./bootstrap/reader-startup-cache";
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router";
@@ -7,6 +8,10 @@ import { publishRuntimeEnvironment } from "./observability";
 // Start identity resolution without waiting for a lazy boundary's reveal.
 // The database and specialist routes still load dynamically.
 import { WikiViteRoot } from "./WikiViteRoot";
+
+// A login response supersedes previously remembered access, including a gate
+// redirect after cookie expiration. Never revive it on Back/reload.
+if (location.pathname === "/login") clearStartupSnapshot();
 
 // Retire inert HTML copies from older releases. Structured reader data remains
 // cached, but only React renders its controls and document content.

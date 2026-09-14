@@ -42,7 +42,9 @@ const budgets: Budget[] = [
   // The early reader keeps one app mounted across the real store handoff.
   // Allow 256 additional bytes here; retain the aggregate eager limit.
   // The initial identity preview adds a nullable-store gate and initial partition latch (+128 bytes).
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 18_240 },
+  // Cached page/tree presentation and the deferred snapshot writer plus the shared tree expansion state add <832 bytes here.
+  // Aggregate eager limits remain unchanged.
+  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 19_072 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },

@@ -1,3 +1,4 @@
+import { initialReaderPage } from "../bootstrap/initial-reader-data";
 import { useInitialReaderData, useReaderQuery, EMPTY_READER_ROWS } from "../bootstrap/reader-queries";
 import { DocumentComments } from "@oncobase/wiki-comments/wrapper";
 import {
@@ -174,7 +175,7 @@ export function WikiPage({
   // it cannot bridge an asynchronous body fetch and used to replace text with
   // a skeleton. Query the old slug rather than copying its content so access
   // revocation/deletion still takes effect during a pending navigation.
-  const requestedPage = useReaderQuery(pageContentBySlug$(slug), initial?.page.slug === slug ? initial.page : null) as PageContentRow | null;
+  const requestedPage = useReaderQuery(pageContentBySlug$(slug), initialReaderPage(initial, slug)) as PageContentRow | null;
   const [displayedRouteSlug, setDisplayedRouteSlug] = useState(routeSlug);
   const displayedSlug = contentSlugFromRouteSlug(displayedRouteSlug);
   if (displayedRouteSlug !== routeSlug && (
@@ -183,9 +184,9 @@ export function WikiPage({
     metrics.failedBodySlug === slug || metrics.status === "error"
   )) setDisplayedRouteSlug(routeSlug);
   const routePending = displayedRouteSlug !== routeSlug;
-  const page = useReaderQuery(pageContentBySlug$(displayedSlug), initial?.page.slug === displayedSlug ? initial.page : null) as PageContentRow | null;
-  const index = useReaderQuery(pageIndexBySlug$(displayedSlug), initial?.index.slug === displayedSlug ? initial.index : null) as PageIndexRow | null;
-  const routeIndex = useReaderQuery(pageIndexBySlug$(slug), initial?.index.slug === slug ? initial.index : null) as PageIndexRow | null;
+  const page = useReaderQuery(pageContentBySlug$(displayedSlug), initialReaderPage(initial, displayedSlug)) as PageContentRow | null;
+  const index = useReaderQuery(pageIndexBySlug$(displayedSlug), initial?.pages.find(page => page.slug === displayedSlug) ?? null) as PageIndexRow | null;
+  const routeIndex = useReaderQuery(pageIndexBySlug$(slug), initial?.pages.find(page => page.slug === slug) ?? null) as PageIndexRow | null;
   const pageIndex = useReaderQuery(pageIndex$, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
   const assets = useReaderQuery(assets$, EMPTY_READER_ROWS) as AssetIndexRow[];
   const stale = page?.contentStatus === "stale";

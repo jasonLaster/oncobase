@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { readerShellHint } from "../src/bootstrap/reader-shell-hint";
 import { specialRouteMetadata } from "../src/special-route-metadata";
 import { injectPageBootstrap } from "./page-bootstrap";
 import { injectHeadMetadata } from "./html-head";
@@ -205,6 +207,9 @@ async function canonicalSlugRedirectResponse(
 
   const slug = slugFromPathname(url.pathname);
   if (!slug || slug === "index") return null;
+  // The client canonical boundary still reconciles cached paths with the
+  // refreshed manifest. Avoid fetching the body just to repeat that lookup.
+  if (!isLinkPreviewRequest(request) && readerShellHint(request.headers.get("cookie") ?? "", url)) return null;
 
   const siteSlug = await resolveSiteSlug(request, client);
   if (!siteSlug) return null;
@@ -309,6 +314,12 @@ async function staticIndexHtml(
   const siteSlug = await resolveSiteSlug(request, client);
   if (!siteSlug) return html;
 
+  // The normal gate has already run. A route hint only skips payload work;
+  // it cannot authorize an API, select an account, or expose server content.
+  if (!htmlFirstExperiment && !isLinkPreviewRequest(request) && readerShellHint(request.headers.get("cookie") ?? "", url)) {
+    return html.replace("</head>", '<meta name="robots" content="noindex, nofollow" /></head>');
+  }
+
   const [publicPage, gateEnabled, taggedPages] = await Promise.all([
     slug
       ? publicPageForRequest(request, client, siteSlug, slug)
@@ -404,21 +415,25 @@ async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath:
     console.warn("[wiki-vite-server] password gate lookup failed", error);
     return {
       ...staticHeaders(filePath),
+      "X-Wiki-Reader-Account": "unknown",
       "Cache-Control": "private, no-store",
       Vary: "Accept, Cookie, Host, User-Agent",
     };
   }
   const [authed, sessionUser] = await Promise.all([
     hasValidAuthCookie(request, client, siteSlug, gateConfig),
-    getSessionUser(request, client, siteSlug).catch(() => null),
+    getSessionUser(request, client, siteSlug).catch(() => undefined),
   ]);
   const privateResponse =
+    sessionUser === undefined ||
+    readerShellHint(request.headers.get("cookie") ?? "", new URL(request.url)) ||
     authed ||
     isDianaPreviewTestAuth(request, siteSlug) ||
     gateConfig.enabled ||
     Boolean(sessionUser);
   return {
     ...staticHeaders(filePath),
+    "X-Wiki-Reader-Account": sessionUser === undefined ? "unknown" : sessionUser ? createHash("sha256").update(`${siteSlug}:${sessionUser._id}`).digest("hex") : "public",
     "Cache-Control": privateResponse
       ? "private, no-store"
       : "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
@@ -505,7 +520,9 @@ export function createAppShellHandler({
         staticIndexHtml(request, client, filePath, indexHtml, htmlFirstExperiment, readerStyles),
         htmlHeaders(request, client, filePath),
       ]);
-      return new Response(html, { headers });
+      const { "X-Wiki-Reader-Account": accountTag, ...responseHeaders } = headers;
+      const accountHtml = html.replace("</head>", `<meta name="wiki-reader-account" content="${accountTag}" /></head>`);
+      return new Response(accountHtml, { headers: responseHeaders });
     }
 
     return new Response(await readFile(filePath), {

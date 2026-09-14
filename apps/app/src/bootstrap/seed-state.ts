@@ -1,3 +1,4 @@
+export const cachedStartupStores = new WeakSet<object>();
 // Store-local markers never persist. A remount, another identity, or another
 // tab cannot use a previous store's initial-page exemption.
 const seededPages = new WeakMap<object, { slug: string; expiresAt: number }>();
@@ -10,8 +11,8 @@ export function hasBootstrappedPage(store: object, slug: string) {
 }
 export const bootstrappedNavigation = new WeakMap<object, import("@oncobase/wiki-content").FileNode[]>();
 
+import type { StartupSnapshot } from "./reader-startup-cache";
 import type { WikiSessionIdentity } from "@oncobase/wiki-content";
-import type { seedInitialPage } from "./seed-page";
 import { markVisualPhase } from "../visual-phase";
 
 export function readerBootRequest() {
@@ -21,7 +22,7 @@ export function readerBootRequest() {
   };
 }
 
-export function createReaderBoot(identity: WikiSessionIdentity, request = readerBootRequest()) {
+export function createReaderBoot(identity: WikiSessionIdentity, request = readerBootRequest(), cached?: StartupSnapshot | null) {
   // A user can navigate in the initial reader while the database opens. Seed
   // the public response for its original route, never relabel it as the new
   // destination or discard the article that is still on screen.
@@ -31,8 +32,10 @@ export function createReaderBoot(identity: WikiSessionIdentity, request = reader
   const bootstrap = document.querySelector("#wiki-page-bootstrap, #wiki-navigation-bootstrap")
     ? import("./seed-page").catch(() => null)
     : Promise.resolve(null);
-  return async (store: Parameters<typeof seedInitialPage>[0]) => {
+  const cachedSeed = cached ? import("./seed-startup-cache") : null;
+  return async (store: Parameters<typeof import("./seed-startup-cache").seedStartupCache>[0]) => {
     markVisualPhase("store-boot-enter");
+    if (cached && cachedSeed) (await cachedSeed).seedStartupCache(store, identity, cached);
     (await bootstrap)?.seedInitialPage(store, identity, request);
     markVisualPhase("store-boot-complete");
   };

@@ -20,12 +20,17 @@ export function parseNavigationBootstrap(raw: string, request: RequestPartition)
 }
 
 export type InitialReaderData = {
+  cachedBodies?: Record<string, PageContentRow>;
   page: PageContentRow;
   index: PageIndexRow;
   pages: PageIndexRow[];
   tree: FileNode[];
   expiresAt: number;
 };
+
+export function initialReaderPage(initial: InitialReaderData | null, slug: string) {
+  return initial?.cachedBodies?.[slug] ?? (initial?.page.slug === slug ? initial.page : null);
+}
 
 export function initialReaderData(raw: string, receivedAt: number, request: RequestPartition,
   navigation: string | null = null, now = Date.now()): InitialReaderData | null {

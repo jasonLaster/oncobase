@@ -16,6 +16,8 @@ import {
   useState,
 } from "react";
 import { unstable_batchedUpdates as batchUpdates } from "react-dom";
+import { ReaderStartupCacheWriter } from "../bootstrap/ReaderStartupCacheWriter";
+import { startupInitialData, type StartupSnapshot } from "../bootstrap/reader-startup-cache";
 import { readInitialReaderData } from "../bootstrap/initial-reader-data";
 import { InitialReaderContext, useReaderStore } from "../bootstrap/reader-queries";
 import { App } from "../App";
@@ -133,7 +135,8 @@ class StoreBootRetryBoundary extends Component<BootBoundaryProps, BootBoundarySt
   }
 }
 
-export function LiveStoreRoot({ identity, presentationIdentity, scope }: {
+export function LiveStoreRoot({ identity, presentationIdentity, scope, cachedSnapshot }: {
+  cachedSnapshot?: StartupSnapshot | null;
   identity: WikiSessionIdentity | null;
   presentationIdentity?: WikiSessionIdentity | null;
   scope: WikiScope;
@@ -154,10 +157,11 @@ export function LiveStoreRoot({ identity, presentationIdentity, scope }: {
   const key = !storeId || storeId === firstPartition
     ? `initial:${displayIdentity.siteSlug}` : storeId;
   return <ReaderStore key={key} storeId={storeId} identity={identity}
-    displayIdentity={displayIdentity} scope={identity ? scope : "public"} />;
+    displayIdentity={displayIdentity} cachedSnapshot={cachedSnapshot} scope={identity ? scope : displayIdentity.scope} />;
 }
 
-function ReaderStore({ identity, displayIdentity, scope, storeId }: {
+function ReaderStore({ identity, displayIdentity, scope, storeId, cachedSnapshot }: {
+  cachedSnapshot?: StartupSnapshot | null;
   identity: WikiSessionIdentity | null;
   displayIdentity: WikiSessionIdentity;
   scope: WikiScope;
@@ -166,7 +170,7 @@ function ReaderStore({ identity, displayIdentity, scope, storeId }: {
   // Once a store exists, its complete partition controls remounts. Refreshing an
   // equivalent identity must not change boot: LiveStore would restart the
   // provider and discard the mounted article. A new partition remounts us.
-  const [initial, setInitial] = useState(() => readInitialReaderData(displayIdentity));
+  const [initial, setInitial] = useState(() => cachedSnapshot ? startupInitialData(cachedSnapshot, location.pathname) : readInitialReaderData(displayIdentity));
   const [bootstrapMode] = useState(() => Boolean(initial));
   const [runningContext, setRunningContext] = useState<ContextType<typeof LiveStoreContext>>();
   const [handedOff, setHandedOff] = useState(false);
@@ -186,8 +190,8 @@ function ReaderStore({ identity, displayIdentity, scope, storeId }: {
     return () => window.clearTimeout(timer);
   }, [initial, handedOff]);
   const [request] = useState(readerBootRequest);
-  const [bootState, setBootState] = useState(() => identity ? { boot: createReaderBoot(identity, request) } : null);
-  if (identity && !bootState) setBootState({ boot: createReaderBoot(identity, request) });
+  const [bootState, setBootState] = useState(() => identity ? { boot: createReaderBoot(identity, request, cachedSnapshot) } : null);
+  if (identity && !bootState) setBootState({ boot: createReaderBoot(identity, request, cachedSnapshot) });
   const [adapter, setAdapter] = useState<Awaited<typeof adapterPromise> | null>(null);
   const [bootTimeoutMs, setBootTimeoutMs] = useState(READER_LEADER_BOOT_TIMEOUT_MS);
   const [stalled, setStalled] = useState(false);
@@ -258,7 +262,7 @@ function ReaderStore({ identity, displayIdentity, scope, storeId }: {
       {/* This provider owns lifecycle only. A retry must not insert a second
           launching screen ahead of the already mounted reader. Errors still
           propagate, and shutdown switches the visible reader to recovery. */}
-      <div hidden>{provider}</div>
+      <div hidden data-reader-cache-startup={Boolean(cachedSnapshot)}>{provider}</div>
       <LiveStoreContext.Provider value={runningContext}>
         <InitialReaderContext.Provider value={runningContext || handedOff || initialExpired ? null : initial}>
           {runningContext || (!handedOff && !initialExpired) ? app : <StoreStartupRecovery />}
@@ -294,6 +298,7 @@ function ReaderApp({ identity, scope, storeId, devtoolsFooterVisible, liveStoreD
           <WikiScopeProvider scope={scope}>
             {store ? <SessionCacheRetirement identity={identity} scope={scope} /> : null}
             {store ? <ReaderCacheRetirement identity={identity} scope={scope} /> : null}
+            {store ? <ReaderStartupCacheWriter identity={identity} /> : null}
             <WikiAuthProvider>
               <CanonicalRouteBoundary>
                 <App

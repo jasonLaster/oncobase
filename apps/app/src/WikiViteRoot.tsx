@@ -8,6 +8,7 @@ import { persistPublicIdentity, resolvePublicIdentityFallback } from "./public-i
 import { explicitReaderScope, resolveReaderSession } from "./reader-session";
 import { WikiIdentityPendingContext } from "./wiki-context";
 import { markVisualPhase } from "./visual-phase";
+import { clearStartupSnapshot, readStartupSnapshot, sameStartupIdentity, startupInitialData, STARTUP_CACHE_EPOCH } from "./bootstrap/reader-startup-cache";
 import { AppStarting } from "./AppStarting";
 import { publicIdentityFromPageBootstrap } from "./bootstrap/public-identity";
 import { PAGE_BOOTSTRAP_ID, MAX_BOOTSTRAP_BYTES } from "./bootstrap/page-payload";
@@ -129,9 +130,33 @@ function SessionRecovery({ message }: { message: string }) {
 }
 
 export function WikiViteRoot() {
+  const [cached, setCached] = useState(() => {
+    const snapshot = readStartupSnapshot();
+    return snapshot && startupInitialData(snapshot, location.pathname) ? snapshot : null;
+  });
+  const [authRevision, setAuthRevision] = useState(0);
+  const [responseInvalidated, setResponseInvalidated] = useState(false);
+  useEffect(() => {
+    const reset = () => {
+      document.querySelectorAll("#wiki-page-bootstrap, #wiki-navigation-bootstrap").forEach(node => node.remove());
+      setCached(null);
+      setResponseInvalidated(true);
+      setState({ status: "loading", scope: readScope() });
+      setIdentityPending(true);
+      setAuthRevision(value => value + 1);
+    };
+    const authChanged = () => { clearStartupSnapshot(); reset(); };
+    const storageChanged = (event: StorageEvent) => { if (event.key === STARTUP_CACHE_EPOCH || event.key === null) reset(); };
+    window.addEventListener("wiki-auth-session-change", authChanged);
+    window.addEventListener("storage", storageChanged);
+    return () => {
+      window.removeEventListener("wiki-auth-session-change", authChanged);
+      window.removeEventListener("storage", storageChanged);
+    };
+  }, []);
   const [readerModule, setReaderModule] = useState<ReaderModuleState>({ status: "loading" });
   const [identityPending, setIdentityPending] = useState(true);
-  const [presentationIdentity] = useState(() => {
+  const [responsePresentationIdentity] = useState(() => {
     const query = new URLSearchParams(location.search);
     // Fresh public presentation only. This value never selects a store,
     // skips explicit session verification, or comes from a browser cache.
@@ -141,19 +166,20 @@ export function WikiViteRoot() {
   });
   const [state, setState] = useState<BootstrapState>(() => {
     const scope = readScope();
-    const initial = publicIdentityFromResponse();
+    const initial = cached ? null : publicIdentityFromResponse();
     const fallback = initial ?? publicIdentityFallback(scope);
     // Browser caches never choose automatic scope. A fresh private response
     // may already have verified that this request has no account session.
-    return fallback && (initial || explicitReaderScope(window.location.search) === "public")
+    return !cached && fallback && (initial || explicitReaderScope(window.location.search) === "public")
       ? { status: "ready", scope, identity: fallback }
       : { status: "loading", scope };
   });
 
   useEffect(() => {
     let cancelled = false;
+    let retry: number | undefined;
     markVisualPhase("identity-start");
-    const initialMarkdown = document.getElementById(PAGE_BOOTSTRAP_ID)?.textContent;
+    const initialMarkdown = cached?.bodies[0]?.page.content ?? document.getElementById(PAGE_BOOTSTRAP_ID)?.textContent;
     if (initialMarkdown && initialMarkdown.length <= MAX_BOOTSTRAP_BYTES && mayContainMath(initialMarkdown)) {
       // Fetch optional math alongside the reader, before the boot payload paints.
       void preloadMarkdownMath().catch(() => {});
@@ -185,6 +211,10 @@ export function WikiViteRoot() {
     )
       .then((identity) => {
         if (!cancelled) {
+          if (cached && !sameStartupIdentity(cached.identity, identity)) {
+            clearStartupSnapshot();
+            setCached(null);
+          }
           markVisualPhase("identity-ready", { scope: identity.scope });
           setIdentityPending(false);
           if (identity.scope === "public") {
@@ -204,8 +234,16 @@ export function WikiViteRoot() {
       .catch((error) => {
         if (!cancelled) {
           markVisualPhase("identity-error");
+          const denied = error instanceof Error && /^Wiki request failed: (401|403)\b/.test(error.message);
+          if (cached && !denied) {
+            // An outage keeps the last permitted presentation, without opening
+            // its database under an unverified identity. Retry in the background.
+            retry = window.setTimeout(() => setAuthRevision(value => value + 1), 10_000);
+            return;
+          }
+          if (cached) { clearStartupSnapshot(); setCached(null); }
           setIdentityPending(false);
-          if (scope === "public" && fallback) {
+          if (!cached && scope === "public" && fallback) {
             setState({ status: "ready", scope, identity: fallback });
             return;
           }
@@ -219,9 +257,13 @@ export function WikiViteRoot() {
 
     return () => {
       cancelled = true;
+      if (retry !== undefined) window.clearTimeout(retry);
     };
-  }, []);
+    // A cached presentation is captured for this validation attempt only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authRevision]);
 
+  const presentationIdentity = cached?.identity ?? (responseInvalidated ? null : responsePresentationIdentity);
   const startingApp = createElement(AppStarting);
   if (state.status === "loading" && !presentationIdentity) return startingApp;
 
@@ -255,6 +297,8 @@ export function WikiViteRoot() {
       WikiIdentityPendingContext.Provider,
       { value: identityPending },
       createElement(readerModule.Component, {
+        key: cached ? `cached:${cached.identity.cacheKey}` : "response",
+        cachedSnapshot: cached,
         identity: state.status === "ready" ? state.identity : null,
         presentationIdentity,
         scope: state.scope,

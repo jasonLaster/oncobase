@@ -1,3 +1,4 @@
+import { clearStartupSnapshot } from "../bootstrap/reader-startup-cache";
 import type { WikiScope } from "@oncobase/wiki-content";
 import {
   WikiActionsMenu,
@@ -231,6 +232,7 @@ function useWikiAuthState() {
   }, [parseAuthResponse]);
 
   const signOut = useCallback(async () => {
+    clearStartupSnapshot();
     await fetch(backendHref("/api/auth/signout"), {
       method: "POST",
       credentials: "same-origin",

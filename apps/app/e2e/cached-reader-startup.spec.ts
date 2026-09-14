@@ -1,0 +1,226 @@
+import { readFile } from "node:fs/promises";
+import { expect, test, type Page } from "@playwright/test";
+import { installWikiApiMocks } from "./fixtures";
+
+const body = "# Cached reader\n\nCACHED_BODY\n\n" + "Stable paragraph for selection and scroll.\n\n".repeat(80);
+const query = "?paintDebug=1&readerStorage=memory";
+async function setup(page: Page, privatePage = false) {
+  const api = await installWikiApiMocks(page, { sessionAuthenticated: true, pageOverrides: { index: { content: body, sensitive: privatePage } } });
+  let accountTag = "account-a";
+  const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+  await page.route("**/*", route => route.request().resourceType() === "document"
+    ? route.fulfill({ contentType: "text/html", body: html.replace("</head>", `<meta name="wiki-reader-account" content="${accountTag}" /></head>`) }) : route.fallback());
+  return { ...api, setHtmlAccount: (tag: string) => { accountTag = tag; } };
+}
+async function waitForCache(page: Page, text = "CACHED_BODY") {
+  await expect.poll(() => page.evaluate(text => Object.keys(localStorage).some(key =>
+    key.startsWith("wiki-vite:startup:") && localStorage.getItem(key)?.includes(text)), text)).toBe(true);
+}
+async function holdIdentity(page: Page) {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/wiki/session**", async route => { await gate; await route.fallback(); });
+  return release;
+}
+
+for (const privatePage of [false, true]) {
+  test(`cached page and file tree paint before identity; private=${privatePage}`, async ({ page }) => {
+    const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
+    await setup(page, privatePage);
+    await page.goto(`/${query}`);
+    await expect(page.getByTestId("document-article")).toContainText("CACHED_BODY");
+    await waitForCache(page);
+    const release = await holdIdentity(page);
+    try {
+      await page.reload({ waitUntil: "domcontentloaded" });
+      const article = page.getByTestId("document-article");
+      await expect(article).toContainText("CACHED_BODY");
+      await expect(page.locator('[data-reader-store-ready]')).toHaveAttribute("data-reader-store-ready", "false");
+      const original = await article.elementHandle();
+      const sidebar = await page.getByTestId("wiki-sidebar").elementHandle();
+      await page.getByTestId("sidebar-search").click();
+      const input = page.getByTestId("command-palette").locator("input");
+      await input.fill("Insurance");
+      await expect(page.getByTestId("command-palette")).toContainText(/insurance/i);
+      const inputNode = await input.elementHandle();
+      release();
+      await expect(page.locator('[data-reader-store-ready]')).toHaveAttribute("data-reader-store-ready", "true");
+      expect(await original!.evaluate(node => node.isConnected)).toBe(true);
+      expect(await sidebar!.evaluate(node => node.isConnected)).toBe(true);
+      expect(await inputNode!.evaluate(node => node.isConnected && node === document.activeElement)).toBe(true);
+      await expect(input).toHaveValue("Insurance");
+      expect(errors).toEqual([]);
+    } finally { release(); }
+  });
+}
+
+test("new markdown and file tree replace stale data without resetting scroll or navigation", async ({ page }) => {
+  const api = await setup(page);
+  await page.goto(`/${query}`); await waitForCache(page);
+  api.setPageOverride("index", { content: body + "\n\nUPDATED_BODY" });
+  api.setPageOverride("wiki/cache-added-page", { title: "Added page", content: "# Added page", tags: [] });
+  const release = await holdIdentity(page);
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const article = page.getByTestId("document-article");
+    await expect(article).toContainText("CACHED_BODY");
+    await expect(article).not.toContainText("UPDATED_BODY");
+    const sidebar = await page.getByTestId("wiki-sidebar").elementHandle();
+    const before = await article.evaluate(element => {
+      let node: Element | null = element;
+      while (node && !(node.scrollHeight > node.clientHeight && /auto|scroll/.test(getComputedStyle(node).overflowY))) node = node.parentElement;
+      const scroll = node ?? document.scrollingElement!;
+      scroll.scrollTop = 300;
+      Object.assign(window, { swrScroll: scroll });
+      return scroll.scrollTop;
+    });
+    expect(before).toBeGreaterThan(0);
+    release();
+    await expect(article).toContainText("UPDATED_BODY");
+    expect(await sidebar!.evaluate(node => node.isConnected)).toBe(true);
+    expect(await page.evaluate(() => (window as unknown as { swrScroll: Element }).swrScroll.scrollTop)).toBe(before);
+    await page.getByTestId("sidebar-search").click();
+    await page.getByTestId("command-palette").locator("input").fill("cache-added-page");
+    await expect(page.getByTestId("command-palette")).toContainText("cache added page");
+    await waitForCache(page, "UPDATED_BODY");
+  } finally { release(); }
+});
+
+test("a changed identity discards the previous account before its store opens", async ({ page }) => {
+  const api = await setup(page, true);
+  await page.goto(`/${query}`); await waitForCache(page);
+  api.setSessionCacheKey("different-account-key", "different-user");
+  api.setPageOverride("index", { content: "# New account\n\nOTHER_ACCOUNT_BODY" });
+  const release = await holdIdentity(page);
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("document-article")).toContainText("CACHED_BODY");
+    release();
+    await expect(page.getByTestId("document-article")).toContainText("OTHER_ACCOUNT_BODY");
+    await expect(page.getByTestId("document-article")).not.toContainText("CACHED_BODY");
+    await waitForCache(page, "OTHER_ACCOUNT_BODY");
+    expect(await page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith("wiki-vite:startup:") && localStorage.getItem(key)?.includes("CACHED_BODY")))).toBe(false);
+  } finally { release(); }
+});
+
+test("HTML identifying another account prevents the old private cache from painting", async ({ page }) => {
+  const api = await setup(page, true);
+  await page.goto(`/${query}`); await waitForCache(page);
+  api.setSessionCacheKey("account-b", "user-b");
+  api.setHtmlAccount("account-b");
+  api.setPageOverride("index", { content: "# B\n\nACCOUNT_B_BODY" });
+  const release = await holdIdentity(page);
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("app-starting")).toBeVisible();
+    await expect(page.getByTestId("document-article")).toHaveCount(0);
+    release();
+    await expect(page.getByTestId("document-article")).toContainText("ACCOUNT_B_BODY");
+    await expect(page.getByTestId("document-article")).not.toContainText("CACHED_BODY");
+  } finally { release(); }
+});
+
+test("confirmed session denial removes the cached body and tree", async ({ page }) => {
+  await setup(page, true);
+  await page.goto(`/${query}&scope=session`); await waitForCache(page);
+  let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/wiki/session**", async route => { await gate; await route.fulfill({ status: 401, json: { error: "Session expired" } }); });
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("document-article")).toContainText("CACHED_BODY");
+    release();
+    await expect(page.getByTestId("session-recovery")).toBeVisible();
+    await expect(page.getByTestId("document-article")).toHaveCount(0);
+    await expect(page.getByTestId("wiki-sidebar")).toHaveCount(0);
+    expect(await page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith("wiki-vite:startup:")))).toBe(false);
+  } finally { release(); }
+});
+
+test("a transient identity outage retains remembered content and cached navigation", async ({ page }) => {
+  const api = await setup(page, true);
+  await page.goto(`/${query}`); await waitForCache(page);
+  api.setSessionIdentityFailure(true);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("document-article")).toContainText("CACHED_BODY");
+  await expect(page.locator('[data-reader-store-ready]')).toHaveAttribute("data-reader-store-ready", "false");
+  await expect(page.getByTestId("session-recovery")).toHaveCount(0);
+  await page.getByTestId("sidebar-search").click();
+  await page.getByTestId("command-palette").locator("input").fill("Insurance");
+  await expect(page.getByTestId("command-palette")).toContainText(/insurance/i);
+});
+
+test("a fresh page denial clears remembered access even when its content hash was unchanged", async ({ page }) => {
+  const api = await setup(page, true);
+  await page.goto(`/${query}`); await waitForCache(page);
+  api.setPageFailure("index", true);
+  await page.route("**/api/wiki/pages**", route => route.fulfill({ status: 403, json: { error: "Access removed" } }));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("document-article")).not.toContainText("CACHED_BODY");
+  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith("wiki-vite:startup:")))).toBe(false);
+});
+
+test("the cache opt-out waits for verification and does not use remembered private content", async ({ page }) => {
+  await setup(page, true);
+  await page.goto(`/${query}`); await waitForCache(page);
+  const release = await holdIdentity(page);
+  try {
+    await page.goto(`/${query}&readerCache=0`, { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("app-starting")).toBeVisible();
+    await expect(page.getByTestId("document-article")).toHaveCount(0);
+    release();
+    await expect(page.getByTestId("document-article")).toContainText("CACHED_BODY");
+  } finally { release(); }
+});
+
+test("two cached routes can navigate while identity is still pending", async ({ page }) => {
+  await setup(page);
+  await page.goto(`/${query}`); await waitForCache(page);
+  await page.goto(`/wiki/logistics/insurance${query}`);
+  await expect(page.getByTestId("document-article")).toContainText("Prior authorization");
+  await expect.poll(() => page.evaluate(() => {
+    const key = Object.keys(localStorage).find(key => key.startsWith("wiki-vite:startup:"));
+    return key ? JSON.parse(localStorage.getItem(key)!).bodies.length : 0;
+  })).toBe(2);
+  const release = await holdIdentity(page);
+  try {
+    await page.goto(`/${query}`, { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("document-article")).toContainText("CACHED_BODY");
+    await page.getByTestId("sidebar-search").click();
+    await page.getByTestId("command-palette").locator("input").fill("Insurance");
+    await page.getByRole("option").first().click();
+    await expect(page.getByTestId("document-article")).toContainText("Prior authorization");
+    await expect(page.locator('[data-reader-store-ready]')).toHaveAttribute("data-reader-store-ready", "false");
+    release();
+    await expect(page.locator('[data-reader-store-ready]')).toHaveAttribute("data-reader-store-ready", "true");
+    await expect(page.getByTestId("document-article")).toContainText("Prior authorization");
+  } finally { release(); }
+});
+
+test("sign-out notification invalidates remembered private content and fences old writers", async ({ page }) => {
+  const api = await setup(page, true);
+  await page.goto(`/${query}`); await waitForCache(page);
+  api.setSessionAuthenticated(false);
+  await page.evaluate(() => window.dispatchEvent(new Event("wiki-auth-session-change")));
+  await expect(page.getByTestId("document-article")).not.toContainText("CACHED_BODY");
+  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith("wiki-vite:startup:") && localStorage.getItem(key)?.includes("CACHED_BODY")))).toBe(false);
+  await page.reload();
+  await expect(page.getByTestId("document-article")).not.toContainText("CACHED_BODY");
+});
+
+test("an invalidation from another tab removes cached content while identity is held", async ({ page, context }) => {
+  await setup(page, true);
+  await page.goto(`/${query}`); await waitForCache(page);
+  const release = await holdIdentity(page);
+  const other = await context.newPage();
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("document-article")).toContainText("CACHED_BODY");
+    await other.goto(new URL("/favicon.svg", page.url()).toString());
+    await other.evaluate(() => {
+      for (const key of Object.keys(localStorage)) if (key.startsWith("wiki-vite:startup:")) localStorage.removeItem(key);
+      localStorage.setItem("wiki-vite:startup-epoch", crypto.randomUUID());
+    });
+    await expect(page.getByTestId("document-article")).toHaveCount(0);
+    await expect(page.getByTestId("app-starting")).toBeVisible();
+  } finally { release(); await other.close(); }
+});

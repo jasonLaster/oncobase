@@ -49,7 +49,7 @@ test("an invalid CSR payload falls back to the body API", async ({ page }) => {
   });
   await page.goto("/");
   await expect(page.getByTestId("document-article")).toContainText("CSR_DATA_BODY");
-  expect(api.pages.length).toBeGreaterThan(0);
+  await expect.poll(() => api.pages.length).toBeGreaterThan(0);
   expect(await page.evaluate(() => performance.getEntriesByName("wiki-page-bootstrap-seeded").length)).toBe(0);
 });
 
