@@ -29,7 +29,9 @@ export function parseStartupSnapshot(raw: string | null, partition: string, now 
     if (!raw || raw.length > STARTUP_CACHE_MAX_BYTES) return null;
     let json = raw;
     if (raw.startsWith("gz1:")) {
-      const bytes = Uint8Array.from(atob(raw.slice(4)), char => char.charCodeAt(0));
+      const binary = atob(raw.slice(4));
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
       if (bytes.length < 18) return null;
       const size = new DataView(bytes.buffer).getUint32(bytes.length - 4, true);
       // Bound the inflater's output allocation before touching cached bytes.

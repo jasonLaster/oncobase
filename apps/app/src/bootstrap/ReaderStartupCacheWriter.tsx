@@ -54,7 +54,7 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
         let raw = await encodeStartupSnapshot(snapshot);
         if (cancelled) return;
         let written = raw !== null && writeStartupSnapshot(snapshot, epoch, raw);
-        report({ status: "write", written, bytes: raw?.length ?? 0, decodedBytes: new Blob([JSON.stringify(snapshot)]).size, pages: pages.length, bodies: snapshot.bodies.length, epochMatches: localStorage.getItem(STARTUP_CACHE_EPOCH) === epoch });
+        if (debug) report({ status: "write", written, bytes: raw?.length ?? 0, decodedBytes: new Blob([JSON.stringify(snapshot)]).size, pages: pages.length, bodies: snapshot.bodies.length, epochMatches: localStorage.getItem(STARTUP_CACHE_EPOCH) === epoch });
         while (!written && snapshot.bodies.length) {
           snapshot.bodies.pop();
           raw = await encodeStartupSnapshot(snapshot);

@@ -8,7 +8,8 @@ import { persistPublicIdentity, resolvePublicIdentityFallback } from "./public-i
 import { explicitReaderScope, resolveReaderSession } from "./reader-session";
 import { WikiIdentityPendingContext } from "./wiki-context";
 import { markVisualPhase } from "./visual-phase";
-import { clearStartupSnapshot, readStartupSnapshot, sameStartupIdentity, startupInitialData, STARTUP_CACHE_EPOCH } from "./bootstrap/reader-startup-cache";
+import { clearStartupSnapshot, readStartupSnapshot, sameStartupIdentity, STARTUP_CACHE_EPOCH } from "./bootstrap/reader-startup-cache";
+import { contentSlugFromRouteSlug, slugFromPath } from "./wiki-utils";
 import { AppStarting } from "./AppStarting";
 import { publicIdentityFromPageBootstrap } from "./bootstrap/public-identity";
 import { PAGE_BOOTSTRAP_ID, MAX_BOOTSTRAP_BYTES } from "./bootstrap/page-payload";
@@ -132,7 +133,9 @@ function SessionRecovery({ message }: { message: string }) {
 export function WikiViteRoot() {
   const [cached, setCached] = useState(() => {
     const snapshot = readStartupSnapshot();
-    return snapshot && startupInitialData(snapshot, location.pathname) ? snapshot : null;
+    const slug = contentSlugFromRouteSlug(slugFromPath(location.pathname));
+    // Check route membership here; expand the full tree only in the reader.
+    return snapshot?.manifest.pages.some(page => page.slug === slug) ? snapshot : null;
   });
   const [authRevision, setAuthRevision] = useState(0);
   const [responseInvalidated, setResponseInvalidated] = useState(false);
