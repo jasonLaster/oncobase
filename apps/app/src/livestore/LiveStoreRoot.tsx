@@ -5,6 +5,7 @@ import { LiveStoreContext, LiveStoreProvider } from "@livestore/react";
 import { makeWikiStoreId, type WikiScope, type WikiSessionIdentity } from "@oncobase/wiki-content";
 import {
   Component,
+  Suspense,
   lazy,
   type ReactNode,
   type ContextType,
@@ -16,7 +17,6 @@ import {
   useState,
 } from "react";
 import { unstable_batchedUpdates as batchUpdates } from "react-dom";
-import { ReaderStartupCacheWriter } from "../bootstrap/ReaderStartupCacheWriter";
 import { startupInitialData, type StartupSnapshot } from "../bootstrap/reader-startup-cache";
 import { readInitialReaderData } from "../bootstrap/initial-reader-data";
 import { InitialReaderContext, useReaderStore } from "../bootstrap/reader-queries";
@@ -43,6 +43,7 @@ import {
 } from "./store-boot-retry";
 
 const StoreStartupRecovery = lazy(() => import("./StoreStartupRecovery"));
+const ReaderStartupCacheWriter = lazy(() => import("../bootstrap/ReaderStartupCacheWriter").then(module => ({ default: module.ReaderStartupCacheWriter })));
 
 const persistedAdapter = makePersistedAdapter({
   // sessionStorage is copied by duplicated/opener tabs. A per-document ID
@@ -298,7 +299,7 @@ function ReaderApp({ identity, scope, storeId, devtoolsFooterVisible, liveStoreD
           <WikiScopeProvider scope={scope}>
             {store ? <SessionCacheRetirement identity={identity} scope={scope} /> : null}
             {store ? <ReaderCacheRetirement identity={identity} scope={scope} /> : null}
-            {store ? <ReaderStartupCacheWriter identity={identity} /> : null}
+            {store ? <Suspense fallback={null}><ReaderStartupCacheWriter identity={identity} /></Suspense> : null}
             <WikiAuthProvider>
               <CanonicalRouteBoundary>
                 <App

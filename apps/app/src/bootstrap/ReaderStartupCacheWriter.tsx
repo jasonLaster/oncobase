@@ -21,7 +21,14 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
   const [epoch] = useState(() => { try { return localStorage.getItem(STARTUP_CACHE_EPOCH); } catch { return null; } });
 
   useEffect(() => {
-    if (!state?.lastValidatedAt || !tree || state.siteSlug !== identity.siteSlug || state.scope !== identity.scope) return;
+    const debug = new URLSearchParams(location.search).get("paintDebug") === "1";
+    const report = (result: Record<string, boolean | number | string>) => {
+      if (debug) console.info("[wiki-reader-cache]", JSON.stringify(result));
+    };
+    if (!state?.lastValidatedAt || !tree || state.siteSlug !== identity.siteSlug || state.scope !== identity.scope) {
+      report({ status: "waiting", validated: !!state?.lastValidatedAt, tree: !!tree, siteMatches: state?.siteSlug === identity.siteSlug, scopeMatches: state?.scope === identity.scope });
+      return;
+    }
     const timer = window.setTimeout(() => {
       try {
         const partition = startupPartition();
@@ -43,6 +50,7 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
           validatedAt: state.lastValidatedAt, manifest, bodies: bodies.slice(0, 8) };
         // Prefer the current page when quota is tight. Never evict other app data.
         let written = writeStartupSnapshot(snapshot, epoch);
+        report({ status: "write", written, bytes: new Blob([JSON.stringify(snapshot)]).size, valid: !!parseStartupSnapshot(JSON.stringify(snapshot), partition), pages: pages.length, bodies: snapshot.bodies.length, epochMatches: localStorage.getItem(STARTUP_CACHE_EPOCH) === epoch });
         while (!written && snapshot.bodies.length) {
           snapshot.bodies.pop();
           written = writeStartupSnapshot(snapshot, epoch);
@@ -51,7 +59,7 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
           localStorage.removeItem(startupCacheKey(partition));
           document.cookie = `${READER_SHELL_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
         }
-      } catch { /* A cache failure must not break the live reader. */ }
+      } catch { report({ status: "unavailable" }); /* A cache failure must not break the live reader. */ }
     }, 200);
     return () => window.clearTimeout(timer);
   }, [assets, epoch, identity, page, pages, pathname, slug, state, tree]);
