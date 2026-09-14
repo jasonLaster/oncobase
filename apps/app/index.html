@@ -23,7 +23,12 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="app-startup" role="status" aria-label="Starting app" data-test-id="app-starting">
+        <span class="app-startup-spinner" aria-hidden="true"></span>
+        <span>Starting app…</span>
+      </div>
+    </div>
     <noscript>Enable JavaScript to read this wiki.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>

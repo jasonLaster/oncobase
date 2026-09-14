@@ -32,10 +32,10 @@ test.describe("Session scope recovery", () => {
       await page.clock.install();
       await page.goto("/", { waitUntil: "domcontentloaded" });
       await expect.poll(() => bodyStarted).toBe(true);
-      await expect(page.getByTestId("page-loading")).toBeVisible();
+      await expect(page.getByTestId("app-starting")).toBeVisible();
       await page.clock.fastForward(30_001);
       await expect(page.getByTestId("session-recovery")).toContainText("Wiki request timed out after 30000ms");
-      await expect(page.getByTestId("page-loading")).toHaveCount(0);
+      await expect(page.getByTestId("app-starting")).toHaveCount(0);
     } finally {
       server.closeAllConnections();
       await new Promise<void>(resolve => server.close(() => resolve()));

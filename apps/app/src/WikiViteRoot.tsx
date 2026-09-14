@@ -3,12 +3,12 @@ import {
   type WikiScope,
   type WikiSessionIdentity,
 } from "@oncobase/wiki-content";
-import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { createElement, Suspense, useEffect, useState } from "react";
 import { persistPublicIdentity, resolvePublicIdentityFallback } from "./public-identity";
 import { explicitReaderScope, resolveReaderSession } from "./reader-session";
 import { WikiIdentityPendingContext } from "./wiki-context";
 import { markVisualPhase } from "./visual-phase";
+import { AppStarting } from "./AppStarting";
 
 function readScope(): WikiScope {
   // A public cache may paint while identity is checked, but it never decides
@@ -192,12 +192,8 @@ export function WikiViteRoot() {
     };
   }, []);
 
-  const loadingPage = createElement(WikiPageLoading, {
-    "data-test-id": "page-loading",
-    includeTags: true,
-    label: "Loading page",
-  });
-  if (state.status === "loading") return loadingPage;
+  const startingApp = createElement(AppStarting);
+  if (state.status === "loading") return startingApp;
 
   if (state.status === "error") {
     if (state.scope === "session") {
@@ -220,11 +216,11 @@ export function WikiViteRoot() {
   }
 
   if (readerModule.status === "error") throw readerModule.error;
-  if (readerModule.status === "loading") return loadingPage;
+  if (readerModule.status === "loading") return startingApp;
 
   return createElement(
     Suspense,
-    { fallback: loadingPage },
+    { fallback: startingApp },
     createElement(
       WikiIdentityPendingContext.Provider,
       { value: identityPending },

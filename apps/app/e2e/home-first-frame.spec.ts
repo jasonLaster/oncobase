@@ -25,7 +25,7 @@ test("cold and refreshed home render only through React, ignoring old HTML snaps
       if (reload) await page.reload({ waitUntil: "commit" });
       else await page.goto("/?scope=public", { waitUntil: "commit" });
       await expect(page.locator("#root")).toHaveCount(1);
-      await expect(page.locator("#root")).toBeEmpty();
+      await expect(page.getByTestId("app-starting")).toBeVisible();
       await expect(page.locator("#wiki-first-frame-snapshot, #wiki-html-first")).toHaveCount(0);
       await expect(page.getByText("STALE_BODY")).toHaveCount(0);
       await expect(page.locator("#root")).toHaveCSS("visibility", "visible");

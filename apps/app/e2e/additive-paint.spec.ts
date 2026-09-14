@@ -45,7 +45,7 @@ for (const scenario of [
           try {
             await page.reload({ waitUntil: "commit" });
             await expect(page.locator("#wiki-first-frame-snapshot, #wiki-html-first")).toHaveCount(0);
-            await expect(page.locator("#root")).toBeEmpty();
+            await expect(page.getByTestId("app-starting")).toBeVisible();
             await page.waitForTimeout(100);
           } finally {
             release();

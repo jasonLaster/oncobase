@@ -7,10 +7,16 @@ const pages = Object.fromEntries(Array.from({ length: 800 }, (_, index) => [
   { title: `Performance page ${index}`, content: `# Performance page ${index}\n\nSynthetic large-tree document ${index}.`, tags: ["performance"] },
 ]));
 
-test("an uncached page renders no inert UI before JavaScript arrives", async ({ page }) => {
+test("app startup is distinct from loading a page", async ({ page }) => {
   await installWikiApiMocks(page);
   let release!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; });
+  let releaseBody!: () => void;
+  const heldBody = new Promise<void>(resolve => { releaseBody = resolve; });
+  await page.route("**/api/wiki/pages**", async route => {
+    await heldBody;
+    await route.fallback();
+  });
   await page.route("**/*", async route => {
     if (route.request().resourceType() === "script") await held;
     await route.fallback();
@@ -18,9 +24,13 @@ test("an uncached page renders no inert UI before JavaScript arrives", async ({ 
   try {
     await page.goto("/wiki/logistics/insurance", { waitUntil: "commit" });
     await expect(page.locator("#root")).toHaveCount(1);
-    await expect(page.locator("#root")).toBeEmpty();
+    await expect(page.getByTestId("app-starting")).toBeVisible();
+    await expect(page.getByTestId("page-loading")).toHaveCount(0);
     await expect(documentArticle(page)).toHaveCount(0);
-  } finally { release(); }
+    release();
+    await expect(page.getByTestId("page-loading")).toBeVisible();
+    await expect(page.getByTestId("app-starting")).toHaveCount(0);
+  } finally { release(); releaseBody(); }
   await waitForPageTitle(page, "Insurance");
   await expect(page.getByTestId("reader-boot-shell")).toHaveCount(0);
 });
@@ -50,7 +60,8 @@ test("a delayed database worker keeps a loading state and recovers", async ({ pa
   try {
     await page.goto("/wiki/logistics/insurance", { waitUntil: "domcontentloaded" });
     await expect.poll(() => workerPending).toBe(true);
-    await expect(page.getByTestId("page-loading")).toBeVisible();
+    await expect(page.getByTestId("app-starting")).toBeVisible();
+    await expect(page.getByTestId("page-loading")).toHaveCount(0);
     await expect(documentArticle(page)).toHaveCount(0);
   } finally { release(); }
   await waitForPageTitle(page, "Insurance");

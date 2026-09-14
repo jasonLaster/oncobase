@@ -217,7 +217,7 @@ test.describe("durable manifest refresh", () => {
       const firstFrame = page.locator("#wiki-first-frame-snapshot");
       await expect(firstFrame).toHaveCount(0);
       await expect(page.getByText("OLD FIRST FRAME")).toHaveCount(0);
-      await expect(page.locator("#root")).toBeEmpty();
+      await expect(page.getByTestId("app-starting")).toBeVisible();
       // Server metadata remains available without rendering cached HTML.
       expect(await page.title()).toBe(serverTitle);
     } finally {

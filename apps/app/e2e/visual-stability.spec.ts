@@ -112,7 +112,7 @@ test(`client reload uses current ${preference} preference after another tab chan
   try {
     await page.reload({ waitUntil: "commit" });
     await expect(page.locator("#root")).toHaveCount(1);
-    await expect(page.locator("#root")).toBeEmpty();
+    await expect(page.getByTestId("app-starting")).toBeVisible();
     await expect(page.locator("#wiki-first-frame-snapshot")).toHaveCount(0);
     await page.waitForTimeout(100);
   } finally { release(); }

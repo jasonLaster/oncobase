@@ -107,7 +107,7 @@ test("a stalled temporary store ends in visible recovery instead of a reload loo
   await page.goto("/wiki/logistics/insurance");
   await expect(page.getByTestId("store-startup-recovery")).toBeVisible({ timeout: 25_000 });
   await expect(page.getByRole("button", { name: "Reload", exact: true })).toBeVisible();
-  await expect(page.getByTestId("page-loading")).toHaveCount(0);
+  await expect(page.getByTestId("app-starting")).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath("startup-recovery.png") });
 });
 
@@ -116,12 +116,12 @@ test("leaving during startup cancels recovery timers", async ({ page }) => {
   await installWikiApiMocks(page);
   await page.route("**/*.wasm*", () => {});
   await page.goto("/wiki/logistics/insurance");
-  await expect(page.getByTestId("page-loading").first()).toBeVisible();
+  await expect(page.getByTestId("app-starting").first()).toBeVisible();
   await page.goto("/terms-and-conditions");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.clock.fastForward(35_000);
   await expect(page.getByTestId("store-startup-recovery")).toHaveCount(0);
-  await expect(page.getByTestId("page-loading")).toHaveCount(0);
+  await expect(page.getByTestId("app-starting")).toHaveCount(0);
 });
 
 test("a new worker version cannot strand a tab behind the old version's leader", async ({ page, context }) => {

@@ -1,8 +1,8 @@
-import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
+import { AppStarting } from "./AppStarting";
 import { publishRuntimeEnvironment } from "./observability";
 // Start identity resolution without waiting for a lazy boundary's reveal.
 // The database and specialist routes still load dynamically.
@@ -69,7 +69,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AppErrorBoundary>
       <BrowserRouter>
-        <Suspense fallback={<WikiPageLoading data-test-id="page-loading" includeTags label="Loading page" />}>
+        <Suspense fallback={<AppStarting />}>
           <RootRouteBoundary />
         </Suspense>
       </BrowserRouter>

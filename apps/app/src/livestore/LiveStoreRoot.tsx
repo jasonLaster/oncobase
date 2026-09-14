@@ -3,7 +3,6 @@ import { rootHandlePromise } from "@livestore/adapter-web/opfs-utils";
 import LiveStoreSharedWorker from "@livestore/adapter-web/shared-worker?sharedworker";
 import { LiveStoreProvider } from "@livestore/react";
 import { makeWikiStoreId, type WikiScope, type WikiSessionIdentity } from "@oncobase/wiki-content";
-import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import {
   Component,
   lazy,
@@ -15,6 +14,7 @@ import {
 } from "react";
 import { unstable_batchedUpdates as batchUpdates } from "react-dom";
 import { App } from "../App";
+import { AppStarting } from "../AppStarting";
 import { CanonicalRouteBoundary } from "../CanonicalRouteBoundary";
 import { WikiAuthProvider } from "../shell/Header";
 import { WikiScopeProvider, WikiSessionProvider } from "../wiki-context";
@@ -59,13 +59,7 @@ const adapterPromise = resolveReaderStorage({ getDirectory: () => rootHandleProm
 });
 
 function BootRetryPending() {
-  return (
-    <WikiPageLoading
-      data-test-id="store-boot-retry"
-      includeTags
-      label="Loading page"
-    />
-  );
+  return <AppStarting stage="retry" />;
 }
 
 // Handles boot failures the provider reports through renderError. On the
@@ -197,7 +191,7 @@ function ReaderStore({ identity, scope, storeId }: {
         disableDevtools={!liveStoreDevtoolsEnabled}
         renderLoading={({ stage }) => (
           <StoreStartupLoading
-            label={`Loading page (${stage})`}
+            stage={stage}
             timeoutMs={adapter === persistedAdapter ? 3000 : undefined}
             onTimeout={recoverStalledBoot}
           />
