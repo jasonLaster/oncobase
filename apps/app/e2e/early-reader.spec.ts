@@ -45,7 +45,7 @@ for (const authenticated of [false, true]) {
     const api = await setup(page, authenticated);
     const errors: string[] = [];
     page.on("pageerror", error => errors.push(error.message));
-    await page.goto("/?paintDebug=1&readerBootstrap=1");
+    await page.goto("/?paintDebug=1");
     const article = page.getByTestId("document-article");
     await expect(article).toContainText("EARLY_READER_BODY");
     expect(await handoffCount(page)).toBe(0);
@@ -124,4 +124,87 @@ test("the initial public response cannot bypass required session verification", 
   await expect(page.getByTestId("session-recovery")).toBeVisible();
   await expect(page.getByTestId("document-article")).toHaveCount(0);
   expect(await handoffCount(page)).toBe(0);
+});
+
+test("the comparison opt-out retains provider-gated rendering", async ({ page }) => {
+  await setup(page, true);
+  await page.goto("/?paintDebug=1&readerBootstrap=0");
+  await expect(page.getByTestId("app-starting")).toBeVisible();
+  await expect(page.getByTestId("document-article")).toHaveCount(0);
+  await releaseStorage(page);
+  await expect(page.getByTestId("document-article")).toContainText("EARLY_READER_BODY");
+  await expect(page.locator("[data-reader-store-ready]")).toHaveAttribute("data-reader-store-ready", "true");
+  expect(await handoffCount(page)).toBe(0);
+});
+
+test("a worker creation failure falls back without inserting a launching screen over the article", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Exercise the persisted worker path; WebKit storage fallback is covered separately");
+  await setup(page, true);
+  await page.addInitScript(() => {
+    const OriginalWorker = window.Worker;
+    let attempts = 0;
+    window.Worker = class extends OriginalWorker {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        // The adapter attempts both function and constructor invocation.
+        if (String(url).includes("livestore.worker") && attempts++ < 2) throw new Error("Fixture transient worker creation failure");
+        super(url, options);
+      }
+    };
+  });
+  const fallbacks: string[] = [];
+  page.on("console", message => { if (message.text().includes("Reader startup timed out; using temporary storage")) fallbacks.push(message.text()); });
+  await page.goto("/?paintDebug=1");
+  const article = page.getByTestId("document-article");
+  await expect(article).toContainText("EARLY_READER_BODY");
+  const handle = await article.elementHandle();
+  await releaseStorage(page);
+  await expect.poll(() => fallbacks.length).toBeGreaterThan(0);
+  expect(await page.getByTestId("app-starting").isVisible()).toBe(false);
+  await expect.poll(() => handoffCount(page)).toBeGreaterThan(0);
+  expect(await handle!.evaluate(node => node.isConnected)).toBe(true);
+  await expect(page.locator("[data-reader-store-ready]")).toHaveAttribute("data-reader-store-ready", "true");
+});
+
+test("a real store shutdown shows one recovery screen and never revives the initial body", async ({ page }) => {
+  await setup(page, true);
+  await page.goto("/?paintDebug=1");
+  await expect(page.getByTestId("document-article")).toContainText("EARLY_READER_BODY");
+  await releaseStorage(page);
+  await expect.poll(() => handoffCount(page)).toBeGreaterThan(0);
+  await page.evaluate(async () => {
+    const store = (window as unknown as { __debugLiveStore: { _: { shutdown: () => Promise<void> } } }).__debugLiveStore._;
+    await store.shutdown();
+  });
+  await expect(page.getByTestId("store-startup-recovery")).toHaveCount(1);
+  await expect(page.getByTestId("store-startup-recovery")).toBeVisible();
+  await expect(page.getByTestId("document-article")).toHaveCount(0);
+});
+
+test("a failed boot callback retries without moving the already readable article", async ({ page }) => {
+  await setup(page, true);
+  const retries: string[] = [];
+  page.on("console", message => { if (message.text().includes("LiveStore boot failed; retrying once")) retries.push(message.text()); });
+  await page.goto("/?paintDebug=1");
+  const article = page.getByTestId("document-article");
+  await expect(article).toContainText("EARLY_READER_BODY");
+  const handle = await article.elementHandle();
+  // Fail the real boot callback once, after presentation accepted the data.
+  // Leave its response node intact so the normal retry can consume it.
+  await page.evaluate(() => {
+    const remove = Element.prototype.remove;
+    let failed = false;
+    Element.prototype.remove = function () {
+      if (!failed && this.id === "wiki-page-bootstrap") {
+        failed = true;
+        throw new Error("Fixture transient bootstrap consumption failure");
+      }
+      return remove.call(this);
+    };
+  });
+  await releaseStorage(page);
+  await expect.poll(() => retries.length).toBeGreaterThan(0);
+  expect(await page.getByTestId("app-starting").isVisible()).toBe(false);
+  await expect.poll(() => handoffCount(page)).toBeGreaterThan(0);
+  expect(await handle!.evaluate(node => node.isConnected)).toBe(true);
+  await expect(page.locator("[data-reader-store-ready]")).toHaveAttribute("data-reader-store-ready", "true");
 });

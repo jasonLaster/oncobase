@@ -43,11 +43,12 @@ export function initialReaderData(raw: string, receivedAt: number, request: Requ
   };
 }
 
-/** Diagnostic only. Read once from this response without consuming the data
+/** Read once from this response without consuming the data
  * needed by the real LiveStore boot. No persisted body or identity is read. */
 export function readInitialReaderData(identity: WikiSessionIdentity): InitialReaderData | null {
   const url = new URL(location.href);
-  if (url.searchParams.get("paintDebug") !== "1" || url.searchParams.get("readerBootstrap") !== "1") return null;
+  // Retain the previous provider-gated path for controlled comparisons.
+  if (url.searchParams.get("readerBootstrap") === "0") return null;
   const node = document.getElementById(PAGE_BOOTSTRAP_ID);
   if (!node) return null;
   const navigation = document.getElementById("wiki-navigation-bootstrap");

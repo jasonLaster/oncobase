@@ -215,7 +215,7 @@ function ReaderStore({ identity, scope, storeId }: {
   const app = <ReaderApp identity={identity} scope={scope} storeId={storeId}
     devtoolsFooterVisible={devtoolsFooterVisible} liveStoreDevtoolsEnabled={liveStoreDevtoolsEnabled} />;
   if (stalled) return <StoreStartupRecovery />;
-  const provider = !adapter ? <StoreStartupLoading hideIndicator={bootstrapMode} onTimeout={recoverStalledBoot} /> : (
+  const provider = !adapter ? <StoreStartupLoading onTimeout={recoverStalledBoot} /> : (
     <StoreBootRetryBoundary key={`${adapter === temporaryAdapter}:${bootAttempt}`} attempt={bootAttempt} onRetry={retryBoot}>
       <LiveStoreProvider
         boot={boot}
@@ -228,12 +228,11 @@ function ReaderStore({ identity, scope, storeId }: {
         renderLoading={({ stage }) => (
           <StoreStartupLoading
             stage={stage}
-            hideIndicator={bootstrapMode}
             timeoutMs={adapter === persistedAdapter ? bootTimeoutMs : undefined}
             onTimeout={recoverStalledBoot}
           />
         )}
-        renderShutdown={() => <StoreStartupRecovery />}
+        renderShutdown={() => bootstrapMode ? <StopEarlyReader stop={setStalled} /> : <StoreStartupRecovery />}
         renderError={(error) => (
           <StoreBootError error={error} attempt={bootAttempt} onRetry={retryBoot} />
         )}
@@ -246,7 +245,10 @@ function ReaderStore({ identity, scope, storeId }: {
   if (!bootstrapMode) return provider;
   return (
     <>
-      {provider}
+      {/* This provider owns lifecycle only. A retry must not insert a second
+          launching screen ahead of the already mounted reader. Errors still
+          propagate, and shutdown switches the visible reader to recovery. */}
+      <div hidden>{provider}</div>
       <LiveStoreContext.Provider value={runningContext}>
         <InitialReaderContext.Provider value={runningContext || handedOff || initialExpired ? null : initial}>
           {runningContext || (!handedOff && !initialExpired) ? app : <StoreStartupRecovery />}
@@ -264,6 +266,11 @@ function PublishReaderStore({ publish }: { publish: (value: ContextType<typeof L
     publish(value);
     return () => publish(undefined);
   }, [publish, value]);
+  return null;
+}
+
+function StopEarlyReader({ stop }: { stop: (stopped: boolean) => void }) {
+  useLayoutEffect(() => { stop(true); }, [stop]);
   return null;
 }
 

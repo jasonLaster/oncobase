@@ -20,7 +20,7 @@ for (const sessionAuthenticated of [false, true]) {
     page.on("pageerror", error => errors.push(error.message));
     await page.goto("/");
     await expect(page.getByTestId("document-article")).toContainText("CSR_DATA_BODY");
-    expect(await page.evaluate(() => performance.getEntriesByName("wiki-page-bootstrap-seeded").length)).toBe(1);
+    await expect.poll(() => page.evaluate(() => performance.getEntriesByName("wiki-page-bootstrap-seeded").length)).toBe(1);
     expect(api.pages.filter(value => new URL(value).searchParams.get("slugs")?.split(",").includes("index"))).toHaveLength(0);
     await expect(page.locator("#wiki-html-first, #wiki-page-bootstrap")).toHaveCount(0);
     await page.getByTestId("document-article").getByRole("link", { name: "Insurance", exact: true }).click();
@@ -85,7 +85,7 @@ test("a public identity refresh preserves the article and does not restart its s
     const article = await page.getByTestId("document-article").elementHandle();
     if (!article) throw new Error("Missing initial article");
     const bootCount = () => page.evaluate(() => performance.getEntriesByName("livestore:makeAdapter:start").length);
-    expect(await bootCount()).toBe(1);
+    await expect.poll(bootCount).toBe(1);
     const identityResponse = page.waitForResponse(response => response.url().includes("/api/wiki/session"));
     releaseIdentity();
     await (await identityResponse).finished();
@@ -132,7 +132,7 @@ for (const mode of [
       await expect.poll(() => pending).toBe(true);
       if (mode.early) {
         await expect(page.getByTestId("document-article")).toContainText("CSR_DATA_BODY");
-        expect(await page.evaluate(() => performance.getEntriesByName("livestore:makeAdapter:start").length)).toBe(1);
+        await expect.poll(() => page.evaluate(() => performance.getEntriesByName("livestore:makeAdapter:start").length)).toBe(1);
       } else {
         await expect(page.getByTestId("app-starting")).toBeVisible();
         await expect(page.getByTestId("document-article")).toHaveCount(0);

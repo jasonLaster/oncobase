@@ -1,4 +1,4 @@
-/** Compare ordinary and early React rendering against the synthetic server
+/** Compare provider-gated and early React rendering against the synthetic server
  * started by PROFILE_SERVE=1 scripts/profile-bootstrap-cache.ts. No request
  * interception, real credentials, or real browser profiles are used. */
 import { chromium } from "@playwright/test";
@@ -32,7 +32,7 @@ for (const cpu of [1, 4]) for (let run = 1; run <= 2; run++) {
         requestAnimationFrame(probe);
       });
       for (const visit of ["cold", "reload", "hot"]) {
-        if (visit === "cold") await page.goto(`${origin}/?scope=public&paintDebug=1${early ? "&readerBootstrap=1" : ""}`, { waitUntil: "domcontentloaded" });
+        if (visit === "cold") await page.goto(`${origin}/?scope=public&paintDebug=1&readerBootstrap=${early ? "1" : "0"}`, { waitUntil: "domcontentloaded" });
         else await page.reload({ waitUntil: "domcontentloaded" });
         await page.waitForFunction(() => (window as unknown as { readerFirstFrame?: number }).readerFirstFrame);
         await page.waitForFunction(() => performance.getEntriesByName("wiki-page-bootstrap-seeded").length > 0);
