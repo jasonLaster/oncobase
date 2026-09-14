@@ -3,8 +3,10 @@ import { parseWikiManifest, parseWikiPageBatch, parseWikiSessionIdentity, expand
 import type { InitialReaderData } from "./initial-reader-data";
 import { contentSlugFromRouteSlug, slugFromPath } from "../wiki-utils";
 import { READER_SHELL_COOKIE } from "./reader-shell-hint";
+import { gunzipSync } from "fflate";
 
 export const STARTUP_CACHE_MAX_BYTES = 2 * 1024 * 1024;
+export const STARTUP_CACHE_MAX_DECODED_BYTES = 16 * 1024 * 1024;
 export const STARTUP_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 export const STARTUP_CACHE_EPOCH = "wiki-vite:startup-epoch";
 export type StartupSnapshot = {
@@ -25,7 +27,16 @@ export function sameStartupIdentity(a: WikiSessionIdentity, b: WikiSessionIdenti
 export function parseStartupSnapshot(raw: string | null, partition: string, now = Date.now()): StartupSnapshot | null {
   try {
     if (!raw || raw.length > STARTUP_CACHE_MAX_BYTES) return null;
-    const value = JSON.parse(raw);
+    let json = raw;
+    if (raw.startsWith("gz1:")) {
+      const bytes = Uint8Array.from(atob(raw.slice(4)), char => char.charCodeAt(0));
+      if (bytes.length < 18) return null;
+      const size = new DataView(bytes.buffer).getUint32(bytes.length - 4, true);
+      // Bound the inflater's output allocation before touching cached bytes.
+      if (!size || size > STARTUP_CACHE_MAX_DECODED_BYTES) return null;
+      json = new TextDecoder().decode(gunzipSync(bytes, { out: new Uint8Array(size) }));
+    }
+    const value = JSON.parse(json);
     if (value.version !== 1 || value.partition !== partition || value.readerVersion !== WIKI_READER_CACHE_VERSION ||
         !Number.isFinite(value.validatedAt) || value.validatedAt <= 0 || now < value.validatedAt || now - value.validatedAt > STARTUP_CACHE_MAX_AGE) return null;
     const identity = parseWikiSessionIdentity(value.identity);
@@ -88,10 +99,9 @@ export function clearStartupSnapshot() {
   try { document.cookie = `${READER_SHELL_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`; } catch { /* Cookies can be disabled separately. */ }
 }
 
-export function writeStartupSnapshot(snapshot: StartupSnapshot, epoch: string | null): boolean {
+export function writeStartupSnapshot(snapshot: StartupSnapshot, epoch: string | null, raw = JSON.stringify(snapshot)): boolean {
   try {
     if (localStorage.getItem(STARTUP_CACHE_EPOCH) !== epoch) return false;
-    const raw = JSON.stringify(snapshot);
     if (new Blob([raw]).size > STARTUP_CACHE_MAX_BYTES || !parseStartupSnapshot(raw, snapshot.partition)) return false;
     localStorage.setItem(startupCacheKey(snapshot.partition), raw);
     const paths = [...new Set(snapshot.bodies.map(body => body.pathname))];

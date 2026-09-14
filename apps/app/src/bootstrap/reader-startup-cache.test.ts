@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { buildCompactTreeFromManifest, makePublicWikiSessionIdentity, WIKI_MANIFEST_SCHEMA_VERSION, WIKI_READER_CACHE_VERSION, WIKI_SESSION_CACHE_VERSION } from "@oncobase/wiki-content";
 import { parseStartupSnapshot, sameStartupIdentity, startupInitialData, STARTUP_CACHE_MAX_AGE, type StartupSnapshot } from "./reader-startup-cache";
 import { readerShellHint } from "./reader-shell-hint";
+import { encodeStartupSnapshot } from "./encode-startup-cache";
 
 const now = Date.now();
 const partition = "https://wiki.example|https://wiki.example";
@@ -15,6 +16,24 @@ function snapshot(): StartupSnapshot {
 const parse = (value: unknown, at = now) => parseStartupSnapshot(JSON.stringify(value), partition, at);
 
 describe("remembered reader access and content", () => {
+  test("losslessly restores a large vault within the stored bound", async () => {
+    const value = snapshot();
+    for (let i = 0; i < 7000; i++) value.manifest.pages.push({ slug: `wiki/fixture-${i}`, title: `Fixture ${i}`, description: "Description of a synthetic page. ".repeat(10), tags: ["fixture"], contentHash: `hash-${i}`, size: i, sensitive: false });
+    value.manifest.compactTree = buildCompactTreeFromManifest(value.manifest.pages, []);
+    expect(JSON.stringify(value).length).toBeGreaterThan(2 * 1024 * 1024);
+    const raw = (await encodeStartupSnapshot(value))!;
+    expect(raw.startsWith("gz1:")).toBe(true);
+    expect(raw.length).toBeLessThan(2 * 1024 * 1024);
+    const parsed = parseStartupSnapshot(raw, partition, now)!;
+    expect(parsed.manifest.pages).toHaveLength(7001);
+    expect(parsed.manifest.pages[6999]).toEqual(value.manifest.pages[6999]);
+    expect(parsed.bodies[0].page).toEqual(value.bodies[0].page);
+    const bytes = Uint8Array.from(atob(raw.slice(4)), char => char.charCodeAt(0));
+    new DataView(bytes.buffer).setUint32(bytes.length - 4, 17 * 1024 * 1024, true);
+    const oversized = `gz1:${Buffer.from(bytes).toString("base64")}`;
+    expect(parseStartupSnapshot(oversized, partition, now)).toBeNull();
+    expect(parseStartupSnapshot("gz1:broken", partition, now)).toBeNull();
+  });
   test("restores the page and navigation; can render an indexed page's shell without its body", () => {
     const value = parse(snapshot())!;
     expect(startupInitialData(value, "/")?.page.content).toContain("Cached body");

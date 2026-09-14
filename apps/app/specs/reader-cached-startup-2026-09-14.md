@@ -14,6 +14,8 @@ The reader still waits for ordinary HTML and renders with client-side React. The
 
 The HTML hint also avoids repeating the indexed canonical-document lookup for a cached route; explicit/legacy redirects still run, and the React canonical boundary reconciles the refreshed index.
 
+Large snapshots use native browser gzip compression after paint and a bounded synchronous decoder on the next visit. The stored representation remains capped at 2 MiB; the decoded representation is capped at 16 MiB before the inflater allocates output. Small snapshots stay plain JSON. The writer is loaded separately after LiveStore is ready. Compression does not trim Markdown or navigation metadata, and a cancelled write cannot overwrite a newer route or auth generation.
+
 ## Validation before deployment
 
 - 45 Chromium and 35 WebKit checks passed, with one existing Chromium-only worker case skipped in WebKit. The new cases cover cached public/private rendering, two cached routes before verification, new Markdown and a new tree entry, unchanged article/search DOM, scroll, account mismatch, denial, transient failure, opt-out, sign-out and cross-tab invalidation. The existing fresh-response/bootstrap/session tests also passed.
@@ -34,3 +36,9 @@ The public fresh-response comparison was similarly fast (48/129 ms), because tha
 ## Integration with the current main branch
 
 Rebased onto `91d512fc`, preserving the separate file-tree expansion fix. The combined build/typecheck and budgets passed. All twelve cached-startup tests passed again in Chromium and WebKit, and twelve focused tree/navigation checks passed, including saved expansion defaults, reloads, collapsing the active branch, and desktop/mobile sharing. A broader navigation command included production-only gate-login and archive-download checks unsupported by this synthetic server; it was stopped and is not counted as a passing suite. Existing server unit tests cover gate and redirect behavior.
+
+## Production verification and large-vault correction
+
+Release `487e1c4c` was deployed and verified in the authenticated native Chrome profile. The first visit painted its article at 594 ms; a warm reload took 291 ms. These visits used the existing fresh-response path: the new snapshot was not being reused. Opt-in, content-free diagnostics in `9a74e49d` identified a 4,076,362-byte snapshot with 6,974 indexed pages, exceeding the intended 2 MiB storage bound. The fallback worked, but the original small fixtures did not represent the live vault's size.
+
+The correction adds lossless compression, a 7,001-page round-trip unit test, malformed/oversized decompression checks, and a browser case that restores a compressed snapshot larger than the uncompressed storage limit while identity verification is held. Production verification of that correction follows its deployment.

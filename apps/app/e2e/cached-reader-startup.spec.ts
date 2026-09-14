@@ -54,6 +54,23 @@ for (const privatePage of [false, true]) {
   });
 }
 
+test("a vault larger than the storage bound restores from its compressed snapshot", async ({ page }) => {
+  const api = await setup(page);
+  api.setPageOverride("index", { description: "Synthetic metadata for a large vault. ".repeat(90000) });
+  await page.goto(`/${query}`);
+  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some(key =>
+    key.startsWith("wiki-vite:startup:") && localStorage.getItem(key)?.startsWith("gz1:")))).toBe(true);
+  const release = await holdIdentity(page);
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("document-article")).toContainText("CACHED_BODY");
+    await expect(page.locator('[data-reader-cache-startup]')).toHaveAttribute("data-reader-cache-startup", "true");
+    await expect(page.locator('[data-reader-store-ready]')).toHaveAttribute("data-reader-store-ready", "false");
+    release();
+    await expect(page.locator('[data-reader-store-ready]')).toHaveAttribute("data-reader-store-ready", "true");
+  } finally { release(); }
+});
+
 test("new markdown and file tree replace stale data without resetting scroll or navigation", async ({ page }) => {
   const api = await setup(page);
   await page.goto(`/${query}`); await waitForCache(page);

@@ -6,6 +6,7 @@ import { assets$, fileTree$, pageContentBySlug$, pageIndex$, siteState$ } from "
 import { contentSlugFromRouteSlug, slugFromPath } from "../wiki-utils";
 import { parseStartupSnapshot, sameStartupIdentity, startupCacheKey, startupPartition, STARTUP_CACHE_EPOCH, writeStartupSnapshot, type StartupSnapshot } from "./reader-startup-cache";
 import { READER_SHELL_COOKIE } from "./reader-shell-hint";
+import { encodeStartupSnapshot } from "./encode-startup-cache";
 
 /** A bounded presentation snapshot of actual LiveStore queries. Writes happen
  * after paint; LiveStore remains authoritative and owns all sync/revalidation. */
@@ -29,7 +30,8 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
       report({ status: "waiting", validated: !!state?.lastValidatedAt, tree: !!tree, siteMatches: state?.siteSlug === identity.siteSlug, scopeMatches: state?.scope === identity.scope });
       return;
     }
-    const timer = window.setTimeout(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
       try {
         const partition = startupPartition();
         const previous = parseStartupSnapshot(localStorage.getItem(startupCacheKey(partition)), partition);
@@ -49,11 +51,15 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
           accountTag: document.querySelector<HTMLMetaElement>('meta[name="wiki-reader-account"]')?.content,
           validatedAt: state.lastValidatedAt, manifest, bodies: bodies.slice(0, 8) };
         // Prefer the current page when quota is tight. Never evict other app data.
-        let written = writeStartupSnapshot(snapshot, epoch);
-        report({ status: "write", written, bytes: new Blob([JSON.stringify(snapshot)]).size, valid: !!parseStartupSnapshot(JSON.stringify(snapshot), partition), pages: pages.length, bodies: snapshot.bodies.length, epochMatches: localStorage.getItem(STARTUP_CACHE_EPOCH) === epoch });
+        let raw = await encodeStartupSnapshot(snapshot);
+        if (cancelled) return;
+        let written = raw !== null && writeStartupSnapshot(snapshot, epoch, raw);
+        report({ status: "write", written, bytes: raw?.length ?? 0, decodedBytes: new Blob([JSON.stringify(snapshot)]).size, pages: pages.length, bodies: snapshot.bodies.length, epochMatches: localStorage.getItem(STARTUP_CACHE_EPOCH) === epoch });
         while (!written && snapshot.bodies.length) {
           snapshot.bodies.pop();
-          written = writeStartupSnapshot(snapshot, epoch);
+          raw = await encodeStartupSnapshot(snapshot);
+          if (cancelled) return;
+          written = raw !== null && writeStartupSnapshot(snapshot, epoch, raw);
         }
         if (!written && localStorage.getItem(STARTUP_CACHE_EPOCH) === epoch) {
           localStorage.removeItem(startupCacheKey(partition));
@@ -61,7 +67,7 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
         }
       } catch { report({ status: "unavailable" }); /* A cache failure must not break the live reader. */ }
     }, 200);
-    return () => window.clearTimeout(timer);
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, [assets, epoch, identity, page, pages, pathname, slug, state, tree]);
   return null;
 }
