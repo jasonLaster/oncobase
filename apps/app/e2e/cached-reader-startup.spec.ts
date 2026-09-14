@@ -131,7 +131,7 @@ test("HTML identifying another account prevents the old private cache from paint
   const release = await holdIdentity(page);
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("app-starting")).toBeVisible();
+    await expect(page.getByTestId("reader-pending")).toBeVisible();
     await expect(page.getByTestId("document-article")).toHaveCount(0);
     release();
     await expect(page.getByTestId("document-article")).toContainText("ACCOUNT_B_BODY");
@@ -184,7 +184,7 @@ test("the cache opt-out waits for verification and does not use remembered priva
   const release = await holdIdentity(page);
   try {
     await page.goto(`/${query}&readerCache=0`, { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("app-starting")).toBeVisible();
+    await expect(page.getByTestId("reader-pending")).toBeVisible();
     await expect(page.getByTestId("document-article")).toHaveCount(0);
     release();
     await expect(page.getByTestId("document-article")).toContainText("CACHED_BODY");
@@ -240,7 +240,7 @@ test("an invalidation from another tab removes cached content while identity is 
       localStorage.setItem("wiki-vite:startup-epoch", crypto.randomUUID());
     });
     await expect(page.getByTestId("document-article")).toHaveCount(0);
-    await expect(page.getByTestId("app-starting")).toBeVisible();
+    await expect(page.getByTestId("reader-pending")).toBeVisible();
   } finally { release(); await other.close(); }
 });
 
@@ -284,7 +284,7 @@ test("navigation freshness stays honest through refresh, failure and offline", a
   } finally { release(); await context.setOffline(false); }
 });
 
-test("launch and page loading are distinct and reduced motion stays still", async ({ page }) => {
+test("ready code uses page loading while identity and content wait", async ({ page }) => {
   await setup(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const release = await holdIdentity(page);
@@ -293,9 +293,8 @@ test("launch and page loading are distinct and reduced motion stays still", asyn
   await page.route("**/api/wiki/pages**", async route => { await bodyGate; await route.fallback(); });
   try {
     await page.goto(`/${query}`, { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("app-starting")).toContainText("Launching Diana TNBC...");
-    await expect(page.locator(".app-startup-mark")).toHaveCSS("animation-name", "none");
-    await page.screenshot({ path: test.info().outputPath("launch-reduced-motion.png") });
+    await expect(page.getByTestId("reader-pending")).toBeVisible();
+    await expect(page.getByTestId("app-starting")).toHaveCount(0);
     release();
     await expect(page.getByTestId("page-activity")).toHaveText("Loading page…");
     await expect(page.getByTestId("app-starting")).toHaveCount(0);
@@ -303,5 +302,53 @@ test("launch and page loading are distinct and reduced motion stays still", asyn
     await expect(page.locator(".wiki-shell-markdown-body-skeleton > div").first()).toHaveCSS("animation-name", "none");
     await page.screenshot({ path: test.info().outputPath("page-loading-reduced-motion.png") });
   } finally { release(); releaseBody(); }
+  await expect(page.getByTestId("document-article")).toContainText("CACHED_BODY");
+});
+
+
+test("ready JavaScript does not show launch while identity is slow", async ({ page }) => {
+  await setup(page);
+  await page.goto(`/${query}`); await waitForCache(page);
+  const release = await holdIdentity(page);
+  await page.addInitScript(() => {
+    const visible: number[] = [];
+    Object.assign(window, { launchVisibleFrames: visible });
+    const observe = () => {
+      const node = document.querySelector('[data-test-id="app-starting"]');
+      if (node && getComputedStyle(node).visibility === "visible" && !node.closest("[hidden]")) visible.push(performance.now());
+      requestAnimationFrame(observe);
+    };
+    requestAnimationFrame(observe);
+  });
+  try {
+    // Disable the body cache to distinguish code readiness from data readiness.
+    await page.goto(`/${query}&readerCache=0`, { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("reader-pending")).toBeVisible();
+    // Stay beyond the cold-script indicator deadline while identity is held.
+    await page.waitForTimeout(750);
+    await expect(page.getByTestId("app-starting")).toHaveCount(0);
+    expect(await page.evaluate(() => (window as unknown as { launchVisibleFrames: number[] }).launchVisibleFrames)).toEqual([]);
+  } finally { release(); }
+  await expect(page.getByTestId("document-article")).toContainText("CACHED_BODY");
+});
+
+test("slow JavaScript gets a delayed launch indicator even with reduced motion", async ({ page }) => {
+  await setup(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/*", async route => {
+    if (route.request().resourceType() === "script") await gate;
+    await route.fallback();
+  });
+  try {
+    await page.goto(`/${query}`, { waitUntil: "commit" });
+    const launch = page.getByTestId("app-starting");
+    await expect(launch).toBeAttached();
+    await expect(launch).toBeHidden();
+    await expect(launch).toBeVisible();
+    await expect(launch).toContainText("Launching Diana TNBC...");
+    await expect(page.locator(".app-startup-mark")).toHaveCSS("animation-name", "none");
+  } finally { release(); }
   await expect(page.getByTestId("document-article")).toContainText("CACHED_BODY");
 });

@@ -25,6 +25,8 @@
 @custom-variant dark (&:is(.dark *));
 
 .app-startup {
+  visibility: hidden;
+  animation: reader-launch-reveal 0s linear 600ms forwards;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
@@ -35,6 +37,13 @@
   color: var(--text-muted);
   font-size: 0.875rem;
   text-align: center;
+}
+
+.reader-pending { min-height: 100svh; }
+
+/* A visibility delay, including with reduced motion; no reading is delayed. */
+@keyframes reader-launch-reveal {
+  to { visibility: visible; }
 }
 
 /* Only status cues move. The article and navigation never wait for animation. */

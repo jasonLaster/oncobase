@@ -15,10 +15,11 @@ import { ResizableAppShell } from "./shell/ResizableAppShell";
 import { SpecialRouteMetadata } from "./shell/SpecialRouteMetadata";
 import { WikiSync } from "./sync/WikiSync";
 import type { Metrics } from "./types";
-import { AppStarting } from "./AppStarting";
+import { ReaderPending } from "./AppStarting";
 import { useReaderStore } from "./bootstrap/reader-queries";
 import { useWikiScope, useWikiIdentityPending } from "./wiki-context";
-import { PageActivity, useBrowserOnline } from "./shell/ReaderStatus";
+import { useBrowserOnline } from "./shell/ReaderStatus";
+import { PageActivity } from "./shell/PageActivity";
 import type { NavigationFreshness } from "./types";
 
 const initialMetrics: Metrics = {
@@ -108,7 +109,7 @@ function PageFallback() {
 }
 
 function RequireReaderStore() {
-  return useReaderStore() ? <Outlet /> : <AppStarting />;
+  return useReaderStore() ? <Outlet /> : <ReaderPending />;
 }
 
 export function App({

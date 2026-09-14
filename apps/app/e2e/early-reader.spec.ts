@@ -135,7 +135,7 @@ test("the initial public response cannot bypass required session verification", 
 test("the comparison opt-out retains provider-gated rendering", async ({ page }) => {
   await setup(page, true);
   await page.goto("/?paintDebug=1&readerBootstrap=0");
-  await expect(page.getByTestId("app-starting")).toBeVisible();
+  await expect(page.getByTestId("reader-pending")).toBeVisible();
   await expect(page.getByTestId("document-article")).toHaveCount(0);
   await releaseStorage(page);
   await expect(page.getByTestId("document-article")).toContainText("EARLY_READER_BODY");
@@ -297,7 +297,7 @@ for (const query of ["scope=session&paintDebug=1&readerSessionPreview=1", "paint
     try {
       await page.goto(`/?${query}`, { waitUntil: "domcontentloaded" });
       await expect.poll(gate.pending).toBe(true);
-      await expect(page.getByTestId("app-starting")).toBeVisible();
+      await expect(page.getByTestId("reader-pending")).toBeVisible();
       await expect(page.getByTestId("document-article")).toHaveCount(0);
       expect(await adapterStarts(page)).toBe(0);
     } finally { gate.release(); }

@@ -21,7 +21,7 @@ import { startupInitialData, type StartupSnapshot } from "../bootstrap/reader-st
 import { readInitialReaderData } from "../bootstrap/initial-reader-data";
 import { InitialReaderContext, useReaderStore } from "../bootstrap/reader-queries";
 import { App } from "../App";
-import { AppStarting } from "../AppStarting";
+import { ReaderPending } from "../AppStarting";
 import { CanonicalRouteBoundary } from "../CanonicalRouteBoundary";
 import { WikiAuthProvider } from "../shell/Header";
 import { WikiScopeProvider, WikiSessionProvider } from "../wiki-context";
@@ -73,7 +73,7 @@ const adapterPromise = storageMode.then((mode) => {
 });
 
 function BootRetryPending() {
-  return <AppStarting stage="retry" />;
+  return <ReaderPending stage="retry" />;
 }
 
 // Handles boot failures the provider reports through renderError. On the
@@ -151,7 +151,7 @@ export function LiveStoreRoot({ identity, presentationIdentity, scope, cachedSna
   const [firstPartition, setFirstPartition] = useState(storeId);
   if (storeId && !firstPartition) setFirstPartition(storeId);
   const displayIdentity = identity ?? presentationIdentity;
-  if (!displayIdentity || (!storeId && firstPartition)) return <AppStarting />;
+  if (!displayIdentity || (!storeId && firstPartition)) return <ReaderPending />;
   // The pending public presentation has no database. Keep that first mount
   // for its first verified identity only; subsequent partition changes still
   // reset the entire reader, adapter, deadlines and retry budget together.
@@ -257,7 +257,7 @@ function ReaderStore({ identity, displayIdentity, scope, storeId, cachedSnapshot
     </StoreBootRetryBoundary>
   );
 
-  if (!bootstrapMode) return provider ?? <AppStarting />;
+  if (!bootstrapMode) return provider ?? <ReaderPending />;
   return (
     <>
       {/* This provider owns lifecycle only. A retry must not insert a second

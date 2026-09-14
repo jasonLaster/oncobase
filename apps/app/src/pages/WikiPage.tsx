@@ -65,7 +65,8 @@ import {
 import { useWikiIdentityPending, useWikiScope, useWikiSession } from "../wiki-context";
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { REFRESH_MANIFEST_EVENT, RETRY_PAGE_EVENT } from "../sync/WikiSync";
-import { PageActivity, useBrowserOnline } from "../shell/ReaderStatus";
+import { useBrowserOnline } from "../shell/ReaderStatus";
+import { PageActivity } from "../shell/PageActivity";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
 import { PageActions } from "./PageActions";
 import { NoteBundleNavigation } from "./NoteBundleNavigation";

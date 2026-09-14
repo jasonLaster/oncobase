@@ -1,5 +1,5 @@
 import { useLayoutEffect } from "react";
-import { AppStarting } from "../AppStarting";
+import { ReaderPending } from "../AppStarting";
 
 export const STORE_STARTUP_TIMEOUT_MS = 15_000;
 
@@ -18,5 +18,5 @@ export function StoreStartupLoading({
     const timer = window.setTimeout(onTimeout, timeoutMs);
     return () => window.clearTimeout(timer);
   }, [onTimeout, timeoutMs]);
-  return <AppStarting stage={stage} />;
+  return <ReaderPending stage={stage} />;
 }

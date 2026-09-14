@@ -10,7 +10,7 @@ import { WikiIdentityPendingContext } from "./wiki-context";
 import { markVisualPhase } from "./visual-phase";
 import { clearStartupSnapshot, readStartupSnapshot, sameStartupIdentity, STARTUP_CACHE_EPOCH } from "./bootstrap/reader-startup-cache";
 import { contentSlugFromRouteSlug, slugFromPath } from "./wiki-utils";
-import { AppStarting } from "./AppStarting";
+import { AppStarting, ReaderPending } from "./AppStarting";
 import { publicIdentityFromPageBootstrap } from "./bootstrap/public-identity";
 import { PAGE_BOOTSTRAP_ID, MAX_BOOTSTRAP_BYTES } from "./bootstrap/page-payload";
 import { mayContainMath, preloadMarkdownMath } from "@oncobase/wiki-markdown/math-loader";
@@ -267,7 +267,7 @@ export function WikiViteRoot() {
   }, [authRevision]);
 
   const presentationIdentity = cached?.identity ?? (responseInvalidated ? null : responsePresentationIdentity);
-  const startingApp = createElement(AppStarting);
+  const startingApp = createElement(readerModule.status === "loading" ? AppStarting : ReaderPending);
   if (state.status === "loading" && !presentationIdentity) return startingApp;
 
   if (state.status === "error") {
