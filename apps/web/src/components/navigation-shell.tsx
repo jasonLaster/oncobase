@@ -11,7 +11,7 @@ import {
 } from "@/components/command-palette";
 import { ResizableLayout } from "@/components/resizable-layout";
 import { DiagnosticsSidebar } from "@/components/diagnostics-sidebar";
-import { Sidebar } from "@/components/sidebar";
+import { Sidebar, WorkspaceHeader } from "@/components/sidebar";
 import { useNavigationFileTree } from "@/components/use-navigation-file-tree";
 import { ConversationList } from "@oncobase/chat";
 import type { CommandPaletteCompactFileNode } from "@oncobase/wiki-shell";
@@ -56,6 +56,7 @@ export function NavigationShell({
       className="hidden h-full min-h-0 flex-col overflow-hidden bg-[var(--sidebar-bg)] md:flex"
       data-test-id="chat-sidebar"
     >
+      <WorkspaceHeader showBackToWiki />
       <nav className="flex-1 min-h-0 overflow-y-auto p-2">
         <ConversationList />
       </nav>

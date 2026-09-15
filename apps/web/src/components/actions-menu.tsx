@@ -3,7 +3,7 @@
 import { type ReactElement, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Command, Download, EllipsisVertical, FileText, LogIn, LogOut, Moon, ShieldCheck, Sparkles, Sun } from "lucide-react";
+import { ArrowLeft, Command, Download, EllipsisVertical, FileText, LogIn, LogOut, Moon, ShieldCheck, Sparkles, Sun } from "lucide-react";
 import { themeEffect } from "@/lib/theme-effect";
 import { openActionPalette } from "@/components/command-palette";
 import { Button } from "@/components/ui/button";
@@ -333,7 +333,10 @@ export function SidebarSignInPrompt() {
   );
 }
 
-export function ActionsMenu({ trigger }: { trigger?: ReactElement } = {}) {
+export function ActionsMenu({
+  trigger,
+  showBackToWiki = false,
+}: { trigger?: ReactElement; showBackToWiki?: boolean } = {}) {
   const router = useRouter();
   const { loadingUser, setUser, user } = useSessionUser();
 
@@ -397,6 +400,15 @@ export function ActionsMenu({ trigger }: { trigger?: ReactElement } = {}) {
           {trigger ? null : <EllipsisVertical />}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
+          {showBackToWiki ? (
+            <>
+              <DropdownMenuItem onClick={() => router.push("/")}>
+                <ArrowLeft />
+                Back to wiki
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           <DropdownMenuGroup>
             <DropdownMenuLabel>Search</DropdownMenuLabel>
             <DropdownMenuItem onClick={() => router.push("/search")}>

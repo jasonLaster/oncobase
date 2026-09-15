@@ -359,7 +359,7 @@ export function TreeNode({
   );
 }
 
-function WorkspaceHeader() {
+export function WorkspaceHeader({ showBackToWiki = false }: { showBackToWiki?: boolean }) {
   const isDev = process.env.NODE_ENV === "development";
   // The trigger spans most of the header but leaves room on the right
   // for the collapse-sidebar button (rendered absolutely by ResizableLayout
@@ -381,7 +381,7 @@ function WorkspaceHeader() {
   );
   return (
     <div className="flex h-12 shrink-0 items-center gap-1 px-2">
-      <ActionsMenu trigger={trigger} />
+      <ActionsMenu trigger={trigger} showBackToWiki={showBackToWiki} />
     </div>
   );
 }

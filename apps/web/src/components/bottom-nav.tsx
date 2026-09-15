@@ -9,6 +9,7 @@ import {
   CommentsTreeLink,
   DiagnosticsTreeLink,
   TreeNode,
+  WorkspaceHeader,
   fileTreeNodeKey,
   formatName,
 } from "@/components/sidebar";
@@ -173,9 +174,13 @@ export function BottomNav({ tree }: { tree: FileNode[] }) {
           data-test-id="mobile-page-header"
         >
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold leading-tight text-[var(--foreground)]">
-              {title}
-            </div>
+            {isChatRoute ? (
+              <WorkspaceHeader showBackToWiki />
+            ) : (
+              <div className="truncate text-sm font-semibold leading-tight text-[var(--foreground)]">
+                {title}
+              </div>
+            )}
           </div>
           <button
             type="button"
