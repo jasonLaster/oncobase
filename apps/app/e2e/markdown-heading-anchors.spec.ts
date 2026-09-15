@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { documentArticle, gotoWiki, installWikiApiMocks, waitForPageTitle } from "./fixtures";
+import { documentArticle, gotoWiki, installWikiApiMocks, openDirectory, waitForPageTitle } from "./fixtures";
 
 const runsWithPreviewAuth = Boolean(
   process.env.PLAYWRIGHT_BASE_URL && process.env.WIKI_VITE_PREVIEW_LOGIN_PASSWORD,
@@ -81,7 +81,7 @@ test.describe("Markdown heading anchors", () => {
     await heading.getByRole("link", { name: /Link to/ }).press("Enter");
 
     await expect(page).toHaveURL(/#saturday-april-12$/);
-    await expect(page.getByRole("status")).toHaveText("Link copied");
+    await expect(documentArticle(page).getByRole("status")).toHaveText("Link copied");
   });
 
   test("deep links scroll to the target heading", async ({ page }) => {
@@ -140,6 +140,44 @@ test.describe("Markdown heading anchors", () => {
     );
     expect(scrollTop).toBeLessThan(120);
   });
+
+  for (const width of [1280, 393]) {
+    test(`search navigation and cached history reset article scroll at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 852 });
+      await installWikiApiMocks(page, {
+        pageDelays: { "about/Terminology": 1500 },
+      });
+      await gotoWiki(page, "/wiki/updates/week-5-april-12-to-18");
+      await waitForPageTitle(page, "Week 5: April 12 to 18");
+      const pane = page.locator(".content-shell");
+      const scrollDown = async () => {
+        await pane.evaluate(node => node.scrollTo({ top: 700, behavior: "instant" }));
+        await expect.poll(() => pane.evaluate(node => node.scrollTop)).toBeGreaterThan(600);
+      };
+      await scrollDown();
+
+      await page.keyboard.press("ControlOrMeta+K");
+      const input = page.getByTestId("command-palette-input");
+      await input.fill("terminology");
+      await expect(page.getByTestId("command-palette").getByRole("option", { name: /terminology/i }).first()).toBeVisible();
+      await input.press("Enter");
+      await waitForPageTitle(page, "Terminology");
+      await expect.poll(() => pane.evaluate(node => node.scrollTop)).toBe(0);
+
+      await scrollDown();
+      await page.goBack();
+      await waitForPageTitle(page, "Week 5: April 12 to 18");
+      await expect.poll(() => pane.evaluate(node => node.scrollTop)).toBe(0);
+
+      if (width === 1280) {
+        await scrollDown();
+        await openDirectory(page, "about");
+        await page.getByTestId("wiki-sidebar").getByRole("link", { name: "Terminology", exact: true }).click();
+        await waitForPageTitle(page, "Terminology");
+        await expect.poll(() => pane.evaluate(node => node.scrollTop)).toBe(0);
+      }
+    });
+  }
 
   test("login page preserves the hash so anchors resolve after sign-in", async ({ page }) => {
     test.skip(runsWithPreviewAuth, "Preview e2e starts authenticated to exercise protected wiki pages.");

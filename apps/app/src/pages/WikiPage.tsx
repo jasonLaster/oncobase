@@ -29,6 +29,7 @@ import {
   lazy,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -187,6 +188,16 @@ export function WikiPage({
     metrics.failedBodySlug === slug || metrics.status === "error"
   )) setDisplayedRouteSlug(routeSlug);
   const routePending = displayedRouteSlug !== routeSlug;
+  const previousDisplayedRoute = useRef(displayedRouteSlug);
+  useLayoutEffect(() => {
+    if (previousDisplayedRoute.current === displayedRouteSlug) return;
+    previousDisplayedRoute.current = displayedRouteSlug;
+    // Wait for the destination article, including delayed body fetches. Hash
+    // links keep their heading target; startup and same-page updates keep position.
+    if (!location.hash) {
+      document.querySelector(".content-shell")?.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }
+  }, [displayedRouteSlug, location.hash]);
   const page = useReaderQuery(pageContentBySlug$(displayedSlug), initialReaderPage(initial, displayedSlug)) as PageContentRow | null;
   const index = useReaderQuery(pageIndexBySlug$(displayedSlug), initial?.pages.find(page => page.slug === displayedSlug) ?? null) as PageIndexRow | null;
   const routeIndex = useReaderQuery(pageIndexBySlug$(slug), initial?.pages.find(page => page.slug === slug) ?? null) as PageIndexRow | null;
