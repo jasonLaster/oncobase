@@ -2,6 +2,7 @@
  * and dry-run scoped planning; document/asset/finish/lock calls are impossible.
  * Fixture mode measures local scanning plus a simulated server, not production. */
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import { parseArgs } from "node:util";
 import { loadConfig, loadPublishToken } from "../../../packages/oncobase/src/config";
 import { readPublishScope, readPublishSelection } from "../../../packages/oncobase/src/publish-scope";
@@ -47,12 +48,17 @@ for (let run = 0; run < repeat; run++) {
     const changed = { ...doc, content: `${doc.content}\nBenchmark-only change` };
     return { ...changed, hash: hashDocument(changed) };
   });
+  const candidateAssets = values.scenario === "mixed" ? assets.map(asset => ({ ...asset,
+    hash: createHash("sha256").update(`${asset.hash}:benchmark-only-change`).digest("hex").slice(0, 16),
+  })) : assets;
   const fixtureState: PublishedState = { version: 1,
     documents: documents.map(doc => ({ slug: doc.slug, exists: true, contentHash: doc.hash, observedHash: doc.hash, readerContentConsistent: true,
       hashFunctionVersion: HASH_FUNCTION_VERSION, sensitive: doc.sensitive, sensitiveInclude: doc.sensitiveInclude })),
     assets: assets.map(asset => ({ path: asset.relativePath, kind: asset.kind, exists: true, contentHash: asset.hash,
       visibilityHash: asset.visibilityHash, observedVisibilityHash: asset.visibilityHash, hasVisibility: true, hasBlob: true, sizeBytes: asset.sizeBytes })),
   };
+  const fixtureHashes = new Map(fixtureState.documents.map(doc => [doc.slug, doc.contentHash]));
+  const fixtureAssetHashes = new Map(fixtureState.assets.map(asset => [`${asset.kind}:${asset.path}`, asset.contentHash]));
   const fixture = values.transport === "fixture" ? Bun.serve({ port: 0, hostname: "127.0.0.1", async fetch(request) {
     if (latencyMs) await Bun.sleep(latencyMs);
     const body = await request.json();
@@ -64,8 +70,8 @@ for (let run = 0; run < repeat; run++) {
     });
     if (route !== "/api/publish/scoped/begin" || body.dryRun !== true) return new Response("Read-only benchmark", { status: 403 });
     return Response.json({ scoped: true,
-      missingDocumentSlugs: candidates.filter(doc => fixtureState.documents.find(d => d.slug === doc.slug)?.contentHash !== doc.hash).map(doc => doc.slug),
-      missingAssetPaths: [], staleDocumentSlugs: [], staleAssetPaths: [],
+      missingDocumentSlugs: candidates.filter(doc => fixtureHashes.get(doc.slug) !== doc.hash).map(doc => doc.slug),
+      missingAssetPaths: candidateAssets.filter(asset => fixtureAssetHashes.get(`${asset.kind}:${asset.relativePath}`) !== asset.hash).map(asset => asset.relativePath), staleDocumentSlugs: [], staleAssetPaths: [],
     });
   } }) : undefined;
   const publishUrl = fixture ? `http://127.0.0.1:${fixture.port}/api/publish` : config.publishUrl;
@@ -78,7 +84,7 @@ for (let run = 0; run < repeat; run++) {
     }>(`${publishUrl}/scoped/begin`, token, {
       siteSlug: config.site, dryRun: true, hashFunctionVersion: HASH_FUNCTION_VERSION,
       manifest: { documents: candidates.map(({ slug, hash, sensitive }) => ({ slug, hash, sensitive })),
-        assets: assets.map(asset => ({ path: asset.relativePath, kind: asset.kind, hash: asset.hash, visibilityHash: asset.visibilityHash })) },
+        assets: candidateAssets.map(asset => ({ path: asset.relativePath, kind: asset.kind, hash: asset.hash, visibilityHash: asset.visibilityHash })) },
     }, { profile, signal: AbortSignal.timeout(20_000) }));
     const planMs = performance.now() - planStart;
     if (plan.scoped !== true || plan.staleDocumentSlugs.length || plan.staleAssetPaths.length) throw new Error("Server did not acknowledge scoped read-only planning");

@@ -258,6 +258,7 @@ async function handleAssetUpload(request: Request, client: ConvexHttpClient) {
       sensitiveInclude: body.sensitiveInclude,
       visibilityHash: body.visibilityHash,
     }),
+    { skipQueue: owned === true },
   );
   return Response.json({ ok: true, blobUrl, sizeBytes });
 }
@@ -408,7 +409,20 @@ export async function handlePublishRequest({
         const pages = new Map(manifest.pages.map(doc => [doc.slug, doc]));
         const assets = new Map(manifest.assets.map(asset => [assetKey(asset), asset]));
         const documentMismatches = body.documents.filter((doc: { slug: string; hash: string; sensitive: boolean }) => doc.sensitive ? pages.has(doc.slug) : pages.get(doc.slug)?.contentHash !== doc.hash).length;
-        const assetMismatches = body.assets.filter((asset: { path: string; kind: "pdf" | "file"; hash: string; sensitive: boolean }) => asset.sensitive ? assets.has(assetKey(asset)) : assets.get(assetKey(asset))?.contentHash !== asset.hash).length;
+        // Reader manifests list PDFs without hashes and deliberately omit files.
+        // Verify PDF membership there, then use the same indexed public-access
+        // queries as the reader to check visibility and hashes for both kinds.
+        let assetMismatches = 0;
+        for (let offset = 0; offset < body.assets.length; offset += 16) {
+          const matches = await Promise.all(body.assets.slice(offset, offset + 16).map(async (asset: { path: string; kind: "pdf" | "file"; hash: string; sensitive: boolean }) => {
+            const present = assets.has(assetKey(asset));
+            if (asset.sensitive && present || asset.kind === "pdf" && !asset.sensitive && !present) return false;
+            const visible = await client.query(asset.kind === "pdf" ? api.documents.getPdfAssetByPath : api.documents.getFileAssetByPath,
+              { siteSlug, path: asset.path, includeSensitive: false });
+            return asset.sensitive ? visible === null : visible?.contentHash === asset.hash && Boolean(visible.blobUrl);
+          }));
+          assetMismatches += matches.filter(match => !match).length;
+        }
         return Response.json({ ready: documentMismatches === 0 && assetMismatches === 0, revision: status.revision, documentMismatches, assetMismatches });
       });
     }
@@ -714,11 +728,15 @@ export async function handlePublishRequest({
           hashFunctionVersion,
           sensitive: sensitive === true,
         }),
+        // Scoped transactions validate ownership and avoid shared site writes.
+        // Allow independent documents through the HTTP client mutation queue.
+        { skipQueue: typeof body.runId === "string" && body.runId.startsWith(OWNED_RUN_PREFIX) },
       );
       if (Array.isArray(embedding)) {
         await client.mutation(
           api.documents.upsertEmbedding,
           withSiteSlug(siteSlug, { slug, embedding, embeddingHash: hash, runId: typeof body.runId === "string" ? body.runId : undefined }),
+          { skipQueue: typeof body.runId === "string" && body.runId.startsWith(OWNED_RUN_PREFIX) },
         );
       }
       return Response.json({ ok: true });

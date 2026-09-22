@@ -137,6 +137,7 @@ export type WikiApiContext = {
   getManifestSnapshot?: () => Promise<{ hash: string; read: () => Promise<BodyInit> } | null>;
   decorateHeaders?: (headers: HeadersInit) => HeadersInit;
   logger?: Pick<Console, "error" | "warn">;
+  onManifestPhase?: (phase: "read" | "filter" | "tree" | "hash" | "serialize", durationMs: number) => void;
 };
 
 function requestedScope(request: Request): WikiScope {
@@ -235,7 +236,23 @@ function splitSlug(slug: string) {
   return slug.split("/").filter(Boolean);
 }
 
+type TreeIndexes = WeakMap<ApiFileNode[], { first: Map<string, ApiFileNode>; directories: Map<string, ApiFileNode> }>;
+
+function indexTreeNodes(indexes: TreeIndexes, nodes: ApiFileNode[]) {
+  let index = indexes.get(nodes);
+  if (!index) {
+    index = { first: new Map(), directories: new Map() };
+    for (const node of nodes) {
+      if (!index.first.has(node.name)) index.first.set(node.name, node);
+      if (node.type === "directory" && !index.directories.has(node.name)) index.directories.set(node.name, node);
+    }
+    indexes.set(nodes, index);
+  }
+  return index;
+}
+
 function insertFileNode(
+  indexes: TreeIndexes,
   nodes: ApiFileNode[],
   segments: string[],
   type: "file" | "pdf",
@@ -245,9 +262,10 @@ function insertFileNode(
   if (segments.length === 0) return;
   const [name, ...rest] = segments;
   const slug = parentSlug ? `${parentSlug}/${name}` : name;
+  const index = indexTreeNodes(indexes, nodes);
 
   if (rest.length === 0) {
-    const existing = nodes.find((node) => node.name === name);
+    const existing = index.first.get(name);
     const nextNode: ApiFileNode =
       type === "pdf"
         ? { name, slug: pdfPath ?? slug, type: "pdf", pdfPath: pdfPath ?? slug }
@@ -255,12 +273,14 @@ function insertFileNode(
 
     if (!existing) {
       nodes.push(nextNode);
+      index.first.set(name, nextNode);
       return;
     }
 
     if (existing.type === "directory") {
       existing.children = existing.children ?? [];
       existing.children.unshift(nextNode);
+      indexTreeNodes(indexes, existing.children).first.set(name, nextNode);
       return;
     }
 
@@ -268,15 +288,15 @@ function insertFileNode(
     return;
   }
 
-  let directory = nodes.find(
-    (node) => node.name === name && node.type === "directory",
-  );
+  let directory = index.directories.get(name);
   if (!directory) {
     directory = { name, slug, type: "directory", children: [] };
     nodes.push(directory);
+    index.directories.set(name, directory);
+    if (!index.first.has(name)) index.first.set(name, directory);
   }
   directory.children = directory.children ?? [];
-  insertFileNode(directory.children, rest, type, pdfPath, slug);
+  insertFileNode(indexes, directory.children, rest, type, pdfPath, slug);
 }
 
 function sortFileTree(nodes: ApiFileNode[]) {
@@ -303,9 +323,11 @@ function buildCompactTreeFromManifest(
   assets: Array<Pick<WikiManifestAsset, "kind" | "path">>,
 ) {
   const root: ApiFileNode[] = [];
+  // Wide directories must not scan every sibling for every inserted path.
+  const indexes: TreeIndexes = new WeakMap();
   for (const page of pages) {
     if (isHiddenFileTreePath(page.slug)) continue;
-    insertFileNode(root, splitSlug(page.slug), "file");
+    insertFileNode(indexes, root, splitSlug(page.slug), "file");
   }
   for (const asset of assets) {
     if (isHiddenFileTreeAssetPath(asset.path)) continue;
@@ -313,9 +335,9 @@ function buildCompactTreeFromManifest(
     if (segments.length === 0) continue;
     if (asset.kind === "pdf" || asset.path.toLowerCase().endsWith(".pdf")) {
       const name = segments[segments.length - 1]!.replace(/\.pdf$/i, "");
-      insertFileNode(root, [...segments.slice(0, -1), name], "pdf", asset.path);
+      insertFileNode(indexes, root, [...segments.slice(0, -1), name], "pdf", asset.path);
     } else {
-      insertFileNode(root, segments, "file");
+      insertFileNode(indexes, root, segments, "file");
     }
   }
   sortFileTree(root);
@@ -782,6 +804,10 @@ export async function createWikiManifestResponse(
       // Never serve stale visibility metadata just to keep the fast path running.
     }
   }
+  const phase = (name: Parameters<NonNullable<WikiApiContext["onManifestPhase"]>>[0], started: number) => {
+    try { context.onManifestPhase?.(name, performance.now() - started); } catch { /* Profiling cannot fail readers. */ }
+  };
+  const readStarted = performance.now();
   const includeSensitive = scope === "session" && Boolean(sessionUser);
   let pageResult: Awaited<ReturnType<typeof listManifestPages>>;
   let assets: WikiManifestAsset[];
@@ -815,9 +841,14 @@ export async function createWikiManifestResponse(
       );
     }
   }
+  phase("read", readStarted);
   const { source } = pageResult;
+  const filterStarted = performance.now();
   const pages = await filterReadablePages(context, sessionUser, pageResult.pages);
+  phase("filter", filterStarted);
+  const treeStarted = performance.now();
   const compactTree = buildCompactTreeFromManifest(pages, assets);
+  phase("tree", treeStarted);
 
   const manifestCore = {
     schemaVersion: WIKI_MANIFEST_SCHEMA_VERSION,
@@ -827,7 +858,9 @@ export async function createWikiManifestResponse(
     pages,
     assets,
   };
+  const hashStarted = performance.now();
   const manifestHash = hashJson(manifestCore);
+  phase("hash", hashStarted);
   const responseCacheHeaders = partialManifest
     ? provisionalManifestHeaders(scope, manifestHash)
     : cacheHeaders(scope, manifestHash);
@@ -844,12 +877,15 @@ export async function createWikiManifestResponse(
     generatedAt: new Date().toISOString(),
   };
 
-  return Response.json(manifest, {
+  const serializeStarted = performance.now();
+  const response = Response.json(manifest, {
     headers: decorate(context, {
       ...responseCacheHeaders,
       "X-Wiki-Manifest-Source": source,
     }),
   });
+  phase("serialize", serializeStarted);
+  return response;
 }
 
 export async function createWikiPagesResponse(

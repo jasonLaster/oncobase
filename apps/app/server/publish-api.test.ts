@@ -4,27 +4,29 @@ import { getFunctionName } from "convex/server";
 import { handlePublishRequest } from "./publish-api";
 
 function fixture() {
-  const mutations: Array<{ name: string; args: any }> = [];
+  const mutations: Array<{ name: string; args: any; options?: any }> = [];
   const queries: string[] = [];
   let status: any = { revision: 1, snapshot: null };
+  const visibleAssets = new Map<string, any>();
   const client = {
     async query(ref: any, args: any) {
       const name = getFunctionName(ref);
       queries.push(name);
       if (name === "sites:getBySlug") return { publishTokenHash: `sha256:${crypto.createHash("sha256").update("fixture").digest("hex")}`, config: {} };
       if (name === "sites:publisherStatus") return status;
+      if (name === "documents:getPdfAssetByPath" || name === "documents:getFileAssetByPath") return visibleAssets.get(args.path) ?? null;
       if (name !== "documents:publisherState") throw new Error("Unexpected unscoped inventory read");
       return { version: 1,
         documents: args.slugs.map((slug: string) => ({ slug, exists: true, contentHash: "same", observedHash: slug === "corrupt" ? "corrupted" : "same", hashFunctionVersion: 1, sensitive: false })),
         assets: args.assets.map((asset: any) => ({ ...asset, exists: true, contentHash: asset.path === "unknown.png" ? null : "same", visibilityHash: "stale", observedVisibilityHash: "different", hasVisibility: true, hasBlob: true })),
       };
     },
-    async mutation(ref: any, args: any) { mutations.push({ name: getFunctionName(ref), args }); },
+    async mutation(ref: any, args: any, options?: any) { mutations.push({ name: getFunctionName(ref), args, options }); },
   };
   const request = (step: string, body: any, token = "fixture") => handlePublishRequest({ step, client: client as never,
     request: new Request(`http://localhost/api/publish/${step}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "X-Publisher-Version": "1" }, body: JSON.stringify({ siteSlug: "alpha", ...body }) }),
   });
-  return { mutations, queries, request, setStatus: (value: any) => { status = value; } };
+  return { mutations, queries, request, visibleAssets, setStatus: (value: any) => { status = value; } };
 }
 
 test("scoped dry-run reads only selected rows, detects corrupt content/visibility, and never locks or tombstones", async () => {
@@ -62,6 +64,7 @@ test("asset registration forwards ownership and visibility metadata", async () =
   expect(res.status).toBe(200);
   expect(f.mutations[0].name).toBe("documents:upsertFileAsset");
   expect(f.mutations[0].args).toMatchObject(visibility);
+  expect(f.mutations[0].options.skipQueue).toBe(false);
 });
 
 test("reader readiness checks actual snapshot bytes and refuses a public sensitive record", async () => {
@@ -103,4 +106,33 @@ test("scoped document hashes are checked before writing", async () => {
   expect((await f.request("document", { ...body, hash })).status).toBe(200);
   expect(f.mutations[0].args.runId).toBe(body.runId);
   expect(f.mutations[0].args.replaceRawContent).toBe(true);
+  expect(f.mutations[0].options.skipQueue).toBe(true);
+});
+
+
+test("reader readiness handles PDF-only manifests and verifies public asset access and hashes", async () => {
+  const f = fixture();
+  const core = { schemaVersion: 1, siteSlug: "alpha", scope: "public", compactTree: [], pages: [],
+    assets: [{ kind: "pdf", path: "paper.pdf", contentHash: null, size: null }] };
+  const snapshot = { ...core, manifestHash: crypto.createHash("sha256").update(JSON.stringify(core)).digest("hex").slice(0, 24), generatedAt: new Date().toISOString() };
+  const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => Response.json(snapshot) });
+  f.setStatus({ revision: 2, snapshot: { url: `http://127.0.0.1:${server.port}/snapshot`, hash: snapshot.manifestHash } });
+  const body = { minimumRevision: 2, documents: [], assets: [
+    { path: "paper.pdf", kind: "pdf", hash: "pdf-hash", sensitive: false },
+    { path: "image.svg", kind: "file", hash: "image-hash", sensitive: false },
+    { path: "private.png", kind: "file", hash: "private-hash", sensitive: true },
+  ] };
+  f.visibleAssets.set("paper.pdf", { contentHash: "pdf-hash", blobUrl: "https://fixture/paper" });
+  f.visibleAssets.set("image.svg", { contentHash: "image-hash", blobUrl: "https://fixture/image" });
+  try {
+    expect((await (await f.request("status", body)).json()).ready).toBe(true);
+    f.visibleAssets.set("private.png", { contentHash: "private-hash", blobUrl: "https://fixture/private" });
+    expect((await (await f.request("status", body)).json()).assetMismatches).toBe(1);
+    f.visibleAssets.delete("private.png");
+    f.visibleAssets.get("image.svg").contentHash = "stale";
+    expect((await (await f.request("status", body)).json()).ready).toBe(false);
+    f.visibleAssets.delete("image.svg");
+    expect((await (await f.request("status", body)).json()).ready).toBe(false);
+    expect(f.mutations).toEqual([]);
+  } finally { server.stop(true); }
 });

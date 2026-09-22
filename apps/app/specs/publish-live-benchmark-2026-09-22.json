@@ -1,0 +1,2183 @@
+{
+  "date": "2026-09-22",
+  "status": "isolated-preview-verified-production-unreleased",
+  "corpus": {
+    "documents": 7011,
+    "pdfMetadataRows": 11000,
+    "uploadedFileAssets": 1,
+    "selectedDocumentBytesApproximately": 34000,
+    "seedSourceBytesApproximately": 8300,
+    "notes": [
+      "All data synthetic",
+      "PDF scale rows model metadata only; their placeholder blobs were not uploaded or verified",
+      "Selected mixed asset was really uploaded and read back",
+      "External wall time includes CLI launcher and process startup",
+      "Preview protection cookie injected only for the benchmark origin",
+      "No production documents or backend were changed"
+    ]
+  },
+  "writeBenchmarks": {
+    "local_before_queue_fix": {
+      "mode": "local-http-real-isolated-cloud-backend",
+      "embeddings": "skip",
+      "samples": [
+        {
+          "scenario": "noop-16",
+          "repeat": 1,
+          "durationMs": 3329,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 2,
+          "durationMs": 3067,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 3,
+          "durationMs": 3103,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-1",
+          "repeat": 1,
+          "durationMs": 3890,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-1",
+          "repeat": 2,
+          "durationMs": 3353,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-1",
+          "repeat": 3,
+          "durationMs": 3074,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-16",
+          "repeat": 1,
+          "durationMs": 5950,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-16",
+          "repeat": 2,
+          "durationMs": 6168,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-16",
+          "repeat": 3,
+          "durationMs": 5403,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "mixed-16",
+          "repeat": 1,
+          "durationMs": 7364,
+          "exit": 1,
+          "success": false
+        }
+      ]
+    },
+    "local_after_queue_fix": {
+      "mode": "local-http-real-isolated-cloud-backend",
+      "embeddings": "skip",
+      "samples": [
+        {
+          "scenario": "noop-16",
+          "repeat": 1,
+          "durationMs": 3281,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 2,
+          "durationMs": 3192,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 3,
+          "durationMs": 2857,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-1",
+          "repeat": 1,
+          "durationMs": 4301,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-1",
+          "repeat": 2,
+          "durationMs": 3027,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-1",
+          "repeat": 3,
+          "durationMs": 2996,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-16",
+          "repeat": 1,
+          "durationMs": 4032,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-16",
+          "repeat": 2,
+          "durationMs": 4841,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-16",
+          "repeat": 3,
+          "durationMs": 3292,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "mixed-16",
+          "repeat": 1,
+          "durationMs": 6352,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "mixed-16",
+          "repeat": 2,
+          "durationMs": 5390,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "mixed-16",
+          "repeat": 3,
+          "durationMs": 4943,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 1,
+          "durationMs": 7425,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 2,
+          "durationMs": 6933,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 3,
+          "durationMs": 7891,
+          "exit": 0,
+          "success": true
+        }
+      ]
+    },
+    "hosted_small_site": {
+      "mode": "hosted-preview-real-isolated-cloud-backend",
+      "embeddings": "skip",
+      "samples": [
+        {
+          "scenario": "noop-16",
+          "repeat": 1,
+          "durationMs": 3379,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 2,
+          "durationMs": 3157,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 3,
+          "durationMs": 3057,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-1",
+          "repeat": 1,
+          "durationMs": 3389,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-1",
+          "repeat": 2,
+          "durationMs": 3292,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-1",
+          "repeat": 3,
+          "durationMs": 3212,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-16",
+          "repeat": 1,
+          "durationMs": 5577,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-16",
+          "repeat": 2,
+          "durationMs": 3450,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-16",
+          "repeat": 3,
+          "durationMs": 4171,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "mixed-16",
+          "repeat": 1,
+          "durationMs": 6212,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "mixed-16",
+          "repeat": 2,
+          "durationMs": 5318,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "mixed-16",
+          "repeat": 3,
+          "durationMs": 5405,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 1,
+          "durationMs": 8120,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 2,
+          "durationMs": 8295,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 3,
+          "durationMs": 8088,
+          "exit": 0,
+          "success": true
+        }
+      ]
+    },
+    "hosted_large_site": {
+      "mode": "hosted-preview-real-isolated-cloud-backend-7011-documents-11000-pdfs",
+      "embeddings": "skip",
+      "samples": [
+        {
+          "scenario": "noop-16",
+          "repeat": 1,
+          "durationMs": 6237,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 2,
+          "durationMs": 8025,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 3,
+          "durationMs": 7666,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-16",
+          "repeat": 1,
+          "durationMs": 7478,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-16",
+          "repeat": 2,
+          "durationMs": 6977,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-16",
+          "repeat": 3,
+          "durationMs": 6754,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "mixed-16",
+          "repeat": 1,
+          "durationMs": 8782,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "mixed-16",
+          "repeat": 2,
+          "durationMs": 7801,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "mixed-16",
+          "repeat": 3,
+          "durationMs": 8399,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 1,
+          "durationMs": 10718,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 2,
+          "durationMs": 10676,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 3,
+          "durationMs": 11462,
+          "exit": 0,
+          "success": true
+        }
+      ]
+    },
+    "hosted_large_site_embeddings": {
+      "mode": "hosted-preview-real-isolated-cloud-backend-7011-documents-11000-pdfs",
+      "embeddings": "required",
+      "samples": [
+        {
+          "scenario": "embedding-16",
+          "repeat": 1,
+          "durationMs": 7622,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "embedding-16",
+          "repeat": 2,
+          "durationMs": 6988,
+          "exit": 0,
+          "success": true
+        },
+        {
+          "scenario": "embedding-16",
+          "repeat": 3,
+          "durationMs": 7358,
+          "exit": 0,
+          "success": true
+        }
+      ]
+    }
+  },
+  "readOnlyBenchmarks": {
+    "no-op": {
+      "mode": "read-only",
+      "transport": "http",
+      "scenario": "no-op",
+      "assetMode": "none",
+      "fixtureLatencyMs": null,
+      "budgetMs": 20000,
+      "allWithinBudget": true,
+      "firstMs": 614,
+      "medianMs": 500,
+      "maxMs": 614,
+      "decodedResponseBytes": 10236,
+      "httpRequests": 6,
+      "omitted": [
+        "lock acquisition",
+        "writes",
+        "blob uploads",
+        "finish",
+        "embeddings",
+        "post-finish reader visibility"
+      ],
+      "samples": [
+        {
+          "iteration": 1,
+          "durationMs": 614,
+          "scanMs": 23,
+          "planMs": 342,
+          "verifyMs": 248,
+          "documents": 16,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 0,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 2,
+          "durationMs": 494,
+          "scanMs": 39,
+          "planMs": 227,
+          "verifyMs": 227,
+          "documents": 16,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 0,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 3,
+          "durationMs": 500,
+          "scanMs": 27,
+          "planMs": 242,
+          "verifyMs": 232,
+          "documents": 16,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 0,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        }
+      ]
+    },
+    "documents": {
+      "mode": "read-only",
+      "transport": "http",
+      "scenario": "documents",
+      "assetMode": "none",
+      "fixtureLatencyMs": null,
+      "budgetMs": 20000,
+      "allWithinBudget": true,
+      "firstMs": 530,
+      "medianMs": 486,
+      "maxMs": 530,
+      "decodedResponseBytes": 10761,
+      "httpRequests": 6,
+      "omitted": [
+        "lock acquisition",
+        "writes",
+        "blob uploads",
+        "finish",
+        "embeddings",
+        "post-finish reader visibility"
+      ],
+      "samples": [
+        {
+          "iteration": 1,
+          "durationMs": 530,
+          "scanMs": 27,
+          "planMs": 255,
+          "verifyMs": 247,
+          "documents": 16,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 16,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 2,
+          "durationMs": 486,
+          "scanMs": 40,
+          "planMs": 221,
+          "verifyMs": 224,
+          "documents": 16,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 16,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 3,
+          "durationMs": 485,
+          "scanMs": 40,
+          "planMs": 226,
+          "verifyMs": 217,
+          "documents": 16,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 16,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        }
+      ]
+    },
+    "mixed": {
+      "mode": "read-only",
+      "transport": "http",
+      "scenario": "mixed",
+      "assetMode": "referenced",
+      "fixtureLatencyMs": null,
+      "budgetMs": 20000,
+      "allWithinBudget": true,
+      "firstMs": 579,
+      "medianMs": 555,
+      "maxMs": 579,
+      "decodedResponseBytes": 11655,
+      "httpRequests": 6,
+      "omitted": [
+        "lock acquisition",
+        "writes",
+        "blob uploads",
+        "finish",
+        "embeddings",
+        "post-finish reader visibility"
+      ],
+      "samples": [
+        {
+          "iteration": 1,
+          "durationMs": 579,
+          "scanMs": 49,
+          "planMs": 305,
+          "verifyMs": 223,
+          "documents": 16,
+          "assets": 1,
+          "assetBytesHashed": 1000130,
+          "plannedDocuments": 16,
+          "plannedAssets": 1,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 2,
+          "durationMs": 509,
+          "scanMs": 69,
+          "planMs": 221,
+          "verifyMs": 218,
+          "documents": 16,
+          "assets": 1,
+          "assetBytesHashed": 1000130,
+          "plannedDocuments": 16,
+          "plannedAssets": 1,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 3,
+          "durationMs": 555,
+          "scanMs": 61,
+          "planMs": 267,
+          "verifyMs": 225,
+          "documents": 16,
+          "assets": 1,
+          "assetBytesHashed": 1000130,
+          "plannedDocuments": 16,
+          "plannedAssets": 1,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        }
+      ]
+    },
+    "large": {
+      "mode": "read-only",
+      "transport": "http",
+      "scenario": "large",
+      "assetMode": "none",
+      "fixtureLatencyMs": null,
+      "budgetMs": 20000,
+      "allWithinBudget": true,
+      "firstMs": 2906,
+      "medianMs": 2080,
+      "maxMs": 2906,
+      "decodedResponseBytes": 63627,
+      "httpRequests": 24,
+      "omitted": [
+        "lock acquisition",
+        "writes",
+        "blob uploads",
+        "finish",
+        "embeddings",
+        "post-finish reader visibility"
+      ],
+      "samples": [
+        {
+          "iteration": 1,
+          "durationMs": 2906,
+          "scanMs": 27,
+          "planMs": 604,
+          "verifyMs": 2265,
+          "documents": 100,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 100,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 2,
+          "durationMs": 2080,
+          "scanMs": 44,
+          "planMs": 375,
+          "verifyMs": 1649,
+          "documents": 100,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 100,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 3,
+          "durationMs": 2030,
+          "scanMs": 40,
+          "planMs": 344,
+          "verifyMs": 1634,
+          "documents": 100,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 100,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        }
+      ]
+    }
+  },
+  "profiles": [
+    {
+      "sample": "scaled-v2-edit-100-1",
+      "durationMs": 10553,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 9,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 18,
+          "metrics": {
+            "items": 100
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 0,
+          "metrics": {
+            "items": 0,
+            "bytes": 0
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 665,
+          "metrics": {
+            "requestBytes": 6603,
+            "status": 200,
+            "serverMs": 415.2,
+            "rpcSumMs": 414.4,
+            "authMs": 14.2,
+            "lockMs": 36.5,
+            "stateMs": 363.9,
+            "rpcCount": 9,
+            "responseBytes": 1336
+          }
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 3006,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 1857,
+          "metrics": {
+            "items": 100
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 230,
+          "metrics": {
+            "requestBytes": 1255,
+            "status": 200,
+            "serverMs": 56.2,
+            "rpcSumMs": 55.8,
+            "authMs": 18.5,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 4762,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-v2-edit-100-2",
+      "durationMs": 10514,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 9,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 18,
+          "metrics": {
+            "items": 100
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 0,
+          "metrics": {
+            "items": 0,
+            "bytes": 0
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 824,
+          "metrics": {
+            "requestBytes": 6603,
+            "status": 200,
+            "serverMs": 495,
+            "rpcSumMs": 493.9,
+            "authMs": 24.4,
+            "lockMs": 72,
+            "stateMs": 397.8,
+            "rpcCount": 9,
+            "responseBytes": 1336
+          }
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 2985,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 1985,
+          "metrics": {
+            "items": 100
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 249,
+          "metrics": {
+            "requestBytes": 1255,
+            "status": 200,
+            "serverMs": 53.4,
+            "rpcSumMs": 52.9,
+            "authMs": 17,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 4440,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-v2-edit-100-3",
+      "durationMs": 11303,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 9,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 18,
+          "metrics": {
+            "items": 100
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 0,
+          "metrics": {
+            "items": 0,
+            "bytes": 0
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 897,
+          "metrics": {
+            "requestBytes": 6603,
+            "status": 200,
+            "serverMs": 419.5,
+            "rpcSumMs": 417.8,
+            "authMs": 23.8,
+            "lockMs": 37.7,
+            "stateMs": 356.8,
+            "rpcCount": 9,
+            "responseBytes": 1336
+          }
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 3228,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 2008,
+          "metrics": {
+            "items": 100
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 291,
+          "metrics": {
+            "requestBytes": 1255,
+            "status": 200,
+            "serverMs": 96.2,
+            "rpcSumMs": 95.7,
+            "authMs": 47.6,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 4848,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-v2-edit-16-1",
+      "durationMs": 7323,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 10,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 18,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 0,
+          "metrics": {
+            "items": 0,
+            "bytes": 0
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 475,
+          "metrics": {
+            "requestBytes": 1227,
+            "status": 200,
+            "serverMs": 138.4,
+            "rpcSumMs": 137.8,
+            "authMs": 19.4,
+            "lockMs": 34.2,
+            "stateMs": 84.2,
+            "rpcCount": 3,
+            "responseBytes": 412
+          }
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 1472,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 296,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 247,
+          "metrics": {
+            "requestBytes": 331,
+            "status": 200,
+            "serverMs": 53.2,
+            "rpcSumMs": 52.4,
+            "authMs": 18.5,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 4803,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-v2-edit-16-2",
+      "durationMs": 6810,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 13,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 20,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 0,
+          "metrics": {
+            "items": 0,
+            "bytes": 0
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 434,
+          "metrics": {
+            "requestBytes": 1227,
+            "status": 200,
+            "serverMs": 143.8,
+            "rpcSumMs": 142.6,
+            "authMs": 23.6,
+            "lockMs": 39.5,
+            "stateMs": 79.8,
+            "rpcCount": 3,
+            "responseBytes": 412
+          }
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 668,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 289,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 282,
+          "metrics": {
+            "requestBytes": 331,
+            "status": 200,
+            "serverMs": 55.5,
+            "rpcSumMs": 54.8,
+            "authMs": 18.2,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 5101,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-v2-edit-16-3",
+      "durationMs": 6595,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 10,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 18,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 0,
+          "metrics": {
+            "items": 0,
+            "bytes": 0
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 430,
+          "metrics": {
+            "requestBytes": 1227,
+            "status": 200,
+            "serverMs": 145.2,
+            "rpcSumMs": 143.8,
+            "authMs": 20,
+            "lockMs": 40,
+            "stateMs": 84.1,
+            "rpcCount": 3,
+            "responseBytes": 412
+          }
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 610,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 284,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 276,
+          "metrics": {
+            "requestBytes": 331,
+            "status": 200,
+            "serverMs": 57.8,
+            "rpcSumMs": 57.3,
+            "authMs": 17.9,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 4965,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-v2-mixed-16-1",
+      "durationMs": 8617,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 11,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 20,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 17,
+          "metrics": {
+            "items": 1,
+            "bytes": 1000130
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 502,
+          "metrics": {
+            "requestBytes": 1327,
+            "status": 200,
+            "serverMs": 184.7,
+            "rpcSumMs": 183.5,
+            "authMs": 17.1,
+            "lockMs": 53.9,
+            "stateMs": 112.7,
+            "rpcCount": 3,
+            "responseBytes": 489
+          }
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 1023,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 1421,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 288,
+          "metrics": {
+            "items": 17
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 240,
+          "metrics": {
+            "requestBytes": 331,
+            "status": 200,
+            "serverMs": 56.6,
+            "rpcSumMs": 56,
+            "authMs": 18.9,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 5092,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-v2-mixed-16-2",
+      "durationMs": 7643,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 9,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 18,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 17,
+          "metrics": {
+            "items": 1,
+            "bytes": 1000130
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 407,
+          "metrics": {
+            "requestBytes": 1327,
+            "status": 200,
+            "serverMs": 162.6,
+            "rpcSumMs": 161.3,
+            "authMs": 18.1,
+            "lockMs": 37.2,
+            "stateMs": 106.2,
+            "rpcCount": 3,
+            "responseBytes": 489
+          }
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 609,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 1095,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 294,
+          "metrics": {
+            "items": 17
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 237,
+          "metrics": {
+            "requestBytes": 331,
+            "status": 200,
+            "serverMs": 64.8,
+            "rpcSumMs": 64.4,
+            "authMs": 17.7,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 4954,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-v2-mixed-16-3",
+      "durationMs": 8249,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 10,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 18,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 17,
+          "metrics": {
+            "items": 1,
+            "bytes": 1000130
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 412,
+          "metrics": {
+            "requestBytes": 1327,
+            "status": 200,
+            "serverMs": 134.2,
+            "rpcSumMs": 133.4,
+            "authMs": 22.1,
+            "lockMs": 43,
+            "stateMs": 68.4,
+            "rpcCount": 3,
+            "responseBytes": 489
+          }
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 581,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 1206,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 276,
+          "metrics": {
+            "items": 17
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 242,
+          "metrics": {
+            "requestBytes": 331,
+            "status": 200,
+            "serverMs": 63.9,
+            "rpcSumMs": 63.5,
+            "authMs": 16.6,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 5485,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-v2-noop-16-1",
+      "durationMs": 6086,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 10,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 18,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 0,
+          "metrics": {
+            "items": 0,
+            "bytes": 0
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 582,
+          "metrics": {
+            "requestBytes": 1227,
+            "status": 200,
+            "serverMs": 236.3,
+            "rpcSumMs": 235.6,
+            "authMs": 49.8,
+            "lockMs": 98.3,
+            "stateMs": 87.5,
+            "rpcCount": 3,
+            "responseBytes": 237
+          }
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 290,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 354,
+          "metrics": {
+            "requestBytes": 156,
+            "status": 200,
+            "serverMs": 139.6,
+            "rpcSumMs": 139.3,
+            "authMs": 19.6,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 4829,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-v2-noop-16-2",
+      "durationMs": 7863,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 10,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 18,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 0,
+          "metrics": {
+            "items": 0,
+            "bytes": 0
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 425,
+          "metrics": {
+            "requestBytes": 1227,
+            "status": 200,
+            "serverMs": 154.3,
+            "rpcSumMs": 153.6,
+            "authMs": 18.2,
+            "lockMs": 42.2,
+            "stateMs": 93.3,
+            "rpcCount": 3,
+            "responseBytes": 237
+          }
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 228,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 317,
+          "metrics": {
+            "requestBytes": 156,
+            "status": 200,
+            "serverMs": 116.7,
+            "rpcSumMs": 116.4,
+            "authMs": 65.7,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 6862,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-v2-noop-16-3",
+      "durationMs": 7503,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 10,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 18,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 0,
+          "metrics": {
+            "items": 0,
+            "bytes": 0
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 406,
+          "metrics": {
+            "requestBytes": 1227,
+            "status": 200,
+            "serverMs": 132.3,
+            "rpcSumMs": 131.9,
+            "authMs": 21.2,
+            "lockMs": 41.1,
+            "stateMs": 69.7,
+            "rpcCount": 3,
+            "responseBytes": 237
+          }
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 246,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 247,
+          "metrics": {
+            "requestBytes": 156,
+            "status": 200,
+            "serverMs": 61.4,
+            "rpcSumMs": 61,
+            "authMs": 21,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 6574,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-embedding-16-1",
+      "durationMs": 7453,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 10,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 18,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 0,
+          "metrics": {
+            "items": 0,
+            "bytes": 0
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 399,
+          "metrics": {
+            "requestBytes": 1227,
+            "status": 200,
+            "serverMs": 128.4,
+            "rpcSumMs": 127.9,
+            "authMs": 24.1,
+            "lockMs": 32.7,
+            "stateMs": 71.2,
+            "rpcCount": 3,
+            "responseBytes": 412
+          }
+        },
+        {
+          "name": "embeddings",
+          "durationMs": 1407,
+          "metrics": {}
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 772,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 261,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 244,
+          "metrics": {
+            "requestBytes": 331,
+            "status": 200,
+            "serverMs": 51.4,
+            "rpcSumMs": 51.1,
+            "authMs": 16.4,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 4340,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-embedding-16-2",
+      "durationMs": 6815,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 10,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 18,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 0,
+          "metrics": {
+            "items": 0,
+            "bytes": 0
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 429,
+          "metrics": {
+            "requestBytes": 1227,
+            "status": 200,
+            "serverMs": 144,
+            "rpcSumMs": 143.5,
+            "authMs": 20,
+            "lockMs": 35.8,
+            "stateMs": 87.8,
+            "rpcCount": 3,
+            "responseBytes": 412
+          }
+        },
+        {
+          "name": "embeddings",
+          "durationMs": 747,
+          "metrics": {}
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 778,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 269,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 231,
+          "metrics": {
+            "requestBytes": 331,
+            "status": 200,
+            "serverMs": 49.9,
+            "rpcSumMs": 49.5,
+            "authMs": 16.8,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 4331,
+          "metrics": {}
+        }
+      ]
+    },
+    {
+      "sample": "scaled-embedding-16-3",
+      "durationMs": 7188,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "config",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "git.check",
+          "durationMs": 10,
+          "metrics": {}
+        },
+        {
+          "name": "scan.documents",
+          "durationMs": 19,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 0,
+          "metrics": {
+            "items": 0,
+            "bytes": 0
+          }
+        },
+        {
+          "name": "http.scoped/begin",
+          "durationMs": 414,
+          "metrics": {
+            "requestBytes": 1227,
+            "status": 200,
+            "serverMs": 131.1,
+            "rpcSumMs": 130.6,
+            "authMs": 23.1,
+            "lockMs": 36,
+            "stateMs": 71.5,
+            "rpcCount": 3,
+            "responseBytes": 412
+          }
+        },
+        {
+          "name": "embeddings",
+          "durationMs": 810,
+          "metrics": {}
+        },
+        {
+          "name": "upload.documents",
+          "durationMs": 898,
+          "metrics": {}
+        },
+        {
+          "name": "upload.assets",
+          "durationMs": 0,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 257,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "http.scoped/finish",
+          "durationMs": 270,
+          "metrics": {
+            "requestBytes": 331,
+            "status": 200,
+            "serverMs": 62.1,
+            "rpcSumMs": 61.7,
+            "authMs": 15.6,
+            "rpcCount": 2,
+            "responseBytes": 49
+          }
+        },
+        {
+          "name": "verify.reader",
+          "durationMs": 4507,
+          "metrics": {}
+        }
+      ]
+    }
+  ],
+  "manifestBuilds": [
+    {
+      "durationMs": 2512,
+      "succeeded": true,
+      "phases": {
+        "read": 1952,
+        "filter": 1,
+        "tree": 114,
+        "hash": 21,
+        "serialize": 17,
+        "store": 300,
+        "install": 39
+      }
+    },
+    {
+      "durationMs": 4596,
+      "succeeded": true,
+      "phases": {
+        "read": 2919,
+        "filter": 1,
+        "tree": 516,
+        "hash": 80,
+        "serialize": 45,
+        "store": 440,
+        "install": 31
+      }
+    },
+    {
+      "durationMs": 4688,
+      "succeeded": true,
+      "phases": {
+        "read": 3155,
+        "filter": 1,
+        "tree": 420,
+        "hash": 65,
+        "serialize": 41,
+        "store": 439,
+        "install": 34
+      }
+    },
+    {
+      "durationMs": 3354,
+      "succeeded": true,
+      "phases": {
+        "read": 2163,
+        "filter": 1,
+        "tree": 377,
+        "hash": 105,
+        "serialize": 75,
+        "store": 506,
+        "install": 26
+      }
+    },
+    {
+      "durationMs": 3408,
+      "succeeded": true,
+      "phases": {
+        "read": 2444,
+        "filter": 0,
+        "tree": 297,
+        "hash": 78,
+        "serialize": 80,
+        "store": 329,
+        "install": 78
+      }
+    },
+    {
+      "durationMs": 3389,
+      "succeeded": true,
+      "phases": {
+        "read": 2124,
+        "filter": 1,
+        "tree": 301,
+        "hash": 63,
+        "serialize": 94,
+        "store": 532,
+        "install": 152
+      }
+    },
+    {
+      "durationMs": 3405,
+      "succeeded": true,
+      "phases": {
+        "read": 2501,
+        "filter": 0,
+        "tree": 227,
+        "hash": 59,
+        "serialize": 39,
+        "store": 388,
+        "install": 39
+      }
+    },
+    {
+      "durationMs": 3645,
+      "succeeded": true,
+      "phases": {
+        "read": 2752,
+        "filter": 0,
+        "tree": 175,
+        "hash": 60,
+        "serialize": 39,
+        "store": 483,
+        "install": 28
+      }
+    },
+    {
+      "durationMs": 3883,
+      "succeeded": true,
+      "phases": {
+        "read": 2881,
+        "filter": 1,
+        "tree": 258,
+        "hash": 44,
+        "serialize": 43,
+        "store": 510,
+        "install": 30
+      }
+    },
+    {
+      "durationMs": 3179,
+      "succeeded": true,
+      "phases": {
+        "read": 2019,
+        "filter": 1,
+        "tree": 341,
+        "hash": 73,
+        "serialize": 23,
+        "store": 468,
+        "install": 63
+      }
+    },
+    {
+      "durationMs": 3214,
+      "succeeded": true,
+      "phases": {
+        "read": 2301,
+        "filter": 1,
+        "tree": 217,
+        "hash": 43,
+        "serialize": 44,
+        "store": 495,
+        "install": 32
+      }
+    },
+    {
+      "durationMs": 3588,
+      "succeeded": true,
+      "phases": {
+        "read": 2711,
+        "filter": 1,
+        "tree": 210,
+        "hash": 63,
+        "serialize": 53,
+        "store": 439,
+        "install": 33
+      }
+    },
+    {
+      "durationMs": 2923,
+      "succeeded": true,
+      "phases": {
+        "read": 2082,
+        "filter": 1,
+        "tree": 197,
+        "hash": 73,
+        "serialize": 23,
+        "store": 448,
+        "install": 26
+      }
+    },
+    {
+      "durationMs": 2923,
+      "succeeded": true,
+      "phases": {
+        "read": 1926,
+        "filter": 0,
+        "tree": 224,
+        "hash": 59,
+        "serialize": 59,
+        "store": 497,
+        "install": 24
+      }
+    },
+    {
+      "durationMs": 3218,
+      "succeeded": true,
+      "phases": {
+        "read": 2308,
+        "filter": 1,
+        "tree": 227,
+        "hash": 43,
+        "serialize": 23,
+        "store": 412,
+        "install": 32
+      }
+    },
+    {
+      "durationMs": 3475,
+      "succeeded": true,
+      "phases": {
+        "read": 2524,
+        "filter": 1,
+        "tree": 195,
+        "hash": 43,
+        "serialize": 44,
+        "store": 435,
+        "install": 153
+      }
+    }
+  ],
+  "regressionsCaught": {
+    "assetReadiness": "Manifest lists PDFs without hashes and omits file assets; use reader asset queries for hashes/access",
+    "wideTree": {
+      "beforeBuildMs": 26716,
+      "readCompletedByMs": 2910,
+      "publishFailedAtMs": 16397,
+      "fix": "Replace repeated sibling scans with per-folder maps"
+    }
+  },
+  "deployedGuards": {
+    "begin": 200,
+    "staleAbort": 409,
+    "legacyAbort": 409,
+    "staleFinish": 409,
+    "outsideScope": 409,
+    "ownedAbort": 200,
+    "lateWrite": 409
+  },
+  "browser": {
+    "status": 200,
+    "latestDocumentRendered": true,
+    "assetDecoded": true,
+    "pageErrors": []
+  }
+}

@@ -8,6 +8,9 @@ import { internalAction } from "./_generated/server";
 export const build = internalAction({
   args: { siteSlug: v.string() },
   handler: async (ctx, { siteSlug }): Promise<null> => {
+    const started = performance.now();
+    const phases: Record<string, number> = {};
+    let succeeded = false;
     let storageId: import("./_generated/dataModel").Id<"_storage"> | undefined;
     try {
       const revision = await ctx.runQuery(internal.manifestCache.revision, { siteSlug });
@@ -21,17 +24,24 @@ export const build = internalAction({
         listFileAssetVisibilityPage: args => ctx.runQuery(internal.documents.internal_listFileAssetVisibilityPage, { ...args, siteSlug }),
         getBySlug: args => ctx.runQuery(internal.documents.internal_getBySlug, { ...args, siteSlug }),
       };
-      const response = await createWikiManifestResponse(new Request("https://manifest.internal/api/wiki/manifest?scope=public"), { siteSlug, documents, getSessionUser: async () => null });
+      const response = await createWikiManifestResponse(new Request("https://manifest.internal/api/wiki/manifest?scope=public"), { siteSlug, documents, getSessionUser: async () => null, onManifestPhase: (name, ms) => { phases[name] = Math.round(ms); } });
       if (!response.ok || response.headers.get("X-Wiki-Manifest-Partial") === "true" || response.headers.get("X-Wiki-Manifest-Source") !== "manifest") throw new Error("Incomplete manifest");
       const json = await response.text();
       const hash = (JSON.parse(json) as { manifestHash: string }).manifestHash;
+      const storeStarted = performance.now();
       storageId = await ctx.storage.store(new Blob([json], { type: "application/json" }));
-      await ctx.runMutation(internal.manifestCache.install, { siteSlug, revision, hash, storageId, formatVersion: MANIFEST_SNAPSHOT_VERSION });
+      phases.store = Math.round(performance.now() - storeStarted);
+      const installStarted = performance.now();
+      const installed = await ctx.runMutation(internal.manifestCache.install, { siteSlug, revision, hash, storageId, formatVersion: MANIFEST_SNAPSHOT_VERSION });
+      phases.install = Math.round(performance.now() - installStarted);
+      succeeded = installed;
       storageId = undefined;
     } catch {
       if (storageId) await ctx.storage.delete(storageId);
       await ctx.runMutation(internal.manifestCache.failed, { siteSlug });
       console.warn("Manifest snapshot build deferred");
+    } finally {
+      console.info("publish.manifest", JSON.stringify({ durationMs: Math.round(performance.now() - started), succeeded, phases }));
     }
     return null;
   },

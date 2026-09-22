@@ -1,8 +1,9 @@
 # Local publish performance goal
 
-Goal is active: full phase timing, repeatable read-only scenarios, then measured
-5–20 second routine publishes. Production completion has **not** been demonstrated
-by these changes. CI is outside this investigation and its configuration is unchanged.
+Goal is active: the implemented publisher now passes repeated **6–12 second**
+end-to-end runs against an isolated hosted API and a synthetic site with 7,011
+documents and 11,000 PDF records. See [the live benchmark](publish-live-benchmark-2026-09-22.md).
+Production rollout and verification remain outstanding. CI is outside this investigation and its configuration is unchanged.
 
 ## What the measurements establish
 
@@ -64,7 +65,10 @@ counts and all samples are in [the benchmark report](publish-benchmark-2026-09-2
   redacted content. Dropping an oversized raw copy clears the previous raw bytes.
 - Scoped uploads use content-based paths and verify downloaded bytes before
   registering the asset. After finish, the CLI verifies current reader snapshot
-  bytes and public/sensitive membership before reporting success.
+  bytes, PDF membership and indexed reader asset access before reporting success.
+- Scoped independent writes bypass Convex HTTP client serialization. Wide-folder
+  tree construction uses maps instead of repeated sibling scans, and asynchronous
+  manifest build logs report fixed phase timings.
 
 The last ten local attempts used temporary API scripts rather than the released
 CLI. This is an adoption problem as well as a missing-flags problem. Defaults,
@@ -84,26 +88,15 @@ and asset-upload failure refusing success. No production content was written.
 
 ## Acceptance checks still outstanding
 
-1. Release the matching backend and CLI 0.2.0 from the isolated
-   `codex/publish-performance` checkout, preserving unrelated reader work.
-   These edits are currently local and unreleased. Scoped command examples are
-   version-pinned and bundled skill refreshes now prefer the installed bundle.
-   `--vault` supports clean release worktrees without changing saved site config.
-2. Run the new HTTP read-only benchmark against that deployed endpoint with
-   current authoritative scopes. Include no-op, one/16-document edits, shared
-   attachments, and 100-document batches; keep raw-content verification enabled.
-3. Measure real end-to-end writes on a controlled release, including startup,
-   lock, embeddings policy, writes, finish and reader visibility. Require repeated
-   samples within 20 seconds for routine edits, with 30 seconds the regression
-   ceiling. A failed timeout is not a successful publish.
-4. Measure database contention before changing worker defaults or batching writes.
-   The new scoped path coalesces manifest invalidation at finish/abort; real
-   timing must establish whether this removes contention. Read-only runs cannot.
-5. Exercise the new ownership, asset read-back and reader snapshot checks on the
-   deployed path, including timeouts and delayed manifests. A timed-out request
-   still has an uncertain outcome; a lost begin/abort can leave its own lease held.
-   Unchanged assets are not downloaded again. Browser rendering is still a
-   separate end-to-end check.
+1. Release the matching production backend/API and CLI 0.2.0 from the isolated
+   checkout. The candidate is committed; npm and production remain unchanged.
+2. Run the new HTTP read-only benchmark against production with current reviewed
+   scopes, then verify one authorized content release. Do not reuse the older
+   16-document clinical snapshot: 9 records had drifted.
+3. Confirm the same 5–20 second routine results on production under normal load.
+   The synthetic hosted tests include large catalog size, real uploads, required
+   embeddings, lock guards, snapshot completion and browser rendering. They do
+   not prove provider latency, arbitrary asset sizes, or every content shape.
 
 Trade-offs must remain explicit: skipping embeddings leaves stale search vectors;
 metadata verification trusts the recorded content hash; skipping assets also
