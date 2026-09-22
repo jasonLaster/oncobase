@@ -432,16 +432,30 @@ export const listManifestPage = query({
   },
   handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    // Public manifests used to paginate every document and discard restricted
-    // rows afterward. The existing sensitivity index skips those reads entirely.
-    // Convex orders undefined before booleans: `< true` includes both legacy
-    // unset and explicit false values, matching canReadDocument's semantics.
-    const result = !includeSensitive && site.siteId
+    // Deleted documents retain large bodies. Exclude them in the index, before
+    // pagination's byte limit. Keep legacy deletedAt=0 semantics through a second
+    // indexed partition; opaque cursors carry both partition and native cursor.
+    let partition = 0;
+    let nativeCursor: string | null = null;
+    if (cursor) {
+      const parsed: unknown = JSON.parse(cursor);
+      if (!Array.isArray(parsed) || parsed.length !== 3 || parsed[0] !== "manifest-v2" ||
+          ![0, 1].includes(parsed[1]) || (parsed[2] !== null && typeof parsed[2] !== "string")) {
+        throw new Error("Invalid manifest cursor");
+      }
+      partition = parsed[1];
+      nativeCursor = parsed[2];
+    }
+    const result = site.siteId
       ? await ctx.db.query("documents")
-          .withIndex("by_site_sensitive_slug", (q) =>
-            q.eq("siteId", site.siteId!).lt("sensitive", true))
-          .paginate({ cursor, numItems })
-      : await paginatedDocs(ctx, site, cursor, numItems);
+          .withIndex("by_site_deleted_sensitive_slug", (q) => {
+            const active = q.eq("siteId", site.siteId!).eq("deletedAt", partition === 0 ? undefined : 0);
+            // Undefined and false sensitivity both remain publicly readable.
+            return includeSensitive ? active : active.lt("sensitive", true);
+          })
+          .paginate({ cursor: nativeCursor, numItems })
+      : { page: [], isDone: true, continueCursor: "" };
+    const nextPartition = result.isDone ? partition + 1 : partition;
     return {
       page: result.page
         .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
@@ -454,8 +468,8 @@ export const listManifestPage = query({
           sensitive: sensitive === true,
           size: sizeBytes ?? content.length,
         })),
-      isDone: result.isDone,
-      continueCursor: result.continueCursor,
+      isDone: result.isDone && (partition === 1 || !site.siteId),
+      continueCursor: JSON.stringify(["manifest-v2", nextPartition, result.isDone ? null : result.continueCursor]),
     };
   },
 });

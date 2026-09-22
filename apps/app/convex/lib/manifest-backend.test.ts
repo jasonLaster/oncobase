@@ -48,7 +48,7 @@ test("sensitive metadata pagination skips public rows and preserves visibility a
   expect((await t.query(api.documents.listPage, { ...args, siteSlug: "missing" })).page).toEqual([]);
 });
 
-test("public manifest index includes unset/false sensitivity, excludes other tenants and restricted rows before pagination", async () => {
+test("manifest pagination skips tombstones and restricted rows, including legacy zero deletion timestamps", async () => {
   const t = convexTest(schema, modules).withIdentity({ issuer: SERVICE_ISSUER, subject: SERVICE_SUBJECT, role: "backend-service" });
   await t.run(async (ctx) => {
     const site = (slug: string) => ctx.db.insert("sites", {
@@ -62,7 +62,8 @@ test("public manifest index includes unset/false sensitivity, excludes other ten
     for (let i = 0; i < 100; i++) await ctx.db.insert("documents", { ...doc, siteId: a, slug: `a-private-${i}`, sensitive: true });
     await ctx.db.insert("documents", { ...doc, siteId: a, slug: "z-unset" });
     await ctx.db.insert("documents", { ...doc, siteId: a, slug: "z-false", sensitive: false });
-    await ctx.db.insert("documents", { ...doc, siteId: a, slug: "z-deleted", sensitive: false, deletedAt: 1 });
+    for (let i = 0; i < 100; i++) await ctx.db.insert("documents", { ...doc, siteId: a, slug: `deleted-${i}`, sensitive: false, deletedAt: 1 });
+    await ctx.db.insert("documents", { ...doc, siteId: a, slug: "z-zero", sensitive: false, deletedAt: 0 });
     await ctx.db.insert("documents", { ...doc, siteId: b, slug: "z-other", sensitive: false });
     await ctx.db.insert("documents", { ...doc, slug: "z-unscoped" });
   });
@@ -78,10 +79,19 @@ test("public manifest index includes unset/false sensitivity, excludes other ten
     cursor = page.continueCursor;
     if (calls > 3) throw new Error("Public pagination scanned restricted rows");
   }
-  expect(slugs.sort()).toEqual(["z-false", "z-unset"]);
-  expect(calls).toBe(2);
-  const session = await read(null, true);
-  expect(session.page).toHaveLength(2);
-  expect(session.page.every((doc) => doc.sensitive)).toBe(true);
+  expect(slugs.sort()).toEqual(["z-false", "z-unset", "z-zero"]);
+  expect(calls).toBe(3);
+  const sessionSlugs: string[] = [];
+  cursor = null;
+  for (;;) {
+    const session = await t.query(api.documents.listManifestPage, { siteSlug: "alpha", cursor, numItems: 200, includeSensitive: true });
+    sessionSlugs.push(...session.page.map(doc => doc.slug));
+    if (session.isDone) break;
+    cursor = session.continueCursor;
+  }
+  expect(sessionSlugs).toHaveLength(103);
+  expect(sessionSlugs.filter(slug => slug.startsWith("a-private-"))).toHaveLength(100);
+  await expect(read("malformed")).rejects.toThrow();
+  await expect(read(JSON.stringify(["manifest-v2", 2, null]))).rejects.toThrow("Invalid manifest cursor");
   expect((await t.query(api.documents.listManifestPage, { siteSlug: "missing", cursor: null, numItems: 500 })).page).toEqual([]);
 });
