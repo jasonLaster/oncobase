@@ -3,3 +3,7 @@ export { configPath, loadConfig, loadPublishToken, tokenPath, writeConfig, write
 export { syncSkills } from "./skills";
 export { runSync, type SyncResult } from "./sync";
 export { HASH_FUNCTION_VERSION, hashDocument, readVaultAssets, readVaultDocuments } from "./walk-vault";
+export { PublishProfile, installPublishProfile, publishProfile } from "./publish-profile";
+export { publisherPost } from "./publish-post";
+export { readPublishScope, readPublishSelection } from "./publish-scope";
+export { readPublishedState, comparePublishedState, type PublishedState } from "./publish-state";

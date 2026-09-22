@@ -1,0 +1,211 @@
+{
+  "mode": "read-only replay of local planning and verification",
+  "selectedDocuments": 16,
+  "omitted": [
+    "lock acquisition",
+    "document writes",
+    "asset uploads",
+    "finish",
+    "embeddings"
+  ],
+  "serverTimingAvailable": false,
+  "samples": [
+    {
+      "sample": "first",
+      "traceId": "c65ef1045b867816415f4065e8bf1c2b",
+      "durationMs": 65613.067583,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "scan.documents",
+          "durationMs": 1378.493208,
+          "metrics": {
+            "items": 7067
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 5866.412,
+          "metrics": {
+            "items": 13502,
+            "bytes": 5375366335
+          }
+        },
+        {
+          "name": "manifest",
+          "durationMs": 0.45095799999944575,
+          "metrics": {}
+        },
+        {
+          "name": "plan",
+          "durationMs": 4651.313,
+          "metrics": {}
+        },
+        {
+          "name": "plan",
+          "durationMs": 4794.060624999998,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 36769.512500000004,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "plan.recheck",
+          "durationMs": 12150.438124999993,
+          "metrics": {}
+        }
+      ],
+      "requests": [
+        {
+          "name": "http.begin",
+          "count": 3,
+          "durationMs": 21592.681708000007,
+          "responseBytes": 213903,
+          "items": 0,
+          "breakdownMs": {
+            "http.serialize": 25.94091700000172,
+            "http.headers": 21447.704749999994,
+            "http.body": 115.93016600000738,
+            "http.parse": 0.6570000000119762
+          }
+        },
+        {
+          "name": "http.sync/documents",
+          "count": 30,
+          "durationMs": 36766.787369,
+          "responseBytes": 116269743,
+          "items": 7011,
+          "breakdownMs": {
+            "http.serialize": 0.2787499999831198,
+            "http.headers": 26175.951414999992,
+            "http.body": 10445.687795000002,
+            "http.parse": 127.44162700001107
+          }
+        }
+      ],
+      "assetScan": []
+    },
+    {
+      "sample": "second",
+      "traceId": "6afc89e8379726effa1f330bfdd7217e",
+      "durationMs": 54959.98225,
+      "exitCode": 0,
+      "phases": [
+        {
+          "name": "scan.documents",
+          "durationMs": 1208.764125,
+          "metrics": {
+            "items": 7067
+          }
+        },
+        {
+          "name": "scan.assets",
+          "durationMs": 5124.603167,
+          "metrics": {
+            "items": 13502,
+            "bytes": 5375366335
+          }
+        },
+        {
+          "name": "manifest",
+          "durationMs": 0.5031660000004194,
+          "metrics": {}
+        },
+        {
+          "name": "plan",
+          "durationMs": 5472.924417,
+          "metrics": {}
+        },
+        {
+          "name": "plan",
+          "durationMs": 4600.591166000002,
+          "metrics": {}
+        },
+        {
+          "name": "verify.documents",
+          "durationMs": 34248.794417,
+          "metrics": {
+            "items": 16
+          }
+        },
+        {
+          "name": "plan.recheck",
+          "durationMs": 4301.628333000001,
+          "metrics": {}
+        }
+      ],
+      "requests": [
+        {
+          "name": "http.begin",
+          "count": 3,
+          "durationMs": 14372.172043000006,
+          "responseBytes": 214314,
+          "items": 0,
+          "breakdownMs": {
+            "http.serialize": 16.666000000001077,
+            "http.headers": 14283.994624000006,
+            "http.body": 69.10391600000185,
+            "http.parse": 0.523125000001528
+          }
+        },
+        {
+          "name": "http.sync/documents",
+          "count": 30,
+          "durationMs": 34246.42616700001,
+          "responseBytes": 116172954,
+          "items": 7012,
+          "breakdownMs": {
+            "http.serialize": 0.20683399998233654,
+            "http.headers": 21289.98433400002,
+            "http.body": 12831.147875999999,
+            "http.parse": 111.09587700000338
+          }
+        }
+      ],
+      "assetScan": [
+        {
+          "id": "bba7bd205fb050dd",
+          "parentId": "30b6605ca010c5e6",
+          "name": "assets.inventory",
+          "startMs": 1210.1015,
+          "outcome": "ok",
+          "metrics": {},
+          "durationMs": 109.78312499999993
+        },
+        {
+          "id": "49eb5b7d9209ff86",
+          "parentId": "30b6605ca010c5e6",
+          "name": "assets.documents",
+          "startMs": 1319.902125,
+          "outcome": "ok",
+          "metrics": {},
+          "durationMs": 434.634417
+        },
+        {
+          "id": "30d1ca44ce948769",
+          "parentId": "30b6605ca010c5e6",
+          "name": "assets.hash",
+          "startMs": 1754.553917,
+          "outcome": "ok",
+          "metrics": {
+            "bytes": 5375366335
+          },
+          "durationMs": 4291.02625
+        },
+        {
+          "id": "efd5d95ac45c7b6f",
+          "parentId": "30b6605ca010c5e6",
+          "name": "assets.ownership",
+          "startMs": 6045.598583,
+          "outcome": "ok",
+          "metrics": {},
+          "durationMs": 288.77591700000085
+        }
+      ]
+    }
+  ]
+}

@@ -6,8 +6,8 @@ import matter from "gray-matter";
 import { readFlag } from "./cli";
 import { loadConfig, loadPublishToken } from "./config";
 import { syncSkills } from "./skills";
-import { PUBLISHER_PROTOCOL_VERSION, PUBLISHER_VERSION_HEADER } from "./version";
-import { readErrorBody } from "./http";
+import { publisherPost } from "./publish-post";
+import { publishProfile } from "./publish-profile";
 import {
   hashBytes,
   hashDocument,
@@ -34,6 +34,7 @@ type RemoteAsset = {
 
 type SyncOptions = {
   site: string;
+  vaultPath?: string;
 };
 
 export type SyncResult = {
@@ -147,28 +148,7 @@ function ensureInsideVault(vaultPath: string, relativePath: string) {
   return resolved;
 }
 
-async function post<T>(
-  url: string,
-  token: string,
-  body: Record<string, unknown>,
-): Promise<T> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      [PUBLISHER_VERSION_HEADER]: String(PUBLISHER_PROTOCOL_VERSION),
-    },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    if (response.status === 426) {
-      throw new Error(`${await response.text()}\nUpdate @oncobase/oncobase, then retry.`);
-    }
-    throw new Error(`${response.status} ${await readErrorBody(response)}`);
-  }
-  return (await response.json()) as T;
-}
+const post = publisherPost;
 
 async function listRemoteDocs(publishUrl: string, token: string, siteSlug: string) {
   const docs: RemoteDoc[] = [];
@@ -318,10 +298,10 @@ export async function mapWithConcurrency<T>(
 export async function runSync(options: SyncOptions): Promise<SyncResult> {
   const config = loadConfig(options.site);
   const token = loadPublishToken(options.site);
-  const vaultPath = config.vaultPath;
-  const localDocs = new Map(readVaultDocuments(vaultPath).map((doc) => [doc.slug, doc]));
+  const vaultPath = path.resolve(options.vaultPath ?? config.vaultPath);
+  const localDocs = new Map(publishProfile.sync("scan.documents", () => readVaultDocuments(vaultPath)).map((doc) => [doc.slug, doc]));
   const localAssets = new Map(
-    readVaultAssets(vaultPath).map((asset) => [`${asset.kind}:${asset.relativePath}`, asset]),
+    publishProfile.sync("scan.assets", () => readVaultAssets(vaultPath)).map((asset) => [`${asset.kind}:${asset.relativePath}`, asset]),
   );
   const plan = await loadSyncPlan(
     config.publishUrl,

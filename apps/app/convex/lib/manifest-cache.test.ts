@@ -10,7 +10,7 @@ function handler(fn: unknown) {
 function fixture() {
   const rows: Record<string, any[]> = {
     sites: [{ _id: "a", slug: "alpha", status: "active" }, { _id: "b", slug: "beta", status: "active" }],
-    documents: [{ _id: "doc", siteId: "a", slug: "one", contentHash: "one", content: "Body", sizeBytes: 4, sensitive: false, tags: [] }],
+    documents: [{ _id: "doc", siteId: "a", slug: "one", title: "One", contentHash: "one", content: "Body", sizeBytes: 4, sensitive: false, tags: [] }],
     pdfAssets: [{ _id: "pdf", siteId: "a", path: "one.pdf" }],
     fileAssets: [{ _id: "file", siteId: "a", path: "one.png" }],
   };

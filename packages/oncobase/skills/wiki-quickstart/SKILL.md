@@ -23,6 +23,23 @@ npx oncobase check --site <slug>
 npx oncobase publish --site <slug>
 ```
 
+## Routine edits after setup
+
+With a CLI/backend supporting scoped publishing (after npm version 0.1.4), use a
+reviewed JSON list such as `["wiki/home.md"]` outside the vault. Carry identical
+scope and policy arguments from the dry-run to the publish:
+
+```sh
+npx @oncobase/oncobase@0.2.0 publish --site <slug> --files-from /tmp/release.json --assets referenced --dry-run
+npx @oncobase/oncobase@0.2.0 publish --site <slug> --files-from /tmp/release.json --assets referenced
+```
+
+Prefer `--assets none` for edits known to change only Markdown. Scoped publishing
+skips implicit sync and does not infer tombstones. Add `--sync-first` for an
+intentional pull before a real publish. `--embeddings skip` trades fresher search
+vectors for lower latency; it does not queue work. Timing profiles are automatic.
+Inspect the printed effective policy and any skipped-embedding notice.
+
 ## Vault Shape
 
 Oncobase expects ordinary markdown and assets. Common directories are:

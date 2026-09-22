@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import { publishProfile } from "./publish-profile";
 import { isSensitiveFrontmatter, normalizeFrontmatterTags } from "./sensitive-pages";
 
 // Walks a local Obsidian vault and yields the publish-ready
@@ -398,80 +399,96 @@ function referencedAssetPaths(
   return resolved;
 }
 
-export function readVaultAssets(vaultPath: string): PublishAsset[] {
-  const entries = vaultFiles(vaultPath);
-  const documents = entries
+export function readVaultAssets(vaultPath: string, options: { referencedBy?: ReadonlySet<string> } = {}): PublishAsset[] {
+  const entries = publishProfile.sync("assets.inventory", () => vaultFiles(vaultPath));
+  const documents = publishProfile.sync("assets.documents", () => entries
     .filter(({ relativePath }) => DOCUMENT_EXTENSIONS.has(path.extname(relativePath)))
-    .map(parseDocumentEntry);
-  const assets: PublishAsset[] = [];
-  for (const { filePath, relativePath } of entries) {
-    const ext = path.extname(filePath).toLowerCase();
-    const isPdf = PDF_EXTENSIONS.has(ext);
-    const isFile = FILE_ASSET_EXTENSIONS.has(ext);
-    if (!isPdf && !isFile) continue;
-    if (isGitLfsPointer(filePath)) {
-      throw new Error(
-        `Refusing to publish unresolved Git LFS pointer asset: ${relativePath}`,
+    .map(parseDocumentEntry));
+  const assets = (() => {
+    const assets: PublishAsset[] = [];
+    for (const { filePath, relativePath } of entries) {
+      const ext = path.extname(filePath).toLowerCase();
+      const isPdf = PDF_EXTENSIONS.has(ext);
+      const isFile = FILE_ASSET_EXTENSIONS.has(ext);
+      if (!isPdf && !isFile) continue;
+      assets.push({
+        filePath,
+        relativePath,
+        kind: isPdf ? "pdf" : "file",
+        contentType: CONTENT_TYPES[ext] ?? "application/octet-stream",
+        sizeBytes: 0,
+        hash: "",
+        ownerSlugs: [],
+        sensitive: false,
+        sensitiveInclude: [],
+        visibilityHash: "",
+      });
+    }
+
+    return assets;
+  })();
+
+  const withOwnership = publishProfile.sync("assets.ownership", () => {
+    const assetPaths = new Set(assets.map((asset) => asset.relativePath));
+    const assetsByBasename = new Map<string, string[]>();
+    for (const asset of assets) {
+      const basename = path.posix.basename(asset.relativePath);
+      const matches = assetsByBasename.get(basename) ?? [];
+      matches.push(asset.relativePath);
+      assetsByBasename.set(basename, matches);
+    }
+    const ownersByAssetPath = new Map<string, Set<string>>();
+    const documentBySlug = new Map(
+      documents.map(({ document }) => [document.slug, document]),
+    );
+    for (const { document, relativePath, raw } of documents) {
+      for (const assetPath of referencedAssetPaths(
+        raw,
+        relativePath,
+        assetPaths,
+        assetsByBasename,
+      )) {
+        const owners = ownersByAssetPath.get(assetPath) ?? new Set<string>();
+        owners.add(document.slug);
+        ownersByAssetPath.set(assetPath, owners);
+      }
+    }
+    for (const asset of assets) {
+      const stem = asset.relativePath.replace(/\.[^/.]+$/, "");
+      const owners = ownersByAssetPath.get(asset.relativePath) ?? new Set<string>();
+      if (documentBySlug.has(stem)) owners.add(stem);
+      asset.ownerSlugs = Array.from(owners).sort();
+      const ownerDocuments = asset.ownerSlugs
+        .map((slug) => documentBySlug.get(slug))
+        .filter((document): document is PublishDocument => Boolean(document));
+      asset.sensitive = ownerDocuments.some((document) => document.sensitive);
+      asset.sensitiveInclude = Array.from(
+        new Set(ownerDocuments.flatMap((document) => document.sensitiveInclude)),
+      ).sort();
+      asset.visibilityHash = hashBytes(
+        JSON.stringify({
+          ownerSlugs: asset.ownerSlugs,
+          sensitive: asset.sensitive,
+          sensitiveInclude: asset.sensitiveInclude,
+        }),
       );
     }
-    const stat = fs.statSync(filePath);
-    assets.push({
-      filePath,
-      relativePath,
-      kind: isPdf ? "pdf" : "file",
-      contentType: CONTENT_TYPES[ext] ?? "application/octet-stream",
-      sizeBytes: stat.size,
-      hash: hashFile(filePath),
-      ownerSlugs: [],
-      sensitive: false,
-      sensitiveInclude: [],
-      visibilityHash: "",
-    });
-  }
-
-  const assetPaths = new Set(assets.map((asset) => asset.relativePath));
-  const assetsByBasename = new Map<string, string[]>();
-  for (const asset of assets) {
-    const basename = path.posix.basename(asset.relativePath);
-    const matches = assetsByBasename.get(basename) ?? [];
-    matches.push(asset.relativePath);
-    assetsByBasename.set(basename, matches);
-  }
-  const ownersByAssetPath = new Map<string, Set<string>>();
-  const documentBySlug = new Map(
-    documents.map(({ document }) => [document.slug, document]),
-  );
-  for (const { document, relativePath, raw } of documents) {
-    for (const assetPath of referencedAssetPaths(
-      raw,
-      relativePath,
-      assetPaths,
-      assetsByBasename,
-    )) {
-      const owners = ownersByAssetPath.get(assetPath) ?? new Set<string>();
-      owners.add(document.slug);
-      ownersByAssetPath.set(assetPath, owners);
+    return options.referencedBy
+      ? assets.filter(asset => asset.ownerSlugs.some(slug => options.referencedBy!.has(slug)))
+      : assets;
+  });
+  // Resolve owners against the entire vault before filtering. A shared asset's
+  // sensitivity must include owners outside the selected publish scope.
+  return publishProfile.sync("assets.hash", () => {
+    for (const asset of withOwnership) {
+      if (isGitLfsPointer(asset.filePath)) {
+        throw new Error(`Refusing to publish unresolved Git LFS pointer asset: ${asset.relativePath}`);
+      }
+      asset.sizeBytes = fs.statSync(asset.filePath).size;
+      asset.hash = hashFile(asset.filePath);
     }
-  }
-  for (const asset of assets) {
-    const stem = asset.relativePath.replace(/\.[^/.]+$/, "");
-    const owners = ownersByAssetPath.get(asset.relativePath) ?? new Set<string>();
-    if (documentBySlug.has(stem)) owners.add(stem);
-    asset.ownerSlugs = Array.from(owners).sort();
-    const ownerDocuments = asset.ownerSlugs
-      .map((slug) => documentBySlug.get(slug))
-      .filter((document): document is PublishDocument => Boolean(document));
-    asset.sensitive = ownerDocuments.some((document) => document.sensitive);
-    asset.sensitiveInclude = Array.from(
-      new Set(ownerDocuments.flatMap((document) => document.sensitiveInclude)),
-    ).sort();
-    asset.visibilityHash = hashBytes(
-      JSON.stringify({
-        ownerSlugs: asset.ownerSlugs,
-        sensitive: asset.sensitive,
-        sensitiveInclude: asset.sensitiveInclude,
-      }),
-    );
-  }
-  return assets;
+    publishProfile.metric("items", withOwnership.length);
+    publishProfile.metric("bytes", withOwnership.reduce((n, a) => n + a.sizeBytes, 0));
+    return withOwnership;
+  });
 }

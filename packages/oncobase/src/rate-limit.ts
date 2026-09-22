@@ -1,3 +1,5 @@
+import { publishProfile } from "./publish-profile";
+
 type TokenReservation = {
   at: number;
   tokens: number;
@@ -119,11 +121,14 @@ export async function retryRateLimited<T>(
 
   while (true) {
     attempt++;
-    await options.cooldown.wait();
-    await options.reserveTokens?.();
+    await publishProfile.span("retry.cooldown", () => options.cooldown.wait());
+    await publishProfile.span("retry.tokens", () => options.reserveTokens?.());
 
     try {
-      return await fn();
+      return await publishProfile.span("retry.attempt", () => {
+        publishProfile.metric("attempt", attempt);
+        return fn();
+      });
     } catch (error) {
       if (!isRateLimitError(error) || attempt >= options.maxAttempts) {
         throw error;
