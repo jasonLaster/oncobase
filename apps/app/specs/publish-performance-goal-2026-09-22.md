@@ -1,9 +1,9 @@
 # Local publish performance goal
 
-Goal is active: the implemented publisher now passes repeated **6–12 second**
+The measured performance goal is met for the tested scenarios: the publisher passes repeated **6–12 second**
 end-to-end runs against an isolated hosted API and a synthetic site with 7,011
 documents and 11,000 PDF records. See [the live benchmark](publish-live-benchmark-2026-09-22.md).
-Production rollout and verification remain outstanding. CI is outside this investigation and its configuration is unchanged.
+The backend/API are deployed, and the actual Diana vault command completed three full production no-change publishes in **11.8–13.5 seconds**. See [production verification](publish-production-benchmark-2026-09-22.md). CI is outside this investigation and its configuration is unchanged.
 
 ## What the measurements establish
 
@@ -73,30 +73,33 @@ counts and all samples are in [the benchmark report](publish-benchmark-2026-09-2
 The last ten local attempts used temporary API scripts rather than the released
 CLI. This is an adoption problem as well as a missing-flags problem. Defaults,
 visible policies, updated examples and exported selection/state helpers matter
-more than adding flags that those scripts never consume. No installed CLI or
-existing temporary publisher has been upgraded by these source edits.
+more than adding flags that those scripts never consume. Diana's vault-local 0.1.3 dependency was found to shadow the updated global command. It now uses a reviewed vendored 0.2.0 package, and its existing publishing skills carry the scoped arguments. Temporary historical scripts were not rewritten.
 
-Validation: 384 app unit tests and 36 CLI unit tests passed in the isolated
+Validation: 385 app unit tests and 36 CLI unit tests passed in the isolated
 release checkout, including the 51 focused publishing/tracing tests. CLI/app typechecks, package build, packaged Node CLI help
 and `git diff --check` passed. Scoped lint and a production Convex deployment
-dry-run passed; no backend deployment was activated. The app typecheck covers
+dry-run passed, followed by a successful production deployment. The additional tombstone-index fix passed seven focused tests, app typechecking and targeted lint. The app typecheck covers
 the imported Convex code; the Convex standalone typecheck was disabled because
 this repository has no `convex/tsconfig.json`. Tests cover read-only dry-run behavior, no inferred
 tombstones, rejected invalid scope/credentials, tenant boundaries, actual-content
 corruption, missing/incomplete verification rows, ownership outside the selection,
 and asset-upload failure refusing success. No production content was written.
 
-## Acceptance checks still outstanding
+## Acceptance and remaining release housekeeping
 
-1. Release the matching production backend/API and CLI 0.2.0 from the isolated
-   checkout. The candidate is committed; npm and production remain unchanged.
-2. Run the new HTTP read-only benchmark against production with current reviewed
-   scopes, then verify one authorized content release. Do not reuse the older
-   16-document clinical snapshot: 9 records had drifted.
-3. Confirm the same 5–20 second routine results on production under normal load.
-   The synthetic hosted tests include large catalog size, real uploads, required
-   embeddings, lock guards, snapshot completion and browser rendering. They do
-   not prove provider latency, arbitrary asset sizes, or every content shape.
+- Full local phase profiles, server request/RPC timings and asynchronous manifest
+  phase logs are available. Their production output isolated an additional
+  tombstone-scan bottleneck that the first synthetic fixture did not model.
+- Read-only no-op, document, mixed-asset and 100-document scenarios passed three
+  times each on production in 0.8–2.1 seconds, with no baseline mismatches.
+- Full synthetic content/upload/embedding publishes passed in 6–12 seconds.
+  Full production no-change publishes passed in 11.8–13.5 seconds, with a guard
+  rejecting content writes. This does not establish production content-write
+  timings for every shape or provider condition.
+- Production backend/API and the actual local Diana CLI are updated. The public
+  npm registry release remains pending authentication; it is not required for
+  the verified vendored local command. The release branch is pushed and has not
+  been merged to main. No clinical content release was performed for benchmarking.
 
 Trade-offs must remain explicit: skipping embeddings leaves stale search vectors;
 metadata verification trusts the recorded content hash; skipping assets also

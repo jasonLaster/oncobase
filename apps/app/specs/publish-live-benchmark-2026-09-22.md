@@ -1,6 +1,6 @@
 # Local publisher: real cloud benchmark
 
-The optimized local CLI completed every repeated final scenario within 12 seconds on an isolated hosted API and cloud database. The fixture contained 7,011 documents and 11,000 PDF metadata rows. Production remains unreleased; these are synthetic staging results, not timings from Diana production.
+The optimized local CLI completed every repeated final scenario within 12 seconds on an isolated hosted API and cloud database. The fixture contained 7,011 documents and 11,000 PDF metadata rows. These are synthetic staging timings. The subsequent rollout and production timings are documented in [production verification](publish-production-benchmark-2026-09-22.md).
 
 | Scenario | Three complete runs |
 | --- | --- |
@@ -42,6 +42,6 @@ Trade-offs remain visible: `--embeddings skip` leaves old search vectors; `--ass
 
 ## Release state
 
-The source candidate and benchmark are validated on isolated infrastructure. CLI 0.2.0 is not on npm, and the production backend/API have not been activated. CI configuration is unchanged. Release and production verification remain part of the active goal.
+The backend/API are now live, and Diana's actual vault command uses the reviewed local CLI 0.2.0 package. The public npm release awaits authentication. CI configuration is unchanged. Production no-change publishes passed in 11.8–13.5 seconds; see [production verification](publish-production-benchmark-2026-09-22.md) for the additional tombstone fix and measurement limits.
 
 Validation: 385 app unit tests, 36 CLI unit tests from the earlier candidate, and all 76 shared-content tests pass (suites overlap). App typechecking, targeted lint and diff checks pass. React Doctor advisory findings concern intentional sequential benchmark/batch loops and independent state-read groups; its warning threshold was not treated as a clean pass.

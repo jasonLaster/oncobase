@@ -1,6 +1,6 @@
 {
   "date": "2026-09-22",
-  "status": "isolated-preview-verified-production-unreleased",
+  "status": "isolated-preview-verified-see-separate-production-report",
   "corpus": {
     "documents": 7011,
     "pdfMetadataRows": 11000,
@@ -13,7 +13,7 @@
       "Selected mixed asset was really uploaded and read back",
       "External wall time includes CLI launcher and process startup",
       "Preview protection cookie injected only for the benchmark origin",
-      "No production documents or backend were changed"
+      "These synthetic benchmark runs did not change production content; later backend rollout is documented separately"
     ]
   },
   "writeBenchmarks": {
