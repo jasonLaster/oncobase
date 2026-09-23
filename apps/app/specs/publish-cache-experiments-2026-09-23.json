@@ -1,0 +1,694 @@
+{
+  "date": "2026-09-23",
+  "sourceCommit": "17591b90",
+  "scan": {
+    "mode": "paired-local-only",
+    "equivalentOutputs": true,
+    "filesystemCache": "uncontrolled; first read is not guaranteed cold; order alternates",
+    "medians": {
+      "separate": 1194,
+      "shared": 716
+    },
+    "samples": [
+      {
+        "iteration": 1,
+        "mode": "separate",
+        "durationMs": 1894,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 1,
+        "mode": "shared",
+        "durationMs": 767,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 2,
+        "mode": "shared",
+        "durationMs": 719,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 2,
+        "mode": "separate",
+        "durationMs": 1225,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 3,
+        "mode": "separate",
+        "durationMs": 1159,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 3,
+        "mode": "shared",
+        "durationMs": 709,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 4,
+        "mode": "shared",
+        "durationMs": 711,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 4,
+        "mode": "separate",
+        "durationMs": 1194,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 5,
+        "mode": "separate",
+        "durationMs": 1186,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 5,
+        "mode": "shared",
+        "durationMs": 716,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 6,
+        "mode": "shared",
+        "durationMs": 705,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 6,
+        "mode": "separate",
+        "durationMs": 1179,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 7,
+        "mode": "separate",
+        "durationMs": 1194,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 7,
+        "mode": "shared",
+        "durationMs": 718,
+        "documents": 1,
+        "assets": 7
+      }
+    ]
+  },
+  "productionNoop": {
+    "mode": "production-owned-noop-no-content-writes",
+    "command": "bun run wiki:publish",
+    "samples": [
+      {
+        "repeat": 1,
+        "durationMs": 2413,
+        "exit": 0,
+        "success": true,
+        "phaseMs": {
+          "config": 0,
+          "git.check": 62,
+          "scan.documents": 903,
+          "scan.assets": 0,
+          "http.scoped/begin": 344,
+          "upload.documents": 0,
+          "upload.assets": 0,
+          "verify.documents": 174,
+          "http.scoped/finish": 174,
+          "verify.reader": 505
+        }
+      },
+      {
+        "repeat": 2,
+        "durationMs": 2199,
+        "exit": 0,
+        "success": true,
+        "phaseMs": {
+          "config": 0,
+          "git.check": 61,
+          "scan.documents": 886,
+          "scan.assets": 0,
+          "http.scoped/begin": 281,
+          "upload.documents": 0,
+          "upload.assets": 0,
+          "verify.documents": 150,
+          "http.scoped/finish": 154,
+          "verify.reader": 462
+        }
+      },
+      {
+        "repeat": 3,
+        "durationMs": 2260,
+        "exit": 0,
+        "success": true,
+        "phaseMs": {
+          "config": 1,
+          "git.check": 65,
+          "scan.documents": 928,
+          "scan.assets": 0,
+          "http.scoped/begin": 323,
+          "upload.documents": 0,
+          "upload.assets": 0,
+          "verify.documents": 158,
+          "http.scoped/finish": 150,
+          "verify.reader": 425
+        }
+      }
+    ]
+  },
+  "productionPreviousDayNoop": {
+    "mode": "production-owned-noop-no-content-writes",
+    "command": "bun run wiki:publish",
+    "samples": [
+      {
+        "repeat": 1,
+        "durationMs": 11830,
+        "exit": 0,
+        "success": true
+      },
+      {
+        "repeat": 2,
+        "durationMs": 13327,
+        "exit": 0,
+        "success": true
+      },
+      {
+        "repeat": 3,
+        "durationMs": 13462,
+        "exit": 0,
+        "success": true
+      }
+    ]
+  },
+  "hosted": {
+    "before": {
+      "mode": "hosted-preview-real-isolated-cloud-backend-7011-documents-11000-pdfs",
+      "embeddings": "skip",
+      "samples": [
+        {
+          "scenario": "noop-16",
+          "repeat": 1,
+          "durationMs": 9080,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 47,
+            "scan.assets": 0,
+            "http.scoped/begin": 2134,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 301,
+            "http.scoped/finish": 274,
+            "verify.reader": 6112
+          }
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 2,
+          "durationMs": 7436,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 23,
+            "scan.assets": 0,
+            "http.scoped/begin": 430,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 247,
+            "http.scoped/finish": 245,
+            "verify.reader": 6298
+          }
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 3,
+          "durationMs": 7807,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 386,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 255,
+            "http.scoped/finish": 284,
+            "verify.reader": 6671
+          }
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 1,
+          "durationMs": 11519,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 21,
+            "scan.assets": 0,
+            "http.scoped/begin": 750,
+            "upload.documents": 3538,
+            "upload.assets": 0,
+            "verify.documents": 1799,
+            "http.scoped/finish": 281,
+            "verify.reader": 4949
+          }
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 2,
+          "durationMs": 11215,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 660,
+            "upload.documents": 3000,
+            "upload.assets": 0,
+            "verify.documents": 2312,
+            "http.scoped/finish": 238,
+            "verify.reader": 4788
+          }
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 3,
+          "durationMs": 10610,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 769,
+            "upload.documents": 2891,
+            "upload.assets": 0,
+            "verify.documents": 2161,
+            "http.scoped/finish": 254,
+            "verify.reader": 4324
+          }
+        }
+      ]
+    },
+    "after": {
+      "mode": "hosted-preview-real-isolated-cloud-backend-7011-documents-11000-pdfs",
+      "embeddings": "skip",
+      "samples": [
+        {
+          "scenario": "noop-16",
+          "repeat": 1,
+          "durationMs": 1844,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 548,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 245,
+            "http.scoped/finish": 261,
+            "verify.reader": 594
+          }
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 2,
+          "durationMs": 1502,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 444,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 236,
+            "http.scoped/finish": 246,
+            "verify.reader": 362
+          }
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 3,
+          "durationMs": 1437,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 21,
+            "scan.assets": 0,
+            "http.scoped/begin": 379,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 247,
+            "http.scoped/finish": 245,
+            "verify.reader": 359
+          }
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 1,
+          "durationMs": 10510,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 694,
+            "upload.documents": 3064,
+            "upload.assets": 0,
+            "verify.documents": 1928,
+            "http.scoped/finish": 299,
+            "verify.reader": 4317
+          }
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 2,
+          "durationMs": 12888,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 748,
+            "upload.documents": 2932,
+            "upload.assets": 0,
+            "verify.documents": 1922,
+            "http.scoped/finish": 254,
+            "verify.reader": 6834
+          }
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 3,
+          "durationMs": 12823,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 882,
+            "upload.documents": 2888,
+            "upload.assets": 0,
+            "verify.documents": 2005,
+            "http.scoped/finish": 247,
+            "verify.reader": 6593
+          }
+        }
+      ]
+    },
+    "control": {
+      "mode": "hosted-preview-real-isolated-cloud-backend-7011-documents-11000-pdfs",
+      "embeddings": "skip",
+      "samples": [
+        {
+          "scenario": "noop-16",
+          "repeat": 1,
+          "durationMs": 5109,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 23,
+            "scan.assets": 0,
+            "http.scoped/begin": 498,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 239,
+            "http.scoped/finish": 258,
+            "verify.reader": 3914
+          }
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 2,
+          "durationMs": 5669,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 21,
+            "scan.assets": 0,
+            "http.scoped/begin": 394,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 245,
+            "http.scoped/finish": 257,
+            "verify.reader": 4560
+          }
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 3,
+          "durationMs": 5043,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 480,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 256,
+            "http.scoped/finish": 266,
+            "verify.reader": 3830
+          }
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 1,
+          "durationMs": 10292,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 23,
+            "scan.assets": 0,
+            "http.scoped/begin": 682,
+            "upload.documents": 2932,
+            "upload.assets": 0,
+            "verify.documents": 1970,
+            "http.scoped/finish": 307,
+            "verify.reader": 4181
+          }
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 2,
+          "durationMs": 11758,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 702,
+            "upload.documents": 2836,
+            "upload.assets": 0,
+            "verify.documents": 1954,
+            "http.scoped/finish": 232,
+            "verify.reader": 5819
+          }
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 3,
+          "durationMs": 10759,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 784,
+            "upload.documents": 2926,
+            "upload.assets": 0,
+            "verify.documents": 1878,
+            "http.scoped/finish": 384,
+            "verify.reader": 4572
+          }
+        }
+      ]
+    },
+    "final": {
+      "mode": "hosted-preview-real-isolated-cloud-backend-7011-documents-11000-pdfs",
+      "embeddings": "skip",
+      "samples": [
+        {
+          "scenario": "noop-16",
+          "repeat": 1,
+          "durationMs": 1884,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 23,
+            "scan.assets": 0,
+            "http.scoped/begin": 493,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 486,
+            "http.scoped/finish": 291,
+            "verify.reader": 411
+          }
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 2,
+          "durationMs": 1570,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 445,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 238,
+            "http.scoped/finish": 244,
+            "verify.reader": 430
+          }
+        },
+        {
+          "scenario": "noop-16",
+          "repeat": 3,
+          "durationMs": 1460,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 21,
+            "scan.assets": 0,
+            "http.scoped/begin": 410,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 237,
+            "http.scoped/finish": 246,
+            "verify.reader": 357
+          }
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 1,
+          "durationMs": 10552,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 710,
+            "upload.documents": 2827,
+            "upload.assets": 0,
+            "verify.documents": 2063,
+            "http.scoped/finish": 249,
+            "verify.reader": 4491
+          }
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 2,
+          "durationMs": 10046,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 793,
+            "upload.documents": 2843,
+            "upload.assets": 0,
+            "verify.documents": 1876,
+            "http.scoped/finish": 239,
+            "verify.reader": 4079
+          }
+        },
+        {
+          "scenario": "edit-100",
+          "repeat": 3,
+          "durationMs": 9786,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 22,
+            "scan.assets": 0,
+            "http.scoped/begin": 646,
+            "upload.documents": 2897,
+            "upload.assets": 0,
+            "verify.documents": 1762,
+            "http.scoped/finish": 333,
+            "verify.reader": 3935
+          }
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "Production comparison uses the previous day baseline, not an alternating control",
+    "Initial hosted baseline did not include the already-production-deployed tombstone index; retain it but use control/final cohorts for the matched comparison",
+    "Hosted write scenarios use synthetic data and skip embeddings; production benchmarks prohibit content/asset writes",
+    "No persistent cache was implemented; each invocation reads current files",
+    "OS filesystem cache state is uncontrolled"
+  ],
+  "validation": {
+    "appUnitTestsPassed": 386,
+    "cliUnitTestsPassed": 37,
+    "focusedFinalTestsPassed": 4,
+    "typecheck": true,
+    "targetedLint": true,
+    "productionContentWrites": 0
+  }
+}
