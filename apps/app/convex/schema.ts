@@ -67,6 +67,8 @@ export default defineSchema({
     lastPublishError: v.optional(v.string()),
     publishLockUntil: v.optional(v.number()),
     publishRunId: v.optional(v.string()),
+    // Missing means an older run: conservatively invalidate at completion.
+    publishRunChanged: v.optional(v.boolean()),
     publishScope: v.optional(v.object({ documents: v.array(v.string()), assets: v.array(v.string()) })),
     archivedAt: v.optional(v.number()),
     createdAt: v.number(),

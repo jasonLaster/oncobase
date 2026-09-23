@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./lib/serviceFunctions";
 import { DEFAULT_SITE_SLUG, SITE_SLUG_RE, assertSiteSlug } from "./lib/site";
 import { assertPublishRun, OWNED_RUN_PREFIX } from "./lib/publishRun";
-import { invalidateManifest, MANIFEST_SNAPSHOT_VERSION } from "./lib/manifestRevision";
+import { invalidateManifest, queueManifestBuild, MANIFEST_SNAPSHOT_VERSION } from "./lib/manifestRevision";
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 
@@ -284,12 +284,13 @@ export const beginPublish = mutation({
     }
     // Taking over an expired owner must expose any partial writes even when
     // this successor is an old publisher that performs no content writes.
-    if (site.publishRunId) await invalidateManifest(ctx, site._id);
+    if (site.publishRunId && site.publishRunChanged !== false) await invalidateManifest(ctx, site._id);
     await ctx.db.patch(site._id, {
       lastPublishStatus: "running",
       lastPublishError: undefined,
       publishLockUntil: now + 10 * 60 * 1000,
       publishRunId: runId,
+      publishRunChanged: runId ? false : undefined,
       publishScope: scope,
       updatedAt: now,
     });
@@ -304,8 +305,8 @@ export const expirePublish = internalMutation({
   handler: async (ctx, { slug, runId }): Promise<null> => {
     const site = await ctx.db.query("sites").withIndex("by_slug", q => q.eq("slug", slug)).first();
     if (!site || site.publishRunId !== runId || (site.publishLockUntil ?? 0) > Date.now()) return null;
-    await invalidateManifest(ctx, site._id);
-    await ctx.db.patch(site._id, { publishRunId: undefined, publishScope: undefined, publishLockUntil: undefined,
+    if (site.publishRunChanged !== false) await invalidateManifest(ctx, site._id);
+    await ctx.db.patch(site._id, { publishRunId: undefined, publishRunChanged: undefined, publishScope: undefined, publishLockUntil: undefined,
       lastPublishStatus: "failed", lastPublishError: "Publisher lease expired before completion", updatedAt: Date.now() });
     return null;
   },
@@ -321,7 +322,15 @@ export const finishPublish = mutation({
       .first();
     if (!site) throw new Error("site not found");
     const owned = assertPublishRun(site, runId);
-    if (owned) await invalidateManifest(ctx, site._id);
+    if (owned && site.publishRunChanged !== false) await invalidateManifest(ctx, site._id);
+    // A no-op can reuse only the current-format/current-revision snapshot.
+    // Missing/stale snapshots still need repair and reader verification.
+    if (owned && site.publishRunChanged === false) {
+      const snapshot = site.manifestSnapshot;
+      const reusable = snapshot && snapshot.revision === (site.manifestRevision ?? 0) &&
+        snapshot.formatVersion === MANIFEST_SNAPSHOT_VERSION && await ctx.storage.getUrl(snapshot.storageId);
+      if (!reusable) await queueManifestBuild(ctx, site._id);
+    }
     const now = Date.now();
     await ctx.db.patch(site._id, {
       lastPublishedAt: now,
@@ -329,10 +338,11 @@ export const finishPublish = mutation({
       lastPublishError: undefined,
       publishLockUntil: undefined,
       publishRunId: undefined,
+      publishRunChanged: undefined,
       publishScope: undefined,
       updatedAt: now,
     });
-    return { revision: (site.manifestRevision ?? 0) + (owned ? 1 : 0) };
+    return { revision: (site.manifestRevision ?? 0) + (owned && site.publishRunChanged !== false ? 1 : 0) };
   },
 });
 
@@ -363,12 +373,13 @@ export const failPublish = mutation({
     const owned = assertPublishRun(site, runId, { allowExpired: true });
     // Failed runs can have partially applied writes. Never leave an old snapshot
     // installed indefinitely just because the publisher did not reach finish.
-    if (owned) await invalidateManifest(ctx, site._id);
+    if (owned && site.publishRunChanged !== false) await invalidateManifest(ctx, site._id);
     await ctx.db.patch(site._id, {
       lastPublishStatus: "failed",
       lastPublishError: error.slice(0, 2000),
       publishLockUntil: undefined,
       publishRunId: undefined,
+      publishRunChanged: undefined,
       publishScope: undefined,
       updatedAt: Date.now(),
     });
@@ -384,12 +395,13 @@ export const archive = mutation({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .first();
     if (!site) return { archived: false };
-    if (site.publishRunId) await invalidateManifest(ctx, site._id);
+    if (site.publishRunId && site.publishRunChanged !== false) await invalidateManifest(ctx, site._id);
     await ctx.db.patch(site._id, {
       status: "archived",
       archivedAt: Date.now(),
       publishLockUntil: undefined,
       publishRunId: undefined,
+      publishRunChanged: undefined,
       publishScope: undefined,
       updatedAt: Date.now(),
     });

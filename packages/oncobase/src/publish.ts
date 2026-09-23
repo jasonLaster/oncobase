@@ -17,8 +17,7 @@ import {
 } from "./rate-limit";
 import {
   HASH_FUNCTION_VERSION,
-  readVaultAssets,
-  readVaultDocuments,
+  readVaultSelection,
   type PublishAsset,
   type PublishDocument,
 } from "./walk-vault";
@@ -303,18 +302,9 @@ if (shouldRunSyncPreflight) {
 
 if (values.embeddings === "required" && !process.env.OPENAI_API_KEY) throw new Error("--embeddings required needs OPENAI_API_KEY");
 console.log(`Publish policy: scope=${scope ? "selected" : "whole-vault"}, assets=${assetMode}, sync=${shouldRunSyncPreflight ? "pull" : "none"}, embeddings=${values.embeddings}, verify=${verification}.`);
-const selected = scope ? readPublishSelection(config.vaultPath, scope, assetMode as AssetMode) : undefined;
-const documents = selected?.documents ?? publishProfile.sync("scan.documents", () => {
-  const docs = readVaultDocuments(config.vaultPath);
-  publishProfile.metric("items", docs.length);
-  return docs;
-});
-const assets = selected?.assets ?? publishProfile.sync("scan.assets", () => {
-  const assets = readVaultAssets(config.vaultPath);
-  publishProfile.metric("items", assets.length);
-  publishProfile.metric("bytes", assets.reduce((n, a) => n + a.sizeBytes, 0));
-  return assets;
-});
+const { documents, assets } = scope
+  ? readPublishSelection(config.vaultPath, scope, assetMode as AssetMode)
+  : readVaultSelection(config.vaultPath, { assetMode: assetMode as AssetMode });
 
 if (scope && (documents.length > 1000 || assets.length > 1024)) throw new Error("Scoped publish supports at most 1000 documents and 1024 assets; narrow the scope");
 const requestedRunId = scope ? `scoped:${randomUUID()}` : undefined;

@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { readVaultAssets, readVaultDocuments } from "./walk-vault";
-import { publishProfile } from "./publish-profile";
+import { readVaultSelection } from "./walk-vault";
 
 export type AssetMode = "none" | "referenced" | "all";
 
@@ -16,18 +15,7 @@ export function readPublishScope(file: string): Set<string> {
 }
 
 export function readPublishSelection(vault: string, slugs: ReadonlySet<string>, assetMode: AssetMode) {
-  const documents = publishProfile.sync("scan.documents", () => {
-    const docs = readVaultDocuments(vault).filter(doc => slugs.has(doc.slug));
-    if (docs.length !== slugs.size) throw new Error("Publish scope contains missing, excluded, or ambiguous documents");
-    publishProfile.metric("items", docs.length);
-    return docs;
-  });
-  const assets = publishProfile.sync("scan.assets", () => {
-    const selected = assetMode === "none" ? [] : readVaultAssets(vault,
-      assetMode === "referenced" ? { referencedBy: slugs } : {});
-    publishProfile.metric("items", selected.length);
-    publishProfile.metric("bytes", selected.reduce((sum, a) => sum + a.sizeBytes, 0));
-    return selected;
-  });
-  return { documents, assets };
+  const selected = readVaultSelection(vault, { slugs, assetMode });
+  if (selected.documents.length !== slugs.size) throw new Error("Publish scope contains missing, excluded, or ambiguous documents");
+  return selected;
 }

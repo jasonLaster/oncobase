@@ -1,4 +1,6 @@
 import type { Doc } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
+import { invalidateManifest } from "./manifestRevision";
 
 export const OWNED_RUN_PREFIX = "scoped:";
 
@@ -17,4 +19,13 @@ export function assertPublishRun(
   if (options.document !== undefined && !site.publishScope?.documents.includes(options.document)) throw new Error("Publish conflict: document is outside the run scope");
   if (options.asset !== undefined && !site.publishScope?.assets.includes(options.asset)) throw new Error("Publish conflict: asset is outside the run scope");
   return true;
+}
+
+/** Call in the transaction that changes manifest-visible data, after ownership
+ * validation. Only the first write patches the shared site row; later workers
+ * remain independent. Undefined is left conservative for pre-upgrade runs. */
+export async function recordPublishChange(ctx: MutationCtx, site: Doc<"sites"> | null, owned: boolean) {
+  if (!site) return;
+  if (!owned) return invalidateManifest(ctx, site._id);
+  if (site.publishRunChanged === false) await ctx.db.patch(site._id, { publishRunChanged: true });
 }

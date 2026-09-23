@@ -339,8 +339,8 @@ function parseDocumentEntry({ filePath, relativePath }: Entry): DocumentEntry {
   };
 }
 
-function documentEntries(vaultPath: string) {
-  return vaultFiles(vaultPath)
+function documentEntries(vaultPath: string, entries = vaultFiles(vaultPath)) {
+  return entries
     .filter(({ relativePath }) => DOCUMENT_EXTENSIONS.has(path.extname(relativePath)))
     .map(parseDocumentEntry);
 }
@@ -404,6 +404,35 @@ export function readVaultAssets(vaultPath: string, options: { referencedBy?: Rea
   const documents = publishProfile.sync("assets.documents", () => entries
     .filter(({ relativePath }) => DOCUMENT_EXTENSIONS.has(path.extname(relativePath)))
     .map(parseDocumentEntry));
+  return assetsFromEntries(entries, documents, options);
+}
+
+/** One invocation owns one snapshot. Never reuse this across publish commands:
+ * edits outside the scope can change shared-asset ownership and visibility. */
+export function readVaultSelection(vaultPath: string, options: {
+  slugs?: ReadonlySet<string>; assetMode: "none" | "referenced" | "all";
+}) {
+  const snapshot = publishProfile.sync("scan.documents", () => {
+    const entries = vaultFiles(vaultPath);
+    const parsed = documentEntries(vaultPath, entries);
+    const documents = parsed.map(entry => entry.document).filter(doc => !options.slugs || options.slugs.has(doc.slug));
+    publishProfile.metric("items", documents.length);
+    publishProfile.metric("parsedDocuments", parsed.length);
+    return { entries, parsed, documents };
+  });
+  if (options.slugs && snapshot.documents.length !== options.slugs.size) throw new Error("Publish scope contains missing, excluded, or ambiguous documents");
+  const assets = publishProfile.sync("scan.assets", () => {
+    const assets = options.assetMode === "none" ? [] : assetsFromEntries(snapshot.entries, snapshot.parsed,
+      options.assetMode === "referenced" ? { referencedBy: options.slugs } : {});
+    publishProfile.metric("items", assets.length);
+    publishProfile.metric("bytes", assets.reduce((sum, asset) => sum + asset.sizeBytes, 0));
+    publishProfile.metric("reusedDocuments", options.assetMode === "none" ? 0 : snapshot.parsed.length);
+    return assets;
+  });
+  return { documents: snapshot.documents, assets };
+}
+
+function assetsFromEntries(entries: Entry[], documents: DocumentEntry[], options: { referencedBy?: ReadonlySet<string> }) {
   const assets = (() => {
     const assets: PublishAsset[] = [];
     for (const { filePath, relativePath } of entries) {

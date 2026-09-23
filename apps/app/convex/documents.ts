@@ -10,7 +10,7 @@ import {
 } from "./lib/serviceFunctions";
 import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 import { invalidateManifest } from "./lib/manifestRevision";
-import { assertPublishRun } from "./lib/publishRun";
+import { assertPublishRun, recordPublishChange } from "./lib/publishRun";
 import { hasCompleteAssetVisibility } from "./lib/assetVisibility";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
@@ -612,7 +612,7 @@ export const upsert = mutation({
       ) {
         return { skipped: true };
       }
-      if (!ownedRun) await invalidateManifest(ctx, site.siteId);
+      await recordPublishChange(ctx, site.site, ownedRun);
       await ctx.db.patch(existing._id, {
         title,
         content,
@@ -629,7 +629,7 @@ export const upsert = mutation({
       });
       return { skipped: false };
     }
-    if (!ownedRun) await invalidateManifest(ctx, site.siteId);
+    await recordPublishChange(ctx, site.site, ownedRun);
     await ctx.db.insert("documents", {
       ...(site.siteId ? { siteId: site.siteId } : {}),
       slug,
@@ -664,7 +664,7 @@ export const setContentHash = mutation({
     const doc = await findDocBySlug(ctx, site, slug);
     if (!doc) return { found: false, patched: false };
     if (doc.contentHash === contentHash) return { found: true, patched: false };
-    if (!ownedRun) await invalidateManifest(ctx, site.siteId);
+    await recordPublishChange(ctx, site.site, ownedRun);
     await ctx.db.patch(doc._id, { contentHash });
     return { found: true, patched: true };
   },
@@ -706,7 +706,7 @@ export const bulkSetContentHash = mutation({
       await ctx.db.patch(doc._id, { contentHash, hashFunctionVersion });
       patched++;
     }
-    if (patched && !ownedRun) await invalidateManifest(ctx, site.siteId);
+    if (patched) await recordPublishChange(ctx, site.site, ownedRun);
     return { patched, alreadyMatching, missing };
   },
 });
@@ -1156,7 +1156,7 @@ export const upsertPdfAsset = mutation({
   ) => {
     const site = await requireSite(ctx, siteSlug);
     const ownedRun = assertPublishRun(site.site, runId, { asset: `pdf:${path}` });
-    if (!ownedRun) await invalidateManifest(ctx, site.siteId);
+    await recordPublishChange(ctx, site.site, ownedRun);
     const existing = await findAssetByPath(ctx, "pdfAssets", site, path);
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -1247,7 +1247,7 @@ export const backfillAssetHashes = mutation({
       result.patched++;
     }
 
-    if (result.patched && !ownedRun) await invalidateManifest(ctx, site.siteId);
+    if (result.patched) await recordPublishChange(ctx, site.site, ownedRun);
     return result;
   },
 });
@@ -1615,7 +1615,7 @@ export const upsertFileAsset = mutation({
   ) => {
     const site = await requireSite(ctx, siteSlug);
     const ownedRun = assertPublishRun(site.site, runId, { asset: `file:${path}` });
-    if (!ownedRun) await invalidateManifest(ctx, site.siteId);
+    await recordPublishChange(ctx, site.site, ownedRun);
     const existing = await findAssetByPath(ctx, "fileAssets", site, path);
     if (existing) {
       await ctx.db.patch(existing._id, {

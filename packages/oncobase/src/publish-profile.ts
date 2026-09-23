@@ -16,7 +16,7 @@ export type PublishPhase =
   | "verify.reader" | "state.lookup" | "embeddings.tokens" | "retry.cooldown" | "retry.tokens" | "retry.attempt";
 export type ProfileMetric = "items" | "bytes" | "requestBytes" | "responseBytes" | "status"
   | "serverMs" | "rpcSumMs" | "rpcCount" | "authMs" | "lockMs"
-  | "documentsInventoryMs" | "assetsInventoryMs" | "stateMs" | "readerMs" | "attempt";
+  | "parsedDocuments" | "reusedDocuments" | "documentsInventoryMs" | "assetsInventoryMs" | "stateMs" | "readerMs" | "attempt";
 type ProfileSpan = {
   id: string; parentId?: string; name: PublishPhase; startMs: number;
   durationMs?: number; outcome: "running" | "ok" | "error";
