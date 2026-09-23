@@ -10,3 +10,8 @@ The production application lives in `apps/app`; there is no Next runtime.
 - Hosting: root `vercel.json` builds the app and its Vercel Functions. `server/standalone.ts` runs the same handlers locally.
 
 See the [app guide](../../README.md), [publishing protocol](04-publishing.md), [product specifications](../../specs/features.md), and [cutover evidence](../../../../docs/vite-cutover-qa-2026-09-05.md).
+
+## Publishing design
+
+- [Implemented publishing architecture](04-publishing.md): authority, lifecycle, consistency, failure behavior and caches.
+- [Architecture case studies](06-publishing-case-studies.md): Git, CRDTs, Bazel, SQLite/WAL and Kubernetes; lessons, trade-offs and proposed evolution.
