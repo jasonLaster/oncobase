@@ -52,7 +52,7 @@ const TRACED_ROUTES = new Set(["/api/admin/access", "/api/admin/roles", "/api/ad
 
 const PUBLISH_ROUTES = new Set([
   "begin", "document", "asset", "asset-hashes", "document-hashes", "finish", "abort",
-  "sync/plan", "sync/documents", "sync/assets", "state", "scoped/begin", "scoped/abort", "scoped/finish", "status",
+  "sync/plan", "sync/documents", "sync/assets", "state", "scoped/begin", "scoped/abort", "scoped/finish", "scoped/complete", "status",
 ].map(step => `/api/publish/${step}`));
 
 function publishParent(request: Request) {

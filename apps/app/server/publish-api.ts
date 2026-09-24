@@ -350,6 +350,43 @@ function logRouteError(step: string, error: unknown) {
   console.error(`[publish] ${step} failed: ${message}`, stack ?? "");
 }
 
+type ReadinessScope = {
+  minimumRevision: number;
+  documents: Array<{ slug: string; hash: string; sensitive: boolean }>;
+  assets: Array<{ path: string; kind: "pdf" | "file"; hash: string; sensitive: boolean }>;
+};
+async function checkReader(client: ConvexHttpClient, siteSlug: string, body: ReadinessScope) {
+  return traceBackendPhase("publish.reader", async () => {
+    const status = await client.query(api.sites.publisherStatus, { slug: siteSlug });
+    if (status.revision < body.minimumRevision || !status.snapshot) return { ready: false, revision: status.revision };
+    const response = await fetch(status.snapshot.url, { signal: AbortSignal.timeout(5000), cache: "no-store" });
+    if (!response.ok) throw new Error("Reader manifest bytes unavailable");
+    const raw = await response.json();
+    const manifest = parseWikiManifest(raw);
+    const core = { schemaVersion: raw.schemaVersion, siteSlug: raw.siteSlug, scope: raw.scope, compactTree: raw.compactTree, pages: raw.pages, assets: raw.assets };
+    const hash = crypto.createHash("sha256").update(JSON.stringify(core)).digest("hex").slice(0, 24);
+    if (manifest.siteSlug !== siteSlug || manifest.scope !== "public" || manifest.manifestHash !== status.snapshot.hash || hash !== manifest.manifestHash) throw new Error("Reader manifest integrity check failed");
+    const pages = new Map(manifest.pages.map(doc => [doc.slug, doc]));
+    const assets = new Map(manifest.assets.map(asset => [assetKey(asset), asset]));
+    const documentMismatches = body.documents.filter((doc: { slug: string; hash: string; sensitive: boolean }) => doc.sensitive ? pages.has(doc.slug) : pages.get(doc.slug)?.contentHash !== doc.hash).length;
+    // Reader manifests list PDFs without hashes and deliberately omit files.
+    // Verify PDF membership there, then use the same indexed public-access
+    // queries as the reader to check visibility and hashes for both kinds.
+    let assetMismatches = 0;
+    for (let offset = 0; offset < body.assets.length; offset += 16) {
+      const matches = await Promise.all(body.assets.slice(offset, offset + 16).map(async (asset: { path: string; kind: "pdf" | "file"; hash: string; sensitive: boolean }) => {
+        const present = assets.has(assetKey(asset));
+        if (asset.sensitive && present || asset.kind === "pdf" && !asset.sensitive && !present) return false;
+        const visible = await client.query(asset.kind === "pdf" ? api.documents.getPdfAssetByPath : api.documents.getFileAssetByPath,
+          { siteSlug, path: asset.path, includeSensitive: false });
+        return asset.sensitive ? visible === null : visible?.contentHash === asset.hash && Boolean(visible.blobUrl);
+      }));
+      assetMismatches += matches.filter(match => !match).length;
+    }
+    return { ready: documentMismatches === 0 && assetMismatches === 0, revision: status.revision, documentMismatches, assetMismatches };
+  });
+}
+
 export async function handlePublishRequest({
   request,
   client,
@@ -396,35 +433,7 @@ export async function handlePublishRequest({
           body.assets.some((asset: any) => !asset || typeof asset.path !== "string" || typeof asset.hash !== "string" || typeof asset.sensitive !== "boolean" || !["pdf", "file"].includes(asset.kind))) {
         return new Response("Invalid publisher readiness scope", { status: 400 });
       }
-      return await traceBackendPhase("publish.reader", async () => {
-        const status = await client.query(api.sites.publisherStatus, { slug: siteSlug });
-        if (status.revision < body.minimumRevision || !status.snapshot) return Response.json({ ready: false, revision: status.revision });
-        const response = await fetch(status.snapshot.url, { signal: AbortSignal.timeout(5000), cache: "no-store" });
-        if (!response.ok) throw new Error("Reader manifest bytes unavailable");
-        const raw = await response.json();
-        const manifest = parseWikiManifest(raw);
-        const core = { schemaVersion: raw.schemaVersion, siteSlug: raw.siteSlug, scope: raw.scope, compactTree: raw.compactTree, pages: raw.pages, assets: raw.assets };
-        const hash = crypto.createHash("sha256").update(JSON.stringify(core)).digest("hex").slice(0, 24);
-        if (manifest.siteSlug !== siteSlug || manifest.scope !== "public" || manifest.manifestHash !== status.snapshot.hash || hash !== manifest.manifestHash) throw new Error("Reader manifest integrity check failed");
-        const pages = new Map(manifest.pages.map(doc => [doc.slug, doc]));
-        const assets = new Map(manifest.assets.map(asset => [assetKey(asset), asset]));
-        const documentMismatches = body.documents.filter((doc: { slug: string; hash: string; sensitive: boolean }) => doc.sensitive ? pages.has(doc.slug) : pages.get(doc.slug)?.contentHash !== doc.hash).length;
-        // Reader manifests list PDFs without hashes and deliberately omit files.
-        // Verify PDF membership there, then use the same indexed public-access
-        // queries as the reader to check visibility and hashes for both kinds.
-        let assetMismatches = 0;
-        for (let offset = 0; offset < body.assets.length; offset += 16) {
-          const matches = await Promise.all(body.assets.slice(offset, offset + 16).map(async (asset: { path: string; kind: "pdf" | "file"; hash: string; sensitive: boolean }) => {
-            const present = assets.has(assetKey(asset));
-            if (asset.sensitive && present || asset.kind === "pdf" && !asset.sensitive && !present) return false;
-            const visible = await client.query(asset.kind === "pdf" ? api.documents.getPdfAssetByPath : api.documents.getFileAssetByPath,
-              { siteSlug, path: asset.path, includeSensitive: false });
-            return asset.sensitive ? visible === null : visible?.contentHash === asset.hash && Boolean(visible.blobUrl);
-          }));
-          assetMismatches += matches.filter(match => !match).length;
-        }
-        return Response.json({ ready: documentMismatches === 0 && assetMismatches === 0, revision: status.revision, documentMismatches, assetMismatches });
-      });
+      return Response.json(await checkReader(client, siteSlug, body));
     }
 
     if (step === "state") {
@@ -662,6 +671,7 @@ export async function handlePublishRequest({
 
       return Response.json({
         scoped,
+        capabilities: scoped ? { complete: 1 } : undefined,
         runId,
         missingDocumentSlugs,
         rawContentBackfillSlugs,
@@ -748,6 +758,60 @@ export async function handlePublishRequest({
         typeof body.error === "string" ? body.error.slice(0, 2000) : "publisher aborted";
       await client.mutation(api.sites.failPublish, { slug: siteSlug, error: errorMessage, runId: typeof body.runId === "string" ? body.runId : undefined });
       return Response.json({ ok: true });
+    }
+
+    if (step === "scoped/complete") {
+      const unsupported = unsupportedPublisherResponse(request);
+      if (unsupported) return unsupported;
+      if (typeof body.runId !== "string" || !body.runId.startsWith(OWNED_RUN_PREFIX) ||
+          !["content", "metadata"].includes(body.verification) || body.hashFunctionVersion !== 3 ||
+          !Array.isArray(body.documents) || body.documents.length > 1000 ||
+          body.documents.some((doc: any) => !doc || typeof doc.slug !== "string" || !doc.slug || typeof doc.hash !== "string" || typeof doc.sensitive !== "boolean" || !Array.isArray(doc.sensitiveInclude) || doc.sensitiveInclude.some((value: unknown) => typeof value !== "string")) ||
+          !Array.isArray(body.assets) || body.assets.length > 1024 ||
+          body.assets.some((asset: any) => !asset || typeof asset.path !== "string" || !asset.path || typeof asset.hash !== "string" || typeof asset.visibilityHash !== "string" || typeof asset.sensitive !== "boolean" || !["pdf", "file"].includes(asset.kind) || !Number.isSafeInteger(asset.sizeBytes) || asset.sizeBytes < 0)) {
+        return new Response("Invalid completion scope or verification policy", { status: 400 });
+      }
+      assertPublishRun(site, body.runId);
+      const sameScope = (expected: string[], actual: string[]) => expected.length === actual.length && new Set(actual).size === actual.length && expected.every(value => actual.includes(value));
+      if (!site.publishScope || !sameScope(site.publishScope.documents, body.documents.map((doc: any) => doc.slug)) ||
+          !sameScope(site.publishScope.assets, body.assets.map(assetKey))) {
+        return new Response("Completion must verify the entire declared scope", { status: 409 });
+      }
+      await traceBackendPhase("publish.state", async () => {
+        const batches = Math.max(Math.ceil(body.documents.length / 16), Math.ceil(body.assets.length / 128));
+        // At most two bounded reads in flight; no full-feed reads or database budget increase.
+        for (let offset = 0; offset < batches; offset += 2) {
+          const checked = await Promise.allSettled(Array.from({ length: Math.min(2, batches - offset) }, async (_, index) => {
+            const batch = offset + index;
+            const documents = body.documents.slice(batch * 16, (batch + 1) * 16);
+            const assets = body.assets.slice(batch * 128, (batch + 1) * 128);
+            const state = await client.query(api.documents.publisherState, { siteSlug,
+              slugs: documents.map((doc: any) => doc.slug), assets: assets.map((asset: any) => ({ path: asset.path, kind: asset.kind })) });
+            if (state.version !== 1 || state.documents.length !== documents.length || state.assets.length !== assets.length ||
+                documents.some((doc: any, i: number) => {
+                  const remote = state.documents[i];
+                  return remote.slug !== doc.slug || !remote.exists || remote.contentHash !== doc.hash || remote.hashFunctionVersion !== body.hashFunctionVersion ||
+                    (body.verification === "content" && (remote.observedHash !== doc.hash || remote.readerContentConsistent !== true)) ||
+                    remote.sensitive !== doc.sensitive || JSON.stringify(remote.sensitiveInclude) !== JSON.stringify(doc.sensitiveInclude);
+                }) || assets.some((asset: any, i: number) => {
+                  const remote = state.assets[i];
+                  return remote.path !== asset.path || remote.kind !== asset.kind || !remote.exists || !remote.hasBlob || !remote.hasVisibility ||
+                    remote.contentHash !== asset.hash || remote.visibilityHash !== asset.visibilityHash || remote.observedVisibilityHash !== asset.visibilityHash || remote.sizeBytes !== asset.sizeBytes;
+                })) throw new Error("Stored content or asset verification failed; publish was not finished");
+          }));
+          const failure = checked.find(result => result.status === "rejected");
+          if (failure?.status === "rejected") throw failure.reason;
+        }
+      });
+      const finished = await client.mutation(api.sites.finishPublish, { slug: siteSlug, runId: body.runId });
+      // Preserve the commit boundary even if the independent reader check fails.
+      // The client can poll status; it must not abort/replay a completed run.
+      try {
+        const readiness = await checkReader(client, siteSlug, { ...body, minimumRevision: finished.revision });
+        return Response.json({ ...readiness, committed: true, revision: finished.revision });
+      } catch {
+        return Response.json({ committed: true, revision: finished.revision, ready: false });
+      }
     }
 
     if (step === "finish" || step === "scoped/finish") {

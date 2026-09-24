@@ -55,14 +55,19 @@ test("CLI reports success only after content and reader confirmation; a committe
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "publish-confirm-"));
   const calls: string[] = [];
   let published: any;
-  let mismatch = false, readinessCalls = 0;
+  let mismatch = false, readinessCalls = 0, combined = false;
   const server = Bun.serve({ port: 0, hostname: "127.0.0.1", async fetch(request) {
     const step = new URL(request.url).pathname.split("/publish/")[1];
     calls.push(step);
     const body = await request.json();
-    if (step === "scoped/begin") return Response.json({ scoped: true, runId: body.runId, missingDocumentSlugs: ["home"], missingAssetPaths: [], staleDocumentSlugs: [], staleAssetPaths: [], assetChanges: [] });
+    if (step === "scoped/begin") return Response.json({ scoped: true, capabilities: combined ? { complete: 1 } : undefined, runId: body.runId, missingDocumentSlugs: ["home"], missingAssetPaths: [], staleDocumentSlugs: [], staleAssetPaths: [], assetChanges: [] });
     if (step === "document") { published = body; return Response.json({ ok: true }); }
     if (step === "state") return Response.json({ version: 1, documents: [{ slug: published.slug, exists: true, contentHash: published.hash, observedHash: published.hash, readerContentConsistent: true, hashFunctionVersion: published.hashFunctionVersion, sensitive: published.sensitive, sensitiveInclude: published.sensitiveInclude }], assets: [] });
+    if (step === "scoped/complete") {
+      expect(body.documents[0].hash).toBe(published.hash);
+      expect(body.verification).toBe("content");
+      return Response.json({ committed: true, revision: 2, ready: !mismatch, documentMismatches: mismatch ? 1 : 0 });
+    }
     if (step === "scoped/finish") return Response.json({ ok: true, revision: 2 });
     if (step === "status") {
       readinessCalls++;
@@ -92,6 +97,14 @@ test("CLI reports success only after content and reader confirmation; a committe
     expect(failed.code).toBe(1);
     expect(failed.output).toContain("Data committed, but reader readiness could not be confirmed");
     expect(failed.output).not.toContain("Published 1 documents");
+    expect(calls).not.toContain("scoped/abort");
+    combined = true; mismatch = false; calls.length = 0;
+    expect((await run()).code).toBe(0);
+    expect(calls).toEqual(["scoped/begin", "document", "scoped/complete"]);
+    mismatch = true; calls.length = 0;
+    const rejected = await run();
+    expect(rejected.code).toBe(1);
+    expect(rejected.output).not.toContain("Published 1 documents");
     expect(calls).not.toContain("scoped/abort");
   } finally { server.stop(true); fs.rmSync(dir, { recursive: true, force: true }); }
 });

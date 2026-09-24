@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import type { DependencyCacheMode } from "./dependency-cache";
 import path from "node:path";
 import { readVaultSelection } from "./walk-vault";
 
@@ -14,8 +15,8 @@ export function readPublishScope(file: string): Set<string> {
   return new Set(paths.map(p => p.replace(/\.mdx?$/, "")));
 }
 
-export function readPublishSelection(vault: string, slugs: ReadonlySet<string>, assetMode: AssetMode) {
-  const selected = readVaultSelection(vault, { slugs, assetMode });
+export function readPublishSelection(vault: string, slugs: ReadonlySet<string>, assetMode: AssetMode, cache?: DependencyCacheMode, cacheDirectory?: string) {
+  const selected = readVaultSelection(vault, { slugs, assetMode, cache, cacheDirectory });
   if (selected.documents.length !== slugs.size) throw new Error("Publish scope contains missing, excluded, or ambiguous documents");
   return selected;
 }

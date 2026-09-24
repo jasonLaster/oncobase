@@ -1,3 +1,4 @@
+import { internalQuery } from "./_generated/server";
 import { internalQueryFor } from "./lib/serviceFunctions";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
@@ -1722,5 +1723,20 @@ export const publisherState = query({
       };
     }));
     return { version: 1 as const, documents, assets: assetStates };
+  },
+});
+
+// Small indexed metadata reads for a document-only projection update.
+export const internal_publisherManifestPages = internalQuery({
+  args: { siteSlug: v.string(), slugs: v.array(v.string()) },
+  handler: async (ctx, { siteSlug, slugs }) => {
+    if (slugs.length > 16) throw new Error("Manifest delta batch exceeds limit");
+    const site = await requireSite(ctx, siteSlug);
+    return Promise.all(slugs.map(async slug => {
+      const doc = await findDocBySlug(ctx, site, slug);
+      if (!doc || doc.deletedAt || doc.sensitive === true) return null;
+      return { slug: doc.slug, title: doc.title, tags: doc.tags, description: doc.description ?? null,
+        contentHash: doc.contentHash ?? null, sensitive: false, size: doc.sizeBytes ?? doc.content.length };
+    }));
   },
 });

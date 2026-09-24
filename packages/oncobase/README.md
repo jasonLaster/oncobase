@@ -123,7 +123,7 @@ first. A dry-run performs no sync, embeddings, uploads or lock acquisition.
 | Choice | Benefit | Cost or limit |
 | --- | --- | --- |
 | `--assets none` | Skips asset discovery and hashing for known document-only changes | Skips attachment and ownership/visibility changes; use `referenced` when links or sensitivity change |
-| `--assets referenced` (scoped default) | Hashes only assets owned by selected documents | Parses other documents to retain shared-owner visibility; asset bytes still require upload bandwidth |
+| `--assets referenced` (scoped default) | Hashes only assets owned by selected documents | Revalidates outside-owner dependencies; asset bytes still require upload bandwidth |
 | `--assets all` | Includes the entire asset inventory | Reads/hashes all asset bytes; a bulk operation may exceed 20 seconds |
 | `--embeddings auto` (default) | Generates embeddings when the API key exists | Token waits, retries, and inference add latency; missing key is reported |
 | `--embeddings skip` | Removes inference from the critical path | Existing search vectors can be stale; this does not schedule a later refresh |
@@ -131,6 +131,11 @@ first. A dry-run performs no sync, embeddings, uploads or lock acquisition.
 | `--verify content` (scoped default) | Compares a digest computed from stored raw content and metadata | Large documents without stored raw content cannot pass this check |
 | `--verify metadata` | Supports documents without stored raw copies | Trusts the stored source hash instead of independently hashing the content |
 | `--doc-concurrency 4` / `--asset-concurrency 3` | Allows tuning load and memory explicitly | More concurrency may trigger database contention or bandwidth saturation; defaults remain 16 and 6 |
+| `--cache content` (default) | Reuses dependency metadata after fresh source-byte hashing | Still inventories and reads outside owners; only changed dependencies are reparsed |
+| `--cache metadata` | Avoids rereading unchanged outside owners | Trusts device/inode/size/nanosecond mtime/ctime; use content on filesystems with unreliable change indicators |
+| `--cache off` / `refresh` | Bypasses persistence / rebuilds the content-validated index | Cold parsing cost; selected documents and assets are always read fresh in every mode |
+| `--coordination auto` (default) | Combines stored verification, finish and an initial reader check when the server advertises support | Same commit/readiness distinction; older servers retain the separate steps |
+| `--coordination steps` | Forces the previous protocol for diagnosis/comparison | Additional client round trips and sequential verification batches |
 | `--request-timeout-ms 20000` | Bounds an individual publisher API request | A timeout is an uncertain write outcome, not a successful publish; requests are not blindly retried |
 
 Scoped uploads use content-based blob paths, recheck local bytes against the plan,
@@ -151,6 +156,35 @@ its existing sync and verification defaults; use `--verify` to opt into the new
 verification there. Failed/skipped assets and incomplete metadata backfills now
 fail publication rather than reporting success. Active workers drain before an
 error triggers abort.
+
+## Dependency-aware publishing (source candidate)
+
+The dependency index and combined completion require this source candidate; the
+installed 0.2.1 package does not include them yet. Indexes live under
+`~/.cache/oncobase-publish/`, keyed by the vault's real path. They store private
+reference/visibility metadata, never document bodies or credentials, in atomic
+0600 files. Missing, corrupt, incompatible or unwritable caches fall back to fresh
+parsing. Every invocation refreshes inventory, ignore rules and asset resolution,
+including basename ambiguity. No selected asset-byte hash is cached. Dry-runs can
+populate this local cache but perform no remote mutations.
+
+For `--assets none`, scoped selection reads only selected Markdown bodies; there
+are no asset-owner dependencies to scan. That policy still deliberately omits
+asset visibility updates. Do not choose it just for speed when changing links or
+sensitivity.
+
+The matching backend immediately schedules completed scoped runs. Existing public
+pages in document-only scopes of at most 128 documents can update the preceding
+manifest using bounded indexed metadata reads. Additions, deletions, sensitive
+pages, asset scopes, stale bases and corrupt/missing snapshots use the full
+builder. This reduces database reads; fetching, hashing and storing the complete
+manifest still scales with site size. The whole publish is still not atomic.
+
+The combined endpoint verifies the entire declared scope with at most two bounded
+state reads in flight, then finishes and checks actual reader-snapshot bytes.
+It does not skip content verification. A post-commit reader failure remains
+unconfirmed and is polled by the CLI; no blind retry of the completion write is
+performed. An in-flight builder cannot install while a scoped writer is active.
 
 ## Repeatable read-only benchmarks
 

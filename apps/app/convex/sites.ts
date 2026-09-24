@@ -322,14 +322,20 @@ export const finishPublish = mutation({
       .first();
     if (!site) throw new Error("site not found");
     const owned = assertPublishRun(site, runId);
-    if (owned && site.publishRunChanged !== false) await invalidateManifest(ctx, site._id);
+    if (owned && site.publishRunChanged !== false) {
+      // Only document-only scopes can reuse asset membership. The builder also
+      // rejects additions/deletions/visibility changes and validates the base.
+      const delta = site.publishScope?.assets.length === 0 && site.publishScope.documents.length <= 128
+        ? { baseRevision: site.manifestRevision ?? 0, slugs: site.publishScope.documents } : undefined;
+      await invalidateManifest(ctx, site._id, 0, delta);
+    }
     // A no-op can reuse only the current-format/current-revision snapshot.
     // Missing/stale snapshots still need repair and reader verification.
     if (owned && site.publishRunChanged === false) {
       const snapshot = site.manifestSnapshot;
       const reusable = snapshot && snapshot.revision === (site.manifestRevision ?? 0) &&
         snapshot.formatVersion === MANIFEST_SNAPSHOT_VERSION && await ctx.storage.getUrl(snapshot.storageId);
-      if (!reusable) await queueManifestBuild(ctx, site._id);
+      if (!reusable) await queueManifestBuild(ctx, site._id, 0);
     }
     const now = Date.now();
     await ctx.db.patch(site._id, {

@@ -2,7 +2,7 @@ import { readErrorBody } from "./http";
 import { publishProfile, type PublishProfile, type PublishPhase } from "./publish-profile";
 import { PUBLISHER_PROTOCOL_VERSION, PUBLISHER_VERSION_HEADER } from "./version";
 
-const steps = new Set(["begin", "document", "asset", "asset-hashes", "document-hashes", "finish", "abort", "sync/plan", "sync/documents", "sync/assets", "state", "scoped/begin", "scoped/abort", "scoped/finish", "status"]);
+const steps = new Set(["begin", "document", "asset", "asset-hashes", "document-hashes", "finish", "abort", "sync/plan", "sync/documents", "sync/assets", "state", "scoped/begin", "scoped/abort", "scoped/finish", "scoped/complete", "status"]);
 
 export async function publisherPost<T = unknown>(
   url: string, token: string, body: unknown,

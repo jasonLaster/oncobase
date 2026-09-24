@@ -136,3 +136,49 @@ test("reader readiness handles PDF-only manifests and verifies public asset acce
     expect(f.mutations).toEqual([]);
   } finally { server.stop(true); }
 });
+
+test("combined completion verifies the entire owned scope and preserves committed-but-unconfirmed status", async () => {
+  const runId = "scoped:11111111-1111-1111-1111-111111111111";
+  const documents = Array.from({ length: 33 }, (_, i) => ({ slug: `doc-${i}`, hash: "hash", sensitive: false, sensitiveInclude: [] }));
+  const assets = [{ path: "shared.pdf", kind: "pdf", hash: "bytes", sensitive: false, visibilityHash: "visibility", sizeBytes: 42 }];
+  const calls: string[] = [];
+  let corrupt = false, assetCorrupt = false, active = 0, maxActive = 0, readerFails = false;
+  const client = {
+    async query(ref: any, args: any): Promise<any> {
+      const name = getFunctionName(ref); calls.push(name);
+      if (name === "sites:getBySlug") return { publishTokenHash: `sha256:${crypto.createHash("sha256").update("fixture").digest("hex")}`,
+        publishRunId: runId, publishLockUntil: Date.now() + 60_000, publishScope: { documents: documents.map(d => d.slug), assets: ["pdf:shared.pdf"] }, config: {} };
+      if (name === "documents:publisherState") {
+        active++; maxActive = Math.max(maxActive, active);
+        await new Promise(resolve => setTimeout(resolve, 1)); active--;
+        return { version: 1, documents: args.slugs.map((slug: string) => ({ slug, exists: true, contentHash: "hash", observedHash: corrupt ? "wrong" : "hash", readerContentConsistent: true, hashFunctionVersion: 3, sensitive: false, sensitiveInclude: [] })),
+          assets: args.assets.map((asset: any) => ({ ...asset, exists: true, hasBlob: true, hasVisibility: true, contentHash: "bytes", visibilityHash: "visibility", observedVisibilityHash: assetCorrupt ? "wrong" : "visibility", sizeBytes: 42 })) };
+      }
+      if (name === "sites:publisherStatus") { if (readerFails) throw Error("Reader unavailable"); return { revision: 7, snapshot: null }; }
+      throw Error(`Unexpected ${name}`);
+    },
+    async mutation(ref: any) { calls.push(getFunctionName(ref)); return { revision: 7 }; },
+  };
+  const body = { siteSlug: "alpha", runId, verification: "content", hashFunctionVersion: 3, documents, assets };
+  const request = (overrides: Record<string, unknown> = {}) => handlePublishRequest({ step: "scoped/complete", client: client as never,
+    request: new Request("http://localhost/api/publish/scoped/complete", { method: "POST", headers: { Authorization: "Bearer fixture", "X-Publisher-Version": "1" }, body: JSON.stringify({ ...body, ...overrides }) }) });
+  expect((await request({ documents: documents.slice(1) })).status).toBe(409);
+  expect((await request({ documents: [...documents.slice(1), documents[1]] })).status).toBe(409);
+  expect((await request({ verification: "skip" })).status).toBe(400);
+  expect((await request({ runId: "scoped:other" })).status).toBe(409);
+  expect(calls).not.toContain("sites:finishPublish");
+  corrupt = true;
+  expect((await request()).status).toBe(500);
+  expect(calls).not.toContain("sites:finishPublish");
+  corrupt = false; assetCorrupt = true;
+  expect((await request()).status).toBe(500);
+  expect(calls).not.toContain("sites:finishPublish");
+  assetCorrupt = false;
+  const response = await request();
+  expect(await response.json()).toEqual({ committed: true, revision: 7, ready: false });
+  expect(maxActive).toBe(2);
+  expect(calls.filter(c => c === "sites:finishPublish")).toHaveLength(1);
+  readerFails = true;
+  expect(await (await request()).json()).toEqual({ committed: true, revision: 7, ready: false });
+  expect(calls).not.toContain("sites:failPublish");
+});

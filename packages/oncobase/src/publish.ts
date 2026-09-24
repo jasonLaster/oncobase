@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import type { DependencyCacheMode } from "./dependency-cache";
 import { randomUUID, createHash } from "node:crypto";
 import { sitePut } from "./blob";
 import { countEmbeddingTokens, embedBatch } from "./embeddings";
@@ -204,6 +205,7 @@ const { values } = parseArgs({ args: process.argv.slice(2), options: {
   site: { type: "string" }, vault: { type: "string" }, profile: { type: "string" }, "no-profile": { type: "boolean" }, "files-from": { type: "string" },
   "doc-concurrency": { type: "string" }, "asset-concurrency": { type: "string" }, "request-timeout-ms": { type: "string", default: "20000" },
   assets: { type: "string" }, embeddings: { type: "string", default: "auto" }, verify: { type: "string" },
+  "cache": { type: "string", default: "content" }, "coordination": { type: "string", default: "auto" },
   "dry-run": { type: "boolean" }, force: { type: "boolean" }, "confirm-full-republish": { type: "boolean" },
   "confirm-large-asset-upload": { type: "boolean" }, "confirm-tombstone": { type: "boolean" },
   "sync-first": { type: "boolean" }, "no-sync-preflight": { type: "boolean" }, "allow-dirty": { type: "boolean" },
@@ -247,6 +249,8 @@ if (!site || values.help) {
   --assets none|referenced|all   Scoped default: referenced; whole-vault default: all
   --embeddings auto|skip|required  Auto requires OPENAI_API_KEY; skip leaves search vectors unchanged
   --verify content|metadata      Scoped default: content; metadata trusts stored content hashes
+  --cache content|metadata|off|refresh  Dependency index (default content); metadata trusts filesystem change indicators
+  --coordination auto|steps     Use server completion when supported, or separate verification/finish/status
   --dry-run                     Read-only plan; no sync, locks, embeddings, or uploads
   --profile <new-file.json>      Override automatic private timing profile under ~/.config/wiki/publish-profiles
   --no-profile                  Explicitly disable local profiling
@@ -262,6 +266,8 @@ if (!site || values.help) {
 if (!["none", "referenced", "all"].includes(assetMode) || (!scope && assetMode !== "all")) throw new Error("--assets none|referenced requires --files-from");
 if (!["auto", "skip", "required"].includes(values.embeddings)) throw new Error("--embeddings must be auto, skip, or required");
 if (!["content", "metadata", "legacy"].includes(verification) || values.verify === "legacy") throw new Error("--verify must be content or metadata");
+if (!["content", "metadata", "off", "refresh"].includes(values.cache)) throw new Error("--cache must be content, metadata, off, or refresh");
+if (!["auto", "steps"].includes(values.coordination)) throw new Error("--coordination must be auto or steps");
 if (syncFirst && noSyncPreflight) throw new Error("--sync-first conflicts with --no-sync-preflight");
 if (dryRun && syncFirst) throw new Error("--dry-run cannot pull files; run sync separately");
 if (scope && values["confirm-tombstone"]) throw new Error("Scoped publishes never infer tombstones");
@@ -301,9 +307,9 @@ if (shouldRunSyncPreflight) {
 }
 
 if (values.embeddings === "required" && !process.env.OPENAI_API_KEY) throw new Error("--embeddings required needs OPENAI_API_KEY");
-console.log(`Publish policy: scope=${scope ? "selected" : "whole-vault"}, assets=${assetMode}, sync=${shouldRunSyncPreflight ? "pull" : "none"}, embeddings=${values.embeddings}, verify=${verification}.`);
+console.log(`Publish policy: scope=${scope ? "selected" : "whole-vault"}, assets=${assetMode}, sync=${shouldRunSyncPreflight ? "pull" : "none"}, embeddings=${values.embeddings}, verify=${verification}, cache=${scope ? values.cache : "off"}, coordination=${values.coordination}.`);
 const { documents, assets } = scope
-  ? readPublishSelection(config.vaultPath, scope, assetMode as AssetMode)
+  ? readPublishSelection(config.vaultPath, scope, assetMode as AssetMode, values.cache as DependencyCacheMode)
   : readVaultSelection(config.vaultPath, { assetMode: assetMode as AssetMode });
 
 if (scope && (documents.length > 1000 || assets.length > 1024)) throw new Error("Scoped publish supports at most 1000 documents and 1024 assets; narrow the scope");
@@ -343,6 +349,7 @@ const begin = (await post(`${config.publishUrl}/${scope ? "scoped/begin" : "begi
 })) as {
   runId: string;
   scoped?: boolean;
+  capabilities?: { complete?: number };
   missingDocumentSlugs: string[];
   missingAssetPaths: string[];
   staleDocumentSlugs?: string[];
@@ -593,7 +600,8 @@ if (skipped.length > 0) {
   throw new Error(`${skipped.length} assets were not published; refusing to report success`);
 }
 
-if (verification !== "legacy") {
+const combinedCompletion = scope && begin.capabilities?.complete === 1 && values.coordination !== "steps";
+if (!combinedCompletion && verification !== "legacy") {
   await publishProfile.span("verify.documents", async () => {
     const state = await readPublishedState({ ...config, token, slugs: documents.map(doc => doc.slug),
       assets: assets.map(asset => ({ path: asset.relativePath, kind: asset.kind })) });
@@ -605,7 +613,13 @@ if (verification !== "legacy") {
   });
 }
 
-const finished = await post<{ ok: boolean; revision?: number }>(`${config.publishUrl}/${scope ? "scoped/finish" : "finish"}`, token, {
+const completion = combinedCompletion ? await post<{ committed: boolean; revision?: number; ready: boolean; documentMismatches?: number; assetMismatches?: number }>(`${config.publishUrl}/scoped/complete`, token, {
+  siteSlug: config.site, runId: begin.runId, verification, hashFunctionVersion: HASH_FUNCTION_VERSION,
+  documents: documents.map(({ slug, hash, sensitive, sensitiveInclude }) => ({ slug, hash, sensitive, sensitiveInclude })),
+  assets: assets.map(({ relativePath, kind, hash, sensitive, visibilityHash, sizeBytes }) => ({ path: relativePath, kind, hash, sensitive, visibilityHash, sizeBytes })),
+}) : undefined;
+if (completion && completion.committed !== true) throw new Error("Server did not confirm completion");
+const finished = completion ?? await post<{ ok: boolean; revision?: number }>(`${config.publishUrl}/${scope ? "scoped/finish" : "finish"}`, token, {
   runId: begin.runId,
   siteSlug: config.site,
   changedDocumentSlugs: changedDocs.map((doc) => doc.slug),
@@ -617,12 +631,14 @@ if (scope) {
   if (!Number.isInteger(finished.revision)) throw new Error("Data committed, but server did not return a reader revision");
   await publishProfile.span("verify.reader", async () => {
     const deadline = Date.now() + 15_000;
+    let first = completion;
     for (;;) {
-      const readiness = await post<{ ready: boolean; documentMismatches?: number; assetMismatches?: number }>(`${config.publishUrl}/status`, token, {
+      const readiness = first ?? await post<{ ready: boolean; documentMismatches?: number; assetMismatches?: number }>(`${config.publishUrl}/status`, token, {
         siteSlug: config.site, minimumRevision: finished.revision,
         documents: documents.map(({ slug, hash, sensitive }) => ({ slug, hash, sensitive })),
         assets: assets.map(({ relativePath, kind, hash, sensitive }) => ({ path: relativePath, kind, hash, sensitive })),
       }, Math.max(1, Math.min(requestTimeoutMs, deadline - Date.now())));
+      first = undefined;
       if (readiness.ready) return;
       if (readiness.documentMismatches || readiness.assetMismatches) throw new Error("Data committed, but the reader manifest differs from the selected publish scope");
       if (Date.now() >= deadline) throw new Error("Data committed, but reader readiness was not confirmed within 15 seconds");

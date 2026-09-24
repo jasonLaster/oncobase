@@ -12,7 +12,7 @@ export type PublishPhase =
   | "http.body" | "http.parse" | "http.begin" | "http.document"
   | "http.asset" | "http.asset-hashes" | "http.document-hashes"
   | "http.finish" | "http.abort" | "http.sync/plan"
-  | "http.sync/documents" | "http.sync/assets" | "http.scoped/abort" | "http.scoped/finish" | "http.scoped/begin" | "http.status" | "http.state" | "http.other"
+  | "http.sync/documents" | "http.sync/assets" | "http.scoped/abort" | "http.scoped/finish" | "http.scoped/complete" | "http.scoped/begin" | "http.status" | "http.state" | "http.other"
   | "verify.reader" | "state.lookup" | "embeddings.tokens" | "retry.cooldown" | "retry.tokens" | "retry.attempt";
 export type ProfileMetric = "items" | "bytes" | "requestBytes" | "responseBytes" | "status"
   | "serverMs" | "rpcSumMs" | "rpcCount" | "authMs" | "lockMs"

@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import { readDependencies, type DependencyCacheMode, type DocumentDependency } from "./dependency-cache";
 import { publishProfile } from "./publish-profile";
 import { isSensitiveFrontmatter, normalizeFrontmatterTags } from "./sensitive-pages";
 
@@ -295,9 +296,8 @@ function vaultFiles(vaultPath: string): Entry[] {
   });
 }
 
-function parseDocumentEntry({ filePath, relativePath }: Entry): DocumentEntry {
+function parseDocumentEntry({ filePath, relativePath }: Entry, raw = fs.readFileSync(filePath, "utf8")): DocumentEntry {
   const slug = relativePath.replace(/\.(?:md|mdx)$/i, "");
-  const raw = fs.readFileSync(filePath, "utf8");
   let data: Record<string, unknown> = {};
   let content = raw;
   try {
@@ -342,19 +342,14 @@ function parseDocumentEntry({ filePath, relativePath }: Entry): DocumentEntry {
 function documentEntries(vaultPath: string, entries = vaultFiles(vaultPath)) {
   return entries
     .filter(({ relativePath }) => DOCUMENT_EXTENSIONS.has(path.extname(relativePath)))
-    .map(parseDocumentEntry);
+    .map(entry => parseDocumentEntry(entry));
 }
 
 export function readVaultDocuments(vaultPath: string): PublishDocument[] {
   return documentEntries(vaultPath).map(({ document }) => document);
 }
 
-function referencedAssetPaths(
-  raw: string,
-  documentPath: string,
-  assetPaths: Set<string>,
-  assetsByBasename: Map<string, string[]>,
-) {
+function extractReferences(raw: string) {
   const references: string[] = [];
   const patterns = [
     /!?\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/gi,
@@ -368,6 +363,12 @@ function referencedAssetPaths(
     }
   }
 
+  return references;
+}
+
+function referencedAssetPaths(
+  references: string[], documentPath: string, assetPaths: Set<string>, assetsByBasename: Map<string, string[]>,
+) {
   const resolved = new Set<string>();
   const documentDir = path.posix.dirname(documentPath);
   for (let reference of references) {
@@ -403,17 +404,34 @@ export function readVaultAssets(vaultPath: string, options: { referencedBy?: Rea
   const entries = publishProfile.sync("assets.inventory", () => vaultFiles(vaultPath));
   const documents = publishProfile.sync("assets.documents", () => entries
     .filter(({ relativePath }) => DOCUMENT_EXTENSIONS.has(path.extname(relativePath)))
-    .map(parseDocumentEntry));
+    .map(entry => parseDocumentEntry(entry)));
   return assetsFromEntries(entries, documents, options);
 }
 
-/** One invocation owns one snapshot. Never reuse this across publish commands:
- * edits outside the scope can change shared-asset ownership and visibility. */
+/** Each invocation refreshes inventory and validates outside-owner dependencies.
+ * Persistence contains metadata only; selected bodies and asset bytes stay fresh. */
 export function readVaultSelection(vaultPath: string, options: {
   slugs?: ReadonlySet<string>; assetMode: "none" | "referenced" | "all";
+  cache?: DependencyCacheMode; cacheDirectory?: string;
 }) {
   const snapshot = publishProfile.sync("scan.documents", () => {
     const entries = vaultFiles(vaultPath);
+    if (options.slugs && options.cache && options.cache !== "off") {
+      const sourceEntries = entries.filter(entry => DOCUMENT_EXTENSIONS.has(path.extname(entry.relativePath)));
+      // Selected source and asset bytes are always fresh, even in metadata mode.
+      const selected = sourceEntries.filter(entry => options.slugs!.has(entry.relativePath.replace(/\.(?:md|mdx)$/i, ""))).map(entry => parseDocumentEntry(entry));
+      const indexed = options.assetMode === "none" ? { dependencies: [], parsedDocuments: 0, reusedDocuments: 0 } : readDependencies({
+        vault: vaultPath, entries: sourceEntries, mode: options.cache, directory: options.cacheDirectory,
+        parse: (relativePath, raw) => {
+          const { document } = parseDocumentEntry({ relativePath, filePath: path.join(vaultPath, relativePath) }, raw);
+          return { relativePath, document: { slug: document.slug, sensitive: document.sensitive, sensitiveInclude: document.sensitiveInclude }, references: extractReferences(raw) };
+        },
+      });
+      publishProfile.metric("items", selected.length);
+      publishProfile.metric("parsedDocuments", indexed.parsedDocuments + selected.length);
+      publishProfile.metric("reusedDocuments", indexed.reusedDocuments);
+      return { entries, parsed: indexed.dependencies, documents: selected.map(entry => entry.document) };
+    }
     const parsed = documentEntries(vaultPath, entries);
     const documents = parsed.map(entry => entry.document).filter(doc => !options.slugs || options.slugs.has(doc.slug));
     publishProfile.metric("items", documents.length);
@@ -432,7 +450,7 @@ export function readVaultSelection(vaultPath: string, options: {
   return { documents: snapshot.documents, assets };
 }
 
-function assetsFromEntries(entries: Entry[], documents: DocumentEntry[], options: { referencedBy?: ReadonlySet<string> }) {
+function assetsFromEntries(entries: Entry[], documents: Array<DocumentEntry | DocumentDependency>, options: { referencedBy?: ReadonlySet<string> }) {
   const assets = (() => {
     const assets: PublishAsset[] = [];
     for (const { filePath, relativePath } of entries) {
@@ -470,9 +488,10 @@ function assetsFromEntries(entries: Entry[], documents: DocumentEntry[], options
     const documentBySlug = new Map(
       documents.map(({ document }) => [document.slug, document]),
     );
-    for (const { document, relativePath, raw } of documents) {
+    for (const entry of documents) {
+      const { document, relativePath } = entry;
       for (const assetPath of referencedAssetPaths(
-        raw,
+        "references" in entry ? entry.references : extractReferences(entry.raw),
         relativePath,
         assetPaths,
         assetsByBasename,
@@ -489,7 +508,7 @@ function assetsFromEntries(entries: Entry[], documents: DocumentEntry[], options
       asset.ownerSlugs = Array.from(owners).sort();
       const ownerDocuments = asset.ownerSlugs
         .map((slug) => documentBySlug.get(slug))
-        .filter((document): document is PublishDocument => Boolean(document));
+        .filter((document): document is DocumentDependency["document"] => Boolean(document));
       asset.sensitive = ownerDocuments.some((document) => document.sensitive);
       asset.sensitiveInclude = Array.from(
         new Set(ownerDocuments.flatMap((document) => document.sensitiveInclude)),
