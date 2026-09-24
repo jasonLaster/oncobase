@@ -1759,5 +1759,33 @@
     "Production no-ops used the actual vault-local command with a transport guard prohibiting content/asset writes",
     "Content-validated dependency cache still reads all outside-owner source bytes; metadata mode trusts filesystem change indicators",
     "Incremental manifest reduces database reads; snapshot parsing, hashing and storage still scale with site size"
-  ]
+  ],
+  "release": {
+    "cliVersion": "0.2.2",
+    "backendCommit": "87580729",
+    "apiCommit": "ae9e0dd9",
+    "productionApiDeployment": "dpl_7ZAL3awNBMC3nhkbDm3pg9TZ5DNj",
+    "finalProductionSmoke": {
+      "mode": "actual-vault-local-command-production-owned-noop-no-content-writes",
+      "samples": [
+        {
+          "repeat": 1,
+          "durationMs": 1326,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 62,
+            "scan.documents": 125,
+            "scan.assets": 0,
+            "http.scoped/begin": 394,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "http.scoped/complete": 570,
+            "verify.reader": 0
+          }
+        }
+      ]
+    }
+  }
 }

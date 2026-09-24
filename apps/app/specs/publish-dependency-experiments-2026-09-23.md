@@ -37,7 +37,8 @@ matched bulk comparison.
 The control checkout was pinned to `875c6727`. A second checkout changed only
 owned-finish scheduling from a one-second delay to immediate scheduling. The
 candidate checkout additionally implemented incremental manifests. The standalone scheduling variant is preserved as an
-[applicable patch against the control](publish-immediate-scheduling-experiment.patch).
+[patch against the control](publish-immediate-scheduling-experiment.patch)
+(apply with `git apply --unidiff-zero` in a checkout of `875c6727`).
 Client `--coordination steps|auto` separately controls the completion protocol. Cache
 strategies use separate cache directories during their rotated local comparison.
 
@@ -114,8 +115,10 @@ or an enforced no-op transport guard. All samples, phases, failures and caveats
 are in [the machine-readable evidence](publish-dependency-experiments-2026-09-23.json).
 
 Production Convex (`youthful-cricket-560`) and the API were deployed from the
-isolated release branch. The initial API deployment is
-`dpl_8TJMZTN2jTeLYtyuL7MdSmBcm9jv`. The isolated development backend was restored to
+isolated release branch. The final API deployment is
+`dpl_7ZAL3awNBMC3nhkbDm3pg9TZ5DNj` from `ae9e0dd9`, including the linear scope
+lookup hardening. Its guarded production no-op smoke passed; the additional
+sample is retained in the JSON release evidence. The isolated development backend was restored to
 the adopted candidate after control comparisons. Diana's project-local dependency
 is a reviewed vendored 0.2.2 tarball; installation with the frozen lockfile passed.
 Public npm publication remains pending authentication. Changes remain in PR #64;
