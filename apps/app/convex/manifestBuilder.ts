@@ -35,6 +35,7 @@ export const build = internalAction({
             const blob = await ctx.storage.get(base.storageId);
             if (blob) {
               const pages: Array<WikiManifestPage | null> = [];
+              // Bound database pressure: each indexed batch may read 16 maximum-size rows.
               for (let offset = 0; offset < delta.slugs.length; offset += 16) {
                 pages.push(...await ctx.runQuery(internal.documents.internal_publisherManifestPages, { siteSlug, slugs: delta.slugs.slice(offset, offset + 16) }));
               }

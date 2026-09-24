@@ -14,7 +14,7 @@ contract, not simply choosing a fashionable storage architecture.
 | --- | --- | --- |
 | Git | Immutable content graph and conditional update of a named release pointer | We have hashes, but mutable current rows and no retained release graph |
 | CRDTs | Convergent concurrent editing | Our publisher coordinates one writer per site and does not merge edits |
-| Bazel | Explicit inputs and reusable derived outputs | We share parsing and snapshots, but do not maintain a persistent dependency/action cache |
+| Bazel | Explicit inputs and reusable derived outputs | We persist validated reference/visibility dependencies and reuse snapshots, without a general action cache |
 | SQLite/WAL and database transactions | Precisely defined commit and read-snapshot boundaries | Each Convex mutation commits separately; the whole publish is not one transaction |
 | Kubernetes controllers | Reconcile desired and observed state; expose readiness separately | We have rebuild scheduling and a readiness poll, not a durable general reconciliation controller |
 
@@ -80,10 +80,11 @@ A future cached embedding needs the prepared input plus model, dimensions and
 preprocessing/chunking versions. A cached redacted page needs source identity and
 redaction-policy version. Missing one input makes a fast cache incorrect.
 
-**Decision:** retain measured low-complexity reuse first. Shared parsing cut the
-mixed local scan median from 1.194 to 0.716 seconds without persistent state.
-A durable dependency graph is justified only if further profiles show enough
-repeated work to pay for its maintenance and private-data retention.
+**Decision:** adopt measured dependency reuse with an explicit validity policy.
+The follow-up comparison reduced a mixed scan from 748 to 411 ms using fresh
+source hashes and persistent metadata; optional filesystem-metadata validation
+reached 236 ms. Selected bodies and asset bytes stay fresh. This remains a small
+reference/visibility index, not a general build system or content-body cache.
 
 ## SQLite/WAL and transactions: distinguish a commit from a checkpoint
 
@@ -166,12 +167,14 @@ application mutation.
 
 1. **Keep the present fast path and make its contract explicit.** Preserve fresh
    verification, scoped ownership, automatic scan reuse and no-op snapshot reuse.
-   Add interleaving tests for builder activity during an owned run; do not infer
-   release isolation from a revision counter that advances only at completion.
-2. **Optimize changed-publish projection reads if profiles justify it.** A small
-   transactionally maintained document-metadata table could avoid reading large
-   bodies to rebuild navigation. Measure end-to-end latency, write amplification,
-   backfill cost and drift repair. This is more targeted than a broad disk cache.
+   Interleaving tests now cover rejection of builder installation during an owned
+   run. This still does not provide release isolation for current-row reader APIs.
+2. **Extend projection reuse only where profiles justify it.** Existing public
+   document-only scopes now patch the previous manifest using indexed metadata
+   reads, with conservative fallback for other changes. Full snapshot hashing and
+   storage remain proportional to site size. Partitioning the snapshot or adding
+   a small metadata table remains a separate experiment with migration and
+   consistency costs.
 3. **Add a publish receipt and remote-base preconditions when review/recovery needs
    demand them.** Distinguish local input fingerprint, reviewed remote base,
    applied revision and verified revision. Whole-site preconditions are simpler
@@ -185,7 +188,7 @@ application mutation.
    conflicts/offline requirements, not against the publish benchmark.
 
 These priorities are recommendations, not measured speedups. The measured evidence
-is in [the cache experiments](../../specs/publish-cache-experiments-2026-09-23.md).
+is in [the dependency experiments](../../specs/publish-dependency-experiments-2026-09-23.md).
 For any candidate, distinguish local scan time, write time, reader-ready time,
 no-op/changed/asset-heavy scopes and fault behavior. A faster acknowledgment is not
 a faster completed publish.

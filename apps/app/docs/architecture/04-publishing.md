@@ -1,7 +1,7 @@
 # 4. Publishing architecture
 
-As inspected on 2026-09-23: CLI 0.2.1, backend changes through `17591b90`, and
-release branch `a1827b2d`. This describes the implemented publish path and its
+As inspected on 2026-09-23: CLI 0.2.2 and dependency-aware backend changes
+through `87580729`. This describes the implemented publish path and its
 reader boundary. Proposed changes are in [the case studies](06-publishing-case-studies.md).
 For the wider application, start with [the overview](01-overview.md).
 
@@ -26,7 +26,7 @@ entire publish into one database transaction or provide automatic merge semantic
 
 ```mermaid
 flowchart LR
-    V["Vault + reviewed path list"] --> C["CLI: parse once / hash / resolve owners"]
+    V["Vault + reviewed path list"] --> C["CLI: validate dependencies / hash / resolve owners"]
     C --> A["Publish API: auth + redaction"]
     C -->|"upload and read back bytes"| B["Vercel Blob"]
     A --> D["Convex: site + document + asset rows"]
@@ -41,10 +41,12 @@ flowchart LR
 
 ## One scoped publish
 
-1. **Read local inputs.** Inventory and parse the vault once. Select the reviewed
-   Markdown paths; resolve referenced assets using all owners, including documents
-   outside the selection. A private co-owner must affect a shared asset's
-   visibility. Hash selected asset bytes. This is an in-memory scan, not an
+1. **Read local inputs.** Refresh the inventory and ignore rules. Read selected
+   Markdown fresh; validate the persistent dependency index for other owners.
+   Content hashing is the default validation; `--cache metadata` explicitly trusts
+   filesystem change indicators. Resolve referenced assets using all owners,
+   including documents outside the selection. A private co-owner must affect a shared asset's
+   visibility. Hash selected asset bytes. This is a scan, not an
    operating-system filesystem snapshot: files can still change while scanning.
 2. **Plan.** A dry-run calls `/scoped/begin` with `dryRun: true`; it does not acquire
    a lock, sync files, upload, embed or finish. A real invocation acquires the
@@ -56,15 +58,18 @@ flowchart LR
    transaction as its write. Scoped omissions never imply deletion. Independent
    mutations bypass the HTTP client's default mutation queue. Optional embeddings
    are generated according to the explicit policy.
-4. **Verify stored data.** `/state` returns bounded selected metadata and computed
-   digests, not document bodies. Default verification compares normalized source,
+4. **Verify stored data.** When supported, `/scoped/complete` performs verification,
+   finish and an initial reader check within one authenticated request. It requires
+   the entire declared scope, using at most two bounded state reads in flight.
+   `--coordination steps` retains separate `/state`, finish and status calls.
+   State queries return selected metadata and computed digests, not document bodies. Default verification compares normalized source,
    redacted reader consistency and asset registration/visibility. Missing or oversized
    source copies cannot pass full content verification; metadata-only verification
    is an explicit weaker policy. New uploads are
    rehashed before upload and downloaded afterward for byte/size verification.
 5. **Finish.** The server's first actual manifest-affecting mutation marks the run
    changed. Changed finish advances the manifest revision and queues a rebuild;
-   a no-op retains the revision and reuses a current-format snapshot with an
+   scoped rebuilds are scheduled immediately. A no-op retains the revision and reuses a current-format snapshot with an
    existing blob. Missing/stale snapshots request repair even after a no-op.
 6. **Confirm reader readiness.** `/status` checks a current revision at least as new
    as the finish result, downloads and hashes the snapshot, and checks selected
@@ -72,10 +77,14 @@ flowchart LR
    file/PDF access and hashes use indexed reader queries. The CLI polls for up to
    15 seconds and reports success only after confirmation.
 
-The builder runs separately: read metadata pages, filter, build the tree, hash,
-serialize, store and install. Installation compares the build's captured revision
+The builder runs separately. For document-only scopes of at most 128 existing
+public pages, it verifies the preceding snapshot and patches only selected page
+metadata using bounded indexed reads. Additions, deletions, sensitive pages, asset
+scopes and invalid bases fall back to reading all metadata and rebuilding the
+tree. Both paths hash, serialize, store and install a complete snapshot. Installation compares the build's captured revision
 and format against current state; stale output is discarded and another build
-requested. Scheduling coalesces requests with a two-minute build lease. The old
+requested. Installation also refuses output while a scoped writer is active.
+Scheduling coalesces requests with a two-minute build lease. The old
 snapshot blob is removed after replacement; this is not a release-history store.
 
 ## Consistency and failure contract
@@ -96,10 +105,9 @@ writes are outside those transactions. [Convex transaction documentation](https:
 Readers can observe partial progress through current-row queries. During an owned
 run, manifest revision invalidation is deferred to completion/abort/expiry. A
 previously scheduled builder can overlap those writes, and its pages are separate
-queries. **Inference from the implementation:** the revision check rejects builds
-that have become obsolete by installation time, but it does not establish a
-single immutable release across all pages, assets and reader requests. This is a
-boundary to test explicitly before promising atomic publication.
+queries. Installation rejects an active scoped writer or an obsolete revision.
+This closes the tested builder/writer overlap but still does not establish a
+single immutable release across current-row APIs, assets and reader requests.
 
 Workers drain before abort. A failed upload or incomplete verification is an
 error, not a skipped success. A failure after finish means data may already be
@@ -124,7 +132,8 @@ immutable, globally deduplicated object store.
 
 | Cached or derived state | Validity rule |
 | --- | --- |
-| Publisher parsed vault | Shared only within one invocation; next invocation reads files again |
+| Publisher dependencies | Persistent reference/visibility metadata; fresh source hashes by default, optional metadata validation, version/integrity checks and atomic replacement |
+| Selected source and asset bytes | Read freshly each invocation; no persistent body or asset-byte hash cache |
 | Server public snapshot | Current site revision, format and available storage; reader verification still checks bytes |
 | Browser read cache | Reader synchronization/authentication rules; not proof that a publish succeeded |
 | Sync download cache | Separate site/vault-keyed asset state under `~/.cache/wiki-sync`; not the publisher's parse cache |
@@ -135,7 +144,7 @@ merge concurrent text edits. Scoped publishing does not sync first unless asked.
 
 ## Controls and observability
 
-Use a pinned project-local CLI. Diana currently uses a reviewed vendored 0.2.1
+Use a pinned project-local CLI. Diana currently uses a reviewed vendored 0.2.2
 package; the public npm release remains pending authentication. A newer global
 command does not upgrade a vault-local dependency.
 
@@ -163,9 +172,10 @@ trace parent for API/RPC work. Asynchronous manifest phases are separate structu
 logs, not yet one joined end-to-end distributed trace. Profiles omit content,
 credentials, URLs and document identifiers.
 
-[Measured cache experiments](../../specs/publish-cache-experiments-2026-09-23.md)
-record production no-ops at 2.20–2.41 seconds and matched synthetic 100-document
-writes at 9.79–10.55 seconds. Read-only benchmarks omit writes/finish and cannot
+[Dependency experiments](../../specs/publish-dependency-experiments-2026-09-23.md)
+record production no-ops at 1.12–1.39 seconds, synthetic one-document writes at
+1.74–1.96 seconds and matched eight-worker bulk medians of 11.38 → 7.46 seconds.
+A 16-worker bulk run hit the backend write quota and is retained as a failure. Read-only benchmarks omit writes/finish and cannot
 measure release readiness. Provider delays and bulk bytes preclude a universal
 20-second promise.
 
@@ -173,7 +183,7 @@ measure release readiness. Provider delays and bulk bytes preclude a universal
 
 | Concern | Code |
 | --- | --- |
-| Scan, normalized identity, ownership | [walk-vault.ts](../../../../packages/oncobase/src/walk-vault.ts), [publish-scope.ts](../../../../packages/oncobase/src/publish-scope.ts) |
+| Scan, normalized identity, ownership | [dependency-cache.ts](../../../../packages/oncobase/src/dependency-cache.ts), [walk-vault.ts](../../../../packages/oncobase/src/walk-vault.ts), [publish-scope.ts](../../../../packages/oncobase/src/publish-scope.ts) |
 | CLI orchestration and verification | [publish.ts](../../../../packages/oncobase/src/publish.ts), [publish-state.ts](../../../../packages/oncobase/src/publish-state.ts) |
 | Protocol/auth/redaction/readiness | [publish-api.ts](../../server/publish-api.ts) |
 | Owned lease and change tracking | [sites.ts](../../convex/sites.ts), [publishRun.ts](../../convex/lib/publishRun.ts) |

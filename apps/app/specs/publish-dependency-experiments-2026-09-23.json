@@ -1,0 +1,1763 @@
+{
+  "date": "2026-09-23",
+  "runtimeCommit": "87580729",
+  "localMixed": {
+    "mode": "local-dependency-strategies",
+    "equivalentOutputs": true,
+    "cacheColdIteration": 0,
+    "filesystemCache": "uncontrolled; rotated strategy order; zero remote calls",
+    "medians": {
+      "off": 748,
+      "content": 411,
+      "metadata": 236
+    },
+    "samples": [
+      {
+        "iteration": 0,
+        "mode": "off",
+        "durationMs": 908,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 0,
+        "mode": "content",
+        "durationMs": 881,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 0,
+        "mode": "metadata",
+        "durationMs": 786,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 1,
+        "mode": "content",
+        "durationMs": 410,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 1,
+        "mode": "metadata",
+        "durationMs": 244,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 1,
+        "mode": "off",
+        "durationMs": 748,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 2,
+        "mode": "metadata",
+        "durationMs": 238,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 2,
+        "mode": "off",
+        "durationMs": 772,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 2,
+        "mode": "content",
+        "durationMs": 411,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 3,
+        "mode": "off",
+        "durationMs": 770,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 3,
+        "mode": "content",
+        "durationMs": 430,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 3,
+        "mode": "metadata",
+        "durationMs": 239,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 4,
+        "mode": "content",
+        "durationMs": 420,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 4,
+        "mode": "metadata",
+        "durationMs": 234,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 4,
+        "mode": "off",
+        "durationMs": 740,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 5,
+        "mode": "metadata",
+        "durationMs": 236,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 5,
+        "mode": "off",
+        "durationMs": 748,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 5,
+        "mode": "content",
+        "durationMs": 414,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 6,
+        "mode": "off",
+        "durationMs": 741,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 6,
+        "mode": "content",
+        "durationMs": 401,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 6,
+        "mode": "metadata",
+        "durationMs": 235,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 7,
+        "mode": "content",
+        "durationMs": 401,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 7,
+        "mode": "metadata",
+        "durationMs": 233,
+        "documents": 1,
+        "assets": 7
+      },
+      {
+        "iteration": 7,
+        "mode": "off",
+        "durationMs": 733,
+        "documents": 1,
+        "assets": 7
+      }
+    ]
+  },
+  "localDocumentOnly": {
+    "mode": "local-dependency-strategies",
+    "equivalentOutputs": true,
+    "assets": "none",
+    "cacheColdIteration": 0,
+    "filesystemCache": "uncontrolled; rotated strategy order; zero remote calls",
+    "medians": {
+      "off": 474,
+      "content": 103,
+      "metadata": 104
+    },
+    "samples": [
+      {
+        "iteration": 0,
+        "mode": "off",
+        "durationMs": 554,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 0,
+        "mode": "content",
+        "durationMs": 107,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 0,
+        "mode": "metadata",
+        "durationMs": 104,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 1,
+        "mode": "content",
+        "durationMs": 102,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 1,
+        "mode": "metadata",
+        "durationMs": 104,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 1,
+        "mode": "off",
+        "durationMs": 520,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 2,
+        "mode": "metadata",
+        "durationMs": 108,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 2,
+        "mode": "off",
+        "durationMs": 519,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 2,
+        "mode": "content",
+        "durationMs": 103,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 3,
+        "mode": "off",
+        "durationMs": 505,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 3,
+        "mode": "content",
+        "durationMs": 108,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 3,
+        "mode": "metadata",
+        "durationMs": 102,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 4,
+        "mode": "content",
+        "durationMs": 103,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 4,
+        "mode": "metadata",
+        "durationMs": 101,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 4,
+        "mode": "off",
+        "durationMs": 474,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 5,
+        "mode": "metadata",
+        "durationMs": 104,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 5,
+        "mode": "off",
+        "durationMs": 460,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 5,
+        "mode": "content",
+        "durationMs": 103,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 6,
+        "mode": "off",
+        "durationMs": 454,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 6,
+        "mode": "content",
+        "durationMs": 104,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 6,
+        "mode": "metadata",
+        "durationMs": 104,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 7,
+        "mode": "content",
+        "durationMs": 104,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 7,
+        "mode": "metadata",
+        "durationMs": 100,
+        "documents": 16,
+        "assets": 0
+      },
+      {
+        "iteration": 7,
+        "mode": "off",
+        "durationMs": 470,
+        "documents": 16,
+        "assets": 0
+      }
+    ]
+  },
+  "cohorts": {
+    "control": {
+      "mode": "local-gateway-real-isolated-cloud-backend",
+      "embeddings": "skip",
+      "cache": "off",
+      "samples": [
+        {
+          "cohort": "control",
+          "scenario": "noop-16",
+          "repeat": 1,
+          "coordination": "steps",
+          "durationMs": 2011,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 38,
+            "scan.assets": 0,
+            "http.scoped/begin": 758,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 202,
+            "http.scoped/finish": 317,
+            "verify.reader": 642
+          }
+        },
+        {
+          "cohort": "control",
+          "scenario": "noop-16",
+          "repeat": 2,
+          "coordination": "steps",
+          "durationMs": 1254,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 348,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 192,
+            "http.scoped/finish": 203,
+            "verify.reader": 432
+          }
+        },
+        {
+          "cohort": "control",
+          "scenario": "noop-16",
+          "repeat": 3,
+          "coordination": "steps",
+          "durationMs": 1311,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 378,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 208,
+            "http.scoped/finish": 203,
+            "verify.reader": 445
+          }
+        },
+        {
+          "cohort": "control",
+          "scenario": "edit-1",
+          "repeat": 1,
+          "coordination": "steps",
+          "durationMs": 7533,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 331,
+            "upload.documents": 275,
+            "upload.assets": 0,
+            "verify.documents": 219,
+            "http.scoped/finish": 216,
+            "verify.reader": 6411
+          }
+        },
+        {
+          "cohort": "control",
+          "scenario": "edit-1",
+          "repeat": 2,
+          "coordination": "steps",
+          "durationMs": 7144,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 312,
+            "upload.documents": 258,
+            "upload.assets": 0,
+            "verify.documents": 215,
+            "http.scoped/finish": 217,
+            "verify.reader": 6054
+          }
+        },
+        {
+          "cohort": "control",
+          "scenario": "edit-1",
+          "repeat": 3,
+          "coordination": "steps",
+          "durationMs": 5833,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 331,
+            "upload.documents": 272,
+            "upload.assets": 0,
+            "verify.documents": 211,
+            "http.scoped/finish": 210,
+            "verify.reader": 4721
+          }
+        },
+        {
+          "cohort": "control",
+          "scenario": "edit-100",
+          "repeat": 1,
+          "coordination": "steps",
+          "durationMs": 9439,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 1115,
+            "upload.documents": 2073,
+            "upload.assets": 0,
+            "verify.documents": 1789,
+            "http.scoped/finish": 200,
+            "verify.reader": 4178
+          }
+        },
+        {
+          "cohort": "control",
+          "scenario": "edit-100",
+          "repeat": 2,
+          "coordination": "steps",
+          "durationMs": 12358,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 1061,
+            "upload.documents": 2274,
+            "upload.assets": 0,
+            "verify.documents": 1595,
+            "http.scoped/finish": 213,
+            "verify.reader": 7127
+          }
+        },
+        {
+          "cohort": "control",
+          "scenario": "edit-100",
+          "repeat": 3,
+          "coordination": "steps",
+          "durationMs": 10326,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 1240,
+            "upload.documents": 1923,
+            "upload.assets": 0,
+            "verify.documents": 1464,
+            "http.scoped/finish": 197,
+            "verify.reader": 5414
+          }
+        }
+      ]
+    },
+    "immediate": {
+      "mode": "local-gateway-real-isolated-cloud-backend",
+      "embeddings": "skip",
+      "cache": "off",
+      "samples": [
+        {
+          "cohort": "immediate",
+          "scenario": "noop-16",
+          "repeat": 1,
+          "coordination": "steps",
+          "durationMs": 1484,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 400,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 202,
+            "http.scoped/finish": 186,
+            "verify.reader": 619
+          }
+        },
+        {
+          "cohort": "immediate",
+          "scenario": "noop-16",
+          "repeat": 2,
+          "coordination": "steps",
+          "durationMs": 2133,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 318,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 185,
+            "http.scoped/finish": 197,
+            "verify.reader": 1342
+          }
+        },
+        {
+          "cohort": "immediate",
+          "scenario": "noop-16",
+          "repeat": 3,
+          "coordination": "steps",
+          "durationMs": 1388,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 13,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 335,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 192,
+            "http.scoped/finish": 187,
+            "verify.reader": 585
+          }
+        },
+        {
+          "cohort": "immediate",
+          "scenario": "edit-1",
+          "repeat": 1,
+          "coordination": "steps",
+          "durationMs": 3793,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 305,
+            "upload.documents": 257,
+            "upload.assets": 0,
+            "verify.documents": 214,
+            "http.scoped/finish": 192,
+            "verify.reader": 2737
+          }
+        },
+        {
+          "cohort": "immediate",
+          "scenario": "edit-1",
+          "repeat": 2,
+          "coordination": "steps",
+          "durationMs": 4221,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 363,
+            "upload.documents": 237,
+            "upload.assets": 0,
+            "verify.documents": 200,
+            "http.scoped/finish": 211,
+            "verify.reader": 3120
+          }
+        },
+        {
+          "cohort": "immediate",
+          "scenario": "edit-1",
+          "repeat": 3,
+          "coordination": "steps",
+          "durationMs": 5964,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 309,
+            "upload.documents": 271,
+            "upload.assets": 0,
+            "verify.documents": 200,
+            "http.scoped/finish": 195,
+            "verify.reader": 4897
+          }
+        },
+        {
+          "cohort": "immediate",
+          "scenario": "edit-100",
+          "repeat": 1,
+          "coordination": "steps",
+          "durationMs": 8209,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 1048,
+            "upload.documents": 1877,
+            "upload.assets": 0,
+            "verify.documents": 1606,
+            "http.scoped/finish": 224,
+            "verify.reader": 3363
+          }
+        },
+        {
+          "cohort": "immediate",
+          "scenario": "edit-100",
+          "repeat": 2,
+          "coordination": "steps",
+          "durationMs": 8612,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 1150,
+            "upload.documents": 2018,
+            "upload.assets": 0,
+            "verify.documents": 1500,
+            "http.scoped/finish": 203,
+            "verify.reader": 3652
+          }
+        },
+        {
+          "cohort": "immediate",
+          "scenario": "edit-100",
+          "repeat": 3,
+          "coordination": "steps",
+          "durationMs": 8012,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 1071,
+            "upload.documents": 2037,
+            "upload.assets": 0,
+            "verify.documents": 1557,
+            "http.scoped/finish": 213,
+            "verify.reader": 3043
+          }
+        }
+      ]
+    },
+    "delta": {
+      "mode": "local-gateway-real-isolated-cloud-backend",
+      "embeddings": "skip",
+      "cache": "off",
+      "samples": [
+        {
+          "cohort": "delta",
+          "scenario": "noop-16",
+          "repeat": 1,
+          "coordination": "steps",
+          "durationMs": 1456,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 401,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 203,
+            "http.scoped/finish": 199,
+            "verify.reader": 569
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "noop-16",
+          "repeat": 1,
+          "coordination": "auto",
+          "durationMs": 1585,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 27,
+            "scan.assets": 0,
+            "http.scoped/begin": 334,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "http.scoped/complete": 1158,
+            "verify.reader": 0
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "noop-16",
+          "repeat": 2,
+          "coordination": "auto",
+          "durationMs": 1153,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 374,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "http.scoped/complete": 689,
+            "verify.reader": 0
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "noop-16",
+          "repeat": 2,
+          "coordination": "steps",
+          "durationMs": 1480,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 13,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 348,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 198,
+            "http.scoped/finish": 244,
+            "verify.reader": 602
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "noop-16",
+          "repeat": 3,
+          "coordination": "steps",
+          "durationMs": 1551,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 380,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 196,
+            "http.scoped/finish": 468,
+            "verify.reader": 418
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "noop-16",
+          "repeat": 3,
+          "coordination": "auto",
+          "durationMs": 1276,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 358,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "http.scoped/complete": 828,
+            "verify.reader": 0
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "edit-1",
+          "repeat": 1,
+          "coordination": "steps",
+          "durationMs": 4537,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 363,
+            "upload.documents": 373,
+            "upload.assets": 0,
+            "verify.documents": 227,
+            "http.scoped/finish": 228,
+            "verify.reader": 3262
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "edit-1",
+          "repeat": 1,
+          "coordination": "auto",
+          "durationMs": 4070,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 27,
+            "scan.assets": 0,
+            "http.scoped/begin": 326,
+            "upload.documents": 269,
+            "upload.assets": 0,
+            "http.scoped/complete": 432,
+            "verify.reader": 2953
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "edit-1",
+          "repeat": 2,
+          "coordination": "auto",
+          "durationMs": 4213,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 316,
+            "upload.documents": 258,
+            "upload.assets": 0,
+            "http.scoped/complete": 424,
+            "verify.reader": 3127
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "edit-1",
+          "repeat": 2,
+          "coordination": "steps",
+          "durationMs": 4129,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 319,
+            "upload.documents": 263,
+            "upload.assets": 0,
+            "verify.documents": 215,
+            "http.scoped/finish": 204,
+            "verify.reader": 3044
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "edit-1",
+          "repeat": 3,
+          "coordination": "steps",
+          "durationMs": 4051,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 27,
+            "scan.assets": 0,
+            "http.scoped/begin": 325,
+            "upload.documents": 268,
+            "upload.assets": 0,
+            "verify.documents": 216,
+            "http.scoped/finish": 213,
+            "verify.reader": 2938
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "edit-1",
+          "repeat": 3,
+          "coordination": "auto",
+          "durationMs": 8568,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 27,
+            "scan.assets": 0,
+            "http.scoped/begin": 401,
+            "upload.documents": 274,
+            "upload.assets": 0,
+            "http.scoped/complete": 658,
+            "verify.reader": 7142
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "edit-100",
+          "repeat": 1,
+          "coordination": "steps",
+          "durationMs": 9720,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 1078,
+            "upload.documents": 2153,
+            "upload.assets": 0,
+            "verify.documents": 1520,
+            "http.scoped/finish": 198,
+            "verify.reader": 4679
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "edit-100",
+          "repeat": 1,
+          "coordination": "auto",
+          "durationMs": 8212,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 1056,
+            "upload.documents": 1968,
+            "upload.assets": 0,
+            "http.scoped/complete": 850,
+            "verify.reader": 4250
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "edit-100",
+          "repeat": 2,
+          "coordination": "auto",
+          "durationMs": 9764,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 13,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 1125,
+            "upload.documents": 1986,
+            "upload.assets": 0,
+            "http.scoped/complete": 804,
+            "verify.reader": 5754
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "edit-100",
+          "repeat": 2,
+          "coordination": "steps",
+          "durationMs": 11646,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 1159,
+            "upload.documents": 2054,
+            "upload.assets": 0,
+            "verify.documents": 1617,
+            "http.scoped/finish": 223,
+            "verify.reader": 6506
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "edit-100",
+          "repeat": 3,
+          "coordination": "steps",
+          "durationMs": 9406,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 1091,
+            "upload.documents": 1949,
+            "upload.assets": 0,
+            "verify.documents": 1506,
+            "http.scoped/finish": 209,
+            "verify.reader": 4559
+          }
+        },
+        {
+          "cohort": "delta",
+          "scenario": "edit-100",
+          "repeat": 3,
+          "coordination": "auto",
+          "durationMs": 8262,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 1124,
+            "upload.documents": 1830,
+            "upload.assets": 0,
+            "http.scoped/complete": 811,
+            "verify.reader": 4409
+          }
+        }
+      ]
+    },
+    "delta-fixed": {
+      "mode": "local-gateway-real-isolated-cloud-backend",
+      "embeddings": "skip",
+      "cache": "off",
+      "samples": [
+        {
+          "cohort": "delta-fixed",
+          "scenario": "noop-16",
+          "repeat": 1,
+          "coordination": "steps",
+          "durationMs": 1511,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 354,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 193,
+            "http.scoped/finish": 199,
+            "verify.reader": 680
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "noop-16",
+          "repeat": 1,
+          "coordination": "auto",
+          "durationMs": 1203,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 334,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "http.scoped/complete": 779,
+            "verify.reader": 0
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "noop-16",
+          "repeat": 2,
+          "coordination": "auto",
+          "durationMs": 1245,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 348,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "http.scoped/complete": 804,
+            "verify.reader": 0
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "noop-16",
+          "repeat": 2,
+          "coordination": "steps",
+          "durationMs": 1282,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 344,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 196,
+            "http.scoped/finish": 199,
+            "verify.reader": 453
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "noop-16",
+          "repeat": 3,
+          "coordination": "steps",
+          "durationMs": 1374,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 342,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "verify.documents": 186,
+            "http.scoped/finish": 206,
+            "verify.reader": 550
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "noop-16",
+          "repeat": 3,
+          "coordination": "auto",
+          "durationMs": 1227,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 324,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "http.scoped/complete": 813,
+            "verify.reader": 1
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "edit-1",
+          "repeat": 1,
+          "coordination": "steps",
+          "durationMs": 3085,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 404,
+            "upload.documents": 249,
+            "upload.assets": 0,
+            "verify.documents": 221,
+            "http.scoped/finish": 199,
+            "verify.reader": 1922
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "edit-1",
+          "repeat": 1,
+          "coordination": "auto",
+          "durationMs": 1955,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 27,
+            "scan.assets": 0,
+            "http.scoped/begin": 343,
+            "upload.documents": 264,
+            "upload.assets": 0,
+            "http.scoped/complete": 428,
+            "verify.reader": 831
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "edit-1",
+          "repeat": 2,
+          "coordination": "auto",
+          "durationMs": 1925,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 340,
+            "upload.documents": 251,
+            "upload.assets": 0,
+            "http.scoped/complete": 427,
+            "verify.reader": 813
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "edit-1",
+          "repeat": 2,
+          "coordination": "steps",
+          "durationMs": 2580,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 323,
+            "upload.documents": 270,
+            "upload.assets": 0,
+            "verify.documents": 211,
+            "http.scoped/finish": 197,
+            "verify.reader": 1490
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "edit-1",
+          "repeat": 3,
+          "coordination": "steps",
+          "durationMs": 2267,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 13,
+            "scan.documents": 27,
+            "scan.assets": 0,
+            "http.scoped/begin": 312,
+            "upload.documents": 381,
+            "upload.assets": 0,
+            "verify.documents": 237,
+            "http.scoped/finish": 214,
+            "verify.reader": 1030
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "edit-1",
+          "repeat": 3,
+          "coordination": "auto",
+          "durationMs": 1735,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 314,
+            "upload.documents": 252,
+            "upload.assets": 0,
+            "http.scoped/complete": 433,
+            "verify.reader": 647
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "edit-100",
+          "repeat": 1,
+          "coordination": "steps",
+          "durationMs": 6677,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 28,
+            "scan.assets": 0,
+            "http.scoped/begin": 1287,
+            "upload.documents": 1867,
+            "upload.assets": 0,
+            "verify.documents": 1443,
+            "http.scoped/finish": 190,
+            "verify.reader": 1798
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "edit-100",
+          "repeat": 1,
+          "coordination": "auto",
+          "durationMs": 5214,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 1039,
+            "upload.documents": 1957,
+            "upload.assets": 0,
+            "http.scoped/complete": 800,
+            "verify.reader": 1339
+          }
+        },
+        {
+          "cohort": "delta-fixed",
+          "scenario": "edit-100",
+          "repeat": 2,
+          "coordination": "auto",
+          "durationMs": 3501,
+          "exit": 1,
+          "success": false,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 1196,
+            "upload.documents": 2010,
+            "http.scoped/abort": 211
+          }
+        }
+      ]
+    },
+    "delta-bulk8": {
+      "mode": "local-gateway-real-isolated-cloud-backend",
+      "embeddings": "skip",
+      "cache": "off",
+      "samples": [
+        {
+          "cohort": "delta-bulk8",
+          "scenario": "edit-100",
+          "repeat": 1,
+          "coordination": "auto",
+          "durationMs": 8303,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 24,
+            "scan.assets": 0,
+            "http.scoped/begin": 1216,
+            "upload.documents": 3479,
+            "upload.assets": 0,
+            "http.scoped/complete": 937,
+            "verify.reader": 2589
+          }
+        },
+        {
+          "cohort": "delta-bulk8",
+          "scenario": "edit-100",
+          "repeat": 2,
+          "coordination": "auto",
+          "durationMs": 7155,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 13,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 1143,
+            "upload.documents": 3286,
+            "upload.assets": 0,
+            "http.scoped/complete": 803,
+            "verify.reader": 1834
+          }
+        },
+        {
+          "cohort": "delta-bulk8",
+          "scenario": "edit-100",
+          "repeat": 3,
+          "coordination": "auto",
+          "durationMs": 7455,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 1216,
+            "upload.documents": 3674,
+            "upload.assets": 0,
+            "http.scoped/complete": 807,
+            "verify.reader": 1664
+          }
+        }
+      ]
+    },
+    "control-bulk8": {
+      "mode": "local-gateway-real-isolated-cloud-backend",
+      "embeddings": "skip",
+      "cache": "off",
+      "samples": [
+        {
+          "cohort": "control-bulk8",
+          "scenario": "edit-100",
+          "repeat": 1,
+          "coordination": "steps",
+          "durationMs": 11195,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 11,
+            "scan.documents": 24,
+            "scan.assets": 0,
+            "http.scoped/begin": 1309,
+            "upload.documents": 3455,
+            "upload.assets": 0,
+            "verify.documents": 1776,
+            "http.scoped/finish": 200,
+            "verify.reader": 4376
+          }
+        },
+        {
+          "cohort": "control-bulk8",
+          "scenario": "edit-100",
+          "repeat": 2,
+          "coordination": "steps",
+          "durationMs": 12378,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 13,
+            "scan.documents": 26,
+            "scan.assets": 0,
+            "http.scoped/begin": 1157,
+            "upload.documents": 3202,
+            "upload.assets": 0,
+            "verify.documents": 1616,
+            "http.scoped/finish": 200,
+            "verify.reader": 6114
+          }
+        },
+        {
+          "cohort": "control-bulk8",
+          "scenario": "edit-100",
+          "repeat": 3,
+          "coordination": "steps",
+          "durationMs": 11379,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 12,
+            "scan.documents": 25,
+            "scan.assets": 0,
+            "http.scoped/begin": 1137,
+            "upload.documents": 3339,
+            "upload.assets": 0,
+            "verify.documents": 1882,
+            "http.scoped/finish": 244,
+            "verify.reader": 4689
+          }
+        }
+      ]
+    },
+    "production": {
+      "mode": "actual-vault-local-command-production-owned-noop-no-content-writes",
+      "samples": [
+        {
+          "repeat": 1,
+          "durationMs": 1392,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 64,
+            "scan.documents": 133,
+            "scan.assets": 0,
+            "http.scoped/begin": 289,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "http.scoped/complete": 405,
+            "verify.reader": 0
+          }
+        },
+        {
+          "repeat": 2,
+          "durationMs": 1157,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 68,
+            "scan.documents": 171,
+            "scan.assets": 0,
+            "http.scoped/begin": 323,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "http.scoped/complete": 405,
+            "verify.reader": 0
+          }
+        },
+        {
+          "repeat": 3,
+          "durationMs": 1117,
+          "exit": 0,
+          "success": true,
+          "phaseMs": {
+            "config": 0,
+            "git.check": 67,
+            "scan.documents": 136,
+            "scan.assets": 0,
+            "http.scoped/begin": 331,
+            "upload.documents": 0,
+            "upload.assets": 0,
+            "http.scoped/complete": 368,
+            "verify.reader": 0
+          }
+        }
+      ]
+    }
+  },
+  "manifestPhases": [
+    {
+      "durationMs": 4053,
+      "succeeded": true,
+      "incremental": false,
+      "phases": {
+        "deltaRead": 692,
+        "read": 2394,
+        "filter": 0,
+        "tree": 281,
+        "hash": 59,
+        "serialize": 58,
+        "store": 420,
+        "install": 23
+      }
+    },
+    {
+      "durationMs": 595,
+      "succeeded": true,
+      "incremental": true,
+      "phases": {
+        "deltaRead": 194,
+        "store": 331,
+        "install": 23
+      }
+    },
+    {
+      "durationMs": 497,
+      "succeeded": true,
+      "incremental": true,
+      "phases": {
+        "deltaRead": 158,
+        "store": 282,
+        "install": 28
+      }
+    },
+    {
+      "durationMs": 446,
+      "succeeded": true,
+      "incremental": true,
+      "phases": {
+        "deltaRead": 148,
+        "store": 244,
+        "install": 24
+      }
+    },
+    {
+      "durationMs": 660,
+      "succeeded": true,
+      "incremental": true,
+      "phases": {
+        "deltaRead": 228,
+        "store": 365,
+        "install": 25
+      }
+    },
+    {
+      "durationMs": 489,
+      "succeeded": true,
+      "incremental": true,
+      "phases": {
+        "deltaRead": 176,
+        "store": 263,
+        "install": 22
+      }
+    },
+    {
+      "durationMs": 490,
+      "succeeded": true,
+      "incremental": true,
+      "phases": {
+        "deltaRead": 164,
+        "store": 276,
+        "install": 21
+      }
+    },
+    {
+      "durationMs": 822,
+      "succeeded": true,
+      "incremental": true,
+      "phases": {
+        "deltaRead": 350,
+        "store": 413,
+        "install": 22
+      }
+    },
+    {
+      "durationMs": 704,
+      "succeeded": true,
+      "incremental": true,
+      "phases": {
+        "deltaRead": 333,
+        "store": 312,
+        "install": 26
+      }
+    },
+    {
+      "durationMs": 4031,
+      "succeeded": true,
+      "incremental": false,
+      "phases": {
+        "read": 2576,
+        "filter": 1,
+        "tree": 382,
+        "hash": 99,
+        "serialize": 41,
+        "store": 391,
+        "install": 24
+      }
+    }
+  ],
+  "limitations": [
+    "Local gateway and real isolated cloud backend; synthetic writes are not production content-write measurements",
+    "Three samples per cohort; backend strategies were sequential cohorts, not randomized alternation",
+    "Final protocol steps/auto order alternated within the incremental cohort",
+    "Initial delta cohort fell back because parsed object key order changed the hash; all samples retained",
+    "Final 16-worker bulk cohort stopped at a TooManyWrites failure; matched bulk comparison uses eight workers",
+    "Production no-ops used the actual vault-local command with a transport guard prohibiting content/asset writes",
+    "Content-validated dependency cache still reads all outside-owner source bytes; metadata mode trusts filesystem change indicators",
+    "Incremental manifest reduces database reads; snapshot parsing, hashing and storage still scale with site size"
+  ]
+}

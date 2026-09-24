@@ -2,6 +2,7 @@
  * and dry-run scoped planning; document/asset/finish/lock calls are impossible.
  * Fixture mode measures local scanning plus a simulated server, not production. */
 import fs from "node:fs";
+import type { DependencyCacheMode } from "../../../packages/oncobase/src/dependency-cache";
 import { createHash } from "node:crypto";
 import { parseArgs } from "node:util";
 import { loadConfig, loadPublishToken } from "../../../packages/oncobase/src/config";
@@ -14,6 +15,7 @@ import { hashDocument, HASH_FUNCTION_VERSION } from "../../../packages/oncobase/
 const { values } = parseArgs({ options: {
   site: { type: "string" }, vault: { type: "string" }, "files-from": { type: "string" },
   profile: { type: "string" }, output: { type: "string" },
+  cache: { type: "string", default: "content" },
   scenario: { type: "string", default: "documents" },
   transport: { type: "string", default: "http" }, repeat: { type: "string", default: "3" },
   "fixture-latency-ms": { type: "string", default: "0" },
@@ -22,6 +24,7 @@ const { values } = parseArgs({ options: {
 if (!values.site || !values["files-from"] || !values.profile || !values.output) {
   throw new Error("Usage: bun apps/app/scripts/benchmark-local-publish.ts --site <site> --files-from <paths.json> --profile <new.json> --output <new.json> [--scenario no-op|documents|mixed|large] [--transport http|fixture] [--repeat 3] [--vault <path>] [--budget-ms 20000]");
 }
+if (!["content", "metadata", "off", "refresh"].includes(values.cache)) throw new Error("Invalid cache policy");
 if (!["no-op", "documents", "mixed", "large"].includes(values.scenario)) throw new Error("Unknown benchmark scenario");
 if (!["http", "fixture"].includes(values.transport)) throw new Error("Unknown benchmark transport");
 const repeat = Number(values.repeat), budgetMs = Number(values["budget-ms"]), latencyMs = Number(values["fixture-latency-ms"]);
@@ -38,7 +41,7 @@ const samples: Array<Record<string, unknown> & { durationMs: number }> = [];
 
 for (let run = 0; run < repeat; run++) {
   const started = performance.now();
-  const { documents, assets } = readPublishSelection(values.vault ?? config.vaultPath, scope, assetMode);
+  const { documents, assets } = readPublishSelection(values.vault ?? config.vaultPath, scope, assetMode, values.cache as DependencyCacheMode);
   if (values.scenario === "large" && documents.length < 100) throw new Error("The large scenario requires at least 100 selected documents");
   if (values.scenario === "mixed" && !assets.length) throw new Error("The mixed scenario requires referenced assets");
   if (documents.length > 1000 || assets.length > 1024) throw new Error("Narrow the benchmark scope to 1000 documents / 1024 assets");
@@ -64,10 +67,14 @@ for (let run = 0; run < repeat; run++) {
     const body = await request.json();
     const route = new URL(request.url).pathname;
     if (request.method !== "POST") return new Response("Read-only benchmark", { status: 405 });
-    if (route === "/api/publish/state") return Response.json({ version: 1,
-      documents: fixtureState.documents.filter(doc => body.slugs.includes(doc.slug)),
-      assets: fixtureState.assets.filter(asset => body.assets.some((a: { path: string; kind: string }) => a.path === asset.path && a.kind === asset.kind)),
-    });
+    if (route === "/api/publish/state") {
+      const requestedSlugs = new Set<string>(body.slugs);
+      const requestedAssets = new Set(body.assets.map((asset: { path: string; kind: string }) => `${asset.kind}:${asset.path}`));
+      return Response.json({ version: 1,
+        documents: fixtureState.documents.filter(doc => requestedSlugs.has(doc.slug)),
+        assets: fixtureState.assets.filter(asset => requestedAssets.has(`${asset.kind}:${asset.path}`)),
+      });
+    }
     if (route !== "/api/publish/scoped/begin" || body.dryRun !== true) return new Response("Read-only benchmark", { status: 403 });
     return Response.json({ scoped: true,
       missingDocumentSlugs: candidates.filter(doc => fixtureHashes.get(doc.slug) !== doc.hash).map(doc => doc.slug),
@@ -104,7 +111,7 @@ for (let run = 0; run < repeat; run++) {
 }
 const sorted = samples.map(sample => sample.durationMs).sort((a, b) => a - b);
 const snapshot = profile.snapshot();
-const summary = { mode: "read-only", transport: values.transport, scenario: values.scenario, assetMode,
+const summary = { mode: "read-only", transport: values.transport, scenario: values.scenario, cache: values.cache, assetMode,
   fixtureLatencyMs: values.transport === "fixture" ? latencyMs : null,
   budgetMs, allWithinBudget: sorted.every(ms => ms <= budgetMs),
   firstMs: samples[0].durationMs, medianMs: sorted[Math.floor(sorted.length / 2)], maxMs: sorted.at(-1),

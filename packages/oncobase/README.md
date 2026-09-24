@@ -96,20 +96,20 @@ overhead of that workflow, **not** a completed publication.
 
 ## Scoped publishing and performance trade-offs
 
-These additions are in source and require the matching backend deployment and
-CLI release 0.2.0; npm version 0.1.4 does not provide them. The examples pin 0.2.0
-so an older CLI cannot silently ignore scope flags. Until that version is
-published, run the source CLI or the locally built package. A scoped publish uses a new
-endpoint and fails closed on an old backend instead of sending a partial
-manifest to the old whole-vault endpoint.
+Scoped publishing requires CLI 0.2.0 or newer; dependency-aware publishing below
+requires 0.2.2 and the matching backend. Diana pins a reviewed vendored 0.2.2
+package while npm publication awaits authentication. The examples invoke the
+project-local binary so an older global command cannot silently determine the
+workflow. Scoped publishing fails closed on an old backend rather than sending
+a partial manifest to its whole-vault endpoint.
 
 For routine edits, save reviewed vault-relative paths as a JSON array, for
 example `["wiki/home.md", "wiki/care/overview.md"]`, outside the vault. Use the
 same scope and policies for the plan and the publish:
 
 ```sh
-npx @oncobase/oncobase@0.2.0 publish --site acme --files-from /tmp/release.json --assets referenced --dry-run
-npx @oncobase/oncobase@0.2.0 publish --site acme --files-from /tmp/release.json --assets referenced
+./node_modules/.bin/oncobase publish --site acme --files-from /tmp/release.json --assets referenced --dry-run
+./node_modules/.bin/oncobase publish --site acme --files-from /tmp/release.json --assets referenced
 ```
 
 The command prints its effective policy. Unknown arguments and conflicting
@@ -157,10 +157,10 @@ verification there. Failed/skipped assets and incomplete metadata backfills now
 fail publication rather than reporting success. Active workers drain before an
 error triggers abort.
 
-## Dependency-aware publishing (source candidate)
+## Dependency-aware publishing (0.2.2)
 
-The dependency index and combined completion require this source candidate; the
-installed 0.2.1 package does not include them yet. Indexes live under
+The dependency index and combined completion require CLI 0.2.2. Diana uses a
+reviewed vendored package while public npm publication awaits authentication. Indexes live under
 `~/.cache/oncobase-publish/`, keyed by the vault's real path. They store private
 reference/visibility metadata, never document bodies or credentials, in atomic
 0600 files. Missing, corrupt, incompatible or unwritable caches fall back to fresh

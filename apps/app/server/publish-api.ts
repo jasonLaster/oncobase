@@ -772,7 +772,10 @@ export async function handlePublishRequest({
         return new Response("Invalid completion scope or verification policy", { status: 400 });
       }
       assertPublishRun(site, body.runId);
-      const sameScope = (expected: string[], actual: string[]) => expected.length === actual.length && new Set(actual).size === actual.length && expected.every(value => actual.includes(value));
+      const sameScope = (expected: string[], actual: string[]) => {
+        const selected = new Set(actual);
+        return expected.length === actual.length && selected.size === actual.length && expected.every(value => selected.has(value));
+      };
       if (!site.publishScope || !sameScope(site.publishScope.documents, body.documents.map((doc: any) => doc.slug)) ||
           !sameScope(site.publishScope.assets, body.assets.map(assetKey))) {
         return new Response("Completion must verify the entire declared scope", { status: 409 });
