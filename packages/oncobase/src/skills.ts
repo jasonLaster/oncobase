@@ -8,11 +8,13 @@ const DEFAULT_SKILLS = ["wiki-quickstart", "check"];
 function skillSourceRoot() {
   const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const candidates = [
+    // Updating the CLI must update its bundled workflows too. A vault's old
+    // destination cannot take precedence over the newly installed source.
+    path.join(packageRoot, "skills"),
     path.resolve(process.cwd(), ".claude", "skills"),
     path.resolve(process.cwd(), ".agents", "skills"),
     path.resolve(process.cwd(), "..", ".claude", "skills"),
     path.resolve(process.cwd(), "..", ".agents", "skills"),
-    path.join(packageRoot, "skills"),
   ];
   return candidates.find((candidate) => fs.existsSync(candidate));
 }

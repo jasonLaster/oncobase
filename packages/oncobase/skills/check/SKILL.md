@@ -16,6 +16,21 @@ Use this skill when a user asks whether a vault is ready to publish or asks for 
 
 ## Commands
 
+For an installed CLI/backend that support `--files-from`, prefer the exact
+reviewed scope and asset policy that will be published. Keep the JSON path list
+outside the vault; `--dry-run` is read-only:
+
+```sh
+npx @oncobase/oncobase@0.2.0 publish --site <slug> --files-from /tmp/release.json --assets referenced --dry-run
+```
+
+Use `--assets none` only for known document-only edits. Preserve the scope and
+policy arguments on the actual publish command; do not fall back to a broad
+publish when the scoped endpoint is unavailable. Check `publish --help` for
+support (these options were added after npm version 0.1.4).
+
+Whole-vault checks:
+
 ```sh
 git status --short
 npx oncobase check --site <slug>

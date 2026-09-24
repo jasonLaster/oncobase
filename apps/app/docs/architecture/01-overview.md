@@ -14,3 +14,5 @@ Oncobase is a multi-site wiki and AI assistant. Authors publish an Obsidian-styl
 Vercel Functions and the standalone Bun server use the same HTTP handlers. There is no Next runtime or separate content-source web app.
 
 Continue to [request flow](02-request-flow.md), [data model](03-data-model.md), [publishing](04-publishing.md), or [chat and search](05-chat-and-search.md).
+
+For publishing design decisions, see [the architecture case studies](06-publishing-case-studies.md).

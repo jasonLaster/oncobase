@@ -1,0 +1,599 @@
+{
+  "date": "2026-09-22",
+  "mode": "production-local-cli",
+  "appDeployment": "dpl_33bsVTd7LydAFssJ23i7XBVTLjWC",
+  "appSourceCommit": "cfff71838cbfe14abb4d8dda6acf9f9cfe4abf90",
+  "backendCommit": "7459003d",
+  "readOnly": {
+    "no-op": {
+      "mode": "read-only",
+      "transport": "http",
+      "scenario": "no-op",
+      "assetMode": "none",
+      "fixtureLatencyMs": null,
+      "budgetMs": 20000,
+      "allWithinBudget": true,
+      "firstMs": 964,
+      "medianMs": 828,
+      "maxMs": 964,
+      "decodedResponseBytes": 12603,
+      "httpRequests": 6,
+      "omitted": [
+        "lock acquisition",
+        "writes",
+        "blob uploads",
+        "finish",
+        "embeddings",
+        "post-finish reader visibility"
+      ],
+      "samples": [
+        {
+          "iteration": 1,
+          "durationMs": 964,
+          "scanMs": 571,
+          "planMs": 234,
+          "verifyMs": 159,
+          "documents": 16,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 0,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 2,
+          "durationMs": 828,
+          "scanMs": 483,
+          "planMs": 183,
+          "verifyMs": 162,
+          "documents": 16,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 0,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 3,
+          "durationMs": 743,
+          "scanMs": 441,
+          "planMs": 148,
+          "verifyMs": 154,
+          "documents": 16,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 0,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        }
+      ]
+    },
+    "documents": {
+      "mode": "read-only",
+      "transport": "http",
+      "scenario": "documents",
+      "assetMode": "none",
+      "fixtureLatencyMs": null,
+      "budgetMs": 20000,
+      "allWithinBudget": true,
+      "firstMs": 885,
+      "medianMs": 817,
+      "maxMs": 885,
+      "decodedResponseBytes": 15495,
+      "httpRequests": 6,
+      "omitted": [
+        "lock acquisition",
+        "writes",
+        "blob uploads",
+        "finish",
+        "embeddings",
+        "post-finish reader visibility"
+      ],
+      "samples": [
+        {
+          "iteration": 1,
+          "durationMs": 885,
+          "scanMs": 539,
+          "planMs": 201,
+          "verifyMs": 144,
+          "documents": 16,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 16,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 2,
+          "durationMs": 817,
+          "scanMs": 481,
+          "planMs": 165,
+          "verifyMs": 170,
+          "documents": 16,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 16,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 3,
+          "durationMs": 780,
+          "scanMs": 448,
+          "planMs": 172,
+          "verifyMs": 159,
+          "documents": 16,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 16,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        }
+      ]
+    },
+    "mixed": {
+      "mode": "read-only",
+      "transport": "http",
+      "scenario": "mixed",
+      "assetMode": "referenced",
+      "fixtureLatencyMs": null,
+      "budgetMs": 20000,
+      "allWithinBudget": true,
+      "firstMs": 1618,
+      "medianMs": 1454,
+      "maxMs": 1618,
+      "decodedResponseBytes": 11535,
+      "httpRequests": 6,
+      "omitted": [
+        "lock acquisition",
+        "writes",
+        "blob uploads",
+        "finish",
+        "embeddings",
+        "post-finish reader visibility"
+      ],
+      "samples": [
+        {
+          "iteration": 1,
+          "durationMs": 1618,
+          "scanMs": 1233,
+          "planMs": 234,
+          "verifyMs": 151,
+          "documents": 1,
+          "assets": 7,
+          "assetBytesHashed": 2297341,
+          "plannedDocuments": 1,
+          "plannedAssets": 7,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 2,
+          "durationMs": 1434,
+          "scanMs": 1123,
+          "planMs": 163,
+          "verifyMs": 148,
+          "documents": 1,
+          "assets": 7,
+          "assetBytesHashed": 2297341,
+          "plannedDocuments": 1,
+          "plannedAssets": 7,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 3,
+          "durationMs": 1454,
+          "scanMs": 1138,
+          "planMs": 161,
+          "verifyMs": 156,
+          "documents": 1,
+          "assets": 7,
+          "assetBytesHashed": 2297341,
+          "plannedDocuments": 1,
+          "plannedAssets": 7,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        }
+      ]
+    },
+    "large": {
+      "mode": "read-only",
+      "transport": "http",
+      "scenario": "large",
+      "assetMode": "none",
+      "fixtureLatencyMs": null,
+      "budgetMs": 20000,
+      "allWithinBudget": true,
+      "firstMs": 2080,
+      "medianMs": 2080,
+      "maxMs": 2103,
+      "decodedResponseBytes": 88335,
+      "httpRequests": 24,
+      "omitted": [
+        "lock acquisition",
+        "writes",
+        "blob uploads",
+        "finish",
+        "embeddings",
+        "post-finish reader visibility"
+      ],
+      "samples": [
+        {
+          "iteration": 1,
+          "durationMs": 2080,
+          "scanMs": 548,
+          "planMs": 323,
+          "verifyMs": 1203,
+          "documents": 100,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 100,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 2,
+          "durationMs": 1849,
+          "scanMs": 483,
+          "planMs": 267,
+          "verifyMs": 1093,
+          "documents": 100,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 100,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        },
+        {
+          "iteration": 3,
+          "durationMs": 2103,
+          "scanMs": 462,
+          "planMs": 374,
+          "verifyMs": 1261,
+          "documents": 100,
+          "assets": 0,
+          "assetBytesHashed": 0,
+          "plannedDocuments": 100,
+          "plannedAssets": 0,
+          "baselineDocumentMismatches": 0,
+          "baselineAssetMismatches": 0
+        }
+      ]
+    }
+  },
+  "noChangePublish": {
+    "mode": "production-owned-noop-no-content-writes",
+    "command": "bun run wiki:publish",
+    "samples": [
+      {
+        "repeat": 1,
+        "durationMs": 11830,
+        "exit": 0,
+        "success": true,
+        "topLevelPhases": [
+          {
+            "name": "config",
+            "durationMs": 0.1233749999999958,
+            "outcome": "ok",
+            "metrics": {}
+          },
+          {
+            "name": "git.check",
+            "durationMs": 58.04691699999999,
+            "outcome": "ok",
+            "metrics": {}
+          },
+          {
+            "name": "scan.documents",
+            "durationMs": 825.470834,
+            "outcome": "ok",
+            "metrics": {
+              "items": 16
+            }
+          },
+          {
+            "name": "scan.assets",
+            "durationMs": 0.0362920000000031,
+            "outcome": "ok",
+            "metrics": {
+              "items": 0,
+              "bytes": 0
+            }
+          },
+          {
+            "name": "http.scoped/begin",
+            "durationMs": 419.48187500000006,
+            "outcome": "ok",
+            "metrics": {
+              "requestBytes": 2004,
+              "status": 200,
+              "serverMs": 187.8,
+              "rpcSumMs": 184.6,
+              "authMs": 53.2,
+              "lockMs": 52.9,
+              "stateMs": 78.9,
+              "rpcCount": 3,
+              "responseBytes": 237
+            }
+          },
+          {
+            "name": "upload.documents",
+            "durationMs": 0.10333300000002055,
+            "outcome": "ok",
+            "metrics": {}
+          },
+          {
+            "name": "upload.assets",
+            "durationMs": 0.033166000000164786,
+            "outcome": "ok",
+            "metrics": {}
+          },
+          {
+            "name": "verify.documents",
+            "durationMs": 187.12904200000003,
+            "outcome": "ok",
+            "metrics": {
+              "items": 16
+            }
+          },
+          {
+            "name": "http.scoped/finish",
+            "durationMs": 193.54533400000014,
+            "outcome": "ok",
+            "metrics": {
+              "requestBytes": 144,
+              "status": 200,
+              "serverMs": 53.6,
+              "rpcSumMs": 52.9,
+              "authMs": 17.1,
+              "rpcCount": 2,
+              "responseBytes": 51
+            }
+          },
+          {
+            "name": "verify.reader",
+            "durationMs": 9952.085,
+            "outcome": "ok",
+            "metrics": {}
+          }
+        ]
+      },
+      {
+        "repeat": 2,
+        "durationMs": 13327,
+        "exit": 0,
+        "success": true,
+        "topLevelPhases": [
+          {
+            "name": "config",
+            "durationMs": 0.815250000000006,
+            "outcome": "ok",
+            "metrics": {}
+          },
+          {
+            "name": "git.check",
+            "durationMs": 54.775625000000005,
+            "outcome": "ok",
+            "metrics": {}
+          },
+          {
+            "name": "scan.documents",
+            "durationMs": 799.737667,
+            "outcome": "ok",
+            "metrics": {
+              "items": 16
+            }
+          },
+          {
+            "name": "scan.assets",
+            "durationMs": 0.03212499999995089,
+            "outcome": "ok",
+            "metrics": {
+              "items": 0,
+              "bytes": 0
+            }
+          },
+          {
+            "name": "http.scoped/begin",
+            "durationMs": 345.41891699999985,
+            "outcome": "ok",
+            "metrics": {
+              "requestBytes": 2004,
+              "status": 200,
+              "serverMs": 134.2,
+              "rpcSumMs": 133.3,
+              "authMs": 19.9,
+              "lockMs": 36.6,
+              "stateMs": 77,
+              "rpcCount": 3,
+              "responseBytes": 237
+            }
+          },
+          {
+            "name": "upload.documents",
+            "durationMs": 0.10016700000005585,
+            "outcome": "ok",
+            "metrics": {}
+          },
+          {
+            "name": "upload.assets",
+            "durationMs": 0.03366700000015044,
+            "outcome": "ok",
+            "metrics": {}
+          },
+          {
+            "name": "verify.documents",
+            "durationMs": 174.65504099999998,
+            "outcome": "ok",
+            "metrics": {
+              "items": 16
+            }
+          },
+          {
+            "name": "http.scoped/finish",
+            "durationMs": 317.8722500000001,
+            "outcome": "ok",
+            "metrics": {
+              "requestBytes": 144,
+              "status": 200,
+              "serverMs": 54.6,
+              "rpcSumMs": 54.1,
+              "authMs": 20.2,
+              "rpcCount": 2,
+              "responseBytes": 51
+            }
+          },
+          {
+            "name": "verify.reader",
+            "durationMs": 11417.487792,
+            "outcome": "ok",
+            "metrics": {}
+          }
+        ]
+      },
+      {
+        "repeat": 3,
+        "durationMs": 13462,
+        "exit": 0,
+        "success": true,
+        "topLevelPhases": [
+          {
+            "name": "config",
+            "durationMs": 0.11350000000000193,
+            "outcome": "ok",
+            "metrics": {}
+          },
+          {
+            "name": "git.check",
+            "durationMs": 55.015541999999996,
+            "outcome": "ok",
+            "metrics": {}
+          },
+          {
+            "name": "scan.documents",
+            "durationMs": 794.9315419999999,
+            "outcome": "ok",
+            "metrics": {
+              "items": 16
+            }
+          },
+          {
+            "name": "scan.assets",
+            "durationMs": 0.031083999999964362,
+            "outcome": "ok",
+            "metrics": {
+              "items": 0,
+              "bytes": 0
+            }
+          },
+          {
+            "name": "http.scoped/begin",
+            "durationMs": 319.56158400000004,
+            "outcome": "ok",
+            "metrics": {
+              "requestBytes": 2004,
+              "status": 200,
+              "serverMs": 134.1,
+              "rpcSumMs": 133.3,
+              "authMs": 14.8,
+              "lockMs": 40.7,
+              "stateMs": 78.1,
+              "rpcCount": 3,
+              "responseBytes": 237
+            }
+          },
+          {
+            "name": "upload.documents",
+            "durationMs": 0.09262499999999818,
+            "outcome": "ok",
+            "metrics": {}
+          },
+          {
+            "name": "upload.assets",
+            "durationMs": 0.03275000000007822,
+            "outcome": "ok",
+            "metrics": {}
+          },
+          {
+            "name": "verify.documents",
+            "durationMs": 143.60633299999995,
+            "outcome": "ok",
+            "metrics": {
+              "items": 16
+            }
+          },
+          {
+            "name": "http.scoped/finish",
+            "durationMs": 167.2460000000001,
+            "outcome": "ok",
+            "metrics": {
+              "requestBytes": 144,
+              "status": 200,
+              "serverMs": 53,
+              "rpcSumMs": 52.4,
+              "authMs": 15.8,
+              "rpcCount": 2,
+              "responseBytes": 51
+            }
+          },
+          {
+            "name": "verify.reader",
+            "durationMs": 11773.475542,
+            "outcome": "ok",
+            "metrics": {}
+          }
+        ]
+      }
+    ]
+  },
+  "firstNoChangeAttempt": {
+    "durationMs": 17953,
+    "success": false,
+    "reason": "reader readiness deadline; snapshot read timed out scanning deleted document bodies",
+    "snapshotDurationMs": 20884,
+    "snapshotReadMs": 20319
+  },
+  "snapshotSamples": [
+    {
+      "durationMs": 8181,
+      "phases": {
+        "read": 7611,
+        "filter": 1,
+        "tree": 78,
+        "hash": 47,
+        "serialize": 39,
+        "store": 301,
+        "install": 26
+      }
+    },
+    {
+      "durationMs": 9633,
+      "phases": {
+        "read": 7941,
+        "filter": 1,
+        "tree": 291,
+        "hash": 242,
+        "serialize": 100,
+        "store": 527,
+        "install": 49
+      }
+    }
+  ],
+  "limitations": [
+    "Read-only scenarios omit locks, writes, uploads, embeddings, finish and reader readiness",
+    "Production full publishes were owned no-ops with a transport guard rejecting all document and asset write endpoints",
+    "Actual content and upload benchmarks used synthetic isolated infrastructure",
+    "No production clinical content was changed",
+    "CLI 0.2.0 installed in Diana from vendored reviewed package; npm registry release remains pending authentication",
+    "Bulk bytes and provider throttling remain outside a universal 20 second guarantee"
+  ]
+}

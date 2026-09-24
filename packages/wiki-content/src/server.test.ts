@@ -437,3 +437,31 @@ describe("wiki session selection", () => {
     await expect(createWikiSessionResponse(request("scope=session&fallback=public"), context)).rejects.toThrow("Session unavailable");
   });
 });
+
+test("indexed manifest trees preserve file/directory collisions and report fixed phases", async () => {
+  const { context } = manifestContext();
+  const slugs = ["same", "same/child", "nested/item/child", "nested/item", "same", "tree/leaf"];
+  context.documents.listManifestPage = async () => ({ page: slugs.map(slug => ({ slug, title: slug, tags: [], description: null, contentHash: "hash", sensitive: false, size: 1 })), isDone: true, continueCursor: null });
+  context.documents.listPdfAssetVisibilityPage = async () => ({ page: ["same.pdf", "same/child.pdf", "nested/item.pdf", "tree.pdf"].map(path => ({ path, ownerSlugs: [], sensitive: false })), isDone: true, continueCursor: null });
+  const phases: string[] = [];
+  context.onManifestPhase = (name, ms) => { phases.push(name); expect(ms).toBeGreaterThanOrEqual(0); };
+  const body = await (await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context)).json();
+  expect(body.compactTree).toEqual([
+    ["d", "nested", [["d", "item", [["f", "child"]]], ["p", "item"]]],
+    ["d", "same", [["p", "child"]]], ["d", "tree", [["f", "leaf"], ["p", "tree", "tree.pdf"]]], ["p", "same"],
+  ]);
+  expect(phases).toEqual(["read", "filter", "tree", "hash", "serialize"]);
+  context.onManifestPhase = () => { throw new Error("observer failed"); };
+  expect((await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context)).status).toBe(200);
+});
+
+test("wide manifest folders retain all pages and PDF paths", async () => {
+  const { context } = manifestContext();
+  context.documents.listManifestPage = async () => ({ page: Array.from({ length: 7011 }, (_, i) => ({ slug: `wide/page-${i}`, title: "Synthetic", tags: [], description: null, contentHash: "hash", sensitive: false, size: 1 })), isDone: true, continueCursor: null });
+  context.documents.listPdfAssetVisibilityPage = async () => ({ page: Array.from({ length: 11000 }, (_, i) => ({ path: `wide/attachment-${i}.pdf`, ownerSlugs: [], sensitive: false })), isDone: true, continueCursor: null });
+  const body = await (await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context)).json();
+  expect(body.compactTree).toHaveLength(1);
+  expect(body.compactTree[0][2]).toHaveLength(18011);
+  expect(body.pages).toHaveLength(7011);
+  expect(body.assets).toHaveLength(11000);
+});

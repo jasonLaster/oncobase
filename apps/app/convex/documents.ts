@@ -1,3 +1,4 @@
+import { internalQuery } from "./_generated/server";
 import { internalQueryFor } from "./lib/serviceFunctions";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
@@ -10,9 +11,11 @@ import {
 } from "./lib/serviceFunctions";
 import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 import { invalidateManifest } from "./lib/manifestRevision";
+import { assertPublishRun, recordPublishChange } from "./lib/publishRun";
 import { hasCompleteAssetVisibility } from "./lib/assetVisibility";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
+import { applyPiiRedactions, parseSitePiiPatterns } from "@oncobase/wiki-content/pii";
 
 // Multi-tenant scoping: every public function takes an optional
 // `siteSlug` argument. During the Diana migration window, omitting it
@@ -430,16 +433,30 @@ export const listManifestPage = query({
   },
   handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    // Public manifests used to paginate every document and discard restricted
-    // rows afterward. The existing sensitivity index skips those reads entirely.
-    // Convex orders undefined before booleans: `< true` includes both legacy
-    // unset and explicit false values, matching canReadDocument's semantics.
-    const result = !includeSensitive && site.siteId
+    // Deleted documents retain large bodies. Exclude them in the index, before
+    // pagination's byte limit. Keep legacy deletedAt=0 semantics through a second
+    // indexed partition; opaque cursors carry both partition and native cursor.
+    let partition = 0;
+    let nativeCursor: string | null = null;
+    if (cursor) {
+      const parsed: unknown = JSON.parse(cursor);
+      if (!Array.isArray(parsed) || parsed.length !== 3 || parsed[0] !== "manifest-v2" ||
+          ![0, 1].includes(parsed[1]) || (parsed[2] !== null && typeof parsed[2] !== "string")) {
+        throw new Error("Invalid manifest cursor");
+      }
+      partition = parsed[1];
+      nativeCursor = parsed[2];
+    }
+    const result = site.siteId
       ? await ctx.db.query("documents")
-          .withIndex("by_site_sensitive_slug", (q) =>
-            q.eq("siteId", site.siteId!).lt("sensitive", true))
-          .paginate({ cursor, numItems })
-      : await paginatedDocs(ctx, site, cursor, numItems);
+          .withIndex("by_site_deleted_sensitive_slug", (q) => {
+            const active = q.eq("siteId", site.siteId!).eq("deletedAt", partition === 0 ? undefined : 0);
+            // Undefined and false sensitivity both remain publicly readable.
+            return includeSensitive ? active : active.lt("sensitive", true);
+          })
+          .paginate({ cursor: nativeCursor, numItems })
+      : { page: [], isDone: true, continueCursor: "" };
+    const nextPartition = result.isDone ? partition + 1 : partition;
     return {
       page: result.page
         .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
@@ -452,8 +469,8 @@ export const listManifestPage = query({
           sensitive: sensitive === true,
           size: sizeBytes ?? content.length,
         })),
-      isDone: result.isDone,
-      continueCursor: result.continueCursor,
+      isDone: result.isDone && (partition === 1 || !site.siteId),
+      continueCursor: JSON.stringify(["manifest-v2", nextPartition, result.isDone ? null : result.continueCursor]),
     };
   },
 });
@@ -545,10 +562,12 @@ export const listTags = action({
 export const upsert = mutation({
   args: {
     siteSlug: v.optional(v.string()),
+    runId: v.optional(v.string()),
     slug: v.string(),
     title: v.string(),
     content: v.string(),
     rawContent: v.optional(v.string()),
+    replaceRawContent: v.optional(v.boolean()),
     tags: v.array(v.string()),
     sensitiveInclude: v.optional(v.array(v.string())),
     contentHash: v.string(),
@@ -559,10 +578,12 @@ export const upsert = mutation({
     ctx,
     {
       siteSlug,
+      runId,
       slug,
       title,
       content,
       rawContent,
+      replaceRawContent,
       tags,
       sensitiveInclude,
       contentHash,
@@ -571,16 +592,19 @@ export const upsert = mutation({
     },
   ) => {
     const site = await requireSite(ctx, siteSlug);
+    const ownedRun = assertPublishRun(site.site, runId, { document: slug });
     const existing = await findDocBySlug(ctx, site, slug);
     const sizeBytes = content.length;
     const cleanedSensitiveInclude = sensitiveInclude ?? [];
     const rawContentChanged =
-      rawContent !== undefined && existing?.rawContent !== rawContent;
+      (replaceRawContent || rawContent !== undefined) && existing?.rawContent !== rawContent;
     if (existing) {
       if (
         existing.contentHash === contentHash &&
         existing.hashFunctionVersion === hashFunctionVersion &&
         existing.sizeBytes === sizeBytes &&
+        existing.title === title && existing.content === content &&
+        JSON.stringify(existing.tags) === JSON.stringify(tags) &&
         existing.sensitive === sensitive &&
         !rawContentChanged &&
         JSON.stringify(existing.sensitiveInclude ?? []) ===
@@ -589,11 +613,11 @@ export const upsert = mutation({
       ) {
         return { skipped: true };
       }
-      await invalidateManifest(ctx, site.siteId);
+      await recordPublishChange(ctx, site.site, ownedRun);
       await ctx.db.patch(existing._id, {
         title,
         content,
-        ...(rawContent !== undefined ? { rawContent } : {}),
+        ...((replaceRawContent || rawContent !== undefined) ? { rawContent } : {}),
         tags,
         sensitiveInclude: cleanedSensitiveInclude,
         contentHash,
@@ -606,13 +630,13 @@ export const upsert = mutation({
       });
       return { skipped: false };
     }
-    await invalidateManifest(ctx, site.siteId);
+    await recordPublishChange(ctx, site.site, ownedRun);
     await ctx.db.insert("documents", {
       ...(site.siteId ? { siteId: site.siteId } : {}),
       slug,
       title,
       content,
-      ...(rawContent !== undefined ? { rawContent } : {}),
+      ...((replaceRawContent || rawContent !== undefined) ? { rawContent } : {}),
       tags,
       sensitiveInclude: cleanedSensitiveInclude,
       contentHash,
@@ -631,15 +655,17 @@ export const upsert = mutation({
 export const setContentHash = mutation({
   args: {
     siteSlug: v.optional(v.string()),
+    runId: v.optional(v.string()),
     slug: v.string(),
     contentHash: v.string(),
   },
-  handler: async (ctx, { siteSlug, slug, contentHash }) => {
+  handler: async (ctx, { siteSlug, runId, slug, contentHash }) => {
     const site = await requireSite(ctx, siteSlug);
+    const ownedRun = assertPublishRun(site.site, runId, { document: slug });
     const doc = await findDocBySlug(ctx, site, slug);
     if (!doc) return { found: false, patched: false };
     if (doc.contentHash === contentHash) return { found: true, patched: false };
-    await invalidateManifest(ctx, site.siteId);
+    await recordPublishChange(ctx, site.site, ownedRun);
     await ctx.db.patch(doc._id, { contentHash });
     return { found: true, patched: true };
   },
@@ -652,17 +678,20 @@ export const setContentHash = mutation({
 export const bulkSetContentHash = mutation({
   args: {
     siteSlug: v.optional(v.string()),
+    runId: v.optional(v.string()),
     hashFunctionVersion: v.optional(v.number()),
     entries: v.array(
       v.object({ slug: v.string(), contentHash: v.string() }),
     ),
   },
-  handler: async (ctx, { siteSlug, hashFunctionVersion, entries }) => {
+  handler: async (ctx, { siteSlug, runId, hashFunctionVersion, entries }) => {
     const site = await requireSite(ctx, siteSlug);
+    const ownedRun = assertPublishRun(site.site, runId);
     let patched = 0;
     let alreadyMatching = 0;
     let missing = 0;
     for (const { slug, contentHash } of entries) {
+      assertPublishRun(site.site, runId, { document: slug });
       const doc = await findDocBySlug(ctx, site, slug);
       if (!doc) {
         missing++;
@@ -678,7 +707,7 @@ export const bulkSetContentHash = mutation({
       await ctx.db.patch(doc._id, { contentHash, hashFunctionVersion });
       patched++;
     }
-    if (patched) await invalidateManifest(ctx, site.siteId);
+    if (patched) await recordPublishChange(ctx, site.site, ownedRun);
     return { patched, alreadyMatching, missing };
   },
 });
@@ -720,6 +749,7 @@ export const setDescription = mutation({
   args: { slug: v.string(), description: v.string(), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { slug, description, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
+    assertPublishRun(site.site, undefined);
     const doc = await findDocBySlug(ctx, site, slug);
     if (!doc) return { found: false };
     await invalidateManifest(ctx, site.siteId);
@@ -732,6 +762,7 @@ export const deleteBySlug = mutation({
   args: { slug: v.string(), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { slug, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
+    assertPublishRun(site.site, undefined, { deletion: true });
     const doc = await findDocBySlug(ctx, site, slug);
     if (!doc) return { deleted: false };
     // Tombstone rather than hard-delete — gives a 90-day undo window.
@@ -883,9 +914,11 @@ export const upsertEmbedding = mutation({
     embedding: v.array(v.float64()),
     embeddingHash: v.optional(v.string()),
     siteSlug: v.optional(v.string()),
+    runId: v.optional(v.string()),
   },
-  handler: async (ctx, { slug, embedding, embeddingHash, siteSlug }) => {
+  handler: async (ctx, { slug, embedding, embeddingHash, siteSlug, runId }) => {
     const site = await requireSite(ctx, siteSlug);
+    const ownedRun = assertPublishRun(site.site, runId, { document: slug });
     const doc = await findDocBySlug(ctx, site, slug);
     if (!doc) return { found: false };
     await ctx.db.patch(doc._id, { embedding, embeddingHash });
@@ -1097,6 +1130,7 @@ export const getPdfAssetByPath = query({
 export const upsertPdfAsset = mutation({
   args: {
     siteSlug: v.optional(v.string()),
+    runId: v.optional(v.string()),
     path: v.string(),
     blobUrl: v.string(),
     sizeBytes: v.number(),
@@ -1110,6 +1144,7 @@ export const upsertPdfAsset = mutation({
     ctx,
     {
       siteSlug,
+      runId,
       path,
       blobUrl,
       sizeBytes,
@@ -1121,7 +1156,8 @@ export const upsertPdfAsset = mutation({
     },
   ) => {
     const site = await requireSite(ctx, siteSlug);
-    await invalidateManifest(ctx, site.siteId);
+    const ownedRun = assertPublishRun(site.site, runId, { asset: `pdf:${path}` });
+    await recordPublishChange(ctx, site.site, ownedRun);
     const existing = await findAssetByPath(ctx, "pdfAssets", site, path);
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -1156,6 +1192,7 @@ export const upsertPdfAsset = mutation({
 export const backfillAssetHashes = mutation({
   args: {
     siteSlug: v.optional(v.string()),
+    runId: v.optional(v.string()),
     entries: v.array(
       v.object({
         kind: v.union(v.literal("pdf"), v.literal("file")),
@@ -1168,8 +1205,9 @@ export const backfillAssetHashes = mutation({
       }),
     ),
   },
-  handler: async (ctx, { siteSlug, entries }) => {
+  handler: async (ctx, { siteSlug, runId, entries }) => {
     const site = await requireSite(ctx, siteSlug);
+    const ownedRun = assertPublishRun(site.site, runId);
     const result = {
       found: 0,
       patched: 0,
@@ -1178,6 +1216,7 @@ export const backfillAssetHashes = mutation({
     };
 
     for (const entry of entries) {
+      assertPublishRun(site.site, runId, { asset: `${entry.kind}:${entry.path}` });
       const table = entry.kind === "pdf" ? "pdfAssets" : "fileAssets";
       const row = await findAssetByPath(ctx, table, site, entry.path);
       if (!row || row.deletedAt) {
@@ -1209,7 +1248,7 @@ export const backfillAssetHashes = mutation({
       result.patched++;
     }
 
-    if (result.patched) await invalidateManifest(ctx, site.siteId);
+    if (result.patched) await recordPublishChange(ctx, site.site, ownedRun);
     return result;
   },
 });
@@ -1218,6 +1257,7 @@ export const deletePdfAssetByPath = mutation({
   args: { path: v.string(), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { path, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
+    assertPublishRun(site.site, undefined, { deletion: true });
     const row = await findAssetByPath(ctx, "pdfAssets", site, path);
     if (!row) return { deleted: false };
     await invalidateManifest(ctx, site.siteId);
@@ -1549,6 +1589,7 @@ export const getFileAssetByPath = query({
 export const upsertFileAsset = mutation({
   args: {
     siteSlug: v.optional(v.string()),
+    runId: v.optional(v.string()),
     path: v.string(),
     blobUrl: v.string(),
     sizeBytes: v.number(),
@@ -1562,6 +1603,7 @@ export const upsertFileAsset = mutation({
     ctx,
     {
       siteSlug,
+      runId,
       path,
       blobUrl,
       sizeBytes,
@@ -1573,7 +1615,8 @@ export const upsertFileAsset = mutation({
     },
   ) => {
     const site = await requireSite(ctx, siteSlug);
-    await invalidateManifest(ctx, site.siteId);
+    const ownedRun = assertPublishRun(site.site, runId, { asset: `file:${path}` });
+    await recordPublishChange(ctx, site.site, ownedRun);
     const existing = await findAssetByPath(ctx, "fileAssets", site, path);
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -1609,6 +1652,7 @@ export const deleteFileAssetByPath = mutation({
   args: { path: v.string(), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { path, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
+    assertPublishRun(site.site, undefined, { deletion: true });
     const row = await findAssetByPath(ctx, "fileAssets", site, path);
     if (!row) return { deleted: false };
     await invalidateManifest(ctx, site.siteId);
@@ -1638,3 +1682,61 @@ export const internal_listFileAssetPathsPage = internalQueryFor(listFileAssetPat
 export const internal_listPdfAssetVisibilityPage = internalQueryFor(listPdfAssetVisibilityPage);
 export const internal_listFileAssetVisibilityPage = internalQueryFor(listFileAssetVisibilityPage);
 export const internal_getBySlug = internalQueryFor(getBySlug);
+
+// Bounded, indexed reads. Never return document bodies to the publisher.
+// Sixteen maximum-size stored documents fit within Convex's query read budget.
+export const publisherState = query({
+  args: {
+    siteSlug: v.string(),
+    slugs: v.array(v.string()),
+    assets: v.array(v.object({ path: v.string(), kind: v.union(v.literal("pdf"), v.literal("file")) })),
+  },
+  handler: async (ctx, { siteSlug, slugs, assets }) => {
+    if (slugs.length > 16 || assets.length > 128) throw new Error("Publish state batch exceeds limit");
+    const site = await requireSite(ctx, siteSlug);
+    if (!site.siteId) throw new Error("Publish state requires a registered site");
+    const patterns = parseSitePiiPatterns(site.site?.config.piiPatterns);
+    const digest = (value: unknown) => bytesToHex(sha256(new TextEncoder().encode(JSON.stringify(value)))).slice(0, 16);
+    const documents = await Promise.all(slugs.map(async slug => {
+      const doc = await findDocBySlug(ctx, site, slug);
+      if (!doc || doc.deletedAt) return { slug, exists: false as const };
+      const observedHash = doc.rawContent === undefined ? null : digest({
+        title: doc.title, content: doc.rawContent, tags: doc.tags,
+        sensitive: doc.sensitive === true, sensitiveInclude: doc.sensitiveInclude ?? [],
+      });
+      return { slug, exists: true as const, contentHash: doc.contentHash ?? null,
+        observedHash,
+        readerContentConsistent: doc.rawContent === undefined ? null : applyPiiRedactions(doc.rawContent, { patterns }) === doc.content,
+        hashFunctionVersion: doc.hashFunctionVersion ?? 0,
+        sensitive: doc.sensitive === true, sensitiveInclude: doc.sensitiveInclude ?? [],
+      };
+    }));
+    const assetStates = await Promise.all(assets.map(async ({ path, kind }) => {
+      const table = kind === "pdf" ? "pdfAssets" : "fileAssets";
+      const asset = await findAssetByPath(ctx, table, site, path);
+      if (!asset || asset.deletedAt) return { path, kind, exists: false as const };
+      return { path, kind, exists: true as const, contentHash: asset.contentHash ?? null,
+        visibilityHash: asset.visibilityHash ?? null,
+        observedVisibilityHash: digest({ ownerSlugs: asset.ownerSlugs ?? [], sensitive: asset.sensitive === true, sensitiveInclude: asset.sensitiveInclude ?? [] }),
+        hasVisibility: Array.isArray(asset.ownerSlugs) && typeof asset.sensitive === "boolean",
+        hasBlob: Boolean(asset.blobUrl), sizeBytes: asset.sizeBytes,
+      };
+    }));
+    return { version: 1 as const, documents, assets: assetStates };
+  },
+});
+
+// Small indexed metadata reads for a document-only projection update.
+export const internal_publisherManifestPages = internalQuery({
+  args: { siteSlug: v.string(), slugs: v.array(v.string()) },
+  handler: async (ctx, { siteSlug, slugs }) => {
+    if (slugs.length > 16) throw new Error("Manifest delta batch exceeds limit");
+    const site = await requireSite(ctx, siteSlug);
+    return Promise.all(slugs.map(async slug => {
+      const doc = await findDocBySlug(ctx, site, slug);
+      if (!doc || doc.deletedAt || doc.sensitive === true) return null;
+      return { slug: doc.slug, title: doc.title, tags: doc.tags, description: doc.description ?? null,
+        contentHash: doc.contentHash ?? null, sensitive: false, size: doc.sizeBytes ?? doc.content.length };
+    }));
+  },
+});

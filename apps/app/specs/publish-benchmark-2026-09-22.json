@@ -1,0 +1,304 @@
+{
+  "documents": {
+    "mode": "read-only",
+    "transport": "fixture",
+    "scenario": "documents",
+    "assetMode": "none",
+    "fixtureLatencyMs": 250,
+    "budgetMs": 20000,
+    "allWithinBudget": true,
+    "firstMs": 1778,
+    "medianMs": 1032,
+    "maxMs": 1778,
+    "decodedResponseBytes": 11727,
+    "httpRequests": 6,
+    "omitted": [
+      "lock acquisition",
+      "writes",
+      "blob uploads",
+      "finish",
+      "embeddings",
+      "post-finish reader visibility"
+    ],
+    "samples": [
+      {
+        "iteration": 1,
+        "durationMs": 1778,
+        "scanMs": 1263,
+        "planMs": 259,
+        "verifyMs": 253,
+        "documents": 16,
+        "assets": 0,
+        "assetBytesHashed": 0,
+        "plannedDocuments": 16,
+        "plannedAssets": 0,
+        "baselineDocumentMismatches": 0,
+        "baselineAssetMismatches": 0
+      },
+      {
+        "iteration": 2,
+        "durationMs": 1030,
+        "scanMs": 519,
+        "planMs": 253,
+        "verifyMs": 256,
+        "documents": 16,
+        "assets": 0,
+        "assetBytesHashed": 0,
+        "plannedDocuments": 16,
+        "plannedAssets": 0,
+        "baselineDocumentMismatches": 0,
+        "baselineAssetMismatches": 0
+      },
+      {
+        "iteration": 3,
+        "durationMs": 1032,
+        "scanMs": 523,
+        "planMs": 253,
+        "verifyMs": 253,
+        "documents": 16,
+        "assets": 0,
+        "assetBytesHashed": 0,
+        "plannedDocuments": 16,
+        "plannedAssets": 0,
+        "baselineDocumentMismatches": 0,
+        "baselineAssetMismatches": 0
+      }
+    ]
+  },
+  "noop": {
+    "mode": "read-only",
+    "transport": "fixture",
+    "scenario": "no-op",
+    "assetMode": "none",
+    "fixtureLatencyMs": 250,
+    "budgetMs": 20000,
+    "allWithinBudget": true,
+    "firstMs": 1091,
+    "medianMs": 1133,
+    "maxMs": 1159,
+    "decodedResponseBytes": 9783,
+    "httpRequests": 6,
+    "omitted": [
+      "lock acquisition",
+      "writes",
+      "blob uploads",
+      "finish",
+      "embeddings",
+      "post-finish reader visibility"
+    ],
+    "samples": [
+      {
+        "iteration": 1,
+        "durationMs": 1091,
+        "scanMs": 576,
+        "planMs": 261,
+        "verifyMs": 252,
+        "documents": 16,
+        "assets": 0,
+        "assetBytesHashed": 0,
+        "plannedDocuments": 0,
+        "plannedAssets": 0,
+        "baselineDocumentMismatches": 0,
+        "baselineAssetMismatches": 0
+      },
+      {
+        "iteration": 2,
+        "durationMs": 1133,
+        "scanMs": 626,
+        "planMs": 253,
+        "verifyMs": 253,
+        "documents": 16,
+        "assets": 0,
+        "assetBytesHashed": 0,
+        "plannedDocuments": 0,
+        "plannedAssets": 0,
+        "baselineDocumentMismatches": 0,
+        "baselineAssetMismatches": 0
+      },
+      {
+        "iteration": 3,
+        "durationMs": 1159,
+        "scanMs": 654,
+        "planMs": 253,
+        "verifyMs": 251,
+        "documents": 16,
+        "assets": 0,
+        "assetBytesHashed": 0,
+        "plannedDocuments": 0,
+        "plannedAssets": 0,
+        "baselineDocumentMismatches": 0,
+        "baselineAssetMismatches": 0
+      }
+    ]
+  },
+  "mixed": {
+    "mode": "read-only",
+    "transport": "fixture",
+    "scenario": "mixed",
+    "assetMode": "referenced",
+    "fixtureLatencyMs": 250,
+    "budgetMs": 20000,
+    "allWithinBudget": true,
+    "firstMs": 2172,
+    "medianMs": 2060,
+    "maxMs": 2172,
+    "decodedResponseBytes": 13587,
+    "httpRequests": 9,
+    "omitted": [
+      "lock acquisition",
+      "writes",
+      "blob uploads",
+      "finish",
+      "embeddings",
+      "post-finish reader visibility"
+    ],
+    "samples": [
+      {
+        "iteration": 1,
+        "durationMs": 2172,
+        "scanMs": 1398,
+        "planMs": 266,
+        "verifyMs": 506,
+        "documents": 17,
+        "assets": 1,
+        "assetBytesHashed": 1006752,
+        "plannedDocuments": 17,
+        "plannedAssets": 0,
+        "baselineDocumentMismatches": 0,
+        "baselineAssetMismatches": 0
+      },
+      {
+        "iteration": 2,
+        "durationMs": 2060,
+        "scanMs": 1299,
+        "planMs": 254,
+        "verifyMs": 505,
+        "documents": 17,
+        "assets": 1,
+        "assetBytesHashed": 1006752,
+        "plannedDocuments": 17,
+        "plannedAssets": 0,
+        "baselineDocumentMismatches": 0,
+        "baselineAssetMismatches": 0
+      },
+      {
+        "iteration": 3,
+        "durationMs": 2046,
+        "scanMs": 1284,
+        "planMs": 255,
+        "verifyMs": 505,
+        "documents": 17,
+        "assets": 1,
+        "assetBytesHashed": 1006752,
+        "plannedDocuments": 17,
+        "plannedAssets": 0,
+        "baselineDocumentMismatches": 0,
+        "baselineAssetMismatches": 0
+      }
+    ]
+  },
+  "large": {
+    "mode": "read-only",
+    "transport": "fixture",
+    "scenario": "large",
+    "assetMode": "none",
+    "fixtureLatencyMs": 250,
+    "budgetMs": 20000,
+    "allWithinBudget": true,
+    "firstMs": 2619,
+    "medianMs": 2578,
+    "maxMs": 2619,
+    "decodedResponseBytes": 98055,
+    "httpRequests": 24,
+    "omitted": [
+      "lock acquisition",
+      "writes",
+      "blob uploads",
+      "finish",
+      "embeddings",
+      "post-finish reader visibility"
+    ],
+    "samples": [
+      {
+        "iteration": 1,
+        "durationMs": 2619,
+        "scanMs": 581,
+        "planMs": 260,
+        "verifyMs": 1769,
+        "documents": 100,
+        "assets": 0,
+        "assetBytesHashed": 0,
+        "plannedDocuments": 100,
+        "plannedAssets": 0,
+        "baselineDocumentMismatches": 0,
+        "baselineAssetMismatches": 0
+      },
+      {
+        "iteration": 2,
+        "durationMs": 2578,
+        "scanMs": 545,
+        "planMs": 254,
+        "verifyMs": 1771,
+        "documents": 100,
+        "assets": 0,
+        "assetBytesHashed": 0,
+        "plannedDocuments": 100,
+        "plannedAssets": 0,
+        "baselineDocumentMismatches": 0,
+        "baselineAssetMismatches": 0
+      },
+      {
+        "iteration": 3,
+        "durationMs": 2578,
+        "scanMs": 547,
+        "planMs": 254,
+        "verifyMs": 1766,
+        "documents": 100,
+        "assets": 0,
+        "assetBytesHashed": 0,
+        "plannedDocuments": 100,
+        "plannedAssets": 0,
+        "baselineDocumentMismatches": 0,
+        "baselineAssetMismatches": 0
+      }
+    ]
+  },
+  "existingIndexedReads": {
+    "mode": "read-only-existing-indexed-queries",
+    "operator": true,
+    "concurrency": 4,
+    "samples": [
+      {
+        "iteration": 1,
+        "durationMs": 842,
+        "requests": 16,
+        "found": 16,
+        "metadataMatches": 7,
+        "returnedBytes": 597643
+      },
+      {
+        "iteration": 2,
+        "durationMs": 453,
+        "requests": 16,
+        "found": 16,
+        "metadataMatches": 7,
+        "returnedBytes": 597643
+      },
+      {
+        "iteration": 3,
+        "durationMs": 471,
+        "requests": 16,
+        "found": 16,
+        "metadataMatches": 7,
+        "returnedBytes": 597643
+      }
+    ],
+    "limitations": [
+      "bypasses publisher HTTP route",
+      "one query per document, not the new batch query",
+      "stored hash/visibility comparison only",
+      "no raw-content verification",
+      "no writes or lock contention"
+    ]
+  }
+}

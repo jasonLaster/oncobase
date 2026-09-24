@@ -33,7 +33,9 @@ if (!url) {
 }
 
 const client = createBackendClient(url);
+const site = await client.query(api.sites.getBySlug, { slug });
 await client.mutation(api.sites.failPublish, {
+  runId: site?.publishRunId,
   slug,
   error: "lock cleared by operator",
 });

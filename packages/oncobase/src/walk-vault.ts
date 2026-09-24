@@ -3,6 +3,8 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import { readDependencies, type DependencyCacheMode, type DocumentDependency } from "./dependency-cache";
+import { publishProfile } from "./publish-profile";
 import { isSensitiveFrontmatter, normalizeFrontmatterTags } from "./sensitive-pages";
 
 // Walks a local Obsidian vault and yields the publish-ready
@@ -294,9 +296,8 @@ function vaultFiles(vaultPath: string): Entry[] {
   });
 }
 
-function parseDocumentEntry({ filePath, relativePath }: Entry): DocumentEntry {
+function parseDocumentEntry({ filePath, relativePath }: Entry, raw = fs.readFileSync(filePath, "utf8")): DocumentEntry {
   const slug = relativePath.replace(/\.(?:md|mdx)$/i, "");
-  const raw = fs.readFileSync(filePath, "utf8");
   let data: Record<string, unknown> = {};
   let content = raw;
   try {
@@ -338,22 +339,17 @@ function parseDocumentEntry({ filePath, relativePath }: Entry): DocumentEntry {
   };
 }
 
-function documentEntries(vaultPath: string) {
-  return vaultFiles(vaultPath)
+function documentEntries(vaultPath: string, entries = vaultFiles(vaultPath)) {
+  return entries
     .filter(({ relativePath }) => DOCUMENT_EXTENSIONS.has(path.extname(relativePath)))
-    .map(parseDocumentEntry);
+    .map(entry => parseDocumentEntry(entry));
 }
 
 export function readVaultDocuments(vaultPath: string): PublishDocument[] {
   return documentEntries(vaultPath).map(({ document }) => document);
 }
 
-function referencedAssetPaths(
-  raw: string,
-  documentPath: string,
-  assetPaths: Set<string>,
-  assetsByBasename: Map<string, string[]>,
-) {
+function extractReferences(raw: string) {
   const references: string[] = [];
   const patterns = [
     /!?\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/gi,
@@ -367,6 +363,12 @@ function referencedAssetPaths(
     }
   }
 
+  return references;
+}
+
+function referencedAssetPaths(
+  references: string[], documentPath: string, assetPaths: Set<string>, assetsByBasename: Map<string, string[]>,
+) {
   const resolved = new Set<string>();
   const documentDir = path.posix.dirname(documentPath);
   for (let reference of references) {
@@ -398,80 +400,143 @@ function referencedAssetPaths(
   return resolved;
 }
 
-export function readVaultAssets(vaultPath: string): PublishAsset[] {
-  const entries = vaultFiles(vaultPath);
-  const documents = entries
+export function readVaultAssets(vaultPath: string, options: { referencedBy?: ReadonlySet<string> } = {}): PublishAsset[] {
+  const entries = publishProfile.sync("assets.inventory", () => vaultFiles(vaultPath));
+  const documents = publishProfile.sync("assets.documents", () => entries
     .filter(({ relativePath }) => DOCUMENT_EXTENSIONS.has(path.extname(relativePath)))
-    .map(parseDocumentEntry);
-  const assets: PublishAsset[] = [];
-  for (const { filePath, relativePath } of entries) {
-    const ext = path.extname(filePath).toLowerCase();
-    const isPdf = PDF_EXTENSIONS.has(ext);
-    const isFile = FILE_ASSET_EXTENSIONS.has(ext);
-    if (!isPdf && !isFile) continue;
-    if (isGitLfsPointer(filePath)) {
-      throw new Error(
-        `Refusing to publish unresolved Git LFS pointer asset: ${relativePath}`,
+    .map(entry => parseDocumentEntry(entry)));
+  return assetsFromEntries(entries, documents, options);
+}
+
+/** Each invocation refreshes inventory and validates outside-owner dependencies.
+ * Persistence contains metadata only; selected bodies and asset bytes stay fresh. */
+export function readVaultSelection(vaultPath: string, options: {
+  slugs?: ReadonlySet<string>; assetMode: "none" | "referenced" | "all";
+  cache?: DependencyCacheMode; cacheDirectory?: string;
+}) {
+  const snapshot = publishProfile.sync("scan.documents", () => {
+    const entries = vaultFiles(vaultPath);
+    if (options.slugs && options.cache && options.cache !== "off") {
+      const sourceEntries = entries.filter(entry => DOCUMENT_EXTENSIONS.has(path.extname(entry.relativePath)));
+      // Selected source and asset bytes are always fresh, even in metadata mode.
+      const selected = sourceEntries.filter(entry => options.slugs!.has(entry.relativePath.replace(/\.(?:md|mdx)$/i, ""))).map(entry => parseDocumentEntry(entry));
+      const indexed = options.assetMode === "none" ? { dependencies: [], parsedDocuments: 0, reusedDocuments: 0 } : readDependencies({
+        vault: vaultPath, entries: sourceEntries, mode: options.cache, directory: options.cacheDirectory,
+        parse: (relativePath, raw) => {
+          const { document } = parseDocumentEntry({ relativePath, filePath: path.join(vaultPath, relativePath) }, raw);
+          return { relativePath, document: { slug: document.slug, sensitive: document.sensitive, sensitiveInclude: document.sensitiveInclude }, references: extractReferences(raw) };
+        },
+      });
+      publishProfile.metric("items", selected.length);
+      publishProfile.metric("parsedDocuments", indexed.parsedDocuments + selected.length);
+      publishProfile.metric("reusedDocuments", indexed.reusedDocuments);
+      return { entries, parsed: indexed.dependencies, documents: selected.map(entry => entry.document) };
+    }
+    const parsed = documentEntries(vaultPath, entries);
+    const documents = parsed.map(entry => entry.document).filter(doc => !options.slugs || options.slugs.has(doc.slug));
+    publishProfile.metric("items", documents.length);
+    publishProfile.metric("parsedDocuments", parsed.length);
+    return { entries, parsed, documents };
+  });
+  if (options.slugs && snapshot.documents.length !== options.slugs.size) throw new Error("Publish scope contains missing, excluded, or ambiguous documents");
+  const assets = publishProfile.sync("scan.assets", () => {
+    const assets = options.assetMode === "none" ? [] : assetsFromEntries(snapshot.entries, snapshot.parsed,
+      options.assetMode === "referenced" ? { referencedBy: options.slugs } : {});
+    publishProfile.metric("items", assets.length);
+    publishProfile.metric("bytes", assets.reduce((sum, asset) => sum + asset.sizeBytes, 0));
+    publishProfile.metric("reusedDocuments", options.assetMode === "none" ? 0 : snapshot.parsed.length);
+    return assets;
+  });
+  return { documents: snapshot.documents, assets };
+}
+
+function assetsFromEntries(entries: Entry[], documents: Array<DocumentEntry | DocumentDependency>, options: { referencedBy?: ReadonlySet<string> }) {
+  const assets = (() => {
+    const assets: PublishAsset[] = [];
+    for (const { filePath, relativePath } of entries) {
+      const ext = path.extname(filePath).toLowerCase();
+      const isPdf = PDF_EXTENSIONS.has(ext);
+      const isFile = FILE_ASSET_EXTENSIONS.has(ext);
+      if (!isPdf && !isFile) continue;
+      assets.push({
+        filePath,
+        relativePath,
+        kind: isPdf ? "pdf" : "file",
+        contentType: CONTENT_TYPES[ext] ?? "application/octet-stream",
+        sizeBytes: 0,
+        hash: "",
+        ownerSlugs: [],
+        sensitive: false,
+        sensitiveInclude: [],
+        visibilityHash: "",
+      });
+    }
+
+    return assets;
+  })();
+
+  const withOwnership = publishProfile.sync("assets.ownership", () => {
+    const assetPaths = new Set(assets.map((asset) => asset.relativePath));
+    const assetsByBasename = new Map<string, string[]>();
+    for (const asset of assets) {
+      const basename = path.posix.basename(asset.relativePath);
+      const matches = assetsByBasename.get(basename) ?? [];
+      matches.push(asset.relativePath);
+      assetsByBasename.set(basename, matches);
+    }
+    const ownersByAssetPath = new Map<string, Set<string>>();
+    const documentBySlug = new Map(
+      documents.map(({ document }) => [document.slug, document]),
+    );
+    for (const entry of documents) {
+      const { document, relativePath } = entry;
+      for (const assetPath of referencedAssetPaths(
+        "references" in entry ? entry.references : extractReferences(entry.raw),
+        relativePath,
+        assetPaths,
+        assetsByBasename,
+      )) {
+        const owners = ownersByAssetPath.get(assetPath) ?? new Set<string>();
+        owners.add(document.slug);
+        ownersByAssetPath.set(assetPath, owners);
+      }
+    }
+    for (const asset of assets) {
+      const stem = asset.relativePath.replace(/\.[^/.]+$/, "");
+      const owners = ownersByAssetPath.get(asset.relativePath) ?? new Set<string>();
+      if (documentBySlug.has(stem)) owners.add(stem);
+      asset.ownerSlugs = Array.from(owners).sort();
+      const ownerDocuments = asset.ownerSlugs
+        .map((slug) => documentBySlug.get(slug))
+        .filter((document): document is DocumentDependency["document"] => Boolean(document));
+      asset.sensitive = ownerDocuments.some((document) => document.sensitive);
+      asset.sensitiveInclude = Array.from(
+        new Set(ownerDocuments.flatMap((document) => document.sensitiveInclude)),
+      ).sort();
+      asset.visibilityHash = hashBytes(
+        JSON.stringify({
+          ownerSlugs: asset.ownerSlugs,
+          sensitive: asset.sensitive,
+          sensitiveInclude: asset.sensitiveInclude,
+        }),
       );
     }
-    const stat = fs.statSync(filePath);
-    assets.push({
-      filePath,
-      relativePath,
-      kind: isPdf ? "pdf" : "file",
-      contentType: CONTENT_TYPES[ext] ?? "application/octet-stream",
-      sizeBytes: stat.size,
-      hash: hashFile(filePath),
-      ownerSlugs: [],
-      sensitive: false,
-      sensitiveInclude: [],
-      visibilityHash: "",
-    });
-  }
-
-  const assetPaths = new Set(assets.map((asset) => asset.relativePath));
-  const assetsByBasename = new Map<string, string[]>();
-  for (const asset of assets) {
-    const basename = path.posix.basename(asset.relativePath);
-    const matches = assetsByBasename.get(basename) ?? [];
-    matches.push(asset.relativePath);
-    assetsByBasename.set(basename, matches);
-  }
-  const ownersByAssetPath = new Map<string, Set<string>>();
-  const documentBySlug = new Map(
-    documents.map(({ document }) => [document.slug, document]),
-  );
-  for (const { document, relativePath, raw } of documents) {
-    for (const assetPath of referencedAssetPaths(
-      raw,
-      relativePath,
-      assetPaths,
-      assetsByBasename,
-    )) {
-      const owners = ownersByAssetPath.get(assetPath) ?? new Set<string>();
-      owners.add(document.slug);
-      ownersByAssetPath.set(assetPath, owners);
+    return options.referencedBy
+      ? assets.filter(asset => asset.ownerSlugs.some(slug => options.referencedBy!.has(slug)))
+      : assets;
+  });
+  // Resolve owners against the entire vault before filtering. A shared asset's
+  // sensitivity must include owners outside the selected publish scope.
+  return publishProfile.sync("assets.hash", () => {
+    for (const asset of withOwnership) {
+      if (isGitLfsPointer(asset.filePath)) {
+        throw new Error(`Refusing to publish unresolved Git LFS pointer asset: ${asset.relativePath}`);
+      }
+      asset.sizeBytes = fs.statSync(asset.filePath).size;
+      asset.hash = hashFile(asset.filePath);
     }
-  }
-  for (const asset of assets) {
-    const stem = asset.relativePath.replace(/\.[^/.]+$/, "");
-    const owners = ownersByAssetPath.get(asset.relativePath) ?? new Set<string>();
-    if (documentBySlug.has(stem)) owners.add(stem);
-    asset.ownerSlugs = Array.from(owners).sort();
-    const ownerDocuments = asset.ownerSlugs
-      .map((slug) => documentBySlug.get(slug))
-      .filter((document): document is PublishDocument => Boolean(document));
-    asset.sensitive = ownerDocuments.some((document) => document.sensitive);
-    asset.sensitiveInclude = Array.from(
-      new Set(ownerDocuments.flatMap((document) => document.sensitiveInclude)),
-    ).sort();
-    asset.visibilityHash = hashBytes(
-      JSON.stringify({
-        ownerSlugs: asset.ownerSlugs,
-        sensitive: asset.sensitive,
-        sensitiveInclude: asset.sensitiveInclude,
-      }),
-    );
-  }
-  return assets;
+    publishProfile.metric("items", withOwnership.length);
+    publishProfile.metric("bytes", withOwnership.reduce((n, a) => n + a.sizeBytes, 0));
+    return withOwnership;
+  });
 }

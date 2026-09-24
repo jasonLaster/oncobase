@@ -5,6 +5,51 @@ import { traceBackendHandler, traceConvexClient, traceBackendPhase, type Backend
 
 const ref = makeFunctionReference<"query">("documents:listManifestPage");
 
+test("local publisher can request numeric server phase timings without an OTel collector", async () => {
+  const client = traceConvexClient({ query: async () => ({ page: [] }) } as never);
+  const handler = traceBackendHandler(async () => {
+    await traceBackendPhase("publish.inventory.documents", () => client.query(ref, {}));
+    return new Response("ok");
+  });
+  const request = (route: string, profile: boolean) => new Request(`https://example.test${route}`, {
+    headers: profile ? { "X-Publish-Profile": "1" } : {},
+  });
+  const result = await handler(request("/api/publish/begin", true));
+  expect(result!.headers.get("server-timing")).toContain("phase-publish-inventory-documents;dur=");
+  expect(result!.headers.get("server-timing")).toContain('convex-count;desc="1"');
+  expect((await handler(request("/api/publish/begin", false)))!.headers.get("server-timing")).toBeNull();
+  expect((await handler(request("/api/search", true)))!.headers.get("server-timing")).toBeNull();
+});
+
+test("publisher spans have fixed routes, adopt valid local parents, and retain inventory RPC parents", async () => {
+  const exporter = new InMemorySpanExporter();
+  const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+  const traceId = "1234567890abcdef1234567890abcdef";
+  const spanId = "1234567890abcdef";
+  const client = traceConvexClient({ query: async () => ({ page: [] }) } as never);
+  const handler = traceBackendHandler(async () => {
+    await traceBackendPhase("publish.inventory.documents", () => client.query(ref, {}));
+    return new Response("ok");
+  }, { tracer: provider.getTracer("publisher-test") });
+  try {
+    for (const [route, parent] of [
+      ["/api/publish/begin", `00-${traceId}-${spanId}-01`],
+      ["/api/publish/sync/documents", "00-00000000000000000000000000000000-0000000000000000-01"],
+      ["/api/publish/PRIVATE", `00-${traceId}-${spanId}-01`],
+    ]) await handler(new Request(`https://example.test${route}?site=PRIVATE`, { headers: { traceparent: parent!, baggage: "PRIVATE" } }));
+    const spans = exporter.getFinishedSpans();
+    const root = spans.find(s => s.name === "wiki /api/publish/begin")!;
+    expect(root.spanContext().traceId).toBe(traceId);
+    expect(root.parentSpanContext?.spanId).toBe(spanId);
+    const phase = spans.find(s => s.name === "publish.inventory.documents" && s.spanContext().traceId === traceId)!;
+    expect(phase.parentSpanContext?.spanId).toBe(root.spanContext().spanId);
+    expect(spans.find(s => s.kind === 2 && s.spanContext().traceId === traceId)!.parentSpanContext?.spanId).toBe(phase.spanContext().spanId);
+    expect(spans.find(s => s.name === "wiki /api/publish/sync/documents")!.parentSpanContext).toBeUndefined();
+    expect(spans.find(s => s.name === "wiki /api/other")!.parentSpanContext).toBeUndefined();
+    expect(JSON.stringify(spans.map(s => ({ name: s.name, attributes: s.attributes, events: s.events })))).not.toContain("PRIVATE");
+  } finally { await provider.shutdown(); }
+});
+
 test("session startup diagnostics expose only fixed RPC groups and numbers", async () => {
   const client = traceConvexClient({ query: async () => ({ content: "PRIVATE response" }) } as never);
   const handler = traceBackendHandler(async () => {

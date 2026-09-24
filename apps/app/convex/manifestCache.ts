@@ -62,11 +62,29 @@ export const revision = internalQuery({
   },
 });
 
+// A delta may reuse only the immediately preceding, complete public snapshot.
+export const deltaBase = internalQuery({
+  args: { siteSlug: v.string(), baseRevision: v.number() },
+  handler: async (ctx, { siteSlug, baseRevision }) => {
+    const { site } = await requireSite(ctx, siteSlug);
+    const snapshot = site?.manifestSnapshot;
+    if (!snapshot || site?.manifestRevision !== baseRevision + 1 || snapshot.revision !== baseRevision || snapshot.formatVersion !== MANIFEST_SNAPSHOT_VERSION) return null;
+    return { storageId: snapshot.storageId, hash: snapshot.hash };
+  },
+});
+
 export const install = internalMutation({
   args: { siteSlug: v.string(), revision: v.number(), hash: v.string(), storageId: v.id("_storage"), formatVersion: v.number() },
   handler: async (ctx, args): Promise<boolean> => {
     const { site, siteId } = await requireSite(ctx, args.siteSlug);
     if (!site || !siteId) { await ctx.storage.delete(args.storageId); return false; }
+    // Never install a projection assembled across an active writer's mutations.
+    // Finish/abort/expiry will invalidate and schedule after ownership ends.
+    if (site.publishRunId?.startsWith("scoped:") && (site.publishLockUntil ?? 0) > Date.now()) {
+      await ctx.storage.delete(args.storageId);
+      await ctx.db.patch(siteId, { manifestBuildQueuedAt: undefined });
+      return false;
+    }
     if ((site.manifestRevision ?? 0) !== args.revision || args.formatVersion !== MANIFEST_SNAPSHOT_VERSION) {
       await ctx.storage.delete(args.storageId);
       await ctx.db.patch(siteId, { manifestBuildQueuedAt: undefined });

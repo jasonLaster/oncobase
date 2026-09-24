@@ -1,6 +1,6 @@
 import { SERVICE_ISSUER, SERVICE_SUBJECT } from "./serviceAuth";
 import { expect, test } from "bun:test";
-import { current, install, requestBuild, status } from "../manifestCache";
+import { current, install, requestBuild, status, deltaBase } from "../manifestCache";
 import { invalidateManifest, queueManifestBuild } from "./manifestRevision";
 import { upsert, setContentHash, bulkSetContentHash, setDescription, deleteBySlug, upsertPdfAsset, upsertFileAsset, deletePdfAssetByPath, deleteFileAssetByPath, backfillAssetHashes } from "../documents";
 
@@ -10,7 +10,7 @@ function handler(fn: unknown) {
 function fixture() {
   const rows: Record<string, any[]> = {
     sites: [{ _id: "a", slug: "alpha", status: "active" }, { _id: "b", slug: "beta", status: "active" }],
-    documents: [{ _id: "doc", siteId: "a", slug: "one", contentHash: "one", content: "Body", sizeBytes: 4, sensitive: false, tags: [] }],
+    documents: [{ _id: "doc", siteId: "a", slug: "one", title: "One", contentHash: "one", content: "Body", sizeBytes: 4, sensitive: false, tags: [] }],
     pdfAssets: [{ _id: "pdf", siteId: "a", path: "one.pdf" }],
     fileAssets: [{ _id: "file", siteId: "a", path: "one.png" }],
   };
@@ -123,4 +123,24 @@ test("operator snapshot inventory excludes archived sites and site credentials",
   expect(await handler(status)(ctx, {})).toEqual([{ siteSlug: "alpha", revision: 0, hash: "ready", url: "https://storage.invalid/blob" }]);
   await invalidateManifest(ctx, "a" as never);
   expect(await handler(status)(ctx, { siteSlug: "alpha" })).toEqual([{ siteSlug: "alpha", revision: 1, hash: null, url: null }]);
+});
+
+test("an overlapping builder cannot install while an owned publisher is active", async () => {
+  const { ctx, rows, jobs, deleted } = fixture();
+  Object.assign(rows.sites[0], { publishRunId: "scoped:run", publishLockUntil: Date.now() + 60_000, manifestRevision: 2, manifestBuildQueuedAt: Date.now() });
+  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, revision: 2, hash: "mixed", storageId: "mixed-blob" })).toBe(false);
+  expect(deleted).toContain("mixed-blob");
+  expect(rows.sites[0].manifestSnapshot).toBeUndefined();
+  expect(rows.sites[0].manifestBuildQueuedAt).toBeUndefined();
+  expect(jobs).toHaveLength(0); // The writer's finish owns scheduling the next build.
+});
+
+test("incremental bases must belong to the site and immediately precede the new revision", async () => {
+  const { ctx, rows } = fixture();
+  Object.assign(rows.sites[0], { manifestRevision: 5, manifestSnapshot: { revision: 4, hash: "base", storageId: "blob", formatVersion: 1 } });
+  expect(await handler(deltaBase)(ctx, { siteSlug: "alpha", baseRevision: 4 })).toEqual({ hash: "base", storageId: "blob" });
+  expect(await handler(deltaBase)(ctx, { siteSlug: "beta", baseRevision: 4 })).toBeNull();
+  expect(await handler(deltaBase)(ctx, { siteSlug: "alpha", baseRevision: 3 })).toBeNull();
+  rows.sites[0].manifestSnapshot.formatVersion = 0;
+  expect(await handler(deltaBase)(ctx, { siteSlug: "alpha", baseRevision: 4 })).toBeNull();
 });
