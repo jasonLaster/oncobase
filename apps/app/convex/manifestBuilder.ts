@@ -1,4 +1,5 @@
 "use node";
+import type { ManifestTelemetry } from "../shared/manifest-telemetry";
 import { patchManifestPages } from "./lib/manifestDelta";
 import type { WikiManifestPage } from "@oncobase/wiki-content";
 import { v } from "convex/values";
@@ -8,15 +9,21 @@ import { MANIFEST_SNAPSHOT_VERSION } from "./lib/manifestRevision";
 import { internalAction } from "./_generated/server";
 
 export const build = internalAction({
-  args: { siteSlug: v.string(), delta: v.optional(v.object({ baseRevision: v.number(), slugs: v.array(v.string()) })) },
-  handler: async (ctx, { siteSlug, delta }): Promise<null> => {
-    const started = performance.now();
+  args: { siteSlug: v.string(), queuedAt: v.optional(v.number()), clientTraceId: v.optional(v.string()), delta: v.optional(v.object({ baseRevision: v.number(), slugs: v.array(v.string()) })) },
+  handler: async (ctx, { siteSlug, delta, queuedAt, clientTraceId }): Promise<null> => {
+    const started = performance.now(), startedAt = Date.now();
+    let revision = -1;
+    let outcome: ManifestTelemetry["outcome"] = "failed";
+    let failureStage: ManifestTelemetry["failureStage"] = "revision";
     const phases: Record<string, number> = {};
     let succeeded = false, incremental = false;
     let storageId: import("./_generated/dataModel").Id<"_storage"> | undefined;
     try {
-      const revision = await ctx.runQuery(internal.manifestCache.revision, { siteSlug });
-      if (revision === null) return null;
+      const currentRevision = await ctx.runQuery(internal.manifestCache.revision, { siteSlug });
+      phases.revision = Math.round(performance.now() - started);
+      if (currentRevision === null) { outcome = "missing-site"; return null; }
+      revision = currentRevision;
+      failureStage = "assemble";
       const documents: WikiApiDocumentsGateway = {
         listManifestPage: args => ctx.runQuery(internal.documents.internal_listManifestPage, { ...args, siteSlug }),
         listPageWithContent: args => ctx.runQuery(internal.documents.internal_listPageWithContent, { ...args, siteSlug }),
@@ -52,20 +59,35 @@ export const build = internalAction({
         json = await response.text();
       }
       const hash = (JSON.parse(json) as { manifestHash: string }).manifestHash;
+      failureStage = "store";
       const storeStarted = performance.now();
       storageId = await ctx.storage.store(new Blob([json], { type: "application/json" }));
       phases.store = Math.round(performance.now() - storeStarted);
+      failureStage = "install";
       const installStarted = performance.now();
       const installed = await ctx.runMutation(internal.manifestCache.install, { siteSlug, revision, hash, storageId, formatVersion: MANIFEST_SNAPSHOT_VERSION });
       phases.install = Math.round(performance.now() - installStarted);
-      succeeded = installed;
+      outcome = installed;
+      succeeded = installed === "installed";
+      failureStage = "none";
       storageId = undefined;
     } catch {
       if (storageId) await ctx.storage.delete(storageId);
       await ctx.runMutation(internal.manifestCache.failed, { siteSlug });
       console.warn("Manifest snapshot build deferred");
     } finally {
-      console.info("publish.manifest", JSON.stringify({ durationMs: Math.round(performance.now() - started), succeeded, incremental, phases }));
+      const event: ManifestTelemetry = { version: 1, startedAt, queuedAt, clientTraceId, revision, durationMs: Math.round(performance.now() - started), incremental, outcome, failureStage, phases };
+      console.info("publish.manifest", JSON.stringify({ ...event, succeeded }));
+      // Export after install/failure handling. A broken relay must never change
+      // the publish result. No storage URLs, slugs, credentials or error bodies.
+      const origin = process.env.WIKI_TELEMETRY_ORIGIN;
+      const secret = process.env.WIKI_PREFETCH_SECRET;
+      if (origin && secret) {
+        try {
+          const response = await fetch(new URL("/api/telemetry/manifest", origin), { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${secret}` }, body: JSON.stringify(event), signal: AbortSignal.timeout(2000), redirect: "error" });
+          if (!response.ok) console.warn("manifest.telemetry.rejected", response.status);
+        } catch { console.warn("manifest.telemetry.unavailable"); }
+      }
     }
     return null;
   },

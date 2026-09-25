@@ -1,3 +1,4 @@
+import { readerFetch } from "../reader-telemetry";
 import { useStore } from "@livestore/react";
 import { createWikiContentClient } from "@oncobase/wiki-content";
 import { useEffect, useRef } from "react";
@@ -43,7 +44,7 @@ export function BackgroundPrefetch({ onMetrics, isForegroundBusy }: {
     let controller: AbortController | undefined;
     let lastInteraction = performance.now();
     const failedUntil = new Map<string, number>();
-    const client = createWikiContentClient({ scope, baseUrl: import.meta.env.VITE_WIKI_API_ORIGIN ?? "", requestTimeoutMs: 15_000 });
+    const client = createWikiContentClient({ fetch: readerFetch, scope, baseUrl: import.meta.env.VITE_WIKI_API_ORIGIN ?? "", requestTimeoutMs: 15_000 });
     const endpoint = backendHref(`/api/wiki/prefetch?scope=${scope}`);
     const navigatorHints = navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string }; scheduling?: { isInputPending?: () => boolean } };
     const allowed = (pressure = 0) => !isForegroundBusy() && canPrefetch({ online: navigator.onLine, visible: document.visibilityState === "visible", saveData: navigatorHints.connection?.saveData, effectiveType: navigatorHints.connection?.effectiveType, pressure, inputPending: navigatorHints.scheduling?.isInputPending?.() });

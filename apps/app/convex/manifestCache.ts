@@ -75,28 +75,28 @@ export const deltaBase = internalQuery({
 
 export const install = internalMutation({
   args: { siteSlug: v.string(), revision: v.number(), hash: v.string(), storageId: v.id("_storage"), formatVersion: v.number() },
-  handler: async (ctx, args): Promise<boolean> => {
+  handler: async (ctx, args): Promise<"installed" | "missing-site" | "active-writer" | "stale-revision"> => {
     const { site, siteId } = await requireSite(ctx, args.siteSlug);
-    if (!site || !siteId) { await ctx.storage.delete(args.storageId); return false; }
+    if (!site || !siteId) { await ctx.storage.delete(args.storageId); return "missing-site"; }
     // Never install a projection assembled across an active writer's mutations.
     // Finish/abort/expiry will invalidate and schedule after ownership ends.
     if (site.publishRunId?.startsWith("scoped:") && (site.publishLockUntil ?? 0) > Date.now()) {
       await ctx.storage.delete(args.storageId);
       await ctx.db.patch(siteId, { manifestBuildQueuedAt: undefined });
-      return false;
+      return "active-writer";
     }
     if ((site.manifestRevision ?? 0) !== args.revision || args.formatVersion !== MANIFEST_SNAPSHOT_VERSION) {
       await ctx.storage.delete(args.storageId);
       await ctx.db.patch(siteId, { manifestBuildQueuedAt: undefined });
       await queueManifestBuild(ctx, siteId);
-      return false;
+      return "stale-revision";
     }
     await ctx.db.patch(siteId, {
       manifestSnapshot: { revision: args.revision, hash: args.hash, storageId: args.storageId, formatVersion: MANIFEST_SNAPSHOT_VERSION },
       manifestBuildQueuedAt: undefined,
     });
     if (site.manifestSnapshot) await ctx.storage.delete(site.manifestSnapshot.storageId);
-    return true;
+    return "installed";
   },
 });
 

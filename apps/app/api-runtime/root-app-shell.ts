@@ -1,3 +1,4 @@
+import { traceBackendHandler } from "../server/backend-tracing";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import { requestFromIncoming, sendWebResponse } from "../server/http-adapter";
@@ -13,6 +14,8 @@ async function handleWikiViteRequest(request: Request) {
   }));
   return (await handler)(request);
 }
+
+const tracedShell = traceBackendHandler(handleWikiViteRequest, { route: "/reader/shell" });
 
 function restoreRewrittenPath(request: Request) {
   const url = new URL(request.url);
@@ -41,7 +44,7 @@ export default async function wikiViteRootAppShell(
       await sendWebResponse(res, new Response(null, { status: 404, headers: { "Cache-Control": "private, no-store" } }));
       return;
     }
-    await sendWebResponse(res, await handleWikiViteRequest(request));
+    await sendWebResponse(res, (await tracedShell(request))!);
   } catch (error) {
     console.error("[wiki-vite-vercel-root-app]", error);
     await sendWebResponse(

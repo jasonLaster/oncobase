@@ -1,3 +1,6 @@
+import { recordRemoteSpan, traceBackendAttributes } from "./backend-tracing";
+import { handleManifestTelemetry } from "./manifest-telemetry";
+import { handleReaderTelemetry } from "./reader-telemetry";
 import {
   DEFAULT_SITE_SLUG,
   type PasswordGateEntry,
@@ -3021,6 +3024,8 @@ export function createWikiApiHandler(client = createClient()) {
   client = traceConvexClient(client);
   return traceBackendHandler(async function handleWikiApiRequest(request: Request): Promise<Response | null> {
     const pathname = new URL(request.url).pathname;
+    if (pathname === "/api/telemetry/manifest") return handleManifestTelemetry(request);
+    if (pathname === "/api/wiki/telemetry") return handleReaderTelemetry(request);
     const handled =
       pathname.startsWith("/api/wiki/") ||
       pathname.startsWith("/api/admin/") ||
@@ -3081,9 +3086,11 @@ export function createWikiApiHandler(client = createClient()) {
         getSessionUser(nextRequest, client, siteSlug),
       access: createAccessAdapter(client, siteSlug),
       manifestPrioritySlugs: MANIFEST_PRIORITY_SLUGS,
+      onManifestPhase: (name: "read" | "filter" | "tree" | "hash" | "serialize", ms: number) => recordRemoteSpan(`manifest.${name}`, Date.now() - ms, ms, { "telemetry.source": "api" }),
       getManifestSnapshot: process.env.WIKI_PREFETCH_SECRET ? async () => {
         const args = { siteSlug, serverSecret: process.env.WIKI_PREFETCH_SECRET! };
         const snapshot = await client.query(api.manifestCache.current, args);
+        traceBackendAttributes({ "manifest.snapshot_hit": Boolean(snapshot) });
         if (!snapshot) { await client.mutation(api.manifestCache.requestBuild, args); return null; }
         return { hash: snapshot.hash, read: async () => traceBackendPhase("manifest.snapshot-read", async () => {
           const response = await fetch(snapshot.url, { signal: AbortSignal.timeout(5000) });
