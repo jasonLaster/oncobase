@@ -1,3 +1,4 @@
+import { recordReaderPhase } from "../reader-telemetry";
 import { initialReaderPage } from "../bootstrap/initial-reader-data";
 import { useInitialReaderData, useReaderQuery, EMPTY_READER_ROWS } from "../bootstrap/reader-queries";
 import { DocumentComments } from "@oncobase/wiki-comments/wrapper";
@@ -203,6 +204,13 @@ export function WikiPage({
   const routeIndex = useReaderQuery(pageIndexBySlug$(slug), initial?.pages.find(page => page.slug === slug) ?? null) as PageIndexRow | null;
   const pageIndex = useReaderQuery(pageIndex$, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
   const assets = useReaderQuery(assets$, EMPTY_READER_ROWS) as AssetIndexRow[];
+  const readyRecorded = useRef(false);
+  useEffect(() => {
+    if (!readyRecorded.current && page?.contentStatus === "fresh" && !routePending) {
+      readyRecorded.current = true;
+      requestAnimationFrame(() => recordReaderPhase("reader-ready"));
+    }
+  }, [page?.contentStatus, routePending]);
   const stale = page?.contentStatus === "stale";
   const deleted = page?.contentStatus === "deleted";
   const failedCurrentFetch =

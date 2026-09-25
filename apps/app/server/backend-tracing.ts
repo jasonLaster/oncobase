@@ -1,10 +1,11 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { ROOT_CONTEXT, SpanKind, SpanStatusCode, trace, type Span, type Tracer } from "@opentelemetry/api";
+import { ROOT_CONTEXT, propagation, SpanKind, SpanStatusCode, trace, type Span, type Tracer } from "@opentelemetry/api";
 import type { BasicTracerProvider } from "@opentelemetry/sdk-trace-base";
 import { getFunctionName } from "convex/server";
 import type { ConvexHttpClient } from "convex/browser";
 
 export type BackendProfile = {
+  attributes?: Record<string, string | number | boolean>;
   route: string;
   durationMs: number;
   status: number;
@@ -17,11 +18,17 @@ let provider: BasicTracerProvider | undefined;
 let initializing: Promise<Tracer | undefined> | undefined;
 
 async function backendTracer(): Promise<Tracer | undefined> {
-  if (process.env.WIKI_BACKEND_TRACING !== "1") return undefined;
-  // Load SDK/exporter only when enabled. A private provider avoids activating
-  // unrelated AI SDK spans that may capture prompts or clinical content.
+  if (process.env.WIKI_BACKEND_TRACING === "0") return undefined;
+  if (process.env.VERCEL !== "1" && process.env.WIKI_BACKEND_TRACING !== "1") return undefined;
+  // Native Vercel export uses an explicit-span sampler to exclude AI content.
+  // Local OTLP remains private and opt-in. Load either SDK only when enabled.
   initializing ??= (async () => {
     try {
+      if (process.env.VERCEL === "1") {
+        const { registerVercelTracing } = await import("./vercel-tracing");
+        registerVercelTracing();
+        return trace.getTracer("oncobase.backend");
+      }
       const [{ BasicTracerProvider, BatchSpanProcessor, TraceIdRatioBasedSampler }, { OTLPTraceExporter }, { resourceFromAttributes }] = await Promise.all([
         import("@opentelemetry/sdk-trace-base"),
         import("@opentelemetry/exporter-trace-otlp-http"),
@@ -48,7 +55,7 @@ export async function flushBackendTraces() {
 
 // Paths can contain document slugs and IDs. Only fixed route families leave
 // the process; never record URLs, query strings, headers, bodies, or errors.
-const TRACED_ROUTES = new Set(["/api/admin/access", "/api/admin/roles", "/api/admin/session", "/api/admin/users", "/api/admin/users/role", "/api/ai-search", "/api/auth/session", "/api/auth/signin", "/api/auth/signout", "/api/auth/signup", "/api/chat", "/api/diagnostic-studies", "/api/dicom/annotations", "/api/dicom/comparisons", "/api/dicom/file", "/api/dicom/series", "/api/dicom/studies", "/api/download", "/api/file", "/api/integrations/epic/authorize", "/api/integrations/epic/callback", "/api/integrations/epic/sync", "/api/liveblocks-add-comment", "/api/liveblocks-auth", "/api/liveblocks-delete-thread", "/api/liveblocks-guest", "/api/liveblocks-threads", "/api/liveblocks-users", "/api/liveblocks-webhook", "/api/login", "/api/page-copy", "/api/search", "/api/share-preview", "/api/test/diagnostic-studies", "/api/test/dicom-comparisons", "/api/timeline", "/api/tools", "/api/wiki/manifest", "/api/wiki/pages", "/api/wiki/prefetch", "/api/wiki/session"]);
+const TRACED_ROUTES = new Set(["/api/admin/access", "/api/admin/roles", "/api/admin/session", "/api/admin/users", "/api/admin/users/role", "/api/ai-search", "/api/auth/session", "/api/auth/signin", "/api/auth/signout", "/api/auth/signup", "/api/chat", "/api/diagnostic-studies", "/api/dicom/annotations", "/api/dicom/comparisons", "/api/dicom/file", "/api/dicom/series", "/api/dicom/studies", "/api/download", "/api/file", "/api/integrations/epic/authorize", "/api/integrations/epic/callback", "/api/integrations/epic/sync", "/api/liveblocks-add-comment", "/api/liveblocks-auth", "/api/liveblocks-delete-thread", "/api/liveblocks-guest", "/api/liveblocks-threads", "/api/liveblocks-users", "/api/liveblocks-webhook", "/api/login", "/api/page-copy", "/api/search", "/api/share-preview", "/api/test/diagnostic-studies", "/api/test/dicom-comparisons", "/api/timeline", "/api/tools", "/api/wiki/manifest", "/api/wiki/pages", "/api/wiki/prefetch", "/api/wiki/session", "/api/wiki/telemetry", "/api/telemetry/manifest"]);
 
 const PUBLISH_ROUTES = new Set([
   "begin", "document", "asset", "asset-hashes", "document-hashes", "finish", "abort",
@@ -72,26 +79,39 @@ function routeName(request: Request) {
 
 export function traceBackendHandler(
   handler: (request: Request) => Promise<Response | null>,
-  options: { tracer?: Tracer; onProfile?: (profile: BackendProfile) => void } = {},
+  options: { route?: "/reader/shell"; tracer?: Tracer; onProfile?: (profile: BackendProfile) => void } = {},
 ) {
   return async (request: Request) => {
     const started = performance.now();
     const tracer = options.tracer ?? await backendTracer();
+    const initializationMs = performance.now() - started;
     const profileSession = new URL(request.url).pathname === "/api/wiki/session" &&
       new URL(request.url).searchParams.get("profile") === "1";
     const profilePublish = PUBLISH_ROUTES.has(new URL(request.url).pathname) && request.headers.get("X-Publish-Profile") === "1";
     const timing = process.env.WIKI_BACKEND_TIMING === "1" || profileSession || profilePublish;
-    if (!tracer && !timing && !options.onProfile) return handler(request);
-    const route = routeName(request);
+    const retained = process.env.VERCEL === "1" && process.env.WIKI_BACKEND_TRACING !== "0";
+    if (!tracer && !timing && !options.onProfile && !retained) return handler(request);
+    const route = options.route ?? routeName(request);
+    const incoming = publishParent(request);
+    const clientTraceId = request.headers.get("x-wiki-reader-trace") ?? trace.getSpanContext(incoming)?.traceId;
+    const correlation = clientTraceId && /^[a-f0-9]{32}$/.test(clientTraceId) ? clientTraceId : undefined;
+    // Use Vercel's infrastructure parent so custom spans appear in its request
+    // trace. Keep the CLI/browser's separate trace ID as a join key.
+    const parent = retained ? propagation.extract(ROOT_CONTEXT, {}, { keys: () => [], get: () => undefined }) : incoming;
     const span = tracer?.startSpan(`wiki ${route}`, {
-      kind: SpanKind.SERVER,
-      attributes: { "http.route": route, "http.request.method": request.method },
-    }, publishParent(request));
-    const profile: BackendProfile = { route, durationMs: 0, status: 500, calls: [], phases: [] };
+      kind: SpanKind.SERVER, startTime: Date.now() - (performance.now() - started),
+      attributes: { "oncobase.safe": true, "telemetry.init_ms": initializationMs, "http.route": route, "http.request.method": request.method, ...(correlation ? { "oncobase.client.trace_id": correlation } : {}) },
+    }, parent);
+    const profile: BackendProfile = { route, attributes: { "telemetry.init_ms": initializationMs }, durationMs: 0, status: 500, calls: [], phases: [] };
     return requests.run({ tracer, span, profile }, async () => {
       try {
-        const response = await handler(request);
+        let response = await handler(request);
+        // Redirect/fetch responses can have immutable headers. Telemetry must
+        // not turn an otherwise successful redirect into an application error.
+        if (response && (span || timing || retained)) response = new Response(response.body, { status: response.status, statusText: response.statusText, headers: response.headers });
         profile.status = response?.status ?? 404;
+        if (response && span) response.headers.set("X-Oncobase-Trace-Id", span.spanContext().traceId);
+        if (response && retained) timingResponse(response, profile);
         if (timing && response) {
           response.headers.append("Server-Timing", `backend;dur=${(performance.now() - started).toFixed(1)}, convex;dur=${profile.calls.reduce((sum, call) => sum + call.durationMs, 0).toFixed(1)};desc="summed RPC time", convex-count;desc="${profile.calls.length}"`);
           if (profilePublish) {
@@ -123,6 +143,10 @@ export function traceBackendHandler(
         profile.durationMs = performance.now() - started;
         span?.setAttributes({ "http.response.status_code": profile.status, "convex.calls": profile.calls.length, "convex.calls.pending": profile.calls.filter((call) => call.pending).length });
         span?.end();
+        if (retained) console.info("oncobase.backend", JSON.stringify({
+          ...profile, calls: profile.calls.slice(0, 128), phases: profile.phases.slice(0, 128),
+          traceId: span?.spanContext().traceId, clientTraceId: correlation,
+        }));
         try { options.onProfile?.({ ...profile, calls: profile.calls.map((call) => ({ ...call })), phases: profile.phases.map(phase => ({ ...phase })) }); } catch { /* Observers cannot fail requests. */ }
       }
     });
@@ -146,7 +170,7 @@ export function traceConvexClient(client: ConvexHttpClient, tracerOverride?: Tra
         const tracer = tracerOverride ?? current.tracer;
         const span = tracer?.startSpan(`convex.${property} ${name}`, {
           kind: SpanKind.CLIENT,
-          attributes: { "rpc.system": "convex", "rpc.method": name, "convex.operation": property },
+          attributes: { "oncobase.safe": true, "rpc.system": "convex", "rpc.method": name, "convex.operation": property },
         }, current.span ? trace.setSpan(ROOT_CONTEXT, current.span) : ROOT_CONTEXT);
         const call = { operation: property, name, durationMs: 0, failed: false, pending: true };
         current.profile.calls.push(call);
@@ -182,7 +206,7 @@ export async function traceBackendPhase<T>(
   const current = requests.getStore();
   if (!current) return run();
   const started = performance.now();
-  const span = current.tracer?.startSpan(name, { kind: SpanKind.INTERNAL }, current.span ? trace.setSpan(ROOT_CONTEXT, current.span) : ROOT_CONTEXT);
+  const span = current.tracer?.startSpan(name, { kind: SpanKind.INTERNAL, attributes: { "oncobase.safe": true } }, current.span ? trace.setSpan(ROOT_CONTEXT, current.span) : ROOT_CONTEXT);
   return requests.run({ ...current, span: span ?? current.span }, async () => {
     try { return await run(); }
     catch (error) { span?.setStatus({ code: SpanStatusCode.ERROR }); throw error; }
@@ -191,4 +215,38 @@ export async function traceBackendPhase<T>(
       span?.end();
     }
   });
+}
+
+function timingResponse(response: Response, profile: BackendProfile) {
+  response.headers.append("Server-Timing", `convex-rpc;dur=${profile.calls.reduce((sum, call) => sum + call.durationMs, 0).toFixed(1)}`);
+}
+
+/** Fixed caller-owned attributes only. Never forward request bodies here. */
+export function traceBackendAttributes(attributes: Record<string, string | number | boolean>) {
+  const current = requests.getStore();
+  if (current) {
+    current.span?.setAttributes(attributes);
+    current.profile.attributes = { ...current.profile.attributes, ...attributes };
+  }
+}
+
+export function recordRemoteSpan(name: string, start: number, duration: number, attributes: Record<string, string | number | boolean>, failed = false) {
+  const current = requests.getStore();
+  const remote = attributes["telemetry.source"] === "browser" || attributes["telemetry.source"] === "convex";
+  // Vercel's request trace lookup omits historical spans outside the request
+  // window. Represent remote measurements as receipt-time observation spans,
+  // preserving the measured clock/duration as attributes and in structured logs.
+  // Never shift historical timestamps to fabricate a request waterfall.
+  const span = current?.tracer?.startSpan(remote ? `observation.${name}` : name, {
+    kind: SpanKind.INTERNAL, ...(remote ? {} : { startTime: start }),
+    attributes: { ...attributes, "oncobase.safe": true,
+      ...(remote ? { "measurement.start_unix_ms": start, "measurement.duration_ms": duration } : {}) },
+  }, current.span ? trace.setSpan(ROOT_CONTEXT, current.span) : ROOT_CONTEXT);
+  if (failed) span?.setStatus({ code: SpanStatusCode.ERROR });
+  span?.end(remote ? undefined : start + duration);
+}
+
+export function backendClientTraceId() {
+  const current = requests.getStore();
+  return current?.span?.spanContext().traceId;
 }

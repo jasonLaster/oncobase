@@ -185,3 +185,13 @@ test("opt-in tracing exports real OTLP HTTP spans to a collector", async () => {
     collector.stop(true);
   }
 });
+
+test("tracing preserves immutable redirect responses", async () => {
+  const provider = new BasicTracerProvider();
+  const handle = traceBackendHandler(async () => Response.redirect("https://example.test/login", 302), { tracer: provider.getTracer("test") });
+  const response = await handle(new Request("https://example.test/api/auth/signout"));
+  expect(response?.status).toBe(302);
+  expect(response?.headers.get("location")).toBe("https://example.test/login");
+  expect(response?.headers.get("X-Oncobase-Trace-Id")).toMatch(/^[a-f0-9]{32}$/);
+  await provider.shutdown();
+});

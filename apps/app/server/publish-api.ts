@@ -5,7 +5,7 @@ import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@onco
 import { parseWikiManifest } from "@oncobase/wiki-content";
 import { withSiteSlug } from "./wiki-api.js";
 import { siteBlobKey } from "./blob";
-import { traceBackendPhase } from "./backend-tracing";
+import { traceBackendPhase, traceBackendAttributes, backendClientTraceId } from "./backend-tracing";
 import { assertPublishRun, OWNED_RUN_PREFIX } from "../convex/lib/publishRun";
 
 const MIN_SUPPORTED_PUBLISHER_PROTOCOL_VERSION = 1;
@@ -358,6 +358,10 @@ type ReadinessScope = {
 async function checkReader(client: ConvexHttpClient, siteSlug: string, body: ReadinessScope) {
   return traceBackendPhase("publish.reader", async () => {
     const status = await client.query(api.sites.publisherStatus, { slug: siteSlug });
+    traceBackendAttributes({ "manifest.revision": status.revision, "manifest.minimum_revision": body.minimumRevision,
+      "manifest.snapshot_revision": status.snapshotRevision ?? -1, "manifest.queue_age_ms": status.queuedAt ? Date.now() - status.queuedAt : 0,
+      "manifest.active_writer": status.activeWriter ?? false,
+      "reader.readiness": status.revision < body.minimumRevision ? "revision-behind" : !status.snapshot ? "snapshot-missing" : "checking-content" });
     if (status.revision < body.minimumRevision || !status.snapshot) return { ready: false, revision: status.revision };
     const response = await fetch(status.snapshot.url, { signal: AbortSignal.timeout(5000), cache: "no-store" });
     if (!response.ok) throw new Error("Reader manifest bytes unavailable");
@@ -383,6 +387,7 @@ async function checkReader(client: ConvexHttpClient, siteSlug: string, body: Rea
       }));
       assetMismatches += matches.filter(match => !match).length;
     }
+    traceBackendAttributes({ "reader.readiness": documentMismatches || assetMismatches ? "content-mismatch" : "ready", "reader.document_mismatches": documentMismatches, "reader.asset_mismatches": assetMismatches });
     return { ready: documentMismatches === 0 && assetMismatches === 0, revision: status.revision, documentMismatches, assetMismatches };
   });
 }
@@ -806,7 +811,7 @@ export async function handlePublishRequest({
           if (failure?.status === "rejected") throw failure.reason;
         }
       });
-      const finished = await client.mutation(api.sites.finishPublish, { slug: siteSlug, runId: body.runId });
+      const finished = await client.mutation(api.sites.finishPublish, { slug: siteSlug, runId: body.runId, clientTraceId: backendClientTraceId() });
       // Preserve the commit boundary even if the independent reader check fails.
       // The client can poll status; it must not abort/replay a completed run.
       try {
@@ -842,7 +847,7 @@ export async function handlePublishRequest({
             );
           }
         }
-        const finished = await client.mutation(api.sites.finishPublish, { slug: siteSlug, runId });
+        const finished = await client.mutation(api.sites.finishPublish, { slug: siteSlug, runId, clientTraceId: backendClientTraceId() });
         return Response.json({ ok: true, revision: finished.revision, postPublishRunId: null });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

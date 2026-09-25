@@ -1,3 +1,4 @@
+import { readerFetch } from "./reader-telemetry";
 import {
   createWikiContentClient,
   type WikiScope,
@@ -204,7 +205,7 @@ export function WikiViteRoot() {
     const baseUrl = apiBaseUrl();
     void resolveReaderSession(
       explicitReaderScope(window.location.search),
-      (requestedScope, fallbackToPublic) => createWikiContentClient({
+      (requestedScope, fallbackToPublic) => createWikiContentClient({ fetch: readerFetch,
         scope: requestedScope,
         baseUrl,
         credentials: baseUrl ? "include" : "same-origin",

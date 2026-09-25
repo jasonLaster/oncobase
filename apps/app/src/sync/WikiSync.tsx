@@ -1,3 +1,4 @@
+import { readerFetch } from "../reader-telemetry";
 import { useStore } from "@livestore/react";
 import {
   createWikiContentClient,
@@ -103,7 +104,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   }, []);
   const client = useMemo(() => {
     const baseUrl = import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
-    return createWikiContentClient({
+    return createWikiContentClient({ fetch: readerFetch,
       scope,
       baseUrl,
       credentials: baseUrl ? "include" : "same-origin",

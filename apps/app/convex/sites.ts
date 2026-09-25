@@ -313,8 +313,9 @@ export const expirePublish = internalMutation({
 });
 
 export const finishPublish = mutation({
-  args: { slug: v.string(), runId: v.optional(v.string()) },
-  handler: async (ctx, { slug, runId }) => {
+  args: { slug: v.string(), runId: v.optional(v.string()), clientTraceId: v.optional(v.string()) },
+  handler: async (ctx, { slug, runId, clientTraceId }) => {
+    if (clientTraceId && !/^[a-f0-9]{32}$/.test(clientTraceId)) throw new Error("Invalid trace identity");
     assertSiteSlug(slug);
     const site = await ctx.db
       .query("sites")
@@ -327,7 +328,7 @@ export const finishPublish = mutation({
       // rejects additions/deletions/visibility changes and validates the base.
       const delta = site.publishScope?.assets.length === 0 && site.publishScope.documents.length <= 128
         ? { baseRevision: site.manifestRevision ?? 0, slugs: site.publishScope.documents } : undefined;
-      await invalidateManifest(ctx, site._id, 0, delta);
+      await invalidateManifest(ctx, site._id, 0, delta, clientTraceId);
     }
     // A no-op can reuse only the current-format/current-revision snapshot.
     // Missing/stale snapshots still need repair and reader verification.
@@ -335,7 +336,7 @@ export const finishPublish = mutation({
       const snapshot = site.manifestSnapshot;
       const reusable = snapshot && snapshot.revision === (site.manifestRevision ?? 0) &&
         snapshot.formatVersion === MANIFEST_SNAPSHOT_VERSION && await ctx.storage.getUrl(snapshot.storageId);
-      if (!reusable) await queueManifestBuild(ctx, site._id, 0);
+      if (!reusable) await queueManifestBuild(ctx, site._id, 0, undefined, clientTraceId);
     }
     const now = Date.now();
     await ctx.db.patch(site._id, {
@@ -361,9 +362,10 @@ export const publisherStatus = query({
     if (!site || site.status !== "active") throw new Error("site not active");
     const revision = site.manifestRevision ?? 0;
     const snapshot = site.manifestSnapshot;
-    if (!snapshot || snapshot.revision !== revision || snapshot.formatVersion !== MANIFEST_SNAPSHOT_VERSION) return { revision, snapshot: null };
+    const diagnostic = { snapshotRevision: snapshot?.revision ?? -1, queuedAt: site.manifestBuildQueuedAt ?? 0, activeWriter: (site.publishLockUntil ?? 0) > Date.now() };
+    if (!snapshot || snapshot.revision !== revision || snapshot.formatVersion !== MANIFEST_SNAPSHOT_VERSION) return { ...diagnostic, revision, snapshot: null };
     const url = await ctx.storage.getUrl(snapshot.storageId);
-    return { revision, snapshot: url ? { url, hash: snapshot.hash } : null };
+    return { ...diagnostic, revision, snapshot: url ? { url, hash: snapshot.hash } : null };
   },
 });
 

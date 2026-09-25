@@ -44,11 +44,11 @@ test("snapshot builds coalesce writes, reject concurrent revisions, and recover 
   expect(rows.sites[0].manifestRevision).toBe(2);
   expect(rows.sites[1].manifestRevision).toBeUndefined();
   expect(jobs).toHaveLength(1);
-  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, revision: 1, hash: "old", storageId: "old-blob" })).toBe(false);
+  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, revision: 1, hash: "old", storageId: "old-blob" })).toBe("stale-revision");
   expect(deleted).toContain("old-blob");
   expect(rows.sites[0].manifestSnapshot).toBeUndefined();
   expect(jobs).toHaveLength(2);
-  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, revision: 2, hash: "new", storageId: "new-blob" })).toBe(true);
+  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, revision: 2, hash: "new", storageId: "new-blob" })).toBe("installed");
   expect(rows.sites[0].manifestBuildQueuedAt).toBeUndefined();
   rows.sites[0].manifestBuildQueuedAt = Date.now() - 120_001;
   await queueManifestBuild(ctx, "a" as never);
@@ -128,7 +128,7 @@ test("operator snapshot inventory excludes archived sites and site credentials",
 test("an overlapping builder cannot install while an owned publisher is active", async () => {
   const { ctx, rows, jobs, deleted } = fixture();
   Object.assign(rows.sites[0], { publishRunId: "scoped:run", publishLockUntil: Date.now() + 60_000, manifestRevision: 2, manifestBuildQueuedAt: Date.now() });
-  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, revision: 2, hash: "mixed", storageId: "mixed-blob" })).toBe(false);
+  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, revision: 2, hash: "mixed", storageId: "mixed-blob" })).toBe("active-writer");
   expect(deleted).toContain("mixed-blob");
   expect(rows.sites[0].manifestSnapshot).toBeUndefined();
   expect(rows.sites[0].manifestBuildQueuedAt).toBeUndefined();
@@ -143,4 +143,12 @@ test("incremental bases must belong to the site and immediately precede the new 
   expect(await handler(deltaBase)(ctx, { siteSlug: "alpha", baseRevision: 3 })).toBeNull();
   rows.sites[0].manifestSnapshot.formatVersion = 0;
   expect(await handler(deltaBase)(ctx, { siteSlug: "alpha", baseRevision: 4 })).toBeNull();
+});
+
+test("scheduled builds retain queue time and correlation without document telemetry", async () => {
+  const { ctx, jobs } = fixture();
+  const id = "1234567890abcdef1234567890abcdef";
+  await queueManifestBuild(ctx, "a" as never, 0, undefined, id);
+  expect(jobs[0].queuedAt).toBeGreaterThan(0);
+  expect(jobs[0].clientTraceId).toBe(id);
 });
