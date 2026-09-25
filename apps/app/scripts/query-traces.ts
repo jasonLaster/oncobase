@@ -24,7 +24,7 @@ if (ms < 60000 || ms > 30 * 86400000) throw new Error("--since must be 1m throug
 const limit = Number(values.limit);
 if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error("--limit must be 1 through 1000.");
 if (values.trace && !/^[a-f0-9]{32}$/.test(values.trace)) throw new Error("--trace must be a 32-character lowercase hex trace ID.");
-const apl = values.query ?? `['${dataset}']${values.trace ? ` | where trace_id == '${values.trace}' or ['attributes.oncobase.client.trace_id'] == '${values.trace}'` : ""} | order by _time asc | limit ${limit}`;
+const apl = values.query ?? `['${dataset}']${values.trace ? ` | where trace_id == '${values.trace}' or ['attributes.custom']['oncobase.client.trace_id'] == '${values.trace}'` : ""} | order by _time asc | limit ${limit}`;
 const response = await fetch(`${(config.AXIOM_URL || "https://api.axiom.co").replace(/\/$/, "")}/v1/query/_apl?format=tabular`, {
   method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
   body: JSON.stringify({ apl, startTime: new Date(Date.now() - ms).toISOString(), endTime: new Date().toISOString() }),
