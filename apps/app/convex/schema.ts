@@ -56,6 +56,7 @@ export default defineSchema({
     monthlyTokensUsed: v.optional(v.number()),
     manifestRevision: v.optional(v.number()),
     manifestBuildQueuedAt: v.optional(v.number()),
+    manifestBuildGeneration: v.optional(v.number()),
     manifestSnapshot: v.optional(v.object({
       revision: v.number(),
       formatVersion: v.number(),

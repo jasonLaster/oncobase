@@ -56,4 +56,7 @@ test("manifest relay validates enums and exports only fixed numeric phases", () 
   const event = { version: 1, startedAt: Date.now(), revision: 1, durationMs: 100, incremental: false, outcome: "active-writer", failureStage: "none", phases: { read: 80, PRIVATE: "secret" }, error: "PRIVATE" };
   expect(JSON.stringify(parseManifestTelemetry(event))).not.toContain("PRIVATE");
   expect(parseManifestTelemetry({ ...event, outcome: "PRIVATE error" })).toBeNull();
+  expect(parseManifestTelemetry({ ...event, attempt: 2 })?.attempt).toBe(2);
+  expect(parseManifestTelemetry({ ...event, attempt: -1 })?.attempt).toBeUndefined();
+  expect(parseManifestTelemetry({ ...event, attempt: "PRIVATE" })?.attempt).toBeUndefined();
 });

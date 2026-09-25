@@ -1,0 +1,10 @@
+{
+  "experiment.id": "186c0de1956cc42fb05572feb0c34208",
+  "experiment.variant": "fault-injection-and-regression",
+  "experiment.outcome": "passed",
+  "experiment.tests": 34,
+  "experiment.failures": 0,
+  "experiment.assertions": 246,
+  "measurement.duration_ms": 177.371,
+  "experiment.production_faults": false
+}
