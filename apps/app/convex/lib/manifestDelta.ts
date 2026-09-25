@@ -1,7 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { parseWikiManifest, type WikiManifest, type WikiManifestPage } from "@oncobase/wiki-content";
-import { buildCompactTreeFromManifest } from "@oncobase/wiki-content/server";
+import { buildCompactTreeFromManifest } from "@oncobase/wiki-content/manifest-tree";
 
 const hash = (core: unknown) => bytesToHex(sha256(new TextEncoder().encode(JSON.stringify(core)))).slice(0, 24);
 /** Public document-only changes. Additions rebuild the tree from the verified
