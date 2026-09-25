@@ -1,20 +1,45 @@
 # Reader and publisher observability
 
-The production Vite application explicitly initializes `@vercel/otel` inside its Node API and HTML functions. This is native Vercel tracing, not an OTLP exporter pointed at an absent localhost collector. Vercel's request context supplies the infrastructure parent and flushes spans after the response. Local development keeps the existing opt-in OTLP exporter.
+The production Vite application exports explicitly instrumented spans directly to an OTLP backend when configured. The provider is private: enabling telemetry cannot capture global AI/prompt spans or automatic request metadata. API and HTML functions flush after sending the response, with bounded queues and export timeouts. Without external configuration, Vercel deployments fall back to native `@vercel/otel`. Local development remains opt-in.
+
+## Direct OTLP / Axiom
+
+- `AXIOM_API_KEY`: server-only ingest key, never a `VITE_` or `NEXT_PUBLIC_` variable.
+- `AXIOM_DATASET=oncobase-traces`: dedicated Events dataset, 30-day retention.
+- `AXIOM_URL=https://eu-central-1.aws.edge.axiom.co`: use the dataset's actual regional endpoint for both ingest and queries.
+- Alternatively configure `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` (or the base `OTEL_EXPORTER_OTLP_ENDPOINT`) and standard OTLP headers. This takes precedence and does **not** forward the Axiom key to another collector.
+- Direct export defaults to 100% sampling; `WIKI_BACKEND_TRACE_SAMPLE_RATE` overrides it. Keep small diagnostic workloads unsampled until volume is measured. `WIKI_BACKEND_TRACING=0` remains the kill switch.
+- The direct provider replaces custom native export; it does not require Vercel Plus or a paid drain. Platform tracing rules are independent and must be reduced/disabled separately after verification.
+
+Browser and builder spans use their original timestamps and durations in Axiom. Each is a separate trace root linked to the request that received it. `oncobase.client.trace_id` joins browser batches to API calls and builder jobs to the originating finish request; it is **not** a fabricated parent. Publisher API calls adopt the CLI's valid traceparent. CLI local phase profiles still need separate export, so these requests can have a parent not present in Axiom. Do not describe this as a complete continuous waterfall.
+
+Query with an ingest-and-query key, or a separate local `AXIOM_QUERY_API_KEY`. The deployed app only needs ingest permission. The helper reads credentials without printing them:
+
+```sh
+cd apps/app
+bun scripts/query-traces.ts --env-file /path/to/.env.local --since 24h --limit 100
+bun scripts/query-traces.ts --env-file /path/to/.env.local --since 7d --trace <32-hex-id>
+bun scripts/query-traces.ts --env-file /path/to/.env.local --since 7d \
+  --query "['oncobase-traces'] | summarize count() by name"
+```
+
+The default output is a bounded sample, **not** an exhaustive population. Use aggregate APL queries over the full window for reports and explicit trace IDs for individual trajectories. Ingestion acceptance alone is insufficient: verify query read-back of API, browser, and scheduled-builder spans. Client and server clocks remain separate.
+
+References: [Axiom OTLP ingestion](https://axiom.co/docs/send-data/opentelemetry), [API queries](https://axiom.co/docs/restapi/query), [plan limits](https://axiom.co/docs/reference/limits).
 
 ## Coverage and correlation
 
 | Source | What is recorded | Join key |
 | --- | --- | --- |
 | Browser | Identity, storage, LiveStore boot/handoff, first ready render, sync transitions, session/manifest/page fetch-to-headers durations, provisional/304 flags, summed server RPC time | Random per-page `traceId` / `oncobase.client.trace_id` |
-| API | Fixed route, HTTP status, Convex RPC spans, existing publisher phases, manifest fallback phases, snapshot hit, readiness reason, revision, queue age, active writer, mismatch counts | Native Vercel request trace; browser/CLI ID retained as `clientTraceId` |
-| Scheduled Convex builder | Queue delay, build duration, incremental/full mode, phase durations, install outcome, failure stage | Finish API's native trace ID propagated as `clientTraceId`; revision and queue timestamp |
+| API | Fixed route, HTTP status, Convex RPC spans, existing publisher phases, manifest fallback phases, snapshot hit, readiness reason, revision, queue age, active writer, mismatch counts | OTel API trace; browser ID retained as `clientTraceId`; external mode adopts CLI traceparent |
+| Scheduled Convex builder | Queue delay, build duration, incremental/full mode, phase durations, install outcome, failure stage | Finish API's trace ID propagated as `clientTraceId`; revision and queue timestamp |
 
-Browser and Convex measurements are relayed through small Vercel API requests. Vercel request-trace retrieval omitted historical spans preceding the receiving request in a live test, even though the SDK exported them. Therefore remote measurements appear as `observation.reader.*` and `observation.manifest.*` receipt-time spans, with the real start timestamp and duration in `measurement.start_unix_ms` and `measurement.duration_ms`, and in the JSON logs. The native span duration is relay processing, **not browser/build latency**. Their parent in Vercel is the **relay request**, not a fabricated continuous browser-to-job trace. Search the shared correlation ID to assemble the trajectory. Client clocks can differ from the server: compare local durations; do not infer network latency by subtracting timestamps from different machines.
+Browser and Convex measurements are relayed through small Vercel API requests. Vercel request-trace retrieval omitted historical spans preceding the receiving request in a live test, even though the SDK exported them. In native Vercel fallback mode only, remote measurements appear as `observation.reader.*` and `observation.manifest.*` receipt-time spans, with the real start timestamp and duration in `measurement.start_unix_ms` and `measurement.duration_ms`, and in the JSON logs. The native span duration is relay processing, **not browser/build latency**. Their parent in Vercel is the **relay request**, not a fabricated continuous browser-to-job trace. Search the shared correlation ID to assemble the trajectory. Client clocks can differ from the server: compare local durations; do not infer network latency by subtracting timestamps from different machines.
 
 Backend summaries (`oncobase.backend`), browser batches (`oncobase.reader`), and builder summaries (`oncobase.manifest`) are also written to Vercel runtime logs. These remain useful independently of native trace sampling. Native spans and log summaries have different retention policies.
 
-## Querying
+## Native Vercel fallback queries
 
 Use Vercel CLI 60 or newer. The older globally installed CLI does not have `traces`.
 

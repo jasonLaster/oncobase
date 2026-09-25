@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { makeFunctionReference } from "convex/server";
-import { traceBackendHandler, traceConvexClient, traceBackendPhase, type BackendProfile } from "./backend-tracing";
+import { recordRemoteSpan, traceBackendHandler, traceConvexClient, traceBackendPhase, type BackendProfile } from "./backend-tracing";
 
 const ref = makeFunctionReference<"query">("documents:listManifestPage");
 
@@ -147,8 +147,8 @@ test("timing preserves existing headers and observers cannot break responses", a
   }
 });
 
-test("opt-in tracing exports real OTLP HTTP spans to a collector", async () => {
-  const keys = ["WIKI_BACKEND_TRACING", "WIKI_BACKEND_TRACE_SAMPLE_RATE", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] as const;
+test("Vercel direct OTLP exports linked historical spans and publisher parents without global instrumentation", async () => {
+  const keys = ["WIKI_BACKEND_TRACING", "WIKI_BACKEND_TRACE_SAMPLE_RATE", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "VERCEL", "AXIOM_API_KEY"] as const;
   const previous = keys.map((key) => process.env[key]);
   const payloads: string[] = [];
   const collector = Bun.serve({
@@ -160,22 +160,33 @@ test("opt-in tracing exports real OTLP HTTP spans to a collector", async () => {
   });
   try {
     process.env.WIKI_BACKEND_TRACING = "1";
+    process.env.VERCEL = "1";
+    process.env.AXIOM_API_KEY = "PRIVATE credential";
     process.env.WIKI_BACKEND_TRACE_SAMPLE_RATE = "1";
     process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = `http://127.0.0.1:${collector.port}/v1/traces`;
     const client = traceConvexClient({ query: async () => "PRIVATE content" } as never);
+    const historicalStart = Date.now() - 10_000;
     const handler = traceBackendHandler(async () => {
       await client.query(ref, { secret: "PRIVATE credential" });
+      recordRemoteSpan("manifest.build", historicalStart, 1234, { "telemetry.source": "convex" });
       return new Response("ok");
     });
-    await handler(new Request("https://example.test/api/wiki/pages?slugs=PRIVATE"));
+    const traceId = "1234567890abcdef1234567890abcdef";
+    await handler(new Request("https://example.test/api/publish/begin?slugs=PRIVATE", { headers: { traceparent: `00-${traceId}-1234567890abcdef-01` } }));
     const { flushBackendTraces } = await import("./backend-tracing");
     await flushBackendTraces();
     expect(payloads).toHaveLength(1);
     const spans = JSON.parse(payloads[0]!).resourceSpans[0].scopeSpans[0].spans;
-    expect(spans).toHaveLength(2);
-    const parent = spans.find((span: { name: string }) => span.name === "wiki /api/wiki/pages");
+    expect(spans).toHaveLength(3);
+    const parent = spans.find((span: { name: string }) => span.name === "wiki /api/publish/begin");
     const child = spans.find((span: { name: string }) => span.name === "convex.query documents:listManifestPage");
     expect(child.parentSpanId).toBe(parent.spanId);
+    expect(parent.traceId).toBe(traceId);
+    const historical = spans.find((span: { name: string }) => span.name === "manifest.build");
+    expect(historical.parentSpanId).toBeUndefined();
+    expect(historical.links[0].spanId).toBe(parent.spanId);
+    expect(Number(historical.startTimeUnixNano) / 1e6).toBeCloseTo(historicalStart, 0);
+    expect((Number(historical.endTimeUnixNano) - Number(historical.startTimeUnixNano)) / 1e6).toBeCloseTo(1234, 0);
     expect(payloads[0]).not.toContain("PRIVATE");
   } finally {
     keys.forEach((key, i) => {
