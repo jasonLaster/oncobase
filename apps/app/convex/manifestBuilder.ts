@@ -9,8 +9,8 @@ import { MANIFEST_SNAPSHOT_VERSION } from "./lib/manifestRevision";
 import { internalAction } from "./_generated/server";
 
 export const build = internalAction({
-  args: { siteSlug: v.string(), queuedAt: v.optional(v.number()), clientTraceId: v.optional(v.string()), delta: v.optional(v.object({ baseRevision: v.number(), slugs: v.array(v.string()) })) },
-  handler: async (ctx, { siteSlug, delta, queuedAt, clientTraceId }): Promise<null> => {
+  args: { siteSlug: v.string(), queuedAt: v.optional(v.number()), generation: v.optional(v.number()), attempt: v.optional(v.number()), clientTraceId: v.optional(v.string()), delta: v.optional(v.object({ baseRevision: v.number(), slugs: v.array(v.string()) })) },
+  handler: async (ctx, { siteSlug, delta, queuedAt, clientTraceId, generation, attempt = 0 }): Promise<null> => {
     const started = performance.now(), startedAt = Date.now();
     let revision = -1;
     let outcome: ManifestTelemetry["outcome"] = "failed";
@@ -65,18 +65,20 @@ export const build = internalAction({
       phases.store = Math.round(performance.now() - storeStarted);
       failureStage = "install";
       const installStarted = performance.now();
-      const installed = await ctx.runMutation(internal.manifestCache.install, { siteSlug, revision, hash, storageId, formatVersion: MANIFEST_SNAPSHOT_VERSION });
+      const installed = await ctx.runMutation(internal.manifestCache.install, { siteSlug, revision, hash, storageId, formatVersion: MANIFEST_SNAPSHOT_VERSION, generation });
       phases.install = Math.round(performance.now() - installStarted);
       outcome = installed;
       succeeded = installed === "installed";
       failureStage = "none";
       storageId = undefined;
     } catch {
-      if (storageId) await ctx.storage.delete(storageId);
-      await ctx.runMutation(internal.manifestCache.failed, { siteSlug });
+      if (storageId) {
+        try { await ctx.storage.delete(storageId); } catch { console.warn("Manifest orphan cleanup deferred"); }
+      }
+      await ctx.runMutation(internal.manifestCache.failed, { siteSlug, generation, attempt, clientTraceId, delta });
       console.warn("Manifest snapshot build deferred");
     } finally {
-      const event: ManifestTelemetry = { version: 1, startedAt, queuedAt, clientTraceId, revision, durationMs: Math.round(performance.now() - started), incremental, outcome, failureStage, phases };
+      const event: ManifestTelemetry = { version: 1, startedAt, queuedAt, attempt, clientTraceId, revision, durationMs: Math.round(performance.now() - started), incremental, outcome, failureStage, phases };
       console.info("publish.manifest", JSON.stringify({ ...event, succeeded }));
       // Export after install/failure handling. A broken relay must never change
       // the publish result. No storage URLs, slugs, credentials or error bodies.

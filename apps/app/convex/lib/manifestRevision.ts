@@ -6,13 +6,14 @@ export const MANIFEST_SNAPSHOT_VERSION = 1;
 const BUILD_LEASE_MS = 120_000;
 export type ManifestDelta = { baseRevision: number; slugs: string[] };
 
-export async function queueManifestBuild(ctx: MutationCtx, siteId: Id<"sites">, delayMs = 1000, delta?: ManifestDelta, clientTraceId?: string) {
+export async function queueManifestBuild(ctx: MutationCtx, siteId: Id<"sites">, delayMs = 1000, delta?: ManifestDelta, clientTraceId?: string, attempt = 0) {
   const site = await ctx.db.get(siteId);
   if (!site || site.status !== "active") return;
   if (site.manifestBuildQueuedAt && Date.now() - site.manifestBuildQueuedAt < BUILD_LEASE_MS) return;
   const queuedAt = Date.now();
-  await ctx.db.patch(siteId, { manifestBuildQueuedAt: queuedAt });
-  await ctx.scheduler.runAfter(delayMs, internal.manifestBuilder.build, { siteSlug: site.slug, queuedAt, ...(clientTraceId ? { clientTraceId } : {}), ...(delta ? { delta } : {}) });
+  const generation = (site.manifestBuildGeneration ?? 0) + 1;
+  await ctx.db.patch(siteId, { manifestBuildQueuedAt: queuedAt, manifestBuildGeneration: generation });
+  await ctx.scheduler.runAfter(delayMs, internal.manifestBuilder.build, { siteSlug: site.slug, queuedAt, generation, attempt, ...(clientTraceId ? { clientTraceId } : {}), ...(delta ? { delta } : {}) });
 }
 
 // Called in the same transaction as every manifest-affecting write. This also

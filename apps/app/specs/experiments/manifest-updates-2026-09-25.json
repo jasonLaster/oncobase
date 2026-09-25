@@ -1,0 +1,108 @@
+{
+  "experimentId": "da50ecbcab5b29f068682d9ba06ac91e",
+  "exported": 6,
+  "samples": [
+    {
+      "variant": "update-1",
+      "iteration": 1,
+      "startedAt": 1790361023291,
+      "durationMs": 661.397791,
+      "requests": 3,
+      "phases": {
+        "snapshot": 348.21866699999987,
+        "lookup": 101.32383299999992,
+        "patch": 76.93912499999988
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-16",
+      "iteration": 1,
+      "startedAt": 1790361024619,
+      "durationMs": 579.6804590000002,
+      "requests": 3,
+      "phases": {
+        "snapshot": 309.7822500000002,
+        "lookup": 100.87912499999993,
+        "patch": 64.62916700000005
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-16",
+      "iteration": 2,
+      "startedAt": 1790361025497,
+      "durationMs": 659.3895000000002,
+      "requests": 3,
+      "phases": {
+        "snapshot": 383.36370799999986,
+        "lookup": 103.96149999999989,
+        "patch": 66.67145800000026
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-1",
+      "iteration": 2,
+      "startedAt": 1790361026445,
+      "durationMs": 797.1049999999996,
+      "requests": 3,
+      "phases": {
+        "snapshot": 528.8265000000001,
+        "lookup": 97.79170800000065,
+        "patch": 67.15891600000032
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-1",
+      "iteration": 3,
+      "startedAt": 1790361027532,
+      "durationMs": 490.81741599999987,
+      "requests": 3,
+      "phases": {
+        "snapshot": 221.6742919999997,
+        "lookup": 105.74225000000024,
+        "patch": 62.026332999999795
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-16",
+      "iteration": 3,
+      "startedAt": 1790361028308,
+      "durationMs": 703.8304170000001,
+      "requests": 3,
+      "phases": {
+        "snapshot": 440.4475419999999,
+        "lookup": 101.2494999999999,
+        "patch": 64.36250000000018
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    }
+  ]
+}

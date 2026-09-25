@@ -318,7 +318,7 @@ function compactFileTree(nodes: ApiFileNode[], parentSlug = ""): CompactFileNode
   });
 }
 
-function buildCompactTreeFromManifest(
+export function buildCompactTreeFromManifest(
   pages: Array<Pick<WikiManifestPage, "slug">>,
   assets: Array<Pick<WikiManifestAsset, "kind" | "path">>,
 ) {

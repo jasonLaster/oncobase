@@ -1,0 +1,381 @@
+{
+  "experimentId": "3b933625bf14c73f351b6a4584c1dcec",
+  "exported": 21,
+  "samples": [
+    {
+      "variant": "full-500",
+      "iteration": 1,
+      "startedAt": 1790360777684,
+      "durationMs": 10888.705750000001,
+      "requests": 24,
+      "phases": {
+        "read": 10759.519917,
+        "filter": 0.7040409999990516,
+        "tree": 15.563458000000537,
+        "hash": 6.898542000000816,
+        "serialize": 5.896249999999782
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "full-1000",
+      "iteration": 1,
+      "startedAt": 1790360789229,
+      "durationMs": 14603.223708,
+      "requests": 23,
+      "phases": {
+        "read": 14457.188334,
+        "filter": 0.37462500000037835,
+        "tree": 15.963499999998021,
+        "hash": 10.289166000002297,
+        "serialize": 7.294333000001643
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "full-2000",
+      "iteration": 1,
+      "startedAt": 1790360804120,
+      "durationMs": 15117.125875000002,
+      "requests": 23,
+      "phases": {
+        "read": 14974.244874999997,
+        "filter": 0.4288330000053975,
+        "tree": 15.016958000000159,
+        "hash": 11.055500000002212,
+        "serialize": 7.300082999994629
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-1",
+      "iteration": 1,
+      "startedAt": 1790360819505,
+      "durationMs": 621.6770000000033,
+      "requests": 3,
+      "phases": {
+        "snapshot": 309.1244579999984,
+        "lookup": 130.74916600000142,
+        "patch": 81.37833300000057
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-16",
+      "iteration": 1,
+      "startedAt": 1790360820419,
+      "durationMs": 740.7530830000032,
+      "requests": 3,
+      "phases": {
+        "snapshot": 462.97770899999887,
+        "lookup": 119.0020829999994,
+        "patch": 66.7267920000013
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "add-1",
+      "iteration": 1,
+      "startedAt": 1790360821470,
+      "durationMs": 803.7907090000008,
+      "requests": 3,
+      "phases": {
+        "snapshot": 554.637999999999,
+        "lookup": 94.5013340000005,
+        "patch": 55.04445800000394
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "add-16",
+      "iteration": 1,
+      "startedAt": 1790360822575,
+      "durationMs": 633.4681249999994,
+      "requests": 3,
+      "phases": {
+        "snapshot": 311.112165999999,
+        "lookup": 147.8900829999984,
+        "patch": 64.611917000002
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "full-1000",
+      "iteration": 2,
+      "startedAt": 1790360823492,
+      "durationMs": 2266.686041000001,
+      "requests": 23,
+      "phases": {
+        "read": 2147.7852499999935,
+        "filter": 0.09687499999563443,
+        "tree": 7.070833000005223,
+        "hash": 7.017333000003418,
+        "serialize": 4.662374999999884
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "full-2000",
+      "iteration": 2,
+      "startedAt": 1790360826011,
+      "durationMs": 2328.9365410000028,
+      "requests": 23,
+      "phases": {
+        "read": 2207.436707999994,
+        "filter": 0.1739579999994021,
+        "tree": 7.237332999997307,
+        "hash": 7.350375000001804,
+        "serialize": 4.88554099999601
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-1",
+      "iteration": 2,
+      "startedAt": 1790360828627,
+      "durationMs": 705.5070410000044,
+      "requests": 3,
+      "phases": {
+        "snapshot": 452.95754200000374,
+        "lookup": 101.41416599999502,
+        "patch": 48.15424999999959
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-16",
+      "iteration": 2,
+      "startedAt": 1790360829674,
+      "durationMs": 438.4514169999966,
+      "requests": 3,
+      "phases": {
+        "snapshot": 191.01425000000017,
+        "lookup": 99.81512500000099,
+        "patch": 48.32654100000218
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "add-1",
+      "iteration": 2,
+      "startedAt": 1790360830391,
+      "durationMs": 602.440125000001,
+      "requests": 3,
+      "phases": {
+        "snapshot": 347.9857919999995,
+        "lookup": 95.26079200000095,
+        "patch": 55.173917000000074
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "add-16",
+      "iteration": 2,
+      "startedAt": 1790360831274,
+      "durationMs": 589.1160830000008,
+      "requests": 3,
+      "phases": {
+        "snapshot": 321.08620799999335,
+        "lookup": 97.69687500000146,
+        "patch": 54.84624999999505
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "full-500",
+      "iteration": 2,
+      "startedAt": 1790360832143,
+      "durationMs": 2372.796457999997,
+      "requests": 24,
+      "phases": {
+        "read": 2249.4343329999974,
+        "filter": 0.09383299999899464,
+        "tree": 7.2086249999993015,
+        "hash": 7.401292000002286,
+        "serialize": 5.246124999997846
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "full-2000",
+      "iteration": 3,
+      "startedAt": 1790360834766,
+      "durationMs": 2206.9071669999976,
+      "requests": 23,
+      "phases": {
+        "read": 2086.806875000002,
+        "filter": 0.1587500000023283,
+        "tree": 7.330290999998397,
+        "hash": 7.317750000001979,
+        "serialize": 4.9589169999962905
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-1",
+      "iteration": 3,
+      "startedAt": 1790360837226,
+      "durationMs": 570.8990829999966,
+      "requests": 3,
+      "phases": {
+        "snapshot": 317.0436669999981,
+        "lookup": 89.7722089999952,
+        "patch": 48.191375000002154
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-16",
+      "iteration": 3,
+      "startedAt": 1790360838083,
+      "durationMs": 588.2752909999981,
+      "requests": 3,
+      "phases": {
+        "snapshot": 350.7292920000036,
+        "lookup": 90.69950000000244,
+        "patch": 48.15720899999724
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "add-1",
+      "iteration": 3,
+      "startedAt": 1790360838961,
+      "durationMs": 450.61666599999444,
+      "requests": 3,
+      "phases": {
+        "snapshot": 194.48625000000175,
+        "lookup": 108.9812910000037,
+        "patch": 54.99954099999741
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "add-16",
+      "iteration": 3,
+      "startedAt": 1790360839703,
+      "durationMs": 781.085583,
+      "requests": 3,
+      "phases": {
+        "snapshot": 527.2263329999987,
+        "lookup": 98.04645800000435,
+        "patch": 55.284082999998645
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "full-500",
+      "iteration": 3,
+      "startedAt": 1790360840773,
+      "durationMs": 2504.8181249999907,
+      "requests": 24,
+      "phases": {
+        "read": 2384.7941659999997,
+        "filter": 0.09200000000419095,
+        "tree": 7.352083000005223,
+        "hash": 6.837415999994846,
+        "serialize": 4.857958000007784
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "full-1000",
+      "iteration": 3,
+      "startedAt": 1790360843538,
+      "durationMs": 2435.192207999993,
+      "requests": 23,
+      "phases": {
+        "read": 2314.303249999997,
+        "filter": 0.1884169999975711,
+        "tree": 7.0879580000037095,
+        "hash": 7.166291999994428,
+        "serialize": 4.882375000001048
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    }
+  ]
+}

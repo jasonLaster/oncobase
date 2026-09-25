@@ -325,7 +325,7 @@ export const finishPublish = mutation({
     const owned = assertPublishRun(site, runId);
     if (owned && site.publishRunChanged !== false) {
       // Only document-only scopes can reuse asset membership. The builder also
-      // rejects additions/deletions/visibility changes and validates the base.
+      // rejects missing/private pages and validates the base.
       const delta = site.publishScope?.assets.length === 0 && site.publishScope.documents.length <= 128
         ? { baseRevision: site.manifestRevision ?? 0, slugs: site.publishScope.documents } : undefined;
       await invalidateManifest(ctx, site._id, 0, delta, clientTraceId);

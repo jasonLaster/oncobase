@@ -1,6 +1,6 @@
 import { SERVICE_ISSUER, SERVICE_SUBJECT } from "./serviceAuth";
 import { expect, test } from "bun:test";
-import { current, install, requestBuild, status, deltaBase } from "../manifestCache";
+import { current, install, requestBuild, status, deltaBase, failed } from "../manifestCache";
 import { invalidateManifest, queueManifestBuild } from "./manifestRevision";
 import { upsert, setContentHash, bulkSetContentHash, setDescription, deleteBySlug, upsertPdfAsset, upsertFileAsset, deletePdfAssetByPath, deleteFileAssetByPath, backfillAssetHashes } from "../documents";
 
@@ -14,7 +14,7 @@ function fixture() {
     pdfAssets: [{ _id: "pdf", siteId: "a", path: "one.pdf" }],
     fileAssets: [{ _id: "file", siteId: "a", path: "one.png" }],
   };
-  const jobs: any[] = [], deleted: string[] = [];
+  const jobs: any[] = [], deleted: string[] = [], delays: number[] = [];
   const ctx: any = {
     auth: { getUserIdentity: async () => ({ issuer: SERVICE_ISSUER, subject: SERVICE_SUBJECT, role: "backend-service" }) },
     db: {
@@ -31,10 +31,10 @@ function fixture() {
         return builder;
       },
     },
-    scheduler: { runAfter: async (_delay: number, _ref: unknown, args: any) => jobs.push(args) },
+    scheduler: { runAfter: async (delay: number, _ref: unknown, args: any) => { delays.push(delay); jobs.push(args); } },
     storage: { getUrl: async (id: string) => deleted.includes(id) ? null : `https://storage.invalid/${id}`, delete: async (id: string) => deleted.push(id) },
   };
-  return { ctx, rows, jobs, deleted };
+  return { ctx, rows, jobs, deleted, delays };
 }
 
 test("snapshot builds coalesce writes, reject concurrent revisions, and recover an expired lease", async () => {
@@ -44,11 +44,11 @@ test("snapshot builds coalesce writes, reject concurrent revisions, and recover 
   expect(rows.sites[0].manifestRevision).toBe(2);
   expect(rows.sites[1].manifestRevision).toBeUndefined();
   expect(jobs).toHaveLength(1);
-  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, revision: 1, hash: "old", storageId: "old-blob" })).toBe("stale-revision");
+  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, generation: jobs[0].generation, revision: 1, hash: "old", storageId: "old-blob" })).toBe("stale-revision");
   expect(deleted).toContain("old-blob");
   expect(rows.sites[0].manifestSnapshot).toBeUndefined();
   expect(jobs).toHaveLength(2);
-  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, revision: 2, hash: "new", storageId: "new-blob" })).toBe("installed");
+  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, generation: jobs[1].generation, revision: 2, hash: "new", storageId: "new-blob" })).toBe("installed");
   expect(rows.sites[0].manifestBuildQueuedAt).toBeUndefined();
   rows.sites[0].manifestBuildQueuedAt = Date.now() - 120_001;
   await queueManifestBuild(ctx, "a" as never);
@@ -151,4 +151,53 @@ test("scheduled builds retain queue time and correlation without document teleme
   await queueManifestBuild(ctx, "a" as never, 0, undefined, id);
   expect(jobs[0].queuedAt).toBeGreaterThan(0);
   expect(jobs[0].clientTraceId).toBe(id);
+});
+
+
+test("transient failures retry durably, retain delta/correlation, and stop after two retries", async () => {
+  const { ctx, rows, jobs, delays } = fixture();
+  const delta = { baseRevision: 1, slugs: ["one"] }, clientTraceId = "a".repeat(32);
+  await queueManifestBuild(ctx, "a" as never, 0, delta, clientTraceId);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    expect(jobs[attempt].attempt).toBe(attempt);
+    await handler(failed)(ctx, jobs[attempt]);
+  }
+  expect(jobs).toHaveLength(3);
+  expect(delays).toEqual([0, 250, 1000]);
+  expect(jobs[2].delta).toEqual(delta);
+  expect(jobs[2].clientTraceId).toBe(clientTraceId);
+  expect(rows.sites[0].manifestBuildQueuedAt).toBeUndefined();
+  await queueManifestBuild(ctx, "a" as never, 0);
+  expect(jobs[3].generation).toBe(4); // A later explicit request can recover.
+  expect(jobs[3].attempt).toBe(0);
+});
+
+test("late success and failure cannot clear or replace a successor's lease or snapshot", async () => {
+  const { ctx, rows, jobs, deleted } = fixture();
+  await queueManifestBuild(ctx, "a" as never, 0);
+  const old = jobs[0];
+  rows.sites[0].manifestBuildQueuedAt = Date.now() - 120001;
+  await queueManifestBuild(ctx, "a" as never, 0);
+  const successor = jobs[1];
+  await handler(failed)(ctx, old);
+  expect(jobs).toHaveLength(2);
+  expect(rows.sites[0].manifestBuildQueuedAt).toBe(successor.queuedAt);
+  expect(await handler(install)(ctx, { ...old, revision: 0, hash: "late", storageId: "late", formatVersion: 1 })).toBe("stale-revision");
+  expect(deleted).toContain("late");
+  expect(rows.sites[0].manifestSnapshot).toBeUndefined();
+  expect(await handler(install)(ctx, { ...successor, revision: 0, hash: "new", storageId: "new", formatVersion: 1 })).toBe("installed");
+  await handler(failed)(ctx, old);
+  expect(jobs).toHaveLength(2);
+  expect(rows.sites[0].manifestSnapshot.hash).toBe("new");
+});
+
+test("legacy jobs cannot erase generation-owned leases, and active writers defer retries", async () => {
+  const { ctx, rows, jobs } = fixture();
+  await queueManifestBuild(ctx, "a" as never, 0);
+  await handler(failed)(ctx, { siteSlug: "alpha" });
+  expect(rows.sites[0].manifestBuildQueuedAt).toBeDefined();
+  Object.assign(rows.sites[0], { publishRunId: "scoped:writer", publishLockUntil: Date.now() + 60000 });
+  await handler(failed)(ctx, jobs[0]);
+  expect(rows.sites[0].manifestBuildQueuedAt).toBeUndefined();
+  expect(jobs).toHaveLength(1);
 });
