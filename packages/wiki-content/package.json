@@ -66,7 +66,12 @@
       "import": "./src/gate-session.ts",
       "default": "./src/gate-session.ts"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./manifest-tree": {
+      "types": "./src/manifest-tree.ts",
+      "import": "./src/manifest-tree.ts",
+      "default": "./src/manifest-tree.ts"
+    }
   },
   "scripts": {
     "build": "tsc --noEmit",
