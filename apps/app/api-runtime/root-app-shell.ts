@@ -1,4 +1,4 @@
-import { traceBackendHandler } from "../server/backend-tracing";
+import { flushBackendTraces, traceBackendHandler } from "../server/backend-tracing";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import { requestFromIncoming, sendWebResponse } from "../server/http-adapter";
@@ -51,5 +51,7 @@ export default async function wikiViteRootAppShell(
       res,
       Response.json({ error: "Wiki Vite app failed" }, { status: 500 }),
     );
+  } finally {
+    await flushBackendTraces();
   }
 }

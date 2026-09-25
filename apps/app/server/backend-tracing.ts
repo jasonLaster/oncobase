@@ -3,6 +3,7 @@ import { ROOT_CONTEXT, propagation, SpanKind, SpanStatusCode, trace, type Span, 
 import type { BasicTracerProvider } from "@opentelemetry/sdk-trace-base";
 import { getFunctionName } from "convex/server";
 import type { ConvexHttpClient } from "convex/browser";
+import { externalTraceConfig } from "./otlp-config";
 
 export type BackendProfile = {
   attributes?: Record<string, string | number | boolean>;
@@ -12,7 +13,7 @@ export type BackendProfile = {
   calls: Array<{ operation: string; name: string; durationMs: number; failed: boolean; pending: boolean }>;
   phases: Array<{ name: string; durationMs: number }>;
 };
-type RequestTrace = { tracer?: Tracer; span?: Span; profile: BackendProfile };
+type RequestTrace = { tracer?: Tracer; span?: Span; profile: BackendProfile; historicalSpans?: boolean };
 const requests = new AsyncLocalStorage<RequestTrace>();
 let provider: BasicTracerProvider | undefined;
 let initializing: Promise<Tracer | undefined> | undefined;
@@ -20,11 +21,12 @@ let initializing: Promise<Tracer | undefined> | undefined;
 async function backendTracer(): Promise<Tracer | undefined> {
   if (process.env.WIKI_BACKEND_TRACING === "0") return undefined;
   if (process.env.VERCEL !== "1" && process.env.WIKI_BACKEND_TRACING !== "1") return undefined;
-  // Native Vercel export uses an explicit-span sampler to exclude AI content.
-  // Local OTLP remains private and opt-in. Load either SDK only when enabled.
+  // Direct OTLP uses a private provider: enabling it cannot capture global AI
+  // spans, prompts, automatic fetch URLs or Vercel request metadata.
   initializing ??= (async () => {
     try {
-      if (process.env.VERCEL === "1") {
+      const external = externalTraceConfig();
+      if (process.env.VERCEL === "1" && !external) {
         const { registerVercelTracing } = await import("./vercel-tracing");
         registerVercelTracing();
         return trace.getTracer("oncobase.backend");
@@ -34,12 +36,18 @@ async function backendTracer(): Promise<Tracer | undefined> {
         import("@opentelemetry/exporter-trace-otlp-http"),
         import("@opentelemetry/resources"),
       ]);
-      const configuredRatio = Number(process.env.WIKI_BACKEND_TRACE_SAMPLE_RATE ?? "0.1");
-      const ratio = Number.isFinite(configuredRatio) && configuredRatio >= 0 && configuredRatio <= 1 ? configuredRatio : 0.1;
+      const defaultRatio = external ? 1 : 0.1;
+      const configuredRatio = Number(process.env.WIKI_BACKEND_TRACE_SAMPLE_RATE ?? defaultRatio);
+      const ratio = Number.isFinite(configuredRatio) && configuredRatio >= 0 && configuredRatio <= 1 ? configuredRatio : defaultRatio;
       provider = new BasicTracerProvider({
-        resource: resourceFromAttributes({ "service.name": "oncobase-backend" }),
+        resource: resourceFromAttributes({ "service.name": "oncobase-backend",
+          "deployment.environment.name": process.env.VERCEL_ENV ?? "local",
+          ...(process.env.VERCEL_GIT_COMMIT_SHA ? { "service.version": process.env.VERCEL_GIT_COMMIT_SHA } : {}),
+        }),
         sampler: new TraceIdRatioBasedSampler(ratio),
-        spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter({ timeoutMillis: 2000 }))],
+        spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter(external ?? { timeoutMillis: 2000 }), {
+          maxQueueSize: 2048, maxExportBatchSize: 128, scheduledDelayMillis: 1000, exportTimeoutMillis: 2500,
+        })],
       });
       return provider.getTracer("oncobase.backend");
     } catch {
@@ -97,13 +105,14 @@ export function traceBackendHandler(
     const correlation = clientTraceId && /^[a-f0-9]{32}$/.test(clientTraceId) ? clientTraceId : undefined;
     // Use Vercel's infrastructure parent so custom spans appear in its request
     // trace. Keep the CLI/browser's separate trace ID as a join key.
-    const parent = retained ? propagation.extract(ROOT_CONTEXT, {}, { keys: () => [], get: () => undefined }) : incoming;
+    const historicalSpans = !!externalTraceConfig();
+    const parent = retained && !historicalSpans ? propagation.extract(ROOT_CONTEXT, {}, { keys: () => [], get: () => undefined }) : incoming;
     const span = tracer?.startSpan(`wiki ${route}`, {
       kind: SpanKind.SERVER, startTime: Date.now() - (performance.now() - started),
       attributes: { "oncobase.safe": true, "telemetry.init_ms": initializationMs, "http.route": route, "http.request.method": request.method, ...(correlation ? { "oncobase.client.trace_id": correlation } : {}) },
     }, parent);
     const profile: BackendProfile = { route, attributes: { "telemetry.init_ms": initializationMs }, durationMs: 0, status: 500, calls: [], phases: [] };
-    return requests.run({ tracer, span, profile }, async () => {
+    return requests.run({ tracer, span, profile, historicalSpans }, async () => {
       try {
         let response = await handler(request);
         // Redirect/fetch responses can have immutable headers. Telemetry must
@@ -237,13 +246,18 @@ export function recordRemoteSpan(name: string, start: number, duration: number, 
   // window. Represent remote measurements as receipt-time observation spans,
   // preserving the measured clock/duration as attributes and in structured logs.
   // Never shift historical timestamps to fabricate a request waterfall.
-  const span = current?.tracer?.startSpan(remote ? `observation.${name}` : name, {
-    kind: SpanKind.INTERNAL, ...(remote ? {} : { startTime: start }),
+  const observation = remote && !current?.historicalSpans;
+  const historical = remote && current?.historicalSpans;
+  const span = current?.tracer?.startSpan(observation ? `observation.${name}` : name, {
+    kind: SpanKind.INTERNAL, ...(observation ? {} : { startTime: start }),
+    // A relay receives already-completed work. Link to the receipt, never make
+    // that later request the parent of a historical browser/job operation.
+    ...(historical && current.span ? { links: [{ context: current.span.spanContext(), attributes: { "telemetry.relationship": "received-by" } }] } : {}),
     attributes: { ...attributes, "oncobase.safe": true,
       ...(remote ? { "measurement.start_unix_ms": start, "measurement.duration_ms": duration } : {}) },
-  }, current.span ? trace.setSpan(ROOT_CONTEXT, current.span) : ROOT_CONTEXT);
+  }, !historical && current?.span ? trace.setSpan(ROOT_CONTEXT, current.span) : ROOT_CONTEXT);
   if (failed) span?.setStatus({ code: SpanStatusCode.ERROR });
-  span?.end(remote ? undefined : start + duration);
+  span?.end(observation ? undefined : start + duration);
 }
 
 export function backendClientTraceId() {
