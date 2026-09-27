@@ -169,6 +169,7 @@ export type WikiContentClientOptions = {
 
 export type FetchPagesOptions = {
   signal?: AbortSignal;
+  onProgress?: (receivedBytes: number) => void;
   cursor?: string | null;
   limit?: number;
   slugs?: string[];
@@ -862,6 +863,9 @@ export function parseWikiManifest(value: unknown): WikiManifest {
   const object = migrateWikiManifestWireObject(
     assertObject(value, "manifest"),
   );
+  if (object.wireFormat != null && object.wireFormat !== "compact-v1") {
+    throw new Error(`Unsupported manifest.wireFormat: ${object.wireFormat}`);
+  }
   const schemaVersion = asNumber(
     object.schemaVersion,
     "manifest.schemaVersion",
@@ -885,9 +889,29 @@ export function parseWikiManifest(value: unknown): WikiManifest {
     generatedAt: asString(object.generatedAt, "manifest.generatedAt"),
     scope: asScope(object.scope),
     compactTree,
-    pages: pages.map(parseManifestPage),
-    assets: assets.map(parseManifestAsset),
+    pages: pages.map(page => parseManifestPage(object.wireFormat === "compact-v1" ? expandManifestRow(page, "page") : page)),
+    assets: assets.map(asset => parseManifestAsset(object.wireFormat === "compact-v1" ? expandManifestRow(asset, "asset") : asset)),
   };
+}
+
+// Only the HTTP representation changes. The durable schema, tree and content
+// validator stay identical, so old clients and saved manifests remain usable.
+export function compactWikiManifest(manifest: WikiManifest) {
+  return {
+    ...manifest,
+    wireFormat: "compact-v1" as const,
+    pages: manifest.pages.map(p => [p.slug, p.title, p.tags, p.description, p.contentHash, p.sensitive, p.size]),
+    assets: manifest.assets.map(a => [a.kind, a.path, a.contentHash, a.size]),
+  };
+}
+
+function expandManifestRow(value: unknown, kind: "page" | "asset") {
+  if (!Array.isArray(value) || value.length !== (kind === "page" ? 7 : 4)) {
+    throw new Error(`Invalid compact manifest ${kind}`);
+  }
+  return kind === "page"
+    ? { slug: value[0], title: value[1], tags: value[2], description: value[3], contentHash: value[4], sensitive: value[5], size: value[6] }
+    : { kind: value[0], path: value[1], contentHash: value[2], size: value[3] };
 }
 
 export function parseWikiSessionIdentity(value: unknown): WikiSessionIdentity {
@@ -970,6 +994,7 @@ async function fetchJson(
   cache: RequestCache,
   requestTimeoutMs: number,
   signal?: AbortSignal,
+  readBody: (response: Response) => Promise<unknown> = response => response.json(),
 ) {
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), requestTimeoutMs);
@@ -985,7 +1010,7 @@ async function fetchJson(
     }
     // fetch resolves at the response headers. Keep the deadline and abort
     // handling active until the body finishes too, or startup can wait forever.
-    return await (response.json() as Promise<unknown>);
+    return await readBody(response);
   } catch (error) {
     if (controller.signal.aborted) {
       throw new Error(`Wiki request timed out after ${requestTimeoutMs}ms`);
@@ -996,6 +1021,34 @@ async function fetchJson(
   }
 }
 
+async function readWikiJson(response: Response, onProgress?: (receivedBytes: number) => void): Promise<unknown> {
+  if (!onProgress || !response.body) return response.json();
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const chunks: string[] = [];
+  let received = 0;
+  let lastReport = Number.NEGATIVE_INFINITY;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(decoder.decode(value, { stream: true }));
+      received += value.byteLength;
+      // A compressed response's Content-Length counts different bytes than
+      // this decoded stream. Report bytes received, never a false percentage.
+      if (performance.now() - lastReport >= 250) {
+        onProgress(received);
+        lastReport = performance.now();
+      }
+    }
+    chunks.push(decoder.decode());
+    onProgress(received);
+    return JSON.parse(chunks.join(""));
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 async function fetchManifestValidation(
   fetchFn: typeof fetch,
   url: string,
@@ -1003,6 +1056,8 @@ async function fetchManifestValidation(
   cache: RequestCache,
   requestTimeoutMs: number,
   manifestHash?: string,
+  onProgress?: (receivedBytes: number) => void,
+  signal?: AbortSignal,
 ): Promise<WikiManifestValidation> {
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), requestTimeoutMs);
@@ -1014,7 +1069,7 @@ async function fetchManifestValidation(
         Accept: "application/json",
         ...(manifestHash ? { "If-None-Match": `W/"${manifestHash}"` } : {}),
       },
-      signal: controller.signal,
+      signal: signal ? AbortSignal.any([signal, controller.signal]) : controller.signal,
     });
     const partial = response.headers.get("x-wiki-manifest-partial") === "true";
     if (response.status === 304) return { status: "unchanged", partial };
@@ -1023,7 +1078,7 @@ async function fetchManifestValidation(
     }
     return {
       status: "modified",
-      manifest: parseWikiManifest(await response.json()),
+      manifest: parseWikiManifest(await readWikiJson(response, onProgress)),
       partial,
     };
   } catch (error) {
@@ -1036,30 +1091,11 @@ async function fetchManifestValidation(
   }
 }
 
-export function createWikiContentClient({
-  baseUrl = "",
-  credentials = "same-origin",
-  scope = "public",
-  fetch: fetchFn = globalThis.fetch,
-  cache = "no-cache",
-  requestTimeoutMs = 15_000,
+export function createWikiSessionClient({
+  baseUrl = "", credentials = "same-origin", scope = "public",
+  fetch: fetchFn = globalThis.fetch, cache = "no-cache", requestTimeoutMs = 15_000,
 }: WikiContentClientOptions = {}) {
   return {
-    async fetchManifest() {
-      const url = urlWithParams(baseUrl, "/api/wiki/manifest", { scope });
-      return parseWikiManifest(await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs));
-    },
-    async validateManifest(manifestHash?: string): Promise<WikiManifestValidation> {
-      const url = urlWithParams(baseUrl, "/api/wiki/manifest", { scope });
-      return fetchManifestValidation(
-        fetchFn,
-        url,
-        credentials,
-        cache,
-        requestTimeoutMs,
-        manifestHash,
-      );
-    },
     async fetchSessionIdentity({ fallbackToPublic = false, profileStartup = false }: { fallbackToPublic?: boolean; profileStartup?: boolean } = {}) {
       const url = urlWithParams(baseUrl, "/api/wiki/session", {
         scope,
@@ -1070,13 +1106,43 @@ export function createWikiContentClient({
         await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs),
       );
     },
-    async fetchPages({ cursor, limit, slugs, signal }: FetchPagesOptions = {}) {
+  };
+}
+
+export function createWikiContentClient({
+  baseUrl = "",
+  credentials = "same-origin",
+  scope = "public",
+  fetch: fetchFn = globalThis.fetch,
+  cache = "no-cache",
+  requestTimeoutMs = 15_000,
+}: WikiContentClientOptions = {}) {
+  return {
+    ...createWikiSessionClient({ baseUrl, credentials, scope, fetch: fetchFn, cache, requestTimeoutMs }),
+    async fetchManifest() {
+      const url = urlWithParams(baseUrl, "/api/wiki/manifest", { scope, format: "compact-v1" });
+      return parseWikiManifest(await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs));
+    },
+    async validateManifest(manifestHash?: string, onProgress?: (receivedBytes: number) => void, signal?: AbortSignal): Promise<WikiManifestValidation> {
+      const url = urlWithParams(baseUrl, "/api/wiki/manifest", { scope, format: "compact-v1" });
+      return fetchManifestValidation(
+        fetchFn,
+        url,
+        credentials,
+        cache,
+        requestTimeoutMs,
+        manifestHash,
+        onProgress,
+        signal,
+      );
+    },
+    async fetchPages({ cursor, limit, slugs, signal, onProgress }: FetchPagesOptions = {}) {
       const params: Record<string, string> = { scope };
       if (cursor) params.cursor = cursor;
       if (limit) params.limit = String(limit);
       if (slugs?.length) params.slugs = slugs.join(",");
       const url = urlWithParams(baseUrl, "/api/wiki/pages", params);
-      return parseWikiPageBatch(await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs, signal));
+      return parseWikiPageBatch(await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs, signal, response => readWikiJson(response, onProgress)));
     },
   };
 }

@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { gunzipSync } from "node:zlib";
+import { parseWikiManifest } from "./index";
 import {
   createWikiManifestResponse,
   createWikiSessionResponse,
@@ -336,6 +338,45 @@ test("manifest order and hash do not depend on sensitivity index grouping", asyn
 });
 
 describe("versioned public manifest snapshots", () => {
+  test("compact live and snapshot responses preserve content and validate without a body", async () => {
+    const { context } = manifestContext();
+    const legacy = await (await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context)).json();
+    const url = "https://example.test/api/wiki/manifest?format=compact-v1";
+    const live = await createWikiManifestResponse(new Request(url), context);
+    const liveBody = await live.json();
+    expect(liveBody.wireFormat).toBe("compact-v1");
+    expect(parseWikiManifest(liveBody)).toEqual({ ...legacy, generatedAt: liveBody.generatedAt });
+    context.getManifestSnapshot = async () => ({ hash: legacy.manifestHash, read: async () => JSON.stringify(legacy) });
+    const snapshot = await createWikiManifestResponse(new Request(url), context);
+    expect(parseWikiManifest(await snapshot.json())).toEqual(legacy);
+    const unchanged = await createWikiManifestResponse(new Request(url, { headers: { "If-None-Match": live.headers.get("etag")! } }), context);
+    expect(unchanged.status).toBe(304);
+    expect(await unchanged.text()).toBe("");
+  });
+
+  test("gzip negotiation preserves private gate headers and decoded content", async () => {
+    const { context } = manifestContext();
+    const legacy = await (await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context)).json();
+    legacy.pages = Array.from({ length: 100 }, (_, i) => ({ ...legacy.pages[0], slug: `wiki/${i}` }));
+    context.getManifestSnapshot = async () => ({ hash: legacy.manifestHash, read: async () => JSON.stringify(legacy) });
+    context.decorateHeaders = init => {
+      const headers = new Headers(init);
+      headers.set("Cache-Control", "private, no-store");
+      headers.set("Vary", "Cookie, Host");
+      return headers;
+    };
+    for (const encoding of ["gzip", "br, gzip;q=0.8", "gzip;q=0", "identity"]) {
+      const response = await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest?format=compact-v1", { headers: { "Accept-Encoding": encoding } }), context);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(response.headers.get("vary")).toContain("Cookie");
+      expect(response.headers.get("vary")).toContain("Accept-Encoding");
+      const compressed = encoding === "gzip" || encoding.includes("0.8");
+      expect(response.headers.get("content-encoding")).toBe(compressed ? "gzip" : null);
+      const bytes = Buffer.from(await response.arrayBuffer());
+      expect(parseWikiManifest(JSON.parse((compressed ? gunzipSync(bytes) : bytes).toString()))).toEqual(legacy);
+    }
+  });
+
   test("serves identical bytes without pagination and validates without reading storage", async () => {
     const { context, calls } = manifestContext();
     const live = await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context);
@@ -472,7 +513,7 @@ test("session overlays equal full manifests, refresh permissions and fence publi
   const publicResponse = await createWikiManifestResponse(new Request("https://test/api/wiki/manifest"), context);
   const publicJson = await publicResponse.text();
   const base = JSON.parse(publicJson);
-  const secret = { ...base.pages[0], slug: "private", sensitive: true };
+  const secret = { ...base.pages[0], slug: "private", title: "Private title ".repeat(100), sensitive: true };
   let allowed = true, fullReads = 0, revision = 1, flipRevision = false;
   context.getSessionUser = async () => ({ _id: "user" });
   context.documents.listManifestPage = async ({ includeSensitive }) => {
@@ -496,6 +537,18 @@ test("session overlays equal full manifests, refresh permissions and fence publi
   expect(overlay.headers.get("X-Wiki-Manifest-Source")).toBe("snapshot-overlay");
   expect(overlay.headers.get("Cache-Control")).toContain("private");
   expect((await overlay.json()).manifestHash).toBe(oracle.manifestHash);
+  expect(fullReads).toBe(0);
+  // The rebased transport must retain the session overlay and live ACL checks.
+  const compressed = await createWikiManifestResponse(new Request(
+    "https://test/api/wiki/manifest?scope=session&format=compact-v1",
+    { headers: { "Accept-Encoding": "gzip" } },
+  ), context);
+  expect(compressed.headers.get("Content-Encoding")).toBe("gzip");
+  expect(compressed.headers.get("X-Wiki-Manifest-Source")).toBe("snapshot-overlay");
+  expect(compressed.headers.get("Cache-Control")).toContain("private");
+  const compact = JSON.parse(gunzipSync(Buffer.from(await compressed.arrayBuffer())).toString());
+  expect(compact.wireFormat).toBe("compact-v1");
+  expect(parseWikiManifest(compact).manifestHash).toBe(oracle.manifestHash);
   expect(fullReads).toBe(0);
   allowed = false;
   const revoked = await (await createWikiManifestResponse(request(), context)).json();

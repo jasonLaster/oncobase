@@ -1,6 +1,6 @@
 import { readerFetch } from "./reader-telemetry";
 import {
-  createWikiContentClient,
+  createWikiSessionClient,
   type WikiScope,
   type WikiSessionIdentity,
 } from "@oncobase/wiki-content";
@@ -205,7 +205,7 @@ export function WikiViteRoot() {
     const baseUrl = apiBaseUrl();
     void resolveReaderSession(
       explicitReaderScope(window.location.search),
-      (requestedScope, fallbackToPublic) => createWikiContentClient({ fetch: readerFetch,
+      (requestedScope, fallbackToPublic) => createWikiSessionClient({ fetch: readerFetch,
         scope: requestedScope,
         baseUrl,
         credentials: baseUrl ? "include" : "same-origin",

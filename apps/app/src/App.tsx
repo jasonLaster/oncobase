@@ -156,7 +156,7 @@ export function App({
         <SpecialRouteMetadata />
         <HeaderAuthDialogHost />
         <HeaderCommandPaletteHost />
-        <ResizableAppShell sidebar={<Sidebar freshness={navigationFreshness} />}>
+        <ResizableAppShell sidebar={<Sidebar receivedBytes={metrics.manifestReceivedBytes} freshness={navigationFreshness} />}>
           <main className="content-shell">
             <Suspense fallback={<PageFallback />}>
               <Routes>
@@ -191,7 +191,7 @@ export function App({
             />
           </Suspense>
         ) : null}
-        <MobileNav freshness={navigationFreshness} />
+        <MobileNav receivedBytes={metrics.manifestReceivedBytes} freshness={navigationFreshness} />
       </div>
     </>
   );

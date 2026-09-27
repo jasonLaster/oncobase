@@ -1,0 +1,256 @@
+{
+  "asOf": "2026-09-22",
+  "scope": "Latest ten completed GitHub Publish wiki runs; supplemental latest ten locally recorded publish attempts",
+  "cliVersionCI": "0.1.3",
+  "cliVersionLocal": "0.1.4",
+  "ci": [
+    {
+      "databaseId": 35756428028,
+      "createdAt": "2026-09-22T16:47:23Z",
+      "conclusion": "failure",
+      "headSha": "87e1a0c86ec88b91853fc31f2296dca2d04c8318",
+      "url": "https://github.com/jasonLaster/diana-tnbc/actions/runs/35756428028",
+      "publishSeconds": 30.0,
+      "diagnosis": "asset guard",
+      "blobCredentialFailures": 0,
+      "command": "oncobase publish --site diana --no-sync-preflight --confirm-tombstone"
+    },
+    {
+      "databaseId": 35668794671,
+      "createdAt": "2026-09-21T23:42:41Z",
+      "conclusion": "failure",
+      "headSha": "10663faf8b1ebabc9a65efa7b50b6b162817ee76",
+      "url": "https://github.com/jasonLaster/diana-tnbc/actions/runs/35668794671",
+      "publishSeconds": 55.0,
+      "diagnosis": "document write contention",
+      "blobCredentialFailures": 0,
+      "command": "oncobase publish --site diana --no-sync-preflight --confirm-tombstone"
+    },
+    {
+      "databaseId": 35255327729,
+      "createdAt": "2026-09-17T17:52:02Z",
+      "conclusion": "failure",
+      "headSha": "695ab4ec31ba5c21527b14dd570db8641f23bb1b",
+      "url": "https://github.com/jasonLaster/diana-tnbc/actions/runs/35255327729",
+      "publishSeconds": 23.0,
+      "diagnosis": "asset guard",
+      "blobCredentialFailures": 0,
+      "command": "oncobase publish --site diana --no-sync-preflight --confirm-tombstone"
+    },
+    {
+      "databaseId": 35254932421,
+      "createdAt": "2026-09-17T17:48:08Z",
+      "conclusion": "failure",
+      "headSha": "07d279b939c856bc3db8f805889106a92c0992fc",
+      "url": "https://github.com/jasonLaster/diana-tnbc/actions/runs/35254932421",
+      "publishSeconds": 25.0,
+      "diagnosis": "asset guard",
+      "blobCredentialFailures": 0,
+      "command": "oncobase publish --site diana --no-sync-preflight --confirm-tombstone"
+    },
+    {
+      "databaseId": 35250952252,
+      "createdAt": "2026-09-17T17:09:02Z",
+      "conclusion": "failure",
+      "headSha": "c47550462d606e0a1cd631c8678bb8b2cfc5cad5",
+      "url": "https://github.com/jasonLaster/diana-tnbc/actions/runs/35250952252",
+      "publishSeconds": 26.0,
+      "diagnosis": "asset guard",
+      "blobCredentialFailures": 0,
+      "command": "oncobase publish --site diana --no-sync-preflight --confirm-tombstone"
+    },
+    {
+      "databaseId": 35249277835,
+      "createdAt": "2026-09-17T16:52:39Z",
+      "conclusion": "failure",
+      "headSha": "b2b8f5ac622b1c40d5338b2563b54fa604037c99",
+      "url": "https://github.com/jasonLaster/diana-tnbc/actions/runs/35249277835",
+      "publishSeconds": 43.0,
+      "diagnosis": "asset guard",
+      "blobCredentialFailures": 0,
+      "command": "oncobase publish --site diana --no-sync-preflight --confirm-tombstone"
+    },
+    {
+      "databaseId": 35244480587,
+      "createdAt": "2026-09-17T16:06:09Z",
+      "conclusion": "success",
+      "headSha": "78087d3be235b35f70afefd50b1b0d473073bfba",
+      "url": "https://github.com/jasonLaster/diana-tnbc/actions/runs/35244480587",
+      "publishSeconds": 63.0,
+      "diagnosis": "false success: asset uploads failed",
+      "blobCredentialFailures": 12199,
+      "command": "oncobase publish --site diana --no-sync-preflight --confirm-tombstone"
+    },
+    {
+      "databaseId": 35166542798,
+      "createdAt": "2026-09-17T00:26:06Z",
+      "conclusion": "failure",
+      "headSha": "ef25f71196fcd013fd3c5f66969849fe7b997b48",
+      "url": "https://github.com/jasonLaster/diana-tnbc/actions/runs/35166542798",
+      "publishSeconds": 6.0,
+      "diagnosis": "begin returned 500",
+      "blobCredentialFailures": 0,
+      "command": "oncobase publish --site diana --no-sync-preflight --confirm-tombstone"
+    },
+    {
+      "databaseId": 35166455113,
+      "createdAt": "2026-09-17T00:24:50Z",
+      "conclusion": "success",
+      "headSha": "d7402dd708e5a621ce046605bb35dc8c182ee9c0",
+      "url": "https://github.com/jasonLaster/diana-tnbc/actions/runs/35166455113",
+      "publishSeconds": 35.0,
+      "diagnosis": "false success: asset uploads failed",
+      "blobCredentialFailures": 12226,
+      "command": "oncobase publish --site diana --no-sync-preflight --confirm-tombstone"
+    },
+    {
+      "databaseId": 35165493387,
+      "createdAt": "2026-09-17T00:11:03Z",
+      "conclusion": "failure",
+      "headSha": "4c0e0b28c2eb94b354f67655de2b14ded521fc21",
+      "url": "https://github.com/jasonLaster/diana-tnbc/actions/runs/35165493387",
+      "publishSeconds": 31.0,
+      "diagnosis": "document write contention",
+      "blobCredentialFailures": 0,
+      "command": "oncobase publish --site diana --no-sync-preflight --confirm-tombstone"
+    }
+  ],
+  "localAttempts": [
+    {
+      "start": "2026-09-22T16:47:40.668Z",
+      "command": "bun /tmp/healthier-publish.ts publish",
+      "session": "rollout-2026-09-22T09-36-20-01a0c9f9-b5c1-7e53-929a-7427ce5b7ffb.jsonl",
+      "line": 205,
+      "call": "call_IJpgQhktIQAlfaTykiVDsJUm",
+      "pid": 12028,
+      "lower": 85.5,
+      "upper": 96.7,
+      "exit": 0
+    },
+    {
+      "start": "2026-09-21T23:46:13.563Z",
+      "command": "bun /tmp/pt-publish.ts publish",
+      "session": "rollout-2026-09-21T16-39-00-01a0c656-4f5b-7fa2-9f27-257a334d8c3a.jsonl",
+      "line": 212,
+      "call": "call_dNIaezP1rvEMPj6RtZX52xb3",
+      "pid": 28967,
+      "lower": 54.0,
+      "upper": 73.8,
+      "exit": 0
+    },
+    {
+      "start": "2026-09-17T00:30:42.161Z",
+      "command": "bun /tmp/diana-pdf-markdown/publish.ts publish",
+      "session": "rollout-2026-09-16T16-53-43-01a0aca3-fe80-7d91-8823-3ae9e3c7c454.jsonl",
+      "line": 831,
+      "call": "call_WLuJsVvLNO3ZAQkVJzxTpIRv",
+      "pid": 88592,
+      "lower": 188.7,
+      "upper": 216.7,
+      "exit": 0
+    },
+    {
+      "start": "2026-09-17T00:28:02.023Z",
+      "command": "bun /tmp/publish-budget-missing.ts publish",
+      "session": "rollout-2026-09-14T19-12-56-01a0a2d6-b90d-7d12-a9a1-25fc8a498955.jsonl",
+      "line": 2408,
+      "call": "call_qFwSUSd6Mu2izkTIAbI1MFBK",
+      "pid": 98387,
+      "lower": 122.4,
+      "upper": 150.4,
+      "exit": 0
+    },
+    {
+      "start": "2026-09-17T00:27:54.382Z",
+      "command": "bun /tmp/diana-pdf-markdown/publish.ts publish",
+      "session": "rollout-2026-09-16T16-53-43-01a0aca3-fe80-7d91-8823-3ae9e3c7c454.jsonl",
+      "line": 717,
+      "call": "call_F0VTsjiuK1RwZEPifKi4gCFv",
+      "pid": 20666,
+      "lower": 54.9,
+      "upper": 86.2,
+      "exit": 1
+    },
+    {
+      "start": "2026-09-17T00:27:04.945Z",
+      "command": "bun /tmp/diana-pdf-markdown/publish.ts publish",
+      "session": "rollout-2026-09-16T16-53-43-01a0aca3-fe80-7d91-8823-3ae9e3c7c454.jsonl",
+      "line": 686,
+      "call": "call_IPR9DswMzhA0UR8siSvjUQ4a",
+      "pid": 3600,
+      "lower": 0,
+      "upper": 34.2,
+      "exit": 143
+    },
+    {
+      "start": "2026-09-17T00:26:20.389Z",
+      "command": "bun /tmp/publish-budget-missing.ts publish",
+      "session": "rollout-2026-09-14T19-12-56-01a0a2d6-b90d-7d12-a9a1-25fc8a498955.jsonl",
+      "line": 2351,
+      "call": "call_X0W5RmCIjyuNRfq0JnSaKrUc",
+      "pid": 30877,
+      "lower": 52.1,
+      "upper": 84.9,
+      "exit": 1
+    },
+    {
+      "start": "2026-09-17T00:25:47.711Z",
+      "command": "bun /tmp/diana-pdf-markdown/publish.ts publish",
+      "session": "rollout-2026-09-16T16-53-43-01a0aca3-fe80-7d91-8823-3ae9e3c7c454.jsonl",
+      "line": 632,
+      "call": "call_7AOoTxL3Is1cEujtshvcEi1q",
+      "pid": 58652,
+      "lower": 0,
+      "upper": 56.9,
+      "exit": 1
+    },
+    {
+      "start": "2026-09-17T00:10:29.970Z",
+      "command": "bun /tmp/publish-budget-phm.ts publish",
+      "session": "rollout-2026-09-14T19-12-56-01a0a2d6-b90d-7d12-a9a1-25fc8a498955.jsonl",
+      "line": 1906,
+      "call": "call_m5uGgx6NnYu5OGCGxLDEa7gx",
+      "pid": 14517,
+      "lower": 87.4,
+      "upper": 221.1,
+      "exit": 1
+    },
+    {
+      "start": "2026-09-16T16:36:33.079Z",
+      "command": "bun /tmp/phm-publish.ts publish",
+      "session": "rollout-2026-09-16T09-25-15-01a0ab09-672e-7d00-bc9d-cef69fcbb77f.jsonl",
+      "line": 183,
+      "call": "call_gEZaB7J2oC7BgyY4ih3bQGEs",
+      "pid": 73402,
+      "lower": 106.7,
+      "upper": 125.6,
+      "exit": 0
+    }
+  ],
+  "localScan": {
+    "documents": 6889,
+    "documentMs": 1181,
+    "assets": 13310,
+    "assetBytes": 5290175186,
+    "assetMs": 6486
+  },
+  "liveReadOnly": [
+    {
+      "step": "begin",
+      "status": 200,
+      "ms": 5712,
+      "responseBytes": 70791,
+      "requestBytes": 3260166,
+      "documents": 7067,
+      "assets": 13502
+    },
+    {
+      "step": "sync/documents",
+      "status": 200,
+      "ms": 1425,
+      "responseBytes": 6816827,
+      "requestBytes": 30
+    }
+  ],
+  "timingCaveat": "CI step timestamps have second resolution. Local intervals are last observed running to first observed exit, including polling latency; not exact process timings."
+}

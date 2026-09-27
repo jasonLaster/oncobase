@@ -211,7 +211,7 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
   return { activeAncestorSlugs, expandedSlugs, toggleDirectory };
 }
 
-export const Sidebar = memo(function Sidebar({ freshness }: { freshness: NavigationFreshness }) {
+export const Sidebar = memo(function Sidebar({ freshness, receivedBytes }: { freshness: NavigationFreshness; receivedBytes?: number }) {
   const store = useReaderStore();
   const { pathname } = useLocation();
   if (store && pathname.startsWith("/chat")) {
@@ -228,10 +228,10 @@ export const Sidebar = memo(function Sidebar({ freshness }: { freshness: Navigat
         </aside>
     );
   }
-  return <WikiNavigationSidebar freshness={freshness} />;
+  return <WikiNavigationSidebar freshness={freshness} receivedBytes={receivedBytes} />;
 });
 
-function WikiNavigationSidebar({ freshness }: { freshness: NavigationFreshness }) {
+function WikiNavigationSidebar({ freshness, receivedBytes }: { freshness: NavigationFreshness; receivedBytes?: number }) {
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const activeSlug = navigationActiveSlug(pathname);
@@ -246,7 +246,7 @@ function WikiNavigationSidebar({ freshness }: { freshness: NavigationFreshness }
         <>
           <CommentsTreeLink activePathname={pathname} />
           <DiagnosticsTreeLink activePathname={pathname} />
-          <NavigationStatus freshness={freshness} hasPages={tree.length > 0} />
+          <NavigationStatus receivedBytes={receivedBytes} freshness={freshness} hasPages={tree.length > 0} />
         </>
       }
       data-test-id="wiki-sidebar"
@@ -357,7 +357,7 @@ function usePageLinkRenderer() {
   );
 }
 
-export const MobileNav = memo(function MobileNav({ freshness }: { freshness: NavigationFreshness }) {
+export const MobileNav = memo(function MobileNav({ freshness, receivedBytes }: { freshness: NavigationFreshness; receivedBytes?: number }) {
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const renderPageLink = usePageLinkRenderer();
@@ -515,7 +515,7 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
                 hideWhileLoading={accountPending}
                 sessionUser={sessionUser}
               />
-              <NavigationStatus freshness={freshness} hasPages={tree.length > 0} />
+              <NavigationStatus receivedBytes={receivedBytes} freshness={freshness} hasPages={tree.length > 0} />
               <WikiTree
                 activeAncestorSlugs={activeAncestorSlugs}
                 activeSlug={activeSlug}

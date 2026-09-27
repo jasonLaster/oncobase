@@ -7,7 +7,7 @@ export default function StoreStartupRecovery() {
     <main className="app-loading app-auth-shell" data-test-id="store-startup-recovery">
       <section>
         <h1>The reader could not finish opening</h1>
-        <p>Close other tabs for this site and reload. If this continues, quit and reopen your browser.</p>
+        <p>Check your connection and reload. If this continues, close and reopen this tab.</p>
         <div className="auth-actions">
           <button type="button" onClick={() => window.location.reload()}>Reload</button>
         </div>

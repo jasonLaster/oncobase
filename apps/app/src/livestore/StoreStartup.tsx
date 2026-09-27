@@ -1,5 +1,5 @@
 import { useLayoutEffect } from "react";
-import { ReaderPending } from "../AppStarting";
+import { PageTransferActivity } from "../shell/PageTransferActivity";
 
 export const STORE_STARTUP_TIMEOUT_MS = 15_000;
 
@@ -18,5 +18,7 @@ export function StoreStartupLoading({
     const timer = window.setTimeout(onTimeout, timeoutMs);
     return () => window.clearTimeout(timer);
   }, [onTimeout, timeoutMs]);
-  return <ReaderPending stage={stage} />;
+  return <div className="reader-pending" data-test-id="reader-pending" data-startup-stage={stage}>
+    <PageTransferActivity label="Opening reader…" onRetry={() => window.location.reload()} />
+  </div>;
 }

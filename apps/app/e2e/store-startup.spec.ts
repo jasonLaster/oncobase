@@ -128,12 +128,17 @@ test("leaving during startup cancels recovery timers", async ({ page }) => {
   await installWikiApiMocks(page);
   await page.route("**/*.wasm*", () => {});
   await page.goto("/wiki/logistics/insurance");
-  await expect(page.getByTestId("app-starting").first()).toBeVisible();
+  await expect(page.getByTestId("reader-pending").first()).toBeVisible();
+  // Model leaving the SPA independently of a preview server's legal routes.
+  await page.route("**/terms-and-conditions", route => route.fulfill({
+    contentType: "text/html", body: "<!doctype html><h1>Terms and conditions</h1>",
+  }));
   await page.goto("/terms-and-conditions");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.clock.fastForward(35_000);
   await expect(page.getByTestId("store-startup-recovery")).toHaveCount(0);
   await expect(page.getByTestId("app-starting")).toHaveCount(0);
+  await expect(page.getByTestId("reader-pending")).toHaveCount(0);
 });
 
 test("a new worker version cannot strand a tab behind the old version's leader", async ({ page, context }) => {

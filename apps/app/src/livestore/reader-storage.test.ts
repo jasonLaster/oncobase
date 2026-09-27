@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isDiagnosticMemoryStorageRequest, resolveReaderStorage, readerBootDeadline,
+import { networkAwareBootDeadline, isDiagnosticMemoryStorageRequest, resolveReaderStorage, readerBootDeadline,
   READER_LEADER_BOOT_TIMEOUT_MS, READER_FOLLOWER_BOOT_TIMEOUT_MS } from "./reader-storage";
 
 describe("reader storage selection", () => {
@@ -57,4 +57,16 @@ test("missing, rejected, and stalled lock probes retain the normal leader deadli
   expect(await readerBootDeadline({ query: () => pending }, "public", 5)).toBe(READER_LEADER_BOOT_TIMEOUT_MS);
   reject(new Error("late failure"));
   await new Promise(resolve => setTimeout(resolve, 0));
+});
+
+
+test("cold downloads get a bounded runtime budget without extending cached or unrelated boots", () => {
+  const resource = { name: "https://reader.test/assets/vendor.js", duration: 16_000, encodedBodySize: 120_000, transferSize: 120_300 };
+  expect(networkAwareBootDeadline(3000, [resource], "https://reader.test")).toBe(64_000);
+  expect(networkAwareBootDeadline(15_000, [resource], "https://reader.test")).toBe(64_000);
+  expect(networkAwareBootDeadline(750, [{ ...resource, transferSize: 0 }], "https://reader.test")).toBe(750);
+  expect(networkAwareBootDeadline(3000, [{ ...resource, duration: 200 }], "https://reader.test")).toBe(3000);
+  expect(networkAwareBootDeadline(3000, [{ ...resource, duration: 100_000 }], "https://reader.test")).toBe(90_000);
+  expect(networkAwareBootDeadline(3000, [{ ...resource, name: "https://other.test/large.js" }], "https://reader.test")).toBe(3000);
+  expect(networkAwareBootDeadline(3000, [{ ...resource, name: "https://reader.test/large.pdf" }], "https://reader.test")).toBe(3000);
 });
