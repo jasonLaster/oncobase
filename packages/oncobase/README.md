@@ -97,8 +97,9 @@ overhead of that workflow, **not** a completed publication.
 ## Scoped publishing and performance trade-offs
 
 Scoped publishing requires CLI 0.2.0 or newer; dependency-aware publishing below
-requires 0.2.2 and the matching backend. Diana pins a reviewed vendored 0.2.2
-package while npm publication awaits authentication. The examples invoke the
+requires 0.2.2 and the matching backend. Use CLI 0.2.3 or newer for
+`--changed-since` selection. Install the registry release with
+`npm install --save-dev @oncobase/oncobase@0.2.3`. The examples invoke the
 project-local binary so an older global command cannot silently determine the
 workflow. Scoped publishing fails closed on an old backend rather than sending
 a partial manifest to its whole-vault endpoint.
@@ -174,8 +175,7 @@ error triggers abort.
 
 ## Dependency-aware publishing (0.2.2)
 
-The dependency index and combined completion require CLI 0.2.2. Diana uses a
-reviewed vendored package while public npm publication awaits authentication. Indexes live under
+The dependency index and combined completion require CLI 0.2.2 or newer. Indexes live under
 `~/.cache/oncobase-publish/`, keyed by the vault's real path. They store private
 reference/visibility metadata, never document bodies or credentials, in atomic
 0600 files. Missing, corrupt, incompatible or unwritable caches fall back to fresh
