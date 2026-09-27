@@ -61,6 +61,10 @@ test("combined sensitive pagination preserves batch grants, exclusions, revocati
     let calls = 0;
     for (;;) {
       const result = await t.query(api.access.listAllowedSensitivePage, { siteSlug: "alpha", userId, cursor, numItems: 2 });
+      const metadata = await t.query(api.access.listAllowedSensitiveManifestPage, { siteSlug: "alpha", userId, cursor, numItems: 2 });
+      expect(metadata.page.map(page => page.slug)).toEqual(result.slugs);
+      expect(JSON.stringify(metadata)).not.toContain("BODY_NOT_RETURNED");
+      expect(metadata.page.every(page => page.sensitive && page.size === "BODY_NOT_RETURNED".length)).toBe(true);
       expect(JSON.stringify(result)).not.toContain("BODY_NOT_RETURNED");
       expect(JSON.stringify(result)).not.toContain("reader@example.test");
       slugs.push(...result.slugs);
@@ -74,6 +78,7 @@ test("combined sensitive pagination preserves batch grants, exclusions, revocati
   expect(await combined(fixture.foreign)).toEqual([]);
   expect(await combined(fixture.foreign)).toEqual(await old(fixture.foreign));
   await expect(unauthed.query(api.access.listAllowedSensitivePage, { siteSlug: "alpha", userId: fixture.user, cursor: null, numItems: 100 })).rejects.toThrow("Unauthorized");
+  await expect(unauthed.query(api.access.listAllowedSensitiveManifestPage, { siteSlug: "alpha", userId: fixture.user, cursor: null, numItems: 100 })).rejects.toThrow("Unauthorized");
   expect((await t.query(api.access.listAllowedSensitivePage, { siteSlug: "missing", userId: fixture.user, cursor: null, numItems: 100 })).slugs).toEqual([]);
   await t.run(ctx => ctx.db.delete(fixture.assignment));
   expect(await combined(fixture.user)).toEqual(["private/tag/direct", "private/tag/include", "private/tag/legacy"]);

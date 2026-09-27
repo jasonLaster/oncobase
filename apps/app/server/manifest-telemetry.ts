@@ -13,6 +13,8 @@ export async function handleManifestTelemetry(request: Request) {
     const event = parseManifestTelemetry(await boundedJson(request));
     if (!event) return new Response(null, { status: 400, headers });
     const attributes: Record<string, string | number | boolean> = { "telemetry.source": "convex", "manifest.revision": event.revision, "manifest.incremental": event.incremental, "manifest.outcome": event.outcome, "manifest.failure_stage": event.failureStage, "manifest.attempt": event.attempt ?? 0,
+      ...(event.strategyReason ? { "manifest.strategy_reason": event.strategyReason } : {}),
+      ...(event.changedDocuments !== undefined ? { "manifest.changed_documents": event.changedDocuments } : {}),
       ...(event.clientTraceId ? { "oncobase.client.trace_id": event.clientTraceId } : {}) };
     for (const [key, duration] of Object.entries(event.phases)) attributes[`manifest.phase.${key}_ms`] = duration;
     recordRemoteSpan("manifest.build", event.startedAt, event.durationMs, attributes, event.outcome === "failed");

@@ -1,0 +1,67 @@
+{
+  "mode": "read-only",
+  "transport": "http",
+  "scenario": "documents",
+  "cache": "content",
+  "assetMode": "none",
+  "fixtureLatencyMs": null,
+  "budgetMs": 20000,
+  "allWithinBudget": true,
+  "firstMs": 669,
+  "medianMs": 462,
+  "maxMs": 669,
+  "decodedResponseBytes": 15585,
+  "httpRequests": 6,
+  "omitted": [
+    "lock acquisition",
+    "writes",
+    "blob uploads",
+    "finish",
+    "embeddings",
+    "post-finish reader visibility"
+  ],
+  "samples": [
+    {
+      "iteration": 1,
+      "durationMs": 669,
+      "scanMs": 111,
+      "planMs": 289,
+      "verifyMs": 269,
+      "documents": 16,
+      "assets": 0,
+      "assetBytesHashed": 0,
+      "plannedDocuments": 16,
+      "plannedAssets": 0,
+      "baselineDocumentMismatches": 0,
+      "baselineAssetMismatches": 0
+    },
+    {
+      "iteration": 2,
+      "durationMs": 439,
+      "scanMs": 123,
+      "planMs": 145,
+      "verifyMs": 170,
+      "documents": 16,
+      "assets": 0,
+      "assetBytesHashed": 0,
+      "plannedDocuments": 16,
+      "plannedAssets": 0,
+      "baselineDocumentMismatches": 0,
+      "baselineAssetMismatches": 0
+    },
+    {
+      "iteration": 3,
+      "durationMs": 462,
+      "scanMs": 124,
+      "planMs": 167,
+      "verifyMs": 170,
+      "documents": 16,
+      "assets": 0,
+      "assetBytesHashed": 0,
+      "plannedDocuments": 16,
+      "plannedAssets": 0,
+      "baselineDocumentMismatches": 0,
+      "baselineAssetMismatches": 0
+    }
+  ]
+}

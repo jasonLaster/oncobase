@@ -7,7 +7,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { sitePut } from "./blob";
 import { countEmbeddingTokens, embedBatch } from "./embeddings";
 import { parseArgs } from "node:util";
-import { readPublishScope, readPublishSelection, type AssetMode } from "./publish-scope";
+import { readGitPublishScope, readPublishScope, readPublishSelection, type AssetMode } from "./publish-scope";
 import { readPublishedState, comparePublishedState } from "./publish-state";
 import { loadConfig, loadPublishToken } from "./config";
 import {
@@ -202,7 +202,7 @@ async function embedInChunks(
 }
 
 const { values } = parseArgs({ args: process.argv.slice(2), options: {
-  site: { type: "string" }, vault: { type: "string" }, profile: { type: "string" }, "no-profile": { type: "boolean" }, "files-from": { type: "string" },
+  site: { type: "string" }, vault: { type: "string" }, profile: { type: "string" }, "no-profile": { type: "boolean" }, "files-from": { type: "string" }, "changed-since": { type: "string" },
   "doc-concurrency": { type: "string" }, "asset-concurrency": { type: "string" }, "request-timeout-ms": { type: "string", default: "20000" },
   assets: { type: "string" }, embeddings: { type: "string", default: "auto" }, verify: { type: "string" },
   "cache": { type: "string", default: "content" }, "coordination": { type: "string", default: "auto" },
@@ -239,13 +239,15 @@ const confirmTombstone = values["confirm-tombstone"] || force;
 const syncFirst = values["sync-first"];
 const noSyncPreflight = values["no-sync-preflight"];
 const allowDirty = values["allow-dirty"];
-const scope = values["files-from"] ? readPublishScope(values["files-from"]) : undefined;
-const assetMode = values.assets ?? (scope ? "referenced" : "all");
-const verification = values.verify ?? (scope ? "content" : "legacy");
+let scope = values["files-from"] ? readPublishScope(values["files-from"]) : undefined;
+const scoped = Boolean(scope || values["changed-since"]);
+const assetMode = values.assets ?? (scoped ? "referenced" : "all");
+const verification = values.verify ?? (scoped ? "content" : "legacy");
 if (!site || values.help) {
   console.log(`Usage: oncobase publish --site <slug> [options]
   --vault <path>                Publish a release worktree without changing saved site config
   --files-from <scope.json>       Selected vault-relative Markdown paths; never infer deletions
+  --changed-since <git-ref>      Scope committed Markdown additions/edits since an explicit ref; clean vault required
   --assets none|referenced|all   Scoped default: referenced; whole-vault default: all
   --embeddings auto|skip|required  Auto requires OPENAI_API_KEY; skip leaves search vectors unchanged
   --verify content|metadata      Scoped default: content; metadata trusts stored content hashes
@@ -263,14 +265,14 @@ if (!site || values.help) {
   --force --confirm-full-republish | --confirm-large-asset-upload | --confirm-tombstone`);
   process.exit(values.help ? 0 : 1);
 }
-if (!["none", "referenced", "all"].includes(assetMode) || (!scope && assetMode !== "all")) throw new Error("--assets none|referenced requires --files-from");
+if (!["none", "referenced", "all"].includes(assetMode) || (!scoped && assetMode !== "all")) throw new Error("--assets none|referenced requires --files-from or --changed-since");
 if (!["auto", "skip", "required"].includes(values.embeddings)) throw new Error("--embeddings must be auto, skip, or required");
 if (!["content", "metadata", "legacy"].includes(verification) || values.verify === "legacy") throw new Error("--verify must be content or metadata");
 if (!["content", "metadata", "off", "refresh"].includes(values.cache)) throw new Error("--cache must be content, metadata, off, or refresh");
 if (!["auto", "steps"].includes(values.coordination)) throw new Error("--coordination must be auto or steps");
 if (syncFirst && noSyncPreflight) throw new Error("--sync-first conflicts with --no-sync-preflight");
 if (dryRun && syncFirst) throw new Error("--dry-run cannot pull files; run sync separately");
-if (scope && values["confirm-tombstone"]) throw new Error("Scoped publishes never infer tombstones");
+if (scoped && values["confirm-tombstone"]) throw new Error("Scoped publishes never infer tombstones");
 
 if (force && !dryRun && !confirmFullRepublish) {
   console.error(
@@ -283,8 +285,15 @@ const config = publishProfile.sync("config", () => {
   const config = loadConfig(site);
   return { ...config, vaultPath: values.vault ? path.resolve(values.vault) : config.vaultPath };
 });
+if (values["changed-since"] && (values["files-from"] || allowDirty || syncFirst)) throw new Error("--changed-since conflicts with --files-from, --allow-dirty and --sync-first");
 const token = loadPublishToken(site);
 publishProfile.sync("git.check", () => ensureCleanVault(config.vaultPath, { allowDirty }));
+
+if (values["changed-since"]) {
+  scope = publishProfile.sync("git.scope", () => readGitPublishScope(config.vaultPath, values["changed-since"]!));
+  if (scope.size === 0) { console.log("No committed Markdown changes in the selected range."); process.exit(0); }
+  console.log(`Git range selected ${scope.size} documents; scoped publish will not infer deletions.`);
+}
 
 const shouldRunSyncPreflight = !dryRun && (syncFirst || (!scope && !noSyncPreflight));
 if (shouldRunSyncPreflight) {

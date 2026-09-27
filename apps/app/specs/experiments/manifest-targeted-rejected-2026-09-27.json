@@ -1,0 +1,279 @@
+{
+  "experimentId": "3c929a5fff5f35c4a52c0490f97cae3e",
+  "exported": 15,
+  "samples": [
+    {
+      "variant": "full-500",
+      "iteration": 1,
+      "startedAt": 1790529869735,
+      "durationMs": 10912.041583,
+      "requests": 24,
+      "phases": {
+        "read": 10779.749084000001,
+        "filter": 0.5160829999986163,
+        "tree": 15.075666000000638,
+        "hash": 10.098500000000058,
+        "serialize": 6.14891599999828
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-1",
+      "iteration": 1,
+      "startedAt": 1790529881402,
+      "durationMs": 681.9624170000025,
+      "requests": 3,
+      "phases": {
+        "snapshot": 338.5578749999986,
+        "lookup": 104.12687500000175,
+        "patch": 77.17462499999965
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-16",
+      "iteration": 1,
+      "startedAt": 1790529882363,
+      "durationMs": 823.3302079999994,
+      "requests": 3,
+      "phases": {
+        "snapshot": 545.4950420000023,
+        "lookup": 116.67520799999693,
+        "patch": 69.30099999999948
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "session-full",
+      "iteration": 1,
+      "startedAt": 1790529883462,
+      "durationMs": 2629.182249999998,
+      "requests": 31,
+      "phases": {
+        "read": 2290.8376670000034,
+        "filter": 207.0132080000003,
+        "tree": 14.39745799999946,
+        "hash": 10.347916999999143,
+        "serialize": 7.4007499999970605
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 7154,
+      "assets": 1110
+    },
+    {
+      "variant": "session-overlay",
+      "iteration": 1,
+      "startedAt": 1790529886345,
+      "durationMs": 4224.261875000004,
+      "requests": 34,
+      "phases": {
+        "read": 3861.829542000003,
+        "filter": 226.7135419999977,
+        "tree": 16.441749999998137,
+        "hash": 10.3060420000038,
+        "serialize": 6.889291999999841
+      },
+      "equivalent": false,
+      "stable": false,
+      "outcome": "failed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-1",
+      "iteration": 2,
+      "startedAt": 1790529890724,
+      "durationMs": 781.5859589999964,
+      "requests": 3,
+      "phases": {
+        "snapshot": 428.690125000001,
+        "lookup": 88.19637499999953,
+        "patch": 66.01120800000353
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-16",
+      "iteration": 2,
+      "startedAt": 1790529891779,
+      "durationMs": 612.8841249999969,
+      "requests": 3,
+      "phases": {
+        "snapshot": 367.44837499999994,
+        "lookup": 87.2858750000014,
+        "patch": 64.92879099999845
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "session-full",
+      "iteration": 2,
+      "startedAt": 1790529892666,
+      "durationMs": 2640.1086250000008,
+      "requests": 31,
+      "phases": {
+        "read": 2307.6716249999954,
+        "filter": 195.53525000000081,
+        "tree": 17.400000000001455,
+        "hash": 11.900583999995433,
+        "serialize": 8.223291999995126
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 7154,
+      "assets": 1110
+    },
+    {
+      "variant": "session-overlay",
+      "iteration": 2,
+      "startedAt": 1790529895554,
+      "durationMs": 4063.43275,
+      "requests": 34,
+      "phases": {
+        "read": 3741.548917,
+        "filter": 192.48712499999965,
+        "tree": 16.864291999998386,
+        "hash": 12.809124999999767,
+        "serialize": 8.786083999999391
+      },
+      "equivalent": false,
+      "stable": false,
+      "outcome": "failed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "full-500",
+      "iteration": 2,
+      "startedAt": 1790529899774,
+      "durationMs": 2292.4265830000004,
+      "requests": 24,
+      "phases": {
+        "read": 2158.0128750000003,
+        "filter": 0.5782499999986612,
+        "tree": 15.588917000000947,
+        "hash": 12.557749999999942,
+        "serialize": 7.6727500000051805
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-16",
+      "iteration": 3,
+      "startedAt": 1790529902386,
+      "durationMs": 726.8508750000037,
+      "requests": 3,
+      "phases": {
+        "snapshot": 473.45675000000483,
+        "lookup": 89.1553750000021,
+        "patch": 67.81083400000352
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "session-full",
+      "iteration": 3,
+      "startedAt": 1790529903459,
+      "durationMs": 2718.675292,
+      "requests": 31,
+      "phases": {
+        "read": 2352.5262500000026,
+        "filter": 238.95079200000328,
+        "tree": 7.57645799999591,
+        "hash": 8.196917000001122,
+        "serialize": 5.5804169999973965
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 7154,
+      "assets": 1110
+    },
+    {
+      "variant": "session-overlay",
+      "iteration": 3,
+      "startedAt": 1790529906427,
+      "durationMs": 4104.618625000003,
+      "requests": 34,
+      "phases": {
+        "read": 3804.276125000004,
+        "filter": 189.94641599999886,
+        "tree": 6.979207999997016,
+        "hash": 6.8712500000037835,
+        "serialize": 4.502165999998397
+      },
+      "equivalent": false,
+      "stable": false,
+      "outcome": "failed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "full-500",
+      "iteration": 3,
+      "startedAt": 1790529910687,
+      "durationMs": 2478.659292000004,
+      "requests": 24,
+      "phases": {
+        "read": 2351.185458,
+        "filter": 0.4330829999962589,
+        "tree": 14.149250000002212,
+        "hash": 11.734083000003011,
+        "serialize": 6.49687499999709
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    },
+    {
+      "variant": "update-1",
+      "iteration": 3,
+      "startedAt": 1790529913474,
+      "durationMs": 756.3392920000042,
+      "requests": 3,
+      "phases": {
+        "snapshot": 509.51979199999914,
+        "lookup": 95.62637499999983,
+        "patch": 60.90816700000141
+      },
+      "equivalent": true,
+      "stable": true,
+      "outcome": "passed",
+      "pages": 6751,
+      "assets": 1086
+    }
+  ]
+}

@@ -465,3 +465,47 @@ test("wide manifest folders retain all pages and PDF paths", async () => {
   expect(body.pages).toHaveLength(7011);
   expect(body.assets).toHaveLength(11000);
 });
+
+
+test("session overlays equal full manifests, refresh permissions and fence public revisions", async () => {
+  const { context } = manifestContext();
+  const publicResponse = await createWikiManifestResponse(new Request("https://test/api/wiki/manifest"), context);
+  const publicJson = await publicResponse.text();
+  const base = JSON.parse(publicJson);
+  const secret = { ...base.pages[0], slug: "private", sensitive: true };
+  let allowed = true, fullReads = 0, revision = 1, flipRevision = false;
+  context.getSessionUser = async () => ({ _id: "user" });
+  context.documents.listManifestPage = async ({ includeSensitive }) => {
+    fullReads++;
+    return { page: includeSensitive ? [...base.pages, secret] : base.pages, isDone: true, continueCursor: null };
+  };
+  context.access = {
+    canUserAccessSlug: async () => allowed,
+    filterAccessibleSlugs: async (_user, slugs) => slugs.map(slug => ({ slug, allowed, hasDocument: true })),
+    getAllowedSlugs: async () => allowed ? ["private"] : [],
+  };
+  const request = () => new Request("https://test/api/wiki/manifest?scope=session");
+  const oracle = await (await createWikiManifestResponse(request(), context)).json();
+  context.getManifestSnapshot = async () => ({ hash: base.manifestHash, revision, read: async () => publicJson });
+  context.access.listAllowedManifestPage = async () => {
+    if (flipRevision) revision++;
+    return { page: allowed ? [secret] : [], isDone: true, continueCursor: null };
+  };
+  fullReads = 0;
+  const overlay = await createWikiManifestResponse(request(), context);
+  expect(overlay.headers.get("X-Wiki-Manifest-Source")).toBe("snapshot-overlay");
+  expect(overlay.headers.get("Cache-Control")).toContain("private");
+  expect((await overlay.json()).manifestHash).toBe(oracle.manifestHash);
+  expect(fullReads).toBe(0);
+  allowed = false;
+  const revoked = await (await createWikiManifestResponse(request(), context)).json();
+  expect(revoked.pages.map((page: { slug: string }) => page.slug)).toEqual(["index"]);
+  expect(revoked.manifestHash).not.toBe(oracle.manifestHash);
+  flipRevision = true;
+  expect((await createWikiManifestResponse(request(), context)).headers.get("X-Wiki-Manifest-Source")).toBe("manifest");
+  expect(fullReads).toBe(1);
+  flipRevision = false;
+  context.getManifestSnapshot = async () => ({ hash: base.manifestHash, revision, read: async () => publicJson.replace('"Index"', '"Corrupt"') });
+  expect((await createWikiManifestResponse(request(), context)).headers.get("X-Wiki-Manifest-Source")).toBe("manifest");
+  expect(fullReads).toBe(2);
+});

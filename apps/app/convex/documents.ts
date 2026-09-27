@@ -613,7 +613,7 @@ export const upsert = mutation({
       ) {
         return { skipped: true };
       }
-      await recordPublishChange(ctx, site.site, ownedRun);
+      await recordPublishChange(ctx, site.site, ownedRun, (existing.sensitive === true) !== sensitive ? undefined : slug);
       await ctx.db.patch(existing._id, {
         title,
         content,
@@ -630,7 +630,7 @@ export const upsert = mutation({
       });
       return { skipped: false };
     }
-    await recordPublishChange(ctx, site.site, ownedRun);
+    await recordPublishChange(ctx, site.site, ownedRun, sensitive ? undefined : slug);
     await ctx.db.insert("documents", {
       ...(site.siteId ? { siteId: site.siteId } : {}),
       slug,
@@ -665,7 +665,7 @@ export const setContentHash = mutation({
     const doc = await findDocBySlug(ctx, site, slug);
     if (!doc) return { found: false, patched: false };
     if (doc.contentHash === contentHash) return { found: true, patched: false };
-    await recordPublishChange(ctx, site.site, ownedRun);
+    await recordPublishChange(ctx, site.site, ownedRun, slug);
     await ctx.db.patch(doc._id, { contentHash });
     return { found: true, patched: true };
   },
@@ -705,9 +705,10 @@ export const bulkSetContentHash = mutation({
         continue;
       }
       await ctx.db.patch(doc._id, { contentHash, hashFunctionVersion });
+      if (ownedRun) await recordPublishChange(ctx, site.site, ownedRun, slug);
       patched++;
     }
-    if (patched) await recordPublishChange(ctx, site.site, ownedRun);
+    if (patched && !ownedRun) await recordPublishChange(ctx, site.site, false);
     return { patched, alreadyMatching, missing };
   },
 });

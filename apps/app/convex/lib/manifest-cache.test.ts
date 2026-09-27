@@ -65,7 +65,7 @@ test("snapshot URLs require a service credential, active tenant, matching revisi
     await expect(handler(current)(ctx, { ...args, serverSecret: "wrong" })).rejects.toThrow("Unauthorized");
     await expect(handler(requestBuild)(ctx, { ...args, serverSecret: "wrong" })).rejects.toThrow("Unauthorized");
     await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, revision: 0, hash: "v0", storageId: "blob" });
-    expect(await handler(current)(ctx, args)).toEqual({ hash: "v0", url: "https://storage.invalid/blob" });
+    expect(await handler(current)(ctx, args)).toEqual({ hash: "v0", revision: 0, url: "https://storage.invalid/blob" });
     expect(await handler(current)(ctx, { ...args, siteSlug: "beta" })).toBeNull();
     rows.sites[0].manifestSnapshot.formatVersion = 999;
     expect(await handler(current)(ctx, args)).toBeNull();

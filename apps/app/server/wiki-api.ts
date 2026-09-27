@@ -475,6 +475,8 @@ function createAccessAdapter(
         api.access.filterAccessibleSlugs,
         withSiteSlug(siteSlug, { userId: user._id as Id<"users">, slugs }),
       ),
+    listAllowedManifestPage: (user, args) => client.query(api.access.listAllowedSensitiveManifestPage,
+      withSiteSlug(siteSlug, { ...args, userId: user._id as Id<"users"> })),
     getAllowedSlugs: (user) => loadAllowedSensitivePages(
       (cursor, numItems) => client.query(api.access.listAllowedSensitivePage,
         withSiteSlug(siteSlug, { cursor, numItems, userId: user._id as Id<"users"> })),
@@ -3086,13 +3088,14 @@ export function createWikiApiHandler(client = createClient()) {
         getSessionUser(nextRequest, client, siteSlug),
       access: createAccessAdapter(client, siteSlug),
       manifestPrioritySlugs: MANIFEST_PRIORITY_SLUGS,
+      onManifestFallback: (reason: string) => traceBackendAttributes({ "manifest.fallback_reason": reason }),
       onManifestPhase: (name: "read" | "filter" | "tree" | "hash" | "serialize", ms: number) => recordRemoteSpan(`manifest.${name}`, Date.now() - ms, ms, { "telemetry.source": "api" }),
       getManifestSnapshot: process.env.WIKI_PREFETCH_SECRET ? async () => {
         const args = { siteSlug, serverSecret: process.env.WIKI_PREFETCH_SECRET! };
         const snapshot = await client.query(api.manifestCache.current, args);
         traceBackendAttributes({ "manifest.snapshot_hit": Boolean(snapshot) });
         if (!snapshot) { await client.mutation(api.manifestCache.requestBuild, args); return null; }
-        return { hash: snapshot.hash, read: async () => traceBackendPhase("manifest.snapshot-read", async () => {
+        return { hash: snapshot.hash, revision: snapshot.revision, read: async () => traceBackendPhase("manifest.snapshot-read", async () => {
           const response = await fetch(snapshot.url, { signal: AbortSignal.timeout(5000) });
           if (!response.ok) throw new Error("Manifest snapshot unavailable");
           // Buffer before responding so a broken storage read can use the live
@@ -3155,7 +3158,11 @@ export function createWikiApiHandler(client = createClient()) {
     }
 
     if (pathname === "/api/wiki/manifest") {
-      return createWikiManifestResponse(request, context);
+      const response = await createWikiManifestResponse(request, context);
+      traceBackendAttributes({ "manifest.scope": new URL(request.url).searchParams.get("scope") === "session" ? "session" : "public",
+        "manifest.strategy": response.headers.get("X-Wiki-Manifest-Source") ?? "validator",
+        "manifest.partial": response.headers.get("X-Wiki-Manifest-Partial") === "true" });
+      return response;
     }
 
     if (pathname === "/api/wiki/pages") {
