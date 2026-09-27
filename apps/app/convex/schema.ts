@@ -12,6 +12,8 @@ import { v } from "convex/values";
 // Convex we use the Id<"sites"> for joins.
 
 export default defineSchema({
+  publishChanges: defineTable({ siteId: v.id("sites"), runId: v.string(), kind: v.union(v.literal("document"), v.literal("asset")), key: v.string() })
+    .index("by_run_kind_key", ["siteId", "runId", "kind", "key"]),
   sites: defineTable({
     slug: v.string(),
     name: v.string(),
@@ -70,6 +72,7 @@ export default defineSchema({
     publishRunId: v.optional(v.string()),
     // Missing means an older run: conservatively invalidate at completion.
     publishRunChanged: v.optional(v.boolean()),
+    publishJournalVersion: v.optional(v.literal(1)),
     publishScope: v.optional(v.object({ documents: v.array(v.string()), assets: v.array(v.string()) })),
     archivedAt: v.optional(v.number()),
     createdAt: v.number(),

@@ -17,6 +17,7 @@ export const build = internalAction({
     let failureStage: ManifestTelemetry["failureStage"] = "revision";
     const phases: Record<string, number> = {};
     let succeeded = false, incremental = false;
+    let strategyReason: ManifestTelemetry["strategyReason"] = "full-required";
     let storageId: import("./_generated/dataModel").Id<"_storage"> | undefined;
     try {
       const currentRevision = await ctx.runQuery(internal.manifestCache.revision, { siteSlug });
@@ -36,6 +37,7 @@ export const build = internalAction({
       let json: string | null = null;
       if (delta && delta.slugs.length <= 128 && revision === delta.baseRevision + 1) {
         const deltaStarted = performance.now();
+        strategyReason = "base-unavailable";
         try {
           const base = await ctx.runQuery(internal.manifestCache.deltaBase, { siteSlug, baseRevision: delta.baseRevision });
           if (base) {
@@ -48,9 +50,10 @@ export const build = internalAction({
               }
               json = patchManifestPages(JSON.parse(await blob.text()), siteSlug, base.hash, pages);
               incremental = json !== null;
+              strategyReason = incremental ? "delta" : "unsupported-pages";
             }
           }
-        } catch { /* Missing/corrupt bases and unsupported changes use the full builder. */ }
+        } catch { strategyReason = "delta-failed"; }
         phases.deltaRead = Math.round(performance.now() - deltaStarted);
       }
       if (json === null) {
@@ -78,7 +81,7 @@ export const build = internalAction({
       await ctx.runMutation(internal.manifestCache.failed, { siteSlug, generation, attempt, clientTraceId, delta });
       console.warn("Manifest snapshot build deferred");
     } finally {
-      const event: ManifestTelemetry = { version: 1, startedAt, queuedAt, attempt, clientTraceId, revision, durationMs: Math.round(performance.now() - started), incremental, outcome, failureStage, phases };
+      const event: ManifestTelemetry = { version: 1, startedAt, queuedAt, attempt, clientTraceId, revision, durationMs: Math.round(performance.now() - started), incremental, strategyReason, ...(delta ? { changedDocuments: delta.slugs.length } : {}), outcome, failureStage, phases };
       console.info("publish.manifest", JSON.stringify({ ...event, succeeded }));
       // Export after install/failure handling. A broken relay must never change
       // the publish result. No storage URLs, slugs, credentials or error bodies.

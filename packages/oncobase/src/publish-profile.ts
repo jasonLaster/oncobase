@@ -4,7 +4,7 @@ import fs from "node:fs";
 
 // Fixed names and numeric attributes only: profiles may leave a private vault.
 export type PublishPhase =
-  | "config" | "git.check" | "sync" | "scan.documents" | "scan.assets"
+  | "config" | "git.check" | "git.scope" | "sync" | "scan.documents" | "scan.assets"
   | "manifest" | "plan" | "plan.recheck" | "verify.documents"
   | "metadata" | "embeddings" | "upload.documents" | "upload.assets"
   | "asset.read" | "asset.blob" | "asset.verify" | "http.serialize" | "http.headers"

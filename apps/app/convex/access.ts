@@ -784,16 +784,41 @@ export const listAllowedSensitivePage = query({
   handler: async (ctx, { userId, siteSlug, cursor, numItems }) => {
     const site = await requireSite(ctx, siteSlug);
     if (!site.siteId) return { slugs: [], isDone: true, continueCursor: null };
+    // Metadata projection still reads stored bodies. Leave room for permission
+    // queries under Convex's 16 MiB transaction read budget.
     const [result, canRead] = await Promise.all([
       ctx.db.query("documents")
         .withIndex("by_site_sensitive_slug", q => q.eq("siteId", site.siteId!).eq("sensitive", true))
-        .paginate({ cursor, numItems }),
+        .paginate({ cursor, numItems, maximumBytesRead: 4 * 1024 * 1024 }),
       createDocumentAccessCheck(ctx, site, userId),
     ]);
     return {
       slugs: result.page.filter(doc => rowBelongsToSite(doc, site) && !doc.deletedAt && doc.sensitive === true && canRead(doc.slug, doc)).map(doc => doc.slug),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
+    };
+  },
+});
+
+// Service-authenticated, indexed private overlay. The caller cannot turn an
+// arbitrary user id into access: the same grant evaluator serves all readers.
+export const listAllowedSensitiveManifestPage = query({
+  args: { userId: v.id("users"), siteSlug: v.optional(v.string()), cursor: v.union(v.string(), v.null()), numItems: v.number() },
+  handler: async (ctx, { userId, siteSlug, cursor, numItems }) => {
+    if (!Number.isInteger(numItems) || numItems < 1 || numItems > 500) throw new Error("Invalid metadata page size");
+    const site = await requireSite(ctx, siteSlug);
+    if (!site.siteId) return { page: [], isDone: true, continueCursor: null };
+    // Metadata projection still reads stored bodies. Leave room for permission
+    // queries under Convex's 16 MiB transaction read budget.
+    const [result, canRead] = await Promise.all([
+      ctx.db.query("documents").withIndex("by_site_sensitive_slug", q => q.eq("siteId", site.siteId!).eq("sensitive", true)).paginate({ cursor, numItems, maximumBytesRead: 4 * 1024 * 1024 }),
+      createDocumentAccessCheck(ctx, site, userId),
+    ]);
+    return {
+      page: result.page.filter(doc => rowBelongsToSite(doc, site) && !doc.deletedAt && canRead(doc.slug, doc))
+        .map(doc => ({ slug: doc.slug, title: doc.title, tags: doc.tags, description: doc.description ?? null,
+          contentHash: doc.contentHash ?? null, sensitive: true, size: doc.sizeBytes ?? doc.content.length })),
+      isDone: result.isDone, continueCursor: result.continueCursor,
     };
   },
 });

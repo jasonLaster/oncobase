@@ -112,6 +112,15 @@ same scope and policies for the plan and the publish:
 ./node_modules/.bin/oncobase publish --site acme --files-from /tmp/release.json --assets referenced
 ```
 
+A clean release checkout can derive that scope from an explicit Git baseline:
+
+```sh
+oncobase publish --site acme --vault /path/to/release --changed-since <published-commit> --assets referenced --dry-run
+oncobase publish --site acme --vault /path/to/release --changed-since <published-commit> --assets referenced
+```
+
+This compares the baseline to committed `HEAD`; it does not guess the last published commit. Empty ranges exit without network writes. Ranges containing assets, non-Markdown files, renames or deletions require a reviewed `--files-from` scope or the whole-vault workflow. It conflicts with `--allow-dirty`, `--sync-first`, and `--files-from`. Keep `referenced` when links or sensitivity change; use `none` only for known document-only edits.
+
 The command prints its effective policy. Unknown arguments and conflicting
 options are errors. Scoped publishes skip implicit sync, never infer deletions,
 and verify all selected documents and asset registrations before finishing.
@@ -147,6 +156,12 @@ batches require confirmation regardless of how many documents are selected.
 Scoped runs own their lock and declared scope. Stale writes/aborts/finishes are
 rejected inside the database transaction. Manifest invalidation is coalesced at
 finish (or abort after partial writes), avoiding a shared site write per document.
+A small transactional change journal selects incremental builds from actual writes,
+not the allowlist size. Up to 128 changed public documents can reuse a verified
+snapshot even when the selection includes unchanged assets or many unchanged pages.
+Changed assets, visibility transitions, private pages, missing bases and larger changes
+retain a full rebuild. The journal is bounded at finish and cleaned after run expiry;
+it adds one small metadata row per changed document rather than rewriting a shared list.
 The CLI then waits up to 15 seconds for a current reader snapshot and checks its
 actual bytes, content hashes, public inclusions and sensitive exclusions. This is
 not a browser rendering test. A committed-but-unconfirmed run exits with failure

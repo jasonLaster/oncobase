@@ -24,8 +24,14 @@ export function assertPublishRun(
 /** Call in the transaction that changes manifest-visible data, after ownership
  * validation. Only the first write patches the shared site row; later workers
  * remain independent. Undefined is left conservative for pre-upgrade runs. */
-export async function recordPublishChange(ctx: MutationCtx, site: Doc<"sites"> | null, owned: boolean) {
+export async function recordPublishChange(ctx: MutationCtx, site: Doc<"sites"> | null, owned: boolean, documentSlug?: string) {
   if (!site) return;
   if (!owned) return invalidateManifest(ctx, site._id);
+  if (site.publishJournalVersion === 1 && site.publishRunId) {
+    const entry = { siteId: site._id, runId: site.publishRunId, kind: documentSlug === undefined ? "asset" as const : "document" as const, key: documentSlug ?? "*" };
+    // eslint-disable-next-line no-restricted-syntax -- Caller resolved and validated the owning site; journal index includes its id.
+    const prior = await ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", site._id).eq("runId", entry.runId).eq("kind", entry.kind).eq("key", entry.key)).first();
+    if (!prior) await ctx.db.insert("publishChanges", entry);
+  }
   if (site.publishRunChanged === false) await ctx.db.patch(site._id, { publishRunChanged: true });
 }

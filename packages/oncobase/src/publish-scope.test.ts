@@ -1,8 +1,9 @@
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, spyOn } from "bun:test";
-import { readPublishScope, readPublishSelection } from "./publish-scope";
+import { readGitPublishScope, readPublishScope, readPublishSelection } from "./publish-scope";
 
 test("referenced scope preserves outside owners and avoids hashing unrelated LFS assets", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "publish-scope-"));
@@ -50,4 +51,24 @@ test("one scan parses documents once and refreshes outside-scope visibility on t
     fs.unlinkSync(path.join(dir, "private.md"));
     expect(readPublishSelection(dir, new Set(["public"]), "referenced").assets[0].ownerSlugs).toEqual(["public"]);
   } finally { read.mockRestore(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+
+test("Git scopes use explicit committed Markdown ranges and reject unsafe omissions", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "git-publish-scope-"));
+  const git = (...args: string[]) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", stdio: "pipe" });
+  try {
+    git("init"); git("config", "user.email", "fixture@example.test"); git("config", "user.name", "Fixture");
+    fs.writeFileSync(path.join(dir, "one.md"), "one"); git("add", "."); git("commit", "-m", "base");
+    const base = git("rev-parse", "HEAD").trim();
+    fs.writeFileSync(path.join(dir, "one.md"), "updated"); fs.writeFileSync(path.join(dir, "two with spaces.mdx"), "two");
+    git("add", "."); git("commit", "-m", "edits");
+    expect([...readGitPublishScope(dir, base)]).toEqual(["one", "two with spaces"]);
+    expect(readGitPublishScope(dir, "HEAD").size).toBe(0);
+    expect(() => readGitPublishScope(dir, "--help")).toThrow("commit/ref");
+    fs.writeFileSync(path.join(dir, "asset.png"), "image"); git("add", "."); git("commit", "-m", "asset");
+    expect(() => readGitPublishScope(dir, base)).toThrow("reviewed");
+    git("rm", "one.md"); git("commit", "-m", "delete");
+    expect(() => readGitPublishScope(dir, "HEAD~1")).toThrow("reviewed");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

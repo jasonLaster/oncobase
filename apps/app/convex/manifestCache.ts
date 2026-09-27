@@ -44,9 +44,10 @@ export const current = query({
     requirePrefetchSecret(serverSecret, process.env.WIKI_PREFETCH_SECRET);
     const { site } = await requireSite(ctx, siteSlug);
     const snapshot = site?.manifestSnapshot;
+    if (site?.publishRunId && (site.publishLockUntil ?? 0) > Date.now()) return null;
     if (!snapshot || snapshot.revision !== (site?.manifestRevision ?? 0) || snapshot.formatVersion !== MANIFEST_SNAPSHOT_VERSION) return null;
     const url = await ctx.storage.getUrl(snapshot.storageId);
-    return url ? { hash: snapshot.hash, url } : null;
+    return url ? { hash: snapshot.hash, revision: snapshot.revision, url } : null;
   },
 });
 

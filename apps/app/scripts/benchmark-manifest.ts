@@ -8,7 +8,7 @@ import { ConvexHttpClient } from "convex/browser";
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import { parseWikiManifest, type WikiManifestPage } from "@oncobase/wiki-content";
 import { createWikiManifestResponse, type WikiApiDocumentsGateway } from "@oncobase/wiki-content/server";
-import { internal } from "../convex/_generated/api";
+import { api, internal } from "../convex/_generated/api";
 import { patchManifestPages } from "../convex/lib/manifestDelta";
 
 const { values } = parseArgs({ options: {
@@ -19,14 +19,14 @@ const { values } = parseArgs({ options: {
   "export-axiom": { type: "boolean", default: false }, revision: { type: "string" }, help: { type: "boolean" },
 } });
 if (values.help) {
-  console.log("bun scripts/benchmark-manifest.ts --env-file PATH --backend URL --site SLUG --output PATH [--repeats 3] [--batch-sizes 500,1000,2000] [--variants full,update-1,update-16,add-1,add-16] [--export-axiom] [--revision GIT_SHA]\nRead-only shadow benchmark: blocks backend mutations/actions; checks manifest hash equivalence and stable revisions. Output and Axiom contain aggregate measurements only. No publish/write/install timings are measured.");
+  console.log("bun scripts/benchmark-manifest.ts --env-file PATH --backend URL --site SLUG --output PATH [--repeats 3] [--batch-sizes 500,1000,2000] [--variants full,update-1,update-16,add-1,add-16] [--export-axiom] [--revision GIT_SHA]\nRead-only shadow benchmark: blocks backend mutations/actions; checks manifest hash equivalence and stable revisions. Output and Axiom contain aggregate measurements only. No publish/write/install timings are measured. Optional session-full,session-overlay variants compare an existing account with the most roles, using live permissions; account data never enters output.");
   process.exit(0);
 }
 if (!values["env-file"] || !values.backend || !values.site || !values.output || existsSync(values.output)) throw Error("Provide env-file, backend, site and a new output path");
 const config = { ...parse(readFileSync(values["env-file"])), ...process.env };
 const repeats = Number(values.repeats), batches = values["batch-sizes"]!.split(",").map(Number);
 const variants = values.variants!.split(",");
-if (!Number.isInteger(repeats) || repeats < 1 || repeats > 5 || !batches.length || batches.length > 4 || batches.some(n => !Number.isInteger(n) || n < 128 || n > 2000) || variants.some(v => !["full", "update-1", "update-16", "add-1", "add-16"].includes(v))) throw Error("Invalid bounded experiment options");
+if (!Number.isInteger(repeats) || repeats < 1 || repeats > 5 || !batches.length || batches.length > 4 || batches.some(n => !Number.isInteger(n) || n < 128 || n > 2000) || variants.some(v => !["full", "update-1", "update-16", "add-1", "add-16", "session-full", "session-overlay"].includes(v))) throw Error("Invalid bounded experiment options");
 if (!config.CONVEX_DEPLOY_KEY || (values["export-axiom"] && !config.AXIOM_API_KEY)) throw Error("Missing operator/export credentials");
 const backend = new URL(values.backend);
 if (backend.protocol !== "https:" || !backend.hostname.endsWith(".convex.cloud") || backend.pathname !== "/") throw Error("Use an explicit Convex cloud URL");
@@ -36,10 +36,10 @@ const transport = Object.assign(async (input: Parameters<typeof fetch>[0], init?
   return fetch(input, { ...init, signal: AbortSignal.timeout(20000), redirect: "error" });
 }, { preconnect: fetch.preconnect });
 const client = new ConvexHttpClient(backend.origin, { fetch: transport, logger: false }) as unknown as {
-  setAdminAuth(key: string): void;
-  query<Q extends FunctionReference<"query", "internal">>(fn: Q, args: FunctionArgs<Q>): Promise<FunctionReturnType<Q>>;
+  setAdminAuth(key: string, identity?: Record<string, string>): void;
+  query<Q extends FunctionReference<"query", "internal" | "public">>(fn: Q, args: FunctionArgs<Q>): Promise<FunctionReturnType<Q>>;
 };
-client.setAdminAuth(config.CONVEX_DEPLOY_KEY);
+client.setAdminAuth(config.CONVEX_DEPLOY_KEY, { issuer: "https://oncobase.app/backend", subject: "wiki-application-server", role: "backend-service" });
 const siteSlug = values.site;
 const status = async () => (await client.query(internal.manifestCache.status, { siteSlug }))[0];
 const hash = (raw: any) => createHash("sha256").update(JSON.stringify({ schemaVersion: raw.schemaVersion, siteSlug: raw.siteSlug, scope: raw.scope, compactTree: raw.compactTree, pages: raw.pages, assets: raw.assets })).digest("hex").slice(0, 24);
@@ -79,11 +79,53 @@ async function exportSample(sample: Sample) {
   if (Number(result.partialSuccess?.rejectedSpans ?? 0) > 0) throw Error("Axiom rejected spans");
   exported++;
 }
+// These variants invoke the same access evaluator and metadata queries as the
+// reader. Admin transport remains query-only; no session or fixture is created.
+let sessionUser: { _id: import("../convex/_generated/dataModel").Id<"users"> } | null = null;
+async function buildSession(overlay: boolean, sample?: Sample) {
+  if (!sessionUser) throw Error("No existing owner account for session benchmark");
+  const query = async <Q extends FunctionReference<"query", "internal" | "public">>(fn: Q, args: FunctionArgs<Q>): Promise<FunctionReturnType<Q>> => {
+    if (sample) sample.requests++;
+    return client.query(fn, args);
+  };
+  const response = await createWikiManifestResponse(new Request("https://benchmark.invalid/api/wiki/manifest?scope=session"), {
+    siteSlug, getSessionUser: async () => sessionUser,
+    documents: { ...gateways([], []),
+      listManifestPage: args => query(internal.documents.internal_listManifestPage, { ...args, siteSlug }),
+      listPdfAssetVisibilityPage: args => query(internal.documents.internal_listPdfAssetVisibilityPage, { ...args, siteSlug }),
+    },
+    access: {
+      canUserAccessSlug: (_user, slug) => query(api.access.canUserAccessSlug, { siteSlug, userId: sessionUser!._id, slug }),
+      filterAccessibleSlugs: (_user, slugs) => query(api.access.filterAccessibleSlugs, { siteSlug, userId: sessionUser!._id, slugs }),
+      getAllowedSlugs: unused,
+      ...(overlay ? { listAllowedManifestPage: (_user: unknown, args: { cursor: string | null; numItems: number }) => query(api.access.listAllowedSensitiveManifestPage, { ...args, siteSlug, userId: sessionUser!._id }) } : {}),
+    },
+    ...(overlay ? { getManifestSnapshot: async () => {
+      const state = (await query(internal.manifestCache.status, { siteSlug }))[0];
+      return state?.hash ? { hash: state.hash, revision: state.revision, read: async () => {
+        if (sample) sample.requests++;
+        return JSON.stringify(await snapshot(state));
+      } } : null;
+    } } : {}),
+    onManifestPhase: (name, ms) => { if (sample) sample.phases[name] = ms; },
+  });
+  if (!response.ok || response.headers.get("X-Wiki-Manifest-Partial") === "true" || response.headers.get("X-Wiki-Manifest-Source") !== (overlay ? "snapshot-overlay" : "manifest")) throw Error("Incomplete or fallback session experiment");
+  return response.json();
+}
 let setupStage = "status";
 try {
   const initial = await status();
   setupStage = "snapshot";
   const seed = await snapshot(initial);
+  let sessionHash: string | undefined;
+  if (variants.some(variant => variant.startsWith("session-"))) {
+    setupStage = "session-baseline";
+    const users = await client.query(api.access.listUsersWithRoles, { siteSlug });
+    const user = users.sort((a, b) => b.roles.length - a.roles.length)[0];
+    sessionUser = user ? { _id: user._id } : null;
+    setupStage = sessionUser ? "session-full-baseline" : "session-account-missing";
+    sessionHash = (await buildSession(false)).manifestHash;
+  }
   setupStage = "trials";
   const cases = variants.flatMap(v => v === "full" ? batches.map(b => `full-${b}`) : [v]);
   for (let iteration = 1; iteration <= repeats; iteration++) {
@@ -96,7 +138,12 @@ try {
         const before = await status();
         sample.requests++;
         let result: any, expected: string;
-        if (variant.startsWith("full-")) {
+        if (variant.startsWith("session-")) {
+          result = await buildSession(variant === "session-overlay", sample);
+          expected = sessionHash!;
+          sample.pages = result.pages.length;
+          sample.assets = result.assets.length;
+        } else if (variant.startsWith("full-")) {
           const batchSize = Number(variant.slice(5));
           const docs: WikiApiDocumentsGateway = { ...gateways([], []),
             listManifestPage: args => { sample.requests++; return client.query(internal.documents.internal_listManifestPage, { ...args, numItems: batchSize, siteSlug }); },

@@ -6,10 +6,10 @@ import { parse } from "dotenv";
 const { values } = parseArgs({ options: {
   "env-file": { type: "string" }, since: { type: "string", default: "24h" },
   trace: { type: "string" }, query: { type: "string" }, limit: { type: "string", default: "100" },
-  help: { type: "boolean" },
+  "timeout-ms": { type: "string", default: "60000" }, help: { type: "boolean" },
 } });
 if (values.help) {
-  console.log("bun scripts/query-traces.ts [--env-file PATH] [--since 24h] [--trace ID] [--limit 100] [--query APL]\nOutputs Axiom tabular JSON. Trace lookup also matches browser/manifest correlation IDs. Query permission is required.");
+  console.log("bun scripts/query-traces.ts [--env-file PATH] [--since 24h] [--trace ID] [--limit 100] [--query APL] [--timeout-ms 60000]\nOutputs Axiom tabular JSON. Trace lookup also matches browser/manifest correlation IDs. Query permission is required.");
   process.exit(0);
 }
 const file = values["env-file"] ?? [resolve(".env.local"), resolve("../../.env.local")].find(existsSync);
@@ -25,11 +25,19 @@ const limit = Number(values.limit);
 if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error("--limit must be 1 through 1000.");
 if (values.trace && !/^[a-f0-9]{32}$/.test(values.trace)) throw new Error("--trace must be a 32-character lowercase hex trace ID.");
 const apl = values.query ?? `['${dataset}']${values.trace ? ` | where trace_id == '${values.trace}' or ['attributes.custom']['oncobase.client.trace_id'] == '${values.trace}'` : ""} | order by _time asc | limit ${limit}`;
-const response = await fetch(`${(config.AXIOM_URL || "https://api.axiom.co").replace(/\/$/, "")}/v1/query/_apl?format=tabular`, {
+const timeoutMs = Number(values["timeout-ms"]);
+if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 60000) throw new Error("--timeout-ms must be 1000 through 60000.");
+let response: Response;
+try {
+response = await fetch(`${(config.AXIOM_URL || "https://api.axiom.co").replace(/\/$/, "")}/v1/query/_apl?format=tabular`, {
   method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
   body: JSON.stringify({ apl, startTime: new Date(Date.now() - ms).toISOString(), endTime: new Date().toISOString() }),
-  signal: AbortSignal.timeout(15000), redirect: "error",
+  signal: AbortSignal.timeout(timeoutMs), redirect: "error",
 });
+} catch {
+  console.error(`Axiom query did not complete within the network/timeout budget (${timeoutMs}ms). Narrow --since or the query and retry.`);
+  process.exit(1);
+}
 // Do not echo request headers, credentials, or arbitrary API error bodies.
 if (!response.ok) throw new Error(`Axiom query failed (HTTP ${response.status}). Check dataset, region, and query permission.`);
 console.log(JSON.stringify(await response.json(), null, 2));

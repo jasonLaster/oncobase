@@ -12,6 +12,7 @@ import type {
 } from "./index.ts";
 import {
   makePublicWikiSessionIdentity,
+  parseWikiManifest,
   WIKI_MANIFEST_SCHEMA_VERSION,
   WIKI_SESSION_CACHE_VERSION,
 } from "./index.ts";
@@ -45,6 +46,7 @@ export type WikiApiAccessAdapter = {
     slugs: string[],
   ): Promise<WikiApiSlugAccess[]>;
   getAllowedSlugs(user: WikiApiSessionUser): Promise<string[]>;
+  listAllowedManifestPage?(user: WikiApiSessionUser, args: { cursor: string | null; numItems: number }): Promise<ManifestPageResult>;
 };
 
 export type ManifestPageResult = {
@@ -131,9 +133,10 @@ export type WikiApiContext = {
   access?: WikiApiAccessAdapter;
   manifestPrioritySlugs?: string[];
   // Only public-scope snapshots; session responses still compute access live.
-  getManifestSnapshot?: () => Promise<{ hash: string; read: () => Promise<BodyInit> } | null>;
+  getManifestSnapshot?: () => Promise<{ hash: string; revision?: number; read: () => Promise<BodyInit> } | null>;
   decorateHeaders?: (headers: HeadersInit) => HeadersInit;
   logger?: Pick<Console, "error" | "warn">;
+  onManifestFallback?: (reason: "snapshot-unavailable" | "snapshot-invalid" | "private-query" | "snapshot-changed") => void;
   onManifestPhase?: (phase: "read" | "filter" | "tree" | "hash" | "serialize", durationMs: number) => void;
 };
 
@@ -219,7 +222,7 @@ function unavailablePageFromContent(page: PageWithContent): WikiUnavailablePage 
   };
 }
 
-type ManifestSource = "manifest" | "content-fallback" | "bounded-content-fallback";
+type ManifestSource = "snapshot-overlay" | "manifest" | "content-fallback" | "bounded-content-fallback";
 
 async function requireSessionIfNeeded(
   request: Request,
@@ -386,6 +389,47 @@ async function listManifestPages(
   // with unset/false sensitivity arrive in separate index groups.
   pages.sort((a, b) => a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
   return { pages, source };
+}
+
+// Reuse only a verified, revision-fenced public base. Private metadata and asset
+// permissions are read afresh for this user; no session result enters shared cache.
+async function sessionManifestPages(context: WikiApiContext, user: WikiApiSessionUser) {
+  if (context.getManifestSnapshot && context.access?.listAllowedManifestPage) {
+    let failure: Parameters<NonNullable<WikiApiContext["onManifestFallback"]>>[0] = "snapshot-unavailable";
+    try {
+      const snapshot = await context.getManifestSnapshot();
+      if (!snapshot || snapshot.revision === undefined) throw new Error("No versioned snapshot");
+      failure = "snapshot-invalid";
+      const raw = await new Response(await snapshot.read()).json() as WikiManifest;
+      parseWikiManifest(raw);
+      const core = { schemaVersion: raw.schemaVersion, siteSlug: raw.siteSlug, scope: raw.scope,
+        compactTree: raw.compactTree, pages: raw.pages, assets: raw.assets };
+      if (raw.siteSlug !== context.siteSlug || raw.scope !== "public" || raw.pages.some(page => page.sensitive) ||
+          raw.manifestHash !== snapshot.hash || hashJson(core) !== snapshot.hash) throw new Error("Invalid public base");
+      failure = "private-query";
+      const pages = [...raw.pages];
+      let cursor: string | null = null;
+      const cursors = new Set<string>();
+      for (;;) {
+        const result = await context.access.listAllowedManifestPage(user, { cursor, numItems: MANIFEST_PAGE_SIZE });
+        pages.push(...result.page);
+        if (result.isDone) break;
+        if (!result.continueCursor || cursors.has(result.continueCursor)) throw new Error("Invalid private cursor");
+        cursor = result.continueCursor;
+        cursors.add(cursor);
+      }
+      failure = "snapshot-changed";
+      const current = await context.getManifestSnapshot();
+      if (!current || current.revision !== snapshot.revision || current.hash !== snapshot.hash) throw new Error("Public base changed");
+      if (new Set(pages.map(page => page.slug)).size !== pages.length) throw new Error("Manifest membership changed");
+      pages.sort((a, b) => a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
+      return { pages, source: "snapshot-overlay" as const };
+    } catch {
+      try { context.onManifestFallback?.(failure); } catch { /* Telemetry cannot break fallback. */ }
+      // Older backends, corrupt snapshots and concurrent publishes use the live oracle.
+    }
+  }
+  return listManifestPages(context, Boolean(context.access));
 }
 
 async function boundedManifestFallback(
@@ -692,7 +736,7 @@ export async function createWikiManifestResponse(
   try {
     const [nextPageResult, assetResult] = await withTimeout(
       Promise.all([
-        listManifestPages(context, includeSensitive && Boolean(context.access)),
+        includeSensitive && sessionUser ? sessionManifestPages(context, sessionUser) : listManifestPages(context, false),
         listAssets(context, includeSensitive && Boolean(context.access), sessionUser),
       ]),
       MANIFEST_TIMEOUT_MS,

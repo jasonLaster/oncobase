@@ -291,6 +291,7 @@ export const beginPublish = mutation({
       publishLockUntil: now + 10 * 60 * 1000,
       publishRunId: runId,
       publishRunChanged: runId ? false : undefined,
+      publishJournalVersion: runId ? 1 : undefined,
       publishScope: scope,
       updatedAt: now,
     });
@@ -304,9 +305,13 @@ export const expirePublish = internalMutation({
   args: { slug: v.string(), runId: v.string() },
   handler: async (ctx, { slug, runId }): Promise<null> => {
     const site = await ctx.db.query("sites").withIndex("by_slug", q => q.eq("slug", slug)).first();
-    if (!site || site.publishRunId !== runId || (site.publishLockUntil ?? 0) > Date.now()) return null;
+    if (!site) return null;
+    if (site.publishRunId !== runId || (site.publishLockUntil ?? 0) <= Date.now()) {
+      await ctx.scheduler.runAfter(0, internal.sites.cleanupPublishChanges, { siteId: site._id, runId });
+    }
+    if (site.publishRunId !== runId || (site.publishLockUntil ?? 0) > Date.now()) return null;
     if (site.publishRunChanged !== false) await invalidateManifest(ctx, site._id);
-    await ctx.db.patch(site._id, { publishRunId: undefined, publishRunChanged: undefined, publishScope: undefined, publishLockUntil: undefined,
+    await ctx.db.patch(site._id, { publishRunId: undefined, publishRunChanged: undefined, publishJournalVersion: undefined, publishScope: undefined, publishLockUntil: undefined,
       lastPublishStatus: "failed", lastPublishError: "Publisher lease expired before completion", updatedAt: Date.now() });
     return null;
   },
@@ -324,10 +329,17 @@ export const finishPublish = mutation({
     if (!site) throw new Error("site not found");
     const owned = assertPublishRun(site, runId);
     if (owned && site.publishRunChanged !== false) {
-      // Only document-only scopes can reuse asset membership. The builder also
-      // rejects missing/private pages and validates the base.
-      const delta = site.publishScope?.assets.length === 0 && site.publishScope.documents.length <= 128
-        ? { baseRevision: site.manifestRevision ?? 0, slugs: site.publishScope.documents } : undefined;
+      // The server records actual writes transactionally. A broad selection or
+      // unchanged referenced assets must not force a whole-vault rebuild.
+      let slugs = site.publishScope?.documents;
+      let assetsChanged = site.publishScope?.assets.length !== 0;
+      if (site.publishJournalVersion === 1 && runId) {
+        const entries = await ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", site._id).eq("runId", runId).eq("kind", "document")).take(129);
+        slugs = entries.map(entry => entry.key);
+        assetsChanged = Boolean(await ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", site._id).eq("runId", runId).eq("kind", "asset")).first());
+      }
+      const delta = !assetsChanged && slugs && slugs.length > 0 && slugs.length <= 128
+        ? { baseRevision: site.manifestRevision ?? 0, slugs } : undefined;
       await invalidateManifest(ctx, site._id, 0, delta, clientTraceId);
     }
     // A no-op can reuse only the current-format/current-revision snapshot.
@@ -346,6 +358,7 @@ export const finishPublish = mutation({
       publishLockUntil: undefined,
       publishRunId: undefined,
       publishRunChanged: undefined,
+      publishJournalVersion: undefined,
       publishScope: undefined,
       updatedAt: now,
     });
@@ -388,6 +401,7 @@ export const failPublish = mutation({
       publishLockUntil: undefined,
       publishRunId: undefined,
       publishRunChanged: undefined,
+      publishJournalVersion: undefined,
       publishScope: undefined,
       updatedAt: Date.now(),
     });
@@ -410,6 +424,7 @@ export const archive = mutation({
       publishLockUntil: undefined,
       publishRunId: undefined,
       publishRunChanged: undefined,
+      publishJournalVersion: undefined,
       publishScope: undefined,
       updatedAt: Date.now(),
     });
@@ -432,5 +447,19 @@ export const restore = mutation({
       updatedAt: Date.now(),
     });
     return { restored: true };
+  },
+});
+
+// Bounded cleanup also handles publishers that crash or abort. The original
+// expiry job owns cleanup even after finish has released the run's lock.
+export const cleanupPublishChanges = internalMutation({
+  args: { siteId: v.id("sites"), runId: v.string() },
+  handler: async (ctx, { siteId, runId }): Promise<null> => {
+    const site = await ctx.db.get(siteId);
+    if (site?.publishRunId === runId) return null;
+    const rows = await ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", siteId).eq("runId", runId)).take(128);
+    await Promise.all(rows.map(row => ctx.db.delete(row._id)));
+    if (rows.length === 128) await ctx.scheduler.runAfter(0, internal.sites.cleanupPublishChanges, { siteId, runId });
+    return null;
   },
 });

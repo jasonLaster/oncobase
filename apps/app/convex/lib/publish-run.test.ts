@@ -133,3 +133,44 @@ test("owned no-ops preserve revisions; missing snapshots rebuild and old runs in
   expect(await finish()).toEqual({ revision: 12 });
   await t.run(async ctx => { for (const job of await ctx.db.system.query("_scheduled_functions").collect()) await ctx.scheduler.cancel(job._id); });
 });
+
+
+test("manifest strategy follows actual writes, with bounded journals and conservative fallbacks", async () => {
+  for (const scenario of ["one", "129", "asset", "legacy", "bulk", "visibility"] as const) {
+    const t = convexTest(schema, {
+      "../documents.ts": () => import("../documents"), "../sites.ts": () => import("../sites"),
+      "../_generated/server.js": () => import("../_generated/server"),
+    }).withIdentity({ issuer: SERVICE_ISSUER, subject: SERVICE_SUBJECT, role: "backend-service" });
+    const siteId = await t.run(ctx => ctx.db.insert("sites", {
+      slug: "fixture", name: "fixture", ownerEmail: "fixture@example.test", status: "active", domains: [], publishTokenHash: "fixture",
+      config: { enableChat: false, enableComments: false, enableDownloads: false, passwordGate: false },
+      quotas: { monthlyOpenAITokens: 0, blobBytes: 0 }, createdAt: 1, updatedAt: 1, manifestRevision: 10,
+    }));
+    const runId = `scoped:${scenario}`;
+    await t.mutation(api.sites.beginPublish, { slug: "fixture", runId, scope: { documents: Array.from({ length: 1000 }, (_, i) => `doc-${i}`), assets: ["pdf:asset.pdf"] } });
+    if (scenario === "visibility") await t.run(ctx => ctx.db.insert("documents", { siteId, slug: "doc-0", title: "fixture", content: "body", tags: [], sensitive: true, updatedAt: 1 }));
+    for (let i = 0; i < (scenario === "129" ? 129 : 1); i++) await t.mutation(api.documents.upsert, {
+      siteSlug: "fixture", runId, slug: `doc-${i}`, title: "fixture", content: "body", contentHash: "hash", tags: [],
+    });
+    // Multiple metadata writes to the same page count once.
+    await t.mutation(api.documents.setContentHash, { siteSlug: "fixture", runId, slug: "doc-0", contentHash: "second" });
+    if (scenario === "bulk") await t.mutation(api.documents.bulkSetContentHash, { siteSlug: "fixture", runId, entries: [{ slug: "doc-0", contentHash: "third" }] });
+    if (scenario === "asset") await t.mutation(api.documents.upsertPdfAsset, { siteSlug: "fixture", runId, path: "asset.pdf", blobUrl: "https://fixture.invalid/asset.pdf", sizeBytes: 4 });
+    if (scenario === "legacy") await t.run(ctx => ctx.db.patch(siteId, { publishJournalVersion: undefined }));
+    // Cleanup cannot race a live owner and lose changes.
+    await t.mutation(internal.sites.cleanupPublishChanges, { siteId, runId });
+    // eslint-disable-next-line no-restricted-syntax -- Test fixture queries its explicit site/run index.
+    expect((await t.run(ctx => ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", siteId).eq("runId", runId)).collect())).length).toBeGreaterThan(0);
+    await t.mutation(api.sites.finishPublish, { slug: "fixture", runId });
+    const jobs = await t.run(ctx => ctx.db.system.query("_scheduled_functions").collect());
+    const build = jobs.find(job => job.name === "manifestBuilder:build")!;
+    expect(build).toBeDefined();
+    const args = build.args[0] as { delta?: { slugs: string[] } };
+    if (scenario === "one" || scenario === "bulk") expect(args.delta?.slugs).toEqual(["doc-0"]);
+    else expect(args.delta).toBeUndefined();
+    await t.mutation(internal.sites.cleanupPublishChanges, { siteId, runId });
+    // eslint-disable-next-line no-restricted-syntax -- Test fixture queries its explicit site/run index.
+    if (scenario !== "129") expect(await t.run(ctx => ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", siteId).eq("runId", runId)).collect())).toEqual([]);
+    await t.run(async ctx => { for (const job of await ctx.db.system.query("_scheduled_functions").collect()) await ctx.scheduler.cancel(job._id); });
+  }
+});
