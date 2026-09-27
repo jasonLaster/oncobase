@@ -115,6 +115,7 @@ export function HeaderCommandPaletteHost() {
   return paletteOpen ? (
     <Suspense fallback={null}>
       <Palette
+        key={paletteMode}
         open={paletteOpen}
         initialMode={paletteMode}
         onOpenChange={setPaletteOpen}

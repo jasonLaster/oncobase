@@ -78,10 +78,11 @@ function buildThreadItems(
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 }
 
+const relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+
 function formatRelativeTime(date: Date) {
   const diffMs = date.getTime() - Date.now();
   const absMs = Math.abs(diffMs);
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 
   const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
     ["year", 1000 * 60 * 60 * 24 * 365],
@@ -94,11 +95,11 @@ function formatRelativeTime(date: Date) {
 
   for (const [unit, size] of units) {
     if (absMs >= size) {
-      return rtf.format(Math.round(diffMs / size), unit);
+      return relativeTimeFormatter.format(Math.round(diffMs / size), unit);
     }
   }
 
-  return rtf.format(Math.round(diffMs / 1000), "second");
+  return relativeTimeFormatter.format(Math.round(diffMs / 1000), "second");
 }
 
 function ReplyComposer({

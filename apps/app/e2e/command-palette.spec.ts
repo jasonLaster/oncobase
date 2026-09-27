@@ -20,6 +20,28 @@ test.describe("Command palette parity", () => {
     await waitForPageTitle(page, "About This Wiki");
   });
 
+  test("file palette preserves query and selection when system theme changes", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await gotoWiki(page, "/");
+    await page.evaluate(() => localStorage.removeItem("theme"));
+    await page.getByTestId("sidebar-search").click();
+    const input = page.getByTestId("command-palette-input");
+    await input.fill("wiki/");
+    await input.press("ArrowDown");
+    const selected = await input.getAttribute("aria-activedescendant");
+    expect(selected).toBeTruthy();
+
+    // CommandPalette subscribes to system theme. A parent rerender must not
+    // start a new open session or reset keyboard navigation.
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    await expect(input).toHaveValue("wiki/");
+    await expect(input).toHaveAttribute("aria-activedescendant", selected!);
+    await expect(input).toBeFocused();
+    await input.press("Escape");
+    await expect(page.getByTestId("command-palette")).toHaveCount(0);
+  });
+
   test("research review opens from the palette without the retired source redirect", async ({ page }) => {
     const slug = "wiki/research/reviews/breast-conservation-survival";
     const title = "Breast conservation survival";
@@ -99,8 +121,9 @@ test.describe("Command palette parity", () => {
     const input = page.getByTestId("command-palette-input");
     await expect(input).toBeFocused();
     await input.press("Escape");
-    await page.clock.install();
-    await page.clock.pauseAt(new Date());
+    const clockStart = new Date("2026-09-27T00:00:00Z");
+    await page.clock.install({ time: clockStart });
+    await page.clock.pauseAt(new Date(clockStart.getTime() + 1_000));
     await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
     await page.clock.runFor(100);
     await expect(input).toBeFocused();

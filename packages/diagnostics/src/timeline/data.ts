@@ -249,13 +249,15 @@ function mergeLinks(
   return links;
 }
 
+const pacificDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  day: "2-digit",
+  month: "2-digit",
+  timeZone: PACIFIC_TIME_ZONE,
+  year: "numeric",
+});
+
 function todayInPacificTime() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: PACIFIC_TIME_ZONE,
-    year: "numeric",
-  }).formatToParts(new Date());
+  const parts = pacificDateFormatter.formatToParts(new Date());
   const valueFor = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((part) => part.type === type)?.value;
 

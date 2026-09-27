@@ -1,0 +1,2389 @@
+{
+  "before": {
+    "version": "0.9.14",
+    "clientSourceFindingCount": 176,
+    "performanceWarningCount": 15,
+    "findings": [
+      {
+        "file": "apps/app/src/AppErrorBoundary.tsx",
+        "line": 9,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/AppErrorBoundary.tsx",
+        "line": 19,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/AppErrorBoundary.tsx",
+        "line": 34,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/admin/AdminPage.tsx",
+        "line": 80,
+        "rule": "react-doctor/no-fetch-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/admin/AdminPage.tsx",
+        "line": 144,
+        "rule": "react-doctor/no-fetch-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/admin/AdminPage.tsx",
+        "line": 224,
+        "rule": "react-doctor/js-set-map-lookups",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/admin/AdminPage.tsx",
+        "line": 259,
+        "rule": "react-doctor/prefer-html-dialog",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/admin/AdminPage.tsx",
+        "line": 467,
+        "rule": "react-doctor/prefer-html-dialog",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/admin/AdminPage.tsx",
+        "line": 543,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/livestore/LiveStoreRoot.tsx",
+        "line": 164,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/LoginPage.tsx",
+        "line": 31,
+        "rule": "react-doctor/no-async-event-handler-without-reentry-guard",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/PiiViewPage.tsx",
+        "line": 20,
+        "rule": "react-doctor/no-fetch-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/PiiViewPage.tsx",
+        "line": 20,
+        "rule": "react-doctor/no-set-state-after-await-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/SearchPage.tsx",
+        "line": 222,
+        "rule": "react-doctor/no-derived-useState",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/SearchPage.tsx",
+        "line": 722,
+        "rule": "react-doctor/rerender-state-only-in-handlers",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/WikiPage.tsx",
+        "line": 157,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/WikiPage.tsx",
+        "line": 157,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/WikiPage.tsx",
+        "line": 223,
+        "rule": "react-doctor/no-ref-current-in-render",
+        "category": "Bugs",
+        "severity": "error"
+      },
+      {
+        "file": "apps/app/src/pages/WikiPage.tsx",
+        "line": 335,
+        "rule": "react-doctor/no-pass-data-to-parent",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/medical-deduction-calculator.tsx",
+        "line": 161,
+        "rule": "react-doctor/no-side-effect-in-state-updater-function",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/medical-deduction-calculator.tsx",
+        "line": 166,
+        "rule": "react-doctor/no-side-effect-in-state-updater-function",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/medical-deduction-calculator.tsx",
+        "line": 499,
+        "rule": "react-doctor/rerender-lazy-state-init",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/medical-deduction-calculator.tsx",
+        "line": 743,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/medical-deduction-calculator.tsx",
+        "line": 864,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/CommandPalette.tsx",
+        "line": 101,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/CommandPalette.tsx",
+        "line": 101,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/CommandPalette.tsx",
+        "line": 140,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/CommandPalette.tsx",
+        "line": 141,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/CommandPalette.tsx",
+        "line": 142,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/CommandPalette.tsx",
+        "line": 157,
+        "rule": "react-doctor/prefer-use-effect-event",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/CommandPalette.tsx",
+        "line": 614,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/Header.tsx",
+        "line": 47,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/Header.tsx",
+        "line": 177,
+        "rule": "react-doctor/no-fetch-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/Header.tsx",
+        "line": 185,
+        "rule": "react-doctor/no-fetch-response-used-without-status-check",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/Header.tsx",
+        "line": 193,
+        "rule": "react-doctor/no-loading-flag-reset-outside-finally",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/ReaderStatus.tsx",
+        "line": 16,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/ReaderStatus.tsx",
+        "line": 28,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/sync/BackgroundPrefetch.tsx",
+        "line": 29,
+        "rule": "react-doctor/effect-needs-cleanup",
+        "category": "Bugs",
+        "severity": "error"
+      },
+      {
+        "file": "apps/app/src/sync/BackgroundPrefetch.tsx",
+        "line": 29,
+        "rule": "react-doctor/no-fetch-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/sync/WikiSync.tsx",
+        "line": 57,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/sync/WikiSync.tsx",
+        "line": 541,
+        "rule": "react-doctor/prefer-use-effect-event",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/sync/WikiSync.tsx",
+        "line": 541,
+        "rule": "react-doctor/prefer-use-effect-event",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/wiki-context.tsx",
+        "line": 44,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/wiki-utils.ts",
+        "line": 85,
+        "rule": "react-doctor/js-set-map-lookups",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ai-elements/conversation.tsx",
+        "line": 124,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ai-elements/prompt-input.tsx",
+        "line": 83,
+        "rule": "react-doctor/no-fetch-response-used-without-status-check",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ai-elements/prompt-input.tsx",
+        "line": 277,
+        "rule": "react-doctor/no-create-object-url-without-revoke",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ai-elements/prompt-input.tsx",
+        "line": 398,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ai-elements/prompt-input.tsx",
+        "line": 517,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ai-elements/prompt-input.tsx",
+        "line": 611,
+        "rule": "react-doctor/no-side-effect-in-state-updater-function",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ai-elements/prompt-input.tsx",
+        "line": 969,
+        "rule": "react-doctor/rerender-state-only-in-handlers",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/chat-interface.tsx",
+        "line": 103,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/chat-interface.tsx",
+        "line": 103,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/chat-interface.tsx",
+        "line": 225,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/chat-interface.tsx",
+        "line": 296,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/messages.tsx",
+        "line": 209,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/messages.tsx",
+        "line": 226,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/messages.tsx",
+        "line": 233,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/messages.tsx",
+        "line": 323,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/messages.tsx",
+        "line": 331,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/messages.tsx",
+        "line": 350,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/tool-call-core.tsx",
+        "line": 37,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ui/button.tsx",
+        "line": 60,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/runtime.tsx",
+        "line": 70,
+        "rule": "react-doctor/jsx-no-constructed-context-values",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/compare-client.tsx",
+        "line": 148,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/compare-client.tsx",
+        "line": 148,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/compare-client.tsx",
+        "line": 578,
+        "rule": "react-doctor/no-set-state-after-await-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/compare-client.tsx",
+        "line": 1053,
+        "rule": "react-doctor/control-has-associated-label",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/compare-client.tsx",
+        "line": 1585,
+        "rule": "react-doctor/js-hoist-intl",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 137,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 137,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 191,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 213,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 214,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 215,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 216,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 217,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 218,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 222,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 282,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 331,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 332,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 343,
+        "rule": "react-doctor/no-pass-data-to-parent",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 343,
+        "rule": "react-doctor/no-pass-live-state-to-parent",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 350,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 355,
+        "rule": "react-doctor/no-pass-data-to-parent",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 355,
+        "rule": "react-doctor/no-pass-live-state-to-parent",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 355,
+        "rule": "react-doctor/no-prop-callback-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 545,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 750,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 762,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 804,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 846,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-shapes.tsx",
+        "line": 72,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-shapes.tsx",
+        "line": 72,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/local.ts",
+        "line": 190,
+        "rule": "react-doctor/async-await-in-loop",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/ui.tsx",
+        "line": 6,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 227,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 227,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 262,
+        "rule": "react-doctor/rerender-state-only-in-handlers",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 392,
+        "rule": "react-doctor/no-ref-current-in-render",
+        "category": "Bugs",
+        "severity": "error"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 537,
+        "rule": "react-doctor/no-set-state-after-await-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 1299,
+        "rule": "react-doctor/control-has-associated-label",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 1485,
+        "rule": "react-doctor/click-events-have-key-events",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 1485,
+        "rule": "react-doctor/no-static-element-interactions",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/studies/data.ts",
+        "line": 148,
+        "rule": "react-doctor/js-hoist-intl",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/data.ts",
+        "line": 253,
+        "rule": "react-doctor/js-hoist-intl",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 174,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 755,
+        "rule": "react-doctor/click-events-have-key-events",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 859,
+        "rule": "react-doctor/click-events-have-key-events",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 965,
+        "rule": "react-doctor/html-no-nested-interactive",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 1368,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 1820,
+        "rule": "react-doctor/html-no-nested-interactive",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 1857,
+        "rule": "react-doctor/html-no-nested-interactive",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/ui.tsx",
+        "line": 14,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/ui.tsx",
+        "line": 127,
+        "rule": "react-doctor/prefer-html-dialog",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 357,
+        "rule": "react-doctor/no-side-effect-in-state-updater-function",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 359,
+        "rule": "react-doctor/no-side-effect-in-state-updater-function",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 362,
+        "rule": "react-doctor/no-side-effect-in-state-updater-function",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 510,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 510,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 1180,
+        "rule": "react-doctor/click-events-have-key-events",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 1180,
+        "rule": "react-doctor/no-static-element-interactions",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 1536,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 1536,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/menu.tsx",
+        "line": 54,
+        "rule": "react-doctor/jsx-no-constructed-context-values",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/page-client.tsx",
+        "line": 84,
+        "rule": "react-doctor/js-hoist-intl",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/page-client.tsx",
+        "line": 124,
+        "rule": "react-doctor/no-async-event-handler-without-reentry-guard",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/page-client.tsx",
+        "line": 153,
+        "rule": "react-doctor/no-placeholder-only-field",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/page-client.tsx",
+        "line": 172,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/page-client.tsx",
+        "line": 183,
+        "rule": "react-doctor/no-derived-useState",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/page-client.tsx",
+        "line": 322,
+        "rule": "react-doctor/no-loading-flag-reset-outside-finally",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/provider.tsx",
+        "line": 85,
+        "rule": "react-doctor/no-fetch-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/browser.tsx",
+        "line": 6,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/browser.tsx",
+        "line": 29,
+        "rule": "react-doctor/no-derived-state",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/index.tsx",
+        "line": 5,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/pdf-chip.tsx",
+        "line": 9,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/pdf-chip.tsx",
+        "line": 13,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 342,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 343,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 344,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 345,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 346,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 347,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 348,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 349,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 350,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 351,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 352,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/slides-viewer.tsx",
+        "line": 138,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/actions-menu.tsx",
+        "line": 255,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/actions-menu.tsx",
+        "line": 422,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/actions-menu.tsx",
+        "line": 558,
+        "rule": "react-doctor/prefer-tag-over-role",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/actions-menu.tsx",
+        "line": 571,
+        "rule": "react-doctor/prefer-tag-over-role",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/actions-menu.tsx",
+        "line": 591,
+        "rule": "react-doctor/prefer-tag-over-role",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/file-palette.tsx",
+        "line": 61,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/file-palette.tsx",
+        "line": 66,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/file-palette.tsx",
+        "line": 182,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/file-palette.tsx",
+        "line": 192,
+        "rule": "react-doctor/rerender-memo-with-default-value",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/navigation.tsx",
+        "line": 71,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/navigation.tsx",
+        "line": 75,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/navigation.tsx",
+        "line": 81,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/navigation.tsx",
+        "line": 107,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/navigation.tsx",
+        "line": 311,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/page-chrome.tsx",
+        "line": 38,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/page-chrome.tsx",
+        "line": 276,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/page-chrome.tsx",
+        "line": 288,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/palette.tsx",
+        "line": 124,
+        "rule": "react-doctor/role-supports-aria-props",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/resizable-layout.tsx",
+        "line": 63,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/resizable-layout.tsx",
+        "line": 194,
+        "rule": "react-doctor/pointer-capture-needs-cancel-handler",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/right-rail.tsx",
+        "line": 140,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/right-rail.tsx",
+        "line": 287,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/right-rail.tsx",
+        "line": 488,
+        "rule": "react-doctor/pointer-capture-needs-cancel-handler",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/wiki-chat.tsx",
+        "line": 155,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/wiki-chat.tsx",
+        "line": 199,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/wiki-chat.tsx",
+        "line": 242,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      }
+    ]
+  },
+  "after": {
+    "version": "0.9.14",
+    "clientSourceFindingCount": 163,
+    "performanceWarningCount": 6,
+    "findings": [
+      {
+        "file": "apps/app/src/AppErrorBoundary.tsx",
+        "line": 9,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/AppErrorBoundary.tsx",
+        "line": 19,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/AppErrorBoundary.tsx",
+        "line": 34,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/admin/AdminPage.tsx",
+        "line": 80,
+        "rule": "react-doctor/no-fetch-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/admin/AdminPage.tsx",
+        "line": 144,
+        "rule": "react-doctor/no-fetch-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/admin/AdminPage.tsx",
+        "line": 224,
+        "rule": "react-doctor/js-set-map-lookups",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/admin/AdminPage.tsx",
+        "line": 259,
+        "rule": "react-doctor/prefer-html-dialog",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/admin/AdminPage.tsx",
+        "line": 467,
+        "rule": "react-doctor/prefer-html-dialog",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/admin/AdminPage.tsx",
+        "line": 543,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/livestore/LiveStoreRoot.tsx",
+        "line": 164,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/LoginPage.tsx",
+        "line": 31,
+        "rule": "react-doctor/no-async-event-handler-without-reentry-guard",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/PiiViewPage.tsx",
+        "line": 20,
+        "rule": "react-doctor/no-fetch-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/PiiViewPage.tsx",
+        "line": 20,
+        "rule": "react-doctor/no-set-state-after-await-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/SearchPage.tsx",
+        "line": 222,
+        "rule": "react-doctor/no-derived-useState",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/SearchPage.tsx",
+        "line": 722,
+        "rule": "react-doctor/rerender-state-only-in-handlers",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/WikiPage.tsx",
+        "line": 157,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/WikiPage.tsx",
+        "line": 157,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/WikiPage.tsx",
+        "line": 223,
+        "rule": "react-doctor/no-ref-current-in-render",
+        "category": "Bugs",
+        "severity": "error"
+      },
+      {
+        "file": "apps/app/src/pages/WikiPage.tsx",
+        "line": 335,
+        "rule": "react-doctor/no-pass-data-to-parent",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/medical-deduction-calculator.tsx",
+        "line": 161,
+        "rule": "react-doctor/no-side-effect-in-state-updater-function",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/medical-deduction-calculator.tsx",
+        "line": 166,
+        "rule": "react-doctor/no-side-effect-in-state-updater-function",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/medical-deduction-calculator.tsx",
+        "line": 743,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/pages/medical-deduction-calculator.tsx",
+        "line": 864,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/CommandPalette.tsx",
+        "line": 103,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/CommandPalette.tsx",
+        "line": 103,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/CommandPalette.tsx",
+        "line": 618,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/Header.tsx",
+        "line": 47,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/Header.tsx",
+        "line": 178,
+        "rule": "react-doctor/no-fetch-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/Header.tsx",
+        "line": 186,
+        "rule": "react-doctor/no-fetch-response-used-without-status-check",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/Header.tsx",
+        "line": 194,
+        "rule": "react-doctor/no-loading-flag-reset-outside-finally",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/ReaderStatus.tsx",
+        "line": 16,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/shell/ReaderStatus.tsx",
+        "line": 28,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/sync/BackgroundPrefetch.tsx",
+        "line": 29,
+        "rule": "react-doctor/effect-needs-cleanup",
+        "category": "Bugs",
+        "severity": "error"
+      },
+      {
+        "file": "apps/app/src/sync/BackgroundPrefetch.tsx",
+        "line": 29,
+        "rule": "react-doctor/no-fetch-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/sync/WikiSync.tsx",
+        "line": 57,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/sync/WikiSync.tsx",
+        "line": 541,
+        "rule": "react-doctor/prefer-use-effect-event",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/sync/WikiSync.tsx",
+        "line": 541,
+        "rule": "react-doctor/prefer-use-effect-event",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/wiki-context.tsx",
+        "line": 44,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "apps/app/src/wiki-utils.ts",
+        "line": 85,
+        "rule": "react-doctor/js-set-map-lookups",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ai-elements/conversation.tsx",
+        "line": 124,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ai-elements/prompt-input.tsx",
+        "line": 83,
+        "rule": "react-doctor/no-fetch-response-used-without-status-check",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ai-elements/prompt-input.tsx",
+        "line": 277,
+        "rule": "react-doctor/no-create-object-url-without-revoke",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ai-elements/prompt-input.tsx",
+        "line": 398,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ai-elements/prompt-input.tsx",
+        "line": 517,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ai-elements/prompt-input.tsx",
+        "line": 611,
+        "rule": "react-doctor/no-side-effect-in-state-updater-function",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/chat-interface.tsx",
+        "line": 103,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/chat-interface.tsx",
+        "line": 103,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/chat-interface.tsx",
+        "line": 225,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/chat-interface.tsx",
+        "line": 296,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/messages.tsx",
+        "line": 209,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/messages.tsx",
+        "line": 226,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/messages.tsx",
+        "line": 233,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/messages.tsx",
+        "line": 323,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/messages.tsx",
+        "line": 331,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/messages.tsx",
+        "line": 350,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/tool-call-core.tsx",
+        "line": 37,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/chat/src/components/ui/button.tsx",
+        "line": 60,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/compare-client.tsx",
+        "line": 148,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/compare-client.tsx",
+        "line": 148,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/compare-client.tsx",
+        "line": 578,
+        "rule": "react-doctor/no-set-state-after-await-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/compare-client.tsx",
+        "line": 1053,
+        "rule": "react-doctor/control-has-associated-label",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 137,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 137,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 191,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 213,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 214,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 215,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 216,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 217,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 218,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 222,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 282,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 331,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 332,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 343,
+        "rule": "react-doctor/no-pass-data-to-parent",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 343,
+        "rule": "react-doctor/no-pass-live-state-to-parent",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 350,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 355,
+        "rule": "react-doctor/no-pass-data-to-parent",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 355,
+        "rule": "react-doctor/no-pass-live-state-to-parent",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 355,
+        "rule": "react-doctor/no-prop-callback-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 545,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 750,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 762,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 804,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-layer.tsx",
+        "line": 846,
+        "rule": "react-doctor/exhaustive-deps",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-shapes.tsx",
+        "line": 72,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/dicom-annotation-shapes.tsx",
+        "line": 72,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/local.ts",
+        "line": 190,
+        "rule": "react-doctor/async-await-in-loop",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/ui.tsx",
+        "line": 6,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 227,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 227,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 262,
+        "rule": "react-doctor/rerender-state-only-in-handlers",
+        "category": "Performance",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 392,
+        "rule": "react-doctor/no-ref-current-in-render",
+        "category": "Bugs",
+        "severity": "error"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 537,
+        "rule": "react-doctor/no-set-state-after-await-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 1299,
+        "rule": "react-doctor/control-has-associated-label",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 1485,
+        "rule": "react-doctor/click-events-have-key-events",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/dicom/viewer-client.tsx",
+        "line": 1485,
+        "rule": "react-doctor/no-static-element-interactions",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 174,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 755,
+        "rule": "react-doctor/click-events-have-key-events",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 859,
+        "rule": "react-doctor/click-events-have-key-events",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 965,
+        "rule": "react-doctor/html-no-nested-interactive",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 1368,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 1820,
+        "rule": "react-doctor/html-no-nested-interactive",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/diagnostic-timeline.tsx",
+        "line": 1857,
+        "rule": "react-doctor/html-no-nested-interactive",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/ui.tsx",
+        "line": 14,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/diagnostics/src/timeline/ui.tsx",
+        "line": 127,
+        "rule": "react-doctor/prefer-html-dialog",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 357,
+        "rule": "react-doctor/no-side-effect-in-state-updater-function",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 359,
+        "rule": "react-doctor/no-side-effect-in-state-updater-function",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 362,
+        "rule": "react-doctor/no-side-effect-in-state-updater-function",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 510,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 510,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 1180,
+        "rule": "react-doctor/click-events-have-key-events",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 1180,
+        "rule": "react-doctor/no-static-element-interactions",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 1536,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/index.tsx",
+        "line": 1536,
+        "rule": "react-doctor/no-giant-component",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/page-client.tsx",
+        "line": 125,
+        "rule": "react-doctor/no-async-event-handler-without-reentry-guard",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/page-client.tsx",
+        "line": 154,
+        "rule": "react-doctor/no-placeholder-only-field",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/page-client.tsx",
+        "line": 173,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/page-client.tsx",
+        "line": 184,
+        "rule": "react-doctor/no-derived-useState",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/page-client.tsx",
+        "line": 323,
+        "rule": "react-doctor/no-loading-flag-reset-outside-finally",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-comments/src/provider.tsx",
+        "line": 85,
+        "rule": "react-doctor/no-fetch-in-effect",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/browser.tsx",
+        "line": 6,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/browser.tsx",
+        "line": 29,
+        "rule": "react-doctor/no-derived-state",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/index.tsx",
+        "line": 5,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/pdf-chip.tsx",
+        "line": 9,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/pdf-chip.tsx",
+        "line": 13,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 342,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 343,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 344,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 345,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 346,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 347,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 348,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 349,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 350,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 351,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/renderer.tsx",
+        "line": 352,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-markdown/src/slides-viewer.tsx",
+        "line": 138,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/actions-menu.tsx",
+        "line": 255,
+        "rule": "react-doctor/no-adjust-state-on-prop-change",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/actions-menu.tsx",
+        "line": 422,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/actions-menu.tsx",
+        "line": 558,
+        "rule": "react-doctor/prefer-tag-over-role",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/actions-menu.tsx",
+        "line": 571,
+        "rule": "react-doctor/prefer-tag-over-role",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/actions-menu.tsx",
+        "line": 591,
+        "rule": "react-doctor/prefer-tag-over-role",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/file-palette.tsx",
+        "line": 63,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/file-palette.tsx",
+        "line": 68,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/file-palette.tsx",
+        "line": 184,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/navigation.tsx",
+        "line": 71,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/navigation.tsx",
+        "line": 75,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/navigation.tsx",
+        "line": 81,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/navigation.tsx",
+        "line": 107,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/navigation.tsx",
+        "line": 311,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/page-chrome.tsx",
+        "line": 38,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/page-chrome.tsx",
+        "line": 276,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/page-chrome.tsx",
+        "line": 288,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/palette.tsx",
+        "line": 124,
+        "rule": "react-doctor/role-supports-aria-props",
+        "category": "Accessibility",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/resizable-layout.tsx",
+        "line": 63,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/resizable-layout.tsx",
+        "line": 194,
+        "rule": "react-doctor/pointer-capture-needs-cancel-handler",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/right-rail.tsx",
+        "line": 140,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/right-rail.tsx",
+        "line": 287,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/right-rail.tsx",
+        "line": 488,
+        "rule": "react-doctor/pointer-capture-needs-cancel-handler",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/wiki-chat.tsx",
+        "line": 155,
+        "rule": "react-doctor/no-high-complexity-react-function",
+        "category": "Maintainability",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/wiki-chat.tsx",
+        "line": 199,
+        "rule": "react-doctor/no-array-index-as-key",
+        "category": "Bugs",
+        "severity": "warning"
+      },
+      {
+        "file": "packages/wiki-shell/src/wiki-chat.tsx",
+        "line": 242,
+        "rule": "react-doctor/only-export-components",
+        "category": "Maintainability",
+        "severity": "warning"
+      }
+    ]
+  }
+}

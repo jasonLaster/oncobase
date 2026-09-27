@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -39,6 +40,7 @@ export type WikiFilePaletteState = {
 
 export const WIKI_FILE_PALETTE_RECENT_KEY = "cmd-palette-recent";
 export const WIKI_FILE_PALETTE_MAX_RECENT = 8;
+const EMPTY_RECENT_SLUGS: string[] = [];
 const PALETTE_ROW_HEIGHT = 56;
 const PALETTE_HEADING_HEIGHT = 28;
 const preparedIndexes = new WeakMap<WikiFilePalettePage[], ReturnType<typeof preparePages>>();
@@ -189,7 +191,7 @@ export function WikiFilePalette({
   open,
   pageIcon,
   pages,
-  recentSlugs = [],
+  recentSlugs = EMPTY_RECENT_SLUGS,
   searchIcon,
   testId = "command-palette",
 }: WikiFilePaletteProps) {
@@ -200,12 +202,16 @@ export function WikiFilePalette({
   const [listElement, setListElement] = useState<HTMLDivElement | null>(null);
   const didResetScrollForOpenRef = useRef(false);
   const query = search.trim();
+  const onOpenChangeRef = useRef(onOpenChange);
+  useLayoutEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
 
   const closePalette = useCallback(() => {
-    onOpenChange(false);
+    onOpenChangeRef.current(false);
     setSearch("");
     setActiveIndex(0);
-  }, [onOpenChange]);
+  }, []);
 
   const { recentEntries, searchResults, visibleEntries, visibleRows } = useMemo(
     () => buildWikiFilePaletteState(pages, query, recentSlugs),
@@ -299,22 +305,20 @@ export function WikiFilePalette({
 
   const moveActive = useCallback(
     (delta: number) => {
-      setActiveIndex((current) => {
-        if (visibleEntries.length === 0) return 0;
-        const next = Math.min(
-          Math.max(current + delta, 0),
-          visibleEntries.length - 1,
-        );
-        const nextRowIndex = visibleRows.findIndex(
-          (row) => row.type === "page" && row.pageIndex === next,
-        );
-        rowVirtualizer.scrollToIndex(nextRowIndex === -1 ? next : nextRowIndex, {
-          align: "auto",
-        });
-        return next;
+      if (visibleEntries.length === 0) {
+        setActiveIndex(0);
+        return;
+      }
+      const next = Math.min(Math.max(activeIndex + delta, 0), visibleEntries.length - 1);
+      setActiveIndex(next);
+      const nextRowIndex = visibleRows.findIndex(
+        (row) => row.type === "page" && row.pageIndex === next,
+      );
+      rowVirtualizer.scrollToIndex(nextRowIndex === -1 ? next : nextRowIndex, {
+        align: "auto",
       });
     },
-    [rowVirtualizer, visibleEntries.length, visibleRows],
+    [activeIndex, rowVirtualizer, visibleEntries.length, visibleRows],
   );
 
   const selectActive = useCallback(() => {

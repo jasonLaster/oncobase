@@ -65,21 +65,22 @@ export function ChatRuntimeProvider({
   const resolvedCopy = useMemo(() => resolveChatCopy(copy), [copy]);
   const resolvedRoutes = useMemo(() => createChatRoutes(routes), [routes]);
 
+  const value = useMemo<ChatRuntimeValue>(() => ({
+    apiPath,
+    convexApi,
+    copy: resolvedCopy,
+    routes: resolvedRoutes,
+    siteSlug,
+    storageKeyPrefix,
+    LinkComponent,
+    MarkdownRenderer,
+    ToolCallRenderer,
+    extractSources,
+  }), [apiPath, convexApi, resolvedCopy, resolvedRoutes, siteSlug, storageKeyPrefix,
+    LinkComponent, MarkdownRenderer, ToolCallRenderer, extractSources]);
+
   return (
-    <ChatRuntimeContext.Provider
-      value={{
-        apiPath,
-        convexApi,
-        copy: resolvedCopy,
-        routes: resolvedRoutes,
-        siteSlug,
-        storageKeyPrefix,
-        LinkComponent,
-        MarkdownRenderer,
-        ToolCallRenderer,
-        extractSources,
-      }}
-    >
+    <ChatRuntimeContext.Provider value={value}>
       {children}
     </ChatRuntimeContext.Provider>
   );

@@ -142,13 +142,15 @@ function shortDateLabel(isoDate: string) {
   return `${monthNumber}/${dayNumber}`;
 }
 
+const dateLabelFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+  year: "numeric",
+});
+
 function formatDateLabel(isoDate: string) {
   const date = new Date(`${isoDate}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) return isoDate;
-  return new Intl.DateTimeFormat("en-US", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-    year: "numeric",
-  }).format(date);
+  return dateLabelFormatter.format(date);
 }

@@ -1581,10 +1581,10 @@ function matchStateClass(state: MatchState) {
   return "text-zinc-400";
 }
 
+const numberFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+
 function formatNumber(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 2,
-  }).format(value);
+  return numberFormatter.format(value);
 }
 
 function formatPosition(value: number | null | undefined) {

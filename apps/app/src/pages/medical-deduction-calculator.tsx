@@ -496,7 +496,7 @@ function Slider({ label, value, min, max, step, onChange }: {
   label: string; value: number; min: number; max: number; step: number;
   onChange: (v: number) => void;
 }) {
-  const [text, setText] = useState(value.toLocaleString());
+  const [text, setText] = useState(() => value.toLocaleString());
   const [previousValue, setPreviousValue] = useState(value);
 
   // Adjust the draft during render only when the committed external value

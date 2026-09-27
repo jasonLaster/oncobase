@@ -23,7 +23,9 @@ import {
   Fragment,
   type KeyboardEvent,
   type ReactNode,
+  useCallback,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -116,12 +118,12 @@ export function CommandPalette({
   const initialTree = manifestTree ? undefined : (store ? bootstrappedNavigation.get(store) : initial?.tree);
   const assets = useReaderQuery(assets$, EMPTY_READER_ROWS) as AssetIndexRow[];
   const scope = useWikiScope();
-  const [mode, setMode] = useState<PaletteMode>(initialMode);
-  const [query, setQuery] = useState("");
+  const [mode, setPaletteMode] = useState<PaletteMode>(initialMode);
+  const [query, setPaletteQuery] = useState("");
   const [pageInitialQuery, setPageInitialQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
-  const [outline, setOutline] = useState<OutlineItem[]>([]);
-  const [recentSlugs, setRecentSlugs] = useState<string[]>([]);
+  const [outline, setOutline] = useState<OutlineItem[]>(() => collectOutline());
+  const [recentSlugs] = useState<string[]>(() => readRecentSlugs());
   const [liveStoreDevtoolsEnabled] = useState(() => readLiveStoreDevtoolsEnabled());
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -133,28 +135,30 @@ export function CommandPalette({
     () => window.matchMedia("(prefers-color-scheme: dark)").matches, () => false);
   const isDark = themePreference === "dark" || (themePreference === null && systemDark);
 
-  useEffect(() => {
-    if (!open) return;
-
-    setMode(initialMode);
-    setQuery("");
-    setPageInitialQuery("");
+  const setMode = useCallback((nextMode: PaletteMode) => {
+    setPaletteMode(nextMode);
     setActiveIndex(0);
-    setOutline(collectOutline());
-    setRecentSlugs(readRecentSlugs());
-    window.setTimeout(() => inputRef.current?.focus(), 0);
-  }, [initialMode, open]);
+  }, []);
+  const setQuery = useCallback((nextQuery: string) => {
+    setPaletteQuery(nextQuery);
+    setActiveIndex(0);
+  }, []);
+  const closeFromEscape = useEffectEvent(() => onOpenChange(false));
 
   useEffect(() => {
     if (!open) return;
+    const timeout = window.setTimeout(() => inputRef.current?.focus(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [open, mode]);
 
+  useEffect(() => {
+    if (!open) return;
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") onOpenChange(false);
+      if (event.key === "Escape") closeFromEscape();
     };
-
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onOpenChange, open]);
+  }, [open]);
 
   const filePalettePages = useMemo<WikiFilePalettePage[]>(
     () => {
@@ -309,7 +313,7 @@ export function CommandPalette({
         },
       },
     ],
-    [currentSlug, isDark, onOpenChange, relatedAssets, returnTo, scope],
+    [currentSlug, isDark, onOpenChange, relatedAssets, returnTo, scope, setMode, setQuery],
   );
 
   const actionResults = useMemo(() => {
@@ -375,7 +379,7 @@ export function CommandPalette({
     return matches.slice(0, 14);
   }, [assets, query]);
 
-  const tagResults = useMemo<TagResult[]>(() => {
+  const tags = useMemo<TagResult[]>(() => {
     const counts = new Map<string, number>();
     for (const page of pages) {
       for (const tag of parseJsonArray<string>(page.tagsJson)) {
@@ -383,13 +387,17 @@ export function CommandPalette({
       }
     }
 
-    const normalized = query.trim().toLowerCase();
     return [...counts.entries()]
       .map(([tag, count]) => ({ tag, count }))
+      .sort((left, right) => right.count - left.count || left.tag.localeCompare(right.tag));
+  }, [pages]);
+
+  const tagResults = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return tags
       .filter((result) => !normalized || result.tag.toLowerCase().includes(normalized))
-      .sort((left, right) => right.count - left.count || left.tag.localeCompare(right.tag))
       .slice(0, 14);
-  }, [pages, query]);
+  }, [tags, query]);
 
   const activeCount =
     mode === "outline"
@@ -401,10 +409,6 @@ export function CommandPalette({
             : mode === "actions"
               ? actionResults.length
               : debugResults.length;
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [mode, query]);
 
   useEffect(() => {
     if (!open) return;

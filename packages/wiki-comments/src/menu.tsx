@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type ButtonHTMLAttributes,
@@ -50,8 +51,10 @@ export function DropdownMenu({ children }: { children: ReactNode }) {
     };
   }, [open]);
 
+  const value = useMemo(() => ({ contentId, open, setOpen }), [contentId, open]);
+
   return (
-    <DropdownMenuContext.Provider value={{ contentId, open, setOpen }}>
+    <DropdownMenuContext.Provider value={value}>
       <div ref={ref} className="relative inline-flex">
         {children}
       </div>
