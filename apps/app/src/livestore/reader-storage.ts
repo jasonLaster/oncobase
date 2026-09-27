@@ -2,6 +2,26 @@ export const READER_STORAGE_PROBE_TIMEOUT_MS = 3_000;
 export const READER_LEADER_BOOT_TIMEOUT_MS = 3_000;
 export const READER_FOLLOWER_BOOT_TIMEOUT_MS = 750;
 
+/** Startup includes downloading SQLite and workers. A short lock deadline
+ * must not cancel a cold runtime download and then start it again in memory.
+ * Use completed same-origin runtime transfers as evidence of a slow link;
+ * warm-cache boots retain the short deadline. This is fixed for each boot,
+ * capped at 90 seconds, and never reset by repeated stage notifications. */
+export function networkAwareBootDeadline(
+  defaultMs: number,
+  resources: Pick<PerformanceResourceTiming, "name" | "duration" | "encodedBodySize" | "transferSize">[],
+  origin: string,
+) {
+  const slowest = resources.reduce((duration, resource) => {
+    let url: URL;
+    try { url = new URL(resource.name); } catch { return duration; }
+    if (url.origin !== origin || !/\.(?:js|wasm)$/.test(url.pathname) ||
+        resource.transferSize <= 0 || resource.encodedBodySize < 16_384) return duration;
+    return Math.max(duration, resource.duration);
+  }, 0);
+  return slowest < 1_000 ? defaultMs : Math.max(defaultMs, Math.min(90_000, Math.ceil(slowest * 4)));
+}
+
 /** Inspect before mounting the provider, so its own lock cannot be mistaken
  * for an existing leader. A read-only, bounded probe must not delay startup
  * indefinitely or disturb another tab's ownership of persisted data. */

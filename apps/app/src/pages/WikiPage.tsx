@@ -68,7 +68,7 @@ import { useWikiIdentityPending, useWikiScope, useWikiSession } from "../wiki-co
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { REFRESH_MANIFEST_EVENT, RETRY_PAGE_EVENT } from "../sync/WikiSync";
 import { useBrowserOnline } from "../shell/ReaderStatus";
-import { PageActivity } from "../shell/PageActivity";
+import { PageTransferActivity as PageActivity } from "../shell/PageTransferActivity";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
 import { PageActions } from "./PageActions";
 import { NoteBundleNavigation } from "./NoteBundleNavigation";
@@ -215,7 +215,6 @@ export function WikiPage({
   const deleted = page?.contentStatus === "deleted";
   const failedCurrentFetch =
     !page?.content &&
-    Boolean(index) &&
     metrics.failedBodySlug === slug;
   const routeRenderRef = useRef<{
     hadContent: boolean;
@@ -349,6 +348,8 @@ export function WikiPage({
     });
   }, [onMetrics, page?.content, page?.slug, routeSlug, slug]);
 
+  const receivedBytes = metrics.pageTransfer?.slug === slug ? metrics.pageTransfer.receivedBytes : undefined;
+  const retryPage = identityPending ? undefined : () => window.dispatchEvent(new Event(RETRY_PAGE_EVENT));
   const loadingPage = routeIndex && !routeIndex.sensitive ? (
     <DocumentOutlineShell
       articleClassName="page-shell"
@@ -369,13 +370,13 @@ export function WikiPage({
         />
         {routeIndex.description ? <p className="wiki-shell-muted" data-test-id="page-loading-description">{routeIndex.description}</p> : null}
         <WikiMarkdownBodySkeleton data-test-id="page-loading" aria-label="Loading page body" />
-        <PageActivity label="Loading page…" />
+        <PageActivity key={slug} label="Loading page…" receivedBytes={receivedBytes} onRetry={retryPage} />
       </div>
     </DocumentOutlineShell>
   ) : (
     <article className="page-shell page-shell-loading" data-test-id="document-article" aria-busy="true">
       <WikiPageLoading data-test-id="page-loading" label="Loading page" />
-      <PageActivity label="Loading page…" />
+      <PageActivity key={slug} label="Loading page…" receivedBytes={receivedBytes} onRetry={retryPage} />
     </article>
   );
 
@@ -422,7 +423,7 @@ export function WikiPage({
           data-test-id="document-article"
           data-reader-unavailable="true"
           title={metadataPageTitle ?? "Markdown unavailable"}
-          description="The page is in the local manifest, but its markdown body could not be fetched. Cached pages remain available while this request is retried."
+          description="The connection was interrupted or the page took too long to load. Try again; your saved pages are still available."
           actions={
             <WikiPageActionButton
               data-test-id="retry-page-fetch"
@@ -448,7 +449,7 @@ export function WikiPage({
           data-test-id="document-article"
           data-reader-unavailable="true"
           title={metadataPageTitle ?? "Markdown unavailable"}
-          description={metrics.message || "The page could not be loaded from the wiki backend."}
+          description="The page could not be loaded. Check your connection and try again."
           actions={
             <WikiPageActionButton
               data-test-id="retry-page-fetch"
@@ -472,7 +473,7 @@ export function WikiPage({
   const pageBody = (
     <>
       <span hidden data-reader-ready={page.contentStatus === "fresh" && !routePending ? "true" : undefined} />
-      {routePending ? <PageActivity label="Opening page…" /> : null}
+      {routePending ? <PageActivity key={slug} label="Opening page…" receivedBytes={receivedBytes} onRetry={retryPage} /> : null}
       {toast ? <WikiToast>{toast}</WikiToast> : null}
       {metrics.status === "error" && pageIndex.length === 0 ? (
         <WikiStatusNotice data-test-id="navigation-unavailable">

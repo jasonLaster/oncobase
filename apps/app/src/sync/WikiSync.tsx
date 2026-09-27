@@ -46,8 +46,8 @@ import { PREFETCH_LIMITS } from "./prefetch-policy";
 import { clearStartupSnapshot } from "../bootstrap/reader-startup-cache";
 import { hasBootstrappedPage, cachedStartupStores } from "../bootstrap/seed-state";
 export { WARM_CACHE_EVENT } from "./BackgroundPrefetch";
-export const RETRY_PAGE_EVENT = "wiki-vite:retry-page";
-export const REFRESH_MANIFEST_EVENT = "wiki-vite:refresh-manifest";
+import { RETRY_PAGE_EVENT, REFRESH_MANIFEST_EVENT } from "./events";
+export { RETRY_PAGE_EVENT, REFRESH_MANIFEST_EVENT } from "./events";
 
 const MANIFEST_FRESH_MS: Record<WikiScope, number> = {
   public: 60_000,
@@ -61,6 +61,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const location = useLocation();
   const currentSlug = contentSlugFromRouteSlug(slugFromPath(location.pathname));
   const [networkTick, setNetworkTick] = useState(0);
+  const [pageRetryTick, setPageRetryTick] = useState(0);
   const manifestRef = useRef<WikiManifest | null>(null);
   const currentSlugRef = useRef(currentSlug);
   // The HTTP page can be newer than a recently cached navigation manifest.
@@ -69,8 +70,16 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const validationInFlight = useRef<{
     key: string;
     promise: Promise<WikiManifestValidation>;
+    controller: AbortController;
   } | null>(null);
-  const inFlight = useRef(new Set<string>());
+  const manifestFailures = useRef(0);
+  const inFlight = useRef(new Map<string, AbortController>());
+  useEffect(() => () => {
+    validationInFlight.current?.controller.abort();
+    validationInFlight.current = null;
+    for (const controller of inFlight.current.values()) controller.abort();
+    inFlight.current.clear();
+  }, [store]);
   const isForegroundBusy = useCallback(
     () => inFlight.current.size > 0 || validationInFlight.current !== null,
     [],
@@ -142,7 +151,9 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   const fetchSlug = useCallback(
     async (slug: string, pageIndex?: WikiManifestPage, force = false) => {
       const cacheKey = `${scope}:${slug}`;
-      if (inFlight.current.has(cacheKey)) return;
+      const existing = inFlight.current.get(cacheKey);
+      if (existing && !force) return;
+      existing?.abort();
 
       const cached = store.query(pageContentBySlug$(slug)) as PageContentRow | null;
       if (
@@ -155,10 +166,17 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         return;
       }
 
-      inFlight.current.add(cacheKey);
+      const controller = new AbortController();
+      inFlight.current.set(cacheKey, controller);
+      if (slug === currentSlugRef.current) onMetrics({ pageTransfer: { slug, receivedBytes: 0 }, failedBodySlug: null });
       window.dispatchEvent(new Event(FOREGROUND_FETCH_EVENT));
       try {
-        const batch = await client.fetchPages({ slugs: [slug] });
+        const batch = await client.fetchPages({ slugs: [slug], signal: controller.signal,
+          onProgress: receivedBytes => {
+            if (!controller.signal.aborted && slug === currentSlugRef.current) onMetrics({ pageTransfer: { slug, receivedBytes } });
+          },
+        });
+        if (controller.signal.aborted) return;
         const page = normalizeFetchedPageSlug(slug, batch.pages);
         if (page) {
           store.commit(pageToEvent(page));
@@ -194,6 +212,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           onMetrics({ eventCount: 1 });
         }
       } catch (error) {
+        if (controller.signal.aborted) return;
         if (isAuthError(error)) {
           clearStartupSnapshot();
           store.commit(events.cacheResetRequested({ requestedAt: Date.now() }));
@@ -217,14 +236,17 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         }
         throw error;
       } finally {
-        inFlight.current.delete(cacheKey);
+        if (inFlight.current.get(cacheKey) === controller) {
+          inFlight.current.delete(cacheKey);
+          if (slug === currentSlugRef.current) onMetrics({ pageTransfer: null });
+        }
       }
     },
     [client, onMetrics, scope, store],
   );
 
   useEffect(() => {
-    const onOnline = () => setNetworkTick((value) => value + 1);
+    const onOnline = () => { setNetworkTick(value => value + 1); setPageRetryTick(value => value + 1); };
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         setNetworkTick((value) => value + 1);
@@ -240,6 +262,8 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
 
   useEffect(() => {
     const onRefreshManifest = () => {
+      validationInFlight.current?.controller.abort();
+      validationInFlight.current = null;
       forceValidationRef.current = true;
       setNetworkTick((value) => value + 1);
     };
@@ -250,6 +274,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   useEffect(() => {
     let cancelled = false;
     let refreshTimer: number | undefined;
+    let requestController: AbortController | undefined;
 
     const scheduleRefresh = (delayMs: number) => {
       refreshTimer = window.setTimeout(
@@ -291,17 +316,23 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
       onMetrics({
         status: "syncing",
         navigationFreshness: "checking",
+        manifestReceivedBytes: 0,
         message: cachedManifest ? "Checking for wiki updates" : "Loading manifest",
       });
       try {
         const validationKey = `${scope}:${cachedManifest?.manifestHash ?? "empty"}`;
+        requestController = validationInFlight.current?.key === validationKey
+          ? validationInFlight.current.controller : new AbortController();
         const validationPromise =
           validationInFlight.current?.key === validationKey
             ? validationInFlight.current.promise
-            : client.validateManifest(cachedManifest?.manifestHash);
+            : client.validateManifest(cachedManifest?.manifestHash,
+              receivedBytes => { if (!requestController?.signal.aborted) onMetrics({ manifestReceivedBytes: receivedBytes }); },
+              requestController.signal);
         validationInFlight.current = {
           key: validationKey,
           promise: validationPromise,
+          controller: requestController,
         };
         window.dispatchEvent(new Event(FOREGROUND_FETCH_EVENT));
         let validation: WikiManifestValidation;
@@ -313,6 +344,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           }
         }
         if (cancelled) return;
+        manifestFailures.current = 0;
         const validatedAt = Date.now();
         const hasCompleteSnapshot =
           Boolean(cachedManifest) && (cachedState?.lastValidatedAt ?? 0) > 0;
@@ -400,6 +432,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
 
         // BackgroundPrefetch handles ranked warming after the active body is ready.
       } catch (error) {
+        if (requestController?.signal.aborted) return;
         if (!cancelled) {
           if (isAuthError(error)) {
             clearStartupSnapshot();
@@ -427,6 +460,9 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
               navigationFreshness: navigator.onLine ? "saved" : "offline",
               message: error instanceof Error ? error.message : String(error),
             });
+            // A brief lost connection must not strand an empty reader until
+            // reload. Keep one bounded retry timer, also resumed by online.
+            scheduleRefresh(Math.min(30_000, 5_000 * 2 ** Math.min(manifestFailures.current++, 3)));
           }
         }
       }
@@ -440,6 +476,10 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
   }, [client, fetchSlug, networkTick, onMetrics, readCachedManifest, scope, store]);
 
   useEffect(() => {
+    for (const [key, controller] of inFlight.current) {
+      if (key !== `${scope}:${currentSlug}`) controller.abort();
+    }
+    if (!navigator.onLine) return;
     // The current HTTP response already supplied this body. A fresh manifest
     // still reconciles updates/removals through the normal fetch path above.
     if (hasBootstrappedPage(store, currentSlug)) return;
@@ -479,7 +519,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
       // manifest before requesting the one document the user asked to read.
       void fetchSlug(currentSlug).catch(() => undefined);
     }
-  }, [currentSlug, fetchSlug, onMetrics, store]);
+  }, [currentSlug, fetchSlug, pageRetryTick, onMetrics, scope, store]);
 
   useEffect(() => {
     const onRetryPage = () => {
@@ -489,11 +529,12 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         onMetrics({ status: "syncing", navigationFreshness: "checking", message: "Refreshing manifest before retry" });
         forceValidationRef.current = true;
         setNetworkTick((value) => value + 1);
-        return;
       }
 
       onMetrics({ status: "syncing", message: `Retrying ${currentSlug}`, failedBodySlug: null });
-      void fetchSlug(currentSlug, page).catch(() => undefined);
+      // The page endpoint authorizes independently. Even an empty or failed
+      // manifest must not turn Retry into another page-list waterfall.
+      void fetchSlug(currentSlug, page, true).catch(() => undefined);
     };
 
     window.addEventListener(RETRY_PAGE_EVENT, onRetryPage);

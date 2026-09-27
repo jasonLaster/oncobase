@@ -31,7 +31,7 @@ import LiveStoreWorker from "./livestore.worker?worker";
 import { schema } from "./schema";
 import { dismissFirstFrameSnapshot } from "./first-frame-snapshot";
 import { StoreStartupLoading } from "./StoreStartup";
-import { resolveReaderStorage, isDiagnosticMemoryStorageRequest, readerBootDeadline,
+import { resolveReaderStorage, isDiagnosticMemoryStorageRequest, readerBootDeadline, networkAwareBootDeadline,
   READER_LEADER_BOOT_TIMEOUT_MS, READER_FOLLOWER_BOOT_TIMEOUT_MS } from "./reader-storage";
 import { markVisualPhase } from "../visual-phase";
 import { SessionCacheRetirement } from "./SessionCacheRetirement";
@@ -195,6 +195,8 @@ function ReaderStore({ identity, displayIdentity, scope, storeId, cachedSnapshot
   if (identity && !bootState) setBootState({ boot: createReaderBoot(identity, request, cachedSnapshot) });
   const [adapter, setAdapter] = useState<Awaited<typeof adapterPromise> | null>(null);
   const [bootTimeoutMs, setBootTimeoutMs] = useState(READER_LEADER_BOOT_TIMEOUT_MS);
+  const [runtimeTimeoutMs] = useState(() => networkAwareBootDeadline(15_000,
+    performance.getEntriesByType("resource") as PerformanceResourceTiming[], location.origin));
   const [stalled, setStalled] = useState(false);
   useEffect(() => {
     if (!storeId) return;
@@ -203,7 +205,8 @@ function ReaderStore({ identity, displayIdentity, scope, storeId, cachedSnapshot
       // A late probe must not replace a temporary store already in use.
       if (active) {
         markVisualPhase(deadline === READER_FOLLOWER_BOOT_TIMEOUT_MS ? "store-existing-leader" : "store-new-leader");
-        setBootTimeoutMs(deadline);
+        setBootTimeoutMs(networkAwareBootDeadline(deadline,
+          performance.getEntriesByType("resource") as PerformanceResourceTiming[], location.origin));
         setAdapter((current: Awaited<typeof adapterPromise> | null) => current ?? resolved);
       }
     });
@@ -243,7 +246,7 @@ function ReaderStore({ identity, displayIdentity, scope, storeId, cachedSnapshot
         renderLoading={({ stage }) => (
           <StoreStartupLoading
             stage={stage}
-            timeoutMs={adapter === persistedAdapter ? bootTimeoutMs : undefined}
+            timeoutMs={adapter === persistedAdapter ? bootTimeoutMs : runtimeTimeoutMs}
             onTimeout={recoverStalledBoot}
           />
         )}

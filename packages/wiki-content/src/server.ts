@@ -1,5 +1,7 @@
 import { buildCompactTreeFromManifest } from "./manifest-tree.ts";
 import crypto from "node:crypto";
+import { gzip } from "node:zlib";
+import { promisify } from "node:util";
 import type {
   WikiManifest,
   WikiManifestAsset,
@@ -11,6 +13,7 @@ import type {
   WikiUnavailablePage,
 } from "./index.ts";
 import {
+  compactWikiManifest,
   makePublicWikiSessionIdentity,
   parseWikiManifest,
   WIKI_MANIFEST_SCHEMA_VERSION,
@@ -28,6 +31,34 @@ const MANIFEST_TIMEOUT_MS = 20_000;
 const MANIFEST_BOUNDED_FALLBACK_TIMEOUT_MS = 5_000;
 const DEFAULT_PAGE_LIMIT = 25;
 const MAX_PAGE_LIMIT = 100;
+const gzipAsync = promisify(gzip);
+
+function representationHeaders(init: HeadersInit) {
+  const headers = new Headers(init);
+  if (!headers.get("Vary")?.toLowerCase().split(/,\s*/).includes("accept-encoding")) headers.append("Vary", "Accept-Encoding");
+  return headers;
+}
+
+async function contentResponse(request: Request, json: string, init: HeadersInit) {
+  const headers = representationHeaders(init);
+  headers.set("Content-Type", "application/json");
+  const acceptsGzip = (request.headers.get("accept-encoding") ?? "").split(",").some(part => {
+    const [name, ...parameters] = part.trim().toLowerCase().split(";");
+    const q = parameters.find(p => p.trim().startsWith("q="))?.trim().slice(2);
+    return name === "gzip" && (q === undefined || (Number.isFinite(Number(q)) && Number(q) > 0));
+  });
+  if (json.length >= 1024 && acceptsGzip) {
+    const body = await gzipAsync(json);
+    headers.set("Content-Encoding", "gzip");
+    return new Response(new Uint8Array(body), { headers });
+  }
+  return new Response(json, { headers });
+}
+
+function manifestJson(request: Request, manifest: WikiManifest) {
+  return JSON.stringify(new URL(request.url).searchParams.get("format") === "compact-v1"
+    ? compactWikiManifest(manifest) : manifest);
+}
 
 export type WikiApiSessionUser = {
   _id: string;
@@ -165,7 +196,7 @@ function cacheHeaders(scope: WikiScope, etag: string) {
   return {
     "Cache-Control": scope === "public" ? PUBLIC_CACHE_CONTROL : PRIVATE_CACHE_CONTROL,
     ...(scope === "public" ? { "CDN-Cache-Control": PUBLIC_CDN_CACHE_CONTROL } : {}),
-    Vary: scope === "public" ? "Accept, x-site-slug" : "Accept, Cookie, x-site-slug",
+    Vary: scope === "public" ? "Accept, Accept-Encoding, x-site-slug" : "Accept, Accept-Encoding, Cookie, x-site-slug",
     ETag: `W/"${etag}"`,
     "X-Wiki-Cache-Scope": scope,
   };
@@ -174,7 +205,7 @@ function cacheHeaders(scope: WikiScope, etag: string) {
 function provisionalManifestHeaders(scope: WikiScope, etag: string) {
   return {
     "Cache-Control": scope === "session" ? "private, no-store" : "no-store",
-    Vary: scope === "public" ? "Accept, x-site-slug" : "Accept, Cookie, x-site-slug",
+    Vary: scope === "public" ? "Accept, Accept-Encoding, x-site-slug" : "Accept, Accept-Encoding, Cookie, x-site-slug",
     ETag: `W/"${etag}"`,
     "X-Wiki-Cache-Scope": scope,
     "X-Wiki-Manifest-Partial": "true",
@@ -716,9 +747,13 @@ export async function createWikiManifestResponse(
     try {
       const snapshot = await context.getManifestSnapshot();
       if (snapshot) {
-        const headers = decorate(context, { ...cacheHeaders(scope, snapshot.hash), "Content-Type": "application/json", "X-Wiki-Manifest-Source": "snapshot" });
+        const headers = representationHeaders(decorate(context, { ...cacheHeaders(scope, snapshot.hash), "Content-Type": "application/json", "X-Wiki-Manifest-Source": "snapshot" }));
         if (request.headers.get("if-none-match")?.includes(snapshot.hash)) return new Response(null, { status: 304, headers });
-        return new Response(await snapshot.read(), { headers });
+        const json = await new Response(await snapshot.read()).text();
+        return await contentResponse(request,
+          new URL(request.url).searchParams.get("format") === "compact-v1"
+            ? manifestJson(request, parseWikiManifest(JSON.parse(json))) : json,
+          headers);
       }
     } catch {
       // A missing, stale, failed or retired snapshot uses the normal live path.
@@ -788,7 +823,7 @@ export async function createWikiManifestResponse(
   if (request.headers.get("if-none-match")?.includes(manifestHash)) {
     return new Response(null, {
       status: 304,
-      headers: decorate(context, responseCacheHeaders),
+      headers: representationHeaders(decorate(context, responseCacheHeaders)),
     });
   }
 
@@ -799,12 +834,11 @@ export async function createWikiManifestResponse(
   };
 
   const serializeStarted = performance.now();
-  const response = Response.json(manifest, {
-    headers: decorate(context, {
+  const response = await contentResponse(request, manifestJson(request, manifest),
+    decorate(context, {
       ...responseCacheHeaders,
       "X-Wiki-Manifest-Source": source,
-    }),
-  });
+    }));
   phase("serialize", serializeStarted);
   return response;
 }
@@ -908,11 +942,9 @@ export async function createWikiPagesResponse(
   if (request.headers.get("if-none-match")?.includes(etag)) {
     return new Response(null, {
       status: 304,
-      headers: decorate(context, cacheHeaders(scope, etag)),
+      headers: representationHeaders(decorate(context, cacheHeaders(scope, etag))),
     });
   }
 
-  return Response.json(body, {
-    headers: decorate(context, cacheHeaders(scope, etag)),
-  });
+  return contentResponse(request, JSON.stringify(body), decorate(context, cacheHeaders(scope, etag)));
 }
