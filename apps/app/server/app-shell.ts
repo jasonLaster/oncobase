@@ -36,6 +36,8 @@ import {
   tagFromPathname,
 } from "./legacy-route-metadata.js";
 import { safeLocalRedirect } from "../src/safe-redirect.js";
+import { isEducationPathname } from "../src/education-access";
+import { isPublicEducationPage } from "./education-access";
 
 const DEFAULT_SITE_SLUG = "diana";
 const CANONICAL_SLUG_CACHE_TTL_MS = 60_000;
@@ -43,6 +45,7 @@ const CANONICAL_SLUG_PAGE_SIZE = 512;
 const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml|map)$/i;
 const MARKDOWN_ALIAS_PATH_RE = /\.(?:md|mdx)$/i;
 const PUBLIC_PAGES = new Set(["/terms-and-conditions"]);
+const educationRequests = new WeakSet<Request>();
 
 type CanonicalSlugCacheEntry = {
   expires: number;
@@ -285,6 +288,29 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
     return null;
   }
 
+  if (siteSlug === DEFAULT_SITE_SLUG && (request.method === "GET" || request.method === "HEAD")) {
+    if (url.pathname === "/search" && !isLinkPreviewRequest(request)) {
+      educationRequests.add(request);
+      return null;
+    }
+    if (isEducationPathname(url.pathname)) {
+      const slug = slugFromPathname(url.pathname)!;
+      try {
+        const canonical = (await publicPageForRequest(request, client, siteSlug, slug)) ??
+          (await publicPageForRequest(request, client, siteSlug, `${slug}/index`)) ??
+          (await publicPageForRequest(request, client, siteSlug,
+            (await publicCanonicalSlugMap(client, siteSlug)).get(slug.toLowerCase()) ?? slug));
+        if (isPublicEducationPage(canonical)) {
+          educationRequests.add(request);
+          return null;
+        }
+      } catch {
+        return new Response("Education temporarily unavailable", { status: 503,
+          headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" } });
+      }
+    }
+  }
+
   if (isLinkPreviewRequest(request) && !isAppAssetRequest(url.pathname)) {
     const { handleSharePreviewRequest } = await import("./wiki-api.js");
     return handleSharePreviewRequest(sharePreviewRequestFor(request), client, siteSlug);
@@ -392,9 +418,10 @@ async function staticIndexHtml(
       // A gated document is always private/no-store. Only that fresh response
       // may tell an automatic reader it has no account session. Shared public
       // HTML must never select a later visitor's account scope.
-      const publicSessionVerified = gateEnabled && await getSessionUser(request, client, siteSlug)
+      const publicSessionVerified = educationRequests.has(request) || gateEnabled && await getSessionUser(request, client, siteSlug)
         .then(user => user === null).catch(() => false);
-      return injectPageBootstrap(documentHtml, safePage, url, siteSlug, { publicSessionVerified });
+      return injectPageBootstrap(documentHtml, safePage, url, siteSlug, { publicSessionVerified,
+        publicAccessPartition: educationRequests.has(request) ? "education" : undefined });
     } catch {
       console.warn("[wiki-bootstrap] page data unavailable; using page API");
     }
@@ -416,6 +443,7 @@ async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath:
     return {
       ...staticHeaders(filePath),
       "X-Wiki-Reader-Account": "unknown",
+      "X-Wiki-Reader-Access": "unknown",
       "Cache-Control": "private, no-store",
       Vary: "Accept, Cookie, Host, User-Agent",
     };
@@ -433,6 +461,7 @@ async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath:
     Boolean(sessionUser);
   return {
     ...staticHeaders(filePath),
+    "X-Wiki-Reader-Access": educationRequests.has(request) ? "education" : "wiki",
     "X-Wiki-Reader-Account": sessionUser === undefined ? "unknown" : sessionUser ? createHash("sha256").update(`${siteSlug}:${sessionUser._id}`).digest("hex") : "public",
     "Cache-Control": privateResponse
       ? "private, no-store"
@@ -520,8 +549,8 @@ export function createAppShellHandler({
         staticIndexHtml(request, client, filePath, indexHtml, htmlFirstExperiment, readerStyles),
         htmlHeaders(request, client, filePath),
       ]);
-      const { "X-Wiki-Reader-Account": accountTag, ...responseHeaders } = headers;
-      const accountHtml = html.replace("</head>", `<meta name="wiki-reader-account" content="${accountTag}" /></head>`);
+      const { "X-Wiki-Reader-Account": accountTag, "X-Wiki-Reader-Access": readerAccess, ...responseHeaders } = headers;
+      const accountHtml = html.replace("</head>", `<meta name="wiki-reader-account" content="${accountTag}" /><meta name="wiki-reader-access" content="${readerAccess}" /></head>`);
       return new Response(accountHtml, { headers: responseHeaders });
     }
 

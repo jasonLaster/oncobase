@@ -8,6 +8,15 @@ const PUBLIC_FILES = new Set([
   "auth-wiki-cartoon-light.png",
   "favicon.svg",
   "robots.txt",
+  // Curated Diana visuals requested for the anonymous landing page.
+  // Sources and capture review: specs/landing-page.md. Keep this file-specific.
+  "landing/immune-recognition.webp",
+  "landing/tumor-biology-layers.webp",
+  "landing/cell-therapy-family.webp",
+  "landing/reader-desktop.jpg",
+  "landing/reader-mobile.jpg",
+  "landing/diagnostics-timeline.jpg",
+  "landing/dicom-viewer.jpg",
 ]);
 
 function files(directory: string, prefix = ""): string[] {

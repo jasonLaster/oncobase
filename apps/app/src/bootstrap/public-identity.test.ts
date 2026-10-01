@@ -11,6 +11,14 @@ test("a fresh response can identify an explicitly public store", () => {
   expect(publicIdentityFromPageBootstrap(raw, 99_000, request)).toMatchObject({ siteSlug: "example", scope: "public", authenticated: false, userHash: null });
 });
 
+test("education bootstrap identities cannot reuse a full-wiki public cache", () => {
+  const education = JSON.stringify({ ...payload, publicSessionVerified: true, publicAccessPartition: "education" });
+  const identity = publicIdentityFromPageBootstrap(education, 99_000, { ...request, scope: null });
+  expect(identity?.cacheKey).toEndWith(":education");
+  expect(identity?.cacheKey).not.toBe(publicIdentityFromPageBootstrap(raw, 99_000, request)?.cacheKey);
+  expect(publicIdentityFromPageBootstrap(JSON.stringify({ ...payload, publicAccessPartition: "unknown" }), 99_000, request)).toBeNull();
+});
+
 test("bootstrap data never chooses account scope or infers a signed-out session", () => {
   for (const scope of [null, "session", "auto"]) expect(publicIdentityFromPageBootstrap(raw, 99_000, { ...request, scope })).toBeNull();
 });

@@ -111,13 +111,14 @@ export interface WikiSessionIdentity {
 
 export function makePublicWikiSessionIdentity(
   siteSlug: string,
+  partition?: string,
 ): WikiSessionIdentity {
   return {
     siteSlug,
     scope: "public",
     authenticated: false,
     cacheVersion: WIKI_SESSION_CACHE_VERSION,
-    cacheKey: `${siteSlug}:public:${WIKI_SESSION_CACHE_VERSION}`,
+    cacheKey: `${siteSlug}:public:${WIKI_SESSION_CACHE_VERSION}${partition ? `:${partition}` : ""}`,
     userHash: null,
   };
 }

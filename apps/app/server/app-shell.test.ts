@@ -128,6 +128,40 @@ describe("wiki Vite app-shell password gate", () => {
     await rm(distDir, { recursive: true, force: true });
   });
 
+  test("education pages and markdown aliases open without a password using a separate cache", async () => {
+    const handler = createWikiViteHandler({ client: fakeClient() as never, distDir });
+    for (const route of ["/wiki/education/oncology-101/index", "/wiki/education/oncology-101/index.md"]) {
+      const response = await handler(request(route));
+      expect(response.status).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      const html = await response.text();
+      expect(html).toContain('name="wiki-reader-access" content="education"');
+      expect(html).toContain('"publicAccessPartition":"education"');
+      expect(html).toContain('"publicSessionVerified":true');
+    }
+    const route = "/wiki/education/oncology-101/index";
+    const hint = `wiki_reader_shell=${encodeURIComponent(JSON.stringify([route]))}`;
+    const hinted = await handler(request(route, { headers: { Cookie: hint } }));
+    expect((await hinted.text())).toContain('name="wiki-reader-access" content="education"');
+    for (const route of ["/wiki/education-adjacent/index", "/private/plan", "/diagnostics", "/tools/dicom-viewer"]) {
+      expect((await handler(request(route))).status).toBe(302);
+    }
+  });
+
+  test("sensitive pages inside education retain the gate even with an account cookie", async () => {
+    const base = fakeClient();
+    const client = { ...base, async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      if (getFunctionName(ref) === "documents:getBySlug" && String(args.slug).startsWith("wiki/education/")) {
+        return args.includeSensitive ? { slug: args.slug, content: "Private education case", sensitive: true } : null;
+      }
+      return base.query(ref, args);
+    } };
+    const handler = createWikiViteHandler({ client: client as never, distDir });
+    const response = await handler(request("/wiki/education/private-case", { headers: { Cookie: "wiki_user_session=test" } }));
+    expect(response.status).toBe(302);
+    expect(await response.text()).not.toContain("Private education case");
+  });
+
   test("a cached-route hint skips page payload work but preserves the gate and private HTML headers", async () => {
     const client = fakeClient();
     const lookup = spyOn(client, "query");
@@ -339,9 +373,7 @@ describe("wiki Vite app-shell password gate", () => {
     });
 
     for (const pathname of [
-      "/api/wiki/manifest",
       "/api/wiki/pages?slugs=wiki/public",
-      "/api/search?q=public",
       "/api/download?type=markdown",
       "/api/file?path=sources/public/source.pdf",
     ]) {

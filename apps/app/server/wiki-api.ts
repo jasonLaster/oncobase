@@ -125,6 +125,9 @@ import { safeLocalRedirect } from "../src/safe-redirect.js";
 import { slugFromRoutePathname } from "../src/route-canonicalization.js";
 import { TEXT_SEARCH_LATENCY_BUDGET_MS } from "../src/search-performance.js";
 import { handlePrefetchRequest } from "./prefetch";
+import { makePublicWikiSessionIdentity, type WikiSessionIdentity } from "@oncobase/wiki-content";
+import { educationDocumentsGateway, isEducationSlug, isPublicEducationAsset } from "./education-access";
+import { EDUCATION_ACCESS_PARTITION } from "../src/education-access";
 
 const GATE_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const MAX_SEARCH_LIMIT = 5000;
@@ -867,13 +870,15 @@ async function handleFileRequest(
   request: Request,
   client: ConvexHttpClient,
   siteSlug: string,
+  educationOnly = false,
 ) {
   const url = new URL(request.url);
   const filePath = url.searchParams.get("path");
   if (!filePath) return new Response("Missing path parameter", { status: 400 });
 
   const normalized = normalizeFilePath(filePath);
-  const mimeType = getMimeType(normalized);
+  const mimeType = isEducationSlug(normalized) && path.extname(normalized).toLowerCase() === ".html"
+    ? "text/html; charset=utf-8" : getMimeType(normalized);
   if (!mimeType) return new Response("File type not supported", { status: 400 });
 
   const ext = path.extname(normalized).toLowerCase();
@@ -912,6 +917,9 @@ async function handleFileRequest(
   if (!asset?.blobUrl) return privateFileNotFound();
 
   const assetIsSensitive = isStoredFileAssetSensitive(asset, siblingDoc);
+  if (educationOnly && (assetIsSensitive || !isPublicEducationAsset({ ...asset, path: normalized }))) {
+    return privateFileNotFound();
+  }
   if (assetIsSensitive) {
     const ownerSlugs = Array.from(
       new Set([
@@ -937,6 +945,7 @@ async function handleFileRequest(
   // Cache privacy: any password-gated or signed-in request
   // gets a private response varying on Cookie, independent of RBAC scope.
   const privateCache =
+    educationOnly ||
     assetIsSensitive ||
     Boolean(sessionUser) ||
     hasPasswordSession;
@@ -976,6 +985,11 @@ async function handleFileRequest(
       "X-Wiki-Cache-Scope": cacheScope,
     });
   const contentLength = upstream.headers.get("content-length");
+  if (ext === ".html") {
+    // Curriculum labs can run their scripts without receiving the wiki origin.
+    headers.set("Content-Security-Policy", "sandbox allow-scripts allow-popups");
+    headers.set("Content-Disposition", `inline; filename="${filename.replace(/["\r\n]/g, "")}"`);
+  }
   if (contentLength) headers.set("Content-Length", contentLength);
   const acceptRanges = upstream.headers.get("accept-ranges");
   if (acceptRanges) headers.set("Accept-Ranges", acceptRanges);
@@ -1656,6 +1670,7 @@ async function handlePageCopyRequest(
   request: Request,
   client: ConvexHttpClient,
   siteSlug: string,
+  educationOnly = false,
 ) {
   const url = new URL(request.url);
   const slug = url.searchParams.get("slug") ?? "";
@@ -1667,7 +1682,7 @@ async function handlePageCopyRequest(
     api.documents.getBySlug,
     withSiteSlug(siteSlug, { slug }),
   );
-  if (publicPage) {
+  if (publicPage && (!educationOnly || publicPage.sensitive === false && isEducationSlug(publicPage.slug))) {
     return new Response(await redactText(client, siteSlug, publicPage.content), {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
@@ -1679,7 +1694,7 @@ async function handlePageCopyRequest(
     });
   }
 
-  if (url.searchParams.get("scope") === "public") {
+  if (educationOnly || url.searchParams.get("scope") === "public") {
     return new Response("Not found", { status: 404 });
   }
 
@@ -1997,11 +2012,12 @@ async function handleSearchRequest(
   request: Request,
   client: ConvexHttpClient,
   siteSlug: string,
+  educationOnly = false,
 ) {
   const startedAt = performance.now();
   const url = new URL(request.url);
   const scope = url.searchParams.get("scope") === "session" ? "session" : "public";
-  const sessionUser = scope === "session"
+  const sessionUser = scope === "session" && !educationOnly
     ? await getSessionUser(request, client, siteSlug)
     : null;
   if (scope === "session" && !sessionUser) {
@@ -2089,7 +2105,7 @@ async function handleSearchRequest(
     );
     return Response.json(
       {
-        results: indexedResults,
+        results: educationOnly ? indexedResults.filter(page => isEducationSlug(page.slug)) : indexedResults,
         complete: false,
         retryAfterMs: PUBLIC_SEARCH_RETRY_AFTER_MS,
       },
@@ -2099,6 +2115,7 @@ async function handleSearchRequest(
 
   await traceBackendPhase("search.match", () => {
     for (const page of visiblePages) {
+      if (educationOnly && !isEducationSlug(page.slug)) continue;
       const title = page.title;
       const matches = page.lines.flatMap((lineContent, index) => {
         regex.lastIndex = 0;
@@ -3083,16 +3100,19 @@ export function createWikiApiHandler(client = createClient()) {
       );
     }
     let passwordGateEnabled = false;
+    let educationOnly = false;
     const context = {
       siteSlug,
+      publicIdentity: undefined as WikiSessionIdentity | undefined,
       documents: createDocumentsGateway(client, siteSlug),
       getSessionUser: (nextRequest: Request) =>
-        getSessionUser(nextRequest, client, siteSlug),
+        educationOnly ? Promise.resolve(null) : getSessionUser(nextRequest, client, siteSlug),
       access: createAccessAdapter(client, siteSlug),
       manifestPrioritySlugs: MANIFEST_PRIORITY_SLUGS,
       onManifestFallback: (reason: string) => traceBackendAttributes({ "manifest.fallback_reason": reason }),
       onManifestPhase: (name: "read" | "filter" | "tree" | "hash" | "serialize", ms: number) => recordRemoteSpan(`manifest.${name}`, Date.now() - ms, ms, { "telemetry.source": "api" }),
       getManifestSnapshot: process.env.WIKI_PREFETCH_SECRET ? async () => {
+        if (educationOnly) return null;
         const args = { siteSlug, serverSecret: process.env.WIKI_PREFETCH_SECRET! };
         const snapshot = await client.query(api.manifestCache.current, args);
         traceBackendAttributes({ "manifest.snapshot_hit": Boolean(snapshot) });
@@ -3125,14 +3145,26 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/share-preview" ||
       pathname === "/api/liveblocks-webhook" ||
       pathname.startsWith("/api/integrations/epic/");
-    if (!passwordGateExempt) {
+    if (!passwordGateExempt || (pathname === "/api/wiki/session" && siteSlug === DEFAULT_SITE_SLUG)) {
       const gate = await enforceApiPasswordGate(
         request,
         client,
         siteSlug,
       );
       passwordGateEnabled = gate.enabled;
-      if (gate.response) return gate.response;
+      if (gate.response) {
+        const readOnly = request.method === "GET" || request.method === "HEAD";
+        const educationRead = ["/api/wiki/session", "/api/wiki/manifest", "/api/wiki/pages",
+          "/api/wiki/prefetch", "/api/search", "/api/file", "/api/page-copy"].includes(pathname);
+        if (gate.response.status !== 401 || siteSlug !== DEFAULT_SITE_SLUG || !readOnly || !educationRead) return gate.response;
+        if (pathname === "/api/file" && !isEducationSlug(new URL(request.url).searchParams.get("path") ?? "")) return gate.response;
+        if (pathname === "/api/page-copy" && !isEducationSlug(new URL(request.url).searchParams.get("slug") ?? "")) return gate.response;
+        const slugs = new URL(request.url).searchParams.get("slugs");
+        if (pathname === "/api/wiki/pages" && slugs && slugs.split(",").some(slug => !isEducationSlug(slug))) return gate.response;
+        educationOnly = true;
+        context.documents = educationDocumentsGateway(context.documents);
+        context.publicIdentity = makePublicWikiSessionIdentity(siteSlug, EDUCATION_ACCESS_PARTITION);
+      }
     }
 
     if (pathname.startsWith("/api/publish/")) {
@@ -3173,7 +3205,7 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/wiki/prefetch") {
       const serverSecret = process.env.WIKI_PREFETCH_SECRET;
-      return handlePrefetchRequest(request, context, serverSecret ? {
+      return handlePrefetchRequest(request, context, serverSecret && !educationOnly ? {
         priorities: () => client.query(api.prefetch.priorities, { siteSlug, serverSecret }),
         recordVisit: (slug) => client.mutation(api.prefetch.recordVisit, { siteSlug, serverSecret, slug }),
       } : null).catch(() => Response.json({ error: "Prefetch unavailable" }, { status: 503, headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" } }));
@@ -3200,7 +3232,7 @@ export function createWikiApiHandler(client = createClient()) {
     }
 
     if (pathname === "/api/search") {
-      const response = await handleSearchRequest(request, client, siteSlug);
+      const response = await handleSearchRequest(request, client, siteSlug, educationOnly);
       return passwordGateEnabled
         ? privatizePasswordGatedResponse(response)
         : response;
@@ -3334,14 +3366,14 @@ export function createWikiApiHandler(client = createClient()) {
     }
 
     if (pathname === "/api/file") {
-      const response = await handleFileRequest(request, client, siteSlug);
+      const response = await handleFileRequest(request, client, siteSlug, educationOnly);
       return passwordGateEnabled
         ? privatizePasswordGatedResponse(response)
         : response;
     }
 
     if (pathname === "/api/page-copy") {
-      const response = await handlePageCopyRequest(request, client, siteSlug);
+      const response = await handlePageCopyRequest(request, client, siteSlug, educationOnly);
       return passwordGateEnabled
         ? privatizePasswordGatedResponse(response)
         : response;

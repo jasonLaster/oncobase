@@ -349,7 +349,7 @@ test.describe("Visual parity", () => {
     }
   });
 
-  test("password gate matches production control density", async ({
+  test("landing page sign-in has readable, contained controls", async ({
     browser,
     page: _authenticatedPage,
   }) => {
@@ -373,17 +373,16 @@ test.describe("Visual parity", () => {
       expect(cardBox).not.toBeNull();
       expect(inputBox).not.toBeNull();
       expect(buttonBox).not.toBeNull();
-      expect(cardBox!.width).toBe(384);
-      expect(cardBox!.height).toBe(202);
-      expect(
-        Math.abs(
-          cardBox!.y - (page.viewportSize()!.height - cardBox!.height) / 2,
-        ),
-      ).toBeLessThan(1);
-      expect(inputBox!.width).toBe(320);
-      expect(inputBox!.height).toBe(36);
-      expect(buttonBox!.width).toBe(320);
-      expect(buttonBox!.height).toBe(34);
+      expect(cardBox!.width).toBeLessThanOrEqual(384);
+      expect(inputBox!.height).toBeGreaterThanOrEqual(44);
+      expect(buttonBox!.height).toBeGreaterThanOrEqual(44);
+      expect(inputBox!.x).toBeGreaterThan(cardBox!.x);
+      expect(inputBox!.x + inputBox!.width).toBeLessThan(cardBox!.x + cardBox!.width);
+      expect(buttonBox!.x).toBe(inputBox!.x);
+      expect(buttonBox!.width).toBe(inputBox!.width);
+      expect(buttonBox!.y).toBeGreaterThanOrEqual(inputBox!.y + inputBox!.height + 12);
+      await page.getByRole("link", { name: "Sign in", exact: true }).click();
+      await expect(input).toBeInViewport();
     } finally {
       await context.close();
     }

@@ -159,6 +159,7 @@ export type WikiApiDocumentsGateway = {
 
 export type WikiApiContext = {
   siteSlug: string;
+  publicIdentity?: WikiSessionIdentity;
   documents: WikiApiDocumentsGateway;
   getSessionUser(request: Request): Promise<WikiApiSessionUser | null>;
   access?: WikiApiAccessAdapter;
@@ -664,7 +665,7 @@ export async function createWikiSessionResponse(
   const scope = requestedScope(request);
 
   if (scope === "public") {
-    const identity = makePublicWikiSessionIdentity(context.siteSlug);
+    const identity = context.publicIdentity ?? makePublicWikiSessionIdentity(context.siteSlug);
     return Response.json(identity, {
       headers: decorate(context, {
         "Cache-Control": "public, max-age=300",
@@ -679,7 +680,7 @@ export async function createWikiSessionResponse(
     // Automatic readers can select public in this same response. This decision
     // depends on the current cookie, so even its public result is never shared.
     if (new URL(request.url).searchParams.get("fallback") === "public") {
-      return Response.json(makePublicWikiSessionIdentity(context.siteSlug), {
+      return Response.json(context.publicIdentity ?? makePublicWikiSessionIdentity(context.siteSlug), {
         headers: decorate(context, {
           "Cache-Control": "private, no-store",
           Vary: "Accept, Cookie, x-site-slug",

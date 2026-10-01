@@ -1,4 +1,5 @@
 import { readerFetch } from "./reader-telemetry";
+import { EDUCATION_ACCESS_PARTITION, educationOnlyResponse } from "./education-access";
 import {
   createWikiSessionClient,
   type WikiScope,
@@ -58,7 +59,7 @@ function publicIdentityPartition() {
     apiBaseUrl() || window.location.origin,
     window.location.origin,
   ).origin;
-  return `${window.location.origin}|${apiOrigin}`;
+  return `${window.location.origin}|${apiOrigin}${educationOnlyResponse() ? `|${EDUCATION_ACCESS_PARTITION}` : ""}`;
 }
 
 function publicIdentityFromResponse(presentationOnly = false) {
@@ -76,11 +77,12 @@ function publicIdentityFromResponse(presentationOnly = false) {
 function publicIdentityFallback(scope: WikiScope) {
   if (scope !== "public") return null;
   try {
-    return publicIdentityFromResponse() ?? resolvePublicIdentityFallback({
+    const identity = publicIdentityFromResponse() ?? resolvePublicIdentityFallback({
       storage: window.localStorage,
       partition: publicIdentityPartition(),
       configuredSiteSlug: import.meta.env.VITE_WIKI_SITE_SLUG,
     });
+    return educationOnlyResponse() && !identity?.cacheKey.endsWith(`:${EDUCATION_ACCESS_PARTITION}`) ? null : identity;
   } catch {
     return null;
   }
@@ -134,6 +136,7 @@ function SessionRecovery({ message }: { message: string }) {
 export function WikiViteRoot() {
   const [cached, setCached] = useState(() => {
     const snapshot = readStartupSnapshot();
+    if (educationOnlyResponse() && !snapshot?.identity.cacheKey.endsWith(`:${EDUCATION_ACCESS_PARTITION}`)) return null;
     const slug = contentSlugFromRouteSlug(slugFromPath(location.pathname));
     // Check route membership here; expand the full tree only in the reader.
     return snapshot?.manifest.pages.some(page => page.slug === slug) ? snapshot : null;

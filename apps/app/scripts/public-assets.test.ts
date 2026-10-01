@@ -20,7 +20,7 @@ test("reader HTML cannot bypass the gate through Vite public assets", () => {
   expect(() => assertPublicAssets(publicDirectory)).not.toThrow();
 });
 
-for (const filename of ["document.html", "document.HTML", "document.htm", "document.xhtml", "document.md", "document.json", "document.pdf", ".hidden", "nested/document.html"]) {
+for (const filename of ["document.html", "document.HTML", "document.htm", "document.xhtml", "document.md", "document.json", "document.pdf", ".hidden", "nested/document.html", "landing/unreviewed-report.png", "landing/unreviewed-page.md"]) {
   test(`rejects unreviewed public file ${filename}`, () => {
     const directory = fixtureDirectory();
     mkdirSync(path.dirname(path.join(directory, filename)), { recursive: true });

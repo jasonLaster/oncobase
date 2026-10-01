@@ -120,11 +120,15 @@ function createFakeConvexClient({
   passwordHash,
   passwordGate = false,
   passwordGateState,
+  extraPages = [],
+  extraAssets = [],
 }: {
   deniedSlugs?: string[];
   failPasswordGateLookup?: boolean;
   passwordHash?: string;
   passwordGate?: boolean;
+  extraPages?: FakePage[];
+  extraAssets?: FakeAsset[];
   passwordGateState?: {
     lookups?: number;
     passwordGate: boolean;
@@ -135,6 +139,7 @@ function createFakeConvexClient({
   const users = new Map<string, FakeUser>();
   const sessions = new Map<string, FakeSession>();
   const pages: FakePage[] = [
+    ...extraPages,
     {
       slug: "wiki/public",
       title: "Public",
@@ -157,6 +162,7 @@ function createFakeConvexClient({
     },
   ];
   const assets: FakeAsset[] = [
+    ...extraAssets,
     {
       path: "sources/public/image.avif",
       blobUrl: "data:image/avif;base64,YXZpZg==",
@@ -296,7 +302,8 @@ function createFakeConvexClient({
         }
         case "documents:listFileAssetVisibilityPage":
           return {
-            page: [],
+            page: extraAssets.filter(asset => args.includeSensitive || asset.sensitive === false)
+              .map(({ path, ownerSlugs, sensitive }) => ({ path, ownerSlugs, sensitive })),
             isDone: true,
             continueCursor: null,
           };
@@ -466,6 +473,70 @@ function createFakeConvexClient({
 }
 
 describe("wiki Vite API auth and scoped archive behavior", () => {
+  test("anonymous Diana readers receive only redacted education pages, assets, and search results", async () => {
+    const slug = "wiki/education/oncology-101/index";
+    const image = "wiki/education/oncology-101/cartoon.png";
+    const lab = "wiki/education/cellular-therapies/tools/lab.html";
+    const handler = createWikiApiHandler(createFakeConvexClient({ passwordGate: true,
+      extraPages: [
+        { slug, title: "Oncology 101", tags: [], content: "# Oncology 101\n\nPublic lesson. <redact>Hidden patient detail</redact>" },
+        { slug: "wiki/education/private-case", title: "Private case", tags: [], content: "Sensitive lesson", sensitive: true },
+      ],
+      extraAssets: [
+        { path: image, ownerSlugs: [slug], sensitive: false, blobUrl: "data:image/png;base64,aW1hZ2U=" },
+        { path: lab, ownerSlugs: [slug], sensitive: false, blobUrl: "data:text/html,<h1>Learning lab</h1>" },
+        { path: "wiki/education/mixed.png", ownerSlugs: [slug, "private/plan"], sensitive: false, blobUrl: "data:image/png;base64,aW1hZ2U=" },
+        { path: "wiki/education/unowned.png", ownerSlugs: [], sensitive: false, blobUrl: "data:image/png;base64,aW1hZ2U=" },
+        { path: "wiki/education/private.png", ownerSlugs: [slug], sensitive: true, blobUrl: "data:image/png;base64,aW1hZ2U=" },
+      ],
+    }) as never);
+    for (const query of ["scope=public", "scope=session&fallback=public"]) {
+      const response = await handler(request(`/api/wiki/session?${query}`));
+      expect(response?.status).toBe(200);
+      expect(response!.headers.get("cache-control")).toBe("private, no-store");
+      expect(await response!.json()).toMatchObject({ scope: "public", authenticated: false,
+        cacheKey: expect.stringMatching(/:education$/) });
+    }
+    const manifestResponse = await handler(request("/api/wiki/manifest"));
+    const manifest = await manifestResponse!.json();
+    expect(manifest.pages.map((page: { slug: string }) => page.slug)).toEqual([slug]);
+    expect(JSON.stringify(manifest)).not.toContain("private/plan");
+    expect(JSON.stringify(manifest)).not.toContain("sources/public");
+    expect(JSON.stringify(manifest)).not.toContain("mixed.png");
+    expect(JSON.stringify(manifest)).not.toContain("unowned.png");
+    const batch = await (await handler(request("/api/wiki/pages")))!.json();
+    expect(batch.pages.map((page: { slug: string }) => page.slug)).toEqual([slug]);
+    expect(JSON.stringify(batch)).not.toContain("Hidden patient detail");
+    const search = await (await handler(request("/api/search?q=Public")))!.json();
+    expect(search.results.map((page: { slug: string }) => page.slug)).toEqual([slug]);
+    const imageResponse = await handler(request(`/api/file?path=${image}`));
+    expect(imageResponse?.status).toBe(200);
+    expect(imageResponse!.headers.get("content-type")).toBe("image/png");
+    expect(imageResponse!.headers.get("cache-control")).toBe("private, no-store");
+    const labResponse = await handler(request(`/api/file?path=${lab}`));
+    expect(labResponse?.status).toBe(200);
+    expect(labResponse!.headers.get("content-type")).toContain("text/html");
+    expect(labResponse!.headers.get("content-security-policy")).toBe("sandbox allow-scripts allow-popups");
+    expect(await labResponse!.text()).toContain("Learning lab");
+    for (const path of ["mixed.png", "unowned.png", "private.png"]) {
+      expect((await handler(request(`/api/file?path=wiki/education/${path}`)))?.status).toBe(404);
+    }
+    const copy = await handler(request(`/api/page-copy?slug=${slug}`));
+    expect(copy?.status).toBe(200);
+    expect(await copy!.text()).not.toContain("Hidden patient detail");
+    expect((await handler(request("/api/page-copy?slug=wiki/education/private-case")))?.status).toBe(404);
+    expect((await handler(request("/api/wiki/pages?scope=session")))?.status).toBe(401);
+    expect((await handler(request("/api/search?q=Public&scope=session")))?.status).toBe(401);
+    expect((await handler(request("/api/wiki/prefetch")))?.status).toBe(200);
+    expect((await handler(request("/api/wiki/prefetch", { method: "POST" })))?.status).toBe(401);
+    // The existing password still restores the full non-sensitive reader.
+    const cookie = await gateCookie(handler);
+    const full = await (await handler(request("/api/wiki/manifest", { headers: { Cookie: cookie } })))!.json();
+    expect(full.pages.map((page: { slug: string }) => page.slug)).toContain("wiki/public");
+    const identity = await (await handler(request("/api/wiki/session?scope=public", { headers: { Cookie: cookie } })))!.json();
+    expect(identity.cacheKey).not.toEndWith(":education");
+  });
+
   test("serves published AVIF assets with their image MIME type", async () => {
     const handler = createWikiApiHandler(createFakeConvexClient() as never);
     const response = await handler(request("/api/file?path=sources/public/image.avif"));
@@ -474,16 +545,13 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(await response!.text()).toBe("avif");
   });
 
-  test("gates every reader-facing content API with private responses", async () => {
+  test("gates non-educational content APIs with private responses", async () => {
     const handler = createWikiApiHandler(
       createFakeConvexClient({ passwordGate: true }) as never,
     );
     const readerPaths = [
       "/api/wiki/convex-token",
-      "/api/wiki/manifest",
-      "/api/wiki/prefetch",
       "/api/wiki/pages?slugs=wiki/public",
-      "/api/search?q=public",
       "/api/timeline",
       "/api/diagnostic-studies",
       "/api/dicom/file?path=example.dcm",
@@ -517,6 +585,19 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       expect(await response!.json(), path).toEqual({
         error: "Password gate authentication required",
       });
+    }
+  });
+
+  test("public education does not remove the gate on other wiki sites", async () => {
+    const base = createFakeConvexClient({ passwordGate: true });
+    const client = { ...base, async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      if (getFunctionName(ref) === "sites:getByHost") return { slug: "other-wiki" };
+      return base.query(ref, args);
+    } };
+    const handler = createWikiApiHandler(client as never);
+    for (const path of ["/api/wiki/manifest", "/api/wiki/pages?slugs=wiki/education/index", "/api/search?q=lesson"]) {
+      const response = await handler(new Request(`https://other-education-gate.example${path}`));
+      expect(response?.status).toBe(401);
     }
   });
 
@@ -601,7 +682,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     const lookupsBeforeRotation = passwordGateState.lookups ?? 0;
     passwordGateState.passwordHash = "sha256:rotated-password-hash";
     const afterRotation = await handler(
-      request("/api/wiki/manifest", { headers: { Cookie: cookie } }),
+      request("/api/wiki/pages?slugs=wiki/public", { headers: { Cookie: cookie } }),
     );
     expect(afterRotation?.status).toBe(401);
     expect(passwordGateState.lookups).toBe(lookupsBeforeRotation + 1);

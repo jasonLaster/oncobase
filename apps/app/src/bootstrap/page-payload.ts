@@ -12,6 +12,7 @@ export type PageBootstrap = {
   scope: "public";
   /** Only emitted after session verification in a private, no-store response. */
   publicSessionVerified?: true;
+  publicAccessPartition?: "education";
   page: WikiPageRecord;
 };
 
@@ -24,7 +25,8 @@ export function parsePageBootstrap(raw: string, expected: {
     const value = JSON.parse(raw) as PageBootstrap;
     if (value.version !== 1 || value.readerVersion !== WIKI_READER_CACHE_VERSION ||
         value.origin !== expected.origin || value.pathname !== expected.pathname ||
-        value.siteSlug !== expected.siteSlug || value.scope !== "public") return null;
+        value.siteSlug !== expected.siteSlug || value.scope !== "public" ||
+        value.publicAccessPartition !== undefined && value.publicAccessPartition !== "education") return null;
     const { pages } = parseWikiPageBatch({ siteSlug: value.siteSlug, scope: "public",
       generatedAt: "", pages: [value.page], isDone: true, continueCursor: null });
     const page = pages[0];

@@ -1,5 +1,6 @@
 import { clearStartupSnapshot } from "./bootstrap/startup-cache-lifecycle";
-import { lazy, StrictMode, Suspense } from "react";
+import { lazy, StrictMode, Suspense, useEffect } from "react";
+import { educationOnlyResponse, isEducationPathname } from "./education-access";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
@@ -63,7 +64,13 @@ const TermsAndConditionsPage = lazy(() =>
 );
 
 function RootRouteBoundary() {
-  const { pathname } = useLocation();
+  const { pathname, search, hash } = useLocation();
+  const needsPassword = educationOnlyResponse() && !isEducationPathname(pathname) &&
+    !["/search", "/login", "/terms-and-conditions"].includes(pathname);
+  useEffect(() => {
+    if (needsPassword) window.location.replace(`/login?redirect=${encodeURIComponent(`${pathname}${search}${hash}`)}`);
+  }, [needsPassword, pathname, search, hash]);
+  if (needsPassword) return <AppStarting />;
   // Only reader routes need a wiki session or database. This single boundary
   // applies to cold loads, client navigation, and browser history alike.
   if (pathname === "/login") return <LoginPage />;

@@ -17,6 +17,6 @@ export function publicIdentityFromPageBootstrap(raw: string, receivedAt: number,
     const payload = parsePageBootstrap(raw, {
       ...request, siteSlug: request.configuredSiteSlug?.trim() || siteSlug,
     });
-    return payload ? makePublicWikiSessionIdentity(payload.siteSlug) : null;
+    return payload ? makePublicWikiSessionIdentity(payload.siteSlug, payload.publicAccessPartition) : null;
   } catch { return null; }
 }
