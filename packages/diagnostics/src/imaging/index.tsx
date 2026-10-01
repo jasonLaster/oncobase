@@ -12,36 +12,102 @@ import {
   type DiagnosticReportLink,
   type DiagnosticStudy,
 } from "../studies/data.ts";
+import type { PathologySlide } from "../pathology/model.ts";
 
 export interface DiagnosticImagingProps {
   comparisons: DiagnosticComparisonManifest[];
   studies: DiagnosticStudy[];
+  pathologySlides?: PathologySlide[];
+  pathologyError?: boolean;
+  onRetryPathology?: () => void;
   studySet?: string | null;
+}
+
+interface ImagingEntry {
+  id: string;
+  title: string;
+  dateLabel: string;
+  isoDate: string;
+  modality: string;
+  focus: string;
+  viewerHref: string;
+  reportLinks: DiagnosticReportLink[];
+  comparisonLinks: DiagnosticReportLink[];
+  downloadHref?: string;
+}
+
+const scanDateFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+});
+
+function getScanDate(scanDate?: string) {
+  const match = scanDate?.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const isoDate = match ? `${match[3]}-${match[1].padStart(2, "0")}-${match[2].padStart(2, "0")}` : "";
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  if (isoDate && !Number.isNaN(date.getTime()) && date.toISOString().startsWith(isoDate)) {
+    return { isoDate, dateLabel: `${scanDateFormatter.format(date)} (scan)` };
+  }
+  return { isoDate: "", dateLabel: scanDate ? `${scanDate} (scan)` : "Scan date unavailable" };
+}
+
+function getPathologyHref(slideId: string, compareId?: string) {
+  const params = new URLSearchParams({ slide: slideId });
+  if (compareId) params.set("compare", compareId);
+  return `/tools/pathology-viewer?${params.toString()}`;
 }
 
 export function DiagnosticImaging({
   comparisons,
   studies,
+  pathologySlides = [],
+  pathologyError = false,
+  onRetryPathology,
   studySet = null,
 }: DiagnosticImagingProps) {
+  const entries: ImagingEntry[] = [
+    ...studies.map((study) => ({
+      ...study,
+      viewerHref: getDicomViewerHref(study.id, studySet),
+      reportLinks: study.reportLinks ?? [{ label: "Pathology report", href: study.pathologyReportHref }],
+      comparisonLinks: comparisons
+        .filter((comparison) => comparison.leftStudyId === study.id || comparison.rightStudyId === study.id)
+        .map((comparison) => ({ href: getDicomCompareHref(comparison.id, studySet), label: comparison.label })),
+    })),
+    ...pathologySlides.map((slide) => ({
+      id: slide.slideId,
+      title: `${slide.stain} slide · ${slide.accession ?? slide.label}`,
+      ...getScanDate(slide.scanDate),
+      modality: slide.stain,
+      focus: `Whole-slide microscopy${slide.objectivePower ? ` · ${slide.objectivePower}× scan` : ""}`,
+      viewerHref: getPathologyHref(slide.slideId),
+      reportLinks: [],
+      comparisonLinks: pathologySlides
+        .filter((other) => other.slideId !== slide.slideId)
+        .map((other) => ({ href: getPathologyHref(slide.slideId, other.slideId), label: other.accession ?? other.label })),
+    })),
+  ].sort((left, right) => right.isoDate.localeCompare(left.isoDate));
+
   return (
     <article className="page-shell diagnostics-imaging-page">
       <header className="diagnostics-imaging-header">
         <div>
           <h1>Imaging</h1>
-          <p>Imaging shortcuts with linked reports and source files.</p>
+          <p>Imaging and pathology slides with linked reports and source files.</p>
         </div>
-        <span className="diagnostics-count">{studies.length} studies</span>
+        <span className="diagnostics-count">{entries.length} studies</span>
       </header>
 
-      <DiagnosticStudiesTable comparisons={comparisons} studies={studies} studySet={studySet} />
+      {pathologyError ? (
+        <p className="diagnostics-load-error" role="alert">
+          H&E slides could not load. {onRetryPathology ? <button onClick={onRetryPathology} type="button">Retry</button> : null}
+        </p>
+      ) : null}
+      <DiagnosticStudiesTable studies={entries} />
       <section className="diagnostics-mobile-list" data-test-id="diagnostics-mobile-list">
-        {studies.map((study) => (
+        {entries.map((study) => (
           <DiagnosticStudyCard
-            comparisons={comparisons}
             key={study.id}
             study={study}
-            studySet={studySet}
           />
         ))}
       </section>
@@ -50,13 +116,9 @@ export function DiagnosticImaging({
 }
 
 function DiagnosticStudiesTable({
-  comparisons,
   studies,
-  studySet,
 }: {
-  comparisons: DiagnosticComparisonManifest[];
-  studies: DiagnosticStudy[];
-  studySet: string | null;
+  studies: ImagingEntry[];
 }) {
   return (
     <table className="diagnostics-imaging-table" data-test-id="diagnostics-desktop-table">
@@ -74,10 +136,8 @@ function DiagnosticStudiesTable({
       <tbody>
         {studies.map((study) => (
           <DiagnosticStudyRow
-            comparisons={comparisons}
             key={study.id}
             study={study}
-            studySet={studySet}
           />
         ))}
       </tbody>
@@ -86,22 +146,10 @@ function DiagnosticStudiesTable({
 }
 
 function DiagnosticStudyRow({
-  comparisons,
   study,
-  studySet,
 }: {
-  comparisons: DiagnosticComparisonManifest[];
-  study: DiagnosticStudy;
-  studySet: string | null;
+  study: ImagingEntry;
 }) {
-  const reportLinks = study.reportLinks ?? [
-    { label: "Pathology report", href: study.pathologyReportHref },
-  ];
-  const studyComparisons = comparisons.filter(
-    (comparison) =>
-      comparison.leftStudyId === study.id || comparison.rightStudyId === study.id,
-  );
-
   return (
     <tr>
       <th scope="row">{study.dateLabel}</th>
@@ -111,31 +159,28 @@ function DiagnosticStudyRow({
       </td>
       <td>{study.modality}</td>
       <td>
-        <DiagnosticsMenu
+        {study.reportLinks.length ? <DiagnosticsMenu
           buttonLabel="Reports"
           icon={<FileText className="size-4" />}
-          items={reportLinks}
+          items={study.reportLinks}
           menuId={`reports-${study.id}`}
-        />
+        /> : <span className="diagnostics-empty-cell">—</span>}
       </td>
       <td>
         <a
           aria-label="Images"
           className="diagnostics-icon-link"
-          href={getDicomViewerHref(study.id, studySet)}
+          href={study.viewerHref}
         >
           <ImageIcon className="size-4" />
         </a>
       </td>
       <td>
-        {studyComparisons.length ? (
+        {study.comparisonLinks.length ? (
           <DiagnosticsMenu
             buttonLabel="Comparisons"
             icon={<Columns2 className="size-4" />}
-            items={studyComparisons.map((comparison) => ({
-              href: getDicomCompareHref(comparison.id, studySet),
-              label: comparison.label,
-            }))}
+            items={study.comparisonLinks}
             menuId={`comparisons-${study.id}`}
           />
         ) : (
@@ -155,19 +200,10 @@ function DiagnosticStudyRow({
 }
 
 function DiagnosticStudyCard({
-  comparisons,
   study,
-  studySet,
 }: {
-  comparisons: DiagnosticComparisonManifest[];
-  study: DiagnosticStudy;
-  studySet: string | null;
+  study: ImagingEntry;
 }) {
-  const studyComparisons = comparisons.filter(
-    (comparison) =>
-      comparison.leftStudyId === study.id || comparison.rightStudyId === study.id,
-  );
-
   return (
     <article className="diagnostics-study-card">
       <div>
@@ -177,12 +213,12 @@ function DiagnosticStudyCard({
         </p>
       </div>
       <div className="diagnostics-study-actions">
-        <a href={getDicomViewerHref(study.id, studySet)}>
+        <a href={study.viewerHref}>
           <ImageIcon className="size-4" />
           Images
         </a>
-        {studyComparisons.map((comparison) => (
-          <a href={getDicomCompareHref(comparison.id, studySet)} key={comparison.id}>
+        {study.comparisonLinks.map((comparison) => (
+          <a href={comparison.href} key={comparison.href}>
             <Columns2 className="size-4" />
             {comparison.label}
           </a>

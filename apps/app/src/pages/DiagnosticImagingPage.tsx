@@ -1,5 +1,6 @@
 import { type DiagnosticComparisonManifest } from "@oncobase/diagnostics/dicom";
 import { DiagnosticImaging } from "@oncobase/diagnostics/imaging";
+import { type PathologySlide } from "@oncobase/diagnostics/pathology/model";
 import { type DiagnosticStudiesPayload } from "@oncobase/diagnostics/studies";
 import { useMemo } from "react";
 import { useSearchParams } from "react-router";
@@ -30,15 +31,20 @@ export function DiagnosticImagingPage() {
     fetchJson,
     { revalidateOnFocus: false },
   );
+  const { data: pathologyPayload, error: pathologyError, mutate: reloadPathology } = useSWR<{ slides: PathologySlide[] }>(
+    "/api/pathology/slides",
+    fetchJson,
+    { revalidateOnFocus: false },
+  );
 
   return (
-    <>
-    <a href="/tools/pathology-viewer" className="pathology-imaging-link">View H&E pathology slides →</a>
     <DiagnosticImaging
       comparisons={comparisonsPayload?.comparisons ?? []}
+      pathologySlides={pathologyPayload?.slides ?? []}
+      pathologyError={Boolean(pathologyError)}
+      onRetryPathology={() => void reloadPathology()}
       studies={studiesPayload?.studies ?? []}
       studySet={studySet}
     />
-    </>
   );
 }

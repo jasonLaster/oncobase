@@ -38,6 +38,12 @@
   white-space: nowrap;
 }
 
+.diagnostics-load-error {
+  margin-inline: auto;
+  max-width: 72rem;
+  width: 100%;
+}
+
 .diagnostics-imaging-table {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -212,8 +218,4 @@
   .diagnostics-mobile-list {
     display: block;
   }
-}
-.pathology-imaging-link {
-  display: block; max-width: 72rem; margin: 12px auto 0; padding: 10px 16px;
-  color: var(--accent); font-size: 13px; text-decoration: none;
 }

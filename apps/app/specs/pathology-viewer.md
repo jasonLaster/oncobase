@@ -1,7 +1,9 @@
 # Whole-slide H&E review
 
 `/tools/pathology-viewer` opens the site-scoped Convex slide collection without
-initializing the wiki's SQLite/OPFS reader. The imaging page links to it.
+initializing the wiki's SQLite/OPFS reader. Each slide appears in the imaging
+list alongside radiology studies, with source-specific Images and Comparisons
+actions. Slide dates are explicitly labeled as scan dates.
 `?slide=<id>` selects the exact immutable source; missing IDs show an error.
 `compare=<id>` opens a second independent slide. Copy View includes the primary
 slide's image-pixel center, image zoom, rotation, and saved region ID.
