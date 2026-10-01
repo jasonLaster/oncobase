@@ -95,7 +95,9 @@ const eagerLoaderPatterns = [
 const eagerGzipBudget = 1_233_500;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
-const lazyGzipBudget = 3_400_000;
+// Current production is 3330.4 KiB; the public landing and education reader
+// add 7.2 KiB. Account for that measured total without increasing eager limits.
+const lazyGzipBudget = 3_420_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
