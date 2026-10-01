@@ -6,6 +6,8 @@
   "description": "Shared diagnostics timeline and diagnostic study utilities.",
   "type": "module",
   "exports": {
+    "./pathology": "./src/pathology/index.ts",
+    "./pathology/model": "./src/pathology/model.ts",
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts",
@@ -76,6 +78,7 @@
     "@oncobase/wiki-shell": "workspace:*",
     "dicom-parser": "^1.8.21",
     "lucide-react": "^1.11.0",
+    "openseadragon": "^6.1.1",
     "swr": "^2.4.1",
     "tailwind-merge": "^3.5.0"
   },
@@ -84,6 +87,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@types/openseadragon": "^6.0.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "bun-types": "^1.3.12",

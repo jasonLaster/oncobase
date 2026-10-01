@@ -32,10 +32,13 @@ export function DiagnosticImagingPage() {
   );
 
   return (
+    <>
+    <a href="/tools/pathology-viewer" className="pathology-imaging-link">View H&E pathology slides →</a>
     <DiagnosticImaging
       comparisons={comparisonsPayload?.comparisons ?? []}
       studies={studiesPayload?.studies ?? []}
       studySet={studySet}
     />
+    </>
   );
 }

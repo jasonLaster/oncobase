@@ -4,7 +4,7 @@ import type { Plugin } from "vite";
  * preloading does not execute them or open a database. Keep standalone routes
  * light, and follow only static imports so optional features stay optional. */
 function preloadReaderModules(urls: string[]) {
-  if (["/login", "/terms-and-conditions", "/tools/dicom-viewer", "/tools/dicom-compare"].includes(location.pathname)) return;
+  if (["/login", "/terms-and-conditions", "/tools/dicom-viewer", "/tools/dicom-compare", "/tools/pathology-viewer"].includes(location.pathname)) return;
   if (!document.createElement("link").relList.supports("modulepreload")) return;
   for (const href of urls) {
     const link = document.createElement("link");

@@ -45,6 +45,9 @@ function routeDefinition(pathname: string): RouteDefinition | null {
   if (pathname === "/tools/dicom-viewer") {
     return { routeTitle: "DICOM Viewer" };
   }
+  if (pathname === "/tools/pathology-viewer") {
+    return { routeTitle: "H&E Slide Viewer" };
+  }
   if (pathname === "/tools/dicom-compare") {
     return { routeTitle: "DICOM Comparison" };
   }

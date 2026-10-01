@@ -29,7 +29,7 @@ test("repeated startup installation preserves a queued shortcut and one controll
   expect(startup.pending).toBe("pages");
 });
 
-for (const pathname of ["/login", "/terms-and-conditions", "/tools/dicom-viewer", "/tools/dicom-compare"]) {
+for (const pathname of ["/login", "/terms-and-conditions", "/tools/dicom-viewer", "/tools/dicom-compare", "/tools/pathology-viewer"]) {
   test(`${pathname} leaves browser shortcuts alone because it has no reader palette`, () => {
     window.location.pathname = pathname;
     installReaderShortcuts(createCommandPaletteChords);

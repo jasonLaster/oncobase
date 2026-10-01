@@ -1,0 +1,79 @@
+.pathology-workspace { --p-border: #d9dee7; --p-muted: #64748b; --p-accent: #2563eb; background: #f8fafc; color: #172033; height: 100dvh; display: flex; flex-direction: column; font: 13px/1.5 system-ui, sans-serif; overflow: hidden; }
+.pathology-workspace * { box-sizing: border-box; }
+.pathology-workspace button, .pathology-workspace select, .pathology-workspace input, .pathology-workspace textarea { font: inherit; }
+.pathology-workspace button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--p-border); border-radius: 5px; background: #fff; color: inherit; min-width: 34px; min-height: 34px; padding: 5px 8px; cursor: pointer; }
+.pathology-workspace button:hover:not(:disabled) { background: #eff6ff; border-color: #93b4ef; }
+.pathology-workspace button:disabled { opacity: .4; cursor: default; }
+.pathology-workspace button[aria-pressed="true"], .pathology-workspace button.is-selected { border-color: var(--p-accent); background: #eaf1ff; color: #174ea6; }
+.pathology-workspace :focus-visible { outline: 2px solid var(--p-accent); outline-offset: 2px; }
+.pathology-header { display: flex; align-items: center; gap: 20px; min-height: 66px; padding: 10px 18px; background: white; border-bottom: 1px solid var(--p-border); }
+.pathology-back { display: flex; gap: 6px; align-items: center; color: var(--p-muted); text-decoration: none; }
+.pathology-heading h1 { margin: 0; font-size: 19px; font-weight: 650; line-height: 1.2; }
+.pathology-eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--p-muted); }
+.pathology-header-actions { margin-left: auto; display: flex; gap: 7px; align-items: center; }
+.pathology-share-status { max-width: 210px; font-size: 12px; color: var(--p-muted); }
+.pathology-layout { display: grid; grid-template-columns: 226px minmax(0, 1fr) 254px; flex: 1; min-height: 0; }
+.pathology-slide-rail, .pathology-notes { padding: 14px 12px; min-width: 0; overflow-y: auto; background: white; }
+.pathology-slide-rail { border-right: 1px solid var(--p-border); }
+.pathology-notes { border-left: 1px solid var(--p-border); }
+.pathology-rail-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.pathology-rail-title h2 { font-size: 13px; font-weight: 650; margin: 0; }
+.pathology-rail-title > span { font-size: 11px; border-radius: 10px; padding: 1px 7px; background: #f1f5f9; color: var(--p-muted); }
+.pathology-workspace .pathology-slide-card { display: grid; grid-template-columns: minmax(0, 1fr) 18px; width: 100%; padding: 8px; margin-bottom: 10px; text-align: left; gap: 7px; }
+.pathology-slide-card img { grid-column: 1 / -1; width: 100%; height: 116px; object-fit: contain; background: #faf9f7; }
+.pathology-slide-card strong, .pathology-region-list strong { display: block; font-size: 12px; font-weight: 600; }
+.pathology-slide-card small { display: block; color: var(--p-muted); font-size: 11px; }
+.pathology-slide-card b { font-weight: 500; color: var(--p-muted); }
+.pathology-details, .pathology-help { border-top: 1px solid var(--p-border); margin-top: 16px; padding-top: 12px; font-size: 12px; }
+.pathology-workspace summary { cursor: pointer; font-weight: 600; }
+.pathology-details dl { margin: 12px 0; }.pathology-details dt { font-size: 10px; color: var(--p-muted); margin-top: 8px; text-transform: uppercase; }
+.pathology-details dd { margin: 0; overflow-wrap: anywhere; }.pathology-hash { font-family: monospace; font-size: 10px; }
+.pathology-details p, .pathology-help p { color: var(--p-muted); margin-bottom: 0; }
+.pathology-review { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.pathology-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 9px; background: white; border-bottom: 1px solid var(--p-border); }
+.pathology-tool-group { display: flex; align-items: center; gap: 3px; padding-right: 7px; border-right: 1px solid var(--p-border); }
+.pathology-slide-counter { color: var(--p-muted); font-size: 11px; padding: 0 2px; }
+.pathology-compare-label { display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12px; }
+.pathology-workspace select { border: 1px solid var(--p-border); border-radius: 5px; padding: 6px; max-width: 180px; background: #fff; color: #172033; }
+.pathology-tool-hint { padding: 6px 12px; background: #eaf1ff; color: #174ea6; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pathology-comparison-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 7px 10px; background: #fff; border-bottom: 1px solid var(--p-border); font-size: 11px; }.pathology-comparison-tools > span:nth-of-type(2) { color: var(--p-muted); }
+.pathology-comparison-tools label, .pathology-note-controls label { display: flex; gap: 5px; align-items: center; }
+.pathology-viewports { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; background: #e9e7e4; }
+.pathology-viewports.is-comparing { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
+.pathology-canvas { position: relative; min-height: 0; min-width: 0; overflow: hidden; background: #e9e7e4; }
+.pathology-osd, .pathology-overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pathology-overlay { pointer-events: none; z-index: 2; }.pathology-overlay.is-drawing { pointer-events: auto; cursor: crosshair; touch-action: none; }
+.pathology-view-label { position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: 10px; z-index: 3; background: #ffffffed; box-shadow: 0 1px 4px #0001; border-radius: 5px; padding: 5px 9px; font-size: 11px; pointer-events: none; }
+.pathology-view-label strong { font-weight: 600; }
+.pathology-navigator { position: absolute !important; right: 12px; bottom: 12px; width: 160px !important; height: 110px !important; z-index: 4; border-radius: 4px; box-shadow: 0 1px 5px #0002; }
+.pathology-scalebar { position: absolute; left: 14px; bottom: 14px; padding: 6px 9px; border-radius: 3px; background: #fffc; z-index: 3; font-size: 11px; text-align: center; pointer-events: none; }
+.pathology-scalebar i { display: block; height: 6px; border: solid #172033; border-width: 0 2px 2px; margin-top: 3px; }
+.pathology-canvas-status { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 12px 18px; background: #fff; border: 1px solid var(--p-border); border-radius: 6px; z-index: 5; display: flex; gap: 10px; align-items: center; }
+.pathology-canvas-error { top: 60px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 24px); font-size: 12px; }
+.pathology-compare-pane { position: relative; display: grid; min-height: 0; }.pathology-compare-pane-tools { position: absolute; right: 8px; top: 44px; z-index: 4; display: flex; gap: 3px; }
+.pathology-review-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; padding: 6px 12px; font-size: 10px; color: var(--p-muted); border-top: 1px solid var(--p-border); background: #fff; }
+.pathology-note-controls { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px; }
+.pathology-save-state { font-size: 11px; color: var(--p-muted); margin: 9px 0 14px; }
+.pathology-notes-empty { padding: 20px 5px; text-align: center; color: var(--p-muted); }.pathology-notes-empty svg { margin: auto; }.pathology-notes-empty p { max-width: 190px; margin: 10px auto; }
+.pathology-region-list { list-style: none; margin: 0; padding: 0; }.pathology-region-list li { margin-bottom: 7px; }
+.pathology-region-list button { width: 100%; justify-content: flex-start; text-align: left; padding: 8px; }.pathology-region-list small { display: block; font-size: 11px; color: var(--p-muted); max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pathology-region-number { border: 2px solid; border-radius: 50%; width: 23px; height: 23px; display: grid; place-items: center; flex-shrink: 0; font-size: 10px; }
+.pathology-region-editor { border-top: 1px solid var(--p-border); padding-top: 14px; margin-top: 14px; }
+.pathology-region-editor label { display: block; font-size: 11px; color: var(--p-muted); margin-bottom: 12px; }
+.pathology-region-editor input:not([type="color"]), .pathology-region-editor textarea { display: block; width: 100%; border: 1px solid var(--p-border); border-radius: 5px; padding: 7px; margin-top: 4px; color: #172033; background: white; }.pathology-region-editor textarea { resize: vertical; }
+.pathology-region-editor input[type="color"] { display: block; margin-top: 4px; width: 40px; height: 28px; border: 0; background: none; }
+.pathology-empty { margin: auto; text-align: center; padding: 24px; }.pathology-empty h2 { font-size: 20px; }.pathology-empty a { margin-left: 12px; }
+@media (min-width: 1800px) { .pathology-layout { grid-template-columns: 250px minmax(0, 1fr) 280px; } }
+@media (max-width: 1150px) { .pathology-layout { grid-template-columns: 185px minmax(0, 1fr) 218px; }.pathology-slide-card img { height: 96px; }.pathology-compare-label { margin-left: 0; }.pathology-toolbar { gap: 5px; }.pathology-navigator { width: 125px !important; height: 88px !important; } }
+@media (max-width: 860px) {
+  .pathology-workspace { height: auto; min-height: 100dvh; overflow: visible; }.pathology-header { position: sticky; top: 0; z-index: 10; min-height: 60px; gap: 12px; padding: 8px 12px; }
+  .pathology-layout { display: flex; flex-direction: column; }.pathology-slide-rail { border-right: 0; padding: 10px 12px; }.pathology-slide-rail > .pathology-rail-title { margin-bottom: 7px; }
+  .pathology-slide-list { display: flex; gap: 8px; overflow-x: auto; }.pathology-workspace .pathology-slide-card { display: grid; grid-template-columns: 46px minmax(0, 1fr); width: 200px; min-width: 200px; margin: 0; }.pathology-slide-card img { grid-column: auto; width: 46px; height: 46px; }.pathology-slide-card b { display: none; }
+  .pathology-details, .pathology-help { display: inline-block; margin-top: 10px; margin-right: 16px; padding: 0; border-top: 0; vertical-align: top; }.pathology-details[open], .pathology-help[open] { width: 100%; }
+  .pathology-review { min-height: 590px; }.pathology-viewports { min-height: 420px; }.pathology-review-footer { font-size: 10px; }.pathology-notes { border-left: 0; border-top: 1px solid var(--p-border); padding: 16px; }.pathology-notes-empty { padding: 10px; }
+  .pathology-workspace button { min-height: 44px; min-width: 44px; }.pathology-header-actions button { min-height: 44px; min-width: 44px; }.pathology-share-status { display: none; }
+  .pathology-share-status:not(:empty) { display: block; position: absolute; top: 62px; right: 12px; padding: 6px 10px; border: 1px solid var(--p-border); border-radius: 5px; background: #fff; box-shadow: 0 2px 8px #0001; }
+  .pathology-tool-group { flex-wrap: wrap; max-width: 100%; border-right: 0; padding-right: 0; }
+  .pathology-viewports.is-comparing { grid-template-columns: 1fr; grid-template-rows: repeat(2, 360px); }.pathology-canvas { min-height: 360px; }.pathology-region-editor { max-width: 520px; }
+}
+@media (prefers-reduced-motion: reduce) { .pathology-workspace * { scroll-behavior: auto !important; } }

@@ -113,6 +113,7 @@ import {
   isAdminSessionUser,
 } from "./epic-fhir.js";
 import { handlePublishRequest } from "./publish-api.js";
+import { handlePathologyRequest } from "./pathology-api";
 import {
   DEFAULT_SITE_DESCRIPTION,
   DIANA_SITE_NAME as SITE_NAME,
@@ -3042,6 +3043,7 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/search" ||
       pathname === "/api/timeline" ||
       pathname === "/api/diagnostic-studies" ||
+      pathname.startsWith("/api/pathology/") ||
       pathname === "/api/share-preview" ||
       pathname === "/api/dicom/file" ||
       pathname === "/api/dicom/studies" ||
@@ -3210,6 +3212,10 @@ export function createWikiApiHandler(client = createClient()) {
 
     if (pathname === "/api/diagnostic-studies") {
       return handleDiagnosticStudiesRequest(request, client, siteSlug);
+    }
+
+    if (pathname.startsWith("/api/pathology/")) {
+      return handlePathologyRequest(request, client, siteSlug);
     }
 
     if (pathname === "/api/share-preview") {

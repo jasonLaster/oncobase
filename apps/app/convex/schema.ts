@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { pathologySlideFields, pathologyRegionValidator } from "./lib/pathologyModel";
 
 // Multi-tenant migration: every tenant-owned row carries an optional
 // siteId. It is optional during the Diana backfill window — operator
@@ -12,6 +13,14 @@ import { v } from "convex/values";
 // Convex we use the Id<"sites"> for joins.
 
 export default defineSchema({
+  pathologySlides: defineTable({
+    siteId: v.id("sites"), ...pathologySlideFields,
+    createdAt: v.number(), updatedAt: v.number(), deletedAt: v.optional(v.number()),
+  }).index("by_site_slide", ["siteId", "slideId"]),
+  pathologyRegions: defineTable({
+    siteId: v.id("sites"), slideId: v.string(), sourceSha256: v.string(),
+    regions: v.array(pathologyRegionValidator), version: v.number(), updatedAt: v.number(),
+  }).index("by_site_slide", ["siteId", "slideId"]),
   publishChanges: defineTable({ siteId: v.id("sites"), runId: v.string(), kind: v.union(v.literal("document"), v.literal("asset")), key: v.string() })
     .index("by_run_kind_key", ["siteId", "runId", "kind", "key"]),
   sites: defineTable({

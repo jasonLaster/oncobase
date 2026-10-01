@@ -1,13 +1,13 @@
-import { clearStartupSnapshot } from "./bootstrap/reader-startup-cache";
+import { clearStartupSnapshot } from "./bootstrap/startup-cache-lifecycle";
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { AppStarting } from "./AppStarting";
 import { publishRuntimeEnvironment } from "./observability";
-// Start identity resolution without waiting for a lazy boundary's reveal.
-// The database and specialist routes still load dynamically.
-import { WikiViteRoot } from "./WikiViteRoot";
+// Specialist viewers do not need the reader's schema or database imports.
+// Keep that dependency graph outside their startup path.
+const WikiViteRoot = lazy(() => import("./WikiViteRoot").then(module => ({ default: module.WikiViteRoot })));
 
 // A login response supersedes previously remembered access, including a gate
 // redirect after cookie expiration. Never revive it on Back/reload.
@@ -50,6 +50,9 @@ const ImmersiveDicomRoot = lazy(() =>
     default: module.ImmersiveDicomRoot,
   })),
 );
+const PathologyViewerPage = lazy(() =>
+  import("./pages/PathologyViewerPage").then(module => ({ default: module.PathologyViewerPage })),
+);
 const LoginPage = lazy(() =>
   import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })),
 );
@@ -65,6 +68,7 @@ function RootRouteBoundary() {
   // applies to cold loads, client navigation, and browser history alike.
   if (pathname === "/login") return <LoginPage />;
   if (pathname === "/terms-and-conditions") return <TermsAndConditionsPage />;
+  if (pathname === "/tools/pathology-viewer") return <PathologyViewerPage />;
   if (pathname === "/tools/dicom-viewer" || pathname === "/tools/dicom-compare") {
     return <ImmersiveDicomRoot />;
   }

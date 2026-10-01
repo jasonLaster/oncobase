@@ -4,21 +4,18 @@ import type { InitialReaderData } from "./initial-reader-data";
 import { contentSlugFromRouteSlug, slugFromPath } from "../wiki-utils";
 import { READER_SHELL_COOKIE } from "./reader-shell-hint";
 import { gunzipSync } from "fflate";
+import { STARTUP_CACHE_EPOCH, startupCacheKey, startupPartition } from "./startup-cache-lifecycle";
+export { STARTUP_CACHE_EPOCH, startupCacheKey, startupPartition, clearStartupSnapshot } from "./startup-cache-lifecycle";
 
 export const STARTUP_CACHE_MAX_BYTES = 2 * 1024 * 1024;
 export const STARTUP_CACHE_MAX_DECODED_BYTES = 16 * 1024 * 1024;
 export const STARTUP_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
-export const STARTUP_CACHE_EPOCH = "wiki-vite:startup-epoch";
 export type StartupSnapshot = {
   version: 1; partition: string; readerVersion: string; identity: WikiSessionIdentity;
   accountTag?: string;
   validatedAt: number; manifest: WikiManifest;
   bodies: { pathname: string; fetchedAt: number; page: WikiPageRecord }[];
 };
-export function startupCacheKey(partition: string) { return `wiki-vite:startup:${WIKI_READER_CACHE_VERSION}:${partition}`; }
-export function startupPartition() {
-  return `${location.origin}|${new URL(import.meta.env.VITE_WIKI_API_ORIGIN || location.origin, location.origin).origin}`;
-}
 export function sameStartupIdentity(a: WikiSessionIdentity, b: WikiSessionIdentity) {
   return a.siteSlug === b.siteSlug && a.scope === b.scope && a.cacheKey === b.cacheKey &&
     a.cacheVersion === b.cacheVersion && a.userHash === b.userHash && a.authenticated === b.authenticated;
@@ -90,15 +87,6 @@ export function startupInitialData(snapshot: StartupSnapshot, pathname: string):
     cachedBodies, expiresAt: Math.min(snapshot.validatedAt, body?.fetchedAt ?? snapshot.validatedAt) + STARTUP_CACHE_MAX_AGE,
     page: cachedBodies[slug] ?? { ...index, content: "", expectedContentHash: index.contentHash,
       contentStatus: "fresh", fetchedAt: 0, missingAt: null, staleAt: null, deletedAt: null } };
-}
-
-export function clearStartupSnapshot() {
-  try {
-    localStorage.removeItem(startupCacheKey(startupPartition()));
-    // A generation fences pending writers in this tab and already-open tabs.
-    localStorage.setItem(STARTUP_CACHE_EPOCH, crypto.randomUUID());
-  } catch { /* Storage is optional. */ }
-  try { document.cookie = `${READER_SHELL_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`; } catch { /* Cookies can be disabled separately. */ }
 }
 
 export function writeStartupSnapshot(snapshot: StartupSnapshot, epoch: string | null, raw = JSON.stringify(snapshot)): boolean {

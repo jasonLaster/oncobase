@@ -213,3 +213,7 @@
     display: block;
   }
 }
+.pathology-imaging-link {
+  display: block; max-width: 72rem; margin: 12px auto 0; padding: 10px 16px;
+  color: var(--accent); font-size: 13px; text-decoration: none;
+}
