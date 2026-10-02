@@ -86,7 +86,7 @@ export function LoginPage() {
             : "Enter Diana’s knowledge base"}
         </button>
         <p className="lp-access-note">
-          <LockKeyhole size={11} /> A private space for your care village.
+          <LockKeyhole size={11} /> A private space for Diana’s village.
         </p>
       </form>
     </LandingPage>

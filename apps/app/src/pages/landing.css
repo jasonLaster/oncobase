@@ -88,8 +88,18 @@
   --lp-line: #dce5d8;
   background: #f0f5ee;
 }
-.landing-page :is(#platform, #features, #inside, #privacy, #story, #sign-in) {
-  scroll-margin-top: 120px;
+.landing-page
+  :is(
+    #knowledge-base,
+    #platform,
+    #features,
+    #inside,
+    #education,
+    #privacy,
+    #story,
+    #sign-in
+  ) {
+  scroll-margin-top: calc(var(--lp-header-height, 96px) + 24px);
 }
 .lp-brand {
   display: inline-flex;
@@ -353,9 +363,6 @@
   }
 }
 @media (max-width: 700px) {
-  .landing-page :is(#platform, #features, #inside, #privacy, #story, #sign-in) {
-    scroll-margin-top: 104px;
-  }
   .lp-village-texture {
     opacity: 0.16;
   }
@@ -386,10 +393,14 @@
 }
 .lp-header nav {
   display: flex;
-  gap: 32px;
-  margin-left: 26px;
+  gap: 24px;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: thin;
 }
 .lp-header nav a {
+  flex-shrink: 0;
   color: #5c685f;
   font-size: 13px;
   padding-block: 12px;
@@ -1074,12 +1085,15 @@
   margin-top: 15px;
 }
 .lp-footer {
-  border-top: 1px solid var(--lp-line);
   padding-block: 26px 35px;
   display: flex;
   align-items: center;
   gap: 30px;
   justify-content: space-between;
+}
+.lp-footer-shell {
+  background: #f7f5ef;
+  border-top: 1px solid #e5e1d8;
 }
 .lp-footer .lp-brand {
   font-size: 20px;
@@ -1113,6 +1127,29 @@
   }
 }
 @media (max-width: 900px) {
+  .lp-header {
+    height: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 14px;
+  }
+  .lp-header > :is(.lp-brand, .lp-button) {
+    margin-block: 18px;
+  }
+  .lp-header nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding-block: 4px;
+  }
+  .lp-header nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding-block: 0;
+  }
+  .lp-header nav a:focus-visible {
+    outline-offset: -2px;
+  }
   .lp-container {
     width: calc(100% - 48px);
   }
@@ -1155,11 +1192,7 @@
     width: calc(100% - 40px);
   }
   .lp-header {
-    height: 80px;
-    gap: 14px;
-  }
-  .lp-header nav {
-    display: none;
+    height: auto;
   }
   .lp-brand {
     font-size: 23px;
@@ -1382,8 +1415,10 @@
     max-width: 420px;
   }
   .lp-footer {
-    flex-wrap: wrap;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: start;
+    gap: 14px;
     padding-block: 25px;
   }
   .lp-footer > span {
@@ -1391,7 +1426,7 @@
     width: 100%;
   }
   .lp-footer > a:last-child {
-    margin-left: auto;
+    margin-left: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -484,7 +484,7 @@ export function SiteShowcase() {
           </span>
         </article>
       </div>
-      <div className="lp-learning-gallery">
+      <div className="lp-learning-gallery" id="education">
         <div className="lp-learning-intro">
           <p className="lp-eyebrow">LEARN WITH THE WIKI</p>
           <h3>

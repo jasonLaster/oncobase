@@ -16,6 +16,16 @@ for (const width of [320, 393, 700, 701, 900, 901, 1440, 1920]) {
         level: 1,
       }),
     ).toBeVisible();
+    const navigation = page.getByRole("navigation", {
+      name: "Main navigation",
+    });
+    await expect(navigation).toBeVisible();
+    await expect(navigation.getByRole("link")).toHaveCount(5);
+    if (width <= 900) {
+      for (const link of await navigation.getByRole("link").all()) {
+        expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      }
+    }
     expect(
       await page.locator("#landing-title").evaluate((element) => {
         const lineHeight = parseFloat(getComputedStyle(element).lineHeight);
@@ -144,11 +154,12 @@ for (const width of [393, 1440]) {
       ),
     ).not.toBe(dianaColor);
 
-    if (width === 1440) {
+    {
       await page.getByRole("link", { name: "Our story", exact: true }).click();
       await expect
         .poll(async () => (await page.locator("#story-title").boundingBox())!.y)
         .toBeGreaterThanOrEqual((await header.boundingBox())!.height + 20);
+      await expect(header).toHaveAttribute("data-tone", "diana");
     }
     await header.getByRole("link", { name: "Sign in", exact: true }).click();
     const password = page.getByLabel("Password", { exact: true });
@@ -157,13 +168,62 @@ for (const width of [393, 1440]) {
       (await header.boundingBox())!.height,
     );
     expect(Math.abs((await header.boundingBox())!.y)).toBeLessThan(1);
-    await expect(header).toHaveAttribute("data-tone", "oncobase");
+    await expect(header).toHaveAttribute("data-tone", "diana");
 
     await page.evaluate(() => window.scrollTo(0, 0));
     await expect(header).toHaveAttribute("data-tone", "diana");
     expect(Math.abs((await header.boundingBox())!.y)).toBeLessThan(1);
   });
 }
+
+test("mobile section navigation scrolls horizontally and reaches education and the story", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/login");
+  const navigation = page.getByRole("navigation", { name: "Main navigation" });
+  expect(
+    await navigation.evaluate(
+      (element) => element.scrollWidth > element.clientWidth,
+    ),
+  ).toBe(true);
+  await navigation
+    .getByRole("link", { name: "Our story", exact: true })
+    .focus();
+  expect(
+    await navigation.evaluate((element) => element.scrollLeft),
+  ).toBeGreaterThan(0);
+  await navigation
+    .getByRole("link", { name: "Education", exact: true })
+    .focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".lp-learning-intro h3")).toBeInViewport();
+  await expect(page.locator(".lp-header-shell")).toHaveAttribute(
+    "data-tone",
+    "oncobase",
+  );
+  await navigation
+    .getByRole("link", { name: "Our story", exact: true })
+    .focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#story-title")).toBeInViewport();
+  await expect(page.locator(".lp-header-shell")).toHaveAttribute(
+    "data-tone",
+    "diana",
+  );
+  await page.evaluate(() =>
+    window.scrollTo(0, document.documentElement.scrollHeight),
+  );
+  await expect(page.locator("footer")).toBeInViewport();
+  await expect(page.locator(".lp-header-shell")).toHaveAttribute(
+    "data-tone",
+    "diana",
+  );
+  await expect(
+    page.getByText("A private space for Diana’s village.", { exact: true }),
+  ).toBeVisible();
+});
 
 test("sign-in reports connection and server failures and allows a retry", async ({
   page,

@@ -170,7 +170,7 @@ function PlatformPreview() {
     tabs.current[next]?.focus();
   }
   return (
-    <div className="lp-preview-wrap">
+    <div className="lp-preview-wrap" id="knowledge-base">
       <div className="lp-preview" data-test-id="platform-preview">
         <div className="lp-window-bar">
           <div className="lp-window-dots" aria-hidden="true">
@@ -309,30 +309,39 @@ function VillageTexture() {
 
 export function LandingPage({ children }: { children: ReactNode }) {
   const header = useRef<HTMLElement>(null);
-  const intro = useRef<HTMLDivElement>(null);
+  const platform = useRef<HTMLDivElement>(null);
   const [platformTheme, setPlatformTheme] = useState(false);
 
   useEffect(() => {
     const headerElement = header.current;
-    const introElement = intro.current;
-    if (!headerElement || !introElement) return;
+    const platformElement = platform.current;
+    if (!headerElement || !platformElement) return;
     let observer: IntersectionObserver;
     function observeBoundary() {
       observer?.disconnect();
       const headerHeight = headerElement!.getBoundingClientRect().height;
-      observer = new IntersectionObserver(
-        ([entry]) =>
-          setPlatformTheme(entry.boundingClientRect.bottom <= headerHeight),
-        { rootMargin: `-${headerHeight}px 0px 0px 0px` },
+      headerElement!.parentElement?.style.setProperty(
+        "--lp-header-height",
+        `${headerHeight}px`,
       );
-      observer.observe(introElement!);
+      // Follow the section below the same 24px clearance used by anchor links.
+      const readingEdge = headerHeight + 25;
+      observer = new IntersectionObserver(
+        ([entry]) => setPlatformTheme(entry.isIntersecting),
+        {
+          rootMargin: `-${readingEdge}px 0px -${Math.max(0, window.innerHeight - readingEdge - 1)}px 0px`,
+        },
+      );
+      observer.observe(platformElement!);
     }
     observeBoundary();
     const resize = new ResizeObserver(observeBoundary);
     resize.observe(headerElement);
+    window.addEventListener("resize", observeBoundary);
     return () => {
       observer.disconnect();
       resize.disconnect();
+      window.removeEventListener("resize", observeBoundary);
     };
   }, []);
 
@@ -351,9 +360,10 @@ export function LandingPage({ children }: { children: ReactNode }) {
             <DianaBrand />
           </a>
           <nav aria-label="Main navigation">
+            <a href="#knowledge-base">Knowledge base</a>
             <a href="#platform">Oncobase</a>
-            <a href="#inside">See it in action</a>
-            <a href="/wiki/education/index">Learn</a>
+            <a href="#features">Features</a>
+            <a href="#education">Education</a>
             <a href="#story">Our story</a>
           </nav>
           <a className="lp-button lp-button-small" href="#sign-in">
@@ -362,7 +372,7 @@ export function LandingPage({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main id="landing-main">
-        <div ref={intro} className="lp-diana-intro lp-diana-theme">
+        <div className="lp-diana-intro lp-diana-theme">
           <VillageTexture />
           <section
             className="lp-hero lp-container"
@@ -376,21 +386,22 @@ export function LandingPage({ children }: { children: ReactNode }) {
               It Takes <span>a Village.</span>
             </h1>
             <p className="lp-hero-description">
-              Diana’s care is a team effort. This is where we keep her records,
-              compare research, and prepare for the next conversation.
+              OncoBase helps keep her records, review diagnostics, analyze
+              research, educate themselves, perform regular analysis, and prepare
+              for publication.
             </p>
             <div className="lp-hero-actions">
               <a className="lp-button" href="#sign-in">
                 Enter Diana’s knowledge base <ArrowRight size={16} />
               </a>
               <a className="lp-text-link" href="/wiki/education/index">
-                Browse the free curriculum <ArrowRight size={16} />
+                Browse Educational Content <ArrowRight size={16} />
               </a>
             </div>
             <PlatformPreview />
           </section>
         </div>
-        <div className="lp-platform-world">
+        <div ref={platform} className="lp-platform-world">
           <section
             className="lp-platform-intro lp-container"
             id="platform"
@@ -576,24 +587,26 @@ export function LandingPage({ children }: { children: ReactNode }) {
           {children}
         </section>
       </main>
-      <footer className="lp-footer lp-container lp-diana-theme">
-        <a className="lp-brand" href="/login" aria-label="Diana TNBC home">
-          <DianaBrand />
-        </a>
-        <div className="lp-footer-platform">
-          <span>Powered by</span>
-          <a
-            href="https://github.com/jasonLaster/oncobase"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Oncobase on GitHub"
-          >
-            <OncobaseBrand />
+      <footer className="lp-footer-shell">
+        <div className="lp-footer lp-container lp-diana-theme">
+          <a className="lp-brand" href="/login" aria-label="Diana TNBC home">
+            <DianaBrand />
+          </a>
+          <div className="lp-footer-platform">
+            <span>Powered by</span>
+            <a
+              href="https://github.com/jasonLaster/oncobase"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Oncobase on GitHub"
+            >
+              <OncobaseBrand />
+            </a>
+          </div>
+          <a href="/terms-and-conditions">
+            Terms & conditions <ArrowRight size={13} />
           </a>
         </div>
-        <a href="/terms-and-conditions">
-          Terms & conditions <ArrowRight size={13} />
-        </a>
       </footer>
     </div>
   );

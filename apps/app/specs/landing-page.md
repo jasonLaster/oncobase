@@ -4,7 +4,7 @@
 
 The hero's curated contents retain the Diana TNBC name. The platform's contents example uses Oncobase branding and identifies Diana TNBC as the source of the sample content. Actual site screenshots and source links preserve their provenance.
 
-The headline is “It Takes a Village.” It stays on one line, with type scaled to fit mobile widths. Static curved lines and a soft plum wash give the hero background texture without moving or covering controls. The full-width header stays at the top of the viewport and changes from plum to green when the end of the Diana introduction passes beneath it. It returns to plum when scrolling back up. Anchor targets clear the header at desktop and mobile sizes, and color transitions respect reduced motion.
+The headline is “It Takes a Village.” It stays on one line, with type scaled to fit mobile widths. Static curved lines and a soft plum wash give the hero background texture without moving or covering controls. The full-width header stays at the top of the viewport. Knowledge base, Oncobase, Features, Education, and Our story remain available at every width; narrower layouts place the links in a horizontally scrollable second row. The header changes from plum to green over the Oncobase section, then returns to plum over the story, sign-in, and footer. Anchor clearance follows the measured header height, and color transitions respect reduced motion. The login note reads “A private space for Diana’s village.” The full-width footer uses warm ivory so the purple Diana and green Oncobase marks remain distinct.
 
 The shared-password form and redirect behavior are unchanged. The landing page does not load wiki documents, clinical APIs, or permission records for an anonymous visitor.
 
@@ -34,4 +34,4 @@ The described capabilities follow `packages/wiki-content/src/pii.ts` and `apps/a
 
 ## Verification
 
-`e2e/landing-page.spec.ts` covers responsive layouts, keyboard tabs, sign-in navigation and retry errors, source links, image loading, PII demo behavior, and example role visibility. Sticky-header checks cover desktop and mobile visibility, the purple-to-green change, scrolling back to the top, and clearance above anchor targets. Local audit captures are kept under the ignored `.playwright/landing-enriched` and `.playwright/village` directories.
+`e2e/landing-page.spec.ts` covers responsive layouts, keyboard tabs, sign-in navigation and retry errors, source links, image loading, PII demo behavior, and example role visibility. Sticky-header checks cover desktop and mobile visibility, purple-to-green-to-purple transitions, scrolling back to the top, and clearance above anchor targets. Mobile navigation checks cover horizontal scrolling and keyboard access to education and the story. Local audit captures are kept under the ignored `.playwright/landing-enriched`, `.playwright/village`, and `.playwright/header-detail` directories.
