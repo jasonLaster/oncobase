@@ -430,7 +430,7 @@ test("dark Oncobase feature examples use green throughout", async ({
     "color",
     "rgb(176, 203, 164)",
   );
-  await expect(page.locator(".lp-candidate-row > span").first()).toHaveCSS(
+  await expect(page.locator(".lp-feature-card.lp-tone-analysis .lp-candidate-row > span").first()).toHaveCSS(
     "color",
     "rgb(176, 203, 164)",
   );
