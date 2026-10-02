@@ -4,6 +4,8 @@
 
 The hero's curated contents retain the Diana TNBC name. The platform's contents example uses Oncobase branding and identifies Diana TNBC as the source of the sample content. Actual site screenshots and source links preserve their provenance.
 
+The headline is “It Takes a Village.” It stays on one line, with type scaled to fit mobile widths. Static curved lines and a soft plum wash give the hero background texture without moving or covering controls. The full-width header stays at the top of the viewport and changes from plum to green when the end of the Diana introduction passes beneath it. It returns to plum when scrolling back up. Anchor targets clear the header at desktop and mobile sizes, and color transitions respect reduced motion.
+
 The shared-password form and redirect behavior are unchanged. The landing page does not load wiki documents, clinical APIs, or permission records for an anonymous visitor.
 
 ## Diana content snapshot
@@ -32,4 +34,4 @@ The described capabilities follow `packages/wiki-content/src/pii.ts` and `apps/a
 
 ## Verification
 
-`e2e/landing-page.spec.ts` covers responsive layouts, keyboard tabs, unchanged sign-in navigation and retry errors, source links, image loading, PII demo behavior, and example role visibility. Local audit captures are kept under the ignored `.playwright/landing-enriched` directory.
+`e2e/landing-page.spec.ts` covers responsive layouts, keyboard tabs, sign-in navigation and retry errors, source links, image loading, PII demo behavior, and example role visibility. Sticky-header checks cover desktop and mobile visibility, the purple-to-green change, scrolling back to the top, and clearance above anchor targets. Local audit captures are kept under the ignored `.playwright/landing-enriched` and `.playwright/village` directories.

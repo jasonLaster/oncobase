@@ -12,10 +12,19 @@ for (const width of [320, 393, 700, 701, 900, 901, 1440, 1920]) {
     await page.goto("/login");
     await expect(
       page.getByRole("heading", {
-        name: "For Diana. With all of us.",
+        name: "It Takes a Village.",
         level: 1,
       }),
     ).toBeVisible();
+    expect(
+      await page.locator("#landing-title").evaluate((element) => {
+        const lineHeight = parseFloat(getComputedStyle(element).lineHeight);
+        return (
+          element.getBoundingClientRect().height <= lineHeight + 1 &&
+          element.scrollWidth <= element.clientWidth
+        );
+      }),
+    ).toBe(true);
     const preview = page.getByTestId("platform-preview");
     const box = await preview.boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(0);
@@ -102,6 +111,59 @@ test("landing navigation reaches features, story, and sign-in", async ({
   await page.getByRole("link", { name: "Sign in", exact: true }).click();
   await expect(page.getByLabel("Password", { exact: true })).toBeInViewport();
 });
+
+for (const width of [393, 1440]) {
+  test(`header stays visible and follows the platform color at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: width === 393 ? 852 : 1000 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/login");
+    const header = page.locator(".lp-header-shell");
+    await expect(header).toHaveAttribute("data-tone", "diana");
+    const dianaColor = await header.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    );
+
+    await page.evaluate(() => {
+      const platform = document.querySelector("#platform")!;
+      const header = document.querySelector(".lp-header-shell")!;
+      window.scrollTo(
+        0,
+        platform.getBoundingClientRect().top +
+          scrollY -
+          header.getBoundingClientRect().height +
+          2,
+      );
+    });
+    await expect(header).toHaveAttribute("data-tone", "oncobase");
+    expect(Math.abs((await header.boundingBox())!.y)).toBeLessThan(1);
+    expect(
+      await header.evaluate(
+        (element) => getComputedStyle(element).backgroundColor,
+      ),
+    ).not.toBe(dianaColor);
+
+    if (width === 1440) {
+      await page.getByRole("link", { name: "Our story", exact: true }).click();
+      await expect
+        .poll(async () => (await page.locator("#story-title").boundingBox())!.y)
+        .toBeGreaterThanOrEqual((await header.boundingBox())!.height + 20);
+    }
+    await header.getByRole("link", { name: "Sign in", exact: true }).click();
+    const password = page.getByLabel("Password", { exact: true });
+    await expect(password).toBeInViewport();
+    expect((await password.boundingBox())!.y).toBeGreaterThanOrEqual(
+      (await header.boundingBox())!.height,
+    );
+    expect(Math.abs((await header.boundingBox())!.y)).toBeLessThan(1);
+    await expect(header).toHaveAttribute("data-tone", "oncobase");
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(header).toHaveAttribute("data-tone", "diana");
+    expect(Math.abs((await header.boundingBox())!.y)).toBeLessThan(1);
+  });
+}
 
 test("sign-in reports connection and server failures and allows a retry", async ({
   page,
@@ -197,7 +259,7 @@ test("PII example changes inline details while preserving surrounding context", 
   ).toBeVisible();
   await expect(
     panel.getByText(
-      "The next conversation will focus on the report’s evidence, limitations, and open questions.",
+      "For the next call: review the report and make a list of questions for the care team.",
     ),
   ).toBeVisible();
   await toggle.click();

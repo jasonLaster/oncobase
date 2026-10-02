@@ -65,6 +65,32 @@
   justify-content: space-between;
   gap: 28px;
 }
+.lp-header-shell {
+  --lp-ink: #422c3e;
+  --lp-muted: #735e6e;
+  --lp-green: #805274;
+  --lp-line: #e7dce3;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  color: var(--lp-ink);
+  background: #f7eff5;
+  border-bottom: 1px solid var(--lp-line);
+  transition:
+    background-color 240ms ease,
+    color 240ms ease,
+    border-color 240ms ease;
+}
+.lp-header-shell[data-tone="oncobase"] {
+  --lp-ink: #22362d;
+  --lp-muted: #596857;
+  --lp-green: #356647;
+  --lp-line: #dce5d8;
+  background: #f0f5ee;
+}
+.landing-page :is(#platform, #features, #inside, #privacy, #story, #sign-in) {
+  scroll-margin-top: 120px;
+}
 .lp-brand {
   display: inline-flex;
   align-items: center;
@@ -95,7 +121,7 @@
   --lp-paper: #fdf9fb;
   color: var(--lp-ink);
 }
-.lp-header.lp-diana-theme nav a {
+.lp-header-shell .lp-header nav a {
   color: var(--lp-muted);
 }
 .lp-diana-wordmark {
@@ -112,8 +138,40 @@
   color: var(--lp-muted);
 }
 .lp-diana-intro {
+  position: relative;
+  isolation: isolate;
   padding-bottom: 48px;
-  background: var(--lp-paper);
+  background:
+    radial-gradient(ellipse at 0% 20%, #ead9e780, transparent 55%),
+    radial-gradient(ellipse at 100% 45%, #eee0ee80, transparent 50%),
+    var(--lp-paper);
+}
+.lp-diana-intro > .lp-hero {
+  position: relative;
+  z-index: 1;
+}
+.lp-village-texture {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  pointer-events: none;
+  color: #805274;
+  opacity: 0.19;
+  mask-image: linear-gradient(to bottom, #000 65%, transparent);
+}
+.lp-flutes {
+  position: absolute;
+  width: min(52vw, 750px);
+  height: auto;
+  top: -90px;
+}
+.lp-flutes-left {
+  left: -150px;
+}
+.lp-flutes-right {
+  right: -140px;
+  top: -20px;
+  transform: rotate(180deg);
 }
 .lp-diana-theme .lp-status-dot {
   background: var(--lp-green);
@@ -295,6 +353,21 @@
   }
 }
 @media (max-width: 700px) {
+  .landing-page :is(#platform, #features, #inside, #privacy, #story, #sign-in) {
+    scroll-margin-top: 104px;
+  }
+  .lp-village-texture {
+    opacity: 0.16;
+  }
+  .lp-flutes {
+    width: 390px;
+  }
+  .lp-flutes-left {
+    left: -235px;
+  }
+  .lp-flutes-right {
+    right: -240px;
+  }
   .lp-platform-intro {
     grid-template-columns: 1fr;
     gap: 28px;
@@ -378,6 +451,7 @@
   flex-shrink: 0;
 }
 .landing-page .lp-hero h1 {
+  white-space: nowrap;
   margin-top: 22px;
   font-size: clamp(44px, 5.6vw, 76px);
   line-height: 1.06;
@@ -1099,8 +1173,8 @@
     padding-top: 35px;
   }
   .landing-page .lp-hero h1 {
-    font-size: clamp(40px, 10.6vw, 66px);
-    letter-spacing: -2.3px;
+    font-size: clamp(26px, 7.5vw, 52px);
+    letter-spacing: -0.04em;
     margin-top: 20px;
   }
   .landing-page .lp-hero-description {

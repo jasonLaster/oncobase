@@ -107,7 +107,7 @@ export function WikiContentsVisual({
       </div>
       <div className="lp-snapshot-foot">
         <BookOpen size={12} />
-        <span>Care, science, and original sources. Connected.</span>
+        <span>Reports, research, and links to the originals.</span>
         <SourceLink path="/wiki/index">Open wiki</SourceLink>
       </div>
     </div>
@@ -152,13 +152,14 @@ export function RedactionVisual() {
         </p>
         <div className="lp-redaction-divider" />
         <p>
-          The next conversation will focus on the report’s evidence,
-          limitations, and open questions.
+          For the next call: review the report and make a list of questions for
+          the care team.
         </p>
       </div>
       <p className="lp-demo-explanation">
         <LockKeyhole size={13} />
-        Hide sensitive details inline. Keep the surrounding context readable.
+        Hide names and contact details while keeping the rest of the note
+        readable.
       </p>
       <span className="lp-demo-disclaimer">
         Interactive example · fictional personal information
@@ -204,14 +205,14 @@ const exampleRoles = [
     initials: "RP",
     access: [false, true, true, false],
     description:
-      "Research and learning guides, with clinical records outside this example role’s scope.",
+      "Can read research and learning guides. Clinical records stay hidden in this example.",
   },
   {
     name: "Friends & family",
     initials: "FF",
     access: [false, false, true, true],
     description:
-      "Learning guides and shared updates, with detailed records kept private.",
+      "Can read learning guides and shared updates. Detailed records stay private.",
   },
 ];
 
@@ -226,17 +227,17 @@ export function PrivacyShowcase() {
     >
       <div className="lp-section-heading">
         <div>
-          <p className="lp-eyebrow">SHARE WITH INTENTION</p>
+          <p className="lp-eyebrow">PII REDACTION & PAGE PERMISSIONS</p>
           <h2 id="privacy-title">
-            One village.
+            Choose what
             <br />
-            Different windows into the wiki.
+            each person can see.
           </h2>
         </div>
         <p>
-          Choose which pages each role can view. Redact personal information
-          within a page, so sharing useful context doesn’t require sharing every
-          detail.
+          A research partner may need the papers. Family may want updates. User
+          roles control which pages they can open, and inline PII redaction
+          hides sensitive details within those pages.
         </p>
       </div>
       <div className="lp-privacy-grid">
@@ -245,14 +246,14 @@ export function PrivacyShowcase() {
             <ShieldCheck size={24} />
           </span>
           <h3>
-            Privacy at the page.
+            Share a page.
             <br />
-            And within the sentence.
+            Keep personal details private.
           </h3>
           <p>
-            Assign users roles, then include or exclude pages by path or tag.
-            Inline redaction and site PII patterns replace sensitive names,
-            emails, or identifiers with readable fallbacks.
+            Assign a role to each user and choose its allowed pages by path or
+            tag. PII redaction can replace a name, email, or identifier with a
+            label such as “[patient name]” inside the text.
           </p>
           <ul>
             <li>
@@ -273,7 +274,7 @@ export function PrivacyShowcase() {
             </li>
           </ul>
           <span className="lp-privacy-note">
-            Page permissions and PII redaction work together.
+            Control access to the page and the details inside it.
           </span>
         </article>
         <div className="lp-role-demo">
@@ -358,28 +359,28 @@ export function SiteShowcase() {
         <div>
           <p className="lp-eyebrow">ONCOBASE IN PRACTICE</p>
           <h2 id="inside-title">
-            Real pages.
-            <br />A richer picture.
+            A look inside
+            <br />
+            Diana’s knowledge base.
           </h2>
         </div>
         <p>
-          See Oncobase in use: illustrated content, a diagnostics timeline, and
-          imaging tools. These views come from Diana TNBC, the knowledge base
-          the platform powers.
+          These are screenshots from Diana TNBC: a learning guide, the
+          diagnostics timeline, and the imaging viewer, all running on Oncobase.
         </p>
       </div>
       <article className="lp-reader-showcase">
         <div className="lp-showcase-copy">
           <p className="lp-feature-eyebrow">THE WEB VIEWER</p>
           <h3>
-            Deep reading.
+            At your desk.
             <br />
-            Everywhere.
+            Or on your phone.
           </h3>
           <p>
-            Linked pages, rich tables, cartoons, an outline, search, comments,
-            and chat. Built for a care team on a laptop and a family member on a
-            phone.
+            Read a guide, follow its sources, or leave a comment for the next
+            person. The same pages work on a laptop and a phone, with search, an
+            outline, and chat close at hand.
           </p>
           <SourceLink path="/wiki/education/reading-a-tumor/index">
             Reading a tumor report
@@ -422,10 +423,10 @@ export function SiteShowcase() {
         <article className="lp-site-card">
           <div className="lp-site-card-copy">
             <p className="lp-feature-eyebrow">DIAGNOSTICS OVER TIME</p>
-            <h3>A timeline you can return to.</h3>
+            <h3>Follow the results over time.</h3>
             <p>
-              See measurements across dates, keep assays and units in context,
-              and trace a result back to its source.
+              Compare dated measurements, check which assay and units were used,
+              and open the report behind a result.
             </p>
             <SourceLink path="/diagnostics">
               Open diagnostics timeline
@@ -452,11 +453,11 @@ export function SiteShowcase() {
         <article className="lp-site-card">
           <div className="lp-site-card-copy">
             <p className="lp-feature-eyebrow">RADIOLOGY & PATHOLOGY</p>
-            <h3>Go beyond the written report.</h3>
+            <h3>Read the report. Open the scan.</h3>
             <p>
-              Open DICOM studies, navigate imaging series, and compare scans.
-              Dedicated pathology viewers bring tissue images into the same
-              workspace.
+              Open DICOM studies, move through a series, and compare scans. Use
+              the pathology viewer to examine tissue images alongside the rest
+              of the record.
             </p>
             <SourceLink path="/diagnostics/imaging">
               Explore imaging studies
@@ -487,12 +488,13 @@ export function SiteShowcase() {
         <div className="lp-learning-intro">
           <p className="lp-eyebrow">LEARN WITH THE WIKI</p>
           <h3>
-            A cartoon can open
-            <br />a whole new conversation.
+            What does that term mean?
+            <br />
+            Start with a cartoon.
           </h3>
           <p>
-            Open to everyone, without a password. Follow a course, look up a
-            concept, and learn through illustrated explanations.
+            These are the guides we’ve been learning from. Pick a topic or
+            follow a course. Anyone can read them, without a password.
           </p>
           <SourceLink path="/wiki/education/index">
             Browse the curriculum

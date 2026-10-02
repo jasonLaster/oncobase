@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useId,
   useRef,
   useState,
@@ -37,9 +38,9 @@ const features = [
     label: "Knowledge",
     icon: BookOpen,
     eyebrow: "01 / THE KNOWLEDGE BASE",
-    title: "Everything you know. Connected.",
+    title: "Every report, paper, and conversation.",
     description:
-      "A Karpathy-inspired knowledge base that brings diagnostics, call transcripts, emails, published papers, and clinical trials into one searchable home.",
+      "Keep diagnostics, call transcripts, emails, papers, and clinical trials in one searchable wiki, with links back to the original sources.",
     tags: ["Linked sources", "Rich search", "Clinical trials"],
   },
   {
@@ -47,9 +48,9 @@ const features = [
     label: "Collaboration",
     icon: Users,
     eyebrow: "02 / THE CARE VILLAGE",
-    title: "A shared picture. A stronger village.",
+    title: "Read the same page. Leave a note.",
     description:
-      "A Notion-style viewer for the people thinking alongside you. Search, comment, and chat. Redact PII inline, assign users roles, and choose which pages each role can view.",
+      "Give the people helping with care a place to search, comment, and chat. Redact sensitive details inline, assign users roles, and choose which pages each role can view.",
     tags: ["Inline PII redaction", "User roles", "Page permissions"],
   },
   {
@@ -57,9 +58,9 @@ const features = [
     label: "Molecular analysis",
     icon: Dna,
     eyebrow: "03 / THE COMPUTATIONAL BIOLOGY",
-    title: "From molecular data to new questions.",
+    title: "Analyze sequencing and proteomics.",
     description:
-      "A co-developed computational biology pipeline for bulk WES/WGS, proteomics, and single-cell RNA sequencing. Built on Modal and S3 to surface drug candidates for further investigation.",
+      "Oncoomics is our companion pipeline for analyzing WES/WGS, proteomics, and single-cell RNA sequencing. It runs on Modal and S3 to identify drug candidates for further investigation.",
     tags: ["WES / WGS", "Proteomics", "scRNA-seq"],
   },
   {
@@ -67,9 +68,9 @@ const features = [
     label: "Education",
     icon: Sparkles,
     eyebrow: "04 / THE LEARNING PLATFORM",
-    title: "Complex science. A clearer way in.",
+    title: "Learn the science before the next call.",
     description:
-      "Curriculum and cartoons that make the science approachable, from immunotherapy and personalized mRNA vaccines to protein folding and targeted chemotherapy.",
+      "Work through the guides and cartoons we’ve used to learn about immunotherapy, personalized mRNA vaccines, protein folding, and targeted chemotherapy. The curriculum is free to read.",
     tags: ["Guided curriculum", "Visual explanations", "Learn at your pace"],
   },
 ] as const;
@@ -221,7 +222,7 @@ function PlatformPreview() {
               <span className="lp-avatar">Y</span>
               <div>
                 <strong>Your care village</strong>
-                <span>Connected by a common purpose</span>
+                <span>Family, clinicians, and researchers</span>
               </div>
               <Heart size={15} />
             </div>
@@ -255,54 +256,114 @@ function PlatformPreview() {
                   <h2>{feature.label}</h2>
                   <p>
                     {feature.id === "knowledge"
-                      ? "A real table of contents. A connected body of knowledge."
+                      ? "Reports, research, and the questions we’re working through."
                       : feature.id === "collaboration"
-                        ? "Think together, with the full context."
+                        ? "Notes and conversations alongside the source."
                         : feature.id === "analysis"
-                          ? "Explore the molecular picture."
-                          : "Build understanding, one idea at a time."}
+                          ? "From sequencing data to candidates for review."
+                          : "The guides and cartoons we learn from."}
                   </p>
                 </div>
               </div>
               <FeatureVisual id={feature.id} />
               <div className="lp-preview-footer">
-                <ShieldCheck size={13} /> Thoughtful access. Shared
-                understanding.<span>Built around the person.</span>
+                <ShieldCheck size={13} /> Page permissions and inline PII
+                redaction.<span>Powered by Oncobase.</span>
               </div>
             </div>
           ))}
         </div>
       </div>
       <div className="lp-preview-note">
-        <span className="lp-note-line" /> Diana’s care village. One shared home.
+        <span className="lp-note-line" /> Inside Diana’s knowledge base.
         <span className="lp-note-line" />
       </div>
     </div>
   );
 }
 
+function VillageTexture() {
+  return (
+    <div className="lp-village-texture" aria-hidden="true">
+      {["left", "right"].map((side) => (
+        <svg
+          key={side}
+          className={`lp-flutes lp-flutes-${side}`}
+          viewBox="0 0 640 900"
+          fill="none"
+        >
+          {Array.from({ length: 22 }, (_, index) => (
+            <path
+              key={index}
+              d="M -180 880 C 350 1010 460 620 190 515 C -150 385 -40 160 220 110 C 450 65 490 -130 300 -220"
+              transform={`translate(${index * 16 - 160} ${index * 6})`}
+              stroke="currentColor"
+              strokeWidth="1"
+            />
+          ))}
+        </svg>
+      ))}
+    </div>
+  );
+}
+
 export function LandingPage({ children }: { children: ReactNode }) {
+  const header = useRef<HTMLElement>(null);
+  const intro = useRef<HTMLDivElement>(null);
+  const [platformTheme, setPlatformTheme] = useState(false);
+
+  useEffect(() => {
+    const headerElement = header.current;
+    const introElement = intro.current;
+    if (!headerElement || !introElement) return;
+    let observer: IntersectionObserver;
+    function observeBoundary() {
+      observer?.disconnect();
+      const headerHeight = headerElement!.getBoundingClientRect().height;
+      observer = new IntersectionObserver(
+        ([entry]) =>
+          setPlatformTheme(entry.boundingClientRect.bottom <= headerHeight),
+        { rootMargin: `-${headerHeight}px 0px 0px 0px` },
+      );
+      observer.observe(introElement!);
+    }
+    observeBoundary();
+    const resize = new ResizeObserver(observeBoundary);
+    resize.observe(headerElement);
+    return () => {
+      observer.disconnect();
+      resize.disconnect();
+    };
+  }, []);
+
   return (
     <div className="landing-page" data-test-id="login-page">
       <a className="lp-skip-link" href="#platform">
         Skip to platform features
       </a>
-      <header className="lp-header lp-container lp-diana-theme">
-        <a className="lp-brand" href="/login" aria-label="Diana TNBC home">
-          <DianaBrand />
-        </a>
-        <nav aria-label="Main navigation">
-          <a href="#platform">Oncobase</a>
-          <a href="#inside">See it in action</a>
-          <a href="/wiki/education/index">Learn</a>
-          <a href="#story">Our story</a>
-        </nav>
-        <a className="lp-button lp-button-small" href="#sign-in">
-          Sign in <ArrowRight size={15} />
-        </a>
+      <header
+        ref={header}
+        className="lp-header-shell"
+        data-tone={platformTheme ? "oncobase" : "diana"}
+      >
+        <div className="lp-header lp-container">
+          <a className="lp-brand" href="/login" aria-label="Diana TNBC home">
+            <DianaBrand />
+          </a>
+          <nav aria-label="Main navigation">
+            <a href="#platform">Oncobase</a>
+            <a href="#inside">See it in action</a>
+            <a href="/wiki/education/index">Learn</a>
+            <a href="#story">Our story</a>
+          </nav>
+          <a className="lp-button lp-button-small" href="#sign-in">
+            Sign in <ArrowRight size={15} />
+          </a>
+        </div>
       </header>
       <main id="landing-main">
-        <div className="lp-diana-intro lp-diana-theme">
+        <div ref={intro} className="lp-diana-intro lp-diana-theme">
+          <VillageTexture />
           <section
             className="lp-hero lp-container"
             aria-labelledby="landing-title"
@@ -312,13 +373,11 @@ export function LandingPage({ children }: { children: ReactNode }) {
               KNOWLEDGE BASE
             </p>
             <h1 id="landing-title">
-              For Diana.
-              <br />
-              <span>With all of us.</span>
+              It Takes <span>a Village.</span>
             </h1>
             <p className="lp-hero-description">
-              A home for Diana’s care village. Bringing the research, the
-              science, and the people who care together, one question at a time.
+              Diana’s care is a team effort. This is where we keep her records,
+              compare research, and prepare for the next conversation.
             </p>
             <div className="lp-hero-actions">
               <a className="lp-button" href="#sign-in">
@@ -348,9 +407,10 @@ export function LandingPage({ children }: { children: ReactNode }) {
             </div>
             <div className="lp-platform-intro-copy">
               <p>
-                Diana’s knowledge base runs on Oncobase, an open-source platform
-                for bringing research, records, and people together. Built here,
-                shared so others can build their own.
+                We built Oncobase while organizing Diana’s care. It turns
+                records and research into a wiki the care team can read, search,
+                and discuss. The code is open source if you want to build your
+                own.
               </p>
               <div className="lp-platform-actions">
                 <a
@@ -373,16 +433,16 @@ export function LandingPage({ children }: { children: ReactNode }) {
             aria-label="Platform principles"
           >
             <span>
-              <BookOpen size={17} /> Knowledge, connected
+              <BookOpen size={17} /> Records & research
             </span>
             <span>
-              <Users size={17} /> People, brought together
+              <Users size={17} /> Comments & conversations
             </span>
             <span>
-              <Dna size={17} /> Biology, explored
+              <Dna size={17} /> Molecular analysis
             </span>
             <span>
-              <Sparkles size={17} /> Science, made approachable
+              <Sparkles size={17} /> Guides & cartoons
             </span>
           </section>
           <section
@@ -394,15 +454,15 @@ export function LandingPage({ children }: { children: ReactNode }) {
               <div>
                 <p className="lp-eyebrow">BUILT WITH ONCOBASE</p>
                 <h2 id="features-title">
-                  Four ways to move
+                  What we built
                   <br />
-                  from information to understanding.
+                  along the way.
                 </h2>
               </div>
               <p>
-                A place to organize what you know,
-                <br className="lp-desktop-break" /> explore what you don’t, and
-                think together.
+                The tools we use to keep track of Diana’s care,
+                <br className="lp-desktop-break" /> work through the research,
+                and bring others into the conversation.
               </p>
             </div>
             <div className="lp-feature-grid">
@@ -464,29 +524,29 @@ export function LandingPage({ children }: { children: ReactNode }) {
               <span className="lp-story-icon">
                 <Heart size={25} strokeWidth={1.5} />
               </span>
-              <p className="lp-eyebrow">DIANA’S STORY · A PERSONAL BEGINNING</p>
+              <p className="lp-eyebrow">WHY WE BUILT THIS</p>
               <h2 id="story-title">
-                Built out of love.
-                <br />
-                And a refusal to stop asking.
+                My wife was diagnosed.
+                <br />I needed a place to start.
               </h2>
               <span className="lp-story-signature">
-                Jason · Founder, husband, researcher
+                Jason · Diana’s husband
               </span>
             </div>
             <div className="lp-story-copy">
               <p>
-                In April, I entered founder mode to pursue a Sid-inspired
-                maximalist approach to my wife’s cancer diagnosis.
+                In April, I went into founder mode for my wife’s cancer care. I
+                wanted to follow every useful lead.
               </p>
               <p>
-                Along the way, I participated in a hundred phone calls, ingested
+                Along the way, I joined a hundred phone calls, gathered
                 thousands of published papers, and used next-generation
                 sequencing to explore personalized therapeutics.
               </p>
               <p>
-                What began as a way to make sense of it all became a platform
-                for the larger care village.
+                I built this wiki to keep the reports, notes, and research in
+                one place, and to let the people helping us read and discuss
+                them together.
               </p>
               <p className="lp-story-hope">
                 <span className="lp-status-dot" /> Today, we’re cautiously
@@ -503,7 +563,7 @@ export function LandingPage({ children }: { children: ReactNode }) {
           <div>
             <p className="lp-eyebrow">DIANA TNBC</p>
             <h2 id="access-title">
-              Come into Diana’s
+              Open Diana’s
               <br />
               knowledge base.
             </h2>
