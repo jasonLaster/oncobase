@@ -1,6 +1,10 @@
 # Public landing page
 
-`/login` presents Oncobase's platform and retains the shared-password form and redirect behavior. The landing page uses a curated snapshot; it does not load wiki documents, clinical APIs, or permission records for an anonymous visitor.
+`/login` introduces Diana TNBC, the knowledge base, before Oncobase, the platform behind it. The header, hero preview, story, and sign-in use the D mark and a plum palette. The primary action opens the shared-password form. The green Oncobase section carries the platform slogan, feature examples, and a link to its GitHub repository; molecular analysis also links to the companion Oncoomics repository.
+
+The hero's curated contents retain the Diana TNBC name. The platform's contents example uses Oncobase branding and identifies Diana TNBC as the source of the sample content. Actual site screenshots and source links preserve their provenance.
+
+The shared-password form and redirect behavior are unchanged. The landing page does not load wiki documents, clinical APIs, or permission records for an anonymous visitor.
 
 ## Diana content snapshot
 

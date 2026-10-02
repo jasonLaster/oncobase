@@ -11,7 +11,10 @@ for (const width of [320, 393, 700, 701, 900, 901, 1440, 1920]) {
     await page.setViewportSize({ width, height: width <= 700 ? 852 : 1000 });
     await page.goto("/login");
     await expect(
-      page.getByRole("heading", { name: "More knowledge. More possibility." }),
+      page.getByRole("heading", {
+        name: "For Diana. With all of us.",
+        level: 1,
+      }),
     ).toBeVisible();
     const preview = page.getByTestId("platform-preview");
     const box = await preview.boundingBox();
@@ -83,8 +86,17 @@ test("landing navigation reaches features, story, and sign-in", async ({
   page,
 }) => {
   await page.goto("/login");
-  await page.getByRole("link", { name: "Explore the platform" }).click();
+  await page
+    .getByRole("link", { name: "Enter Diana’s knowledge base", exact: true })
+    .click();
+  await expect(page.getByLabel("Password", { exact: true })).toBeInViewport();
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Oncobase", exact: true })
+    .click();
   await expect(page.locator("#platform-title")).toBeInViewport();
+  await page.getByRole("link", { name: "Explore the platform" }).click();
+  await expect(page.locator("#features-title")).toBeInViewport();
   await page.getByRole("link", { name: "Our story", exact: true }).click();
   await expect(page.locator("#story-title")).toBeInViewport();
   await page.getByRole("link", { name: "Sign in", exact: true }).click();
@@ -102,14 +114,21 @@ test("sign-in reports connection and server failures and allows a retry", async 
   });
   await page.goto("/login#sign-in");
   await page.getByLabel("Password", { exact: true }).fill("test-password");
-  await page.getByRole("button", { name: "Enter", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Enter Diana’s knowledge base", exact: true })
+    .click();
   await expect(page.getByRole("alert")).toHaveText(
     "Unable to connect. Please try again.",
   );
   await expect(
-    page.getByRole("button", { name: "Enter", exact: true }),
+    page.getByRole("button", {
+      name: "Enter Diana’s knowledge base",
+      exact: true,
+    }),
   ).toBeEnabled();
-  await page.getByRole("button", { name: "Enter", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Enter Diana’s knowledge base", exact: true })
+    .click();
   await expect(page.getByRole("alert")).toHaveText(
     "Sign in is temporarily unavailable. Please try again.",
   );

@@ -60,7 +60,7 @@ export function LoginPage() {
   return (
     <LandingPage>
       <form onSubmit={onSubmit} className="auth-card">
-        <h3 className="auth-title">TNBC Knowledge Base</h3>
+        <h3 className="auth-title">Diana TNBC Knowledge Base</h3>
         <input
           type="password"
           aria-label="Password"
@@ -81,7 +81,9 @@ export function LoginPage() {
           </p>
         ) : null}
         <button type="submit" className="auth-button" disabled={submitting}>
-          {submitting ? "Opening workspace…" : "Enter"}
+          {submitting
+            ? "Opening Diana’s knowledge base…"
+            : "Enter Diana’s knowledge base"}
         </button>
         <p className="lp-access-note">
           <LockKeyhole size={11} /> A private space for your care village.

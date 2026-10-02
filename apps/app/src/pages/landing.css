@@ -4,7 +4,7 @@
   --lp-green: #356647;
   --lp-line: #e1e5da;
   --lp-paper: #fbfcf8;
-  background: var(--lp-paper);
+  background: #fdf9fb;
   color: var(--lp-ink);
   color-scheme: light;
   font-family:
@@ -87,6 +87,230 @@
 .lp-brand-period {
   color: var(--lp-green);
 }
+.lp-diana-theme {
+  --lp-ink: #422c3e;
+  --lp-muted: #735e6e;
+  --lp-green: #805274;
+  --lp-line: #e7dce3;
+  --lp-paper: #fdf9fb;
+  color: var(--lp-ink);
+}
+.lp-header.lp-diana-theme nav a {
+  color: var(--lp-muted);
+}
+.lp-diana-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+  letter-spacing: -0.8px;
+}
+.lp-diana-wordmark > span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.3px;
+  color: var(--lp-muted);
+}
+.lp-diana-intro {
+  padding-bottom: 48px;
+  background: var(--lp-paper);
+}
+.lp-diana-theme .lp-status-dot {
+  background: var(--lp-green);
+}
+.lp-diana-intro .lp-preview {
+  border-color: var(--lp-line);
+  box-shadow:
+    0 8px 12px -9px #422c3e20,
+    0 25px 70px -28px #80527426;
+}
+.lp-diana-intro .lp-window-bar {
+  background: #faf5f8;
+  color: var(--lp-muted);
+}
+.lp-window-bar .lp-diana-mark {
+  width: 14px;
+  height: 14px;
+}
+.lp-diana-intro .lp-preview-sidebar {
+  background: #f7f0f5;
+}
+.lp-preview-brand .lp-diana-mark {
+  width: 27px;
+  height: 27px;
+}
+.lp-diana-intro .lp-preview-tabs button {
+  color: var(--lp-muted);
+}
+.lp-diana-intro .lp-preview-tabs button[aria-selected="true"],
+.lp-diana-intro .lp-preview-tabs button:hover {
+  background: #eee0eb;
+  color: #704466;
+}
+.lp-diana-intro .lp-tone-knowledge {
+  --lp-tone-bg: #f2e7ef;
+  --lp-tone-ink: #805274;
+}
+.lp-diana-intro
+  :is(
+    .lp-sidebar-label,
+    .lp-preview-breadcrumb,
+    .lp-preview-footer,
+    .lp-preview-note
+  ) {
+  color: var(--lp-muted);
+}
+.lp-diana-intro .lp-wiki-snapshot {
+  border-color: var(--lp-line);
+}
+.lp-diana-intro .lp-avatar {
+  background: #ead8e5;
+  color: #704466;
+}
+.lp-platform-world {
+  background: var(--lp-paper);
+  border-top: 1px solid var(--lp-line);
+}
+.lp-platform-intro {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  align-items: center;
+  gap: 70px;
+  padding-block: 76px 56px;
+  scroll-margin-top: 30px;
+}
+.lp-platform-intro .lp-oncobase-brand {
+  font-size: 38px;
+  margin-top: 20px;
+  gap: 12px;
+}
+.lp-platform-intro .lp-brand-mark {
+  width: 42px;
+  height: 42px;
+}
+.lp-platform-intro .lp-brand-mark svg {
+  width: 27px;
+  height: 27px;
+}
+.landing-page .lp-platform-intro h2 {
+  font-size: clamp(32px, 3.6vw, 48px);
+  font-weight: 500;
+  line-height: 1.16;
+  letter-spacing: -1.7px;
+  margin-top: 22px;
+}
+.lp-platform-intro h2 > span {
+  color: var(--lp-green);
+}
+.lp-platform-intro-copy > p {
+  color: var(--lp-muted);
+  font-size: 15px;
+  line-height: 1.8;
+  max-width: 460px;
+}
+.lp-platform-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 22px;
+  margin-top: 24px;
+}
+.lp-platform-actions .lp-button {
+  gap: 10px;
+}
+.lp-platform-world .lp-principles {
+  margin-top: 0;
+}
+.lp-platform-world .lp-features {
+  padding-top: 72px;
+}
+.lp-snapshot-title .lp-oncobase-brand {
+  font-size: 16px;
+  gap: 7px;
+  letter-spacing: -0.7px;
+}
+.lp-snapshot-title .lp-brand-mark {
+  width: 25px;
+  height: 25px;
+}
+.lp-snapshot-title .lp-brand-mark svg {
+  width: 16px;
+  height: 16px;
+}
+.lp-feature-card-copy .lp-repo-link {
+  margin-top: 14px;
+  font-size: 12px;
+  gap: 7px;
+}
+.lp-story.lp-diana-theme {
+  background: #f3e9f0;
+  border-color: var(--lp-line);
+}
+.lp-diana-theme .lp-story-icon {
+  background: #eadde6;
+  border-color: #dfccd9;
+  color: var(--lp-green);
+}
+.lp-diana-theme :is(.lp-story-signature, .lp-story-copy, .lp-access-note) {
+  color: var(--lp-muted);
+}
+.landing-page .lp-diana-theme .lp-story-hope {
+  color: var(--lp-green);
+}
+.landing-page .lp-diana-theme .auth-title {
+  color: var(--lp-ink);
+}
+.landing-page .lp-diana-theme .auth-input {
+  background: var(--lp-paper);
+  border-color: var(--lp-line);
+}
+.landing-page .lp-diana-theme .auth-input::placeholder {
+  color: var(--lp-muted);
+}
+.landing-page .lp-diana-theme .auth-input:focus {
+  border-color: var(--lp-green);
+  box-shadow: 0 0 0 2px #80527420;
+}
+.lp-footer-platform {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  --lp-green: #356647;
+  color: #22362d;
+}
+.lp-footer-platform > span {
+  color: var(--lp-muted);
+  font-size: 11px;
+}
+.lp-footer-platform .lp-oncobase-brand {
+  font-size: 18px;
+}
+.lp-footer-platform .lp-brand-mark {
+  width: 24px;
+  height: 24px;
+}
+@media (max-width: 900px) {
+  .lp-platform-intro {
+    gap: 36px;
+  }
+}
+@media (max-width: 700px) {
+  .lp-platform-intro {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding-block: 48px 36px;
+  }
+  .lp-platform-intro .lp-oncobase-brand {
+    font-size: 32px;
+  }
+  .lp-platform-intro .lp-brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+  .lp-diana-intro {
+    padding-bottom: 36px;
+  }
+}
 .lp-header nav {
   display: flex;
   gap: 32px;
@@ -121,7 +345,7 @@
     transform 0.15s;
 }
 .landing-page .lp-button:hover {
-  background: #356647;
+  background: var(--lp-green);
   transform: translateY(-1px);
 }
 .landing-page .lp-button-small {
@@ -793,6 +1017,10 @@
 .lp-footer .lp-brand svg {
   width: 18px;
 }
+.lp-footer .lp-brand .lp-diana-mark {
+  width: 27px;
+  height: 27px;
+}
 .lp-footer > span {
   color: #647259;
   font-size: 10px;
@@ -976,14 +1204,6 @@
   .lp-preview-footer > span {
     display: none;
   }
-  .lp-search {
-    font-size: 8px;
-    gap: 6px;
-    padding-inline: 8px;
-  }
-  .lp-key {
-    display: none;
-  }
   .lp-preview-note {
     gap: 7px;
     font-size: 8px;
@@ -1124,15 +1344,12 @@
   border-bottom: 1px solid var(--lp-line);
 }
 .lp-diana-mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 31px;
   height: 31px;
   flex-shrink: 0;
   border-radius: 8px;
-  color: #fff;
-  background: #536b4a;
-  font-weight: 600;
+  color: var(--lp-green);
 }
 .lp-snapshot-title strong {
   display: block;

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { isEducationPathname } from "../education-access";
+import { DianaMark, OncobaseBrand } from "./LandingBrands";
 import {
   ArrowRight,
   BookOpen,
@@ -12,14 +13,18 @@ import {
 
 const diana = "https://diana-tnbc.com";
 
+function sourceLinkProps(path: string) {
+  const publicEducation = isEducationPathname(path);
+  return {
+    href: publicEducation ? path : `${diana}${path}`,
+    target: publicEducation ? undefined : "_blank",
+    rel: "noopener noreferrer",
+  };
+}
+
 function SourceLink({ path, children }: { path: string; children: ReactNode }) {
   return (
-    <a
-      className="lp-source-link"
-      href={isEducationPathname(path) ? path : `${diana}${path}`}
-      target={isEducationPathname(path) ? undefined : "_blank"}
-      rel="noopener noreferrer"
-    >
+    <a className="lp-source-link" {...sourceLinkProps(path)}>
       {children}
       <ArrowRight size={14} />
     </a>
@@ -58,14 +63,26 @@ const wikiContents = [
   },
 ];
 
-export function WikiContentsVisual({ compact = false }: { compact?: boolean }) {
+export function WikiContentsVisual({
+  compact = false,
+  brand = "diana",
+}: {
+  compact?: boolean;
+  brand?: "diana" | "oncobase";
+}) {
   return (
     <div className="lp-wiki-snapshot">
       <div className="lp-snapshot-title">
-        <span className="lp-diana-mark">D</span>
+        {brand === "diana" && <DianaMark />}
         <div>
-          <strong>Diana’s wiki</strong>
-          <span>A snapshot of the real table of contents</span>
+          <strong>
+            {brand === "diana" ? "Diana TNBC" : <OncobaseBrand />}
+          </strong>
+          <span>
+            {brand === "diana"
+              ? "A snapshot of the real table of contents"
+              : "Diana TNBC content, organized with Oncobase"}
+          </span>
         </div>
       </div>
       <div className="lp-toc-groups">
@@ -76,11 +93,7 @@ export function WikiContentsVisual({ compact = false }: { compact?: boolean }) {
               {(compact ? group.entries.slice(0, 2) : group.entries).map(
                 ([label, path]) => (
                   <li key={path}>
-                    <a
-                      href={isEducationPathname(path) ? path : `${diana}${path}`}
-                      target={isEducationPathname(path) ? undefined : "_blank"}
-                      rel="noopener noreferrer"
-                    >
+                    <a {...sourceLinkProps(path)}>
                       <FileText size={12} />
                       <span>{label}</span>
                       <ArrowRight size={11} />
@@ -343,16 +356,16 @@ export function SiteShowcase() {
     >
       <div className="lp-section-heading">
         <div>
-          <p className="lp-eyebrow">INSIDE DIANA’S WIKI</p>
+          <p className="lp-eyebrow">ONCOBASE IN PRACTICE</p>
           <h2 id="inside-title">
             Real pages.
             <br />A richer picture.
           </h2>
         </div>
         <p>
-          These are actual views from Diana’s wiki: illustrated content, a
-          diagnostics timeline, and imaging tools. The same knowledge, at your
-          desk or in your pocket.
+          See Oncobase in use: illustrated content, a diagnostics timeline, and
+          imaging tools. These views come from Diana TNBC, the knowledge base
+          the platform powers.
         </p>
       </div>
       <article className="lp-reader-showcase">
@@ -520,7 +533,7 @@ export function SiteShowcase() {
       </div>
       <p className="lp-snapshot-note">
         Selected content and site screenshots captured October 1, 2026. Source
-        links open Diana’s wiki; its access rules still apply.
+        links open Diana TNBC; its access rules still apply.
       </p>
     </section>
   );
