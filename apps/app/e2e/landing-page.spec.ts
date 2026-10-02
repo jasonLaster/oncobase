@@ -411,3 +411,27 @@ for (const width of [393, 1440]) {
     );
   });
 }
+
+test("dark Oncobase feature examples use green throughout", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/login");
+  await expect(page.locator("#landing-title")).toBeVisible();
+  for (const tone of ["collaboration", "analysis", "education"]) {
+    await expect(
+      page.locator(`.lp-feature-card.lp-tone-${tone} .lp-feature-art`),
+    ).toHaveCSS("background-color", "rgb(42, 62, 45)");
+    await expect(
+      page.locator(`.lp-feature-card.lp-tone-${tone} .lp-feature-eyebrow`),
+    ).toHaveCSS("color", "rgb(176, 203, 164)");
+  }
+  await expect(page.locator(".lp-engine-icon")).toHaveCSS(
+    "color",
+    "rgb(176, 203, 164)",
+  );
+  await expect(page.locator(".lp-candidate-row > span").first()).toHaveCSS(
+    "color",
+    "rgb(176, 203, 164)",
+  );
+});

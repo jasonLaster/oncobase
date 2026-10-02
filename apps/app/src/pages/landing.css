@@ -2306,16 +2306,16 @@
 }
 
 .dark .landing-page .lp-tone-collaboration {
-  --lp-tone-bg: #373025;
-  --lp-tone-ink: #dbcba8;
+  --lp-tone-bg: #2a3e2d;
+  --lp-tone-ink: #b0cba4;
 }
 .dark .landing-page .lp-tone-analysis {
-  --lp-tone-bg: #223239;
-  --lp-tone-ink: #acccd9;
+  --lp-tone-bg: #2a3e2d;
+  --lp-tone-ink: #b0cba4;
 }
 .dark .landing-page .lp-tone-education {
-  --lp-tone-bg: #332637;
-  --lp-tone-ink: #d4b9d8;
+  --lp-tone-bg: #2a3e2d;
+  --lp-tone-ink: #b0cba4;
 }
 .dark .landing-page .lp-footer-shell {
   background: #241c23;
@@ -2328,8 +2328,8 @@
   background: var(--lp-tone-bg);
 }
 .dark .landing-page .lp-example-value {
-  background: #373025;
-  color: #dbcba8;
+  background: #2a3e2d;
+  color: #b0cba4;
 }
 .dark .landing-page .auth-error {
   color: #f1a7a0;
@@ -2360,4 +2360,28 @@
 
 .dark .landing-page .lp-diana-mark text {
   fill: var(--lp-button-ink);
+}
+
+.dark
+  .landing-page
+  :is(
+    .lp-engine-icon,
+    .lp-engine-dots,
+    .lp-pipeline-line,
+    .lp-candidate-row > span
+  ) {
+  color: var(--lp-green);
+}
+.dark
+  .landing-page
+  :is(
+    .lp-assays > span,
+    .lp-pipeline-engine,
+    .lp-candidate-row > span,
+    .lp-redaction-demo
+  ) {
+  border-color: var(--lp-line);
+}
+.dark .landing-page :is(.lp-pipeline-line > span, .lp-candidate-dot) {
+  background: var(--lp-green);
 }
