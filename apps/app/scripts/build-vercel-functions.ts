@@ -64,4 +64,6 @@ if (process.env.WIKI_VITE_EMBED_APP_SHELL === "1") {
   // catch-all rewrite. Keep the SPA shell inside the gated function so `/`
   // cannot bypass password enforcement, while hashed assets remain static.
   await unlink(indexPath);
+  // Let the server choose the crawler policy for each site and its public education routes.
+  await rm(`${appDir}/dist/robots.txt`, { force: true });
 }
