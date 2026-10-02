@@ -386,9 +386,10 @@ export function LandingPage({ children }: { children: ReactNode }) {
               It Takes <span>a Village.</span>
             </h1>
             <p className="lp-hero-description">
-              OncoBase helps keep her records, review diagnostics, analyze
-              research, educate themselves, perform regular analysis, and prepare
-              for publication.
+              The knowledge base helps us maintain Diana’s records, view her
+              diagnostics, review the latest research, learn the fundamentals,
+              perform molecular analysis, and collaborate with the larger care
+              community.
             </p>
             <div className="lp-hero-actions">
               <a className="lp-button" href="#sign-in">
