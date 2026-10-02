@@ -426,7 +426,7 @@ test("dark Oncobase feature examples use green throughout", async ({
       page.locator(`.lp-feature-card.lp-tone-${tone} .lp-feature-eyebrow`),
     ).toHaveCSS("color", "rgb(176, 203, 164)");
   }
-  await expect(page.locator(".lp-engine-icon")).toHaveCSS(
+  await expect(page.locator(".lp-feature-card.lp-tone-analysis .lp-engine-icon")).toHaveCSS(
     "color",
     "rgb(176, 203, 164)",
   );
