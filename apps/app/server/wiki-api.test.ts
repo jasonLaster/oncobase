@@ -473,6 +473,29 @@ function createFakeConvexClient({
 }
 
 describe("wiki Vite API auth and scoped archive behavior", () => {
+  test("public illustrations shared with wiki updates work through both file routes", async () => {
+    const slug = "wiki/education/designing-a-vaccine/index";
+    const owner = "wiki/updates/week-13";
+    const image = "wiki/education/designing-a-vaccine/images/steps-light.png";
+    const handler = createWikiApiHandler(createFakeConvexClient({ passwordGate: true,
+      extraPages: [{ slug, title: "Vaccine design", content: "Lesson", tags: [] },
+        { slug: owner, title: "Updates", content: "Update", tags: [] }],
+      extraAssets: [{ path: image, ownerSlugs: [slug, owner], sensitive: false,
+        blobUrl: "data:image/png;base64,aW1hZ2U=" }],
+    }) as never);
+    for (const endpoint of ["/api/education/file", "/api/education/api/file", "/api/file"]) {
+      const response = await handler(request(`${endpoint}?path=${encodeURIComponent(image)}`));
+      expect(response?.status).toBe(200);
+      expect(await response!.text()).toBe("image");
+      expect(response!.headers.get("cache-control")).toBe("private, no-store");
+    }
+    const manifest = await (await handler(request("/api/education/manifest")))!.json();
+    expect(manifest.pages.map((page: { slug: string }) => page.slug)).toEqual([slug]);
+    const cookie = await gateCookie(handler);
+    const wikiImage = await handler(request(`/api/file?path=${encodeURIComponent(image)}`, { headers: { Cookie: cookie } }));
+    expect(wikiImage?.status).toBe(200);
+    expect(await wikiImage!.text()).toBe("image");
+  });
   test("dedicated education endpoints keep public scope with or without a wiki password", async () => {
     const slug = "wiki/education/oncology-101/index";
     const image = "wiki/education/oncology-101/cartoon.png";

@@ -126,7 +126,7 @@ import { slugFromRoutePathname } from "../src/route-canonicalization.js";
 import { TEXT_SEARCH_LATENCY_BUDGET_MS } from "../src/search-performance.js";
 import { handlePrefetchRequest } from "./prefetch";
 import { makePublicWikiSessionIdentity, type WikiSessionIdentity } from "@oncobase/wiki-content";
-import { educationDocumentsGateway, isEducationSlug, isPublicEducationAsset } from "./education-access";
+import { canReadEducationAsset, educationDocumentsGateway, isEducationSlug } from "./education-access";
 import { EDUCATION_ACCESS_PARTITION } from "../src/education-access";
 
 const GATE_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
@@ -917,7 +917,10 @@ async function handleFileRequest(
   if (!asset?.blobUrl) return privateFileNotFound();
 
   const assetIsSensitive = isStoredFileAssetSensitive(asset, siblingDoc);
-  if (educationOnly && (assetIsSensitive || !isPublicEducationAsset({ ...asset, path: normalized }))) {
+  if (educationOnly && (assetIsSensitive || !(await canReadEducationAsset(
+    { ...asset, path: normalized },
+    slug => client.query(api.documents.getBySlug, withSiteSlug(siteSlug, { slug, includeSensitive: false })),
+  )))) {
     return privateFileNotFound();
   }
   if (assetIsSensitive) {

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { educationDocumentsGateway, isEducationSlug, isPublicEducationAsset, isPublicEducationPage } from "./education-access";
+import { canReadEducationAsset, educationDocumentsGateway, isEducationSlug, isPublicEducationAsset, isPublicEducationPage } from "./education-access";
 import { isEducationPathname } from "../src/education-access";
 import type { WikiApiDocumentsGateway } from "@oncobase/wiki-content/server";
 
@@ -10,6 +10,18 @@ test("curriculum scope rejects adjacent prefixes and traversal", () => {
   expect(isEducationPathname("/wiki/education/oncology-101/index.md")).toBe(true);
   expect(isEducationPathname("/wiki/education/%252e%252e/care")).toBe(false);
   expect(isEducationPathname("/wiki/education/%zz")).toBe(false);
+});
+
+test("shared education illustrations require explicitly public wiki owners", async () => {
+  const asset = { path: "wiki/education/images/shared.png", sensitive: false,
+    ownerSlugs: ["wiki/education/index", "wiki/updates/week-13"] };
+  expect(await canReadEducationAsset(asset, async () => ({ sensitive: false }))).toBe(true);
+  for (const owner of [null, {}, { sensitive: true }]) {
+    expect(await canReadEducationAsset(asset, async () => owner)).toBe(false);
+  }
+  expect(await canReadEducationAsset(asset, async () => { throw Error("Unavailable"); })).toBe(false);
+  expect(await canReadEducationAsset({ ...asset, sensitive: true }, async () => ({ sensitive: false }))).toBe(false);
+  expect(await canReadEducationAsset({ ...asset, ownerSlugs: ["wiki/updates/week-13"] }, async () => ({ sensitive: false }))).toBe(false);
 });
 
 test("public education requires explicit sensitivity and complete scoped ownership", () => {

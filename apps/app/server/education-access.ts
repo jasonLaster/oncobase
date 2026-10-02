@@ -9,21 +9,45 @@ export function isPublicEducationPage(page: { slug: string; sensitive?: boolean 
 
 export function isPublicEducationAsset(asset: {
   path: string; sensitive?: boolean; ownerSlugs?: string[];
-}) {
+}, publicOwnerSlugs: ReadonlySet<string> = new Set()) {
   return isEducationSlug(asset.path) && asset.sensitive === false &&
     Array.isArray(asset.ownerSlugs) && asset.ownerSlugs.length > 0 &&
-    asset.ownerSlugs.every(isEducationSlug);
+    asset.ownerSlugs.some(isEducationSlug) &&
+    asset.ownerSlugs.every(slug => isEducationSlug(slug) || publicOwnerSlugs.has(slug));
+}
+
+/** A public lesson may reuse an illustration also owned by a public wiki page.
+ * Verify those other owners rather than changing their published ownership. */
+export async function canReadEducationAsset(
+  asset: Parameters<typeof isPublicEducationAsset>[0],
+  getOwner: (slug: string) => Promise<{ sensitive?: boolean } | null>,
+) {
+  if (!isEducationSlug(asset.path) || asset.sensitive !== false ||
+    !asset.ownerSlugs?.some(isEducationSlug)) return false;
+  const publicOwners = new Set<string>();
+  try {
+    await Promise.all(asset.ownerSlugs.filter(slug => !isEducationSlug(slug)).map(async slug => {
+      if ((await getOwner(slug))?.sensitive === false) publicOwners.add(slug);
+    }));
+  } catch { return false; }
+  return isPublicEducationAsset(asset, publicOwners);
 }
 
 /** Preserve backend cursors even when a batch contains no curriculum pages. */
 export function educationDocumentsGateway(documents: WikiApiDocumentsGateway): WikiApiDocumentsGateway {
+  const owners = new Map<string, ReturnType<WikiApiDocumentsGateway["getBySlug"]>>();
+  const getOwner = (slug: string) => {
+    if (!owners.has(slug)) owners.set(slug, documents.getBySlug({ slug, includeSensitive: false }));
+    return owners.get(slug)!;
+  };
   const manifest: WikiApiDocumentsGateway["listManifestPage"] = async args => {
     const result = await documents.listManifestPage({ ...args, includeSensitive: false });
     return { ...result, page: result.page.filter(isPublicEducationPage) };
   };
   const visibility = (method: "listPdfAssetVisibilityPage" | "listFileAssetVisibilityPage") => async (args: Parameters<WikiApiDocumentsGateway[typeof method]>[0]) => {
     const result = await documents[method]({ ...args, includeSensitive: false });
-    return { ...result, page: result.page.filter(isPublicEducationAsset) };
+    const readable = await Promise.all(result.page.map(asset => canReadEducationAsset(asset, getOwner)));
+    return { ...result, page: result.page.filter((_, index) => readable[index]) };
   };
   const pdfAssets = visibility("listPdfAssetVisibilityPage");
   const fileAssets = visibility("listFileAssetVisibilityPage");
