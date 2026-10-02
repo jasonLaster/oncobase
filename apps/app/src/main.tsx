@@ -1,6 +1,7 @@
 import { clearStartupSnapshot } from "./bootstrap/startup-cache-lifecycle";
 import { lazy, StrictMode, Suspense, useEffect } from "react";
 import { educationOnlyResponse, isEducationPathname } from "./education-access";
+import { isEducationHubPathname } from "./education-routes";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
@@ -9,6 +10,7 @@ import { publishRuntimeEnvironment } from "./observability";
 // Specialist viewers do not need the reader's schema or database imports.
 // Keep that dependency graph outside their startup path.
 const WikiViteRoot = lazy(() => import("./WikiViteRoot").then(module => ({ default: module.WikiViteRoot })));
+const EducationApp = lazy(() => import("./education/EducationApp").then(module => ({ default: module.EducationApp })));
 
 // A login response supersedes previously remembered access, including a gate
 // redirect after cookie expiration. Never revive it on Back/reload.
@@ -65,12 +67,13 @@ const TermsAndConditionsPage = lazy(() =>
 
 function RootRouteBoundary() {
   const { pathname, search, hash } = useLocation();
-  const needsPassword = educationOnlyResponse() && !isEducationPathname(pathname) &&
+  const needsPassword = educationOnlyResponse() && !isEducationPathname(pathname) && !isEducationHubPathname(pathname) &&
     !["/search", "/login", "/terms-and-conditions"].includes(pathname);
   useEffect(() => {
     if (needsPassword) window.location.replace(`/login?redirect=${encodeURIComponent(`${pathname}${search}${hash}`)}`);
   }, [needsPassword, pathname, search, hash]);
   if (needsPassword) return <AppStarting />;
+  if (isEducationHubPathname(pathname)) return <EducationApp />;
   // Only reader routes need a wiki session or database. This single boundary
   // applies to cold loads, client navigation, and browser history alike.
   if (pathname === "/login") return <LoginPage />;

@@ -395,7 +395,7 @@ export function LandingPage({ children }: { children: ReactNode }) {
               <a className="lp-button" href="#sign-in">
                 Enter Diana’s knowledge base <ArrowRight size={16} />
               </a>
-              <a className="lp-text-link" href="/wiki/education/index">
+              <a className="lp-text-link" href="/education">
                 Browse Educational Content <ArrowRight size={16} />
               </a>
             </div>

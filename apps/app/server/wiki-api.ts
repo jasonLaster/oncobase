@@ -3043,7 +3043,27 @@ async function handleAdminRequest(
 export function createWikiApiHandler(client = createClient()) {
   client = traceConvexClient(client);
   return traceBackendHandler(async function handleWikiApiRequest(request: Request): Promise<Response | null> {
-    const pathname = new URL(request.url).pathname;
+    let pathname = new URL(request.url).pathname;
+    const dedicatedEducation = pathname.startsWith("/api/education/");
+    if (dedicatedEducation) {
+      const routes: Record<string, string> = {
+        "/api/education/manifest": "/api/wiki/manifest",
+        "/api/education/pages": "/api/wiki/pages",
+        "/api/education/search": "/api/search",
+        "/api/education/file": "/api/file",
+        // The markdown renderer appends /api/file to its API base path.
+        "/api/education/api/file": "/api/file",
+        "/api/education/page-copy": "/api/page-copy",
+      };
+      const target = routes[pathname];
+      const headers = { "Cache-Control": "private, no-store", Vary: "Cookie, Host" };
+      if (!target) return new Response("Not found", { status: 404, headers });
+      if (request.method !== "GET" && request.method !== "HEAD") return new Response(null, { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
+      const url = new URL(request.url);
+      url.pathname = target;
+      request = new Request(url, request);
+      pathname = target;
+    }
     if (pathname === "/api/telemetry/manifest") return handleManifestTelemetry(request);
     if (pathname === "/api/wiki/telemetry") return handleReaderTelemetry(request);
     const handled =
@@ -3099,8 +3119,10 @@ export function createWikiApiHandler(client = createClient()) {
         },
       );
     }
-    let passwordGateEnabled = false;
-    let educationOnly = false;
+    if (dedicatedEducation && siteSlug !== DEFAULT_SITE_SLUG) return new Response("Not found", { status: 404,
+      headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" } });
+    let passwordGateEnabled = dedicatedEducation;
+    let educationOnly = dedicatedEducation;
     const context = {
       siteSlug,
       publicIdentity: undefined as WikiSessionIdentity | undefined,
@@ -3145,7 +3167,7 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/share-preview" ||
       pathname === "/api/liveblocks-webhook" ||
       pathname.startsWith("/api/integrations/epic/");
-    if (!passwordGateExempt || (pathname === "/api/wiki/session" && siteSlug === DEFAULT_SITE_SLUG)) {
+    if (!dedicatedEducation && (!passwordGateExempt || (pathname === "/api/wiki/session" && siteSlug === DEFAULT_SITE_SLUG))) {
       const gate = await enforceApiPasswordGate(
         request,
         client,
@@ -3162,9 +3184,11 @@ export function createWikiApiHandler(client = createClient()) {
         const slugs = new URL(request.url).searchParams.get("slugs");
         if (pathname === "/api/wiki/pages" && slugs && slugs.split(",").some(slug => !isEducationSlug(slug))) return gate.response;
         educationOnly = true;
-        context.documents = educationDocumentsGateway(context.documents);
-        context.publicIdentity = makePublicWikiSessionIdentity(siteSlug, EDUCATION_ACCESS_PARTITION);
       }
+    }
+    if (educationOnly) {
+      context.documents = educationDocumentsGateway(context.documents);
+      context.publicIdentity = makePublicWikiSessionIdentity(siteSlug, EDUCATION_ACCESS_PARTITION);
     }
 
     if (pathname.startsWith("/api/publish/")) {

@@ -271,7 +271,7 @@ test("the wiki snapshot links to real Diana sections and showcase assets load", 
   });
   await expect(
     snapshot.getByRole("link", { name: "Learning guides", exact: true }),
-  ).toHaveAttribute("href", "/wiki/education/index");
+  ).toHaveAttribute("href", "/education");
   await expect(
     snapshot.getByRole("link", {
       name: "Original reports and sources",

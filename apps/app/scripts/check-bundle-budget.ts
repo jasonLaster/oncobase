@@ -97,7 +97,9 @@ const eagerGzipBudget = 1_233_500;
 // on-demand and dominates the lazy pool; it is not first-load critical.
 // Current production is 3330.4 KiB; the public landing and education reader
 // add 7.2 KiB. Account for that measured total without increasing eager limits.
-const lazyGzipBudget = 3_420_000;
+// The dedicated public education application adds about 5 KiB of lazy JavaScript.
+// Include its routing and navigation while retaining the eager budget.
+const lazyGzipBudget = 3_428_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

@@ -473,6 +473,41 @@ function createFakeConvexClient({
 }
 
 describe("wiki Vite API auth and scoped archive behavior", () => {
+  test("dedicated education endpoints keep public scope with or without a wiki password", async () => {
+    const slug = "wiki/education/oncology-101/index";
+    const image = "wiki/education/oncology-101/cartoon.png";
+    for (const passwordGate of [true, false]) {
+      const handler = createWikiApiHandler(createFakeConvexClient({ passwordGate,
+        extraPages: [{ slug, title: "Oncology 101", content: "Public lesson <redact>Patient detail</redact>", tags: [] },
+          { slug: "wiki/education/private-case", title: "Private case", content: "Private lesson", tags: [], sensitive: true }],
+        extraAssets: [{ path: image, ownerSlugs: [slug], sensitive: false, blobUrl: "data:image/png;base64,aW1hZ2U=" },
+          { path: "wiki/education/mixed.png", ownerSlugs: [slug, "private/plan"], sensitive: false, blobUrl: "data:image/png;base64,aW1hZ2U=" }],
+      }) as never);
+      const cookie = passwordGate ? await gateCookie(handler) : "wiki_user_session=test";
+      for (const headers of [new Headers(), new Headers({ Cookie: cookie })]) {
+        const manifestResponse = await handler(request("/api/education/manifest", { headers }));
+        expect(manifestResponse?.status).toBe(200);
+        expect(manifestResponse!.headers.get("cache-control")).toBe("private, no-store");
+        const manifest = await manifestResponse!.json();
+        expect(manifest.pages.map((page: { slug: string }) => page.slug)).toEqual([slug]);
+        expect(JSON.stringify(manifest)).not.toContain("mixed.png");
+        const batch = await (await handler(request(`/api/education/pages?slugs=${slug},private/plan,wiki/education/private-case`, { headers })))!.json();
+        expect(batch.pages.map((page: { slug: string }) => page.slug)).toEqual([slug]);
+        expect(JSON.stringify(batch)).not.toContain("Patient detail");
+        const search = await (await handler(request("/api/education/search?q=Public", { headers })))!.json();
+        expect(search.results.map((page: { slug: string }) => page.slug)).toEqual([slug]);
+        expect((await handler(request(`/api/education/api/file?path=${image}`, { headers })))?.status).toBe(200);
+        expect((await handler(request("/api/education/file?path=wiki/education/mixed.png", { headers })))?.status).toBe(404);
+        expect((await handler(request("/api/education/file?path=sources/public/file.pdf", { headers })))?.status).toBe(404);
+        const copy = await handler(request(`/api/education/page-copy?slug=${slug}`, { headers }));
+        expect(await copy!.text()).not.toContain("Patient detail");
+        expect((await handler(request("/api/education/pages?scope=session", { headers })))?.status).toBe(401);
+        expect((await handler(request("/api/education/search?q=Public&scope=session", { headers })))?.status).toBe(401);
+      }
+      expect((await handler(request("/api/education/manifest", { method: "POST" })))?.status).toBe(405);
+      expect((await handler(request("/api/education/chat")))?.status).toBe(404);
+    }
+  });
   test("anonymous Diana readers receive only redacted education pages, assets, and search results", async () => {
     const slug = "wiki/education/oncology-101/index";
     const image = "wiki/education/oncology-101/cartoon.png";
@@ -599,6 +634,9 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       const response = await handler(new Request(`https://other-education-gate.example${path}`));
       expect(response?.status).toBe(401);
     }
+    const education = await handler(new Request("https://other-education-gate.example/api/education/manifest"));
+    expect(education?.status).toBe(404);
+    expect(education!.headers.get("cache-control")).toBe("private, no-store");
   });
 
   test("allows a valid signed gate cookie across core content APIs", async () => {

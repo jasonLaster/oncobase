@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { isEducationPathname } from "../education-access";
+import { educationLinkHref, isEducationHubPathname } from "../education-routes";
 import { DianaMark, OncobaseBrand } from "./LandingBrands";
 import {
   ArrowRight,
@@ -14,9 +15,10 @@ import {
 const diana = "https://diana-tnbc.com";
 
 function sourceLinkProps(path: string) {
-  const publicEducation = isEducationPathname(path);
+  const publicEducation =
+    isEducationHubPathname(path) || isEducationPathname(path);
   return {
-    href: publicEducation ? path : `${diana}${path}`,
+    href: publicEducation ? educationLinkHref(path) : `${diana}${path}`,
     target: publicEducation ? undefined : "_blank",
     rel: "noopener noreferrer",
   };
@@ -44,7 +46,7 @@ const wikiContents = [
   {
     title: "Understand the science",
     entries: [
-      ["Learning guides", "/wiki/education/index"],
+      ["Learning guides", "/education"],
       ["Diagnostic tests", "/wiki/diagnostics/index"],
       ["Treatments", "/wiki/treatment/index"],
       ["Research reviews", "/wiki/research/index"],
@@ -496,9 +498,7 @@ export function SiteShowcase() {
             These are the guides we’ve been learning from. Pick a topic or
             follow a course. Anyone can read them, without a password.
           </p>
-          <SourceLink path="/wiki/education/index">
-            Browse the curriculum
-          </SourceLink>
+          <SourceLink path="/education">Browse the curriculum</SourceLink>
         </div>
         <figure>
           <img

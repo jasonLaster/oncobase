@@ -38,6 +38,7 @@ import {
 import { safeLocalRedirect } from "../src/safe-redirect.js";
 import { isEducationPathname } from "../src/education-access";
 import { isPublicEducationPage } from "./education-access";
+import { educationHref, educationSlugFromPathname, isEducationHubPathname } from "../src/education-routes";
 
 const DEFAULT_SITE_SLUG = "diana";
 const CANONICAL_SLUG_CACHE_TTL_MS = 60_000;
@@ -104,6 +105,7 @@ function safeStaticPath(distDir: string, pathname: string) {
 }
 
 function slugFromPathname(pathname: string) {
+  if (isEducationHubPathname(pathname)) return educationSlugFromPathname(pathname);
   return slugFromRoutePathname(pathname);
 }
 
@@ -212,7 +214,7 @@ async function canonicalSlugRedirectResponse(
   if (!slug || slug === "index") return null;
   // The client canonical boundary still reconciles cached paths with the
   // refreshed manifest. Avoid fetching the body just to repeat that lookup.
-  if (!isLinkPreviewRequest(request) && readerShellHint(request.headers.get("cookie") ?? "", url)) return null;
+  if (!isEducationHubPathname(url.pathname) && !isLinkPreviewRequest(request) && readerShellHint(request.headers.get("cookie") ?? "", url)) return null;
 
   const siteSlug = await resolveSiteSlug(request, client);
   if (!siteSlug) return null;
@@ -222,6 +224,12 @@ async function canonicalSlugRedirectResponse(
     // a paginated scan of every document in the site. Reuse it for metadata.
     const page = await publicPageForRequest(request, client, siteSlug, slug);
     if (page?.slug === slug) return null;
+    if (isEducationHubPathname(url.pathname)) {
+      const directoryIndex = await publicPageForRequest(request, client, siteSlug, `${slug}/index`);
+      if (directoryIndex && isPublicEducationPage(directoryIndex)) return redirectToPath(request, educationHref(directoryIndex.slug), 308);
+      const canonical = (await publicCanonicalSlugMap(client, siteSlug)).get(slug.toLowerCase());
+      return canonical ? redirectToPath(request, educationHref(canonical), 308) : null;
+    }
     const canonicalPathname = canonicalSlugPathname(
       url.pathname,
       await publicCanonicalSlugMap(client, siteSlug),
@@ -255,6 +263,27 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
   }
 
   if (PUBLIC_PAGES.has(url.pathname)) return null;
+
+  if (isEducationHubPathname(url.pathname)) {
+    const headers = { "Cache-Control": "private, no-store", Vary: "Cookie, Host" };
+    if (siteSlug !== DEFAULT_SITE_SLUG) return new Response("Not found", { status: 404, headers });
+    if (request.method !== "GET" && request.method !== "HEAD") return new Response(null, { status: 405, headers });
+    const slug = educationSlugFromPathname(url.pathname);
+    if (!["/education", "/education/search"].includes(url.pathname)) {
+      if (!slug) return new Response("Not found", { status: 404, headers });
+      try {
+        const canonical = (await publicPageForRequest(request, client, siteSlug, slug)) ??
+          (await publicPageForRequest(request, client, siteSlug, `${slug}/index`)) ??
+          (await publicPageForRequest(request, client, siteSlug,
+            (await publicCanonicalSlugMap(client, siteSlug)).get(slug.toLowerCase()) ?? slug));
+        if (!isPublicEducationPage(canonical)) return new Response("Education page not found", { status: 404, headers });
+      } catch {
+        return new Response("Education temporarily unavailable", { status: 503, headers });
+      }
+    }
+    educationRequests.add(request);
+    return null;
+  }
 
   let gateConfig;
   try {
@@ -339,6 +368,18 @@ async function staticIndexHtml(
 
   const siteSlug = await resolveSiteSlug(request, client);
   if (!siteSlug) return html;
+
+  if (isEducationHubPathname(url.pathname)) {
+    const page = slug ? await publicPageForRequest(request, client, siteSlug, slug) : null;
+    const safePage = isPublicEducationPage(page) && page
+      ? await redactPageContent(client, siteSlug, page, request) : null;
+    const title = safePage?.title ?? (url.pathname === "/education/search" ? "Search education" : "Cancer science, made approachable");
+    const description = safePage?.description || "Explore the Oncobase education library: cancer biology, immunotherapy, and the science behind treatment.";
+    return injectHeadMetadata(html, { title: `${title} — Oncobase Education`, description,
+      openGraphTitle: title, openGraphDescription: description, openGraphType: safePage ? "article" : "website",
+      twitterTitle: title, twitterDescription: description,
+      canonicalUrl: new URL(url.pathname, request.url).toString(), noIndex: false, sensitive: false });
+  }
 
   // The normal gate has already run. A route hint only skips payload work;
   // it cannot authorize an API, select an account, or expose server content.
@@ -430,6 +471,10 @@ async function staticIndexHtml(
 }
 
 async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath: string) {
+  if (isEducationHubPathname(new URL(request.url).pathname)) {
+    return { ...staticHeaders(filePath), "X-Wiki-Reader-Access": "education", "X-Wiki-Reader-Account": "public",
+      "Cache-Control": "private, no-store", Vary: "Accept, Cookie, Host, User-Agent" };
+  }
   const siteSlug = (await resolveSiteSlug(request, client)) ?? DEFAULT_SITE_SLUG;
   let gateConfig;
   try {
@@ -477,9 +522,11 @@ async function robotsPolicyResponse(
   client: ConvexHttpClient,
 ) {
   let allowIndexing = false;
+  let allowEducation = false;
   try {
     const siteSlug = await resolveSiteSlug(request, client);
     if (siteSlug) {
+      allowEducation = siteSlug === DEFAULT_SITE_SLUG;
       const gateConfig = await getRequestPasswordGateConfig(
         request,
         client,
@@ -492,7 +539,7 @@ async function robotsPolicyResponse(
   }
 
   return new Response(
-    `User-agent: *\n${allowIndexing ? "Allow" : "Disallow"}: /\n`,
+    `User-agent: *\n${allowIndexing ? "Allow" : "Disallow"}: /\n${!allowIndexing && allowEducation ? "Allow: /education\n" : ""}`,
     {
       headers: {
         "Cache-Control": "no-cache",

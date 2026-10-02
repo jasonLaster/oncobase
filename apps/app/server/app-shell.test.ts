@@ -148,6 +148,48 @@ describe("wiki Vite app-shell password gate", () => {
     }
   });
 
+  test("the dedicated education library is public even for a signed-in reader and has its own metadata", async () => {
+    const handler = createWikiViteHandler({ client: fakeClient() as never, distDir });
+    for (const headers of [{}, await authenticatedHeaders("wiki_user_session=test")]) {
+      for (const route of ["/education", "/education/search?q=oncology", "/education/oncology-101/index", "/education/oncology-101/index.md"]) {
+        const response = await handler(request(route, { headers }));
+        expect(response.status).toBe(200);
+        expect(response.headers.get("cache-control")).toBe("private, no-store");
+        const html = await response.text();
+        expect(html).toContain("Oncobase Education");
+        expect(html).toContain('name="wiki-reader-access" content="education"');
+        expect(html).toContain('name="wiki-reader-account" content="public"');
+        expect(html).not.toContain('name="robots" content="noindex');
+        expect(html).not.toContain('id="wiki-page-bootstrap"');
+      }
+    }
+  });
+
+  test("sensitive education pages cannot enter the dedicated public library with any cookie", async () => {
+    const base = fakeClient();
+    const client = { ...base, async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      if (getFunctionName(ref) === "documents:getBySlug" && String(args.slug).startsWith("wiki/education/private")) return null;
+      return base.query(ref, args);
+    } };
+    const handler = createWikiViteHandler({ client: client as never, distDir });
+    for (const headers of [{}, await authenticatedHeaders("wiki_user_session=test")]) {
+      expect((await handler(request("/education/private-case", { headers }))).status).toBe(404);
+    }
+    expect((await handler(request("/education/%252e%252e/care"))).status).toBe(404);
+  });
+
+  test("education directory aliases stay in education and preserve search and heading targets", async () => {
+    const base = fakeClient();
+    const client = { ...base, async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      if (getFunctionName(ref) === "documents:getBySlug" && args.slug === "wiki/education/oncology-101") return null;
+      return base.query(ref, args);
+    } };
+    const handler = createWikiViteHandler({ client: client as never, distDir });
+    const response = await handler(request("/education/oncology-101?q=immune"));
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("http://127.0.0.1/education/oncology-101/index?q=immune");
+  });
+
   test("sensitive pages inside education retain the gate even with an account cookie", async () => {
     const base = fakeClient();
     const client = { ...base, async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
@@ -534,7 +576,7 @@ describe("wiki Vite app-shell password gate", () => {
     expect(robots.headers.get("content-type")).toBe("text/plain; charset=utf-8");
     expect(robots.headers.get("cache-control")).toBe("no-cache");
     expect(robots.headers.get("vary")).toBe("Host");
-    expect(await robots.text()).toBe("User-agent: *\nDisallow: /\n");
+    expect(await robots.text()).toBe("User-agent: *\nDisallow: /\nAllow: /education\n");
 
     const publicHandler = createWikiViteHandler({
       client: fakeClient({ passwordGate: false }) as never,

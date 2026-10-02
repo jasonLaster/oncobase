@@ -13,6 +13,7 @@ declare global {
 
 /** Serialized into every reader document head, before app scripts or snapshots. */
 export function installReaderShortcuts(create: typeof createCommandPaletteChords) {
+  if (window.location?.pathname === "/education" || window.location?.pathname.startsWith("/education/")) return;
   // These routes intentionally do not mount the reader's palette host.
   if (["/login", "/terms-and-conditions", "/tools/dicom-viewer", "/tools/dicom-compare", "/tools/pathology-viewer"].includes(window.location?.pathname)) return;
   if (window.__wikiReaderShortcuts) return;
