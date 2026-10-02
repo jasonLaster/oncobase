@@ -362,3 +362,52 @@ test("role preview shows different page visibility with thumb-friendly controls"
       .filter({ hasText: "Clinical records" }),
   ).toContainText("Viewable");
 });
+
+for (const width of [393, 1440]) {
+  test(`dark landing keeps Diana purple and Oncobase green at ${width}px`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/login");
+    await expect(page.locator("#landing-title")).toBeVisible();
+    await expect(page.locator(".lp-diana-intro .lp-preview")).toHaveCSS(
+      "background-color",
+      "rgb(48, 36, 48)",
+    );
+    await expect(page.locator(".lp-access .auth-card")).toHaveCSS(
+      "background-color",
+      "rgb(48, 36, 48)",
+    );
+    await expect(page.locator(".lp-header-shell .lp-button")).toHaveCSS(
+      "color",
+      "rgb(36, 28, 35)",
+    );
+    await expect(
+      page.locator('.lp-preview-tabs button[aria-selected="true"]'),
+    ).toHaveCSS("background-color", "rgb(68, 48, 68)");
+    await page
+      .getByRole("navigation")
+      .getByRole("link", { name: "Oncobase", exact: true })
+      .click();
+    await expect(page.locator(".lp-header-shell")).toHaveAttribute(
+      "data-tone",
+      "oncobase",
+    );
+    await expect(page.locator(".lp-header-shell .lp-button")).toHaveCSS(
+      "color",
+      "rgb(22, 35, 28)",
+    );
+    await page.evaluate(() =>
+      scrollTo(0, document.documentElement.scrollHeight),
+    );
+    await expect(page.locator(".lp-header-shell")).toHaveAttribute(
+      "data-tone",
+      "diana",
+    );
+    await expect(page.locator(".lp-footer-platform .lp-brand-mark")).toHaveCSS(
+      "background-color",
+      "rgb(42, 62, 45)",
+    );
+  });
+}
