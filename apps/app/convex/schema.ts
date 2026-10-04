@@ -380,7 +380,8 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_role", ["userId", "roleId"])
-    .index("by_site_user", ["siteId", "userId"]),
+    .index("by_site_user", ["siteId", "userId"])
+    .index("by_site_role", ["siteId", "roleId"]),
 
   userSessions: defineTable({
     siteId: v.optional(v.id("sites")),

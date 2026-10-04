@@ -95,9 +95,12 @@ export const resetPassword = internalMutation({
 
     let revokedSessions = 0;
     if (revokeSessions ?? true) {
-      const sessions = await ctx.db.query("userSessions").collect();
+      const sessions = await ctx.db
+        .query("userSessions")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .collect();
       for (const session of sessions) {
-        if (session.userId === user._id && rowBelongsToSite(session, site)) {
+        if (rowBelongsToSite(session, site)) {
           await ctx.db.delete(session._id);
           revokedSessions += 1;
         }

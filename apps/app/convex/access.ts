@@ -282,20 +282,43 @@ async function setRoleForSiteUser(
   });
 }
 
+// Role rules are tenant-scoped. Read them through the siteId-prefixed indexes
+// rather than scanning every tenant's rows; an unresolved site has none.
+async function siteRoles(ctx: QueryCtx, site: SiteCtx) {
+  if (!site.siteId) return [];
+  return await ctx.db.query("roles").withIndex("by_site_name", (q) => q.eq("siteId", site.siteId!)).collect();
+}
+
+async function sitePermissions(ctx: QueryCtx, site: SiteCtx) {
+  if (!site.siteId) return [];
+  return await ctx.db.query("rolePermissions").withIndex("by_site_role", (q) => q.eq("siteId", site.siteId!)).collect();
+}
+
+async function deleteUserSessions(ctx: MutationCtx, site: SiteCtx, userId: Id<"users">) {
+  const sessions = await ctx.db.query("userSessions").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
+  let revoked = 0;
+  for (const session of sessions) {
+    if (!rowBelongsToSite(session, site)) continue;
+    await ctx.db.delete(session._id);
+    revoked += 1;
+  }
+  return revoked;
+}
+
 export const listUsersWithRoles = query({
   args: { siteSlug: v.optional(v.string()) },
   handler: async (ctx, { siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const users = site.siteId
       ? await ctx.db.query("users").withIndex("by_site_email", (q) => q.eq("siteId", site.siteId!)).collect()
-      : await ctx.db.query("users").collect();
+      : [];
 
     const assignments = site.siteId
       ? await ctx.db.query("userRoles").withIndex("by_site_user", (q) => q.eq("siteId", site.siteId!)).collect()
-      : await ctx.db.query("userRoles").collect();
+      : [];
 
     const rolesById = new Map();
-    for (const role of await ctx.db.query("roles").collect()) {
+    for (const role of await siteRoles(ctx, site)) {
       if (rowBelongsToSite(role, site)) rolesById.set(role._id, role);
     }
 
@@ -340,8 +363,8 @@ export const listRoles = query({
   args: { siteSlug: v.optional(v.string()) },
   handler: async (ctx, { siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    const roles = await ctx.db.query("roles").collect();
-    const permissions = await ctx.db.query("rolePermissions").collect();
+    const roles = await siteRoles(ctx, site);
+    const permissions = await sitePermissions(ctx, site);
     return roles
       .filter((r) => rowBelongsToSite(r, site))
       .map((role) => {
@@ -478,7 +501,12 @@ export const deleteRole = mutation({
       if (rowBelongsToSite(permission, site)) await ctx.db.delete(permission._id);
     }
 
-    const assignments = await ctx.db.query("userRoles").collect();
+    const assignments = site.siteId
+      ? await ctx.db
+          .query("userRoles")
+          .withIndex("by_site_role", (q) => q.eq("siteId", site.siteId!).eq("roleId", roleId))
+          .collect()
+      : [];
     for (const assignment of assignments) {
       if (assignment.roleId === roleId && rowBelongsToSite(assignment, site)) {
         await ctx.db.delete(assignment._id);
@@ -565,13 +593,7 @@ export const deleteUsers = mutation({
 
       await clearRoleAssignmentsForUser(ctx, site, userId);
 
-      const sessions = await ctx.db.query("userSessions").collect();
-      for (const session of sessions) {
-        if (session.userId === userId && rowBelongsToSite(session, site)) {
-          await ctx.db.delete(session._id);
-          revokedSessions += 1;
-        }
-      }
+      revokedSessions += await deleteUserSessions(ctx, site, userId);
 
       await ctx.db.delete(userId);
       deleted += 1;
@@ -585,7 +607,7 @@ export const canUserAccessSlug = query({
   args: { userId: v.id("users"), slug: v.string(), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { userId, slug, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    const roles = await ctx.db.query("roles").collect();
+    const roles = await siteRoles(ctx, site);
     const rolesById = new Map();
     for (const role of roles) {
       if (rowBelongsToSite(role, site)) rolesById.set(role._id, role);
@@ -593,7 +615,7 @@ export const canUserAccessSlug = query({
     const doc = await findDocumentBySlug(ctx, site, slug);
     const documentTags = doc?.tags ?? [];
     const documentSensitiveInclude = doc?.sensitiveInclude ?? [];
-    const protectedRules = (await ctx.db.query("rolePermissions").collect()).filter(
+    const protectedRules = (await sitePermissions(ctx, site)).filter(
       (permission) =>
         rowBelongsToSite(permission, site) && rolesById.has(permission.roleId),
     );
@@ -661,12 +683,12 @@ export const canUserAccessSlug = query({
 // Reuse the batch policy for already-read documents; it never accepts policy
 // metadata from the browser or caches an authorization decision.
 async function createDocumentAccessCheck(ctx: QueryCtx, site: SiteCtx, userId: Id<"users">) {
-  const roles = await ctx.db.query("roles").collect();
+  const roles = await siteRoles(ctx, site);
   const rolesById = new Map();
   for (const role of roles) {
     if (rowBelongsToSite(role, site)) rolesById.set(role._id, role);
   }
-  const protectedRules = (await ctx.db.query("rolePermissions").collect()).filter(
+  const protectedRules = (await sitePermissions(ctx, site)).filter(
     (permission) =>
       rowBelongsToSite(permission, site) && rolesById.has(permission.roleId),
   );
