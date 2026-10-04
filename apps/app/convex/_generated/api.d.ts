@@ -9,8 +9,10 @@
  */
 
 import type * as access from "../access.js";
+import type * as cleanup from "../cleanup.js";
 import type * as commentRooms from "../commentRooms.js";
 import type * as conversations from "../conversations.js";
+import type * as crons from "../crons.js";
 import type * as dicom from "../dicom.js";
 import type * as documentMeta from "../documentMeta.js";
 import type * as documents from "../documents.js";
@@ -45,8 +47,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   access: typeof access;
+  cleanup: typeof cleanup;
   commentRooms: typeof commentRooms;
   conversations: typeof conversations;
+  crons: typeof crons;
   dicom: typeof dicom;
   documentMeta: typeof documentMeta;
   documents: typeof documents;

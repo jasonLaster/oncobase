@@ -392,7 +392,8 @@ export default defineSchema({
   })
     .index("by_token_hash", ["tokenHash"])
     .index("by_user", ["userId"])
-    .index("by_site_token", ["siteId", "tokenHash"]),
+    .index("by_site_token", ["siteId", "tokenHash"])
+    .index("by_expires", ["expiresAt"]),
 
   epicFhirOAuthStates: defineTable({
     siteId: v.optional(v.id("sites")),
@@ -409,7 +410,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_state_hash", ["stateHash"])
-    .index("by_site_user", ["siteId", "userId"]),
+    .index("by_site_user", ["siteId", "userId"])
+    .index("by_expires", ["expiresAt"]),
 
   epicFhirConnections: defineTable({
     siteId: v.optional(v.id("sites")),
