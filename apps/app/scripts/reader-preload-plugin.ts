@@ -47,8 +47,10 @@ export function readerPreloadPlugin(): Plugin {
         const reader = new Set<string>();
         for (const root of roots) collect(root.fileName, reader);
         const urls = [...reader].filter(file => !entry.has(file)).map(file => `${base}${file}`);
+        // Prepend: an inline script placed after the stylesheet link waits for
+        // the stylesheet to download, which held these preloads until CSS loaded.
         return [{ tag: "script", attrs: { id: "wiki-reader-module-preload" },
-          children: `(${preloadReaderModules.toString()})(${JSON.stringify(urls)})`, injectTo: "head" }];
+          children: `(${preloadReaderModules.toString()})(${JSON.stringify(urls)})`, injectTo: "head-prepend" }];
       },
     },
   };
