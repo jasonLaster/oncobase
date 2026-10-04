@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, memo } from "react";
 import { markdownTitleToText } from "./title.ts";
 import type { MarkdownTitleProps } from "./title-react-impl.tsx";
 
@@ -18,10 +18,10 @@ const LazyMarkdownTitle = lazy(() =>
   })),
 );
 
-export function MarkdownTitle(props: MarkdownTitleProps) {
+export const MarkdownTitle = memo(function MarkdownTitle(props: MarkdownTitleProps) {
   return (
     <Suspense fallback={markdownTitleToText(props.title)}>
       <LazyMarkdownTitle {...props} />
     </Suspense>
   );
-}
+});

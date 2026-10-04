@@ -25,9 +25,10 @@ export const WikiMarkdown = memo(function WikiMarkdown(props: WikiMarkdownProps 
     });
     return () => { active = false; };
   }, [waiting]);
-  useEffect(() => {
-    if (!waiting) setPrevious(props);
-  }, [props, waiting]);
+  // Remember the last renderable document during render rather than in an
+  // effect: an effect committed every content change and then re-rendered the
+  // whole markdown tree a second time.
+  if (!waiting && previous !== props) setPrevious(props);
   const plugins = useMemo(() => currentPlugin
     ? [...markdownRehypePlugins, currentPlugin] : markdownRehypePlugins, [currentPlugin]);
   if (error) throw error;
