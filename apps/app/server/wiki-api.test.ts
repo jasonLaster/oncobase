@@ -1050,6 +1050,22 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(passwordLogin!.headers.get("vary")).toContain("Cookie");
   });
 
+  test("rejects malformed password-login bodies with 400 instead of failing", async () => {
+    const handler = createWikiApiHandler(createFakeConvexClient() as never);
+    const login = (body: string) => handler(request("/api/login", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body,
+    }));
+    for (const body of ["{not json", "", "null", "[]", '"diana"']) {
+      const response = await login(body);
+      expect(response?.status).toBe(400);
+      expect(response!.headers.get("cache-control")).toBe("private, no-store");
+      expect(response!.headers.get("set-cookie")).toBeNull();
+    }
+    const wrongType = await login(JSON.stringify({ password: ["diana"] }));
+    expect(wrongType?.status).toBe(401);
+    expect(wrongType!.headers.get("set-cookie")).toBeNull();
+  });
+
   test("signs up, reads the session, rejects bad sign-in, and signs out without live Convex writes", async () => {
     const handler = createWikiApiHandler(
       createFakeConvexClient({ passwordGate: true }) as never,

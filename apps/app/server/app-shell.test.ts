@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { getFunctionName, type FunctionReference } from "convex/server";
 import { createWikiGateSession } from "@oncobase/wiki-content/gate-session";
-import { createWikiViteHandler } from "./app-shell";
+import { createAppShellHandler, createWikiViteHandler } from "./app-shell";
 
 const TEST_GATE_SECRET = "app-shell-test-gate-secret";
 const TEST_GATE_HASH = "sha256:app-shell-test-password";
@@ -328,6 +328,17 @@ describe("wiki Vite app-shell password gate", () => {
       expect(html).not.toContain("FIRST_REDACTION");
       expect(html).not.toContain("PERSON_LITERAL");
     } finally { clock.mockRestore(); }
+  });
+
+  test("malformed percent-encoding is a client error, never a 500", async () => {
+    const handler = createWikiViteHandler({ client: fakeClient() as never, distDir });
+    for (const pathname of ["/wiki/%E0%A4%A", "/assets/%zz.js", "/%"]) {
+      const response = await handler(request(pathname, { headers: await authenticatedHeaders() }));
+      expect(response.status).toBe(404);
+    }
+    const shell = createAppShellHandler({ client: fakeClient() as never, distDir });
+    const response = await shell(request("/wiki/%E0%A4%A"));
+    expect(response.status).toBe(400);
   });
 
   test("the retired /__reader/ namespace is always a private 404", async () => {

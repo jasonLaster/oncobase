@@ -206,8 +206,27 @@ async function currentAssetHashes(client: ConvexHttpClient, siteSlug: string) {
   return hashes;
 }
 
+// Malformed bodies are client errors; without this request.json() throws a
+// SyntaxError that the route reports as a 500.
+// Returns any, like request.json(): each step validates the fields it reads.
+async function readJsonObject(request: Request): Promise<any> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    throw new Response("Invalid JSON body", { status: 400 });
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new Response("JSON object body required", { status: 400 });
+  }
+  return body;
+}
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === "string");
+
 async function handleAssetUpload(request: Request, client: ConvexHttpClient) {
-  const body = (await request.json()) as {
+  const body = (await readJsonObject(request)) as {
     siteSlug?: string;
     runId?: string;
     assetPath?: string;
@@ -264,7 +283,7 @@ async function handleAssetUpload(request: Request, client: ConvexHttpClient) {
 }
 
 async function handleAssetHashBackfill(request: Request, client: ConvexHttpClient) {
-  const body = (await request.json()) as {
+  const body = (await readJsonObject(request)) as {
     siteSlug?: string;
     runId?: string;
     entries?: Array<{
@@ -316,7 +335,7 @@ async function handleAssetHashBackfill(request: Request, client: ConvexHttpClien
 }
 
 async function handleDocumentHashBackfill(request: Request, client: ConvexHttpClient) {
-  const body = (await request.json()) as {
+  const body = (await readJsonObject(request)) as {
     siteSlug?: string;
     runId?: string;
     hashFunctionVersion?: number;
@@ -422,7 +441,7 @@ export async function handlePublishRequest({
       return await handleDocumentHashBackfill(request, client);
     }
 
-    const body = await request.json();
+    const body = await readJsonObject(request);
     const siteSlug = body.siteSlug;
     if (typeof siteSlug !== "string") {
       return new Response("siteSlug is required", { status: 400 });
@@ -825,27 +844,28 @@ export async function handlePublishRequest({
     if (step === "finish" || step === "scoped/finish") {
       if (step === "scoped/finish" && (typeof body.runId !== "string" || !body.runId.startsWith(OWNED_RUN_PREFIX))) return new Response("Scoped runId required", { status: 400 });
       const runId = typeof body.runId === "string" ? body.runId : undefined;
-      assertPublishRun(site, runId, { deletion: Boolean(body.deletedDocSlugs?.length || body.deletedAssetPaths?.length) });
+      const deletedDocSlugs: unknown = body.deletedDocSlugs ?? [];
+      const deletedAssetPaths: unknown = body.deletedAssetPaths ?? [];
+      if (!isStringArray(deletedDocSlugs) || !isStringArray(deletedAssetPaths)) {
+        return new Response("deletedDocSlugs and deletedAssetPaths must be arrays of strings", { status: 400 });
+      }
+      assertPublishRun(site, runId, { deletion: deletedDocSlugs.length > 0 || deletedAssetPaths.length > 0 });
       try {
-        for (const slug of body.deletedDocSlugs ?? []) {
-          if (typeof slug === "string") {
-            await client.mutation(
-              api.documents.deleteBySlug,
-              withSiteSlug(siteSlug, { slug }),
-            );
-          }
+        for (const slug of deletedDocSlugs) {
+          await client.mutation(
+            api.documents.deleteBySlug,
+            withSiteSlug(siteSlug, { slug }),
+          );
         }
-        for (const assetPath of body.deletedAssetPaths ?? []) {
-          if (typeof assetPath === "string") {
-            await client.mutation(
-              api.documents.deletePdfAssetByPath,
-              withSiteSlug(siteSlug, { path: assetPath }),
-            );
-            await client.mutation(
-              api.documents.deleteFileAssetByPath,
-              withSiteSlug(siteSlug, { path: assetPath }),
-            );
-          }
+        for (const assetPath of deletedAssetPaths) {
+          await client.mutation(
+            api.documents.deletePdfAssetByPath,
+            withSiteSlug(siteSlug, { path: assetPath }),
+          );
+          await client.mutation(
+            api.documents.deleteFileAssetByPath,
+            withSiteSlug(siteSlug, { path: assetPath }),
+          );
         }
         const finished = await client.mutation(api.sites.finishPublish, { slug: siteSlug, runId, clientTraceId: backendClientTraceId() });
         return Response.json({ ok: true, revision: finished.revision, postPublishRunId: null });

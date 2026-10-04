@@ -182,3 +182,31 @@ test("combined completion verifies the entire owned scope and preserves committe
   expect(await (await request()).json()).toEqual({ committed: true, revision: 7, ready: false });
   expect(calls).not.toContain("sites:failPublish");
 });
+
+test("malformed JSON and non-object bodies are 400s, not 500s", async () => {
+  const f = fixture();
+  const raw = (step: string, body: string) => handlePublishRequest({ step, client: {} as never,
+    request: new Request(`http://localhost/api/publish/${step}`, { method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer fixture", "X-Publisher-Version": "1" }, body }),
+  });
+  for (const step of ["begin", "finish", "asset", "asset-hashes", "document-hashes"]) {
+    for (const body of ["{not json", "", "null", "[]", "42"]) {
+      expect((await raw(step, body)).status).toBe(400);
+    }
+  }
+  expect(f.mutations).toEqual([]);
+});
+
+test("finish rejects non-string deletion lists before any write", async () => {
+  for (const body of [{ deletedDocSlugs: "doc" }, { deletedDocSlugs: ["doc", 1] }, { deletedAssetPaths: [{ path: "a.png" }] }]) {
+    const f = fixture();
+    const response = await f.request("finish", body);
+    expect(response.status).toBe(400);
+    expect(response.status).toBe(400);
+    expect(await response.text()).toContain("arrays of strings");
+    expect(f.mutations).toEqual([]);
+  }
+  const valid = fixture();
+  await valid.request("finish", { deletedDocSlugs: ["gone"], deletedAssetPaths: [] });
+  expect(valid.mutations.map(m => m.name).slice(0, 2)).toEqual(["documents:deleteBySlug", "sites:finishPublish"]);
+});

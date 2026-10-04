@@ -101,7 +101,12 @@ function staticHeaders(filePath: string) {
 }
 
 function safeStaticPath(distDir: string, pathname: string) {
-  const decoded = decodeURIComponent(pathname);
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
   const normalized = path.normalize(decoded).replace(/^(\.\.(\/|\\|$))+/, "");
   return path.join(distDir, normalized);
 }
@@ -563,6 +568,12 @@ export function createAppShellHandler({
       return robotsPolicyResponse(request, client);
     }
     const directPath = safeStaticPath(distDir, url.pathname === "/" ? "/index.html" : url.pathname);
+    if (directPath === null) {
+      return new Response("Bad request", {
+        status: 400,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "private, no-store" },
+      });
+    }
     const hasExtension = path.extname(url.pathname) !== "";
     const isMarkdownAlias = MARKDOWN_ALIAS_PATH_RE.test(url.pathname);
     const directFileExists = existsSync(directPath) && !directPath.endsWith(path.sep);

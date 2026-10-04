@@ -620,7 +620,16 @@ async function handleLoginRequest(
     );
   }
 
-  const { password } = (await request.json()) as { password?: string };
+  const body: unknown = await request.json().catch(() => undefined);
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return Response.json(
+      { error: "Invalid JSON body" },
+      { status: 400, headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+  const password = typeof (body as { password?: unknown }).password === "string"
+    ? (body as { password: string }).password
+    : undefined;
   const validation = password
     ? await validatePassword(request, client, siteSlug, password)
     : null;
