@@ -10,9 +10,13 @@ import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { AppStarting } from "./AppStarting";
 import { publishRuntimeEnvironment } from "./observability";
 import { observeReaderVitals, recordReaderPhase } from "./reader-telemetry";
+const initialRoute = rootRouteFor(location.pathname, educationOnlyResponse(), landingResponse());
 // Specialist viewers do not need the reader's schema or database imports.
-// Keep that dependency graph outside their startup path.
-const WikiViteRoot = lazy(() => import("./WikiViteRoot").then(module => ({ default: module.WikiViteRoot })));
+// Keep that dependency graph outside their startup path. A reader load starts
+// evaluating the (modulepreloaded) reader graph now, before the first render.
+const readerModule = initialRoute === "reader" ? import("./WikiViteRoot") : null;
+let ReadyWikiViteRoot: typeof import("./WikiViteRoot").WikiViteRoot | undefined;
+const WikiViteRoot = lazy(() => (readerModule ?? import("./WikiViteRoot")).then(module => ({ default: module.WikiViteRoot })));
 const EducationApp = lazy(() => import("./education/EducationApp").then(module => ({ default: module.EducationApp })));
 
 // A login response supersedes previously remembered access, including a gate
@@ -90,7 +94,7 @@ function RootRouteBoundary() {
     case "terms": return <TermsAndConditionsPage />;
     case "pathology": return <PathologyViewerPage />;
     case "dicom": return <ImmersiveDicomRoot />;
-    case "reader": return <WikiViteRoot />;
+    case "reader": return ReadyWikiViteRoot ? <ReadyWikiViteRoot /> : <WikiViteRoot />;
   }
 }
 
@@ -104,10 +108,10 @@ function FirstCommit() {
 }
 
 // Verify the session while the reader chunk downloads, not after it mounts.
-if (rootRouteFor(location.pathname, educationOnlyResponse(), landingResponse()) === "reader") prefetchReaderSession();
+if (initialRoute === "reader") prefetchReaderSession();
 
 recordReaderPhase("boot-entry");
-createRoot(document.getElementById("root")!).render(
+const render = () => createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <FirstCommit />
     <AppErrorBoundary>
@@ -119,3 +123,10 @@ createRoot(document.getElementById("root")!).render(
     </AppErrorBoundary>
   </StrictMode>,
 );
+// React holds a Suspense reveal until 300 ms after its fallback committed, so a
+// lazy reader resolving just after the first commit delayed identity and store
+// startup by ~300 ms. Render the loaded reader directly instead; the HTML's
+// identical startup placeholder covers the wait. A failed import renders the
+// lazy path, which rethrows into the error boundary's reload-once recovery.
+if (readerModule) void readerModule.then(module => { ReadyWikiViteRoot = module.WikiViteRoot; }, () => {}).finally(render);
+else render();
