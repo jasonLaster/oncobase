@@ -1,7 +1,13 @@
 import { flushBackendTraces } from "../server/backend-tracing";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createClient, createWikiApiHandler } from "../server/wiki-api.js";
-import { requestFromIncoming, restoreRewrittenPath, sendWebResponse } from "../server/http-adapter";
+import {
+  RequestBodyTooLargeError,
+  requestBodyTooLargeResponse,
+  requestFromIncoming,
+  restoreRewrittenPath,
+  sendWebResponse,
+} from "../server/http-adapter";
 import { internalReaderNotFound, isInternalReaderPath } from "../server/reader-cache-context";
 
 const handleWikiApiRequest = createWikiApiHandler(createClient());
@@ -19,6 +25,10 @@ export default async function wikiViteApi(req: IncomingMessage, res: ServerRespo
       response ?? new Response("Not found", { status: 404 }),
     );
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      await sendWebResponse(res, requestBodyTooLargeResponse());
+      return;
+    }
     console.error("[wiki-vite-vercel-api]", error);
     await sendWebResponse(
       res,

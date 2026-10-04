@@ -1,7 +1,13 @@
 import { flushBackendTraces, traceBackendHandler, traceBackendPhase } from "../server/backend-tracing";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
-import { requestFromIncoming, restoreRewrittenPath, sendWebResponse } from "../server/http-adapter";
+import {
+  RequestBodyTooLargeError,
+  requestBodyTooLargeResponse,
+  requestFromIncoming,
+  restoreRewrittenPath,
+  sendWebResponse,
+} from "../server/http-adapter";
 import { internalReaderNotFound, isInternalReaderPath } from "../server/reader-cache-context";
 
 declare const __WIKI_VITE_INDEX_HTML__: string;
@@ -34,6 +40,10 @@ export default async function wikiViteRootAppShell(
     }
     await sendWebResponse(res, (await tracedShell(request))!);
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      await sendWebResponse(res, requestBodyTooLargeResponse());
+      return;
+    }
     console.error("[wiki-vite-vercel-root-app]", error);
     await sendWebResponse(
       res,
