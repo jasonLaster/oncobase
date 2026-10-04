@@ -119,13 +119,15 @@ export default defineSchema({
     .index("by_site_slug", ["siteId", "slug"])
     .index("by_site_sensitive_slug", ["siteId", "sensitive", "slug"])
     .index("by_site_deleted_sensitive_slug", ["siteId", "deletedAt", "sensitive", "slug"])
+    // `sensitive` and `deletedAt` let a search exclude restricted and deleted
+    // rows in the index, before they cost result slots and whole-row reads.
     .searchIndex("search_content", {
       searchField: "content",
-      filterFields: ["siteId", "slug", "tags"],
+      filterFields: ["siteId", "slug", "tags", "sensitive", "deletedAt"],
     })
     .searchIndex("search_title", {
       searchField: "title",
-      filterFields: ["siteId"],
+      filterFields: ["siteId", "sensitive", "deletedAt"],
     })
     .vectorIndex("by_embedding", {
       vectorField: "embedding",

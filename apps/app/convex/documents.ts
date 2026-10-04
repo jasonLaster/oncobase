@@ -204,6 +204,24 @@ function canReadAssetWithSensitiveSlugs(
   return !sensitiveSlugs?.has(assetPathToSiblingSlug(asset.path));
 }
 
+// Readable rows, expressed as equality filters: Convex search filters are
+// equality-only and ANDed. Writers store `sensitive` as a boolean and clear
+// `deletedAt` to undefined; legacy rows may hold sensitive undefined or the
+// readable tombstone value deletedAt=0. Each combination is one search, so a
+// restricted or deleted row never occupies a result slot or a document read.
+// Combinations no row uses return nothing and read nothing. Listed in index
+// order (undefined sorts before 0 and false), the order of the visibility
+// index ranges that listPageWithContent reads.
+const READABLE_SEARCH_FILTERS = {
+  public: [
+    { deletedAt: undefined, sensitive: undefined },
+    { deletedAt: undefined, sensitive: false },
+    { deletedAt: 0, sensitive: undefined },
+    { deletedAt: 0, sensitive: false },
+  ],
+  session: [{ deletedAt: undefined }, { deletedAt: 0 }],
+} as const;
+
 export const search = query({
   args: {
     query: v.string(),
@@ -213,25 +231,28 @@ export const search = query({
   },
   handler: async (ctx, { query: q, limit, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
+    const siteId = site.siteId;
+    // rowBelongsToSite rejects every row of an unregistered site.
+    if (!siteId) return [];
     const take = limit ?? 10;
+    const filters: ReadonlyArray<{ deletedAt?: 0; sensitive?: boolean }> = includeSensitive
+      ? READABLE_SEARCH_FILTERS.session
+      : READABLE_SEARCH_FILTERS.public;
 
-    // searchIndex filterFields include siteId — this prevents ranking
-    // leak across sites. For legacy rows without siteId, we widen by
-    // filtering after with rowBelongsToSite. Diana sees both; other
-    // sites only see their own siteId rows.
-    const [contentResults, titleResults] = await Promise.all([
-      ctx.db
+    // Every returned row is read whole (body, raw body, embedding), so read at
+    // most `take` per index and visibility combination, rather than
+    // over-fetching to make room for rows filtered out afterwards.
+    const ranked = (index: "search_content" | "search_title", field: "content" | "title") =>
+      Promise.all(filters.map((filter) => ctx.db
         .query("documents")
-        .withSearchIndex("search_content", (s) =>
-          site.siteId ? s.search("content", q).eq("siteId", site.siteId) : s.search("content", q),
-        )
-        .take(take * 2),
-      ctx.db
-        .query("documents")
-        .withSearchIndex("search_title", (s) =>
-          site.siteId ? s.search("title", q).eq("siteId", site.siteId) : s.search("title", q),
-        )
-        .take(take * 2),
+        .withSearchIndex(index, (s) => {
+          const scoped = s.search(field, q).eq("siteId", siteId).eq("deletedAt", filter.deletedAt);
+          return "sensitive" in filter ? scoped.eq("sensitive", filter.sensitive) : scoped;
+        })
+        .take(take))).then((groups) => groups.flat());
+    const [titleResults, contentResults] = await Promise.all([
+      ranked("search_title", "title"),
+      ranked("search_content", "content"),
     ]);
 
     const seen = new Set<string>();
