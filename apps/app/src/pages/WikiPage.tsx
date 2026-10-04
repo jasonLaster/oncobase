@@ -5,6 +5,7 @@ import { DocumentComments } from "@oncobase/wiki-comments/wrapper";
 import {
   MarkdownTitle,
   WikiMarkdown,
+  type MarkdownTitleLinkProps,
   type WikiMarkdownLinkProps,
   type WikiMarkdownNotificationAdapter,
 } from "@oncobase/wiki-markdown/browser";
@@ -28,6 +29,7 @@ import {
 import {
   Suspense,
   lazy,
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -45,8 +47,8 @@ import {
 } from "../livestore/queries";
 import type {
   AssetIndexRow,
-  Metrics,
   MetricsPatch,
+  MetricsStatus,
   PageContentRow,
   PageIndexRow,
 } from "../types";
@@ -126,6 +128,17 @@ function ArticleBodyError({ retry }: { retry: () => void }) {
   );
 }
 
+function titleLink({ href, children, ...props }: MarkdownTitleLinkProps) {
+  return (
+    <Link to={href} {...props}>
+      {children}
+    </Link>
+  );
+}
+
+// Module constant: a fresh element each render defeated WikiMarkdown's memo.
+const MARKDOWN_BODY_FALLBACK = <WikiMarkdownBodySkeleton data-test-id="page-loading" />;
+
 function formatBreadcrumbLabel(part: string) {
   return part.replace(/-/g, " ");
 }
@@ -171,12 +184,18 @@ function Breadcrumbs(props: {
   );
 }
 
-export function WikiPage({
-  metrics,
+/**
+ * Receives only the sync fields it renders. Byte progress lives in the
+ * transfer-progress store, so transfer ticks don't re-render the article.
+ */
+export const WikiPage = memo(function WikiPage({
+  failedBodySlug,
   onMetrics,
+  syncStatus,
 }: {
-  metrics: Metrics;
+  failedBodySlug: string | null;
   onMetrics: (patch: MetricsPatch) => void;
+  syncStatus: MetricsStatus;
 }) {
   const initial = useInitialReaderData();
   const location = useLocation();
@@ -202,7 +221,7 @@ export function WikiPage({
   if (displayedRouteSlug !== routeSlug && (
     (requestedPage?.slug === slug && (requestedPage.content || requestedPage.missingAt ||
       ["deleted", "missing", "sensitive-unavailable"].includes(requestedPage.contentStatus))) ||
-    metrics.failedBodySlug === slug || metrics.status === "error"
+    failedBodySlug === slug || syncStatus === "error"
   )) setDisplayedRouteSlug(routeSlug);
   const routePending = displayedRouteSlug !== routeSlug;
   const previousDisplayedRoute = useRef(displayedRouteSlug);
@@ -231,7 +250,7 @@ export function WikiPage({
   const deleted = page?.contentStatus === "deleted";
   const failedCurrentFetch =
     !page?.content &&
-    metrics.failedBodySlug === slug;
+    failedBodySlug === slug;
   const routeRenderRef = useRef<{
     hadContent: boolean;
     navigation: boolean;
@@ -372,7 +391,6 @@ export function WikiPage({
     });
   }, [onMetrics, page?.content, page?.slug, routeSlug, slug]);
 
-  const receivedBytes = metrics.pageTransfer?.slug === slug ? metrics.pageTransfer.receivedBytes : undefined;
   const retryPage = identityPending ? undefined : () => window.dispatchEvent(new Event(RETRY_PAGE_EVENT));
   const loadingPage = routeIndex && !routeIndex.sensitive ? (
     <DocumentOutlineShell
@@ -394,13 +412,13 @@ export function WikiPage({
         />
         {routeIndex.description ? <p className="wiki-shell-muted" data-test-id="page-loading-description">{routeIndex.description}</p> : null}
         <WikiMarkdownBodySkeleton data-test-id="page-loading" aria-label="Loading page body" />
-        <PageActivity key={slug} label="Loading page…" receivedBytes={receivedBytes} onRetry={retryPage} />
+        <PageActivity key={slug} label="Loading page…" transferSlug={slug} onRetry={retryPage} />
       </div>
     </DocumentOutlineShell>
   ) : (
     <article className="page-shell page-shell-loading" data-test-id="document-article" aria-busy="true">
       <WikiPageLoading data-test-id="page-loading" label="Loading page" />
-      <PageActivity key={slug} label="Loading page…" receivedBytes={receivedBytes} onRetry={retryPage} />
+      <PageActivity key={slug} label="Loading page…" transferSlug={slug} onRetry={retryPage} />
     </article>
   );
 
@@ -460,7 +478,7 @@ export function WikiPage({
       );
     }
 
-    if (metrics.status === "error") {
+    if (syncStatus === "error") {
       return (
         <WikiEmptyState
           before={
@@ -497,9 +515,9 @@ export function WikiPage({
   const pageBody = (
     <>
       <span hidden data-reader-ready={page.contentStatus === "fresh" && !routePending ? "true" : undefined} />
-      {routePending ? <PageActivity key={slug} label="Opening page…" receivedBytes={receivedBytes} onRetry={retryPage} /> : null}
+      {routePending ? <PageActivity key={slug} label="Opening page…" transferSlug={slug} onRetry={retryPage} /> : null}
       {toast ? <WikiToast>{toast}</WikiToast> : null}
-      {metrics.status === "error" && pageIndex.length === 0 ? (
+      {syncStatus === "error" && pageIndex.length === 0 ? (
         <WikiStatusNotice data-test-id="navigation-unavailable">
           This page is available, but navigation could not be loaded.
           <WikiPageActionButton
@@ -526,11 +544,7 @@ export function WikiPage({
             <MarkdownTitle
               title={displayTitle}
               currentSlug={page.slug}
-              LinkComponent={({ href, children, ...props }) => (
-                <Link to={href} {...props}>
-                  {children}
-                </Link>
-              )}
+              LinkComponent={titleLink}
             />
           }
           actions={
@@ -547,8 +561,8 @@ export function WikiPage({
       ) : null}
       <NoteBundleNavigation slug={page.slug} pageSlugs={pageSlugs} />
       {stale && !routePending ? <PageActivity
-        label={!online ? "Saved page · offline" : metrics.failedBodySlug === displayedSlug ? "Saved page · retrying" : "Updating page…"}
-        busy={online && metrics.failedBodySlug !== displayedSlug}
+        label={!online ? "Saved page · offline" : failedBodySlug === displayedSlug ? "Saved page · retrying" : "Updating page…"}
+        busy={online && failedBodySlug !== displayedSlug}
       /> : null}
       <WikiSourceLinks
         data-test-id="source-links"
@@ -570,7 +584,7 @@ export function WikiPage({
         fallback={retry => <ArticleBodyError retry={retry} />}
       >
         <WikiMarkdown
-          loadingFallback={<WikiMarkdownBodySkeleton data-test-id="page-loading" />}
+          loadingFallback={MARKDOWN_BODY_FALLBACK}
           content={page.content}
           className={page.content.length > 128 * 1024 ? "wiki-markdown-long" : undefined}
           currentSlug={page.slug}
@@ -604,4 +618,4 @@ export function WikiPage({
       </DocumentComments>
     </ScopedErrorBoundary>
   );
-}
+});

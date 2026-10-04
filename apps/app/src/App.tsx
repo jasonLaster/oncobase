@@ -157,7 +157,7 @@ export function App({
         <SpecialRouteMetadata />
         <HeaderAuthDialogHost />
         <HeaderCommandPaletteHost />
-        <ResizableAppShell sidebar={<Sidebar receivedBytes={metrics.manifestReceivedBytes} freshness={navigationFreshness} />}>
+        <ResizableAppShell sidebar={<Sidebar freshness={navigationFreshness} />}>
           <main className="content-shell">
             <RouteErrorBoundary>
               <Suspense fallback={<PageFallback />}>
@@ -177,7 +177,7 @@ export function App({
                   <Route path="/admin/*" element={<AdminPage />} />
                   <Route path="/pii-view/*" element={<PiiViewPage />} />
                   </Route>
-                  <Route path="*" element={<WikiPage metrics={metrics} onMetrics={bumpMetrics} />} />
+                  <Route path="*" element={<WikiPage syncStatus={metrics.status} failedBodySlug={metrics.failedBodySlug} onMetrics={bumpMetrics} />} />
                 </Routes>
               </Suspense>
             </RouteErrorBoundary>
@@ -194,7 +194,7 @@ export function App({
             />
           </Suspense>
         ) : null}
-        <MobileNav receivedBytes={metrics.manifestReceivedBytes} freshness={navigationFreshness} />
+        <MobileNav freshness={navigationFreshness} />
       </div>
     </>
   );

@@ -3,8 +3,6 @@ export type NavigationFreshness = "checking" | "current" | "saved" | "offline";
 export type StoragePressure = "unknown" | "ok" | "warning" | "critical";
 
 export type Metrics = {
-  manifestReceivedBytes?: number;
-  pageTransfer?: { slug: string; receivedBytes: number } | null;
   navigationFreshness?: NavigationFreshness;
   status: MetricsStatus;
   message: string;

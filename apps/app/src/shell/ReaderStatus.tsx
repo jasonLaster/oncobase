@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { NavigationFreshness } from "../types";
 import { REFRESH_MANIFEST_EVENT } from "../sync/events";
+import { useManifestReceivedBytes } from "../sync/transfer-progress";
 
 export function useSlowLoading(active: boolean) {
   const [slow, setSlow] = useState(false);
@@ -25,8 +26,9 @@ function subscribeOnline(listener: () => void) {
 const browserOnline = () => navigator.onLine;
 export function useBrowserOnline() { return useSyncExternalStore(subscribeOnline, browserOnline); }
 
-export function NavigationStatus({ freshness, hasPages, receivedBytes = 0 }: { freshness: NavigationFreshness; hasPages: boolean; receivedBytes?: number }) {
+export function NavigationStatus({ freshness, hasPages }: { freshness: NavigationFreshness; hasPages: boolean }) {
   const slow = useSlowLoading(freshness === "checking");
+  const receivedBytes = useManifestReceivedBytes(freshness === "checking" && slow);
   const label = freshness === "checking" ? (hasPages ? "Checking…" : slow ? "Still loading…" : "Loading…") : freshness === "offline" ? (hasPages ? "Saved · offline" : "Offline") : freshness === "saved" ? (hasPages ? "Saved · retrying" : "Retrying…") : "";
   return (
     <div className="reader-navigation-status" data-test-id="navigation-status" data-freshness={freshness}>

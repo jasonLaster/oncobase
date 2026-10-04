@@ -47,6 +47,7 @@ import { clearStartupSnapshot } from "../bootstrap/reader-startup-cache";
 import { hasBootstrappedPage, cachedStartupStores } from "../bootstrap/seed-state";
 export { WARM_CACHE_EVENT } from "./BackgroundPrefetch";
 import { RETRY_PAGE_EVENT, REFRESH_MANIFEST_EVENT } from "./events";
+import { setManifestReceivedBytes, setPageTransfer } from "./transfer-progress";
 export { RETRY_PAGE_EVENT, REFRESH_MANIFEST_EVENT } from "./events";
 
 const MANIFEST_FRESH_MS: Record<WikiScope, number> = {
@@ -168,12 +169,15 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
 
       const controller = new AbortController();
       inFlight.current.set(cacheKey, controller);
-      if (slug === currentSlugRef.current) onMetrics({ pageTransfer: { slug, receivedBytes: 0 }, failedBodySlug: null });
+      if (slug === currentSlugRef.current) {
+        setPageTransfer({ slug, receivedBytes: 0 });
+        onMetrics({ failedBodySlug: null });
+      }
       window.dispatchEvent(new Event(FOREGROUND_FETCH_EVENT));
       try {
         const batch = await client.fetchPages({ slugs: [slug], signal: controller.signal,
           onProgress: receivedBytes => {
-            if (!controller.signal.aborted && slug === currentSlugRef.current) onMetrics({ pageTransfer: { slug, receivedBytes } });
+            if (!controller.signal.aborted && slug === currentSlugRef.current) setPageTransfer({ slug, receivedBytes });
           },
         });
         if (controller.signal.aborted) return;
@@ -238,7 +242,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
       } finally {
         if (inFlight.current.get(cacheKey) === controller) {
           inFlight.current.delete(cacheKey);
-          if (slug === currentSlugRef.current) onMetrics({ pageTransfer: null });
+          if (slug === currentSlugRef.current) setPageTransfer(null);
         }
       }
     },
@@ -315,10 +319,10 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
       }
 
       const syncStart = performance.now();
+      setManifestReceivedBytes(0);
       onMetrics({
         status: "syncing",
         navigationFreshness: "checking",
-        manifestReceivedBytes: 0,
         message: cachedManifest ? "Checking for wiki updates" : "Loading manifest",
       });
       try {
@@ -329,7 +333,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           validationInFlight.current?.key === validationKey
             ? validationInFlight.current.promise
             : client.validateManifest(cachedManifest?.manifestHash,
-              receivedBytes => { if (!requestController?.signal.aborted) onMetrics({ manifestReceivedBytes: receivedBytes }); },
+              receivedBytes => { if (!requestController?.signal.aborted) setManifestReceivedBytes(receivedBytes); },
               requestController.signal);
         validationInFlight.current = {
           key: validationKey,
