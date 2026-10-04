@@ -140,6 +140,7 @@
 .lp-brand {
   display: inline-flex;
   align-items: center;
+  min-height: 44px;
   gap: 10px;
   font-size: 24px;
   font-weight: 650;
@@ -163,7 +164,7 @@
 }
 .lp-diana-wordmark > span {
   color: var(--lp-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.12em;
 }
@@ -856,7 +857,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 32px;
+  min-height: 44px;
   font-size: 16px;
   font-weight: 600;
 }
@@ -1132,6 +1133,7 @@
   font-size: 13px;
 }
 .lp-footer-platform .lp-oncobase-brand {
+  min-height: 44px;
   font-size: 18px;
 }
 .lp-footer-platform .lp-brand-mark {
@@ -1162,6 +1164,11 @@
   font-size: 13px;
 }
 .lp-footer-credit a {
+  display: inline-block;
+  min-height: 44px;
+  padding-block: 12px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -1277,7 +1284,7 @@
     height: 7px;
   }
   .lp-browser-bar span {
-    font-size: 11px;
+    font-size: 12px;
   }
   .lp-phone {
     width: 30%;
@@ -1411,6 +1418,22 @@
   .si-panel {
     padding-inline: 16px;
   }
+/* Small phones: keep the password field above the fold and the keyboard. */
+@media (max-width: 480px), (max-height: 700px) {
+  .si-art {
+    gap: 12px;
+    padding-bottom: 20px;
+  }
+  .si-art .si-cartoon {
+    width: min(36%, 140px);
+  }
+  .landing-page .si-art-copy p + p {
+    display: none;
+  }
+  .si-panel {
+    padding-block: 24px;
+  }
+}
   .si-theme {
     right: 16px;
   }

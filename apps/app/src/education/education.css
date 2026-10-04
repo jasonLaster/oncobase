@@ -281,7 +281,7 @@
   padding: 20px 12px 0;
   border-top: 1px solid var(--edu-line);
   color: var(--edu-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.8;
 }
 .edu-main {
@@ -299,7 +299,7 @@
   outline: none;
 }
 .edu-eyebrow {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 2px;
   color: var(--edu-muted);
@@ -365,7 +365,8 @@
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  font-size: 12px;
+  min-height: 44px;
+  font-size: 14px;
   color: var(--edu-muted) !important;
   padding: 10px 0;
 }
@@ -446,7 +447,7 @@
   margin: 8px 0 0;
 }
 .edu-library-heading > span {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--edu-muted);
   white-space: nowrap;
 }
@@ -477,7 +478,7 @@
   margin-bottom: 27px;
 }
 .edu-topic-top > span:last-child {
-  font-size: 10px;
+  font-size: 12px;
   font-family: ui-monospace, monospace;
   color: var(--edu-muted);
 }
@@ -515,7 +516,7 @@
   margin-top: auto;
   padding-top: 17px;
   border-top: 1px solid var(--edu-line);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--edu-muted);
 }
 .edu-topic-bottom svg {
@@ -527,7 +528,7 @@
   justify-content: center;
   gap: 10px;
   color: var(--edu-muted);
-  font-size: 11px;
+  font-size: 12px;
   padding: 30px 0 5px;
 }
 .edu-feedback {
@@ -536,9 +537,11 @@
   font-size: 13px;
 }
 .edu-feedback button {
-  margin-left: 6px;
+  display: block;
+  margin: 12px 0 0;
+  min-height: 44px;
   border: 1px solid var(--edu-line);
-  padding: 5px 12px;
+  padding: 5px 16px;
   border-radius: 5px;
   background: var(--edu-panel);
   color: var(--edu-ink);
@@ -553,7 +556,7 @@
   align-items: center;
   gap: 11px;
   color: var(--edu-muted);
-  font-size: 11px;
+  font-size: 12px;
   margin-bottom: 40px;
 }
 .edu-breadcrumbs a:hover {
@@ -624,7 +627,7 @@
   color: var(--edu-green);
 }
 .edu-result-path {
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.4px;
   color: var(--edu-muted);
 }
@@ -740,8 +743,8 @@
     font-size: 16px;
   }
   .edu-search button {
-    min-width: 36px;
-    min-height: 36px;
+    min-width: 44px;
+    min-height: 44px;
   }
   .edu-sidebar {
     display: none;
@@ -815,7 +818,7 @@
     border: 0;
     margin: 0;
     padding: 0;
-    font-size: 11px;
+    font-size: 12px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
