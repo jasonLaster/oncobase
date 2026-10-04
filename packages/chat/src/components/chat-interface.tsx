@@ -39,6 +39,11 @@ interface StoredMessage {
   disabled?: boolean;
 }
 
+interface QueuedMessage {
+  id: string;
+  text: string;
+}
+
 // Extended UIMessage with our metadata. Re-exported from messages.tsx so
 // the split components share the type.
 type ChatUIMessage = ChatUIMessageFromMessages;
@@ -229,11 +234,13 @@ export function ChatInterface({
   // Reset stale cancellation BEFORE useChat exposes Stop. Doing this on the
   // server erases a Stop pressed while the HTTP request is still starting.
   // All four entry points (send, regenerate, retry, auto-resume) share this gate.
+  // Resolves true once `run` started, false if the gate was busy or
+  // preparation failed — callers draining the queue use it to re-queue.
   const runPrepared = useCallback(async ({ prepare, run }: {
     prepare: () => Promise<void>;
     run: () => Promise<void>;
-  }) => {
-    if (preparingRef.current || status === "submitted" || status === "streaming") return;
+  }): Promise<boolean> => {
+    if (preparingRef.current || status === "submitted" || status === "streaming") return false;
     preparingRef.current = true;
     setIsPreparing(true);
     const resetToken = resetTokenRef.current;
@@ -241,10 +248,10 @@ export function ChatInterface({
     try {
       clearError();
       await prepare();
-      if (resetToken !== resetTokenRef.current) return;
+      if (resetToken !== resetTokenRef.current) return false;
       const conversationId = convIdRef.current;
       if (conversationId) await clearCancelMutation({ conversationId, ...siteArgs });
-      if (resetToken !== resetTokenRef.current) return;
+      if (resetToken !== resetTokenRef.current) return false;
       started = true;
       startTracker();
       await run();
@@ -255,6 +262,7 @@ export function ChatInterface({
       preparingRef.current = false;
       setIsPreparing(false);
     }
+    return started;
   }, [clearCancelMutation, clearError, siteArgs, status]);
 
   // useChat does not expose first-byte timing; approximate by recording the
@@ -288,12 +296,26 @@ export function ChatInterface({
     }
   }, [input, draftKey]);
 
+  // Messages submitted while a turn is in flight. They are sent one at a time,
+  // in order, once the chat settles (see the drain effect below).
+  const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
+  const queuedIdRef = useRef(0);
+  const enqueueMessage = useCallback((text: string) => {
+    queuedIdRef.current += 1;
+    const queued = { id: `queued-${queuedIdRef.current}`, text };
+    setQueuedMessages((prev) => [...prev, queued]);
+  }, []);
+  const removeQueuedMessage = useCallback((id: string) => {
+    setQueuedMessages((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
   useEffect(() => {
     if (resetToken === 0) return;
     stop();
     setMessages([]);
     clearError();
     setInput("");
+    setQueuedMessages([]);
   }, [resetToken, stop, setMessages, clearError]);
 
   const lastMessage = messages[messages.length - 1] as ChatUIMessage | undefined;
@@ -416,11 +438,11 @@ export function ChatInterface({
   }, [activeConvId, status, lastIsActiveUser, serverStreamingText, lastMessage]);
 
   const submitMessage = useCallback(
-    async (text: string) => {
+    async (text: string, { fromQueue = false }: { fromQueue?: boolean } = {}) => {
       const trimmed = text.trim();
-      if (!trimmed || isStreaming) return;
+      if (!trimmed || isStreaming) return false;
       let persistedMessageId: string | undefined;
-      await runPrepared({ prepare: async () => {
+      return runPrepared({ prepare: async () => {
         let convId = convIdRef.current;
         if (!convId) {
           const title = trimmed.slice(0, 60) + (trimmed.length > 60 ? "…" : "");
@@ -447,7 +469,8 @@ export function ChatInterface({
         if (!persistedMessageId) throw new Error("Could not confirm the saved message. Please retry.");
       }, run: async () => {
         autoResumed.current = true;
-        setInput("");
+        // A queued send must not wipe whatever the user is typing now.
+        if (!fromQueue) setInput("");
         await sendMessage({ id: persistedMessageId, dbId: persistedMessageId,
           role: "user", parts: [{ type: "text", text: trimmed }] });
       } });
@@ -465,13 +488,41 @@ export function ChatInterface({
     ]
   );
 
+  // Busy covers this tab's turn (including preparation) and a turn another
+  // tab is driving; a submit during either is queued instead of dropped.
+  const isBusy = isStreaming || isPreparing || showCrossTabStream;
+
   // <PromptInput> hands us its own message + event shape on submit.
   const handlePromptSubmit = useCallback(
     async (message: PromptInputMessage) => {
-      await submitMessage(message.text);
+      const trimmed = message.text.trim();
+      if (!trimmed) return;
+      if (isBusy || preparingRef.current || queuedMessages.length > 0) {
+        enqueueMessage(trimmed);
+        setInput("");
+        return;
+      }
+      await submitMessage(trimmed);
     },
-    [submitMessage]
+    [enqueueMessage, isBusy, queuedMessages.length, submitMessage]
   );
+
+  // Drain the queue one message per settled turn. An error pauses the queue
+  // until the user retries or dismisses it.
+  useEffect(() => {
+    if (isBusy || preparingRef.current || error) return;
+    const [next, ...rest] = queuedMessages;
+    if (!next) return;
+    setQueuedMessages(rest);
+    const queuedResetToken = resetTokenRef.current;
+    void submitMessage(next.text, { fromQueue: true }).then((started) => {
+      // The gate was busy or preparation failed; keep the message at the head
+      // unless the chat was reset meanwhile (which discards the queue).
+      if (!started && queuedResetToken === resetTokenRef.current) {
+        setQueuedMessages((prev) => [next, ...prev]);
+      }
+    });
+  }, [isBusy, error, queuedMessages, submitMessage]);
 
   // Edit-trailing-user-message handler. Stable reference so PriorMessages
   // memo doesn't bust on each render.
@@ -530,6 +581,13 @@ export function ChatInterface({
     // model would keep running.
     stop();
     endTracker("abort");
+    // Stopping the turn also cancels what was queued behind it; hand the
+    // queued text back to the composer rather than discarding it.
+    if (queuedMessages.length > 0) {
+      const restored = queuedMessages.map((m) => m.text).join("\n\n");
+      setInput((current) => (current.trim() ? `${restored}\n\n${current}` : restored));
+      setQueuedMessages([]);
+    }
     if (activeConvId) {
       cancelStreamMutation({
         conversationId: activeConvId,
@@ -546,6 +604,7 @@ export function ChatInterface({
     }
   }, [
     stop,
+    queuedMessages,
     activeConvId,
     cancelStreamMutation,
     clearStreamingMutation,
@@ -554,14 +613,21 @@ export function ChatInterface({
   ]);
 
   // Composer keyboard handler:
-  // - Up arrow on empty composer focuses the last user message for edit
-  //   (terminal-style history recall).
+  // - Up arrow on empty composer pulls the last queued message back for edit,
+  //   or else focuses the last user message for edit (terminal-style recall).
   // - Esc aborts an active stream.
   // ai-elements <PromptInputTextarea> handles Enter (IME-safe) internally.
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const handleComposerKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "ArrowUp" && !e.currentTarget.value && !e.shiftKey) {
+        const lastQueued = queuedMessages[queuedMessages.length - 1];
+        if (lastQueued) {
+          e.preventDefault();
+          removeQueuedMessage(lastQueued.id);
+          setInput(lastQueued.text);
+          return;
+        }
         const last = [...messages].reverse().find((m) => m.role === "user");
         if (!last) return;
         const text = last.parts
@@ -578,7 +644,7 @@ export function ChatInterface({
         }
       }
     },
-    [messages, isStreaming, handleEditUser, handleStop]
+    [messages, queuedMessages, isStreaming, handleEditUser, handleStop, removeQueuedMessage]
   );
 
   // Global keyboard shortcuts:
@@ -640,6 +706,40 @@ export function ChatInterface({
     </div>
   ) : null;
 
+  const queuedList = queuedMessages.length > 0 ? (
+    <ul
+      className="mb-2 flex flex-col gap-1"
+      aria-label="Queued messages"
+      data-test-id="chat-queued-messages"
+    >
+      {queuedMessages.map((queued) => (
+        <li
+          key={queued.id}
+          className="flex min-w-0 items-start gap-2 rounded-lg border border-dashed border-[var(--sidebar-border)] px-3 py-2 text-sm text-[var(--text-muted)]"
+          data-test-id="chat-queued-message"
+        >
+          <span className="shrink-0 text-xs font-medium uppercase tracking-wider leading-5">
+            Queued
+          </span>
+          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[var(--foreground)]">
+            {queued.text}
+          </span>
+          <button
+            type="button"
+            onClick={() => removeQueuedMessage(queued.id)}
+            aria-label="Remove queued message"
+            className="shrink-0 rounded px-1 leading-5 transition-colors hover:text-[var(--foreground)]"
+            data-test-id="chat-queued-message-remove"
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z" />
+            </svg>
+          </button>
+        </li>
+      ))}
+    </ul>
+  ) : null;
+
   const renderComposer = (flat = false) => (
     <PromptInput
       onSubmit={handlePromptSubmit}
@@ -665,7 +765,7 @@ export function ChatInterface({
         <span className="flex-1" />
         <PromptInputSubmit
           status={status}
-          disabled={!isStreaming && (isPreparing || !input.trim())}
+          disabled={!isStreaming && !input.trim()}
           onStop={handleStop}
           data-test-id="chat-submit-button"
           className="bg-[var(--brand)] text-white hover:bg-[var(--brand)]/90 disabled:bg-[var(--brand)] disabled:text-white disabled:opacity-100"
@@ -792,6 +892,7 @@ export function ChatInterface({
       </Conversation>
 
       <div className="shrink-0 border-t border-[var(--sidebar-border)] px-2 sm:px-4 py-2 sm:py-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:pb-3">
+        {queuedList}
         {renderComposer()}
       </div>
         </>

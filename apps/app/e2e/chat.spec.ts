@@ -76,6 +76,29 @@ test.describe("Chat", () => {
     }
   });
 
+  test("a message sent while a reply streams is queued, then sent", async ({ page }) => {
+    test.skip(!hasAiGateway || !convexUrl, "Live chat UI smoke requires AI_GATEWAY_API_KEY and Convex URL");
+
+    await ensurePasswordGateSession(page);
+    await page.goto("/chat", { waitUntil: "domcontentloaded" });
+    const composer = page.getByTestId("chat-composer-textarea");
+    const chat = page.getByTestId("chat-interface");
+    await composer.fill("Count from 1 to 40, one number per line.");
+    await composer.press("Enter");
+    await expect(chat).toHaveAttribute("data-chat-status", /submitted|streaming/, { timeout: 15_000 });
+
+    await composer.fill("Reply with exactly: queued-pong");
+    await composer.press("Enter");
+    await expect(composer).toHaveValue("");
+    await expect(page.getByTestId("chat-queued-message")).toHaveText(/queued-pong/);
+
+    await expect(page.getByTestId("chat-queued-message")).toHaveCount(0, { timeout: 60_000 });
+    await expect(page.getByTestId("chat-assistant-message").last()).toContainText(/queued-pong/i, {
+      timeout: 60_000,
+    });
+    await archiveIfPossible(await chat.getAttribute("data-chat-conversation-id"));
+  });
+
   test("archiving the active conversation resets the new-chat surface", async ({
     page,
   }) => {
