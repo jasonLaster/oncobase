@@ -14,7 +14,7 @@ export async function recordReaderHealth(info: TestInfo) {
   if (!page || page.isClosed() || info.status === info.expectedStatus) return;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const flags = await Promise.race([page.evaluate((knownFlags) => knownFlags.filter((flag) => {
-    if (flag === "login-route") return location.pathname === "/login";
+    if (flag === "login-route") return ["/login", "/sign-in"].includes(location.pathname);
     if (flag === "empty-root") return !document.querySelector("#root")?.childElementCount;
     return Boolean(document.querySelector(`[data-test-id="${flag}"]`));
   }), publicReaderHealthFlags).catch(() => []), new Promise<[]>(resolve => {

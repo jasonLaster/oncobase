@@ -127,9 +127,14 @@ test("login loads without starting the reader database or fetching document data
   await page.context().clearCookies();
   const resources: string[] = [];
   page.on("request", request => resources.push(new URL(request.url()).pathname));
+  // The landing page introduces the site; the sign-in page holds the form.
   await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { level: 1, name: "It takes a village." })).toBeVisible();
+  await page.goto("/sign-in", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("textbox", { name: "Password" })).toBeVisible();
-  expect(resources.filter(resource => /LiveStoreRoot|livestore\.worker|wa-sqlite|\/api\/wiki\//.test(resource))).toEqual([]);
+  // Leaving the landing page flushes the page-view beacon, which is not reader data.
+  expect(resources.filter(resource => resource !== "/api/wiki/telemetry" &&
+    /LiveStoreRoot|livestore\.worker|wa-sqlite|\/api\/wiki\//.test(resource))).toEqual([]);
 });
 
 for (const mobile of [false, true]) {

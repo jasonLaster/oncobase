@@ -21,7 +21,7 @@ async function withStartupDiagnostics(page: Page, check: () => Promise<void>) {
       storageDirectory: typeof navigator.storage?.getDirectory,
       crossOriginIsolated,
     })).catch(() => null);
-    console.log(JSON.stringify({ runtimeErrors, failedAssets, capabilities, loginPath: new URL(page.url()).pathname === "/login" }));
+    console.log(JSON.stringify({ runtimeErrors, failedAssets, capabilities, loginPath: ["/login", "/sign-in"].includes(new URL(page.url()).pathname) }));
     throw error;
   }
 }
@@ -29,7 +29,8 @@ async function withStartupDiagnostics(page: Page, check: () => Promise<void>) {
 test("anonymous login boots in the selected browser", async ({ page, context }) => {
   await context.clearCookies();
   await withStartupDiagnostics(page, async () => {
-    await page.goto("/login", { waitUntil: "domcontentloaded" });
+    // The password form lives on the sign-in page; /login introduces the site.
+    await page.goto("/sign-in", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("textbox", { name: "Password" })).toBeVisible();
   });
 });
