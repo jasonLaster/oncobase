@@ -2,6 +2,7 @@ import { internalQuery } from "./_generated/server";
 import { internalQueryFor } from "./lib/serviceFunctions";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   action,
   mutation,
@@ -13,7 +14,17 @@ import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 import { invalidateManifest } from "./lib/manifestRevision";
 import { assertPublishRun, recordPublishChange } from "./lib/publishRun";
 import { hasCompleteAssetVisibility } from "./lib/assetVisibility";
-import { insertDocument, patchDocument } from "./lib/documentMeta";
+import {
+  collectDocumentMetadata,
+  documentMetaReady,
+  findDocumentMetadata,
+  findDocumentMetadataById,
+  insertDocument,
+  paginateDocumentMetadata,
+  paginateMetadataSource,
+  patchDocument,
+  type MetadataPage,
+} from "./lib/documentMeta";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { applyPiiRedactions, parseSitePiiPatterns } from "@oncobase/wiki-content/pii";
@@ -155,7 +166,7 @@ async function isSensitiveAsset(
 ) {
   if (!hasCompleteAssetVisibility(asset)) return true;
   if (asset.sensitive) return true;
-  const doc = await findDocBySlug(ctx, site, assetPathToSiblingSlug(asset.path));
+  const doc = await findDocumentMetadata(ctx, site, assetPathToSiblingSlug(asset.path));
   return doc?.sensitive === true;
 }
 
@@ -168,14 +179,14 @@ async function canReadAsset(
   return includeSensitive || !(await isSensitiveAsset(ctx, site, asset));
 }
 
+// Runs on every public asset listing page. Once the site's meta projection is
+// ready this reads small meta rows rather than every sensitive body.
 async function sensitiveSiblingSlugSet(ctx: QueryCtx, site: SiteCtx) {
   if (!site.siteId) return new Set<string>();
-  const sensitiveDocs = await ctx.db
-    .query("documents")
-    .withIndex("by_site_sensitive_slug", (q) =>
-      q.eq("siteId", site.siteId!).eq("sensitive", true),
-    )
-    .collect();
+  const siteId = site.siteId;
+  const sensitiveDocs = await collectDocumentMetadata(ctx, { ...site, siteId }, "by_site_sensitive_slug", (q) =>
+    q.eq("siteId", siteId).eq("sensitive", true),
+  );
   return new Set(
     sensitiveDocs
       .filter((doc) => rowBelongsToSite(doc, site) && !doc.deletedAt)
@@ -272,8 +283,8 @@ export const getBySlug = query({
   },
 });
 
-// Each lookup still reads the stored row (body + embedding) inside the
-// transaction; 100 keeps a batch well under Convex's read budget.
+// Before the site's meta backfill each lookup reads the stored row (body +
+// embedding); 100 keeps a batch well under Convex's read budget.
 const SLUG_SENSITIVITY_BATCH_LIMIT = 100;
 
 /** Sensitivity flags for a bounded set of slugs. Callers that only need to
@@ -289,7 +300,7 @@ export const getSensitivityBySlugs = query({
     const site = await requireSite(ctx, siteSlug);
     const results: { slug: string; sensitive: boolean }[] = [];
     for (const slug of new Set(slugs)) {
-      const doc = await findDocBySlug(ctx, site, slug);
+      const doc = await findDocumentMetadata(ctx, site, slug);
       if (!doc || doc.deletedAt) continue;
       results.push({ slug, sensitive: doc.sensitive === true });
     }
@@ -362,6 +373,13 @@ async function paginatedDocs(ctx: AnyCtx, site: SiteCtx, cursor: string | null, 
   return await ctx.db.query("documents").paginate({ cursor, numItems });
 }
 
+async function paginatedMetadata(ctx: QueryCtx, site: SiteCtx, cursor: string | null, numItems: number): Promise<MetadataPage> {
+  const siteId = site.siteId;
+  // Unscoped rows never pass rowBelongsToSite; keep the legacy scan's shape.
+  if (!siteId) return { page: [], isDone: true, continueCursor: "" };
+  return await paginateDocumentMetadata(ctx, { ...site, siteId }, "by_site_slug", (q) => q.eq("siteId", siteId), { cursor, numItems });
+}
+
 export const listPage = query({
   args: {
     cursor: v.union(v.string(), v.null()),
@@ -376,10 +394,9 @@ export const listPage = query({
     // existing index before pagination so public bodies never enter this scan.
     // This selector does not grant access: retain the normal visibility checks.
     const result = sensitiveOnly && site.siteId
-      ? await ctx.db.query("documents")
-          .withIndex("by_site_sensitive_slug", q => q.eq("siteId", site.siteId!).eq("sensitive", true))
-          .paginate({ cursor, numItems })
-      : await paginatedDocs(ctx, site, cursor, numItems);
+      ? await paginateDocumentMetadata(ctx, { ...site, siteId: site.siteId }, "by_site_sensitive_slug",
+          q => q.eq("siteId", site.siteId!).eq("sensitive", true), { cursor, numItems })
+      : await paginatedMetadata(ctx, site, cursor, numItems);
     return {
       page: result.page
         .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive) && (!sensitiveOnly || doc.sensitive === true))
@@ -422,6 +439,36 @@ export const listPageWithDescriptions = query({
   },
 });
 
+// Readable rows of a site in the visibility index: active rows (deletedAt
+// undefined) then legacy deletedAt=0 rows, optionally public only. Tombstones
+// and (public scope) restricted rows are excluded before pagination's byte
+// limit, so their stored bodies are never read.
+function visibleRange(siteId: Id<"sites">, partition: 0 | 1, includeSensitive: boolean | undefined) {
+  return (q: any) => {
+    const active = q.eq("siteId", siteId).eq("deletedAt", partition === 0 ? undefined : 0);
+    // Undefined and false sensitivity both remain publicly readable.
+    return includeSensitive ? active : active.lt("sensitive", true);
+  };
+}
+
+type VisibleCursor = { partition: 0 | 1; cursor: string | null };
+
+function parseVisibleCursor(raw: unknown, tag: string): VisibleCursor | null {
+  if (!Array.isArray(raw) || raw[0] !== tag) return null;
+  if (raw.length !== 3 || ![0, 1].includes(raw[1]) || (raw[2] !== null && typeof raw[2] !== "string")) {
+    throw new Error("Invalid manifest cursor");
+  }
+  return { partition: raw[1], cursor: raw[2] };
+}
+
+function parseJsonCursor(cursor: string): unknown {
+  try { return JSON.parse(cursor); } catch { return null; }
+}
+
+function nextVisibleCursor(tag: string, partition: 0 | 1, result: MetadataPage | { isDone: boolean; continueCursor: string }) {
+  return JSON.stringify([tag, result.isDone ? partition + 1 : partition, result.isDone ? null : result.continueCursor]);
+}
+
 export const listPageWithContent = query({
   args: {
     cursor: v.union(v.string(), v.null()),
@@ -461,42 +508,36 @@ export const listManifestPage = query({
     const site = await requireSite(ctx, siteSlug);
     // Deleted documents retain large bodies. Exclude them in the index, before
     // pagination's byte limit. Keep legacy deletedAt=0 semantics through a second
-    // indexed partition; opaque cursors carry both partition and native cursor.
-    let partition = 0;
-    let nativeCursor: string | null = null;
+    // indexed partition; opaque cursors carry source, partition and native cursor.
+    // "manifest-v2" pages `documents`; "manifest-meta-v1" pages `documentMeta`.
+    // A continuation stays on the source it started on.
+    let tag = documentMetaReady(site) ? "manifest-meta-v1" : "manifest-v2";
+    let position: VisibleCursor = { partition: 0, cursor: null };
     if (cursor) {
-      const parsed: unknown = JSON.parse(cursor);
-      if (!Array.isArray(parsed) || parsed.length !== 3 || parsed[0] !== "manifest-v2" ||
-          ![0, 1].includes(parsed[1]) || (parsed[2] !== null && typeof parsed[2] !== "string")) {
-        throw new Error("Invalid manifest cursor");
-      }
-      partition = parsed[1];
-      nativeCursor = parsed[2];
+      const raw = parseJsonCursor(cursor);
+      const parsed = parseVisibleCursor(raw, "manifest-v2") ?? parseVisibleCursor(raw, "manifest-meta-v1");
+      if (!parsed) throw new Error("Invalid manifest cursor");
+      tag = (raw as unknown[])[0] as string;
+      position = parsed;
     }
-    const result = site.siteId
-      ? await ctx.db.query("documents")
-          .withIndex("by_site_deleted_sensitive_slug", (q) => {
-            const active = q.eq("siteId", site.siteId!).eq("deletedAt", partition === 0 ? undefined : 0);
-            // Undefined and false sensitivity both remain publicly readable.
-            return includeSensitive ? active : active.lt("sensitive", true);
-          })
-          .paginate({ cursor: nativeCursor, numItems })
+    const result: MetadataPage = site.siteId
+      ? await paginateMetadataSource(ctx, tag === "manifest-v2" ? "documents" : "documentMeta", "by_site_deleted_sensitive_slug",
+          visibleRange(site.siteId, position.partition, includeSensitive), { cursor: position.cursor, numItems })
       : { page: [], isDone: true, continueCursor: "" };
-    const nextPartition = result.isDone ? partition + 1 : partition;
     return {
       page: result.page
         .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
-        .map(({ slug, title, tags, description, content, contentHash, sensitive, sizeBytes }) => ({
+        .map(({ slug, title, tags, description, contentHash, sensitive, size }) => ({
           slug,
           title,
           tags,
           description: description ?? null,
           contentHash: contentHash ?? null,
           sensitive: sensitive === true,
-          size: sizeBytes ?? content.length,
+          size,
         })),
-      isDone: result.isDone && (partition === 1 || !site.siteId),
-      continueCursor: JSON.stringify(["manifest-v2", nextPartition, result.isDone ? null : result.continueCursor]),
+      isDone: result.isDone && (position.partition === 1 || !site.siteId),
+      continueCursor: nextVisibleCursor(tag, position.partition, result),
     };
   },
 });
@@ -748,7 +789,7 @@ export const listPageDescriptions = query({
   },
   handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    const result = await paginatedDocs(ctx, site, cursor, numItems);
+    const result = await paginatedMetadata(ctx, site, cursor, numItems);
     return {
       page: result.page
         .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
@@ -767,7 +808,7 @@ export const getDescription = query({
   },
   handler: async (ctx, { slug, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    const doc = await findDocBySlug(ctx, site, slug);
+    const doc = await findDocumentMetadata(ctx, site, slug);
     return doc && canReadDocument(doc, includeSensitive) ? doc.description ?? null : null;
   },
 });
@@ -809,7 +850,7 @@ export const getById = query({
   },
   handler: async (ctx, { id, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    const doc = await ctx.db.get(id);
+    const doc = await findDocumentMetadataById(ctx, site, id);
     if (!doc || !rowBelongsToSite(doc, site) || !canReadDocument(doc, includeSensitive)) return null;
     return { slug: doc.slug, title: doc.title, tags: doc.tags };
   },
@@ -917,14 +958,14 @@ export const embeddingStatusPage = query({
   },
   handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    const result = await paginatedDocs(ctx, site, cursor, numItems);
+    const result = await paginatedMetadata(ctx, site, cursor, numItems);
     return {
       page: result.page
         .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
         .map((doc) => ({
           slug: doc.slug,
           contentHash: doc.contentHash,
-          hasRawContent: doc.rawContent !== undefined,
+          hasRawContent: doc.hasRawContent,
           hashFunctionVersion: doc.hashFunctionVersion,
           embeddingHash: doc.embeddingHash,
           sensitive: doc.sensitive,
@@ -1105,19 +1146,15 @@ export const listPdfAssetVisibilityPage = query({
     const page = [];
     for (const row of result.page) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-      const siblingSlug = assetPathToSiblingSlug(row.path);
-      let sibling =
-        !hasCompleteAssetVisibility(row) || row.sensitive === true
-          ? await findDocBySlug(ctx, site, siblingSlug)
-          : null;
-      const sensitive =
-        !hasCompleteAssetVisibility(row) ||
-        row.sensitive === true ||
-        sibling?.sensitive === true;
+      // Complete, non-sensitive visibility is trusted as public. Anything else
+      // is sensitive regardless of the sibling, so public scope skips it
+      // before any document read (a full public page of sensitive assets used
+      // to read one sibling body each and could exceed the read limit).
+      const sensitive = !hasCompleteAssetVisibility(row) || row.sensitive === true;
       if (!includeSensitive && sensitive) continue;
       const ownerSlugs = new Set(row.ownerSlugs ?? []);
       if (sensitive) {
-        sibling ??= await findDocBySlug(ctx, site, siblingSlug);
+        const sibling = await findDocumentMetadata(ctx, site, assetPathToSiblingSlug(row.path));
         if (sibling) ownerSlugs.add(sibling.slug);
       }
       page.push({
@@ -1488,19 +1525,15 @@ export const listFileAssetVisibilityPage = query({
     const page = [];
     for (const row of result.page) {
       if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-      const siblingSlug = assetPathToSiblingSlug(row.path);
-      let sibling =
-        !hasCompleteAssetVisibility(row) || row.sensitive === true
-          ? await findDocBySlug(ctx, site, siblingSlug)
-          : null;
-      const sensitive =
-        !hasCompleteAssetVisibility(row) ||
-        row.sensitive === true ||
-        sibling?.sensitive === true;
+      // Complete, non-sensitive visibility is trusted as public. Anything else
+      // is sensitive regardless of the sibling, so public scope skips it
+      // before any document read (a full public page of sensitive assets used
+      // to read one sibling body each and could exceed the read limit).
+      const sensitive = !hasCompleteAssetVisibility(row) || row.sensitive === true;
       if (!includeSensitive && sensitive) continue;
       const ownerSlugs = new Set(row.ownerSlugs ?? []);
       if (sensitive) {
-        sibling ??= await findDocBySlug(ctx, site, siblingSlug);
+        const sibling = await findDocumentMetadata(ctx, site, assetPathToSiblingSlug(row.path));
         if (sibling) ownerSlugs.add(sibling.slug);
       }
       page.push({
@@ -1760,10 +1793,10 @@ export const internal_publisherManifestPages = internalQuery({
     if (slugs.length > 16) throw new Error("Manifest delta batch exceeds limit");
     const site = await requireSite(ctx, siteSlug);
     return Promise.all(slugs.map(async slug => {
-      const doc = await findDocBySlug(ctx, site, slug);
+      const doc = await findDocumentMetadata(ctx, site, slug);
       if (!doc || doc.deletedAt || doc.sensitive === true) return null;
       return { slug: doc.slug, title: doc.title, tags: doc.tags, description: doc.description ?? null,
-        contentHash: doc.contentHash ?? null, sensitive: false, size: doc.sizeBytes ?? doc.content.length };
+        contentHash: doc.contentHash ?? null, sensitive: false, size: doc.size };
     }));
   },
 });

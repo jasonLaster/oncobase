@@ -4,6 +4,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./lib/serviceF
 import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 import type { Doc, Id } from "./_generated/dataModel";
 import { canAccessWithoutProtectedRule } from "./lib/accessPolicy";
+import { findDocumentMetadata, paginateDocumentMetadata, type DocumentMetadata } from "./lib/documentMeta";
 
 function pathAllowed(path: string, patterns: string[]) {
   return patterns.some((pattern) => {
@@ -131,23 +132,10 @@ function ruleMatchesSlug(
   return pathMatches && includeMatches && !pathExcluded && !excludeMatches;
 }
 
+// Access needs only slug, sensitivity and tags; read the body-free projection
+// once the site's documentMeta backfill is complete.
 async function findDocumentBySlug(ctx: QueryCtx, site: SiteCtx, slug: string) {
-  if (site.siteId) {
-    const scoped = await ctx.db
-      .query("documents")
-      .withIndex("by_site_slug", (q) =>
-        q.eq("siteId", site.siteId!).eq("slug", slug),
-      )
-      .first();
-    if (scoped) return scoped;
-  }
-
-  const legacy = await ctx.db
-    .query("documents")
-    .withIndex("by_slug", (q) => q.eq("slug", slug))
-    .first();
-  if (legacy && rowBelongsToSite(legacy, site)) return legacy;
-  return null;
+  return await findDocumentMetadata(ctx, site, slug);
 }
 
 function summarizePermissions(permissions: Doc<"rolePermissions">[]) {
@@ -740,7 +728,7 @@ async function createDocumentAccessCheck(ctx: QueryCtx, site: SiteCtx, userId: I
   // every role's permissions through another index query.
   const rules = protectedRules.filter(permission => allowedRoleIds.has(String(permission.roleId)));
 
-  return (slug: string, doc: Pick<Doc<"documents">, "sensitive" | "tags" | "sensitiveInclude"> | null) => {
+  return (slug: string, doc: Pick<DocumentMetadata, "sensitive" | "tags" | "sensitiveInclude"> | null) => {
     if (!doc) return false;
     if (doc.sensitive !== true) return true;
     const documentTags = doc.tags ?? [];
@@ -784,12 +772,12 @@ export const listAllowedSensitivePage = query({
   handler: async (ctx, { userId, siteSlug, cursor, numItems }) => {
     const site = await requireSite(ctx, siteSlug);
     if (!site.siteId) return { slugs: [], isDone: true, continueCursor: null };
-    // Metadata projection still reads stored bodies. Leave room for permission
-    // queries under Convex's 16 MiB transaction read budget.
+    // Before the documentMeta backfill this reads stored bodies. Leave room for
+    // permission queries under Convex's 16 MiB transaction read budget.
     const [result, canRead] = await Promise.all([
-      ctx.db.query("documents")
-        .withIndex("by_site_sensitive_slug", q => q.eq("siteId", site.siteId!).eq("sensitive", true))
-        .paginate({ cursor, numItems, maximumBytesRead: 4 * 1024 * 1024 }),
+      paginateDocumentMetadata(ctx, { ...site, siteId: site.siteId }, "by_site_sensitive_slug",
+        q => q.eq("siteId", site.siteId!).eq("sensitive", true),
+        { cursor, numItems, maximumBytesRead: 4 * 1024 * 1024 }),
       createDocumentAccessCheck(ctx, site, userId),
     ]);
     return {
@@ -808,16 +796,18 @@ export const listAllowedSensitiveManifestPage = query({
     if (!Number.isInteger(numItems) || numItems < 1 || numItems > 500) throw new Error("Invalid metadata page size");
     const site = await requireSite(ctx, siteSlug);
     if (!site.siteId) return { page: [], isDone: true, continueCursor: null };
-    // Metadata projection still reads stored bodies. Leave room for permission
-    // queries under Convex's 16 MiB transaction read budget.
+    // Before the documentMeta backfill this reads stored bodies. Leave room for
+    // permission queries under Convex's 16 MiB transaction read budget.
     const [result, canRead] = await Promise.all([
-      ctx.db.query("documents").withIndex("by_site_sensitive_slug", q => q.eq("siteId", site.siteId!).eq("sensitive", true)).paginate({ cursor, numItems, maximumBytesRead: 4 * 1024 * 1024 }),
+      paginateDocumentMetadata(ctx, { ...site, siteId: site.siteId }, "by_site_sensitive_slug",
+        q => q.eq("siteId", site.siteId!).eq("sensitive", true),
+        { cursor, numItems, maximumBytesRead: 4 * 1024 * 1024 }),
       createDocumentAccessCheck(ctx, site, userId),
     ]);
     return {
       page: result.page.filter(doc => rowBelongsToSite(doc, site) && !doc.deletedAt && canRead(doc.slug, doc))
         .map(doc => ({ slug: doc.slug, title: doc.title, tags: doc.tags, description: doc.description ?? null,
-          contentHash: doc.contentHash ?? null, sensitive: true, size: doc.sizeBytes ?? doc.content.length })),
+          contentHash: doc.contentHash ?? null, sensitive: true, size: doc.size })),
       isDone: result.isDone, continueCursor: result.continueCursor,
     };
   },
