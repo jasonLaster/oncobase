@@ -100,7 +100,8 @@ export function createWikiApiHandler(client = createClient()) {
       manifestSnapshotCache,
       getManifestSnapshot: process.env.WIKI_PREFETCH_SECRET ? async () => {
         if (educationOnly) return null;
-        const args = { siteSlug, serverSecret: process.env.WIKI_PREFETCH_SECRET! };
+        // Authenticated by the service JWT; WIKI_PREFETCH_SECRET only gates the feature.
+        const args = { siteSlug };
         const snapshot = await client.query(api.manifestCache.current, args);
         traceBackendAttributes({ "manifest.snapshot_hit": Boolean(snapshot) });
         // The reader is served from the live path either way; never await the build.

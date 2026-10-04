@@ -1,17 +1,17 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { serviceOrSecretMutation, serviceOrSecretQuery } from "./lib/serviceFunctions";
 import { requireSite } from "./lib/site";
-import { addVisit, requirePrefetchSecret } from "./lib/prefetchPriority";
+import { addVisit } from "./lib/prefetchPriority";
 import { findDocumentMetadata } from "./lib/documentMeta";
 
-// Only the gated application server can call these functions. The key is never
-// sent to a browser. Access filtering happens again before HTTP responses.
-const args = { siteSlug: v.string(), serverSecret: v.string() };
+// Only the gated application server can call these functions (service JWT;
+// legacy `serverSecret` accepted for one deploy). Access filtering happens
+// again before HTTP responses.
+const args = { siteSlug: v.string(), serverSecret: v.optional(v.string()) };
 
-export const recordVisit = mutation({
+export const recordVisit = serviceOrSecretMutation({
   args: { ...args, slug: v.string() },
-  handler: async (ctx, { siteSlug, serverSecret, slug }) => {
-    requirePrefetchSecret(serverSecret, process.env.WIKI_PREFETCH_SECRET);
+  handler: async (ctx, { siteSlug, slug }) => {
     const site = await requireSite(ctx, siteSlug);
     const { siteId } = site;
     if (!siteId) return;
@@ -30,10 +30,9 @@ export const recordVisit = mutation({
   },
 });
 
-export const priorities = query({
+export const priorities = serviceOrSecretQuery({
   args,
-  handler: async (ctx, { siteSlug, serverSecret }) => {
-    requirePrefetchSecret(serverSecret, process.env.WIKI_PREFETCH_SECRET);
+  handler: async (ctx, { siteSlug }) => {
     const siteCtx = await requireSite(ctx, siteSlug);
     const { siteId, site } = siteCtx;
     if (!siteId) return [];

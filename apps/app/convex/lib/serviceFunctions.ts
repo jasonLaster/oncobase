@@ -5,6 +5,7 @@ import { query as baseQuery, mutation as baseMutation, action as baseAction, int
 import type { RegisteredQuery } from "convex/server";
 import { requireConversationIdentity } from "./conversationAuth";
 import { requireServiceIdentity } from "./serviceAuth";
+import { requirePrefetchSecret } from "./prefetchPriority";
 
 type Definition = { args?: any; returns?: any; handler: (ctx: any, args: any) => any };
 const definitions = new WeakMap<object, Definition>();
@@ -23,6 +24,18 @@ export const mutation = authenticated(baseMutation);
 export const action = authenticated(baseAction);
 export const conversationQuery = authenticated(baseQuery, requireConversationIdentity);
 export const conversationMutation = authenticated(baseMutation, requireConversationIdentity);
+
+// Transitional: manifest snapshot and prefetch functions used to authenticate
+// with a shared `serverSecret` argument. Accept the service JWT (what the app
+// server now sends) or, for one deploy, a correct legacy secret, so app and
+// Convex can deploy in either order. Remove the secret path once no deployed
+// app sends `serverSecret`.
+async function requireServiceIdentityOrLegacySecret(ctx: any, args: { serverSecret?: string }) {
+  if (args?.serverSecret !== undefined) return requirePrefetchSecret(args.serverSecret, process.env.WIKI_PREFETCH_SECRET);
+  return requireServiceIdentity(ctx);
+}
+export const serviceOrSecretQuery = authenticated(baseQuery, requireServiceIdentityOrLegacySecret);
+export const serviceOrSecretMutation = authenticated(baseMutation, requireServiceIdentityOrLegacySecret);
 export type { QueryCtx, MutationCtx, ActionCtx } from "../_generated/server";
 
 // Scheduled manifest work has no user identity. Give it explicit internal

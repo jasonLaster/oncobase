@@ -32,7 +32,8 @@ export function handleWikiPages({ request, wiki }: ApiRouteRequest) {
 export function handleWikiPrefetch({ request, client, siteSlug, educationOnly, wiki }: ApiRouteRequest) {
   const serverSecret = process.env.WIKI_PREFETCH_SECRET;
   return handlePrefetchRequest(request, wiki, serverSecret && !educationOnly ? {
-    priorities: () => client.query(api.prefetch.priorities, { siteSlug, serverSecret }),
-    recordVisit: (slug) => client.mutation(api.prefetch.recordVisit, { siteSlug, serverSecret, slug }, { skipQueue: true }),
+    // Authenticated by the service JWT; WIKI_PREFETCH_SECRET only gates the feature.
+    priorities: () => client.query(api.prefetch.priorities, { siteSlug }),
+    recordVisit: (slug) => client.mutation(api.prefetch.recordVisit, { siteSlug, slug }, { skipQueue: true }),
   } : null).catch(() => Response.json({ error: "Prefetch unavailable" }, { status: 503, headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" } }));
 }

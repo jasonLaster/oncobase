@@ -72,11 +72,17 @@ rankings also require a valid user session and filter protected slugs using the
 same access service as content reads. Visit POSTs require a same-origin JSON
 request and an accessible, existing document. Responses are private and no-store.
 
-Direct Convex ranking and visit functions require `WIKI_PREFETCH_SECRET`, a
-server-only random key of at least 32 characters. Configure the same value in
-the Vercel production application and its Convex deployment. Never expose it
-through a browser-prefixed variable. Missing configuration disables global
-ranking and recording without breaking reading or explicit/local cache warming.
+Direct Convex ranking and visit functions (and the manifest snapshot
+functions) require the application server's service JWT, like other
+server-only Convex functions. For one deploy they also accept the legacy
+`serverSecret` argument (`WIKI_PREFETCH_SECRET`, compared in constant time)
+so the app and Convex can deploy in either order; that path is to be removed
+once no deployed app sends it. `WIKI_PREFETCH_SECRET` stays a server-only
+random key of at least 32 characters: in the app it still enables global
+ranking/recording and snapshots (missing configuration disables them without
+breaking reading or explicit/local cache warming), and it authenticates the
+Convex-to-app manifest telemetry relay. Never expose it through a
+browser-prefixed variable.
 Preview environments should use their own backend/key pairing when enabled.
 
 Browser fixtures mock the ranking endpoint by default. Real-backend QA sends

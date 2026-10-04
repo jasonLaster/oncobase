@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
+import { serviceOrSecretMutation, serviceOrSecretQuery } from "./lib/serviceFunctions";
 import { requireSite } from "./lib/site";
-import { requirePrefetchSecret } from "./lib/prefetchPriority";
 import { hasActiveScopedWriter, MANIFEST_SNAPSHOT_VERSION, queueManifestBuild } from "./lib/manifestRevision";
 
 // Generations survive lease release, so a delayed failure cannot erase a successor.
@@ -10,7 +10,9 @@ function ownsBuild(site: { manifestBuildGeneration?: number; manifestBuildQueued
   return generation === undefined ? site.manifestBuildGeneration === undefined || site.manifestBuildQueuedAt === undefined : generation === site.manifestBuildGeneration && site.manifestBuildQueuedAt !== undefined;
 }
 
-const serviceArgs = { siteSlug: v.string(), serverSecret: v.string() };
+// `serverSecret` is the legacy credential, accepted for one deploy alongside
+// the service JWT (see serviceOrSecretQuery).
+const serviceArgs = { siteSlug: v.string(), serverSecret: v.optional(v.string()) };
 
 // Admin-only inventory for warming and verifying snapshots. Never return site
 // configuration, credentials or document contents in operational output.
@@ -38,10 +40,9 @@ export const status = internalQuery({
 
 // Snapshot URLs are service-only. The reader receives the JSON through its
 // authenticated application endpoint, never an anonymous storage URL.
-export const current = query({
+export const current = serviceOrSecretQuery({
   args: serviceArgs,
-  handler: async (ctx, { siteSlug, serverSecret }) => {
-    requirePrefetchSecret(serverSecret, process.env.WIKI_PREFETCH_SECRET);
+  handler: async (ctx, { siteSlug }) => {
     const { site } = await requireSite(ctx, siteSlug);
     const snapshot = site?.manifestSnapshot;
     if (site?.publishRunId && (site.publishLockUntil ?? 0) > Date.now()) return null;
@@ -51,10 +52,9 @@ export const current = query({
   },
 });
 
-export const requestBuild = mutation({
+export const requestBuild = serviceOrSecretMutation({
   args: serviceArgs,
-  handler: async (ctx, { siteSlug, serverSecret }): Promise<null> => {
-    requirePrefetchSecret(serverSecret, process.env.WIKI_PREFETCH_SECRET);
+  handler: async (ctx, { siteSlug }): Promise<null> => {
     const { site, siteId } = await requireSite(ctx, siteSlug);
     // Readers request builds while `current` is null, which includes the whole
     // scoped publish window. A build started now would only be discarded as

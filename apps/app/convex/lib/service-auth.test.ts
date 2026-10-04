@@ -15,6 +15,8 @@ import * as imageAnnotations from "../imageAnnotations";
 import * as commentRooms from "../commentRooms";
 import * as guestNames from "../guestNames";
 import * as migrations from "../migrations";
+import * as manifestCache from "../manifestCache";
+import * as prefetch from "../prefetch";
 
 export const serviceIdentity = { issuer: SERVICE_ISSUER, subject: SERVICE_SUBJECT, role: "backend-service" };
 const modules = { "../conversations.ts": () => import("../conversations"), "../documents.ts": () => import("../documents"), "../sites.ts": () => import("../sites"), "../users.ts": () => import("../users"),
@@ -22,7 +24,7 @@ const modules = { "../conversations.ts": () => import("../conversations"), "../d
 
 test("every server-only public handler denies before reading or mutating data", async () => {
   let checked = 0;
-  for (const module of [documents, sites, users, access, dicom, epicFhir, imageAnnotations, commentRooms, guestNames, migrations, conversations]) {
+  for (const module of [documents, sites, users, access, dicom, epicFhir, imageAnnotations, commentRooms, guestNames, migrations, conversations, manifestCache, prefetch]) {
     for (const exported of Object.values(module)) {
       const fn = exported as { isPublic?: boolean; _handler?: (ctx: unknown, args: unknown) => unknown };
       if (!fn.isPublic || !fn._handler) continue;
@@ -35,7 +37,7 @@ test("every server-only public handler denies before reading or mutating data", 
       checked++;
     }
   }
-  expect(checked).toBe(99);
+  expect(checked).toBe(103);
 });
 
 test("document reads, legacy bulk reads, sensitive flag and hash lookups require a verified service identity", async () => {
@@ -65,4 +67,28 @@ test("document reads, legacy bulk reads, sensitive flag and hash lookups require
   await expect(browser.query(api.conversations.list, { siteSlug: "alpha" })).rejects.toThrow("Unauthorized");
   const manifest = await t.query(internal.documents.internal_listManifestPage, { siteSlug: "alpha", cursor: null, numItems: 10 });
   expect(manifest.page.map(p => p.slug)).toEqual(["index"]);
+});
+
+test("snapshot and prefetch functions take the service JWT, or for one deploy the legacy secret", async () => {
+  const saved = process.env.WIKI_PREFETCH_SECRET;
+  const secret = "synthetic-legacy-prefetch-secret-000000000000";
+  process.env.WIKI_PREFETCH_SECRET = secret;
+  try {
+    const t = convexTest(schema, { ...modules, "../manifestCache.ts": () => import("../manifestCache"), "../prefetch.ts": () => import("../prefetch") });
+    await t.run(ctx => ctx.db.insert("sites", { slug: "alpha", name: "Alpha", domains: [], ownerEmail: "fixture@test.invalid", status: "active", publishTokenHash: "fixture",
+      config: { passwordGate: false, enableChat: false, enableComments: false, enableDownloads: false }, quotas: { monthlyOpenAITokens: 0, blobBytes: 0 }, createdAt: 1, updatedAt: 1 }));
+    await expect(t.query(api.manifestCache.current, { siteSlug: "alpha" })).rejects.toThrow("Unauthorized");
+    await expect(t.query(api.prefetch.priorities, { siteSlug: "alpha", serverSecret: secret.slice(0, -1) })).rejects.toThrow("Unauthorized");
+    await expect(t.mutation(api.manifestCache.requestBuild, { siteSlug: "alpha", serverSecret: "short" })).rejects.toThrow("Unauthorized");
+    expect(await t.query(api.manifestCache.current, { siteSlug: "alpha", serverSecret: secret })).toBeNull();
+    const service = t.withIdentity(serviceIdentity);
+    expect(await service.query(api.manifestCache.current, { siteSlug: "alpha" })).toBeNull();
+    expect(await service.query(api.prefetch.priorities, { siteSlug: "alpha" })).toEqual([]);
+    await service.mutation(api.prefetch.recordVisit, { siteSlug: "alpha", slug: "missing" });
+    const browser = t.withIdentity({ ...serviceIdentity, subject: "wiki-browser:alpha", role: "wiki-conversations" });
+    await expect(browser.query(api.manifestCache.current, { siteSlug: "alpha" })).rejects.toThrow("Unauthorized");
+  } finally {
+    if (saved === undefined) delete process.env.WIKI_PREFETCH_SECRET;
+    else process.env.WIKI_PREFETCH_SECRET = saved;
+  }
 });
