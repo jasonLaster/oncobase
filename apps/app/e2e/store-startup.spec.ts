@@ -159,11 +159,25 @@ test("a new worker version cannot strand a tab behind the old version's leader",
     };
   });
   await installWikiApiMocks(newer);
+  const storePaths: string[] = [];
+  await newer.route("**/api/wiki/telemetry", async route => {
+    try {
+      for (const span of JSON.parse(route.request().postData() ?? "{}").spans ?? []) if (span.name === "store-adapter") storePaths.push(span.path);
+    } catch { /* Not a reader batch. */ }
+    await route.fulfill({ status: 204 });
+  });
   await newer.goto("/wiki/logistics/insurance");
   await ready(newer);
-  // The article can paint before storage starts. The fallback follows once
-  // the follower deadline passes, which slow runtime downloads lengthen.
-  await expect.poll(() => warnings.some(message => message.includes("startup timed out")), { timeout: 40_000 }).toBe(true);
+  // The newer tab never reaches the old version's leader. It either boots from
+  // the guarded local OPFS snapshot (no leader needed; it takes over the lock
+  // when the old tab closes) or, without a usable local image, times out into
+  // temporary storage (the article can paint first, and slow runtime downloads
+  // lengthen the follower deadline). Either way it must not be stranded.
+  await expect.poll(() => warnings.some(message => message.includes("startup timed out")) || storePaths.includes("fast"),
+    { timeout: 40_000 }).toBe(true);
+  await newer.getByTestId("sidebar-search").click();
+  await expect(newer.getByTestId("command-palette")).toBeVisible();
+  await newer.keyboard.press("Escape");
   await page.getByTestId("sidebar-search").click();
   await expect(page.getByTestId("command-palette")).toBeVisible();
 });
@@ -177,10 +191,13 @@ test("duplicated legacy session storage does not duplicate live session IDs", as
   const other = await context.newPage();
   await installWikiApiMocks(other);
   await gotoWiki(other, "/wiki/logistics/insurance");
-  const sessionId = (target: Page) => target.evaluate(() => {
-    const debug = (window as unknown as { __debugLiveStore: Record<string, { sessionId: string }> }).__debugLiveStore;
-    return debug._.sessionId;
-  });
+  // The article can paint from the early reader before the store finishes booting.
+  const sessionId = async (target: Page) => {
+    const read = () => target.evaluate(() =>
+      (window as unknown as { __debugLiveStore?: Record<string, { sessionId: string }> }).__debugLiveStore?._?.sessionId);
+    await expect.poll(read).toBeTruthy();
+    return read();
+  };
   const first = await sessionId(page);
   const second = await sessionId(other);
   expect(first).not.toBe("duplicated-legacy-id");
