@@ -1,5 +1,5 @@
 diff --git a/dist/in-memory/in-memory-adapter.js b/dist/in-memory/in-memory-adapter.js
-index 92e64e232cfb0be6530a41dd2020b15ab5be1064..80165fe69cec1c0925a7cc4474827a029338560e 100644
+index 92e64e232cfb0be6530a41dd2020b15ab5be1064..0d50596de2d38510ad0160830c31c1af72be0078 100644
 --- a/dist/in-memory/in-memory-adapter.js
 +++ b/dist/in-memory/in-memory-adapter.js
 @@ -10,11 +10,13 @@ import { nanoid } from '@livestore/utils/nanoid';
@@ -47,6 +47,64 @@ index 1304b31c049d9c767908977f35b147daafc1842f..7214ee5dfb45bccfd2a24d8686f77b7c
  export const getDirHandle = async (absDirPath) => {
      const rootHandle = await rootHandlePromise;
      if (absDirPath === undefined)
+diff --git a/dist/web-worker/client-session/persisted-adapter.d.ts b/dist/web-worker/client-session/persisted-adapter.d.ts
+index 87932ac8db0eb833680bd0a69fc09548e45b2546..f40345b847a215b44e87734989b25bb708b31a34 100644
+--- a/dist/web-worker/client-session/persisted-adapter.d.ts
++++ b/dist/web-worker/client-session/persisted-adapter.d.ts
+@@ -54,6 +54,18 @@ export type WebAdapterOptions = {
+          * @default false
+          */
+         disableFastPath?: boolean;
++        /**
++         * Replaces the built-in unguarded fast-path read. Receives the OPFS pool
++         * directory and the state database's SQLite path (as stored in the pool
++         * file headers) and returns a verified snapshot, or `undefined` to ask the
++         * leader for a recreated snapshot. Rejections are treated as `undefined`.
++         * Runs even when `disableFastPath` is set, which then only disables the
++         * built-in read (passing both fails safe if the patch is removed).
++         */
++        fastPathSnapshot?: (target: {
++            directory: string;
++            fileName: string;
++        }) => Promise<Uint8Array | undefined>;
+     };
+ };
+ /**
+diff --git a/dist/web-worker/client-session/persisted-adapter.js b/dist/web-worker/client-session/persisted-adapter.js
+index a8e53e812323776e098c2b09c8f6156792f771d6..432225b2478aea67d29ea94fcb5493498806ce7d 100644
+--- a/dist/web-worker/client-session/persisted-adapter.js
++++ b/dist/web-worker/client-session/persisted-adapter.js
+@@ -9,7 +9,7 @@ import { isDevEnv, shouldNeverHappen, tryAsFunctionAndNew } from '@livestore/uti
+ import { BrowserWorker, Cause, Deferred, Effect, Exit, Fiber, ParseResult, Queue, Schema, Stream, SubscriptionRef, WebLock, Worker, WorkerError, } from '@livestore/utils/effect';
+ import { nanoid } from '@livestore/utils/nanoid';
+ import * as OpfsUtils from '../../opfs-utils.js';
+-import { readPersistedAppDbFromClientSession, resetPersistedDataFromClientSession } from '../common/persisted-sqlite.js';
++import { getStateDbFileName, readPersistedAppDbFromClientSession, resetPersistedDataFromClientSession, sanitizeOpfsDir } from '../common/persisted-sqlite.js';
+ import { makeShutdownChannel } from '../common/shutdown-channel.js';
+ import { DedicatedWorkerDisconnectBroadcast, makeWorkerDisconnectChannel } from '../common/worker-disconnect-channel.js';
+ import * as WorkerSchema from '../common/worker-schema.js';
+@@ -58,9 +58,18 @@ export const makePersistedAdapter = (options) => (adapterArgs) => Effect.gen(fun
+     // we usually speeds up the boot process by a lot.
+     // We need to be extra careful though to not run into any race conditions or inconsistencies.
+     // TODO also verify persisted data
+-    const dataFromFile = options.experimental?.disableFastPath === true
+-        ? undefined
+-        : yield* readPersistedAppDbFromClientSession({ storageOptions, storeId, schema });
++    // Patched: an app-provided guarded reader replaces the unguarded read, even
++    // with `disableFastPath` (which then only disables the built-in read), so an
++    // app can pass both and fail safe to leader snapshots if this patch is lost.
++    const fastPathSnapshot = options.experimental?.fastPathSnapshot;
++    const dataFromFile = fastPathSnapshot !== undefined
++        ? yield* Effect.promise(() => fastPathSnapshot({
++            directory: sanitizeOpfsDir(storageOptions.directory, storeId),
++            fileName: '/' + getStateDbFileName(schema),
++        }).catch(() => undefined))
++        : options.experimental?.disableFastPath === true
++            ? undefined
++            : yield* readPersistedAppDbFromClientSession({ storageOptions, storeId, schema });
+     // The same across all client sessions (i.e. tabs, windows)
+     const clientId = options.clientId ?? getPersistedId(`clientId:${storeId}`, 'local');
+     // Unique per client session (i.e. tab, window)
 diff --git a/src/in-memory/in-memory-adapter.ts b/src/in-memory/in-memory-adapter.ts
 index 3901994a0722b6bce1c2bf3565be2e03377f8fb5..d0aa92f63485059773e7e1a61c896d675c60c42f 100644
 --- a/src/in-memory/in-memory-adapter.ts
@@ -109,3 +167,62 @@ index 146676ba0693fc04ff7f603cfde821dfaaa80557..f46ec342de41f042a8b690d959ec8d36
  
  export const getDirHandle = async (absDirPath: string | undefined) => {
    const rootHandle = await rootHandlePromise
+diff --git a/src/web-worker/client-session/persisted-adapter.ts b/src/web-worker/client-session/persisted-adapter.ts
+index 7dff11c52c52fd60c0bfec4557c6376157bfd995..b0807eaf91fac4e60280cf1b41d65eb1f4aee8cf 100644
+--- a/src/web-worker/client-session/persisted-adapter.ts
++++ b/src/web-worker/client-session/persisted-adapter.ts
+@@ -32,7 +32,12 @@ import {
+ import { nanoid } from '@livestore/utils/nanoid'
+ 
+ import * as OpfsUtils from '../../opfs-utils.js'
+-import { readPersistedAppDbFromClientSession, resetPersistedDataFromClientSession } from '../common/persisted-sqlite.js'
++import {
++  getStateDbFileName,
++  readPersistedAppDbFromClientSession,
++  resetPersistedDataFromClientSession,
++  sanitizeOpfsDir,
++} from '../common/persisted-sqlite.js'
+ import { makeShutdownChannel } from '../common/shutdown-channel.js'
+ import { DedicatedWorkerDisconnectBroadcast, makeWorkerDisconnectChannel } from '../common/worker-disconnect-channel.js'
+ import * as WorkerSchema from '../common/worker-schema.js'
+@@ -97,6 +102,15 @@ export type WebAdapterOptions = {
+      * @default false
+      */
+     disableFastPath?: boolean
++    /**
++     * Replaces the built-in unguarded fast-path read. Receives the OPFS pool
++     * directory and the state database's SQLite path (as stored in the pool
++     * file headers) and returns a verified snapshot, or `undefined` to ask the
++     * leader for a recreated snapshot. Rejections are treated as `undefined`.
++     * Runs even when `disableFastPath` is set, which then only disables the
++     * built-in read (passing both fails safe if the patch is removed).
++     */
++    fastPathSnapshot?: (target: { directory: string; fileName: string }) => Promise<Uint8Array | undefined>
+   }
+ }
+ 
+@@ -147,10 +161,21 @@ export const makePersistedAdapter =
+       // we usually speeds up the boot process by a lot.
+       // We need to be extra careful though to not run into any race conditions or inconsistencies.
+       // TODO also verify persisted data
++      // Patched: an app-provided guarded reader replaces the unguarded read, even
++      // with `disableFastPath` (which then only disables the built-in read), so an
++      // app can pass both and fail safe to leader snapshots if this patch is lost.
++      const fastPathSnapshot = options.experimental?.fastPathSnapshot
+       const dataFromFile =
+-        options.experimental?.disableFastPath === true
+-          ? undefined
+-          : yield* readPersistedAppDbFromClientSession({ storageOptions, storeId, schema })
++        fastPathSnapshot !== undefined
++          ? yield* Effect.promise(() =>
++              fastPathSnapshot({
++                directory: sanitizeOpfsDir(storageOptions.directory, storeId),
++                fileName: '/' + getStateDbFileName(schema),
++              }).catch(() => undefined),
++            )
++          : options.experimental?.disableFastPath === true
++            ? undefined
++            : yield* readPersistedAppDbFromClientSession({ storageOptions, storeId, schema })
+ 
+       // The same across all client sessions (i.e. tabs, windows)
+       const clientId = options.clientId ?? getPersistedId(`clientId:${storeId}`, 'local')
