@@ -1,7 +1,7 @@
 import type { WikiSessionIdentity } from "@oncobase/wiki-content";
 import { parseNavigationBootstrap } from "./initial-reader-data";
 import { contentSlugFromRouteSlug, pageToEvent, slugFromPath } from "../wiki-utils";
-import { parsePageBootstrap, PAGE_BOOTSTRAP_ID } from "./page-payload";
+import { parsePageBootstrap, PAGE_BOOTSTRAP_ID, releaseBootstrapJson } from "./page-payload";
 import { bootstrappedNavigation, hasBootstrappedPage, markBootstrappedPage } from "./seed-state";
 
 type BootstrapStore = { commit: (event: ReturnType<typeof pageToEvent>) => unknown };
@@ -41,14 +41,15 @@ export function seedInitialPage(store: BootstrapStore, identity: WikiSessionIden
     if (Number.isFinite(age) && age >= 0 && age <= 60_000) seedNavigationPayload(store, raw, identity, request);
   }
   const node = document.getElementById(PAGE_BOOTSTRAP_ID);
-  if (!node) return;
+  if (!node) return releaseBootstrapJson();
   // Consume once per HTML response. An identity change or a later recovery
   // must not replay a page after the manifest has revoked its visibility.
   const raw = node.textContent ?? "";
   node.remove();
   const age = Date.now() - Number(node.dataset.receivedAt);
-  if (!Number.isFinite(age) || age < 0 || age > 60_000) return;
+  if (!Number.isFinite(age) || age < 0 || age > 60_000) return releaseBootstrapJson();
   const accepted = seedPagePayload(store, raw, identity, request);
+  releaseBootstrapJson();
   if (accepted) {
     const host = document.getElementById("wiki-html-first");
     if (host) host.dataset.bootstrapSeeded = "true";

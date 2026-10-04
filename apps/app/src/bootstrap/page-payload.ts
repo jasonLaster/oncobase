@@ -16,13 +16,27 @@ export type PageBootstrap = {
   page: WikiPageRecord;
 };
 
+// Identity, presentation and seeding each read the same response payloads
+// (page and navigation) during boot: parse each distinct string once. Callers
+// treat the result as read-only.
+const parsed = new Map<string, unknown>();
+export function parseBootstrapJson(raw: string): unknown {
+  if (parsed.has(raw)) return parsed.get(raw);
+  const value: unknown = JSON.parse(raw);
+  if (parsed.size >= 2) parsed.delete(parsed.keys().next().value!);
+  parsed.set(raw, value);
+  return value;
+}
+/** Seeding consumed the payloads; release their strings and parsed values. */
+export function releaseBootstrapJson() { parsed.clear(); }
+
 /** Public data only; this payload never selects or authorizes a session store. */
 export function parsePageBootstrap(raw: string, expected: {
   origin: string; pathname: string; siteSlug: string; apiOrigin: string;
 }): PageBootstrap | null {
   if (raw.length > MAX_BOOTSTRAP_BYTES || expected.apiOrigin !== expected.origin) return null;
   try {
-    const value = JSON.parse(raw) as PageBootstrap;
+    const value = parseBootstrapJson(raw) as PageBootstrap;
     if (value.version !== 1 || value.readerVersion !== WIKI_READER_CACHE_VERSION ||
         value.origin !== expected.origin || value.pathname !== expected.pathname ||
         value.siteSlug !== expected.siteSlug || value.scope !== "public" ||

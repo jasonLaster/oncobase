@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { WIKI_READER_CACHE_VERSION } from "@oncobase/wiki-content";
-import { MAX_BOOTSTRAP_BYTES, parsePageBootstrap, serializePageBootstrap, type PageBootstrap } from "./page-payload";
+import { MAX_BOOTSTRAP_BYTES, parseBootstrapJson, parsePageBootstrap, releaseBootstrapJson, serializePageBootstrap, type PageBootstrap } from "./page-payload";
 
 const expected = { origin: "https://example.com", apiOrigin: "https://example.com", pathname: "/", siteSlug: "test" };
 const payload: PageBootstrap = { ...expected, version: 1, readerVersion: WIKI_READER_CACHE_VERSION, scope: "public",
@@ -26,4 +26,16 @@ test("script data cannot break out of its HTML element and round-trips exact tex
   const raw = serializePageBootstrap(hostile);
   expect(raw).not.toMatch(/[<>&\u2028\u2029]/);
   expect(parsePageBootstrap(raw, expected)?.page.content).toBe(hostile.page.content);
+});
+
+test("boot readers share one parse per payload string and release it after seeding", () => {
+  const page = JSON.stringify(payload), navigation = JSON.stringify({ tree: [] });
+  const first = parseBootstrapJson(page);
+  expect(parseBootstrapJson(navigation)).not.toBe(first);
+  expect(parseBootstrapJson(page)).toBe(first);
+  expect(() => parseBootstrapJson("not json")).toThrow();
+  expect(parseBootstrapJson(page)).toBe(first);
+  releaseBootstrapJson();
+  expect(parseBootstrapJson(page)).not.toBe(first);
+  expect(parseBootstrapJson(page)).toEqual(first);
 });

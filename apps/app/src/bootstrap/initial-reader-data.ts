@@ -1,14 +1,14 @@
 import { expandCompactFileTree, parseWikiManifest, transformFileTreeForSidebar, WIKI_MANIFEST_SCHEMA_VERSION, WIKI_READER_CACHE_VERSION, type FileNode, type WikiSessionIdentity } from "@oncobase/wiki-content";
 import type { PageContentRow, PageIndexRow } from "../types";
 import { contentSlugFromRouteSlug, slugFromPath } from "../wiki-utils";
-import { parsePageBootstrap, PAGE_BOOTSTRAP_ID } from "./page-payload";
+import { parseBootstrapJson, parsePageBootstrap, PAGE_BOOTSTRAP_ID } from "./page-payload";
 
 type RequestPartition = { origin: string; pathname: string; apiOrigin: string; siteSlug: string };
 
 export function parseNavigationBootstrap(raw: string, request: RequestPartition): FileNode[] | null {
   if (raw.length > 1_048_576 || request.origin !== request.apiOrigin) return null;
   try {
-    const value = JSON.parse(raw);
+    const value = parseBootstrapJson(raw) as Record<string, unknown>;
     if (value.version !== 1 || value.readerVersion !== WIKI_READER_CACHE_VERSION ||
         value.origin !== request.origin || value.pathname !== request.pathname ||
         value.siteSlug !== request.siteSlug || value.scope !== "public") return null;
