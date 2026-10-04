@@ -3426,7 +3426,14 @@ export function createWikiApiHandler(client = createClient()) {
         client,
         siteSlug,
         includeSensitive: scope === "session" && Boolean(sessionUser),
-        canAccessSlug: (slug) => canUserAccessSlug(client, siteSlug, sessionUser, slug),
+        allowedSensitiveSlugs: async (slugs) => {
+          if (!sessionUser) return new Set();
+          const access = await client.query(
+            api.access.filterAccessibleSlugs,
+            withSiteSlug(siteSlug, { userId: sessionUser._id as Id<"users">, slugs }),
+          );
+          return new Set(access.filter(result => result.allowed).map(result => result.slug));
+        },
       });
     }
 
