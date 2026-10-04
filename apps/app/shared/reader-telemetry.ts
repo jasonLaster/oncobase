@@ -10,15 +10,16 @@ export const READER_PHASES = ["identity-start", "identity-ready", "identity-erro
   "boot-script", "boot-entry", "boot-react-commit", "boot-reader-module", "boot-store-module",
   // LiveStore boot observed from app code (no library patches): workers constructed
   // (the dedicated worker only exists once this tab holds the leader lock), the
-  // worker script evaluating, the worker's wasm load + OPFS open (real duration),
-  // a state-db recreate (real duration), and the leader reporting boot done.
-  "store-shared-worker-created", "store-worker-created", "store-worker-script", "store-worker-db-open", "store-worker-recreate", "store-leader-done",
+  // worker script evaluating, the worker's wasm load + OPFS open and a state-db
+  // recreate, and the main thread's whole adapter boot through snapshot import
+  // (the last three with real durations, from the library's own measures).
+  "store-shared-worker-created", "store-worker-created", "store-worker-script", "store-worker-db-open", "store-worker-recreate", "store-adapter",
   // Resource timing per fixed boot category (never URLs): offsetMs = fetch start
   // since navigation, duration = first start to last response end, bytes = transfer size.
   "resource-entry", "resource-reader", "resource-css", "resource-worker", "resource-shared-worker", "resource-wasm"] as const;
 export type ReaderPhase = typeof READER_PHASES[number];
 /** Fixed failure classes for store-timeout (furthest boot milestone reached) and sync-error (source-kind). */
-export const READER_REASONS = ["adapter", "lock-wait", "follower", "worker-boot", "leader-boot", "snapshot", "temporary",
+export const READER_REASONS = ["adapter", "lock-wait", "follower", "worker-boot", "leader-boot", "store-create", "temporary",
   "auth", ...(["manifest", "body"] as const).flatMap(source => (["timeout", "network", "http4xx", "http5xx", "other"] as const).map(kind => `${source}-${kind}` as const))] as const;
 export type ReaderReason = typeof READER_REASONS[number];
 /** serverMs/serverTraceId come from the response's Server-Timing `app` and `trace` entries. */

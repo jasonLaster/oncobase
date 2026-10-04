@@ -11,6 +11,19 @@ const MEASURES: Record<string, WorkerBootKind> = {
   "@livestore/common:leader-thread:recreateDb": "recreate",
 };
 
+/** Calls `record` for the library's named `performance.measure` entries in this realm. */
+export function observeMeasures<K extends string>(names: Record<string, K>, record: (kind: K, start: number, duration: number) => void) {
+  try {
+    if (typeof PerformanceObserver === "undefined" || !PerformanceObserver.supportedEntryTypes?.includes("measure")) return;
+    new PerformanceObserver(list => {
+      for (const entry of list.getEntries()) {
+        const kind = names[entry.name];
+        if (kind) record(kind, entry.startTime, entry.duration);
+      }
+    }).observe({ type: "measure", buffered: true });
+  } catch { /* Optional diagnostics. */ }
+}
+
 /** Worker side. `at` is epoch milliseconds (shared monotonic clock origin). */
 export function reportWorkerBoot(scriptStart: number) {
   if (typeof BroadcastChannel === "undefined") return;
@@ -20,13 +33,7 @@ export function reportWorkerBoot(scriptStart: number) {
     const post = (kind: WorkerBootKind, start: number, duration: number) =>
       channel.postMessage({ worker, kind, at: performance.timeOrigin + start, duration } satisfies WorkerBootMessage);
     post("script", scriptStart, 0);
-    if (!PerformanceObserver.supportedEntryTypes?.includes("measure")) return;
-    new PerformanceObserver(list => {
-      for (const entry of list.getEntries()) {
-        const kind = MEASURES[entry.name];
-        if (kind) post(kind, entry.startTime, entry.duration);
-      }
-    }).observe({ type: "measure", buffered: true });
+    observeMeasures(MEASURES, post);
   } catch { /* Diagnostics never affect the worker. */ }
 }
 

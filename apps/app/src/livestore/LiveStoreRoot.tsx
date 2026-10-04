@@ -38,7 +38,7 @@ import { resolveReaderStorage, isDiagnosticMemoryStorageRequest, readerBootDeadl
 import { markVisualPhase } from "../visual-phase";
 import { recordReaderPhase, recordReaderSpan } from "../reader-telemetry";
 import type { ReaderReason } from "../../shared/reader-telemetry";
-import { observeWorkerBoot } from "./worker-boot-telemetry";
+import { observeMeasures, observeWorkerBoot } from "./worker-boot-telemetry";
 import { SessionCacheRetirement } from "./SessionCacheRetirement";
 import { createReaderBoot, readerBootRequest } from "../bootstrap/seed-state";
 import {
@@ -56,22 +56,23 @@ markVisualPhase("boot-store-module");
 // prevents two live tabs from presenting the same LiveStore session identity.
 const sessionId = crypto.getRandomValues(new Uint32Array(4)).join("-");
 // Furthest boot milestone reached on this page; classifies a store timeout.
-const bootProgress = { follower: false, workerCreated: false, dbOpen: false, leaderDone: false };
+const bootProgress = { follower: false, workerCreated: false, dbOpen: false, adapterDone: false };
 observeWorkerBoot(sessionId, ({ kind, at, duration }) => {
   const offset = at - performance.timeOrigin;
   if (kind === "script") return recordReaderPhase("store-worker-script", undefined, offset);
   if (kind === "db-open") bootProgress.dbOpen = true;
   recordReaderSpan(kind === "db-open" ? "store-worker-db-open" : "store-worker-recreate", offset, duration);
 });
-function noteBootStage(stage: string | undefined) {
-  if (stage !== "done" || bootProgress.leaderDone) return;
-  bootProgress.leaderDone = true;
-  markVisualPhase("store-leader-done");
-}
+// LiveStore measures its whole adapter boot on this thread: lock, workers,
+// leader boot, snapshot transfer and import, up to the client session.
+observeMeasures({ "livestore:makeAdapter": "adapter" }, (_, start, duration) => {
+  bootProgress.adapterDone = true;
+  recordReaderSpan("store-adapter", start, duration);
+});
 function timeoutReason(temporary: boolean, hasAdapter: boolean): ReaderReason {
   if (temporary) return "temporary";
   if (!hasAdapter) return "adapter";
-  if (bootProgress.leaderDone) return "snapshot";
+  if (bootProgress.adapterDone) return "store-create";
   if (bootProgress.dbOpen) return "leader-boot";
   if (bootProgress.workerCreated) return "worker-boot";
   return bootProgress.follower ? "follower" : "lock-wait";
@@ -302,7 +303,6 @@ function ReaderStore({ identity, displayIdentity, scope, storeId, cachedSnapshot
             stage={stage}
             timeoutMs={adapter === persistedAdapter ? bootTimeoutMs : runtimeTimeoutMs}
             onTimeout={recoverStalledBoot}
-            onStage={noteBootStage}
           />
         )}
         renderShutdown={() => bootstrapMode ? <StopEarlyReader stop={setStalled} /> : <StoreStartupRecovery />}

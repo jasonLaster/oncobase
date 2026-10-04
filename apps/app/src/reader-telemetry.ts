@@ -66,7 +66,7 @@ export function syncErrorReason(source: "manifest" | "body", error: unknown): Re
 }
 
 /** A boot sub-span with a real duration, starting `offsetMs` after navigation. */
-export function recordReaderSpan(name: "store-worker-db-open" | "store-worker-recreate", offsetMs: number, duration: number) {
+export function recordReaderSpan(name: "store-worker-db-open" | "store-worker-recreate" | "store-adapter", offsetMs: number, duration: number) {
   if (typeof window === "undefined" || !Number.isFinite(offsetMs) || offsetMs < 0 || offsetMs > 300_000 || !Number.isFinite(duration) || duration < 0) return;
   enqueue({ name, start: performance.timeOrigin + offsetMs, duration, status: 200, offsetMs });
 }
