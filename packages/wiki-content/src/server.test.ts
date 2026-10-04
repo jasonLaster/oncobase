@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { gunzipSync } from "node:zlib";
 import { parseWikiManifest } from "./index";
 import {
+  createManifestSnapshotCache,
   createWikiManifestResponse,
   createWikiSessionResponse,
   type WikiApiContext,
@@ -561,4 +562,120 @@ test("session overlays equal full manifests, refresh permissions and fence publi
   context.getManifestSnapshot = async () => ({ hash: base.manifestHash, revision, read: async () => publicJson.replace('"Index"', '"Corrupt"') });
   expect((await createWikiManifestResponse(request(), context)).headers.get("X-Wiki-Manifest-Source")).toBe("manifest");
   expect(fullReads).toBe(2);
+});
+
+describe("manifest snapshot byte cache", () => {
+  async function snapshotFixture() {
+    const { context, calls } = manifestContext();
+    const legacy = await (await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context)).json();
+    legacy.pages = Array.from({ length: 100 }, (_, i) => ({ ...legacy.pages[0], slug: `wiki/${i}` }));
+    const json = JSON.stringify(legacy);
+    const lookups: string[] = [];
+    let reads = 0;
+    let fail = false;
+    context.manifestSnapshotCache = createManifestSnapshotCache({ onLookup: (hit, kind) => lookups.push(`${kind}:${hit ? "hit" : "miss"}`) });
+    context.getManifestSnapshot = async () => ({
+      hash: legacy.manifestHash,
+      read: async () => {
+        reads++;
+        await new Promise(resolve => setTimeout(resolve, 5));
+        if (fail) throw new Error("fixture storage outage");
+        return json;
+      },
+    });
+    return { context, calls, legacy, json, lookups, reads: () => reads, setFail: (value: boolean) => { fail = value; } };
+  }
+  const compactGzip = (headers: Record<string, string> = {}) => new Request("https://example.test/api/wiki/manifest?scope=public&format=compact-v1",
+    { headers: { "Accept-Encoding": "gzip, deflate, br", ...headers } });
+
+  test("repeat requests reuse encoded bytes per format and encoding without reading storage", async () => {
+    const { context, legacy, lookups, reads } = await snapshotFixture();
+    const first = await createWikiManifestResponse(compactGzip(), context);
+    const firstBytes = Buffer.from(await first.arrayBuffer());
+    const second = await createWikiManifestResponse(compactGzip(), context);
+    expect(second.headers.get("content-encoding")).toBe("gzip");
+    expect(second.headers.get("x-wiki-manifest-source")).toBe("snapshot");
+    expect(second.headers.get("etag")).toBe(`W/"${legacy.manifestHash}"`);
+    expect(Buffer.from(await second.arrayBuffer())).toEqual(firstBytes);
+    expect(parseWikiManifest(JSON.parse(gunzipSync(firstBytes).toString()))).toEqual(legacy);
+    expect(reads()).toBe(1);
+    // Identity and full formats are distinct representations of the same hash.
+    const identity = await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest?format=compact-v1"), context);
+    expect(identity.headers.get("content-encoding")).toBeNull();
+    expect(JSON.parse(await identity.text()).wireFormat).toBe("compact-v1");
+    const full = await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context);
+    expect(parseWikiManifest(await full.json())).toEqual(legacy);
+    expect(await (await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context)).json()).toEqual(legacy);
+    expect(reads()).toBe(3);
+    expect(lookups).toEqual(["response:miss", "response:hit", "response:miss", "response:miss", "response:hit"]);
+  });
+
+  test("concurrent misses share one storage read; failures are not cached", async () => {
+    const { context, calls, reads, setFail } = await snapshotFixture();
+    setFail(true);
+    const failed = await Promise.all([1, 2, 3].map(() => createWikiManifestResponse(compactGzip(), context)));
+    for (const response of failed) expect(response.headers.get("x-wiki-manifest-source")).toBe("manifest");
+    expect(reads()).toBe(1);
+    expect(calls().manifestPageSizes.length).toBeGreaterThan(0);
+    setFail(false);
+    const recovered = await Promise.all([1, 2, 3].map(() => createWikiManifestResponse(compactGzip(), context)));
+    for (const response of recovered) expect(response.headers.get("x-wiki-manifest-source")).toBe("snapshot");
+    expect(reads()).toBe(2);
+  });
+
+  test("a conditional request with the current hash is 304 from the snapshot path without storage", async () => {
+    const { context, calls, legacy, reads } = await snapshotFixture();
+    const before = calls().manifestPageSizes.length;
+    // The exact shape the reader sends: weak validator, compact-v1, gzip.
+    for (const header of [`W/"${legacy.manifestHash}"`, `"${legacy.manifestHash}"`, `W/"stale", W/"${legacy.manifestHash}"`, "*"]) {
+      const response = await createWikiManifestResponse(compactGzip({ "If-None-Match": header }), context);
+      expect(response.status).toBe(304);
+      expect(response.headers.get("x-wiki-manifest-source")).toBe("snapshot");
+      expect(response.headers.get("etag")).toBe(`W/"${legacy.manifestHash}"`);
+      expect(await response.text()).toBe("");
+    }
+    // A validator that merely contains the hash is not a match.
+    const mismatched = await createWikiManifestResponse(compactGzip({ "If-None-Match": `W/"${legacy.manifestHash}-old"` }), context);
+    expect(mismatched.status).toBe(200);
+    expect(reads()).toBe(1);
+    expect(calls().manifestPageSizes.length).toBe(before);
+  });
+
+  test("session overlays reuse the verified public base but still fence each request", async () => {
+    const { context } = manifestContext();
+    const publicJson = await (await createWikiManifestResponse(new Request("https://test/api/wiki/manifest"), context)).text();
+    const base = JSON.parse(publicJson);
+    let reads = 0, fences = 0;
+    context.getSessionUser = async () => ({ _id: "user" });
+    context.access = {
+      canUserAccessSlug: async () => true,
+      filterAccessibleSlugs: async (_user, slugs) => slugs.map(slug => ({ slug, allowed: true, hasDocument: true })),
+      getAllowedSlugs: async () => [],
+      listAllowedManifestPage: async () => ({ page: [], isDone: true, continueCursor: null }),
+    };
+    context.manifestSnapshotCache = createManifestSnapshotCache();
+    context.getManifestSnapshot = async () => { fences++; return { hash: base.manifestHash, revision: 1, read: async () => { reads++; return publicJson; } }; };
+    for (let i = 0; i < 3; i++) {
+      const response = await createWikiManifestResponse(new Request("https://test/api/wiki/manifest?scope=session"), context);
+      expect(response.headers.get("x-wiki-manifest-source")).toBe("snapshot-overlay");
+    }
+    expect(reads).toBe(1);
+    expect(fences).toBe(6);
+  });
+
+  test("the cache is bounded by entry count and bytes", async () => {
+    const cache = createManifestSnapshotCache({ maxEntries: 2, maxBytes: 10 });
+    const load = (value: string) => async () => value;
+    await cache.get("response", "a", load("1234"), v => v.length);
+    await cache.get("response", "b", load("1234"), v => v.length);
+    await cache.get("response", "a", load("unused"), v => v.length); // a is now most recent
+    await cache.get("response", "c", load("1234"), v => v.length);
+    expect(cache.size).toBe(2);
+    let loads = 0;
+    expect(await cache.get("response", "a", async () => { loads++; return "x"; }, v => v.length)).toBe("1234");
+    expect(await cache.get("response", "b", async () => { loads++; return "x"; }, v => v.length)).toBe("x");
+    expect(loads).toBe(1);
+    await cache.get("response", "big", load("12345678901"), v => v.length);
+    expect(cache.size).toBe(0);
+  });
 });

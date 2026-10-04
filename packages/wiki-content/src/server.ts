@@ -1,4 +1,11 @@
 import { buildCompactTreeFromManifest } from "./manifest-tree.ts";
+import type { ManifestSnapshotCache } from "./manifest-snapshot-cache.ts";
+export {
+  createManifestSnapshotCache,
+  type ManifestSnapshotCache,
+  type ManifestSnapshotCacheKind,
+  type ManifestSnapshotCacheOptions,
+} from "./manifest-snapshot-cache.ts";
 import crypto from "node:crypto";
 import { gzip } from "node:zlib";
 import { promisify } from "node:util";
@@ -39,20 +46,40 @@ function representationHeaders(init: HeadersInit) {
   return headers;
 }
 
-async function contentResponse(request: Request, json: string, init: HeadersInit) {
-  const headers = representationHeaders(init);
-  headers.set("Content-Type", "application/json");
-  const acceptsGzip = (request.headers.get("accept-encoding") ?? "").split(",").some(part => {
+function acceptsGzip(request: Request) {
+  return (request.headers.get("accept-encoding") ?? "").split(",").some(part => {
     const [name, ...parameters] = part.trim().toLowerCase().split(";");
     const q = parameters.find(p => p.trim().startsWith("q="))?.trim().slice(2);
     return name === "gzip" && (q === undefined || (Number.isFinite(Number(q)) && Number(q) > 0));
   });
-  if (json.length >= 1024 && acceptsGzip) {
-    const body = await gzipAsync(json);
-    headers.set("Content-Encoding", "gzip");
-    return new Response(new Uint8Array(body), { headers });
-  }
-  return new Response(json, { headers });
+}
+
+type EncodedContent = { body: Uint8Array<ArrayBuffer> | string; gzip: boolean };
+
+async function encodeContent(json: string, gzipAccepted: boolean): Promise<EncodedContent> {
+  if (json.length >= 1024 && gzipAccepted) return { body: new Uint8Array(await gzipAsync(json)), gzip: true };
+  return { body: json, gzip: false };
+}
+
+function encodedResponse({ body, gzip }: EncodedContent, init: HeadersInit) {
+  const headers = representationHeaders(init);
+  headers.set("Content-Type", "application/json");
+  if (gzip) headers.set("Content-Encoding", "gzip");
+  return new Response(body, { headers });
+}
+
+async function contentResponse(request: Request, json: string, init: HeadersInit) {
+  return encodedResponse(await encodeContent(json, acceptsGzip(request)), init);
+}
+
+/** RFC 9110 If-None-Match uses weak comparison: `W/"x"` and `"x"` both match. */
+function ifNoneMatchMatches(request: Request, etag: string) {
+  const header = request.headers.get("if-none-match");
+  if (!header) return false;
+  return header.split(",").some((candidate) => {
+    const tag = candidate.trim();
+    return tag === "*" || tag.replace(/^W\//, "") === `"${etag}"`;
+  });
 }
 
 function manifestJson(request: Request, manifest: WikiManifest) {
@@ -166,6 +193,9 @@ export type WikiApiContext = {
   manifestPrioritySlugs?: string[];
   // Only public-scope snapshots; session responses still compute access live.
   getManifestSnapshot?: () => Promise<{ hash: string; revision?: number; read: () => Promise<BodyInit> } | null>;
+  // Per-instance memo keyed by snapshot hash: skips the storage read and the
+  // decode/compact/gzip work for repeat requests of the same snapshot.
+  manifestSnapshotCache?: ManifestSnapshotCache;
   decorateHeaders?: (headers: HeadersInit) => HeadersInit;
   logger?: Pick<Console, "error" | "warn">;
   onManifestFallback?: (reason: "snapshot-unavailable" | "snapshot-invalid" | "private-query" | "snapshot-changed") => void;
@@ -432,12 +462,21 @@ async function sessionManifestPages(context: WikiApiContext, user: WikiApiSessio
       const snapshot = await context.getManifestSnapshot();
       if (!snapshot || snapshot.revision === undefined) throw new Error("No versioned snapshot");
       failure = "snapshot-invalid";
-      const raw = await new Response(await snapshot.read()).json() as WikiManifest;
-      parseWikiManifest(raw);
-      const core = { schemaVersion: raw.schemaVersion, siteSlug: raw.siteSlug, scope: raw.scope,
-        compactTree: raw.compactTree, pages: raw.pages, assets: raw.assets };
-      if (raw.siteSlug !== context.siteSlug || raw.scope !== "public" || raw.pages.some(page => page.sensitive) ||
-          raw.manifestHash !== snapshot.hash || hashJson(core) !== snapshot.hash) throw new Error("Invalid public base");
+      const loadBase = async () => {
+        const json = await new Response(await snapshot.read()).text();
+        const raw = JSON.parse(json) as WikiManifest;
+        parseWikiManifest(raw);
+        const core = { schemaVersion: raw.schemaVersion, siteSlug: raw.siteSlug, scope: raw.scope,
+          compactTree: raw.compactTree, pages: raw.pages, assets: raw.assets };
+        if (raw.siteSlug !== context.siteSlug || raw.scope !== "public" || raw.pages.some(page => page.sensitive) ||
+            raw.manifestHash !== snapshot.hash || hashJson(core) !== snapshot.hash) throw new Error("Invalid public base");
+        return { raw, bytes: json.length };
+      };
+      // The verified base is immutable for its hash; only the private overlay
+      // and the revision fence below run per request.
+      const { raw } = context.manifestSnapshotCache
+        ? await context.manifestSnapshotCache.get("base", `${context.siteSlug}:${snapshot.hash}`, loadBase, base => base.bytes)
+        : await loadBase();
       failure = "private-query";
       const pages = [...raw.pages];
       let cursor: string | null = null;
@@ -752,17 +791,28 @@ export async function createWikiManifestResponse(
       const snapshot = await context.getManifestSnapshot();
       if (snapshot) {
         const headers = representationHeaders(decorate(context, { ...cacheHeaders(scope, snapshot.hash), "Content-Type": "application/json", "X-Wiki-Manifest-Source": "snapshot" }));
-        if (request.headers.get("if-none-match")?.includes(snapshot.hash)) return new Response(null, { status: 304, headers });
-        const bytes = await snapshot.read();
-        // Decode, compact, re-serialize and compress run per request, per hash.
-        const encodeStarted = performance.now();
-        const json = await new Response(bytes).text();
-        const response = await contentResponse(request,
-          new URL(request.url).searchParams.get("format") === "compact-v1"
-            ? manifestJson(request, parseWikiManifest(JSON.parse(json))) : json,
-          headers);
-        phase("snapshot-encode", encodeStarted);
-        return response;
+        // The validator is the snapshot hash, so revalidation needs no storage read.
+        if (ifNoneMatchMatches(request, snapshot.hash)) return new Response(null, { status: 304, headers });
+        const compact = new URL(request.url).searchParams.get("format") === "compact-v1";
+        const gzipAccepted = acceptsGzip(request);
+        const encode = async () => {
+          const bytes = await snapshot.read();
+          // Decode, compact, re-serialize and compress depend only on the hash,
+          // the wire format and the negotiated encoding.
+          const encodeStarted = performance.now();
+          const json = await new Response(bytes).text();
+          const encoded = await encodeContent(
+            compact ? JSON.stringify(compactWikiManifest(parseWikiManifest(JSON.parse(json)))) : json,
+            gzipAccepted);
+          phase("snapshot-encode", encodeStarted);
+          return encoded;
+        };
+        const encoded = context.manifestSnapshotCache
+          ? await context.manifestSnapshotCache.get("response",
+              `${context.siteSlug}:${snapshot.hash}:${compact ? "compact-v1" : "full"}:${gzipAccepted ? "gzip" : "identity"}`,
+              encode, value => typeof value.body === "string" ? value.body.length : value.body.byteLength)
+          : await encode();
+        return encodedResponse(encoded, headers);
       }
     } catch {
       // A missing, stale, failed or retired snapshot uses the normal live path.
@@ -826,7 +876,7 @@ export async function createWikiManifestResponse(
   const responseCacheHeaders = partialManifest
     ? provisionalManifestHeaders(scope, manifestHash)
     : cacheHeaders(scope, manifestHash);
-  if (request.headers.get("if-none-match")?.includes(manifestHash)) {
+  if (ifNoneMatchMatches(request, manifestHash)) {
     return new Response(null, {
       status: 304,
       headers: representationHeaders(decorate(context, responseCacheHeaders)),
