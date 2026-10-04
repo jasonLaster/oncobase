@@ -1471,7 +1471,7 @@ a {
 
   .page-layout {
     display: block;
-    padding: 0 18px 52px;
+    padding: 0 18px calc(5rem + env(safe-area-inset-bottom));
   }
 
   .page-shell {
@@ -1515,7 +1515,15 @@ a {
     flex: 0 0 auto;
     height: 36px;
     justify-content: center;
+    position: relative;
     width: 36px;
+  }
+
+  /* Keep the 36px visual size but expand the hit area to 44x44. */
+  .wiki-vite-mobile-page-header button::after {
+    content: "";
+    inset: -4px;
+    position: absolute;
   }
 
   .wiki-vite-mobile-page-header button:hover,
@@ -1607,8 +1615,17 @@ a {
     justify-content: center;
     position: fixed;
     right: 16px;
+    transition: opacity 160ms ease, transform 160ms ease;
     width: 48px;
-    z-index: 50;
+    /* Below the open navigation sheet (z-index 50) and its backdrop. */
+    z-index: 35;
+  }
+
+  /* Auto-hide while scrolling down so it never permanently covers content. */
+  .wiki-vite-mobile-ask[data-hidden="true"] {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(1rem);
   }
 
   .page-outline {

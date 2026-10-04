@@ -100,7 +100,7 @@ test.describe("Page load experience", () => {
     const navigationTrigger = page.getByTestId("bottom-nav-trigger");
     const navigationSheet = page.getByTestId("bottom-nav-sheet");
     await expect(navigationTrigger).toBeVisible();
-    await expect(page.getByTestId("mobile-page-header")).toContainText("insurance");
+    await expect(page.getByTestId("mobile-page-header")).toContainText(/insurance/i);
     await expect(navigationSheet).toHaveAttribute("inert", "");
 
     await navigationTrigger.click();

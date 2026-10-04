@@ -28,7 +28,7 @@ import {
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { bootstrappedNavigation } from "../bootstrap/seed-state";
-import { sidebarTree$ } from "../livestore/queries";
+import { pageIndexBySlug$, sidebarTree$ } from "../livestore/queries";
 import { hrefForSlug, slugFromPath } from "../wiki-utils";
 import {
   setNavigationIntentForSlug,
@@ -292,6 +292,38 @@ function CommentsTreeLink({
   );
 }
 
+function usePageTitle(pathname: string) {
+  const initial = useInitialReaderData();
+  const slug = slugFromPath(pathname);
+  const isDocument = isDocumentRoute(pathname);
+  const row = useReaderQuery(
+    pageIndexBySlug$(isDocument ? slug : ""),
+    isDocument ? (initial?.pages.find((page) => page.slug === slug) ?? null) : null,
+  ) as { title?: string | null } | null;
+  const title = isDocument ? row?.title?.trim() : "";
+  return title || pageTitleFromPath(pathname);
+}
+
+/** Hide floating chrome while the reader scrolls down; show it again on scroll up. */
+function useHideOnScrollDown() {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = (event: Event) => {
+      const target = event.target;
+      const y =
+        target instanceof HTMLElement ? target.scrollTop : window.scrollY;
+      const delta = y - last;
+      if (Math.abs(delta) < 8) return;
+      last = y;
+      setHidden(delta > 0 && y > 64);
+    };
+    window.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => window.removeEventListener("scroll", onScroll, { capture: true });
+  }, []);
+  return hidden;
+}
+
 function pageTitleFromPath(pathname: string) {
   if (pathname === "/") return "Home";
   if (pathname.startsWith("/search")) return "Search";
@@ -371,6 +403,8 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const { accountPending, sessionLoading, sessionUser, setSessionUser, submitAuth } = useWikiViteAuth();
+  const pageTitle = usePageTitle(pathname);
+  const askHidden = useHideOnScrollDown();
   const open = navState.pathname === pathname ? navState.open : false;
   const setOpen = useCallback(
     (nextOpen: boolean) => setNavState({ open: nextOpen, pathname }),
@@ -448,14 +482,14 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
       <MobilePageHeader
         onOpenNavigation={openPageNavigation}
         showComments={isDocumentRoute(pathname)}
-        title={pageTitleFromPath(pathname)}
+        title={pageTitle}
       />
       <WikiMobileNavigationSheet
         heading={null}
         onOpenChange={setOpen}
         open={open}
         sheetId="mobile-page-navigation"
-        title={<MarkdownTitle title={pageTitleFromPath(pathname)} />}
+        title={<MarkdownTitle title={pageTitle} />}
         trigger={false}
       >
         <div className="wiki-vite-mobile-sheet-tabs">
@@ -540,6 +574,7 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
           aria-label="Ask wiki"
           title="Ask wiki"
           className="wiki-vite-mobile-ask"
+          data-hidden={askHidden ? "true" : undefined}
           data-test-id="mobile-ask-wiki"
         >
           <MobileChatIcon />
