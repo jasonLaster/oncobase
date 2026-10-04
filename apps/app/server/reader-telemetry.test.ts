@@ -60,3 +60,22 @@ test("manifest relay validates enums and exports only fixed numeric phases", () 
   expect(parseManifestTelemetry({ ...event, attempt: -1 })?.attempt).toBeUndefined();
   expect(parseManifestTelemetry({ ...event, attempt: "PRIVATE" })?.attempt).toBeUndefined();
 });
+
+test("browser spans keep validated server timing and trace joins only", async () => {
+  const span = { name: "nav-document", start: Date.now() - 100, duration: 100, status: 200, serverMs: 42.5, serverTraceId: "1234567890abcdef1234567890abcdef" };
+  expect(parseReaderBatch({ ...fixture(), spans: [span] })!.spans[0]).toMatchObject({ serverMs: 42.5, serverTraceId: span.serverTraceId });
+  const invalid = parseReaderBatch({ ...fixture(), spans: [{ ...span, serverMs: -1, serverTraceId: "PRIVATE" }] })!.spans[0]!;
+  expect(invalid.serverMs).toBeUndefined();
+  expect(invalid.serverTraceId).toBeUndefined();
+  expect(parseReaderBatch({ ...fixture(), spans: [{ ...span, serverTraceId: "0".repeat(32) }] })!.spans[0]!.serverTraceId).toBeUndefined();
+
+  const exporter = new InMemorySpanExporter();
+  const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+  const handle = traceBackendHandler(handleReaderTelemetry, { tracer: provider.getTracer("test") });
+  await handle(new Request("https://wiki.example/api/wiki/telemetry", { method: "POST", headers: { origin: "https://wiki.example", "Content-Type": "application/json" },
+    body: JSON.stringify({ ...fixture(), spans: [span] }) }));
+  const reader = exporter.getFinishedSpans().find(s => s.name === "observation.reader.nav-document")!;
+  expect(reader.attributes["server.duration_ms"]).toBe(42.5);
+  expect(reader.attributes["oncobase.server.trace_id"]).toBe(span.serverTraceId);
+  await provider.shutdown();
+});

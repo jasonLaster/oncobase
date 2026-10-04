@@ -41,6 +41,9 @@ export async function handleReaderTelemetry(request: Request) {
     for (const span of batch.spans) recordRemoteSpan(`reader.${span.name}`, span.start, span.duration, {
       "oncobase.client.trace_id": batch.traceId, "telemetry.source": "browser", "telemetry.clock": "client",
       "http.response.status_code": span.status, ...(span.rpcMs === undefined ? {} : { "convex.rpc_sum_ms": span.rpcMs }),
+      // Client duration minus serverMs is network, CDN and platform overhead.
+      ...(span.serverMs === undefined ? {} : { "server.duration_ms": span.serverMs }),
+      ...(span.serverTraceId === undefined ? {} : { "oncobase.server.trace_id": span.serverTraceId }),
       ...(span.partial === undefined ? {} : { "manifest.partial": span.partial }), ...(span.cached === undefined ? {} : { "reader.cached": span.cached }),
     }, span.status === 0 || span.status >= 400);
     console.info("oncobase.reader", JSON.stringify(batch));

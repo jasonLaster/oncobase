@@ -7,6 +7,7 @@ import { BrowserRouter, useLocation } from "react-router";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { AppStarting } from "./AppStarting";
 import { publishRuntimeEnvironment } from "./observability";
+import { observeReaderVitals } from "./reader-telemetry";
 // Specialist viewers do not need the reader's schema or database imports.
 // Keep that dependency graph outside their startup path.
 const WikiViteRoot = lazy(() => import("./WikiViteRoot").then(module => ({ default: module.WikiViteRoot })));
@@ -47,6 +48,7 @@ publishRuntimeEnvironment({
   // Reading response metadata keeps server-only releases out of JS hashes.
   commitSha: document.querySelector<HTMLMetaElement>('meta[name="wiki-build-commit"]')?.content || undefined,
 });
+observeReaderVitals();
 
 const ImmersiveDicomRoot = lazy(() =>
   import("./ImmersiveDicomRoot").then((module) => ({

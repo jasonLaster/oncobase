@@ -1,6 +1,7 @@
 import type { Metrics } from "./types";
 import type { ChatPerfEvent } from "@oncobase/chat/perf";
 import { markVisualPhase } from "./visual-phase";
+import { recordReaderDuration } from "./reader-telemetry";
 
 type SearchMetric = {
   query: string;
@@ -68,6 +69,8 @@ export function publishChatPerfSnapshot(events: ChatPerfEvent[]) {
 }
 
 export function recordSearchMetric(metric: Omit<SearchMetric, "at">) {
+  // Exported: duration and outcome only, never the query.
+  recordReaderDuration(metric.mode === "ai" ? "search-ai" : "search-text", metric.durationMs, { status: metric.status === "error" ? 500 : 200 });
   const next = state();
   next.search = [...next.search, { ...metric, at: Date.now() }].slice(-20);
 }

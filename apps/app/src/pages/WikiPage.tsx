@@ -1,4 +1,4 @@
-import { recordReaderPhase } from "../reader-telemetry";
+import { recordReaderDuration, recordReaderPhase } from "../reader-telemetry";
 import { initialReaderPage } from "../bootstrap/initial-reader-data";
 import { useInitialReaderData, useReaderQuery, EMPTY_READER_ROWS } from "../bootstrap/reader-queries";
 import { DocumentComments } from "@oncobase/wiki-comments/wrapper";
@@ -218,11 +218,13 @@ export function WikiPage({
     metrics.failedBodySlug === slug;
   const routeRenderRef = useRef<{
     hadContent: boolean;
+    navigation: boolean;
     recorded: boolean;
     slug: string;
     start: number;
   }>({
     hadContent: false,
+    navigation: false,
     recorded: false,
     slug: routeSlug,
     start: performance.now(),
@@ -230,6 +232,7 @@ export function WikiPage({
   if (routeRenderRef.current.slug !== routeSlug) {
     routeRenderRef.current = {
       hadContent: Boolean(page?.content && page.slug === slug),
+      navigation: true,
       recorded: false,
       slug: routeSlug,
       start: performance.now(),
@@ -340,6 +343,8 @@ export function WikiPage({
 
     const elapsed = performance.now() - routeRender.start;
     routeRender.recorded = true;
+    // Startup is covered by reader-ready; this is in-app navigation latency.
+    if (routeRender.navigation) recordReaderDuration("route-render", elapsed, { cached: routeRender.hadContent });
     onMetrics({
       lastRouteRenderMs: elapsed,
       ...(routeRender.hadContent
