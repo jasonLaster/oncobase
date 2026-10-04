@@ -386,9 +386,13 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
     // A deployed shell embeds real page data for the signed-in test account,
     // which would race these fixtures. Keep the server's own HTML and assets.
     await page.route("**/*", async route => {
-      if (route.request().resourceType() !== "document") return route.fallback();
+      // Downloads navigate to /api/* too; let them stream untouched.
+      if (route.request().resourceType() !== "document" ||
+        new URL(route.request().url()).pathname.startsWith("/api/")) return route.fallback();
       const response = await route.fetch({ maxRedirects: 0 });
-      if (response.status() !== 200) return route.fulfill({ response });
+      if (response.status() !== 200 || !response.headers()["content-type"]?.includes("text/html")) {
+        return route.fulfill({ response });
+      }
       await route.fulfill({ response, body: bareReaderShell(await response.text()) });
     });
   }

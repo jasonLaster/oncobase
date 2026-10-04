@@ -99,9 +99,15 @@ test("mobile reader shows received bytes while an HTTP body is still arriving", 
     const pathname = new URL(request.url ?? "/", "http://fixture.invalid").pathname;
     if (pathname !== "/api/wiki/pages") {
       // Scripts and styles come from the server under test.
-      const upstream = await page.request.get(new URL(request.url ?? "/", baseURL).toString());
-      response.writeHead(upstream.status(), { "Content-Type": upstream.headers()["content-type"] ?? "application/octet-stream" });
-      response.end(await upstream.body());
+      try {
+        const upstream = await page.request.get(new URL(request.url ?? "/", baseURL).toString());
+        response.writeHead(upstream.status(), { "Content-Type": upstream.headers()["content-type"] ?? "application/octet-stream" });
+        response.end(await upstream.body());
+      } catch {
+        // The page can still be loading assets when the test ends.
+        if (!response.headersSent) response.writeHead(502);
+        response.end();
+      }
       return;
     }
     response.writeHead(200, { "Content-Type": "application/json" });

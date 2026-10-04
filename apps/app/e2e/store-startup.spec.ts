@@ -161,7 +161,9 @@ test("a new worker version cannot strand a tab behind the old version's leader",
   await installWikiApiMocks(newer);
   await newer.goto("/wiki/logistics/insurance");
   await ready(newer);
-  expect(warnings.some(message => message.includes("startup timed out"))).toBe(true);
+  // The article can paint before storage starts. The fallback follows once
+  // the follower deadline passes, which slow runtime downloads lengthen.
+  await expect.poll(() => warnings.some(message => message.includes("startup timed out")), { timeout: 40_000 }).toBe(true);
   await page.getByTestId("sidebar-search").click();
   await expect(page.getByTestId("command-palette")).toBeVisible();
 });

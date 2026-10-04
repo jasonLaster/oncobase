@@ -22,9 +22,15 @@ test.describe("Session scope recovery", () => {
         bodyStarted = true;
         return;
       }
-      const upstream = await page.request.get(new URL(request.url ?? "/", baseURL).toString());
-      response.writeHead(upstream.status(), { "Content-Type": upstream.headers()["content-type"] ?? "application/octet-stream" });
-      response.end(await upstream.body());
+      try {
+        const upstream = await page.request.get(new URL(request.url ?? "/", baseURL).toString());
+        response.writeHead(upstream.status(), { "Content-Type": upstream.headers()["content-type"] ?? "application/octet-stream" });
+        response.end(await upstream.body());
+      } catch {
+        // The page can still be loading assets when the test ends.
+        if (!response.headersSent) response.writeHead(502);
+        response.end();
+      }
     });
     await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
     const address = server.address();
