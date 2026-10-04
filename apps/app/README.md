@@ -145,6 +145,26 @@ The PR workflow keeps those phases independent:
 
 The header finder is intentionally not the canonical wiki search. It filters the local manifest/page index for instant page switching. Canonical text search, AI search, and the full-stack chat experience are now served by the Vite backend/app surface for the standalone migration path.
 
+### Local Convex stack
+
+Convex-backed routes need the production service signing key, so they return 503 locally. `bun run local:stack` replaces that with a local stack: it creates a local RSA service keypair, runs a self-hosted `convex-local-backend` on `127.0.0.1:3290`, sets `WIKI_BACKEND_JWKS` to a `data:` URI, and pushes `convex/` to it. It never selects or modifies a cloud deployment. It then publishes `scripts/fixtures/local-stack-vault` as site `diana`, using the real publisher and `/api/publish`. Assets go to a local Vercel Blob stand-in on `:3292`. It also adds a `care-team` role, which can read pages tagged `sensitive`, and users for it.
+
+```sh
+bun run local:stack                 # start or reuse, push, seed; writes .local-stack/env
+bun run local:smoke                 # standalone server + OTLP sink: gate, pages, manifest/ETag, search, files, roles
+bun run local:stack serve           # standalone server on http://127.0.0.1:62003
+bun run local:stack exec -- bun dev # Vite dev server on the local backend
+PLAYWRIGHT_PORT=61091 bun run local:stack exec -- bunx playwright test e2e/backend-api.spec.ts
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:62003 WIKI_VITE_PREVIEW_LOGIN_PASSWORD=diana \
+  bun run local:stack exec -- bunx playwright test e2e/live-data.spec.ts   # while `serve` runs
+bun run local:stack status | stop | --reset | --build
+```
+
+- The gate password is `diana`. The seeded users are `care@local.test` / `local-care-password` (care-team) and `reader@local.test` / `local-reader-password` (no role).
+- Re-runs reuse keys, data and the running backend, and only republish changed fixture files. `--reset` wipes data and keys. `--build` rebuilds the stack's reader build in `.local-stack/dist`, which the server uses through `WIKI_DIST_DIR`.
+- The backend's `"use node"` actions need Node 20, 22 or 24. If the system `node` is a different version, the script downloads Node 22 from nodejs.org into `.local-stack/tools` and checks its checksum. It reuses the Convex CLI's cached backend binary when one exists.
+- Embeddings, AI search, chat and Liveblocks comments are not configured locally.
+
 ## Scope
 
 The default store is public-only, even if the browser also has a signed-in wiki session. Open `/?scope=session` to use authenticated content. Session mode first fetches `/api/wiki/session` and only opens LiveStore with a server-issued cache key for the current wiki session.
