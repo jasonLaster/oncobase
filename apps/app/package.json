@@ -10,6 +10,7 @@
     "check:bundle": "bun scripts/check-bundle-budget.ts",
     "verify:standalone": "bun scripts/verify-standalone.ts",
     "start:server": "bun server/standalone.ts",
+    "local:stack": "bun scripts/local-stack.ts",
     "typecheck": "bun --cwd ../../packages/oncobase build && tsc --noEmit",
     "test:unit": "bun scripts/test-unit.ts",
     "test:e2e": "playwright test",

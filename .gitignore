@@ -28,3 +28,5 @@ obsidian-2/.wiki-sync-review/
 .playwright-mcp/
 .playwright/
 .local/
+# Local Convex stack (keys, data, logs, reader build): apps/app/scripts/local-stack.ts
+apps/app/.local-stack/
