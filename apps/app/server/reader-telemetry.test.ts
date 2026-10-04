@@ -106,3 +106,20 @@ test("boot spans keep only fixed reasons and bounded numeric resource fields", a
   expect(exporter.getFinishedSpans().find(s => s.name === "observation.reader.store-timeout")!.attributes["reader.reason"]).toBe("worker-boot");
   await provider.shutdown();
 });
+
+test("session handoff spans keep only a fixed outcome and relay it as an attribute", async () => {
+  const span = { name: "session-handoff", start: Date.now() - 400, duration: 380, status: 200, offsetMs: 1400, outcome: "kept-mounted", slug: "PRIVATE" };
+  expect(parseReaderBatch({ ...fixture(), spans: [span] })!.spans[0]).toEqual({ name: "session-handoff", start: span.start, duration: 380, status: 200, offsetMs: 1400, outcome: "kept-mounted" });
+  const invalid = parseReaderBatch({ ...fixture(), spans: [{ ...span, outcome: "PRIVATE" }] })!.spans[0]!;
+  expect(invalid.outcome).toBeUndefined();
+  expect(JSON.stringify(invalid)).not.toContain("PRIVATE");
+
+  const exporter = new InMemorySpanExporter();
+  const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+  const handle = traceBackendHandler(handleReaderTelemetry, { tracer: provider.getTracer("test") });
+  await handle(new Request("https://wiki.example/api/wiki/telemetry", { method: "POST", headers: { origin: "https://wiki.example", "Content-Type": "application/json" },
+    body: JSON.stringify({ ...fixture(), spans: [{ ...span, outcome: "timeout" }] }) }));
+  const relayed = exporter.getFinishedSpans().find(s => s.name === "observation.reader.session-handoff")!;
+  expect(relayed.attributes).toMatchObject({ "reader.handoff_outcome": "timeout", "reader.offset_ms": 1400 });
+  await provider.shutdown();
+});

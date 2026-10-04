@@ -83,6 +83,10 @@ const sections: Array<[string, string]> = [
     `${ds} | where name matches regex '^(observation[.])?reader[.](boot-|store-|resource-|identity-|storage-ready|reader-ready|reader-live-handoff|vital-lcp)' | extend span = extract('(reader[.].*)$', 1, name) | extend ms = coalesce(${num("measurement.duration_ms")}, duration / 1ms), offset = ${num("reader.offset_ms")}, bytes = ${num("reader.transfer_bytes")}, cached = tostring(${attr("reader.cached")}) == 'true' | summarize n=count(), p50=percentile(ms, 50), p75=percentile(ms, 75), p95=percentile(ms, 95), offset_p50=percentile(offset, 50), end_p50=percentile(offset + ms, 50), bytes_p50=percentile(bytes, 50), cached_pct=100.0 * countif(cached) / count() by span | order by p50 asc | take 60`],
   ["Browser boot: store-timeout and sync-error reasons",
     `${ds} | where name matches regex '^(observation[.])?reader[.](store-timeout|sync-error)$' | extend span = extract('(reader[.].*)$', 1, name) | summarize n=count() by span, reason=tostring(${attr("reader.reason")}) | order by n desc | take 30`],
+  // Cached public page meets a verified session: kept-mounted swaps once the
+  // session store holds the route; wait = identity to swap, offset = swap since navigation.
+  ["Browser: session handoff outcomes (wait = identity to visible store swap)",
+    `${ds} | where name matches regex '^(observation[.])?reader[.]session-handoff$' | extend ms = coalesce(${num("measurement.duration_ms")}, duration / 1ms), offset = ${num("reader.offset_ms")} | summarize n=count(), wait_p50=percentile(ms, 50), wait_p95=percentile(ms, 95), offset_p50=percentile(offset, 50) by outcome=tostring(${attr("reader.handoff_outcome")}) | order by n desc`],
 ];
 for (const [title, text] of sections) {
   const table = (await query(text)).tables[0]!;

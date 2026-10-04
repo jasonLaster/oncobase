@@ -1,4 +1,4 @@
-import { READER_PHASES, READER_REASONS, type ReaderPhase, type ReaderReason, type ReaderSpan } from "../shared/reader-telemetry";
+import { READER_PHASES, READER_REASONS, type ReaderHandoffOutcome, type ReaderPhase, type ReaderReason, type ReaderSpan } from "../shared/reader-telemetry";
 
 // Per-page random identity, never persisted or derived from a user or page.
 let id: string | undefined;
@@ -148,6 +148,13 @@ export function recordReaderDuration(name: "route-render" | "search-text" | "sea
   if (typeof window === "undefined" || !Number.isFinite(duration) || duration < 0) return;
   enqueue({ name, start: performance.timeOrigin + performance.now() - duration, duration, status: data.status ?? 200,
     ...(data.cached === undefined ? {} : { cached: data.cached }) });
+}
+
+/** How a cached presentation met a different verified identity. `startedAt`/`endedAt`
+ * are performance.now() values: identity verified, then the visible store swap. */
+export function recordSessionHandoff(outcome: ReaderHandoffOutcome, startedAt: number, endedAt = performance.now()) {
+  if (typeof window === "undefined" || !Number.isFinite(startedAt) || startedAt < 0 || endedAt < startedAt || endedAt > 300_000) return;
+  enqueue({ name: "session-handoff", start: performance.timeOrigin + startedAt, duration: endedAt - startedAt, status: 200, offsetMs: endedAt, outcome });
 }
 
 export type RenderErrorBoundary = "root" | "route" | "body" | "comments";
