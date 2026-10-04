@@ -6,7 +6,7 @@ import { parseWikiManifest } from "@oncobase/wiki-content";
 import { withSiteSlug } from "./reader-access.js";
 import { siteBlobKey } from "./blob";
 import { traceBackendPhase, traceBackendAttributes, backendClientTraceId } from "./backend-tracing";
-import { assertPublishRun, OWNED_RUN_PREFIX } from "../convex/lib/publishRun";
+import { assertPublishRun, OWNED_RUN_PREFIX, PUBLISH_LEASE_RENEW_INTERVAL_MS } from "../convex/lib/publishRun";
 
 const MIN_SUPPORTED_PUBLISHER_PROTOCOL_VERSION = 1;
 const PUBLISHER_VERSION_HEADER = "X-Publisher-Version";
@@ -225,6 +225,30 @@ async function readJsonObject(request: Request): Promise<any> {
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
 
+// Owned runs hold a fixed-length lease. Extend it while the run keeps writing
+// so long scoped publishes are not cut off partway, but write the shared site
+// row at most once per interval per run (per server instance). A failed
+// renewal is not fatal here: the write itself re-checks the lease.
+const leaseRenewedAt = new Map<string, number>();
+export async function renewPublishLease(client: ConvexHttpClient, siteSlug: string, runId: unknown, now = Date.now()) {
+  if (typeof runId !== "string" || !runId.startsWith(OWNED_RUN_PREFIX)) return false;
+  const key = `${siteSlug}\n${runId}`;
+  if (now - (leaseRenewedAt.get(key) ?? -Infinity) < PUBLISH_LEASE_RENEW_INTERVAL_MS) return false;
+  leaseRenewedAt.delete(key);
+  leaseRenewedAt.set(key, now);
+  for (const [entry, at] of leaseRenewedAt) {
+    if (now - at < 2 * PUBLISH_LEASE_RENEW_INTERVAL_MS && leaseRenewedAt.size <= 1000) break;
+    leaseRenewedAt.delete(entry);
+  }
+  try {
+    await client.mutation(api.sites.renewPublish, { slug: siteSlug, runId }, { skipQueue: true });
+    return true;
+  } catch {
+    leaseRenewedAt.delete(key);
+    return false;
+  }
+}
+
 async function handleAssetUpload(request: Request, client: ConvexHttpClient) {
   const body = (await readJsonObject(request)) as {
     siteSlug?: string;
@@ -262,6 +286,7 @@ async function handleAssetUpload(request: Request, client: ConvexHttpClient) {
     return new Response("blobUrl does not match site/path/hash", { status: 400 });
   }
   await requirePublishSite(request, client, siteSlug);
+  await renewPublishLease(client, siteSlug, body.runId);
   await client.mutation(
     kind === "pdf"
       ? api.documents.upsertPdfAsset
@@ -326,6 +351,7 @@ async function handleAssetHashBackfill(request: Request, client: ConvexHttpClien
     );
   }
   await requirePublishSite(request, client, siteSlug);
+  await renewPublishLease(client, siteSlug, body.runId);
   const validatedEntries = entries.map(({ hasSensitive: _, ...entry }) => entry);
   const result = await client.mutation(
     api.documents.backfillAssetHashes,
@@ -352,6 +378,7 @@ async function handleDocumentHashBackfill(request: Request, client: ConvexHttpCl
     return new Response("entry slug and contentHash required", { status: 400 });
   }
   await requirePublishSite(request, client, siteSlug);
+  await renewPublishLease(client, siteSlug, body.runId);
   const result = await client.mutation(
     api.documents.bulkSetContentHash,
     withSiteSlug(siteSlug, {
@@ -747,6 +774,7 @@ export async function handlePublishRequest({
         const bytes = new TextEncoder().encode(content).byteLength + new TextEncoder().encode(redactedContent).byteLength;
         return { redactedContent, rawContent: bytes <= MAX_DOCUMENT_CONTENT_STORAGE_BYTES ? content : undefined };
       });
+      await renewPublishLease(client, siteSlug, body.runId);
       await client.mutation(
         api.documents.upsert,
         withSiteSlug(siteSlug, {

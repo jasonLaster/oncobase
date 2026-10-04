@@ -121,8 +121,10 @@ downloads.
    bunx convex run sites:getBySlug '{"slug":"<slug>"}'
    ```
 2. Clear a stuck publish lock:
-   `bun run wiki:site:lock-clear --site <slug>`. Lock auto-expires
-   after 10 minutes anyway.
+   `bun run wiki:site:lock-clear --site <slug>`. The lock auto-expires
+   anyway: legacy runs 10 minutes after they began, scoped runs 10
+   minutes after their last write (each write renews the lease, at most
+   once a minute).
 3. Have the publisher rerun with `--force` if hashes look
    inconsistent.
 4. Verify `lastPublishedAt` advances and the cache invalidates.

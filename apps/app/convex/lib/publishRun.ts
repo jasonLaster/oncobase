@@ -4,6 +4,13 @@ import { invalidateManifest } from "./manifestRevision";
 
 export const OWNED_RUN_PREFIX = "scoped:";
 
+/** Publish lease length. Owned runs extend it with sites.renewPublish. */
+export const PUBLISH_LEASE_MS = 10 * 60 * 1000;
+/** renewPublish leaves a lease alone if it already runs this close to a full term. */
+export const PUBLISH_LEASE_RENEW_SKIP_MS = 30 * 1000;
+/** The publish API renews a run's lease at most this often per instance. */
+export const PUBLISH_LEASE_RENEW_INTERVAL_MS = 60 * 1000;
+
 /** Checked inside the same transaction as each write, not just in HTTP auth.
  * Legacy unowned runs retain their existing API; they cannot touch an owned run.
  * The prefix lets us reject late writes even after the owner has finished. */

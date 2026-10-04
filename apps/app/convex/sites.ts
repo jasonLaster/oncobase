@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./lib/serviceFunctions";
 import { DEFAULT_SITE_SLUG, SITE_SLUG_RE, assertSiteSlug } from "./lib/site";
-import { assertPublishRun, OWNED_RUN_PREFIX } from "./lib/publishRun";
+import { assertPublishRun, OWNED_RUN_PREFIX, PUBLISH_LEASE_MS, PUBLISH_LEASE_RENEW_SKIP_MS } from "./lib/publishRun";
 import { invalidateManifest, queueManifestBuild, MANIFEST_SNAPSHOT_VERSION } from "./lib/manifestRevision";
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -290,14 +290,38 @@ export const beginPublish = mutation({
     await ctx.db.patch(site._id, {
       lastPublishStatus: "running",
       lastPublishError: undefined,
-      publishLockUntil: now + 10 * 60 * 1000,
+      publishLockUntil: now + PUBLISH_LEASE_MS,
       publishRunId: runId,
       publishRunChanged: runId ? false : undefined,
       publishJournalVersion: runId ? 1 : undefined,
       publishScope: scope,
       updatedAt: now,
     });
-    if (runId) await ctx.scheduler.runAfter(10 * 60 * 1000, internal.sites.expirePublish, { slug, runId });
+    if (runId) await ctx.scheduler.runAfter(PUBLISH_LEASE_MS, internal.sites.expirePublish, { slug, runId });
+  },
+});
+
+// Heartbeat for an owned (scoped) run. The publish API calls this while the
+// run keeps writing, so long runs are not cut off at a fixed lease. Only a
+// live lease held by the same runId can be extended; an expired lease stays
+// expired (its writes may already have been taken over). Each renewal
+// schedules its own expiry check; the earlier checks see the extended lease
+// and do nothing.
+export const renewPublish = mutation({
+  args: { slug: v.string(), runId: v.string() },
+  handler: async (ctx, { slug, runId }) => {
+    assertSiteSlug(slug);
+    if (!runId.startsWith(OWNED_RUN_PREFIX)) throw new Error("Publish conflict: invalid run identity");
+    const site = await ctx.db.query("sites").withIndex("by_slug", q => q.eq("slug", slug)).first();
+    if (!site || site.status !== "active") throw new Error("site not active");
+    assertPublishRun(site, runId);
+    const now = Date.now();
+    const lockUntil = now + PUBLISH_LEASE_MS;
+    // Avoid rewriting the shared site row for back-to-back renewals.
+    if ((site.publishLockUntil ?? 0) >= lockUntil - PUBLISH_LEASE_RENEW_SKIP_MS) return { lockUntil: site.publishLockUntil! };
+    await ctx.db.patch(site._id, { publishLockUntil: lockUntil, updatedAt: now });
+    await ctx.scheduler.runAfter(PUBLISH_LEASE_MS, internal.sites.expirePublish, { slug, runId });
+    return { lockUntil };
   },
 });
 

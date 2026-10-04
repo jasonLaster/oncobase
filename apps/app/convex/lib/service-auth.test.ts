@@ -35,7 +35,7 @@ test("every server-only public handler denies before reading or mutating data", 
       checked++;
     }
   }
-  expect(checked).toBe(98);
+  expect(checked).toBe(99);
 });
 
 test("document reads, legacy bulk reads, sensitive flag and hash lookups require a verified service identity", async () => {
