@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { getFunctionName, type FunctionReference } from "convex/server";
-import { handleSharePreviewRequest } from "./wiki-api";
+import { handleSharePreviewRequest } from "./api/share-preview";
 
 function clientFor(siteSlug: string) {
   return {

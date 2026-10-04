@@ -349,7 +349,7 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
   }
 
   if (isLinkPreviewRequest(request) && !isAppAssetRequest(url.pathname)) {
-    const { handleSharePreviewRequest } = await import("./wiki-api.js");
+    const { handleSharePreviewRequest } = await import("./api/share-preview.js");
     return handleSharePreviewRequest(sharePreviewRequestFor(request), client, siteSlug);
   }
 
