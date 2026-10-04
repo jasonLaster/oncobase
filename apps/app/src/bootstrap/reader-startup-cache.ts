@@ -89,10 +89,15 @@ export function startupInitialData(snapshot: StartupSnapshot, pathname: string):
       contentStatus: "fresh", fetchedAt: 0, missingAt: null, staleAt: null, deletedAt: null } };
 }
 
-export function writeStartupSnapshot(snapshot: StartupSnapshot, epoch: string | null, raw = JSON.stringify(snapshot)): boolean {
+/**
+ * `trusted` skips decoding and re-validating `raw` when the caller just
+ * encoded it from LiveStore rows; readers still validate on every read, so a
+ * bad snapshot is ignored rather than trusted.
+ */
+export function writeStartupSnapshot(snapshot: StartupSnapshot, epoch: string | null, raw = JSON.stringify(snapshot), { trusted = false } = {}): boolean {
   try {
     if (localStorage.getItem(STARTUP_CACHE_EPOCH) !== epoch) return false;
-    if (new Blob([raw]).size > STARTUP_CACHE_MAX_BYTES || !parseStartupSnapshot(raw, snapshot.partition)) return false;
+    if (new Blob([raw]).size > STARTUP_CACHE_MAX_BYTES || (!trusted && !parseStartupSnapshot(raw, snapshot.partition))) return false;
     localStorage.setItem(startupCacheKey(snapshot.partition), raw);
     const paths = [...new Set(snapshot.bodies.map(body => body.pathname))];
     const hint = encodeURIComponent(JSON.stringify(paths));

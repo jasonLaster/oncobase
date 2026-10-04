@@ -1,12 +1,13 @@
 import { useStore } from "@livestore/react";
 import { WIKI_MANIFEST_SCHEMA_VERSION, WIKI_READER_CACHE_VERSION, type WikiManifest, type WikiSessionIdentity } from "@oncobase/wiki-content";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { assets$, fileTree$, pageContentBySlug$, pageIndex$, siteState$ } from "../livestore/queries";
 import { contentSlugFromRouteSlug, slugFromPath } from "../wiki-utils";
 import { parseStartupSnapshot, sameStartupIdentity, startupCacheKey, startupPartition, STARTUP_CACHE_EPOCH, writeStartupSnapshot, type StartupSnapshot } from "./reader-startup-cache";
 import { READER_SHELL_COOKIE } from "./reader-shell-hint";
 import { encodeStartupSnapshot } from "./encode-startup-cache";
+import { scheduleIdle, shouldWriteStartupCache, startupCacheWriteKey, type LastStartupCacheWrite } from "./startup-cache-write-policy";
 
 /** A bounded presentation snapshot of actual LiveStore queries. Writes happen
  * after paint; LiveStore remains authoritative and owns all sync/revalidation. */
@@ -20,6 +21,10 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
   const assets = store.useQuery(assets$);
   const page = store.useQuery(pageContentBySlug$(slug));
   const [epoch] = useState(() => { try { return localStorage.getItem(STARTUP_CACHE_EPOCH); } catch { return null; } });
+  // What this writer last stored, so unchanged re-validations skip the rebuild
+  // and the next build reuses bodies without decoding localStorage again.
+  const lastWrite = useRef<LastStartupCacheWrite>(null);
+  const lastSnapshot = useRef<StartupSnapshot | null>(null);
 
   useEffect(() => {
     const debug = new URLSearchParams(location.search).get("paintDebug") === "1";
@@ -30,11 +35,18 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
       report({ status: "waiting", validated: !!state?.lastValidatedAt, tree: !!tree, siteMatches: state?.siteSlug === identity.siteSlug, scopeMatches: state?.scope === identity.scope });
       return;
     }
+    const writeKey = startupCacheWriteKey({ cacheKey: identity.cacheKey, epoch, manifestHash: state.manifestHash, pathname,
+      page: page ? { contentHash: page.contentHash, contentStatus: page.contentStatus, hasContent: Boolean(page.content),
+        unavailable: Boolean(page.deletedAt || page.missingAt) } : null });
+    if (!shouldWriteStartupCache(lastWrite.current, writeKey, state.lastValidatedAt)) {
+      report({ status: "unchanged" });
+      return;
+    }
     let cancelled = false;
-    const timer = window.setTimeout(async () => {
+    const cancelIdle = scheduleIdle(() => void (async () => {
       try {
         const partition = startupPartition();
-        const previous = parseStartupSnapshot(localStorage.getItem(startupCacheKey(partition)), partition);
+        const previous = lastSnapshot.current ?? parseStartupSnapshot(localStorage.getItem(startupCacheKey(partition)), partition);
         const manifest: WikiManifest = { schemaVersion: WIKI_MANIFEST_SCHEMA_VERSION, siteSlug: identity.siteSlug, scope: identity.scope,
           manifestHash: state.manifestHash, generatedAt: state.generatedAt, compactTree: JSON.parse(tree.treeJson),
           pages: pages.map(row => ({ ...row, tags: JSON.parse(row.tagsJson) })), assets: [...assets] };
@@ -53,21 +65,23 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
         // Prefer the current page when quota is tight. Never evict other app data.
         let raw = await encodeStartupSnapshot(snapshot);
         if (cancelled) return;
-        let written = raw !== null && writeStartupSnapshot(snapshot, epoch, raw);
+        let written = raw !== null && writeStartupSnapshot(snapshot, epoch, raw, { trusted: true });
         if (debug) report({ status: "write", written, bytes: raw?.length ?? 0, decodedBytes: new Blob([JSON.stringify(snapshot)]).size, pages: pages.length, bodies: snapshot.bodies.length, epochMatches: localStorage.getItem(STARTUP_CACHE_EPOCH) === epoch });
         while (!written && snapshot.bodies.length) {
           snapshot.bodies.pop();
           raw = await encodeStartupSnapshot(snapshot);
           if (cancelled) return;
-          written = raw !== null && writeStartupSnapshot(snapshot, epoch, raw);
+          written = raw !== null && writeStartupSnapshot(snapshot, epoch, raw, { trusted: true });
         }
+        lastWrite.current = { key: writeKey, validatedAt: state.lastValidatedAt };
+        lastSnapshot.current = written ? snapshot : null;
         if (!written && localStorage.getItem(STARTUP_CACHE_EPOCH) === epoch) {
           localStorage.removeItem(startupCacheKey(partition));
           document.cookie = `${READER_SHELL_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
         }
       } catch { report({ status: "unavailable" }); /* A cache failure must not break the live reader. */ }
-    }, 200);
-    return () => { cancelled = true; window.clearTimeout(timer); };
+    })());
+    return () => { cancelled = true; cancelIdle(); };
   }, [assets, epoch, identity, page, pages, pathname, slug, state, tree]);
   return null;
 }
