@@ -25,6 +25,25 @@ export function backendServiceToken(now = Date.now()): Promise<string> {
   return token;
 }
 
+// Convex queries and mutations have a ~1s execution budget, so a call still
+// pending after this long is a stuck connection, not slow work. Actions may
+// legitimately run longer (OpenAI, full-corpus reads). "0" disables a limit.
+const DEFAULT_BACKEND_TIMEOUT_MS = 15_000;
+const DEFAULT_BACKEND_ACTION_TIMEOUT_MS = 60_000;
+
+function configuredTimeout(value: string | undefined, fallback: number) {
+  if (value === undefined || value.trim() === "") return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+/** Timeout for one backend RPC, by Convex endpoint (`/api/action` vs others). */
+export function backendRequestTimeoutMs(pathname: string, env: Record<string, string | undefined> = process.env) {
+  return pathname.endsWith("/api/action")
+    ? configuredTimeout(env.WIKI_BACKEND_ACTION_TIMEOUT_MS, DEFAULT_BACKEND_ACTION_TIMEOUT_MS)
+    : configuredTimeout(env.WIKI_BACKEND_TIMEOUT_MS, DEFAULT_BACKEND_TIMEOUT_MS);
+}
+
 export function createBackendClient(url = resolveServerConvexUrl(), options: ConstructorParameters<typeof ConvexHttpClient>[1] = {}) {
   const origin = new URL(url).origin;
   const transport = options.fetch ?? globalThis.fetch;
@@ -35,7 +54,11 @@ export function createBackendClient(url = resolveServerConvexUrl(), options: Con
     // Explicit operator admin authentication remains available for internal
     // maintenance functions; ordinary application calls use the service JWT.
     if (!headers.has("Authorization")) headers.set("Authorization", "Bearer " + await backendServiceToken());
-    return transport(input, { ...init, headers, redirect: "error" });
+    const timeoutMs = backendRequestTimeoutMs(destination.pathname);
+    const signals = [init?.signal, timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined]
+      .filter((signal): signal is AbortSignal => Boolean(signal));
+    const signal = signals.length > 1 ? AbortSignal.any(signals) : signals[0];
+    return transport(input, { ...init, headers, redirect: "error", ...(signal ? { signal } : {}) });
   }, { preconnect: transport.preconnect });
   return new ConvexHttpClient(url, { ...options, fetch: authenticatedFetch });
 }

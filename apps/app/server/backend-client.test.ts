@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { backendServiceToken, createBackendClient } from "./backend-client";
+import { backendRequestTimeoutMs, backendServiceToken, createBackendClient } from "./backend-client";
 import { api } from "../convex/_generated/api";
 import { SERVICE_ISSUER, SERVICE_AUDIENCE, SERVICE_SUBJECT } from "../convex/lib/serviceAuth";
 const previous = process.env.WIKI_BACKEND_SIGNING_KEY;
@@ -36,4 +36,34 @@ test("backend transport sends credentials only in headers to its configured orig
   delete process.env.WIKI_BACKEND_SIGNING_KEY;
   await expect(client.query(api.documents.getReaderPolicy, { host: "alpha.test" })).rejects.toThrow("not configured");
   expect(calls).toBe(1);
+});
+
+test("backend RPCs carry a timeout signal, longer for actions and configurable", () => {
+  expect(backendRequestTimeoutMs("/api/query", {})).toBe(15_000);
+  expect(backendRequestTimeoutMs("/api/mutation", {})).toBe(15_000);
+  expect(backendRequestTimeoutMs("/api/action", {})).toBe(60_000);
+  expect(backendRequestTimeoutMs("/api/query", { WIKI_BACKEND_TIMEOUT_MS: "250" })).toBe(250);
+  expect(backendRequestTimeoutMs("/api/action", { WIKI_BACKEND_ACTION_TIMEOUT_MS: "0" })).toBe(0);
+  expect(backendRequestTimeoutMs("/api/query", { WIKI_BACKEND_TIMEOUT_MS: "nonsense" })).toBe(15_000);
+});
+
+test("a stalled backend call is aborted instead of outliving the request", async () => {
+  process.env.WIKI_BACKEND_SIGNING_KEY = JSON.stringify(privateJwk);
+  const previousTimeout = process.env.WIKI_BACKEND_TIMEOUT_MS;
+  process.env.WIKI_BACKEND_TIMEOUT_MS = "20";
+  try {
+    let sawSignal = false;
+    const transport = Object.assign((_input: unknown, init?: RequestInit) => new Promise<Response>((_, reject) => {
+      sawSignal = init?.signal instanceof AbortSignal;
+      init?.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+    }), { preconnect: fetch.preconnect });
+    const client = createBackendClient("https://fixture.convex.cloud", { fetch: transport });
+    const started = Date.now();
+    await expect(client.query(api.documents.getReaderPolicy, { host: "alpha.test" })).rejects.toThrow();
+    expect(sawSignal).toBe(true);
+    expect(Date.now() - started).toBeLessThan(2_000);
+  } finally {
+    if (previousTimeout === undefined) delete process.env.WIKI_BACKEND_TIMEOUT_MS; else process.env.WIKI_BACKEND_TIMEOUT_MS = previousTimeout;
+    delete process.env.WIKI_BACKEND_SIGNING_KEY;
+  }
 });
