@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   mutation,
@@ -8,10 +8,35 @@ import {
   type QueryCtx,
 } from "./lib/serviceFunctions";
 import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
+import {
+  conversationOwner,
+  ownerAllows,
+  type ConversationOwner,
+} from "./lib/conversationAuth";
 
+// Conversations are per owner (see lib/conversationAuth.ts):
+// - Browser tokens carry a signed, hashed `ownerKey` claim and only ever see
+//   rows with that `ownerKey`. Rows created before ownership existed have no
+//   `ownerKey` and are therefore invisible to (and undeletable by) browsers.
+// - The app server passes `ownerKey` explicitly for the viewer it acts for.
+//   Service calls without it keep the old site-wide behavior only so app
+//   servers built before this change work while Convex is deployed first.
 type AnyCtx = QueryCtx | MutationCtx;
 
-async function listAll(ctx: AnyCtx, site: SiteCtx) {
+async function listAll(ctx: AnyCtx, site: SiteCtx, owner: ConversationOwner) {
+  if (owner.scope === "none") return [];
+  if (owner.scope === "owner") {
+    // Per-owner index: one viewer's list never includes (or is crowded out
+    // by) another viewer's conversations. Rows without an owner never match.
+    if (!site.siteId) return [];
+    return await ctx.db
+      .query("conversations")
+      .withIndex("by_site_owner_updated", (q) =>
+        q.eq("siteId", site.siteId!).eq("ownerKey", owner.ownerKey),
+      )
+      .order("desc")
+      .take(200);
+  }
   // Use the site-scoped index so a high-activity sibling site cannot
   // push this site's recent conversations off the global top-200. The
   // legacy `by_updated` path is kept only for sites without a resolved
@@ -31,37 +56,60 @@ async function listAll(ctx: AnyCtx, site: SiteCtx) {
   return all.filter((c) => rowBelongsToSite(c, site));
 }
 
-async function getOwnedConversation(ctx: AnyCtx, site: SiteCtx, id: string) {
+async function getOwnedConversation(
+  ctx: AnyCtx,
+  site: SiteCtx,
+  owner: ConversationOwner,
+  id: string,
+) {
   const convId = ctx.db.normalizeId("conversations", id);
   if (!convId) return null;
   const conversation = await ctx.db.get(convId);
   if (!conversation || !rowBelongsToSite(conversation, site)) return null;
+  if (!ownerAllows(owner, conversation)) return null;
   return { convId, conversation };
 }
 
 export const list = query({
-  args: { siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { siteSlug }) => {
+  args: { siteSlug: v.optional(v.string()), ownerKey: v.optional(v.string()) },
+  handler: async (ctx, { siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    const all = await listAll(ctx, site);
+    const all = await listAll(
+      ctx,
+      site,
+      await conversationOwner(ctx, { siteSlug, ownerKey }),
+    );
     return all.filter((c) => !c.archived).slice(0, 100);
   },
 });
 
 export const listArchived = query({
-  args: { siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { siteSlug }) => {
+  args: { siteSlug: v.optional(v.string()), ownerKey: v.optional(v.string()) },
+  handler: async (ctx, { siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    const all = await listAll(ctx, site);
+    const all = await listAll(
+      ctx,
+      site,
+      await conversationOwner(ctx, { siteSlug, ownerKey }),
+    );
     return all.filter((c) => c.archived).slice(0, 100);
   },
 });
 
 export const get = query({
-  args: { id: v.string(), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { id, siteSlug }) => {
+  args: {
+    id: v.string(),
+    siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    const owned = await getOwnedConversation(ctx, site, id);
+    const owned = await getOwnedConversation(
+      ctx,
+      site,
+      await conversationOwner(ctx, { siteSlug, ownerKey }),
+      id,
+    );
     if (!owned) return null;
     const messages = await ctx.db
       .query("messages")
@@ -72,10 +120,19 @@ export const get = query({
 });
 
 export const getMessages = query({
-  args: { id: v.string(), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { id, siteSlug }) => {
+  args: {
+    id: v.string(),
+    siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    const owned = await getOwnedConversation(ctx, site, id);
+    const owned = await getOwnedConversation(
+      ctx,
+      site,
+      await conversationOwner(ctx, { siteSlug, ownerKey }),
+      id,
+    );
     if (!owned) return [];
     return await ctx.db
       .query("messages")
@@ -85,10 +142,19 @@ export const getMessages = query({
 });
 
 export const getMeta = query({
-  args: { id: v.string(), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { id, siteSlug }) => {
+  args: {
+    id: v.string(),
+    siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    const owned = await getOwnedConversation(ctx, site, id);
+    const owned = await getOwnedConversation(
+      ctx,
+      site,
+      await conversationOwner(ctx, { siteSlug, ownerKey }),
+      id,
+    );
     if (!owned) return null;
     const c = owned.conversation;
     return {
@@ -102,10 +168,19 @@ export const getMeta = query({
 });
 
 export const getStreamingState = query({
-  args: { id: v.string(), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { id, siteSlug }) => {
+  args: {
+    id: v.string(),
+    siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    const owned = await getOwnedConversation(ctx, site, id);
+    const owned = await getOwnedConversation(
+      ctx,
+      site,
+      await conversationOwner(ctx, { siteSlug, ownerKey }),
+      id,
+    );
     if (!owned) return null;
     const conv = owned.conversation;
     return {
@@ -118,12 +193,21 @@ export const getStreamingState = query({
 });
 
 export const create = conversationMutation({
-  args: { title: v.string(), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { title, siteSlug }) => {
+  args: {
+    title: v.string(),
+    siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { title, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
+    const owner = await conversationOwner(ctx, { siteSlug, ownerKey });
+    // A browser token without an owner claim could only create a row it
+    // can never read back again; refuse instead of storing an orphan.
+    if (owner.scope === "none") throw new ConvexError("Unauthorized");
     const now = Date.now();
     return await ctx.db.insert("conversations", {
       ...(site.siteId ? { siteId: site.siteId } : {}),
+      ...(owner.scope === "owner" ? { ownerKey: owner.ownerKey } : {}),
       title,
       createdAt: now,
       updatedAt: now,
@@ -134,10 +218,12 @@ export const create = conversationMutation({
 async function ensureOwnedConvById(
   ctx: AnyCtx,
   site: SiteCtx,
+  owner: ConversationOwner,
   conversationId: Id<"conversations">,
 ): Promise<Doc<"conversations"> | null> {
   const conv = await ctx.db.get(conversationId);
   if (!conv || !rowBelongsToSite(conv, site)) return null;
+  if (!ownerAllows(owner, conv)) return null;
   return conv;
 }
 
@@ -146,10 +232,19 @@ export const beginRun = mutation({
     conversationId: v.id("conversations"),
     runId: v.string(),
     siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, runId, siteSlug }) => {
+  handler: async (ctx, { conversationId, runId, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    if (!(await ensureOwnedConvById(ctx, site, conversationId))) return;
+    if (
+      !(await ensureOwnedConvById(
+        ctx,
+        site,
+        await conversationOwner(ctx, { siteSlug, ownerKey }),
+        conversationId,
+      ))
+    )
+      return;
     await ctx.db.patch(conversationId, {
       activeRunId: runId,
       streamingText: "",
@@ -166,10 +261,19 @@ export const updateStreaming = mutation({
     text: v.string(),
     parts: v.optional(v.union(v.string(), v.array(v.any()))),
     siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, runId, text, parts, siteSlug }) => {
+  handler: async (
+    ctx,
+    { conversationId, runId, text, parts, siteSlug, ownerKey },
+  ) => {
     const site = await requireSite(ctx, siteSlug);
-    const conv = await ensureOwnedConvById(ctx, site, conversationId);
+    const conv = await ensureOwnedConvById(
+      ctx,
+      site,
+      await conversationOwner(ctx, { siteSlug, ownerKey }),
+      conversationId,
+    );
     if (!conv) return;
     if (runId && conv.activeRunId !== runId) return;
     const patch: Record<string, unknown> = {
@@ -186,10 +290,16 @@ export const clearStreaming = conversationMutation({
     conversationId: v.id("conversations"),
     runId: v.optional(v.string()),
     siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, runId, siteSlug }) => {
+  handler: async (ctx, { conversationId, runId, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    const conv = await ensureOwnedConvById(ctx, site, conversationId);
+    const conv = await ensureOwnedConvById(
+      ctx,
+      site,
+      await conversationOwner(ctx, { siteSlug, ownerKey }),
+      conversationId,
+    );
     if (!conv) return;
     if (runId && conv.activeRunId !== runId) return;
     await ctx.db.patch(conversationId, {
@@ -205,10 +315,19 @@ export const cancelStream = conversationMutation({
   args: {
     conversationId: v.id("conversations"),
     siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, siteSlug }) => {
+  handler: async (ctx, { conversationId, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    if (!(await ensureOwnedConvById(ctx, site, conversationId))) return;
+    if (
+      !(await ensureOwnedConvById(
+        ctx,
+        site,
+        await conversationOwner(ctx, { siteSlug, ownerKey }),
+        conversationId,
+      ))
+    )
+      return;
     await ctx.db.patch(conversationId, { canceledAt: Date.now() });
   },
 });
@@ -217,10 +336,19 @@ export const clearCancel = conversationMutation({
   args: {
     conversationId: v.id("conversations"),
     siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, siteSlug }) => {
+  handler: async (ctx, { conversationId, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    if (!(await ensureOwnedConvById(ctx, site, conversationId))) return;
+    if (
+      !(await ensureOwnedConvById(
+        ctx,
+        site,
+        await conversationOwner(ctx, { siteSlug, ownerKey }),
+        conversationId,
+      ))
+    )
+      return;
     await ctx.db.patch(conversationId, { canceledAt: undefined });
   },
 });
@@ -229,10 +357,16 @@ export const getCancelState = query({
   args: {
     conversationId: v.id("conversations"),
     siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, siteSlug }) => {
+  handler: async (ctx, { conversationId, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    const conv = await ensureOwnedConvById(ctx, site, conversationId);
+    const conv = await ensureOwnedConvById(
+      ctx,
+      site,
+      await conversationOwner(ctx, { siteSlug, ownerKey }),
+      conversationId,
+    );
     if (!conv) return null;
     return {
       canceledAt: conv.canceledAt,
@@ -243,28 +377,64 @@ export const getCancelState = query({
 });
 
 export const archive = conversationMutation({
-  args: { id: v.id("conversations"), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { id, siteSlug }) => {
+  args: {
+    id: v.id("conversations"),
+    siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    if (!(await ensureOwnedConvById(ctx, site, id))) return;
+    if (
+      !(await ensureOwnedConvById(
+        ctx,
+        site,
+        await conversationOwner(ctx, { siteSlug, ownerKey }),
+        id,
+      ))
+    )
+      return;
     await ctx.db.patch(id, { archived: true, updatedAt: Date.now() });
   },
 });
 
 export const restore = conversationMutation({
-  args: { id: v.id("conversations"), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { id, siteSlug }) => {
+  args: {
+    id: v.id("conversations"),
+    siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    if (!(await ensureOwnedConvById(ctx, site, id))) return;
+    if (
+      !(await ensureOwnedConvById(
+        ctx,
+        site,
+        await conversationOwner(ctx, { siteSlug, ownerKey }),
+        id,
+      ))
+    )
+      return;
     await ctx.db.patch(id, { archived: false, updatedAt: Date.now() });
   },
 });
 
 export const remove = conversationMutation({
-  args: { id: v.id("conversations"), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { id, siteSlug }) => {
+  args: {
+    id: v.id("conversations"),
+    siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    if (!(await ensureOwnedConvById(ctx, site, id))) return { deleted: false };
+    if (
+      !(await ensureOwnedConvById(
+        ctx,
+        site,
+        await conversationOwner(ctx, { siteSlug, ownerKey }),
+        id,
+      ))
+    )
+      return { deleted: false };
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_conversation", (q) => q.eq("conversationId", id))
@@ -292,13 +462,19 @@ export const saveMessages = mutation({
     ),
     updateTitle: v.optional(v.string()),
     siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    { conversationId, runId, messages, updateTitle, siteSlug },
+    { conversationId, runId, messages, updateTitle, siteSlug, ownerKey },
   ) => {
     const site = await requireSite(ctx, siteSlug);
-    const conv = await ensureOwnedConvById(ctx, site, conversationId);
+    const conv = await ensureOwnedConvById(
+      ctx,
+      site,
+      await conversationOwner(ctx, { siteSlug, ownerKey }),
+      conversationId,
+    );
     if (!conv) return;
     if (runId && conv.activeRunId !== runId) return;
     for (const msg of messages) {
@@ -306,7 +482,9 @@ export const saveMessages = mutation({
         const existing = await ctx.db
           .query("messages")
           .withIndex("by_message_id", (q) =>
-            q.eq("conversationId", conversationId).eq("messageId", msg.messageId),
+            q
+              .eq("conversationId", conversationId)
+              .eq("messageId", msg.messageId),
           )
           .first();
         if (existing) continue;
@@ -330,10 +508,19 @@ export const sendMessage = conversationMutation({
     conversationId: v.id("conversations"),
     text: v.string(),
     siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, text, siteSlug }) => {
+  handler: async (ctx, { conversationId, text, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
-    if (!(await ensureOwnedConvById(ctx, site, conversationId))) return;
+    if (
+      !(await ensureOwnedConvById(
+        ctx,
+        site,
+        await conversationOwner(ctx, { siteSlug, ownerKey }),
+        conversationId,
+      ))
+    )
+      return;
     await ctx.db.insert("messages", {
       ...(site.siteId ? { siteId: site.siteId } : {}),
       conversationId,
@@ -350,11 +537,18 @@ export const sendMessage = conversationMutation({
 });
 
 export const disableMessage = conversationMutation({
-  args: { id: v.id("messages"), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { id, siteSlug }) => {
+  args: {
+    id: v.id("messages"),
+    siteSlug: v.optional(v.string()),
+    ownerKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, siteSlug, ownerKey }) => {
     const site = await requireSite(ctx, siteSlug);
     const msg = await ctx.db.get(id);
     if (!msg || !rowBelongsToSite(msg, site)) return;
+    const owner = await conversationOwner(ctx, { siteSlug, ownerKey });
+    if (!(await ensureOwnedConvById(ctx, site, owner, msg.conversationId)))
+      return;
     await ctx.db.patch(id, { disabled: true });
   },
 });

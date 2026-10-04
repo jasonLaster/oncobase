@@ -264,9 +264,13 @@ export default defineSchema({
     streamingUpdatedAt: v.optional(v.number()),
     canceledAt: v.optional(v.number()),
     activeRunId: v.optional(v.string()),
+    // sha256 owner key (see convex/lib/conversationAuth.ts). Rows created
+    // before per-owner conversations have none and are hidden from browsers.
+    ownerKey: v.optional(v.string()),
   })
     .index("by_updated", ["updatedAt"])
-    .index("by_site_updated", ["siteId", "updatedAt"]),
+    .index("by_site_updated", ["siteId", "updatedAt"])
+    .index("by_site_owner_updated", ["siteId", "ownerKey", "updatedAt"]),
 
   messages: defineTable({
     siteId: v.optional(v.id("sites")),

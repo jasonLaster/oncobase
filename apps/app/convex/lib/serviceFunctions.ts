@@ -8,7 +8,7 @@ import { requireServiceIdentity } from "./serviceAuth";
 
 type Definition = { args?: any; returns?: any; handler: (ctx: any, args: any) => any };
 const definitions = new WeakMap<object, Definition>();
-function authenticated<Builder>(builder: Builder, authorize: (ctx: any, args: any) => Promise<void> = requireServiceIdentity): Builder {
+function authenticated<Builder>(builder: Builder, authorize: (ctx: any, args: any) => Promise<unknown> = requireServiceIdentity): Builder {
   return ((definition: Definition) => {
     const registered = (builder as any)({ ...definition, handler: async (ctx: any, args: any) => {
       await authorize(ctx, args);
