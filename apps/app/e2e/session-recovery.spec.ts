@@ -1,41 +1,49 @@
 import { expect, test } from "@playwright/test";
 import { createServer } from "node:http";
-import { documentArticle, gotoWiki, installWikiApiMocks, waitForPageTitle } from "./fixtures";
+import { documentArticle, gotoWiki, installWikiApiMocks, readerShellHtml, waitForPageTitle } from "./fixtures";
 
 const runsWithPreviewAuth = Boolean(
   process.env.PLAYWRIGHT_BASE_URL && process.env.WIKI_VITE_PREVIEW_LOGIN_PASSWORD,
 );
 
 test.describe("Session scope recovery", () => {
-  test("a session response with a stalled body exits the startup spinner", async ({ page }) => {
+  test("a session response with a stalled body exits the startup spinner", async ({ page, baseURL }) => {
     await installWikiApiMocks(page);
+    const shell = await readerShellHtml(page);
     let bodyStarted = false;
-    const server = createServer((_request, response) => {
-      response.writeHead(200, {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      });
-      response.write('{"siteSlug":');
-      bodyStarted = true;
+    // route.fulfill delivers a complete body and cannot reproduce fetch
+    // resolving before response.json does. Serve the page from a real HTTP
+    // server that streams partial session JSON and proxies everything else to
+    // the server under test, so the session request never changes origin.
+    const server = createServer(async (request, response) => {
+      if (new URL(request.url ?? "/", "http://fixture.invalid").pathname === "/api/wiki/session") {
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.write('{"siteSlug":');
+        bodyStarted = true;
+        return;
+      }
+      const upstream = await page.request.get(new URL(request.url ?? "/", baseURL).toString());
+      response.writeHead(upstream.status(), { "Content-Type": upstream.headers()["content-type"] ?? "application/octet-stream" });
+      response.end(await upstream.body());
     });
     await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("Missing test server port");
+    const origin = `http://127.0.0.1:${address.port}`;
     try {
-      // Use a real streaming HTTP response. route.fulfill delivers a complete
-      // body and cannot reproduce fetch resolving before response.json does.
-      // WebKit cannot fulfill an intercepted redirect. Continue the actual
-      // request to the streaming fixture so both engines receive partial JSON.
-      await page.route("**/api/wiki/session**", route => route.continue({
-        url: `http://127.0.0.1:${address.port}/session`,
-      }));
+      await page.route(`${origin}/**`, route => route.request().resourceType() === "document"
+        ? route.fulfill({ contentType: "text/html", body: shell }) : route.fallback());
+      await page.route("**/api/wiki/session**", route => route.continue());
       await page.clock.install();
-      await page.goto("/", { waitUntil: "domcontentloaded" });
+      // An explicit session scope: an automatic reader would fall back to the
+      // public cache instead, which "session identity failure can fall back to
+      // the public store" covers.
+      await page.goto(`${origin}/?scope=session`, { waitUntil: "domcontentloaded" });
       await expect.poll(() => bodyStarted).toBe(true);
-      await expect(page.getByTestId("app-starting")).toBeVisible();
+      await expect(page.getByTestId("reader-pending")).toBeVisible();
       await page.clock.fastForward(30_001);
       await expect(page.getByTestId("session-recovery")).toContainText("Wiki request timed out after 30000ms");
-      await expect(page.getByTestId("app-starting")).toHaveCount(0);
+      await expect(page.getByTestId("reader-pending")).toHaveCount(0);
     } finally {
       server.closeAllConnections();
       await new Promise<void>(resolve => server.close(() => resolve()));

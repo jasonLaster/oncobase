@@ -60,7 +60,8 @@ test("a delayed database worker keeps a loading state and recovers", async ({ pa
   try {
     await page.goto("/wiki/logistics/insurance", { waitUntil: "domcontentloaded" });
     await expect.poll(() => workerPending).toBe(true);
-    await expect(page.getByTestId("app-starting")).toBeVisible();
+    // Code is ready; a storage wait uses the quiet page cue, not the launch screen.
+    await expect(page.getByTestId("reader-pending")).toBeVisible();
     await expect(page.getByTestId("page-loading")).toHaveCount(0);
     await expect(documentArticle(page)).toHaveCount(0);
   } finally { release(); }

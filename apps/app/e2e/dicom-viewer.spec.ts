@@ -643,12 +643,17 @@ test.describe("DICOM viewer", () => {
     const mobileList = page.getByTestId("diagnostics-mobile-list");
     await expect(mobileList).toBeVisible();
     await expect(page.getByRole("table")).toBeHidden();
-    await expect(
-      mobileList.getByRole("link", { name: /Images/ }),
-    ).toHaveCount(diagnosticStudiesSeed.studies.length);
-    await expect(
-      mobileList.getByRole("link", { name: /Images/ }).first(),
-    ).toHaveAttribute(
+    const imageLinks = mobileList.getByRole("link", { name: /Images/ });
+    if (isProdRun) {
+      // Production lists its own studies, not the seed: one link per card.
+      const cards = mobileList.getByRole("article");
+      await expect(cards.first()).toBeVisible();
+      await expect(imageLinks).toHaveCount(await cards.count());
+      await expect(imageLinks.first()).toHaveAttribute("href", /^\/tools\/dicom-viewer\?id=[^&]+$/);
+      return;
+    }
+    await expect(imageLinks).toHaveCount(diagnosticStudiesSeed.studies.length);
+    await expect(imageLinks.first()).toHaveAttribute(
       "href",
       `/tools/dicom-viewer?id=${diagnosticStudiesSeed.studies[0]!.id}${seededStudySetParam}`,
     );

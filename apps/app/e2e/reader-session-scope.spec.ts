@@ -65,7 +65,7 @@ test("a cached public denial stays a loader until delayed identity verification 
   try {
     // Identity must select the store before interactive reader chrome mounts.
     await expect(page.getByTestId("sidebar-search")).toHaveCount(0);
-    await expect(page.getByTestId("app-starting")).toBeVisible();
+    await expect(page.getByTestId("reader-pending")).toBeVisible();
     await expect(page.getByRole("heading", { name: /restricted|not found|no longer available/i })).toHaveCount(0);
   } finally {
     releaseIdentity();

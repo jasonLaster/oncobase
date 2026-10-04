@@ -3,8 +3,10 @@ import {
   request as apiRequest,
   test,
   type APIRequestContext,
+  type APIResponse,
 } from "@playwright/test";
 import JSZip from "jszip";
+import { isEducationSlug } from "../src/education-access";
 import { TEXT_SEARCH_LATENCY_BUDGET_MS } from "../src/search-performance";
 
 const hasAiGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
@@ -25,12 +27,15 @@ async function authenticatePasswordGate(request: APIRequestContext) {
 }
 
 test.describe("Vite backend API", () => {
-  test("serves public session identity with public cache headers", async ({ request }) => {
+  test("serves public session identity privately on the gated site", async ({ request }) => {
     const response = await request.get("/api/wiki/session");
     expect(response.ok()).toBe(true);
     expect(response.headers()["x-wiki-cache-scope"]).toBe("public");
-    expect(response.headers()["cache-control"]).toContain("public");
+    // Without the password the same URL answers with the education identity,
+    // so a shared cache must never hold either answer.
+    expect(response.headers()["cache-control"]).toBe("private, no-store");
     expect(response.headers()["vary"]).toContain("Host");
+    expect(response.headers()["vary"]).toContain("Cookie");
 
     const body = await response.json();
     expect(body.siteSlug).toBe("diana");
@@ -61,7 +66,7 @@ test.describe("Vite backend API", () => {
     expect([403, 404]).toContain(response.status());
   });
 
-  test("rejects anonymous raw content APIs without shared caching", async ({
+  test("limits anonymous content APIs to public education without shared caching", async ({
     request: _authenticatedRequest,
   }) => {
     const anonymousRequest = await apiRequest.newContext({
@@ -70,20 +75,31 @@ test.describe("Vite backend API", () => {
         `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || "61001"}`,
       storageState: { cookies: [], origins: [] },
     });
+    const expectPrivate = (response: APIResponse, path: string) => {
+      expect(response.headers()["cache-control"], path).toBe("private, no-store");
+      expect(response.headers().vary, path).toContain("Cookie");
+    };
     try {
       for (const path of [
-        "/api/wiki/manifest",
         "/api/wiki/pages?slugs=index",
-        "/api/search?q=diagnosis",
         "/api/file?path=sources%2Fexample.pdf",
       ]) {
         const response = await anonymousRequest.get(path);
         expect(response.status(), path).toBe(401);
-        expect(response.headers()["cache-control"], path).toBe(
-          "private, no-store",
-        );
-        expect(response.headers().vary, path).toContain("Cookie");
+        expectPrivate(response, path);
       }
+
+      const manifest = await anonymousRequest.get("/api/wiki/manifest");
+      expect(manifest.status()).toBe(200);
+      expectPrivate(manifest, "/api/wiki/manifest");
+      const { pages } = await manifest.json() as { pages: Array<{ slug: string }> };
+      expect(pages.filter(page => !isEducationSlug(page.slug))).toEqual([]);
+
+      const search = await anonymousRequest.get("/api/search?q=diagnosis");
+      expect(search.status()).toBe(200);
+      expectPrivate(search, "/api/search");
+      const { results } = await search.json() as { results: Array<{ slug: string }> };
+      expect(results.filter(result => !isEducationSlug(result.slug))).toEqual([]);
     } finally {
       await anonymousRequest.dispose();
     }
@@ -126,7 +142,8 @@ test.describe("Vite backend API", () => {
     expect(Number(response.headers()["x-wiki-search-duration-ms"])).toBeLessThanOrEqual(
       TEXT_SEARCH_LATENCY_BUDGET_MS,
     );
-    expect(response.headers()["server-timing"]).toMatch(/^wiki-search;dur=\d+$/);
+    // Deployed tracing appends its own entries after the search timing.
+    expect(response.headers()["server-timing"]).toMatch(/^wiki-search;dur=\d+(?:,|$)/);
     expect(clientDurationMs).toBeLessThanOrEqual(TEXT_SEARCH_LATENCY_BUDGET_MS);
 
     const body = await response.json();

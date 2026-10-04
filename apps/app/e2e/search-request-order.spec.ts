@@ -11,7 +11,11 @@ for (const [phase, staleOutcome] of [
     let releaseOldRequest!: () => void;
     const oldRequest = new Promise<void>((resolve) => { releaseOldRequest = resolve; });
     let oldRequestStarted = false;
+    let oldRequestAborted = false;
     let earlierRequests = 0;
+    page.on("requestfailed", (request) => {
+      if (new URL(request.url()).searchParams.get("q") === "earlier") oldRequestAborted = true;
+    });
     await page.route("**/api/search?**", async (route) => {
       const query = new URL(route.request().url()).searchParams.get("q");
       if (query === "earlier") {
@@ -26,6 +30,8 @@ for (const [phase, staleOutcome] of [
         }
         oldRequestStarted = true;
         await oldRequest;
+        // The reader aborts a superseded query; answering it must not matter.
+        if (oldRequestAborted) return route.fulfill({ status: 204 }).catch(() => undefined);
       }
       await route.fulfill({
         status: query === "earlier" && staleOutcome === "error" ? 500 : 200,
@@ -43,10 +49,13 @@ for (const [phase, staleOutcome] of [
       await input.press("Enter");
       await expect(page.getByText("current response marker")).toBeVisible();
 
+      // A newer query aborts the old request, which is then not recorded.
+      // Only the completed indexed response of an exhaustive search counts.
+      await expect.poll(() => oldRequestAborted).toBe(true);
       releaseOldRequest();
       await expect.poll(() => page.evaluate(() =>
         window.__WIKI_VITE_OBSERVABILITY__?.search.filter((metric) => metric.mode === "text" && metric.query === "earlier").length,
-      )).toBe(phase === "exhaustive" ? 2 : 1);
+      )).toBe(phase === "exhaustive" ? 1 : 0);
       // Give React the completed old request's update before inspecting the UI.
       await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
       await expect(input).toHaveValue("current");

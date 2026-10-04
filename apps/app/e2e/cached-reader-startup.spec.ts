@@ -1,13 +1,12 @@
-import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
-import { installWikiApiMocks } from "./fixtures";
+import { installWikiApiMocks, readerShellHtml } from "./fixtures";
 
 const body = "# Cached reader\n\nCACHED_BODY\n\n" + "Stable paragraph for selection and scroll.\n\n".repeat(80);
 const query = "?paintDebug=1&readerStorage=memory";
 async function setup(page: Page, privatePage = false) {
   const api = await installWikiApiMocks(page, { sessionAuthenticated: true, pageOverrides: { index: { content: body, sensitive: privatePage } } });
   let accountTag = "account-a";
-  const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+  const html = await readerShellHtml(page);
   await page.route("**/*", route => route.request().resourceType() === "document"
     ? route.fulfill({ contentType: "text/html", body: html.replace("</head>", `<meta name="wiki-reader-account" content="${accountTag}" /></head>`) }) : route.fallback());
   return { ...api, setHtmlAccount: (tag: string) => { accountTag = tag; } };

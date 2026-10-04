@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
-import { installWikiApiMocks } from "./fixtures";
+import { installWikiApiMocks, readerShellHtml } from "./fixtures";
 import { injectPageBootstrap } from "../server/page-bootstrap";
 
 const content = "# Bootstrap fixture\n\nCSR_DATA_BODY\n\n[Insurance](/wiki/logistics/insurance)";
@@ -10,7 +9,7 @@ const record = { slug: "index", title: "Bootstrap fixture", content, sensitive: 
 for (const sessionAuthenticated of [false, true]) {
   test(`CSR seeds data without a body request; session=${sessionAuthenticated}`, async ({ page }) => {
     const api = await installWikiApiMocks(page, { sessionAuthenticated, pageOverrides: { index: record } });
-    const template = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+    const template = await readerShellHtml(page);
     await page.route("**/*", async route => {
       const url = new URL(route.request().url());
       if (route.request().resourceType() !== "document" || url.pathname !== "/") return route.fallback();
@@ -41,7 +40,7 @@ for (const sessionAuthenticated of [false, true]) {
 
 test("an invalid CSR payload falls back to the body API", async ({ page }) => {
   const api = await installWikiApiMocks(page, { pageOverrides: { index: record } });
-  const template = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+  const template = await readerShellHtml(page);
   await page.route("**/*", async route => {
     const url = new URL(route.request().url());
     if (route.request().resourceType() !== "document") return route.fallback();
@@ -55,7 +54,7 @@ test("an invalid CSR payload falls back to the body API", async ({ page }) => {
 
 test("a public identity refresh preserves the article and does not restart its store", async ({ page, browserName }) => {
   await installWikiApiMocks(page, { pageOverrides: { index: record } });
-  const template = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+  const template = await readerShellHtml(page);
   await page.route("**/*", async route => {
     const url = new URL(route.request().url());
     if (route.request().resourceType() !== "document" || url.pathname !== "/") return route.fallback();
@@ -117,7 +116,7 @@ for (const mode of [
 ]) {
   test(`cold response identity: query=${mode.query}; verified=${mode.verified}`, async ({ page }) => {
     const api = await installWikiApiMocks(page, { sessionAuthenticated: mode.query === "?scope=session", pageOverrides: { index: record } });
-    const template = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+    const template = await readerShellHtml(page);
     await page.route("**/*", async route => {
       const url = new URL(route.request().url());
       if (route.request().resourceType() !== "document") return route.fallback();
@@ -135,7 +134,8 @@ for (const mode of [
         await expect(page.getByTestId("document-article")).toContainText("CSR_DATA_BODY");
         await expect.poll(() => page.evaluate(() => performance.getEntriesByName("livestore:makeAdapter:start").length)).toBe(mode.opensStore ? 1 : 0);
       } else {
-        await expect(page.getByTestId("app-starting")).toBeVisible();
+        // Code is ready, so the identity wait uses the quiet page cue.
+        await expect(page.getByTestId("reader-pending")).toBeVisible();
         await expect(page.getByTestId("document-article")).toHaveCount(0);
       }
       release();

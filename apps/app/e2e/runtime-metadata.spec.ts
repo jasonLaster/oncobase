@@ -1,10 +1,9 @@
-import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
-import { installWikiApiMocks } from "./fixtures";
+import { installWikiApiMocks, readerShellHtml } from "./fixtures";
 
 test("unchanged JavaScript reports the current HTML deployment metadata after reload", async ({ page }) => {
   await installWikiApiMocks(page);
-  const template = (await readFile(new URL("../dist/index.html", import.meta.url), "utf8"))
+  const template = (await readerShellHtml(page))
     .replace(/<meta\b[^>]*name="wiki-build-commit"[^>]*>/g, "");
   let commitSha = "a".repeat(40);
   await page.route("**/*", async route => {

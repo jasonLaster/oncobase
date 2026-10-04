@@ -1,17 +1,15 @@
 import { expect } from "@playwright/test";
-import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { test } from "./persistent-reader-fixture";
-import { documentArticle, installWikiApiMocks, waitForPageTitle } from "./fixtures";
+import { documentArticle, installWikiApiMocks, readerShellHtml, waitForPageTitle } from "./fixtures";
 
 const slug = "wiki/logistics/insurance";
-const template = () => readFile(new URL("../dist/index.html", import.meta.url), "utf8");
 
 // A cold CSR document without a seeded article or navigation: exercise the
 // failure path reported on a phone, independently of any production account.
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const html = await template();
+  const html = await readerShellHtml(page);
   await page.route("**/*", route => route.request().resourceType() === "document"
     ? route.fulfill({ contentType: "text/html", body: html }) : route.fallback());
 });
@@ -88,7 +86,7 @@ test("reconnecting retries an uncached article without reloading", async ({ page
   await waitForPageTitle(page, "Insurance");
 });
 
-test("mobile reader shows received bytes while an HTTP body is still arriving", async ({ page }) => {
+test("mobile reader shows received bytes while an HTTP body is still arriving", async ({ page, baseURL }) => {
   await installWikiApiMocks(page);
   const content = "# Streamed page\n\n" + "Synthetic text received over a slow connection. ".repeat(1500);
   const body = JSON.stringify({ siteSlug: "diana", scope: "public", generatedAt: "2026-09-15T00:00:00Z", isDone: true, continueCursor: null,
@@ -100,10 +98,10 @@ test("mobile reader shows received bytes while an HTTP body is still arriving", 
   const server = createServer(async (request, response) => {
     const pathname = new URL(request.url ?? "/", "http://fixture.invalid").pathname;
     if (pathname !== "/api/wiki/pages") {
-      if (!/^\/assets\/[\w.-]+$/.test(pathname)) { response.writeHead(404); response.end(); return; }
-      const bytes = await readFile(new URL(`../dist${pathname}`, import.meta.url));
-      response.writeHead(200, { "Content-Type": pathname.endsWith(".js") ? "application/javascript" : pathname.endsWith(".wasm") ? "application/wasm" : "text/css" });
-      response.end(bytes);
+      // Scripts and styles come from the server under test.
+      const upstream = await page.request.get(new URL(request.url ?? "/", baseURL).toString());
+      response.writeHead(upstream.status(), { "Content-Type": upstream.headers()["content-type"] ?? "application/octet-stream" });
+      response.end(await upstream.body());
       return;
     }
     response.writeHead(200, { "Content-Type": "application/json" });

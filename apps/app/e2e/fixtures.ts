@@ -19,6 +19,7 @@ import {
   type PiiPattern,
 } from "@oncobase/wiki-content/pii";
 import { prepareDiagnosticTimeline } from "@oncobase/diagnostics/timeline";
+import { PAGE_BOOTSTRAP_ID } from "../src/bootstrap/page-payload";
 const { diagnosticStudiesSeed } = createRequire(import.meta.url)(
   "../scripts/fixtures/diagnostic-studies-seed.ts",
 ) as typeof import("../scripts/fixtures/diagnostic-studies-seed");
@@ -356,11 +357,40 @@ const png = Buffer.from(
   "base64",
 );
 
+const pageBootstrapPattern = new RegExp(
+  `<script id="${PAGE_BOOTSTRAP_ID}"[^>]*>[\\s\\S]*?</script>(<script>document\\.getElementById\\("${PAGE_BOOTSTRAP_ID}"\\)[^<]*</script>)?`,
+);
+
+/** Removes what the app shell adds per request (the visitor's page data and
+ * account hints) so a mocked spec sees the bare shell the dev server sends. */
+export function bareReaderShell(html: string) {
+  return html
+    .replace(pageBootstrapPattern, "")
+    .replace(/<meta name="wiki-reader-(?:account|access)"[^>]*>/g, "");
+}
+
+/** The reader HTML that the target server builds, with asset URLs that it
+ * serves. Specs that rewrite the document start from this, not a local build. */
+export async function readerShellHtml(page: Page) {
+  const response = await page.request.get("/", { maxRedirects: 0 });
+  expect(response.status(), "reader shell").toBe(200);
+  return bareReaderShell(await response.text());
+}
+
 export async function installWikiApiMocks(page: Page, options: MockOptions = {}) {
   if (process.env.PLAYWRIGHT_BUILT_READER === "1") {
     const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
     await page.route("**/*", route => route.request().resourceType() === "document"
       ? route.fulfill({ contentType: "text/html", body: html }) : route.fallback());
+  } else if (process.env.PLAYWRIGHT_BASE_URL) {
+    // A deployed shell embeds real page data for the signed-in test account,
+    // which would race these fixtures. Keep the server's own HTML and assets.
+    await page.route("**/*", async route => {
+      if (route.request().resourceType() !== "document") return route.fallback();
+      const response = await route.fetch({ maxRedirects: 0 });
+      if (response.status() !== 200) return route.fulfill({ response });
+      await route.fulfill({ response, body: bareReaderShell(await response.text()) });
+    });
   }
   // Synthetic reader visits must never update real popularity statistics.
   // Prefetch-specific tests override this route explicitly.

@@ -1,9 +1,8 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { buildCompactTreeFromManifest, WIKI_READER_CACHE_VERSION } from "@oncobase/wiki-content";
 import { injectPageBootstrap } from "../server/page-bootstrap";
-import { installWikiApiMocks } from "./fixtures";
+import { installWikiApiMocks, readerShellHtml } from "./fixtures";
 
 const content = "# Early reader\n\nEARLY_READER_BODY\n\n[Insurance](/wiki/logistics/insurance)\n\n" + "Stable text for selection and scrolling.\n\n".repeat(80);
 const record = { slug: "index", title: "Early reader", content, sensitive: false, tags: [],
@@ -11,7 +10,7 @@ const record = { slug: "index", title: "Early reader", content, sensitive: false
 
 async function setup(page: Page, authenticated: boolean) {
   const api = await installWikiApiMocks(page, { sessionAuthenticated: authenticated, pageOverrides: { index: record } });
-  const template = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+  const template = await readerShellHtml(page);
   await page.route("**/*", async route => {
     const url = new URL(route.request().url());
     if (route.request().resourceType() !== "document" || url.pathname !== "/") return route.fallback();

@@ -1,4 +1,4 @@
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { test } from "./persistent-reader-fixture";
 import {
   documentArticle,
@@ -12,6 +12,13 @@ const REFRESH_MANIFEST_EVENT = "wiki-vite:refresh-manifest";
 const PUBLIC_MANIFEST_FRESH_MS = 60_000;
 const slug = "wiki/logistics/insurance";
 
+// The startup snapshot is written when the browser is idle. A reload paints
+// from it only once it exists, so wait for it to make the reload deterministic.
+async function waitForStartupSnapshot(page: Page) {
+  await expect.poll(() => page.evaluate(() =>
+    Object.keys(localStorage).some((key) => key.startsWith("wiki-vite:startup:")))).toBe(true);
+}
+
 test.describe("durable manifest refresh", () => {
   test("reuses a fresh persisted manifest after reload and across route changes", async ({
     page,
@@ -21,16 +28,19 @@ test.describe("durable manifest refresh", () => {
     await waitForPageTitle(page, "Insurance");
     expect(requests.manifest).toHaveLength(1);
 
+    // A reload painted from the startup snapshot revalidates once, because the
+    // page can be newer than the cached navigation. Route changes reuse it.
+    await waitForStartupSnapshot(page);
     await page.reload();
     await waitForPageTitle(page, "Insurance");
-    expect(requests.manifest).toHaveLength(1);
+    await expect.poll(() => requests.manifest.length).toBe(2);
 
     await page.getByTestId("wiki-sidebar").getByRole("link", {
       name: "index",
       exact: true,
     }).click();
     await waitForPageTitle(page, "Diana Wiki Home");
-    expect(requests.manifest).toHaveLength(1);
+    expect(requests.manifest).toHaveLength(2);
   });
 
   test("automatically revalidates an expired public manifest without blanking stale content", async ({
@@ -65,20 +75,24 @@ test.describe("durable manifest refresh", () => {
     await expect.poll(() => initialEtag).toMatch(/^W\/"[a-f0-9]+"$/);
     expect(requests.manifest).toHaveLength(1);
 
+    await waitForStartupSnapshot(page);
     await page.clock.fastForward(PUBLIC_MANIFEST_FRESH_MS / 2);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForPageTitle(page, "Insurance");
     await expect(documentArticle(page)).toContainText("OLD TTL SNAPSHOT");
-    expect(requests.manifest).toHaveLength(1);
+    // The snapshot startup revalidates once with the stored validator.
+    await expect.poll(() => requests.manifest.length).toBe(2);
+    expect(manifestValidators[1]).toBe(initialEtag);
 
     requests.setPageOverride(slug, {
       content: "# Insurance\n\nNEW TTL SNAPSHOT arrived automatically.",
     });
     requests.setManifestDelay(2_000);
-    await page.clock.fastForward(PUBLIC_MANIFEST_FRESH_MS / 2 + 1);
+    // The reload revalidated, so the snapshot expires a full TTL later.
+    await page.clock.fastForward(PUBLIC_MANIFEST_FRESH_MS + 1);
 
-    await expect.poll(() => requests.manifest.length).toBe(2);
-    expect(manifestValidators[1]).toBe(initialEtag);
+    await expect.poll(() => requests.manifest.length).toBe(3);
+    expect(manifestValidators[2]).toBe(initialEtag);
     await expect(documentArticle(page)).toContainText("OLD TTL SNAPSHOT");
     await expect(documentArticle(page)).toContainText(
       "NEW TTL SNAPSHOT arrived automatically.",
@@ -202,6 +216,12 @@ test.describe("durable manifest refresh", () => {
       content: "# Insurance\n\nNEW FIRST FRAME arrived after refresh.",
     });
     requests.setManifestDelay(2_000);
+    // The reader fetches the active body alongside storage startup, so delay
+    // the refreshed body as well; otherwise it can arrive before the cache.
+    await page.route(`**/api/wiki/pages**`, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+      await route.fallback();
+    });
     // Hold scripts to prove cached data is rendered only after React starts.
     let releaseHydration!: () => void;
     const hydrationHeld = new Promise<void>((resolve) => { releaseHydration = resolve; });

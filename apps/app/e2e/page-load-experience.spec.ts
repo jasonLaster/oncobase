@@ -254,7 +254,7 @@ test.describe("Page load experience", () => {
     await gotoWiki(page, `/${slug}`);
 
     await expect(documentArticle(page).locator("h1")).toHaveText("Insurance");
-    await expect(documentArticle(page)).toContainText("could not be fetched");
+    await expect(documentArticle(page)).toContainText("The connection was interrupted");
     requests.setPageFailure(slug, 0);
     await page.getByTestId("retry-page-fetch").click();
 
