@@ -33,6 +33,8 @@ import {
 import { v } from "convex/values";
 import { invalidateManifest } from "./lib/manifestRevision";
 import { DEFAULT_SITE_SLUG } from "./lib/site";
+import { syncDocumentMeta } from "./lib/documentMeta";
+import type { Doc } from "./_generated/dataModel";
 
 const BATCH_SIZE = 200;
 
@@ -273,6 +275,8 @@ export const backfillSiteIdsBatch = mutation({
     for (const row of page.page) {
       if ((row as { siteId?: unknown }).siteId !== undefined) continue;
       await ctx.db.patch(row._id, { siteId });
+      // Keep the documentMeta projection in step with the newly scoped row.
+      if (table === "documents") await syncDocumentMeta(ctx, (row as Doc<"documents">)._id, { ...(row as Doc<"documents">), siteId });
       patched++;
     }
     if (patched && (table === "documents" || table === "pdfAssets" || table === "fileAssets")) await invalidateManifest(ctx, siteId);

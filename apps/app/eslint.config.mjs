@@ -15,7 +15,7 @@ export default [
   },
   {
     files: ["convex/**/*.ts"],
-    ignores: ["convex/lib/site.ts", "convex/sites.ts", "convex/migrations.ts", "convex/commentRooms.ts", "convex/conversations.ts", "convex/documents.ts", "convex/guestNames.ts", "convex/users.ts", "convex/admin/**"],
+    ignores: ["convex/lib/site.ts", "convex/lib/documentMeta.ts", "convex/documentMeta.ts", "convex/sites.ts", "convex/migrations.ts", "convex/commentRooms.ts", "convex/conversations.ts", "convex/documents.ts", "convex/guestNames.ts", "convex/users.ts", "convex/admin/**"],
     rules: { "no-restricted-syntax": ["error", {
       selector: "CallExpression[callee.property.name='query'][callee.object.property.name='db']",
       message: "Resolve the site with requireSite and scope public Convex access by siteId.",

@@ -84,6 +84,9 @@ export default defineSchema({
     publishJournalVersion: v.optional(v.literal(1)),
     publishScope: v.optional(v.object({ documents: v.array(v.string()), assets: v.array(v.string()) })),
     archivedAt: v.optional(v.number()),
+    // Set by documentMeta:backfillBatch once every document of this site has a
+    // documentMeta row. Until then metadata readers use `documents` directly.
+    documentMetaReadyAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -129,6 +132,35 @@ export default defineSchema({
       dimensions: 1536,
       filterFields: ["siteId"],
     }),
+
+  // Body-free projection of `documents` (see convex/lib/documentMeta.ts).
+  // Convex reads whole rows, so metadata queries against `documents` also read
+  // content, rawContent and the embedding. Every documents write keeps this
+  // row in sync in the same transaction; rows exist only for site-scoped
+  // documents. Field semantics (including undefined vs false/0) mirror the
+  // source row so the copied indexes partition identically.
+  documentMeta: defineTable({
+    siteId: v.id("sites"),
+    documentId: v.id("documents"),
+    slug: v.string(),
+    title: v.string(),
+    tags: v.array(v.string()),
+    description: v.optional(v.string()),
+    contentHash: v.optional(v.string()),
+    hashFunctionVersion: v.optional(v.number()),
+    // documents.sizeBytes ?? content.length
+    size: v.number(),
+    sensitive: v.optional(v.boolean()),
+    sensitiveInclude: v.optional(v.array(v.string())),
+    hasRawContent: v.boolean(),
+    embeddingHash: v.optional(v.string()),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_site_slug", ["siteId", "slug"])
+    .index("by_site_sensitive_slug", ["siteId", "sensitive", "slug"])
+    .index("by_site_deleted_sensitive_slug", ["siteId", "deletedAt", "sensitive", "slug"]),
 
   pageVisitStats: defineTable({
     siteId: v.id("sites"),

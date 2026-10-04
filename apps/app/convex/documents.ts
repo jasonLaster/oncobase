@@ -13,6 +13,7 @@ import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 import { invalidateManifest } from "./lib/manifestRevision";
 import { assertPublishRun, recordPublishChange } from "./lib/publishRun";
 import { hasCompleteAssetVisibility } from "./lib/assetVisibility";
+import { insertDocument, patchDocument } from "./lib/documentMeta";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { applyPiiRedactions, parseSitePiiPatterns } from "@oncobase/wiki-content/pii";
@@ -639,7 +640,7 @@ export const upsert = mutation({
         return { skipped: true };
       }
       await recordPublishChange(ctx, site.site, ownedRun, (existing.sensitive === true) !== sensitive ? undefined : slug);
-      await ctx.db.patch(existing._id, {
+      await patchDocument(ctx, existing, {
         title,
         content,
         ...((replaceRawContent || rawContent !== undefined) ? { rawContent } : {}),
@@ -656,7 +657,7 @@ export const upsert = mutation({
       return { skipped: false };
     }
     await recordPublishChange(ctx, site.site, ownedRun, sensitive ? undefined : slug);
-    await ctx.db.insert("documents", {
+    await insertDocument(ctx, {
       ...(site.siteId ? { siteId: site.siteId } : {}),
       slug,
       title,
@@ -691,7 +692,7 @@ export const setContentHash = mutation({
     if (!doc) return { found: false, patched: false };
     if (doc.contentHash === contentHash) return { found: true, patched: false };
     await recordPublishChange(ctx, site.site, ownedRun, slug);
-    await ctx.db.patch(doc._id, { contentHash });
+    await patchDocument(ctx, doc, { contentHash });
     return { found: true, patched: true };
   },
 });
@@ -729,7 +730,7 @@ export const bulkSetContentHash = mutation({
         alreadyMatching++;
         continue;
       }
-      await ctx.db.patch(doc._id, { contentHash, hashFunctionVersion });
+      await patchDocument(ctx, doc, { contentHash, hashFunctionVersion });
       if (ownedRun) await recordPublishChange(ctx, site.site, ownedRun, slug);
       patched++;
     }
@@ -779,7 +780,7 @@ export const setDescription = mutation({
     const doc = await findDocBySlug(ctx, site, slug);
     if (!doc) return { found: false };
     await invalidateManifest(ctx, site.siteId);
-    await ctx.db.patch(doc._id, { description });
+    await patchDocument(ctx, doc, { description });
     return { found: true };
   },
 });
@@ -795,7 +796,7 @@ export const deleteBySlug = mutation({
     // Phase 4's publish/finish writes deletedAt; Phase 6 destroy
     // hard-deletes rows past the retention window.
     await invalidateManifest(ctx, site.siteId);
-    await ctx.db.patch(doc._id, { deletedAt: Date.now() });
+    await patchDocument(ctx, doc, { deletedAt: Date.now() });
     return { deleted: true };
   },
 });
@@ -947,7 +948,7 @@ export const upsertEmbedding = mutation({
     const ownedRun = assertPublishRun(site.site, runId, { document: slug });
     const doc = await findDocBySlug(ctx, site, slug);
     if (!doc) return { found: false };
-    await ctx.db.patch(doc._id, { embedding, embeddingHash });
+    await patchDocument(ctx, doc, { embedding, embeddingHash });
     return { found: true };
   },
 });

@@ -14,6 +14,7 @@ function fixture() {
     documents: [{ _id: "doc", siteId: "a", slug: "one", title: "One", contentHash: "one", content: "Body", sizeBytes: 4, sensitive: false, tags: [] }],
     pdfAssets: [{ _id: "pdf", siteId: "a", path: "one.pdf" }],
     fileAssets: [{ _id: "file", siteId: "a", path: "one.png" }],
+    documentMeta: [],
   };
   const jobs: any[] = [], deleted: string[] = [], delays: number[] = [];
   const ctx: any = {
@@ -22,6 +23,8 @@ function fixture() {
       get: async (id: string) => { const row = Object.values(rows).flat().find(row => row._id === id); return row ? structuredClone(row) : null; },
       patch: async (id: string, patch: any) => Object.assign(Object.values(rows).flat().find(row => row._id === id)!, patch),
       insert: async (table: string, data: any) => rows[table].push({ _id: `new-${rows[table].length}`, ...data }),
+      replace: async (id: string, data: any) => { for (const table of Object.values(rows)) { const index = table.findIndex(row => row._id === id); if (index !== -1) table[index] = { _id: id, ...data }; } },
+      delete: async (id: string) => { for (const table of Object.values(rows)) { const index = table.findIndex(row => row._id === id); if (index !== -1) table.splice(index, 1); } },
       query: (table: string) => {
         const filters: [string, unknown][] = [];
         const builder = {

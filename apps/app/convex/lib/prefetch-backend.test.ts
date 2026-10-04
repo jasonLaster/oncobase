@@ -6,7 +6,8 @@ import { priorities, recordVisit } from "../prefetch";
 function database() {
   const rows: Record<string, Array<Record<string, unknown>>> = {
     sites: [{ _id: "a", slug: "alpha", status: "active", config: { previewSeedSlugs: [] } }, { _id: "b", slug: "beta", status: "active", config: { previewSeedSlugs: [] } }],
-    documents: [{ _id: "one", siteId: "a", slug: "shared" }, { _id: "two", siteId: "b", slug: "shared" }, { _id: "three", siteId: "a", slug: "private", sensitive: true }, { _id: "four", siteId: "a", slug: "deleted", deletedAt: 1 }],
+    documents: [{ _id: "one", siteId: "a", slug: "shared" }, { _id: "two", siteId: "b", slug: "shared" }, { _id: "three", siteId: "a", slug: "private", sensitive: true }, { _id: "four", siteId: "a", slug: "deleted", deletedAt: 1 }]
+      .map(doc => ({ title: doc.slug, content: "", tags: [], updatedAt: 1, ...doc })),
     pageVisitStats: [],
   };
   const limits: number[] = [];
