@@ -158,22 +158,19 @@ function Story() {
 function Screenshot({
   path,
   src,
+  themed,
   alt,
 }: {
   path: string;
+  /** A fixed image, or the base of a `-light`/`-dark` pair when `themed`. */
   src: string;
+  themed?: boolean;
   alt: string;
 }) {
+  const props = { width: "1192", height: "640", loading: "lazy", decoding: "async", alt } as const;
   return (
     <PrivateLink className="lp-screenshot" path={path}>
-      <img
-        src={src}
-        width="1192"
-        height="640"
-        loading="lazy"
-        decoding="async"
-        alt={alt}
-      />
+      {themed ? <ThemedImage {...props} base={src} extension="jpg" /> : <img {...props} src={`${src}.jpg`} />}
     </PrivateLink>
   );
 }
@@ -218,7 +215,8 @@ function Inside() {
           </p>
           <Screenshot
             path="/diagnostics"
-            src="/landing/diagnostics-timeline.jpg"
+            src="/landing/diagnostics-timeline"
+            themed
             alt="The diagnostics timeline, with imaging, pathology, ctDNA, and blood count tracks over five months"
           />
         </article>
@@ -230,7 +228,7 @@ function Inside() {
           </p>
           <Screenshot
             path="/diagnostics/imaging"
-            src="/landing/dicom-viewer.jpg"
+            src="/landing/dicom-viewer"
             alt="The imaging viewer showing a breast MRI series, with the series list and viewer controls"
           />
         </article>

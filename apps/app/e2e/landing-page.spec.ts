@@ -511,7 +511,7 @@ test("showcase images load in the visitor's theme and follow the theme toggle", 
   const themed = page.locator(
     "#landing-main img[src*='-light.'], #landing-main img[src*='-dark.']",
   );
-  await expect(themed).toHaveCount(5);
+  await expect(themed).toHaveCount(6);
   expect(
     await themed.evaluateAll((images) =>
       images.every((image) => image.getAttribute("src")!.includes("-light.")),
