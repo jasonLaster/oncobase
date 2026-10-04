@@ -1,6 +1,7 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
+import { serverBudgetFailures } from "./reader-server-budget";
 
 const distDir = path.resolve(import.meta.dir, "../dist");
 const assetsDir = path.join(distDir, "assets");
@@ -223,6 +224,14 @@ console.log(
 for (const asset of assets) {
   const marker = eagerNames.has(asset.name) ? "eager" : "lazy ";
   console.log(`${marker} ${asset.name.padEnd(38)} raw ${formatBytes(asset.bytes).padStart(10)} gzip ${formatBytes(asset.gzipBytes).padStart(10)}`);
+}
+
+// Server functions: modules evaluated on a cold start (built by `bun run build`).
+const functionsDir = path.resolve(import.meta.dir, "../.vercel-functions");
+if (existsSync(path.join(functionsDir, "index.mjs"))) {
+  failures.push(...serverBudgetFailures(functionsDir));
+} else {
+  console.log("Server function budgets skipped: .vercel-functions not built");
 }
 
 if (failures.length > 0) {
