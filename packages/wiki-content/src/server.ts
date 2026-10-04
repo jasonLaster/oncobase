@@ -295,18 +295,24 @@ async function requireSessionIfNeeded(
   return await context.getSessionUser(request);
 }
 
-async function canReadPage(
-  context: WikiApiContext,
-  user: WikiApiSessionUser | null,
-  page: Pick<PageWithContent | WikiManifestPage, "sensitive" | "slug">,
-) {
-  if (page.sensitive !== true) return true;
-  if (!user || !context.access) return false;
-  return context.access.canUserAccessSlug(user, page.slug);
-}
-
 const ACCESS_CHECK_CHUNK_SIZE = 100;
 const ACCESS_CHECK_CONCURRENCY = 4;
+// `/api/wiki/pages?slugs=` accepts up to MAX_PAGE_LIMIT slugs; bound the
+// per-slug document reads instead of issuing them all at once.
+const PAGE_LOOKUP_CONCURRENCY = 8;
+
+async function mapWithConcurrency<T, R>(items: readonly T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]!);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
+}
 
 // A manifest checks some slugs both as asset owners and as documents. Share
 // in-flight/results only within this response, never across users or requests.
@@ -925,25 +931,29 @@ export async function createWikiPagesResponse(
   let continueCursor: string | null = null;
 
   if (slugs.length > 0) {
-    const records = await Promise.all(
-      slugs.map(async (slug) => {
-        const candidates = slug.endsWith("/index") ? [slug] : [slug, `${slug}/index`];
-        for (const candidate of candidates) {
-          const publicPage = await context.documents.getBySlug({ slug: candidate });
-          if (publicPage) return { page: publicPage, unavailable: null };
-          const sensitivePage = await context.documents.getBySlug({
-            slug: candidate,
-            includeSensitive: true,
-          });
-          if (!sensitivePage) continue;
-          if (await canReadPage(context, sessionUser, sensitivePage)) {
-            return { page: sensitivePage, unavailable: null };
-          }
-          return { page: null, unavailable: unavailablePageFromContent(sensitivePage) };
-        }
-        return { page: null, unavailable: null };
-      }),
+    // One includeSensitive read per candidate covers both public and
+    // restricted rows (the gateway may still narrow it, e.g. education), then
+    // one batched access check decides which restricted rows become stubs.
+    const found = await mapWithConcurrency(slugs, PAGE_LOOKUP_CONCURRENCY, async (slug) => {
+      const candidates = slug.endsWith("/index") ? [slug] : [slug, `${slug}/index`];
+      for (const candidate of candidates) {
+        const page = await context.documents.getBySlug({ slug: candidate, includeSensitive: true });
+        if (page) return page;
+      }
+      return null;
+    });
+    const access = await accessBySlug(
+      context,
+      sessionUser,
+      found.filter((page): page is PageWithContent => page?.sensitive === true).map((page) => page.slug),
     );
+    const records = found.map((page) => {
+      if (!page) return { page: null, unavailable: null };
+      if (page.sensitive !== true || access.get(page.slug)?.allowed === true) {
+        return { page, unavailable: null };
+      }
+      return { page: null, unavailable: unavailablePageFromContent(page) };
+    });
     pages = records
       .map((record) => record.page)
       .filter((page): page is PageWithContent => Boolean(page))
