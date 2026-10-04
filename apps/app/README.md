@@ -165,6 +165,23 @@ bun run local:stack status | stop | --reset | --build
 - The backend's `"use node"` actions need Node 20, 22 or 24. If the system `node` is a different version, the script downloads Node 22 from nodejs.org into `.local-stack/tools` and checks its checksum. It reuses the Convex CLI's cached backend binary when one exists.
 - Embeddings, AI search, chat and Liveblocks comments are not configured locally.
 
+### documentMeta projection rollout
+
+`documents` rows carry bodies and embeddings, and Convex reads whole rows, so metadata readers (manifest pages, access checks, sensitivity lookups, asset siblings, prefetch ranking) read the body-free `documentMeta` table instead once a site is marked ready (`sites.documentMetaReadyAt`). Every documents write keeps it in sync in the same transaction (`convex/lib/documentMeta.ts`). Per deployment:
+
+```sh
+# 1. Deploy Convex (schema + dual-write; readers still use documents).
+# 2. Backfill, switch readers, verify (idempotent; rerun to resume or repair):
+CONVEX_URL=<deployment url> CONVEX_DEPLOY_KEY=<key> bun scripts/admin/backfill-document-meta.ts --site diana
+#    --no-ready backfills without switching, --verify only checks, --all covers every active site.
+#    Equivalent raw calls: npx convex run documentMeta:backfillBatch '{"siteSlug":"diana"}'
+#    (repeat with "cursor": <continueCursor> until isDone), documentMeta:verifyBatch likewise.
+# Rollback (readers back to documents; dual-write continues):
+bun scripts/admin/backfill-document-meta.ts --site diana --rollback   # = documentMeta:setReady {"siteSlug":"diana","ready":false}
+```
+
+Locally, use the stack's admin key: `CONVEX_DEPLOY_KEY=$(jq -r .adminKey .local-stack/secrets.json) bun run local:stack exec -- bun scripts/admin/backfill-document-meta.ts --site diana`.
+
 ## Scope
 
 The default store is public-only, even if the browser also has a signed-in wiki session. Open `/?scope=session` to use authenticated content. Session mode first fetches `/api/wiki/session` and only opens LiveStore with a server-issued cache key for the current wiki session.
