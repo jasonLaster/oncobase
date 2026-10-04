@@ -9,6 +9,7 @@ const DESCRIPTION_MAX_LENGTH = 155;
 export type LegacyRouteMetadata = {
   description: string;
   openGraphDescription: string;
+  openGraphImage?: string;
   openGraphTitle: string;
   openGraphType?: "article" | "website";
   title: string;
@@ -98,7 +99,7 @@ export function legacyRouteMetadata({
     };
   }
 
-  if (pathname === "/login" || !page) {
+  if (!page) {
     return {
       description: DEFAULT_SITE_DESCRIPTION,
       openGraphDescription: DEFAULT_SITE_DESCRIPTION,

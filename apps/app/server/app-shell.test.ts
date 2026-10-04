@@ -594,7 +594,7 @@ describe("wiki Vite app-shell password gate", () => {
     const loginHtml = await login.text();
     expect(loginHtml).toContain('<meta name="robots" content="noindex, nofollow" />');
     expect(loginHtml).toContain(
-      '<meta name="twitter:title" content="TNBC Knowledge Base" />',
+      '<meta name="twitter:title" content="It takes a village" />',
     );
     expect(loginHtml).not.toContain('rel="canonical"');
   });
@@ -727,12 +727,19 @@ describe("wiki Vite app-shell password gate", () => {
 
     const login = await handler(request("/login?redirect=%2F"));
     const loginHtml = await login.text();
-    expect(loginHtml).toContain("<title>TNBC Knowledge Base</title>");
+    expect(loginHtml).toContain("<title>Diana TNBC Knowledge Base</title>");
     expect(loginHtml).toContain(
-      '<meta name="description" content="Breast cancer research and treatment knowledge base" />',
+      '<meta name="description" content="Diana’s records, scans, and research in one knowledge base, so everyone helping with her triple-negative breast cancer care can work from the same page." />',
     );
     expect(loginHtml).toContain(
-      '<meta property="og:title" content="TNBC Knowledge Base" />',
+      '<meta property="og:title" content="It takes a village" />',
+    );
+    // Link previews ignore relative images.
+    expect(loginHtml).toContain(
+      '<meta property="og:image" content="http://127.0.0.1/landing/og-image.jpg" />',
+    );
+    expect(loginHtml).toContain(
+      '<meta name="twitter:card" content="summary_large_image" />',
     );
   });
 
@@ -796,11 +803,13 @@ describe("wiki Vite app-shell password gate", () => {
     const botHeaders = { "User-Agent": "Slackbot-LinkExpanding 1.0" };
     const cases = [
       {
+        // A shared bare domain opens the landing page for signed-out readers.
         path: "/",
-        title: "Home — TNBC Knowledge Base",
-        description: "Breast cancer research and treatment knowledge base",
-        openGraphTitle: "Home",
-        twitterTitle: "TNBC Knowledge Base",
+        title: "Diana TNBC Knowledge Base",
+        description:
+          "Diana’s records, scans, and research in one knowledge base, so everyone helping with her triple-negative breast cancer care can work from the same page.",
+        openGraphTitle: "It takes a village",
+        twitterTitle: "It takes a village",
       },
       {
         path: "/wiki/long",

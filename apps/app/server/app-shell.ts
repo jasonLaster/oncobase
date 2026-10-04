@@ -442,6 +442,9 @@ async function staticIndexHtml(
 
   const documentHtml = injectHeadMetadata(html, {
     ...routeMetadata,
+    openGraphImage: routeMetadata.openGraphImage
+      ? new URL(routeMetadata.openGraphImage, request.url).toString()
+      : undefined,
     canonicalUrl: gateEnabled || page?.sensitive === true
       ? undefined
       : new URL(url.pathname, request.url).toString(),

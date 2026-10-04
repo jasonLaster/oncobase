@@ -195,7 +195,7 @@ test.describe("Markdown heading anchors", () => {
       waitUntil: "domcontentloaded",
     });
 
-    await expect(page.getByRole("heading", { name: "TNBC Knowledge Base" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Open Diana’s knowledge base." })).toBeVisible();
     await page.getByPlaceholder("Password").fill("diana");
     await page.getByRole("button", { name: "Enter" }).click();
     await expect(page).toHaveURL(new RegExp(`${target}$`));

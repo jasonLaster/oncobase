@@ -221,10 +221,19 @@ test.describe("production page metadata", () => {
       const tag = await getHtml(botRequest, "/tags/summary");
       const search = await getHtml(botRequest, "/search");
 
-      expect(readTitle(home)).toBe("Home — TNBC Knowledge Base");
-      expect(readMetaContent(home, "description")).toBe(DEFAULT_DESCRIPTION);
-      expect(readMetaContent(home, "og:title")).toBe("Home");
-      expect(readMetaContent(home, "twitter:title")).toBe("TNBC Knowledge Base");
+      // A shared bare domain opens the landing page for signed-out readers.
+      expect(readTitle(home)).toBe("Diana TNBC Knowledge Base");
+      expect(readMetaContent(home, "description")).toContain(
+        "triple-negative breast cancer",
+      );
+      expect(readMetaContent(home, "og:title")).toBe("It takes a village");
+      expect(readMetaContent(home, "twitter:title")).toBe("It takes a village");
+      expect(readMetaContent(home, "twitter:card")).toBe("summary_large_image");
+      const image = readMetaContent(home, "og:image");
+      expect(new URL(image!).pathname).toBe("/landing/og-image.jpg");
+      const imageResponse = await botRequest.get(image!);
+      expect(imageResponse.ok()).toBe(true);
+      expect(imageResponse.headers()["content-type"]).toContain("image/jpeg");
 
       expect(readTitle(insurance)).toBe(`${INSURANCE_TITLE} — TNBC Knowledge Base`);
       expect(readMetaContent(insurance, "description")).toBe(INSURANCE_DESCRIPTION);

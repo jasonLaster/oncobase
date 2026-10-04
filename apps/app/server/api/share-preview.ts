@@ -2,6 +2,7 @@ import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../../convex/_generated/api.js";
 import { getDocumentsByTag } from "../document-listing";
 import { slugFromRoutePathname } from "../../src/route-canonicalization.js";
+import { landingRouteMetadata } from "../../src/special-route-metadata.js";
 import {
   DEFAULT_SITE_DESCRIPTION,
   DIANA_SITE_NAME as SITE_NAME,
@@ -57,12 +58,14 @@ export async function handleSharePreviewRequest(
   let ogTitle: string;
   let ogDescription: string;
   let ogType: "article" | "website" | undefined;
+  let ogImage: string | undefined;
   let twitterTitle: string;
   let twitterDescription: string;
 
   if (isDiana) {
     siteName = SITE_NAME;
-    const metadata = legacyRouteMetadata({
+    // A shared bare domain opens the landing page for anyone signed out.
+    const metadata = pathname === "/" ? landingRouteMetadata() : legacyRouteMetadata({
       page,
       pathname,
       siteName,
@@ -74,6 +77,7 @@ export async function handleSharePreviewRequest(
     ogTitle = metadata.openGraphTitle;
     ogDescription = metadata.openGraphDescription;
     ogType = metadata.openGraphType;
+    ogImage = metadata.openGraphImage && new URL(metadata.openGraphImage, request.url).toString();
     twitterTitle = metadata.twitterTitle;
     twitterDescription = metadata.twitterDescription;
   } else {
@@ -100,9 +104,11 @@ export async function handleSharePreviewRequest(
     <meta property="og:description" content="${escapeHtml(ogDescription)}">
     ${ogType ? `<meta property="og:type" content="${ogType}">` : ""}
     <meta property="og:site_name" content="${escapeHtml(siteName)}">
-    <meta name="twitter:card" content="summary">
+    ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}">` : ""}
+    <meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}">
     <meta name="twitter:title" content="${escapeHtml(twitterTitle)}">
     <meta name="twitter:description" content="${escapeHtml(twitterDescription)}">
+    ${ogImage ? `<meta name="twitter:image" content="${escapeHtml(ogImage)}">` : ""}
   </head>
   <body></body>
 </html>`;

@@ -10,13 +10,19 @@ const PUBLIC_FILES = new Set([
   "robots.txt",
   // Curated Diana visuals requested for the anonymous landing page.
   // Sources and capture review: specs/landing-page.md. Keep this file-specific.
-  "landing/immune-recognition.webp",
-  "landing/tumor-biology-layers.webp",
-  "landing/cell-therapy-family.webp",
-  "landing/reader-desktop.jpg",
-  "landing/reader-mobile.jpg",
+  "landing/immune-recognition-light.webp",
+  "landing/immune-recognition-dark.webp",
+  "landing/cell-therapy-family-light.webp",
+  "landing/cell-therapy-family-dark.webp",
+  "landing/molecular-layers-light.webp",
+  "landing/molecular-layers-dark.webp",
+  "landing/reader-desktop-light.jpg",
+  "landing/reader-desktop-dark.jpg",
+  "landing/reader-mobile-light.jpg",
+  "landing/reader-mobile-dark.jpg",
   "landing/diagnostics-timeline.jpg",
   "landing/dicom-viewer.jpg",
+  "landing/og-image.jpg",
 ]);
 
 function files(directory: string, prefix = ""): string[] {

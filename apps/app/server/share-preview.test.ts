@@ -66,3 +66,24 @@ describe("linked page card metadata", () => {
     expect(html).toContain('property="og:description" content="General research notes"');
   });
 });
+
+describe("landing page card", () => {
+  test("shows the landing card with an absolute image for Diana's bare domain", async () => {
+    const html = await preview("diana", "/");
+    expect(html).toContain("<title>Diana TNBC Knowledge Base</title>");
+    expect(html).toContain('property="og:title" content="It takes a village"');
+    expect(html).toContain("triple-negative breast cancer");
+    expect(html).toContain('property="og:image" content="https://wiki.example/landing/og-image.jpg"');
+    expect(html).toContain('name="twitter:card" content="summary_large_image"');
+    expect(html).toContain('name="twitter:image" content="https://wiki.example/landing/og-image.jpg"');
+  });
+
+  test("keeps page links and other sites on their own summary cards", async () => {
+    for (const [site, path] of [["diana", "/wiki/linked%20page"], ["research", "/"]] as const) {
+      const html = await preview(site, path);
+      expect(html).toContain('name="twitter:card" content="summary"');
+      expect(html).not.toContain("og:image");
+      expect(html).not.toContain("It takes a village");
+    }
+  });
+});

@@ -38,6 +38,7 @@ import {
   educationSlugFromPathname,
 } from "../education-routes";
 import { updateClientRouteMetadata } from "../document-title";
+import { PublicThemeControl } from "../PublicThemeControl";
 import "./education.css";
 
 const MermaidRenderer = lazy(() =>
@@ -501,6 +502,7 @@ export function EducationApp() {
             <ArrowRight size={17} />
           </button>
         </form>
+        <PublicThemeControl />
         <a className="edu-wiki-link" href="/">
           Care wiki <ArrowRight size={14} />
         </a>

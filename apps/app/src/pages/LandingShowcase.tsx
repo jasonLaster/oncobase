@@ -1,39 +1,98 @@
-import { useState, type ReactNode } from "react";
-import { isEducationPathname } from "../education-access";
-import { educationLinkHref, isEducationHubPathname } from "../education-routes";
-import { DianaMark, OncobaseBrand } from "./LandingBrands";
+import { useState, type ImgHTMLAttributes, type ReactNode } from "react";
 import {
   ArrowRight,
-  BookOpen,
   Check,
   FileText,
   LockKeyhole,
   ShieldCheck,
   Users,
 } from "lucide-react";
+import { useResolvedWikiTheme } from "../PublicThemeControl";
+import { DianaMark } from "./LandingBrands";
+import { requestSignIn, signInHref } from "./landing-sign-in";
 
-const diana = "https://diana-tnbc.com";
+type ThemedImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "src"> & {
+  /** Public path without the `-light`/`-dark` suffix, e.g. `/landing/reader-desktop`. */
+  base: string;
+  extension: "jpg" | "webp";
+};
 
-function sourceLinkProps(path: string) {
-  const publicEducation =
-    isEducationHubPathname(path) || isEducationPathname(path);
-  return {
-    href: publicEducation ? educationLinkHref(path) : `${diana}${path}`,
-    target: publicEducation ? undefined : "_blank",
-    rel: "noopener noreferrer",
-  };
+/** Load only the variant that matches the theme the visitor sees. */
+export function ThemedImage({ base, extension, ...props }: ThemedImageProps) {
+  const theme = useResolvedWikiTheme();
+  return <img {...props} src={`${base}-${theme}.${extension}`} />;
 }
 
-function SourceLink({ path, children }: { path: string; children: ReactNode }) {
+/**
+ * Private pages send signed-out visitors back here, so these links move to the
+ * password form and continue to the page after sign-in.
+ */
+export function PrivateLink({
+  path,
+  label,
+  className,
+  children,
+}: {
+  path: string;
+  label: string;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <a className="lp-source-link" {...sourceLinkProps(path)}>
+    <a
+      className={className}
+      href={signInHref(path)}
+      onClick={(event) => {
+        if (
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        )
+          return;
+        event.preventDefault();
+        requestSignIn(path, label);
+      }}
+    >
       {children}
-      <ArrowRight size={14} />
     </a>
   );
 }
 
-const wikiContents = [
+export function ProductShots() {
+  return (
+    <div className="lp-product-shots">
+      <figure className="lp-browser">
+        <div className="lp-browser-bar" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+          <span>diana-tnbc.com</span>
+        </div>
+        <ThemedImage
+          base="/landing/reader-desktop"
+          extension="jpg"
+          width="1800"
+          height="1197"
+          fetchPriority="high"
+          alt="Diana’s knowledge base on a laptop, open to the Reading a tumor report guide with the page list beside it"
+        />
+      </figure>
+      <figure className="lp-phone">
+        <ThemedImage
+          base="/landing/reader-mobile"
+          extension="jpg"
+          width="600"
+          height="1301"
+          alt="The same guide on a phone"
+        />
+      </figure>
+    </div>
+  );
+}
+
+const contents = [
   {
     title: "Care and decisions",
     entries: [
@@ -46,7 +105,7 @@ const wikiContents = [
   {
     title: "Understand the science",
     entries: [
-      ["Learning guides", "/education"],
+      ["Educational content", "/education"],
       ["Diagnostic tests", "/wiki/diagnostics/index"],
       ["Treatments", "/wiki/treatment/index"],
       ["Research reviews", "/wiki/research/index"],
@@ -63,68 +122,59 @@ const wikiContents = [
       ["Original reports and sources", "/sources/index"],
     ],
   },
-];
+] as const;
 
-export function WikiContentsVisual({
-  compact = false,
-  brand = "diana",
-}: {
-  compact?: boolean;
-  brand?: "diana" | "oncobase";
-}) {
+export function KnowledgeBaseContents() {
   return (
-    <div className="lp-wiki-snapshot">
-      <div className="lp-snapshot-title">
-        {brand === "diana" && <DianaMark />}
+    <div className="lp-contents">
+      <div className="lp-contents-title">
+        <DianaMark />
         <div>
-          <strong>
-            {brand === "diana" ? "Diana TNBC" : <OncobaseBrand />}
-          </strong>
-          <span>
-            {brand === "diana"
-              ? "A snapshot of the real table of contents"
-              : "Diana TNBC content, organized with Oncobase"}
-          </span>
+          <strong>Diana TNBC</strong>
+          <span>Table of contents</span>
         </div>
       </div>
-      <div className="lp-toc-groups">
-        {wikiContents.map((group) => (
-          <div className="lp-toc-group" key={group.title}>
-            <strong>{group.title}</strong>
+      <div className="lp-contents-groups">
+        {contents.map((group) => (
+          <div className="lp-contents-group" key={group.title}>
+            <h4>{group.title}</h4>
             <ul>
-              {(compact ? group.entries.slice(0, 2) : group.entries).map(
-                ([label, path]) => (
-                  <li key={path}>
-                    <a {...sourceLinkProps(path)}>
-                      <FileText size={12} />
+              {group.entries.map(([label, path]) => (
+                <li key={path}>
+                  {path === "/education" ? (
+                    <a href={path}>
+                      <FileText size={14} />
                       <span>{label}</span>
-                      <ArrowRight size={11} />
+                      <ArrowRight size={13} />
                     </a>
-                  </li>
-                ),
-              )}
+                  ) : (
+                    <PrivateLink path={path} label={label}>
+                      <FileText size={14} />
+                      <span>{label}</span>
+                      <LockKeyhole
+                        size={13}
+                        aria-label="Sign in required"
+                        role="img"
+                      />
+                    </PrivateLink>
+                  )}
+                </li>
+              ))}
             </ul>
           </div>
         ))}
-      </div>
-      <div className="lp-snapshot-foot">
-        <BookOpen size={12} />
-        <span>Reports, research, and links to the originals.</span>
-        <SourceLink path="/wiki/index">Open wiki</SourceLink>
       </div>
     </div>
   );
 }
 
-export function RedactionVisual() {
+export function RedactionDemo() {
   const [redacted, setRedacted] = useState(true);
   return (
-    <div className="lp-redaction-demo">
-      <div className="lp-demo-toolbar">
-        <span>
-          <ShieldCheck size={14} />
-          Inline PII redaction
-        </span>
+    <div className="lp-demo lp-redaction-demo">
+      <div className="lp-demo-heading">
+        <ShieldCheck size={18} />
+        <strong>Hide personal details</strong>
         <button
           type="button"
           role="switch"
@@ -132,14 +182,14 @@ export function RedactionVisual() {
           aria-label="Redact example personal information"
           onClick={() => setRedacted(!redacted)}
         >
-          <span className="lp-toggle-track">
+          <span className="lp-toggle-track" aria-hidden="true">
             <i />
           </span>
-          {redacted ? "Redacted" : "Source example"}
+          {redacted ? "Redacted" : "Original"}
         </button>
       </div>
       <div className="lp-redaction-document">
-        <p className="lp-demo-label">CONSULTATION NOTES</p>
+        <p className="lp-document-label">Consultation notes</p>
         <p>
           Patient:{" "}
           <span className={redacted ? "lp-redacted" : "lp-example-value"}>
@@ -152,45 +202,17 @@ export function RedactionVisual() {
             {redacted ? "[redacted email]" : "alex@example.com"}
           </span>
         </p>
-        <div className="lp-redaction-divider" />
+        <hr />
         <p>
           For the next call: review the report and make a list of questions for
           the care team.
         </p>
       </div>
-      <p className="lp-demo-explanation">
-        <LockKeyhole size={13} />
-        Hide names and contact details while keeping the rest of the note
+      <p className="lp-demo-note">
+        Names and contact details are hidden. The rest of the note stays
         readable.
       </p>
-      <span className="lp-demo-disclaimer">
-        Interactive example · fictional personal information
-      </span>
     </div>
-  );
-}
-
-export function CartoonVisual() {
-  return (
-    <figure className="lp-real-cartoon">
-      <img
-        src="/landing/immune-recognition.webp"
-        width="1536"
-        height="1024"
-        alt="Diana wiki cartoon showing protein fragments displayed on HLA and recognized by a T cell"
-        loading="lazy"
-        decoding="async"
-      />
-      <figcaption>
-        <div>
-          <strong>How the immune system sees a cell</strong>
-          <span>From the real Oncology 101 learning guide</span>
-        </div>
-        <SourceLink path="/wiki/education/oncology-101/index">
-          Read guide
-        </SourceLink>
-      </figcaption>
-    </figure>
   );
 }
 
@@ -200,343 +222,121 @@ const exampleRoles = [
     initials: "CT",
     access: [true, true, true, true],
     description:
-      "Clinical records, research, learning guides, and shared updates.",
+      "Clinical records, research, educational content, and shared updates.",
   },
   {
     name: "Research partner",
     initials: "RP",
     access: [false, true, true, false],
     description:
-      "Can read research and learning guides. Clinical records stay hidden in this example.",
+      "Research and educational content. Clinical records stay hidden.",
   },
   {
     name: "Friends & family",
     initials: "FF",
     access: [false, false, true, true],
     description:
-      "Can read learning guides and shared updates. Detailed records stay private.",
+      "Educational content and shared updates. Detailed records stay private.",
   },
 ];
+const examplePages = [
+  "Clinical records",
+  "Research reviews",
+  "Educational content",
+  "Shared updates",
+];
 
-export function PrivacyShowcase() {
+export function RoleDemo() {
   const [selected, setSelected] = useState(0);
-  const role = exampleRoles[selected];
+  const role = exampleRoles[selected]!;
   return (
-    <section
-      className="lp-privacy lp-container"
-      id="privacy"
-      aria-labelledby="privacy-title"
-    >
-      <div className="lp-section-heading">
-        <div>
-          <p className="lp-eyebrow">PII REDACTION & PAGE PERMISSIONS</p>
-          <h2 id="privacy-title">
-            Choose what
-            <br />
-            each person can see.
-          </h2>
-        </div>
-        <p>
-          A research partner may need the papers. Family may want updates. User
-          roles control which pages they can open, and inline PII redaction
-          hides sensitive details within those pages.
-        </p>
+    <div className="lp-demo lp-role-demo">
+      <div className="lp-demo-heading">
+        <Users size={18} />
+        <strong>Who can see which pages?</strong>
       </div>
-      <div className="lp-privacy-grid">
-        <article className="lp-privacy-copy">
-          <span className="lp-privacy-icon">
-            <ShieldCheck size={24} />
-          </span>
-          <h3>
-            Share a page.
-            <br />
-            Keep personal details private.
-          </h3>
-          <p>
-            Assign a role to each user and choose its allowed pages by path or
-            tag. PII redaction can replace a name, email, or identifier with a
-            label such as “[patient name]” inside the text.
-          </p>
-          <ul>
-            <li>
-              <Check size={15} />
-              User roles determine page visibility
-            </li>
-            <li>
-              <Check size={15} />
-              Include and exclude pages by path or tag
-            </li>
-            <li>
-              <Check size={15} />
-              Redact a detail without hiding the whole page
-            </li>
-            <li>
-              <Check size={15} />
-              Grant sensitive content access where appropriate
-            </li>
-          </ul>
-          <span className="lp-privacy-note">
-            Control access to the page and the details inside it.
-          </span>
-        </article>
-        <div className="lp-role-demo">
-          <div className="lp-role-demo-heading">
-            <Users size={18} />
-            <strong>Who can see which pages?</strong>
-            <span>EXAMPLE ROLES</span>
-          </div>
-          <div
-            className="lp-role-picker"
-            role="group"
-            aria-label="Preview an example user role"
+      <div
+        className="lp-role-picker"
+        role="group"
+        aria-label="Preview an example user role"
+      >
+        {exampleRoles.map((item, index) => (
+          <button
+            key={item.name}
+            type="button"
+            aria-pressed={selected === index}
+            onClick={() => setSelected(index)}
           >
-            {exampleRoles.map((item, index) => (
-              <button
-                key={item.name}
-                type="button"
-                aria-pressed={selected === index}
-                onClick={() => setSelected(index)}
-              >
-                {item.name}
-              </button>
-            ))}
-          </div>
-          <div className="lp-role-person">
-            <span className="lp-role-avatar">{role.initials}</span>
-            <div>
-              <strong>Viewing as {role.name}</strong>
-              <span>Example permission configuration</span>
-            </div>
-          </div>
-          <ul
-            className="lp-permission-pages"
-            aria-label={`Page visibility for ${role.name}`}
-          >
-            {[
-              "Clinical records",
-              "Research reviews",
-              "Learning guides",
-              "Shared updates",
-            ].map((page, index) => (
-              <li key={page}>
-                <FileText size={16} />
-                <span>{page}</span>
-                <span
-                  className={
-                    role.access[index]
-                      ? "lp-access-allowed"
-                      : "lp-access-hidden"
-                  }
-                >
-                  {role.access[index] ? (
-                    <Check size={13} />
-                  ) : (
-                    <LockKeyhole size={12} />
-                  )}{" "}
-                  {role.access[index] ? "Viewable" : "Hidden"}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="lp-role-description" aria-live="polite">
-            {role.description}
-          </p>
-          <p className="lp-role-caption">
-            Illustrative roles; each wiki defines its own access rules.
-          </p>
-        </div>
+            {item.name}
+          </button>
+        ))}
       </div>
-    </section>
+      <div className="lp-role-person">
+        <span className="lp-role-avatar" aria-hidden="true">
+          {role.initials}
+        </span>
+        <strong>Viewing as {role.name}</strong>
+      </div>
+      <ul
+        className="lp-permission-pages"
+        aria-label={`Page visibility for ${role.name}`}
+      >
+        {examplePages.map((page, index) => (
+          <li key={page}>
+            <FileText size={16} />
+            <span>{page}</span>
+            <span
+              className={
+                role.access[index] ? "lp-access-allowed" : "lp-access-hidden"
+              }
+            >
+              {role.access[index] ? (
+                <Check size={14} />
+              ) : (
+                <LockKeyhole size={13} />
+              )}{" "}
+              {role.access[index] ? "Viewable" : "Hidden"}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="lp-demo-note" aria-live="polite">
+        {role.description}
+      </p>
+    </div>
   );
 }
 
-export function SiteShowcase() {
+export function GuideFigure({
+  base,
+  alt,
+  title,
+  path,
+  description,
+}: {
+  base: string;
+  alt: string;
+  title: string;
+  path: string;
+  description: string;
+}) {
   return (
-    <section
-      className="lp-site-showcase lp-container"
-      id="inside"
-      aria-labelledby="inside-title"
-    >
-      <div className="lp-section-heading">
-        <div>
-          <p className="lp-eyebrow">ONCOBASE IN PRACTICE</p>
-          <h2 id="inside-title">
-            A look inside
-            <br />
-            Diana’s knowledge base.
-          </h2>
-        </div>
-        <p>
-          These are screenshots from Diana TNBC: a learning guide, the
-          diagnostics timeline, and the imaging viewer, all running on Oncobase.
-        </p>
-      </div>
-      <article className="lp-reader-showcase">
-        <div className="lp-showcase-copy">
-          <p className="lp-feature-eyebrow">THE WEB VIEWER</p>
-          <h3>
-            At your desk.
-            <br />
-            Or on your phone.
-          </h3>
-          <p>
-            Read a guide, follow its sources, or leave a comment for the next
-            person. The same pages work on a laptop and a phone, with search, an
-            outline, and chat close at hand.
-          </p>
-          <SourceLink path="/wiki/education/reading-a-tumor/index">
-            Reading a tumor report
-          </SourceLink>
-          <span className="lp-capture-label">
-            Actual desktop and mobile screenshots
-          </span>
-        </div>
-        <div className="lp-device-stage">
-          <div className="lp-desktop-device">
-            <div className="lp-device-bar">
-              <i />
-              <i />
-              <i />
-              <span>diana-tnbc.com</span>
-            </div>
-            <img
-              src="/landing/reader-desktop.jpg"
-              width="1272"
-              height="846"
-              loading="lazy"
-              decoding="async"
-              alt="Actual desktop Diana wiki reader showing the Reading a tumor report page, navigation sidebar, and illustrated biological layers"
-            />
-          </div>
-          <div className="lp-phone-device">
-            <span className="lp-phone-speaker" />
-            <img
-              src="/landing/reader-mobile.jpg"
-              width="393"
-              height="852"
-              loading="lazy"
-              decoding="async"
-              alt="Actual mobile Diana wiki reader with the same illustrated tumor-report guide and mobile navigation"
-            />
-          </div>
-        </div>
-      </article>
-      <div className="lp-diagnostics-gallery">
-        <article className="lp-site-card">
-          <div className="lp-site-card-copy">
-            <p className="lp-feature-eyebrow">DIAGNOSTICS OVER TIME</p>
-            <h3>Follow the results over time.</h3>
-            <p>
-              Compare dated measurements, check which assay and units were used,
-              and open the report behind a result.
-            </p>
-            <SourceLink path="/diagnostics">
-              Open diagnostics timeline
-            </SourceLink>
-          </div>
-          <a
-            className="lp-screenshot-link"
-            href={`${diana}/diagnostics`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Open the actual Diana diagnostics timeline"
-          >
-            <img
-              src="/landing/diagnostics-timeline.jpg"
-              width="1272"
-              height="846"
-              loading="lazy"
-              decoding="async"
-              alt="Actual Diana diagnostics timeline displaying dated measurements and diagnostic tracks"
-            />
-          </a>
-          <span className="lp-capture-label">Actual diagnostics view</span>
-        </article>
-        <article className="lp-site-card">
-          <div className="lp-site-card-copy">
-            <p className="lp-feature-eyebrow">RADIOLOGY & PATHOLOGY</p>
-            <h3>Read the report. Open the scan.</h3>
-            <p>
-              Open DICOM studies, move through a series, and compare scans. Use
-              the pathology viewer to examine tissue images alongside the rest
-              of the record.
-            </p>
-            <SourceLink path="/diagnostics/imaging">
-              Explore imaging studies
-            </SourceLink>
-          </div>
-          <a
-            className="lp-screenshot-link"
-            href={`${diana}/diagnostics/imaging`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Open Diana imaging studies"
-          >
-            <img
-              src="/landing/dicom-viewer.jpg"
-              width="1272"
-              height="846"
-              loading="lazy"
-              decoding="async"
-              alt="Actual Diana DICOM viewer displaying a breast MRI, series navigator, and imaging controls"
-            />
-          </a>
-          <span className="lp-capture-label">
-            Actual DICOM viewer · breast MRI
-          </span>
-        </article>
-      </div>
-      <div className="lp-learning-gallery" id="education">
-        <div className="lp-learning-intro">
-          <p className="lp-eyebrow">LEARN WITH THE WIKI</p>
-          <h3>
-            What does that term mean?
-            <br />
-            Start with a cartoon.
-          </h3>
-          <p>
-            These are the guides we’ve been learning from. Pick a topic or
-            follow a course. Anyone can read them, without a password.
-          </p>
-          <SourceLink path="/education">Browse the curriculum</SourceLink>
-        </div>
-        <figure>
-          <img
-            src="/landing/tumor-biology-layers.webp"
-            width="1536"
-            height="1024"
-            loading="lazy"
-            decoding="async"
-            alt="Real wiki illustration of morphology, genomics, transcriptomics, proteomics, and spatial biology"
-          />
-          <figcaption>
-            <SourceLink path="/wiki/education/reading-a-tumor/index">
-              Reading a tumor report
-            </SourceLink>
-            <span>Follow what each biological layer measures.</span>
-          </figcaption>
-        </figure>
-        <figure>
-          <img
-            src="/landing/cell-therapy-family.webp"
-            width="1536"
-            height="1024"
-            loading="lazy"
-            decoding="async"
-            alt="Real wiki cartoon comparing peptide-HLA, surface-antigen, and innate-like cell therapy families"
-          />
-          <figcaption>
-            <SourceLink path="/wiki/education/cellular-therapies/index">
-              Cellular therapies
-            </SourceLink>
-            <span>Meet the different families of immune cells.</span>
-          </figcaption>
-        </figure>
-      </div>
-      <p className="lp-snapshot-note">
-        Selected content and site screenshots captured October 1, 2026. Source
-        links open Diana TNBC; its access rules still apply.
-      </p>
-    </section>
+    <figure className="lp-guide">
+      <ThemedImage
+        base={base}
+        extension="webp"
+        width="1536"
+        height="1024"
+        loading="lazy"
+        decoding="async"
+        alt={alt}
+      />
+      <figcaption>
+        <a href={path}>
+          {title} <ArrowRight size={15} />
+        </a>
+        <span>{description}</span>
+      </figcaption>
+    </figure>
   );
 }

@@ -115,7 +115,7 @@ test.describe("Session scope recovery", () => {
       { waitUntil: "domcontentloaded" },
     );
 
-    await expect(page.getByRole("heading", { name: "TNBC Knowledge Base" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Open Diana’s knowledge base." })).toBeVisible();
     await expect(page.getByPlaceholder("Password")).toBeVisible();
     await expect(page.getByRole("button", { name: "Enter" })).toBeVisible();
     await expect(page.getByTestId("app-header")).toHaveCount(0);

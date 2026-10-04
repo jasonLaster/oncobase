@@ -10,6 +10,29 @@
   --foreground: var(--edu-ink);
   --brand: var(--edu-green);
   --text-muted: var(--edu-muted);
+  --accent-light: var(--edu-soft);
+  --accent: var(--edu-soft);
+  --accent-foreground: var(--edu-ink);
+  --primary: var(--edu-green);
+  --primary-foreground: var(--edu-paper);
+  --ring: var(--edu-green);
+  --border: var(--edu-line);
+  --sidebar-bg: var(--edu-panel);
+  --muted: var(--edu-panel);
+  --muted-foreground: var(--edu-muted);
+  --surface-muted: var(--edu-panel);
+  --panel: var(--edu-panel);
+  --panel-alt: var(--edu-paper);
+  --card: var(--edu-panel);
+  --card-foreground: var(--edu-ink);
+  --popover: var(--edu-paper);
+  --popover-foreground: var(--edu-ink);
+  --pdf-chip-bg: var(--edu-soft);
+  --pdf-chip-fg: var(--edu-green);
+  --pdf-chip-border: var(--edu-line);
+  --pdf-chip-bg-hover: var(--edu-soft);
+  --pdf-chip-border-hover: var(--edu-green);
+  color-scheme: light;
   --sidebar-border: var(--edu-line);
   color: var(--edu-ink);
   background: var(--edu-paper);
@@ -22,6 +45,7 @@
   -webkit-font-smoothing: antialiased;
 }
 .dark .education-app {
+  color-scheme: dark;
   --edu-paper: #16231c;
   --edu-panel: #1b2a21;
   --edu-ink: #e2eadc;
@@ -130,6 +154,21 @@
   min-width: 32px;
   min-height: 32px;
   border-radius: 5px;
+}
+.edu-search:focus-within {
+  border-color: var(--edu-green);
+  box-shadow: 0 0 0 1px var(--edu-green);
+}
+.education-app ::selection {
+  background: var(--edu-soft);
+  color: var(--edu-ink);
+}
+.edu-search input::placeholder {
+  color: var(--edu-muted);
+}
+.edu-wiki-link:hover,
+.edu-article-footer a:hover {
+  color: var(--edu-green) !important;
 }
 .edu-search button:hover {
   background: var(--edu-soft);
@@ -672,7 +711,8 @@
 }
 @media (max-width: 700px) {
   .edu-header {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 12px;
     padding: 14px 18px;
   }
@@ -684,10 +724,14 @@
   }
   .edu-menu-toggle {
     display: grid;
+    margin-left: 0;
+  }
+  .edu-header .public-theme-control {
     margin-left: auto;
   }
   .edu-search {
     order: 3;
+    grid-column: 1 / -1;
     max-width: none;
     flex-basis: 100%;
     padding-block: 7px;
@@ -759,6 +803,19 @@
   }
   .edu-sidebar summary {
     min-height: 44px;
+  }
+}
+@media (max-width: 440px) {
+  .edu-brand {
+    font-size: 19px;
+    line-height: 1.2;
+  }
+  .edu-brand-section {
+    display: block;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    font-size: 11px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -1,286 +1,17 @@
+import { PublicThemeControl } from "../PublicThemeControl";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowRight, GitBranch, Heart, LockKeyhole } from "lucide-react";
 import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
-import {
-  ArrowDown,
-  ArrowRight,
-  BookOpen,
-  Check,
-  ChevronRight,
-  Dna,
-  Folder,
-  GitBranch,
-  Heart,
-  Microscope,
-  Network,
-  ShieldCheck,
-  Sparkles,
-  Users,
-} from "lucide-react";
-import {
-  CartoonVisual,
-  PrivacyShowcase,
-  RedactionVisual,
-  SiteShowcase,
-  WikiContentsVisual,
+  GuideFigure,
+  KnowledgeBaseContents,
+  PrivateLink,
+  ProductShots,
+  RedactionDemo,
+  RoleDemo,
+  ThemedImage,
 } from "./LandingShowcase";
-import { DianaBrand, DianaMark, OncobaseBrand } from "./LandingBrands";
+import { DianaBrand, OncobaseBrand } from "./LandingBrands";
 import "./landing.css";
-
-const features = [
-  {
-    id: "knowledge",
-    label: "Knowledge",
-    icon: BookOpen,
-    eyebrow: "01 / THE KNOWLEDGE BASE",
-    title: "Every report, paper, and conversation.",
-    description:
-      "Keep diagnostics, call transcripts, emails, papers, and clinical trials in one searchable wiki, with links back to the original sources.",
-    tags: ["Linked sources", "Rich search", "Clinical trials"],
-  },
-  {
-    id: "collaboration",
-    label: "Collaboration",
-    icon: Users,
-    eyebrow: "02 / THE CARE VILLAGE",
-    title: "Read the same page. Leave a note.",
-    description:
-      "Give the people helping with care a place to search, comment, and chat. Redact sensitive details inline, assign users roles, and choose which pages each role can view.",
-    tags: ["Inline PII redaction", "User roles", "Page permissions"],
-  },
-  {
-    id: "analysis",
-    label: "Molecular analysis",
-    icon: Dna,
-    eyebrow: "03 / THE COMPUTATIONAL BIOLOGY",
-    title: "Analyze sequencing and proteomics.",
-    description:
-      "Oncoomics is our companion pipeline for analyzing WES/WGS, proteomics, and single-cell RNA sequencing. It runs on Modal and S3 to identify drug candidates for further investigation.",
-    tags: ["WES / WGS", "Proteomics", "scRNA-seq"],
-  },
-  {
-    id: "education",
-    label: "Education",
-    icon: Sparkles,
-    eyebrow: "04 / THE LEARNING PLATFORM",
-    title: "Learn the science before the next call.",
-    description:
-      "Work through the guides and cartoons we’ve used to learn about immunotherapy, personalized mRNA vaccines, protein folding, and targeted chemotherapy. The curriculum is free to read.",
-    tags: ["Guided curriculum", "Visual explanations", "Learn at your pace"],
-  },
-] as const;
-type FeatureId = (typeof features)[number]["id"];
-
-function AnalysisVisual() {
-  return (
-    <div className="lp-analysis-visual">
-      <div className="lp-assays">
-        <span>
-          <Dna size={17} /> WES / WGS
-        </span>
-        <span>
-          <Network size={17} /> Proteomics
-        </span>
-        <span>
-          <Microscope size={17} /> scRNA-seq
-        </span>
-      </div>
-      <div className="lp-pipeline-line" aria-hidden="true">
-        <span />
-        <ArrowDown size={18} />
-        <span />
-      </div>
-      <div className="lp-pipeline-engine">
-        <span className="lp-engine-icon">
-          <Dna size={24} />
-        </span>
-        <div>
-          <strong>Molecular analysis</strong>
-          <span>Variants · pathways · expression</span>
-        </div>
-        <span className="lp-engine-dots" aria-hidden="true">
-          •••
-        </span>
-      </div>
-      <div className="lp-pipeline-line" aria-hidden="true">
-        <span />
-        <ArrowDown size={18} />
-        <span />
-      </div>
-      <div className="lp-candidate-row">
-        <span>
-          <span className="lp-candidate-dot" /> Candidate A
-        </span>
-        <span>
-          <span className="lp-candidate-dot" /> Candidate B
-        </span>
-        <span>
-          <span className="lp-candidate-dot" /> Candidate C
-        </span>
-      </div>
-      <div className="lp-visual-caption">
-        Drug candidates for further investigation{" "}
-        <span className="lp-infrastructure">Modal + S3</span>
-      </div>
-    </div>
-  );
-}
-
-function FeatureVisual({
-  id,
-  compact = false,
-}: {
-  id: FeatureId;
-  compact?: boolean;
-}) {
-  if (id === "knowledge")
-    return (
-      <WikiContentsVisual
-        compact={compact}
-        brand={compact ? "oncobase" : "diana"}
-      />
-    );
-  if (id === "collaboration") return <RedactionVisual />;
-  if (id === "analysis") return <AnalysisVisual />;
-  return <CartoonVisual />;
-}
-
-function PlatformPreview() {
-  const [selected, setSelected] = useState(0);
-  const tabs = useRef<(HTMLButtonElement | null)[]>([]);
-  const id = useId();
-  function onTabKeyDown(
-    event: KeyboardEvent<HTMLButtonElement>,
-    index: number,
-  ) {
-    let next = index;
-    if (event.key === "ArrowRight") next = (index + 1) % features.length;
-    else if (event.key === "ArrowLeft")
-      next = (index - 1 + features.length) % features.length;
-    else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = features.length - 1;
-    else return;
-    event.preventDefault();
-    setSelected(next);
-    tabs.current[next]?.focus();
-  }
-  return (
-    <div className="lp-preview-wrap" id="knowledge-base">
-      <div className="lp-preview" data-test-id="platform-preview">
-        <div className="lp-window-bar">
-          <div className="lp-window-dots" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </div>
-          <span>
-            <DianaMark /> Diana TNBC
-          </span>
-          <span className="lp-preview-label">PREVIEW</span>
-        </div>
-        <div className="lp-preview-body">
-          <aside
-            className="lp-preview-sidebar"
-            aria-label="Platform preview sections"
-          >
-            <div className="lp-preview-brand">
-              <DianaMark /> <span>Diana TNBC</span>
-            </div>
-            <div className="lp-sidebar-label">ONE CONNECTED WORKSPACE</div>
-            <div
-              className="lp-preview-tabs"
-              role="tablist"
-              aria-label="Explore platform features"
-            >
-              {features.map((feature, index) => (
-                <button
-                  key={feature.id}
-                  ref={(element) => {
-                    tabs.current[index] = element;
-                  }}
-                  type="button"
-                  role="tab"
-                  id={`${id}-tab-${index}`}
-                  aria-selected={index === selected}
-                  aria-controls={`${id}-panel-${index}`}
-                  tabIndex={index === selected ? 0 : -1}
-                  onClick={() => setSelected(index)}
-                  onKeyDown={(event) => onTabKeyDown(event, index)}
-                >
-                  <feature.icon size={17} />
-                  <span>{feature.label}</span>
-                  {index === selected && <ChevronRight size={14} />}
-                </button>
-              ))}
-            </div>
-            <div className="lp-sidebar-bottom">
-              <span className="lp-avatar">Y</span>
-              <div>
-                <strong>Your care village</strong>
-                <span>Family, clinicians, and researchers</span>
-              </div>
-              <Heart size={15} />
-            </div>
-          </aside>
-          {features.map((feature, index) => (
-            <div
-              key={feature.id}
-              className="lp-preview-main"
-              role="tabpanel"
-              id={`${id}-panel-${index}`}
-              aria-labelledby={`${id}-tab-${index}`}
-              tabIndex={0}
-              hidden={selected !== index}
-            >
-              <div className="lp-preview-breadcrumb">
-                <Folder size={13} /> Workspace <ChevronRight size={12} />{" "}
-                {feature.label}
-                <span>
-                  {feature.id === "knowledge" || feature.id === "education"
-                    ? "Real wiki content"
-                    : "Illustrative example"}
-                </span>
-              </div>
-              <div className="lp-preview-heading">
-                <span
-                  className={`lp-preview-feature-icon lp-tone-${feature.id}`}
-                >
-                  <feature.icon size={23} />
-                </span>
-                <div>
-                  <h2>{feature.label}</h2>
-                  <p>
-                    {feature.id === "knowledge"
-                      ? "Reports, research, and the questions we’re working through."
-                      : feature.id === "collaboration"
-                        ? "Notes and conversations alongside the source."
-                        : feature.id === "analysis"
-                          ? "From sequencing data to candidates for review."
-                          : "The guides and cartoons we learn from."}
-                  </p>
-                </div>
-              </div>
-              <FeatureVisual id={feature.id} />
-              <div className="lp-preview-footer">
-                <ShieldCheck size={13} /> Page permissions and inline PII
-                redaction.<span>Powered by Oncobase.</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="lp-preview-note">
-        <span className="lp-note-line" /> Inside Diana’s knowledge base.
-        <span className="lp-note-line" />
-      </div>
-    </div>
-  );
-}
 
 function VillageTexture() {
   return (
@@ -307,9 +38,34 @@ function VillageTexture() {
   );
 }
 
+function Screenshot({
+  path,
+  label,
+  src,
+  alt,
+}: {
+  path: string;
+  label: string;
+  src: string;
+  alt: string;
+}) {
+  return (
+    <PrivateLink className="lp-screenshot" path={path} label={label}>
+      <img
+        src={src}
+        width="1192"
+        height="640"
+        loading="lazy"
+        decoding="async"
+        alt={alt}
+      />
+    </PrivateLink>
+  );
+}
+
 export function LandingPage({ children }: { children: ReactNode }) {
   const header = useRef<HTMLElement>(null);
-  const platform = useRef<HTMLDivElement>(null);
+  const platform = useRef<HTMLElement>(null);
   const [platformTheme, setPlatformTheme] = useState(false);
 
   useEffect(() => {
@@ -347,8 +103,8 @@ export function LandingPage({ children }: { children: ReactNode }) {
 
   return (
     <div className="landing-page" data-test-id="login-page">
-      <a className="lp-skip-link" href="#platform">
-        Skip to platform features
+      <a className="lp-skip-link" href="#landing-main">
+        Skip to content
       </a>
       <header
         ref={header}
@@ -360,190 +116,54 @@ export function LandingPage({ children }: { children: ReactNode }) {
             <DianaBrand />
           </a>
           <nav aria-label="Main navigation">
-            <a href="#knowledge-base">Knowledge base</a>
-            <a href="#platform">Oncobase</a>
-            <a href="#features">Features</a>
-            <a href="#education">Education</a>
             <a href="#story">Our story</a>
+            <a href="#inside">Features</a>
+            <a href="#privacy">Privacy</a>
+            <a href="#platform">Oncobase</a>
+            <a href="/education">Education</a>
           </nav>
-          <a className="lp-button lp-button-small" href="#sign-in">
-            Sign in <ArrowRight size={15} />
-          </a>
+          <div className="lp-header-actions">
+            <PublicThemeControl />
+            <a className="lp-button lp-button-small" href="#sign-in">
+              Sign in <ArrowRight size={15} />
+            </a>
+          </div>
         </div>
       </header>
       <main id="landing-main">
-        <div className="lp-diana-intro lp-diana-theme">
+        <section className="lp-hero" aria-labelledby="landing-title">
           <VillageTexture />
-          <section
-            className="lp-hero lp-container"
-            aria-labelledby="landing-title"
-          >
-            <p className="lp-eyebrow">
-              <span className="lp-status-dot" /> DIANA TNBC · OUR SHARED
-              KNOWLEDGE BASE
-            </p>
+          <div className="lp-container lp-hero-inner">
             <h1 id="landing-title">
-              It Takes <span>a Village.</span>
+              It takes <span>a village.</span>
             </h1>
             <p className="lp-hero-description">
-              The knowledge base helps us maintain Diana’s records, view her
-              diagnostics, review the latest research, learn the fundamentals,
-              perform molecular analysis, and collaborate with the larger care
-              community.
+              When Diana was diagnosed with triple‑negative breast cancer, we
+              built a knowledge base for her records, scans, and research, so
+              everyone helping her can work from the same page.
             </p>
             <div className="lp-hero-actions">
-              <a className="lp-button" href="#sign-in">
-                Enter Diana’s knowledge base <ArrowRight size={16} />
+              <a className="lp-button" href="/education">
+                Browse educational content <ArrowRight size={16} />
               </a>
-              <a className="lp-text-link" href="/education">
-                Browse Educational Content <ArrowRight size={16} />
+              <a className="lp-text-link" href="#sign-in">
+                Sign in to the knowledge base <ArrowRight size={16} />
               </a>
             </div>
-            <PlatformPreview />
-          </section>
-        </div>
-        <div ref={platform} className="lp-platform-world">
-          <section
-            className="lp-platform-intro lp-container"
-            id="platform"
-            aria-labelledby="platform-title"
-          >
-            <div>
-              <p className="lp-eyebrow">THE PLATFORM BEHIND DIANA TNBC</p>
-              <OncobaseBrand />
-              <h2 id="platform-title">
-                More knowledge.
-                <br />
-                <span>More possibility.</span>
-              </h2>
-            </div>
-            <div className="lp-platform-intro-copy">
-              <p>
-                We built Oncobase while organizing Diana’s care. It turns
-                records and research into a wiki the care team can read, search,
-                and discuss. The code is open source if you want to build your
-                own.
-              </p>
-              <div className="lp-platform-actions">
-                <a
-                  className="lp-button"
-                  href="https://github.com/jasonLaster/oncobase"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <GitBranch size={17} /> View Oncobase on GitHub{" "}
-                  <ArrowRight size={15} />
-                </a>
-                <a className="lp-text-link" href="#features">
-                  Explore the platform <ArrowDown size={15} />
-                </a>
-              </div>
-            </div>
-          </section>
-          <section
-            className="lp-principles lp-container"
-            aria-label="Platform principles"
-          >
-            <span>
-              <BookOpen size={17} /> Records & research
-            </span>
-            <span>
-              <Users size={17} /> Comments & conversations
-            </span>
-            <span>
-              <Dna size={17} /> Molecular analysis
-            </span>
-            <span>
-              <Sparkles size={17} /> Guides & cartoons
-            </span>
-          </section>
-          <section
-            className="lp-features lp-container"
-            id="features"
-            aria-labelledby="features-title"
-          >
-            <div className="lp-section-heading">
-              <div>
-                <p className="lp-eyebrow">BUILT WITH ONCOBASE</p>
-                <h2 id="features-title">
-                  What we built
-                  <br />
-                  along the way.
-                </h2>
-              </div>
-              <p>
-                The tools we use to keep track of Diana’s care,
-                <br className="lp-desktop-break" /> work through the research,
-                and bring others into the conversation.
-              </p>
-            </div>
-            <div className="lp-feature-grid">
-              {features.map((feature) => (
-                <article
-                  key={feature.id}
-                  className={`lp-feature-card lp-tone-${feature.id}`}
-                >
-                  <div className="lp-feature-card-copy">
-                    <p className="lp-feature-eyebrow">
-                      <feature.icon size={16} /> {feature.eyebrow}
-                    </p>
-                    <h3>{feature.title}</h3>
-                    <p className="lp-feature-description">
-                      {feature.description}
-                    </p>
-                    {feature.id === "analysis" && (
-                      <a
-                        className="lp-source-link lp-repo-link"
-                        href="https://github.com/jasonLaster/oncoomics"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <GitBranch size={14} /> Explore Oncoomics on GitHub{" "}
-                        <ArrowRight size={14} />
-                      </a>
-                    )}
-                  </div>
-                  <div
-                    className="lp-feature-art"
-                    aria-label={`${feature.label} illustration`}
-                  >
-                    <FeatureVisual id={feature.id} compact />
-                  </div>
-                  <ul
-                    className="lp-feature-tags"
-                    aria-label={`${feature.label} capabilities`}
-                  >
-                    {feature.tags.map((tag) => (
-                      <li key={tag}>
-                        <Check size={12} /> {tag}
-                      </li>
-                    ))}
-                  </ul>
-                </article>
-              ))}
-            </div>
-          </section>
-          <SiteShowcase />
-          <PrivacyShowcase />
-        </div>
-        <section
-          className="lp-story lp-diana-theme"
-          id="story"
-          aria-labelledby="story-title"
-        >
+            <ProductShots />
+          </div>
+        </section>
+
+        <section className="lp-story" id="story" aria-labelledby="story-title">
           <div className="lp-container lp-story-inner">
-            <div className="lp-story-heading">
+            <div>
               <span className="lp-story-icon">
-                <Heart size={25} strokeWidth={1.5} />
+                <Heart size={22} strokeWidth={1.6} />
               </span>
-              <p className="lp-eyebrow">WHY WE BUILT THIS</p>
               <h2 id="story-title">
-                My wife was diagnosed.
-                <br />I needed a place to start.
+                My wife was diagnosed. I needed a place to start.
               </h2>
-              <span className="lp-story-signature">
-                Jason · Diana’s husband
-              </span>
+              <p className="lp-story-signature">Jason · Diana’s husband</p>
             </div>
             <div className="lp-story-copy">
               <p>
@@ -552,13 +172,13 @@ export function LandingPage({ children }: { children: ReactNode }) {
               </p>
               <p>
                 Along the way, I joined a hundred phone calls, gathered
-                thousands of published papers, and used next-generation
-                sequencing to explore personalized therapeutics.
+                thousands of published papers, and sequenced her tumor to look
+                for treatments matched to it.
               </p>
               <p>
-                I built this wiki to keep the reports, notes, and research in
-                one place, and to let the people helping us read and discuss
-                them together.
+                I built this knowledge base to keep the reports, notes, and
+                research in one place, and to let the people helping us read and
+                discuss them together.
               </p>
               <p className="lp-story-hope">
                 <span className="lp-status-dot" /> Today, we’re cautiously
@@ -567,33 +187,210 @@ export function LandingPage({ children }: { children: ReactNode }) {
             </div>
           </div>
         </section>
+
         <section
-          className="lp-access lp-container lp-diana-theme"
+          className="lp-section lp-container"
+          id="inside"
+          aria-labelledby="inside-title"
+        >
+          <div className="lp-section-heading">
+            <h2 id="inside-title">What’s inside the knowledge base.</h2>
+            <p>
+              The tools we use to keep track of Diana’s care, work through the
+              research, and bring others into the conversation.
+            </p>
+          </div>
+
+          <article className="lp-feature lp-feature-wide">
+            <div className="lp-feature-copy">
+              <h3>Every report, paper, and conversation.</h3>
+              <p>
+                Diagnostics, call transcripts, emails, papers, and clinical
+                trials live in one searchable knowledge base, with links back to
+                the original sources. Family, doctors, and researchers can
+                comment and chat right beside the page.
+              </p>
+              <PrivateLink
+                className="lp-text-link"
+                path="/"
+                label="the knowledge base"
+              >
+                <LockKeyhole size={15} /> Sign in to open the knowledge base
+              </PrivateLink>
+            </div>
+            <KnowledgeBaseContents />
+          </article>
+
+          <div className="lp-card-pair">
+            <article className="lp-card">
+              <h3>Follow the results over time.</h3>
+              <p>
+                Compare dated measurements, check which assay and units were
+                used, and open the report behind a result.
+              </p>
+              <Screenshot
+                path="/diagnostics"
+                label="the diagnostics timeline"
+                src="/landing/diagnostics-timeline.jpg"
+                alt="The diagnostics timeline, with imaging, pathology, ctDNA, and blood count tracks over five months"
+              />
+            </article>
+            <article className="lp-card">
+              <h3>Read the report. Open the scan.</h3>
+              <p>
+                Step through MRI and CT studies, compare scans side by side, and
+                view pathology slides alongside the rest of the record.
+              </p>
+              <Screenshot
+                path="/diagnostics/imaging"
+                label="imaging studies"
+                src="/landing/dicom-viewer.jpg"
+                alt="The imaging viewer showing a breast MRI series, with the series list and viewer controls"
+              />
+            </article>
+          </div>
+
+          <article className="lp-feature lp-feature-reverse">
+            <div className="lp-feature-copy">
+              <h3>Look for leads in the tumor’s own data.</h3>
+              <p>
+                Oncoomics, our companion pipeline, analyzes tumor DNA, RNA, and
+                protein data and flags drugs worth raising with the care team.
+              </p>
+              <a
+                className="lp-text-link"
+                href="https://github.com/jasonLaster/oncoomics"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <GitBranch size={15} /> Oncoomics on GitHub{" "}
+                <ArrowRight size={15} />
+              </a>
+            </div>
+            <figure className="lp-feature-image">
+              <ThemedImage
+                base="/landing/molecular-layers"
+                extension="webp"
+                width="1536"
+                height="1024"
+                loading="lazy"
+                decoding="async"
+                alt="Cartoon of one tumor seen through DNA, RNA, protein, and spatial layers, each answering a different question"
+              />
+            </figure>
+          </article>
+        </section>
+
+        <section
+          className="lp-section lp-section-end lp-container"
+          id="privacy"
+          aria-labelledby="privacy-title"
+        >
+          <div className="lp-section-heading">
+            <h2 id="privacy-title">Choose what each person can see.</h2>
+            <p>
+              A research partner may need the papers. Family may want updates.
+              Give each person a role and choose which pages they can open.
+              Names and contact details can be hidden inside a page, so you can
+              share the science without sharing the patient.
+            </p>
+          </div>
+          <div className="lp-demo-pair">
+            <RoleDemo />
+            <RedactionDemo />
+          </div>
+          <p className="lp-footnote">
+            Interactive examples with fictional people and details.
+          </p>
+        </section>
+
+        <section
+          ref={platform}
+          className="lp-platform lp-oncobase"
+          id="platform"
+          aria-labelledby="platform-title"
+        >
+          <div className="lp-container lp-platform-inner">
+            <div>
+              <OncobaseBrand />
+              <h2 id="platform-title">
+                Turn records and research into a shared knowledge base.
+              </h2>
+            </div>
+            <div className="lp-platform-copy">
+              <p>
+                We built Oncobase while organizing Diana’s care. Everything on
+                this page runs on it, from the reader to the imaging viewer to
+                the privacy controls. The code is open source if you want to
+                build your own.
+              </p>
+              <a
+                className="lp-button"
+                href="https://github.com/jasonLaster/oncobase"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <GitBranch size={17} /> View Oncobase on GitHub{" "}
+                <ArrowRight size={15} />
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section
+          className="lp-section lp-section-end lp-container"
+          id="education"
+          aria-labelledby="education-title"
+        >
+          <div className="lp-section-heading">
+            <h2 id="education-title">
+              What does that term mean? <span>Start with a cartoon.</span>
+            </h2>
+            <p>
+              These are the guides we’ve been learning from. Pick a topic or
+              follow a course. Anyone can read them, no password needed.
+            </p>
+            <a className="lp-text-link" href="/education">
+              Browse educational content <ArrowRight size={16} />
+            </a>
+          </div>
+          <div className="lp-guide-pair">
+            <GuideFigure
+              base="/landing/immune-recognition"
+              alt="Cartoon of protein fragments displayed on HLA and recognized by a T cell"
+              title="How the immune system sees a cell"
+              path="/education/oncology-101/index"
+              description="From Oncology 101."
+            />
+            <GuideFigure
+              base="/landing/cell-therapy-family"
+              alt="Cartoon comparing peptide-HLA, surface-antigen, and innate-like cell therapy families"
+              title="Cellular therapies"
+              path="/education/cellular-therapies/index"
+              description="Meet the families of immune cell therapy."
+            />
+          </div>
+        </section>
+
+        <section
+          className="lp-access lp-container"
           id="sign-in"
           aria-labelledby="access-title"
         >
           <div>
-            <p className="lp-eyebrow">DIANA TNBC</p>
-            <h2 id="access-title">
-              Open Diana’s
-              <br />
-              knowledge base.
-            </h2>
-            <p>
-              Already part of the care village?
-              <br />
-              Enter your shared password to open the knowledge base.
-            </p>
+            <h2 id="access-title">Open Diana’s knowledge base.</h2>
+            <p>Already part of Diana’s village? Enter the shared password.</p>
+            <p>Need access? Ask Jason.</p>
           </div>
           {children}
         </section>
       </main>
       <footer className="lp-footer-shell">
-        <div className="lp-footer lp-container lp-diana-theme">
+        <div className="lp-footer lp-container">
           <a className="lp-brand" href="/login" aria-label="Diana TNBC home">
             <DianaBrand />
           </a>
-          <div className="lp-footer-platform">
+          <div className="lp-footer-platform lp-oncobase">
             <span>Powered by</span>
             <a
               href="https://github.com/jasonLaster/oncobase"
@@ -604,9 +401,30 @@ export function LandingPage({ children }: { children: ReactNode }) {
               <OncobaseBrand />
             </a>
           </div>
-          <a href="/terms-and-conditions">
-            Terms & conditions <ArrowRight size={13} />
-          </a>
+          <div className="lp-footer-note">
+            <p>Shared for education, not medical advice.</p>
+            <a href="/terms-and-conditions">Terms & conditions</a>
+          </div>
+          <p className="lp-footer-credit">
+            MRI image: Daniels et al. (2024), Advanced-MRI-Breast-Lesions, The
+            Cancer Imaging Archive,{" "}
+            <a
+              href="https://doi.org/10.7937/C7X1-YN57"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              doi:10.7937/C7X1-YN57
+            </a>
+            ,{" "}
+            <a
+              href="https://creativecommons.org/licenses/by/4.0/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              CC BY 4.0
+            </a>
+            , adapted.
+          </p>
         </div>
       </footer>
     </div>

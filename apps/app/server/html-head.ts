@@ -14,6 +14,8 @@ export function injectHeadMetadata(
     canonicalUrl?: string;
     noIndex?: boolean;
     openGraphDescription?: string;
+    /** Absolute URL; link preview crawlers ignore relative images. */
+    openGraphImage?: string;
     openGraphTitle?: string;
     openGraphType?: "article" | "website";
     sensitive?: boolean;
@@ -31,6 +33,9 @@ export function injectHeadMetadata(
   const twitterDescription = escapeHtml(
     metadata.twitterDescription ?? metadata.description ?? metadata.title,
   );
+  const openGraphImage = metadata.openGraphImage
+    ? escapeHtml(metadata.openGraphImage)
+    : null;
   const canonicalUrl = metadata.canonicalUrl
     ? escapeHtml(metadata.canonicalUrl)
     : null;
@@ -46,9 +51,15 @@ export function injectHeadMetadata(
     metadata.openGraphType
       ? `<meta property="og:type" content="${metadata.openGraphType}" />`
       : null,
-    `<meta name="twitter:card" content="summary" />`,
+    openGraphImage
+      ? `<meta property="og:image" content="${openGraphImage}" />`
+      : null,
+    `<meta name="twitter:card" content="${openGraphImage ? "summary_large_image" : "summary"}" />`,
     `<meta name="twitter:title" content="${twitterTitle}" />`,
     `<meta name="twitter:description" content="${twitterDescription}" />`,
+    openGraphImage
+      ? `<meta name="twitter:image" content="${openGraphImage}" />`
+      : null,
   ]
     .filter((tag): tag is string => tag !== null)
     .join("\n    ");

@@ -1,25 +1,34 @@
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { WIKI_SITE_NAME } from "../document-title";
-import { safeLocalRedirect } from "../safe-redirect";
+import { LANDING_TITLE } from "../special-route-metadata";
 import { LockKeyhole } from "lucide-react";
 import { LandingPage } from "./LandingPage";
+import {
+  SIGN_IN_DESTINATION_EVENT,
+  signInRedirectTarget,
+} from "./landing-sign-in";
 
 export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const redirect = useMemo(() => {
-    const value = new URL(window.location.href).searchParams.get("redirect");
-    const target = safeLocalRedirect(value, "");
-    if (!target) return "/";
-
-    const hash = window.location.hash;
-    return hash && !target.includes("#") ? `${target}${hash}` : target;
+  const [destination, setDestination] = useState("");
+  const initial = useMemo(() => {
+    const url = new URL(window.location.href);
+    return { redirect: url.searchParams.get("redirect"), hash: url.hash };
   }, []);
 
   useEffect(() => {
-    document.title = WIKI_SITE_NAME;
+    document.title = LANDING_TITLE;
+  }, []);
+
+  useEffect(() => {
+    function onDestination(event: Event) {
+      setDestination((event as CustomEvent<{ label: string }>).detail.label);
+    }
+    window.addEventListener(SIGN_IN_DESTINATION_EVENT, onDestination);
+    return () =>
+      window.removeEventListener(SIGN_IN_DESTINATION_EVENT, onDestination);
   }, []);
 
   function handlePasswordKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -41,7 +50,7 @@ export function LoginPage() {
         body: JSON.stringify({ password }),
       });
       if (response.ok) {
-        window.location.assign(redirect);
+        window.location.assign(signInRedirectTarget(initial));
         return;
       }
       setError(
@@ -60,7 +69,9 @@ export function LoginPage() {
   return (
     <LandingPage>
       <form onSubmit={onSubmit} className="auth-card">
-        <h3 className="auth-title">Diana TNBC Knowledge Base</h3>
+        <p className="auth-destination" aria-live="polite">
+          {destination && `Sign in to open ${destination}.`}
+        </p>
         <input
           type="password"
           aria-label="Password"
@@ -86,7 +97,7 @@ export function LoginPage() {
             : "Enter Diana’s knowledge base"}
         </button>
         <p className="lp-access-note">
-          <LockKeyhole size={11} /> A private space for Diana’s village.
+          <LockKeyhole size={13} /> A private space for Diana’s village.
         </p>
       </form>
     </LandingPage>

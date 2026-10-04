@@ -1,12 +1,32 @@
 export type SpecialRouteMetadata = {
   description: string;
   openGraphDescription: string;
+  /** Public path; servers make it absolute for link previews. */
+  openGraphImage?: string;
   openGraphTitle: string;
   openGraphType: "website";
   title: string;
   twitterDescription: string;
   twitterTitle: string;
 };
+
+export const LANDING_TITLE = "Diana TNBC Knowledge Base";
+const LANDING_DESCRIPTION =
+  "Diana’s records, scans, and research in one knowledge base, so everyone helping with her triple-negative breast cancer care can work from the same page.";
+
+/** What a shared link to the landing page shows in chats and social apps. */
+export function landingRouteMetadata(): SpecialRouteMetadata {
+  return {
+    description: LANDING_DESCRIPTION,
+    openGraphDescription: LANDING_DESCRIPTION,
+    openGraphImage: "/landing/og-image.jpg",
+    openGraphTitle: "It takes a village",
+    openGraphType: "website",
+    title: LANDING_TITLE,
+    twitterDescription: LANDING_DESCRIPTION,
+    twitterTitle: "It takes a village",
+  };
+}
 
 type RouteDefinition = {
   description?: string;
@@ -78,6 +98,7 @@ export function specialRouteMetadata({
   pathname: string;
   siteName: string;
 }): SpecialRouteMetadata | null {
+  if (pathname === "/login") return landingRouteMetadata();
   const definition = routeDefinition(pathname);
   if (!definition) return null;
 
