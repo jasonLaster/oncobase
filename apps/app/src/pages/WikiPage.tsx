@@ -279,9 +279,12 @@ export function WikiPage({
     }),
     [navigate],
   );
+  const toastTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
   const showToast = useCallback((message: string) => {
     setToast(message);
-    window.setTimeout(() => setToast(null), 1800);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 1800);
   }, []);
   const notification = useMemo<WikiMarkdownNotificationAdapter>(
     () => ({

@@ -301,7 +301,15 @@ export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["t
       onOpenCommandPalette={() => openCommandPalette("actions")}
       onSessionChange={setSessionUser}
       onSignOut={async () => {
-        await signOut();
+        try {
+          await signOut();
+        } catch (error) {
+          // The server session may still be active. Reload to show the truth
+          // instead of leaving an unhandled rejection and a stale menu.
+          console.warn("[wiki-vite] sign-out failed", error);
+          window.location.reload();
+          return;
+        }
         if (identity?.siteSlug) {
           requestSessionCacheCleanup(
             safeLocalStorage,

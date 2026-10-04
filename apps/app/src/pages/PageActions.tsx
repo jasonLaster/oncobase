@@ -54,8 +54,13 @@ export function PageActions({
   };
 
   const copyMarkdown = async () => {
-    await copyTextToClipboard(`# ${title}\n\n${content}`);
-    markCopied();
+    try {
+      await copyTextToClipboard(`# ${title}\n\n${content}`);
+      markCopied();
+    } catch (error) {
+      // Clipboard permission can be denied; leave the copy icon unchanged.
+      console.warn("[wiki-vite] copy page failed", error);
+    }
   };
 
   return (
