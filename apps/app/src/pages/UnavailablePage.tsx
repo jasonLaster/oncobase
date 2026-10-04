@@ -30,6 +30,7 @@ export default function UnavailablePage({ before, publicView, signInHref, restri
         before={before}
         data-test-id="document-article"
       data-reader-unavailable="true"
+        icon={publicView ? "lock" : "info"}
         title={publicView ? "This page may be restricted" : "Page not found"}
         description={publicView
           ? "This page isn't available in the public wiki. It may be restricted to readers with access. Sign in to check access and return to this page. If it still isn't available, the link may have moved or the page may have been removed."
@@ -37,7 +38,7 @@ export default function UnavailablePage({ before, publicView, signInHref, restri
         actions={
           <>
             {publicView ? (
-              <Link className="wiki-shell-page-action page-action" to={signInHref}>Sign in</Link>
+              <Link className="wiki-shell-page-action page-action wiki-shell-page-action-primary" to={signInHref}>Sign in</Link>
             ) : null}
             <Link className="wiki-shell-page-action page-action" to="/">
               Go home

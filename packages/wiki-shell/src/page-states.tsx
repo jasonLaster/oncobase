@@ -106,14 +106,53 @@ export type WikiEmptyAction = {
   node: ReactNode;
 };
 
+export type WikiEmptyStateIcon = "lock" | "info" | "alert";
+
 export type WikiEmptyStateProps = ComponentProps<"article"> & {
   actions?: ReactNode;
   before?: ReactNode;
   children?: ReactNode;
   description?: ReactNode;
   eyebrow?: ReactNode;
+  /** Glyph shown in the badge above the title. Defaults to "info". */
+  icon?: WikiEmptyStateIcon;
   title: ReactNode;
 };
+
+function WikiEmptyStateGlyph({ icon }: { icon: WikiEmptyStateIcon }) {
+  return (
+    <svg
+      aria-hidden="true"
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+    >
+      {icon === "lock" ? (
+        <>
+          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </>
+      ) : icon === "alert" ? (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 8v5" />
+          <path d="M12 16.5h.01" />
+        </>
+      ) : (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 11v5" />
+          <path d="M12 7.5h.01" />
+        </>
+      )}
+    </svg>
+  );
+}
 
 export function WikiEmptyState({
   actions,
@@ -122,17 +161,23 @@ export function WikiEmptyState({
   className,
   description,
   eyebrow,
+  icon = "info",
   title,
   ...props
 }: WikiEmptyStateProps) {
   return (
     <article className={cn("wiki-shell-empty-state page-shell empty-state", className)} {...props}>
       {before}
-      {eyebrow ? <div className="wiki-shell-empty-eyebrow">{eyebrow}</div> : null}
-      <h1>{title}</h1>
-      {description ? <p className="wiki-shell-muted muted">{description}</p> : null}
-      {children}
-      {actions ? <div className="wiki-shell-empty-actions empty-actions">{actions}</div> : null}
+      <div className="wiki-shell-state-card" data-icon={icon}>
+        <div className="wiki-shell-state-icon">
+          <WikiEmptyStateGlyph icon={icon} />
+        </div>
+        {eyebrow ? <div className="wiki-shell-empty-eyebrow">{eyebrow}</div> : null}
+        <h1>{title}</h1>
+        {description ? <p className="wiki-shell-muted muted">{description}</p> : null}
+        {children}
+        {actions ? <div className="wiki-shell-empty-actions empty-actions">{actions}</div> : null}
+      </div>
     </article>
   );
 }
