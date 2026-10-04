@@ -20,6 +20,7 @@ import { useReaderStore } from "./bootstrap/reader-queries";
 import { useWikiScope, useWikiIdentityPending } from "./wiki-context";
 import { useBrowserOnline } from "./shell/ReaderStatus";
 import { PageActivity } from "./shell/PageActivity";
+import { RouteErrorBoundary } from "./shell/RouteErrorBoundary";
 import type { NavigationFreshness } from "./types";
 
 const initialMetrics: Metrics = {
@@ -158,26 +159,28 @@ export function App({
         <HeaderCommandPaletteHost />
         <ResizableAppShell sidebar={<Sidebar receivedBytes={metrics.manifestReceivedBytes} freshness={navigationFreshness} />}>
           <main className="content-shell">
-            <Suspense fallback={<PageFallback />}>
-              <Routes>
-                <Route element={<RequireReaderStore />}>
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/table-examples" element={<TableExamplesPage />} />
-                <Route path="/diagnostics" element={<TimelinePage />} />
-                <Route path="/diagnostics/imaging" element={<DiagnosticImagingPage />} />
-                <Route path="/chat" element={<ChatRoute />} />
-                <Route path="/chat/:id" element={<ChatRoute />} />
-                <Route path="/comments" element={<CommentsPage />} />
-                <Route path="/tags/:tag" element={<TagPage />} />
-                <Route path="/tools/medical-deduction" element={<MedicalDeductionPage />} />
-                <Route path="/access" element={<AdminPage />} />
-                <Route path="/admin" element={<AdminPage />} />
-                <Route path="/admin/*" element={<AdminPage />} />
-                <Route path="/pii-view/*" element={<PiiViewPage />} />
-                </Route>
-                <Route path="*" element={<WikiPage metrics={metrics} onMetrics={bumpMetrics} />} />
-              </Routes>
-            </Suspense>
+            <RouteErrorBoundary>
+              <Suspense fallback={<PageFallback />}>
+                <Routes>
+                  <Route element={<RequireReaderStore />}>
+                  <Route path="/search" element={<SearchPage />} />
+                  <Route path="/table-examples" element={<TableExamplesPage />} />
+                  <Route path="/diagnostics" element={<TimelinePage />} />
+                  <Route path="/diagnostics/imaging" element={<DiagnosticImagingPage />} />
+                  <Route path="/chat" element={<ChatRoute />} />
+                  <Route path="/chat/:id" element={<ChatRoute />} />
+                  <Route path="/comments" element={<CommentsPage />} />
+                  <Route path="/tags/:tag" element={<TagPage />} />
+                  <Route path="/tools/medical-deduction" element={<MedicalDeductionPage />} />
+                  <Route path="/access" element={<AdminPage />} />
+                  <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/admin/*" element={<AdminPage />} />
+                  <Route path="/pii-view/*" element={<PiiViewPage />} />
+                  </Route>
+                  <Route path="*" element={<WikiPage metrics={metrics} onMetrics={bumpMetrics} />} />
+                </Routes>
+              </Suspense>
+            </RouteErrorBoundary>
           </main>
         </ResizableAppShell>
         {devtoolsFooterVisible && store ? (

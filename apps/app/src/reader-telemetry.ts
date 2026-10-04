@@ -88,6 +88,14 @@ export function recordReaderDuration(name: "route-render" | "search-text" | "sea
     ...(data.cached === undefined ? {} : { cached: data.cached }) });
 }
 
+export type RenderErrorBoundary = "root" | "route" | "body" | "comments";
+
+/** Count a caught render error by boundary scope. Never forwards the error or its message. */
+export function recordRenderError(boundary: RenderErrorBoundary) {
+  if (typeof window === "undefined") return;
+  enqueue({ name: `render-error-${boundary}`, start: performance.timeOrigin + performance.now(), duration: 0, status: 500 });
+}
+
 function observe(type: string, callback: (entries: PerformanceEntryList) => void, options: Record<string, unknown> = {}) {
   if (!PerformanceObserver.supportedEntryTypes?.includes(type)) return undefined;
   const observer = new PerformanceObserver(list => callback(list.getEntries()));

@@ -19,6 +19,13 @@ test("browser telemetry reconstructs an allowlist and rejects invalid clocks and
   expect(parseReaderBatch({ ...value, spans: [{ ...value.spans[0], duration: -1 }] })).toBeNull();
 });
 
+test("render-error spans keep only their boundary scope and status", () => {
+  const span = { name: "render-error-comments", start: Date.now(), duration: 0, status: 500, message: "PRIVATE", stack: "PRIVATE" };
+  const parsed = parseReaderBatch({ ...fixture(), spans: [span] });
+  expect(parsed?.spans).toEqual([{ name: "render-error-comments", start: span.start, duration: 0, status: 500 }]);
+  expect(parseReaderBatch({ ...fixture(), spans: [{ ...span, name: "render-error-PRIVATE" }] })).toBeNull();
+});
+
 test("same-origin browser timings become native observation spans with original duration attributes", async () => {
   const exporter = new InMemorySpanExporter();
   const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });

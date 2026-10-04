@@ -2,7 +2,9 @@ export const READER_PHASES = ["identity-start", "identity-ready", "identity-erro
   // Document request to first byte; LCP; worst interaction; blocking time before LCP.
   "nav-document", "vital-lcp", "vital-inp", "vital-tbt",
   // In-app navigation to rendered body (cached: body already local); search latency.
-  "route-render", "search-text", "search-ai"] as const;
+  "route-render", "search-text", "search-ai",
+  // An error boundary caught a render error (scope only; never the message).
+  "render-error-root", "render-error-route", "render-error-body", "render-error-comments"] as const;
 export type ReaderPhase = typeof READER_PHASES[number];
 /** serverMs/serverTraceId come from the response's Server-Timing `app` and `trace` entries. */
 export type ReaderSpan = { name: ReaderPhase; start: number; duration: number; status: number; rpcMs?: number; serverMs?: number; serverTraceId?: string; partial?: boolean; cached?: boolean };

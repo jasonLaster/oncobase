@@ -72,6 +72,7 @@ import { PageTransferActivity as PageActivity } from "../shell/PageTransferActiv
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
 import { PageActions } from "./PageActions";
 import { NoteBundleNavigation } from "./NoteBundleNavigation";
+import { ScopedErrorBoundary } from "../shell/ScopedErrorBoundary";
 
 const UnavailablePage = lazy(() => import("./UnavailablePage"));
 
@@ -107,6 +108,21 @@ function routeLink({ href, children, ...props }: WikiMarkdownLinkProps) {
     <Link to={href ?? "#"} {...props}>
       {children}
     </Link>
+  );
+}
+
+function openSignInDialog() {
+  openWikiAuthDialog("signin");
+}
+
+function ArticleBodyError({ retry }: { retry: () => void }) {
+  return (
+    <WikiStatusNotice data-test-id="article-body-error">
+      This part of the page couldn't be displayed.
+      <WikiPageActionButton data-test-id="article-body-retry" onClick={retry}>
+        Try again
+      </WikiPageActionButton>
+    </WikiStatusNotice>
   );
 }
 
@@ -545,31 +561,44 @@ export function WikiPage({
           </a>
         )}
       />
-      <WikiMarkdown
-        loadingFallback={<WikiMarkdownBodySkeleton data-test-id="page-loading" />}
-        content={page.content}
-        className={page.content.length > 128 * 1024 ? "wiki-markdown-long" : undefined}
-        currentSlug={page.slug}
-        LinkComponent={routeLink}
-        notification={notification}
-        routeAdapter={routeAdapter}
-        tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
-      />
-      <MermaidRendererSlot content={page.content} />
+      <ScopedErrorBoundary
+        boundary="body"
+        resetKey={`${page.slug}:${page.contentHash ?? "none"}`}
+        fallback={retry => <ArticleBodyError retry={retry} />}
+      >
+        <WikiMarkdown
+          loadingFallback={<WikiMarkdownBodySkeleton data-test-id="page-loading" />}
+          content={page.content}
+          className={page.content.length > 128 * 1024 ? "wiki-markdown-long" : undefined}
+          currentSlug={page.slug}
+          LinkComponent={routeLink}
+          notification={notification}
+          routeAdapter={routeAdapter}
+          tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
+        />
+        <MermaidRendererSlot content={page.content} />
+      </ScopedErrorBoundary>
     </>
   );
+  const outlineProps = {
+    articleClassName: "page-shell",
+    contentKey: `${page.slug}:${page.contentHash ?? "none"}`,
+    documentSlug: page.slug,
+    documentTitle: displayTitle,
+    mobileRail: false,
+    pathname: routePending ? hrefForSlug(displayedRouteSlug) : location.pathname,
+  };
 
+  // Comments are optional: if they fail, keep the article in a plain outline.
   return (
-      <DocumentComments
-        articleClassName="page-shell"
-        contentKey={`${page.slug}:${page.contentHash ?? "none"}`}
-        documentSlug={page.slug}
-        documentTitle={displayTitle}
-        mobileRail={false}
-        onSignIn={() => openWikiAuthDialog("signin")}
-        pathname={routePending ? hrefForSlug(displayedRouteSlug) : location.pathname}
-      >
+    <ScopedErrorBoundary
+      boundary="comments"
+      resetKey={page.slug}
+      fallback={() => <DocumentOutlineShell {...outlineProps}>{pageBody}</DocumentOutlineShell>}
+    >
+      <DocumentComments {...outlineProps} onSignIn={openSignInDialog}>
         {pageBody}
       </DocumentComments>
+    </ScopedErrorBoundary>
   );
 }

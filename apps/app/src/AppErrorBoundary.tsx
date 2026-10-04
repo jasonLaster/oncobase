@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { recordRenderError } from "./reader-telemetry";
 
 const SCOPE_STORAGE_KEY = "wiki-vite-scope";
 const RELOAD_FLAG_KEY = "wiki-vite:reloaded-for-load-error";
@@ -76,6 +77,7 @@ export class AppErrorBoundary extends Component<Props, State> {
     delete document.documentElement.dataset.wikiFirstFrameVersion;
     console.error("[wiki-vite] reader crashed", error, info.componentStack);
     if (isChunkLoadError(error)) reloadOnceForLoadError();
+    else recordRenderError("root");
   }
 
   private handleReset = async () => {
