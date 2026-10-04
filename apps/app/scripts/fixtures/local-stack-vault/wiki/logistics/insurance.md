@@ -7,8 +7,8 @@ tags:
 
 # Insurance
 
-Keep a copy of the [insurance card](/wiki/logistics/insurance-card.pdf) handy
-for infusion appointments.
+Insurance paperwork for infusion visits lives here. Keep a copy of the
+[insurance card](/wiki/logistics/insurance-card.pdf) handy.
 
 ## Prior authorization
 
