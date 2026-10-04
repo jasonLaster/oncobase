@@ -79,6 +79,9 @@ function useEducationResource<T>(url: string | null) {
       try {
         const response = await fetch(url, {
           credentials: "omit",
+          // A partial search is already on screen: let the retry wait for
+          // the exhaustive results rather than another interim answer.
+          ...(polls > 0 ? { headers: { "X-Wiki-Search-Wait": "exhaustive" } } : {}),
           signal: AbortSignal.any([
             controller.signal,
             AbortSignal.timeout(30_000),

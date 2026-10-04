@@ -313,12 +313,14 @@ test.describe("Search and local page finding", () => {
     page,
   }) => {
     let requests = 0;
+    const waits: Array<string | undefined> = [];
     let releaseExhaustiveSearch = () => {};
     const exhaustiveSearchRelease = new Promise<void>((resolve) => {
       releaseExhaustiveSearch = resolve;
     });
     await page.route("**/api/search?**", async (route) => {
       requests += 1;
+      waits.push(route.request().headers()["x-wiki-search-wait"]);
       if (requests > 1) await exhaustiveSearchRelease;
       return route.fulfill({
         contentType: "application/json",
@@ -372,6 +374,45 @@ test.describe("Search and local page finding", () => {
     await expect(page.getByTestId("search-text-summary")).not.toContainText(
       "full results loading",
     );
+    // Only the background retry asks the server to wait for exhaustive results.
+    expect(waits).toEqual([undefined, "exhaustive"]);
+  });
+
+  test("text search keeps retrying, a bounded number of times, while results stay incomplete", async ({
+    page,
+  }) => {
+    let requests = 0;
+    let completeAfter = Number.POSITIVE_INFINITY;
+    await page.route("**/api/search?**", (route) => {
+      requests += 1;
+      const complete = requests > completeAfter;
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(complete
+          ? { results: [{ slug: "wiki/diagnostics/diagnosis", title: "Diagnosis", matches: [{ lineContent: "diagnosis exact line", lineNumber: 7 }] }] }
+          : { complete: false, retryAfterMs: 1_000, results: [{ slug: "wiki/diagnostics/diagnosis", title: "Diagnosis", excerpt: "diagnosis indexed result" }] }),
+      });
+    });
+    await mockAISearch(page);
+    await installWikiApiMocks(page);
+
+    // A retry that is itself incomplete schedules another one.
+    completeAfter = 2;
+    await page.goto("/search?q=diagnosis&tab=text", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("search-text-summary")).toContainText("1 result in 1 file", { timeout: 10_000 });
+    await expect(page.getByTestId("search-text-summary")).not.toContainText("full results loading");
+    expect(requests).toBe(3);
+
+    // A query that never completes stops after three retries, keeping its
+    // indexed results without promising more.
+    requests = 0;
+    completeAfter = Number.POSITIVE_INFINITY;
+    await page.goto("/search?q=diagnoses&tab=text", { waitUntil: "domcontentloaded" });
+    await expect(page.getByText("diagnosis indexed result")).toBeVisible();
+    await expect.poll(() => requests, { timeout: 10_000 }).toBe(4);
+    await expect(page.getByTestId("search-text-summary")).not.toContainText("full results loading");
+    await page.waitForTimeout(1_500);
+    expect(requests).toBe(4);
   });
 
   test("AI mode shows ranked results", async ({ page }) => {

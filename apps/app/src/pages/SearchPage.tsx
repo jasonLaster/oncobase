@@ -185,10 +185,17 @@ type PendingTextSearch = {
 // task so an immediate remount (StrictMode, a re-keyed effect) can reuse it.
 const pendingTextSearchRequests = new Map<string, PendingTextSearch>();
 
-function requestTextSearch(searchParams: URLSearchParams, signal: AbortSignal) {
-  const key = searchParams.toString();
+// A cold server answers within a short budget from its relevance index
+// (`complete: false`). The background retry asks it to wait for the exhaustive
+// corpus instead: indexed results are already on screen.
+const SEARCH_WAIT_HEADER = "X-Wiki-Search-Wait";
+// Each retry may reach another cold instance; stop after a few.
+const MAX_TEXT_SEARCH_RETRIES = 3;
+
+function requestTextSearch(searchParams: URLSearchParams, signal: AbortSignal, waitForExhaustive = false) {
+  const key = `${searchParams}${waitForExhaustive ? "#exhaustive" : ""}`;
   let entry = pendingTextSearchRequests.get(key);
-  if (!entry) entry = startTextSearch(key, searchParams);
+  if (!entry) entry = startTextSearch(key, searchParams, waitForExhaustive);
   const current = entry;
   current.subscribers += 1;
   signal.addEventListener("abort", () => {
@@ -202,12 +209,15 @@ function requestTextSearch(searchParams: URLSearchParams, signal: AbortSignal) {
   return current.promise;
 }
 
-function startTextSearch(key: string, searchParams: URLSearchParams): PendingTextSearch {
+function startTextSearch(key: string, searchParams: URLSearchParams, waitForExhaustive: boolean): PendingTextSearch {
   const query = searchParams.get("q") ?? "";
   const startedAt = performance.now();
   const controller = new AbortController();
   const cancelTimeout = abortAfter(controller, SEARCH_REQUEST_TIMEOUT_MS, "Search timed out.");
-  const promise = fetch(`/api/search?${searchParams}`, { signal: controller.signal }).then(async (response) => ({
+  const promise = fetch(`/api/search?${searchParams}`, {
+    signal: controller.signal,
+    ...(waitForExhaustive ? { headers: { [SEARCH_WAIT_HEADER]: "exhaustive" } } : {}),
+  }).then(async (response) => ({
     body: await readJsonBody<TextSearchResponse["body"]>(response),
     durationMs: performance.now() - startedAt,
     ok: response.ok,
@@ -766,6 +776,9 @@ export function SearchPage() {
   const [textError, setTextError] = useState<string | null>(null);
   const [textIncomplete, setTextIncomplete] = useState(false);
   const [textRetryAfterMs, setTextRetryAfterMs] = useState(0);
+  // Background retries so far for the current query; each incomplete response
+  // schedules the next (bounded) retry.
+  const [textRetries, setTextRetries] = useState(0);
   const textRequestGeneration = useRef(0);
   const textRequestController = useRef<AbortController | null>(null);
   const [aiResults, setAiResults] = useState<AISearchResult[]>([]);
@@ -825,11 +838,12 @@ export function SearchPage() {
       setTextError(null);
       setTextIncomplete(false);
       setTextRetryAfterMs(0);
+      setTextRetries(0);
     }
 
     try {
       const searchParams = new URLSearchParams({ q: normalized, scope });
-      const response = await requestTextSearch(searchParams, controller.signal);
+      const response = await requestTextSearch(searchParams, controller.signal, background);
       if (generation !== textRequestGeneration.current) return;
       const { body } = response;
       if (body.error) throw new Error(body.error);
@@ -846,6 +860,7 @@ export function SearchPage() {
           ? Math.max(1_000, Number(body.retryAfterMs))
           : 0,
       );
+      if (background) setTextRetries((count) => count + 1);
     } catch (error) {
       if (generation !== textRequestGeneration.current) return;
       if (background) {
@@ -869,12 +884,12 @@ export function SearchPage() {
   }, [query, runTextSearch]);
 
   useEffect(() => {
-    if (!textIncomplete || textRetryAfterMs <= 0) return;
+    if (!textIncomplete || textRetryAfterMs <= 0 || textRetries >= MAX_TEXT_SEARCH_RETRIES) return;
     const timeout = window.setTimeout(() => {
       void runTextSearch(query, true);
     }, textRetryAfterMs);
     return () => window.clearTimeout(timeout);
-  }, [query, runTextSearch, textIncomplete, textRetryAfterMs]);
+  }, [query, runTextSearch, textIncomplete, textRetryAfterMs, textRetries]);
 
   useEffect(() => {
     const normalized = query.trim();
@@ -1005,7 +1020,9 @@ export function SearchPage() {
             <TextSearch
               activeIndex={activeIndex}
               error={textError}
-              incomplete={textIncomplete}
+              // After the last retry, keep the indexed results without
+              // promising more.
+              incomplete={textIncomplete && textRetries < MAX_TEXT_SEARCH_RETRIES}
               key={query}
               onFocusResult={setActiveIndex}
               query={query}
