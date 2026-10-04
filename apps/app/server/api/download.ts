@@ -3,6 +3,7 @@ import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../../convex/_generated/api.js";
 import { DEFAULT_SITE_SLUG, type SessionUser, getSessionUser, redactText, withSiteSlug } from "../reader-access";
 import { fetchAccessibleSlugs, fetchSlugSensitivity } from "../slug-batch";
+import { traceBackendPhase } from "../backend-tracing";
 import { normalizeFilePath } from "./common";
 import { filterAccessiblePages, type PageDownloadResult } from "./documents";
 
@@ -87,8 +88,8 @@ export async function appendMarkdownToArchive(
   }
 }
 
-export async function appendAssetsToArchive(
-  arc: archiver.Archiver,
+/** Readable assets for an archive. Resolved before responding so listing failures are not a 200. */
+export async function listDownloadAssets(
   client: ConvexHttpClient,
   siteSlug: string,
   includeSensitive: boolean,
@@ -123,12 +124,14 @@ export async function appendAssetsToArchive(
     sessionUser,
     collected.map(siblingSlug).filter((slug) => sensitivity.get(slug) === true),
   );
-  const assets = collected.filter((asset) => {
+  return collected.filter((asset) => {
     const slug = siblingSlug(asset);
     return sensitivity.get(slug) !== true || allowed.has(slug);
-  });
+  }).slice(0, maxAssets);
+}
 
-  for (const asset of assets.slice(0, maxAssets)) {
+export async function appendAssetsToArchive(arc: archiver.Archiver, assets: DownloadAsset[]) {
+  for (const asset of assets) {
     if (!asset.blobUrl) continue;
     try {
       // Buffered into the archive, so bound the whole read, not just headers.
@@ -167,10 +170,17 @@ export async function handleDownloadRequest(
     ? Math.min(5000, Math.floor(rawAssetLimit))
     : Number.POSITIVE_INFINITY;
 
-  const stream = archiverToStream(type, async (arc) => {
-    if (type === "full") {
-      await appendAssetsToArchive(arc, client, siteSlug, includeSensitive, sessionUser, maxAssets);
+  let assets: DownloadAsset[] = [];
+  if (type === "full") {
+    try {
+      assets = await traceBackendPhase("download.list-assets", () => listDownloadAssets(client, siteSlug, includeSensitive, sessionUser, maxAssets));
+    } catch (error) {
+      console.error("[download] asset listing failed", error);
+      return Response.json({ error: "Download unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
     }
+  }
+  const stream = archiverToStream(type, async (arc) => {
+    await appendAssetsToArchive(arc, assets);
     await appendMarkdownToArchive(arc, client, siteSlug, includeSensitive, sessionUser, maxPages);
     await arc.finalize();
   });

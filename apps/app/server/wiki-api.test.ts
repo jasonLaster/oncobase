@@ -1226,6 +1226,23 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(Object.keys(sessionFullZip.files)).toContain("private/plan.zip");
   });
 
+  test("an asset listing failure returns 503 instead of a truncated 200 archive", async () => {
+    const fake = createFakeConvexClient();
+    const failing = {
+      ...fake,
+      query: (ref: FunctionReference<"query">, args: Record<string, unknown>) => {
+        if (getFunctionName(ref) === "documents:listPdfAssetsPage") return Promise.reject(new Error("Too many bytes read"));
+        return fake.query(ref, args);
+      },
+    };
+    const handler = createWikiApiHandler(failing as never);
+    const archive = await handler(request("/api/download?type=full&scope=public"));
+    expect(archive?.status).toBe(503);
+    expect(archive!.headers.get("cache-control")).toBe("no-store");
+    // Markdown-only archives don't list assets and still stream.
+    expect((await handler(request("/api/download?type=markdown&scope=public")))?.status).toBe(200);
+  });
+
   test("download access checks are batched instead of one RPC per page or asset", async () => {
     const fake = createFakeConvexClient({ deniedSlugs: ["private/plan"] });
     const calls: string[] = [];
