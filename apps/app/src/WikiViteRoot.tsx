@@ -1,14 +1,10 @@
-import { readerFetch } from "./reader-telemetry";
 import { EDUCATION_ACCESS_PARTITION, educationOnlyResponse } from "./education-access";
-import {
-  createWikiSessionClient,
-  type WikiScope,
-  type WikiSessionIdentity,
-} from "@oncobase/wiki-content";
+import type { WikiScope, WikiSessionIdentity } from "@oncobase/wiki-content";
 import { createElement, Suspense, useEffect, useRef, useState } from "react";
 import { persistPublicIdentity, resolvePublicIdentityFallback } from "./public-identity";
 import { safeLocalStorage } from "./safe-storage";
-import { explicitReaderScope, identityRetryDelayMs, resolveReaderSession } from "./reader-session";
+import { explicitReaderScope, identityRetryDelayMs } from "./reader-session";
+import { takeReaderSession } from "./reader-session-prefetch";
 import { WikiIdentityPendingContext } from "./wiki-context";
 import { markVisualPhase } from "./visual-phase";
 import { clearStartupSnapshot, readStartupSnapshot, sameStartupIdentity, STARTUP_CACHE_EPOCH } from "./bootstrap/reader-startup-cache";
@@ -209,17 +205,8 @@ export function WikiViteRoot() {
       });
     const scope = readScope();
     const fallback = publicIdentityFallback(scope);
-    const baseUrl = apiBaseUrl();
-    void resolveReaderSession(
-      explicitReaderScope(window.location.search),
-      (requestedScope, fallbackToPublic) => createWikiSessionClient({ fetch: readerFetch,
-        scope: requestedScope,
-        baseUrl,
-        credentials: baseUrl ? "include" : "same-origin",
-        requestTimeoutMs: 30_000,
-      }).fetchSessionIdentity({ fallbackToPublic,
-        profileStartup: new URLSearchParams(window.location.search).get("paintDebug") === "1" }),
-    )
+    // The first attempt reuses the request main.tsx started at entry.
+    void takeReaderSession()
       .then((identity) => {
         if (!cancelled) {
           identityFailures.current = 0;

@@ -1,7 +1,8 @@
 import { clearStartupSnapshot } from "./bootstrap/startup-cache-lifecycle";
 import { lazy, StrictMode, Suspense, useEffect } from "react";
-import { educationOnlyResponse, isEducationPathname } from "./education-access";
-import { isEducationHubPathname } from "./education-routes";
+import { educationOnlyResponse } from "./education-access";
+import { rootRouteFor } from "./root-route";
+import { prefetchReaderSession } from "./reader-session-prefetch";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
@@ -69,23 +70,26 @@ const TermsAndConditionsPage = lazy(() =>
 
 function RootRouteBoundary() {
   const { pathname, search, hash } = useLocation();
-  const needsPassword = educationOnlyResponse() && !isEducationPathname(pathname) && !isEducationHubPathname(pathname) &&
-    !["/search", "/login", "/terms-and-conditions"].includes(pathname);
+  // Only reader routes need a wiki session or database. This single boundary
+  // applies to cold loads, client navigation, and browser history alike.
+  const route = rootRouteFor(pathname, educationOnlyResponse());
+  const needsPassword = route === "password";
   useEffect(() => {
     if (needsPassword) window.location.replace(`/login?redirect=${encodeURIComponent(`${pathname}${search}${hash}`)}`);
   }, [needsPassword, pathname, search, hash]);
-  if (needsPassword) return <AppStarting />;
-  if (isEducationHubPathname(pathname)) return <EducationApp />;
-  // Only reader routes need a wiki session or database. This single boundary
-  // applies to cold loads, client navigation, and browser history alike.
-  if (pathname === "/login") return <LoginPage />;
-  if (pathname === "/terms-and-conditions") return <TermsAndConditionsPage />;
-  if (pathname === "/tools/pathology-viewer") return <PathologyViewerPage />;
-  if (pathname === "/tools/dicom-viewer" || pathname === "/tools/dicom-compare") {
-    return <ImmersiveDicomRoot />;
+  switch (route) {
+    case "password": return <AppStarting />;
+    case "education": return <EducationApp />;
+    case "login": return <LoginPage />;
+    case "terms": return <TermsAndConditionsPage />;
+    case "pathology": return <PathologyViewerPage />;
+    case "dicom": return <ImmersiveDicomRoot />;
+    case "reader": return <WikiViteRoot />;
   }
-  return <WikiViteRoot />;
 }
+
+// Verify the session while the reader chunk downloads, not after it mounts.
+if (rootRouteFor(location.pathname, educationOnlyResponse()) === "reader") prefetchReaderSession();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
