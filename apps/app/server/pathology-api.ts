@@ -101,7 +101,7 @@ export async function handlePathologyRequest(request: Request, client: ConvexHtt
         return Response.json({ error: "Invalid slide notes" }, { status: 400, headers });
       }
       const result = await client.mutation(api.pathology.saveRegions, { siteSlug, slideId,
-        sourceSha256: body.sourceSha256, expectedVersion: body.expectedVersion, regions: body.regions });
+        sourceSha256: body.sourceSha256, expectedVersion: body.expectedVersion, regions: body.regions }, { skipQueue: true });
       return Response.json(result, { status: result.conflict ? 409 : 200, headers });
     }
     if (request.method !== "GET") return Response.json({ error: "Method not allowed" }, { status: 405, headers });

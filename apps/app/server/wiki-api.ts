@@ -692,6 +692,7 @@ async function createUserSessionResponse(
       tokenHash: hashSessionToken(token),
       expiresAt: Date.now() + USER_SESSION_TTL_MS,
     }),
+    { skipQueue: true },
   );
 
   return Response.json(
@@ -843,6 +844,7 @@ async function handleAuthSignupRequest(
         passwordHash,
         passwordSalt,
       }),
+      { skipQueue: true },
     );
     return createUserSessionResponse(client, siteSlug, { _id: userId, email, name: name ?? null });
   } catch (error) {
@@ -870,6 +872,7 @@ async function handleAuthSignoutRequest(
     await client.mutation(
       api.users.deleteSession,
       withSiteSlug(siteSlug, { tokenHash: hashSessionToken(token) }),
+      { skipQueue: true },
     );
   }
 
@@ -1468,7 +1471,7 @@ async function handleDicomAnnotationsRequest(
       imagePath,
       seriesKey,
       siteSlug,
-    });
+    }, { skipQueue: true });
     return Response.json(result, {
       headers: {
         "Cache-Control": "private, no-store",
@@ -1641,6 +1644,7 @@ async function handleTestDiagnosticStudiesRequest(
       key: diagnosticStudiesMetaKeyForSet(studySet),
       value: JSON.stringify(payload),
     }),
+    { skipQueue: true },
   );
   return Response.json(payload, {
     headers: {
@@ -1683,6 +1687,7 @@ async function handleTestDicomComparisonsRequest(
       key: diagnosticComparisonsMetaKeyForSet(comparisonSet),
       value: JSON.stringify(payload),
     }),
+    { skipQueue: true },
   );
   return Response.json(payload, {
     headers: {
@@ -2393,6 +2398,7 @@ function liveblocksUserAdapter(client: ConvexHttpClient, siteSlug: string) {
       client.mutation(
         api.guestNames.upsert,
         withSiteSlug(siteSlug, { guestId: guest.id, name: guest.name }),
+        { skipQueue: true },
       ),
   };
 }
@@ -2484,6 +2490,7 @@ async function seedCommentRoomsInBackground(
       await client.mutation(
         api.commentRooms.syncRooms,
         withSiteSlug(siteSlug, { rooms: roomCounts }),
+        { skipQueue: true },
       );
       console.log(
         `[liveblocks-threads] Seeded ${roomCounts.length} active rooms into Convex`,
@@ -2932,6 +2939,7 @@ async function handleLiveblocksWebhookRequest(
           await client.mutation(
             api.commentRooms.incrementRoom,
             withSiteSlug(webhookSiteSlug, { roomId: event.data.roomId }),
+            { skipQueue: true },
           );
           invalidateLiveblocksThreadsCache(webhookSiteSlug);
         }
@@ -2941,6 +2949,7 @@ async function handleLiveblocksWebhookRequest(
           await client.mutation(
             api.commentRooms.decrementRoom,
             withSiteSlug(webhookSiteSlug, { roomId: event.data.roomId }),
+            { skipQueue: true },
           );
           invalidateLiveblocksThreadsCache(webhookSiteSlug);
         }
@@ -3230,7 +3239,7 @@ export function createWikiApiHandler(client = createClient()) {
         const snapshot = await client.query(api.manifestCache.current, args);
         traceBackendAttributes({ "manifest.snapshot_hit": Boolean(snapshot) });
         // The reader is served from the live path either way; never await the build.
-        if (!snapshot) { requestManifestBuild(siteSlug, () => client.mutation(api.manifestCache.requestBuild, args)); return null; }
+        if (!snapshot) { requestManifestBuild(siteSlug, () => client.mutation(api.manifestCache.requestBuild, args, { skipQueue: true })); return null; }
         // Storage is read only on a manifestSnapshotCache miss for this hash.
         return { hash: snapshot.hash, revision: snapshot.revision, read: async () => traceBackendPhase("manifest.snapshot-read", async () => {
           const response = await fetch(snapshot.url, { signal: AbortSignal.timeout(5000) });
@@ -3338,7 +3347,7 @@ export function createWikiApiHandler(client = createClient()) {
       const serverSecret = process.env.WIKI_PREFETCH_SECRET;
       return handlePrefetchRequest(request, context, serverSecret && !educationOnly ? {
         priorities: () => client.query(api.prefetch.priorities, { siteSlug, serverSecret }),
-        recordVisit: (slug) => client.mutation(api.prefetch.recordVisit, { siteSlug, serverSecret, slug }),
+        recordVisit: (slug) => client.mutation(api.prefetch.recordVisit, { siteSlug, serverSecret, slug }, { skipQueue: true }),
       } : null).catch(() => Response.json({ error: "Prefetch unavailable" }, { status: 503, headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" } }));
     }
 

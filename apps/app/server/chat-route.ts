@@ -11,6 +11,7 @@ import { ConvexHttpClient } from "convex/browser";
 import OpenAI from "openai";
 import { z } from "zod";
 import { createConvexFlusher } from "../../../packages/chat/src/flusher.js";
+import { orderedMutations } from "./convex-mutations";
 import { getCachedSystemPrompt } from "../../../packages/chat/src/system-prompt-cache.js";
 import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
 import {
@@ -291,12 +292,14 @@ export async function handleChatRequest({
       .mutation(
         api.conversations.clearCancel,
         asOwner(siteSlug, ownerKey, { conversationId: convId }),
+        { skipQueue: true },
       )
       .catch(() => {});
     await client
       .mutation(
         api.conversations.beginRun,
         asOwner(siteSlug, ownerKey, { conversationId: convId, runId }),
+        { skipQueue: true },
       )
       .catch(() => {});
 
@@ -308,6 +311,7 @@ export async function handleChatRequest({
         .mutation(
           api.conversations.cancelStream,
           asOwner(siteSlug, ownerKey, { conversationId: convId }),
+          { skipQueue: true },
         )
         .catch(() => {});
     }
@@ -339,14 +343,16 @@ export async function handleChatRequest({
   await maybeAbortOnCancel();
   if (composedAbortSignal.aborted) {
     if (convId) await client.mutation(api.conversations.clearStreaming,
-      asOwner(siteSlug, ownerKey, { conversationId: convId, runId })).catch(() => {});
+      asOwner(siteSlug, ownerKey, { conversationId: convId, runId }), { skipQueue: true }).catch(() => {});
     return new Response(null, { status: 204 });
   }
 
+  // Ordered among this run's writes, independent of other requests'.
+  const runWrites = orderedMutations(client);
   const flusher = createConvexFlusher({
     // Every streamed/persisted write is bound to the requesting owner so a
     // caller cannot append (possibly sensitive) answers to someone else's row.
-    convex: { mutation: (ref, args) => client.mutation(ref, { ...args, ownerKey }) },
+    convex: { mutation: (ref, args) => runWrites.mutation(ref, { ...args, ownerKey }) },
     conversations: api.conversations,
     conversationId: convId,
     runId,

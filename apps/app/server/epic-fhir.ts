@@ -546,6 +546,7 @@ async function syncConnection(
   await client.mutation(
     api.epicFhir.markSyncStarted,
     withSiteSlug(siteSlug, { connectionId: connection._id }),
+    { skipQueue: true },
   );
 
   const refreshToken = decryptFhirSecret(connection.refreshTokenCiphertext);
@@ -607,6 +608,7 @@ async function syncConnection(
         rawHash: result.rawHash,
         rawJsonCiphertext: encryptFhirSecret(result.rawJson),
       }),
+      { skipQueue: true },
     );
     if (response?.created) created++;
   }
@@ -634,6 +636,7 @@ async function syncConnection(
       lastDiagnosticReportDate:
         latestDiagnosticReportDate ?? connection.lastDiagnosticReportDate,
     }),
+    { skipQueue: true },
   );
 
   return {
@@ -703,6 +706,7 @@ export async function handleEpicAuthorizeRequest({
       expiresAt: Date.now() + OAUTH_STATE_TTL_MS,
       userId: adminUser._id,
     }),
+    { skipQueue: true },
   );
 
   return Response.redirect(
@@ -745,6 +749,7 @@ export async function handleEpicCallbackRequest({
   const stateRecord = await client.mutation(
     api.epicFhir.consumeOAuthState,
     withSiteSlug(siteSlug, { stateHash: sha256Hex(state) }),
+    { skipQueue: true },
   );
   if (!stateRecord) {
     return Response.json({ error: "Invalid or expired Epic OAuth state" }, { status: 400 });
@@ -787,6 +792,7 @@ export async function handleEpicCallbackRequest({
           : undefined,
       userId: stateRecord.userId,
     }),
+    { skipQueue: true },
   );
 
   return Response.redirect(new URL("/?epic=connected", request.url).toString(), 302);
@@ -847,6 +853,7 @@ export async function handleEpicSyncRequest({
           connectionId: connection._id,
           error: message,
         }),
+        { skipQueue: true },
       ).catch(() => undefined);
     }
   }

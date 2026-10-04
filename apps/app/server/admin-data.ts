@@ -200,6 +200,7 @@ export async function createRole(
   await client.mutation(
     api.access.createRole,
     withSiteSlug(siteSlug, roleMutationArgs(values)),
+    { skipQueue: true },
   );
   return { ok: true };
 }
@@ -216,6 +217,7 @@ export async function updateRole(
       roleId: roleId as Id<"roles">,
       ...roleMutationArgs(values),
     }),
+    { skipQueue: true },
   );
   return { ok: true };
 }
@@ -228,6 +230,7 @@ export async function deleteRole(
   await client.mutation(
     api.access.deleteRole,
     withSiteSlug(siteSlug, { roleId: roleId as Id<"roles"> }),
+    { skipQueue: true },
   );
   return { ok: true };
 }
@@ -244,6 +247,7 @@ export async function setUserRole(
       userId: userId as Id<"users">,
       roleId: roleId ? (roleId as Id<"roles">) : undefined,
     }),
+    { skipQueue: true },
   );
   return { ok: true };
 }
@@ -260,6 +264,7 @@ export async function setUsersRole(
       userIds: userIds.map((userId) => userId as Id<"users">),
       roleId: roleId ? (roleId as Id<"roles">) : undefined,
     }),
+    { skipQueue: true },
   );
   return { ok: true };
 }
@@ -274,6 +279,7 @@ export async function deleteUsers(
     withSiteSlug(siteSlug, {
       userIds: userIds.map((userId) => userId as Id<"users">),
     }),
+    { skipQueue: true },
   );
   return { ok: true };
 }
