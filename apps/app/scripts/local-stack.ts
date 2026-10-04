@@ -296,7 +296,7 @@ function prepareConvexProject(secrets: Secrets) {
 }
 
 function convexCli(args: string[], envFile: string, nodeBinDir: string) {
-  const env = { ...process.env, PATH: `${nodeBinDir}:${process.env.PATH}` };
+  const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${nodeBinDir}:${process.env.PATH}` };
   // Never let an inherited deployment selector reach the CLI.
   for (const key of ["CONVEX_DEPLOYMENT", "CONVEX_DEPLOY_KEY", "CONVEX_SELF_HOSTED_URL", "CONVEX_SELF_HOSTED_ADMIN_KEY", "CONVEX_AGENT_MODE"]) delete env[key];
   const cli = path.join(REPO_DIR, "node_modules/convex/bin/main.js");
