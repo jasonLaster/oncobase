@@ -292,3 +292,22 @@ test("backfill is resumable, idempotent and repairs drift", async () => {
   await expect(t.mutation(internal.documentMeta.backfillBatch, { siteSlug: "beta", cursor: "[\"bogus\"]" })).rejects.toThrow("Invalid backfill cursor");
   await expect(t.mutation(internal.documentMeta.backfillBatch, { siteSlug: "missing" })).rejects.toThrow("not found");
 });
+
+test("content pages use the visibility index and finish legacy cursors on the old path", async () => {
+  const t = setup();
+  await seed(t);
+  const siteSlug = "alpha";
+  const publicPages = await pages(cursor => t.query(api.documents.listPageWithContent, { siteSlug, cursor, numItems: 3 }));
+  expect(publicPages.map(page => page.slug).sort()).toEqual(["bulk/0", "bulk/1", "bulk/2", "bulk/3", "bulk/4", "bulk/5", "files/open", "index", "notes/legacy", "notes/zero-deleted"]);
+  const allPages = await pages(cursor => t.query(api.documents.listPageWithContent, { siteSlug, cursor, numItems: 4, includeSensitive: true }));
+  expect(allPages.map(page => page.slug).sort()).toEqual([...publicPages.map(page => page.slug), "files/report", "private/a", "private/b", "private/zero"].sort());
+  // A raw by_site_slug cursor from a pre-deploy caller keeps working.
+  const legacy = await t.run(async ctx => {
+    const site = await ctx.db.query("sites").withIndex("by_slug", q => q.eq("slug", siteSlug)).first();
+    return await ctx.db.query("documents").withIndex("by_site_slug", q => q.eq("siteId", site!._id)).paginate({ cursor: null, numItems: 4 });
+  });
+  const rest = await pages(cursor => t.query(api.documents.listPageWithContent, { siteSlug, cursor: cursor ?? legacy.continueCursor, numItems: 4 }));
+  expect(rest.every(page => page.sensitive !== true)).toBe(true);
+  expect(rest.map(page => page.slug)).toEqual([...rest.map(page => page.slug)].sort());
+  await expect(t.query(api.documents.listManifestPage, { siteSlug, cursor: "not-a-cursor", numItems: 2 })).rejects.toThrow("Invalid manifest cursor");
+});

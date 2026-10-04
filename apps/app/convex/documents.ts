@@ -478,21 +478,33 @@ export const listPageWithContent = query({
   },
   handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    const result = await paginatedDocs(ctx, site, cursor, numItems);
+    const toPage = (docs: Doc<"documents">[]) => docs
+      .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
+      .map(({ slug, title, content, tags, sensitiveInclude, contentHash, sensitive }) => ({
+        slug,
+        title,
+        content,
+        tags,
+        sensitiveInclude: sensitiveInclude ?? [],
+        contentHash,
+        sensitive,
+      }));
+    const parsed = cursor === null ? { partition: 0 as const, cursor: null } : parseVisibleCursor(parseJsonCursor(cursor), "content-v2");
+    if (!parsed || !site.siteId) {
+      // Cursor issued before the visibility-index read (raw by_site_slug
+      // cursor), or an unregistered site: finish on the original path.
+      const result = await paginatedDocs(ctx, site, cursor, numItems);
+      return { page: toPage(result.page), isDone: result.isDone, continueCursor: result.continueCursor };
+    }
+    // Same partitioned visibility index as listManifestPage: tombstones and,
+    // in public scope, restricted bodies never enter the page read.
+    const result = await ctx.db.query("documents")
+      .withIndex("by_site_deleted_sensitive_slug", visibleRange(site.siteId, parsed.partition, includeSensitive))
+      .paginate({ cursor: parsed.cursor, numItems });
     return {
-      page: result.page
-        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
-        .map(({ slug, title, content, tags, sensitiveInclude, contentHash, sensitive }) => ({
-          slug,
-          title,
-          content,
-          tags,
-          sensitiveInclude: sensitiveInclude ?? [],
-          contentHash,
-          sensitive,
-        })),
-      isDone: result.isDone,
-      continueCursor: result.continueCursor,
+      page: toPage(result.page),
+      isDone: result.isDone && parsed.partition === 1,
+      continueCursor: nextVisibleCursor("content-v2", parsed.partition, result),
     };
   },
 });
