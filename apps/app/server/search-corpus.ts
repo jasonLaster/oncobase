@@ -47,14 +47,15 @@ export function readPublicSearchCorpus({
   cache: PublicCorpusCache;
   key: string;
   redactionKey: string;
-  load: () => Promise<SearchablePage[]>;
+  // A refresh receives the settled corpus it replaces, to reuse what is unchanged.
+  load: (previous?: SearchablePage[]) => Promise<SearchablePage[]>;
   now: number;
   freshMs: number;
   maxStaleMs: number;
   background: (promise: Promise<unknown>) => void;
 }): PublicCorpusRead {
-  const start = (): PublicCorpusEntry => {
-    const entry: PublicCorpusEntry = { redactionKey, loadedAt: now, pages: load() };
+  const start = (previous?: SearchablePage[]): PublicCorpusEntry => {
+    const entry: PublicCorpusEntry = { redactionKey, loadedAt: now, pages: load(previous) };
     entry.pages.then(value => { entry.value = value; }, () => undefined);
     return entry;
   };
@@ -65,7 +66,7 @@ export function readPublicSearchCorpus({
 
   if (usable?.value && age <= maxStaleMs) {
     if (!usable.refresh) {
-      const next = start();
+      const next = start(usable.value);
       usable.refresh = next.pages.then(
         () => { if (cache.get(key) === usable) cache.set(key, next); },
         // Keep serving the previous corpus; the next search retries.

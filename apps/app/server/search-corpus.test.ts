@@ -35,8 +35,10 @@ test("public corpus is fresh, then served stale while one background reload repl
   const read = (now: number, redactionKey = "r") => readPublicSearchCorpus({
     cache, key: "site", redactionKey, now, freshMs: 100, maxStaleMs: 1000,
     background: promise => { background.push(promise); },
-    load: async () => {
+    load: async previous => {
       const generation = ++loads;
+      // A cold read starts from nothing; a refresh receives what it replaces.
+      expect(previous?.[0]?.slug).toBe(generation === 1 ? undefined : `v${generation - 1}`);
       if (generation === 2) await new Promise<void>(resolve => { release = resolve; });
       return [page(`v${generation}`)];
     },

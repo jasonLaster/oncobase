@@ -15,16 +15,17 @@ import {
   redactionConfigurationKey,
   type AllowedSensitivePage,
   type PublicCorpusCache,
+  type PublicCorpusRead,
   type SearchablePage,
   type SensitivePageCache,
 } from "../search-corpus";
-import type { PageDownloadResult } from "./documents";
 
 export const MAX_SEARCH_LIMIT = 5000;
 // Text search needs complete line matches, so it scans the visible corpus
-// rather than the relevance index. Keep the corpus in as few Convex round
-// trips as practical; Diana's current reader set fits in one page.
-export const SEARCH_DOCUMENT_PAGE_SIZE = 500;
+// rather than the relevance index. The backend plans the corpus as slug ranges
+// of bounded stored size (documents:searchCorpusPlan); read them concurrently.
+// Each range read stays far below the backend RPC timeout.
+export const SEARCH_CORPUS_CONCURRENCY = 8;
 export const SEARCH_CORPUS_CACHE_TTL_MS = 60_000;
 // A settled public corpus is served while it reloads in the background, up to
 // the public response's own CDN freshness (s-maxage=300).
@@ -44,30 +45,95 @@ export const publicSearchCorpusCache = new WeakMap<object, PublicCorpusCache>();
 // shared between readers only after their own fresh authorization of a slug.
 export const sensitiveSearchPageCache = new WeakMap<object, Map<string, SensitivePageCache>>();
 
+type SearchCorpusRange = { partition: number; from: string | null; to: string | null; fingerprint: string | null };
+type SearchCorpusPlan = { ranges: SearchCorpusRange[]; documents: number | null; planned: boolean };
+type SearchPagesResult = {
+  page: Array<{ slug: string; title: string; content: string; contentHash?: string }>;
+  isDone: boolean;
+  continueCursor: string;
+};
+/** How the cached public corpus was loaded. `ranges` holds each fingerprinted
+ * range's prepared pages so a refresh re-reads only ranges that changed. */
+export type SearchCorpusStats = {
+  loadMs: number; prepareMs: number; rpcs: number; planned: boolean; characters: number;
+  ranges: number; reusedRanges: number; rangePages: Map<string, SearchablePage[]>;
+};
+const searchCorpusStats = new WeakMap<SearchablePage[], SearchCorpusStats>();
+
 export async function loadPublicSearchCorpus(
   client: ConvexHttpClient,
   siteSlug: string,
   patterns: PiiPattern[] | undefined,
+  // The corpus this load replaces (same site and redaction configuration).
+  previous?: SearchablePage[],
+  concurrency = SEARCH_CORPUS_CONCURRENCY,
 ) {
-  const pages: SearchablePage[] = [];
-  const fetchPage = (cursor: string | null): Promise<PageDownloadResult> => client.query(
-    api.documents.listPageWithContent,
-    withSiteSlug(siteSlug, { cursor, numItems: SEARCH_DOCUMENT_PAGE_SIZE }),
-  );
-  let pending: Promise<PageDownloadResult> | null = fetchPage(null);
-  while (pending) {
-    const pageResult: PageDownloadResult = await pending;
-    if (!pageResult.isDone && !pageResult.continueCursor) throw new Error("Search pagination failed");
-    // Exactly one next read: overlap its network wait with current-page
-    // preparation. Register rejection handling even if preparation fails.
-    pending = pageResult.isDone ? null : fetchPage(pageResult.continueCursor);
-    void pending?.catch(() => undefined);
-    // The public read excludes sensitive documents in the backend.
-    const visible = pageResult.page.filter(page => page.sensitive !== true);
-    pages.push(...await traceBackendPhase("search.prepare", () => visible.map(page => prepareSearchPage(page, patterns))));
-  }
-
+  const started = performance.now();
+  const plan: SearchCorpusPlan = await traceBackendPhase("search.corpus.plan", () =>
+    client.query(api.documents.searchCorpusPlan, withSiteSlug(siteSlug, {})));
+  const { ranges } = plan;
+  const previousRanges = previous ? searchCorpusStats.get(previous)?.rangePages : undefined;
+  const rangePages = new Map<string, SearchablePage[]>();
+  const chunks: SearchablePage[][] = new Array(ranges.length);
+  const pending: number[] = [];
+  let characters = 0;
+  ranges.forEach((range, index) => {
+    const key = range.fingerprint && JSON.stringify([range.partition, range.from, range.to, range.fingerprint]);
+    const reused = key ? previousRanges?.get(key) : undefined;
+    if (reused) {
+      chunks[index] = reused;
+      for (const page of reused) characters += searchPageCharacters(page);
+    } else {
+      pending.push(index);
+    }
+    if (key) rangePages.set(key, reused ?? []);
+  });
+  let next = 0;
+  let rpcs = 1;
+  let prepareMs = 0;
+  await traceBackendPhase("search.corpus.fetch", () => Promise.all(
+    Array.from({ length: Math.min(concurrency, pending.length) }, async () => {
+      while (next < pending.length) {
+        const index = pending[next++]!;
+        const { partition, from, to, fingerprint } = ranges[index]!;
+        const pages: SearchablePage[] = [];
+        const cursors = new Set<string>();
+        let cursor: string | null = null;
+        for (;;) {
+          const result: SearchPagesResult = await client.query(
+            api.documents.listSearchPages,
+            withSiteSlug(siteSlug, { partition, from, to, cursor }),
+          );
+          rpcs++;
+          // Preparation is synchronous; other ranges' reads stay in flight.
+          const prepareStarted = performance.now();
+          for (const page of result.page) pages.push(prepareSearchPage(page, patterns));
+          prepareMs += performance.now() - prepareStarted;
+          if (result.isDone) break;
+          if (!result.continueCursor || cursors.has(result.continueCursor)) throw new Error("Search pagination failed");
+          cursor = result.continueCursor;
+          cursors.add(cursor);
+        }
+        chunks[index] = pages;
+        for (const page of pages) characters += searchPageCharacters(page);
+        if (fingerprint) rangePages.set(JSON.stringify([partition, from, to, fingerprint]), pages);
+      }
+    }),
+  ));
+  // Plan order (visibility partition, then slug) is the previous single
+  // cursor's order, so equal-score ties keep their ranking.
+  const pages = chunks.flat();
+  searchCorpusStats.set(pages, {
+    loadMs: Math.round(performance.now() - started), prepareMs: Math.round(prepareMs), rpcs, planned: plan.planned,
+    characters, ranges: ranges.length, reusedRanges: ranges.length - pending.length, rangePages,
+  });
   return pages;
+}
+
+function searchPageCharacters(page: SearchablePage) {
+  let characters = 0;
+  for (const line of page.lines) characters += line.length + 1;
+  return characters;
 }
 
 export function getPublicSearchCorpus(
@@ -80,19 +146,19 @@ export function getPublicSearchCorpus(
     clientCache = new Map();
     publicSearchCorpusCache.set(client, clientCache);
   }
-  const { pages, state } = readPublicSearchCorpus({
+  const read = readPublicSearchCorpus({
     cache: clientCache,
     key: siteSlug,
     redactionKey: redactionConfigurationKey(patterns),
-    load: () => loadPublicSearchCorpus(client, siteSlug, patterns),
+    load: previous => loadPublicSearchCorpus(client, siteSlug, patterns, previous),
     now: Date.now(),
     freshMs: SEARCH_CORPUS_CACHE_TTL_MS,
     maxStaleMs: SEARCH_CORPUS_MAX_STALE_MS,
     background: task => runAfterResponse(task, "search corpus refresh"),
   });
-  traceBackendCache("search-corpus", state !== "miss");
-  if (state === "stale") traceBackendAttributes({ "search.corpus.stale": true });
-  return pages;
+  traceBackendCache("search-corpus", read.state !== "miss");
+  if (read.state === "stale") traceBackendAttributes({ "search.corpus.stale": true });
+  return read;
 }
 
 // Authorization comes from one backend evaluation per metadata page, read
@@ -146,20 +212,26 @@ export async function loadSessionSensitiveSearchPages(
   return pages;
 }
 
-export async function getSearchCorpus(
+export function getSearchCorpus(
   client: ConvexHttpClient,
   siteSlug: string,
   sessionUser: SessionUser | null,
   patterns: PiiPattern[] | undefined,
-) {
-  if (!sessionUser) return getPublicSearchCorpus(client, siteSlug, patterns);
+): PublicCorpusRead {
+  const publicCorpus = getPublicSearchCorpus(client, siteSlug, patterns);
+  if (!sessionUser) return publicCorpus;
   // Session corpus = shared public corpus + this reader's authorized sensitive
   // pages. Sensitive bodies the reader cannot read are never downloaded.
-  const [publicPages, sensitivePages] = await Promise.all([
-    getPublicSearchCorpus(client, siteSlug, patterns),
+  const pages = Promise.all([
+    publicCorpus.pages,
     loadSessionSensitiveSearchPages(client, siteSlug, sessionUser, patterns),
-  ]);
-  return overlaySearchPages(publicPages, sensitivePages);
+  ]).then(([publicPages, sensitivePages]) => {
+    const overlaid = overlaySearchPages(publicPages, sensitivePages);
+    const stats = searchCorpusStats.get(publicPages);
+    if (stats) searchCorpusStats.set(overlaid, stats);
+    return overlaid;
+  });
+  return { pages, state: publicCorpus.state };
 }
 
 export function publicSearchCorpusWaitMs() {
@@ -288,13 +360,15 @@ export async function handleSearchRequest(
       matchEnd: number;
     }>;
   }> = [];
-  const corpusPromise = traceBackendPhase("search.corpus", () => getSearchCorpus(
+  const corpus = getSearchCorpus(
     client,
     siteSlug,
     includeSensitive ? sessionUser : null,
     patterns,
-  ));
-  const visiblePages = includeSensitive ? await corpusPromise : await waitForPublicSearchCorpus(corpusPromise);
+  );
+  const visiblePages = await traceBackendPhase("search.corpus", () => includeSensitive
+    ? corpus.pages
+    : waitForPublicSearchCorpus(corpus.pages));
 
   if (!visiblePages) {
     const indexedResults = await loadIndexedSearchResults(

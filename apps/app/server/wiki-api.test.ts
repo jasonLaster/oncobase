@@ -246,6 +246,15 @@ function createFakeConvexClient({
             continueCursor: null,
           };
         }
+        case "documents:searchCorpusPlan":
+          return { ranges: [{ partition: 0, from: null, to: null }], documents: pages.filter(page => !page.sensitive).length, planned: true };
+        case "documents:listSearchPages":
+          return {
+            page: pages.filter((page) => !page.sensitive)
+              .map(({ slug, title, content }) => ({ slug, title, content, contentHash: slug })),
+            isDone: true,
+            continueCursor: "",
+          };
         case "documents:search": {
           const query = String(args.query ?? "").toLowerCase();
           const limit = Number(args.limit ?? 10);
@@ -860,7 +869,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     const originalQuery = client.query.bind(client);
     let corpusLoads = 0;
     client.query = async (ref, args) => {
-      if (getFunctionName(ref) === "documents:listPageWithContent") {
+      if (getFunctionName(ref) === "documents:listSearchPages") {
         corpusLoads += 1;
         await new Promise((resolve) => setTimeout(resolve, 20));
       }
@@ -880,9 +889,13 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
   test("returns indexed results while a slow public corpus finishes warming", async () => {
     const client = createFakeConvexClient();
     const originalQuery = client.query.bind(client);
+    let release = () => {};
+    const corpusRead = new Promise<void>((resolve) => { release = resolve; });
+    let corpusReads = 0;
     client.query = async (ref, args) => {
-      if (getFunctionName(ref) === "documents:listPageWithContent") {
-        await new Promise((resolve) => setTimeout(resolve, 25));
+      if (getFunctionName(ref) === "documents:listSearchPages") {
+        corpusReads += 1;
+        await corpusRead;
       }
       return originalQuery(ref, args);
     };
@@ -904,7 +917,9 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
           }),
         ],
       });
+
     } finally {
+      release();
       if (previousWait == null) delete process.env.WIKI_SEARCH_CORPUS_WAIT_MS;
       else process.env.WIKI_SEARCH_CORPUS_WAIT_MS = previousWait;
     }
@@ -1698,35 +1713,44 @@ test("failed redaction config reads fail closed and are retried", async () => {
   expect(siteReads).toBe(4);
 });
 
-test("search starts the next page before preparation and retries a failed corpus", async () => {
+test("search reads planned corpus ranges concurrently, follows continuations, and retries a failed corpus", async () => {
   const fake = createFakeConvexClient();
-  let nextStarted = false;
-  let failNext = true;
-  let initialReads = 0;
+  let failRange = true;
+  let inFlight = 0;
+  let maxInFlight = 0;
+  const reads: string[] = [];
   const handler = createWikiApiHandler({
     ...fake,
     async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
-      if (getFunctionName(ref) === "documents:listPageWithContent") {
-        if (args.cursor) {
-          nextStarted = true;
-          if (failNext) throw new Error("next page unavailable");
-          return { page: [], isDone: true, continueCursor: null };
-        }
-        initialReads++;
-        return { page: [{ slug: "public", title: "Fixture", tags: [], get content() {
-          expect(nextStarted).toBe(true);
-          return "fixture match";
-        } }], isDone: false, continueCursor: "second" };
+      const name = getFunctionName(ref);
+      if (name === "documents:searchCorpusPlan") {
+        return { ranges: [{ partition: 0, from: null, to: "b" }, { partition: 0, from: "b", to: "c" }, { partition: 0, from: "c", to: null }], documents: 4, planned: true };
+      }
+      if (name === "documents:listSearchPages") {
+        reads.push(`${args.from}:${args.cursor}`);
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        inFlight--;
+        if (args.from === "b" && failRange) throw new Error("range unavailable");
+        const page = (slug: string) => ({ slug, title: slug, content: `fixture ${slug}`, contentHash: slug });
+        if (args.from === null) return { page: [page("a")], isDone: true, continueCursor: "" };
+        if (args.from === "b") return { page: [page("b")], isDone: true, continueCursor: "" };
+        return args.cursor === null
+          ? { page: [page("c")], isDone: false, continueCursor: "next" }
+          : { page: [page("d")], isDone: true, continueCursor: "" };
       }
       return fake.query(ref, args);
     },
   } as never);
-  await expect(handler(request("/api/search?q=fixture"))).rejects.toThrow("next page unavailable");
-  failNext = false;
-  nextStarted = false;
+  await expect(handler(request("/api/search?q=fixture"))).rejects.toThrow("range unavailable");
+  expect(maxInFlight).toBe(3);
+  failRange = false;
+  reads.length = 0;
   const response = await handler(request("/api/search?q=fixture"));
-  expect((await response!.json()).results).toHaveLength(1);
-  expect(initialReads).toBe(2);
+  // Plan order is kept for equal-score ties, across ranges and continuations.
+  expect((await response!.json()).results.map((result: { slug: string }) => result.slug)).toEqual(["a", "b", "c", "d"]);
+  expect(reads.sort()).toEqual(["b:null", "c:next", "c:null", "null:null"]);
 });
 
 test("prepared public search data is reused, but redaction changes and corpus expiry rebuild it", async () => {
@@ -1741,9 +1765,9 @@ test("prepared public search data is reused, but redaction changes and corpus ex
     async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
       const name = getFunctionName(ref);
       if (name === "sites:getBySlug") return { slug: args.slug, config: { passwordGate: false, piiPatterns: rules } };
-      if (name === "documents:listPageWithContent") {
+      if (name === "documents:listSearchPages") {
         corpusLoads++;
-        return { page: [{ slug: "public", title: "Fixture", content: "ALPHA\nBETA", tags: [] }], isDone: true, continueCursor: null };
+        return { page: [{ slug: "public", title: "Fixture", content: "ALPHA\nBETA", contentHash: "fixture" }], isDone: true, continueCursor: "" };
       }
       return fake.query(ref, args);
     },
@@ -1797,7 +1821,7 @@ test("session search reuses the public corpus and reads only authorized sensitiv
   expect(await search("/api/search?q=note&scope=session", { Cookie: cookie })).toEqual(["private/allowed"]);
   expect(await search("/api/search?q=wiki&scope=session", { Cookie: cookie })).toEqual(["wiki/public"]);
 
-  const bodyReads = calls.filter(call => call.name === "documents:listPageWithContent" || call.name === "documents:getBySlug");
+  const bodyReads = calls.filter(call => call.name === "documents:listSearchPages" || call.name === "documents:getBySlug");
   // The public corpus came from the instance cache; no combined sensitive
   // corpus read, no body read of the denied page, and each allowed body once.
   expect(bodyReads.map(call => [call.name, call.args.slug ?? null])).toEqual([
@@ -1845,7 +1869,7 @@ test("an expired public corpus is served immediately while it reloads", async ()
   const handler = createWikiApiHandler({
     ...fake,
     async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
-      if (getFunctionName(ref) === "documents:listPageWithContent" && ++corpusLoads === 2) {
+      if (getFunctionName(ref) === "documents:listSearchPages" && ++corpusLoads === 2) {
         await new Promise<void>(resolve => { release = resolve; });
       }
       return fake.query(ref, args);
@@ -1859,6 +1883,46 @@ test("an expired public corpus is served immediately while it reloads", async ()
     expect((await response!.json()).results.map((result: { slug: string }) => result.slug)).toEqual(["wiki/public"]);
     expect(corpusLoads).toBe(2);
     release!();
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test("a public corpus refresh re-reads only ranges whose fingerprint changed", async () => {
+  const fake = createFakeConvexClient();
+  let offset = 0;
+  const originalNow = Date.now;
+  Date.now = () => originalNow() + offset;
+  const fingerprints = { a: "fa", b: "fb" };
+  const reads: string[] = [];
+  const handler = createWikiApiHandler({
+    ...fake,
+    async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      const name = getFunctionName(ref);
+      if (name === "documents:searchCorpusPlan") {
+        return { ranges: [{ partition: 0, from: null, to: "b", fingerprint: fingerprints.a }, { partition: 0, from: "b", to: null, fingerprint: fingerprints.b }], documents: 2, planned: true };
+      }
+      if (name === "documents:listSearchPages") {
+        const slug = args.from === null ? "a" : "b";
+        reads.push(slug);
+        return { page: [{ slug, title: slug, content: `needle ${slug} ${fingerprints[slug]}`, contentHash: fingerprints[slug] }], isDone: true, continueCursor: "" };
+      }
+      return fake.query(ref, args);
+    },
+  } as never);
+  const lines = async () => {
+    const response = await handler(request("/api/search?q=needle"));
+    return (await response!.json()).results.map((result: { matches: Array<{ lineContent: string }> }) => result.matches[0]!.lineContent);
+  };
+  try {
+    expect(await lines()).toEqual(["needle a fa", "needle b fb"]);
+    expect(reads).toEqual(["a", "b"]);
+    fingerprints.b = "fb2";
+    offset = 61_000;
+    await lines(); // stale; starts the background refresh
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(reads).toEqual(["a", "b", "b"]);
+    expect(await lines()).toEqual(["needle a fa", "needle b fb2"]);
   } finally {
     Date.now = originalNow;
   }

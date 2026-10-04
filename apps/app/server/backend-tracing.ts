@@ -252,7 +252,10 @@ export function traceConvexClient(client: ConvexHttpClient, tracerOverride?: Tra
   return traced;
 }
 
-export type BackendPhase = "search.corpus" | "search.prepare" | "search.match" | "manifest.snapshot-read"
+export type BackendPhase = "manifest.snapshot-read"
+  // Text search: corpus wait (bounded for public scope), its load (plan, then
+  // concurrent range reads with preparation), relevance-index fallback, scan.
+  | "search.corpus" | "search.corpus.plan" | "search.corpus.fetch" | "search.indexed" | "search.match"
   | "publish.auth" | "publish.lock" | "publish.inventory.documents" | "publish.inventory.assets" | "publish.state" | "publish.reader" | "publish.document.prepare"
   // HTML shell: every reader navigation that reaches the origin.
   | "shell.init" | "shell.gate" | "shell.canonical" | "shell.document" | "shell.headers"
