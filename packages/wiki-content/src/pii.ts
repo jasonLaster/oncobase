@@ -217,11 +217,14 @@ function preserveMarkdownLinkDestinations(
     );
 
   const transformed = transform(protectedMarkdown);
+  if (destinations.length === 0) return transformed;
 
-  return destinations.reduce(
-    (output, destination, index) =>
-      output.replaceAll(`__ONCOBASE_LINK_DEST_${index}__`, destination),
-    transformed,
+  // One pass over the text, not one full scan per destination: link-heavy
+  // pages (hundreds of source links) otherwise cost quadratic time. A restored
+  // destination is never rescanned for tokens.
+  return transformed.replace(
+    /__ONCOBASE_LINK_DEST_(\d+)__/g,
+    (token, index: string) => destinations[Number(index)] ?? token,
   );
 }
 

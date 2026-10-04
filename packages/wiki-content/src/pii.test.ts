@@ -82,6 +82,14 @@ After`;
     );
   });
 
+  test("restores every destination of a link-heavy page exactly once", () => {
+    const links = Array.from({ length: 120 }, (_, index) =>
+      `[Diana Laster ${index}](sources/88855655-${index}.pdf)`);
+    expect(applyPiiRedactions(links.join("\n"))).toBe(
+      links.map((_, index) => `[the patient ${index}](sources/88855655-${index}.pdf)`).join("\n"),
+    );
+  });
+
   test("parses truthy showPII query values", () => {
     expect(shouldShowPii("true")).toBe(true);
     expect(shouldShowPii(["1"])).toBe(true);
