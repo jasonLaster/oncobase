@@ -56,7 +56,7 @@ const columns = new Set((await query(`['${dataset}'] | getschema`)).tables[0]!.c
 const attr = (name: string) => columns.has(`attributes.${name}`) ? `['attributes.${name}']` : `['attributes.custom']['${name}']`;
 const num = (name: string) => `todouble(${attr(name)})`;
 const ds = `['${dataset}']`;
-const caches = ["site-host", "canonical-slugs", "pii-patterns", "search-corpus", "manifest-snapshot.potential"];
+const caches = ["site-host", "canonical-slugs", "pii-patterns", "search-corpus", "manifest-snapshot"];
 const sections: Array<[string, string]> = [
   ["Span latency by name (ms; total = serial-equivalent seconds)",
     `${ds} | extend ms = duration / 1ms | summarize n=count(), p50=percentile(ms, 50), p95=percentile(ms, 95), p99=percentile(ms, 99), total_s=sum(ms) / 1000 by name | order by total_s desc | take 40`],

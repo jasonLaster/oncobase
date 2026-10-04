@@ -1835,3 +1835,39 @@ test("manifest validation uses two backend queries and reads no document pages",
     else process.env.WIKI_PREFETCH_SECRET = saved;
   }
 });
+
+test("repeat snapshot hits read storage once per hash and representation", async () => {
+  const saved = process.env.WIKI_PREFETCH_SECRET;
+  const originalFetch = globalThis.fetch;
+  process.env.WIKI_PREFETCH_SECRET = "synthetic-manifest-http-key-00000000000000";
+  const base = createFakeConvexClient();
+  let storageReads = 0;
+  try {
+    const live = await (await createWikiApiHandler(base as never)(request("/api/wiki/manifest")))!.text();
+    const hash = JSON.parse(live).manifestHash as string;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      if (String(input) !== "https://storage.invalid/snapshot") return originalFetch(input);
+      storageReads++;
+      return new Response(live);
+    }) as typeof fetch;
+    const client = { ...base, query: async (ref: FunctionReference<"query">, args: Record<string, unknown>) =>
+      getFunctionName(ref) === "manifestCache:current" ? { hash, revision: 0, url: "https://storage.invalid/snapshot" } : base.query(ref, args) };
+    const handler = createWikiApiHandler(client as never);
+    for (let i = 0; i < 3; i++) {
+      const response = await handler(request("/api/wiki/manifest"));
+      expect(response?.headers.get("x-wiki-manifest-source")).toBe("snapshot");
+      expect(await response!.text()).toBe(live);
+    }
+    expect(storageReads).toBe(1);
+    const compact = await handler(request("/api/wiki/manifest?format=compact-v1"));
+    expect((await compact!.json()).wireFormat).toBe("compact-v1");
+    expect(storageReads).toBe(2);
+    const validated = await handler(request("/api/wiki/manifest?format=compact-v1", { headers: { "if-none-match": `W/"${hash}"` } }));
+    expect(validated?.status).toBe(304);
+    expect(storageReads).toBe(2);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (saved === undefined) delete process.env.WIKI_PREFETCH_SECRET;
+    else process.env.WIKI_PREFETCH_SECRET = saved;
+  }
+});

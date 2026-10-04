@@ -67,7 +67,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { Liveblocks, WebhookHandler } from "@liveblocks/node";
 import type { Plugin } from "vite";
 import { legacyRedirectResponse } from "./redirects.ts";
-import { createWikiManifestResponse, createWikiPagesResponse, createWikiSessionResponse, type WikiApiAccessAdapter, type WikiApiDocumentsGateway } from "@oncobase/wiki-content/server";
+import { createManifestSnapshotCache, createWikiManifestResponse, createWikiPagesResponse, createWikiSessionResponse, type WikiApiAccessAdapter, type WikiApiDocumentsGateway } from "@oncobase/wiki-content/server";
 import { createWikiGateSession, matchesWikiPasswordHash } from "@oncobase/wiki-content/gate-session";
 import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
 import { applyPiiRedactions, type PiiPattern } from "@oncobase/wiki-content/pii";
@@ -186,7 +186,6 @@ const publicSearchCorpusCache = new WeakMap<object, PublicCorpusCache>();
 // Redacted sensitive page content keyed by site, slug and content hash. It is
 // shared between readers only after their own fresh authorization of a slug.
 const sensitiveSearchPageCache = new WeakMap<object, Map<string, SensitivePageCache>>();
-const recentSnapshotHashes = new Set<string>();
 
 type DownloadAsset = {
   blobUrl?: string;
@@ -3119,6 +3118,8 @@ async function handleAdminRequest(
 
 export function createWikiApiHandler(client = createClient()) {
   client = traceConvexClient(client);
+  // Per-instance: snapshot bytes are content-addressed by hash.
+  const manifestSnapshotCache = createManifestSnapshotCache({ onLookup: hit => traceBackendCache("manifest-snapshot", hit) });
   return traceBackendHandler(async function handleWikiApiRequest(request: Request): Promise<Response | null> {
     let pathname = new URL(request.url).pathname;
     const dedicatedEducation = pathname.startsWith("/api/education/");
@@ -3210,17 +3211,14 @@ export function createWikiApiHandler(client = createClient()) {
       manifestPrioritySlugs: MANIFEST_PRIORITY_SLUGS,
       onManifestFallback: (reason: string) => traceBackendAttributes({ "manifest.fallback_reason": reason }),
       onManifestPhase: (name: "read" | "filter" | "tree" | "hash" | "serialize" | "snapshot-encode", ms: number) => recordRemoteSpan(`manifest.${name}`, Date.now() - ms, ms, { "telemetry.source": "api" }),
+      manifestSnapshotCache,
       getManifestSnapshot: process.env.WIKI_PREFETCH_SECRET ? async () => {
         if (educationOnly) return null;
         const args = { siteSlug, serverSecret: process.env.WIKI_PREFETCH_SECRET! };
         const snapshot = await client.query(api.manifestCache.current, args);
         traceBackendAttributes({ "manifest.snapshot_hit": Boolean(snapshot) });
         if (!snapshot) { await client.mutation(api.manifestCache.requestBuild, args); return null; }
-        // Snapshots are content-addressed, but each read refetches storage.
-        // Count repeats to size the win of an in-memory cache keyed by hash.
-        traceBackendCache("manifest-snapshot.potential", recentSnapshotHashes.has(snapshot.hash));
-        recentSnapshotHashes.add(snapshot.hash);
-        if (recentSnapshotHashes.size > 8) recentSnapshotHashes.delete(recentSnapshotHashes.values().next().value!);
+        // Storage is read only on a manifestSnapshotCache miss for this hash.
         return { hash: snapshot.hash, revision: snapshot.revision, read: async () => traceBackendPhase("manifest.snapshot-read", async () => {
           const response = await fetch(snapshot.url, { signal: AbortSignal.timeout(5000) });
           if (!response.ok) throw new Error("Manifest snapshot unavailable");
@@ -3309,9 +3307,13 @@ export function createWikiApiHandler(client = createClient()) {
       traceBackendAttributes({ "manifest.scope": new URL(request.url).searchParams.get("scope") === "session" ? "session" : "public",
         "manifest.strategy": response.headers.get("X-Wiki-Manifest-Source") ?? "validator",
         "manifest.partial": response.headers.get("X-Wiki-Manifest-Partial") === "true",
-        // Snapshot responses are never 304 in production; this separates a
-        // validator mismatch from a validator that never reaches the origin.
-        "http.request.conditional": request.headers.has("if-none-match") });
+        // Snapshot responses are never 304 at the origin in production. Public
+        // snapshots are CDN-cacheable, so the edge most likely answers matching
+        // validators itself and fills its cache with unconditional requests;
+        // private (gated/session) responses reach the origin with the validator.
+        "http.request.conditional": request.headers.has("if-none-match"),
+        "manifest.validator": !request.headers.has("if-none-match") ? "absent" : response.status === 304 ? "match" : "mismatch",
+        "manifest.password_gate": passwordGateEnabled });
       return response;
     }
 
